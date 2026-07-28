@@ -98,6 +98,33 @@ rwa_tokens
 
 ---
 
+### VaultSubmission (sell-flow package, pre-mint)
+
+Tracks the collector sell UI end-to-end **before** a `vault_cycle` exists, so an account’s in-flight packages are durable across devices/sessions.
+
+```
+vault_submissions
+  public_id: SUB-YYYYMMDD-#####
+  user_id
+  status: draft | awaiting_shipment | in_transit | psa_reviewing | completed | cancelled
+  carrier / tracking_number / ship_date / shipped_at
+  packing_slip_downloaded_at
+
+vault_submission_items
+  cert_number, display_name, grade, image_url
+  status: draft | confirmed | in_transit | reviewing | approved | rejected | minting | completed | failed
+  vault_cycle_id  — set when POST /rwa/mint reserves a cycle for this cert
+```
+
+Scenario key for Vault-Detail UI (A~H) is derived from package + item statuses (`VaultSubmissionService.resolveScenario`).
+
+API (JWT): `GET/POST /api/vault/submissions…` — see `docs/api/vault-submissions.md`.  
+Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/vault/submissions`.
+
+**Sell-flow draft resume:** localStorage holds cards + step progress; signed-in users also upsert via `POST /draft` so another device/browser can restore the open `draft` / `awaiting_shipment` package.
+
+---
+
 ## VaultCycle Status Machine
 
 ```

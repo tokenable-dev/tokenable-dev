@@ -186,7 +186,8 @@ frontend/
 │   ├── providers.tsx       # Root provider tree
 │   ├── login/              # /login → PrivyAuthEntryPage
 │   ├── signup/             # /signup → PrivyAuthEntryPage
-│   ├── vault/              # /vault → MintForm stepper
+│   ├── vault/              # /vault hub, /vault/submit mint, /vault/submissions/[id]
+│   ├── sell/               # /sell router, /sell/flow, /sell/shipping, /sell/p2p
 │   ├── portfolio/          # /portfolio
 │   ├── profile/            # /profile
 │   ├── watchlist/          # /watchlist
@@ -218,7 +219,8 @@ frontend/
 │   ├── portfolio/
 │   ├── privy/              # PrivyUserPill, PrivyFeaturesLab
 │   ├── ui/                 # Shared UI primitives
-│   └── vault/              # MintForm, GradedCardSection, VaultPageBody
+│   ├── sell/               # SellFlow*, SellShipping*, SellRouterView
+│   └── vault/              # hub/, detail/, mint-form/, VaultShell, VaultStepper
 │
 ├── hooks/                  # Custom React hooks
 │   ├── home/               # useHomeMarketplaceGrids, useMarketplaceSnapshots
@@ -227,6 +229,7 @@ frontend/
 │   ├── portfolio/
 │   ├── rwa-detail/
 │   ├── unified-order-book/
+│   ├── sell/               # useSellFlow, useSellShipping
 │   ├── vault/              # useMintForm
 │   └── ...
 │
@@ -237,10 +240,11 @@ frontend/
 │   │   └── invalidation.ts # Centralized cache invalidation after mutations
 │   ├── auth/               # accountAccess.ts (access gates)
 │   ├── marketplace/        # Market data helpers
+│   ├── sell/               # sellFlowDraft (draft + PSA address + checklist)
+│   ├── vault/              # mint helpers, vaultAccess, vaultDetailScenarios, vaultHubTypes
 │   ├── portfolio/          # Portfolio type definitions
 │   ├── privy/              # Privy config, session bridge, signing
 │   ├── seaport/            # Order building, signing, fulfillment
-│   ├── vault/              # buildMintMetadata, validateMintForm
 │   └── network/            # chainGas, chain config
 │
 ├── store/                  # Zustand global stores
@@ -325,8 +329,9 @@ docs/
 │   ├── local-setup.md          # Developer setup
 │   ├── deployment.md           # EC2 + CI/CD
 │   ├── marketplace-admin.md    # Admin console usage
-│   ├── privy-auth-migration.md # Auth migration notes
 │   ├── privy-wallet-funding.md # Wallet funding setup
+│   ├── design-system-reference.md
+│   ├── sumsub-kyc.md
 │   ├── performance-instrumentation.md
 │   ├── cardhedger-psa-variety.md
 │   ├── analytics.md

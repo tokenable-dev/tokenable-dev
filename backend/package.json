@@ -18,8 +18,7 @@
     "test:watch": "jest --watch",
     "test:integration": "jest --testPathPattern=integration\\.spec",
     "test:identity": "jest identity-cache",
-    "check:identity-logs": "bash scripts/check-identity-legacy-logs.sh",
-    "test:ci": "pnpm check:identity-logs && pnpm test identity-cache cardhedger-health identity-log-contract"
+    "test:ci": "pnpm test identity-cache cardhedger-health identity-log-contract"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",

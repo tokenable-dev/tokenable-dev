@@ -4,7 +4,7 @@
 
 > **Update (2026-06):** Relational matching removed. **Seventeen DB tables** including `portfolio_hidden_holdings`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
-> **Auth 업데이트 (2026-06):** Privy 마이그레이션 Phase 1–3 완료. 인증은 이제 **Privy** (`@privy-io/react-auth`)로 처리됩니다. 프론트엔드 provider 트리: `PrivyProvider → QueryClientProvider → WagmiProvider (@privy-io/wagmi)`. 기존 Google OAuth / 이메일 패스워드 라우트는 Phase 6 정리 전까지 유지됩니다. [guides/privy-auth-migration.md](../guides/privy-auth-migration.md) 참고.
+> **Auth:** 사용자 인증은 **Privy** (`@privy-io/react-auth`) 전용. 프론트엔드 provider 트리: `PrivyProvider → QueryClientProvider → WagmiProvider (@privy-io/wagmi)`. 상세: [api/auth.md](../api/auth.md).
 >
 > **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 API 개요는 **[api/README.md](../api/README.md)**.
 
@@ -376,4 +376,4 @@ flowchart LR
 | 백엔드 모듈 맵 (AuthModule, PrivyModule, ChainConfigService, perf) | [architecture/backend.md](../architecture/backend.md) |
 | 데이터베이스 (17 테이블, ER 다이어그램) | [architecture/database.md](../architecture/database.md) |
 | 프론트엔드 라우트 (`/markets`, `/portfolio`, admin) | [frontend/routes.md](../frontend/routes.md) |
-| Privy 인증 마이그레이션 (Phase 0–7) | [guides/privy-auth-migration.md](../guides/privy-auth-migration.md) |
+| Privy 인증 API | [api/auth.md](../api/auth.md) |

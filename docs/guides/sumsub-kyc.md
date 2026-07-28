@@ -120,4 +120,4 @@ See [Get production key](https://docs.sumsub.com/docs/get-production-key). Produ
 ## Related docs
 
 - [Auth API — KYC](../api/auth.md#kyc)
-- [Privy auth migration — Phase 5](./privy-auth-migration.md)
+- [Auth API (Privy session)](../api/auth.md)

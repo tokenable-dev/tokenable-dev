@@ -11,10 +11,26 @@ import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function ListRwaModal(props: ListRwaModalProps) {
-  const { tokenId, assetTitle, collectionKey, onClose, shell = "modal" } = props;
+  const {
+    tokenId,
+    assetTitle,
+    collectionKey,
+    onClose,
+    shell = "modal",
+    copyVariant = "default",
+    marketValueUsd,
+    listedPriceUsd,
+    onRequestCancelListing,
+  } = props;
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
   const formVariant = shell === "sheet" ? "sheet" : "modal";
+  const sheetLabel =
+    copyVariant === "set-price"
+      ? modal.isReplaceListing
+        ? "Edit price"
+        : "Set price"
+      : "List for sale";
 
   useEffect(() => setMounted(true), []);
 
@@ -34,6 +50,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         price={modal.price}
         isReplaceListing={modal.isReplaceListing}
         successMeta={modal.successMeta}
+        copyVariant={copyVariant}
         onClose={onClose}
       />
     ) : (
@@ -47,6 +64,12 @@ export function ListRwaModal(props: ListRwaModalProps) {
         crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
         selectedBidHash={modal.selectedBidHash}
         onSelectBidHash={modal.setSelectedBidHash}
+        topCollectionBid={modal.topCollectionBid}
+        marketValueUsd={marketValueUsd}
+        listedPriceUsd={listedPriceUsd}
+        onRequestCancelListing={onRequestCancelListing}
+        onClose={onClose}
+        copyVariant={copyVariant}
         step={modal.step}
         errorMsg={modal.errorMsg}
         isProcessing={modal.isProcessing}
@@ -57,7 +80,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
 
   if (shell === "sheet") {
     return (
-      <TkActionSheet open onClose={onClose} aria-label="List for sale">
+      <TkActionSheet open onClose={onClose} aria-label={sheetLabel}>
         {body}
       </TkActionSheet>
     );

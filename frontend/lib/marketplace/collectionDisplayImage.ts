@@ -20,6 +20,16 @@ function sanitizeCollectionCoverUrl(
   if (!t) return null;
   if (isPsaCertSlabCloudfrontUrl(t)) return null;
   if (isLegacyNormalizedCollectionCoverApiPath(t)) return null;
+  try {
+    const u = new URL(t.startsWith("//") ? `https:${t}` : t);
+    if (/\/cover$/i.test(u.pathname)) return u.toString();
+    if (/\/covers\/[^/]+$/i.test(u.pathname)) {
+      u.pathname = `${u.pathname.replace(/\/+$/, "")}/cover`;
+      return u.toString();
+    }
+  } catch {
+    /* keep */
+  }
   return t;
 }
 

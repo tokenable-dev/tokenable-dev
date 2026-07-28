@@ -261,7 +261,7 @@ export function useTokenOffer(input: {
         ? "Placing bid…"
         : fiatOnramp.inFlight
           ? "Opening Add Funds…"
-          : "Place bid";
+          : "Place a Bid";
 
   const walletSignerMissing = Boolean(address) && !signSeaportOrder;
 
@@ -411,7 +411,7 @@ export function useTokenOffer(input: {
               ? "Maximum bids reached"
               : crossesAsk
                 ? "Buy at listed price"
-                : "Place bid";
+                : "Place a Bid";
 
   return {
     address,

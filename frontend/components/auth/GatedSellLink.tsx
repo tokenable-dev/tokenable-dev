@@ -9,10 +9,10 @@ export function GatedSellLink({
   className?: string;
   children: React.ReactNode;
 }) {
-  const { navigateToVault } = useSellAccessGate("/vault");
+  const { navigateToSell } = useSellAccessGate("/sell");
 
   return (
-    <button type="button" onClick={navigateToVault} className={className}>
+    <button type="button" onClick={navigateToSell} className={className}>
       {children}
     </button>
   );

@@ -24,9 +24,9 @@ export class CertMarketTraceController {
 
   /** Cert 번호로 PSA·Cardhedger·차트·comps 전체 추적 */
   @ApiOperation({
-    summary: 'Cert 시장 추적 (전체 덤프)',
+    summary: 'Cert 시장 추적 (disabled — PSA mint-only)',
     description:
-      'PSA 공식 API + Cardhedger preview/history/comps. `CARDHEDGER_API_KEY`·`PSA_PUBLIC_API_TOKEN` 필요. 응답이 크고 느릴 수 있음.',
+      'Deprecated: returns 403 `PSA_MINT_ONLY`. Live PSA is reserved for mint (`POST /psa/analyze`, `analyze-by-cert`, bulk-mint).',
   })
   @ApiBody(apiBodyDefault(CertMarketTraceDto, SWAGGER_BODY_EXAMPLES.certMarketTrace))
   @ApiOkResponse({ description: 'PSA 분석 + 합성 컬렉션 + Cardhedger 묶음 응답' })

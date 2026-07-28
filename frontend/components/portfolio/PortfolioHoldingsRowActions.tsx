@@ -1,56 +1,33 @@
 "use client";
 
 import { TkButton } from "@/components/ds";
+import { PortfolioHoldingsBidMeta } from "./PortfolioHoldingsBidMeta";
 
-/** List / Sell / Cancel — Portfolio.html (`tk-btn--subtle` + `tk-btn--primary`). */
+/** Set price / Edit price — Portfolio.html `tk-btn--ghost` + bid meta (design system-2). */
 export function PortfolioHoldingsRowActions({
   isListed,
-  cancelling,
-  onList,
-  onCancel,
-  onSellNow,
+  highestBidUsd,
+  fullWidth = false,
+  onSetPrice,
 }: {
   isListed: boolean;
-  cancelling: boolean;
-  onList: () => void;
-  onCancel: () => void;
-  onSellNow: () => void;
+  highestBidUsd?: number | null;
+  /** Mobile cards use full-width ghost CTA (height 44). */
+  fullWidth?: boolean;
+  onSetPrice: () => void;
 }) {
   return (
-    <div className="pf-table-actions">
-      {isListed ? (
-        <TkButton
-          type="button"
-          variant="subtle"
-          size="sm"
-          className="pf-table-btn pf-table-btn--listed-cancel"
-          disabled={cancelling}
-          onClick={onCancel}
-        >
-          {cancelling ? "…" : "Cancel"}
-        </TkButton>
-      ) : (
-        <>
-          <TkButton
-            type="button"
-            variant="subtle"
-            size="sm"
-            className="pf-table-btn"
-            onClick={onList}
-          >
-            List
-          </TkButton>
-          <TkButton
-            type="button"
-            variant="primary"
-            size="sm"
-            className="pf-table-btn"
-            onClick={onSellNow}
-          >
-            Sell Now
-          </TkButton>
-        </>
-      )}
+    <div className={`pf-table-actions pf-table-actions--set-price${fullWidth ? " pf-table-actions--full" : ""}`}>
+      <PortfolioHoldingsBidMeta isListed={isListed} highestBidUsd={highestBidUsd} />
+      <TkButton
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={`pf-table-btn${fullWidth ? " pf-table-btn--full" : ""}`}
+        onClick={onSetPrice}
+      >
+        {isListed ? "Edit price" : "Set price"}
+      </TkButton>
     </div>
   );
 }

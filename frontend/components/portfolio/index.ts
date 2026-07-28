@@ -14,6 +14,7 @@ export { PortfolioWatchlistSection } from "./PortfolioWatchlistSection";
 export { PortfolioCostBasisModal } from "./PortfolioCostBasisModal";
 export { PortfolioHideConfirmModal } from "./PortfolioHideConfirmModal";
 export { PortfolioCancelBidConfirmModal } from "./PortfolioCancelBidConfirmModal";
+export { PortfolioCancelListingConfirmModal } from "./PortfolioCancelListingConfirmModal";
 export { PortfolioAcceptOfferModal } from "./PortfolioAcceptOfferModal";
 export { PortfolioStatGrid } from "./PortfolioStatGrid";
 export { PortfolioSummaryBar } from "./PortfolioSummaryBar";

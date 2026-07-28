@@ -48,7 +48,9 @@ export type EventName =
 
   // ── Sell / List ────────────────────────────────────────────────────────
   | "sell_panel_opened"         // sell/list form opened
-  | "list_clicked"              // List button clicked (open listing flow)
+  | "list_clicked"              // List / Set price button clicked (open listing flow)
+  | "set_price_clicked"         // Portfolio Set price CTA
+  | "edit_price_clicked"        // Portfolio Edit price CTA
   | "listing_created"           // sell listing signed & submitted (legacy name)
   | "listing_submitted"         // listing successfully created & live in orderbook
   | "listing_cancelled"         // listing cancelled

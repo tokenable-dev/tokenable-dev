@@ -18,6 +18,7 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
+import { listingSellerVerifiedLabel } from "@/lib/marketplace/collectionListingModalHelpers";
 
 const rwaCardFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -189,6 +190,7 @@ export function CollectionRwaCard({
     : undefined;
   const sellerDisplay =
     listing?.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
+  const sellerVerified = listingSellerVerifiedLabel(listing);
 
   const displayTitle =
     formatAssetDetailHeadlineText(
@@ -212,12 +214,10 @@ export function CollectionRwaCard({
 
   const ctaHref =
     !listing && isOwner ? sellHref : detailHref;
-  const bidHref = `${detailHref}&bid=1`;
 
   if (collectionDetailListing) {
     const openView = () => onOpenListing?.(tokenId, "view");
     const openBuy = () => onOpenListing?.(tokenId, "buy");
-    const openBid = () => onOpenListing?.(tokenId, "bid");
 
     return (
       <article className="cd-listing-card cd-listing-card--ds">
@@ -264,35 +264,24 @@ export function CollectionRwaCard({
         {listing ? (
           <div className="cd-listing-card__actions">
             {onOpenListing ? (
-              <>
-                <TkButton
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  className="cd-listing-card__btn"
-                  onClick={openBuy}
-                >
-                  Buy
-                </TkButton>
-                <TkButton
-                  type="button"
-                  variant="subtle"
-                  size="sm"
-                  className="cd-listing-card__btn"
-                  onClick={openBid}
-                >
-                  Bid
-                </TkButton>
-              </>
+              <TkButton
+                type="button"
+                variant="primary"
+                size="sm"
+                className="cd-listing-card__btn cd-listing-card__btn--buy"
+                onClick={openBuy}
+              >
+                Buy
+              </TkButton>
             ) : (
-              <>
-                <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-card__btn">
-                  Buy
-                </TkButton>
-                <TkButton variant="subtle" size="sm" href={bidHref} className="cd-listing-card__btn">
-                  Bid
-                </TkButton>
-              </>
+              <TkButton
+                variant="primary"
+                size="sm"
+                href={detailHref}
+                className="cd-listing-card__btn cd-listing-card__btn--buy"
+              >
+                Buy
+              </TkButton>
             )}
           </div>
         ) : (
@@ -321,8 +310,8 @@ export function CollectionRwaCard({
           ) : (
             <span className="cd-listing-card__price cd-listing-card__price--muted">—</span>
           )}
-          <span className="cd-listing-card__seller" title={sellerAddr}>
-            Seller: {listing ? sellerDisplay : "—"}
+          <span className="cd-listing-card__seller" title={sellerVerified.title}>
+            {listing ? sellerVerified.label : "—"}
           </span>
         </div>
       </article>

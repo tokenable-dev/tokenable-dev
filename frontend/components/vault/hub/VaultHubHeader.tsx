@@ -9,16 +9,20 @@ function ArrowIcon() {
   );
 }
 
+/** Sell hub header — Vault-Dashboard-Active.html page-header (design system-2). */
 export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boolean }) {
   return (
     <div className="vault-hub-header">
-      <div>
-        <span className="vault-hub-header__eyebrow">My Vault</span>
-        <h1 className="vault-hub-header__title">Vault your graded cards</h1>
+      <div className="vault-hub-header__copy">
+        <span className="vault-hub-header__eyebrow">Selling</span>
+        <h1 className="vault-hub-header__title">Track what you&rsquo;re selling</h1>
+        <p className="vault-hub-header__sub">
+          Get your cards verified and listed. Once live, manage them in your Portfolio.
+        </p>
       </div>
       {showSubmitCta ? (
-        <Link href="/vault/submit" className="vault-hub-header__cta tk-btn tk-btn--primary">
-          Mint a Card <ArrowIcon />
+        <Link href="/sell/flow" className="vault-hub-header__cta tk-btn tk-btn--primary">
+          + Sell a Card <ArrowIcon />
         </Link>
       ) : null}
     </div>

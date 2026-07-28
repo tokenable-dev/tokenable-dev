@@ -88,4 +88,4 @@ Production: set `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=production`, `NEXT_PUBLIC
 6. Sandbox may not deliver USDC to Sepolia — goal is UI/API flow validation
 7. Cancel / incomplete checkout may log `Transaction not found` in the browser console (Privy SDK) — expected on Sepolia sandbox
 
-See also: [privy-auth-migration.md](./privy-auth-migration.md) · [marketplace-admin.md](./marketplace-admin.md)
+See also: [Auth API](../api/auth.md) · [marketplace-admin.md](./marketplace-admin.md)

@@ -22,7 +22,7 @@ CSS is loaded once via `app/globals.css`. Do not import page CSS from components
 | `tokenable-watchlist.css` | `/watchlist` |
 | `tokenable-collection-detail.css` | Collection detail |
 | `tokenable-portfolio.css` | `/portfolio` |
-| `tokenable-vault.css` | Vault flow |
+| `tokenable-vault.css` | Vault / Sell hub + sell router loader |
 | `tokenable-rwa-detail.css` | Token detail |
 | `tokenable-secondary.css` | Auth, profile, site gate |
 

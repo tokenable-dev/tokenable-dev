@@ -2,19 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { TkButton, TkTag } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import {
+  buildLayoutAPackageCards,
   buildPackageCards,
+  MOCK_SUBMISSION_ID,
+  SCENARIO_SWITCHER,
   VAULT_DETAIL_SCENARIOS,
   type VaultDetailScenario,
   type VaultDetailScenarioKey,
   type VaultPackageCard,
 } from "@/lib/vault/vaultDetailScenarios";
-import { VAULT_DETAIL_SHIP_ADDRESS } from "@/lib/vault/vaultMockData";
 import { cn } from "@/lib/ds/cn";
 
 function DetailHero({ hero }: { hero: VaultDetailScenario["hero"] }) {
@@ -84,83 +87,88 @@ function heroToneClass(tone: VaultDetailScenario["hero"]["tone"]): string {
   return `vault-detail-hero vault-detail-hero--${tone}`;
 }
 
-function LayoutAContent({ scenario }: { scenario: VaultDetailScenario }) {
+function LayoutAContent({
+  scenario,
+  packageCards,
+  tracking,
+}: {
+  scenario: VaultDetailScenario;
+  packageCards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  tracking: { label: string; url: string } | null;
+}) {
   return (
     <div className="vault-detail-layout-a">
       <DetailHero hero={scenario.hero} />
       <VaultStepper rich steps={scenario.steps} />
-      <PackageInfoCard />
-      {scenario.ship ? (
-        <>
-          <ShipToCard />
-          <TrackingCard ship={scenario.ship} />
-        </>
-      ) : null}
+      <PackageInfoCard cards={packageCards} />
+      {scenario.ship ? <TrackingCard ship={scenario.ship} tracking={tracking} /> : null}
       <NotifBanner msg={scenario.notif} />
       <CtaRow ctas={scenario.cta} />
     </div>
   );
 }
 
-function PackageInfoCard() {
+function PackageInfoCard({
+  cards,
+}: {
+  cards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+}) {
+  const count = cards.length;
   return (
     <div className="vault-card-box vault-detail-package">
       <div className="vault-detail-package__head">
-        <span className="vault-detail-package__meta">No cards in this submission</span>
+        <span className="vault-detail-package__meta">
+          {count} {count === 1 ? "card" : "cards"}
+        </span>
       </div>
-      <p className="px-1 py-3 text-sm text-white/40">Package cards will appear when live submission data is available.</p>
+      {count === 0 ? (
+        <p className="px-1 py-3 text-sm text-white/40">No cards in this submission.</p>
+      ) : (
+        <ul className="vault-detail-package__list">
+          {cards.map((c, i) => (
+            <li
+              key={c.cert || c.id}
+              className={cn("vault-detail-package__row", i > 0 && "vault-detail-package__row--border")}
+            >
+              <div className="vault-detail-package__thumb">
+                <VaultThumb src={c.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
+              </div>
+              <div className="vault-detail-package__name">{c.name}</div>
+              <TkTag tone="neutral" appearance="soft" className="vault-detail-grade-tag">
+                {c.grade}
+              </TkTag>
+              <span className="mono vault-detail-package__cert">#{c.cert}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-function ShipToCard() {
-  return (
-    <div className="vault-card-box vault-detail-ship-to">
-      <span className="vault-detail-section-label vault-detail-section-label--box">Ship To</span>
-      <div className="vault-detail-ship-to__addr">
-        {VAULT_DETAIL_SHIP_ADDRESS.name}
-        <br />
-        {VAULT_DETAIL_SHIP_ADDRESS.lines.map((line) => (
-          <span key={line}>
-            {line}
-            <br />
-          </span>
-        ))}
-      </div>
-      <div className="vault-detail-ship-to__id">
-        <span>Submission ID </span>
-        <span className="mono vault-detail-ship-to__id-val">—</span>
-      </div>
-      <p className="vault-detail-ship-to__warn">
-        Include your Submission ID on the outside of the package. Do not redirect to any other address.
-      </p>
-      <div className="vault-detail-ship-to__actions">
-        <TkButton decorative variant="subtle" size="sm" className="vault-detail-ship-to__btn">
-          Copy Address
-        </TkButton>
-        <TkButton decorative variant="subtle" size="sm" className="vault-detail-ship-to__btn">
-          Download Packing Slip
-        </TkButton>
-      </div>
-    </div>
-  );
-}
-
-function TrackingCard({ ship }: { ship: "pending" | "intransit" }) {
+function TrackingCard({
+  ship,
+  tracking,
+}: {
+  ship: "pending" | "intransit";
+  tracking: { label: string; url: string } | null;
+}) {
   if (ship === "pending") {
     return (
-      <div className="vault-card-box">
-        <span className="vault-detail-section-label vault-detail-section-label--box">Register Tracking Number</span>
+      <div className="vault-card-box vault-detail-tracking">
+        <span className="vault-detail-section-label vault-detail-section-label--box">
+          Register Tracking Number
+        </span>
         <div className="vault-detail-tracking-form">
-          <select className="vault-ship-select" defaultValue="fedex">
+          <select className="vault-ship-select" defaultValue="fedex" disabled>
             <option>FedEx</option>
             <option>DHL Express</option>
             <option>UPS</option>
             <option>Korea Post EMS</option>
           </select>
-          <input className="vault-ship-input" placeholder="Tracking number" />
+          <input className="vault-ship-input" placeholder="Tracking number" disabled />
         </div>
-        <Link href="/vault/submit/shipping" className="vault-detail-tracking-cta tk-btn tk-btn--primary">
+        <Link href="/sell/shipping" className="tk-btn tk-btn--primary vault-detail-tracking-cta">
           Register Tracking →
         </Link>
       </div>
@@ -168,17 +176,39 @@ function TrackingCard({ ship }: { ship: "pending" | "intransit" }) {
   }
 
   return (
-    <div className="vault-card-box">
+    <div className="vault-card-box vault-detail-tracking">
       <div className="vault-detail-tracking-done">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" strokeWidth="2.5">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--pos)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          aria-hidden
+        >
           <polyline points="20 6 9 17 4 12" />
         </svg>
         <span>Tracking registered</span>
       </div>
-      <span className="mono vault-detail-tracking-link">Tracking details pending</span>
-      <button type="button" className="vault-detail-tracking-change tk-btn tk-btn--subtle tk-btn--sm">
-        Change Tracking
-      </button>
+      {tracking ? (
+        <a
+          href={tracking.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mono vault-detail-tracking-link"
+        >
+          {tracking.label} ↗
+        </a>
+      ) : (
+        <span className="mono vault-detail-tracking-link">Tracking details pending</span>
+      )}
+      <div className="vault-detail-tracking-change-wrap">
+        <Link href="/sell/shipping" className="tk-btn tk-btn--subtle vault-detail-tracking-change">
+          Change Tracking
+        </Link>
+      </div>
     </div>
   );
 }
@@ -201,18 +231,15 @@ function CtaRow({ ctas }: { ctas: VaultDetailScenario["cta"] }) {
   return (
     <div className="vault-detail-main-actions">
       {ctas.map((cta) => (
-        <Link key={cta.label} href={cta.href} className="inline-flex w-full">
-          <TkButton
-            decorative
-            variant={cta.primary ? "primary" : "subtle"}
-            size="md"
-            className={cn(
-              "w-full justify-center",
-              cta.primary ? "h-12 text-[15px]" : "h-[42px] text-[13px] text-white/50",
-            )}
-          >
-            {cta.label}
-          </TkButton>
+        <Link
+          key={cta.label}
+          href={cta.href}
+          className={cn(
+            "tk-btn",
+            cta.primary ? "tk-btn--primary vault-detail-cta--primary" : "tk-btn--subtle vault-detail-cta--subtle",
+          )}
+        >
+          {cta.label}
         </Link>
       ))}
     </div>
@@ -224,8 +251,8 @@ function cardStatusRight(card: VaultPackageCard) {
     case "completed":
       return (
         <>
-          <span className="mono vault-lm-row__status vault-lm-row__status--pos">Minted</span>
-          <span className="mono vault-lm-row__token">Token {card.token} →</span>
+          <span className="mono vault-lm-row__status vault-lm-row__status--pos">Live</span>
+          <span className="mono vault-lm-row__token">View listing →</span>
         </>
       );
     case "approved":
@@ -238,7 +265,7 @@ function cardStatusRight(card: VaultPackageCard) {
         </span>
       );
     case "failed":
-      return <span className="vault-lm-row__status vault-lm-row__status--neg">Mint Failed</span>;
+      return <span className="vault-lm-row__status vault-lm-row__status--neg">Failed</span>;
     case "rejected":
       return (
         <>
@@ -252,20 +279,16 @@ function cardStatusRight(card: VaultPackageCard) {
 }
 
 function CardDetailPanel({ card }: { card: VaultPackageCard }) {
-  const tokenVal =
-    card.status === "completed"
-      ? card.token
-      : card.status === "approved"
-        ? "Pending mint…"
-        : card.status === "reviewing"
-          ? "Pending…"
-          : "—";
-  const tokenCol =
-    card.status === "completed"
-      ? "var(--azure)"
-      : card.status === "reviewing" || card.status === "approved"
-        ? "var(--amber)"
-        : "rgba(255,255,255,0.3)";
+  const stMap: Record<string, [string, string]> = {
+    completed: ["Live", "var(--pos)"],
+    approved: ["Queued", "var(--amber)"],
+    reviewing: ["Reviewing", "var(--amber)"],
+    failed: ["Failed", "var(--neg)"],
+    rejected: ["Rejected", "var(--neg)"],
+  };
+  const stv = stMap[card.status] ?? ["—", "rgba(255,255,255,0.3)"];
+  const stored =
+    card.status === "approved" || card.status === "completed" || card.status === "failed";
 
   return (
     <div className="vault-lb-panel">
@@ -285,41 +308,21 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
         <span className="vault-detail-v mono">{card.cert}</span>
       </div>
       <div className="vault-detail-row">
-        <span className="vault-detail-k">Vault</span>
-        <span className="vault-detail-v mono text-white/50">Delaware · Lloyd&apos;s</span>
+        <span className="vault-detail-k">Stored</span>
+        <span className="vault-detail-v mono text-white/50">{stored ? "PSA · Lloyd’s" : "—"}</span>
       </div>
       <div className="vault-detail-row">
-        <span className="vault-detail-k">Token</span>
-        <span className="vault-detail-v" style={{ color: tokenCol }}>
-          {tokenVal}
+        <span className="vault-detail-k">Status</span>
+        <span className="vault-detail-v" style={{ color: stv[1] }}>
+          {stv[0]}
         </span>
       </div>
       {card.status === "completed" ? (
-        <>
-          <div className="vault-card-box vault-detail-receipt vault-detail-receipt--panel">
-            <span className="vault-detail-section-label vault-detail-section-label--box">Blockchain Receipt</span>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Contract</span>
-              <span className="mono text-[var(--azure)]">0x1aB…4cD2</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Token ID</span>
-              <span className="vault-detail-v mono">{card.token}</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">TX Hash</span>
-              <span className="mono text-[var(--azure)]">0xf3a…91e2</span>
-            </div>
-            <TkButton decorative variant="subtle" size="sm" className="vault-detail-receipt__scan mt-2.5 w-full">
-              View on Polygonscan →
-            </TkButton>
-          </div>
-          <Link href="/portfolio" className="mt-4 inline-flex w-full">
-            <TkButton decorative variant="primary" size="md" className="h-11 w-full justify-center text-[13.5px]">
-              View in Portfolio →
-            </TkButton>
-          </Link>
-        </>
+        <Link href="/portfolio" className="mt-4 inline-flex w-full">
+          <TkButton decorative variant="primary" size="md" className="h-11 w-full justify-center text-[13.5px]">
+            View in Portfolio →
+          </TkButton>
+        </Link>
       ) : null}
       {card.status === "reviewing" ? (
         <div className="vault-lb-panel__pending">
@@ -330,7 +333,7 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       ) : null}
       {card.status === "approved" ? (
         <div className="vault-lb-panel__approved">
-          Verified and vaulted. Token minting will begin shortly.
+          Verified and stored. Your listing will go live shortly.
         </div>
       ) : null}
       {card.status === "rejected" ? (
@@ -340,13 +343,6 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
             <div className="vault-detail-row">
               <span className="vault-detail-k">Reason</span>
               <span className="vault-detail-v text-[var(--neg)]">{card.reason}</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Grade</span>
-              <span className="vault-detail-v">
-                {card.grade}
-                {card.submittedGrade ? ` (submitted as ${card.submittedGrade})` : ""}
-              </span>
             </div>
             <div className="vault-detail-row">
               <span className="vault-detail-k">Return</span>
@@ -365,10 +361,12 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       {card.status === "failed" ? (
         <>
           <div className="vault-lb-panel__failed-box">
-            <span className="vault-detail-section-label vault-detail-section-label--box">Mint Error</span>
+            <span className="vault-detail-section-label vault-detail-section-label--box">Error</span>
             <div className="vault-detail-row">
               <span className="vault-detail-k">Reason</span>
-              <span className="vault-detail-v">Blockchain error</span>
+              <span className="vault-detail-v text-right max-w-[62%]">
+                Your card is safe at PSA — we&apos;re having trouble getting the listing live.
+              </span>
             </div>
             <div className="vault-detail-row">
               <span className="vault-detail-k">Status</span>
@@ -599,7 +597,7 @@ function EarlyRejectView() {
     <>
       <VaultBreadcrumb
         variant="flow"
-        items={[{ label: "My Vault", href: "/vault" }, { label: "Submission" }]}
+        items={[{ label: "Sell", href: "/vault" }, { label: "Submission" }]}
       />
       <div className="vault-detail-grid">
         <div className="vault-detail-main">
@@ -642,37 +640,94 @@ function EarlyRejectView() {
 
 
 export function VaultDetailDesignView({
-  initialScenario = "A",
+  initialScenario = "C",
+  submissionId = MOCK_SUBMISSION_ID,
+  livePackageCards,
+  tracking,
+  showScenarioSwitcher = false,
 }: {
   initialScenario?: VaultDetailScenarioKey;
+  submissionId?: string;
+  /** Confirmed cards from sell flow — used for Layout A package preview when present. */
+  livePackageCards?: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  tracking?: { label: string; url: string } | null;
+  showScenarioSwitcher?: boolean;
 }) {
-  const scenarioKey = initialScenario === "early" ? "early" : initialScenario;
+  const router = useRouter();
+  const pathname = usePathname();
+  const [scenarioKey, setScenarioKey] = useState<VaultDetailScenarioKey>(
+    initialScenario === "early" ? "early" : initialScenario,
+  );
+
+  useEffect(() => {
+    setScenarioKey(initialScenario === "early" ? "early" : initialScenario);
+  }, [initialScenario]);
+
+  const selectScenario = useCallback(
+    (key: Exclude<VaultDetailScenarioKey, "early">) => {
+      setScenarioKey(key);
+      router.replace(`${pathname}?scenario=${key}`, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   if (scenarioKey === "early") {
     return <EarlyRejectView />;
   }
 
-  const scenario = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.A;
+  const scenario = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.C;
   const shellClass =
     scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b";
+
+  const layoutACards =
+    scenario.key === "C" && livePackageCards && livePackageCards.length > 0
+      ? livePackageCards
+      : buildLayoutAPackageCards();
+
+  const layoutTracking =
+    scenario.key === "C"
+      ? (tracking ?? {
+          label: "FedEx · FX123456789",
+          url: "https://www.fedex.com/fedextrack/?trknbr=FX123456789",
+        })
+      : null;
 
   return (
     <div className={shellClass}>
       <VaultBreadcrumb
         variant="flow"
-        items={[{ label: "My Vault", href: "/vault" }, { label: "Submission" }]}
+        items={[{ label: "Sell", href: "/vault" }, { label: submissionId }]}
       />
 
       <h1 className="vault-detail-page-title">Submission Detail</h1>
 
       {scenario.layout === "A" ? (
-        <LayoutAContent scenario={scenario} />
+        <LayoutAContent
+          scenario={scenario}
+          packageCards={layoutACards}
+          tracking={layoutTracking}
+        />
       ) : (
         <>
           <LayoutB scenario={scenario} />
           <CtaRow ctas={scenario.cta} />
         </>
       )}
+
+      {showScenarioSwitcher ? (
+        <div className="vault-sd-switcher" role="group" aria-label="Scenario switcher">
+          {SCENARIO_SWITCHER.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={cn(scenarioKey === s.key && "on")}
+              onClick={() => selectScenario(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

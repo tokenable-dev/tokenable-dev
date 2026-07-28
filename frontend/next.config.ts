@@ -107,10 +107,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "public.getcollectr.com",
-      },
-      {
-        protocol: "https",
         hostname: "**.amazonaws.com",
       },
       {

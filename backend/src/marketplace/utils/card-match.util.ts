@@ -1,3 +1,5 @@
+import { cardhedgerSetAliasTokens } from './cardhedger-search-alias.util';
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
 }
@@ -50,6 +52,152 @@ export function normalizeForExactCardNumberKey(s: string): string {
   return t;
 }
 
+/** PSA insert codes like `RSLW4` / `SS-LW4` (letters + digits), not pure checklist `#18`. */
+export function isAlphanumericInsertCardNumber(num: string): boolean {
+  const t = primaryCardNumber(num);
+  return Boolean(t) && /[a-z]/i.test(t) && /\d/.test(t);
+}
+
+export function isPureNumericCardNumber(num: string): boolean {
+  const t = primaryCardNumber(num);
+  return /^\d+$/.test(t);
+}
+
+/**
+ * Product-family tokens that must not cross-match (Prizm ↔ Dominion, Chrome ↔ Select, …)
+ * when present on the PSA / mint side.
+ */
+const CATALOG_PRODUCT_FAMILY_TOKENS = [
+  'prizm',
+  'chrome',
+  'select',
+  'optic',
+  'mosaic',
+  'dominion',
+  'donruss',
+  'bowman',
+  'topps',
+  'fleer',
+  'upperdeck',
+  'panini',
+] as const;
+
+function catalogProductFamiliesIn(text: string): string[] {
+  const n = normalizeForExactCatalogMatch(text);
+  if (!n) return [];
+  return CATALOG_PRODUCT_FAMILY_TOKENS.filter((t) => n.includes(t));
+}
+
+/**
+ * When PSA Brand/set names a product family (e.g. Prizm), Cardhedger row set/description
+ * must share at least one of those families — blocks Dominion hits for Prizm inserts.
+ */
+export function catalogProductFamiliesCompatible(
+  hints: {
+    cardSet: string;
+    psaBrand?: string;
+    cardhedgerSearchQuery?: string;
+  },
+  row: Record<string, unknown>,
+): boolean {
+  const wantBlob = [hints.psaBrand, hints.cardSet, hints.cardhedgerSearchQuery]
+    .map((s) => String(s ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  const wantFamilies = catalogProductFamiliesIn(wantBlob).filter(
+    (t) => t !== 'panini' && t !== 'topps',
+  );
+  if (wantFamilies.length === 0) return true;
+
+  const set = isRecord(row.set) ? row.set : null;
+  const setName =
+    typeof set?.name === 'string' ? set.name : String(row.set ?? '');
+  const gotBlob = [
+    setName,
+    String(row.variant ?? ''),
+    String(row.description ?? ''),
+    String(row.name ?? ''),
+  ].join(' ');
+  const gotFamilies = new Set(catalogProductFamiliesIn(gotBlob));
+  return wantFamilies.some((f) => gotFamilies.has(f));
+}
+
+/**
+ * PSA slab insert # (RSLW4) vs Cardhedger checklist # (18) when the catalog line is
+ * identified by player + insert Variety in the row description (variant often stays Base).
+ */
+export function catalogInsertNumberCompatibleWithRow(
+  hints: {
+    cardName: string;
+    cardNumber: string;
+    cardSet: string;
+    psaSubject?: string;
+    psaBrand?: string;
+    psaVariety?: string;
+    cardhedgerSearchQuery?: string;
+  },
+  row: Record<string, unknown>,
+): boolean {
+  const wantNum = normalizeForExactCardNumberKey(
+    primaryCardNumber(hints.cardNumber),
+  );
+  const numGot =
+    typeof row.cardNumber === 'string'
+      ? row.cardNumber
+      : String(row.number ?? '');
+  const gotNum = normalizeForExactCardNumberKey(primaryCardNumber(numGot));
+  if (!wantNum || !gotNum) return false;
+  if (wantNum === gotNum) return true;
+  if (!(isAlphanumericInsertCardNumber(wantNum) && isPureNumericCardNumber(gotNum))) {
+    return false;
+  }
+
+  const nameGot =
+    typeof row.name === 'string' ? row.name : String(row.description ?? '');
+  const nameGotN = normalizeForExactCatalogMatch(nameGot);
+  const nameOk = [hints.psaSubject, hints.cardName]
+    .map((s) => String(s ?? '').trim())
+    .filter(Boolean)
+    .some((want) => {
+      const w = normalizeForExactCatalogMatch(want);
+      return Boolean(w && nameGotN && (nameGotN.includes(w) || w.includes(nameGotN)));
+    });
+  if (!nameOk) return false;
+
+  if (
+    !catalogProductFamiliesCompatible(
+      {
+        cardSet: hints.cardSet,
+        psaBrand: hints.psaBrand,
+        cardhedgerSearchQuery: hints.cardhedgerSearchQuery,
+      },
+      row,
+    )
+  ) {
+    return false;
+  }
+
+  const variety = String(hints.psaVariety ?? '').trim();
+  if (!variety) return false;
+  const rowBlob = [
+    String(row.variant ?? ''),
+    String(row.description ?? ''),
+    String(row.name ?? ''),
+    typeof (isRecord(row.set) ? row.set.name : row.set) === 'string'
+      ? String(isRecord(row.set) ? row.set.name : row.set)
+      : '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  const varietyChunks = variety
+    .toLowerCase()
+    .split(/[\s.\-/]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3);
+  if (varietyChunks.length === 0) return false;
+  return varietyChunks.every((c) => rowBlob.includes(c));
+}
+
 export function exactCatalogMatch(
   hints: { cardName: string; cardNumber: string; cardSet: string },
   row: Record<string, unknown>,
@@ -90,6 +238,8 @@ export function relaxedCatalogMatchForAudit(
     cardSet: string;
     psaSubject?: string;
     psaBrand?: string;
+    psaVariety?: string;
+    cardhedgerSearchQuery?: string;
   },
   row: Record<string, unknown>,
 ): { ok: boolean; failCodes: string[] } {
@@ -108,7 +258,20 @@ export function relaxedCatalogMatchForAudit(
   );
   const numGotN = normalizeForExactCardNumberKey(primaryCardNumber(numGot));
   const failCodes: string[] = [];
-  if (numWant !== numGotN) failCodes.push('number_mismatch');
+  const numberExact = Boolean(numWant && numGotN && numWant === numGotN);
+  const numberInsertBridge = catalogInsertNumberCompatibleWithRow(
+    {
+      cardName: hints.cardName,
+      cardNumber: hints.cardNumber,
+      cardSet: hints.cardSet,
+      psaSubject: hints.psaSubject,
+      psaBrand: hints.psaBrand,
+      psaVariety: hints.psaVariety,
+      cardhedgerSearchQuery: hints.cardhedgerSearchQuery,
+    },
+    row,
+  );
+  if (!numberExact && !numberInsertBridge) failCodes.push('number_mismatch');
 
   const nameGotN = normalizeForExactCatalogMatch(nameGot);
   const nameCandidates = [hints.psaSubject, hints.cardName]
@@ -121,14 +284,41 @@ export function relaxedCatalogMatchForAudit(
   if (!nameOk) failCodes.push('name_mismatch');
 
   const setGot = normalizeForExactCatalogMatch(setNameGot);
-  const setCandidates = [hints.psaBrand, hints.cardSet]
+  const rowSetBlob = normalizeForExactCatalogMatch(
+    [setNameGot, nameGot, String(row.variant ?? ''), String(row.description ?? '')]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const setCandidates = [
+    hints.psaBrand,
+    hints.cardSet,
+    hints.cardhedgerSearchQuery,
+    ...cardhedgerSetAliasTokens(hints.cardSet, hints.psaBrand ?? null),
+  ]
     .map((s) => String(s ?? '').trim())
     .filter(Boolean);
   const setOk = setCandidates.some((want) => {
     const w = normalizeForExactCatalogMatch(want);
-    return Boolean(w && setGot && (setGot.includes(w) || w.includes(setGot)));
+    return Boolean(
+      w &&
+        ((setGot && (setGot.includes(w) || w.includes(setGot))) ||
+          (rowSetBlob && (rowSetBlob.includes(w) || w.includes(rowSetBlob)))),
+    );
   });
   if (!setOk) failCodes.push('set_mismatch');
+
+  if (
+    !catalogProductFamiliesCompatible(
+      {
+        cardSet: hints.cardSet,
+        psaBrand: hints.psaBrand,
+        cardhedgerSearchQuery: hints.cardhedgerSearchQuery,
+      },
+      row,
+    )
+  ) {
+    failCodes.push('product_family_mismatch');
+  }
 
   return { ok: failCodes.length === 0, failCodes };
 }
@@ -139,6 +329,7 @@ export type CatalogTrustHints = {
   cardSet: string;
   psaSubject?: string;
   psaBrand?: string;
+  psaVariety?: string;
   psaYear?: string;
   cardhedgerSearchQuery?: string;
   listingDisplayTitle?: string;
@@ -212,6 +403,8 @@ export function catalogRowTrustedForMarketData(
       cardSet: hints.cardSet,
       psaSubject: hints.psaSubject,
       psaBrand: hints.psaBrand,
+      psaVariety: hints.psaVariety,
+      cardhedgerSearchQuery: hints.cardhedgerSearchQuery,
     },
     row,
   );
@@ -241,6 +434,10 @@ export function catalogTrustHintsFromComponents(
     psaBrand:
       typeof c.psaBrand === 'string' && c.psaBrand.trim()
         ? c.psaBrand.trim()
+        : undefined,
+    psaVariety:
+      typeof c.psaVariety === 'string' && c.psaVariety.trim()
+        ? c.psaVariety.trim()
         : undefined,
     psaYear:
       typeof c.psaYear === 'string' && c.psaYear.trim()

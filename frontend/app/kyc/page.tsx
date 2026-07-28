@@ -11,6 +11,44 @@ import { useAuthUiStore } from "@/store/authUiStore";
 
 const SumsubWebSdk = dynamic(() => import("@sumsub/websdk-react"), { ssr: false });
 
+const KYC_RETURN_KEY = "tk_kyc_return_to";
+
+function readStoredReturnTo(): string | null {
+  try {
+    return sessionStorage.getItem(KYC_RETURN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredReturnTo() {
+  try {
+    sessionStorage.removeItem(KYC_RETURN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function hasExplicitReturnTo(
+  pending: string | null | undefined,
+  captured: string | null | undefined,
+): boolean {
+  return Boolean(
+    (pending && pending.startsWith("/")) ||
+      (captured && captured.startsWith("/")) ||
+      readStoredReturnTo(),
+  );
+}
+
+function resolveReturnPath(
+  pending: string | null | undefined,
+  captured: string | null | undefined,
+): string {
+  const stored = readStoredReturnTo();
+  const path = pending ?? captured ?? stored;
+  return path && path.startsWith("/") ? path : "/vault";
+}
+
 export default function KycPage() {
   const router = useRouter();
   const { user, loading, initialized, setUser } = useAuthStore();
@@ -19,7 +57,10 @@ export default function KycPage() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [booting, setBooting] = useState(false);
-  const [returnTo] = useState(() => useAuthUiStore.getState().pendingReturnTo);
+  const [returnTo] = useState(
+    () => useAuthUiStore.getState().pendingReturnTo ?? readStoredReturnTo(),
+  );
+  const [autoContinuing, setAutoContinuing] = useState(false);
 
   useEffect(() => {
     if (!loading && initialized && !user) {
@@ -39,8 +80,9 @@ export default function KycPage() {
   }, []);
 
   const continueAfterApproval = useCallback(() => {
-    const path = consumeReturnTo() ?? returnTo;
-    router.push(path && path.startsWith("/") ? path : "/vault");
+    const path = resolveReturnPath(consumeReturnTo(), returnTo);
+    clearStoredReturnTo();
+    router.replace(path);
   }, [consumeReturnTo, returnTo, router]);
 
   const startVerification = useCallback(async () => {
@@ -75,6 +117,18 @@ export default function KycPage() {
     if (status.status !== "none") return;
     void startVerification();
   }, [user, status?.status, startVerification]);
+
+  // After approval, return to the screen that launched KYC (e.g. /sell/flow).
+  useEffect(() => {
+    if (status?.status !== "approved" || autoContinuing) return;
+    const pending = useAuthUiStore.getState().pendingReturnTo;
+    if (!hasExplicitReturnTo(pending, returnTo)) return;
+    setAutoContinuing(true);
+    const t = window.setTimeout(() => {
+      continueAfterApproval();
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [status?.status, returnTo, autoContinuing, continueAfterApproval]);
 
   const expirationHandler = useCallback(async () => {
     const { token } = await fetchKycAccessToken();
@@ -145,12 +199,15 @@ export default function KycPage() {
         {approved ? (
           <section className="kyc-status-card">
             <p>
-              Identity verification is complete. You can now ship cards to the vault or redeem a
-              physical card.
+              {autoContinuing
+                ? "Identity verification is complete. Taking you back…"
+                : "Identity verification is complete. You can now ship cards to the vault or redeem a physical card."}
             </p>
-            <TkButton variant="primary" onClick={continueAfterApproval}>
-              Continue
-            </TkButton>
+            {!autoContinuing ? (
+              <TkButton variant="primary" onClick={continueAfterApproval}>
+                Continue
+              </TkButton>
+            ) : null}
           </section>
         ) : null}
 

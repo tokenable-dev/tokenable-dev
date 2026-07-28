@@ -51,6 +51,38 @@ export function catalogCoverObjectKeyFromPublicUrl(
   return url.slice(base.length + 1).replace(/^\/+/, '') || null;
 }
 
+/**
+ * Stable object keys end with `/cover`. Older rows sometimes stored the
+ * collection folder URL without that suffix (S3 returns 403 for the folder).
+ */
+export function normalizeCatalogCoverPublicUrl(url: string): string {
+  const raw = url.trim();
+  if (!raw) return raw;
+  try {
+    const normalized = raw.startsWith('//') ? `https:${raw}` : raw;
+    const u = new URL(normalized);
+    if (/\/cover$/i.test(u.pathname)) return u.toString();
+    // `{prefix}{collectionKey}` → `{prefix}{collectionKey}/cover`
+    if (/\/covers\/[^/]+$/i.test(u.pathname)) {
+      u.pathname = `${u.pathname.replace(/\/+$/, '')}/cover`;
+      return u.toString();
+    }
+  } catch {
+    /* keep original */
+  }
+  return raw;
+}
+
+export function isAllowedCatalogCoverPublicUrl(
+  publicUrl: string,
+  publicBaseUrl: string,
+): boolean {
+  const base = publicBaseUrl.trim().replace(/\/+$/, '');
+  if (!base) return false;
+  const url = normalizeCatalogCoverPublicUrl(publicUrl).trim();
+  return url.toLowerCase().startsWith(`${base.toLowerCase()}/`);
+}
+
 /** Prefer Content-Type; fall back to magic bytes (Cardhedger CDNs often omit MIME). */
 export function resolveCatalogCoverMime(
   declaredMime: string | null | undefined,
@@ -233,10 +265,54 @@ export class CatalogCoverS3Service {
     return this.putCollectionCoverBytes(collectionKey, buf, mime);
   }
 
+  /**
+   * Fetch a cover from our public catalog base (for same-origin WebGL textures).
+   * Rejects URLs outside `CATALOG_COVER_PUBLIC_BASE_URL`.
+   */
+  async fetchAllowedPublicCover(
+    publicUrl: string,
+  ): Promise<{ body: Buffer; contentType: string }> {
+    this.assertConfigured();
+    const src = normalizeCatalogCoverPublicUrl(publicUrl);
+    if (!isAllowedCatalogCoverPublicUrl(src, this.publicBaseUrl)) {
+      throw new Error('CATALOG_COVER_URL_NOT_ALLOWED');
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(src, {
+        signal: AbortSignal.timeout(15_000),
+        headers: { Accept: 'image/*,*/*' },
+      });
+    } catch {
+      throw new Error('CATALOG_COVER_FETCH_FAILED');
+    }
+    if (!res.ok) {
+      throw new Error('CATALOG_COVER_FETCH_FAILED');
+    }
+
+    const ab = await res.arrayBuffer();
+    const body = Buffer.from(ab);
+    if (!body.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    if (body.length > CATALOG_COVER_MAX_BYTES) {
+      throw new Error('CATALOG_COVER_FILE_TOO_LARGE');
+    }
+    const mime = resolveCatalogCoverMime(res.headers.get('content-type'), body);
+    if (!mime) {
+      throw new Error('CATALOG_COVER_FILE_TYPE_INVALID');
+    }
+    return { body, contentType: mime };
+  }
+
   /** Best-effort delete of a legacy/orphan cover we own (e.g. old uuid keys). */
   async tryDeletePublicCoverUrl(publicUrl: string | null | undefined): Promise<void> {
     if (!this.isConfigured() || !this.client || !publicUrl?.trim()) return;
-    const key = catalogCoverObjectKeyFromPublicUrl(publicUrl, this.publicBaseUrl);
+    const key = catalogCoverObjectKeyFromPublicUrl(
+      normalizeCatalogCoverPublicUrl(publicUrl),
+      this.publicBaseUrl,
+    );
     if (!key) return;
     // Never delete the stable key we just overwrote — only clean other keys.
     try {

@@ -38,6 +38,14 @@ export interface ListRwaModalProps {
   collectionKey?: string | null;
   collectionBids?: Order[];
   preferredBidOrderHash?: string | null;
+  /** Market value shown in Set/Edit price drawer (Portfolio v2). */
+  marketValueUsd?: number | null;
+  /** Listed ask amount for “Currently listed at” (Portfolio v2). */
+  listedPriceUsd?: number | null;
+  /** Opens cancel-listing confirm (Portfolio Edit price drawer). */
+  onRequestCancelListing?: () => void;
   /** `sheet` — bottom `TkActionSheet` (RWA detail); default centered modal. */
   shell?: ListRwaModalShell;
+  /** Portfolio Set price / Edit price copy (design system-2). */
+  copyVariant?: "default" | "set-price";
 }

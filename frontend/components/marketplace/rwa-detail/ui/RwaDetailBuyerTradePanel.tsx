@@ -61,7 +61,7 @@ export function RwaDetailBuyerTradePanel({
     ? connectPending
       ? "Connecting…"
       : "Connect wallet"
-    : "Place bid";
+    : "Place a Bid";
 
   const handlePlaceBid = () => {
     if (!isConnected) {
@@ -92,34 +92,30 @@ export function RwaDetailBuyerTradePanel({
           <div
             className={[
               !compactActions ? RWA_DETAIL_CTA_ROW_TOP_CLASS : undefined,
-              canBid && isConnected ? "flex min-w-0 gap-2" : undefined,
+              "flex min-w-0 flex-col gap-2",
             ]
               .filter(Boolean)
               .join(" ")}
           >
-            <div className={canBid && isConnected ? "min-w-0 flex-1" : undefined}>
-              <RwaDetailGradientButton
-                onClick={() => {
-                  if (!isConnected) {
-                    onConnectWallet();
-                    return;
-                  }
-                  void onFulfillAsk();
-                }}
-                disabled={connectPending || buyBusy}
+            <RwaDetailGradientButton
+              onClick={() => {
+                if (!isConnected) {
+                  onConnectWallet();
+                  return;
+                }
+                void onFulfillAsk();
+              }}
+              disabled={connectPending || buyBusy}
+            >
+              {buyNowCta}
+            </RwaDetailGradientButton>
+            {canBid ? (
+              <RwaDetailOutlineButton
+                onClick={handlePlaceBid}
+                disabled={connectPending}
               >
-                {buyNowCta}
-              </RwaDetailGradientButton>
-            </div>
-            {canBid && isConnected ? (
-              <div className="min-w-0 flex-1">
-                <RwaDetailOutlineButton
-                  onClick={handlePlaceBid}
-                  disabled={connectPending}
-                >
-                  {placeBidCta}
-                </RwaDetailOutlineButton>
-              </div>
+                {placeBidCta}
+              </RwaDetailOutlineButton>
             ) : null}
           </div>
 

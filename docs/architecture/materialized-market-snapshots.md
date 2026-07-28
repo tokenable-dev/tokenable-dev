@@ -68,7 +68,7 @@ See [backend/sql/README.md](../../backend/sql/README.md#snapshot-worker-env). Co
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | 900 | Freshness window |
 | `MARKET_SNAPSHOT_CRON_ENABLED` | on | Background `@Cron` refresh |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | 4 | Parallel worker cap |
-| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | off | When `always`, snapshot refresh may call PSA for cert mirror |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | ignored | Mint-only PSA policy — snapshot refresh never calls PSA |
 | `PORTFOLIO_SNAPSHOT_*` | see sql README | Daily 09:00 KST wallet totals (`portfolio_daily_snapshots`) |
 
 ## Future: BullMQ + Redis

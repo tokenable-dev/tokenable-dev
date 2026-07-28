@@ -18,9 +18,6 @@ import {
 } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
-import { specIdStringFromPsaCertBody, PsaPublicApiService } from '../../psa/psa-public-api.service';
-import { hasCompletePsaPopulationByGrade } from '../../psa/psa-spec-population.util';
-import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
 import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
@@ -84,7 +81,6 @@ export class CollectionService {
     private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaPublicApi: PsaPublicApiService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
     private readonly eventEmitter: EventEmitter2,
     private readonly merkleSet: CollectionMerkleSetService,
@@ -197,22 +193,6 @@ export class CollectionService {
     }
 
     const psaCert = psaCertNumberFromGradedMeta(meta);
-    if (psaCert && !compRecord.psaSpecId) {
-      try {
-        const lookup = await this.psaPublicApi.getByCertNumber(psaCert);
-        const specFromCert =
-          lookup.status === 'success' && lookup.raw
-            ? specIdStringFromPsaCertBody(lookup.raw)
-            : null;
-        if (specFromCert) {
-          compRecord.psaSpecId = specFromCert;
-        }
-      } catch (e: unknown) {
-        this.logger.debug(
-          `ensureCollectionForListing #${tokenId}: cert→specId lookup failed: ${String(e)}`,
-        );
-      }
-    }
 
     const trendingSlab = pickTrendingSlabImageRef(meta);
     if (trendingSlab) {
@@ -345,12 +325,6 @@ export class CollectionService {
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
-    if (isPsaPublicApiUpstreamEnabled(this.config)) {
-      void this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
-        allowUpstream: true,
-      });
-    }
-
     return collectionKey;
   }
 
@@ -481,7 +455,7 @@ export class CollectionService {
       c.components,
       c.psaCertNumber,
     );
-    const coverImageUrl = c.coverImageUrl ?? null;
+    const coverImageUrl = pickCollectionDisplayImageUrl(c.coverImageUrl);
     const status = (c.reviewStatus ?? 'active') as CollectionReviewStatus;
     return {
       collectionKey: c.collectionKey,
@@ -491,7 +465,7 @@ export class CollectionService {
       createdAt: c.createdAt,
       activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
       coverImageUrl,
-      displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
+      displayImageUrl: coverImageUrl,
       reviewStatus: status,
     };
   }
@@ -646,22 +620,17 @@ export class CollectionService {
     return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
   }
 
-  /** Fetch PSA spec pop breakdown when collection components are incomplete (read-path enrichment). */
+  /** No-op — mint-only PSA policy (never fetch pop on collection read). */
   async ensurePsaSpecPopulationOnReadIfMissing(
-    collectionKey: string,
+    _collectionKey: string,
   ): Promise<void> {
-    if (!isPsaPublicApiUpstreamEnabled(this.config)) return;
-    const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
-    if (!row) return;
-    if (hasCompletePsaPopulationByGrade(row.components as Record<string, unknown>)) {
-      return;
-    }
-    await this.components.ensurePsaSpecPopulationFromApi(k, { allowUpstream: true });
+    return;
   }
 
   async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
-    return this.components.persistPsaMirrorFromCertToDb(collectionKey);
+    return this.components.persistPsaMirrorFromCertToDb(collectionKey, {
+      allowUpstream: false,
+    });
   }
 
   async ensureCardhedgerCardIdFromListings(

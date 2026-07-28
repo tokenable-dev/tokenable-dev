@@ -27,7 +27,7 @@ import type { GradedCardFormState } from "@/types/gradedCard";
 import { useMintFormPsaState } from "./mintFormPsaState";
 
 export function useMintForm() {
-  const { primaryAddress, isWalletReady, isWalletActivating, hasAccountWallet } =
+  const { primaryAddress, isWalletReady, isWalletActivating, hasAccountWallet, isWalletAwaitingPrivy } =
     useAccountWalletSession();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const { runAccessGate } = useAccessGate(2, "/vault/submit/mint");
@@ -46,6 +46,8 @@ export function useMintForm() {
   const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
   /** Synchronous guard — `isProcessing` lags one React render so double-clicks can fire two mint txs. */
   const submitLockRef = useRef(false);
+  const [walletActivateError, setWalletActivateError] = useState("");
+  const [walletActivateBusy, setWalletActivateBusy] = useState(false);
 
   const psa = useMintFormPsaState(form, setForm);
 
@@ -99,6 +101,38 @@ export function useMintForm() {
     setMintImageBlobUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
+
+  useEffect(() => {
+    if (isWalletReady || !hasAccountWallet) return;
+    let cancelled = false;
+    void ensureAccountWalletReady()
+      .then(() => {
+        if (!cancelled) setWalletActivateError("");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message =
+          err instanceof Error ? err.message : "Could not activate account wallet.";
+        setWalletActivateError(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isWalletReady, hasAccountWallet, ensureAccountWalletReady, primaryAddress]);
+
+  const activateAccountWallet = useCallback(async () => {
+    setWalletActivateError("");
+    setWalletActivateBusy(true);
+    try {
+      await ensureAccountWalletReady();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Could not activate account wallet.";
+      setWalletActivateError(message);
+    } finally {
+      setWalletActivateBusy(false);
+    }
+  }, [ensureAccountWalletReady]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -225,7 +259,11 @@ export function useMintForm() {
     isProcessing,
     isWalletReady,
     isWalletActivating,
+    isWalletAwaitingPrivy,
     hasAccountWallet,
+    walletActivateError,
+    walletActivateBusy,
+    activateAccountWallet,
     address: primaryAddress,
   };
 }

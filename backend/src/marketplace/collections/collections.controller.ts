@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Header,
   Logger,
   NotFoundException,
   BadRequestException,
@@ -11,6 +12,7 @@ import {
   Post,
   Query,
   Req,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -31,6 +33,7 @@ import type { AiInsightPlatformContext } from '../market-data/cardhedger-ai-insi
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
 import { CATALOG_COVER_MAX_BYTES } from './catalog-cover-s3.service';
+import { CatalogCoverS3Service } from './catalog-cover-s3.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MintEventListenerService } from './mint-event-listener.service';
@@ -74,6 +77,7 @@ export class CollectionsController {
     private readonly mintEventListener: MintEventListenerService,
     private readonly chainConfig: ChainConfigService,
     private readonly partners: MarketplacePartnersService,
+    private readonly catalogCoverS3: CatalogCoverS3Service,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -125,6 +129,61 @@ export class CollectionsController {
         collectionKey: null,
         bootstrapped: false,
       };
+    }
+  }
+
+  /**
+   * Same-origin catalog cover bytes for WebGL / canvas (S3 public bucket has no CORS).
+   * Only URLs under `CATALOG_COVER_PUBLIC_BASE_URL` are allowed.
+   */
+  @ApiOperation({
+    summary: 'Proxy catalog cover image (same-origin for WebGL textures)',
+  })
+  @ApiQuery({
+    name: 'src',
+    required: true,
+    description: 'Absolute catalog cover public URL',
+  })
+  @Get('catalog-covers/asset')
+  @Header('Cache-Control', 'public, max-age=300, must-revalidate')
+  async proxyCatalogCoverAsset(
+    @Query('src') srcRaw?: string,
+  ): Promise<StreamableFile> {
+    const src = (srcRaw ?? '').trim();
+    if (!src) {
+      throw new BadRequestException('src is required');
+    }
+    if (!this.catalogCoverS3.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+      );
+    }
+    try {
+      const { body, contentType } =
+        await this.catalogCoverS3.fetchAllowedPublicCover(src);
+      return new StreamableFile(body, {
+        type: contentType,
+        disposition: 'inline',
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'CATALOG_COVER_URL_NOT_ALLOWED') {
+        throw new BadRequestException('Cover URL is not an allowed catalog cover');
+      }
+      if (
+        msg === 'CATALOG_COVER_FETCH_FAILED' ||
+        msg === 'CATALOG_COVER_FILE_EMPTY' ||
+        msg === 'CATALOG_COVER_FILE_TYPE_INVALID' ||
+        msg === 'CATALOG_COVER_FILE_TOO_LARGE'
+      ) {
+        throw new BadRequestException('Could not load catalog cover image');
+      }
+      if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+        throw new ServiceUnavailableException(
+          'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+        );
+      }
+      throw e;
     }
   }
 
@@ -426,7 +485,7 @@ export class CollectionsController {
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
-      // PSA mirror/spec pop: cert mirror from DB cache; spec pop fetched when breakdown missing.
+      // Mint-only PSA: no live Public API on read (mirror/pop must already be on components).
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
       await this.collectionService.ensurePsaSpecPopulationOnReadIfMissing(k);
       await this.collectionService.ensurePsaCertNumberFromListings(k);

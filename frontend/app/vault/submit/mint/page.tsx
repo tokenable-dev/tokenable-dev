@@ -1,6 +1,13 @@
-import { redirect } from "next/navigation";
+"use client";
 
-/** Legacy alias — real mint lives at `/vault/submit`. */
+import { VaultShell } from "@/components/vault/VaultShell";
+import { MintForm } from "@/components/vault/mint-form";
+
+/** Personal / internal mint — PSA verify → IPFS → backend mint. */
 export default function VaultSubmitMintPage() {
-  redirect("/vault/submit");
+  return (
+    <VaultShell>
+      <MintForm />
+    </VaultShell>
+  );
 }

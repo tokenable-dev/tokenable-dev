@@ -89,7 +89,7 @@ export function CollectionListingBidCheckout({
         ? bid.lastOutcome === "instant"
           ? "Purchase complete"
           : "Bid placed"
-        : "Place a bid",
+        : "Place a Bid",
     );
   }, [showSuccess, bid.lastOutcome, onHeaderTitleChange]);
 
@@ -118,10 +118,10 @@ export function CollectionListingBidCheckout({
         </div>
         <p className="cd-listing-checkout__done-msg">
           {instant
-            ? "You now own this asset. The token was transferred to your wallet; the slab stays vault-insured."
+            ? "Owned instantly. Your card stays safe in the vault — withdraw it anytime."
             : placedBidLabel
-              ? `Your bid of $${placedBidLabel} is live. We'll notify you and settle on-chain the moment the seller accepts.`
-              : "Your bid is live. We'll notify you and settle on-chain the moment the seller accepts."}
+              ? `Your bid of $${placedBidLabel} is live. We'll notify you when a seller meets your price — no funds held until it matches.`
+              : "Your bid is live. We'll notify you when a seller meets your price — no funds held until it matches."}
         </p>
         <div className="cd-listing-checkout__done-actions">
           <button type="button" className="cd-listing-checkout__done-secondary" onClick={onDone}>

@@ -79,3 +79,82 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_vault_redemptions_one_open_per_cycle
 
 COMMENT ON TABLE vault_redemptions IS
   'Redemption state machine: ownership verification → on-chain burn → physical vault release.';
+
+-- ---------------------------------------------------------------------------
+-- Sell-flow submissions (pre-mint package tracking: draft → ship → PSA → live)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS vault_submissions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id varchar(32) NOT NULL,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status varchar(32) NOT NULL DEFAULT 'draft',
+  carrier varchar(32),
+  tracking_number varchar(128),
+  ship_date date,
+  shipped_at timestamptz,
+  packing_slip_downloaded_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT vault_submissions_public_id_unique UNIQUE (public_id),
+  CONSTRAINT vault_submissions_status_check CHECK (
+    status IN (
+      'draft',
+      'awaiting_shipment',
+      'in_transit',
+      'psa_reviewing',
+      'completed',
+      'cancelled'
+    )
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_submissions_user_id ON vault_submissions (user_id);
+CREATE INDEX IF NOT EXISTS idx_vault_submissions_user_status ON vault_submissions (user_id, status);
+
+COMMENT ON TABLE vault_submissions IS
+  'User sell-flow package: multi-card submission from draft through PSA transit (pre vault_cycles mint).';
+COMMENT ON COLUMN vault_submissions.public_id IS
+  'Human-facing id e.g. SUB-20260728-12345 — shown in UI breadcrumbs.';
+
+CREATE TABLE IF NOT EXISTS vault_submission_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id uuid NOT NULL REFERENCES vault_submissions(id) ON DELETE CASCADE,
+  cert_number varchar(32) NOT NULL,
+  display_name varchar(512),
+  grade varchar(32),
+  image_url text,
+  status varchar(24) NOT NULL DEFAULT 'draft',
+  rejection_reason text,
+  vault_cycle_id uuid REFERENCES vault_cycles(id) ON DELETE SET NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT vault_submission_items_submission_cert_unique UNIQUE (submission_id, cert_number),
+  CONSTRAINT vault_submission_items_status_check CHECK (
+    status IN (
+      'draft',
+      'confirmed',
+      'in_transit',
+      'reviewing',
+      'approved',
+      'rejected',
+      'minting',
+      'completed',
+      'failed'
+    )
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_submission_items_submission_id
+  ON vault_submission_items (submission_id);
+CREATE INDEX IF NOT EXISTS idx_vault_submission_items_cert
+  ON vault_submission_items (cert_number);
+CREATE INDEX IF NOT EXISTS idx_vault_submission_items_cycle
+  ON vault_submission_items (vault_cycle_id)
+  WHERE vault_cycle_id IS NOT NULL;
+
+COMMENT ON TABLE vault_submission_items IS
+  'Per-card rows inside a vault_submission. Links to vault_cycles after mint reserve.';
+COMMENT ON COLUMN vault_submission_items.vault_cycle_id IS
+  'Set when reserveCycleForDeposit succeeds for this cert — bridges sell-flow → vault lifecycle.';

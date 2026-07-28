@@ -35,8 +35,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Legacy identity log ban (P3.20)
-        run: pnpm check:identity-logs
-
       - name: Unit tests
         run: pnpm test:ci

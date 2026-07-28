@@ -2,23 +2,16 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpException,
   InternalServerErrorException,
   Logger,
   Param,
   Post,
-  ServiceUnavailableException,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
-import { throwPsaPublicApiDisabledException } from './psa-disabled-response.util';
-import {
-  isPsaRateLimitHttpStatus,
-  throwPsaRateLimitHttpException,
-} from './psa-rate-limit.exception';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -74,15 +67,20 @@ export class PsaController {
   constructor(
     private readonly psaService: PsaService,
     private readonly psaPublicApi: PsaPublicApiService,
-    private readonly config: ConfigService,
   ) {}
 
-  private assertPsaPublicApiUpstreamEnabled(): void {
-    if (!isPsaPublicApiUpstreamEnabled(this.config)) {
-      throw new ServiceUnavailableException(
-        'PSA Public API upstream is disabled. Set PSA_PUBLIC_API_UPSTREAM_ENABLED=true in backend/.env to enable Swagger/debug proxies. Vault mint uses Cardhedger + DB cache.',
-      );
-    }
+  /**
+   * Raw `/psa/public/*` and `/psa/order/*` proxies are permanently closed.
+   * Live PSA quota (~500/day) is reserved for mint only:
+   * `POST /psa/analyze`, `POST /psa/analyze-by-cert`, partner bulk-mint.
+   */
+  private assertPsaPublicProxyAllowed(): never {
+    throw new ForbiddenException({
+      statusCode: 403,
+      code: 'PSA_MINT_ONLY',
+      message:
+        'PSA Public API proxies are disabled. Live PSA is mint-only (POST /psa/analyze, POST /psa/analyze-by-cert, partner bulk-mint) to protect the daily call quota.',
+    });
   }
 
   /** 슬랩 사진 OCR → Cert 후보 → PSA 공식 API 검증 */
@@ -500,137 +498,36 @@ export class PsaController {
     psaPath: string,
     label: string,
   ): Promise<PsaCertPublicApiLookupResponseDto> {
-    this.assertPsaPublicApiUpstreamEnabled();
-    try {
-      const result = await run();
-      if (result.status === 'disabled') {
-        throwPsaPublicApiDisabledException(result.reason);
-      }
-      if (result.status === 'skipped') {
-        throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
-      }
-      if (result.status === 'error' && result.reason === 'cert_mismatch') {
-        throw new BadRequestException(result.message);
-      }
-      if (
-        result.status === 'error' &&
-        isPsaRateLimitHttpStatus(result.httpStatus)
-      ) {
-        throwPsaRateLimitHttpException(result.message);
-      }
-      return { ...result, psaPath };
-    } catch (err: unknown) {
-      if (err instanceof HttpException) throw err;
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`PSA ${label} failed: ${msg}`);
-      throw new InternalServerErrorException(
-        `PSA ${label} 조회 중 서버 오류가 발생했습니다.`,
-      );
-    }
+    this.assertPsaPublicProxyAllowed();
+    void run;
+    void psaPath;
+    void label;
   }
 
   private async handleCertImagesLookup(
     run: () => Promise<PsaGetImagesLookupResult>,
     psaPath: string,
   ): Promise<PsaCertImagesLookupResponseDto> {
-    this.assertPsaPublicApiUpstreamEnabled();
-    try {
-      const result = await run();
-      if (result.status === 'disabled') {
-        throwPsaPublicApiDisabledException(result.reason);
-      }
-      if (result.status === 'skipped') {
-        throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
-      }
-      if (
-        result.status === 'error' &&
-        isPsaRateLimitHttpStatus(result.httpStatus)
-      ) {
-        throwPsaRateLimitHttpException(result.message);
-      }
-      return { ...result, psaPath };
-    } catch (err: unknown) {
-      if (err instanceof HttpException) throw err;
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`PSA GetImagesByCertNumber failed: ${msg}`);
-      throw new InternalServerErrorException(
-        'PSA 슬랩 이미지 조회 중 서버 오류가 발생했습니다.',
-      );
-    }
+    this.assertPsaPublicProxyAllowed();
+    void run;
+    void psaPath;
   }
 
   private async handleSpecPopulationLookup(
     run: () => Promise<PsaSpecPopulationLookupResult>,
     psaPath: string,
   ): Promise<PsaSpecPopulationLookupResponseDto> {
-    this.assertPsaPublicApiUpstreamEnabled();
-    try {
-      const result = await run();
-      if (result.status === 'disabled') {
-        throwPsaPublicApiDisabledException(result.reason);
-      }
-      if (result.status === 'skipped') {
-        throw new BadRequestException('유효한 specId가 필요합니다.');
-      }
-      if (
-        result.status === 'error' &&
-        isPsaRateLimitHttpStatus(result.httpStatus)
-      ) {
-        throwPsaRateLimitHttpException(result.message);
-      }
-      if (result.status === 'success') {
-        return {
-          status: 'success',
-          specId: result.specId,
-          pop: result.pop,
-          raw: result.raw,
-          psaPath,
-        };
-      }
-      return {
-        status: result.status,
-        specId: result.specId,
-        message: result.message,
-        httpStatus: result.httpStatus,
-        psaPath,
-      };
-    } catch (err: unknown) {
-      if (err instanceof HttpException) throw err;
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`PSA GetPSASpecPopulation failed: ${msg}`);
-      throw new InternalServerErrorException(
-        'PSA Spec Population 조회 중 서버 오류가 발생했습니다.',
-      );
-    }
+    this.assertPsaPublicProxyAllowed();
+    void run;
+    void psaPath;
   }
 
   private async handleOrderProgressLookup<T extends PsaOrderProgressLookupResult>(
     run: () => Promise<T>,
     label: string,
   ): Promise<T> {
-    this.assertPsaPublicApiUpstreamEnabled();
-    try {
-      const result = await run();
-      if (result.status === 'disabled') {
-        throwPsaPublicApiDisabledException(result.reason);
-      }
-      if (result.status === 'skipped') {
-        throw new BadRequestException('orderNumber 또는 submissionNumber 가 필요합니다.');
-      }
-      if (
-        result.status === 'error' &&
-        isPsaRateLimitHttpStatus(result.httpStatus)
-      ) {
-        throwPsaRateLimitHttpException(result.message);
-      }
-      return result;
-    } catch (err: unknown) {
-      if (err instanceof HttpException) throw err;
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`PSA ${label} failed: ${msg}`);
-      throw new InternalServerErrorException(
-        `PSA ${label} 조회 중 서버 오류가 발생했습니다.`,
-      );
-    }
+    this.assertPsaPublicProxyAllowed();
+    void run;
+    void label;
   }
 }

@@ -142,7 +142,7 @@ export const PAGE_STATE_CATALOG: Record<AppPageStateKind, AppPageStateDefinition
   vault_coming_soon: {
     icon: "hourglass",
     title: "Coming soon",
-    message: "Vault is not available yet. We're preparing this feature for launch.",
+    message: "This Sell feature is not available yet. We're preparing it for launch.",
     primaryAction: { label: "Browse Markets", href: "/markets", variant: "primary" },
     secondaryAction: { label: "Portfolio", href: "/portfolio", variant: "neutral" },
   },

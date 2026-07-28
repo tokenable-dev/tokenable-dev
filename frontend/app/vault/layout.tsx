@@ -1,11 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { AppPageState } from "@/components/ui/AppPageState";
-import { VAULT_PUBLIC_ENABLED } from "@/lib/vault/vaultAccess";
+import { isVaultPathAccessible } from "@/lib/vault/vaultAccess";
 
 export default function VaultLayout({ children }: { children: ReactNode }) {
-  if (!VAULT_PUBLIC_ENABLED) {
+  const pathname = usePathname();
+
+  if (!isVaultPathAccessible(pathname)) {
     return (
       <div className="vault-page vault-page--hub">
         <div className="vault-page__shell vault-page__shell--wide">

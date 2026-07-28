@@ -9,43 +9,76 @@ export function ListRwaModalSuccessView({
   price,
   isReplaceListing,
   successMeta,
+  copyVariant = "default",
   onClose,
 }: {
   tokenId: number;
   price: string;
   isReplaceListing: boolean;
   successMeta: ListSuccessMeta | null;
+  copyVariant?: "default" | "set-price";
   onClose: () => void;
 }) {
+  const isSetPrice = copyVariant === "set-price";
+  const priceNum = parseFloat(price);
+  const fee = feePercent();
+  const net =
+    Number.isFinite(priceNum) && fee > 0
+      ? (priceNum * (1 - fee / 100)).toFixed(2)
+      : null;
+
+  const eyebrow = successMeta?.matched
+    ? "Sold"
+    : isSetPrice
+      ? isReplaceListing
+        ? "Updated"
+        : "Listed"
+      : isReplaceListing
+        ? "Updated"
+        : "Listed";
+
+  const title = successMeta?.matched
+    ? "Matched a collection bid"
+    : isSetPrice
+      ? isReplaceListing
+        ? "Price updated"
+        : "Price set"
+      : isReplaceListing
+        ? "Listing updated"
+        : "Listed successfully";
+
+  const sub = successMeta?.matched
+    ? `Asset #${tokenId} sold via matchAdvancedOrders (check your wallet for USDC).`
+    : isSetPrice
+      ? isReplaceListing
+        ? `Listed at $${Number.isFinite(priceNum) ? priceNum.toLocaleString("en-US") : price}. We'll let you know when a bid meets it.`
+        : `Listed at $${Number.isFinite(priceNum) ? priceNum.toLocaleString("en-US") : price}. We'll let you know when a bid meets it.`
+      : isReplaceListing
+        ? `Asset #${tokenId} ask is now ${price} USDC.`
+        : `Asset #${tokenId} is now listed for ${price} USDC`;
+
   return (
     <div className="flex flex-col px-0 pb-1 pt-1 text-center sm:pt-2">
-      <p className="rd-list-sheet__eyebrow">
-        {successMeta?.matched ? "Sold" : isReplaceListing ? "Updated" : "Listed"}
-      </p>
+      <p className="rd-list-sheet__eyebrow">{eyebrow}</p>
       <div className="mb-2 mt-2 text-3xl leading-none">
-        {successMeta?.matched ? "✓" : "🎉"}
+        {successMeta?.matched ? "✓" : isSetPrice ? "✓" : "🎉"}
       </div>
       <h3 id="list-rwa-success-title" className="text-base font-semibold tracking-tight text-white mb-1">
-        {successMeta?.matched
-          ? "Matched a collection bid"
-          : isReplaceListing
-            ? "Listing updated"
-            : "Listed successfully"}
+        {title}
       </h3>
-      <p className="text-[13px] leading-relaxed text-zinc-400">
-        {successMeta?.matched
-          ? `Asset #${tokenId} sold via matchAdvancedOrders (check your wallet for USDC).`
-          : isReplaceListing
-            ? `Asset #${tokenId} ask is now ${price} USDC.`
-            : `Asset #${tokenId} is now listed for ${price} USDC`}
-      </p>
-      {!successMeta?.matched && feePercent() > 0 && (
+      <p className="text-[13px] leading-relaxed text-zinc-400">{sub}</p>
+      {!successMeta?.matched && !isSetPrice && fee > 0 && (
         <p className="text-xs text-zinc-500 mt-2">
-          {feePercent()}% platform fee included · You&apos;ll receive{" "}
-          {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC on sale
+          {fee}% platform fee included · You&apos;ll receive{" "}
+          {net} USDC on sale
         </p>
       )}
-      {!successMeta?.matched && (
+      {!successMeta?.matched && isSetPrice && net != null ? (
+        <p className="text-xs text-zinc-500 mt-2">
+          You receive ~${Number(net).toLocaleString("en-US")} after {fee}% platform fee
+        </p>
+      ) : null}
+      {!successMeta?.matched && !isSetPrice && (
         <p className="text-[11px] text-zinc-600 mt-2">Listing valid for 30 days</p>
       )}
       {!successMeta?.matched && successMeta?.collectionUnderReview ? (
@@ -87,8 +120,8 @@ export function ListRwaModalSuccessView({
           <p>{successMeta.hint}</p>
         </div>
       ) : null}
-      <TkButton variant="neutral" onClick={onClose} className="mt-6 w-full justify-center">
-        Close
+      <TkButton variant="primary" onClick={onClose} className="mt-6 w-full justify-center">
+        Done
       </TkButton>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CollectionMarketSeries, RwaMetadata } from "@/lib/core";
+import type { RwaMetadata } from "@/lib/core";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
@@ -34,32 +34,28 @@ export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
   metadataByTokenId,
+  tokenToCollectionKey,
+  highestBidByCollectionKey,
   costBasisByTokenId,
   valuesPending,
   canEditCostBasis,
   onSaveCostBasis,
   savingCostBasisTokenId,
-  cancellingListingTokenId,
   onOpenToken,
-  onChangeListing,
-  onCancelListing,
-  onSellNow,
+  onSetPrice,
 }: {
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
   tokenToCollectionKey: Record<number, string>;
-  seriesByCollectionKey: Map<string, CollectionMarketSeries>;
+  highestBidByCollectionKey: Map<string, number | null>;
   costBasisByTokenId: Map<number, number>;
   valuesPending: boolean;
   canEditCostBasis?: boolean;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   savingCostBasisTokenId?: number | null;
-  cancellingListingTokenId: number | null;
   onOpenToken: (tokenId: number) => void;
-  onChangeListing: (tokenId: number) => void;
-  onCancelListing: (tokenId: number, orderHash: string) => void;
-  onSellNow: (tokenId: number) => void;
+  onSetPrice: (tokenId: number) => void;
 }) {
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<HoldingsSortKey>("name");
@@ -129,6 +125,8 @@ export function PortfolioHoldingsSection({
           const cost = costBasisByTokenId.get(row.tokenId);
           const isListed =
             row.listPriceUsd != null && row.activeListingOrderHash != null;
+          const ck = tokenToCollectionKey[row.tokenId];
+          const highestBidUsd = ck ? highestBidByCollectionKey.get(ck) : null;
 
           return (
             <PortfolioMobileAssetCard
@@ -140,26 +138,17 @@ export function PortfolioHoldingsSection({
               canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
               savingCostBasis={savingCostBasisTokenId === row.tokenId}
               isListed={isListed}
-              cancelling={cancellingListingTokenId === row.tokenId}
+              highestBidUsd={highestBidUsd}
               onOpen={() => onOpenToken(row.tokenId)}
               onSaveCostBasis={
                 onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
               }
-              onList={() => {
-                trackEvent("list_clicked", {
+              onSetPrice={() => {
+                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
                   card_id: String(row.tokenId),
                   current_price: row.currentPrice ?? undefined,
                 });
-                onChangeListing(row.tokenId);
-              }}
-              onCancel={() =>
-                onCancelListing(row.tokenId, row.activeListingOrderHash!)
-              }
-              onSellNow={() => {
-                trackEvent("sell_now_clicked", {
-                  card_id: String(row.tokenId),
-                });
-                onSellNow(row.tokenId);
+                onSetPrice(row.tokenId);
               }}
             />
           );
@@ -235,6 +224,8 @@ export function PortfolioHoldingsSection({
             const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
+            const ck = tokenToCollectionKey[row.tokenId];
+            const highestBidUsd = ck ? highestBidByCollectionKey.get(ck) : null;
             const plClass = pnl
               ? pnl.positive
                 ? "pf-table-pl--pos"
@@ -318,22 +309,13 @@ export function PortfolioHoldingsSection({
                   <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                     <PortfolioHoldingsRowActions
                       isListed={isListed}
-                      cancelling={cancellingListingTokenId === row.tokenId}
-                      onList={() => {
-                        trackEvent("list_clicked", {
+                      highestBidUsd={highestBidUsd}
+                      onSetPrice={() => {
+                        trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
                           card_id: String(row.tokenId),
                           current_price: row.currentPrice ?? undefined,
                         });
-                        onChangeListing(row.tokenId);
-                      }}
-                      onCancel={() =>
-                        onCancelListing(row.tokenId, row.activeListingOrderHash!)
-                      }
-                      onSellNow={() => {
-                        trackEvent("sell_now_clicked", {
-                          card_id: String(row.tokenId),
-                        });
-                        onSellNow(row.tokenId);
+                        onSetPrice(row.tokenId);
                       }}
                     />
                   </div>

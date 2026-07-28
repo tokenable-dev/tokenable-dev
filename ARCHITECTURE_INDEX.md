@@ -45,7 +45,7 @@ Key facts:
 | **Admin API** | `docs/api/marketplace-admin.md` |
 | **Frontend (vault form)** | `frontend/app/vault/`, `frontend/components/vault/`, `frontend/hooks/vault/useMintForm.ts` |
 | **Frontend (admin)** | `frontend/app/marketplace/admin/custody-nfts/`, `frontend/components/marketplace/admin/MarketplaceAdminCustodyNftsPage.tsx` |
-| **Database tables** | `vault_assets`, `vault_cycles`, `vault_redemptions`, `rwa_tokens` |
+| **Database tables** | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_submissions`, `vault_submission_items`, `rwa_tokens` |
 | **Contract** | `contracts/contracts/TokenableRWA.sol` |
 | **Required reading before changes** | `docs/architecture/vault-lifecycle.md`, `docs/architecture/blockchain.md`, `docs/business-rules.md` |
 
@@ -238,12 +238,11 @@ Key facts:
 
 ---
 
-### Frontend design system (UI migration)
+### Frontend design system
 
 | | |
 |---|---|
-| **Ongoing reference (read first)** | `docs/guides/design-system-reference.md` |
-| **Migration plan (phases 0–10)** | `docs/guides/design-system-migration.md` |
+| **Reference (read first)** | `docs/guides/design-system-reference.md` |
 | **Committed DS CSS** | `frontend/design-system/` (`styles.css`, `tokens/`, `components/components.css`) |
 | **Screen inventory** | `frontend/design-system/INVENTORY.md` |
 | **HTML prototypes (reference)** | `Tokenable-with design system/` (repo root — not imported by Next.js) |
@@ -252,8 +251,8 @@ Key facts:
 | **Required reading before UI/visual changes** | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
 
 Key facts:
-- Phased rollout: Phase 0 setup → Phase 1 primitives → Phase 2 shell → pages 3–10 (all **Done**).
-- **Prototype sync:** `Tokenable-with design system/` is reference only; production styles live in `frontend/design-system/` — see `docs/guides/design-system-governance-phases.md`.
+- Migration phases 0–10 are **Done**. Extend the reference + INVENTORY for new UI work.
+- **Prototype sync:** `Tokenable-with design system/` is reference only; production styles live in `frontend/design-system/`.
 - Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
 - Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
 - Admin console uses `adminUi.ts` (light Tailwind) intentionally — not pixel `tk-btn`.

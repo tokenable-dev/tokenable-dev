@@ -11,9 +11,10 @@ import {
   formatListingUsdc,
   listingAssetTitle,
   listingGalleryImages,
+  listingSellerVerifiedLabel,
   listingVerificationTiles,
-  shortenWallet,
 } from "@/lib/marketplace/collectionListingModalHelpers";
+import { CollectionListingBuyerEducation } from "./CollectionListingBuyerEducation";
 
 const LISTING_IMAGE_ZOOM = 2.5;
 
@@ -43,7 +44,6 @@ export function CollectionListingDetailModal({
   prefetchedImageUrl,
   onClose,
   onBuy,
-  onBid,
 }: {
   open: boolean;
   tokenId: number | null;
@@ -52,7 +52,8 @@ export function CollectionListingDetailModal({
   prefetchedImageUrl?: string | null;
   onClose: () => void;
   onBuy: () => void;
-  onBid: () => void;
+  /** @deprecated Per-row Bid removed — use set-level Place a Bid. */
+  onBid?: () => void;
 }) {
   const tid = tokenId ?? 0;
   const { metadata, imageUrl } = useCollectionRwaCardData({
@@ -141,9 +142,7 @@ export function CollectionListingDetailModal({
   const tiles = listingVerificationTiles(metadata);
   const price =
     listing != null ? formatListingUsdc(listing.considerationAmount) : "—";
-  const sellerAddr = listing?.offerer || listing?.parameters?.offerer;
-  const seller =
-    listing?.sellerDisplayName?.trim() || shortenWallet(sellerAddr);
+  const sellerLine = listingSellerVerifiedLabel(listing);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
@@ -260,7 +259,7 @@ export function CollectionListingDetailModal({
           ) : null}
 
           <div className="cd-listing-prov__section-label">Verification</div>
-          <div className="cd-listing-prov__verify-grid">
+          <div className="cd-listing-prov__verify-grid cd-listing-prov__verify-grid--3">
             <div className="cd-listing-prov__verify-cell">
               <div className="cd-listing-prov__verify-k">Graded by</div>
               <div className="cd-listing-prov__verify-v">{tiles.gradedBy}</div>
@@ -270,14 +269,8 @@ export function CollectionListingDetailModal({
               <div className="cd-listing-prov__verify-v tkl-mono">{tiles.certNumber}</div>
             </div>
             <div className="cd-listing-prov__verify-cell">
-              <div className="cd-listing-prov__verify-k">Vault</div>
-              <div className="cd-listing-prov__verify-v">{tiles.vault}</div>
-            </div>
-            <div className="cd-listing-prov__verify-cell">
-              <div className="cd-listing-prov__verify-k">Token</div>
-              <div className="cd-listing-prov__verify-v cd-listing-prov__verify-v--link tkl-mono">
-                #{tokenId}
-              </div>
+              <div className="cd-listing-prov__verify-k">Stored at</div>
+              <div className="cd-listing-prov__verify-v">{tiles.storedAt}</div>
             </div>
           </div>
 
@@ -290,7 +283,9 @@ export function CollectionListingDetailModal({
               <div className="cd-listing-prov__timeline-dot cd-listing-prov__timeline-dot--active" />
               <div>
                 <div className="cd-listing-prov__timeline-title">Current listing</div>
-                <div className="cd-listing-prov__timeline-addr tkl-mono">{seller}</div>
+                <div className="cd-listing-prov__timeline-addr tkl-mono" title={sellerLine.title}>
+                  Verified collector
+                </div>
                 <div className="cd-listing-prov__timeline-meta tkl-mono">
                   Listed at ${price}
                 </div>
@@ -298,29 +293,24 @@ export function CollectionListingDetailModal({
             </div>
           </div>
 
+          <CollectionListingBuyerEducation />
+
           <div className="cd-listing-prov__foot">
             <div className="cd-listing-prov__foot-top">
               <span className="cd-listing-prov__price">${price}</span>
-              <span className="cd-listing-prov__seller tkl-mono">Seller: {seller}</span>
+              <span className="cd-listing-prov__seller tkl-mono" title={sellerLine.title}>
+                {sellerLine.label}
+              </span>
             </div>
             <div className="cd-listing-prov__actions">
               <TkButton
                 type="button"
                 variant="primary"
                 size="sm"
-                className="cd-listing-prov__btn"
+                className="cd-listing-prov__btn cd-listing-prov__btn--buy"
                 onClick={onBuy}
               >
                 Buy
-              </TkButton>
-              <TkButton
-                type="button"
-                variant="subtle"
-                size="sm"
-                className="cd-listing-prov__btn"
-                onClick={onBid}
-              >
-                Bid
               </TkButton>
             </div>
           </div>

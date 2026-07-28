@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { PsaAnalyzeResult } from '../../psa/psa.service';
 import { PsaService } from '../../psa/psa.service';
 import { buildSearchQueryFromParsed } from '../../psa/utils/psa-ocr.util';
@@ -255,68 +255,12 @@ export class CertMarketTraceService {
     } as MarketplaceCollection;
   }
 
-  async trace(dto: CertMarketTraceDto): Promise<CertMarketTraceResult> {
-    const t0 = Date.now();
-    const maxDays = Math.min(
-      365,
-      Math.max(1, Math.floor(dto.historyMaxCalendarDays ?? 90)),
-    );
-    const period = historyPeriodFromMaxDays(maxDays);
-
-    const psaAnalyze = await this.psaService.analyzeByCertNumber(
-      dto.certNumber,
-    );
-    const synthetic = this.buildSyntheticCollection(psaAnalyze);
-    const tier = marketHistoryTierFromComponents(synthetic.components);
-
-    const [bundled, inferredBucket] = await Promise.all([
-      this.cardMarket.getBundledCardData(synthetic, {
-        tier,
-        period,
-        maxCalendarDays: maxDays,
-        includeComps: true,
-      }),
-      Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
-    ]);
-
-    const cardhedger = {
-      preview: bundled.preview,
-      history: bundled.history,
-      comps: bundled.comps,
-      mergedChartPoints: bundled.history.points ?? [],
-    };
-
-    const certNorm = String(psaAnalyze.psa.certNumber ?? '').trim();
-    const synComp = synthetic.components as Record<string, unknown>;
-
-    return {
-      meta: {
-        certNumberNormalized: certNorm,
-        elapsedMs: Date.now() - t0,
-        historyTier: tier,
-        historyPeriod: period,
-        historyMaxCalendarDays: maxDays,
-        historyTierPolicy: 'marketHistoryTierFromComponents',
-        psaEnrichedFromOfficialApi: Boolean(
-          psaAnalyze.psa.enrichedFromOfficialApi,
-        ),
-        cardhedgerEnabled: this.cardMarket.isConfigured(),
-        syntheticHasPsaVariety:
-          typeof synComp.psaVariety === 'string' &&
-          Boolean(String(synComp.psaVariety).trim()),
-      },
-      psaAnalyze,
-      syntheticCollection: {
-        collectionKey: synthetic.collectionKey,
-        displayLabel: synthetic.displayLabel,
-        queryUsed: synthetic.queryUsed,
-        components: synthetic.components,
-        coverImageUrl: synthetic.coverImageUrl,
-        createdAt: synthetic.createdAt.toISOString(),
-      },
-      collectionQuery: this.cardMarket.buildCollectionQuery(synthetic),
-      inferredBucket,
-      cardhedger,
-    };
+  async trace(_dto: CertMarketTraceDto): Promise<CertMarketTraceResult> {
+    throw new ForbiddenException({
+      statusCode: 403,
+      code: 'PSA_MINT_ONLY',
+      message:
+        'cert-market-trace no longer calls PSA Public API. Live PSA is mint-only (POST /psa/analyze, POST /psa/analyze-by-cert, partner bulk-mint) to protect the daily call quota.',
+    });
   }
 }

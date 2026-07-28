@@ -77,7 +77,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     chartMetricsRow,
   });
 
-  const marketsCluster = layout.showInlineMarketCluster ? (
+  const marketsCluster =
     layout.marketsTriple && orderBookNextToChart != null ? (
       <CollectionOverviewMarketsCluster
         orderBookToggleEnabled={layout.orderBookToggleEnabled}
@@ -104,8 +104,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         priceChart={priceChart}
         tradePanel={tradePanel}
       />
-    )
-  ) : null;
+    );
 
   return (
     <section
@@ -154,15 +153,13 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
           />
         </div>
 
-        {marketsCluster != null ? (
-          <div
-            className={`flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start ${
-              layout.useMobileTabbedMarket ? "lg:col-span-full" : "lg:col-start-2"
-            }`}
-          >
-            {marketsCluster}
-          </div>
-        ) : null}
+        <div
+          className={`flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start ${
+            layout.useMobileTabbedMarket ? "lg:col-span-full" : "lg:col-start-2"
+          }`}
+        >
+          {marketsCluster}
+        </div>
 
         {layout.hasBookColumn ? (
           <CollectionOverviewBookColumn orderBook={orderBook} tradeTicket={tradeTicket} />

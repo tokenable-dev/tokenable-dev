@@ -176,4 +176,116 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
     expect(recordResolvePath).toHaveBeenCalledWith('card_match');
     expect(recordResolvePath).not.toHaveBeenCalledWith('card_match_first');
   });
+
+  it('resolves Prizm Rookie Signatures via GemRate cert description search', async () => {
+    const lonnieCol = {
+      collectionKey: '528db854b74ebccbb75aa91d2b06b337522564b03a000e7618f55875a3696a99',
+      displayLabel: 'LONNIE WALKER IV',
+      queryUsed: null,
+      components: {
+        cardName: 'LONNIE WALKER IV',
+        cardSet: 'PANINI PRIZM ROOKIE SIGNATURES',
+        cardNumber: 'RSLW4',
+        psaSubject: 'LONNIE WALKER IV',
+        psaBrand: 'PANINI PRIZM ROOKIE SIGNATURES',
+        psaVariety: 'ROOKIE SIGNATURES',
+        psaYear: '2018',
+        marketParallelKey: 'rookie_signatures',
+        cardhedgerSearchQuery:
+          '2018 Panini Prizm Rookie Signatures Lonnie Walker IV RSLW4',
+      },
+      coverImageUrl: null,
+      psaCertNumber: '44457519',
+      marketParallelKey: 'rookie_signatures',
+      bucketKeyVersion: 2,
+      reviewStatus: 'active',
+      createdAt: new Date(),
+    } satisfies MarketplaceCollection;
+
+    const lonnieSearchBody = {
+      cards: [
+        {
+          card_id: 'lonnie-sensational-id',
+          description:
+            'Lonnie Walker IV 2018 Panini Prizm Sensational Signatures Basketball',
+          name: 'Lonnie Walker IV',
+          set: '2018 Panini Prizm Basketball',
+          number: '78',
+          variant: 'Base',
+        },
+        {
+          card_id: 'lonnie-rookie-sig-sparkle-id',
+          description:
+            'Lonnie Walker IV 2018 Panini Prizm Rookie Signatures Basketball White Sparkle',
+          name: 'Lonnie Walker IV',
+          set: '2018 Panini Prizm Basketball',
+          number: '18',
+          variant: 'White Sparkle',
+        },
+        {
+          card_id: 'lonnie-rookie-sig-id',
+          description:
+            'Lonnie Walker IV 2018 Panini Prizm Rookie Signatures Basketball',
+          name: 'Lonnie Walker IV',
+          set: '2018 Panini Prizm Basketball',
+          number: '18',
+          variant: 'Base',
+        },
+      ],
+    };
+
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') return lonnieSearchBody;
+      return {};
+    });
+
+    const certLookup = {
+      getCardRowByCert: jest.fn(async () => ({
+        row: null,
+        certDescription:
+          '2018 Panini Prizm Rookie Signatures Lonnie Walker IV RSLW4',
+      })),
+    } as unknown as CardhedgerCertLookupService;
+
+    const cardhedger = {
+      assertConfigured: () => undefined,
+      forwardJson,
+    } as unknown as CardhedgerService;
+    const config = {
+      get: (key: string) => {
+        if (key === 'marketplace.cardhedgerFeatureFlags') {
+          return {
+            fmvBatchEnabled: false,
+            batchPricesByCertEnabled: false,
+            batchPriceEstimateEnabled: false,
+            pricesByCertOcrEnabled: false,
+            cardMatchFirst: false,
+            mintPreviewSkipComps: false,
+            certPricePilotCompare: false,
+          };
+        }
+        if (key === 'marketplace.cardhedgerResolveMatchFirstPilotLog') {
+          return false;
+        }
+        if (key === 'CARDHEDGER_MAX_SEARCH_CANDIDATES') return '4';
+        return undefined;
+      },
+    } as unknown as ConfigService;
+
+    const svc = new CardhedgerResolveService(
+      cardhedger,
+      config,
+      certLookup,
+      ttlCache,
+      {
+        recordResolvePath: jest.fn(),
+        recordResolvePath2Pilot: jest.fn(),
+      } as unknown as CardhedgerMetricsService,
+    );
+
+    const result = await svc.resolveCardForCollection(lonnieCol);
+
+    expect(result.row?.card_id).toBe('lonnie-rookie-sig-id');
+    expect(result.confidence).toBe('verified');
+  });
 });

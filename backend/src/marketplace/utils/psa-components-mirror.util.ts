@@ -65,13 +65,12 @@ export function componentsPsaMirrorSufficientForCardhedger(
 }
 
 /**
- * Whether Cardhedger snapshot refresh may call PSA Public API for cert mirror fields.
- * Controlled by `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` (e.g. `always`).
+ * Snapshot refresh must never call PSA Public API (mint-only policy).
+ * `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` is ignored.
  */
 export function psaPublicApiAllowedForSnapshotReason(
   _reason: SnapshotRefreshReason,
-  configValue: string | undefined,
+  _configValue: string | undefined,
 ): boolean {
-  const v = (configValue ?? '').trim().toLowerCase();
-  return v === 'always' || v === 'true' || v === '1';
+  return false;
 }

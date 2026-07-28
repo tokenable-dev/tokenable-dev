@@ -6,6 +6,7 @@ import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
 import type { HeaderNavMinLevel } from "@/lib/auth/accountAccess";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { isSellPrimaryNavActive } from "@/lib/vault/vaultAccess";
 import { useAuthStore } from "@/store/authStore";
 
 /** Exact path or nested routes (strip query/hash before compare). */
@@ -37,7 +38,7 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
   { href: "/portfolio", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
-  { href: "/vault", label: "Vault", minLevel: 1 as HeaderNavMinLevel },
+  { href: "/sell", label: "Sell", minLevel: 1 as HeaderNavMinLevel },
 ] as const;
 
 export function visibleHeaderNavItems() {
@@ -46,6 +47,7 @@ export function visibleHeaderNavItems() {
 
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
   if (href === "/markets") return isMarketsPrimaryNavActive(pathname);
+  if (href === "/sell") return isSellPrimaryNavActive(pathname);
   return isPrimaryHeaderNavActive(pathname, href);
 }
 
@@ -98,7 +100,7 @@ export function HeaderDesktopNav() {
   );
 }
 
-/** Mobile drawer primary nav — Markets / Portfolio / Vault (Vault.html gnb-drawer). */
+/** Mobile drawer primary nav — Markets / Portfolio / Sell (v2 gnb-drawer). */
 export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
   const mounted = useClientMounted();
   const initialized = useAuthStore((s) => s.initialized);

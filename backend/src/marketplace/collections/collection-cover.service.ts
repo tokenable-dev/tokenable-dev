@@ -13,6 +13,7 @@ import { MarketplaceCollection } from '../entities/marketplace-collection.entity
 import {
   CatalogCoverS3Service,
   catalogCoverObjectKeyFromPublicUrl,
+  normalizeCatalogCoverPublicUrl,
 } from './catalog-cover-s3.service';
 
 /** Collection covers: Cardhedger / TCG / our catalog S3 HTTPS URLs. */
@@ -407,7 +408,7 @@ export class CollectionCoverService {
     rawUrl: string,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
-    const trimmed = rawUrl.trim();
+    const trimmed = normalizeCatalogCoverPublicUrl(rawUrl.trim());
     if (!isPersistableCoverUrl(trimmed)) {
       return null;
     }

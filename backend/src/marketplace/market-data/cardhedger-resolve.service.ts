@@ -11,6 +11,8 @@ import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flag
 import {
   cardNumberTokenForCardhedgerSearch,
   cardIdFromPsaCertLookup,
+  catalogInsertNumberCompatibleWithRow,
+  catalogProductFamiliesCompatible,
   catalogRowTrustedForMarketData,
   type CatalogTrustHints,
   normalizeForExactCardNumberKey,
@@ -21,6 +23,7 @@ import {
   cardhedgerExtraSearchQueries,
   cardhedgerSetAliasTokens,
   hintsLookLikeMegaEvolutionPromo,
+  hintsLookLikePrizmRookieSignatures,
   hintsLookLikeSvBlackStarPromo,
   hintsLookLikeSwshBlackStarPromo,
 } from '../utils/cardhedger-search-alias.util';
@@ -326,8 +329,16 @@ export class CardhedgerResolveService {
         cardSet: q.cardSet,
         psaBrand: q.psaBrand,
       });
-    if (isKnownPromoType) {
-      for (const sq of cardhedgerExtraSearchQueries(extraQueryHints)) {
+    const isPrizmRookieSignatures = hintsLookLikePrizmRookieSignatures({
+      cardSet: q.cardSet,
+      psaBrand: q.psaBrand,
+      psaVariety: q.psaVariety,
+    });
+    if (isKnownPromoType || isPrizmRookieSignatures) {
+      for (const sq of cardhedgerExtraSearchQueries({
+        ...extraQueryHints,
+        psaYear: q.psaYear,
+      })) {
         push(sq);
       }
     }
@@ -565,9 +576,35 @@ export class CardhedgerResolveService {
     const gotSet = normalizeForExactCatalogMatch(rowSet);
     const gotNum = normalizeForExactCardNumberKey(primaryCardNumber(rowNum));
 
-    const numberMatched = sameNumber(wantNum, gotNum);
+    const numberExact = sameNumber(wantNum, gotNum);
+    const numberInsertBridge = catalogInsertNumberCompatibleWithRow(
+      {
+        cardName: hints.cardName,
+        cardNumber: hints.cardNumber,
+        cardSet: hints.cardSet,
+        psaSubject: hints.psaSubject ?? undefined,
+        psaBrand: hints.psaBrand ?? undefined,
+        psaVariety: hints.psaVariety ?? undefined,
+        cardhedgerSearchQuery: hints.cardhedgerSearchQuery ?? undefined,
+      },
+      row as Record<string, unknown>,
+    );
+    const numberMatched = numberExact || numberInsertBridge;
 
     if (this.parallelRowFailsExpectation(hints.psaVariety ?? null, row, parallelOpts)) {
+      return { score: 0, verified: false, numberMatched: false };
+    }
+
+    if (
+      !catalogProductFamiliesCompatible(
+        {
+          cardSet: hints.cardSet,
+          psaBrand: hints.psaBrand ?? undefined,
+          cardhedgerSearchQuery: hints.cardhedgerSearchQuery ?? undefined,
+        },
+        row as Record<string, unknown>,
+      )
+    ) {
       return { score: 0, verified: false, numberMatched: false };
     }
 
@@ -615,7 +652,8 @@ export class CardhedgerResolveService {
     const setMatched = setSubstring || setTokenMatch;
 
     let score = 0;
-    if (numberMatched) score += 100;
+    if (numberExact) score += 100;
+    else if (numberInsertBridge) score += 90;
     if (setMatched) score += 60;
     if (nameMatched) score += 50;
 
@@ -626,6 +664,19 @@ export class CardhedgerResolveService {
         const pvLower = pv.toLowerCase();
         const parallelBlob = this.rowParallelBlob(row).toLowerCase();
         if (parallelBlob.includes(pvLower)) score += 30;
+        /**
+         * Insert lines (Rookie Signatures) often catalog as `variant: Base` with the insert
+         * name only in `description`. When PSA Variety has no color/parallel token, prefer
+         * that Base row over White Sparkle / Gold / Mojo parallels of the same insert.
+         */
+        const varietyColors = chromeColorTokensIn(pv);
+        const rowVariant = String(row.variant ?? '').trim().toLowerCase();
+        if (
+          varietyColors.length === 0 &&
+          (rowVariant === '' || rowVariant === 'base')
+        ) {
+          score += 25;
+        }
       }
     }
     const hintBlob = [
@@ -939,6 +990,7 @@ export class CardhedgerResolveService {
     listingDisplayTitle: string | null;
     psaSubject: string | null;
     psaBrand: string | null;
+    psaVariety: string | null;
     psaYear: string | null;
   }): CatalogTrustHints {
     return {
@@ -947,6 +999,7 @@ export class CardhedgerResolveService {
       cardSet: q.cardSet,
       psaSubject: q.psaSubject ?? undefined,
       psaBrand: q.psaBrand ?? undefined,
+      psaVariety: q.psaVariety ?? undefined,
       psaYear: q.psaYear ?? undefined,
       cardhedgerSearchQuery: q.cardhedgerSearchQuery ?? undefined,
       listingDisplayTitle: q.listingDisplayTitle ?? undefined,

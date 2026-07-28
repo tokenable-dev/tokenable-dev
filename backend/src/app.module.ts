@@ -42,12 +42,15 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
 import { VaultAsset } from './vault/entities/vault-asset.entity';
 import { VaultCycle } from './vault/entities/vault-cycle.entity';
 import { VaultRedemption } from './vault/entities/vault-redemption.entity';
+import { VaultSubmission } from './vault/entities/vault-submission.entity';
+import { VaultSubmissionItem } from './vault/entities/vault-submission-item.entity';
 import { MarketplacePartner } from './marketplace/entities/marketplace-partner.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
 import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
 import { P2pListing } from './marketplace/entities/p2p-listing.entity';
 import { P2pOrder } from './marketplace/entities/p2p-order.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
+import { VaultModule } from './vault/vault.module';
 
 @Module({
   imports: [
@@ -99,6 +102,8 @@ import { MarketplaceNotification } from './marketplace/entities/marketplace-noti
           VaultAsset,
           VaultCycle,
           VaultRedemption,
+          VaultSubmission,
+          VaultSubmissionItem,
           BulkMintJob,
           BulkMintJobItem,
           P2pListing,
@@ -124,6 +129,7 @@ import { MarketplaceNotification } from './marketplace/entities/marketplace-noti
 
     AuthModule,
     PrivyModule,
+    VaultModule,
     RwaModule,
     BlockchainModule,
     CardhedgerModule,

@@ -124,7 +124,7 @@ export function PortfolioCostBasisInlineEdit({
             Cost
             {editable && !editing ? (
               <span className="pf-mobile-asset-card__cost-hint">
-                Mint price
+                Value at listing
                 <PortfolioCostBasisPencilButton
                   label={`Edit cost basis for ${assetName}`}
                   onClick={startEdit}
@@ -167,7 +167,7 @@ export function PortfolioCostBasisInlineEdit({
           />
         ) : null}
       </div>
-      {showMintPriceNote ? <span className="pf-cost-basis-note">Mint price</span> : null}
+      {showMintPriceNote ? <span className="pf-cost-basis-note">Value at listing</span> : null}
     </div>
   );
 }

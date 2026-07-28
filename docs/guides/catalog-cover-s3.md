@@ -25,6 +25,26 @@ Cache-Control on put: `public, max-age=300, must-revalidate` (covers are overwri
 
 Allowed types: JPEG / PNG / WebP, max **8MB**.
 
+### Public URL shape
+
+Persisted `coverImageUrl` must be:
+
+```
+{CATALOG_COVER_PUBLIC_BASE_URL}/{prefix}{collectionKey}/cover
+```
+
+If a row is missing the trailing `/cover`, list/display APIs append it. The home hero WebGL ring loads covers via:
+
+```
+GET /api/marketplace/catalog-covers/asset?src=<urlencoded cover URL>
+```
+
+so TextureLoader works even when the S3 bucket has **no CORS** rules (browser `<img>` works without CORS; canvas/WebGL does not).
+
+### Optional: S3 bucket CORS
+
+Not required for the app (hero uses the proxy above). If you want direct browser→S3 canvas reads later, add a bucket CORS rule allowing `GET` from your frontend origins.
+
 ---
 
 ## Phase 0 — Bucket setup

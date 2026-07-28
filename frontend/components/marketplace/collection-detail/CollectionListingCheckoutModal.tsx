@@ -51,7 +51,7 @@ export function CollectionListingCheckoutModal({
     `/marketplace/collections/${encodeURIComponent(collectionKey)}`,
   );
   const { isConnected } = useAccount();
-  const [bidHeaderTitle, setBidHeaderTitle] = useState("Place a bid");
+  const [bidHeaderTitle, setBidHeaderTitle] = useState("Place a Bid");
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +68,7 @@ export function CollectionListingCheckoutModal({
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open && mode === "bid") setBidHeaderTitle("Place a bid");
+    if (open && mode === "bid") setBidHeaderTitle("Place a Bid");
   }, [open, mode]);
 
   if (!open || tokenId == null || !listing || typeof document === "undefined") {
@@ -165,7 +165,7 @@ export function CollectionListingCheckoutModal({
                   : "Connect wallet to pay"}
             </TkButton>
             <p className="cd-listing-checkout__fine tkl-mono">
-              Settled on-chain · Asset stays vault-insured
+              Owned instantly · stays safely in the vault
             </p>
           </>
         ) : (

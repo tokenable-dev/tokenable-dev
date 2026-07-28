@@ -22,6 +22,7 @@ import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 function shouldHideChrome(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
+  if (pathname === "/sell") return true;
   if (pathname.startsWith("/marketplace/admin")) return true;
   if (pathname.startsWith("/dev/design-system")) return true;
   if (pathname.startsWith("/dev/admin-ui")) return true;

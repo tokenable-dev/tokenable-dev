@@ -40,8 +40,8 @@ export function listingAssetTitle(
 export function listingVerificationTiles(metadata: RwaMetadata | null): {
   gradedBy: string;
   certNumber: string;
-  vault: string;
-  tokenLabel: string;
+  /** Stored-at custody line (design system-2 Card.html). */
+  storedAt: string;
 } {
   const trust = buildRwaDetailMobileTrustView(metadata);
   const graded =
@@ -55,8 +55,33 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   return {
     gradedBy,
     certNumber: trust.certNumber ?? "—",
-    vault: "Vaulted · Insured",
-    tokenLabel: "On-chain RWA",
+    storedAt: "PSA Vault · Lloyd's insured",
+  };
+}
+
+/** Desktop listing / prov sticky — Card.html `Seller · verified`. */
+export function listingSellerVerifiedLabel(
+  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+): { label: string; title?: string } {
+  if (!listing) return { label: "—" };
+  const addr = listing.offerer || listing.parameters?.offerer;
+  const name = listing.sellerDisplayName?.trim();
+  return {
+    label: name ? `Seller · ${name}` : "Seller · verified",
+    title: addr,
+  };
+}
+
+/** Mobile orderbook row — Card.html `Verified collector`. */
+export function listingVerifiedCollectorLabel(
+  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+): { label: string; title?: string } {
+  if (!listing) return { label: "—" };
+  const addr = listing.offerer || listing.parameters?.offerer;
+  const name = listing.sellerDisplayName?.trim();
+  return {
+    label: name || "Verified collector",
+    title: addr,
   };
 }
 

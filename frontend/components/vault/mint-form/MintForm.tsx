@@ -52,7 +52,11 @@ export function MintForm() {
                 <MintFormMintActions
                   isWalletReady={mint.isWalletReady}
                   isWalletActivating={mint.isWalletActivating}
+                  isWalletAwaitingPrivy={mint.isWalletAwaitingPrivy}
                   hasAccountWallet={mint.hasAccountWallet}
+                  walletActivateBusy={mint.walletActivateBusy}
+                  walletActivateError={mint.walletActivateError}
+                  onActivateAccountWallet={() => void mint.activateAccountWallet()}
                   showMintReady={psa.showMintReady}
                   isProcessing={mint.isProcessing}
                   showPsaAnalyzeOverlay={psa.showPsaAnalyzeOverlay}

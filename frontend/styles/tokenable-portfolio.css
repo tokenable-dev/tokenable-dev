@@ -636,11 +636,57 @@
   flex-wrap: wrap;
 }
 
+.portfolio-page .pf-table-actions--set-price {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.portfolio-page .pf-table-actions--full {
+  width: 100%;
+  align-items: stretch;
+}
+
+.portfolio-page .pf-holdings-bid-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.portfolio-page .pf-holdings-bid-meta--empty {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.portfolio-page .pf-holdings-bid-meta__listed {
+  color: var(--azure);
+}
+
+.portfolio-page .pf-holdings-bid-meta__dot {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.portfolio-page .pf-holdings-bid-meta__bid {
+  color: var(--pos);
+}
+
 .portfolio-page .pf-table-btn {
   height: 38px !important;
   min-height: 38px !important;
   padding: 0 18px !important;
   font-size: 14px !important;
+}
+
+.portfolio-page .pf-table-btn--full {
+  width: 100% !important;
+  height: 44px !important;
+  min-height: 44px !important;
 }
 
 .portfolio-page .pf-table-type {
@@ -1045,15 +1091,18 @@
   width: 100%;
 }
 
-.pf-mobile-asset-card__actions .pf-table-btn--listed-cancel {
-  flex: 1;
-  min-width: 0;
+.pf-mobile-asset-card__actions .pf-table-actions--set-price {
+  align-items: stretch;
+}
+
+.pf-mobile-asset-card__actions .pf-holdings-bid-meta {
+  justify-content: flex-start;
 }
 
 .pf-mobile-asset-card__actions .pf-table-btn {
-  flex: 1;
-  min-height: 38px;
-  font-size: 13px;
+  width: 100%;
+  min-height: 44px;
+  font-size: 14px;
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────── */

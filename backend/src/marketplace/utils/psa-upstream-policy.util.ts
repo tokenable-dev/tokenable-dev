@@ -1,8 +1,10 @@
 import type { ConfigService } from '@nestjs/config';
 
 /**
- * Master switch for live PSA Public API HTTP calls.
- * Default **on** when `PSA_PUBLIC_API_TOKEN` is set. Set `PSA_PUBLIC_API_UPSTREAM_ENABLED=false` to disable.
+ * Master switch for live PSA Public API HTTP calls used by **mint** paths
+ * (`POST /psa/analyze`, `analyze-by-cert`, partner bulk-mint) and optional admin proxies.
+ * Default **on** when `PSA_PUBLIC_API_TOKEN` / tokens are set.
+ * Set `PSA_PUBLIC_API_UPSTREAM_ENABLED=false` to disable mint PSA entirely.
  */
 export function isPsaPublicApiUpstreamEnabled(
   config: ConfigService,
@@ -15,31 +17,37 @@ export function isPsaPublicApiUpstreamEnabled(
 }
 
 /**
- * PSA Public API upstream for background jobs (snapshot refresh, listing enrichment).
- * Off by default; set `PSA_PUBLIC_API_BACKGROUND_UPSTREAM=true` to enable.
+ * Marketplace / portfolio / snapshot / listing paths must never call PSA.
+ * Rate limits are reserved for mint-time analyze only.
  */
-export function isPsaPublicApiBackgroundUpstreamEnabled(
-  config: ConfigService,
-): boolean {
-  const v = config.get<string>('PSA_PUBLIC_API_BACKGROUND_UPSTREAM');
-  if (v === 'true' || v === '1' || v === 'always') return true;
+export function isPsaPublicApiMarketplaceUpstreamEnabled(): boolean {
   return false;
 }
 
-/** @deprecated Mint/listing paths no longer call PSA upstream — kept for env compat. */
-export function isPsaPublicApiMintUpstreamEnabled(
+/**
+ * @deprecated Background PSA is permanently disabled (mint-only policy).
+ * Env `PSA_PUBLIC_API_BACKGROUND_UPSTREAM` is ignored.
+ */
+export function isPsaPublicApiBackgroundUpstreamEnabled(
   _config: ConfigService,
 ): boolean {
   return false;
 }
 
-/** Snapshot refresh may call PSA Public API when upstream is on and refresh env allows it. */
-export function isPsaPublicApiSnapshotUpstreamEnabled(
+/** Mint analyze / bulk-mint may call PSA when the master upstream switch is on. */
+export function isPsaPublicApiMintUpstreamEnabled(
   config: ConfigService,
-  refreshOnSnapshotEnv: string | undefined,
 ): boolean {
-  if (!isPsaPublicApiUpstreamEnabled(config)) return false;
-  const v = (refreshOnSnapshotEnv ?? '').trim().toLowerCase();
-  if (v === 'always' || v === 'true' || v === '1') return true;
-  return isPsaPublicApiBackgroundUpstreamEnabled(config);
+  return isPsaPublicApiUpstreamEnabled(config);
+}
+
+/**
+ * Snapshot refresh must never call PSA (mint-only policy).
+ * Env `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` is ignored.
+ */
+export function isPsaPublicApiSnapshotUpstreamEnabled(
+  _config: ConfigService,
+  _refreshOnSnapshotEnv: string | undefined,
+): boolean {
+  return false;
 }

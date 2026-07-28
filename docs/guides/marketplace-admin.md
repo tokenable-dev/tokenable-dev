@@ -14,6 +14,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
+| `/marketplace/admin/data-inventory` | **Data inventory** | All accumulated PostgreSQL stores — row counts, date ranges, how each table is written, links to related admin pages |
 | `/marketplace/admin/users` | **Users** | Privy accounts — search/filters, KYC, wallets; **Privy & Add funds** readiness panel; support snapshot (Privy ID, on-ramp wallet hint) |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
@@ -24,7 +25,8 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
 | `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
-| `/marketplace/admin/vault` | **Vault / PSA** | PSA Public API console (shipping, cert, population, OCR) |
+| `/marketplace/admin/vault/submissions` | **Submissions** | Sell-flow packages — live pipeline counts, mark arrived, approve/reject cards |
+| `/marketplace/admin/vault` | **Vault / PSA** | Mint-only PSA tools (`analyze-by-cert`, slab OCR). Raw Public API proxies disabled |
 
 Legacy redirects: `/marketplace/admin/analytics` → Overview; `/top100` and `/top-movers` → `/markets?tab=…`.
 

@@ -51,7 +51,7 @@ export type HeroSlabCarouselOptions = {
   mobileSlot: HTMLElement | null;
   tier?: Exclude<HeroCarouselTier, "fallback">;
   prefersReducedMotion?: boolean;
-  /** Cardhedger catalog cover URLs (Bubble `/crop_image`). */
+  /** Catalog cover texture URLs (prefer same-origin `/api/marketplace/catalog-covers/asset`). */
   imageSources: readonly string[];
 };
 

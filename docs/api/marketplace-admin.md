@@ -266,6 +266,35 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 
 ---
 
+## Vault submissions (sell-flow ops)
+
+**Controller:** `vault-submissions-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/vault-submissions`  
+**UI:** `/marketplace/admin/vault/submissions`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/counts` | Pipeline status counts (`all`, `draft`, `awaiting_shipment`, `in_transit`, `psa_reviewing`, `completed`, `cancelled`) |
+| GET | `/` | List submissions (`?status=&q=` — public id, email, name, cert) |
+| GET | `/:idOrPublicId` | Detail + user email/name + items |
+| POST | `/:idOrPublicId/arrived` | Package arrived at PSA → `psa_reviewing`; cards `in_transit`/`confirmed` → `reviewing` |
+| PATCH | `/:idOrPublicId/status` | Set package status `{ status }` |
+| PATCH | `/:idOrPublicId/items/:itemId` | Set card status `{ status, rejectionReason? }` |
+
+User-facing JWT API: [vault-submissions.md](./vault-submissions.md).
+
+---
+
+## Platform analytics
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries |
+| GET | `/analytics/ga4` | GA4 traffic (when configured) |
+| GET | `/data-inventory` | Accumulated PostgreSQL stores — row counts, date ranges, per-table metadata |
+
+---
+
 ## Environment Variables
 
 | Variable | Purpose |

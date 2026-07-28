@@ -26,6 +26,12 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         exact: true,
         description: "Platform KPIs, funnel, GA4 link",
       },
+      {
+        href: "/marketplace/admin/data-inventory",
+        label: "Data inventory",
+        prefix: "/marketplace/admin/data-inventory",
+        description: "PostgreSQL stores — what we accumulate and how",
+      },
     ],
   },
   {
@@ -129,9 +135,15 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     label: "Vault",
     items: [
       {
+        href: "/marketplace/admin/vault/submissions",
+        label: "Submissions",
+        prefix: "/marketplace/admin/vault/submissions",
+        description: "Sell-flow packages — transit, PSA review, approve/reject",
+      },
+      {
         href: "/marketplace/admin/vault",
         label: "Vault / PSA",
-        prefix: "/marketplace/admin/vault",
+        exact: true,
         description: "PSA API tooling & shipping",
       },
     ],

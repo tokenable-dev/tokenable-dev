@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import {
   assetDetailHeadlineHasContent,
   type AssetDetailHeadlineParts,
@@ -72,10 +71,10 @@ export function useCollectionOverviewLayout(input: {
   const showMobileHeroIdentity = Boolean(headlineTitleLayout && headlineTitle);
   const hideTopHeadlineBarOnMobile = showMobileHeroIdentity && statsLength === 0;
   const useMobileTabbedMarket = mobileTabbedMarketUi && mobileMarketTabs != null;
-  const isMobileDetail = useCollectionDetailMobile();
-  const showInlineMarketCluster = !useMobileTabbedMarket || !isMobileDetail;
-  const desktopMetricsAboveChart =
-    marketsTriple && showInlineMarketCluster && chartMetricsRow != null;
+  // Desktop cluster must stay mounted whenever tabbed UI is used; visibility is
+  // CSS-only. Unmounting it on mobile blanked the page on widen (Tailwind hides
+  // the mobile column at ≥1024px before React remounts desktop).
+  const desktopMetricsAboveChart = marketsTriple && chartMetricsRow != null;
 
   const gridBodyClass = useMemo(() => {
     if (marketsTriple && useMobileTabbedMarket) {
@@ -101,8 +100,6 @@ export function useCollectionOverviewLayout(input: {
     showMobileHeroIdentity,
     hideTopHeadlineBarOnMobile,
     useMobileTabbedMarket,
-    isMobileDetail,
-    showInlineMarketCluster,
     suppressHeadlineBanner,
     gridBodyClass,
     desktopMetricsAboveChart,

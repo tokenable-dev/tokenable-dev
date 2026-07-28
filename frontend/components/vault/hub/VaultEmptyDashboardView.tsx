@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { TkButton } from "@/components/ds";
 
 function VaultEmptyIcon() {
   return (
@@ -21,10 +20,19 @@ function VaultEmptyIcon() {
   );
 }
 
+function ArrowIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
 const HIW_STEPS = [
   {
     num: "01",
-    title: "Verify",
+    title: "Submit",
     desc: "Enter your PSA certification number to verify your card",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="1.5">
@@ -35,29 +43,30 @@ const HIW_STEPS = [
   },
   {
     num: "02",
-    title: "Mint",
-    desc: "Tokenize the card on-chain into platform custody",
+    title: "Ship",
+    desc: "Send your card to our secure vault facility",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="1.5">
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
+        <rect x="2" y="7" width="15" height="13" rx="2" />
+        <path d="M17 11h3l2 3v4h-5" />
+        <circle cx="7" cy="20" r="2" />
+        <circle cx="19" cy="20" r="2" />
       </svg>
     ),
   },
   {
     num: "03",
-    title: "Trade",
-    desc: "List, buy, and bid once the token is delivered to your wallet",
+    title: "Get Your Token",
+    desc: "Receive your token automatically once your card is vaulted",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="1.5">
-        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <polyline points="16 7 22 7 22 13" />
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
       </svg>
     ),
   },
 ];
 
+/** Empty sell hub — Vault-Dashboard-Active.html `#view-empty` (design system-2). */
 export function VaultEmptyDashboardView() {
   return (
     <>
@@ -83,13 +92,12 @@ export function VaultEmptyDashboardView() {
         <VaultEmptyIcon />
         <h2 className="vault-empty-state__title">No cards in your vault yet</h2>
         <p className="vault-empty-state__sub">
-          Submit your first PSA graded card to get started. We verify with PSA, mint on-chain, and hold in custody until delivery.
+          Submit your first PSA 9 or PSA 10 graded card to get started. Your card will be tokenized
+          and secured in our vault.
         </p>
         <div className="vault-empty-state__actions">
-          <Link href="/vault/submit" className="inline-flex">
-            <TkButton decorative variant="primary" size="md" className="h-[54px] px-8 text-[15px]">
-              + Mint Your First Card →
-            </TkButton>
+          <Link href="/sell/flow" className="vault-empty-state__cta tk-btn tk-btn--primary">
+            + Submit Your First Card <ArrowIcon />
           </Link>
         </div>
       </div>

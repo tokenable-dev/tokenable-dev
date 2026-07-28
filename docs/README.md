@@ -5,7 +5,7 @@ Users vault **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pin
 
 The full physical-card lifecycle (deposit → mint → deliver → trade → redeem → burn) is documented in **[architecture/vault-lifecycle.md](architecture/vault-lifecycle.md)**.
 
-Auth is handled **exclusively by Privy** (email, Google, Apple, embedded wallet, MetaMask via external wallet). Legacy Google OAuth and email/password routes have been **removed** from the user-facing controller — see [api/auth.md](api/auth.md) and [guides/privy-auth-migration.md](guides/privy-auth-migration.md).
+Auth is handled **exclusively by Privy** (email, Google, Apple, embedded wallet, MetaMask via external wallet). Legacy Google OAuth and email/password routes have been **removed** from the user-facing controller — see [api/auth.md](api/auth.md).
 
 ### Branches & deploy
 
@@ -57,11 +57,9 @@ tokenable-dev/
 | Error handling | [error-handling.md](error-handling.md) |
 | File structure | [file-structure.md](file-structure.md) |
 | Marketplace admin console | [guides/marketplace-admin.md](guides/marketplace-admin.md) |
-| Privy auth migration | [guides/privy-auth-migration.md](guides/privy-auth-migration.md) |
+| Privy wallet funding | [guides/privy-wallet-funding.md](guides/privy-wallet-funding.md) |
 | Troubleshooting | [guides/troubleshooting.md](guides/troubleshooting.md) |
-| Design system reference (tokens, components) | [guides/design-system-reference.md](guides/design-system-reference.md) |
-| Design system governance phases | [guides/design-system-governance-phases.md](guides/design-system-governance-phases.md) |
-| Design system migration (UI phases) | [guides/design-system-migration.md](guides/design-system-migration.md) |
+| Design system reference (tokens, components, CSS order) | [guides/design-system-reference.md](guides/design-system-reference.md) |
 | Live Swagger UI | `http://localhost:4100/api/docs` (local dev) |
 
 ## Core Technologies

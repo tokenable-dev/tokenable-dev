@@ -91,12 +91,25 @@ export function useAccountWalletSession() {
       (privyHasAccountWallet || wagmiSessionPending),
   );
 
+  /** Backend linked a wallet but Privy client session has not caught up yet. */
+  const isWalletAwaitingPrivy = Boolean(
+    authInitialized &&
+      authenticated &&
+      privyReady &&
+      primaryAddress &&
+      hasAccountWallet &&
+      !privyHasAccountWallet &&
+      !isWalletReady &&
+      !wagmiSessionPending,
+  );
+
   return {
     primaryAddress,
     sessionAddress: primaryAddress,
     hasAccountWallet,
     isWalletReady,
     isWalletActivating,
+    isWalletAwaitingPrivy,
     connectedIsEmbeddedAccountWallet,
     wagmiSessionActive,
   };

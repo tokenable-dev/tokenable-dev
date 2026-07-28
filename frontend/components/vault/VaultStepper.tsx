@@ -13,7 +13,7 @@ import {
 
 function StepCheckIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" aria-hidden>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" aria-hidden>
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -21,7 +21,7 @@ function StepCheckIcon() {
 
 function StepXIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" aria-hidden>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" aria-hidden>
       <line x1="6" y1="6" x2="18" y2="18" />
       <line x1="18" y1="6" x2="6" y2="18" />
     </svg>
@@ -34,7 +34,8 @@ function StepSpinner() {
 
 function labelColor(state: VaultStepState): string {
   if (state === "done") return "var(--pos)";
-  if (state === "active" || state === "action") return "#fff";
+  if (state === "active") return "#fff";
+  if (state === "action") return "var(--amber)";
   if (state === "failed") return "var(--neg)";
   return "rgba(255,255,255,0.35)";
 }
@@ -173,7 +174,7 @@ export function VaultStepper({
   const hasStepCta = resolvedSteps.some((s) => s.cta);
 
   return (
-    <div className={cn(isCompact && "vault-stepper-wrap--compact")}>
+    <div className={cn("vault-stepper-wrap", isCompact && "vault-stepper-wrap--compact", isRich && "vault-stepper-wrap--rich")}>
       <nav
         className={cn(
           "vault-stepper",

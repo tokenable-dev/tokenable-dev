@@ -9,7 +9,11 @@ import { WalletConnect } from "@/components/wallet/WalletConnect";
 type MintFormMintActionsProps = {
   isWalletReady: boolean;
   isWalletActivating: boolean;
+  isWalletAwaitingPrivy: boolean;
   hasAccountWallet: boolean;
+  walletActivateBusy: boolean;
+  walletActivateError: string;
+  onActivateAccountWallet: () => void;
   showMintReady: boolean;
   isProcessing: boolean;
   showPsaAnalyzeOverlay: boolean;
@@ -21,7 +25,11 @@ type MintFormMintActionsProps = {
 export function MintFormMintActions({
   isWalletReady,
   isWalletActivating,
+  isWalletAwaitingPrivy,
   hasAccountWallet,
+  walletActivateBusy,
+  walletActivateError,
+  onActivateAccountWallet,
   showMintReady,
   isProcessing,
   showPsaAnalyzeOverlay,
@@ -32,8 +40,8 @@ export function MintFormMintActions({
   return (
     <>
       {!isWalletReady ? (
-        <div className="flex justify-center py-2">
-          {isWalletActivating || hasAccountWallet ? (
+        <div className="flex flex-col items-center gap-2 py-2">
+          {isWalletActivating || walletActivateBusy ? (
             <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--t2)]">
               <div
                 className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--azure)] border-t-transparent"
@@ -41,6 +49,24 @@ export function MintFormMintActions({
               />
               <span>Preparing account wallet…</span>
             </div>
+          ) : hasAccountWallet || isWalletAwaitingPrivy ? (
+            <>
+              <TkButton
+                type="button"
+                variant="primary"
+                className="w-full"
+                onClick={onActivateAccountWallet}
+              >
+                Activate account wallet
+              </TkButton>
+              {walletActivateError ? (
+                <p className="text-center text-xs text-[var(--neg)]">{walletActivateError}</p>
+              ) : (
+                <p className="text-center text-xs text-[var(--t2)]">
+                  Sign in with your Tokenable account wallet to mint.
+                </p>
+              )}
+            </>
           ) : (
             <WalletConnect />
           )}

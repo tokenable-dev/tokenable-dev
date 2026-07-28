@@ -205,7 +205,23 @@ export function pickCollectionDisplayImageUrl(
   if (!cover) return null;
   if (isPsaCertSlabCloudfrontUrl(cover)) return null;
   if (isLegacyNormalizedCollectionCoverApiPath(cover)) return null;
-  return cover;
+  // Lazy import avoided — normalize only for our S3 folder shape.
+  return normalizeLooseCatalogCoverUrl(cover);
+}
+
+/** Append `/cover` when a catalog folder URL is missing the object key suffix. */
+function normalizeLooseCatalogCoverUrl(url: string): string {
+  try {
+    const u = new URL(url.startsWith('//') ? `https:${url}` : url);
+    if (/\/cover$/i.test(u.pathname)) return u.toString();
+    if (/\/covers\/[^/]+$/i.test(u.pathname)) {
+      u.pathname = `${u.pathname.replace(/\/+$/, '')}/cover`;
+      return u.toString();
+    }
+  } catch {
+    /* keep */
+  }
+  return url;
 }
 
 /** 메타 `graded.psa.certNumber` — Trending 풀 정렬·필터용 */

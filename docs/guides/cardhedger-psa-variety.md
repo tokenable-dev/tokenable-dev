@@ -20,7 +20,7 @@
 | Cardhedger 매칭 | `psaVariety`가 비어 있으면 **베이스 vs 실버 구분 게이트가 동작하지 않음**. 저장된 `cardhedger.cardId`가 베이스면 번호·이름만 맞아도 **verified**로 잠김. |
 | 결과 | Cardhedger **베이스 행** comps(~$400대)를 그대로 표시. 실제 슬랩은 **SILVER PRIZM**. |
 
-**수정 요지:** 민팅 시 `graded.psa.Variety`에 PSA Variety를 기록하고, 기존 토큰은 **cert 번호 + PSA Public API**로 Variety를 보강해 잘못된 `card_id`를 거르고 검색으로 실버 행을 잡도록 했다.
+**수정 요지:** 민팅 시 `graded.psa.Variety`에 PSA Variety를 **반드시** 기록한다. 마켓플레이스/스냅샷/포트폴리오 경로는 PSA Public API를 호출하지 않는다(mint-only). Variety가 비어 있으면 Cardhedger resolve가 Base에 잠기거나 `matched: false`가 될 수 있으므로, 보정은 **재민트·analyze-by-cert로 mint 메타를 고치는 쪽**에서 한다.
 
 ## 다른 카드 테스트 시 체크리스트
 
@@ -28,7 +28,7 @@
 
 - [ ] PSA 분석 후 IPFS `properties.graded.psa`에 **`Variety`** 가 있다 (또는 `varietyHint` 미러).
 - [ ] 병행/인서트 카드면 라벨의 **Variety**가 베이스 단어만이 아닌지 확인 (예: `SILVER PRIZM`, `REFRACTOR`).
-- [ ] `graded.psa.certNumber`(또는 `grade.certNumber`)가 있으면, 서버가 cert로 Variety를 **보강**할 수 있다 — **`PSA_PUBLIC_API_TOKEN`** 필요.
+- [ ] `graded.psa.Variety` / Subject / Brand / CardNumber / Year 가 mint JSON에 채워져 있어야 한다 — 리스팅·시세 경로에서 PSA로 보강하지 않는다.
 
 ### 백엔드 환경
 
@@ -57,6 +57,14 @@ PSA **Variety**가 **ILLUSTRATION RARE**일 때(일러스트 레어, SIR과 구�
 PSA **Variety**가 **`BLUE REFRACTOR`**인데 Cardhedger **`Pitching Blue Wave Refractor`** 행을 쓰면 시세가 **한 자릿수 배** 어긋날 수 있다 (예: Ohtani 2018 Topps Chrome #150 — Blue Refractor /150 vs Blue Wave).
 
 과거에는 `blue`·`refractor` 토큰만 맞으면 **Wave**가 있는 행도 통과했다. 현재는 Cardhedger `variant`에 **PSA에 없는 병행 토큰**(예: `wave`, `raywave`)이 있으면 **불일치**로 거른다. 컬렉션 bucket hash(v2)에도 **`marketParallelKey`**(`blue_refractor` 등)가 들어가 Base·다른 병행과 풀을 나눈다.
+
+### PSA `PANINI PRIZM ROOKIE SIGNATURES` (insert 세트, 예: Lonnie Walker IV #RSLW4)
+
+PSA **Brand**는 **`PANINI PRIZM ROOKIE SIGNATURES`** 처럼 **인서트 제품명**을 그대로 쓰고, 슬랩 **Card #** 도 **`RSLW4`** 같은 **인서트 코드**다. Cardhedger는 부모 **`2018 Panini Prizm Basketball`** 체크리스트 행에 **`number: "18"`**, **`variant: "Base"`** 로 두고, 인서트명은 **`description`** 에 `… Prizm Rookie Signatures …` 로만 넣는다 (같은 선수의 Sensational Signatures 등은 다른 checklist #).
+
+**증상:** cert `44457519`처럼 `prices-by-cert`가 `card: null`이면 GemRate description만 남고, 포트폴리오 mint-preview가 PSA `RSLW4` ↔ Cardhedger `#18` 불일치로 resolve를 전부 수 있었다.
+
+**수정:** (1) mint-preview가 `cert_info.description`을 `cardhedgerSearchQuery`로 주입, (2) Rookie Signatures 검색 alias + set alias, (3) **alphanumeric insert # → numeric checklist #** 브릿지(이름·Variety·제품군 Prizm 일치 필수), (4) PSA Variety에 색이 없으면 Cardhedger `variant: Base` insert 행 우선.
 
 ### PSA `BASKETBALL REFRACTOR` (Topps Chrome 등)
 

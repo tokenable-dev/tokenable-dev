@@ -1,23 +1,21 @@
 ---
-description: Design system migration — phased UI rollout (see design-system-reference.md for ongoing work)
+description: Design system UI work — use design-system-reference.md (migration phases 0–10 are Done)
 globs:
   - "frontend/**"
-  - "docs/guides/design-system-migration.md"
   - "docs/guides/design-system-reference.md"
   - "frontend/design-system/**"
 ---
 
-# Design system migration
+# Design system (UI / layout / styling)
 
 When the task involves **UI, layout, styling, or visual redesign** of the Tokenable frontend:
 
-1. Read **`docs/guides/design-system-reference.md`** — canonical tokens, components, prototype sync, and checklist.
-2. Read **`docs/guides/design-system-migration.md`** — phase checklist and CSS bundle import order.
-3. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
-4. For layout reference, open the matching HTML in **`Tokenable-with design system/`** (see `frontend/design-system/PROTOTYPES.md`) — **do not** import or paste that HTML into React.
-5. Use committed DS CSS from **`frontend/design-system/`** (`tk-*` classes) via `components/ds/*` wrappers.
-6. Phases 0–10 are **Done** unless the user opens a new migration phase — default to reference doc + INVENTORY for new work.
-7. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
+1. Read **`docs/guides/design-system-reference.md`** — tokens, components, CSS import order, prototype sync, checklist.
+2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
+3. For layout reference, open the matching HTML in **`Tokenable-with design system/`** (see `frontend/design-system/PROTOTYPES.md`) — **do not** import or paste that HTML into React.
+4. Use committed DS CSS from **`frontend/design-system/`** (`tk-*` classes) via `components/ds/*` wrappers.
+5. Migration phases 0–10 are **Done** — do not create new phase docs; extend the reference + INVENTORY instead.
+6. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
 
 ## Hard rules
 
@@ -33,5 +31,4 @@ When the task involves **UI, layout, styling, or visual redesign** of the Tokena
 |-------|------|
 | DS CSS | `frontend/design-system/styles.css` |
 | **Ongoing reference** | `docs/guides/design-system-reference.md` |
-| Migration plan | `docs/guides/design-system-migration.md` |
 | Public DS images | `frontend/public/assets/ds/` |

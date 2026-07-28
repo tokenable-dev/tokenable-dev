@@ -43,6 +43,10 @@
   --radius-2xl: 20px;
   --radius-pill: 9999px;
 
+  /* Quiet surfaces / outlines (v2 DS — ghost buttons, dense tables) */
+  --border-strong: rgba(255, 255, 255, 0.18); /* @kind color */
+  --surface-hover: rgba(255, 255, 255, 0.03); /* @kind color */
+
   /* Spacing (px) */
   --space-1: 4px;
   --space-2: 8px;

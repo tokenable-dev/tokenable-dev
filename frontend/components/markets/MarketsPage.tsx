@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
 import { useMarketsInfiniteScroll } from "@/hooks/markets/useMarketsInfiniteScroll";
-import { useCardhedgerMockCoverImages } from "@/hooks/home/useCardhedgerMockCoverImages";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { HomeTicker } from "@/components/home/HomeTicker";
@@ -43,18 +42,6 @@ import { AppPageState } from "@/components/ui/AppPageState";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
-import {
-  MARKETS_MOCK_COLLECTIONS,
-  MARKETS_MOCK_RESULTS_COUNT,
-  MARKETS_MOCK_SNAPSHOT_BY_KEY,
-  shouldUseMarketsMockCards,
-} from "@/lib/markets/marketsMockData";
-import {
-  mockCoverSearchFromCollection,
-  withMockCoverImages,
-} from "@/lib/home/withMockCoverImages";
-
-const EMPTY_COVER_MAP = new Map<string, string>();
 
 export default function MarketsPage() {
   usePageViewedEvent("markets");
@@ -96,71 +83,45 @@ export default function MarketsPage() {
     [colPages],
   );
 
-  const useMocks =
-    mounted &&
-    !colInitialPending &&
-    shouldUseMarketsMockCards(collectionSummaries.length);
-
-  const mockCoverQueries = useMemo(() => {
-    if (!useMocks) return [];
-    return MARKETS_MOCK_COLLECTIONS.map(mockCoverSearchFromCollection);
-  }, [useMocks]);
-
-  const { data: coverByKey } = useCardhedgerMockCoverImages(useMocks, mockCoverQueries);
-
-  const displayCollections = useMemo(
-    () =>
-      useMocks
-        ? withMockCoverImages(MARKETS_MOCK_COLLECTIONS, coverByKey ?? EMPTY_COVER_MAP)
-        : collectionSummaries,
-    [useMocks, coverByKey, collectionSummaries],
-  );
-
   const coverRawUrls = useMemo(
-    () => displayCollections.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
-    [displayCollections],
+    () => collectionSummaries.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
+    [collectionSummaries],
   );
   const { map: resolvedCoverMap } = useResolvedMediaUrlMap(coverRawUrls, {
-    enabled: displayCollections.length > 0,
+    enabled: collectionSummaries.length > 0,
   });
 
   const isInitialLoading = ordersQuery.isPending || colInitialPending;
-  const loadFailed = useMocks ? false : ordersQuery.isError || colLoadError;
+  const loadFailed = ordersQuery.isError || colLoadError;
   const loadError = ordersQuery.error ?? colError ?? null;
-  /** SSR + first client paint always show the loading shell; mock/filter chrome only after mount. */
-  const showLoadingShell =
-    !mounted || (isInitialLoading && !loadFailed && !useMocks);
+  const showLoadingShell = !mounted || (isInitialLoading && !loadFailed);
 
   const snapshotKeysSorted = useMemo(() => {
-    if (useMocks) return [] as string[];
     const u = new Set<string>();
-    for (const c of displayCollections) {
+    for (const c of collectionSummaries) {
       const k = c.collectionKey?.trim().toLowerCase();
       if (k) u.add(k);
     }
     return [...u].sort();
-  }, [displayCollections, useMocks]);
+  }, [collectionSummaries]);
 
-  const { snapshotByKey: liveSnapshotByKey, isPending: liveSnapshotsPending } =
-    useMarketsSnapshots(snapshotKeysSorted, !isInitialLoading && !useMocks);
-
-  const snapshotByKey = useMocks ? MARKETS_MOCK_SNAPSHOT_BY_KEY : liveSnapshotByKey;
-  const snapshotsPending = useMocks ? false : liveSnapshotsPending;
+  const { snapshotByKey, isPending: snapshotsPending } = useMarketsSnapshots(
+    snapshotKeysSorted,
+    !isInitialLoading,
+  );
 
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
 
   const sortedForRank = useMemo(() => {
-    return [...displayCollections].sort((a, b) =>
+    return [...collectionSummaries].sort((a, b) =>
       compareMarketsCollections(a, b, sortId, snapshotByKey),
     );
-  }, [displayCollections, snapshotByKey, sortId]);
+  }, [collectionSummaries, snapshotByKey, sortId]);
 
-  const orphanAsks = useMocks
-    ? []
-    : orders.filter(
-        (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
-      );
+  const orphanAsks = orders.filter(
+    (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
+  );
 
   const filteredSorted = useMemo(() => {
     const categoryFiltered = sortedForRank.filter((c) =>
@@ -178,7 +139,7 @@ export default function MarketsPage() {
 
   useMarketsInfiniteScroll({
     sentinelRef: loadMoreSentinelRef,
-    enabled: !useMocks && !showLoadingShell && sortedForRank.length > 0,
+    enabled: !showLoadingShell && sortedForRank.length > 0,
     hasNextPage: Boolean(hasNextPage),
     isFetchingNextPage,
     fetchNextPage: () => void fetchNextPage(),
@@ -313,13 +274,7 @@ export default function MarketsPage() {
           <>
             <div className="markets-results-meta">
               <span className="markets-results-count">
-                <b>
-                  {(useMocks
-                    ? MARKETS_MOCK_RESULTS_COUNT
-                    : filteredSorted.length
-                  ).toLocaleString()}
-                </b>{" "}
-                results
+                <b>{filteredSorted.length.toLocaleString()}</b> results
               </span>
               <span className="markets-results-live">Live feed</span>
             </div>
@@ -339,7 +294,7 @@ export default function MarketsPage() {
               }
             />
 
-            {!useMocks && hasNextPage ? (
+            {hasNextPage ? (
               <>
                 <div
                   className={cn(

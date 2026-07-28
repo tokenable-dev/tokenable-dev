@@ -40,6 +40,8 @@
 | `vault_assets` | Permanent physical card identity (PSA cert → vaultRef = keccak256) | `vault/entities/vault-asset.entity.ts` |
 | `vault_cycles` | One deposit-to-redemption window per asset; at most one open cycle at a time | `vault/entities/vault-cycle.entity.ts` |
 | `vault_redemptions` | Redemption state machine: pending → ownership_verified → burned → completed | `vault/entities/vault-redemption.entity.ts` |
+| `vault_submissions` | Sell-flow package (draft → ship → PSA) per user | `vault/entities/vault-submission.entity.ts` |
+| `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
 
 ### Marketplace core
 
@@ -211,7 +213,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | # | File | Contents |
 |---|------|----------|
 | 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events`, `verification_tokens` |
-| 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions` |
+| 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_submissions`, `vault_submission_items` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |

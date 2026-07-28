@@ -1,19 +1,27 @@
 import { cn } from "@/lib/ds/cn";
 
-export type TkButtonVariant = "primary" | "primaryInv" | "neutral" | "subtle" | "danger";
-export type TkButtonSize = "md" | "sm";
+export type TkButtonVariant =
+  | "primary"
+  | "primaryInv"
+  | "neutral"
+  | "subtle"
+  | "ghost"
+  | "danger";
+export type TkButtonSize = "md" | "sm" | "table";
 
 const variantClass: Record<TkButtonVariant, string> = {
   primary: "tk-btn--primary",
   primaryInv: "tk-btn--primary-inv",
   neutral: "tk-btn--neutral",
   subtle: "tk-btn--subtle",
+  ghost: "tk-btn--ghost",
   danger: "tk-btn--danger",
 };
 
 const sizeClass: Record<TkButtonSize, string> = {
   md: "tk-btn--md",
   sm: "tk-btn--sm",
+  table: "tk-btn--table",
 };
 
 type TkButtonCommonProps = {

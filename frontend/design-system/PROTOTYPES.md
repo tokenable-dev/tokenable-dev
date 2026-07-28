@@ -11,11 +11,14 @@ Path: `Tokenable-with design system/` (repo root). **Reference only** — not im
 | `Card.html` | Collection / card detail | `app/marketplace/collections/[collectionKey]/page.tsx` | 5 |
 | `Portfolio.html` | Portfolio | `app/portfolio/page.tsx` | 6 |
 | `Watchlist.html` | Watchlist | `app/watchlist/page.tsx` | 7 |
+| `Sell.html` | Sell entry router | `app/sell/page.tsx` | 2 (ds-v2) |
+| `Sell-Flow.html` | KYC + add cards | `app/sell/flow/page.tsx` | ds-v2 |
+| `PSA-Shipping.html` | Pack & tracking | `app/sell/shipping/page.tsx` | ds-v2 |
 | `Vault.html` | Vault landing | `app/vault/page.tsx` | 8 |
-| `Vault-Dashboard.html` | My vault | vault dashboard (TBD route) | 8 |
-| `Vault-Submit.html` | Submit card | `components/vault/` mint flow | 8 |
-| `Vault-Detail.html` | Submission detail | vault cycle detail | 8 |
-| `Vault-Shipping.html` | Ship card | redemption shipping | 8 |
+| `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |
+| `Vault-Submit.html` | Personal mint submit | `app/vault/submit` + `MintForm` | 8 |
+| `Vault-Detail.html` | Submission detail A~H | `app/vault/submissions/[id]` | 8 / ds-v2 |
+| `Vault-Shipping.html` | (legacy) ship card | superseded by `PSA-Shipping.html` → `/sell/shipping` | — |
 
 ## Standalone exports
 

@@ -4,7 +4,7 @@
 
 > **Update (2026-06):** Relational matching removed. **Seventeen DB tables** including `portfolio_hidden_holdings`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
-> **Auth update (2026-06):** Phases 1–3 of the Privy migration are complete. Auth is now handled by **Privy** (`@privy-io/react-auth`). The frontend provider tree is `PrivyProvider → QueryClientProvider → WagmiProvider (@privy-io/wagmi)`. Legacy Google OAuth and email/password routes remain until Phase 6. See [guides/privy-auth-migration.md](../guides/privy-auth-migration.md).
+> **Auth:** User auth is **Privy-only** (`@privy-io/react-auth`). Frontend provider tree: `PrivyProvider → QueryClientProvider → WagmiProvider (@privy-io/wagmi)`. Details: [api/auth.md](../api/auth.md).
 >
 > **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
@@ -364,5 +364,5 @@ flowchart LR
 | Backend module map (AuthModule, PrivyModule, ChainConfigService, perf) | [architecture/backend.md](../architecture/backend.md) |
 | Database (17 tables, ER diagram) | [architecture/database.md](../architecture/database.md) |
 | Frontend routes (`/markets`, `/portfolio`, admin) | [frontend/routes.md](../frontend/routes.md) |
-| Privy auth migration (Phases 0–7) | [guides/privy-auth-migration.md](../guides/privy-auth-migration.md) |
+| Privy auth API | [api/auth.md](../api/auth.md) |
 

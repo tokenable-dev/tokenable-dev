@@ -3,19 +3,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useMarketplaceAdminPsaVault } from "@/hooks/marketplace-admin/useMarketplaceAdminPsaVault";
 import { formatPsaAnalyzeError } from "@/lib/psa/psaApiErrors";
-import {
-  buildCarrierTrackingUrl,
-  formatBoolFlag,
-  orderProgressStepLabel,
-  parseOrderProgressBody,
-  type PsaOrderProgressLookupResponse,
-} from "@/lib/psa/psaOrderProgressDisplay";
 import type { PsaAnalyzeResult } from "@/lib/core/api/psa";
-import type {
-  PsaCertImagesLookupResponse,
-  PsaCertPublicApiLookupResponse,
-  PsaSpecPopulationLookupResponse,
-} from "@/lib/core/api/marketplace-admin-psa";
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_PRIMARY,
@@ -38,19 +26,11 @@ import {
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
-type VaultTab =
-  | "shipping"
-  | "cert"
-  | "assets"
-  | "population"
-  | "slab";
+type VaultTab = "cert" | "slab";
 
 const TABS: { id: VaultTab; label: string }[] = [
-  { id: "shipping", label: "Shipping & orders" },
-  { id: "cert", label: "Cert lookup" },
-  { id: "assets", label: "Images & labels" },
-  { id: "population", label: "Population" },
-  { id: "slab", label: "Slab OCR" },
+  { id: "cert", label: "Cert lookup (mint)" },
+  { id: "slab", label: "Slab OCR (mint)" },
 ];
 
 function StatusPill({ ok, label }: { ok: boolean; label: string }) {
@@ -130,133 +110,6 @@ function LookupForm({
   );
 }
 
-function OrderProgressPanel({ result }: { result: PsaOrderProgressLookupResponse }) {
-  const body = useMemo(() => parseOrderProgressBody(result.raw), [result.raw]);
-  const trackingUrl = buildCarrierTrackingUrl(body?.shipCarrier, body?.shipTrackingNumber);
-
-  if (result.status !== "success" || !body) {
-    return (
-      <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-        <p className="text-sm text-amber-700">
-          {result.message ?? "No order progress data returned."}
-          {result.httpStatus ? ` (HTTP ${result.httpStatus})` : null}
-        </p>
-        <JsonDetails data={result} />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${ADMIN_PANEL} mt-4 overflow-hidden`}>
-      <div className="border-b border-zinc-200 px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-base font-semibold text-zinc-900">
-            Order {body.orderNumber ?? result.referenceNumber ?? "—"}
-          </h3>
-          {body.shipped ? (
-            <StatusPill ok label="Shipped" />
-          ) : body.gradesReady ? (
-            <StatusPill ok label="Grades ready" />
-          ) : (
-            <StatusPill ok={false} label="In progress" />
-          )}
-        </div>
-        {result.psaPath ? (
-          <p className={`mt-1 text-xs ${ADMIN_TEXT_MUTED}`}>PSA path: {result.psaPath}</p>
-        ) : null}
-      </div>
-
-      <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Shipping</p>
-          <dl className="mt-2 space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Carrier</dt>
-              <dd className="font-medium text-zinc-900">{body.shipCarrier?.trim() || "—"}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Tracking #</dt>
-              <dd className="font-mono text-zinc-900">
-                {body.shipTrackingNumber?.trim() ? (
-                  trackingUrl ? (
-                    <a
-                      href={trackingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={ADMIN_LINK}
-                    >
-                      {body.shipTrackingNumber}
-                    </a>
-                  ) : (
-                    body.shipTrackingNumber
-                  )
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Shipped</dt>
-              <dd className="font-medium text-zinc-900">{formatBoolFlag(body.shipped)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Status flags</p>
-          <dl className="mt-2 space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Grades ready</dt>
-              <dd className="font-medium text-zinc-900">{formatBoolFlag(body.gradesReady)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Label review</dt>
-              <dd className="font-medium text-zinc-900">
-                {formatBoolFlag(body.readyForLabelReview)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Accounting hold</dt>
-              <dd className="font-medium text-zinc-900">{formatBoolFlag(body.accountingHold)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-zinc-600">Problem order</dt>
-              <dd className="font-medium text-zinc-900">{formatBoolFlag(body.problemOrder)}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
-      {body.orderProgressSteps && body.orderProgressSteps.length > 0 ? (
-        <div className="border-t border-zinc-200 px-4 py-4 sm:px-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Progress steps (PSA enum 0–8)
-          </p>
-          <ul className="mt-3 space-y-2">
-            {body.orderProgressSteps.map((row, i) => (
-              <li
-                key={`${row.index ?? i}-${row.step ?? "x"}`}
-                className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2 text-sm"
-              >
-                <span className="text-zinc-800">
-                  {orderProgressStepLabel(row.step)}
-                  {row.index != null ? (
-                    <span className="text-zinc-500"> · index {row.index}</span>
-                  ) : null}
-                </span>
-                <StatusPill ok={Boolean(row.completed)} label={row.completed ? "Done" : "Pending"} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="border-t border-zinc-200 px-4 py-3 sm:px-5">
-        <JsonDetails data={result.raw} />
-      </div>
-    </div>
-  );
-}
 
 function CertSummary({ raw }: { raw: unknown }) {
   const psaCert = useMemo(() => {
@@ -295,150 +148,8 @@ function CertSummary({ raw }: { raw: unknown }) {
   );
 }
 
-function CertLookupPanel({ result }: { result: PsaCertPublicApiLookupResponse }) {
-  if (result.status !== "success") {
-    return (
-      <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-        <p className="text-sm text-amber-700">
-          {result.message ?? "Cert lookup failed."}
-          {result.httpStatus ? ` (HTTP ${result.httpStatus})` : null}
-        </p>
-        <JsonDetails data={result} />
-      </div>
-    );
-  }
 
-  return (
-    <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-      <p className="text-sm text-zinc-700">
-        Cert <span className="font-mono font-medium text-zinc-900">{result.certNumber}</span>
-        {result.psaPath ? (
-          <span className="text-zinc-500"> · {result.psaPath}</span>
-        ) : null}
-      </p>
-      <CertSummary raw={result.raw} />
-      <JsonDetails data={result.raw} />
-    </div>
-  );
-}
 
-function CertImagesPanel({ result }: { result: PsaCertImagesLookupResponse }) {
-  const images = useMemo(() => {
-    if (!Array.isArray(result.raw)) return [];
-    return result.raw
-      .map((row) => {
-        if (!row || typeof row !== "object") return null;
-        const obj = row as Record<string, unknown>;
-        const url = typeof obj.ImageURL === "string" ? obj.ImageURL : null;
-        const isFront = obj.IsFrontImage === true;
-        return url ? { url, isFront } : null;
-      })
-      .filter((v): v is { url: string; isFront: boolean } => Boolean(v));
-  }, [result.raw]);
-
-  if (result.status !== "success") {
-    return (
-      <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-        <p className="text-sm text-amber-700">
-          {result.message ?? "Image lookup failed."}
-          {result.httpStatus ? ` (HTTP ${result.httpStatus})` : null}
-        </p>
-        <JsonDetails data={result} />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-      {images.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {images.map((img) => (
-            <figure key={img.url} className="overflow-hidden rounded-md border border-zinc-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.url}
-                alt={img.isFront ? "PSA slab front" : "PSA slab back"}
-                className="h-64 w-full bg-zinc-50 object-contain"
-              />
-              <figcaption className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600">
-                {img.isFront ? "Front" : "Back"}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-zinc-600">No image URLs in response.</p>
-      )}
-      <JsonDetails data={result.raw} />
-    </div>
-  );
-}
-
-function PopulationPanel({ result }: { result: PsaSpecPopulationLookupResponse }) {
-  const grades = useMemo(() => {
-    if (!result.pop?.byGrade) return [];
-    return Object.entries(result.pop.byGrade)
-      .filter(([, count]) => count > 0)
-      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [result.pop?.byGrade]);
-
-  if (result.status !== "success") {
-    return (
-      <div className={`${ADMIN_PANEL} mt-4 p-4 sm:p-5`}>
-        <p className="text-sm text-amber-700">
-          {result.message ?? "Population lookup failed."}
-          {result.httpStatus ? ` (HTTP ${result.httpStatus})` : null}
-        </p>
-        <JsonDetails data={result} />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${ADMIN_PANEL} mt-4 overflow-hidden`}>
-      <div className="border-b border-zinc-200 px-4 py-3 sm:px-5">
-        <p className="text-sm text-zinc-700">
-          Spec ID <span className="font-mono font-medium">{result.specId}</span>
-          {result.pop?.total != null ? (
-            <>
-              {" "}
-              · total <span className="font-medium">{result.pop.total}</span>
-            </>
-          ) : null}
-          {result.pop?.grade10 != null ? (
-            <>
-              {" "}
-              · PSA 10 <span className="font-medium">{result.pop.grade10}</span>
-            </>
-          ) : null}
-        </p>
-      </div>
-      {grades.length > 0 ? (
-        <div className={ADMIN_TABLE_WRAP}>
-          <table className={ADMIN_TABLE}>
-            <thead className={ADMIN_TABLE_HEAD}>
-              <tr>
-                <th className={ADMIN_TABLE_TH}>Grade</th>
-                <th className={ADMIN_TABLE_TH}>Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grades.map(([grade, count]) => (
-                <tr key={grade}>
-                  <td className={ADMIN_TABLE_TD}>{grade}</td>
-                  <td className={ADMIN_TABLE_TD}>{count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-      <div className="px-4 py-3 sm:px-5">
-        <JsonDetails data={result.raw} />
-      </div>
-    </div>
-  );
-}
 
 function AnalyzeResultPanel({ result }: { result: PsaAnalyzeResult }) {
   return (
@@ -535,31 +246,20 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 export function MarketplaceAdminVaultPage() {
-  const [tab, setTab] = useState<VaultTab>("shipping");
-  const [orderNumber, setOrderNumber] = useState("");
-  const [submissionNumber, setSubmissionNumber] = useState("");
+  const [tab, setTab] = useState<VaultTab>("cert");
   const [certNumber, setCertNumber] = useState("");
-  const [specId, setSpecId] = useState("");
   const [slabFront, setSlabFront] = useState<File | null>(null);
   const [slabBack, setSlabBack] = useState<File | null>(null);
   const [certHint, setCertHint] = useState("");
 
-  const {
-    orderProgressMutation,
-    submissionProgressMutation,
-    certMutation,
-    fileAppendMutation,
-    imagesMutation,
-    populationMutation,
-    analyzeByCertMutation,
-    analyzeSlabMutation,
-  } = useMarketplaceAdminPsaVault();
+  const { analyzeByCertMutation, analyzeSlabMutation } =
+    useMarketplaceAdminPsaVault();
 
   return (
     <>
       <MarketplaceAdminPageHeader
         title="Vault / PSA"
-        subtitle="PSA Public API tools for vault operations — order shipping status, cert lookup, slab images, population, and mint OCR pipeline. Requires PSA_PUBLIC_API_TOKEN on the backend."
+        subtitle="Mint-only PSA tools — analyze-by-cert and slab OCR. Raw Public API proxies (shipping/pop/images) are disabled to protect the ~500/day quota."
       />
 
       <div className={`${ADMIN_SEGMENT} mb-5`}>
@@ -575,164 +275,32 @@ export function MarketplaceAdminVaultPage() {
         ))}
       </div>
 
-      {tab === "shipping" ? (
-        <div className="space-y-5">
-          <Section
-            title="Order progress (GetProgress)"
-            hint="Track PSA order status — grades ready, shipped, carrier, and tracking number. Order-level only (no per-cert list)."
-          >
-            <LookupForm
-              label="PSA order number"
-              placeholder="e.g. 123456789"
-              value={orderNumber}
-              onChange={setOrderNumber}
-              busy={orderProgressMutation.isPending}
-              onSubmit={() => {
-                if (!orderNumber.trim()) return;
-                void orderProgressMutation.mutateAsync(orderNumber.trim());
-              }}
-            />
-            <LookupError err={orderProgressMutation.error} />
-            {orderProgressMutation.data ? (
-              <OrderProgressPanel result={orderProgressMutation.data} />
-            ) : null}
-          </Section>
-
-          <Section
-            title="Submission progress (GetSubmissionProgress)"
-            hint="Same OrderProgress shape — use the submission number from psacard.com/orderstatus or confirmation email."
-          >
-            <LookupForm
-              label="PSA submission number"
-              placeholder="e.g. 987654321"
-              value={submissionNumber}
-              onChange={setSubmissionNumber}
-              busy={submissionProgressMutation.isPending}
-              onSubmit={() => {
-                if (!submissionNumber.trim()) return;
-                void submissionProgressMutation.mutateAsync(submissionNumber.trim());
-              }}
-            />
-            <LookupError err={submissionProgressMutation.error} />
-            {submissionProgressMutation.data ? (
-              <OrderProgressPanel result={submissionProgressMutation.data} />
-            ) : null}
-          </Section>
-        </div>
-      ) : null}
-
       {tab === "cert" ? (
-        <div className="space-y-5">
-          <Section
-            title="Cert metadata (GetByCertNumber)"
-            hint="Raw PSA PublicCertificationModel — official grade, spec, population summary."
-          >
-            <LookupForm
-              label="Cert number"
-              placeholder="7–10 digit PSA cert"
-              value={certNumber}
-              onChange={setCertNumber}
-              busy={certMutation.isPending}
-              onSubmit={() => {
-                if (!certNumber.trim()) return;
-                void certMutation.mutateAsync(certNumber.trim());
-              }}
-            />
-            <LookupError err={certMutation.error} />
-            {certMutation.data ? <CertLookupPanel result={certMutation.data} /> : null}
-          </Section>
-
-          <Section
-            title="Mint pipeline (analyze-by-cert)"
-            hint="High-level vault lookup — PSA + Cardhedger match, same as /vault cert-only flow."
-          >
-            <LookupForm
-              label="Cert number or psacard.com/cert URL"
-              placeholder="83179580 or https://www.psacard.com/cert/…"
-              value={certNumber}
-              onChange={setCertNumber}
-              busy={analyzeByCertMutation.isPending}
-              buttonLabel="Analyze"
-              onSubmit={() => {
-                if (!certNumber.trim()) return;
-                void analyzeByCertMutation.mutateAsync(certNumber.trim());
-              }}
-            />
-            <LookupError
-              err={
-                analyzeByCertMutation.error
-                  ? new Error(formatPsaAnalyzeError(analyzeByCertMutation.error))
-                  : null
-              }
-            />
-            {analyzeByCertMutation.data ? (
-              <AnalyzeResultPanel result={analyzeByCertMutation.data} />
-            ) : null}
-          </Section>
-        </div>
-      ) : null}
-
-      {tab === "assets" ? (
-        <div className="space-y-5">
-          <Section
-            title="Slab images (GetImagesByCertNumber)"
-            hint="Front/back ImageURL from PSA — used for RWA cover and mint preview."
-          >
-            <LookupForm
-              label="Cert number"
-              placeholder="7–10 digit PSA cert"
-              value={certNumber}
-              onChange={setCertNumber}
-              busy={imagesMutation.isPending}
-              onSubmit={() => {
-                if (!certNumber.trim()) return;
-                void imagesMutation.mutateAsync(certNumber.trim());
-              }}
-            />
-            <LookupError err={imagesMutation.error} />
-            {imagesMutation.data ? <CertImagesPanel result={imagesMutation.data} /> : null}
-          </Section>
-
-          <Section
-            title="Label / file append (GetByCertNumberForFileAppend)"
-            hint="Compact cert fields for outbound labels, invoices, or batch print files."
-          >
-            <LookupForm
-              label="Cert number"
-              placeholder="7–10 digit PSA cert"
-              value={certNumber}
-              onChange={setCertNumber}
-              busy={fileAppendMutation.isPending}
-              onSubmit={() => {
-                if (!certNumber.trim()) return;
-                void fileAppendMutation.mutateAsync(certNumber.trim());
-              }}
-            />
-            <LookupError err={fileAppendMutation.error} />
-            {fileAppendMutation.data ? <CertLookupPanel result={fileAppendMutation.data} /> : null}
-          </Section>
-        </div>
-      ) : null}
-
-      {tab === "population" ? (
         <Section
-          title="Spec population (GetPSASpecPopulation)"
-          hint="Per-grade PSA population for a Spec ID (from PSACert.SpecID)."
+          title="Mint pipeline (analyze-by-cert)"
+          hint="Same as /vault cert-only mint — PSA GetByCertNumber + Cardhedger. Only mint-path PSA call allowed."
         >
           <LookupForm
-            label="PSA Spec ID"
-            placeholder="e.g. 284890"
-            value={specId}
-            onChange={setSpecId}
-            busy={populationMutation.isPending}
+            label="Cert number or psacard.com/cert URL"
+            placeholder="83179580 or https://www.psacard.com/cert/…"
+            value={certNumber}
+            onChange={setCertNumber}
+            busy={analyzeByCertMutation.isPending}
+            buttonLabel="Analyze"
             onSubmit={() => {
-              if (!specId.trim()) return;
-              void populationMutation.mutateAsync(specId.trim());
+              if (!certNumber.trim()) return;
+              void analyzeByCertMutation.mutateAsync(certNumber.trim());
             }}
           />
-          <LookupError err={populationMutation.error} />
-          {populationMutation.data ? (
-            <PopulationPanel result={populationMutation.data} />
+          <LookupError
+            err={
+              analyzeByCertMutation.error
+                ? new Error(formatPsaAnalyzeError(analyzeByCertMutation.error))
+                : null
+            }
+          />
+          {analyzeByCertMutation.data ? (
+            <AnalyzeResultPanel result={analyzeByCertMutation.data} />
           ) : null}
         </Section>
       ) : null}

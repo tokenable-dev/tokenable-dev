@@ -42,6 +42,7 @@ const ICON_BG = {
   purple: { background: "rgba(139,92,246,0.08)", color: "#8b5cf6" },
 };
 
+/** Signed-out sell hub landing — entry before Connecting to seller tools. */
 export function VaultLandingView({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div className="vault-landing">
@@ -53,7 +54,7 @@ export function VaultLandingView({ onSignIn }: { onSignIn: () => void }) {
         </svg>
       </div>
       <h1>
-        Vault your cards.
+        Sell your cards.
         <br />
         <span>Own the token.</span>
       </h1>
@@ -92,10 +93,13 @@ export function VaultEmptyView() {
         </svg>
       </div>
       <h2>No cards in your vault yet</h2>
-      <p>Submit your first PSA graded card to get started. We&apos;ll verify, vault, and mint your token.</p>
-      <Link href="/vault/submit" className="inline-flex">
+      <p>
+        Submit your first PSA 9 or PSA 10 graded card to get started. Your card will be tokenized and
+        secured in our vault.
+      </p>
+      <Link href="/sell/flow" className="inline-flex">
         <TkButton decorative variant="primary" size="md" className="h-[52px] px-7 text-[15px]">
-          + Mint Your First Card →
+          + Submit Your First Card →
         </TkButton>
       </Link>
     </div>

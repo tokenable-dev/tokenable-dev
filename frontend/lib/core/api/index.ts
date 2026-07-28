@@ -1,3 +1,4 @@
+export * from "./vault-submissions";
 export * from "./client";
 export * from "./rwa-types";
 export * from "./rwa-upload";
@@ -13,6 +14,8 @@ export * from "./marketplace-admin-partners";
 export * from "./marketplace-admin-auth";
 export * from "./marketplace-admin-users";
 export * from "./marketplace-admin-analytics";
+export * from "./marketplace-admin-vault-submissions";
+export * from "./marketplace-admin-data-inventory";
 export * from "./marketplace-admin-psa";
 export * from "./marketplace-market-data";
 export * from "./portfolio";

@@ -24,7 +24,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 | `tk-*` class | React component | Location |
 |--------------|-----------------|----------|
-| `.tk-btn--primary` etc. | `TkButton` | `components/ds/Button.tsx` |
+| `.tk-btn--primary` / `neutral` / `subtle` / `ghost` / `danger`, sizes `md` `sm` `table` | `TkButton` | `components/ds/Button.tsx` |
 | `.tk-iconbtn` | `TkIconButton` | `components/ds/IconButton.tsx` |
 | `.tk-input`, `.tk-field` | `TkInput`, `TkField` | `components/ds/Input.tsx`, `Field.tsx` |
 | `.tk-dialog` | `TkDialog` | `components/ds/Dialog.tsx` |
@@ -53,7 +53,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Section | Prototype class / id | React target | File |
 |---------|----------------------|--------------|------|
 | Hero + CTA | hero block, `.btn--primary` | `HomeHero` | `components/home/HomeHero.tsx` |
-| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — tiers: `docs/guides/hero-carousel-performance.md` |
+| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — faces from marketplace S3 `coverImageUrl` via `useHeroCarouselImageSources` |
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |
@@ -87,12 +87,16 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Breadcrumb | `.breadcrumb` | `CollectionDetailBreadcrumb` | `components/marketplace/collection-detail/CollectionDetailBreadcrumb.tsx` |
 | Metrics / price band | `.notch` stat tiles | `CollectionPriceMetricsStrip` | `buildCollectionDetailMarketsSlots.tsx` |
 | Chart + periods | `.tk-period`, Price history | `CollectionDetailPriceChart` | `components/marketplace/collection-detail/CollectionDetailPriceChart.tsx` |
-| Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` | `components/marketplace/collection-detail/*` |
+| Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` (Buy-only) | `components/marketplace/collection-detail/*` |
+| Set-level bid | Name your price banner | `CollectionPlaceBidBanner` | `CollectionPlaceBidBanner.tsx` |
+| Listing detail | `#tk-prov` | `CollectionListingDetailModal` + `CollectionListingBuyerEducation` | `CollectionListingDetailModal.tsx` |
 | Trades / order book | sidebar `.notch` | `CollectionUnifiedOrderBook` | `components/marketplace/unified-order-book/*` |
 | Details / PSA tabs | tab row | `CollectionHeroDetailsTabs` | `components/marketplace/collection-hero/*` |
 | Overview layout | `card-detail-grid` | `CollectionOverviewBoard` | `components/marketplace/collection-overview/*` |
 
 **CSS:** `frontend/styles/tokenable-collection-detail.css`
+
+**Phase 4 (ds-v2):** Set-level **Place a Bid** banner (Highest bid / Lowest ask). Listing rows and provenance foot are **Buy-only**. Verification tiles: Graded by / Cert # / Stored at (`PSA Vault · Lloyd's insured`). Soft custody copy: What you'll get + Buyer protection; checkout fine print **Owned instantly · stays safely in the vault**.
 
 **Existing route:** `app/marketplace/collections/[collectionKey]/page.tsx`
 
@@ -107,13 +111,15 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Stat grid | `.pf-stat-grid`, `.notch` | `PortfolioStatGrid` | `components/portfolio/PortfolioStatGrid.tsx` |
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
 | Tabs | `.tk-tabs` | `PortfolioMainSection` | `components/portfolio/PortfolioMainSection.tsx` |
-| Holdings | card grid | `PortfolioHoldingsSection` + `PortfolioAssetCard` + `PortfolioAssetCardCta` | `components/portfolio/*` |
+| Holdings | table + mobile cards | `PortfolioHoldingsSection` + `PortfolioHoldingsRowActions` (Set price / Edit price + bid meta) | `components/portfolio/*` |
 | Bids | bid rows | `PortfolioCollectionBidsSection` | `components/portfolio/PortfolioCollectionBidsSection.tsx` |
 | Watchlist tab | — | `PortfolioWatchlistSection` | `components/portfolio/PortfolioWatchlistSection.tsx` |
 | Transaction history | `.tk-table` | `PortfolioActivitySection` | `components/portfolio/PortfolioActivitySection.tsx` |
-| Confirm modals | portfolio-modals.js | `TkDialog` | `PortfolioHideConfirmModal`, `PortfolioCancelBidConfirmModal` |
+| Confirm modals | portfolio-modals.js | `TkDialog` | `PortfolioHideConfirmModal`, `PortfolioCancelBidConfirmModal`, `PortfolioCancelListingConfirmModal` |
 
 **CSS:** `frontend/styles/tokenable-portfolio.css`
+
+**Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** with Highest bid / No bids yet meta. Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
 
 ---
 
@@ -121,10 +127,10 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 | Modal function | Purpose | React modal |
 |----------------|---------|-------------|
-| `pfSellModal` | Accept highest bid | `PortfolioSellSheet` |
-| `pfListModal` | Create listing + OB preview | extend `ListRwaModal` → ActionSheet |
-| `pfCancelListingModal` | Cancel ask | `CancelListingSheet` |
-| `pfCancelBidModal` | Cancel bid | `CancelBidSheet` |
+| `pfSetPriceModal` | Set / Edit list price | `ListRwaModal` (`copyVariant="set-price"`) |
+| `pfAcceptOffersModal` | Accept highest bid | `PortfolioAcceptOfferModal` (wired later) |
+| `pfCancelListingModal` | Cancel ask | `PortfolioCancelListingConfirmModal` |
+| `pfCancelBidModal` | Cancel bid | `PortfolioCancelBidConfirmModal` |
 | `pfRaiseBidModal` | Raise bid | `RaiseBidSheet` |
 | `pfTargetPriceModal` | Watchlist alert | `TargetPriceSheet` |
 | `pfRemoveWatchModal` | Remove watchlist | `RemoveWatchSheet` |
@@ -155,22 +161,34 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Vault — **Live (real mint)**
+## Vault / Sell — **Live (real mint + Sell IA)**
+
+Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router). Collector hub remains `/vault`.
 
 | Route | React target |
 |-------|--------------|
-| `/vault` | `VaultHubView` (landing / empty dashboard) |
+| `/sell` | `SellRouterView` — loader then → `/vault` (partner branch Phase 8) |
+| `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → add cards via PSA cert lookup) |
+| `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (pack checklist → tracking) |
+| `/vault` | `VaultHubView` (Selling hub / landing / empty dashboard) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
-| `/vault/submit/mint` | redirect → `/vault/submit` |
+| `/vault/submit/mint` | `MintForm` (personal/internal mint entry) |
 | `/vault/submit/shipping` | redirect → `/vault/submit` |
-| `/vault/submissions/[id]` | redirect → `/vault` |
+| `/vault/submissions/[id]` | `VaultDetailDesignView` — Vault-Detail.html A~H (scenario query + live shipment) |
 | `/vault/list` | redirect → `/portfolio` |
+| `/sell/p2p` | P2P list flow (separate) |
 
-**CSS:** `frontend/styles/tokenable-vault.css`
+**CSS:** `frontend/styles/tokenable-vault.css` (includes `.sell-router`); sell flow + shipping in `tokenable-sell-flow.css`
 
-**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultBadge`
+**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultThumb`
 
-**Removed:** design-mock views (`Vault*DesignView`, `VaultDashboardView`, `VaultDemoToggle`), vault/home/markets/portfolio mock data modules
+**Gate:** Hub `/vault`, submit paths, and `/vault/submissions/[id]` are open; other `/vault/*` stay coming-soon until `VAULT_PUBLIC_ENABLED`.
+
+**Persistence:** Sell draft/ship → `POST /api/vault/submissions/*` (`vault_submissions` + items). LocalStorage remains offline fallback. Mint attaches `vault_cycle_id` on items.
+
+**Removed:** list/shipping/submit DesignViews, `VaultDashboardView`, `VaultDemoToggle`, `VaultBadge`, `vaultMockData` inventory/FAQ. Detail remains as `VaultDetailDesignView` (A~H; add `?demo=1` for scenario switcher).
+
+**Lib:** `lib/sell/sellFlowDraft.ts` (draft + PSA ship address + packing checklist); `lib/vault/vaultDetailScenarios.ts`; `lib/vault/vaultHubTypes.ts`; `lib/core/api/vault-submissions.ts`
 
 ---
 
@@ -214,6 +232,7 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 | `/marketplace/admin/price-webhooks` | `MarketplaceAdminPriceWebhooksPage` | Cardhedger delta import |
 | `/marketplace/admin/contract-roles` | `MarketplaceAdminContractRolesPage` | On-chain roles |
 | `/marketplace/admin/vault` | `MarketplaceAdminVaultPage` | PSA API tooling |
+| `/marketplace/admin/vault/submissions` | `MarketplaceAdminVaultSubmissionsPage` | Sell-flow package ops (pipeline, arrive, approve/reject) |
 | `/dev/admin-ui` | `AdminUiShowcase` | Admin UI contract (not production) |
 
 **Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`

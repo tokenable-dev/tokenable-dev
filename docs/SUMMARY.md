@@ -17,6 +17,7 @@
 - [Overview](api/README.md)
 - [Authentication](api/auth.md)
 - [RWA (Mint & Vault)](api/rwa.md)
+- [Vault Submissions (Sell flow)](api/vault-submissions.md)
 - [Marketplace](api/marketplace.md)
 - [Marketplace Admin](api/marketplace-admin.md)
 - [Blockchain (Read)](api/blockchain.md)
@@ -29,7 +30,6 @@
 - [Local Setup](guides/local-setup.md)
 - [Deployment (EC2)](guides/deployment.md)
 - [Marketplace Admin Console](guides/marketplace-admin.md)
-- [Privy Auth Migration](guides/privy-auth-migration.md)
 - [Privy Wallet Funding](guides/privy-wallet-funding.md)
 - [Performance Instrumentation](guides/performance-instrumentation.md)
 - [Cardhedger PSA Variety](guides/cardhedger-psa-variety.md)
@@ -37,8 +37,7 @@
 - [Networking](guides/networking.md)
 - [Troubleshooting](guides/troubleshooting.md)
 - [Design System Reference](guides/design-system-reference.md)
-- [Design System Governance Phases](guides/design-system-governance-phases.md)
-- [Design System Migration](guides/design-system-migration.md)
+- [Sumsub KYC](guides/sumsub-kyc.md)
 
 ## Platform Documentation
 

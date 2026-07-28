@@ -31,6 +31,14 @@ export const ASSETS = {
       sgc: `${ASSETS_BASE}/ds/logo-sgc.png`,
       tag: `${ASSETS_BASE}/ds/logo-tag.png`,
     },
+    cards: {
+      charizard: `${ASSETS_BASE}/ds/card-charizard.png`,
+      lebron: `${ASSETS_BASE}/ds/card-lebron.png`,
+      pikachu: `${ASSETS_BASE}/ds/card-pikachu.png`,
+      luka: `${ASSETS_BASE}/ds/card-luka.png`,
+      nidoking: `${ASSETS_BASE}/ds/card-nidoking.jpg`,
+      pikachuEx: `${ASSETS_BASE}/ds/card-pikachu-ex.png`,
+    },
   },
 
   /** 아이콘 (favicon, 앱 아이콘 등) */

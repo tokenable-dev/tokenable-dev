@@ -20,6 +20,10 @@ export function RwaDetailListModalHost({
   existingAskOrder,
   existingAskOrderHash,
   initialPriceUsdc,
+  marketValueUsd,
+  listedPriceUsd,
+  copyVariant,
+  onRequestCancelListing,
   onMatchedSale,
   onClose,
   onListed,
@@ -32,6 +36,10 @@ export function RwaDetailListModalHost({
   existingAskOrder?: Order;
   existingAskOrderHash?: string | null;
   initialPriceUsdc: string | null;
+  marketValueUsd?: number | null;
+  listedPriceUsd?: number | null;
+  copyVariant?: "default" | "set-price";
+  onRequestCancelListing?: () => void;
   onMatchedSale: () => void;
   onClose: () => void;
   onListed: () => void;
@@ -48,6 +56,10 @@ export function RwaDetailListModalHost({
       existingAskOrder={existingAskOrder}
       existingAskOrderHash={existingAskOrderHash}
       initialPriceUsdc={initialPriceUsdc}
+      marketValueUsd={marketValueUsd}
+      listedPriceUsd={listedPriceUsd}
+      copyVariant={copyVariant}
+      onRequestCancelListing={onRequestCancelListing}
       onMatchedSale={onMatchedSale}
       onClose={onClose}
       onListed={onListed}

@@ -23,6 +23,7 @@ export function PortfolioAssetCard({
   onChangeListing,
   onCancelListing,
   onSellNow,
+  onSetPrice,
 }: {
   row: AssetRow;
   assetFilter: AssetListFilter;
@@ -34,12 +35,17 @@ export function PortfolioAssetCard({
   onOpen: () => void;
   onRequestHide: () => void;
   onUnhide: () => void;
-  onChangeListing: () => void;
-  onCancelListing: () => void;
-  onSellNow: () => void;
+  /** @deprecated Prefer onSetPrice */
+  onChangeListing?: () => void;
+  /** @deprecated Prefer Edit price drawer cancel */
+  onCancelListing?: () => void;
+  /** @deprecated Prefer onSetPrice */
+  onSellNow?: () => void;
+  onSetPrice?: () => void;
 }) {
   const titleLine = row.name;
   const isListed = row.listPriceUsd != null && row.activeListingOrderHash != null;
+  const setPrice = onSetPrice ?? onChangeListing ?? onSellNow;
 
   return (
     <div
@@ -125,15 +131,9 @@ export function PortfolioAssetCard({
             marketPending={valuesPending}
           />
         </div>
-        {address && assetFilter !== "hidden" ? (
+        {address && assetFilter !== "hidden" && setPrice ? (
           <div className="pf-asset-card__actions border-t border-white/8 pt-2">
-            <PortfolioAssetCardCta
-              isListed={isListed}
-              busy={cancellingListingTokenId === row.tokenId}
-              onChange={onChangeListing}
-              onCancel={onCancelListing}
-              onSellNow={onSellNow}
-            />
+            <PortfolioAssetCardCta isListed={isListed} onSetPrice={setPrice} />
           </div>
         ) : null}
       </div>

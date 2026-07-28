@@ -146,3 +146,80 @@ describe('exactCatalogMatch', () => {
     );
   });
 });
+
+describe('catalogRowTrustedForMarketData — Prizm Rookie Signatures', () => {
+  it('trusts parent Prizm Basketball checklist # when PSA uses insert code RSLW4', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'LONNIE WALKER IV',
+        cardSet: 'PANINI PRIZM ROOKIE SIGNATURES',
+        cardNumber: 'RSLW4',
+        psaSubject: 'LONNIE WALKER IV',
+        psaBrand: 'PANINI PRIZM ROOKIE SIGNATURES',
+        psaVariety: 'ROOKIE SIGNATURES',
+        psaYear: '2018',
+        cardhedgerSearchQuery:
+          '2018 Panini Prizm Rookie Signatures Lonnie Walker IV RSLW4',
+      },
+      {
+        name: 'Lonnie Walker IV',
+        // Live Cardhedger uses checklist #18; PSA slab prints insert code RSLW4.
+        number: '18',
+        set: '2018 Panini Prizm Basketball',
+        variant: 'Base',
+        description:
+          'Lonnie Walker IV 2018 Panini Prizm Rookie Signatures Basketball',
+      },
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects Dominion Rookie Signatures when PSA brand is Prizm', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'LONNIE WALKER IV',
+        cardSet: 'PANINI PRIZM ROOKIE SIGNATURES',
+        cardNumber: 'RSLW4',
+        psaSubject: 'LONNIE WALKER IV',
+        psaBrand: 'PANINI PRIZM ROOKIE SIGNATURES',
+        psaVariety: 'ROOKIE SIGNATURES',
+        psaYear: '2018',
+      },
+      {
+        name: 'Lonnie Walker IV',
+        number: 'RR-LW4',
+        set: '2018 Panini Dominion Basketball',
+        variant: 'Base',
+        description:
+          'Lonnie Walker IV 2018 Panini Dominion Regal Rookie Signatures Basketball',
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.failCodes).toEqual(
+      expect.arrayContaining(['number_mismatch']),
+    );
+  });
+
+  it('rejects Sensational Signatures when PSA variety is Rookie Signatures', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'LONNIE WALKER IV',
+        cardSet: 'PANINI PRIZM ROOKIE SIGNATURES',
+        cardNumber: 'RSLW4',
+        psaSubject: 'LONNIE WALKER IV',
+        psaBrand: 'PANINI PRIZM ROOKIE SIGNATURES',
+        psaVariety: 'ROOKIE SIGNATURES',
+        psaYear: '2018',
+      },
+      {
+        name: 'Lonnie Walker IV',
+        number: '18',
+        set: '2018 Panini Prizm Basketball',
+        variant: 'Base',
+        description:
+          'Lonnie Walker IV 2018 Panini Prizm Sensational Signatures Basketball',
+      },
+    );
+    expect(r.ok).toBe(false);
+  });
+});

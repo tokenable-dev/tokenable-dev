@@ -69,6 +69,25 @@ export function useCollectionListingModal(input: {
     [],
   );
 
+  /** Set-level Place a Bid — uses lowest ask (or first listing token) as criteria seed. */
+  const openSetLevelBid = useCallback(() => {
+    const asks = [...askMap.values()].filter((o) => o.status === "active");
+    asks.sort((a, b) => {
+      const pa = Number(a.considerationAmount) || 0;
+      const pb = Number(b.considerationAmount) || 0;
+      return pa - pb;
+    });
+    const floor = asks[0];
+    if (floor?.tokenId != null) {
+      const tid = Number(floor.tokenId);
+      if (Number.isFinite(tid)) {
+        setSelectedTokenId(tid);
+        setCheckout("bid");
+        return;
+      }
+    }
+  }, [askMap]);
+
   const buyFlow = useRwaDetailBuyFlow({
     tokenId: selectedTokenId ?? 0,
     collectionKeyForMatch: collectionKey,
@@ -92,6 +111,7 @@ export function useCollectionListingModal(input: {
     checkout,
     setCheckout,
     openListing,
+    openSetLevelBid,
     closeDetail,
     buyFlow,
   };

@@ -1,3 +1,4 @@
+import { ASSETS } from "@/constants/assets";
 import type { VaultStepDef } from "@/lib/vault/vaultStepSpec";
 
 export type VaultDetailScenarioKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "early";
@@ -46,6 +47,30 @@ const AZ = "azure" as const;
 const NEG = "neg" as const;
 const DIM = "dim" as const;
 
+export const MOCK_SUBMISSION_ID = "SUB-20260616-00421";
+
+const PKG_CHAR = {
+  name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
+  imageUrl: ASSETS.ds.cards.charizard,
+  grade: "PSA 10",
+  cert: "12345678",
+};
+const PKG_PIKA = {
+  name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH",
+  imageUrl: ASSETS.ds.cards.pikachu,
+  grade: "PSA 9",
+  cert: "22938102",
+};
+const PKG_LEB = {
+  name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE",
+  imageUrl: ASSETS.ds.cards.lebron,
+  grade: "PSA 10",
+  cert: "55501248",
+};
+
+export const PKG_DEMO_CARDS = [PKG_CHAR, PKG_PIKA, PKG_LEB] as const;
+
+/** Vault-Detail.html A~H — design system-2 (PSA / Live labels). */
 export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "early">, VaultDetailScenario> = {
   A: {
     key: "A",
@@ -59,13 +84,13 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     steps: [
       { label: "Submit", state: "active", sub: "DRAFT", subColor: DIM },
       { label: "Ship", state: P },
-      { label: "Vault", state: P },
-      { label: "Mint", state: P },
+      { label: "PSA", state: P },
+      { label: "Live", state: P },
     ],
     notif: "We'll save your progress until you submit.",
     cta: [
-      { label: "Continue Submission →", href: "/vault/submit", primary: true },
-      { label: "Back to Vault", href: "/vault" },
+      { label: "Continue Submission →", href: "/sell/flow", primary: true },
+      { label: "Back to Sell", href: "/vault" },
     ],
   },
   B: {
@@ -80,12 +105,12 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     steps: [
       { label: "Submit", state: "done", sub: "SUBMITTED", subColor: POS },
       { label: "Ship", state: "active", sub: "PENDING", subColor: DIM },
-      { label: "Vault", state: P },
-      { label: "Mint", state: P },
+      { label: "PSA", state: P },
+      { label: "Live", state: P },
     ],
     ship: "pending",
     notif: "We'll notify you by email once we receive your package.",
-    cta: [{ label: "Back to Vault", href: "/vault" }],
+    cta: [{ label: "Back to Sell", href: "/vault" }],
   },
   C: {
     key: "C",
@@ -94,17 +119,17 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "info",
       icon: "spin",
       title: "In Transit",
-      sub: "Your package is on the way to our vault facility.",
+      sub: "Your package is on the way to PSA.",
     },
     steps: [
       { label: "Submit", state: "done", sub: "SUBMITTED", subColor: POS },
       { label: "Ship", state: "active", sub: "IN TRANSIT", subColor: AZ },
-      { label: "Vault", state: P },
-      { label: "Mint", state: P },
+      { label: "PSA", state: P },
+      { label: "Live", state: P },
     ],
     ship: "intransit",
     notif: "We'll notify you by email when your package arrives.",
-    cta: [{ label: "Back to Vault", href: "/vault" }],
+    cta: [{ label: "Back to Sell", href: "/vault" }],
   },
   D: {
     key: "D",
@@ -115,22 +140,16 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "info",
       icon: "spin",
       title: "PSA Reviewing Cards",
-      sub: "Submission under review",
+      sub: `${MOCK_SUBMISSION_ID} · 3 cards`,
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      {
-        label: "Vault",
-        state: "active",
-        sub: "REVIEWING",
-        subColor: AZ,
-        spin: true,
-      },
-      { label: "Mint", state: P },
+      { label: "PSA", state: "active", sub: "REVIEWING", subColor: AZ, spin: true },
+      { label: "Live", state: P },
     ],
     notif: "We'll notify you by email as each card is verified.",
-    cta: [{ label: "Back to Vault", href: "/vault" }],
+    cta: [{ label: "Back to Sell", href: "/vault" }],
   },
   E: {
     key: "E",
@@ -140,25 +159,19 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Cards Approved & Vaulted",
+      title: "Cards approved & stored",
       sub: "3 cards · verified and insured",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "Vault", state: "done", sub: "APPROVED", subColor: POS },
-      {
-        label: "Mint",
-        state: "active",
-        sub: "QUEUED",
-        subColor: AZ,
-        spin: true,
-      },
+      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Live", state: "active", sub: "QUEUED", subColor: AZ, spin: true },
     ],
-    notif: "Token minting will begin shortly.",
+    notif: "Your listings will go live shortly.",
     cta: [
       { label: "View in Portfolio →", href: "/portfolio", primary: true },
-      { label: "Submit Another Card →", href: "/vault/submit" },
+      { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
   F: {
@@ -175,18 +188,13 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      {
-        label: "Vault",
-        state: "failed",
-        sub: "REJECTED",
-        subColor: NEG,
-      },
-      { label: "Mint", state: P },
+      { label: "PSA", state: "failed", sub: "REJECTED", subColor: NEG },
+      { label: "Live", state: P },
     ],
     notif: "Rejected cards will be returned at your expense.",
     cta: [
       { label: "Contact Support →", href: "#", primary: true },
-      { label: "Submit Another Card →", href: "/vault/submit" },
+      { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
   G: {
@@ -197,19 +205,19 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Minting Complete",
-      sub: "Tokens minted to your wallet",
+      title: "Your cards are live",
+      sub: "3 cards are now in your portfolio",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "Vault", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Mint", state: "done", sub: "COMPLETED", subColor: POS },
+      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Live", state: "done", sub: "LISTED", subColor: POS },
     ],
-    notif: "All tokens are now visible in your Portfolio.",
+    notif: "All your cards are now visible in your Portfolio.",
     cta: [
       { label: "View in Portfolio →", href: "/portfolio", primary: true },
-      { label: "Submit Another Card →", href: "/vault/submit" },
+      { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
   H: {
@@ -220,26 +228,65 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "danger",
       icon: "x",
-      title: "Mint Failed",
-      sub: "1 of 3 tokens failed to mint",
+      title: "Something went wrong",
+      sub: "1 of 3 cards couldn't be listed",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "Vault", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Mint", state: "failed", sub: "FAILED", subColor: NEG },
+      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Live", state: "failed", sub: "FAILED", subColor: NEG },
     ],
-    notif: "We're retrying the failed mint automatically.",
+    notif: "We're retrying automatically.",
     cta: [
       { label: "Contact Support →", href: "#", primary: true },
-      { label: "Submit Another Card →", href: "/vault/submit" },
+      { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
 };
 
-/** No mock package cards — live submission cards will populate this later. */
-export function buildPackageCards(_scenario: VaultDetailScenario): VaultPackageCard[] {
-  return [];
+export function buildPackageCards(scenario: VaultDetailScenario): VaultPackageCard[] {
+  const base = [...PKG_DEMO_CARDS];
+  switch (scenario.key) {
+    case "D":
+      return base.map((c, i) => ({ id: i, ...c, status: "reviewing" as const }));
+    case "E":
+      return base.map((c, i) => ({ id: i, ...c, status: "approved" as const }));
+    case "F": {
+      const reasons = [
+        "Holder shows signs of tampering",
+        "Card doesn't match the cert number",
+        "Doesn't meet PSA Vault terms",
+      ];
+      return base.map((c, i) => ({
+        id: i,
+        ...c,
+        status: "rejected" as const,
+        reason: reasons[i] ?? "Does not meet requirements",
+      }));
+    }
+    case "G":
+      return base.map((c, i) => ({
+        id: i,
+        ...c,
+        status: "completed" as const,
+        token: `#0${421 + i}`,
+      }));
+    case "H":
+      return base.map((c, i) => ({
+        id: i,
+        ...c,
+        status: i < 2 ? ("completed" as const) : ("failed" as const),
+        token: i < 2 ? `#0${421 + i}` : undefined,
+      }));
+    default:
+      return [];
+  }
+}
+
+/** Layout A package preview cards (draft / ship stages). */
+export function buildLayoutAPackageCards(): Omit<VaultPackageCard, "status">[] {
+  return PKG_DEMO_CARDS.map((c, i) => ({ id: i, ...c }));
 }
 
 export function resolveDetailScenarioKey(
@@ -250,5 +297,17 @@ export function resolveDetailScenarioKey(
   if (s && s in VAULT_DETAIL_SCENARIOS) return s as Exclude<VaultDetailScenarioKey, "early">;
   if (legacyView === "rejected") return "early";
   if (legacyView === "completed") return "G";
-  return "A";
+  if (legacyView === "minting") return "D";
+  return "C";
 }
+
+export const SCENARIO_SWITCHER: { key: Exclude<VaultDetailScenarioKey, "early">; label: string }[] = [
+  { key: "A", label: "A·Draft" },
+  { key: "B", label: "B·Pending" },
+  { key: "C", label: "C·Transit" },
+  { key: "D", label: "D·Review" },
+  { key: "E", label: "E·Approved" },
+  { key: "F", label: "F·Rejected" },
+  { key: "G", label: "G·Minted" },
+  { key: "H", label: "H·Failed" },
+];

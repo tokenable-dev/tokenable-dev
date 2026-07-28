@@ -172,6 +172,145 @@
   color: rgba(0, 51, 255, 0.75) !important;
 }
 
+.rd-list-sheet__mkt {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.rd-list-sheet__ref,
+.rd-list-sheet__listed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+}
+
+.rd-list-sheet__listed {
+  display: block;
+}
+
+.rd-list-sheet__ref-label {
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.rd-list-sheet__ref-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rd-list-sheet__ref-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rd-list-sheet__ref-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.rd-list-sheet__match {
+  background: rgba(26, 111, 255, 0.16);
+  border: 0;
+  color: var(--azure);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rd-list-sheet__match:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.24);
+}
+
+.rd-list-sheet__match:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rd-list-sheet__dollar {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.rd-list-sheet__fee {
+  margin-top: 4px;
+}
+
+.rd-list-sheet__fee-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.rd-list-sheet__fee-amt {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.rd-list-sheet__fee-row--net {
+  padding-bottom: 6px;
+}
+
+.rd-list-sheet__fee-net-label {
+  font-weight: 700;
+}
+
+.rd-list-sheet__fee-net {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pos);
+}
+
+.rd-list-sheet__hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 /* ── Place bid sheet header ─────────────────────────────────────────────────── */
 
 .rd-bid-sheet__header {

@@ -1,52 +1,50 @@
 import { ConfigService } from '@nestjs/config';
 import {
   isPsaPublicApiBackgroundUpstreamEnabled,
+  isPsaPublicApiMarketplaceUpstreamEnabled,
   isPsaPublicApiMintUpstreamEnabled,
   isPsaPublicApiSnapshotUpstreamEnabled,
   isPsaPublicApiUpstreamEnabled,
 } from './psa-upstream-policy.util';
 import { psaPublicApiAllowedForSnapshotReason } from './psa-components-mirror.util';
 
-describe('psa upstream policy', () => {
+describe('psa upstream policy — mint-only', () => {
   const config = {
     get: (key: string) =>
       ({
         PSA_PUBLIC_API_BACKGROUND_UPSTREAM: 'true',
-        PSA_PUBLIC_API_ON_MINT: 'true',
         PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT: 'always',
         PSA_PUBLIC_API_TOKEN: 'abc123',
+        PSA_PUBLIC_API_UPSTREAM_ENABLED: 'true',
       })[key],
   } as ConfigService;
 
-  it('blocks mint upstream even when env flags are set', () => {
-    expect(isPsaPublicApiMintUpstreamEnabled(config)).toBe(false);
+  it('allows mint upstream when master switch / token is on', () => {
+    expect(isPsaPublicApiMintUpstreamEnabled(config)).toBe(true);
+    expect(isPsaPublicApiUpstreamEnabled(config)).toBe(true);
   });
 
-  it('allows snapshot upstream when refresh env is always and token is set', () => {
+  it('hard-blocks marketplace upstream', () => {
+    expect(isPsaPublicApiMarketplaceUpstreamEnabled()).toBe(false);
+  });
+
+  it('hard-blocks snapshot upstream even when refresh env is always', () => {
     expect(
       isPsaPublicApiSnapshotUpstreamEnabled(
         config,
         config.get('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
       ),
-    ).toBe(true);
-  });
-
-  it('allows snapshot reason policy when refresh env is always', () => {
+    ).toBe(false);
     expect(
       psaPublicApiAllowedForSnapshotReason('cold_start', 'always'),
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it('allows background only when PSA_PUBLIC_API_BACKGROUND_UPSTREAM is set', () => {
-    expect(isPsaPublicApiBackgroundUpstreamEnabled(config)).toBe(true);
+  it('hard-blocks background upstream even when env is set', () => {
+    expect(isPsaPublicApiBackgroundUpstreamEnabled(config)).toBe(false);
   });
 
-  it('defaults background upstream to off', () => {
-    const off = { get: () => undefined } as unknown as ConfigService;
-    expect(isPsaPublicApiBackgroundUpstreamEnabled(off)).toBe(false);
-  });
-
-  it('defaults PSA Public API upstream to off', () => {
+  it('defaults PSA Public API upstream to off without token', () => {
     const off = { get: () => undefined } as unknown as ConfigService;
     expect(isPsaPublicApiUpstreamEnabled(off)).toBe(false);
   });
@@ -69,13 +67,6 @@ describe('psa upstream policy', () => {
             : undefined,
     } as unknown as ConfigService;
     expect(isPsaPublicApiUpstreamEnabled(off)).toBe(false);
-  });
-
-  it('enables PSA Public API upstream when env is true', () => {
-    const on = {
-      get: (key: string) =>
-        key === 'PSA_PUBLIC_API_UPSTREAM_ENABLED' ? 'true' : undefined,
-    } as unknown as ConfigService;
-    expect(isPsaPublicApiUpstreamEnabled(on)).toBe(true);
+    expect(isPsaPublicApiMintUpstreamEnabled(off)).toBe(false);
   });
 });

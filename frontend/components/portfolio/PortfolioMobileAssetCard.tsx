@@ -18,12 +18,10 @@ export function PortfolioMobileAssetCard({
   canEditCostBasis,
   savingCostBasis,
   isListed,
-  cancelling,
+  highestBidUsd,
   onOpen,
   onSaveCostBasis,
-  onList,
-  onCancel,
-  onSellNow,
+  onSetPrice,
 }: {
   row: AssetRow;
   grade: string | null;
@@ -32,12 +30,10 @@ export function PortfolioMobileAssetCard({
   canEditCostBasis: boolean;
   savingCostBasis?: boolean;
   isListed: boolean;
-  cancelling: boolean;
+  highestBidUsd?: number | null;
   onOpen: () => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
-  onList: () => void;
-  onCancel: () => void;
-  onSellNow: () => void;
+  onSetPrice: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
@@ -121,10 +117,9 @@ export function PortfolioMobileAssetCard({
         >
           <PortfolioHoldingsRowActions
             isListed={isListed}
-            cancelling={cancelling}
-            onList={onList}
-            onCancel={onCancel}
-            onSellNow={onSellNow}
+            highestBidUsd={highestBidUsd}
+            fullWidth
+            onSetPrice={onSetPrice}
           />
         </div>
       </div>

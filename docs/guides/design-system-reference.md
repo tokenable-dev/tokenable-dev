@@ -1,11 +1,11 @@
 # Design system reference
 
 **Canonical guide for implementing or extending Tokenable UI.**  
-Read this before any visual work. The phased migration checklist lives in [design-system-migration.md](./design-system-migration.md); this document is the **ongoing reference** for tokens, components, and conventions.
+Read this before any visual work. Phased migration (0–10) is complete — do not create new phase docs.
 
 **AI agents:** `.cursor/rules/design-system-migration.mdc` and `.cursor/rules/design-system-reference.mdc` apply to `frontend/**` and point here first.
 
-**Governance:** Phased drift control — [design-system-governance-phases.md](./design-system-governance-phases.md) (Phase 1 = process; no auto-sync from prototypes).
+**Governance:** `Tokenable-with design system-2/` is the preferred HTML reference; `Tokenable-with design system/` is the earlier export. Neither is imported by Next.js — update `frontend/design-system/` intentionally when adopting prototype changes.
 
 ---
 
@@ -36,13 +36,29 @@ Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **
 
 ## Read order (UI / styling tasks)
 
-1. **This file** — tokens, components, do/don't
+1. **This file** — tokens, components, do/don't, CSS import order
 2. **[INVENTORY.md](../../frontend/design-system/INVENTORY.md)** — which React component owns which screen section
-3. **[design-system-migration.md](./design-system-migration.md)** — phase history + CSS bundle import order
-4. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
-5. Matching HTML prototype (reference only): `Tokenable-with design system/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
+3. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
+4. Matching HTML prototype (reference only): `Tokenable-with design system/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
 
 **Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge. Admin backoffice: `http://localhost:3000/dev/admin-ui`.
+
+---
+
+## CSS bundle (`app/globals.css` import order)
+
+| File | Scope |
+|------|--------|
+| `tokenable-ds-entry.css` | DS tokens + `tk-*` primitives |
+| `tokenable-ds-bridge.css` | Font bridge, ink/azure aliases |
+| `tokenable-layout.css` | GNB, footer, `tkl-wrap`, app shell |
+| `tokenable-collectible-card.css` | `.card`, `.card__*`, `.fav-btn` — **shared** across home / markets / watchlist |
+| `tokenable-home.css` | `.home-*`, `.grid4` carousel (home only) |
+| `tokenable-markets.css` | `.markets-*`, `.markets-grid` card overrides |
+| `tokenable-watchlist.css` | `.watchlist-*`, `.watchlist-grid` card overrides |
+| Other `tokenable-*.css` | One file per route domain (portfolio, vault, …) |
+
+New pages: reuse `CollectibleCard` + `tkl-wrap`; add page CSS only for layout unique to that screen.
 
 ---
 
@@ -132,7 +148,7 @@ Some surfaces deliberately **do not** use `tk-btn` / dark pixel chrome:
 |------|------|--------|
 | **Marketplace admin** | `frontend/app/marketplace/admin/*`, `components/marketplace/admin/adminUi.ts` | Light zinc Tailwind — see Admin UI below. **QA:** `/dev/admin-ui` |
 | **Filter chips / tabs** | e.g. `MarketsFilterBar`, order book rows, chart period toolbars | Domain-specific `<button>` + page CSS — not primary CTAs |
-| **Header / wallet** | `TkHeader`, `HeaderWalletMenuPanel` | GNB-specific classes (`gnb-*`, wallet menu CSS) |
+| **Header / wallet** | `TkHeader`, `HeaderWalletMenuPanel` | GNB-specific classes (`gnb-*`, wallet menu CSS). Primary nav: Markets / Portfolio / **Sell** (`/sell` → hub `/vault`) |
 
 ### Admin UI (`adminUi.ts`)
 
@@ -174,7 +190,7 @@ Import from `@/components/ds`:
 
 | React | CSS class | When to use |
 |-------|-----------|-------------|
-| `TkButton` | `tk-btn--primary`, `neutral`, `primaryInv` | CTAs, form actions; `decorative` for labels inside links |
+| `TkButton` | `tk-btn--primary`, `neutral`, `subtle`, `ghost`, `primaryInv`; sizes `md` `sm` `table` | CTAs, form actions, dense table actions (`ghost`+`table`); `decorative` for labels inside links |
 | `TkIconButton` | `tk-iconbtn--*` | Icon-only controls |
 | `TkInput`, `TkField` | `tk-input`, `tk-field` | Forms |
 | `TkDialog` | `tk-dialog` | Center modal — confirm, simple flows |
@@ -224,8 +240,6 @@ Import from `@/components/ds`:
 
 | Doc | Purpose |
 |-----|---------|
-| [design-system-governance-phases.md](./design-system-governance-phases.md) | Phased work plan: prototype sync, button fixes, QA |
-| [design-system-migration.md](./design-system-migration.md) | Phase 0–10 checklist, import order, historical plan |
 | [frontend/design-system/README.md](../../frontend/design-system/README.md) | Engineer quick start |
 | [frontend/design-system/SOURCE-README.md](../../frontend/design-system/SOURCE-README.md) | Designer export: brand, type, pixel system, a11y |
 | [frontend/design-system/INVENTORY.md](../../frontend/design-system/INVENTORY.md) | Screen → component map |

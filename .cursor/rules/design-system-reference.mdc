@@ -3,7 +3,6 @@ description: Design system reference — read before any frontend UI, layout, or
 globs:
   - "frontend/**"
   - "docs/guides/design-system-reference.md"
-  - "docs/guides/design-system-governance-phases.md"
   - "frontend/design-system/**"
 ---
 
@@ -11,11 +10,10 @@ globs:
 
 For **UI, layout, styling, or new visual design** on the Tokenable frontend:
 
-1. Read **`docs/guides/design-system-reference.md`** first (tokens, components, checklist, do/don't).
+1. Read **`docs/guides/design-system-reference.md`** first (tokens, components, CSS import order, checklist, do/don't).
 2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
 3. Use **`components/ds/*`** (`TkButton`, `TkDialog`, `TkActionSheet`, …) and tokens from **`frontend/design-system/tokens/fig-tokens.css`**.
-4. Phase history and CSS import order: **`docs/guides/design-system-migration.md`**.
-5. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
+4. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
 
 ## Quick rules
 

@@ -66,10 +66,10 @@ export function RwaDetailPlaceBidModal({
     listing != null ? `${formatListingUsdc(listing.considerationAmount)}.00` : "—";
 
   return (
-    <TkActionSheet open={open} onClose={onClose} aria-label="Place bid">
+    <TkActionSheet open={open} onClose={onClose} aria-label="Place a Bid">
       <header className="rd-bid-sheet__header">
         <h2 id="rwa-place-bid-title" className="rd-bid-sheet__title">
-          Place bid
+          Place a Bid
         </h2>
         <p className="rd-bid-sheet__subtitle line-clamp-2">{assetTitle}</p>
       </header>

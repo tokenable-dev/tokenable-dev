@@ -11,7 +11,17 @@ Committed CSS source for the Azure / pixel UI. HTML prototypes live at repo root
 @import "../styles/tokenable-layout.css";
 ```
 
-**Visual QA:** `http://localhost:3000/dev/design-system` (designer standalone iframe)
+**Visual QA:** `http://localhost:3000/dev/design-system` (live `TkButton` strip + designer standalone iframe)
+
+**DS changelog (v2 Phase 1):** `ghost` + `table` button variants; tokens `--border-strong`, `--surface-hover`.
+
+**IA (v2 Phase 2):** Primary nav **Sell** → `/sell` router (`SellRouterView`); collector hub at `/vault` with Selling chrome.
+
+**Portfolio (v2 Phase 3):** Holdings **Set price** / **Edit price** ghost CTAs + Highest bid meta; `ListRwaModal` set-price copy.
+
+**Collection (v2 Phase 4):** Set-level **Place a Bid** banner; listing rows **Buy-only**; softer vault / buyer-protection copy in listing detail + checkout.
+
+**Sell flow (v2):** Hub **+ Sell a Card** → `/sell/flow` (`Sell-Flow.html`) → `/sell/shipping` (`PSA-Shipping.html`) → `/vault/submissions/[id]?scenario=C` (`Vault-Detail.html`). Personal mint remains at `/vault/submit` and `/vault/submit/mint`.
 
 **Designer handoff import:**
 
@@ -40,11 +50,10 @@ import { TkButton, TkDialog } from "@/components/ds";
 
 Logos and sample cards: `frontend/public/assets/ds/`
 
-## Migration plan
+## UI reference
 
-Full phases: [`docs/guides/design-system-migration.md`](../../docs/guides/design-system-migration.md)  
-**Ongoing UI reference:** [`docs/guides/design-system-reference.md`](../../docs/guides/design-system-reference.md)  
-**Prototype sync (no auto-import):** [`docs/guides/design-system-governance-phases.md`](../../docs/guides/design-system-governance-phases.md)
+**Canonical guide:** [`docs/guides/design-system-reference.md`](../../docs/guides/design-system-reference.md) (tokens, components, CSS import order, checklist).  
+Migration phases 0–10 are done. Prototype folder is reference only — no auto-import into this directory.
 
 ## Prototype folder vs this directory
 

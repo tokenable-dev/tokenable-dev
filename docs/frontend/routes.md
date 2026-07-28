@@ -17,7 +17,13 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/markets` | `app/markets/page.tsx` | **Markets** — collection list, batch snapshots, category filter, trending |
 | `/markets/top100` | *(section on Markets page or linked)* | Top 100 sales rank strip (feature-flagged) |
 | `/markets/top100/card/[cardId]` | `app/markets/top100/card/[cardId]/page.tsx` | Top 100 card detail |
-| `/vault` | `app/vault/page.tsx` | Mint / RWA registration — slab scan, PSA/Cardhedger lookup, IPFS upload, on-chain mint |
+| `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / in-progress shipment |
+| `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
+| `/sell/flow` | `app/sell/flow/page.tsx` | Become a seller + add cards (KYC, PSA cert) |
+| `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack & tracking (PSA Shipping) |
+| `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
+| `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Mint entry alias |
+| `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
 | `/profile` | `app/profile/page.tsx` | User profile — wallets, email verification, password change |
@@ -39,6 +45,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/marketplace/admin/price-webhooks` | `app/marketplace/admin/price-webhooks/page.tsx` | Admin — Cardhedger price sync (delta import) |
 | `/marketplace/admin/contract-roles` | `app/marketplace/admin/contract-roles/page.tsx` | Admin — on-chain roles |
 | `/marketplace/admin/vault` | `app/marketplace/admin/vault/page.tsx` | Admin — PSA / vault tooling |
+| `/marketplace/admin/vault/submissions` | `app/marketplace/admin/vault/submissions/page.tsx` | Admin — sell-flow package ops |
 
 Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=…`.
 

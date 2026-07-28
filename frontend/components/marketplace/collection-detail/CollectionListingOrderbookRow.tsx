@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { TkButton, TkTag } from "@/components/ds";
 import type { Order } from "@/lib/core";
+import { listingVerifiedCollectorLabel } from "@/lib/marketplace/collectionListingModalHelpers";
 
 function formatUsdc(amount: string): string {
   try {
@@ -12,12 +13,6 @@ function formatUsdc(amount: string): string {
   } catch {
     return "—";
   }
-}
-
-function shortenAddr(addr: string | undefined): string {
-  const s = (addr ?? "").trim().toLowerCase();
-  if (!s.startsWith("0x") || s.length < 12) return "—";
-  return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
 export function CollectionListingOrderbookRow({
@@ -37,11 +32,8 @@ export function CollectionListingOrderbookRow({
 }) {
   const fromQs = `fromCollection=${encodeURIComponent(collectionKey)}`;
   const detailHref = `/marketplace/${tokenId}?${fromQs}`;
-  const bidHref = `${detailHref}&bid=1`;
   const price = formatUsdc(listing.considerationAmount);
-  const sellerAddr = listing.offerer || listing.parameters?.offerer;
-  const seller =
-    listing.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
+  const seller = listingVerifiedCollectorLabel(listing);
 
   const thumb = imageUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -67,7 +59,9 @@ export function CollectionListingOrderbookRow({
       )}
       <div className="cd-listing-orderbook__meta">
         <div className="cd-listing-orderbook__price">${price}</div>
-        <div className="cd-listing-orderbook__seller">{seller}</div>
+        <div className="cd-listing-orderbook__seller tkl-mono" title={seller.title}>
+          {seller.label}
+        </div>
       </div>
       {gradeLabel ? (
         <TkTag tone="neutral" appearance="soft" className="cd-listing-orderbook__grade shrink-0">
@@ -76,35 +70,19 @@ export function CollectionListingOrderbookRow({
       ) : null}
       <div className="cd-listing-orderbook__actions">
         {onOpenListing ? (
-          <>
-            <TkButton
-              type="button"
-              variant="primary"
-              size="sm"
-              className="cd-listing-orderbook__btn"
-              onClick={() => onOpenListing(tokenId, "buy")}
-            >
-              Buy
-            </TkButton>
-            <TkButton
-              type="button"
-              variant="subtle"
-              size="sm"
-              className="cd-listing-orderbook__btn"
-              onClick={() => onOpenListing(tokenId, "bid")}
-            >
-              Bid
-            </TkButton>
-          </>
+          <TkButton
+            type="button"
+            variant="primary"
+            size="sm"
+            className="cd-listing-orderbook__btn"
+            onClick={() => onOpenListing(tokenId, "buy")}
+          >
+            Buy
+          </TkButton>
         ) : (
-          <>
-            <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-orderbook__btn">
-              Buy
-            </TkButton>
-            <TkButton variant="subtle" size="sm" href={bidHref} className="cd-listing-orderbook__btn">
-              Bid
-            </TkButton>
-          </>
+          <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-orderbook__btn">
+            Buy
+          </TkButton>
         )}
       </div>
     </div>

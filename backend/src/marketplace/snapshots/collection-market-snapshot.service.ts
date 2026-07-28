@@ -17,14 +17,7 @@ import type {
   SnapshotRefreshReason,
 } from '../utils/market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
-import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
-import {
-  fetchCompactPsaCertByNumber,
-  psaEstimateUsdFromCompact,
-} from '../utils/psa-cert-compact.util';
-import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
-import { PsaPublicApiService } from '../../psa/psa-public-api.service';
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -43,7 +36,6 @@ export class CollectionMarketSnapshotService {
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     private readonly collectionEnrichment: CollectionEnrichmentService,
     private readonly cardMarketData: CardhedgerMarketDataService,
-    private readonly psaPublicApi: PsaPublicApiService,
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
@@ -168,25 +160,9 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const started = Date.now();
     try {
-      const allowPsaUpstream =
-        isPsaPublicApiUpstreamEnabled(this.config) &&
-        psaPublicApiAllowedForSnapshotReason(
-          reason,
-          this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
-        );
-      await this.collectionEnrichment.refreshPsaPublicSnapshotForCollection(
-        key,
-        { allowUpstream: allowPsaUpstream },
-      );
-      if (allowPsaUpstream) {
-        await this.collectionEnrichment.ensurePsaSpecPopulationFromApi(key, {
-          allowUpstream: true,
-        });
-      }
+      // Mint-only PSA policy: never call PSA Public API during snapshot refresh.
+      void reason;
       if (await this.collectionEnrichment.findOne(key)) {
-        await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key, {
-          allowUpstream: allowPsaUpstream,
-        });
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
           key,
         );
@@ -195,8 +171,7 @@ export class CollectionMarketSnapshotService {
         });
 
         // Cert-based card ID resolution: if cardhedgerCardId is still empty
-        // after the audit, try details-by-certs as a direct cert lookup.
-        // This replaces the old env-based CARDHEDGER_PSA_SPECID_MAP path.
+        // after the audit, try Cardhedger details-by-certs (not PSA Public API).
         const colForCert = await this.collectionEnrichment.findOne(key);
         const certMissingId = !(
           (colForCert?.components as Record<string, unknown> | null)
@@ -227,36 +202,8 @@ export class CollectionMarketSnapshotService {
           }
         }
       }
-      let col = await this.collectionEnrichment.findOne(key);
-      if (col) {
-        col = await this.collectionEnrichment.mergePsaCertFromLiveApiIntoComponents(
-          col,
-          { allowUpstream: allowPsaUpstream },
-        );
-      }
-      const certForEstimate = col ? psaCertNumberFromCollectionRow(col) : null;
-      let psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
-      if (certForEstimate && psaEstimateUsd == null && allowPsaUpstream) {
-        const compact = await fetchCompactPsaCertByNumber(
-          this.psaPublicApi,
-          certForEstimate,
-        );
-        const scraped = psaEstimateUsdFromCompact(compact);
-        if (scraped != null) {
-          await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key, {
-            allowUpstream: true,
-          });
-          col = await this.collectionEnrichment.findOne(key);
-          if (col) {
-            col =
-              await this.collectionEnrichment.mergePsaCertFromLiveApiIntoComponents(
-                col,
-                { allowUpstream: true },
-              );
-          }
-          psaEstimateUsd = scraped;
-        }
-      }
+      const col = await this.collectionEnrichment.findOne(key);
+      const psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
         col,

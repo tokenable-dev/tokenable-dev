@@ -18,8 +18,8 @@ export function HomeJustVaulted() {
             Newly authenticated and listed — first to market.
           </p>
         </div>
-        <button type="button" className="tkl-view-all" onClick={() => navigate("/vault", 1)}>
-          Browse the vault ↗
+        <button type="button" className="tkl-view-all" onClick={() => navigate("/markets", 0)}>
+          Browse markets ↗
         </button>
       </div>
       {isPending ? (

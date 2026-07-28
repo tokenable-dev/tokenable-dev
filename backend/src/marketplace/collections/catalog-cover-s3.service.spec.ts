@@ -1,7 +1,9 @@
 import {
   CATALOG_COVER_MAX_BYTES,
   catalogCoverObjectKeyFromPublicUrl,
+  isAllowedCatalogCoverPublicUrl,
   joinCatalogCoverPublicUrl,
+  normalizeCatalogCoverPublicUrl,
   resolveCatalogCoverMime,
   sanitizeCollectionKeyForS3,
   stableCatalogCoverObjectKey,
@@ -42,6 +44,35 @@ describe('catalog-cover-s3 helpers', () => {
     expect(
       catalogCoverObjectKeyFromPublicUrl('https://other.com/covers/x/cover', base),
     ).toBeNull();
+  });
+
+  it('appends /cover when folder URL is missing the object suffix', () => {
+    expect(
+      normalizeCatalogCoverPublicUrl(
+        'https://cdn.example.com/dev/covers/abc123',
+      ),
+    ).toBe('https://cdn.example.com/dev/covers/abc123/cover');
+    expect(
+      normalizeCatalogCoverPublicUrl(
+        'https://cdn.example.com/dev/covers/abc123/cover',
+      ),
+    ).toBe('https://cdn.example.com/dev/covers/abc123/cover');
+  });
+
+  it('allows only URLs under the configured public base', () => {
+    const base = 'https://cdn.example.com';
+    expect(
+      isAllowedCatalogCoverPublicUrl(
+        'https://cdn.example.com/dev/covers/x/cover',
+        base,
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedCatalogCoverPublicUrl(
+        'https://evil.com/dev/covers/x/cover',
+        base,
+      ),
+    ).toBe(false);
   });
 
   it('resolves MIME from declaration or magic bytes', () => {

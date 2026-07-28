@@ -35,6 +35,7 @@ import {
   PortfolioDisconnectedState,
   PortfolioGuestState,
   PortfolioCancelBidConfirmModal,
+  PortfolioCancelListingConfirmModal,
   PortfolioHoldingsSection,
   PortfolioMainSection,
   type PortfolioMainTab,
@@ -46,25 +47,8 @@ import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/moda
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
-import {
-  PORTFOLIO_MOCK_BIDS,
-  PORTFOLIO_MOCK_CHART_LABELS,
-  PORTFOLIO_MOCK_CHART_POINTS,
-  PORTFOLIO_MOCK_COLLECTIONS,
-  PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN,
-  PORTFOLIO_MOCK_STATS_BY_KEY,
-  PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY,
-  PORTFOLIO_MOCK_TOTAL_VALUE,
-  PORTFOLIO_MOCK_TRADES_COUNT,
-  PORTFOLIO_MOCK_TX_ROWS,
-  isPortfolioMockTokenId,
-  shouldUsePortfolioMock,
-  withPortfolioMockCoverImages,
-} from "@/lib/portfolio/portfolioMockData";
-import { mockCoverSearchFromCollection } from "@/lib/home/withMockCoverImages";
-import { useCardhedgerMockCoverImages } from "@/hooks/home/useCardhedgerMockCoverImages";
-
-const EMPTY_COVER_MAP = new Map<string, string>();
+import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioTableHelpers";
+import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 
 export default function PortfolioPage() {
   usePageViewedEvent("portfolio");
@@ -95,6 +79,15 @@ export default function PortfolioPage() {
     assetTitle: string;
     collectionKey?: string;
     existingAskOrderHash?: string;
+    marketValueUsd?: number | null;
+    listedPriceUsd?: number | null;
+  } | null>(null);
+  const [cancelListingConfirm, setCancelListingConfirm] = useState<{
+    tokenId: number;
+    assetTitle: string;
+    gradeLabel: string | null;
+    orderHash: string;
+    listPriceUsd: number | null;
   } | null>(null);
   const listQueryHandledRef = useRef<string | null>(null);
 
@@ -284,47 +277,8 @@ export default function PortfolioPage() {
     [assetRows, hiddenSet],
   );
 
-  const usePortfolioMocks = shouldUsePortfolioMock(visibleAssetRows.length > 0);
-
-  const mockCoverQueries = useMemo(() => {
-    if (!usePortfolioMocks) return [];
-    return PORTFOLIO_MOCK_COLLECTIONS.map(mockCoverSearchFromCollection);
-  }, [usePortfolioMocks]);
-
-  const { data: mockCoverByKey } = useCardhedgerMockCoverImages(
-    usePortfolioMocks,
-    mockCoverQueries,
-  );
-
-  const portfolioMockDisplay = useMemo(
-    () => withPortfolioMockCoverImages(mockCoverByKey ?? EMPTY_COVER_MAP),
-    [mockCoverByKey],
-  );
-
-  const displayAssetRows = usePortfolioMocks
-    ? portfolioMockDisplay.assetRows
-    : visibleAssetRows;
-  const displayMetadataByTokenId = usePortfolioMocks
-    ? portfolioMockDisplay.metadataByTokenId
-    : metadataByTokenId;
-  const displayCostBasisByTokenId = usePortfolioMocks
-    ? PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN
-    : costBasisByTokenId;
-  const displayTokenToCollectionKey = usePortfolioMocks
-    ? PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY
-    : tokenToCollectionKey;
-  const displayStatsByCollectionKey = usePortfolioMocks
-    ? PORTFOLIO_MOCK_STATS_BY_KEY
-    : statsByCollectionKey;
-  const displayTxRows = usePortfolioMocks ? PORTFOLIO_MOCK_TX_ROWS : txRows;
-  const displayBids = usePortfolioMocks ? PORTFOLIO_MOCK_BIDS : myBids.activeBids;
-  const displayBidMeta = usePortfolioMocks
-    ? portfolioMockDisplay.bidMetaByKey
-    : myBids.collectionMetaByKey;
-
-  const openPortfolioListModal = useCallback(
+  const openPortfolioSetPriceModal = useCallback(
     (tokenId: number) => {
-      if (isPortfolioMockTokenId(tokenId)) return;
       runSellAccessGate(() => {
         const row = assetRows.find((r) => r.tokenId === tokenId);
         const listing = listingByTokenId.get(tokenId);
@@ -333,11 +287,26 @@ export default function PortfolioPage() {
           assetTitle: row?.name ?? `RWA #${tokenId}`,
           collectionKey: tokenToCollectionKey[tokenId],
           existingAskOrderHash: listing?.orderHash,
+          marketValueUsd: row?.currentPrice ?? null,
+          listedPriceUsd: listing?.priceUsd ?? row?.listPriceUsd ?? null,
         });
       });
     },
     [assetRows, listingByTokenId, runSellAccessGate, tokenToCollectionKey],
   );
+
+  const collectionTopBids = usePortfolioCollectionTopBids(
+    uniqueCollectionKeys,
+    portfolioDataEnabled,
+  );
+
+  const highestBidByCollectionKey = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const [key, info] of collectionTopBids.byCollectionKey) {
+      map.set(key, info.highestBidUsd);
+    }
+    return map;
+  }, [collectionTopBids.byCollectionKey]);
 
   const {
     dailySnapshotsLoading,
@@ -346,22 +315,10 @@ export default function PortfolioPage() {
     dailyChartLabels,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
-  const displayPortfolioValue = usePortfolioMocks
-    ? PORTFOLIO_MOCK_TOTAL_VALUE
-    : (portfolioValue ?? 0);
-  const displayChartPoints = usePortfolioMocks
-    ? PORTFOLIO_MOCK_CHART_POINTS
-    : dailyChartPoints;
-  const displayChartLabels = usePortfolioMocks
-    ? PORTFOLIO_MOCK_CHART_LABELS
-    : dailyChartLabels;
-
-  const assetsSectionLoading =
-    !usePortfolioMocks && (idsLoading || assetsLoading);
-  const portfolioValuePending = !usePortfolioMocks && dailySnapshotsLoading;
-  const bidsSectionLoading = !usePortfolioMocks && myBids.loading;
-  const historySectionLoading =
-    !usePortfolioMocks && (idsLoading || historyBatchLoading);
+  const assetsSectionLoading = idsLoading || assetsLoading;
+  const portfolioValuePending = dailySnapshotsLoading;
+  const bidsSectionLoading = myBids.loading;
+  const historySectionLoading = idsLoading || historyBatchLoading;
 
   const portfolioViewedFiredRef = useRef(false);
   useEffect(() => {
@@ -370,20 +327,23 @@ export default function PortfolioPage() {
     if (portfolioViewedFiredRef.current) return;
     portfolioViewedFiredRef.current = true;
     trackEvent("portfolio_viewed", {
-      total_assets: displayAssetRows.length,
-      total_value: displayPortfolioValue,
+      total_assets: visibleAssetRows.length,
+      total_value: portfolioValue ?? 0,
     });
   }, [
     user,
     wallet.hasLinkedWallet,
     assetsSectionLoading,
     portfolioValuePending,
-    displayAssetRows.length,
-    displayPortfolioValue,
+    visibleAssetRows.length,
+    portfolioValue,
   ]);
 
   useEffect(() => {
-    const listParam = searchParams.get("list")?.trim() ?? "";
+    const listParam =
+      searchParams.get("setprice")?.trim() ||
+      searchParams.get("list")?.trim() ||
+      "";
     if (!/^\d+$/.test(listParam)) return;
     if (listQueryHandledRef.current === listParam) return;
     if (!portfolioDataEnabled || assetsSectionLoading) return;
@@ -394,7 +354,7 @@ export default function PortfolioPage() {
     router.replace("/portfolio", { scroll: false });
 
     if (ownsToken) {
-      openPortfolioListModal(tokenId);
+      openPortfolioSetPriceModal(tokenId);
     }
   }, [
     searchParams,
@@ -402,7 +362,7 @@ export default function PortfolioPage() {
     assetsSectionLoading,
     tokenIds,
     router,
-    openPortfolioListModal,
+    openPortfolioSetPriceModal,
   ]);
 
   if (!authInitialized || authLoading) {
@@ -432,18 +392,16 @@ export default function PortfolioPage() {
         ) : null}
 
         <PortfolioSummaryBar
-          holdingsCount={displayAssetRows.length}
-          tradesCount={
-            usePortfolioMocks ? PORTFOLIO_MOCK_TRADES_COUNT : displayTxRows.length
-          }
+          holdingsCount={visibleAssetRows.length}
+          tradesCount={txRows.length}
         />
 
         <PortfolioValuePanel
           chartTotalsPending={portfolioValuePending}
           isMobileViewport={isMobileViewport}
-          dailyChartPoints={displayChartPoints}
-          dailyChartLabels={displayChartLabels}
-          totalValue={displayPortfolioValue}
+          dailyChartPoints={dailyChartPoints}
+          dailyChartLabels={dailyChartLabels}
+          totalValue={portfolioValue ?? 0}
         />
 
         <PortfolioMainSection
@@ -452,18 +410,17 @@ export default function PortfolioPage() {
           collectiblesPanel={
             <PortfolioHoldingsSection
               assetsSectionLoading={assetsSectionLoading}
-              assetRows={displayAssetRows}
-              metadataByTokenId={displayMetadataByTokenId}
-              tokenToCollectionKey={displayTokenToCollectionKey}
-              seriesByCollectionKey={seriesByCollectionKey}
-              costBasisByTokenId={displayCostBasisByTokenId}
-              valuesPending={!usePortfolioMocks && valuesPending}
-              canEditCostBasis={!usePortfolioMocks && Boolean(signerAddress)}
-              onSaveCostBasis={usePortfolioMocks ? undefined : saveCostBasis}
+              assetRows={visibleAssetRows}
+              metadataByTokenId={metadataByTokenId}
+              tokenToCollectionKey={tokenToCollectionKey}
+              highestBidByCollectionKey={highestBidByCollectionKey}
+              costBasisByTokenId={costBasisByTokenId}
+              valuesPending={valuesPending}
+              canEditCostBasis={Boolean(signerAddress)}
+              onSaveCostBasis={saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
-              cancellingListingTokenId={holdingActions.cancellingListingTokenId}
               onOpenToken={(tokenId) => {
-                const ck = displayTokenToCollectionKey[tokenId];
+                const ck = tokenToCollectionKey[tokenId];
                 if (ck) {
                   router.push(
                     `/marketplace/collections/${encodeURIComponent(ck)}?listing=${tokenId}`,
@@ -472,30 +429,22 @@ export default function PortfolioPage() {
                   router.push(`/marketplace/${tokenId}`);
                 }
               }}
-              onChangeListing={openPortfolioListModal}
-              onCancelListing={(tokenId, orderHash) => {
-                if (isPortfolioMockTokenId(tokenId)) return;
-                const priceUsd = listingByTokenId.get(tokenId)?.priceUsd;
-                void holdingActions.cancelListing(tokenId, orderHash, priceUsd);
-              }}
-              onSellNow={openPortfolioListModal}
+              onSetPrice={openPortfolioSetPriceModal}
             />
           }
           bidsPanel={
             <PortfolioCollectionBidsSection
               loading={bidsSectionLoading}
-              metaLoading={!usePortfolioMocks && myBids.collectionMetaLoading}
-              activeBids={displayBids}
-              collectionMetaByKey={displayBidMeta}
-              statsByCollectionKey={displayStatsByCollectionKey}
+              metaLoading={myBids.collectionMetaLoading}
+              activeBids={myBids.activeBids}
+              collectionMetaByKey={myBids.collectionMetaByKey}
+              statsByCollectionKey={statsByCollectionKey}
               cancellingHash={bidActions.cancellingHash}
               openingChangeHash={bidActions.openingChangeHash}
               onCancel={(hash, key, label, price) => {
-                if (usePortfolioMocks) return;
                 bidActions.requestCancel(hash, key, label, price);
               }}
               onChangePrice={(hash, key) => {
-                if (usePortfolioMocks) return;
                 void bidActions.openChangeBid(hash, key);
               }}
             />
@@ -503,7 +452,7 @@ export default function PortfolioPage() {
           historyPanel={
             <PortfolioActivitySection
               loading={historySectionLoading}
-              txRows={displayTxRows}
+              txRows={txRows}
             />
           }
         />
@@ -534,16 +483,67 @@ export default function PortfolioPage() {
         />
       ) : null}
 
+      {cancelListingConfirm != null ? (
+        <PortfolioCancelListingConfirmModal
+          open
+          assetTitle={cancelListingConfirm.assetTitle}
+          gradeLabel={cancelListingConfirm.gradeLabel}
+          listPriceUsd={cancelListingConfirm.listPriceUsd}
+          pending={
+            holdingActions.cancellingListingTokenId === cancelListingConfirm.tokenId
+          }
+          onClose={() => setCancelListingConfirm(null)}
+          onConfirm={async () => {
+            await holdingActions.cancelListing(
+              cancelListingConfirm.tokenId,
+              cancelListingConfirm.orderHash,
+              cancelListingConfirm.listPriceUsd ?? undefined,
+            );
+            setCancelListingConfirm(null);
+          }}
+        />
+      ) : null}
+
       {listModal != null ? (
         <RwaDetailListModalHost
           open
           tokenId={listModal.tokenId}
           assetTitle={listModal.assetTitle}
           collectionKey={listModal.collectionKey}
-          collectionBids={[]}
+          collectionBids={
+            listModal.collectionKey
+              ? collectionTopBids.byCollectionKey.get(listModal.collectionKey)?.bids ??
+                []
+              : []
+          }
           existingAskOrderHash={listModal.existingAskOrderHash}
-          initialPriceUsdc={null}
-          onMatchedSale={() => {}}
+          initialPriceUsdc={
+            listModal.listedPriceUsd != null
+              ? String(listModal.listedPriceUsd)
+              : null
+          }
+          marketValueUsd={listModal.marketValueUsd}
+          listedPriceUsd={listModal.listedPriceUsd}
+          copyVariant="set-price"
+          onRequestCancelListing={
+            listModal.existingAskOrderHash
+              ? () => {
+                  const meta = metadataByTokenId.get(listModal.tokenId) ?? null;
+                  setCancelListingConfirm({
+                    tokenId: listModal.tokenId,
+                    assetTitle: listModal.assetTitle,
+                    gradeLabel: formatPortfolioGradeLabel(meta),
+                    orderHash: listModal.existingAskOrderHash!,
+                    listPriceUsd: listModal.listedPriceUsd ?? null,
+                  });
+                  setListModal(null);
+                }
+              : undefined
+          }
+          onMatchedSale={() => {
+            void refetchActiveOrders();
+            setListModal(null);
+          }}
           onClose={() => setListModal(null)}
           onListed={() => {
             void invalidateAfterListing(queryClient, {

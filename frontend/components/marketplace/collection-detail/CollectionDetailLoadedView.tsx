@@ -30,6 +30,10 @@ import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
 import {
   buildCollectionDetailMarketsSlots,
 } from "./buildCollectionDetailMarketsSlots";
+import {
+  bestAskFromRows,
+  bestBidFromRows,
+} from "@/lib/marketplace/unified-order-book";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
   const {
@@ -136,6 +140,16 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     onPurchaseCelebration: (kind) => setTradeCelebration(kind),
   });
 
+  const highestBidUsd = useMemo(
+    () => bestBidFromRows(collectionBids),
+    [collectionBids],
+  );
+  const lowestAskUsd = useMemo(
+    () => bestAskFromRows(asks),
+    [asks],
+  );
+  const canPlaceSetBid = asks.length > 0;
+
   const collectionListingsGrid = (
     <CollectionDetailListingsGrid
       collectionKey={collectionKey}
@@ -180,10 +194,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     mobileListingsBody: collectionListingsGrid,
     mobileListingCount: asks.length,
     detailsPanel: renderHeroDetailsTabs(),
+    highestBidUsd,
+    lowestAskUsd,
+    onPlaceBid: listingModal.openSetLevelBid,
+    placeBidDisabled: !canPlaceSetBid,
   });
 
   const collectionListingsBody = (
-    <CollectionDetailListingsSection listingCount={asks.length}>
+    <CollectionDetailListingsSection
+      listingCount={asks.length}
+      highestBidUsd={highestBidUsd}
+      lowestAskUsd={lowestAskUsd}
+      onPlaceBid={listingModal.openSetLevelBid}
+      placeBidDisabled={!canPlaceSetBid}
+    >
       {collectionListingsGrid}
     </CollectionDetailListingsSection>
   );
@@ -328,7 +352,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         prefetchedImageUrl={listingModal.selectedPrefetch?.imageUrl}
         onClose={listingModal.closeDetail}
         onBuy={() => listingModal.setCheckout("buy")}
-        onBid={() => listingModal.setCheckout("bid")}
       />
 
       <CollectionListingCheckoutModal

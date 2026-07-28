@@ -14,6 +14,7 @@ import {
   pickPrivyUserEthereumWalletAddress,
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
+import { waitForWagmiAccountAddress } from "@/lib/privy/accountWalletReady";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -62,16 +63,19 @@ export function useEnsureAccountWalletActive() {
       lastAlignedAddress.current = targetNorm;
       return;
     }
-    if (lastAlignedAddress.current === targetNorm) return;
+    if (lastAlignedAddress.current === targetNorm && connected === targetNorm) return;
 
     if (alignInFlight.current) return;
     alignInFlight.current = true;
     void setActiveWallet(target)
-      .then(() => {
+      .then(async () => {
+        await waitForWagmiAccountAddress(target.address);
         lastAlignedAddress.current = targetNorm;
         useAuthUiStore.getState().closeWalletMismatch();
       })
-      .catch(() => undefined)
+      .catch(() => {
+        lastAlignedAddress.current = null;
+      })
       .finally(() => {
         alignInFlight.current = false;
       });

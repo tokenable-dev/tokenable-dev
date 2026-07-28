@@ -22,11 +22,14 @@
 }
 .tk-btn--md{height:46px;padding:0 24px;font-size:15px}
 .tk-btn--sm{height:38px;padding:0 18px;font-size:14px;clip-path:var(--pixel-notch-md)}
+/* Compact table CTA — no pixel clip (dense rows; pairs with ghost) */
+.tk-btn--table{height:32px;padding:0 12px;font-size:13px;border-radius:8px;clip-path:none}
 .tk-btn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
 .tk-btn:disabled,.tk-btn[aria-disabled="true"]{cursor:not-allowed;opacity:.45;box-shadow:none !important;transform:none !important;pointer-events:none}
 .tk-btn__icon{display:inline-flex;flex:0 0 auto}
 .tk-btn--md .tk-btn__icon svg{width:16px;height:16px}
 .tk-btn--sm .tk-btn__icon svg{width:14px;height:14px}
+.tk-btn--table .tk-btn__icon svg{width:13px;height:13px}
 
 /* Primary — index.html Azure #1A6FFF */
 .tk-btn--primary{
@@ -46,6 +49,13 @@
 .tk-btn--subtle{color:#d1d3d4;background:#414042;box-shadow:inset 0 3px 0 0 rgba(255,255,255,0.08), inset 0 -3px 0 0 rgba(0,0,0,0.25);filter:none}
 .tk-btn--subtle:hover{color:#fff;background:#58595b;box-shadow:inset 0 3px 0 0 rgba(255,255,255,0.12), inset 0 -3px 0 0 rgba(0,0,0,0.3);transform:translate(-1px,-1px)}
 .tk-btn--subtle:active{color:#fff;background:#383838;box-shadow:inset 0 3px 0 0 rgba(0,0,0,0.15), inset 0 -3px 0 0 rgba(255,255,255,0.05);transform:translate(1px,1px)}
+
+/* Ghost — subtle filled outline, no 3D shadow (quiet level for dense tables) */
+.tk-btn--ghost{color:#fff;background:rgba(255,255,255,0.05);box-shadow:inset 0 0 0 1px var(--border-strong);filter:none;font-weight:600;clip-path:none;border-radius:10px}
+.tk-btn--ghost.tk-btn--table{border-radius:8px}
+.tk-btn--ghost:hover{background:rgba(255,255,255,0.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);transform:none}
+.tk-btn--ghost:active{background:rgba(255,255,255,0.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);transform:none}
+.tk-btn--ghost:disabled,.tk-btn--ghost[aria-disabled="true"]{color:rgba(255,255,255,0.4);background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1) !important}
 
 /* Danger — red (functional, kept for destructive actions) */
 .tk-btn--danger{color:#fff;background:#E4374A;box-shadow:inset 0 3px 0 0 rgba(255,150,160,0.3), inset 0 -3px 0 0 rgba(80,0,0,0.35);filter:none}

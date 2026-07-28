@@ -41,6 +41,10 @@ export function cardhedgerSetAliasTokens(
   if (/\bmega\s+evolution\b/.test(blob) && /\bpromo\b/.test(blob)) {
     push('mega evolution promo');
   }
+  if (/\brookie\s+signatures?\b/.test(blob) && /\bprizm\b/.test(blob)) {
+    push('panini prizm basketball');
+    push('rookie signatures');
+  }
 
   return tokens;
 }
@@ -53,6 +57,7 @@ export function cardhedgerExtraSearchQueries(q: {
   psaBrand: string | null;
   psaSubject: string | null;
   psaVariety?: string | null;
+  psaYear?: string | null;
 }): string[] {
   const blob = promoBlob([
     q.cardSet,
@@ -122,7 +127,40 @@ export function cardhedgerExtraSearchQueries(q: {
     }
   }
 
+  if (hintsLookLikePrizmRookieSignatures(q)) {
+    const yearMatch = blob.match(/\b(20\d{2})\b/);
+    const year = q.psaYear?.trim() || yearMatch?.[1] || '';
+    push(
+      [name, year, 'Panini Prizm Basketball Rookie Signatures', numPart]
+        .filter(Boolean)
+        .join(' '),
+    );
+    push(
+      [name, 'Panini Prizm Basketball Rookie Signatures', numPart || num]
+        .filter(Boolean)
+        .join(' '),
+    );
+    push(
+      [name, year, 'Panini Prizm Rookie Signatures', numPart || num]
+        .filter(Boolean)
+        .join(' '),
+    );
+  }
+
   return out;
+}
+
+export function hintsLookLikePrizmRookieSignatures(hints: {
+  cardSet: string;
+  psaBrand: string | null;
+  psaVariety?: string | null;
+}): boolean {
+  const blob = promoBlob([
+    hints.cardSet,
+    hints.psaBrand ?? '',
+    hints.psaVariety ?? '',
+  ]);
+  return /\brookie\s+signatures?\b/.test(blob) && /\bprizm\b/.test(blob);
 }
 
 export function hintsLookLikeSwshBlackStarPromo(hints: {

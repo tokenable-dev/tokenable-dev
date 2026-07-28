@@ -4,18 +4,29 @@ import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { VaultAsset } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
 import { VaultRedemption } from './entities/vault-redemption.entity';
+import { VaultSubmissionItem } from './entities/vault-submission-item.entity';
+import { VaultSubmission } from './entities/vault-submission.entity';
+import { VaultSubmissionService } from './vault-submission.service';
+import { VaultSubmissionsController } from './vault-submissions.controller';
 import { VaultService } from './vault.service';
 
 /**
  * Owns the physical-asset lifecycle tables (VaultAsset -> VaultCycle ->
- * redemption). Deliberately independent of BlockchainModule — VaultService
- * only orchestrates DB state; on-chain mint/burn calls stay in
- * RwaChainWriterService and are invoked by RwaModule/marketplace-admin,
- * which then report results back into VaultService.
+ * redemption) plus sell-flow submissions (pre-mint package tracking).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([VaultAsset, VaultCycle, VaultRedemption, RwaToken])],
-  providers: [VaultService],
-  exports: [VaultService],
+  imports: [
+    TypeOrmModule.forFeature([
+      VaultAsset,
+      VaultCycle,
+      VaultRedemption,
+      VaultSubmission,
+      VaultSubmissionItem,
+      RwaToken,
+    ]),
+  ],
+  controllers: [VaultSubmissionsController],
+  providers: [VaultService, VaultSubmissionService],
+  exports: [VaultService, VaultSubmissionService],
 })
 export class VaultModule {}

@@ -11,7 +11,7 @@ sql/
 ├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
 ├── schema/
 │   ├── 010_users_and_auth.sql    # users, wallets, auth providers, KYC, verification tokens
-│   ├── 020_vault.sql             # vault_assets, vault_cycles, vault_redemptions
+│   ├── 020_vault.sql             # vault_assets/cycles/redemptions + sell-flow submissions
 │   ├── 030_rwa_tokens.sql        # on-chain mint registry
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
 │   ├── 045_p2p.sql               # P2P listings + payment-escrow orders
@@ -26,6 +26,7 @@ sql/
 │   └── dev-platform-chart-fills.sql
 ├── maintenance/
 │   ├── reset_marketplace_data.sql       # wipe marketplace + vault rows (keep users)
+│   ├── add_vault_submissions.sql        # existing DBs: sell-flow submission tables
 │   ├── add_marketplace_partners.sql     # existing DBs: partners table
 │   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
 │   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
@@ -40,7 +41,7 @@ sql/
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
 | **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
-| **Site relaunch (keep users)** | `maintenance/reset_marketplace_data.sql` |
+| **Site relaunch (keep users)** | `maintenance/reset_marketplace_data.sql` — run `node scripts/burn-all-rwa-tokens.mjs` first if re-minting same PSA certs |
 | **Review / audit** | Read `schema/*.sql` — one file per domain |
 
 ### Bootstrap (recommended)

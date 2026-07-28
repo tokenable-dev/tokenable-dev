@@ -1,0 +1,1346 @@
+/* Sell-Flow.html — become a seller + add cards (design system-2) */
+
+.sell-flow-page {
+  min-height: 60vh;
+  color: #fff;
+}
+
+.sell-flow-screen {
+  padding: 56px clamp(16px, 4vw, 40px) 100px;
+}
+
+.sell-flow-col--narrow {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.sell-flow-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--azure);
+  margin-bottom: 14px;
+}
+
+.sell-flow-h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.sell-flow-sub {
+  font-size: 15.5px;
+  color: var(--t2);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.sell-flow-draft-restored {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(26, 111, 255, 0.08);
+  border: 1px solid rgba(26, 111, 255, 0.2);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.45;
+}
+
+.sell-flow-glass {
+  background: #191919;
+  border-radius: 16px;
+  padding: 28px;
+  margin-top: 36px;
+}
+
+.sell-flow-glass--dim {
+  opacity: 0.55;
+}
+
+.sell-flow-glass--consent {
+  margin-top: 20px;
+}
+
+.sell-flow-glass--cards-input {
+  margin-top: 36px;
+}
+
+.sell-flow-id-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.sell-flow-id-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.sell-flow-id-copy {
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 420px;
+}
+
+.sell-flow-id-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(26, 111, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sell-flow-id-icon--ok {
+  background: rgba(0, 200, 100, 0.12);
+}
+
+.sell-flow-id-icon--bad {
+  background: rgba(228, 55, 74, 0.12);
+}
+
+.sell-flow-id-state {
+  margin-top: 22px;
+}
+
+.sell-flow-id-cta {
+  height: 48px !important;
+  padding: 0 24px !important;
+  font-size: 14px !important;
+}
+
+.sell-flow-id-retry {
+  height: 44px !important;
+  padding: 0 20px !important;
+  font-size: 13.5px !important;
+}
+
+.sell-flow-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sell-flow-status-chip--azure {
+  color: var(--azure);
+}
+
+.sell-flow-status-chip--pos {
+  color: var(--pos);
+}
+
+.sell-flow-status-chip--neg {
+  color: var(--neg);
+}
+
+.sell-flow-status-chip--mb {
+  margin-bottom: 14px;
+}
+
+.sell-flow-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: sell-flow-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes sell-flow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sell-flow-consent-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.sell-flow-consent-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.sell-flow-consent-row--master {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sell-flow-consent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.sell-flow-consent-strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.6;
+}
+
+.sell-flow-consent-row > span:last-child {
+  font-size: 14px;
+  color: var(--t1, rgba(255, 255, 255, 0.95));
+  line-height: 1.6;
+}
+
+.sell-flow-consent-muted {
+  color: var(--t2) !important;
+}
+
+.sell-flow-link {
+  color: var(--azure);
+  text-decoration: none;
+}
+
+.sell-flow-link:hover {
+  color: var(--brand-400);
+}
+
+.sell-flow-req {
+  color: var(--azure);
+}
+
+.sell-flow-opt {
+  color: var(--t3);
+}
+
+.sell-flow-consent-note {
+  font-size: 12px;
+  color: var(--t3);
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+.sell-flow-chk {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: #0e0e0e;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+  margin-top: 1px;
+  border: 0;
+  padding: 0;
+}
+
+.sell-flow-chk svg {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.sell-flow-chk--on {
+  background: var(--azure);
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+}
+
+.sell-flow-chk--on svg {
+  opacity: 1;
+}
+
+.sell-flow-chk--sm {
+  width: 18px;
+  height: 18px;
+}
+
+.sell-flow-reg-cta {
+  margin-top: 28px;
+}
+
+.sell-flow-continue {
+  height: 52px !important;
+  width: 100%;
+  justify-content: center;
+  font-size: 15px !important;
+}
+
+.sell-flow-continue:disabled {
+  opacity: 0.4;
+}
+
+.sell-flow-scan-btn {
+  width: 100%;
+  height: 64px !important;
+  font-size: 15px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sell-flow-or {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.sell-flow-or__line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sell-flow-or__label {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: 0.08em;
+}
+
+.sell-flow-cert-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+  margin-bottom: 8px;
+}
+
+.sell-flow-cert-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.sell-flow-cert-input {
+  flex: 1;
+  height: 52px;
+  padding: 0 16px;
+  background: #0e0e0e;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  outline: none;
+}
+
+.sell-flow-cert-input:focus {
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+}
+
+.sell-flow-lookup-btn {
+  height: 52px !important;
+  padding: 0 24px !important;
+  font-size: 14px !important;
+  min-width: 120px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.sell-flow-cert-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--neg);
+  line-height: 1.5;
+}
+
+.sell-flow-cards-section {
+  margin-top: 28px;
+}
+
+.sell-flow-cards-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sell-flow-cards-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sell-flow-cards-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t3);
+}
+
+.sell-flow-cards-box {
+  background: #141414;
+  border-radius: 14px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.sell-flow-cards-empty {
+  padding: 44px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.6;
+}
+
+.sell-flow-cards-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sell-flow-cardrow {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  animation: sell-flow-row-in 0.4s ease;
+}
+
+.sell-flow-cardrow + .sell-flow-cardrow {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@keyframes sell-flow-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sell-flow-cardrow__thumb {
+  width: 38px;
+  height: 53px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #0e0e0e;
+}
+
+.sell-flow-cardrow__thumb--empty {
+  display: block;
+}
+
+.sell-flow-cardrow__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sell-flow-cardrow__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+  text-transform: uppercase;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sell-flow-cardrow__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.sell-flow-grade {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(26, 111, 255, 0.14);
+  color: var(--brand-400);
+  white-space: nowrap;
+}
+
+.sell-flow-cardrow__cert {
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.sell-flow-cardrow__confirm {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--t2);
+}
+
+.sell-flow-cardrow__del {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sell-flow-cards-cta {
+  display: flex;
+  gap: 14px;
+  margin-top: 32px;
+}
+
+.sell-flow-draft-btn {
+  height: 52px !important;
+  padding: 0 24px !important;
+  font-size: 15px !important;
+}
+
+.sell-flow-ship-btn {
+  height: 52px !important;
+  flex: 1;
+  font-size: 15px !important;
+  justify-content: center;
+}
+
+.sell-flow-ship-btn:disabled {
+  opacity: 0.4;
+}
+
+/* —— PSA-Shipping.html —— */
+
+.sell-ship-loading {
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--t2);
+  font-size: 14px;
+}
+
+.sell-ship-banner {
+  background: var(--azure);
+  padding: 14px 0;
+}
+
+.sell-ship-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 clamp(16px, 4vw, 40px);
+}
+
+.sell-ship-banner__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sell-ship-banner__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.sell-ship-banner__card {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.sell-ship-section {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 4vw, 40px) 80px;
+}
+
+.sell-ship-crumb {
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sell-ship-crumb a {
+  color: var(--azure);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sell-ship-crumb__sep {
+  margin: 0 8px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.sell-ship-crumb__here {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sell-ship-header {
+  margin-bottom: 32px;
+}
+
+.sell-ship-header .sell-flow-h1 {
+  margin-top: 12px;
+}
+
+.sell-ship-header .sell-flow-sub {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sell-ship-steps {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 40px;
+}
+
+.sell-ship-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+}
+
+button.sell-ship-step--btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+button.sell-ship-step--btn:hover .sell-ship-circle--done,
+button.sell-ship-step--btn:hover .sell-ship-circle--inactive,
+button.sell-ship-step--btn:hover .sell-ship-circle--active {
+  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.35);
+}
+
+button.sell-ship-step--btn:focus-visible {
+  outline: 2px solid var(--azure);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.sell-ship-step--disabled {
+  pointer-events: none;
+}
+
+.sell-flow-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sell-flow-back:hover {
+  color: #fff;
+}
+
+.sell-ship-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sell-ship-circle--active {
+  background: var(--azure);
+  color: #fff;
+}
+
+.sell-ship-circle--done {
+  background: var(--pos);
+  color: #fff;
+}
+
+.sell-ship-circle--inactive {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.sell-ship-circle--transit {
+  background: var(--azure);
+  color: #fff;
+}
+
+.sell-ship-spin {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: sell-ship-spin 0.8s linear infinite;
+}
+
+@keyframes sell-ship-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sell-ship-step__label {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  margin-top: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.sell-ship-step__label--pos {
+  color: var(--pos);
+}
+
+.sell-ship-step__label--on {
+  color: #fff;
+}
+
+.sell-ship-step__sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--azure);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.sell-ship-step__sub--muted {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sell-ship-connector {
+  flex: 1;
+  height: 2px;
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sell-ship-connector--pos {
+  background: var(--pos);
+}
+
+.sell-ship-panel__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.sell-ship-panel__eyebrow--inline {
+  margin-bottom: 0;
+}
+
+.sell-ship-info {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(26, 111, 255, 0.06);
+  border: 1px solid rgba(26, 111, 255, 0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.6;
+}
+
+.sell-ship-box {
+  background: #191919;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.sell-ship-box--accent {
+  border-left: 3px solid var(--azure);
+}
+
+.sell-ship-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.sell-ship-addr-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 6px 0 4px;
+}
+
+.sell-ship-addr-lines {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.8;
+}
+
+.sell-ship-addr-actions {
+  margin: 14px 0;
+}
+
+.sell-ship-outline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.sell-ship-outline-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sell-ship-outline-btn--ok {
+  border-color: var(--pos);
+  color: var(--pos);
+}
+
+.sell-ship-outline-btn--sm {
+  height: 36px;
+  padding: 0 14px;
+}
+
+.sell-ship-outline-btn--link {
+  height: 38px;
+  padding: 0 18px;
+  color: var(--azure);
+  border-color: rgba(26, 111, 255, 0.3);
+}
+
+.sell-ship-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 6px 0 16px;
+}
+
+.sell-ship-danger {
+  background: rgba(228, 55, 74, 0.08);
+  border: 1px solid rgba(228, 55, 74, 0.28);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #ff6b7a;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.sell-ship-slip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 46px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: var(--azure);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+  cursor: pointer;
+}
+
+.sell-ship-slip-btn--done {
+  color: var(--pos);
+  box-shadow: inset 0 0 0 1.5px var(--pos);
+}
+
+.sell-ship-checklist-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.sell-ship-checklist-head > span:first-child {
+  flex: 1;
+}
+
+.sell-ship-progress-text {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sell-ship-progress-text--done {
+  color: var(--pos);
+}
+
+.sell-ship-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sell-ship-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.sell-ship-check:last-child {
+  border-bottom: none;
+}
+
+.sell-ship-check__box {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #fff;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sell-ship-check__box svg {
+  opacity: 0;
+}
+
+.sell-ship-check--on .sell-ship-check__box {
+  background: var(--pos);
+  border-color: var(--pos);
+}
+
+.sell-ship-check--on .sell-ship-check__box svg {
+  opacity: 1;
+}
+
+.sell-ship-check__text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sell-ship-check__text--req {
+  font-weight: 600;
+  color: #fff;
+}
+
+.sell-ship-check--on .sell-ship-check__text {
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: line-through;
+}
+
+.sell-ship-continue {
+  height: 54px !important;
+  width: 100%;
+  font-size: 16px !important;
+  justify-content: center;
+}
+
+.sell-ship-continue:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sell-ship-gate-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+
+.sell-ship-track-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sell-ship-track-box--locked {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.sell-ship-track-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.sell-ship-track-lock {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.sell-ship-track-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sell-ship-field-lab {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.sell-ship-input,
+.sell-ship-select {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  font-family: var(--font-sans);
+  color-scheme: dark;
+}
+
+.sell-ship-input {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.sell-ship-input:focus,
+.sell-ship-select:focus {
+  border-color: var(--azure);
+  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15);
+}
+
+.sell-ship-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  cursor: pointer;
+  padding-right: 36px;
+}
+
+.sell-ship-track-note {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin: -4px 0 14px;
+  line-height: 1.5;
+}
+
+.sell-ship-track-num {
+  margin-bottom: 14px;
+}
+
+.sell-ship-err {
+  font-size: 11px;
+  color: #ff6b7a;
+  margin-top: 6px;
+}
+
+.sell-ship-confirm {
+  height: 54px !important;
+  width: 100%;
+  font-size: 15px !important;
+  justify-content: center;
+}
+
+.sell-ship-confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sell-ship-confirm--done {
+  opacity: 1 !important;
+  background: rgba(0, 200, 100, 0.12) !important;
+  color: var(--pos) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  cursor: default !important;
+}
+
+.sell-ship-warn {
+  font-size: 12px;
+  color: var(--amber, #f59e0b);
+  margin-top: 12px;
+  margin-bottom: 24px;
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sell-ship-proc {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.sell-ship-proc strong {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 600;
+}
+
+.sell-ship-success {
+  background: rgba(0, 200, 100, 0.08);
+  border: 1px solid rgba(0, 200, 100, 0.2);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+.sell-ship-success__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pos);
+}
+
+.sell-ship-success__copy {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  padding-left: 30px;
+}
+
+.sell-ship-success__copy strong {
+  color: #fff;
+}
+
+.sell-ship-success__row {
+  padding-left: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sell-ship-success__summary {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sell-ship-back-cards {
+  height: 46px !important;
+  width: 100%;
+  font-size: 14px !important;
+}
+
+.sell-ship-edit-cards {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--azure);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sell-ship-edit-cards:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.sell-ship-edit-cards:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sell-ship-package-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sell-ship-package-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sell-ship-package-row__thumb {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.sell-ship-package-row__thumb--empty {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sell-ship-package-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sell-ship-package-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sell-ship-package-row__meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sell-ship-package-row__del {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.sell-ship-package-row__del:hover:not(:disabled) {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.sell-ship-package-row__del:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .sell-flow-cards-cta {
+    flex-direction: column;
+  }
+
+  .sell-flow-draft-btn,
+  .sell-flow-ship-btn {
+    width: 100%;
+  }
+
+  .sell-ship-track-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sell-flow-spinner,
+  .sell-flow-cardrow,
+  .sell-ship-spin {
+    animation: none !important;
+  }
+}

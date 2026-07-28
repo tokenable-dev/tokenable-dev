@@ -15,12 +15,12 @@ Tokenable wraps PSA’s **six** Public API methods behind server-side proxies (t
 flowchart LR
   subgraph client [Frontend]
     V[Vault / Mint]
-    CD[Collection detail]
+    BM[Partner bulk mint]
   end
   subgraph tokenable [NestJS /api/psa]
     A[POST analyze]
     B[POST analyze-by-cert]
-    P[public/* proxies]
+    P[public/* proxies admin]
   end
   subgraph psa [PSA Public API]
     C1[GetByCertNumber]
@@ -30,11 +30,10 @@ flowchart LR
     O2[GetSubmissionProgress]
     POP[GetPSASpecPopulation]
   end
-  subgraph marketplace [Marketplace]
-    CC[collection-components]
-  end
   V --> A
   V --> B
+  BM --> C1
+  BM --> C2
   A --> C1
   A --> C2
   B --> C1
@@ -46,9 +45,7 @@ flowchart LR
   P --> O2
   P --> POP
   C1 --> Cardhedger[Cardhedger match]
-  C2 --> RWA[RWA imageUrl / cover]
-  POP --> CC
-  CD --> CC
+  C2 --> RWA[RWA imageUrl]
 ```
 
 ### PSA Public API — six upstream methods
@@ -62,15 +59,19 @@ flowchart LR
 | 5 | `GET /order/GetSubmissionProgress/{submissionNumber}` | Submission status — same `OrderProgress` shape |
 | 6 | `GET /pop/GetPSASpecPopulation/{specID}` | Per-grade population (Grade1–10, Q) for a PSA spec |
 
-### Platform integration (what we use today)
+### Platform integration (mint-only PSA policy)
+
+**Live PSA Public API is reserved for mint-time only** (rate-limit budget). Marketplace reads, listings, portfolio mint-previews, and Cardhedger snapshot refresh **never** call PSA upstream.
 
 | PSA API | Tokenable connection | Priority |
 |---------|----------------------|----------|
-| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, Cardhedger cert lookup, collection mirror | **Required** — mint + identity |
-| **GetImagesByCertNumber** | Mint `imageUrl`, RWA metadata, collection cover candidates | **Required** — visual assets |
-| **GetPSASpecPopulation** | `collection-components.service` → `psaSpecPopulation`, rarity on collection detail | **Required** — market context |
-| **GetByCertNumberForFileAppend** | Not wired to UI yet | Future — vault outbound labels / PDF |
-| **GetProgress / GetSubmissionProgress** | Swagger proxy only | Future — profile “PSA submission status” (order-level, not cert-level) |
+| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, partner **bulk-mint** prepare | **Required** — mint identity |
+| **GetImagesByCertNumber** | Mint / bulk-mint slab `imageUrl` | **Required** — mint visual assets |
+| **GetPSASpecPopulation** | Only if captured at mint into `components` (no live fetch on collection detail) | Mint-time optional |
+| **GetByCertNumberForFileAppend** | **Disabled** (403 `PSA_MINT_ONLY`) | — |
+| **GetProgress / GetSubmissionProgress** | **Disabled** (403 `PSA_MINT_ONLY`) | — |
+
+Deprecated / ignored for marketplace: `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT`, `PSA_PUBLIC_API_BACKGROUND_UPSTREAM`.
 
 ---
 
@@ -114,26 +115,16 @@ Accepts digits or `https://www.psacard.com/cert/83179580`.
 
 ---
 
-## Public API proxies (raw JSON / Swagger QA)
+## Public API proxies (disabled — mint-only policy)
 
-These map 1:1 to PSA upstream. POST variants exist for Swagger **Try it out**.
+All `/api/psa/public/*` and `/api/psa/order/*` routes return **403 `PSA_MINT_ONLY`**.  
+They must not consume the daily PSA quota (~500 calls). Use mint endpoints instead:
 
-| Method | Tokenable path | PSA upstream |
-|--------|----------------|--------------|
-| GET | `/api/psa/public/cert/:certNumber` | GetByCertNumber |
-| POST | `/api/psa/public/cert` | GetByCertNumber |
-| GET | `/api/psa/public/cert/:certNumber/file-append` | GetByCertNumberForFileAppend |
-| POST | `/api/psa/public/cert/file-append` | GetByCertNumberForFileAppend |
-| GET | `/api/psa/public/cert/:certNumber/images` | GetImagesByCertNumber |
-| POST | `/api/psa/public/cert/images` | GetImagesByCertNumber |
-| GET | `/api/psa/public/pop/:specId` | GetPSASpecPopulation |
-| POST | `/api/psa/public/pop` | GetPSASpecPopulation |
-| GET | `/api/psa/order/progress/:orderNumber` | GetProgress |
-| POST | `/api/psa/order/progress` | GetProgress |
-| GET | `/api/psa/order/submission-progress/:submissionNumber` | GetSubmissionProgress |
-| POST | `/api/psa/order/submission-progress` | GetSubmissionProgress |
+- `POST /api/psa/analyze`
+- `POST /api/psa/analyze-by-cert`
+- Partner bulk-mint prepare (server-side)
 
-Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON body). Spec population success also includes parsed `pop` summary (`grade10`, `total`, `byGrade`).
+`POST /api/marketplace/cert-market-trace` is likewise disabled (403).
 
 ---
 
@@ -147,7 +138,8 @@ Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON
 | `PSA_PUBLIC_API_CACHE_TTL_MS` | In-memory cache TTL for successful PSA responses (default on) |
 | `PSA_PUBLIC_API_MAX_RETRIES` | Retry count on HTTP 429 |
 | `PSA_PUBLIC_API_MAX_CERT_ATTEMPTS` | Max distinct certs tried per OCR analyze |
-| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, Cardhedger snapshot refresh may call PSA for cert mirror fields |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | **Ignored** (mint-only policy — snapshot never calls PSA) |
+| `PSA_PUBLIC_API_BACKGROUND_UPSTREAM` | **Ignored** (mint-only policy) |
 | `CARDHEDGER_API_KEY` | Cardhedger OCR + catalog enrichment in analyze pipeline |
 
 ---

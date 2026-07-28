@@ -5,22 +5,11 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import {
-  normalizePsaSpecId,
-  PsaPublicApiService,
-  specIdStringFromPsaCertBody,
-} from '../../psa/psa-public-api.service';
-import {
-  hasCompletePsaPopulationByGrade,
-  PSA_GRADE_KEYS,
-  psaPopulationByGradeRecord,
-} from '../../psa/psa-spec-population.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
-import { fetchCompactPsaCertByNumber } from '../utils/psa-cert-compact.util';
 import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
   cardIdFromPsaCertLookup,
@@ -51,20 +40,15 @@ export class CollectionComponentsService {
     private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaPublicApi: PsaPublicApiService,
     private readonly identity: CollectionIdentityService,
   ) {}
 
   private async fetchCompactCertFromApi(
-    cert: string,
-    opts?: { allowUpstream?: boolean },
+    _cert: string,
+    _opts?: { allowUpstream?: boolean },
   ): Promise<Record<string, unknown> | null> {
-    if (opts?.allowUpstream === false) return null;
-    try {
-      return await fetchCompactPsaCertByNumber(this.psaPublicApi, cert);
-    } catch {
-      return null;
-    }
+    // Mint-only PSA policy: marketplace never calls Public API.
+    return null;
   }
 
   private collectionActiveOrdersCap(): number {
@@ -214,11 +198,11 @@ export class CollectionComponentsService {
   }
 
   /**
-   * Persist `components.psaSpecId` from mint metadata or PSA Public API cert lookup.
+   * Persist `components.psaSpecId` from mint / IPFS metadata only (no PSA Public API).
    */
   async mergePsaSpecIdFromCertIfMissing(
     collectionKey: string,
-    psaCert: string | undefined,
+    _psaCert: string | undefined,
     meta: Record<string, unknown>,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
@@ -228,21 +212,7 @@ export class CollectionComponentsService {
     if (!row) return;
     if (psaSpecIdFromComponentsRow(row.components)) return;
 
-    let specId = cardhedgerFromRwaMetadata(meta).psaSpecId;
-    const cert = psaCert?.trim() || row.psaCertNumber?.trim() || '';
-    if (!specId && cert) {
-      try {
-        const snap = await this.fetchCompactCertFromApi(cert, {
-          allowUpstream: true,
-        });
-        specId =
-          snap != null
-            ? specIdStringFromPsaCertBody({ PSACert: snap }) ?? null
-            : null;
-      } catch {
-        /* retry on cover schedule */
-      }
-    }
+    const specId = cardhedgerFromRwaMetadata(meta).psaSpecId;
     if (!specId) return;
 
     const next = { ...row.components, psaSpecId: specId };
@@ -255,125 +225,17 @@ export class CollectionComponentsService {
   }
 
   /**
-   * Fetches PSA spec pop report (Grade1–10 + Total) when missing from components.
-   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}` only when `allowUpstream`.
+   * No-op — mint-only PSA policy. Spec population must be captured at mint time.
    */
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
     opts?: { allowUpstream?: boolean },
   ): Promise<void> {
-    const allowUpstream = opts?.allowUpstream === true;
-    const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
-    });
-    if (!row) return;
-    const comp = row.components;
-    const hasFullByGrade = hasCompletePsaPopulationByGrade(
-      comp as Record<string, unknown>,
-    );
-    const hasTotal =
-      typeof comp.psaSpecTotalPopulation === 'number' &&
-      Number.isFinite(comp.psaSpecTotalPopulation) &&
-      comp.psaSpecTotalPopulation >= 0;
-    if (hasFullByGrade && hasTotal) return;
-
-    let specId = psaSpecIdFromComponentsRow(comp);
-    if (!specId) {
-      const cert = psaCertNumberFromCollectionRow(row);
-      if (cert) {
-        const snap = await this.fetchCompactCertFromApi(cert, {
-          allowUpstream,
-        });
-        specId = normalizePsaSpecId(snap?.SpecID);
-      }
-    }
-    if (!specId) {
-      const asks = await this.activeListingsForCollection(k);
-      for (const o of asks) {
-        if (!o.tokenId || String(o.tokenId).trim() === '') continue;
-        try {
-          const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
-          const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-          const fromMeta = cardhedgerFromRwaMetadata(meta).psaSpecId;
-          if (fromMeta) {
-            specId = fromMeta;
-            break;
-          }
-        } catch {
-          /* try next listing */
-        }
-      }
-    }
-    if (!specId) return;
-
-    if (!allowUpstream) return;
-
-    const lookup = await this.psaPublicApi.getSpecPopulation(specId);
-    if (lookup.status !== 'success') {
-      if (lookup.status === 'error') {
-        this.logger.debug(
-          `PSA spec pop lookup failed collection=${k} specId=${specId}: ${lookup.message}`,
-        );
-      }
-      return;
-    }
-
-    const { grade10, total, byGrade } = lookup.pop;
-    const next: Record<string, unknown> = { ...comp };
-    let dirty = false;
-
-    const byGradeRecord = psaPopulationByGradeRecord(byGrade);
-    if (byGradeRecord) {
-      const prev = comp.psaPopulationByGrade;
-      const changed =
-        !prev ||
-        typeof prev !== 'object' ||
-        PSA_GRADE_KEYS.some(
-          (key) =>
-            (prev as Record<string, unknown>)[key] !== byGradeRecord[key],
-        );
-      if (changed) {
-        next.psaPopulationByGrade = byGradeRecord;
-        dirty = true;
-      }
-    } else {
+    if (opts?.allowUpstream === true) {
       this.logger.debug(
-        `PSA spec pop incomplete grade breakdown collection=${k} specId=${lookup.specId}`,
+        `ensurePsaSpecPopulationFromApi refused collection=${collectionKey} (PSA mint-only)`,
       );
     }
-
-    if (grade10 != null && grade10 >= 0) {
-      if (comp.psaGrade10Population !== grade10) {
-        next.psaGrade10Population = grade10;
-        dirty = true;
-      }
-    }
-    if (total != null && total >= 0) {
-      if (comp.psaSpecTotalPopulation !== total) {
-        next.psaSpecTotalPopulation = total;
-        dirty = true;
-      }
-    }
-    if (
-      grade10 != null &&
-      grade10 > 0 &&
-      (typeof comp.psaTotalPopulation !== 'number' ||
-        comp.psaTotalPopulation <= 0)
-    ) {
-      next.psaTotalPopulation = grade10;
-      dirty = true;
-    }
-    if (!comp.psaSpecId && lookup.specId) {
-      next.psaSpecId = lookup.specId;
-      dirty = true;
-    }
-
-    if (!dirty) return;
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
-    );
   }
 
   async ensurePsaTotalPopulationFromListings(
@@ -606,12 +468,10 @@ export class CollectionComponentsService {
    * Upstream PSA Public API — only when allowed and mirror/cache still insufficient.
    */
   async refreshPsaPublicSnapshotForCollection(
-    collectionKey: string,
-    opts?: { allowUpstream?: boolean },
+    _collectionKey: string,
+    _opts?: { allowUpstream?: boolean },
   ): Promise<void> {
-    if (opts?.allowUpstream !== true) return;
-    const k = collectionKey.toLowerCase();
-    await this.persistPsaMirrorFromCertToDb(k, { allowUpstream: true });
+    // Mint-only PSA policy: marketplace snapshot refresh never calls PSA.
   }
 
   async mergePsaCertFromLiveApiIntoComponents(
@@ -632,7 +492,10 @@ export class CollectionComponentsService {
     return this.mergePsaCertFromLiveApiIntoComponents(col, opts);
   }
 
-  /** Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit. */
+  /**
+   * Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit.
+   * Default `allowUpstream: false` — mint-only PSA policy (no live Public API on read/snapshot).
+   */
   async persistPsaMirrorFromCertToDb(
     collectionKey: string,
     opts?: { allowUpstream?: boolean },
@@ -644,7 +507,7 @@ export class CollectionComponentsService {
     if (!row) return false;
     const merged = await this.mergePsaCertFromLiveApiIntoComponents(
       row,
-      opts ?? { allowUpstream: true },
+      opts ?? { allowUpstream: false },
     );
     const compBefore = JSON.stringify(row.components);
     const compAfter = JSON.stringify(merged.components);

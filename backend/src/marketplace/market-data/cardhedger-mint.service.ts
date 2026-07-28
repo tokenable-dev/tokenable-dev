@@ -3,13 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { PsaPublicApiService } from '../../psa/psa-public-api.service';
-import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
-import { fetchCompactPsaCertByNumber } from '../utils/psa-cert-compact.util';
-import {
-  componentsPsaMirrorSufficientForCardhedger,
-  mergePsaCertSnapshotIntoMirror,
-} from '../utils/psa-components-mirror.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
@@ -44,7 +37,6 @@ export class CardhedgerMintService {
     private readonly cardhedger: CardhedgerService,
     private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly config: ConfigService,
-    private readonly psaPublicApi: PsaPublicApiService,
     private readonly certLookup: CardhedgerCertLookupService,
     private readonly certPricing: CardhedgerCertPricingService,
     private readonly resolve: CardhedgerResolveService,
@@ -185,8 +177,16 @@ export class CardhedgerMintService {
     meta: Record<string, unknown>;
     psaMirror: Record<string, unknown>;
     cardhedgerCardIdOverride?: string | null;
+    /** GemRate / batch-prices-by-cert description when catalog `card` is null. */
+    certDescriptionOverride?: string | null;
   }): MarketplaceCollection {
-    const { tokenId, meta, psaMirror, cardhedgerCardIdOverride } = input;
+    const {
+      tokenId,
+      meta,
+      psaMirror,
+      cardhedgerCardIdOverride,
+      certDescriptionOverride,
+    } = input;
     const graded =
       (meta.properties as Record<string, unknown> | undefined)?.graded ??
       (meta.graded as Record<string, unknown> | undefined);
@@ -206,8 +206,10 @@ export class CardhedgerMintService {
       typeof ch?.searchQuery === 'string' && ch.searchQuery.trim()
         ? ch.searchQuery.trim()
         : '';
+    const qFromCertDescription = certDescriptionOverride?.trim() ?? '';
+    const cardhedgerSearchQuery = qFromCardhedger || qFromCertDescription || '';
     const query =
-      qFromCardhedger ||
+      cardhedgerSearchQuery ||
       [
         String(card?.name ?? ''),
         String(card?.number ?? ''),
@@ -240,6 +242,9 @@ export class CardhedgerMintService {
           ...psaSpecExtras,
           ...psaMirror,
           ...(cardhedgerCardId ? { cardhedgerCardId } : {}),
+          ...(cardhedgerSearchQuery
+            ? { cardhedgerSearchQuery }
+            : {}),
         }
       : {
           cardName: String(card?.name ?? ''),
@@ -248,6 +253,9 @@ export class CardhedgerMintService {
           ...psaSpecExtras,
           ...psaMirror,
           ...(cardhedgerCardId ? { cardhedgerCardId } : {}),
+          ...(cardhedgerSearchQuery
+            ? { cardhedgerSearchQuery }
+            : {}),
         };
 
     return {
@@ -301,47 +309,13 @@ export class CardhedgerMintService {
   }
 
   /**
-   * 민트 JSON에 `graded.psa.Variety`가 없을 때, cert 번호로 PSA Public API를 조회해
-   * {@link components}에 `psaVariety`/`psaSubject`/…를 보강한다 (Silver vs Base 구분).
+   * Mint-preview PSA mirror — IPFS / graded metadata only (no live PSA Public API).
    */
   private async enrichPsaMirrorFromCertLookup(
-    graded: Record<string, unknown> | undefined,
+    _graded: Record<string, unknown> | undefined,
     baseMirror: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    if (!graded || typeof graded !== 'object') return baseMirror;
-    const psa = graded.psa as Record<string, unknown> | undefined;
-    const grade = graded.grade as Record<string, unknown> | undefined;
-    const certRaw =
-      (typeof psa?.certNumber === 'string' && psa.certNumber.replace(/\D/g, '')) ||
-      (typeof grade?.certNumber === 'string' &&
-        String(grade.certNumber).replace(/\D/g, '')) ||
-      '';
-    if (!certRaw || certRaw.length < 7) return baseMirror;
-
-    if (componentsPsaMirrorSufficientForCardhedger(baseMirror)) {
-      const existingEstimate = Number(baseMirror.psaEstimateUsd);
-      if (Number.isFinite(existingEstimate) && existingEstimate > 0) {
-        return baseMirror;
-      }
-    }
-
-    if (!isPsaPublicApiUpstreamEnabled(this.config)) return baseMirror;
-
-    const snap = await fetchCompactPsaCertByNumber(this.psaPublicApi, certRaw);
-    if (!snap) return baseMirror;
-
-    const hadVariety = Boolean(String(baseMirror.psaVariety ?? '').trim());
-    const extra = mergePsaCertSnapshotIntoMirror(baseMirror, snap);
-    if (
-      !hadVariety &&
-      typeof extra.psaVariety === 'string' &&
-      String(extra.psaVariety).trim()
-    ) {
-      this.logger.log(
-        'Cardhedger mint preview: psaVariety filled via PSA Public API (IPFS metadata had no PSA Variety)',
-      );
-    }
-    return extra;
+    return baseMirror;
   }
 
   async getBatchMintPreviewsFromTokenIds(
@@ -369,6 +343,7 @@ export class CardhedgerMintService {
 
     let certCardByDigits = new Map<string, CardhedgerCardRow>();
     let certPriceByDigits = new Map<string, CardhedgerCertPriceResult>();
+    const certDescriptionByDigits = new Map<string, string>();
     const flags = this.cardhedgerFeatureFlags();
 
     if (this.mintPreviewUseCertBatch() && work.length > 0) {
@@ -380,6 +355,8 @@ export class CardhedgerMintService {
         certPriceByDigits = await this.certPricing.fetchPricesByCertsBatch(certs);
         for (const [digits, cp] of certPriceByDigits) {
           if (cp.card) certCardByDigits.set(digits, cp.card);
+          const desc = cp.certInfo?.description?.trim();
+          if (desc) certDescriptionByDigits.set(digits, desc);
         }
 
         if (flags.certPricePilotCompare) {
@@ -400,8 +377,13 @@ export class CardhedgerMintService {
           ),
         ];
         if (missingIdentity.length > 0) {
-          const fallback = await this.fetchCardRowsByCertsBatch(missingIdentity);
+          const descFallback = new Map<string, string>();
+          const fallback = await this.fetchCardRowsByCertsBatch(
+            missingIdentity,
+            descFallback,
+          );
           for (const [k, v] of fallback) certCardByDigits.set(k, v);
+          for (const [k, v] of descFallback) certDescriptionByDigits.set(k, v);
         }
 
         this.logger.log(
@@ -410,11 +392,17 @@ export class CardhedgerMintService {
             certCount: certs.length,
             priced: [...certPriceByDigits.values()].filter((r) => r.price != null)
               .length,
+            withCertDescription: certDescriptionByDigits.size,
             pilotCompare: flags.certPricePilotCompare,
           }),
         );
       } else {
-        certCardByDigits = await this.fetchCardRowsByCertsBatch(certs);
+        const descFallback = new Map<string, string>();
+        certCardByDigits = await this.fetchCardRowsByCertsBatch(
+          certs,
+          descFallback,
+        );
+        for (const [k, v] of descFallback) certDescriptionByDigits.set(k, v);
       }
     }
 
@@ -465,6 +453,9 @@ export class CardhedgerMintService {
             typeof batchRow?.card_id === 'string'
               ? batchRow.card_id.trim()
               : null,
+          certDescriptionOverride: certDigits
+            ? certDescriptionByDigits.get(certDigits)
+            : null,
         });
 
         const q = this.resolve.buildCollectionQuery(syntheticCol).query;
@@ -621,9 +612,20 @@ export class CardhedgerMintService {
       psaCertNumberFromGradedMeta(meta),
     );
     let batchRow: CardhedgerCardRow | undefined;
+    let certDescription: string | null = null;
     if (certDigits && this.mintPreviewUseCertBatch()) {
-      const certMap = await this.fetchCardRowsByCertsBatch([certDigits]);
+      const descOut = new Map<string, string>();
+      const certMap = await this.fetchCardRowsByCertsBatch(
+        [certDigits],
+        descOut,
+      );
       batchRow = certMap.get(certDigits);
+      certDescription = descOut.get(certDigits) ?? null;
+      if (!certDescription) {
+        const { certDescription: fromLookup } =
+          await this.getCardRowByCert(certDigits);
+        certDescription = fromLookup;
+      }
     }
 
     const graded =
@@ -642,6 +644,7 @@ export class CardhedgerMintService {
       psaMirror,
       cardhedgerCardIdOverride:
         typeof batchRow?.card_id === 'string' ? batchRow.card_id.trim() : null,
+      certDescriptionOverride: certDescription,
     });
 
     const gradeLabel = String(options?.gradeLabel ?? '').trim();

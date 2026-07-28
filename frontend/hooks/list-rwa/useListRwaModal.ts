@@ -389,6 +389,7 @@ export function useListRwaModal({
     crossingBidsForInstantSale,
     selectedBidHash,
     setSelectedBidHash,
+    topCollectionBid,
     isProcessing,
     handleList,
     dismissSuccess,

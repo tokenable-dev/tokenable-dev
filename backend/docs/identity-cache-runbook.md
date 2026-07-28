@@ -1,6 +1,8 @@
-# Identity Cache Runbook (P3.18)
+# Identity Cache Runbook
 
 Operational guide for identity cache SLO degradation modes and alert response.
+
+**Alerts:** `backend/docs/grafana/identity-cache-alerts.yaml`
 
 **Health endpoint:** `GET /api/admin/cardhedger/health?adminWallet=<admin>`  
 **Prometheus:** `GET /api/admin/cardhedger/prometheus?adminWallet=<admin>`

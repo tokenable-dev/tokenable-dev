@@ -8,6 +8,7 @@ import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 function shouldHideChrome(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
+  if (pathname === "/sell") return true;
   if (pathname.startsWith("/marketplace/admin")) return true;
   if (pathname.startsWith("/dev/design-system")) return true;
   if (pathname.startsWith("/dev/admin-ui")) return true;
@@ -31,8 +32,8 @@ export function TkFooter() {
           <Link href="/markets" className="navlink">
             Markets
           </Link>
-          <button type="button" className="navlink" onClick={() => navigate("/vault", 1)}>
-            Vault
+          <button type="button" className="navlink" onClick={() => navigate("/sell", 1)}>
+            Sell
           </button>
           <span className="navlink" aria-disabled>
             Fees

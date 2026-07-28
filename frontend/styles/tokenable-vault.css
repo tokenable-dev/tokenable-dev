@@ -2758,34 +2758,7 @@
   vertical-align: middle;
 }
 
-.vault-detail-hero {
-  display: flex;
-  gap: 28px;
-  margin-bottom: 32px;
-}
-
-.vault-detail-hero__img {
-  width: 140px;
-  height: 196px;
-  flex-shrink: 0;
-  padding: 10px;
-  background: #0e0e0e;
-  border-radius: 10px;
-}
-
-.vault-detail-hero__img img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.vault-detail-hero h1 {
-  margin: 0 0 12px;
-  font-size: clamp(18px, 3vw, 22px);
-  font-weight: 700;
-  line-height: 1.3;
-  color: #fff;
-}
+/* Status hero box styles live under Detail A~H section (Vault-Detail.html heroBox). */
 
 .vault-detail-badges {
   display: flex;
@@ -3323,6 +3296,11 @@
 
 /* ── Vault hub (Vault-Dashboard-Active.html) ─────────────────────────────── */
 
+.vault-page--hub > .vault-page__shell {
+  max-width: 1240px;
+  padding: 40px clamp(16px, 4vw, 40px) 80px;
+}
+
 .vault-hub-header {
   display: flex;
   align-items: flex-start;
@@ -3330,6 +3308,11 @@
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 32px;
+}
+
+.vault-hub-header__copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .vault-hub-header__eyebrow {
@@ -3353,6 +3336,14 @@
   color: #fff;
 }
 
+.vault-hub-header__sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--t2);
+  max-width: 42rem;
+}
+
 .vault-hub-header__cta {
   display: inline-flex;
   align-items: center;
@@ -3360,12 +3351,15 @@
   height: 48px;
   padding: 0 24px;
   font-size: 14px;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .vault-hub-header__cta svg {
   flex-shrink: 0;
+  margin-left: 6px;
 }
 
 .vault-hub-stat-grid {
@@ -3462,6 +3456,22 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
+}
+
+.vault-empty-state__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  padding: 0 32px;
+  font-size: 15px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.vault-empty-state__cta svg {
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .vault-hiw {
@@ -3656,6 +3666,21 @@
   font-size: 10px;
 }
 
+/* Vault-Dashboard-Active.html `.badge--grade` */
+.vault-hub-grade-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(0, 200, 100, 0.12);
+  color: var(--pos);
+}
+
 .vault-hub-cta-link {
   text-decoration: none;
   white-space: nowrap;
@@ -3763,7 +3788,7 @@
   border-radius: 16px;
 }
 
-.vault-ip-card {
+.vault-ip-grid .vault-ip-card {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -3776,19 +3801,20 @@
   transition: background 0.15s;
 }
 
-.vault-ip-card:last-child {
+.vault-ip-grid .vault-ip-card:last-child {
   border-bottom: none;
 }
 
-.vault-ip-card:hover {
+.vault-ip-grid .vault-ip-card:hover {
   background: rgba(255, 255, 255, 0.02);
+  border-color: transparent;
 }
 
-.vault-ip-card--action {
+.vault-ip-grid .vault-ip-card--action {
   border-left: 3px solid var(--amber);
 }
 
-.vault-ip-card--action:hover {
+.vault-ip-grid .vault-ip-card--action:hover {
   background: rgba(245, 158, 11, 0.04);
 }
 
@@ -3801,6 +3827,7 @@
 }
 
 .vault-ip-card__thumb {
+  position: relative;
   width: 56px;
   height: 78px;
   flex-shrink: 0;
@@ -3815,16 +3842,57 @@
   object-fit: contain;
 }
 
+.vault-ip-card__thumb-count {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--azure);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #191919;
+}
+
 .vault-ip-card__info {
   flex: 1;
   min-width: 0;
 }
 
-.vault-ip-card__name {
+.vault-ip-card__name-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.vault-ip-card__name {
+  margin: 0;
   font-size: 14px;
   font-weight: 700;
   color: #fff;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.vault-ip-card__more {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
 }
 
 .vault-ip-card__status {
@@ -3862,7 +3930,7 @@
 .vault-ip-card__detail-text {
   margin-left: 6px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-ip-card__hint {
@@ -3878,7 +3946,21 @@
 }
 
 .vault-ip-card__bottom {
+  display: flex;
   flex-shrink: 0;
+  gap: 8px;
+}
+
+/* Vault-Dashboard-Active.html action-card primary CTA */
+.vault-ip-card__bottom .tk-btn--primary {
+  background: #fff !important;
+  color: var(--azure) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  filter: none !important;
+}
+
+.vault-ip-card__bottom .tk-btn--primary svg {
+  stroke: var(--azure) !important;
 }
 
 .vault-status-dot {
@@ -4070,10 +4152,6 @@
     grid-template-columns: 1fr;
   }
 
-  .vault-detail-hero {
-    flex-direction: column;
-  }
-
   .vault-detail-aside-image__frame {
     width: min(200px, 70vw);
     height: auto;
@@ -4180,14 +4258,25 @@
     min-width: 0;
   }
 
-  .vault-stepper__dot {
+  .vault-stepper:not(.vault-stepper--rich) .vault-stepper__dot {
     width: 30px;
     height: 30px;
     font-size: 12px;
   }
 
-  .vault-stepper__label {
+  .vault-stepper:not(.vault-stepper--rich) .vault-stepper__label {
     font-size: 10px;
+  }
+
+  /* Detail rich bar keeps Vault-Detail.html sizes on mobile */
+  .vault-stepper--rich .vault-stepper__dot {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .vault-stepper--rich .vault-stepper__label {
+    font-size: 12px;
   }
 
   /* Shipping simple stepper keeps HTML sizes on mobile */
@@ -4303,23 +4392,39 @@
   text-decoration: underline;
 }
 
-/* ── Rich stepper (Vault-Detail / Vault-Step-Indicator) ──────────────────── */
+/* ── Rich stepper (Vault-Detail.html stepBar) ─────────────────────────────── */
+
+.vault-stepper-wrap--rich {
+  margin-bottom: 20px;
+}
 
 .vault-stepper--rich {
+  align-items: flex-start;
+  margin-bottom: 0;
   padding-bottom: 46px;
 }
 
 .vault-stepper--rich .vault-stepper__line {
   margin-top: 17px;
+  margin-left: 0;
+  margin-right: 0;
+  height: 2px;
+  align-self: flex-start;
 }
 
 .vault-stepper--rich .vault-stepper__label {
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
 }
 
 .vault-stepper--rich .vault-stepper__sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
   letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  white-space: nowrap;
 }
 
 .vault-stepper--rich-cta {
@@ -4328,6 +4433,14 @@
 
 .vault-stepper--rich .vault-stepper__item {
   width: 36px;
+  gap: 0;
+  text-align: center;
+  position: relative;
+}
+
+.vault-stepper--rich .vault-stepper__dot {
+  width: 36px;
+  height: 36px;
 }
 
 .vault-stepper--rich .vault-stepper__labels {
@@ -5026,18 +5139,17 @@
   gap: 0;
 }
 
-.vault-detail-layout-a > .vault-stepper,
-.vault-detail-layout-a .vault-stepper {
-  margin-bottom: 0;
+.vault-detail-layout-a > .vault-stepper-wrap--rich {
+  margin-bottom: 20px;
 }
 
-.vault-detail-layout-b .vault-stepper {
-  margin-bottom: 0;
+.vault-detail-layout-b .vault-stepper-wrap--rich {
+  margin-bottom: 20px;
 }
 
 .vault-detail-layout-a > .vault-card-box,
 .vault-detail-layout-a > .vault-detail-package,
-.vault-detail-layout-a > .vault-detail-ship-to {
+.vault-detail-layout-a > .vault-detail-tracking {
   margin-bottom: 20px;
 }
 
@@ -5049,8 +5161,79 @@
   margin-top: 24px;
 }
 
+/* Vault-Detail.html ctaRow — tk-btn on the link itself */
+.vault-detail-cta--primary,
+.vault-detail-cta--subtle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.vault-detail-cta--primary {
+  height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+
+.vault-detail-cta--subtle {
+  height: 42px;
+  padding: 0 24px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .vault-detail-package {
   padding: 18px 22px;
+}
+
+.vault-detail-package__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vault-sd-switcher {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 340px;
+  justify-content: flex-end;
+  background: #191919;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.vault-sd-switcher button {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 6px 9px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.vault-sd-switcher button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.vault-sd-switcher button.on {
+  background: var(--azure);
+  color: #fff;
 }
 
 .vault-detail-package__head {
@@ -5152,14 +5335,15 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
 }
 
 .vault-detail-tracking-form .vault-ship-select {
+  height: 44px;
   flex: 0 0 140px;
 }
 
 .vault-detail-tracking-form .vault-ship-input {
+  height: 44px;
   flex: 1;
   min-width: 180px;
 }
@@ -5170,8 +5354,10 @@
   justify-content: center;
   height: 44px;
   width: 100%;
+  margin-top: 12px;
   text-decoration: none;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 .vault-detail-tracking-done {
@@ -5185,17 +5371,30 @@
 }
 
 .vault-detail-tracking-link {
+  display: inline-block;
   font-size: 13px;
   color: var(--azure);
   text-decoration: none;
   font-weight: 600;
 }
 
-.vault-detail-tracking-change {
+.vault-detail-tracking-link:hover {
+  text-decoration: underline;
+}
+
+.vault-detail-tracking-change-wrap {
   margin-top: 14px;
+}
+
+.vault-detail-tracking-change {
   height: 38px;
   font-size: 12.5px;
   padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .vault-detail-layout-b {
@@ -5849,6 +6048,61 @@
 
   .vault-page--detail .vault-detail-page-title {
     font-size: clamp(22px, 5vw, 28px);
+  }
+}
+
+/* ── Sell router (Sell.html) ─────────────────────────────────────────────── */
+
+.sell-router {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  background: #0e0e0e;
+  color: #fff;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.sell-router__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.sell-router__dots {
+  display: flex;
+  gap: 8px;
+}
+
+.sell-router__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #1a6fff;
+  animation: sell-router-pulse 0.9s ease-in-out infinite;
+}
+
+.sell-router__label {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-sans, inherit);
+}
+
+@keyframes sell-router-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

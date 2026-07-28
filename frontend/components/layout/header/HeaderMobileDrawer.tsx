@@ -83,7 +83,7 @@ function isPortfolioSubActive(
 const PRIMARY_ICONS = {
   Markets: MobileDrawerMarketsIcon,
   Portfolio: MobileDrawerPortfolioIcon,
-  Vault: MobileDrawerVaultIcon,
+  Sell: MobileDrawerVaultIcon,
 } as const;
 
 type HeaderMobileDrawerProps = {
