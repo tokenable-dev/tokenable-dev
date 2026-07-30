@@ -53,7 +53,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Section | Prototype class / id | React target | File |
 |---------|----------------------|--------------|------|
 | Hero + CTA | hero block, `.btn--primary` | `HomeHero` | `components/home/HomeHero.tsx` |
-| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — faces from marketplace S3 `coverImageUrl` via `useHeroCarouselImageSources` |
+| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — faces from static `public/assets/home/landing_*.jpg` via `useHeroCarouselImageSources` |
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |

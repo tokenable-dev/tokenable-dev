@@ -33,17 +33,19 @@ Persisted `coverImageUrl` must be:
 {CATALOG_COVER_PUBLIC_BASE_URL}/{prefix}{collectionKey}/cover
 ```
 
-If a row is missing the trailing `/cover`, list/display APIs append it. The home hero WebGL ring loads covers via:
+If a row is missing the trailing `/cover`, list/display APIs append it. Markets / collection UI may load covers via:
 
 ```
 GET /api/marketplace/catalog-covers/asset?src=<urlencoded cover URL>
 ```
 
-so TextureLoader works even when the S3 bucket has **no CORS** rules (browser `<img>` works without CORS; canvas/WebGL does not).
+so TextureLoader / canvas reads work even when the S3 bucket has **no CORS** rules (browser `<img>` works without CORS; canvas/WebGL does not).
+
+The **home hero** 3D ring uses static files under `frontend/public/assets/home/landing_*.jpg` — not catalog S3 covers.
 
 ### Optional: S3 bucket CORS
 
-Not required for the app (hero uses the proxy above). If you want direct browser→S3 canvas reads later, add a bucket CORS rule allowing `GET` from your frontend origins.
+Not required for marketplace list/detail `<img>` tags. If you want direct browser→S3 canvas reads later, add a bucket CORS rule allowing `GET` from your frontend origins.
 
 ---
 

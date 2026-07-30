@@ -69,6 +69,16 @@ export const ASSETS = {
     marketIndexSoccer: `${ASSETS_BASE}/icons/market-index-soccer.png`,
   },
 
+  /** Home hero carousel faces (`public/assets/home/`) */
+  home: {
+    landing1: `${ASSETS_BASE}/home/landing_1.jpg`,
+    landing2: `${ASSETS_BASE}/home/landing_2.jpg`,
+    landing3: `${ASSETS_BASE}/home/landing_3.jpg`,
+    landing4: `${ASSETS_BASE}/home/landing_4.jpg`,
+    landing5: `${ASSETS_BASE}/home/landing_5.jpg`,
+    landing6: `${ASSETS_BASE}/home/landing_6.jpg`,
+  },
+
   /** 기타 이미지 */
   images: {} as Record<string, string>,
 } as const;
