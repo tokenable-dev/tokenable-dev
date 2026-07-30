@@ -5,7 +5,7 @@
  * produces DB-vs-cache diff, invariant violations, and race trace logs.
  */
 
-import { IdentityCacheDecisionEngine } from './identity-cache-decision.engine';
+import { IdentityCacheDecisionEngine } from '../identity-cache-decision.engine';
 import { checkReplayInvariants } from './identity-cache-replay-invariants';
 import type {
   IdentityReplayEvent,

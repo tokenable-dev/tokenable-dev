@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { isWalletOnlyPlaceholderEmail } from '../auth/privy/privy-user.parser';
 import type { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { SumsubApiService } from './sumsub-api.service';
+
+/** Real inbox email only — never send `@privy.wallet` placeholders to Sumsub. */
+export function sumsubEmailForUser(email: string | null | undefined): string | undefined {
+  const trimmed = email?.trim();
+  if (!trimmed || isWalletOnlyPlaceholderEmail(trimmed)) return undefined;
+  return trimmed;
+}
 
 @Injectable()
 export class KycService {
@@ -23,6 +31,7 @@ export class KycService {
 
   async createAccessToken(user: User): Promise<{ token: string; userId: string }> {
     let applicantId = user.kycExternalId;
+    const sumsubEmail = sumsubEmailForUser(user.email);
 
     if (!applicantId) {
       const existing = await this.sumsub.getApplicantByExternalUserId(user.id);
@@ -31,7 +40,7 @@ export class KycService {
       } else {
         const created = await this.sumsub.createApplicant({
           externalUserId: user.id,
-          email: user.email,
+          email: sumsubEmail,
         });
         applicantId = created.id;
       }
@@ -62,7 +71,7 @@ export class KycService {
 
     return this.sumsub.createSdkAccessToken({
       externalUserId: user.id,
-      email: user.email,
+      email: sumsubEmail,
     });
   }
 }

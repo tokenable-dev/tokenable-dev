@@ -46,12 +46,11 @@ backend/src/
 │   ├── metrics/             # CardhedgerMetricsModule
 │   └── perf/                # perfNow, perfLog, elapsedMs
 │
-├── auth/                    # Privy JWT session; JWT cookies; legacy Email/Password services (admin only)
+├── auth/                    # Privy JWT session; JWT cookies (`POST /auth/privy/session`)
 │   └── privy/               # PrivyService — JWKS verify, user fetch, profile parse
 ├── privy/                   # Privy catalog endpoint + API proxy (users, funding)
 ├── kyc/                     # Sumsub WebSDK tokens + webhook → users.kyc_status
 ├── user/                    # users, user_wallets, user_auth_providers, user_kyc_events
-├── mail/                    # SMTP (legacy verification + password reset — admin tooling only)
 ├── health/                  # GET /api/health
 ├── site-access/             # Optional staging gate middleware + POST verify
 │
@@ -59,56 +58,49 @@ backend/src/
 │   ├── rwa.controller.ts    # POST /upload, /mint, /redeem-request
 │   ├── rwa.service.ts       # IPFS upload logic + PSA 10 gate
 │   ├── rwa-mint.service.ts  # Orchestrates vault cycle + chain writer mint to custody
-│   └── rwa-redeem.service.ts
+│   ├── rwa-redeem.service.ts
+│   ├── bulk-mint/           # Partner bulk mint jobs
+│   └── admin/               # Bulk-mint admin controller
 │
 ├── vault/                   # Physical card vault lifecycle — DB orchestration only
 │   ├── vault.service.ts     # VaultAsset, VaultCycle, VaultRedemption state machine
+│   ├── vault-submissions.*  # User vault intake (JWT)
 │   └── entities/
-│       ├── vault-asset.entity.ts
-│       ├── vault-cycle.entity.ts
-│       └── vault-redemption.entity.ts
 │
 ├── blockchain/              # Multi-chain reads + IPFS + write operations
-│   ├── blockchain.service.ts         # ownerOf, tokenURI, getRwaTokensByOwner
-│   ├── rwa-chain-writer.service.ts   # mintTo, adminBurn, safeTransferFromCustody
-│   ├── chain-config.service.ts       # ChainConfigService — per-chain RPC + contract config
-│   ├── rwa-asset-resolve.service.ts
+│   ├── blockchain.service.ts
+│   ├── rwa-chain-writer.service.ts
+│   ├── chain-config.service.ts
+│   ├── payment-escrow-writer.service.ts
 │   └── ipfs-gateway-resolver.service.ts
 │
-├── psa/                     # Slab OCR, analyze-by-cert, PSA Public API 6-method proxy
-│   ├── psa.service.ts
-│   ├── psa.controller.ts
-│   └── psa-public-api.service.ts    # Multi-token pool (PSA_PUBLIC_API_TOKENS)
+├── psa/                     # Slab OCR, analyze-by-cert, PSA Public API
 │
 ├── cardhedger/              # Upstream HTTP client + public controllers
-│   ├── cardhedger.service.ts
+│   ├── api-1.json           # OpenAPI source for proxy codegen
 │   ├── controllers/
-│   │   ├── cardhedger-proxy.controller.ts
-│   │   ├── card-top100.controller.ts
-│   │   ├── card-top-movers.controller.ts
-│   │   ├── cardhedger-catalog.controller.ts
-│   │   └── cardhedger-price-webhook.controller.ts
-│   ├── admin/               # CardhedgerAdminModule
+│   ├── admin/
 │   └── cardhedger-price-infra.module.ts
 │
 ├── cardladder/              # Card Ladder indexes (Playwright scrape)
 │
 └── marketplace/             # MarketplaceModule facade
-    ├── admin/               # Marketplace admin auth + user admin
+    ├── admin/               # Admin auth, user admin, analytics, vault-submissions admin
     ├── entities/
     ├── utils/
     ├── orders/
-    ├── collections/
-    │   ├── rwa-token-admin.controller.ts  # /api/marketplace/admin/rwa-tokens/*
-    │   ├── rwa-token-admin.service.ts     # listCustodyHeldNfts, deliverCustodyNftToUser, burnTokenOnChain
-    │   └── ...
+    ├── collections/         # Buckets, market reads, identity cache (live)
+    │   └── testing/         # Identity-cache chaos/replay harnesses (specs only)
     ├── market-data/
     ├── snapshots/
     ├── portfolio/
-    └── watchlist/
+    ├── watchlist/
+    ├── p2p/
+    ├── partners/
+    └── notifications/
 ```
 
-**Entities (21):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `VerificationToken`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHolding`, `UserWatchlist`, `MarketplaceAdmin`, `CardTop100DailySnapshot`, `CardhedgerPriceSubscription`, `CardhedgerPriceDeltaCheckpoint`, `CardhedgerDailyPriceExportRun`, `CardhedgerPriceDeltaImportRun`, `VaultAsset`, `VaultCycle`, `VaultRedemption` — see [database.md](./database.md).
+**Entities (TypeORM):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHolding`, `UserWatchlist`, `MarketplaceAdmin`, `MarketplacePartner`, `MarketplaceNotification`, P2P entities, Cardhedger price infra entities, `VaultAsset`, `VaultCycle`, `VaultRedemption`, `VaultSubmission` — see [database.md](./database.md).
 
 ---
 
@@ -123,7 +115,7 @@ backend/src/
 | `POST /api/auth/logout` | Clear cookie |
 | `POST /api/auth/delete-account` | Delete account (JWT) |
 
-**Removed from controller** (code retained for admin tooling): `register`, `login`, `google`, `verify-email`, `forgot/reset/change-password`, wallet challenge/link.
+**Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module.
 
 **Admin auth:** Separate username/password (`marketplace_admins` table) → `marketplace_admin` HMAC cookie.
 

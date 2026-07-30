@@ -41,16 +41,17 @@ Local `.env` already uses `FRONTEND_URL=http://localhost:3000`, `PORT=4100`, `SU
 ### Dashboard checklist (you must click these)
 
 1. **Levels** — use personal level `id-and-liveness` (already matches `.env`).
-2. **Dev space → App tokens** — Sandbox token + secret in local + staging `SUMSUB_*` (done for local).
-3. **Dev space → Webhooks → Create webhook**
+2. **Disable Sumsub ID on that level** — Integrations → `id-and-liveness` → Configurations → Advanced settings → Sumsub ID → **Disable Sumsub ID experience in this level**. Wallet-only (MetaMask) users have no real inbox; Sumsub ID’s email gate shows `0x…@privy.wallet` and fails with “Invalid email address”.
+3. **Dev space → App tokens** — Sandbox token + secret in local + staging `SUMSUB_*` (done for local).
+4. **Dev space → Webhooks → Create webhook**
    - Target: `https://tokenable-dev.com/api/webhooks/sumsub`
    - Types: at least `applicantReviewed`, `applicantPending` (Individual)
    - Signature: **SHA256**
    - Copy the webhook **비밀 키** into staging (and local) `SUMSUB_WEBHOOK_SECRET` — this is **not** the App Token secret. A digest mismatch (`401 Invalid Sumsub webhook digest`) means the server secret ≠ Dashboard webhook secret (not the site-access password).
-4. **Dev space → WebSDK settings → Domains to host WebSDK** — add:
+5. **Dev space → WebSDK settings → Domains to host WebSDK** — add:
    - `http://localhost:3000`
    - `https://tokenable-dev.com`
-5. Keep **Sandbox mode** until production go-live (simulated results are OK for integration testing).
+6. Keep **Sandbox mode** until production go-live (simulated results are OK for integration testing).
 
 ## Environment variables (backend only)
 
@@ -73,6 +74,10 @@ Never expose `SUMSUB_SECRET_KEY` or webhook secrets in frontend code.
 5. Approved user continues vault ship / redeem. Rejected users see reason + retry on `/kyc`.
 
 Reusable KYC: same applicant id is reused on later `access-token` calls.
+
+### Email / wallet-only applicants
+
+MetaMask-only Privy accounts store a synthetic DB email (`{checksummedAddress}@privy.wallet`) for uniqueness. That value is **not** a real inbox and must **not** be sent to Sumsub as `email` / `applicantIdentifiers.email` — `KycService` omits it via `sumsubEmailForUser`. Real emails (OTP / social) are still forwarded when present.
 
 ## API
 
@@ -104,7 +109,7 @@ SDK completion events are UI hints only; final status comes from webhooks.
 
 ## Going live
 
-See [Get production key](https://docs.sumsub.com/docs/get-production-key). Production settings are **not** copied from Sandbox — recreate webhooks, levels, and use production app token/secret. Remove the `tokenable.dev@gmail.com` KYC bypass before mainnet public launch (`frontend/lib/auth/accountAccess.ts` + `backend/src/kyc/utils/kyc-gate.util.ts` — keep emails identical until then).
+Remove the internal-dev KYC / chain-switcher bypass before mainnet public launch (`frontend/lib/auth/accountAccess.ts` + `backend/src/kyc/utils/kyc-gate.util.ts` — keep emails/wallets identical until then: emails `tokenable.dev@gmail.com`, `ekvkd88@gmail.com`, `giunssen@gmail.com`, `dev@tokenable.io`, `jongnam0309@gmail.com`; wallet `0xd5abdd307414718c59949ac5465930a1f8a52691`).
 
 ## Code layout
 

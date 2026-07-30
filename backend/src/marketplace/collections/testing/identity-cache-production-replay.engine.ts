@@ -2,8 +2,8 @@
  * P3.14 — Production-fidelity replay against real TypeORM + Redis infrastructure.
  */
 
-import { identityCacheRedisKey } from './identity-cache.provider';
-import { IDENTITY_CACHE_TTL_MS } from './identity-cache-consistency.types';
+import { identityCacheRedisKey } from '../identity-cache.provider';
+import { IDENTITY_CACHE_TTL_MS } from '../identity-cache-consistency.types';
 import {
   checkReplayInvariants,
   computeAligned,
@@ -19,13 +19,13 @@ import {
   createSeededRng,
   pickSeeded,
 } from './identity-cache-simulation.harness';
-import type { IdentityIntegrationHarness } from './testing/identity-cache-integration.harness';
+import type { IdentityIntegrationHarness } from './identity-cache-integration.harness';
 import {
   readDbCardId,
   readL1Direct,
   readRedisL2,
   seedCollectionRow,
-} from './testing/identity-cache-integration.harness';
+} from './identity-cache-integration.harness';
 
 export class IdentityCacheProductionReplayEngine {
   private harness: IdentityIntegrationHarness | null = null;

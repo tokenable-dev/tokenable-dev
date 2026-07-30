@@ -124,7 +124,7 @@ They must not consume the daily PSA quota (~500 calls). Use mint endpoints inste
 - `POST /api/psa/analyze-by-cert`
 - Partner bulk-mint prepare (server-side)
 
-`POST /api/marketplace/cert-market-trace` is likewise disabled (403).
+`POST /api/marketplace/cert-market-trace` was removed (it always returned 403 and had no callers).
 
 ---
 

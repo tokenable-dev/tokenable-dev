@@ -53,7 +53,6 @@ backend/src/
 │   ├── auth.service.ts         # JWT issuance, delete account
 │   ├── auth-session.util.ts    # Session parsing helpers
 │   ├── dto/                    # Auth request DTOs
-│   ├── entities/               # VerificationToken entity
 │   ├── guards/                 # JwtAuthGuard
 │   ├── privy/                  # PrivyService, profile parser, types
 │   └── strategies/             # JwtStrategy (passport-jwt)
@@ -118,6 +117,7 @@ backend/src/
 │   └── dto/
 │
 ├── cardhedger/                 # Cardhedger integration
+│   ├── api-1.json              # OpenAPI source for proxy codegen
 │   ├── cardhedger.service.ts   # forwardJson upstream client
 │   ├── cardhedger.module.ts
 │   ├── cardhedger-price-infra.module.ts
@@ -127,9 +127,6 @@ backend/src/
 │       └── CardhedgerAdminModule  # /api/admin/cardhedger/*
 │
 ├── cardladder/                 # Card Ladder indexes
-│
-├── mail/                       # Legacy SMTP (admin tooling only)
-│   └── templates/
 │
 ├── site-access/                # Staging password gate
 │   ├── site-access.middleware.ts
@@ -152,13 +149,17 @@ backend/src/
     │   └── psa-upstream-policy.util.ts
     ├── orders/
     ├── collections/
+    │   ├── testing/            # Identity-cache chaos/replay harnesses (Jest only)
     │   ├── rwa-token-admin.controller.ts  # Admin RWA ops
     │   ├── rwa-token-admin.service.ts
     │   └── ...
     ├── market-data/
     ├── snapshots/
     ├── portfolio/
-    └── watchlist/
+    ├── watchlist/
+    ├── p2p/
+    ├── partners/
+    └── notifications/
 ```
 
 ### Ownership rules

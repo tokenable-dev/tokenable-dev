@@ -6,7 +6,7 @@
 
 Authentication is handled exclusively by **Privy**. After Privy login, the backend issues a JWT as an `HttpOnly` cookie (`access_token`). Protected routes accept either the cookie or `Authorization: Bearer <token>`.
 
-> **Legacy Google OAuth and email/password routes have been removed from the controller.** Email verification and password-reset services remain in the codebase for admin tooling only.
+> **Legacy Google OAuth and email/password routes have been removed.** SMTP mail + verification-token services were deleted with them (Privy-only).
 
 ---
 

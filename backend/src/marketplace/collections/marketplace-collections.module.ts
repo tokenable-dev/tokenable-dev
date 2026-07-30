@@ -14,8 +14,6 @@ import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-d
 import { MarketplacePartnersModule } from '../partners/marketplace-partners.module';
 import { MarketplaceSnapshotsModule } from '../snapshots/marketplace-snapshots.module';
 import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
-import { CertMarketTraceController } from './cert-market-trace.controller';
-import { CertMarketTraceService } from './cert-market-trace.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
@@ -69,7 +67,6 @@ import { MintEventListenerService } from './mint-event-listener.service';
   ],
   controllers: [
     CollectionsController,
-    CertMarketTraceController,
     RwaTokenAdminController,
   ],
   providers: [
@@ -96,7 +93,6 @@ import { MintEventListenerService } from './mint-event-listener.service';
     CollectionEnrichmentService,
     RwaTokenRegistryService,
     RwaTokenAdminService,
-    CertMarketTraceService,
     CollectionMarketService,
     MintEventListenerService,
   ],

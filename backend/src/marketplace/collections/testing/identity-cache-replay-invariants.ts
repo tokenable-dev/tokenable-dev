@@ -1,4 +1,4 @@
-import { IdentityCacheDecisionEngine } from './identity-cache-decision.engine';
+import { IdentityCacheDecisionEngine } from '../identity-cache-decision.engine';
 import type {
   IdentityReplayEvent,
   InvariantViolation,

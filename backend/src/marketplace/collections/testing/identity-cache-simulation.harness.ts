@@ -2,17 +2,17 @@
  * P3.11 / P3.13 — In-memory simulation + deterministic replay utilities.
  */
 
-import { IdentityCacheDecisionEngine } from './identity-cache-decision.engine';
+import { IdentityCacheDecisionEngine } from '../identity-cache-decision.engine';
 import type {
   CacheExecutionCommand,
   CacheExecutionResult,
-} from './identity-cache-execution.types';
+} from '../identity-cache-execution.types';
 import type {
   IdentityCacheDecision,
   IdentityConsistencyContext,
-} from './identity-cache-consistency.types';
-import { IDENTITY_CACHE_TTL_MS } from './identity-cache-consistency.types';
-import type { IdentityCacheProvider } from './identity-cache.provider';
+} from '../identity-cache-consistency.types';
+import { IDENTITY_CACHE_TTL_MS } from '../identity-cache-consistency.types';
+import type { IdentityCacheProvider } from '../identity-cache.provider';
 
 // ---------------------------------------------------------------------------
 // Simulated DB (P3.1 / P3.3 write + audit clear semantics)

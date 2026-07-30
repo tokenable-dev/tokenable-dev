@@ -25,6 +25,7 @@ import {
   WalletHistoryIcon,
 } from "@/components/layout/header/wallet/HeaderWalletMenuIcons";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
+import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
@@ -204,6 +205,9 @@ export function HeaderMobileDrawer({
                 </span>
               </div>
               <span className="tkm-profile__bal">{balanceLabel}</span>
+            </div>
+            <div className="tkm-profile__network">
+              <NetworkSwitcher inDrawer />
             </div>
           </div>
         ) : null}

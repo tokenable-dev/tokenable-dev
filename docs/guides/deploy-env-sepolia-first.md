@@ -1,6 +1,6 @@
 # Deploy env — Sepolia-first (internal-dev Polygon/ETH)
 
-Public users stay on **Sepolia**. `tokenable.dev@gmail.com` (and admin console) can switch to **Polygon / Ethereum** only when those chains are fully configured.
+Public users stay on **Sepolia**. Internal-dev emails (`tokenable.dev@gmail.com`, `ekvkd88@gmail.com`, `giunssen@gmail.com`, `dev@tokenable.io`, `jongnam0309@gmail.com`), the MetaMask wallet `0xd5abdd307414718c59949ac5465930a1f8a52691`, and the admin console can switch to **Polygon / Ethereum** only when those chains are fully configured.
 
 ## Backend EC2 `.env` — add / keep
 

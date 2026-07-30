@@ -2,15 +2,15 @@
  * P3.16 — SRE layer unit tests (trace, SLO, extended failure modes).
  */
 
-import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
-import { IdentityCacheSloService } from './identity-cache-slo.service';
+import { CardhedgerMetricsService } from '../../../common/metrics/cardhedger-metrics.service';
+import { IdentityCacheSloService } from '../identity-cache-slo.service';
 import { IdentityCacheReplayEngine } from './identity-cache-replay.engine';
 import {
   formatIdentityTraceSuffix,
   generateCorrelationId,
   runWithIdentityCorrelation,
   withIdentitySpan,
-} from './identity-trace.context';
+} from '../identity-trace.context';
 
 describe('Identity trace context (P3.16)', () => {
   it('propagates correlation id and phase through nested spans', async () => {

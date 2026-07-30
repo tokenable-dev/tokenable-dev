@@ -17,10 +17,38 @@ describe('kyc-gate.util', () => {
     ).not.toThrow();
   });
 
-  it('allows internal staging bypass email', () => {
+  it('allows internal staging bypass emails', () => {
+    for (const email of [
+      'tokenable.dev@gmail.com',
+      'ekvkd88@gmail.com',
+      'giunssen@gmail.com',
+      'dev@tokenable.io',
+      'jongnam0309@gmail.com',
+    ]) {
+      expect(
+        isKycApprovedForCustody(user({ email, kycStatus: 'none' })),
+      ).toBe(true);
+    }
+  });
+
+  it('allows internal staging bypass wallets', () => {
     expect(
       isKycApprovedForCustody(
-        user({ email: 'tokenable.dev@gmail.com', kycStatus: 'none' }),
+        user({
+          walletAddress: '0xD5abDD307414718C59949Ac5465930a1F8a52691',
+          kycStatus: 'none',
+          email: 'other@example.com',
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      isKycApprovedForCustody(
+        user({
+          email: '0xd5abdd307414718c59949ac5465930a1f8a52691@privy.wallet',
+          kycStatus: 'none',
+          walletAddress: null,
+        }),
       ),
     ).toBe(true);
   });

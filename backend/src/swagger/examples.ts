@@ -159,10 +159,6 @@ export const SWAGGER_BODY_EXAMPLES = {
     tokenId: F.tokenId,
     costBasisUsd: 1250,
   },
-  certMarketTrace: {
-    certNumber: F.certNumber,
-    historyMaxCalendarDays: 90,
-  },
   adminSetCover: {
     coverImageUrl: F.coverUrl,
   },

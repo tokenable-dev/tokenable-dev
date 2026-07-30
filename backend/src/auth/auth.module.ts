@@ -2,25 +2,18 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { MailModule } from '../mail/mail.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { EmailVerificationService } from './email-verification.service';
-import { PasswordResetService } from './password-reset.service';
-import { VerificationToken } from './entities/verification-token.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrivyService } from './privy';
 
-/** User-facing auth is Privy-only; verification services remain for admin tooling. */
+/** User-facing auth is Privy-only (`POST /auth/privy/session`). */
 @Module({
   imports: [
     ConfigModule,
-    MailModule,
     UserModule,
-    TypeOrmModule.forFeature([VerificationToken]),
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -33,20 +26,7 @@ import { PrivyService } from './privy';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    EmailVerificationService,
-    PasswordResetService,
-    PrivyService,
-    JwtStrategy,
-    JwtAuthGuard,
-  ],
-  exports: [
-    AuthService,
-    JwtAuthGuard,
-    EmailVerificationService,
-    PasswordResetService,
-    PrivyService,
-  ],
+  providers: [AuthService, PrivyService, JwtStrategy, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard, PrivyService],
 })
 export class AuthModule {}

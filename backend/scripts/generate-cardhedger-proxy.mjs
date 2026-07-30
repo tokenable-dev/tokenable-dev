@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-const spec = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/api-1.json'), 'utf8'));
+const spec = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/cardhedger/api-1.json'), 'utf8'));
 
 const CERT = '83179580';
 const CARD_ID = '1586812246197x228181943611293700';

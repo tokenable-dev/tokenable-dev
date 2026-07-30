@@ -1,4 +1,4 @@
-import type { IdentityConsistencyContext } from './identity-cache-consistency.types';
+import type { IdentityConsistencyContext } from '../identity-cache-consistency.types';
 
 // ---------------------------------------------------------------------------
 // Shared replay event model (simulation + production)

@@ -27,7 +27,7 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 | `marketplace` | `marketplace/snapshots/collection-market-snapshot.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/portfolio/portfolio.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/watchlist/watchlist.controller.ts` | `/api/marketplace/watchlist` |
-| `marketplace` | `marketplace/collections/cert-market-trace.controller.ts` | `/api/marketplace` |
+| `marketplace` | `marketplace/collections/collections.controller.ts` (+ orders/portfolio/…) | `/api/marketplace` |
 | `marketplace-admin` | `marketplace/admin/platform-analytics.controller.ts` | `/api/marketplace/admin/analytics` |
 | `marketplace-admin` | `marketplace/admin/user-admin.controller.ts` | `/api/marketplace/admin/users` |
 | `marketplace-admin` | `marketplace/admin/marketplace-admin-auth.controller.ts` | `/api/marketplace/admin/auth` |
@@ -125,7 +125,6 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | POST | `/api/marketplace/collections/on-mint` | Mint webhook — bootstrap collection |
 | POST | `/api/marketplace/collections/token-collection-keys` | Batch tokenIds → collection_key |
 | POST | `/api/marketplace/cardhedger/mint-previews` | Batch mint previews (max 32) |
-| POST | `/api/marketplace/cert-market-trace` | Debug cert → PSA → Cardhedger trace |
 | GET | `/api/marketplace/collections/:key` | Collection detail + order book |
 | GET | `/api/marketplace/collections/:key/cardhedger` | Cardhedger matched card + bands |
 | GET | `/api/marketplace/collections/:key/cardhedger/price-history` | PSA10 price history |

@@ -6,7 +6,6 @@
 - `marketplace/snapshots/collection-market-snapshot.controller.ts` — `GET …/cardhedger`, `GET …/cardhedger/price-history`
 - `marketplace/portfolio/portfolio.controller.ts` — daily snapshots + hidden holdings
 - `marketplace/watchlist/watchlist.controller.ts` — saved collections (JWT)
-- `marketplace/collections/cert-market-trace.controller.ts`
 - `marketplace/collections/rwa-token-admin.controller.ts` — `/api/marketplace/admin/rwa-tokens`
 - `marketplace/admin/marketplace-admin-auth.controller.ts` — admin console session
 - `marketplace/admin/platform-analytics.controller.ts` — platform KPI dashboard
@@ -22,36 +21,6 @@ Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment
 Legacy relational matching (`bids`/`asks` tables, settlement workers) is **removed**. The old `hidden_assets` table was replaced by **`portfolio_holdings`** (off-chain hide + cost basis).
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
-
----
-
-## Cert → PSA → Cardhedger trace (debug)
-
-### `POST /api/marketplace/cert-market-trace`
-
-**Swagger tag:** `marketplace`
-
-Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Cardhedger 프리뷰·가격 히스토리**를 한 번에 받습니다. 합성 컬렉션 `components`는 민트 메타와 맞춰 **PSA Variety → `psaVariety`** 등을 채워 Base vs Silver(병행) 구분에 쓰입니다.
-
-**Body:** `CertMarketTraceDto`
-
-| Field | Description |
-|-------|-------------|
-| `certNumber` | Cert 숫자 또는 `psacard.com/cert/…` URL (필수) |
-| `historyMaxCalendarDays` | 히스토리 윈도우 1–365 (기본 90) |
-
-**Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
-
-**응답 요약:** `meta` · `psaAnalyze` · `syntheticCollection` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history` / `cardhedger.comps`(경매 raw+headline) / `cardhedger.mergedChartPoints`(일별+comps 병합, `historyMaxCalendarDays` 클립).
-
-자세한 맥락: [cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md).
-
-```json
-{
-  "certNumber": "89531714",
-  "historyMaxCalendarDays": 90
-}
-```
 
 ---
 

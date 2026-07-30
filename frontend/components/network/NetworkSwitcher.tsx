@@ -14,6 +14,20 @@ import type { SupportedChainId } from "@/lib/chains";
 
 const IS_DEV = process.env.NODE_ENV === "development";
 
+/** Compact labels for the network picker (header + mobile drawer). */
+function networkPickerLabel(chainId: SupportedChainId): string {
+  switch (chainId) {
+    case 11155111:
+      return "Sepolia";
+    case 1:
+      return "ETH Mainnet";
+    case 137:
+      return "Polygon";
+    default:
+      return getChainDefinition(chainId).shortLabel;
+  }
+}
+
 function ChainDot({ chainId }: { chainId: SupportedChainId }) {
   const color =
     chainId === 1 ? "bg-blue-400" : chainId === 137 ? "bg-violet-400" : "bg-fuchsia-400";
@@ -29,11 +43,15 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
+    const onDoc = (e: Event) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+    };
   }, [open]);
 
   const internalDev = canUseAppChainSwitcher(user);
@@ -43,33 +61,32 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
     ? SUPPORTED_CHAIN_IDS.map(getChainDefinition)
     : configuredChains;
 
-  const visibilityClass = inDrawer ? "" : "hidden sm:inline-flex";
+  const currentLabel = networkPickerLabel(chainId);
 
   if (displayChains.length <= 1 && !IS_DEV) {
     return (
-      <div className={`gnb-network-chip ${visibilityClass}`} title={chain.label}>
+      <div
+        className={`gnb-network-chip${inDrawer ? " gnb-network-chip--drawer" : ""}`}
+        title={currentLabel}
+      >
         <ChainDot chainId={chainId} />
-        <span>{chain.shortLabel}</span>
+        <span>{currentLabel}</span>
       </div>
     );
   }
 
   return (
-    <div ref={rootRef} className={inDrawer ? "relative" : "relative hidden sm:block"}>
+    <div ref={rootRef} className={inDrawer ? "relative w-full" : "relative"}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="gnb-network-chip"
+        className={`gnb-network-chip${inDrawer ? " gnb-network-chip--drawer" : ""}`}
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-label={`Network: ${currentLabel}`}
       >
-        {IS_DEV || internalDev ? (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400/90" aria-hidden>
-            DEV
-          </span>
-        ) : null}
         <ChainDot chainId={chainId} />
-        <span className="max-w-[5.5rem] truncate">{chain.shortLabel}</span>
+        <span className="truncate">{currentLabel}</span>
         <span className={`text-[10px] opacity-70 transition ${open ? "rotate-180" : ""}`} aria-hidden>
           ▾
         </span>
@@ -79,15 +96,13 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
         <div
           role="listbox"
           aria-label="Select network"
-          className="gnb-network-chip__menu"
+          className={`gnb-network-chip__menu${inDrawer ? " gnb-network-chip__menu--drawer" : ""}`}
         >
-          <p className="border-b border-white/[0.06] px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-[var(--t3)]">
-            {IS_DEV || internalDev ? "Network · DEV" : "Network"}
-          </p>
           <ul className="py-1">
             {displayChains.map((c) => {
               const active = c.id === chainId;
               const configured = isChainConfigured(c.id);
+              const label = networkPickerLabel(c.id);
               return (
                 <li key={c.id}>
                   <button
@@ -95,43 +110,27 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
                     role="option"
                     aria-selected={active}
                     disabled={!configured}
-                    title={
-                      configured
-                        ? undefined
-                        : `Not configured — set NEXT_PUBLIC_CHAIN_${c.id}_RPC_URL / _RWA / _USDC (and matching backend CHAIN_${c.id}_*)`
-                    }
+                    title={configured ? label : `${label} (not configured)`}
                     onClick={() => {
                       if (!configured) return;
                       setChainId(c.id);
                       setOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition ${
+                    className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition ${
                       active
-                        ? "bg-[rgba(0, 51, 255,0.12)] text-white"
+                        ? "bg-[rgba(0, 51, 255,0.12)] font-semibold text-white"
                         : configured
                           ? "text-[var(--t2)] hover:bg-white/[0.04]"
-                          : "cursor-not-allowed text-[var(--t3)] opacity-50"
+                          : "cursor-not-allowed text-[var(--t3)] opacity-45"
                     }`}
                   >
                     <ChainDot chainId={c.id} />
-                    <span className="flex-1">
-                      <span className="block font-medium">{c.label}</span>
-                      <span className="text-[11px] text-[var(--t3)]">
-                        {configured
-                          ? `${c.nativeSymbol} · chain ${c.id}`
-                          : `Not configured · chain ${c.id}`}
-                      </span>
-                    </span>
+                    <span className="flex-1 truncate">{label}</span>
                   </button>
                 </li>
               );
             })}
           </ul>
-          {IS_DEV || internalDev ? (
-            <p className="border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--t3)]">
-              Polygon/Ethereum need CHAIN_137_* / CHAIN_1_* (+ matching NEXT_PUBLIC_*).
-            </p>
-          ) : null}
         </div>
       ) : null}
     </div>

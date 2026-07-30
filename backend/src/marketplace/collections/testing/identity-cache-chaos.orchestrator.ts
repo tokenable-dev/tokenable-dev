@@ -2,8 +2,8 @@
  * P3.15 — Distributed chaos orchestration on production-fidelity harness.
  */
 
-import { identityCacheRedisKey } from './identity-cache.provider';
-import { IDENTITY_CACHE_TTL_MS } from './identity-cache-consistency.types';
+import { identityCacheRedisKey } from '../identity-cache.provider';
+import { IDENTITY_CACHE_TTL_MS } from '../identity-cache-consistency.types';
 import {
   checkReplayInvariants,
   computeAligned,
@@ -17,14 +17,14 @@ import type {
 } from './identity-cache-replay.types';
 import { IdentityCacheProductionReplayEngine } from './identity-cache-production-replay.engine';
 import { createSeededRng } from './identity-cache-simulation.harness';
-import type { IdentityIntegrationHarness } from './testing/identity-cache-integration.harness';
+import type { IdentityIntegrationHarness } from './identity-cache-integration.harness';
 import {
   readDbCardId,
   readL1Direct,
   readRedisL2,
   seedCollectionRow,
-} from './testing/identity-cache-integration.harness';
-import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+} from './identity-cache-integration.harness';
+import { MarketplaceCollection } from '../../entities/marketplace-collection.entity';
 
 export interface ChaosOrchestrationResult extends ReplayResult {
   chaosTrace: string[];

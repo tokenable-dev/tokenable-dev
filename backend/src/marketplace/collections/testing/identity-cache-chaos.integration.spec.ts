@@ -10,7 +10,7 @@ import {
   createIdentityIntegrationHarness,
   resolveIntegrationInfra,
   stopSharedIntegrationInfra,
-} from './testing/identity-cache-integration.harness';
+} from './identity-cache-integration.harness';
 
 const KEY = `chaos-${Date.now().toString(36)}`;
 

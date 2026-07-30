@@ -10,7 +10,7 @@ export class CardhedgerCatalogController {
   @ApiOperation({
     summary: 'Card Hedge 프록시 경로 전체 목록',
     description:
-      '`/api/cardhedger/...` 로 노출되는 upstream 경로·메서드·요약을 JSON으로 반환합니다. 원본: backend/src/api-1.json',
+      '`/api/cardhedger/...` 로 노출되는 upstream 경로·메서드·요약을 JSON으로 반환합니다. 원본: backend/src/cardhedger/api-1.json',
   })
   listRoutes() {
     return {
