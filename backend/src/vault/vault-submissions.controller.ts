@@ -31,15 +31,7 @@ export class VaultSubmissionsController {
     return this.submissions.listForUser(req.user.id);
   }
 
-  @Get(':idOrPublicId')
-  @ApiOperation({ summary: 'Get one submission (uuid or SUB-… public id)' })
-  getOne(
-    @Req() req: Request & { user: User },
-    @Param('idOrPublicId') idOrPublicId: string,
-  ) {
-    return this.submissions.getForUser(req.user.id, idOrPublicId);
-  }
-
+  // Static paths before `:idOrPublicId` so `draft` is never treated as a public id.
   @Post('draft')
   @ApiOperation({ summary: 'Create or update draft cards for sell flow' })
   upsertDraft(
@@ -79,5 +71,14 @@ export class VaultSubmissionsController {
       ...dto,
       publicId: idOrPublicId,
     });
+  }
+
+  @Get(':idOrPublicId')
+  @ApiOperation({ summary: 'Get one submission (uuid or SUB-… public id)' })
+  getOne(
+    @Req() req: Request & { user: User },
+    @Param('idOrPublicId') idOrPublicId: string,
+  ) {
+    return this.submissions.getForUser(req.user.id, idOrPublicId);
   }
 }

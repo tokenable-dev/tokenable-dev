@@ -43,6 +43,13 @@ export function notificationTypeStyle(
   return TYPE_STYLE[type] ?? TYPE_STYLE.bid;
 }
 
+/** Compact unread count for badges (`9+` when over 9). */
+export function formatUnreadBadgeCount(count: number): string {
+  if (!Number.isFinite(count) || count <= 0) return "";
+  if (count > 9) return "9+";
+  return String(Math.floor(count));
+}
+
 /** Compact relative time for the notifications drawer. */
 export function formatNotificationTime(iso: string, nowMs = Date.now()): string {
   const t = Date.parse(iso);

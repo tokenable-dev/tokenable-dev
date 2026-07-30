@@ -27,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_p2p_listings_cert_number ON p2p_listings (cert_nu
 
 CREATE INDEX IF NOT EXISTS idx_p2p_listings_seller_user_id ON p2p_listings (seller_user_id);
 CREATE INDEX IF NOT EXISTS idx_p2p_listings_status ON p2p_listings (status);
+CREATE INDEX IF NOT EXISTS idx_p2p_listings_status_chain ON p2p_listings (status, chain_id);
 
 COMMENT ON TABLE p2p_listings IS
   'P2P sell listings — RWA minted to custody; USDC settlement via TokenablePaymentEscrow.';
@@ -67,3 +68,4 @@ CREATE TABLE IF NOT EXISTS p2p_orders (
 CREATE INDEX IF NOT EXISTS idx_p2p_orders_buyer_user_id ON p2p_orders (buyer_user_id);
 CREATE INDEX IF NOT EXISTS idx_p2p_orders_seller_user_id ON p2p_orders (seller_user_id);
 CREATE INDEX IF NOT EXISTS idx_p2p_orders_status ON p2p_orders (status);
+CREATE INDEX IF NOT EXISTS idx_p2p_orders_status_chain ON p2p_orders (status, chain_id);

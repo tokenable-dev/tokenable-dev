@@ -55,8 +55,17 @@ export const rq = {
       address ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
-  marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
-    ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
+  marketMintPreviews: (
+    address: string | undefined,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
+    [
+      "cardhedger-mint-previews",
+      chainId,
+      address ?? "",
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   portfolioHidden: (address: string, chainId: number) =>
     ["portfolio-hidden", chainId, address] as const,
   portfolioHoldings: (
@@ -74,15 +83,18 @@ export const rq = {
   portfolioBidCollections: (sortedKeys: readonly string[]) =>
     ["portfolio-bid-collections", [...sortedKeys]] as const,
   /** Collection bids placed by wallet (portfolio). */
-  portfolioBids: (address: string) => ["portfolio-bids", address] as const,
-  userWatchlist: (userId: string) => ["user-watchlist", userId] as const,
+  portfolioBids: (address: string, chainId: number) =>
+    ["portfolio-bids", address, chainId] as const,
+  userWatchlist: (userId: string, chainId: number) =>
+    ["user-watchlist", userId, chainId] as const,
   marketplaceNotifications: (userId: string) =>
     ["marketplace-notifications", userId] as const,
 
   // ── Collection ─────────────────────────────────────────────────────────────
 
   /** Single collection detail page (`/marketplace/collections/:key`). */
-  collectionDetail: (key: string) => ["marketplace-collection", key] as const,
+  collectionDetail: (key: string, chainId: number) =>
+    ["marketplace-collection", key, chainId] as const,
   /**
    * Market price series for a collection.
    * Duration must be included so that switching the chart window bypasses the cache.
@@ -90,7 +102,8 @@ export const rq = {
   collectionMarketSeries: (
     key: string,
     duration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
-  ) => ["collection-market-series", key, duration] as const,
+    chainId: number,
+  ) => ["collection-market-series", key, duration, chainId] as const,
   /** Cardhedger all-grade catalog for collection chart picker. */
   collectionGradeCatalog: (key: string, live = false) =>
     ["collection-grade-catalog", key, live] as const,
@@ -100,15 +113,26 @@ export const rq = {
   collectionGradeSeries: (key: string, grade: string, days: number) =>
     ["collection-grade-series", key, grade, days] as const,
   /** On-chain platform trades for a collection. */
-  collectionPlatformTrades: (key: string, bootstrapTokenId?: number, grade?: string) =>
+  collectionPlatformTrades: (
+    key: string,
+    chainId: number,
+    bootstrapTokenId?: number,
+    grade?: string,
+  ) =>
     bootstrapTokenId != null
-      ? (["collection-platform-trades", key, bootstrapTokenId, grade ?? ""] as const)
+      ? ([
+          "collection-platform-trades",
+          key,
+          chainId,
+          bootstrapTokenId,
+          grade ?? "",
+        ] as const)
       : grade != null && grade.length > 0
-        ? (["collection-platform-trades", key, grade] as const)
-        : (["collection-platform-trades", key] as const),
+        ? (["collection-platform-trades", key, chainId, grade] as const)
+        : (["collection-platform-trades", key, chainId] as const),
   /** RWA card detail trades (platform + Cardhedger comps, collection optional). */
-  rwaTokenTrades: (tokenId: number, grade?: string) =>
-    ["rwa-token-trades", tokenId, grade ?? ""] as const,
+  rwaTokenTrades: (tokenId: number, chainId: number, grade?: string) =>
+    ["rwa-token-trades", tokenId, chainId, grade ?? ""] as const,
   /** Metadata rows for RWA tokens listed under a collection. */
   collectionListingsMetadata: (key: string, tokenIds: readonly number[]) =>
     [
@@ -149,13 +173,15 @@ export const rq = {
   adminPartnerInventory: (partnerId: string) =>
     ["admin-partner-inventory", partnerId] as const,
   adminMarketplacePartners: ["admin-marketplace-partners"] as const,
-  adminRwaRolesOverview: () => ["admin-rwa-roles-overview"] as const,
-  adminRwaRolesStatus: (wallet: string) =>
-    ["admin-rwa-roles-status", wallet.toLowerCase()] as const,
+  adminRwaRolesOverview: (chainId: number) =>
+    ["admin-rwa-roles-overview", chainId] as const,
+  adminRwaRolesStatus: (wallet: string, chainId: number) =>
+    ["admin-rwa-roles-status", wallet.toLowerCase(), chainId] as const,
   /** @deprecated use adminRwaCards */
   adminListedRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
   adminUserStats: () => ["admin-user-stats"] as const,
-  adminAnalytics: (days: number) => ["admin-analytics", days] as const,
+  adminAnalytics: (days: number, chainId: number) =>
+    ["admin-analytics", days, chainId] as const,
   adminDataInventory: () => ["admin-data-inventory"] as const,
   adminGa4Analytics: (days: number) => ["admin-ga4-analytics", days] as const,
   adminUsersList: (
@@ -200,8 +226,9 @@ export const rq = {
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
 
-  /** Daily portfolio value snapshots for a wallet. */
-  portfolioDailySnapshots: (addr: string) => ["portfolio-daily-snapshots", addr] as const,
+  /** Daily portfolio value snapshots for a wallet (per active app chain). */
+  portfolioDailySnapshots: (addr: string, chainId: number) =>
+    ["portfolio-daily-snapshots", addr, chainId] as const,
   /**
    * Market stats + series batch for portfolio holdings.
    * Collection keys are spread individually (not nested array) so React Query's
@@ -209,8 +236,12 @@ export const rq = {
    * Keys are lowercased + sorted so the cache is wallet-agnostic and order-independent.
    * Call site must pre-compute `portfolioMarketBatchSig` and pass sorted keys.
    */
-  portfolioMarketBatch: (collectionKeys: readonly string[]) =>
-    ["portfolio-market-batch", ...collectionKeys.map((k) => k.toLowerCase()).sort()] as const,
+  portfolioMarketBatch: (chainId: number, collectionKeys: readonly string[]) =>
+    [
+      "portfolio-market-batch",
+      chainId,
+      ...collectionKeys.map((k) => k.toLowerCase()).sort(),
+    ] as const,
   /**
    * Collection-key-to-tokenId resolution for the portfolio page.
    * `sig` is a stable derived string summarising the current set of owned assets

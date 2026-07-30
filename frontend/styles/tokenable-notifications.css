@@ -1,3 +1,46 @@
+.tk-notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e4374a;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tk-notif-badge--float {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  box-shadow: 0 0 0 2px #0b0b12;
+  pointer-events: none;
+}
+
+.tk-notif-menu-label {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.tk-wallet-wrap > .tk-notif-badge--float,
+.tk-wallet-wrap .tk-notif-badge--float {
+  top: -2px;
+  right: -2px;
+}
+
+.gnb-burger .tk-notif-badge--float {
+  top: 4px;
+  right: 4px;
+  box-shadow: 0 0 0 2px #0b0b12;
+}
+
 /* Notifications drawer — parity with tk-notifications.js */
 
 .tk-notif-overlay {
@@ -35,6 +78,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 16px;
+  gap: 12px;
 }
 
 .tk-notif-panel__title {
@@ -42,6 +86,25 @@
   font-size: 20px;
   font-weight: 700;
   color: #fff;
+}
+
+.tk-notif-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tk-notif-panel__mark-all {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.tk-notif-panel__mark-all:hover {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .tk-notif-panel__close {
@@ -130,6 +193,11 @@
   width: 100%;
   text-align: left;
   font: inherit;
+  opacity: 0.72;
+}
+
+.tk-notif-item--unread {
+  opacity: 1;
 }
 
 .tk-notif-item:hover {
@@ -188,6 +256,14 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.tk-notif-item__cta {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #60a5fa;
 }
 
 .tk-notif-item__time {

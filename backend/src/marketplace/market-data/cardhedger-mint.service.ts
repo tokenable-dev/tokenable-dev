@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
@@ -320,6 +321,7 @@ export class CardhedgerMintService {
 
   async getBatchMintPreviewsFromTokenIds(
     tokenIds: number[],
+    chainId?: SupportedChainId,
   ): Promise<Record<number, MarketCollectionPreview>> {
     const out: Record<number, MarketCollectionPreview> = {};
     const ids = [
@@ -327,7 +329,7 @@ export class CardhedgerMintService {
     ].filter((n) => Number.isFinite(n) && n >= 0);
     if (ids.length === 0) return out;
 
-    const pack = await this.rwaAssetResolve.batchRwaMetadata(ids);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata(ids, chainId);
     const work = pack.items.filter((item) => item.metadata != null);
     const missingMeta = pack.items.filter((item) => !item.metadata);
 
@@ -576,7 +578,12 @@ export class CardhedgerMintService {
    */
   async getCompsSnapshotForTokenId(
     tokenId: number,
-    options?: { gradeLabel?: string; tier?: string; rawCount?: number },
+    options?: {
+      gradeLabel?: string;
+      tier?: string;
+      rawCount?: number;
+      chainId?: SupportedChainId;
+    },
   ): Promise<MarketCompsSnapshot> {
     const id = Math.floor(Number(tokenId));
     if (!Number.isFinite(id) || id < 0) {
@@ -596,7 +603,10 @@ export class CardhedgerMintService {
       });
     }
 
-    const pack = await this.rwaAssetResolve.batchRwaMetadata([id]);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata(
+      [id],
+      options?.chainId,
+    );
     const item = pack.items.find((row) => row.tokenId === id);
     const meta = item?.metadata;
     if (!meta) {

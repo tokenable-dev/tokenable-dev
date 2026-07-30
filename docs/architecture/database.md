@@ -38,7 +38,7 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `vault_assets` | Permanent physical card identity (PSA cert → vaultRef = keccak256) | `vault/entities/vault-asset.entity.ts` |
-| `vault_cycles` | One deposit-to-redemption window per asset; at most one open cycle at a time | `vault/entities/vault-cycle.entity.ts` |
+| `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
 | `vault_redemptions` | Redemption state machine: pending → ownership_verified → burned → completed | `vault/entities/vault-redemption.entity.ts` |
 | `vault_submissions` | Sell-flow package (draft → ship → PSA) per user | `vault/entities/vault-submission.entity.ts` |
 | `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
@@ -59,7 +59,7 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
+| `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per chain** (`chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
 
@@ -118,6 +118,7 @@ erDiagram
     vault_cycles {
         uuid id PK
         uuid vault_asset_id FK
+        int chain_id
         int cycle_number
         varchar status
         uuid deposited_by_user_id
@@ -206,6 +207,21 @@ pending_deposit
 
 ---
 
+## `portfolio_daily_snapshots` — key columns
+
+| Column / constraint | Notes |
+|---------------------|-------|
+| `(wallet_address, snapshot_date_kst, chain_id)` | Unique — one mark-to-market row per wallet per KST day **per chain** |
+| `chain_id` | EIP-155 id of the RWA contract marked in the row (`CHECK > 0`) |
+| `snapshot_at` | Usually 09:00 Asia/Seoul for that `snapshot_date_kst` |
+| `total_value_usd` / `card_count` | Wallet totals on that chain (hidden holdings excluded) |
+
+Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA address), not a separate `chain_id` column. Snapshots store `chain_id` explicitly because they aggregate across many token ids.
+
+**Existing DBs:** run `backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql` — do not rely on TypeORM synchronize to drop the old `(wallet, date)` unique.
+
+---
+
 ## Schema files (applied by `bootstrap-empty-prod-db.sql`)
 
 Domain-grouped DDL for **fresh bootstrap only** — no incremental migration chain.
@@ -232,6 +248,8 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
 | `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
+| `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
+| `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |
 
 **Seeds (dev only):**
 

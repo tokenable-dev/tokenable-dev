@@ -14,6 +14,7 @@ import type {
   PortfolioBidRow,
 } from "@/lib/portfolio/portfolioBidTypes";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { activeRqChainId } from "@/lib/chains";
 
 const PORTFOLIO_USDC_DECIMALS = 1_000_000;
 
@@ -51,8 +52,9 @@ function buildPortfolioBidRows(orders: OrderListItem[]): PortfolioBidRow[] {
 }
 
 export function usePortfolioMyBids(address: string | undefined) {
+  const chainId = activeRqChainId();
   const bidsQuery = useQuery({
-    queryKey: rq.portfolioBids(address ?? ""),
+    queryKey: rq.portfolioBids(address ?? "", chainId),
     queryFn: () => getCollectionBidsByOfferer(address!),
     enabled: Boolean(address?.trim()),
     staleTime: 30_000,

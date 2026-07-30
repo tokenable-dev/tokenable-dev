@@ -197,11 +197,12 @@ export class CardTop100Service implements OnApplicationBootstrap {
   // ─── Cron ────────────────────────────────────────────────────────────────
 
   /**
-   * Daily at 09:00 KST.
+   * Daily at 09:40 KST — staggered after the 09:00 collection prewarm and
+   * 09:20 portfolio capture so daily jobs don't hit DB/CardHedger at once.
    * 1. Discover all live categories.
    * 2. Insert today's top-100 for each (skips if row already exists).
    */
-  @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron('0 40 9 * * *', { timeZone: 'Asia/Seoul' })
   async scheduledRefresh(): Promise<void> {
     this.logger.log('Card Top100: daily refresh — discovering categories');
     this.invalidateDayCache(); // clear stale in-memory cache from yesterday

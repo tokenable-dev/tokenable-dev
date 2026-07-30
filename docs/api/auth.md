@@ -119,6 +119,21 @@ On every `POST /auth/privy/session`:
 
 `users.wallet_address` = denormalized primary (first linked). `user_wallets.is_primary` = canonical primary per user. Multiple users can share the same wallet address.
 
+### Wagmi wallet alignment (frontend)
+
+`AccountWalletAligner` (`useEnsureAccountWalletActive`) picks the wagmi active wallet on every page load. Two rules keep browser extensions out of that path:
+
+- **External wallets are only activated when the backend has confirmed them as `is_primary`.** `useWallets()` also lists extensions that this origin already has a live `eth_accounts` grant for, and `@privy-io/wagmi` silently reconnects them — activating one would open MetaMask for a Google/email user who never asked for it.
+- **Pre-sync guesses are embedded-only.** `pickPrimaryPrivyWallet()` returns the embedded wallet or nothing; it never falls back to `wallets[0]`.
+
+`WalletDataProvider` keeps the account wallet on the app-selected chain:
+
+- Prefer Privy `ConnectedWallet.switchChain(chainId)` so approve/sign UIs show Polygon (etc.), not a stale Sepolia provider.
+- Fall back to wagmi `switchChain` / EIP-1193 only when needed.
+- Network prompts run only when the connected address equals the backend primary (never for a silently reconnected extension).
+
+`useEnsureAccountWalletReady` / listing flows call the same sync before approve + Seaport sign.
+
 ---
 
 ## Access gates (frontend)

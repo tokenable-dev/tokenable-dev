@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { usePublicClient, useWriteContract } from "wagmi";
 import {
   getActiveOrderForToken,
   getOrderByHash,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { mapWalletError } from "@/lib/network";
 import { useAuthStore } from "@/store/authStore";
 
@@ -50,8 +51,8 @@ export function usePortfolioAcceptOffer(input: {
   const { address, canSign, refetchActiveOrders, refetchAssets } = input;
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id);
-  const { chainId } = useAccount();
-  const publicClient = usePublicClient();
+  const { chainId } = useAppChain();
+  const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
 
   const [modal, setModal] = useState<AcceptOfferModalState | null>(null);

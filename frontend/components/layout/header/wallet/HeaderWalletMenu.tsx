@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
+import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { HeaderWalletMenuPanel } from "./HeaderWalletMenuPanel";
 import { WalletChevronIcon } from "./HeaderWalletMenuIcons";
 
@@ -17,6 +19,7 @@ export function HeaderWalletMenu({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const { displayAddress, balanceLabel } = useHeaderWalletMenuData();
+  const { unreadCount } = useMarketplaceNotifications();
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -54,6 +57,11 @@ export function HeaderWalletMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls={menuId}
+        aria-label={
+          unreadCount > 0
+            ? `Wallet menu, ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+            : "Wallet menu"
+        }
         onClick={() => setOpen((v) => !v)}
       >
         <span className="tk-wallet-chip__avatar" aria-hidden />
@@ -61,6 +69,7 @@ export function HeaderWalletMenu({
         <span className="tk-wallet-chip__bal mono">{balanceLabel}</span>
         <WalletChevronIcon className="tk-wallet-chip__chevron" aria-hidden />
       </button>
+      <NotificationUnreadBadge count={unreadCount} floating />
 
       <div
         id={menuId}

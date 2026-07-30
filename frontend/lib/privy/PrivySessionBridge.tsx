@@ -9,7 +9,7 @@ import {
   registerPrivySignOut,
   syncPrivySession,
 } from "@/lib/privy/session";
-import { pickPrimaryPrivyWallet, pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
+import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 

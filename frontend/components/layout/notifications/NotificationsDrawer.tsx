@@ -1,34 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { cn } from "@/lib/ds/cn";
-
-type NotificationFilterKey = "all" | "trade" | "bid" | "vault" | "price";
-
-type NotificationIcon = "check" | "layer" | "shield" | "trend";
-
-type NotificationItemData = {
-  id: string;
-  type: Exclude<NotificationFilterKey, "all">;
-  icon: NotificationIcon;
-  color: string;
-  title: string;
-  desc: string;
-  time: string;
-  imageUrl?: string;
-};
-
-const NOTIFICATION_FILTERS: { key: NotificationFilterKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "trade", label: "Trade" },
-  { key: "bid", label: "Bid" },
-  { key: "vault", label: "Vault" },
-  { key: "price", label: "Price Alert" },
-];
-
-const NOTIFICATIONS: NotificationItemData[] = [];
+import {
+  NOTIFICATION_FILTERS,
+  type NotificationFilterKey,
+  type NotificationIcon,
+  type NotificationItem,
+} from "@/lib/notifications/notifications";
 
 function hexToRgb(hex: string): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -69,9 +52,15 @@ function NotifIcon({ icon }: { icon: NotificationIcon }) {
   );
 }
 
-function NotificationItem({ item }: { item: NotificationItemData }) {
-  return (
-    <div className="tk-notif-item" data-type={item.type}>
+function NotificationItemView({
+  item,
+  onActivate,
+}: {
+  item: NotificationItem;
+  onActivate: (item: NotificationItem) => void;
+}) {
+  const body = (
+    <>
       <div
         className="tk-notif-item__icon"
         style={{
@@ -90,9 +79,41 @@ function NotificationItem({ item }: { item: NotificationItemData }) {
           ) : null}
         </div>
         <p className="tk-notif-item__desc">{item.desc}</p>
+        {item.ctaLabel ? (
+          <span className="tk-notif-item__cta">{item.ctaLabel}</span>
+        ) : null}
         <span className="tk-notif-item__time mono">{item.time}</span>
       </div>
-    </div>
+    </>
+  );
+
+  const className = cn(
+    "tk-notif-item",
+    item.unread && "tk-notif-item--unread",
+  );
+
+  if (item.href) {
+    return (
+      <Link
+        href={item.href}
+        className={className}
+        data-type={item.type}
+        onClick={() => onActivate(item)}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      data-type={item.type}
+      onClick={() => onActivate(item)}
+    >
+      {body}
+    </button>
   );
 }
 
@@ -108,18 +129,21 @@ export function NotificationsDrawer({
   const [filter, setFilter] = useState<NotificationFilterKey>("all");
   const [visible, setVisible] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
+  const { items: allItems, isLoading, markRead, markAllRead, refetch } =
+    useMarketplaceNotifications();
 
   useEffect(() => {
     if (open) {
       setVisible(true);
       setFilter("all");
+      void refetch();
       const id = requestAnimationFrame(() => setAnimOpen(true));
       return () => cancelAnimationFrame(id);
     }
     setAnimOpen(false);
     const t = window.setTimeout(() => setVisible(false), 300);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, refetch]);
 
   useEffect(() => {
     if (!open) return;
@@ -139,8 +163,9 @@ export function NotificationsDrawer({
 
   const items =
     filter === "all"
-      ? NOTIFICATIONS
-      : NOTIFICATIONS.filter((n) => n.type === filter);
+      ? allItems
+      : allItems.filter((n) => n.type === filter);
+  const hasUnread = allItems.some((n) => n.unread);
 
   return createPortal(
     <div
@@ -160,12 +185,23 @@ export function NotificationsDrawer({
           <span id={titleId} className="tk-notif-panel__title">
             Notifications
           </span>
-          <button type="button" className="tk-notif-panel__close" aria-label="Close" onClick={onClose}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className="tk-notif-panel__header-actions">
+            {hasUnread ? (
+              <button
+                type="button"
+                className="tk-notif-panel__mark-all"
+                onClick={() => markAllRead()}
+              >
+                Mark all read
+              </button>
+            ) : null}
+            <button type="button" className="tk-notif-panel__close" aria-label="Close" onClick={onClose}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="tk-notif-filters">
@@ -187,9 +223,19 @@ export function NotificationsDrawer({
 
         <div className="tk-notif-list">
           {items.map((item) => (
-            <NotificationItem key={item.id} item={item} />
+            <NotificationItemView
+              key={item.id}
+              item={item}
+              onActivate={(n) => {
+                if (n.unread) markRead(n.id);
+                if (n.href) onClose();
+              }}
+            />
           ))}
-          {items.length === 0 ? (
+          {isLoading && items.length === 0 ? (
+            <div className="tk-notif-empty">Loading…</div>
+          ) : null}
+          {!isLoading && items.length === 0 ? (
             <div className="tk-notif-empty">No notifications in this category.</div>
           ) : null}
         </div>

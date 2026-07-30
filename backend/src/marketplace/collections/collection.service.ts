@@ -121,8 +121,12 @@ export class CollectionService {
    * Cover: resolve Cardhedger/TCG image, download, store on catalog S3 (when configured).
    * PSA cert snapshot upstream refresh is async — listing POST must stay within API timeout.
    */
-  async ensureCollectionForListing(tokenId: string): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+  async ensureCollectionForListing(
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<string | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId), resolved);
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) {
@@ -322,6 +326,7 @@ export class CollectionService {
     void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
       tokenUri: uri,
       collectionKey,
+      chainId: resolved,
     });
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
@@ -331,8 +336,10 @@ export class CollectionService {
 
   async resolveCollectionKeyFromTokenMetadata(
     tokenId: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId), resolved);
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) return null;
@@ -604,14 +611,22 @@ export class CollectionService {
 
   async ensureMintParallelVarietyFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
-    return this.components.ensureMintParallelVarietyFromListings(collectionKey);
+    return this.components.ensureMintParallelVarietyFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
   async ensurePsaTotalPopulationFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    return this.components.ensurePsaTotalPopulationFromListings(collectionKey);
+    return this.components.ensurePsaTotalPopulationFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
   async ensurePsaSpecPopulationFromApi(
@@ -636,13 +651,17 @@ export class CollectionService {
 
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
-    return this.components.ensureCardhedgerCardIdFromListings(collectionKey);
+    return this.components.ensureCardhedgerCardIdFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
   async ensurePsaCertNumberFromListings(
     collectionKey: string,
-    opts?: { schedulePsaRefresh?: boolean },
+    opts?: { schedulePsaRefresh?: boolean; chainId?: SupportedChainId },
   ): Promise<void> {
     return this.components.ensurePsaCertNumberFromListings(collectionKey, opts);
   }
@@ -696,32 +715,46 @@ export class CollectionService {
 
   async ensureListingDisplayTitleFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    return this.components.ensureListingDisplayTitleFromListings(collectionKey);
+    return this.components.ensureListingDisplayTitleFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
-  async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  async activeListingsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.created_at', 'ASC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
   }
 
-  async activeBidsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.BID,
-      },
-      order: { createdAt: 'DESC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  async activeBidsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.created_at', 'DESC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
   }
 
   async setCollectionCoverImageAdmin(
@@ -741,15 +774,17 @@ export class CollectionService {
   async adminPreviewCoverFromToken(
     tokenId: string,
     collectionKey?: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    return this.cover.adminPreviewCoverFromToken(tokenId, collectionKey);
+    return this.cover.adminPreviewCoverFromToken(tokenId, collectionKey, chainId);
   }
 
   async upgradeCollectionCoverFromToken(
     collectionKey: string,
     tokenId: string,
+    chainId?: SupportedChainId,
   ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
-    return this.cover.upgradeCoverFromToken(collectionKey, tokenId);
+    return this.cover.upgradeCoverFromToken(collectionKey, tokenId, chainId);
   }
 
   async adminDeleteCollectionCompletely(collectionKey: string): Promise<{
@@ -828,20 +863,4 @@ export class CollectionService {
     );
   }
 
-  /**
-   * Resolves token metadata from chain (via BlockchainService) for cover retry.
-   * Returns null on any failure so callers can gracefully skip.
-   */
-  async resolveAssetForCoverRetry(
-    tokenId: number,
-  ): Promise<{ meta: Record<string, unknown> } | null> {
-    try {
-      const uri = await this.blockchain.getRwaTokenURI(tokenId);
-      if (!uri?.trim()) return null;
-      const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-      return { meta };
-    } catch {
-      return null;
-    }
-  }
 }

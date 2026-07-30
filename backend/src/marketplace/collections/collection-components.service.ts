@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
@@ -37,6 +41,7 @@ export class CollectionComponentsService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
@@ -55,20 +60,26 @@ export class CollectionComponentsService {
     return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
   }
 
-  private async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  private async activeListingsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.created_at', 'ASC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
   }
 
   async ensureMintParallelVarietyFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -77,11 +88,14 @@ export class CollectionComponentsService {
     if (!row) return false;
 
     const variants = new Set<string>();
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const cv = mintVariantFromGradedMeta(meta);
         if (cv) variants.add(cv);
@@ -240,6 +254,7 @@ export class CollectionComponentsService {
 
   async ensurePsaTotalPopulationFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -254,11 +269,14 @@ export class CollectionComponentsService {
       return;
     }
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const extracted = extractBucketComponentsFromMetadata(meta);
         let pop: number | undefined = extracted?.psaTotalPopulation;
@@ -300,6 +318,7 @@ export class CollectionComponentsService {
    */
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -316,14 +335,17 @@ export class CollectionComponentsService {
         ? comp.cardhedgerSearchQuery.trim()
         : '';
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     const ids = new Set<string>();
     const queries = new Set<string>();
     let lastMeta: Record<string, unknown> | null = null;
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const ch = cardhedgerFromRwaMetadata(meta);
         if (ch.cardId) {
@@ -378,7 +400,7 @@ export class CollectionComponentsService {
   /** 활성 ask 메타에서 단일 cert → `psa_cert_number` 컬럼 (충돌 시 미저장). */
   async ensurePsaCertNumberFromListings(
     collectionKey: string,
-    opts?: { schedulePsaRefresh?: boolean },
+    opts?: { schedulePsaRefresh?: boolean; chainId?: SupportedChainId },
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -387,12 +409,15 @@ export class CollectionComponentsService {
     if (!row) return;
 
     const colC = row.psaCertNumber?.trim() || '';
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, opts?.chainId);
     const certs = new Set<string>();
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          opts?.chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const c = psaCertNumberFromGradedMeta(meta);
         if (c) certs.add(c);
@@ -878,6 +903,7 @@ export class CollectionComponentsService {
    */
   async ensureListingDisplayTitleFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -891,11 +917,14 @@ export class CollectionComponentsService {
         : '';
     if (existing.length > 0) return;
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const t = extractListingDisplayTitleFromMeta(meta);
         if (!t) continue;

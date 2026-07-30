@@ -56,7 +56,7 @@ export function useMarketplaceAdminCollections() {
     await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
     if (collectionKey) {
       await qc.invalidateQueries({
-        queryKey: rq.collectionDetail(collectionKey.toLowerCase()),
+        queryKey: ["marketplace-collection", collectionKey.toLowerCase()],
       });
     }
   }

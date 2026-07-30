@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Post,
@@ -12,6 +13,11 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 import type { User } from '../../user/entities/user.entity';
 import { CreateP2pListingDto } from './dto/create-p2p-listing.dto';
 import { RecordP2pDepositDto } from './dto/record-p2p-deposit.dto';
@@ -20,14 +26,20 @@ import { SetP2pTrackingDto } from './dto/set-p2p-tracking.dto';
 import { P2pService } from './p2p.service';
 
 @ApiTags('p2p')
+@ApiChainIdHeader()
 @Controller('marketplace/p2p')
 export class P2pController {
-  constructor(private readonly p2p: P2pService) {}
+  constructor(
+    private readonly p2p: P2pService,
+    private readonly chainConfig: ChainConfigService,
+  ) {}
 
   @Get('listings')
-  @ApiOperation({ summary: 'Active P2P listings' })
-  listActive() {
-    return this.p2p.listActiveListings();
+  @ApiOperation({ summary: 'Active P2P listings (request chain)' })
+  listActive(@Headers(CHAIN_ID_HEADER) chainHeader?: string) {
+    return this.p2p.listActiveListings(
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 
   @Get('listings/:id')
@@ -42,8 +54,13 @@ export class P2pController {
   createListing(
     @Req() req: Request & { user: User },
     @Body() dto: CreateP2pListingDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.p2p.createListing(req.user, dto);
+    return this.p2p.createListing(
+      req.user,
+      dto,
+      this.chainConfig.requireChainId(chainHeader),
+    );
   }
 
   @ApiBearerAuth()

@@ -5,11 +5,13 @@ import { useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { alignWagmiToAccountWallet } from "@/lib/privy/accountWalletReady";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 
-/** Ensures wagmi uses the Privy account wallet (never a browser extension). */
+/** Ensures wagmi uses the Privy account wallet on the app-selected chain. */
 export function useEnsureAccountWalletReady() {
   const user = useAuthStore((s) => s.user);
+  const { chainId } = useAppChain();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
 
@@ -22,6 +24,7 @@ export function useEnsureAccountWalletReady() {
       wallets,
       accountPrimary: primary,
       setActiveWallet,
+      chainId,
     });
-  }, [user, wallets, setActiveWallet]);
+  }, [user, wallets, setActiveWallet, chainId]);
 }

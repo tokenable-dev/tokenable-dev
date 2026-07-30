@@ -160,13 +160,15 @@ Recommendation: add Sentry for production error monitoring.
 
 ## Common Error Scenarios
 
-### "VaultRefAlreadyActive"
+### "VaultRefAlreadyActive" / active vault cycle Conflict
 
-**Cause:** User tries to mint a cert that already has an active NFT (same vault cycle open).
+**Cause:** User tries to mint a cert that already has an **open vault cycle on the same chain** (status not `redeemed`/`cancelled`). Cycles are chain-scoped — a live Sepolia NFT must not block a Polygon mint (and vice versa).
 
-**Response:** `409 Conflict` with message explaining the cert is already minted.
+**Response:** `409 Conflict` with message including the chain id, cycle number, and status.
 
-**Resolution:** Admin burns existing NFT first, or user waits for existing cycle to complete.
+**Also:** `POST /api/rwa/upload` and `POST /api/rwa/mint` require the `x-tokenable-chain-id` header. Missing/unsupported headers return `400` (no silent fallback to `DEFAULT_CHAIN_ID`).
+
+**Resolution:** Redeem/burn the NFT on that chain first, or mint on a different configured chain.
 
 ### "Recipient address not linked to user"
 

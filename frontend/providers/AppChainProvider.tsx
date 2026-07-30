@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { useSwitchChain, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { canUseAppChainSwitcher } from "@/lib/auth/accountAccess";
@@ -19,16 +20,23 @@ import {
   SUPPORTED_CHAIN_IDS,
   getChainDefinition,
   getConfiguredChains,
+  isChainConfigured,
+  notifyAppChainChanged,
   setActiveChainIdForApi,
+  APP_CHAIN_STORAGE_KEY,
   type AppChainDefinition,
   type SupportedChainId,
 } from "@/lib/chains";
 import { useAuthStore } from "@/store/authStore";
 
-const STORAGE_KEY = "tokenable:chainId";
+const STORAGE_KEY = APP_CHAIN_STORAGE_KEY;
 
 /** Public users stay on Sepolia until mainnet launch. */
 const PUBLIC_APP_CHAIN_ID = 11155111 as SupportedChainId;
+
+function isMarketplaceAdminPath(pathname: string | null): boolean {
+  return Boolean(pathname?.startsWith("/marketplace/admin"));
+}
 
 type AppChainContextValue = {
   chainId: SupportedChainId;
@@ -45,22 +53,26 @@ function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   const n = Number(raw);
   if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return DEFAULT_CHAIN_ID;
-  // Local dev + internal dev on deploy: allow any supported chain (wallet switch / QA).
+  // Never restore an unconfigured chain (production throws on missing NEXT_PUBLIC_CHAIN_*).
+  if (!isChainConfigured(n as SupportedChainId)) return DEFAULT_CHAIN_ID;
+  // Local dev + internal dev on deploy: allow any configured chain (wallet switch / QA).
   if (process.env.NODE_ENV === "development" || internalDevBypass) {
     return n as SupportedChainId;
   }
-  const configured = getConfiguredChains();
-  if (configured.some((c) => c.id === n)) return n as SupportedChainId;
   return DEFAULT_CHAIN_ID;
 }
 
 export function AppChainProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { switchChainAsync } = useSwitchChain();
   const { address, isConnected } = useAccount();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const authInitialized = useAuthStore((s) => s.initialized);
-  const canSwitchChain = canUseAppChainSwitcher(user);
+  // Admin console is multi-chain ops (custody / cards / roles) — not gated on
+  // the public "internal dev" email allowlist.
+  const adminConsole = isMarketplaceAdminPath(pathname);
+  const canSwitchChain = canUseAppChainSwitcher(user) || adminConsole;
   const configuredChains = useMemo(() => getConfiguredChains(), []);
   // Always match SSR — restore persisted chain after mount (localStorage is client-only).
   const [chainId, setChainIdState] = useState<SupportedChainId>(PUBLIC_APP_CHAIN_ID);
@@ -68,9 +80,17 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
   const chain = useMemo(() => getChainDefinition(chainId), [chainId]);
 
   useEffect(() => {
-    if (!authInitialized) return;
+    // Admin routes can restore stored chain before user JWT finishes; public
+    // still waits for auth so we don't flash Polygon for anonymous visitors.
+    if (!adminConsole && !authInitialized) return;
     if (canSwitchChain) {
-      setChainIdState(readStoredChainId(true));
+      const restored = readStoredChainId(true);
+      setChainIdState(restored);
+      // Set immediately — don't wait for the chainId-effect below. Otherwise the
+      // first mint/upload after login can still carry Sepolia (initial state)
+      // while the UI already shows the restored Polygon selection.
+      setActiveChainIdForApi(restored);
+      notifyAppChainChanged();
       return;
     }
     setChainIdState(PUBLIC_APP_CHAIN_ID);
@@ -78,16 +98,23 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       window.localStorage.setItem(STORAGE_KEY, String(PUBLIC_APP_CHAIN_ID));
     }
     setActiveChainIdForApi(PUBLIC_APP_CHAIN_ID);
-  }, [authInitialized, canSwitchChain]);
+    notifyAppChainChanged();
+  }, [authInitialized, canSwitchChain, adminConsole]);
 
   const setChainId = useCallback(
     (nextId: SupportedChainId) => {
-      if (!canUseAppChainSwitcher(useAuthStore.getState().user)) return;
+      const allow =
+        canUseAppChainSwitcher(useAuthStore.getState().user) ||
+        isMarketplaceAdminPath(pathname);
+      if (!allow) return;
+      // Production bundles throw if contracts env is missing — never select unconfigured chains.
+      if (!isChainConfigured(nextId)) return;
       setChainIdState(nextId);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(STORAGE_KEY, String(nextId));
       }
       setActiveChainIdForApi(nextId);
+      notifyAppChainChanged();
       const primary = normalizeWalletAddress(getPrimaryWalletAddress(useAuthStore.getState().user));
       const connected = normalizeWalletAddress(address);
       const canSwitchWalletChain =
@@ -98,7 +125,7 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [switchChainAsync, address, isConnected],
+    [switchChainAsync, address, isConnected, pathname],
   );
 
   useEffect(() => {
@@ -109,9 +136,29 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
     void queryClient.invalidateQueries({ queryKey: ["portfolio-holdings"] });
     void queryClient.invalidateQueries({ queryKey: ["portfolio-hidden"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-daily-snapshots"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-analytics"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-bids"] });
+    void queryClient.invalidateQueries({ queryKey: ["user-watchlist"] });
+    void queryClient.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
+    void queryClient.invalidateQueries({ queryKey: ["p2p"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-rwa-roles-overview"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-rwa-roles-status"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-bulk-mint-jobs"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-bulk-mint-job"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-partner-inventory"] });
     void queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-market-series"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades"] });
+    void queryClient.invalidateQueries({ queryKey: ["rwa-token-trades"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-market-batch"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-listings-metadata"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-bid-collections"] });
+    void queryClient.invalidateQueries({ queryKey: ["marketplace-detail-metadata"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-owned-rwa"] });
   }, [chainId, queryClient]);
 
   const value = useMemo<AppChainContextValue>(

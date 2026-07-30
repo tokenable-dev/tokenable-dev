@@ -1,4 +1,6 @@
 import { backendFetch, getApiUrl } from "./client";
+import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
+import type { SupportedChainId } from "@/lib/chains/types";
 
 export type P2pListing = {
   id: string;
@@ -75,18 +77,24 @@ export async function getP2pListing(id: string): Promise<P2pListing> {
   return parseJson(res);
 }
 
-export async function createP2pListing(body: {
-  certNumber: string;
-  tokenURI: string;
-  priceUsdc: string;
-  sellerWallet: string;
-  authenticityAccepted: true;
-  displayName?: string;
-  imageUrl?: string;
-}): Promise<{ listing: P2pListing; escrowAddress: string; chainId: number }> {
+export async function createP2pListing(
+  body: {
+    certNumber: string;
+    tokenURI: string;
+    priceUsdc: string;
+    sellerWallet: string;
+    authenticityAccepted: true;
+    displayName?: string;
+    imageUrl?: string;
+  },
+  chainId: SupportedChainId,
+): Promise<{ listing: P2pListing; escrowAddress: string; chainId: number }> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/p2p/listings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      [CHAIN_ID_HEADER]: String(chainId),
+    },
     body: JSON.stringify(body),
   });
   return parseJson(res);

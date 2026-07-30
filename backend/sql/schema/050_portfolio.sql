@@ -5,21 +5,29 @@ CREATE TABLE IF NOT EXISTS portfolio_daily_snapshots (
   id serial PRIMARY KEY,
   wallet_address varchar(42) NOT NULL,
   snapshot_date_kst date NOT NULL,
+  chain_id integer NOT NULL,
   snapshot_at timestamptz NOT NULL,
   total_value_usd double precision NOT NULL,
   card_count integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT portfolio_daily_snapshots_wallet_date_unique
-    UNIQUE (wallet_address, snapshot_date_kst),
+  CONSTRAINT portfolio_daily_snapshots_wallet_date_chain_unique
+    UNIQUE (wallet_address, snapshot_date_kst, chain_id),
+  CONSTRAINT portfolio_daily_snapshots_chain_id_positive CHECK (chain_id > 0),
   CONSTRAINT portfolio_daily_snapshots_total_nonneg CHECK (total_value_usd >= 0),
   CONSTRAINT portfolio_daily_snapshots_card_count_nonneg CHECK (card_count >= 0)
 );
 
-CREATE INDEX IF NOT EXISTS idx_portfolio_daily_snapshots_wallet_at
-  ON portfolio_daily_snapshots (wallet_address, snapshot_at DESC);
+-- Read path: WHERE wallet + chain ORDER BY snapshot_at DESC
+CREATE INDEX IF NOT EXISTS idx_portfolio_daily_snapshots_wallet_chain_at
+  ON portfolio_daily_snapshots (wallet_address, chain_id, snapshot_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_daily_snapshots_chain
+  ON portfolio_daily_snapshots (chain_id);
 
 COMMENT ON TABLE portfolio_daily_snapshots IS
-  'Daily portfolio total USD per wallet (09:00 Asia/Seoul).';
+  'Daily portfolio total USD per wallet per chain (09:00 Asia/Seoul).';
+COMMENT ON COLUMN portfolio_daily_snapshots.chain_id IS
+  'EIP-155 chain id of the RWA contract marked in this row.';
 
 CREATE TABLE IF NOT EXISTS portfolio_holdings (
   id serial PRIMARY KEY,

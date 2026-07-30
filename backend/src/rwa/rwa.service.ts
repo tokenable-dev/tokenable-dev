@@ -34,6 +34,7 @@ export class RwaService {
 
   async uploadToIpfs(
     dto: UploadRwaDto,
+    chainId: number,
     file?: Express.Multer.File,
   ): Promise<UploadRwaResult> {
     if (!file && !dto.imageUrl) {
@@ -93,8 +94,9 @@ export class RwaService {
     // Pre-flight only: the authoritative check happens again inside
     // VaultService.reserveCycleForDeposit() at mint time (race-safe).
     // A physical asset can be re-vaulted once its prior cycle is redeemed —
-    // this only blocks a cert that currently has a live, un-redeemed NFT.
-    await this.vault.assertAvailableForNewCycle(certNumber);
+    // this only blocks a cert that currently has a live, un-redeemed NFT
+    // on the target chain (cycles are chain-scoped).
+    await this.vault.assertAvailableForNewCycle(certNumber, chainId);
 
     let imageCID: string;
 

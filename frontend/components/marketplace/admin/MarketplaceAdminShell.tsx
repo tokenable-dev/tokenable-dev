@@ -5,6 +5,7 @@ import {
   MarketplaceAdminMobileMenuButton,
   MarketplaceAdminNav,
 } from "./MarketplaceAdminNav";
+import { AdminNetworkSwitcher } from "./AdminNetworkSwitcher";
 import { ADMIN_BTN_GHOST, ADMIN_SHELL_BG } from "./adminUi";
 
 export function MarketplaceAdminShell({
@@ -57,6 +58,7 @@ export function MarketplaceAdminShell({
             Admin
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <AdminNetworkSwitcher />
             <span className="hidden max-w-[10rem] truncate text-xs text-zinc-600 sm:inline sm:max-w-none sm:text-sm">
               <span className="text-zinc-600">Signed in as </span>
               <span className="font-medium text-zinc-700">{username}</span>

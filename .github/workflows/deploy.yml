@@ -15,6 +15,8 @@
 #     NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK  (sandbox only)
 #   Ethereum mainnet (1) — 선택, 세 값 모두 있을 때만 UI에 노출
 #     NEXT_PUBLIC_CHAIN_1_RPC_URL / _RWA / _USDC
+#   Polygon mainnet (137) — 선택, internal-dev 네트워크 전환용 (세 값 모두 필요)
+#     NEXT_PUBLIC_CHAIN_137_RPC_URL / _RWA / _USDC
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
 #   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
 #   NEXT_PUBLIC_GA_MEASUREMENT_ID      (선택, GA4 `G-XXXXXXXXXX` — 페이지뷰 추적)
@@ -88,6 +90,13 @@ jobs:
           if [ -z "$CHAIN_1_RWA" ];  then CHAIN_1_RWA="${{ vars.NEXT_PUBLIC_CHAIN_1_RWA }}"; fi
           if [ -z "$CHAIN_1_USDC" ]; then CHAIN_1_USDC="${{ vars.NEXT_PUBLIC_CHAIN_1_USDC }}"; fi
 
+          CHAIN_137_RPC="${{ secrets.NEXT_PUBLIC_CHAIN_137_RPC_URL }}"
+          CHAIN_137_RWA="${{ secrets.NEXT_PUBLIC_CHAIN_137_RWA }}"
+          CHAIN_137_USDC="${{ secrets.NEXT_PUBLIC_CHAIN_137_USDC }}"
+          if [ -z "$CHAIN_137_RPC" ];  then CHAIN_137_RPC="${{ vars.NEXT_PUBLIC_CHAIN_137_RPC_URL }}"; fi
+          if [ -z "$CHAIN_137_RWA" ];  then CHAIN_137_RWA="${{ vars.NEXT_PUBLIC_CHAIN_137_RWA }}"; fi
+          if [ -z "$CHAIN_137_USDC" ]; then CHAIN_137_USDC="${{ vars.NEXT_PUBLIC_CHAIN_137_USDC }}"; fi
+
           # Platform fee — 선택값 (없으면 빈값 그대로 build-arg 로 넘어가 런타임에 fee=0)
           FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
           FEE_BPS="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"
@@ -144,7 +153,17 @@ jobs:
             )
           fi
 
+          CHAIN_137_BUILD_ARGS=()
+          if [ -n "$CHAIN_137_RPC" ] && [ -n "$CHAIN_137_RWA" ] && [ -n "$CHAIN_137_USDC" ]; then
+            CHAIN_137_BUILD_ARGS+=(
+              --build-arg "NEXT_PUBLIC_CHAIN_137_RPC_URL=$CHAIN_137_RPC"
+              --build-arg "NEXT_PUBLIC_CHAIN_137_RWA=$CHAIN_137_RWA"
+              --build-arg "NEXT_PUBLIC_CHAIN_137_USDC=$CHAIN_137_USDC"
+            )
+          fi
+
           echo "Funding build: env=$FUNDING_ENV chain=$FUNDING_CHAIN onramp_testnet=${FUNDING_ONRAMP_TESTNET:-false} skip_ready=${FUNDING_SKIP_READY:-false}"
+          echo "Optional chains: eth=$([ -n "${CHAIN_1_BUILD_ARGS[*]:-}" ] && echo yes || echo no) polygon=$([ -n "${CHAIN_137_BUILD_ARGS[*]:-}" ] && echo yes || echo no)"
 
           docker build \
             "${EXTRA_BUILD_ARGS[@]}" \
@@ -159,6 +178,7 @@ jobs:
             --build-arg NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID="$FUNDING_CHAIN" \
             --build-arg NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT="$FUNDING_AMOUNT" \
             "${CHAIN_1_BUILD_ARGS[@]}" \
+            "${CHAIN_137_BUILD_ARGS[@]}" \
             --build-arg API_PROXY_TARGET=http://backend:4000 \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \

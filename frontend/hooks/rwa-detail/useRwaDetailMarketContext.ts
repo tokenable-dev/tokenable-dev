@@ -25,6 +25,7 @@ import {
   resolveRwaDetailCollectionKeyForRedirect,
   rwaDetailCollectionHref,
 } from "@/lib/marketplace/rwa-detail";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useRwaDetailMarketContext(input: {
   tokenId: number;
@@ -83,8 +84,9 @@ export function useRwaDetailMarketContext(input: {
     ],
   );
 
+  const chainId = activeRqChainId();
   const { data: collectionDetail } = useQuery({
-    queryKey: rq.collectionDetail(collectionKeyForMatch ?? ""),
+    queryKey: rq.collectionDetail(collectionKeyForMatch ?? "", chainId),
     queryFn: () => getMarketplaceCollectionDetailOrNull(collectionKeyForMatch!),
     enabled: Boolean(collectionKeyForMatch && tokenIdOk),
     staleTime: 15_000,

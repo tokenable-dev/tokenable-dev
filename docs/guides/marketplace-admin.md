@@ -116,6 +116,7 @@ lib/core/api/
 
 - **Desktop:** fixed left sidebar (256px), white top bar, gray page background (`zinc-100`), white content cards.
 - **Mobile:** hamburger opens slide-over sidebar; tables scroll horizontally; toolbars stack vertically.
+- **Network switcher (top bar):** Sepolia / Ethereum / Polygon. Admin RWA routes (`/cards`, `/custody-nfts`, `/contract-roles`, analytics) send `x-tokenable-chain-id` and scope lists to that chain's registry + custody wallet. Switching networks does not require the public "internal dev" email allowlist.
 
 Pages render only their **content** inside the shell — they do not mount their own nav.
 

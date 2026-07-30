@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useMarketplaceAdminCards } from "@/hooks/marketplace-admin/useMarketplaceAdminCards";
 import { useAdminCollectionMarketSnapshots } from "@/hooks/marketplace-admin/useAdminCollectionMarketSnapshots";
 import { useAdminBurnToken } from "@/hooks/marketplace-admin/useAdminBurnToken";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore, selectWallet } from "@/store";
 import { AdminBurnTokenPanel } from "./AdminBurnTokenPanel";
 import {
@@ -27,6 +28,7 @@ const CARD_TABS: { value: CardsTab; label: string }[] = [
 
 export function MarketplaceAdminCardsPage() {
   const [tab, setTab] = useState<CardsTab>("active");
+  const { chain } = useAppChain();
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { query, updateMutation, previewMetadataImage } = useMarketplaceAdminCards();
   const { burningTokenId, burnToken } = useAdminBurnToken(
@@ -63,7 +65,7 @@ export function MarketplaceAdminCardsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="All cards"
-        subtitle="Every minted RWA in the registry — listed, unlisted, and burned. Edit display metadata and run admin burn."
+        subtitle={`Every minted RWA on ${chain.label} — listed, unlisted, and burned. Edit display metadata and run admin burn. Switch network in the top bar to manage another chain.`}
       />
 
       {tab === "active" ? (
@@ -109,7 +111,9 @@ export function MarketplaceAdminCardsPage() {
             : "Failed to load cards"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-base text-zinc-700">No minted RWA tokens in the registry yet.</p>
+        <p className="text-base text-zinc-700">
+          No minted RWA tokens in the {chain.label} registry yet.
+        </p>
       ) : visibleItems.length === 0 ? (
         <p className="text-base text-zinc-700">
           {tab === "burned"

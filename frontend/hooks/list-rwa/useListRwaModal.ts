@@ -34,6 +34,7 @@ import type {
 } from "@/lib/seaport/listing/listRwaModalTypes";
 import { useSeaportOrderSigner } from "@/lib/privy";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export function useListRwaModal({
   tokenId,
@@ -52,6 +53,7 @@ export function useListRwaModal({
   const { rwaAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
   const { signSeaportOrder } = useSeaportOrderSigner();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const signSeaportOrderRef = useRef(signSeaportOrder);
   signSeaportOrderRef.current = signSeaportOrder;
   const queryClient = useQueryClient();
@@ -228,6 +230,9 @@ export function useListRwaModal({
     setSuccessMeta(null);
 
     try {
+      // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.
+      await ensureAccountWalletReady();
+
       if (isReplaceListing && resolvedExistingAsk) {
         setStep("submitting");
         let created = await submitAskListingOrder({

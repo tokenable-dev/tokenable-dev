@@ -1,6 +1,7 @@
 "use client";
 
 import { useMarketplaceAdminContractRoles } from "@/hooks/marketplace-admin/useMarketplaceAdminContractRoles";
+import { useAppChain } from "@/providers/AppChainProvider";
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_PRIMARY,
@@ -23,6 +24,7 @@ function shortAddr(addr: string): string {
 }
 
 export function MarketplaceAdminContractRolesPage() {
+  const { chain } = useAppChain();
   const {
     walletInput,
     setWalletInput,
@@ -43,7 +45,7 @@ export function MarketplaceAdminContractRolesPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Contract roles"
-        subtitle="Grant or revoke TokenableRWA AccessControl roles by wallet address. Transactions are signed by the backend admin key (DEFAULT_ADMIN_ROLE)."
+        subtitle={`Grant or revoke TokenableRWA AccessControl roles on ${chain.label}. Transactions are signed by the backend admin key (DEFAULT_ADMIN_ROLE). Switch network in the top bar to manage another chain.`}
       />
 
       {overviewQuery.isLoading ? (

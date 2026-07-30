@@ -102,9 +102,12 @@ export class CollectionsController {
     },
   })
   @Post('collections/on-mint')
-  async postOnMint(@Body() body: {
-    tokenId?: unknown;
-  }): Promise<{
+  async postOnMint(
+    @Body() body: {
+      tokenId?: unknown;
+    },
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ): Promise<{
     accepted: boolean;
     collectionKey: string | null;
     bootstrapped: boolean;
@@ -115,7 +118,10 @@ export class CollectionsController {
     }
 
     try {
-      const collectionKey = await this.mintEventListener.handleMintedToken(tid);
+      const collectionKey = await this.mintEventListener.handleMintedToken(
+        tid,
+        this.chainConfig.resolveChainId(chainHeader),
+      );
       const key = collectionKey?.trim().toLowerCase() || null;
       return {
         accepted: true,
@@ -248,10 +254,14 @@ export class CollectionsController {
   @ApiOperation({ summary: '컬렉션 목록 시장 스냅샷 배치' })
   @ApiBody(apiBodyDefault(BatchMarketSnapshotsDto, SWAGGER_BODY_EXAMPLES.batchMarketSnapshots))
   @Post('collections/market-snapshots')
-  batchMarketSnapshots(@Body() body: BatchMarketSnapshotsDto) {
+  batchMarketSnapshots(
+    @Body() body: BatchMarketSnapshotsDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     return this.collectionMarketService.batchListSnapshots(
       body.collectionKeys ?? [],
       body.priceHistoryDuration ?? '365d',
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 
@@ -259,11 +269,15 @@ export class CollectionsController {
   @ApiOperation({ summary: '포트폴리오 시장 데이터 배치' })
   @ApiBody(apiBodyDefault(PortfolioMarketBatchDto, SWAGGER_BODY_EXAMPLES.portfolioMarketBatch))
   @Post('collections/portfolio-market-batch')
-  batchPortfolioMarketData(@Body() body: PortfolioMarketBatchDto) {
+  batchPortfolioMarketData(
+    @Body() body: PortfolioMarketBatchDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const keys = (body.collectionKeys ?? []).map((k) => this.normalizeKey(k));
     const duration = body.priceHistoryDuration ?? '365d';
     return this.collectionMarketService.batchPortfolioMarketData(keys, {
       priceHistoryDuration: duration,
+      chainId: this.chainConfig.resolveChainId(chainHeader),
     });
   }
 
@@ -295,6 +309,7 @@ export class CollectionsController {
             const k =
               await this.collectionService.resolveCollectionKeyFromTokenMetadata(
                 String(tokenId),
+                this.chainConfig.resolveChainId(chainHeader),
               );
             if (k) out[tokenId] = k.toLowerCase();
           } catch {
@@ -318,23 +333,32 @@ export class CollectionsController {
   getRwaTokenTrades(
     @Param('tokenId') tokenId: string,
     @Query('grade') grade?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const id = Number(tokenId);
     if (!Number.isFinite(id) || id < 0) {
       throw new BadRequestException('Invalid token id');
     }
-    return this.collectionMarketService.rwaTradesForApi(Math.floor(id), {
-      cardhedgerGrade: grade?.trim() || undefined,
-    });
+    return this.collectionMarketService.rwaTradesForApi(
+      Math.floor(id),
+      {
+        cardhedgerGrade: grade?.trim() || undefined,
+      },
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 
   /** My Assets: tokenId별 Cardhedger PSA10 프리뷰 (최대 32) */
   @ApiOperation({ summary: '민트 Cardhedger 프리뷰 배치' })
   @ApiBody(apiBodyDefault(MintPreviewsByTokenIdsDto, SWAGGER_BODY_EXAMPLES.mintPreviews))
   @Post('cardhedger/mint-previews')
-  postMintCardhedgerPreviews(@Body() body: MintPreviewsByTokenIdsDto) {
+  postMintCardhedgerPreviews(
+    @Body() body: MintPreviewsByTokenIdsDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     return this.cardMarketData.getBatchMintPreviewsFromTokenIds(
       body.tokenIds ?? [],
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 
@@ -342,16 +366,20 @@ export class CollectionsController {
   @ApiOperation({ summary: '컬렉션 AI 인사이트' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/ai-insight')
-  async getCollectionAiInsight(@Param('key') key: string) {
+  async getCollectionAiInsight(
+    @Param('key') key: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const k = this.normalizeKey(key);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     const col = await this.collectionService.findOne(k);
     if (!col) {
       return this.aiInsight.getAiInsightForCollection(null);
     }
 
     const [marketStats, listingPrices] = await Promise.all([
-      this.collectionMarketService.getCollectionMarketStats(k),
-      this.collectionMarketService.getActiveListingUsdcPrices(k),
+      this.collectionMarketService.getCollectionMarketStats(k, chainId),
+      this.collectionMarketService.getActiveListingUsdcPrices(k, chainId),
     ]);
 
     const platform: AiInsightPlatformContext = {
@@ -379,6 +407,7 @@ export class CollectionsController {
   getCollectionMarketSeries(
     @Param('key') key: string,
     @Query('priceHistoryDuration') priceHistoryDuration?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const d = ['7d', '30d', '90d', '180d', '365d', 'max'].includes(
       String(priceHistoryDuration),
@@ -394,6 +423,7 @@ export class CollectionsController {
     return this.collectionMarketService.getCollectionMarketBundle(
       this.normalizeKey(key),
       d,
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 
@@ -459,6 +489,7 @@ export class CollectionsController {
     @Param('key') key: string,
     @Query('bootstrapTokenId') bootstrapTokenId?: string,
     @Query('grade') grade?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const tid = bootstrapTokenId != null ? Number(bootstrapTokenId) : NaN;
     const gradeLabel = grade?.trim() || undefined;
@@ -469,6 +500,7 @@ export class CollectionsController {
           Number.isFinite(tid) && tid >= 0 ? Math.floor(tid) : undefined,
         cardhedgerGrade: gradeLabel,
       },
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 
@@ -476,9 +508,13 @@ export class CollectionsController {
   @ApiOperation({ summary: '컬렉션 시장 통계' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/stats')
-  getCollectionMarketStats(@Param('key') key: string) {
+  getCollectionMarketStats(
+    @Param('key') key: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     return this.collectionMarketService.getCollectionMarketStats(
       this.normalizeKey(key),
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 
@@ -486,27 +522,42 @@ export class CollectionsController {
   @ApiOperation({ summary: '컬렉션 상세·오더북' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key')
-  async getCollection(@Param('key') key: string) {
+  async getCollection(
+    @Param('key') key: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const k = this.normalizeKey(key);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     let col = await this.collectionService.findOne(k);
     if (col) {
-      await this.collectionService.ensurePsaTotalPopulationFromListings(k);
+      await this.collectionService.ensurePsaTotalPopulationFromListings(
+        k,
+        chainId,
+      );
       // Mint-only PSA: no live Public API on read (mirror/pop must already be on components).
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
       await this.collectionService.ensurePsaSpecPopulationOnReadIfMissing(k);
-      await this.collectionService.ensurePsaCertNumberFromListings(k);
+      await this.collectionService.ensurePsaCertNumberFromListings(k, {
+        chainId,
+      });
       const cardhedgerUpdated =
-        await this.collectionService.ensureCardhedgerCardIdFromListings(k);
+        await this.collectionService.ensureCardhedgerCardIdFromListings(
+          k,
+          chainId,
+        );
       if (cardhedgerUpdated) {
         this.eventEmitter.emit('snapshot.enqueue', { key: k, reason: 'manual' });
       }
-      await this.collectionService.ensureListingDisplayTitleFromListings(k);
+      await this.collectionService.ensureListingDisplayTitleFromListings(
+        k,
+        chainId,
+      );
       col = await this.collectionService.findOne(k);
     }
 
     const [listingsRaw, collectionBids] = await Promise.all([
-      this.collectionService.activeListingsForCollection(k),
-      this.collectionService.activeBidsForCollection(k),
+      this.collectionService.activeListingsForCollection(k, chainId),
+      this.collectionService.activeBidsForCollection(k, chainId),
     ]);
 
     const sellerNames = await this.partners.resolveDisplayNamesByWallets(
@@ -702,9 +753,11 @@ export class CollectionsController {
     @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminPreviewCollectionCoverFromTokenDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     const col = await this.collectionService.findOne(k);
     if (!col) {
       throw new NotFoundException('Collection not found');
@@ -715,6 +768,7 @@ export class CollectionsController {
           await this.collectionService.upgradeCollectionCoverFromToken(
             k,
             body.tokenId.trim(),
+            chainId,
           );
         return {
           coverImageUrl: result.coverImageUrl,
@@ -734,6 +788,7 @@ export class CollectionsController {
       await this.collectionService.adminPreviewCoverFromToken(
         body.tokenId.trim(),
         k,
+        chainId,
       );
     if (!coverImageUrl) {
       return { coverImageUrl: null, saved: false };

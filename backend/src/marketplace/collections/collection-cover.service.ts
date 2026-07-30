@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
+import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
@@ -194,8 +195,9 @@ export class CollectionCoverService {
   async adminPreviewCoverFromToken(
     tokenId: string,
     _collectionKey?: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    const meta = await this.loadTokenMeta(Number(tokenId));
+    const meta = await this.loadTokenMeta(Number(tokenId), chainId);
     if (!meta) return null;
     return this.resolveCoverUrlFromMeta(meta);
   }
@@ -204,13 +206,14 @@ export class CollectionCoverService {
   async upgradeCoverFromToken(
     collectionKey: string,
     tokenId: string,
+    chainId?: SupportedChainId,
   ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
     const k = collectionKey.toLowerCase();
     const row = await this.findOne(k);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
     const prev = row.coverImageUrl?.trim() ?? '';
 
-    const meta = await this.loadTokenMeta(Number(tokenId));
+    const meta = await this.loadTokenMeta(Number(tokenId), chainId);
     if (!meta) {
       return { coverImageUrl: prev || null, upgraded: false };
     }
@@ -229,9 +232,12 @@ export class CollectionCoverService {
     });
   }
 
-  private async loadTokenMeta(tokenId: number): Promise<Record<string, unknown> | null> {
+  private async loadTokenMeta(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<Record<string, unknown> | null> {
     try {
-      const uri = await this.blockchain.getRwaTokenURI(tokenId);
+      const uri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
       return await this.ipfsResolver.fetchMetadataJson(uri);
     } catch {
       return null;

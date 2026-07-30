@@ -153,6 +153,7 @@ export class RwaTokenAdminService {
       where: {
         status: OrderStatus.ACTIVE,
         side: OrderSide.ASK,
+        tokenContract: contract,
         tokenId: In(tokenIdStrs),
       },
     });
@@ -322,6 +323,7 @@ export class RwaTokenAdminService {
       where: {
         status: OrderStatus.ACTIVE,
         side: OrderSide.ASK,
+        tokenContract: contract,
         tokenId: In(tokenIdStrs),
       },
     });
@@ -447,7 +449,12 @@ export class RwaTokenAdminService {
     }
 
     const activeAsk = await this.orderRepo.findOne({
-      where: { tokenId: String(tid), status: OrderStatus.ACTIVE, side: OrderSide.ASK },
+      where: {
+        tokenContract: contract,
+        tokenId: String(tid),
+        status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
+      },
     });
     if (activeAsk) {
       throw new BadRequestException('Cancel the active listing before delivering');
@@ -507,7 +514,10 @@ export class RwaTokenAdminService {
 
     const deliveredAt = new Date();
     try {
-      const marks = await this.portfolioSnapshots.resolveMarkUsdByTokenIds([tid]);
+      const marks = await this.portfolioSnapshots.resolveMarkUsdByTokenIds(
+        [tid],
+        chainId,
+      );
       const markUsd = marks.get(tid);
       if (markUsd != null && Number.isFinite(markUsd)) {
         await this.portfolioHoldings.seedVaultDeliveryCostBasis(

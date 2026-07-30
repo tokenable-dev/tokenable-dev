@@ -35,15 +35,17 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
   };
 }
 
-export function useMarketplaceNotifications(enabled: boolean) {
+/** Inbox for the signed-in user. Polls while logged in so header badges stay fresh. */
+export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
   const queryClient = useQueryClient();
+  const enabled = (options?.enabled ?? true) && Boolean(userId);
 
   const query = useQuery({
     queryKey: rq.marketplaceNotifications(userId),
     queryFn: fetchMarketplaceNotifications,
-    enabled: enabled && Boolean(userId),
+    enabled,
     staleTime: 30_000,
     refetchInterval: enabled ? 60_000 : false,
     retry: marketplaceRqPolicy.apiQueryRetry,
@@ -51,6 +53,7 @@ export function useMarketplaceNotifications(enabled: boolean) {
   });
 
   const items = (query.data?.items ?? []).map(toDrawerItem);
+  const unreadCount = items.reduce((n, item) => n + (item.unread ? 1 : 0), 0);
 
   const markRead = useMutation({
     mutationFn: (id: number) => markNotificationRead(id),
@@ -68,6 +71,7 @@ export function useMarketplaceNotifications(enabled: boolean) {
 
   return {
     items,
+    unreadCount,
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,

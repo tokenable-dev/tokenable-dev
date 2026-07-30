@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createP2pListing } from "@/lib/core/api/p2p";
 import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { TkButton } from "@/components/ds";
 
@@ -15,6 +16,7 @@ export default function SellP2pPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { primaryAddress } = useAccountWalletSession();
+  const { chainId } = useAppChain();
   const [certNumber, setCertNumber] = useState("");
   const [tokenURI, setTokenURI] = useState("");
   const [priceUsd, setPriceUsd] = useState("");
@@ -45,13 +47,16 @@ export default function SellP2pPage() {
     const priceUsdc = String(Math.round(dollars * 1e6));
     setBusy(true);
     try {
-      const { listing } = await createP2pListing({
-        certNumber: certNumber.trim(),
-        tokenURI: tokenURI.trim(),
-        priceUsdc,
-        sellerWallet: primaryAddress,
-        authenticityAccepted: true,
-      });
+      const { listing } = await createP2pListing(
+        {
+          certNumber: certNumber.trim(),
+          tokenURI: tokenURI.trim(),
+          priceUsdc,
+          sellerWallet: primaryAddress,
+          authenticityAccepted: true,
+        },
+        chainId,
+      );
       router.push(`/p2p/listings/${listing.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

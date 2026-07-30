@@ -18,6 +18,7 @@ import {
   computeMarketBucketKey,
 } from "@/lib/marketplace/bucketKey";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { activeRqChainId } from "@/lib/chains";
 import {
   marketHistoryTierFromRwaMetadata,
   marketTierDisplayLabel,
@@ -87,16 +88,18 @@ export function useListRwaPriceSuggestions(input: {
     return extractBucketComponentsFromMetadata(metadata as Record<string, unknown>);
   }, [metadata]);
 
+  const chainId = activeRqChainId();
+
   /** Cert-based trades for this token — no collection row or bootstrap required. */
   const { data: tradesPack, isLoading: tradesLoading } = useQuery({
-    queryKey: rq.rwaTokenTrades(tokenId, gradeLabel),
+    queryKey: rq.rwaTokenTrades(tokenId, chainId, gradeLabel),
     queryFn: () => getRwaTokenTrades(tokenId, { grade: gradeLabel }),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
   const { data: collectionDetail, isLoading: collectionDetailLoading } = useQuery({
-    queryKey: rq.collectionDetail(candidateCollectionKey ?? ""),
+    queryKey: rq.collectionDetail(candidateCollectionKey ?? "", chainId),
     queryFn: () => getMarketplaceCollectionDetailOrNull(candidateCollectionKey!),
     enabled: enabled && tokenIdOk && Boolean(candidateCollectionKey),
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,

@@ -18,6 +18,7 @@ export {
   isPrivyEnabled,
   isPrivyGoogleLoginEnabled,
   isPrivyWalletLoginEnabled,
+  buildPrivyClientConfig,
   privyDefaultChain,
   privyClientConfig,
   privyConfig,
@@ -37,6 +38,8 @@ export {
   pickPrimaryPrivyWallet,
   resolveActivePrivyWallet,
   shouldUsePrivySdkForSigning,
+  parsePrivyWalletChainId,
+  ensurePrivyWalletOnChain,
 } from "./wallet";
 
 export { createPrivySeaportSigner, type PrivySignTypedDataFn } from "./signing";

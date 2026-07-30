@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Contract } from 'ethers';
+import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { TOKENABLE_RWA_CONTRACT } from '../../blockchain/constants/injection-tokens';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 
@@ -85,13 +86,16 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
    *
    * Called from the on-chain event listener AND from POST /collections/on-mint.
    */
-  async handleMintedToken(tokenId: number): Promise<string | null> {
+  async handleMintedToken(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string | null> {
     const id = Math.floor(tokenId);
     if (!Number.isFinite(id) || id < 0) return null;
 
-    await this.rwaTokenRegistry.syncTokenFromChain(id, null);
+    await this.rwaTokenRegistry.syncTokenFromChain(id, null, chainId);
     this.logger.log(
-      `MintEventListenerService: synced rwa_tokens for #${id} (collection deferred to first listing)`,
+      `MintEventListenerService: synced rwa_tokens for #${id} chain=${chainId ?? 'default'} (collection deferred to first listing)`,
     );
     return null;
   }

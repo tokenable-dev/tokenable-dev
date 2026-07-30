@@ -101,7 +101,7 @@ export async function submitAskListingOrder(params: {
     await publicClient.waitForTransactionReceipt({ hash: setAllTx });
   }
 
-  const considerationItems = buildAskConsideration(priceInUnits, address);
+  const considerationItems = buildAskConsideration(priceInUnits, address, usdcAddress);
 
   const orderMessage = {
     offerer: address,
@@ -128,7 +128,11 @@ export async function submitAskListingOrder(params: {
   const signature = await signSeaportOrder(orderMessage, address);
 
   const str = (v: unknown): string => String(v);
-  const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
+  const considerationPayload = buildAskConsiderationPayload(
+    priceInUnits,
+    address,
+    usdcAddress,
+  );
   const payload: CreateOrderPayload = {
     side: "ask",
     parameters: {

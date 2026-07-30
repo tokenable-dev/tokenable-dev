@@ -35,6 +35,8 @@ BEGIN
      OR to_regclass('public.rwa_tokens') IS NULL
      OR to_regclass('public.collection_market_snapshots') IS NULL
      OR to_regclass('public.orders') IS NULL
+     OR to_regclass('public.portfolio_daily_snapshots') IS NULL
+     OR to_regclass('public.p2p_listings') IS NULL
      OR to_regclass('public.vault_assets') IS NULL
      OR to_regclass('public.marketplace_partners') IS NULL
      OR to_regclass('public.bulk_mint_jobs') IS NULL

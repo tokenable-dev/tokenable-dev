@@ -61,6 +61,7 @@ export class RwaController {
       example: { ...SWAGGER_BODY_EXAMPLES.uploadRwa, image: '(binary)' },
     },
   })
+  @ApiChainIdHeader()
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('image', {
@@ -74,8 +75,12 @@ export class RwaController {
   uploadToIpfs(
     @Body() dto: UploadRwaDto,
     @UploadedFile() file?: Express.Multer.File,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ): Promise<UploadRwaResult> {
-    return this.rwaService.uploadToIpfs(dto, file);
+    // requireChainId: vault availability is per-chain — silent DEFAULT_CHAIN_ID
+    // fallback would reject a Polygon mint because of a live Sepolia cycle.
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaService.uploadToIpfs(dto, chainId, file);
   }
 
   /** Platform owner wallet mints RWA to custody; admin delivers to user's linked wallet. */
@@ -91,7 +96,7 @@ export class RwaController {
     @Body() dto: MintRwaDto,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
     return this.rwaMint.mintForUser(req.user, dto, chainId);
   }
 
@@ -113,7 +118,7 @@ export class RwaController {
     @Body() dto: RedeemRequestDto,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
     return this.rwaRedeem.requestRedemption(req.user, dto, chainId);
   }
 }

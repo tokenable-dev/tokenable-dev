@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { resolveCookieSecure } from '../auth/auth-session.util';
@@ -26,6 +27,8 @@ export class SiteAccessController {
 
   @Post('verify')
   @HttpCode(200)
+  // Password brute-force protection — 10 attempts per minute per IP.
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({
     summary: 'Site access 비밀번호 검증',
     description:

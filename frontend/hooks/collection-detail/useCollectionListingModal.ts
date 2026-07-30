@@ -7,6 +7,7 @@ import { usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import type { Order, RwaMetadata } from "@/lib/core";
 import { useRwaDetailBuyFlow } from "@/hooks/rwa-detail/useRwaDetailBuyFlow";
+import { useAppChain } from "@/providers/AppChainProvider";
 import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 
 export type ListingModalCheckout = "buy" | "bid" | null;
@@ -26,7 +27,8 @@ export function useCollectionListingModal(input: {
 
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const publicClient = usePublicClient();
+  const { chainId } = useAppChain();
+  const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
 
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null);

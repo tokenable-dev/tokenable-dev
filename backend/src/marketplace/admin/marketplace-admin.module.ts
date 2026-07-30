@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerDailyPriceExportRun } from '../../cardhedger/entities/cardhedger-daily-price-export-run.entity';
 import { CardhedgerPriceDeltaCheckpoint } from '../../cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerPriceDeltaImportRun } from '../../cardhedger/entities/cardhedger-price-delta-import-run.entity';
@@ -74,6 +75,7 @@ import { VaultSubmissionsAdminController } from './vault-submissions-admin.contr
     ]),
     UserModule,
     VaultModule,
+    BlockchainModule,
   ],
   controllers: [
     MarketplaceAdminAuthController,

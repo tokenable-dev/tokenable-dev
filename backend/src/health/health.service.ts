@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import Redis from 'ioredis';
@@ -9,7 +9,6 @@ export type DependencyHealth = {
   enabled?: boolean;
   latencyMs?: number;
   error?: string;
-  details?: Record<string, number>;
 };
 
 export type HealthReport = {
@@ -22,11 +21,19 @@ export type HealthReport = {
 };
 
 @Injectable()
-export class HealthService {
+export class HealthService implements OnModuleDestroy {
+  /** Reused across probes — health is polled every ~20s; a fresh TCP+auth handshake per probe is wasted load. */
+  private redisClient: Redis | null = null;
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {}
+
+  onModuleDestroy(): void {
+    this.redisClient?.disconnect();
+    this.redisClient = null;
+  }
 
   async getReport(): Promise<HealthReport> {
     const [postgres, redis] = await Promise.all([
@@ -44,23 +51,10 @@ export class HealthService {
   private async checkPostgres(): Promise<DependencyHealth> {
     const started = Date.now();
     try {
+      // SELECT 1 only — health is hit by Docker/LB every ~20s and must never
+      // add table-scan load while the DB is already under pressure.
       await this.dataSource.query('SELECT 1');
-      const [collectionsRow, ordersRow] = await Promise.all([
-        this.dataSource.query<{ count: string }[]>(
-          'SELECT COUNT(*)::text AS count FROM marketplace_collections',
-        ),
-        this.dataSource.query<{ count: string }[]>(
-          "SELECT COUNT(*)::text AS count FROM orders WHERE status = 'active'",
-        ),
-      ]);
-      return {
-        ok: true,
-        latencyMs: Date.now() - started,
-        details: {
-          collections: Number(collectionsRow[0]?.count ?? 0),
-          activeOrders: Number(ordersRow[0]?.count ?? 0),
-        },
-      };
+      return { ok: true, latencyMs: Date.now() - started };
     } catch (err) {
       return {
         ok: false,
@@ -76,30 +70,40 @@ export class HealthService {
       return { ok: true, enabled: false };
     }
 
-    const started = Date.now();
-    const client = new Redis(url, {
-      connectTimeout: 2_000,
-      maxRetriesPerRequest: 1,
-      lazyConnect: true,
-    });
+    if (!this.redisClient) {
+      this.redisClient = new Redis(url, {
+        connectTimeout: 2_000,
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
+        // Health probes report failure instead of stacking reconnect attempts.
+        retryStrategy: () => null,
+      });
+      this.redisClient.on('error', () => {
+        /* reported via ping() rejection — avoid unhandled error event */
+      });
+    }
 
+    const started = Date.now();
     try {
-      await client.connect();
-      const pong = await client.ping();
+      if (this.redisClient.status === 'wait' || this.redisClient.status === 'end') {
+        await this.redisClient.connect();
+      }
+      const pong = await this.redisClient.ping();
       return {
         ok: pong === 'PONG',
         enabled: true,
         latencyMs: Date.now() - started,
       };
     } catch (err) {
+      // Drop the broken client so the next probe reconnects cleanly.
+      this.redisClient.disconnect();
+      this.redisClient = null;
       return {
         ok: false,
         enabled: true,
         latencyMs: Date.now() - started,
         error: err instanceof Error ? err.message : String(err),
       };
-    } finally {
-      client.disconnect();
     }
   }
 }

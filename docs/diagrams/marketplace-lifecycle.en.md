@@ -243,7 +243,8 @@ erDiagram
     portfolio_daily_snapshots {
         serial id PK
         varchar wallet_address
-        date snapshot_date_kst UK
+        date snapshot_date_kst
+        int chain_id
     }
 
     marketplace_collections ||--o| collection_market_snapshots : "bucket pricing"

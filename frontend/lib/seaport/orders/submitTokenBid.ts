@@ -20,7 +20,11 @@ import type { useWriteContract } from "wagmi";
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
 const ZERO_ADDRESS = zeroAddress;
-const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
+/**
+ * Seaport `endTime` window for card-level offers (place bid).
+ * TEMP for QA: 5 minutes. Flip to `7 * 24 * 60 * 60` after expiry is verified.
+ */
+export const TOKEN_BID_ORDER_DURATION_SECONDS = 5 * 60;
 const ITEM_ERC20 = 1;
 const ITEM_ERC721 = 2;
 
@@ -69,7 +73,7 @@ export async function submitTokenBid(input: {
   }
 
   const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(ORDER_DURATION_SECONDS);
+  const endTime = now + BigInt(TOKEN_BID_ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
   let allowancePre = usdcAllowanceRaw;

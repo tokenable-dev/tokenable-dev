@@ -291,7 +291,6 @@ export function PrivyFeaturesLab() {
                 chain,
                 asset: "USDC",
                 amount: resolveDefaultFundingAmount(),
-                defaultFundingMethod: "card",
                 card: { preferredProvider: "moonpay" },
               },
             }).catch(() => undefined);

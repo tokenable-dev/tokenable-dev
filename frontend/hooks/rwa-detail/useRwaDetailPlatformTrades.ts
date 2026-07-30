@@ -13,6 +13,7 @@ import {
   marketTierDisplayLabel,
 } from "@/lib/market";
 import { countableTapeFills } from "@/lib/market/tradesVolume";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useRwaDetailPlatformTrades(input: {
   tokenId: number;
@@ -20,6 +21,7 @@ export function useRwaDetailPlatformTrades(input: {
   metadata?: Record<string, unknown> | null;
 }) {
   const { tokenId, tokenIdOk, metadata } = input;
+  const chainId = activeRqChainId();
 
   const gradeLabel = useMemo(() => {
     if (!metadata) return undefined;
@@ -27,7 +29,7 @@ export function useRwaDetailPlatformTrades(input: {
   }, [metadata]);
 
   const { data, isLoading } = useQuery({
-    queryKey: rq.rwaTokenTrades(tokenId, gradeLabel),
+    queryKey: rq.rwaTokenTrades(tokenId, chainId, gradeLabel),
     queryFn: () => getRwaTokenTrades(tokenId, { grade: gradeLabel }),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,

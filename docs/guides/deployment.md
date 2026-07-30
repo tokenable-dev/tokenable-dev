@@ -60,11 +60,11 @@ Images are tagged with the branch name (rolling pointer) **and** the full `githu
 | `NEXT_PUBLIC_CHAIN_137_RWA` | No | Polygon TokenableRWA |
 | `NEXT_PUBLIC_CHAIN_137_USDC` | No | Polygon native USDC (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
-| `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | No | `sandbox` (develop default) / `production` (main default) — MoonPay |
-| `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | No | `true` on develop by default — Sepolia MoonPay QA |
-| `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` | No | Defaults to `NEXT_PUBLIC_DEFAULT_CHAIN_ID` / `11155111` |
+| `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | No | `production` for Polygon live; `sandbox` only for Sepolia QA |
+| `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | No | `true` only for Sepolia MoonPay QA |
+| `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` | No | `137` (Polygon) production; `11155111` Sepolia QA. Active mainnet header also wins. |
 | `NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT` | No | Defaults to `50` |
-| `NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK` | No | Sandbox only; **stripped on `main` builds** |
+| `NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK` | No | Sandbox/testnet only; ignored on mainnet |
 | `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
 | `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
@@ -103,15 +103,19 @@ POSTGRES_USER=tokenable
 POSTGRES_PASSWORD=<secure-password>
 POSTGRES_DB=tokenable
 
-# Blockchain
+# Blockchain — public users stay on Sepolia; internal-dev can switch when chains are configured
 DEFAULT_CHAIN_ID=11155111
 CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-CHAIN_11155111_RWA_ADDRESS=0xC3d32650Fa75D14A0E62337446C87f3D86637d61
+CHAIN_11155111_RWA_ADDRESS=0x35b2368E718914e981b1C0043c76d4a573163D4A
 CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
-# Optional Polygon mainnet (after `pnpm deploy:rwa:polygon`)
-# CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
-# CHAIN_137_RWA_ADDRESS=0x...
-# CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+# Ethereum mainnet — RPC+USDC ok for reads; RWA required before mint/trade
+CHAIN_1_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+# CHAIN_1_RWA_ADDRESS=0x...
+CHAIN_1_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+# Polygon — required for tokenable.dev@gmail.com internal-dev network switch
+CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
+CHAIN_137_RWA_ADDRESS=0x30D41cC4Efa7F1d5cAFE721Eba5743D9B8e5b96E
+CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 # RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
 # RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
@@ -119,6 +123,9 @@ RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 PARTNER_WALLET_ENCRYPTION_KEY=<64 hex chars — openssl rand -hex 32>
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
+
+# MoonPay readiness target (Sepolia-first public deploy)
+PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111
 
 # IPFS
 PINATA_JWT=<pinata jwt>

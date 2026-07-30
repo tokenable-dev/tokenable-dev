@@ -1,7 +1,6 @@
 import {
   PLATFORM_FEE_BPS,
   PLATFORM_FEE_RECIPIENT,
-  USDC_ADDRESS,
 } from "@/constants/contracts";
 
 export interface FeeSplit {
@@ -40,10 +39,12 @@ export function computeFeeSplit(totalPriceUnits: bigint): FeeSplit {
 /**
  * Builds the Seaport `consideration` array for an ask listing.
  * Returns 1 item (seller only) when there is no fee, or 2 items (seller + fee).
+ * `usdcAddress` must be the active chain's USDC (never the DEFAULT_CHAIN legacy export).
  */
 export function buildAskConsideration(
   totalPriceUnits: bigint,
   sellerAddress: `0x${string}`,
+  usdcAddress: `0x${string}`,
 ) {
   const { sellerAmount, feeAmount, feeRecipient } =
     computeFeeSplit(totalPriceUnits);
@@ -58,7 +59,7 @@ export function buildAskConsideration(
   }> = [
     {
       itemType: 1, // ERC20
-      token: USDC_ADDRESS,
+      token: usdcAddress,
       identifierOrCriteria: BigInt(0),
       startAmount: sellerAmount,
       endAmount: sellerAmount,
@@ -69,7 +70,7 @@ export function buildAskConsideration(
   if (feeRecipient && feeAmount > BigInt(0)) {
     items.push({
       itemType: 1,
-      token: USDC_ADDRESS,
+      token: usdcAddress,
       identifierOrCriteria: BigInt(0),
       startAmount: feeAmount,
       endAmount: feeAmount,
@@ -86,6 +87,7 @@ export function buildAskConsideration(
 export function buildAskConsiderationPayload(
   totalPriceUnits: bigint,
   sellerAddress: string,
+  usdcAddress: string,
 ) {
   const { sellerAmount, feeAmount, feeRecipient } =
     computeFeeSplit(totalPriceUnits);
@@ -100,7 +102,7 @@ export function buildAskConsiderationPayload(
   }> = [
     {
       itemType: 1,
-      token: USDC_ADDRESS,
+      token: usdcAddress,
       identifierOrCriteria: "0",
       startAmount: String(sellerAmount),
       endAmount: String(sellerAmount),
@@ -111,7 +113,7 @@ export function buildAskConsiderationPayload(
   if (feeRecipient && feeAmount > BigInt(0)) {
     items.push({
       itemType: 1,
-      token: USDC_ADDRESS,
+      token: usdcAddress,
       identifierOrCriteria: "0",
       startAmount: String(feeAmount),
       endAmount: String(feeAmount),

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { listP2pListings, type P2pListing } from "@/lib/core/api/p2p";
+import { activeRqChainId } from "@/lib/chains";
 
 function formatUsdc(atomic: string): string {
   const n = Number(atomic) / 1e6;
@@ -31,8 +32,9 @@ function P2pCard({ listing }: { listing: P2pListing }) {
 }
 
 export function MarketsP2pSection() {
+  const chainId = activeRqChainId();
   const q = useQuery({
-    queryKey: ["p2p", "listings", "active"],
+    queryKey: ["p2p", "listings", "active", chainId],
     queryFn: listP2pListings,
     staleTime: 30_000,
   });

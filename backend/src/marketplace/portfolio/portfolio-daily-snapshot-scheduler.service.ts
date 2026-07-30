@@ -48,8 +48,14 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
     }, delay);
   }
 
-  /** Daily capture at 09:00 KST for all on-chain holders + tracked zero-card wallets. */
-  @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
+  /**
+   * Daily capture at 09:20 KST for all on-chain holders + tracked zero-card
+   * wallets. Staggered after the 09:00 collection-market prewarm so the three
+   * daily jobs (prewarm → portfolio → top100) don't contend for DB/RPC/upstream
+   * quota at the same instant. Snapshot slots are keyed by KST date, so the
+   * shifted time lands in the same daily slot.
+   */
+  @Cron('0 20 9 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCaptureKst(): Promise<void> {
     if (!this.cronEnabled()) return;
     await this.runCapture('cron');

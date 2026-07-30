@@ -3,9 +3,9 @@ import { fulfillOrderApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "./fulfillOrderArgs";
 
@@ -30,7 +30,7 @@ type FulfillWrite = (args: {
 }) => Promise<Hash>;
 
 type ApproveWrite = (args: {
-  address: typeof USDC_ADDRESS;
+  address: `0x${string}`;
   abi: typeof USDC_ABI;
   functionName: "approve";
   args: readonly [`0x${string}`, bigint];
@@ -50,10 +50,11 @@ export async function fulfillAskListingOrder(params: {
   chainId: number;
 }): Promise<void> {
   const { ask, address, publicClient, writeContractAsync, chainId } = params;
+  const { usdcAddress } = getChainContracts(chainId as SupportedChainId);
   const payUnits = askPriceMicros(ask);
 
   let allowance = await publicClient.readContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "allowance",
     args: [address, SEAPORT_ADDRESS],
@@ -75,7 +76,7 @@ export async function fulfillAskListingOrder(params: {
     const gasApprovePromise = gasWithCapFast(
       publicClient,
       {
-        address: USDC_ADDRESS,
+        address: usdcAddress,
         abi: USDC_ABI,
         functionName: "approve",
         args: [SEAPORT_ADDRESS, payUnits],
@@ -85,7 +86,7 @@ export async function fulfillAskListingOrder(params: {
     );
     const gasApprove = await gasApprovePromise;
     const approveTx = await writeContractAsync({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "approve",
       args: [SEAPORT_ADDRESS, payUnits],

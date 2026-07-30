@@ -15,6 +15,7 @@ export type P2pOrderStatus =
   | 'BURNED';
 
 @Entity('p2p_orders')
+@Index('idx_p2p_orders_status_chain', ['status', 'chainId'])
 export class P2pOrder {
   @PrimaryGeneratedColumn('uuid')
   id: string;

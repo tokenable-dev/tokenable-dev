@@ -8,9 +8,9 @@ Base path: `/api/marketplace/p2p` (user) · `/api/marketplace/admin/p2p` (admin 
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/listings` | — | Active `P2P_LISTED` rows |
+| GET | `/listings` | — | Active `P2P_LISTED` rows for `x-tokenable-chain-id` |
 | GET | `/listings/:id` | — | Listing detail |
-| POST | `/listings` | JWT | Mint to custody + list (KYC + authenticityAccepted) |
+| POST | `/listings` | JWT | Mint to custody + list on request chain (KYC + authenticityAccepted) |
 | POST | `/listings/:id/cancel` | JWT | Cancel + `adminBurn` |
 | GET | `/listings/:id/prepare-buy` | — | Escrow params (`escrowOrderId` = hash(listingId), addresses, `alreadyFunded`) |
 | POST | `/listings/:id/deposit` | JWT | After on-chain `createAndDeposit` (listing-locked) |

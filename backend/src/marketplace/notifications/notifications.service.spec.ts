@@ -130,6 +130,65 @@ describe('NotificationsService', () => {
     expect(notificationsRepo.save).toHaveBeenCalledTimes(1);
   });
 
+  it('creates a cancelled-bid notification for the active ask owner', async () => {
+    askQuery.getOne.mockResolvedValue({
+      orderHash: '0xaskhash',
+      offerer: '0xSELLER000000000000000000000000000000001',
+      collectionKey: 'ck',
+      side: OrderSide.ASK,
+      status: OrderStatus.ACTIVE,
+      tokenId: '42',
+    });
+
+    await service.notifyAskOwnerOfTokenBidCancelled(
+      tokenBid({ status: OrderStatus.CANCELLED }),
+    );
+
+    expect(notificationsRepo.save).toHaveBeenCalledTimes(1);
+    expect(saved[0].recipientWallet).toBe(
+      '0xseller000000000000000000000000000000001',
+    );
+    expect(saved[0].type).toBe('bid');
+    expect(saved[0].title).toBe('Offer cancelled');
+    expect(saved[0].dedupeKey).toBe('token_bid_cancelled:0xbidhash');
+    expect(saved[0].payload).toMatchObject({
+      event: 'cancelled',
+      bidOrderHash: '0xbidhash',
+      tokenId: '42',
+      askOrderHash: '0xaskhash',
+    });
+  });
+
+  it('skips cancelled notify when there is no active ask', async () => {
+    await service.notifyAskOwnerOfTokenBidCancelled(
+      tokenBid({ status: OrderStatus.CANCELLED }),
+    );
+    expect(notificationsRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('does not build accept-offer href for cancelled bid notifications', async () => {
+    saved.push({
+      id: 10,
+      recipientWallet: '0xseller',
+      type: 'bid',
+      title: 'Offer cancelled',
+      body: 'body',
+      dedupeKey: 'token_bid_cancelled:0xbid',
+      payload: {
+        event: 'cancelled',
+        bidOrderHash: '0xbid',
+        tokenId: '7',
+        askOrderHash: '0xask',
+      },
+      readAt: null,
+      createdAt: new Date('2026-07-23T00:00:00.000Z'),
+    } as MarketplaceNotification);
+
+    const items = await service.listForWallets(['0xSELLER']);
+    expect(items[0].href).toBeNull();
+    expect(items[0].ctaLabel).toBeNull();
+  });
+
   it('builds accept-offer href on list items', async () => {
     saved.push({
       id: 9,

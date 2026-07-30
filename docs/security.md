@@ -84,11 +84,20 @@ Not applicable: the contract has no external value flows (no ETH/ERC-20 in Token
 
 ### Rate limiting
 
-Not currently implemented at the API level. Consider adding for production:
-- `POST /api/auth/privy/session` (session creation)
-- `POST /api/rwa/upload` (file uploads)
+Two layers, both per client IP:
 
-PSA API rate limiting is implemented in `psa-public-api.service.ts` (client-side token rotation).
+**nginx (ingress — `nginx/nginx.conf`, `nginx/nginx.tls.conf`)**
+- `/api/*`: 20 req/s (burst 40), max 20 concurrent connections
+- `POST /api/auth/privy/session`, `POST /api/site-access/verify`: 2 req/s (burst 5)
+- Exceeding limits returns HTTP 429. Upstream proxy timeouts are fixed (connect 5s / read 60s) so a slow backend can't pin nginx workers.
+
+**NestJS `@nestjs/throttler` (application — global guard in `app.module.ts`)**
+- Global default: 300 req/min per IP (`THROTTLE_GLOBAL_LIMIT_PER_MIN`; `THROTTLE_ENABLED=0` disables, e.g. load tests)
+- Stricter `@Throttle` overrides: `POST /auth/privy/session` 20/min, `POST /site-access/verify` 10/min, `/cardhedger/*` proxy 60/min, `/psa/*` 30/min, `GET /blockchain/rwa/tokens/:address` 30/min
+- `GET /health` is `@SkipThrottle()` (Docker/LB probes)
+- Client IP comes from the `X-Real-IP` header set by nginx (`trust proxy` enabled in `main.ts`); browser traffic proxied via the Next.js server would otherwise share one container IP.
+
+PSA API rate limiting is additionally implemented upstream-side in `psa-public-api.service.ts` (client-side token rotation).
 
 ### CORS
 

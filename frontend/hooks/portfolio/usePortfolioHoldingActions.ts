@@ -79,7 +79,7 @@ export function usePortfolioHoldingActions(input: {
         await hidePortfolioHolding(address, tokenId);
         void queryClient.invalidateQueries({ queryKey: holdingsKey });
         void queryClient.invalidateQueries({
-          queryKey: rq.portfolioDailySnapshots(address),
+          queryKey: ["portfolio-daily-snapshots", address],
         });
         setHideConfirm(null);
       } catch (err) {
@@ -108,7 +108,7 @@ export function usePortfolioHoldingActions(input: {
         await unhidePortfolioHolding(address, tokenId);
         void queryClient.invalidateQueries({ queryKey: holdingsKey });
         void queryClient.invalidateQueries({
-          queryKey: rq.portfolioDailySnapshots(address),
+          queryKey: ["portfolio-daily-snapshots", address],
         });
       } catch (err) {
         if (prev !== undefined) {

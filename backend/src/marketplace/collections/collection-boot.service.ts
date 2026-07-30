@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit, forwardRef } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { BUCKET_KEY_VERSION } from '../utils/bucket-key.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionComponentsService } from './collection-components.service';
@@ -15,6 +16,7 @@ export class CollectionBootService implements OnModuleInit {
 
   constructor(
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly components: CollectionComponentsService,
@@ -72,13 +74,17 @@ export class CollectionBootService implements OnModuleInit {
 
     const rwaSync = this.config.get<string>('RWA_TOKEN_REGISTRY_SYNC_ON_BOOT');
     if (rwaSync === '1' || rwaSync === 'true') {
-      try {
-        const r = await this.rwaTokenRegistry.syncAllMintedFromChain();
-        this.logger.log(`RWA_TOKEN_REGISTRY_SYNC_ON_BOOT: ${JSON.stringify(r)}`);
-      } catch (e) {
-        this.logger.error(
-          `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT failed: ${String(e)}`,
-        );
+      for (const chainId of this.chainConfig.listConfiguredChainIds()) {
+        try {
+          const r = await this.rwaTokenRegistry.syncAllMintedFromChain(chainId);
+          this.logger.log(
+            `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT chain=${chainId}: ${JSON.stringify(r)}`,
+          );
+        } catch (e) {
+          this.logger.error(
+            `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT chain=${chainId} failed: ${String(e)}`,
+          );
+        }
       }
     }
   }
@@ -94,7 +100,7 @@ export class CollectionBootService implements OnModuleInit {
   }> {
     const orders = await this.orderRepo.find({
       where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
-      select: ['orderHash', 'tokenId', 'collectionKey'],
+      select: ['orderHash', 'tokenId', 'tokenContract', 'collectionKey'],
     });
     let updated = 0;
     let skipped = 0;
@@ -105,7 +111,20 @@ export class CollectionBootService implements OnModuleInit {
         continue;
       }
       try {
-        const newKey = await this.collections.ensureCollectionForListing(tid);
+        const chainId = this.chainConfig.resolveChainIdFromRwaAddress(
+          order.tokenContract,
+        );
+        if (chainId == null) {
+          skipped++;
+          this.logger.warn(
+            `bucket key migrate skipped token=${tid}: unknown token_contract=${order.tokenContract}`,
+          );
+          continue;
+        }
+        const newKey = await this.collections.ensureCollectionForListing(
+          tid,
+          chainId,
+        );
         if (!newKey) {
           skipped++;
           continue;

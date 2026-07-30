@@ -21,7 +21,7 @@ export type PrivyFundingReadiness = {
   defaultRecommendedAmount: string | null;
   defaultRecommendedChain: string | null;
   defaultRecommendedAsset: string | null;
-  /** Dashboard default chain matches app funding target (Sepolia / Ethereum). */
+  /** Dashboard default chain matches an accepted Tokenable funding network. */
   chainAligned: boolean;
   /** MoonPay card on-ramp is enabled in Dashboard funding options. */
   moonpayEnabled: boolean;
@@ -37,22 +37,25 @@ const DASHBOARD_FUNDING_URL = 'https://dashboard.privy.io/apps?page=funding';
 export const PRODUCTION_FUNDING_CAIP2 = 'eip155:1';
 export const SEPOLIA_FUNDING_CAIP2 = 'eip155:11155111';
 export const ETHEREUM_FUNDING_CAIP2 = 'eip155:1';
+export const POLYGON_FUNDING_CAIP2 = 'eip155:137';
 export const TOKENABLE_FUNDING_ASSET = 'USDC';
 
-/** @deprecated Use {@link resolveFundingTargetCaip2}. */
-export const TOKENABLE_FUNDING_CAIP2 = PRODUCTION_FUNDING_CAIP2;
+/** @deprecated Prefer {@link POLYGON_FUNDING_CAIP2}. */
+export const TOKENABLE_FUNDING_CAIP2 = POLYGON_FUNDING_CAIP2;
 
 export function resolveFundingTargetCaip2(): string {
   const fromEnv = process.env.PRIVY_FUNDING_TARGET_CAIP2?.trim();
   if (fromEnv?.startsWith('eip155:')) return fromEnv;
+  // Sepolia-first deploy default — set PRIVY_FUNDING_TARGET_CAIP2=eip155:137 for Polygon live.
   return SEPOLIA_FUNDING_CAIP2;
 }
 
-/** Dashboard chains accepted while testing pay on Sepolia / Ethereum. */
+/** Dashboard chains accepted for MoonPay readiness (mainnets + Sepolia sandbox QA). */
 export function getAlignedFundingCaip2Chains(): string[] {
   const target = resolveFundingTargetCaip2();
   const chains = new Set<string>([
     target,
+    POLYGON_FUNDING_CAIP2,
     SEPOLIA_FUNDING_CAIP2,
     PRODUCTION_FUNDING_CAIP2,
     ETHEREUM_FUNDING_CAIP2,
@@ -90,10 +93,13 @@ export function assessPrivyFundingReadiness(
 
   const hasFundingConfig =
     Boolean(fc) && (methods.length > 0 || options.length > 0);
-  const fiatOnRampEnabled = settings.fiat_on_ramp_enabled === true;
+  const masterToggleOn = settings.fiat_on_ramp_enabled === true;
   const moonpayEnabled =
     methods.includes('moonpay') ||
     options.some((o) => o.provider === 'moonpay');
+  // Privy sometimes leaves `fiat_on_ramp_enabled=false` even after MoonPay is
+  // configured under Account Funding. Treat MoonPay methods as the source of truth.
+  const fiatOnRampEnabled = masterToggleOn || moonpayEnabled;
   const chainAligned = isTokenableFundingChainAligned(defaultRecommendedChain);
   const assetAligned =
     !defaultRecommendedAsset ||
@@ -118,47 +124,50 @@ export function assessPrivyFundingReadiness(
         'Open Privy Dashboard → Account Funding and enable MoonPay (Card on-ramp).',
       );
     }
-    if (fiatOnRampEnabled && !hasFundingConfig) {
+    if (masterToggleOn && !hasFundingConfig) {
       checklist.push(
         '`fiat_on_ramp_enabled` is true but no funding methods are returned — enter MoonPay API keys and save Account Funding.',
       );
     }
     if (hasFundingConfig && !moonpayEnabled) {
       checklist.push(
-        'Enable MoonPay under Account Funding → Providers (Stripe / Coinbase / Meld / Bridge not required for pay test).',
+        'Enable MoonPay under Account Funding → Providers (Stripe / Coinbase / Meld / Bridge not required).',
       );
     }
     if (hasFundingConfig && moonpayEnabled && !chainAligned) {
-      const chainId = parseCaip2EvmChainId(defaultRecommendedChain);
       checklist.push(
         defaultRecommendedChain
-          ? `Change Funding token setup from ${defaultRecommendedChain} to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}). App target: ${targetFundingCaip2}.`
-          : `Set Funding token setup to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
+          ? `Change Funding token setup from ${defaultRecommendedChain} to Polygon + USDC (${POLYGON_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}). App target: ${targetFundingCaip2}.`
+          : `Set Funding token setup to Polygon + USDC (${POLYGON_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
       );
-      if (chainId === 1) {
-        checklist.push(
-          'Ethereum mainnet in Dashboard is OK for MoonPay sandbox UI — useFiatOnramp still sends to Sepolia when PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111.',
-        );
-      }
     }
     if (hasFundingConfig && moonpayEnabled && chainAligned && !assetAligned) {
       checklist.push(
         `Set default funding asset to ${TOKENABLE_FUNDING_ASSET} (not ${defaultRecommendedAsset}).`,
       );
     }
-    checklist.push(
-      'Enter MoonPay publishable + secret API keys when prompted in the Dashboard.',
-    );
+    if (!moonpayEnabled) {
+      checklist.push(
+        'Enter MoonPay publishable + secret API keys when prompted in the Dashboard (production keys for live Polygon).',
+      );
+    }
     checklist.push(
       'Add app domains under Settings → Allowed domains (e.g. `http://localhost:3000`, production URL).',
     );
     checklist.push(
-      'Frontend: NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox + NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true for Sepolia pay test.',
+      'Frontend: Polygon live → NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=137 (environment auto-production on mainnet). Sepolia QA → sandbox + USE_ONRAMP_ON_TESTNET.',
     );
-  } else if (methods.length === 0 && options.length === 0) {
-    checklist.push(
-      'Funding config is present but empty — verify MoonPay keys and network/asset defaults in Account Funding.',
-    );
+  } else {
+    if (!masterToggleOn && moonpayEnabled) {
+      checklist.push(
+        'Optional: turn ON the Dashboard "Fiat onramps" master toggle — MoonPay is already configured and Add funds will proceed.',
+      );
+    }
+    if (methods.length === 0 && options.length === 0) {
+      checklist.push(
+        'Funding config is present but empty — verify MoonPay keys and network/asset defaults in Account Funding.',
+      );
+    }
   }
 
   return {

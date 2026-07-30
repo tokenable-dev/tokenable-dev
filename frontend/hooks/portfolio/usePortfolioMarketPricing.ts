@@ -11,6 +11,7 @@ import {
   type CollectionMarketStats,
 } from "@/lib/core";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
+import { activeRqChainId } from "@/lib/chains";
 
 export function usePortfolioMarketPricing(input: {
   address: string | undefined;
@@ -22,21 +23,14 @@ export function usePortfolioMarketPricing(input: {
   const { address, isConnected, assets, uniqueCollectionKeys, tokenToCollectionKey } =
     input;
 
-  const portfolioMarketBatchSig = useMemo(() => {
-    return [...uniqueCollectionKeys].map((k) => k.toLowerCase()).sort().join(",");
-  }, [uniqueCollectionKeys]);
-
+  const chainId = activeRqChainId();
   const hasCollectionBuckets = uniqueCollectionKeys.length > 0;
 
   const {
     data: portfolioMarketBatch,
     isLoading: portfolioMarketBatchLoading,
   } = useQuery({
-    queryKey: [
-      "portfolio-market-batch",
-      address ?? "",
-      portfolioMarketBatchSig,
-    ] as const,
+    queryKey: rq.portfolioMarketBatch(chainId, uniqueCollectionKeys),
     queryFn: () =>
       postPortfolioCollectionMarketBatchBatched({
         collectionKeys: uniqueCollectionKeys,
@@ -83,7 +77,7 @@ export function usePortfolioMarketPricing(input: {
   ]);
 
   const { data: mintPreviewByToken = {}, isLoading: mintFallbackLoading } = useQuery({
-    queryKey: rq.marketMintPreviews(address, tokenIdsNeedingMintPreview),
+    queryKey: rq.marketMintPreviews(address, tokenIdsNeedingMintPreview, chainId),
     queryFn: () => postBatchMintMarketPreviews(tokenIdsNeedingMintPreview),
     enabled:
       Boolean(address && isConnected) &&

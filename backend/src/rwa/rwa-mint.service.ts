@@ -78,6 +78,7 @@ export class RwaMintService {
     // cert already has an open (non-redeemed) cycle.
     const { cycle } = await this.vault.reserveCycleForDeposit({
       certNumber,
+      chainId,
       depositedByUserId: user.id,
     });
 

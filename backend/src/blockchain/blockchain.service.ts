@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Contract } from 'ethers';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import {
@@ -6,8 +11,17 @@ import {
   type SupportedChainId,
 } from './chain-config.service';
 import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
+import {
+  TTL_CACHE_PROVIDER,
+  type TtlCacheProvider,
+} from '../common/cache/ttl-cache.interface';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
+
+const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+/** Owner scans cost ~totalMinted RPC calls each — cache briefly and coalesce. */
+const TOKENS_BY_OWNER_CACHE_NS = 'rwa-tokens-by-owner';
+const TOKENS_BY_OWNER_CACHE_TTL_MS = 30_000;
 
 /** OpenZeppelin ERC721 — tokenId 미민팅 시 revert */
 function isErc721InvalidTokenError(e: unknown): boolean {
@@ -26,10 +40,13 @@ function isErc721InvalidTokenError(e: unknown): boolean {
 @Injectable()
 export class BlockchainService {
   private readonly rwaByChain = new Map<SupportedChainId, Contract>();
+  /** Coalesces concurrent owner scans for the same wallet into one RPC pass. */
+  private readonly tokensByOwnerInFlight = new Map<string, Promise<number[]>>();
 
   constructor(
     private readonly chainConfig: ChainConfigService,
     private readonly ipfs: IpfsGatewayResolverService,
+    @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {}
 
   /** Read-only TokenableRWA for the requested chain (cached per process). */
@@ -98,8 +115,43 @@ export class BlockchainService {
     address: string,
     chainId?: SupportedChainId,
   ): Promise<number[]> {
-    const _t0 = perfNow();
     const normalized = address.trim().toLowerCase();
+    if (!ETH_ADDRESS.test(normalized)) {
+      throw new BadRequestException('Invalid wallet address');
+    }
+    const cacheKey = `${chainId ?? this.chainConfig.getDefaultChainId()}:${normalized}`;
+
+    const cached = this.ttlCache.get<number[]>(
+      TOKENS_BY_OWNER_CACHE_NS,
+      cacheKey,
+    );
+    if (cached) return cached;
+
+    const inFlight = this.tokensByOwnerInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const scan = this.scanRwaTokensByOwner(normalized, chainId)
+      .then((tokenIds) => {
+        this.ttlCache.set(
+          TOKENS_BY_OWNER_CACHE_NS,
+          cacheKey,
+          tokenIds,
+          TOKENS_BY_OWNER_CACHE_TTL_MS,
+        );
+        return tokenIds;
+      })
+      .finally(() => {
+        this.tokensByOwnerInFlight.delete(cacheKey);
+      });
+    this.tokensByOwnerInFlight.set(cacheKey, scan);
+    return scan;
+  }
+
+  private async scanRwaTokensByOwner(
+    normalized: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
+    const _t0 = perfNow();
     try {
       const { totalMinted } = await this.getRwaInfo(chainId);
       if (totalMinted <= 0) return [];
@@ -117,7 +169,7 @@ export class BlockchainService {
       return tokenIds;
     } finally {
       perfLog('rpc', 'tokensByOwnerScan', elapsedMs(_t0), {
-        address: address.slice(0, 10),
+        address: normalized.slice(0, 10),
         chainId: chainId ?? this.chainConfig.getDefaultChainId(),
       });
     }

@@ -1,6 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Injectable, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import appConfig from './config/app.config';
 import marketplaceConfig from './config/marketplace.config';
 import cardladderConfig from './config/cardladder.config';
@@ -52,6 +54,20 @@ import { P2pOrder } from './marketplace/entities/p2p-order.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 import { VaultModule } from './vault/vault.module';
 
+/**
+ * Rate-limit tracker keyed by real client IP. nginx sets X-Real-IP from
+ * $remote_addr (not client-spoofable); browser traffic proxied through the
+ * Next.js server would otherwise all share one container IP.
+ */
+@Injectable()
+class ClientIpThrottlerGuard extends ThrottlerGuard {
+  protected getTracker(req: Record<string, unknown>): Promise<string> {
+    const headers = req.headers as Record<string, string | undefined> | undefined;
+    const realIp = headers?.['x-real-ip']?.trim();
+    return Promise.resolve(realIp || (req.ip as string) || 'unknown');
+  }
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -59,6 +75,18 @@ import { VaultModule } from './vault/vault.module';
       load: [appConfig, marketplaceConfig, cardladderConfig, ga4Config],
     }),
     EventEmitterModule.forRoot({ global: true }),
+    // Per-IP request throttling — generous global ceiling; sensitive routes
+    // (auth, site-access, cardhedger/psa proxies, chain scans) declare stricter
+    // @Throttle overrides. THROTTLE_ENABLED=0 disables (load tests / local debug).
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: Number(process.env.THROTTLE_GLOBAL_LIMIT_PER_MIN ?? '300'),
+        },
+      ],
+      skipIf: () => process.env.THROTTLE_ENABLED === '0',
+    }),
     ScheduleModule.forRoot(),
     CacheModule,
     CardhedgerMetricsModule,
@@ -78,6 +106,13 @@ import { VaultModule } from './vault/vault.module';
         extra: {
           /** Fail fast when Postgres is down instead of hanging API requests. */
           connectionTimeoutMillis: 8_000,
+          /**
+           * Bounded pool so a traffic spike queues inside the app instead of
+           * exhausting Postgres max_connections (default 100, shared with
+           * psql/admin sessions). Waiting checkouts fail after 10s.
+           */
+          max: Number(config.get<string>('DB_POOL_MAX') ?? '20'),
+          idleTimeoutMillis: 30_000,
         },
         entities: [
           Order,
@@ -139,5 +174,6 @@ import { VaultModule } from './vault/vault.module';
     CardhedgerAdminModule,
     KycModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ClientIpThrottlerGuard }],
 })
 export class AppModule {}

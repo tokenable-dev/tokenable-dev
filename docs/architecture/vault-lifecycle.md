@@ -59,12 +59,17 @@ vault_assets (uuid id PK)
 
 ### VaultCycle
 
-One deposit-to-redemption window. A card can have many cycles over its lifetime, but **at most one open (non-terminal) cycle at a time** — mirrors the on-chain `VaultRefAlreadyActive` constraint.
+Cycles are chain-scoped in both DB and API:
+
+- Partial unique index `uq_vault_cycles_one_open_per_asset_chain` on `(vault_asset_id, chain_id)` where status is open
+- `VaultService.assertAvailableForNewCycle(cert, chainId)` / `reserveCycleForDeposit({ chainId })` filter by `chain_id`
+- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-request`, bulk-mint, P2P listing create) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
 
 ```
 vault_cycles (uuid id PK)
   vault_asset_id: FK → vault_assets
-  cycle_number: 1, 2, 3, ...
+  chain_id: EIP-155 chain the cycle's NFT is minted on (11155111, 137, ...)
+  cycle_number: 1, 2, 3, ...  (sequential per asset, across chains)
   status: pending_deposit | deposit_verified | minted | redemption_requested | redeemed | cancelled
   deposited_by_user_id: uuid (the user who initiated this vault cycle)
   deposited_at: timestamptz

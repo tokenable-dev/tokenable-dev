@@ -399,6 +399,8 @@ export class BulkMintJobService {
     this.prepareInflight.add(jobId);
     try {
       await this.jobRepo.update({ id: jobId }, { status: 'preparing', errorMessage: null });
+      const job = await this.jobRepo.findOne({ where: { id: jobId } });
+      if (!job) return;
       const items = await this.itemRepo.find({
         where: {
           jobId,
@@ -408,12 +410,10 @@ export class BulkMintJobService {
       });
 
       for (const item of items) {
-        await this.prepareOneItem(item);
+        await this.prepareOneItem(item, job.chainId);
       }
 
       await this.refreshJobCounters(jobId);
-      const job = await this.jobRepo.findOne({ where: { id: jobId } });
-      if (!job) return;
       const ready = await this.itemRepo.count({ where: { jobId, status: 'ready' } });
       if (ready > 0) {
         await this.jobRepo.update({ id: jobId }, { status: 'ready_to_commit' });
@@ -438,13 +438,16 @@ export class BulkMintJobService {
     }
   }
 
-  private async prepareOneItem(item: BulkMintJobItem): Promise<void> {
+  private async prepareOneItem(
+    item: BulkMintJobItem,
+    chainId: number,
+  ): Promise<void> {
     await this.itemRepo.update(
       { id: item.id },
       { status: 'preparing', errorMessage: null },
     );
     try {
-      await this.vault.assertAvailableForNewCycle(item.certNumber);
+      await this.vault.assertAvailableForNewCycle(item.certNumber, chainId);
 
       const lookup = await this.psaPublicApi.getByCertNumber(item.certNumber);
       if (lookup.status !== 'success' || !lookup.raw) {
@@ -671,6 +674,7 @@ export class BulkMintJobService {
       try {
         const { cycle } = await this.vault.reserveCycleForDeposit({
           certNumber: item.certNumber,
+          chainId: job.chainId,
         });
         reserved.push({ item, cycleId: cycle.id });
         await this.itemRepo.update(

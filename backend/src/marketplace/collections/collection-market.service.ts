@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { CollectionService } from './collection.service';
-import { ChainConfigService } from '../../blockchain/chain-config.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
 import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
@@ -230,6 +233,7 @@ export class CollectionMarketService {
   async getCollectionMarketBundle(
     collectionKey: string,
     priceHistoryDuration: PriceHistoryDuration = '365d',
+    chainId?: SupportedChainId,
   ): Promise<CollectionMarketBundle> {
     const key = collectionKey.toLowerCase();
     const window: PriceHistoryDuration = [
@@ -243,7 +247,7 @@ export class CollectionMarketService {
       ? priceHistoryDuration
       : '365d';
 
-    const { platformUsd } = await this.platformTradesForApi(key);
+    const { platformUsd } = await this.platformTradesForApi(key, undefined, chainId);
     let row = await this.snapshotService.findByKey(key);
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
@@ -591,14 +595,19 @@ export class CollectionMarketService {
     };
   }
 
-  private usdcContractAddressLower(): string {
-    return this.chainConfig.getUsdcAddress(this.chainConfig.getDefaultChainId());
+  private usdcContractAddressLower(chainId?: SupportedChainId): string {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    return this.chainConfig.getUsdcAddress(resolved).toLowerCase();
   }
 
-  private isUsdcConsiderationToken(token: string | null | undefined): boolean {
+  private isUsdcConsiderationToken(
+    token: string | null | undefined,
+    chainId?: SupportedChainId,
+  ): boolean {
     if (!token || !String(token).trim()) return false;
     return (
-      String(token).trim().toLowerCase() === this.usdcContractAddressLower()
+      String(token).trim().toLowerCase() ===
+      this.usdcContractAddressLower(chainId)
     );
   }
 
@@ -611,11 +620,14 @@ export class CollectionMarketService {
     }
   }
 
-  private classifyUsdcConsideration(o: Order): {
+  private classifyUsdcConsideration(
+    o: Order,
+    chainId?: SupportedChainId,
+  ): {
     usd: number | null;
     skip: 'none' | 'non_usdc' | 'invalid_amount';
   } {
-    if (!this.isUsdcConsiderationToken(o.considerationToken)) {
+    if (!this.isUsdcConsiderationToken(o.considerationToken, chainId)) {
       return { usd: null, skip: 'non_usdc' };
     }
     const v = this.usdcMicrosToNumber(o.considerationAmount);
@@ -623,8 +635,12 @@ export class CollectionMarketService {
     return { usd: v, skip: 'none' };
   }
 
-  private usdcPriceFromOrder(o: Order, label: string): number | null {
-    const { usd, skip } = this.classifyUsdcConsideration(o);
+  private usdcPriceFromOrder(
+    o: Order,
+    label: string,
+    chainId?: SupportedChainId,
+  ): number | null {
+    const { usd, skip } = this.classifyUsdcConsideration(o, chainId);
     if (skip === 'non_usdc') {
       this.logger.warn(
         `collection market stats: skipping non-USDC order (${label}) orderHash=${o.orderHash} token=${o.considerationToken}`,
@@ -656,6 +672,7 @@ export class CollectionMarketService {
   async platformTradesForApi(
     collectionKey: string,
     opts?: { bootstrapTokenId?: number; cardhedgerGrade?: string },
+    chainId?: SupportedChainId,
   ): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
@@ -663,7 +680,7 @@ export class CollectionMarketService {
   }> {
     const k = collectionKey.toLowerCase();
     const { platformUsd, platformTrades } =
-      await this.buildPlatformTradesForKey(k);
+      await this.buildPlatformTradesForKey(k, chainId);
 
     let cardhedgerTrades: PlatformTapeFillRow[] = [];
     try {
@@ -677,6 +694,7 @@ export class CollectionMarketService {
       ) {
         const ensured = await this.collectionService.ensureCollectionForListing(
           String(Math.floor(bootstrapTokenId)),
+          chainId,
         );
         if (ensured?.trim().toLowerCase() === k) {
           col = await this.collectionService.findOne(k);
@@ -753,6 +771,7 @@ export class CollectionMarketService {
   async rwaTradesForApi(
     tokenId: number,
     opts?: { cardhedgerGrade?: string },
+    chainId?: SupportedChainId,
   ): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
@@ -764,7 +783,7 @@ export class CollectionMarketService {
     }
 
     const { platformUsd, platformTrades } =
-      await this.buildPlatformTradesForTokenId(id);
+      await this.buildPlatformTradesForTokenId(id, chainId);
 
     let cardhedgerTrades: PlatformTapeFillRow[] = [];
     try {
@@ -773,8 +792,9 @@ export class CollectionMarketService {
         ? {
             gradeLabel: cardhedgerGrade,
             rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+            chainId,
           }
-        : { rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT };
+        : { rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT, chainId };
       const comps = await this.cardhedgerMarket.getCompsSnapshotForTokenId(
         id,
         compsOpts,
@@ -798,25 +818,30 @@ export class CollectionMarketService {
   }
 
   /** Platform-only fulfilled orders (chart platform series + tape platform rows). */
-  private async buildPlatformTradesForKey(collectionKey: string): Promise<{
+  private async buildPlatformTradesForKey(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{
     platformUsd: UsdPoint[];
     platformTrades: PlatformTapeFillRow[];
   }> {
-    const rows = await this.orderRepo.find({
-      where: {
-        collectionKey,
-        status: OrderStatus.FULFILLED,
-      },
-      order: { updatedAt: 'DESC' },
-      take: this.platformTradesScanMax(),
-    });
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.platformTradesScanMax())
+      .getMany();
     const validNewestFirst: {
       order: Order;
       tokenId: string;
       priceUsdc: number;
     }[] = [];
     for (const o of rows) {
-      const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades');
+      const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades', resolved);
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;
       validNewestFirst.push({
@@ -844,26 +869,31 @@ export class CollectionMarketService {
   }
 
   /** Fulfilled on-platform sales for one RWA token (collection row optional). */
-  private async buildPlatformTradesForTokenId(tokenId: number): Promise<{
+  private async buildPlatformTradesForTokenId(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<{
     platformUsd: UsdPoint[];
     platformTrades: PlatformTapeFillRow[];
   }> {
     const tid = String(Math.floor(tokenId));
-    const rows = await this.orderRepo.find({
-      where: {
-        tokenId: tid,
-        status: OrderStatus.FULFILLED,
-      },
-      order: { updatedAt: 'DESC' },
-      take: this.platformTradesScanMax(),
-    });
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id = :tid', { tid })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.platformTradesScanMax())
+      .getMany();
     const validNewestFirst: {
       order: Order;
       tokenId: string;
       priceUsdc: number;
     }[] = [];
     for (const o of rows) {
-      const priceUsdc = this.usdcPriceFromOrder(o, 'rwa-trades');
+      const priceUsdc = this.usdcPriceFromOrder(o, 'rwa-trades', resolved);
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;
       if (fill.tokenId !== tid) continue;
@@ -891,13 +921,17 @@ export class CollectionMarketService {
     return { platformUsd, platformTrades };
   }
 
-  async getActiveListingUsdcPrices(collectionKey: string): Promise<number[]> {
+  async getActiveListingUsdcPrices(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
     const key = collectionKey.toLowerCase();
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const asks =
-      await this.collectionService.activeListingsForCollection(key);
+      await this.collectionService.activeListingsForCollection(key, resolved);
     const prices: number[] = [];
     for (const o of asks) {
-      const { usd, skip } = this.classifyUsdcConsideration(o);
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
       if (skip === 'none' && usd != null && usd > 0) prices.push(usd);
     }
     return prices;
@@ -905,18 +939,23 @@ export class CollectionMarketService {
 
   async getCollectionMarketStats(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<CollectionMarketStatsResponse> {
     const key = collectionKey.toLowerCase();
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const col = await this.collectionService.findOne(key);
-    const expectedUsdc = this.usdcContractAddressLower();
+    const expectedUsdc = this.usdcContractAddressLower(resolved);
 
     const prices: number[] = [];
-    const asks = await this.collectionService.activeListingsForCollection(key);
+    const asks = await this.collectionService.activeListingsForCollection(
+      key,
+      resolved,
+    );
     let askNonUsdc = 0;
     let askInvalidAmount = 0;
     let poolFromActiveAsks = 0;
     for (const o of asks) {
-      const { usd, skip } = this.classifyUsdcConsideration(o);
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
       if (skip === 'non_usdc') {
         askNonUsdc++;
         continue;
@@ -930,20 +969,21 @@ export class CollectionMarketService {
     }
 
     let poolFromFulfilledAsks = 0;
-    const fulfilled = await this.orderRepo.find({
-      where: {
-        collectionKey: key,
-        status: OrderStatus.FULFILLED,
-        side: OrderSide.ASK,
-      },
-      order: { updatedAt: 'DESC' },
-      take: this.marketStatsFulfilledScanMax(),
-    });
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const fulfilled = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.marketStatsFulfilledScanMax())
+      .getMany();
     let fulfilledSkippedToken = 0;
     let fulfilledNonUsdc = 0;
     let fulfilledInvalidAmount = 0;
     for (const o of fulfilled) {
-      const { usd, skip } = this.classifyUsdcConsideration(o);
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
       if (skip === 'non_usdc') {
         fulfilledNonUsdc++;
         continue;
@@ -1053,6 +1093,7 @@ export class CollectionMarketService {
   async batchListSnapshots(
     collectionKeys: string[],
     priceHistoryDuration: PriceHistoryDuration = '365d',
+    chainId?: SupportedChainId,
   ): Promise<{ items: CollectionListSnapshot[] }> {
     const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(
       0,
@@ -1070,8 +1111,8 @@ export class CollectionMarketService {
         chunk.map(async (key) => {
           try {
             const [stats, bundle] = await Promise.all([
-              this.getCollectionMarketStats(key).catch(() => null),
-              this.getCollectionMarketBundle(key, window),
+              this.getCollectionMarketStats(key, chainId).catch(() => null),
+              this.getCollectionMarketBundle(key, window, chainId),
             ]);
             return bundleToListSnapshot(bundle, stats);
           } catch (e) {
@@ -1089,6 +1130,7 @@ export class CollectionMarketService {
     collectionKeys: string[],
     opts: {
       priceHistoryDuration?: PriceHistoryDuration;
+      chainId?: SupportedChainId;
     } = {},
   ): Promise<{
     items: Array<{
@@ -1108,6 +1150,7 @@ export class CollectionMarketService {
     ].includes(windowRaw)
       ? windowRaw
       : 'max';
+    const chainId = opts.chainId;
 
     const keys = [
       ...new Set(
@@ -1134,8 +1177,8 @@ export class CollectionMarketService {
         chunk.map(async (key) => {
           try {
             const [stats, series] = await Promise.all([
-              this.getCollectionMarketStats(key).catch(() => null),
-              this.getCollectionMarketBundle(key, d).catch(() => null),
+              this.getCollectionMarketStats(key, chainId).catch(() => null),
+              this.getCollectionMarketBundle(key, d, chainId).catch(() => null),
             ]);
             return { collectionKey: key, stats, series };
           } catch {

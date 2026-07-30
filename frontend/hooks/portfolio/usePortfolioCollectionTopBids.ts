@@ -11,6 +11,7 @@ import {
 } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { activeRqChainId } from "@/lib/chains";
 
 export type PortfolioCollectionBidInfo = {
   highestBidUsd: number | null;
@@ -40,6 +41,7 @@ export function usePortfolioCollectionTopBids(
   collectionKeys: readonly string[],
   enabled: boolean,
 ) {
+  const chainId = activeRqChainId();
   const uniqueKeys = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
@@ -54,7 +56,7 @@ export function usePortfolioCollectionTopBids(
 
   const queries = useQueries({
     queries: uniqueKeys.map((key) => ({
-      queryKey: rq.collectionDetail(key),
+      queryKey: rq.collectionDetail(key, chainId),
       queryFn: () => getMarketplaceCollectionDetail(key),
       enabled: enabled && Boolean(key),
       staleTime: marketplaceRqPolicy.collectionDetailStaleMs,

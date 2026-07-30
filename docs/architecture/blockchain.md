@@ -114,6 +114,10 @@ The single backend service that signs and submits transactions. Uses two keys:
 - Token is owned by the custody wallet
 - Custody signer address matches `RWA_CUSTODY_WALLET_ADDRESS`
 
+### Write serialization (nonce safety)
+
+All transaction-sending methods run through an in-process lock keyed by `(chainId, signer address)` (`withSignerLock`). Concurrent writes from the same EOA race the account nonce ("nonce already used" / "replacement underpriced"); the lock chains them so each tx is submitted and mined before the next one signs. Writes for different chains or different signer keys still run in parallel. A failed write does not block the chain — the next queued write proceeds.
+
 ---
 
 ## Chain Config Service
@@ -237,4 +241,5 @@ Run: `cd contracts && pnpm test`
 | Chain | ID | Usage | USDC |
 |-------|----|-------|------|
 | Ethereum Sepolia | 11155111 | Development / testnet | Circle testnet USDC: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
+| Polygon mainnet | 137 | Internal / QA (multi-chain) | Native USDC: `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
 | Ethereum mainnet | 1 | Production | Circle USDC: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |

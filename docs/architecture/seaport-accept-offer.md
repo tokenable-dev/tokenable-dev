@@ -42,6 +42,7 @@ Sellers keep their ask as-is and **accept a specific incoming token offer**. Set
 
 - Recipients: wallets/users with an **active Seaport ask** on the **same `tokenId`** as the new bid.
 - **Not** every seller in the collection (avoids noise and wrong accept targets).
+- Same recipient when that token bid is **cancelled** (`Offer cancelled` inbox row; no Accept CTA).
 
 ### CTA deep link
 
@@ -85,7 +86,7 @@ Notification CTA label: **Accept offer**. Tapping opens the deep link and auto-o
 | Accept token offer (ask untouched) | `frontend/lib/seaport/fulfillment/acceptTokenOffer.ts` |
 | Buyer USDC preflight | `checkBuyerUsdcReadyForBid` in `runCriteriaMatch.ts` |
 | Dead-bid invalidate API | `PATCH /api/marketplace/orders/:hash/invalidate-dead-bid` |
-| Bid → ask-owner notifications | `marketplace_notifications` + `NotificationsService.notifyAskOwnerOfTokenBid` |
+| Bid → ask-owner notifications | `marketplace_notifications` + `NotificationsService.notifyAskOwnerOfTokenBid` / `notifyAskOwnerOfTokenBidCancelled` |
 | Notifications inbox API | `GET /api/marketplace/notifications` (JWT) |
 | Token offer + listing match | `frontend/lib/seaport/fulfillment/runCriteriaMatch.ts`, `criteriaMatch.ts` |
 | Matched pair API | `POST /api/marketplace/orders/fulfill-matched-pair` |

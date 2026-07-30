@@ -23,10 +23,36 @@ const ADDR = /^0x[a-fA-F0-9]{40}$/;
 export class RwaChainWriterService {
   private readonly logger = new Logger(RwaChainWriterService.name);
 
+  /**
+   * Tail of the pending-write chain per (chainId, signer address).
+   * Concurrent sends from one EOA race the account nonce and fail with
+   * "nonce already used" / "replacement underpriced" — serialize them instead.
+   */
+  private readonly writeLocks = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
   ) {}
+
+  private withSignerLock<T>(
+    chainId: number,
+    privateKey: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const key = `${chainId}:${new Wallet(privateKey).address.toLowerCase()}`;
+    const prev = this.writeLocks.get(key) ?? Promise.resolve();
+    // Run after the previous write settles, whether it succeeded or failed.
+    const run = prev.then(fn, fn);
+    this.writeLocks.set(
+      key,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
 
   // ─── Key resolution ────────────────────────────────────────────────────────
 
@@ -146,32 +172,34 @@ export class RwaChainWriterService {
       throw new BadRequestException('vaultRef is required');
     }
 
-    const contract = this.signedContract(chainId);
-    const tx = await contract.mint(recipient, uri, vaultRef);
-    this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
-    const receipt = await tx.wait();
-    if (!receipt?.hash) {
-      throw new InternalServerErrorException('Mint transaction failed');
-    }
-
-    let tokenId = -1;
-    for (const log of receipt.logs ?? []) {
-      try {
-        const parsed = contract.interface.parseLog(log);
-        if (parsed?.name === 'Minted') {
-          tokenId = Number(parsed.args.tokenId);
-          break;
-        }
-      } catch {
-        /* skip unrelated logs */
+    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
+      const contract = this.signedContract(chainId);
+      const tx = await contract.mint(recipient, uri, vaultRef);
+      this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
+      const receipt = await tx.wait();
+      if (!receipt?.hash) {
+        throw new InternalServerErrorException('Mint transaction failed');
       }
-    }
-    if (!Number.isFinite(tokenId) || tokenId < 0) {
-      const totalMinted = Number(await contract.totalMinted());
-      tokenId = totalMinted; // last minted
-    }
 
-    return { tokenId, txHash: receipt.hash };
+      let tokenId = -1;
+      for (const log of receipt.logs ?? []) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed?.name === 'Minted') {
+            tokenId = Number(parsed.args.tokenId);
+            break;
+          }
+        } catch {
+          /* skip unrelated logs */
+        }
+      }
+      if (!Number.isFinite(tokenId) || tokenId < 0) {
+        const totalMinted = Number(await contract.totalMinted());
+        tokenId = totalMinted; // last minted
+      }
+
+      return { tokenId, txHash: receipt.hash };
+    });
   }
 
   /**
@@ -211,34 +239,36 @@ export class RwaChainWriterService {
       refs.push(it.vaultRef);
     }
 
-    const contract = this.signedContract(chainId);
-    const tx = await contract.mintBatch(tos, uris, refs);
-    this.logger.log(
-      `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
-    );
-    const receipt = await tx.wait();
-    if (!receipt?.hash) {
-      throw new InternalServerErrorException('MintBatch transaction failed');
-    }
-
-    const tokenIds: number[] = [];
-    for (const log of receipt.logs ?? []) {
-      try {
-        const parsed = contract.interface.parseLog(log);
-        if (parsed?.name === 'Minted') {
-          tokenIds.push(Number(parsed.args.tokenId));
-        }
-      } catch {
-        /* skip unrelated logs */
-      }
-    }
-    if (tokenIds.length !== items.length) {
-      throw new InternalServerErrorException(
-        `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
+    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
+      const contract = this.signedContract(chainId);
+      const tx = await contract.mintBatch(tos, uris, refs);
+      this.logger.log(
+        `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
       );
-    }
+      const receipt = await tx.wait();
+      if (!receipt?.hash) {
+        throw new InternalServerErrorException('MintBatch transaction failed');
+      }
 
-    return { tokenIds, txHash: receipt.hash };
+      const tokenIds: number[] = [];
+      for (const log of receipt.logs ?? []) {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          if (parsed?.name === 'Minted') {
+            tokenIds.push(Number(parsed.args.tokenId));
+          }
+        } catch {
+          /* skip unrelated logs */
+        }
+      }
+      if (tokenIds.length !== items.length) {
+        throw new InternalServerErrorException(
+          `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
+        );
+      }
+
+      return { tokenIds, txHash: receipt.hash };
+    });
   }
 
   // ─── Custody delivery ──────────────────────────────────────────────────────
@@ -288,20 +318,23 @@ export class RwaChainWriterService {
       );
     }
 
-    try {
-      const tx = await contract['safeTransferFrom'](custody, recipient, tid);
-      this.logger.log(
-        `custody transfer tx submitted: ${tx.hash} token #${tid} → ${recipient}`,
-      );
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('Transfer transaction failed');
+    return this.withSignerLock(chainId, this.custodyPrivateKey(), async () => {
+      try {
+        const tx = await contract['safeTransferFrom'](custody, recipient, tid);
+        this.logger.log(
+          `custody transfer tx submitted: ${tx.hash} token #${tid} → ${recipient}`,
+        );
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('Transfer transaction failed');
+        }
+        return { txHash: receipt.hash };
+      } catch (e) {
+        if (e instanceof InternalServerErrorException) throw e;
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new InternalServerErrorException(`Transfer transaction reverted: ${msg}`);
       }
-      return { txHash: receipt.hash };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new InternalServerErrorException(`Transfer transaction reverted: ${msg}`);
-    }
+    });
   }
 
   // ─── Admin burn ────────────────────────────────────────────────────────────
@@ -341,28 +374,31 @@ export class RwaChainWriterService {
         ? expectedOwner.trim()
         : '0x0000000000000000000000000000000000000000';
 
-    try {
-      const tx = await contract.adminBurn(tid, ownerArg);
-      this.logger.log(`adminBurn tx submitted: ${tx.hash} token #${tid}`);
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('Burn transaction failed');
+    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
+      try {
+        const tx = await contract.adminBurn(tid, ownerArg);
+        this.logger.log(`adminBurn tx submitted: ${tx.hash} token #${tid}`);
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('Burn transaction failed');
+        }
+        return { txHash: receipt.hash };
+      } catch (e) {
+        if (e instanceof InternalServerErrorException) throw e;
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/OwnerMismatch/i.test(msg)) {
+          throw new BadRequestException(
+            'On-chain owner changed before burn — refresh the page and retry.',
+          );
+        }
+        if (/ERC721: invalid token ID|nonexistent token/i.test(msg)) {
+          throw new BadRequestException(
+            `Token #${tid} is not minted on chain (may already be burned).`,
+          );
+        }
+        throw new InternalServerErrorException(`Burn transaction reverted: ${msg}`);
       }
-      return { txHash: receipt.hash };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/OwnerMismatch/i.test(msg)) {
-        throw new BadRequestException(
-          'On-chain owner changed before burn — refresh the page and retry.',
-        );
-      }
-      if (/ERC721: invalid token ID|nonexistent token/i.test(msg)) {
-        throw new BadRequestException(
-          `Token #${tid} is not minted on chain (may already be burned).`,
-        );
-      }
-      throw new InternalServerErrorException(`Burn transaction reverted: ${msg}`);
-    }
+    });
   }
 
   // ─── AccessControl role management (DEFAULT_ADMIN_ROLE signer) ─────────────
@@ -453,19 +489,21 @@ export class RwaChainWriterService {
       throw new BadRequestException(`Wallet already has role "${role}"`);
     }
 
-    try {
-      const tx = await contract.grantRole(roleHash, wallet);
-      this.logger.log(`grantRole tx submitted: ${tx.hash} role=${role} → ${wallet}`);
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('grantRole transaction failed');
+    return this.withSignerLock(chainId, this.adminPrivateKey(), async () => {
+      try {
+        const tx = await contract.grantRole(roleHash, wallet);
+        this.logger.log(`grantRole tx submitted: ${tx.hash} role=${role} → ${wallet}`);
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('grantRole transaction failed');
+        }
+        return { txHash: receipt.hash, role, walletAddress: wallet };
+      } catch (e) {
+        if (e instanceof BadRequestException || e instanceof InternalServerErrorException) throw e;
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new InternalServerErrorException(`grantRole reverted: ${msg}`);
       }
-      return { txHash: receipt.hash, role, walletAddress: wallet };
-    } catch (e) {
-      if (e instanceof BadRequestException) throw e;
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new InternalServerErrorException(`grantRole reverted: ${msg}`);
-    }
+    });
   }
 
   async revokeAccessRole(
@@ -492,18 +530,20 @@ export class RwaChainWriterService {
       throw new BadRequestException(`Wallet does not have role "${role}"`);
     }
 
-    try {
-      const tx = await contract.revokeRole(roleHash, wallet);
-      this.logger.log(`revokeRole tx submitted: ${tx.hash} role=${role} ← ${wallet}`);
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('revokeRole transaction failed');
+    return this.withSignerLock(chainId, this.adminPrivateKey(), async () => {
+      try {
+        const tx = await contract.revokeRole(roleHash, wallet);
+        this.logger.log(`revokeRole tx submitted: ${tx.hash} role=${role} ← ${wallet}`);
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('revokeRole transaction failed');
+        }
+        return { txHash: receipt.hash, role, walletAddress: wallet };
+      } catch (e) {
+        if (e instanceof BadRequestException || e instanceof InternalServerErrorException) throw e;
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new InternalServerErrorException(`revokeRole reverted: ${msg}`);
       }
-      return { txHash: receipt.hash, role, walletAddress: wallet };
-    } catch (e) {
-      if (e instanceof BadRequestException) throw e;
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new InternalServerErrorException(`revokeRole reverted: ${msg}`);
-    }
+    });
   }
 }

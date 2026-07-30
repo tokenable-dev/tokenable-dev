@@ -9,17 +9,20 @@ export type PrivyFundingEnvironment = "sandbox" | "production";
 
 export const TOKENABLE_FUNDING_ASSET = "usdc" as const;
 
-/** Production launch target (Ethereum mainnet). */
+/** @deprecated Prefer Polygon / active app chain — kept for docs. */
 export const PRODUCTION_FUNDING_CAIP2 = "eip155:1" as const;
 
-/** Sepolia testnet — dev MoonPay sandbox destination. */
+/** Sepolia testnet — MoonPay sandbox destination (UI QA only). */
 export const SEPOLIA_FUNDING_CAIP2 = "eip155:11155111" as const;
 
-/** Ethereum mainnet — common Privy Dashboard default during MoonPay setup. */
+/** Ethereum mainnet. */
 export const ETHEREUM_FUNDING_CAIP2 = "eip155:1" as const;
 
+/** Polygon mainnet — Tokenable production trading / USDC settlement. */
+export const POLYGON_FUNDING_CAIP2 = "eip155:137" as const;
+
 /** @deprecated Use {@link resolveFundingTargetCaip2}. */
-export const TOKENABLE_FUNDING_CAIP2 = PRODUCTION_FUNDING_CAIP2;
+export const TOKENABLE_FUNDING_CAIP2 = POLYGON_FUNDING_CAIP2;
 
 /** EVM chain id → CAIP-2 (Privy fiat on-ramp / funding APIs). */
 export function chainIdToCaip2(chainId: number): `eip155:${number}` {
@@ -42,36 +45,67 @@ export function shouldUseMoonPayOnTestnet(): boolean {
 
 /**
  * Dev-only: attempt MoonPay checkout even when `fundingReadiness.ready` is false.
- * Use when Dashboard is configured but the readiness API lags or MoonPay keys are pending.
- * Only applies with `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox`.
+ * Only applies with sandbox / testnet funding — never for mainnet live purchases.
  */
-export function shouldSkipFundingReadinessCheck(): boolean {
+export function shouldSkipFundingReadinessCheck(
+  fundingChainId?: SupportedChainId,
+): boolean {
   if (process.env.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK !== "true") {
     return false;
   }
-  return resolvePrivyFundingEnvironment() === "sandbox";
+  const chainId = fundingChainId ?? resolveFundingTargetChainId();
+  if (isMainnetChain(chainId)) return false;
+  return resolvePrivyFundingEnvironment(chainId) === "sandbox";
 }
 
-/** Chain id passed to `useFiatOnramp` destination (defaults to Sepolia for dev). */
-export function resolveFundingTargetChainId(): SupportedChainId {
+/**
+ * Chain USDC is delivered to.
+ *
+ * Priority:
+ * 1. Active app chain when it is a mainnet (Polygon / Ethereum) — matches trading network
+ * 2. `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` explicit override
+ * 3. Sepolia (sandbox QA default)
+ */
+export function resolveFundingTargetChainId(
+  preferredChainId?: SupportedChainId,
+): SupportedChainId {
+  if (
+    preferredChainId != null &&
+    isMainnetChain(preferredChainId) &&
+    isPrivyProviderChain(preferredChainId)
+  ) {
+    return preferredChainId;
+  }
+
   const raw = process.env.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID?.trim();
   const n = Number(raw);
   if (SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) {
     return n as SupportedChainId;
   }
+
+  if (preferredChainId != null && isPrivyProviderChain(preferredChainId)) {
+    return preferredChainId;
+  }
+
   return 11155111;
 }
 
-export function resolveFundingTargetCaip2(): `eip155:${number}` {
-  return chainIdToCaip2(resolveFundingTargetChainId());
+export function resolveFundingTargetCaip2(
+  preferredChainId?: SupportedChainId,
+): `eip155:${number}` {
+  return chainIdToCaip2(resolveFundingTargetChainId(preferredChainId));
 }
 
 /**
- * Privy on-ramp environment.
- * - `production` — live card / Apple Pay / Google Pay (Dashboard providers in production mode).
- * - `sandbox` — MoonPay sandbox and provider test flows.
+ * Privy / MoonPay environment for the funding destination.
+ * Mainnet destinations always use live MoonPay — sandbox cannot deliver Polygon/ETH USDC.
  */
-export function resolvePrivyFundingEnvironment(): PrivyFundingEnvironment {
+export function resolvePrivyFundingEnvironment(
+  fundingChainId?: SupportedChainId,
+): PrivyFundingEnvironment {
+  const chainId = fundingChainId ?? resolveFundingTargetChainId();
+  if (isMainnetChain(chainId)) return "production";
+
   const raw = process.env.NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT?.trim().toLowerCase();
   if (raw === "sandbox" || raw === "production") return raw;
   return process.env.NODE_ENV === "production" ? "production" : "sandbox";
@@ -97,12 +131,22 @@ export function usesMoonPayFunding(chainId: SupportedChainId): boolean {
   return isMainnetChain(chainId) || shouldUseMoonPayOnTestnet();
 }
 
+/**
+ * Destination asset for `useFiatOnramp`.
+ * Always the symbol `"usdc"` — a contract address routes Privy through Stripe
+ * Embedded onramp, which does not support Polygon native USDC and surfaces
+ * "Unsupported asset for Stripe onramp".
+ */
+export function resolveFundingDestinationAsset(
+  _chainId?: SupportedChainId,
+): string {
+  return TOKENABLE_FUNDING_ASSET;
+}
+
 export function assertFundingChainSupported(chainId: SupportedChainId): void {
-  const target = resolveFundingTargetChainId();
-  if (chainId !== target) {
-    const label = getChainDefinition(target).shortLabel;
+  if (!usesMoonPayFunding(chainId)) {
     throw new Error(
-      `Switch the header network to ${label} before testing MoonPay (funding target chain ${target}).`,
+      "MoonPay is not available on this testnet. Switch to Polygon (or enable NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET).",
     );
   }
   if (!isPrivyProviderChain(chainId)) {
@@ -125,11 +169,22 @@ export function formatPrivyFundingError(err: unknown): string {
       "Complete Account Funding setup in the Privy Dashboard.",
     ].join(" ");
   }
+  if (msg.includes("Stripe") || msg.includes("FiatOnramp:Stripe")) {
+    return [
+      "Stripe on-ramp is not supported for Polygon USDC.",
+      "Add funds uses MoonPay only — refresh and try again.",
+    ].join(" ");
+  }
+  if (msg.includes("Unable to initialize flow")) {
+    return [
+      "MoonPay checkout popup could not open (often blocked by the browser).",
+      "Allow popups for this site, then Add funds again and select MoonPay / card when prompted.",
+    ].join(" ");
+  }
   if (msg.includes("Funding chain") && msg.includes("not in PrivyProvider")) {
     return [
       "Privy Dashboard default funding network does not match this app.",
-      `Set Account Funding → Funding token to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
-      "Keep the header network on Sepolia while testing.",
+      `Set Account Funding → Funding token to Polygon + USDC (${POLYGON_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
     ].join(" ");
   }
   return msg || "Funding flow failed. Please try again.";

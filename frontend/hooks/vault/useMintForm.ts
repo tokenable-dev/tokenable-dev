@@ -22,6 +22,7 @@ import {
 import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
 import { validateMintForm } from "@/lib/vault/validateMintForm";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore, selectRefresh } from "@/store";
 import type { GradedCardFormState } from "@/types/gradedCard";
 import { useMintFormPsaState } from "./mintFormPsaState";
@@ -30,6 +31,7 @@ export function useMintForm() {
   const { primaryAddress, isWalletReady, isWalletActivating, hasAccountWallet, isWalletAwaitingPrivy } =
     useAccountWalletSession();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
+  const { chainId } = useAppChain();
   const { runAccessGate } = useAccessGate(2, "/vault/submit/mint");
   const refresh = useAppStore(selectRefresh);
   const queryClient = useQueryClient();
@@ -191,7 +193,7 @@ export function useMintForm() {
           }),
         );
 
-        const uploadResult = await uploadRwaMetadata(data);
+        const uploadResult = await uploadRwaMetadata(data, chainId);
         setStep("minting");
 
         // Permanent physical-asset identity — must match what buildGradedCardMetadata()
@@ -204,6 +206,7 @@ export function useMintForm() {
           recipientAddress: primaryAddress,
           tokenURI: uploadResult.tokenURI,
           certNumber,
+          chainId,
         });
 
         setResult({

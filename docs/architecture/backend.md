@@ -215,6 +215,8 @@ All writes use `SELECT … FOR UPDATE` on the collection row — multi-pod safe.
 | CORS | `CORS_ORIGIN` (comma-separated); `credentials: true` |
 | Default port | `4000` (`PORT` env; local dev defaults to `4100`) |
 | Perf logger | HTTP request duration logged when `PERF_LOG=true` |
+| Trust proxy | `app.set('trust proxy', 1)` — nginx hop; `req.ip` = real client for throttling |
+| Rate limiting | Global `@nestjs/throttler` guard, 300 req/min per IP (see `docs/security.md`) |
 
 ## Multi-chain support
 
@@ -234,6 +236,8 @@ synchronize: NODE_ENV !== 'production'
 ```
 
 Use bootstrap SQL for prod; do not rely on `synchronize` in production.
+
+Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`. A traffic spike queues checkouts inside the app instead of exhausting Postgres `max_connections`.
 
 ## Module dependencies (key relationships)
 

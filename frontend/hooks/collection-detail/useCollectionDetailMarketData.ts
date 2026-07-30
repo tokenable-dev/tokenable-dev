@@ -28,6 +28,7 @@ import { parsePsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
@@ -55,13 +56,11 @@ export function useCollectionDetailMarketData(params: {
   );
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
-  // Fire market series in parallel with collection detail — both only need the
-  // collection key, not the detail response. Guard only on confirmed errors so we
-  // don't fetch data for a key that 404s.
+  const chainId = activeRqChainId();
   const marketSeriesEnabled = key.length > 0 && !detailError;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
-    queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
+    queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION, chainId),
     queryFn: () => getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
     enabled: marketSeriesEnabled,
     staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
@@ -80,7 +79,7 @@ export function useCollectionDetailMarketData(params: {
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
   const { data: platformTradesData, isPending: platformTradesPending, isFetching: platformTradesFetching, isError: platformTradesError, error: platformTradesErrorDetail } = useQuery({
-    queryKey: rq.collectionPlatformTrades(key, undefined, activeGradeForTrades),
+    queryKey: rq.collectionPlatformTrades(key, chainId, undefined, activeGradeForTrades),
     queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
     enabled: key.length > 0,
     refetchInterval: 20_000,

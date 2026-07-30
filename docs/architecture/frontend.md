@@ -111,6 +111,7 @@ RootLayout
                 ├── PrivySignInLauncher  (global openSignIn() trigger)
                 ├── PrivyWalletLauncher (global openConnectWallet() trigger)
                 ├── PrivySessionBridge  (syncs Privy token → Tokenable cookie on auth change)
+                ├── AccountWalletAligner (activates the account wallet in wagmi — embedded unless the backend primary is external)
                 └── AuthProvider
                     └── AppChainProvider  (active chain context from x-tokenable-chain-id)
                         └── WalletDataProvider

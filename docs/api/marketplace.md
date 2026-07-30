@@ -155,10 +155,10 @@ See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
 
 JWT required. Lists inbox items for **all wallets linked to the user**.
 
-Today’s event: **token bid on a token with an active ask** → notify that ask’s offerer only (not all collection sellers). Each item includes:
+Today’s events (ask offerer on the same `tokenId` only):
 
-- `href` → Portfolio accept-offer deep link (`/portfolio?acceptBid=&tokenId=&askHash=`)
-- `ctaLabel` → `Accept offer`
+- **Token bid placed** → `New offer on your listing` with `href` → Portfolio accept-offer deep link (`/portfolio?acceptBid=&tokenId=&askHash=`) and `ctaLabel` → `Accept offer`
+- **Token bid cancelled** → `Offer cancelled` (no accept CTA)
 
 **Response:** `{ items: NotificationListItem[] }`
 
@@ -378,15 +378,17 @@ Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** —
 
 ### `GET /api/marketplace/portfolio/daily/:wallet`
 
-Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`). Read path backfills **only** if today's slot row is missing (does not overwrite existing cron rows).
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing cron rows).
+
+Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 
 | Query | Description |
 |-------|-------------|
 | `limit` | Max rows (default 32, min 2, max 120) |
 
-**Response:** `{ items: [{ walletAddress, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
+**Response:** `{ chainId, items: [{ walletAddress, chainId, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
 
-Cron captures **all on-chain RWA holders** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
+Cron captures **all on-chain RWA holders on each configured chain** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
 
 ---
 

@@ -21,7 +21,8 @@ Admin credentials are stored in `marketplace_admins` table. Set via `MARKETPLACE
 ## RWA Tokens
 
 **Controller:** `rwa-token-admin.controller.ts`  
-**Base:** `/api/marketplace/admin/rwa-tokens`
+**Base:** `/api/marketplace/admin/rwa-tokens`  
+**Chain:** all list/write routes honor `x-tokenable-chain-id` (admin console network switcher). Missing header falls back to `DEFAULT_CHAIN_ID`.
 
 ### GET /cards
 
@@ -289,7 +290,7 @@ User-facing JWT API: [vault-submissions.md](./vault-submissions.md).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries |
+| GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries (mints/orders/GMV/holdings scoped by `x-tokenable-chain-id`) |
 | GET | `/analytics/ga4` | GA4 traffic (when configured) |
 | GET | `/data-inventory` | Accumulated PostgreSQL stores — row counts, date ranges, per-table metadata |
 

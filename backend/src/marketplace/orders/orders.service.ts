@@ -129,6 +129,7 @@ export class OrdersService {
         await this.assertActiveTokenBidLimit(
           dto.parameters.offerer,
           dto.tokenId,
+          chainId,
         );
       } else if (itemType === 4) {
         throw new BadRequestException(
@@ -220,10 +221,14 @@ export class OrdersService {
    */
   private async resolveAskCollectionKey(
     dto: CreateOrderDto,
+    chainId: SupportedChainId,
   ): Promise<string | null> {
     const tidRaw = String(dto.tokenId);
     try {
-      const key = await this.collectionService.ensureCollectionForListing(tidRaw);
+      const key = await this.collectionService.ensureCollectionForListing(
+        tidRaw,
+        chainId,
+      );
       if (key?.trim()) return key.trim().toLowerCase();
     } catch (e) {
       this.logger.warn(
@@ -428,6 +433,9 @@ export class OrdersService {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
     const params = parameters as unknown as Record<string, unknown>;
+    const chainId =
+      this.chainConfig.resolveChainIdFromRwaAddress(dto.tokenContract) ??
+      this.chainConfig.getDefaultChainId();
 
     let collectionKey: string | null = null;
     if (side === OrderSide.BID) {
@@ -441,7 +449,7 @@ export class OrdersService {
       }
       collectionKey = col.collectionKey;
     } else {
-      collectionKey = await this.resolveAskCollectionKey(dto);
+      collectionKey = await this.resolveAskCollectionKey(dto, chainId);
       const tid = String(dto.tokenId);
       const diagOn =
         this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
@@ -531,20 +539,23 @@ export class OrdersService {
     );
   }
 
-  /** Per-wallet cap on simultaneous active offers for one card (tokenId). */
+  /** Per-wallet cap on simultaneous active offers for one card (tokenId + chain RWA). */
   private async assertActiveTokenBidLimit(
     offererAddress: string,
     tokenId: string,
+    chainId: SupportedChainId,
   ): Promise<void> {
     const max = this.maxActiveCollectionBidsPerOfferer();
     const addr = String(offererAddress ?? '').trim().toLowerCase();
     const tid = normalizeDecimalTokenId(String(tokenId ?? ''));
     if (!addr || !isValidDecimalTokenId(tid)) return;
 
+    const rwa = this.chainConfig.getRwaAddress(chainId).toLowerCase();
     const activeCount = await this.orderRepo
       .createQueryBuilder('o')
       .where('LOWER(o.offerer) = :addr', { addr })
       .andWhere('o.token_id = :tid', { tid })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
       .andWhere('o.side = :side', { side: OrderSide.BID })
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
       .getCount();
@@ -577,7 +588,7 @@ export class OrdersService {
     const usdc = this.chainConfig.getUsdcAddress(chainId);
     if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
       throw new BadRequestException(
-        'Bid offer token must match USDC_CONTRACT_ADDRESS',
+        `Bid offer token must match USDC for chain ${chainId}`,
       );
     }
     if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
@@ -628,7 +639,7 @@ export class OrdersService {
       }
       if (usdc && c.token.toLowerCase() !== usdc.toLowerCase()) {
         throw new BadRequestException(
-          `Ask consideration[${i}] token must match USDC_CONTRACT_ADDRESS`,
+          `Ask consideration[${i}] token must match USDC for chain ${chainId} (${usdc})`,
         );
       }
       sum += BigInt(c.startAmount);
@@ -842,7 +853,17 @@ export class OrdersService {
     }
 
     order.status = OrderStatus.CANCELLED;
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+    if (isTokenBidOrder(saved)) {
+      void this.notifications
+        .notifyAskOwnerOfTokenBidCancelled(saved)
+        .catch((e) => {
+          this.logger.warn(
+            `notifyAskOwnerOfTokenBidCancelled failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
+    return saved;
   }
 
   /**

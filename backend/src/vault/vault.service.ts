@@ -17,6 +17,7 @@ import { VaultRedemption } from './entities/vault-redemption.entity';
 export type VaultAssetHistoryEntry = {
   cycleId: string;
   cycleNumber: number;
+  chainId: number;
   status: VaultCycle['status'];
   depositedAt: Date | null;
   redeemedAt: Date | null;
@@ -71,10 +72,14 @@ export class VaultService {
 
   /**
    * Pre-flight check usable before doing expensive work (e.g. IPFS upload):
-   * throws if this physical asset already has an open (non-terminal) cycle.
+   * throws if this physical asset already has an open (non-terminal) cycle
+   * on the given chain. Cycles are chain-scoped — the on-chain
+   * `activeTokenIdByVaultRef` invariant is per contract, so a live Sepolia
+   * NFT must not block a Polygon mint.
    */
   async assertAvailableForNewCycle(
     certNumber: string,
+    chainId: number,
     assetType: VaultAssetType = 'psa_graded',
   ): Promise<void> {
     const normalized = VaultService.normalizeCert(certNumber);
@@ -86,12 +91,13 @@ export class VaultService {
     const openCycle = await this.cycles
       .createQueryBuilder('c')
       .where('c.vault_asset_id = :assetId', { assetId: asset.id })
+      .andWhere('c.chain_id = :chainId', { chainId })
       .andWhere("c.status NOT IN ('redeemed', 'cancelled')")
       .getOne();
 
     if (openCycle) {
       throw new ConflictException(
-        `PSA cert #${normalized} already has an active vault cycle (#${openCycle.cycleNumber}, status=${openCycle.status}). Redeem it before re-vaulting.`,
+        `PSA cert #${normalized} already has an active vault cycle on chain ${chainId} (#${openCycle.cycleNumber}, status=${openCycle.status}). Redeem it before re-vaulting.`,
       );
     }
   }
@@ -109,6 +115,7 @@ export class VaultService {
    */
   async reserveCycleForDeposit(params: {
     certNumber: string;
+    chainId: number;
     assetType?: VaultAssetType;
     displayName?: string | null;
     depositedByUserId?: string | null;
@@ -141,18 +148,22 @@ export class VaultService {
       const openCycle = await em
         .createQueryBuilder(VaultCycle, 'c')
         .where('c.vault_asset_id = :assetId', { assetId: asset.id })
+        .andWhere('c.chain_id = :chainId', { chainId: params.chainId })
         .andWhere("c.status NOT IN ('redeemed', 'cancelled')")
         .getOne();
       if (openCycle) {
         throw new ConflictException(
-          `PSA cert #${normalized} already has an active vault cycle (#${openCycle.cycleNumber}, status=${openCycle.status}).`,
+          `PSA cert #${normalized} already has an active vault cycle on chain ${params.chainId} (#${openCycle.cycleNumber}, status=${openCycle.status}).`,
         );
       }
 
+      // cycle_number stays globally sequential per asset (across chains) —
+      // unique (vault_asset_id, cycle_number) is unchanged.
       const priorCount = await em.count(VaultCycle, { where: { vaultAssetId: asset.id } });
 
       let cycle = em.create(VaultCycle, {
         vaultAssetId: asset.id,
+        chainId: params.chainId,
         cycleNumber: priorCount + 1,
         status: 'deposit_verified',
         depositedAt: new Date(),
@@ -379,6 +390,7 @@ export class VaultService {
       return {
         cycleId: c.id,
         cycleNumber: c.cycleNumber,
+        chainId: c.chainId,
         status: c.status,
         depositedAt: c.depositedAt,
         redeemedAt: c.redeemedAt,

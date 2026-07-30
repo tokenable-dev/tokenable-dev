@@ -8,6 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
 import { SWAGGER_FIXTURES } from '../swagger/fixtures';
@@ -63,6 +64,9 @@ export class BlockchainController {
   @ApiOperation({ summary: '지갑별 보유 RWA tokenId 목록' })
   @ApiChainIdHeader()
   @ApiParam({ name: 'address', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
+  // Full-supply ownerOf scan behind this route — cached 30s in the service,
+  // and per-IP capped so it can't be used to drain the RPC quota.
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Get('rwa/tokens/:address')
   getRwaTokensByOwner(
     @Param('address') address: string,

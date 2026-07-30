@@ -69,7 +69,11 @@ export function useRwaDetailBuyFlow(input: {
       });
       onPurchaseSuccess();
     } catch (e: unknown) {
-      setBuyErr(mapWalletError(e).message);
+      try {
+        setBuyErr(mapWalletError(e).message);
+      } catch {
+        setBuyErr("Purchase failed. Please try again.");
+      }
     } finally {
       setBuyBusy(false);
     }

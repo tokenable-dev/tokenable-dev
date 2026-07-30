@@ -52,6 +52,7 @@ tokenable-dev/
 | Marketplace admin API | [api/marketplace-admin.md](api/marketplace-admin.md) |
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
 | Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |
+| Deploy env (Sepolia-first) | [guides/deploy-env-sepolia-first.md](guides/deploy-env-sepolia-first.md) |
 | Security model | [security.md](security.md) |
 | Testing strategy | [testing.md](testing.md) |
 | Error handling | [error-handling.md](error-handling.md) |

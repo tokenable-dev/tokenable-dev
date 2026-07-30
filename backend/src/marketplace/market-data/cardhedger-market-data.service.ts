@@ -78,8 +78,9 @@ export class CardhedgerMarketDataService {
   /** Facade: delegates to CardhedgerMintService (all callers continue using this unchanged). */
   async getBatchMintPreviewsFromTokenIds(
     tokenIds: number[],
+    chainId?: import('../../blockchain/chain-config.service').SupportedChainId,
   ): Promise<Record<number, MarketCollectionPreview>> {
-    return this.mint.getBatchMintPreviewsFromTokenIds(tokenIds);
+    return this.mint.getBatchMintPreviewsFromTokenIds(tokenIds, chainId);
   }
 
   /**
@@ -640,7 +641,12 @@ export class CardhedgerMarketDataService {
   /** Comps from mint metadata when collection row is missing or not yet enriched. */
   getCompsSnapshotForTokenId(
     tokenId: number,
-    options?: { tier?: string; gradeLabel?: string; rawCount?: number },
+    options?: {
+      tier?: string;
+      gradeLabel?: string;
+      rawCount?: number;
+      chainId?: import('../../blockchain/chain-config.service').SupportedChainId;
+    },
   ): Promise<MarketCompsSnapshot> {
     return this.mint.getCompsSnapshotForTokenId(tokenId, options);
   }

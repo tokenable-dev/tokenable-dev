@@ -145,6 +145,15 @@ CREATE INDEX IF NOT EXISTS idx_orders_token_active_ask
   ON orders (token_contract, token_id)
   WHERE status = 'active' AND side = 'ask';
 
+-- Multi-chain reads filter collection_key + RWA token_contract together.
+CREATE INDEX IF NOT EXISTS idx_orders_collection_contract_active_ask
+  ON orders (collection_key, token_contract)
+  WHERE status = 'active' AND side = 'ask' AND collection_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_orders_collection_contract_fulfilled_ask
+  ON orders (collection_key, token_contract, updated_at)
+  WHERE status = 'fulfilled' AND side = 'ask' AND collection_key IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_orders_offerer_collection_active_bid
   ON orders (LOWER(offerer), LOWER(collection_key))
   WHERE status = 'active' AND side = 'bid' AND collection_key IS NOT NULL;

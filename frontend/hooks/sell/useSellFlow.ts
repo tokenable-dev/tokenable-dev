@@ -19,6 +19,7 @@ import {
   readSellFlowDraftCards,
   readSellFlowProgress,
   readSellSubmissionPublicId,
+  clearSellSubmissionPublicId,
   writeSellFlowDraftCards,
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
@@ -206,7 +207,10 @@ export function useSellFlow() {
         const open = rows.find(
           (s) => s.status === "draft" || s.status === "awaiting_shipment",
         );
-        if (!open) return;
+        if (!open) {
+          clearSellSubmissionPublicId();
+          return;
+        }
 
         writeSellSubmissionPublicId(open.publicId);
         const serverCards = draftCardsFromSubmissionItems(open.items);

@@ -12,11 +12,12 @@ import {
 import { PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
 import { TkButton } from "@/components/ds";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export default function P2pOrderPage() {
   const { id } = useParams<{ id: string }>();
   const user = useAuthStore((s) => s.user);
-  const publicClient = usePublicClient();
+  const { chainId: appChainId } = useAppChain();
   const { writeContractAsync } = useWriteContract();
   const qc = useQueryClient();
 
@@ -25,6 +26,8 @@ export default function P2pOrderPage() {
     queryFn: () => getP2pOrder(id),
     enabled: Boolean(id),
   });
+  const orderChainId = orderQ.data?.chainId ?? appChainId;
+  const publicClient = usePublicClient({ chainId: orderChainId });
 
   const [carrier, setCarrier] = useState<"FedEx" | "DHL" | "UPS">("FedEx");
   const [tracking, setTracking] = useState("");
@@ -46,6 +49,7 @@ export default function P2pOrderPage() {
     setError(null);
     try {
       const hash = await writeContractAsync({
+        chainId: orderChainId,
         address: escrowAddress as `0x${string}`,
         abi: PAYMENT_ESCROW_ABI,
         functionName: "confirmReceipt",

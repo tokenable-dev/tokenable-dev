@@ -29,6 +29,7 @@ export {
   formatPrivyFundingError,
   isMainnetChain,
   resolveDefaultFundingAmount,
+  resolveFundingDestinationAsset,
   resolveFundingTargetChainId,
   resolvePrivyFundingEnvironment,
   shouldUseMoonPayOnTestnet,
@@ -93,31 +94,42 @@ const wagmiChains: [typeof defaultChain, ...typeof supportedChains] =
 /** @deprecated Use getChainDefinition from `@/lib/chains`. */
 export const privyDefaultChain = defaultChain;
 
-/** Passed to `<PrivyProvider config={privyClientConfig} />`. */
-export const privyClientConfig: PrivyClientConfig = {
-  // Privy accepts loginMethods OR loginMethodsAndOrder — not both.
-  loginMethodsAndOrder: resolvePrivyLoginMethodsOrder(),
-  appearance: {
-    theme: "dark",
-    accentColor: "#6366F1",
-    // Link/connect modals (linkWallet, UserPill) — separate from loginMethods.
-    walletList: isPrivyEnabled() ? [...PRIVY_EXTERNAL_WALLET_LIST] : [],
-    showWalletLoginFirst: false,
-  },
-  embeddedWallets: {
-    ethereum: {
-      createOnLogin: "users-without-wallets",
+/** Passed to `<PrivyProvider config={…} />`. Rebuild when MoonPay sandbox mode changes. */
+export function buildPrivyClientConfig(options?: {
+  useSandbox?: boolean;
+}): PrivyClientConfig {
+  const useSandbox =
+    options?.useSandbox ?? resolvePrivyFundingEnvironment() === "sandbox";
+  return {
+    // Privy accepts loginMethods OR loginMethodsAndOrder — not both.
+    loginMethodsAndOrder: resolvePrivyLoginMethodsOrder(),
+    appearance: {
+      theme: "dark",
+      accentColor: "#6366F1",
+      // Link/connect modals (linkWallet, UserPill) — separate from loginMethods.
+      walletList: isPrivyEnabled() ? [...PRIVY_EXTERNAL_WALLET_LIST] : [],
+      showWalletLoginFirst: false,
     },
-    showWalletUIs: true,
-  },
-  fundingMethodConfig: {
-    moonpay: {
-      useSandbox: resolvePrivyFundingEnvironment() === "sandbox",
+    embeddedWallets: {
+      ethereum: {
+        createOnLogin: "users-without-wallets",
+      },
+      showWalletUIs: true,
     },
-  },
-  supportedChains: [...wagmiChains],
-  defaultChain,
-};
+    fundingMethodConfig: {
+      moonpay: {
+        // Mainnet (Polygon/ETH) must be false — sandbox cannot deliver mainnet USDC.
+        // Sepolia QA uses true. Toggle via active app chain (see PrivyAppProviders).
+        useSandbox,
+      },
+    },
+    supportedChains: [...wagmiChains],
+    defaultChain,
+  };
+}
+
+/** @deprecated Prefer {@link buildPrivyClientConfig} — static default (Sepolia sandbox). */
+export const privyClientConfig: PrivyClientConfig = buildPrivyClientConfig();
 
 const transports = Object.fromEntries(
   wagmiChains.map((chain) => {

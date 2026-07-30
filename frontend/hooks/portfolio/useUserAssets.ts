@@ -104,7 +104,7 @@ export function useUserAssets(
   });
 
   const marketPreviewQuery = useQuery({
-    queryKey: rq.marketMintPreviews(address, tokenIds),
+    queryKey: rq.marketMintPreviews(address, tokenIds, chainId),
     queryFn: () => postBatchMintMarketPreviews(tokenIds),
     enabled: enabled && includeMarketPreview && tokenIds.length > 0,
     placeholderData: previousOwnerPlaceholder,

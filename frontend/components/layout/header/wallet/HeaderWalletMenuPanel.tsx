@@ -10,6 +10,8 @@ import {
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
+import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import {
   WalletAddFundsIcon,
   WalletBidsIcon,
@@ -45,6 +47,7 @@ export function HeaderWalletMenuPanel({
   const logout = useAuthStore((s) => s.logout);
   const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance, user } =
     useHeaderWalletMenuData();
+  const { unreadCount } = useMarketplaceNotifications();
   const {
     startFunding,
     inFlight: fundingInFlight,
@@ -164,7 +167,8 @@ export function HeaderWalletMenuPanel({
         }}
       >
         <WalletNotificationsIcon />
-        Notifications
+        <span className="tk-notif-menu-label">Notifications</span>
+        <NotificationUnreadBadge count={unreadCount} />
       </button>
       <button type="button" className={itemClass(variant)} onClick={() => go("/profile")}>
         <WalletSettingsIcon />

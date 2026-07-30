@@ -65,9 +65,12 @@ export class P2pService {
     return Number.isFinite(n) && n > 60 ? n : AUTO_RELEASE_SECS_DEFAULT;
   }
 
-  async listActiveListings(): Promise<P2pListing[]> {
+  async listActiveListings(
+    chainId?: SupportedChainId,
+  ): Promise<P2pListing[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     return this.listings.find({
-      where: { status: 'P2P_LISTED' },
+      where: { status: 'P2P_LISTED', chainId: resolved },
       order: { createdAt: 'DESC' },
       take: 200,
     });
@@ -151,6 +154,7 @@ export class P2pService {
   async createListing(
     user: User,
     dto: CreateP2pListingDto,
+    chainId?: SupportedChainId,
   ): Promise<{
     listing: P2pListing;
     escrowAddress: string;
@@ -183,13 +187,13 @@ export class P2pService {
     }
 
     const vaultRef = VaultService.computeVaultRef(certNumber);
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const { cycle } = await this.vault.reserveCycleForDeposit({
       certNumber,
+      chainId: resolved,
       depositedByUserId: user.id,
     });
-
-    const chainId = this.chainConfig.getDefaultChainId();
-    const custody = await this.chainWriter.getCustodyWalletAddress(chainId);
+    const custody = await this.chainWriter.getCustodyWalletAddress(resolved);
     let tokenId: number;
     let txHash: string;
     try {
@@ -197,7 +201,7 @@ export class P2pService {
         custody,
         dto.tokenURI.trim(),
         vaultRef,
-        chainId,
+        resolved,
       ));
     } catch (err) {
       await this.vault.cancelCycle(
@@ -207,7 +211,7 @@ export class P2pService {
       throw err;
     }
 
-    const tokenContract = this.chainConfig.getRwaAddress(chainId);
+    const tokenContract = this.chainConfig.getRwaAddress(resolved);
     await this.vault.recordMintResult({
       cycleId: cycle.id,
       tokenContract,
@@ -227,7 +231,7 @@ export class P2pService {
         tokenId: String(tokenId),
         tokenUri: dto.tokenURI.trim(),
         mintTxHash: txHash,
-        chainId,
+        chainId: resolved,
         priceUsdc: dto.priceUsdc,
         sellerWallet,
         authenticityAcceptedAt: new Date(),
@@ -237,8 +241,8 @@ export class P2pService {
       }),
     );
 
-    const escrowAddress = await this.escrowWriter.getEscrowAddress(chainId);
-    return { listing, escrowAddress, chainId };
+    const escrowAddress = await this.escrowWriter.getEscrowAddress(resolved);
+    return { listing, escrowAddress, chainId: resolved };
   }
 
   async cancelListing(user: User, listingId: string): Promise<P2pListing> {

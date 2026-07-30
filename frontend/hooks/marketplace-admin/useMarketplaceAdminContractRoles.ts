@@ -10,32 +10,36 @@ import {
   rq,
   type AdminRwaRoleKey,
 } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { isAddress } from "viem";
 
 export function useMarketplaceAdminContractRoles() {
   const queryClient = useQueryClient();
+  const { chainId } = useAppChain();
   const [walletInput, setWalletInput] = useState("");
   const [lookupWallet, setLookupWallet] = useState<string | undefined>();
 
   const overviewQuery = useQuery({
-    queryKey: rq.adminRwaRolesOverview(),
+    queryKey: rq.adminRwaRolesOverview(chainId),
     queryFn: getAdminRwaRolesOverview,
   });
 
   const statusQuery = useQuery({
-    queryKey: rq.adminRwaRolesStatus(lookupWallet ?? ""),
+    queryKey: rq.adminRwaRolesStatus(lookupWallet ?? "", chainId),
     queryFn: () => getAdminRwaWalletRoleStatus(lookupWallet!),
     enabled: Boolean(lookupWallet),
   });
 
   const invalidateRoleQueries = useCallback(
     async (wallet: string) => {
-      await queryClient.invalidateQueries({ queryKey: rq.adminRwaRolesOverview() });
       await queryClient.invalidateQueries({
-        queryKey: rq.adminRwaRolesStatus(wallet),
+        queryKey: rq.adminRwaRolesOverview(chainId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: rq.adminRwaRolesStatus(wallet, chainId),
       });
     },
-    [queryClient],
+    [queryClient, chainId],
   );
 
   const grantMutation = useMutation({

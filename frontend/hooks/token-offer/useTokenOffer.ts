@@ -25,6 +25,7 @@ import {
 } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export const MAX_ACTIVE_BIDS_PER_CARD = 3;
 const MARKET_FLOOR_RATIO = 0.9;
@@ -78,6 +79,7 @@ export function useTokenOffer(input: {
   const { usdcAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
   const { signSeaportOrder } = useSeaportOrderSigner();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const { writeContractAsync } = useWriteContract();
   const queryClient = useQueryClient();
   const fiatOnramp = usePrivyFiatOnramp();
@@ -97,7 +99,7 @@ export function useTokenOffer(input: {
   const [hintError, setHintError] = useState<string | null>(null);
 
   const myBidsQuery = useQuery({
-    queryKey: rq.portfolioBids(address ?? ""),
+    queryKey: rq.portfolioBids(address ?? "", chainId),
     queryFn: () => getCollectionBidsByOfferer(address!),
     enabled: Boolean(address?.trim()) && !isReplaceBid,
     staleTime: 15_000,
@@ -326,6 +328,7 @@ export function useTokenOffer(input: {
     if (crossesAsk) {
       setStep("buying");
       try {
+        await ensureAccountWalletReady();
         const paid = await runCollectionInstantAskPurchase({
           ask: listing,
           address,
@@ -368,6 +371,7 @@ export function useTokenOffer(input: {
     }
 
     try {
+      await ensureAccountWalletReady();
       setStep(isReplaceBid ? "submitting" : "signing");
       const result = await submitTokenBid({
         collectionKey,

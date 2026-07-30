@@ -94,7 +94,14 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
                     type="button"
                     role="option"
                     aria-selected={active}
+                    disabled={!configured}
+                    title={
+                      configured
+                        ? undefined
+                        : `Not configured — set NEXT_PUBLIC_CHAIN_${c.id}_RPC_URL / _RWA / _USDC (and matching backend CHAIN_${c.id}_*)`
+                    }
                     onClick={() => {
+                      if (!configured) return;
                       setChainId(c.id);
                       setOpen(false);
                     }}
@@ -103,14 +110,16 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
                         ? "bg-[rgba(0, 51, 255,0.12)] text-white"
                         : configured
                           ? "text-[var(--t2)] hover:bg-white/[0.04]"
-                          : "text-[var(--t3)] hover:bg-white/[0.04]"
+                          : "cursor-not-allowed text-[var(--t3)] opacity-50"
                     }`}
                   >
                     <ChainDot chainId={c.id} />
                     <span className="flex-1">
                       <span className="block font-medium">{c.label}</span>
                       <span className="text-[11px] text-[var(--t3)]">
-                        {c.nativeSymbol} · chain {c.id}
+                        {configured
+                          ? `${c.nativeSymbol} · chain ${c.id}`
+                          : `Not configured · chain ${c.id}`}
                       </span>
                     </span>
                   </button>

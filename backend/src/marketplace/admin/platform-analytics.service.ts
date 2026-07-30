@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -117,6 +121,8 @@ export type PlatformAnalyticsOverview = {
 export type PlatformAnalyticsDashboard = {
   generatedAt: string;
   periodDays: number;
+  /** Inventory / order metrics are scoped to this chain’s RWA contract. */
+  chainId: SupportedChainId;
   overview: PlatformAnalyticsOverview;
   timeseries: {
     signups: DailyCount[];
@@ -159,11 +165,15 @@ export class PlatformAnalyticsService {
     @InjectRepository(PortfolioHolding)
     private readonly portfolioHoldingsRepo: Repository<PortfolioHolding>,
     private readonly userAdmin: UserAdminService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
-  async getDashboard(days = 30): Promise<PlatformAnalyticsDashboard> {
+  async getDashboard(
+    days = 30,
+    chainId?: SupportedChainId,
+  ): Promise<PlatformAnalyticsDashboard> {
     try {
-      return await this.buildDashboard(days);
+      return await this.buildDashboard(days, chainId);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Platform analytics failed: ${message}`, err instanceof Error ? err.stack : undefined);
@@ -171,8 +181,13 @@ export class PlatformAnalyticsService {
     }
   }
 
-  private async buildDashboard(days = 30): Promise<PlatformAnalyticsDashboard> {
+  private async buildDashboard(
+    days = 30,
+    chainId?: SupportedChainId,
+  ): Promise<PlatformAnalyticsDashboard> {
     const periodDays = days;
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
     const since = new Date();
     since.setUTCDate(since.getUTCDate() - periodDays);
     since.setUTCHours(0, 0, 0, 0);
@@ -186,11 +201,11 @@ export class PlatformAnalyticsService {
       ordersBreakdown,
     ] = await Promise.all([
       this.userAdmin.getStats(),
-      this.loadOverviewCounts(since),
-      this.loadTimeseries(periodDays, since),
-      this.loadTopCollections(),
-      this.loadRecentTrades(),
-      this.loadOrdersBreakdown(),
+      this.loadOverviewCounts(since, resolved, rwa),
+      this.loadTimeseries(periodDays, since, rwa),
+      this.loadTopCollections(rwa),
+      this.loadRecentTrades(rwa),
+      this.loadOrdersBreakdown(rwa),
     ]);
 
     const overview: PlatformAnalyticsOverview = {
@@ -265,6 +280,7 @@ export class PlatformAnalyticsService {
     return {
       generatedAt: new Date().toISOString(),
       periodDays,
+      chainId: resolved,
       overview,
       timeseries,
       topCollections,
@@ -273,7 +289,11 @@ export class PlatformAnalyticsService {
     };
   }
 
-  private async loadOverviewCounts(since: Date) {
+  private async loadOverviewCounts(
+    since: Date,
+    chainId: SupportedChainId,
+    rwa: string,
+  ) {
     const [
       newUsers,
       linkedWallets,
@@ -318,21 +338,27 @@ export class PlatformAnalyticsService {
         .where('u.createdAt >= :since', { since })
         .getCount(),
       this.safeCount(() => this.walletsRepo.count()),
-      this.rwaRepo.count(),
       this.rwaRepo
         .createQueryBuilder('t')
-        .where('t.createdAt >= :since', { since })
+        .where('LOWER(t.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.rwaRepo
+        .createQueryBuilder('t')
+        .where('LOWER(t.token_contract) = :rwa', { rwa })
+        .andWhere('t.createdAt >= :since', { since })
         .getCount(),
       this.ordersRepo
         .createQueryBuilder('o')
         .select('COUNT(DISTINCT o.tokenId)::int', 'count')
         .where('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ count: number }>(),
       this.ordersRepo
         .createQueryBuilder('o')
         .select('COUNT(DISTINCT o.tokenId)::int', 'count')
         .where('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.status = :st', { st: OrderStatus.FULFILLED })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ count: number }>(),
       this.collectionsRepo.count(),
       this.collectionsRepo
@@ -345,6 +371,7 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.ACTIVE })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.collectionKey IS NOT NULL')
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ count: number }>(),
       this.snapshotsRepo
         .createQueryBuilder('s')
@@ -357,41 +384,71 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.collectionKey IS NOT NULL')
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ count: number }>(),
-      this.ordersRepo.count({
-        where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
-      }),
-      this.ordersRepo.count({
-        where: { status: OrderStatus.ACTIVE, side: OrderSide.BID },
-      }),
-      this.ordersRepo.count({ where: { side: OrderSide.ASK } }),
-      this.ordersRepo.count({ where: { side: OrderSide.BID } }),
-      this.ordersRepo.count({
-        where: { status: OrderStatus.FULFILLED, side: OrderSide.ASK },
-      }),
-      this.ordersRepo.count({ where: { status: OrderStatus.CANCELLED } }),
-      this.ordersRepo.count({ where: { status: OrderStatus.EXPIRED } }),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.status = :st', { st: OrderStatus.ACTIVE })
+        .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.status = :st', { st: OrderStatus.ACTIVE })
+        .andWhere('o.side = :side', { side: OrderSide.BID })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.side = :side', { side: OrderSide.BID })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.status = :st', { st: OrderStatus.FULFILLED })
+        .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.status = :st', { st: OrderStatus.CANCELLED })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
+      this.ordersRepo
+        .createQueryBuilder('o')
+        .where('o.status = :st', { st: OrderStatus.EXPIRED })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .getCount(),
       this.ordersRepo
         .createQueryBuilder('o')
         .where('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.createdAt >= :since', { since })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getCount(),
       this.ordersRepo
         .createQueryBuilder('o')
         .where('o.side = :side', { side: OrderSide.BID })
         .andWhere('o.createdAt >= :since', { since })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getCount(),
       this.ordersRepo
         .createQueryBuilder('o')
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.updatedAt >= :since', { since })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getCount(),
       this.ordersRepo
         .createQueryBuilder('o')
         .select(this.gmvSumExpr(), 'sum')
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ sum: string }>(),
       this.ordersRepo
         .createQueryBuilder('o')
@@ -399,12 +456,14 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.updatedAt >= :since', { since })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ sum: string }>(),
       this.ordersRepo
         .createQueryBuilder('o')
         .select('COUNT(DISTINCT o.offerer)::int', 'count')
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .getRawOne<{ count: number }>(),
       this.watchlistRepo.count(),
       this.watchlistRepo
@@ -423,43 +482,66 @@ export class PlatformAnalyticsService {
         const row = await this.portfolioRepo
           .createQueryBuilder('p')
           .select('COUNT(DISTINCT p.walletAddress)::int', 'count')
+          .where('p.chain_id = :chainId', { chainId })
           .getRawOne<{ count: number }>();
         return row?.count ?? 0;
       }),
-      this.safeCount(() => this.portfolioRepo.count()),
+      this.safeCount(() =>
+        this.portfolioRepo.count({ where: { chainId } }),
+      ),
       this.safeRawOne(async () =>
         this.portfolioRepo
           .createQueryBuilder('p')
           .select('MAX(p.snapshotDateKst)', 'max')
+          .where('p.chain_id = :chainId', { chainId })
           .getRawOne<{ max: string | null }>(),
       ),
-      this.safeCount(() => this.portfolioHoldingsRepo.count()),
       this.safeCount(() =>
         this.portfolioHoldingsRepo
           .createQueryBuilder('h')
-          .where('h.costBasisUsd IS NOT NULL')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
           .getCount(),
       ),
       this.safeCount(() =>
         this.portfolioHoldingsRepo
           .createQueryBuilder('h')
-          .where('h.hiddenAt IS NOT NULL')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
+          .andWhere('h.costBasisUsd IS NOT NULL')
           .getCount(),
       ),
       this.safeCount(() =>
-        this.portfolioHoldingsRepo.count({
-          where: { costBasisSource: PortfolioCostBasisSource.MANUAL },
-        }),
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
+          .andWhere('h.hiddenAt IS NOT NULL')
+          .getCount(),
       ),
       this.safeCount(() =>
-        this.portfolioHoldingsRepo.count({
-          where: { costBasisSource: PortfolioCostBasisSource.VAULT_DELIVERY },
-        }),
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
+          .andWhere('h.costBasisSource = :src', {
+            src: PortfolioCostBasisSource.MANUAL,
+          })
+          .getCount(),
       ),
       this.safeCount(() =>
-        this.portfolioHoldingsRepo.count({
-          where: { costBasisSource: PortfolioCostBasisSource.MARKETPLACE_BUY },
-        }),
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
+          .andWhere('h.costBasisSource = :src', {
+            src: PortfolioCostBasisSource.VAULT_DELIVERY,
+          })
+          .getCount(),
+      ),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('LOWER(h.token_contract) = :rwa', { rwa })
+          .andWhere('h.costBasisSource = :src', {
+            src: PortfolioCostBasisSource.MARKETPLACE_BUY,
+          })
+          .getCount(),
       ),
     ]);
 
@@ -506,7 +588,7 @@ export class PlatformAnalyticsService {
     };
   }
 
-  private async loadTimeseries(days: number, since: Date) {
+  private async loadTimeseries(days: number, since: Date, rwa: string) {
     const signupsBucket = sqlDayBucket('u.createdAt');
     const mintsBucket = sqlDayBucket('t.createdAt');
     const asksBucket = sqlDayBucket('o.createdAt');
@@ -526,6 +608,7 @@ export class PlatformAnalyticsService {
         .select(mintsBucket, 'day')
         .addSelect('COUNT(*)::int', 'count')
         .where('t.createdAt >= :since', { since })
+        .andWhere('LOWER(t.token_contract) = :rwa', { rwa })
         .groupBy(mintsBucket)
         .orderBy(mintsBucket, 'ASC')
         .getRawMany<{ day: string; count: string }>(),
@@ -535,6 +618,7 @@ export class PlatformAnalyticsService {
         .addSelect('COUNT(*)::int', 'count')
         .where('o.createdAt >= :since', { since })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy(asksBucket)
         .orderBy(asksBucket, 'ASC')
         .getRawMany<{ day: string; count: string }>(),
@@ -545,6 +629,7 @@ export class PlatformAnalyticsService {
         .where('o.updatedAt >= :since', { since })
         .andWhere('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy(salesBucket)
         .orderBy(salesBucket, 'ASC')
         .getRawMany<{ day: string; count: string }>(),
@@ -555,6 +640,7 @@ export class PlatformAnalyticsService {
         .where('o.updatedAt >= :since', { since })
         .andWhere('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy(salesBucket)
         .orderBy(salesBucket, 'ASC')
         .getRawMany<{ day: string; amount: string }>(),
@@ -569,7 +655,7 @@ export class PlatformAnalyticsService {
     };
   }
 
-  private async loadTopCollections() {
+  private async loadTopCollections(rwa: string) {
     const [byActiveListings, bySales, byGmv, byWatchlist] = await Promise.all([
       this.ordersRepo
         .createQueryBuilder('o')
@@ -578,6 +664,7 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.ACTIVE })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.collectionKey IS NOT NULL')
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy('o.collectionKey')
         .orderBy('COUNT(*)', 'DESC')
         .limit(10)
@@ -589,6 +676,7 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.collectionKey IS NOT NULL')
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy('o.collectionKey')
         .orderBy('COUNT(*)', 'DESC')
         .limit(10)
@@ -601,6 +689,7 @@ export class PlatformAnalyticsService {
         .where('o.status = :st', { st: OrderStatus.FULFILLED })
         .andWhere('o.side = :side', { side: OrderSide.ASK })
         .andWhere('o.collectionKey IS NOT NULL')
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
         .groupBy('o.collectionKey')
         .orderBy(this.gmvSumExpr(), 'DESC')
         .limit(10)
@@ -645,7 +734,7 @@ export class PlatformAnalyticsService {
     };
   }
 
-  private async loadRecentTrades(): Promise<RecentTradeRow[]> {
+  private async loadRecentTrades(rwa: string): Promise<RecentTradeRow[]> {
     const rows = await this.ordersRepo
       .createQueryBuilder('o')
       .select('o.orderHash', 'orderHash')
@@ -655,6 +744,7 @@ export class PlatformAnalyticsService {
       .addSelect('o.updatedAt', 'fulfilledAt')
       .where('o.status = :st', { st: OrderStatus.FULFILLED })
       .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
       .orderBy('o.updatedAt', 'DESC')
       .limit(20)
       .getRawMany<{
@@ -683,12 +773,13 @@ export class PlatformAnalyticsService {
     }));
   }
 
-  private async loadOrdersBreakdown(): Promise<OrderBreakdownRow[]> {
+  private async loadOrdersBreakdown(rwa: string): Promise<OrderBreakdownRow[]> {
     const rows = await this.ordersRepo
       .createQueryBuilder('o')
       .select('o.side', 'side')
       .addSelect('o.status', 'status')
       .addSelect('COUNT(*)::int', 'count')
+      .where('LOWER(o.token_contract) = :rwa', { rwa })
       .groupBy('o.side')
       .addGroupBy('o.status')
       .orderBy('o.side', 'ASC')

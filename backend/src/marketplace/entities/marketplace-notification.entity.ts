@@ -33,14 +33,16 @@ export class MarketplaceNotification {
   body: string;
 
   /**
-   * Stable idempotency key, e.g. `token_bid:<orderHash>`.
+   * Stable idempotency key, e.g. `token_bid:<orderHash>` or
+   * `token_bid_cancelled:<orderHash>`.
    */
   @Column({ name: 'dedupe_key', type: 'varchar', length: 128 })
   dedupeKey: string;
 
   /**
    * Deep-link + display payload.
-   * `{ bidOrderHash, tokenId, askOrderHash?, bidUsdc?, collectionKey? }`
+   * `{ event?, bidOrderHash, tokenId, askOrderHash?, bidUsdc?, collectionKey?, ctaLabel? }`
+   * `event: 'cancelled'` for withdrawn offers (no Accept CTA).
    */
   @Column({ type: 'jsonb', default: {} })
   payload: Record<string, unknown>;

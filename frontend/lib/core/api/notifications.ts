@@ -6,6 +6,7 @@ export type MarketplaceNotificationItem = {
   title: string;
   body: string;
   payload: {
+    event?: "cancelled";
     bidOrderHash?: string;
     tokenId?: string;
     askOrderHash?: string;

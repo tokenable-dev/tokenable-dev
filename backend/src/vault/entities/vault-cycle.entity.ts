@@ -20,11 +20,13 @@ export type VaultCycleStatus =
   | 'cancelled';
 
 /**
- * One deposit-to-redemption lifecycle for a `VaultAsset`.
+ * One deposit-to-redemption lifecycle for a `VaultAsset`, scoped to one chain.
  *
  * At most one non-terminal cycle (status not in redeemed/cancelled) may exist
- * per asset at a time — enforced by a DB partial unique index, mirroring the
- * on-chain `activeTokenIdByVaultRef` invariant in `TokenableRWA`.
+ * per (asset, chain) at a time — enforced by a DB partial unique index,
+ * mirroring the on-chain `activeTokenIdByVaultRef` invariant, which is
+ * per-contract and therefore per-chain (a cert minted on Sepolia does not
+ * occupy the Polygon slot, and vice versa).
  */
 @Entity('vault_cycles')
 @Unique('vault_cycles_asset_number_unique', ['vaultAssetId', 'cycleNumber'])
@@ -39,6 +41,10 @@ export class VaultCycle {
   @ManyToOne(() => VaultAsset, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'vault_asset_id' })
   vaultAsset: VaultAsset;
+
+  /** EIP-155 chain id the cycle's NFT is (or will be) minted on. */
+  @Column({ name: 'chain_id', type: 'int' })
+  chainId: number;
 
   @Column({ name: 'cycle_number', type: 'int' })
   cycleNumber: number;

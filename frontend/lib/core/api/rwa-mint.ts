@@ -1,4 +1,6 @@
 import { backendFetch, getApiUrl } from "./client";
+import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
+import type { SupportedChainId } from "@/lib/chains/types";
 
 export type MintRwaResult = {
   tokenId: number;
@@ -12,11 +14,16 @@ export async function mintRwaViaBackend(input: {
   tokenURI: string;
   /** PSA cert number — permanent physical-asset identity behind the on-chain vaultRef. */
   certNumber: string;
+  chainId: SupportedChainId;
 }): Promise<MintRwaResult> {
+  const { chainId, ...body } = input;
   const res = await backendFetch(`${getApiUrl()}/rwa/mint`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    headers: {
+      "Content-Type": "application/json",
+      [CHAIN_ID_HEADER]: String(chainId),
+    },
+    body: JSON.stringify(body),
     credentials: "include",
   });
   if (!res.ok) {

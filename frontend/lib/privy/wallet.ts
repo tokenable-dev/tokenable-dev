@@ -50,11 +50,50 @@ export function isPrivyExternalWallet(
   return !isPrivyEmbeddedWallet(wallet);
 }
 
-/** Prefer embedded wallet for wagmi active account; fall back to first linked wallet. */
+/** Privy reports `eip155:137` (CAIP-2); some connectors use hex or decimal. */
+export function parsePrivyWalletChainId(
+  wallet: ConnectedWallet | undefined,
+): number | null {
+  if (!wallet?.chainId) return null;
+  const raw = String(wallet.chainId).trim();
+  if (!raw) return null;
+  if (raw.startsWith("eip155:")) {
+    const n = Number(raw.slice("eip155:".length));
+    return Number.isFinite(n) ? n : null;
+  }
+  if (raw.startsWith("0x") || raw.startsWith("0X")) {
+    const n = Number.parseInt(raw, 16);
+    return Number.isFinite(n) ? n : null;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Align Privy's ConnectedWallet active chain with the app selection.
+ * EIP-1193 `wallet_switchEthereumChain` alone is not enough for embedded wallets —
+ * Privy tx UIs (approve / send) read `wallet.chainId` until `switchChain` runs.
+ */
+export async function ensurePrivyWalletOnChain(
+  wallet: ConnectedWallet,
+  chainId: number,
+): Promise<void> {
+  if (parsePrivyWalletChainId(wallet) === chainId) return;
+  await wallet.switchChain(chainId);
+}
+
+/**
+ * Pre-sync guess for the account wallet — embedded only.
+ *
+ * `useWallets()` also lists browser extensions that this tab happens to have a
+ * live connection to (MetaMask keeps its `eth_accounts` grant per origin). Such
+ * a wallet is NOT the account wallet, and falling back to it would activate —
+ * and therefore prompt — MetaMask for a Google/email login user.
+ */
 export function pickPrimaryPrivyWallet(
   wallets: ConnectedWallet[],
 ): ConnectedWallet | undefined {
-  return wallets.find((w) => isPrivyEmbeddedWallet(w)) ?? wallets[0];
+  return wallets.find((w) => isPrivyEmbeddedWallet(w));
 }
 
 /**

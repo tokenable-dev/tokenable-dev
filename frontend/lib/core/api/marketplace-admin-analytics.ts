@@ -99,6 +99,7 @@ export type PlatformAnalyticsOverview = {
 export type PlatformAnalyticsDashboard = {
   generatedAt: string;
   periodDays: number;
+  chainId: number;
   overview: PlatformAnalyticsOverview;
   timeseries: {
     signups: DailyCount[];

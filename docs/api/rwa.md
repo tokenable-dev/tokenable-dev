@@ -27,6 +27,8 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
 
 **Mint gate:** Graded metadata must be PSA with numeric grade **10** (`400` otherwise).
 
+**Pre-flight:** honors `x-tokenable-chain-id` — throws `409` only if the cert already has an open vault cycle **on that chain** (cycles are chain-scoped; a live Sepolia NFT does not block a Polygon mint).
+
 **Response:**
 
 ```json
@@ -150,4 +152,4 @@ See [marketplace-admin.md](./marketplace-admin.md) for the full admin RWA API in
 | `CHAIN_1_RWA_ADDRESS` | TokenableRWA proxy on Ethereum mainnet |
 | `CHAIN_137_RWA_ADDRESS` | TokenableRWA proxy on Polygon mainnet |
 
-Mint and redeem honor `x-tokenable-chain-id` so the write lands on that chain’s RWA address and `rwa_tokens.token_contract`.
+Mint and redeem honor `x-tokenable-chain-id` so the write lands on that chain’s RWA address and `rwa_tokens.token_contract`. Vault cycles carry `chain_id` — the "one open cycle per cert" rule is enforced per (asset, chain), matching the per-contract `activeTokenIdByVaultRef` invariant.

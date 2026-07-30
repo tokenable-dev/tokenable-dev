@@ -39,26 +39,35 @@ export class PortfolioController {
 
   /** 지갑 일별 가치 스냅샷 + 최근 24h 손익 */
   @ApiOperation({ summary: '포트폴리오 일별 스냅샷·24h P&L' })
+  @ApiChainIdHeader()
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @ApiQuery({ name: 'limit', required: false, example: 32, description: '조회할 일별 스냅샷 수 (2–120)' })
   @Get('portfolio/daily/:wallet')
   async getPortfolioDailySnapshots(
     @Param('wallet') wallet: string,
     @Query('limit') limitRaw?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     const limit =
       limitRaw != null && String(limitRaw).trim() !== ''
         ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
         : 32;
-    this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet);
-    const rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
+    this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet, new Date(), chainId);
+    const rows = await this.portfolioSnapshots.listWalletSnapshots(
+      wallet,
+      limit,
+      chainId,
+    );
     if (rows.length === 0) {
-      this.portfolioSnapshots.scheduleBaselineSnapshot(wallet);
+      this.portfolioSnapshots.scheduleBaselineSnapshot(wallet, chainId);
     }
-    const p = await this.portfolioSnapshots.latest24h(wallet);
+    const p = await this.portfolioSnapshots.latest24h(wallet, chainId);
     return {
+      chainId,
       items: rows.map((r) => ({
         walletAddress: r.walletAddress,
+        chainId: r.chainId,
         snapshotDateKst: r.snapshotDateKst,
         snapshotAt: r.snapshotAt.toISOString(),
         totalValueUsd: r.totalValueUsd,

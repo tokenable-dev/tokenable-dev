@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { CARDHEDGER_SWAGGER_EXAMPLES } from '../cardhedger-swagger.examples';
 import { CardhedgerService } from '../cardhedger.service';
@@ -11,6 +12,9 @@ function pickQuery(query: Record<string, string | undefined>, keys: string[]): R
 }
 
 /** Card Hedge upstream 프록시 — api-1.json 전체 경로. API 키는 서버가 주입합니다. */
+// Every request here consumes paid upstream quota with our injected API key —
+// per-IP cap keeps one scraper from burning the whole CardHedger allowance.
+@Throttle({ default: { ttl: 60_000, limit: 60 } })
 @ApiTags('cardhedger')
 @Controller('cardhedger')
 export class CardhedgerProxyController {

@@ -150,6 +150,10 @@ export class VaultSubmissionService {
           relations: { items: true },
           lock: { mode: 'pessimistic_write' },
         });
+        // Finished/cancelled package id left in the browser — ignore it.
+        if (sub && !['draft', 'awaiting_shipment'].includes(sub.status)) {
+          sub = null;
+        }
       }
       if (!sub) {
         // Prefer continuing the latest open draft if present.
@@ -165,12 +169,6 @@ export class VaultSubmissionService {
             where: { submissionId: sub.id },
           });
         }
-      }
-
-      if (sub && !['draft', 'awaiting_shipment'].includes(sub.status)) {
-        throw new BadRequestException(
-          `Submission ${sub.publicId} is ${sub.status} and can no longer be edited as a draft`,
-        );
       }
 
       if (!sub) {

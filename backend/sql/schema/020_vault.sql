@@ -21,6 +21,7 @@ COMMENT ON COLUMN vault_assets.vault_ref IS
 CREATE TABLE IF NOT EXISTS vault_cycles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   vault_asset_id uuid NOT NULL REFERENCES vault_assets(id) ON DELETE RESTRICT,
+  chain_id integer NOT NULL,
   cycle_number integer NOT NULL,
   status varchar(24) NOT NULL DEFAULT 'pending_deposit',
   deposited_at timestamptz,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS vault_cycles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT vault_cycles_asset_number_unique UNIQUE (vault_asset_id, cycle_number),
+  CONSTRAINT vault_cycles_chain_id_positive CHECK (chain_id > 0),
   CONSTRAINT vault_cycles_status_check CHECK (
     status IN (
       'pending_deposit', 'deposit_verified', 'minted',
@@ -40,12 +42,17 @@ CREATE TABLE IF NOT EXISTS vault_cycles (
 
 CREATE INDEX IF NOT EXISTS idx_vault_cycles_asset_id ON vault_cycles (vault_asset_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_vault_cycles_one_open_per_asset
-  ON vault_cycles (vault_asset_id)
+-- One open cycle per (asset, chain) — the on-chain activeTokenIdByVaultRef
+-- invariant is per contract, i.e. per chain. A live Sepolia NFT must not
+-- block a Polygon mint for the same cert.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_vault_cycles_one_open_per_asset_chain
+  ON vault_cycles (vault_asset_id, chain_id)
   WHERE status NOT IN ('redeemed', 'cancelled');
 
 COMMENT ON TABLE vault_cycles IS
-  'One deposit→redeem lifecycle for a vault_asset. At most one open cycle per asset.';
+  'One deposit→redeem lifecycle for a vault_asset on one chain. At most one open cycle per (asset, chain).';
+COMMENT ON COLUMN vault_cycles.chain_id IS
+  'EIP-155 chain id the cycle''s NFT is (or will be) minted on.';
 COMMENT ON COLUMN vault_cycles.deposit_verified_by IS
   'Admin who verified the physical deposit. NULL when verification was automated (self-serve mint).';
 

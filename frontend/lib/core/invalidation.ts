@@ -87,10 +87,10 @@ export async function invalidateCollection(
   qc: QueryClient,
   key: string,
 ): Promise<void> {
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
   // Prefix covers every duration variant of collectionMarketSeries(key, *)
   await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
-  await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
   await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
@@ -108,8 +108,8 @@ export async function invalidateAfterCollectionUpdate(
   qc: QueryClient,
   key: string,
 ): Promise<void> {
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
-  await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
   // Prefix — invalidates all cached durations for this collection's series
   await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
@@ -128,8 +128,8 @@ export async function invalidateAfterCriteriaBid(
   qc: QueryClient,
   key: string,
 ): Promise<void> {
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
-  await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
   // Broad prefix — refreshes ALL collections' market series after a bid event
   await qc.invalidateQueries({ queryKey: ["collection-market-series"] });
   await _invalidateOrdersAll(qc);
@@ -179,8 +179,8 @@ export async function invalidateAfterRwaMint(
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
-  await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
   await _invalidateCollectionSnapshots(qc);
   await _invalidatePortfolioMarketBatch(qc);
   await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
@@ -205,17 +205,17 @@ export async function invalidateAfterRwaDetail(
   await qc.invalidateQueries({ queryKey: rq.orderByToken(tokenId) });
   await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
   await qc.invalidateQueries({ queryKey: rq.rwaActivity(tokenId) });
-  await qc.invalidateQueries({ queryKey: rq.rwaTokenTrades(tokenId) });
+  await qc.invalidateQueries({ queryKey: ["rwa-token-trades", tokenId] });
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   // Prefix — refreshes all cached collection entries (detail + market)
   await _invalidateAllCollections(qc);
 
   if (collectionKeyForMatch) {
-    await qc.invalidateQueries({ queryKey: rq.collectionDetail(collectionKeyForMatch) });
+    await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKeyForMatch] });
     // Prefix — all durations for this collection
     await qc.invalidateQueries({ queryKey: ["collection-market-series", collectionKeyForMatch] });
-    await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(collectionKeyForMatch) });
+    await qc.invalidateQueries({ queryKey: ["collection-platform-trades", collectionKeyForMatch] });
     await _invalidateCollectionSnapshots(qc);
     await _invalidatePortfolioMarketBatch(qc);
   }
@@ -252,8 +252,8 @@ export async function invalidateAfterListing(
   if (opts.collectionKey) {
     const key = opts.collectionKey.toLowerCase();
     await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
-    await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
-    await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+    await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+    await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
   }
   if (opts.address) {
     await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
@@ -316,7 +316,7 @@ export async function invalidateAfterOrderCancel(
   collectionKey: string,
 ): Promise<void> {
   await _invalidateOrdersAll(qc);
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(collectionKey) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
 }
 
 /**
@@ -330,7 +330,7 @@ export async function invalidateAfterCollectionListing(
   addr: string,
 ): Promise<void> {
   await _invalidateOrdersAll(qc);
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(collectionKey) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(collectionKey) });
   await qc.invalidateQueries({
     queryKey: rq.collectionOwnedRwa(addr.toLowerCase(), collectionKey),
@@ -351,7 +351,9 @@ export async function invalidateAfterBurn(
   await _invalidateOrdersAll(qc);
   await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
-  await qc.invalidateQueries({ queryKey: rq.portfolioDailySnapshots(address) });
+  await qc.invalidateQueries({
+    queryKey: ["portfolio-daily-snapshots", address],
+  });
 }
 
 /**
@@ -365,7 +367,7 @@ export async function invalidateForMatchRetry(
   qc: QueryClient,
   key: string,
 ): Promise<void> {
-  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
 }

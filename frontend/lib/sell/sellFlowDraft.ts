@@ -363,3 +363,11 @@ export function writeSellSubmissionPublicId(publicId: string) {
     /* ignore */
   }
 }
+
+export function clearSellSubmissionPublicId() {
+  try {
+    localStorage.removeItem(SELL_SUBMISSION_PUBLIC_ID_KEY);
+  } catch {
+    /* ignore */
+  }
+}

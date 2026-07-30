@@ -15,6 +15,7 @@ export type P2pListingStatus =
   | 'BURNED';
 
 @Entity('p2p_listings')
+@Index('idx_p2p_listings_status_chain', ['status', 'chainId'])
 export class P2pListing {
   @PrimaryGeneratedColumn('uuid')
   id: string;

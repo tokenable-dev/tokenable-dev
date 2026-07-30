@@ -13,6 +13,7 @@ import {
 import { ERC20_APPROVE_ABI, PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
 import { TkButton } from "@/components/ds";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 function formatUsdc(atomic: string): string {
   const n = Number(atomic) / 1e6;
@@ -24,14 +25,15 @@ export default function P2pListingDetailPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const { address } = useAccount();
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-
+  const { chainId: appChainId } = useAppChain();
   const listingQ = useQuery({
     queryKey: ["p2p", "listing", id],
     queryFn: () => getP2pListing(id),
     enabled: Boolean(id),
   });
+  const listingChainId = listingQ.data?.chainId ?? appChainId;
+  const publicClient = usePublicClient({ chainId: listingChainId });
+  const { writeContractAsync } = useWriteContract();
 
   const [shipToLine1, setShipToLine1] = useState("");
   const [shipToCity, setShipToCity] = useState("");
@@ -82,6 +84,7 @@ export default function P2pListingDetailPage() {
       })) as bigint;
       if (allowance < amount) {
         const approveHash = await writeContractAsync({
+          chainId: listingChainId,
           address: prep.usdcAddress as `0x${string}`,
           abi: ERC20_APPROVE_ABI,
           functionName: "approve",
@@ -90,6 +93,7 @@ export default function P2pListingDetailPage() {
         await publicClient.waitForTransactionReceipt({ hash: approveHash });
       }
       const depositHash = await writeContractAsync({
+        chainId: listingChainId,
         address: prep.escrowAddress as `0x${string}`,
         abi: PAYMENT_ESCROW_ABI,
         functionName: "createAndDeposit",

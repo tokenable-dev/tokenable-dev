@@ -17,7 +17,10 @@ import {
   TkHeaderSearchMobileButton,
 } from "@/components/layout/header/TkHeaderSearch";
 import { NotificationsDrawer } from "@/components/layout/notifications/NotificationsDrawer";
+import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
+import { useAuthStore } from "@/store/authStore";
 
 function shouldHideChrome(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
@@ -34,6 +37,10 @@ export function TkHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const userId = useAuthStore((s) => s.user?.id ?? "");
+  const { unreadCount } = useMarketplaceNotifications({
+    enabled: Boolean(userId),
+  });
 
   const hideChrome = shouldHideChrome(pathname);
   const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
@@ -109,7 +116,13 @@ export function TkHeader() {
             <button
               type="button"
               className={cn("gnb-burger", drawerOpen && "is-open")}
-              aria-label={drawerOpen ? "Close menu" : "Open menu"}
+              aria-label={
+                drawerOpen
+                  ? "Close menu"
+                  : unreadCount > 0
+                    ? `Open menu, ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+                    : "Open menu"
+              }
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen((o) => !o)}
             >
@@ -117,6 +130,9 @@ export function TkHeader() {
                 <span />
                 <span />
               </span>
+              {!drawerOpen ? (
+                <NotificationUnreadBadge count={unreadCount} floating />
+              ) : null}
             </button>
           </div>
 

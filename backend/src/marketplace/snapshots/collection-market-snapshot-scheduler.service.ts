@@ -13,6 +13,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -48,11 +49,14 @@ export class CollectionMarketSnapshotSchedulerService
   private readonly lockRetryTimers = new Map<string, NodeJS.Timeout>();
   private processing = false;
   private drainTimer: NodeJS.Timeout | null = null;
+  /** Jobs rejected by the queue depth cap since boot (spike indicator). */
+  private droppedJobCount = 0;
   /** Last observed null-cardhedgerCardId ratio from the batch-reduction check. */
   private lastNullIdRatio: number | null = null;
 
   constructor(
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotService))
     private readonly snapshotService: CollectionMarketSnapshotService,
     @InjectRepository(Order)
@@ -130,6 +134,14 @@ export class CollectionMarketSnapshotSchedulerService
     return raw !== '0' && raw !== 'false';
   }
 
+  maxQueueDepth(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_MAX_QUEUE_DEPTH') ?? '200',
+    );
+    if (!Number.isFinite(raw) || raw < 10) return 200;
+    return Math.min(Math.floor(raw), 2000);
+  }
+
   /** Public enqueue API — used by scheduler and stale-while-revalidate hooks. */
   enqueue(collectionKey: string, reason: SnapshotRefreshReason): void {
     const key = collectionKey.toLowerCase();
@@ -137,6 +149,29 @@ export class CollectionMarketSnapshotSchedulerService
       return;
     }
     const priority = this.priorityForReason(reason);
+
+    // Depth cap: under a traffic spike every page view enqueues stale-SWR
+    // refreshes — an unbounded queue turns into hours of CardHedger backlog.
+    // When full, evict the lowest-priority tail job if the new one outranks it;
+    // otherwise drop the new job (next page view re-enqueues it anyway).
+    if (this.queue.length >= this.maxQueueDepth()) {
+      const tail = this.queue[this.queue.length - 1];
+      if (!tail || tail.priority >= priority) {
+        this.droppedJobCount += 1;
+        if (this.droppedJobCount % 50 === 1) {
+          this.logger.warn(
+            `snapshot queue full (${this.maxQueueDepth()}) — ${this.droppedJobCount} refresh jobs dropped since boot`,
+          );
+        }
+        return;
+      }
+      this.queue.pop();
+      this.queuedKeys.delete(tail.collectionKey);
+      this.logger.warn(
+        `snapshot queue full (${this.maxQueueDepth()}) — evicted ${tail.collectionKey} for higher-priority ${key}`,
+      );
+    }
+
     this.queue.push({
       collectionKey: key,
       reason,
@@ -391,11 +426,15 @@ export class CollectionMarketSnapshotSchedulerService
   @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyPortfolioPrewarm(): Promise<void> {
     if (!this.cronEnabled()) return;
-    const rows = await this.rwaTokenRepo
+    const rwas = this.chainConfig.listConfiguredRwaAddresses();
+    const qb = this.rwaTokenRepo
       .createQueryBuilder('t')
       .select('DISTINCT t.collection_key', 'collectionKey')
-      .where('t.collection_key IS NOT NULL')
-      .getRawMany<{ collectionKey: string }>();
+      .where('t.collection_key IS NOT NULL');
+    if (rwas.length > 0) {
+      qb.andWhere('LOWER(t.token_contract) IN (:...rwas)', { rwas });
+    }
+    const rows = await qb.getRawMany<{ collectionKey: string }>();
     let count = 0;
     for (const r of rows) {
       const key = r.collectionKey?.trim().toLowerCase();
@@ -408,6 +447,7 @@ export class CollectionMarketSnapshotSchedulerService
         msg: 'market_snapshot_daily_portfolio_prewarm',
         timezone: 'KST',
         enqueued: count,
+        rwaContracts: rwas.length,
       }),
     );
   }
@@ -611,25 +651,32 @@ export class CollectionMarketSnapshotSchedulerService
     const viewedSince = new Date(
       Date.now() - this.viewedLookbackDays() * 86_400_000,
     );
+    const rwas = this.chainConfig.listConfiguredRwaAddresses();
 
-    const activeRows = await this.orderRepo
+    const activeQb = this.orderRepo
       .createQueryBuilder('o')
       .select('DISTINCT o.collection_key', 'collectionKey')
       .where('o.collection_key IS NOT NULL')
       .andWhere('o.side = :side', { side: OrderSide.ASK })
-      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
-      .getRawMany<{ collectionKey: string }>();
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE });
+    if (rwas.length > 0) {
+      activeQb.andWhere('LOWER(o.token_contract) IN (:...rwas)', { rwas });
+    }
+    const activeRows = await activeQb.getRawMany<{ collectionKey: string }>();
     for (const r of activeRows) {
       if (r.collectionKey) keys.add(r.collectionKey.toLowerCase());
     }
 
-    const recentFills = await this.orderRepo
+    const fillsQb = this.orderRepo
       .createQueryBuilder('o')
       .select('DISTINCT o.collection_key', 'collectionKey')
       .where('o.collection_key IS NOT NULL')
       .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
-      .andWhere('o.updated_at >= :since', { since: fillSince })
-      .getRawMany<{ collectionKey: string }>();
+      .andWhere('o.updated_at >= :since', { since: fillSince });
+    if (rwas.length > 0) {
+      fillsQb.andWhere('LOWER(o.token_contract) IN (:...rwas)', { rwas });
+    }
+    const recentFills = await fillsQb.getRawMany<{ collectionKey: string }>();
     for (const r of recentFills) {
       if (r.collectionKey) keys.add(r.collectionKey.toLowerCase());
     }

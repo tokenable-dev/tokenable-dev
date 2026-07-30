@@ -10,6 +10,7 @@ import {
   type Order,
 } from "@/lib/core";
 import { invalidateAfterCriteriaBid } from "@/lib/core/invalidation";
+import { activeRqChainId } from "@/lib/chains";
 
 export function usePortfolioBidActions(input: {
   address: string | undefined;
@@ -18,6 +19,7 @@ export function usePortfolioBidActions(input: {
   refetchPortfolioBids: () => Promise<unknown>;
 }) {
   const { address, queryClient, refetchActiveOrders, refetchPortfolioBids } = input;
+  const chainId = activeRqChainId();
 
   const [cancellingHash, setCancellingHash] = useState<string | null>(null);
   const [openingChangeHash, setOpeningChangeHash] = useState<string | null>(null);
@@ -40,10 +42,12 @@ export function usePortfolioBidActions(input: {
         await invalidateAfterCriteriaBid(queryClient, collectionKey);
       }
       if (address) {
-        await queryClient.invalidateQueries({ queryKey: rq.portfolioBids(address) });
+        await queryClient.invalidateQueries({
+          queryKey: rq.portfolioBids(address, chainId),
+        });
       }
     },
-    [address, queryClient, refetchActiveOrders, refetchPortfolioBids],
+    [address, chainId, queryClient, refetchActiveOrders, refetchPortfolioBids],
   );
 
   const requestCancel = useCallback(

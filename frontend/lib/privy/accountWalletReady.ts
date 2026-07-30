@@ -3,6 +3,7 @@ import type { ConnectedWallet } from "@privy-io/react-auth";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
 import { isEmbeddedOnlyWalletPolicy, wagmiPrivyConfig } from "@/lib/privy/config";
 import {
+  ensurePrivyWalletOnChain,
   isPrivyEmbeddedWallet,
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
@@ -34,6 +35,8 @@ export async function alignWagmiToAccountWallet(input: {
   wallets: ConnectedWallet[];
   accountPrimary?: string;
   setActiveWallet: (wallet: ConnectedWallet) => Promise<void>;
+  /** When set, also switches the Privy wallet onto this chain (approve/sign UIs). */
+  chainId?: number;
 }): Promise<string> {
   const target = resolveAccountSigningWallet(input.wallets, input.accountPrimary);
   if (!target) {
@@ -50,6 +53,10 @@ export async function alignWagmiToAccountWallet(input: {
   if (connected !== targetNorm) {
     await input.setActiveWallet(target);
     await waitForWagmiAccountAddress(target.address);
+  }
+
+  if (input.chainId != null) {
+    await ensurePrivyWalletOnChain(target, input.chainId);
   }
 
   return target.address;

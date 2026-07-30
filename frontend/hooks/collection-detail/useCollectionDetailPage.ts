@@ -17,6 +17,7 @@ import { useAppStore, selectWallet } from "@/store";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
 import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
+import { activeRqChainId } from "@/lib/chains";
 
 export type CollectionDetailPageStatus =
   | "invalid"
@@ -58,8 +59,9 @@ export function useCollectionDetailPage() {
   const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
   const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
+  const chainId = activeRqChainId();
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: rq.collectionDetail(collectionKey),
+    queryKey: rq.collectionDetail(collectionKey, chainId),
     queryFn: () => getMarketplaceCollectionDetail(collectionKey),
     enabled: collectionKey.length > 0 && looksLikeCollectionKey(collectionKey),
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,

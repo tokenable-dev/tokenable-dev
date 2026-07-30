@@ -24,9 +24,11 @@ import {
   WalletBidsIcon,
   WalletHistoryIcon,
 } from "@/components/layout/header/wallet/HeaderWalletMenuIcons";
+import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { completeSignOut } from "@/lib/auth/signOut";
 import type { HeaderKycTone } from "@/lib/wallet/walletMenuDisplay";
@@ -118,6 +120,7 @@ export function HeaderMobileDrawer({
   const navigate = useHeaderNavGate();
   const { login } = useLogin();
   const { ready, authenticated } = usePrivy();
+  const { unreadCount } = useMarketplaceNotifications();
   const mounted = useClientMounted();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
@@ -289,7 +292,8 @@ export function HeaderMobileDrawer({
             }}
           >
             <MobileDrawerNotificationsIcon aria-hidden />
-            Notifications
+            <span className="tk-notif-menu-label">Notifications</span>
+            <NotificationUnreadBadge count={unreadCount} />
           </button>
           <button
             type="button"

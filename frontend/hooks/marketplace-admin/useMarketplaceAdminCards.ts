@@ -7,11 +7,11 @@ import {
   postAdminPreviewRwaMetadataImage,
   rq,
 } from "@/lib/core";
-import { activeRqChainId } from "@/lib/chains";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export function useMarketplaceAdminCards() {
   const qc = useQueryClient();
-  const chainId = activeRqChainId();
+  const { chainId } = useAppChain();
 
   const query = useQuery({
     queryKey: rq.adminRwaCards(chainId),

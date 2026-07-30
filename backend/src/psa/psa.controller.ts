@@ -21,6 +21,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { PsaOrderProgressLookupResponseDto } from './dto/psa-order-progress.dto';
 import {
   PsaCertImagesLookupResponseDto,
@@ -59,6 +60,9 @@ const imageFilter = (
  * - order/GetSubmissionProgress
  * - pop/GetPSASpecPopulation
  */
+// PSA Public API tokens are a shared rate-limited pool — cap per-IP so one
+// client can't drain it (OCR analyze is also CPU/upstream heavy).
+@Throttle({ default: { ttl: 60_000, limit: 30 } })
 @ApiTags('psa')
 @Controller('psa')
 export class PsaController {

@@ -1,40 +1,47 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useFiatOnramp, usePrivy } from "@privy-io/react-auth";
+import { useFundWallet, usePrivy } from "@privy-io/react-auth";
 import { usePrivyFundingStatus } from "@/hooks/wallet/usePrivyFundingStatus";
 import { isPrivyEnabled } from "@/lib/privy/config";
 import {
+  assertFundingChainSupported,
   formatPrivyFundingError,
-  parseCaip2EvmChainId,
   resolveDefaultFundingAmount,
   resolveFundingTargetCaip2,
+  resolveFundingTargetChainId,
   resolvePrivyFundingEnvironment,
   shouldSkipFundingReadinessCheck,
-  TOKENABLE_FUNDING_ASSET,
+  usesMoonPayFunding,
 } from "@/lib/privy/funding";
+import { getChainDefinition } from "@/lib/chains";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export function isPrivyFiatOnrampFeatureEnabled(): boolean {
   return isPrivyEnabled();
 }
 
 /**
- * MoonPay fiat on-ramp via Privy `useFiatOnramp`.
- * Checkout supports card, Apple Pay, and Google Pay when Dashboard + environment allow.
+ * Add funds via Privy `useFundWallet` with MoonPay as the preferred card provider.
+ *
+ * Do not use `useFiatOnramp` here — it multi-routes (Stripe/Meld/MoonPay) and Stripe
+ * Embedded fails on Polygon USDC (`Unsupported asset` / `Init failed: r is not a function`).
  */
 export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
   const { authenticated } = usePrivy();
-  const { fund: startFiatOnramp } = useFiatOnramp();
+  const { chainId: appChainId } = useAppChain();
+  const { fundWallet } = useFundWallet();
   const fundingStatus = usePrivyFundingStatus();
   const [inFlight, setInFlight] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const onComplete = options?.onComplete;
 
-  const fundingTargetCaip2 = resolveFundingTargetCaip2();
-  const environment = resolvePrivyFundingEnvironment();
-  const skipReadinessCheck = shouldSkipFundingReadinessCheck();
+  const fundingChainId = resolveFundingTargetChainId(appChainId);
+  const fundingTargetCaip2 = resolveFundingTargetCaip2(appChainId);
+  const environment = resolvePrivyFundingEnvironment(fundingChainId);
+  const skipReadinessCheck = shouldSkipFundingReadinessCheck(fundingChainId);
 
   const isLoadingConfig = fundingStatus.isLoading;
   const isConfigured =
@@ -46,7 +53,8 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
     authenticated &&
     !inFlight &&
     !isLoadingConfig &&
-    isConfigured;
+    isConfigured &&
+    usesMoonPayFunding(fundingChainId);
 
   const startFunding = useCallback(
     async (walletAddress: string | undefined) => {
@@ -69,6 +77,14 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
         setLastError("Checking funding configuration…");
         return false;
       }
+
+      try {
+        assertFundingChainSupported(fundingChainId);
+      } catch (err) {
+        setLastError(formatPrivyFundingError(err));
+        return false;
+      }
+
       if (!skipReadinessCheck && fundingStatus.ready === false) {
         const detail = fundingStatus.checklist.slice(0, 2).join(" ");
         setLastError(
@@ -83,27 +99,30 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
       }
       if (!skipReadinessCheck && fundingStatus.chainAligned === false) {
         setLastError(
-          "Privy Dashboard funding network does not match this app. Set Funding token to Ethereum + USDC (mainnet in Dashboard is OK — app sends to Sepolia via env).",
+          "Privy Dashboard funding network does not match this app. Set Funding token to Polygon + USDC (or Ethereum + USDC).",
         );
         return false;
       }
 
       setInFlight(true);
       const defaultAmount = resolveDefaultFundingAmount();
+      const chain = getChainDefinition(fundingChainId).viemChain;
       try {
-        await startFiatOnramp({
-          destination: {
-            // MoonPay via Privy expects the asset symbol here — contract address breaks quotes (Stripe path).
-            asset: TOKENABLE_FUNDING_ASSET,
-            chain: fundingTargetCaip2,
-            address: normalized,
+        // Do not set `defaultFundingMethod: "card"` — that auto-opens MoonPay from a
+        // useEffect after the amount step, which browsers treat as a non-gesture popup
+        // and fails with "Unable to initialize flow" (@privy-io/popup trigger() → null).
+        // Prefer MoonPay, but let the user click the funding method so the popup is allowed.
+        await fundWallet({
+          address: normalized,
+          options: {
+            chain,
+            asset: "USDC",
+            amount: defaultAmount,
+            card: { preferredProvider: "moonpay" },
           },
-          source: { assets: ["usd"], defaultAsset: "usd" },
-          environment,
-          defaultAmount,
         });
         trackEvent("fiat_onramp_started", {
-          chain_id: parseCaip2EvmChainId(fundingTargetCaip2) ?? undefined,
+          chain_id: fundingChainId,
           price: Number(defaultAmount),
           currency: "USD",
           provider: "moonpay",
@@ -119,16 +138,15 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
     },
     [
       authenticated,
-      environment,
+      fundingChainId,
       fundingStatus.chainAligned,
       fundingStatus.dashboardUrl,
       fundingStatus.isLoading,
       fundingStatus.ready,
       fundingStatus.checklist,
-      fundingTargetCaip2,
+      fundWallet,
       onComplete,
       skipReadinessCheck,
-      startFiatOnramp,
     ],
   );
 
@@ -143,6 +161,7 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
     skipReadinessCheck,
     fundingStatus,
     fundingTargetCaip2,
+    fundingChainId,
     environment,
   };
 }

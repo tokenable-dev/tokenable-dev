@@ -30,7 +30,10 @@ sql/
 │   ├── add_marketplace_partners.sql     # existing DBs: partners table
 │   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
 │   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
-│   └── add_collection_review_status.sql
+│   ├── add_collection_review_status.sql
+│   ├── add_portfolio_daily_snapshot_chain_id.sql
+│   ├── add_vault_cycles_chain_id.sql
+│   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh
 ```
@@ -63,6 +66,35 @@ DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable \
 
 (`bootstrap-empty-prod-db.sql` uses `\ir schema/…` — must run from `backend/sql/`.)
 
+### Existing DB: portfolio chain_id + marketplace indexes
+
+If `portfolio_daily_snapshots` still has UNIQUE `(wallet_address, snapshot_date_kst)` (no `chain_id`), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql
+```
+
+Optional (safe to re-run) — restores/adds order + P2P indexes used by chain-scoped reads:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/ensure_marketplace_chain_indexes.sql
+```
+
+**Do not rely on TypeORM `synchronize` for the portfolio unique-key change** — the old unique constraint must be dropped explicitly.
+
+### Existing DB: vault cycles chain_id
+
+If `vault_cycles` has no `chain_id` (open-cycle rule was global across chains — a Sepolia mint blocked the same cert on Polygon), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_vault_cycles_chain_id.sql
+```
+
+Backfills legacy cycles (P2P-linked rows from `p2p_listings.chain_id`, the rest as Sepolia) and replaces the partial unique index `uq_vault_cycles_one_open_per_asset` with `(vault_asset_id, chain_id)`. **`synchronize` alone will not replace the partial index.**
+
 ### Reset marketplace data only
 
 Keeps `users`, `marketplace_admins`, and Cardhedger infra tables. Wipes orders, collections, rwa_tokens, vault lifecycle, portfolio snapshots.
@@ -92,7 +124,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 | `marketplace_collections` | Graded-metadata bucket catalog |
 | `collection_market_snapshots` | Materialized Cardhedger pricing |
 | `orders` | Seaport ask/bid + fulfilled tape |
-| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio totals |
+| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio totals **per chain** (`chain_id`) |
 | `portfolio_holdings` | Per-wallet hide + cost basis |
 | `user_watchlist` | Saved collections per user |
 | `cardhedger_price_subscriptions` | Cardhedger price push registrations |

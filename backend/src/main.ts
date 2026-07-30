@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -19,8 +20,13 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   assertSiteAccessConfig(readSiteAccessConfig(process.env));
   assertMarketplaceAdminAuthConfig(readMarketplaceAdminAuthConfig(process.env));
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   app.enableShutdownHooks();
+  // One trusted proxy hop (nginx) — req.ip resolves to the real client for
+  // rate limiting instead of the proxy container IP.
+  app.set('trust proxy', 1);
   const config = app.get(ConfigService);
 
   // Helmet must come before CORS so its headers don't override credential headers.

@@ -6,6 +6,7 @@ import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
+import { TOKEN_BID_ORDER_DURATION_SECONDS } from "@/lib/seaport/orders/submitTokenBid";
 
 function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
@@ -25,6 +26,19 @@ function formatBidInputDisplay(raw: string): string {
   if (!digits) return "";
   const n = parseInt(digits, 10);
   return Number.isFinite(n) ? n.toLocaleString("en-US") : digits;
+}
+
+function tokenBidExpiryHint(seconds: number): string {
+  if (seconds < 3600) {
+    const mins = Math.max(1, Math.round(seconds / 60));
+    return `Expires in ${mins} minute${mins === 1 ? "" : "s"}`;
+  }
+  if (seconds < 86400) {
+    const hours = Math.max(1, Math.round(seconds / 3600));
+    return `Expires in ${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  const days = Math.max(1, Math.round(seconds / 86400));
+  return `Expires in ${days} day${days === 1 ? "" : "s"}`;
 }
 
 export function CollectionListingBidCheckout({
@@ -120,8 +134,8 @@ export function CollectionListingBidCheckout({
           {instant
             ? "Owned instantly. Your card stays safe in the vault — withdraw it anytime."
             : placedBidLabel
-              ? `Your bid of $${placedBidLabel} is live. We'll notify you when a seller meets your price — no funds held until it matches.`
-              : "Your bid is live. We'll notify you when a seller meets your price — no funds held until it matches."}
+              ? `Your bid of $${placedBidLabel} is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`
+              : `Your bid is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`}
         </p>
         <div className="cd-listing-checkout__done-actions">
           <button type="button" className="cd-listing-checkout__done-secondary" onClick={onDone}>
@@ -216,7 +230,7 @@ export function CollectionListingBidCheckout({
       ) : null}
 
       <p className="cd-listing-checkout__fine tkl-mono">
-        No bid fee · 5% charged on sale only
+        No bid fee · 5% charged on sale only · {tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS)}
       </p>
     </>
   );

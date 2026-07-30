@@ -15,6 +15,7 @@ import {
   readSellFlowDraftCards,
   readSellFlowProgress,
   readSellSubmissionPublicId,
+  clearSellSubmissionPublicId,
   writeSellFlowDraftCards,
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
@@ -78,6 +79,9 @@ export function useSellShipping() {
             writeSellFlowProgress({ slipDownloaded: true });
             progress = { ...progress, slipDownloaded: true };
           }
+        } else {
+          // Server has no open draft — drop stale SUB-… from localStorage (common after DB wipe).
+          clearSellSubmissionPublicId();
         }
       } catch {
         /* local draft is enough for paint; we still try upsert below */
@@ -203,7 +207,8 @@ export function useSellShipping() {
       try {
         await markVaultPackingSlipDownloaded(publicId);
       } catch {
-        /* local unlock is enough for UX */
+        // Stale publicId (DB wipe) — clear so confirm upsert creates a fresh row.
+        clearSellSubmissionPublicId();
       }
     })();
   }, [cards]);
@@ -249,21 +254,22 @@ export function useSellShipping() {
     const confirmedCards = confirmedSellCards(cards);
     setConfirming(true);
     void (async () => {
-      let publicId = readSellSubmissionPublicId();
       try {
-        if (!publicId) {
-          const draft = await upsertVaultSubmissionDraft({
-            cards: confirmedCards.map((c) => ({
-              cert: c.cert,
-              name: c.name,
-              grade: c.grade,
-              img: c.img,
-              confirmed: true,
-            })),
-          });
-          publicId = draft.publicId;
-          writeSellSubmissionPublicId(publicId);
-        }
+        // Always upsert first — localStorage publicId may be stale (DB reset, old env,
+        // or draft never persisted). Tracking alone would 404 "Submission not found".
+        const draft = await upsertVaultSubmissionDraft({
+          publicId: readSellSubmissionPublicId() ?? undefined,
+          cards: confirmedCards.map((c) => ({
+            cert: c.cert,
+            name: c.name,
+            grade: c.grade,
+            img: c.img,
+            confirmed: true,
+          })),
+        });
+        let publicId = draft.publicId;
+        writeSellSubmissionPublicId(publicId);
+
         const shipped = await registerVaultSubmissionTracking(publicId, {
           carrier,
           trackingNumber: cleaned,
@@ -274,14 +280,20 @@ export function useSellShipping() {
         clearSellFlowDraftLocal();
         setConfirmed(true);
         window.setTimeout(() => {
-          router.push(`/vault/submissions/${encodeURIComponent(publicId!)}`);
+          router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
         }, 1200);
       } catch (err) {
-        window.alert(
+        let msg =
           err instanceof Error
             ? err.message
-            : "Failed to register shipment on the server. Please try again.",
-        );
+            : "Failed to register shipment on the server. Please try again.";
+        try {
+          const parsed = JSON.parse(msg) as { message?: string };
+          if (parsed?.message) msg = parsed.message;
+        } catch {
+          /* plain text */
+        }
+        window.alert(msg);
       } finally {
         setConfirming(false);
       }

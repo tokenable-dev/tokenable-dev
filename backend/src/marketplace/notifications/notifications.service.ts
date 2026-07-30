@@ -30,6 +30,8 @@ export type NotificationListItem = {
   title: string;
   body: string;
   payload: {
+    /** `cancelled` = bid withdrawn; omit / other = new offer. */
+    event?: 'cancelled';
     bidOrderHash?: string;
     tokenId?: string;
     askOrderHash?: string;
@@ -62,14 +64,104 @@ export class NotificationsService {
   async notifyAskOwnerOfTokenBid(bid: Order): Promise<void> {
     if (!isTokenBidOrder(bid) || bid.status !== OrderStatus.ACTIVE) return;
 
-    const tid = String(bid.tokenId ?? '').trim();
-    if (!isValidDecimalTokenId(tid)) return;
+    const ctx = await this.resolveAskOwnerNotifyContext(bid);
+    if (!ctx) return;
 
-    const variants = [
-      ...new Set(
-        [tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0),
-      ),
-    ];
+    const { recipient, tidNorm, ask, bidUsdc, priceLabel } = ctx;
+    const dedupeKey = `token_bid:${bid.orderHash}`;
+    const existing = await this.notifications.findOne({
+      where: { recipientWallet: recipient, dedupeKey },
+    });
+    if (existing) return;
+
+    const row = this.notifications.create({
+      recipientWallet: recipient,
+      type: 'bid',
+      title: 'New offer on your listing',
+      body: `Someone offered ${priceLabel} on token #${tidNorm}. Accept the offer without changing your ask.`,
+      dedupeKey,
+      payload: {
+        bidOrderHash: bid.orderHash,
+        tokenId: tidNorm,
+        askOrderHash: ask.orderHash,
+        bidUsdc,
+        collectionKey: ask.collectionKey ?? bid.collectionKey,
+        ctaLabel: 'Accept offer',
+      },
+      readAt: null,
+    });
+
+    try {
+      await this.notifications.save(row);
+      this.logger.log(
+        `notifyAskOwnerOfTokenBid → ${recipient.slice(0, 10)}… token #${tidNorm} bid ${bid.orderHash.slice(0, 10)}…`,
+      );
+    } catch (e) {
+      // Unique race: another insert won — treat as success.
+      this.logger.warn(
+        `notifyAskOwnerOfTokenBid save skipped: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  /**
+   * When a card-level token bid is cancelled, notify the active ask owner on
+   * that tokenId (same recipient rules as new-offer notifications).
+   */
+  async notifyAskOwnerOfTokenBidCancelled(bid: Order): Promise<void> {
+    if (!isTokenBidOrder(bid) || bid.status !== OrderStatus.CANCELLED) return;
+
+    const ctx = await this.resolveAskOwnerNotifyContext(bid);
+    if (!ctx) return;
+
+    const { recipient, tidNorm, ask, bidUsdc, priceLabel } = ctx;
+    const dedupeKey = `token_bid_cancelled:${bid.orderHash}`;
+    const existing = await this.notifications.findOne({
+      where: { recipientWallet: recipient, dedupeKey },
+    });
+    if (existing) return;
+
+    const row = this.notifications.create({
+      recipientWallet: recipient,
+      type: 'bid',
+      title: 'Offer cancelled',
+      body: `An offer of ${priceLabel} on token #${tidNorm} was cancelled.`,
+      dedupeKey,
+      payload: {
+        event: 'cancelled',
+        bidOrderHash: bid.orderHash,
+        tokenId: tidNorm,
+        askOrderHash: ask.orderHash,
+        bidUsdc,
+        collectionKey: ask.collectionKey ?? bid.collectionKey,
+      },
+      readAt: null,
+    });
+
+    try {
+      await this.notifications.save(row);
+      this.logger.log(
+        `notifyAskOwnerOfTokenBidCancelled → ${recipient.slice(0, 10)}… token #${tidNorm} bid ${bid.orderHash.slice(0, 10)}…`,
+      );
+    } catch (e) {
+      this.logger.warn(
+        `notifyAskOwnerOfTokenBidCancelled save skipped: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  private async resolveAskOwnerNotifyContext(bid: Order): Promise<{
+    recipient: string;
+    tidNorm: string;
+    ask: Order;
+    bidUsdc: number;
+    priceLabel: string;
+  } | null> {
+    const tid = String(bid.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid)) return null;
+
+    const tidNorm = normalizeDecimalTokenId(tid);
+    const variants = [...new Set([tid, tidNorm].filter((s) => s.length > 0))];
     const ask = await this.orderRepo
       .createQueryBuilder('o')
       .where('o.token_id IN (:...variants)', { variants })
@@ -81,11 +173,11 @@ export class NotificationsService {
       .orderBy('o.created_at', 'DESC')
       .getOne();
 
-    if (!ask) return;
+    if (!ask) return null;
 
     const recipient = normalizeWallet(ask.offerer);
     const bidder = normalizeWallet(bid.offerer);
-    if (!recipient || recipient === bidder) return;
+    if (!recipient || recipient === bidder) return null;
 
     const bidUsdc = microsToUsdc(
       String(
@@ -98,40 +190,7 @@ export class NotificationsService {
         ? `${bidUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC`
         : 'an offer';
 
-    const dedupeKey = `token_bid:${bid.orderHash}`;
-    const existing = await this.notifications.findOne({
-      where: { recipientWallet: recipient, dedupeKey },
-    });
-    if (existing) return;
-
-    const row = this.notifications.create({
-      recipientWallet: recipient,
-      type: 'bid',
-      title: 'New offer on your listing',
-      body: `Someone offered ${priceLabel} on token #${normalizeDecimalTokenId(tid)}. Accept the offer without changing your ask.`,
-      dedupeKey,
-      payload: {
-        bidOrderHash: bid.orderHash,
-        tokenId: normalizeDecimalTokenId(tid),
-        askOrderHash: ask.orderHash,
-        bidUsdc,
-        collectionKey: ask.collectionKey ?? bid.collectionKey,
-        ctaLabel: 'Accept offer',
-      },
-      readAt: null,
-    });
-
-    try {
-      await this.notifications.save(row);
-      this.logger.log(
-        `notifyAskOwnerOfTokenBid → ${recipient.slice(0, 10)}… token #${tid} bid ${bid.orderHash.slice(0, 10)}…`,
-      );
-    } catch (e) {
-      // Unique race: another insert won — treat as success.
-      this.logger.warn(
-        `notifyAskOwnerOfTokenBid save skipped: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
+    return { recipient, tidNorm, ask, bidUsdc, priceLabel };
   }
 
   async listForWallets(
@@ -196,7 +255,8 @@ export class NotificationsService {
 
     let href: string | null = null;
     let ctaLabel: string | null = null;
-    if (row.type === 'bid' && bidHash && tokenId) {
+    const isCancelled = payload.event === 'cancelled';
+    if (row.type === 'bid' && !isCancelled && bidHash && tokenId) {
       const sp = new URLSearchParams();
       sp.set('acceptBid', bidHash);
       sp.set('tokenId', tokenId);

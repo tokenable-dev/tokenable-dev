@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/wallets";
 import {
   findPrivyWalletByAddress,
+  isPrivyExternalWallet,
   pickPrimaryPrivyWallet,
   pickPrivyUserEthereumWalletAddress,
   resolveAccountSigningWallet,
@@ -59,6 +60,11 @@ export function useEnsureAccountWalletActive() {
 
     const targetNorm = normalizeWalletAddress(target.address);
     if (!targetNorm) return;
+
+    // An external wallet may only be activated when the backend has confirmed it
+    // as this account's primary (wallet-first login). Activating a merely
+    // connected extension would open MetaMask right after a social login.
+    if (isPrivyExternalWallet(target) && targetNorm !== primaryLinked) return;
     if (connected && connected === targetNorm) {
       lastAlignedAddress.current = targetNorm;
       return;

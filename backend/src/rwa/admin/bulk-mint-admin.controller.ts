@@ -110,7 +110,7 @@ export class BulkMintAdminController {
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.admin.assertAdminSession(req);
-    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
 
     let items = body.items;
     if (typeof (body as { items?: unknown }).items === 'string') {
