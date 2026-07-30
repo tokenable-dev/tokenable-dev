@@ -11,12 +11,23 @@ import {
 } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { activeRqChainId } from "@/lib/chains";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 
 export type PortfolioCollectionBidInfo = {
   highestBidUsd: number | null;
   bids: Order[];
 };
+
+function bidAmountUsd(b: Order): number | null {
+  try {
+    const n = Number(formatUnits(bidUsdcAmount(b), 6));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 function topBidUsd(bids: Order[]): number | null {
   const active = bids.filter(
@@ -34,6 +45,28 @@ function topBidUsd(bids: Order[]): number | null {
   } catch {
     return null;
   }
+}
+
+/** Best active bid for a holding: token offer on this tokenId, else top criteria bid. */
+export function highestBidUsdForHolding(
+  bids: Order[] | undefined,
+  tokenId: string | number,
+): number | null {
+  if (!bids?.length) return null;
+  const tokenIdNorm = normalizeDecimalTokenId(tokenId);
+  let best: number | null = null;
+  for (const b of bids) {
+    if (b.status !== "active") continue;
+    if (isTokenBidOrder(b)) {
+      if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) continue;
+    } else if (!isCriteriaCollectionBid(b)) {
+      continue;
+    }
+    const usd = bidAmountUsd(b);
+    if (usd == null) continue;
+    if (best == null || usd > best) best = usd;
+  }
+  return best;
 }
 
 /** Top collection bids for portfolio holdings — powers Highest bid / No bids yet meta. */

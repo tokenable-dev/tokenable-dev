@@ -18,6 +18,7 @@ import {
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
@@ -74,9 +75,14 @@ export function useListRwaModal({
 
   const topCollectionBid = useMemo(() => {
     if (!collectionBids?.length) return null;
-    const rows = collectionBids.filter(
-      (b) => b.status === "active" && isCriteriaCollectionBid(b),
-    );
+    const tokenIdNorm = normalizeDecimalTokenId(tokenId);
+    const rows = collectionBids.filter((b) => {
+      if (b.status !== "active") return false;
+      if (isTokenBidOrder(b)) {
+        return normalizeDecimalTokenId(b.tokenId) === tokenIdNorm;
+      }
+      return isCriteriaCollectionBid(b);
+    });
     if (!rows.length) return null;
     rows.sort((a, b) => {
       const da = bidUsdcAmount(a);
@@ -98,7 +104,7 @@ export function useListRwaModal({
       label = String(micros);
     }
     return { micros, label, inputValue: formatUnits(micros, 6) };
-  }, [collectionBids, address]);
+  }, [collectionBids, address, tokenId]);
 
   const askMicrosFromPrice = useMemo(() => {
     const t = price.trim();
@@ -115,8 +121,14 @@ export function useListRwaModal({
   const crossingBidsForInstantSale = useMemo(() => {
     if (askMicrosFromPrice == null || !collectionBids?.length) return [];
     const ck = collectionKey?.trim();
+    const tokenIdNorm = normalizeDecimalTokenId(tokenId);
     const rows = collectionBids.filter((b) => {
-      if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+      if (b.status !== "active") return false;
+      if (isTokenBidOrder(b)) {
+        if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+        return bidUsdcAmount(b) >= askMicrosFromPrice;
+      }
+      if (!isCriteriaCollectionBid(b)) return false;
       const bk = orderCollectionKey(b);
       if (ck && bk && bk.toLowerCase() !== ck.toLowerCase()) return false;
       return bidUsdcAmount(b) >= askMicrosFromPrice;
@@ -129,23 +141,31 @@ export function useListRwaModal({
       return 0;
     });
     return rows;
-  }, [collectionBids, collectionKey, askMicrosFromPrice]);
+  }, [collectionBids, collectionKey, askMicrosFromPrice, tokenId]);
 
   useEffect(() => {
-    if (crossingBidsForInstantSale.length < 2) {
+    if (crossingBidsForInstantSale.length === 0) {
       setSelectedBidHash(null);
       return;
     }
     const hashes = crossingBidsForInstantSale.map((b) => String(b.orderHash));
-    setSelectedBidHash((prev) =>
-      prev && hashes.includes(prev) ? prev : hashes[0] ?? null,
-    );
-  }, [crossingBidsForInstantSale]);
+    setSelectedBidHash((prev) => {
+      if (prev && hashes.includes(prev)) return prev;
+      // Prefer the bid at the exact ask price (seller’s chosen list price).
+      if (askMicrosFromPrice != null) {
+        const exact = crossingBidsForInstantSale.find(
+          (b) => bidUsdcAmount(b) === askMicrosFromPrice,
+        );
+        if (exact) return String(exact.orderHash);
+      }
+      return hashes[0] ?? null;
+    });
+  }, [crossingBidsForInstantSale, askMicrosFromPrice]);
 
   const preferredBidForMatch = useMemo(() => {
-    if (crossingBidsForInstantSale.length >= 2 && selectedBidHash) return selectedBidHash;
+    if (selectedBidHash) return selectedBidHash;
     return preferredBidOrderHash ?? null;
-  }, [crossingBidsForInstantSale.length, selectedBidHash, preferredBidOrderHash]);
+  }, [selectedBidHash, preferredBidOrderHash]);
 
   const isReplaceListing = useMemo(() => {
     if (!resolvedExistingAsk || !address) return false;

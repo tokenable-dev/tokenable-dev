@@ -76,6 +76,23 @@ Returns order history maps for multiple token IDs in one DB round-trip.
 
 ---
 
+### `GET /api/marketplace/orders/portfolio-activity`
+
+Portfolio transaction history for a wallet (chain-scoped via `x-tokenable-chain-id`). Returns **fulfilled** orders where the wallet is:
+
+- ask **offerer** (SELL), or
+- bid **offerer** (BUY via sell-into-bid), or
+- ask `parameters._filledByBuyer` (BUY via take-ask)
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `address` | Yes | Wallet |
+| `limit` | No | Max rows (default 200, cap 500) |
+
+Sell-into-bid fills persist `_settlementAmount`, `_matchedBidOrderHash`, and `_filledByBuyer` on the ask so the UI shows **one row per settlement** at the price paid.
+
+---
+
 ### `GET /api/marketplace/orders`
 
 Returns active asks as lightweight rows (no Seaport `parameters` or `signature`).
@@ -122,20 +139,29 @@ See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
 
 ### `GET /api/marketplace/notifications`
 
-JWT required. Lists inbox items for **all wallets linked to the user**.
+JWT required. Lists inbox items for **all wallets linked to the user** on the **active chain** (`x-tokenable-chain-id`). Sepolia alerts do not appear while the app is on Polygon (and vice versa).
 
-Today’s events (ask offerer on the same `tokenId` only):
+In-app events (Notifications spec v1.1 — Email/Telegram/Web push not in this API):
 
-- **Token bid placed** → `New offer on your listing` with `href` → Portfolio accept-offer deep link (`/portfolio?acceptBid=&tokenId=&askHash=`) and `ctaLabel` → `Accept offer`
-- **Token bid cancelled** → `Offer cancelled` (no accept CTA)
+| eventKey | type | Trigger |
+|----------|------|---------|
+| `SELLER_TOP_BID_UPDATED` | bid | New **highest** token bid on an active ask (Edit price CTA) |
+| `SELLER_BID_CANCELLED` / `SELLER_BID_UNFILLED` | bid | Bid withdrawn / dead after fill attempt (ask owner) |
+| `BUYER_BID_PLACED` / `BUYER_BID_EXPIRING` / `BUYER_BID_EXPIRED` | bid | Bidder lifecycle |
+| `BUYER_BID_FILLED` / `BUYER_FILL_FAILED` | bid | Bid filled or unfunded at settle |
+| `SELLER_SOLD` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / listing live |
+| `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
+| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Withdrawal request / physical release |
 
-**Response:** `{ items: NotificationListItem[] }`
+**Not emitted (no domain yet or voided in v1.1):** P2P shipping/dispute keys; `WD_READY_TO_PAY` (no ready-to-pay status); admin ops inbox (`ADMIN_*`); Email/Telegram/Web push.
+
+**Response:** `{ items: NotificationListItem[] }` (`chainId`, `type`, `href`, `ctaLabel`, `payload.eventKey` on each item)
 
 ---
 
 ### `PATCH /api/marketplace/notifications/read-all`
 
-JWT required. Marks all of the user’s notifications as read.
+JWT required. Marks all of the user’s notifications as read **on the active chain only**.
 
 ---
 
@@ -159,7 +185,7 @@ Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
 
 Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
 
-Seller **accept-offer** (keep ask price; do not lower-to-match) is specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep link: `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid`.
+Seller **take-offer** flows (Edit price primary; Accept offer secondary) are specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep links: `/portfolio?setprice=` (Edit price) and `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid`. Edit-price instant match that fails on buyer USDC keeps the ask at the set price.
 
 **Body:** `FulfillMatchedPairDto`
 

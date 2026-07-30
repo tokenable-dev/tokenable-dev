@@ -85,10 +85,13 @@ export const rq = {
   /** Collection bids placed by wallet (portfolio). */
   portfolioBids: (address: string, chainId: number) =>
     ["portfolio-bids", address, chainId] as const,
+  /** Fulfilled trades for portfolio Activity / History tab. */
+  portfolioActivity: (address: string, chainId: number) =>
+    ["portfolio-activity", address, chainId] as const,
   userWatchlist: (userId: string, chainId: number) =>
     ["user-watchlist", userId, chainId] as const,
-  marketplaceNotifications: (userId: string) =>
-    ["marketplace-notifications", userId] as const,
+  marketplaceNotifications: (userId: string, chainId: number) =>
+    ["marketplace-notifications", userId, chainId] as const,
 
   // ── Collection ─────────────────────────────────────────────────────────────
 

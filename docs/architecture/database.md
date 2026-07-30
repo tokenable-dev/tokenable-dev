@@ -53,7 +53,7 @@
 | `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
 | `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |
 | `orders` | Seaport signed asks/bids + fulfilled trade tape | `marketplace/entities/order.entity.ts` |
-| `marketplace_notifications` | In-app inbox (token-bid offers to active ask owners) | `marketplace/entities/marketplace-notification.entity.ts` |
+| `marketplace_notifications` | In-app inbox (`bid`/`trade`/`vault`/`price`; **per `chain_id`**) | `marketplace/entities/marketplace-notification.entity.ts` |
 
 ### Portfolio & engagement
 

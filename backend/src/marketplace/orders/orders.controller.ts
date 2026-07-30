@@ -142,6 +142,28 @@ export class OrdersController {
     );
   }
 
+  /** Portfolio history: fulfilled asks/bids for this wallet (seller + buyer). */
+  @ApiOperation({
+    summary: '포트폴리오 거래 이력',
+    description:
+      'Fulfilled asks listed by the wallet, fulfilled bids they placed, and asks they bought (_filledByBuyer).',
+  })
+  @ApiQuery({ name: 'address', example: SWAGGER_FIXTURES.wallet })
+  @ApiQuery({ name: 'limit', required: false, example: 200 })
+  @Get('orders/portfolio-activity')
+  findPortfolioActivity(
+    @Query('address') address: string,
+    @Query('limit') limit: string | undefined,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ): Promise<OrderListItem[]> {
+    const n = limit != null ? Number(limit) : undefined;
+    return this.ordersService.findPortfolioActivityOrders(
+      address,
+      Number.isFinite(n) ? n : undefined,
+      this.chainConfig.resolveChainId(chainHeader),
+    );
+  }
+
   /** 활성 ask listing 목록 (경량, parameters 없음) */
   @ApiOperation({ summary: '활성 listing 목록' })
   @ApiQuery({

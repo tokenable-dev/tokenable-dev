@@ -166,6 +166,7 @@ COMMENT ON COLUMN orders.consideration_amount IS 'USDC amount in micro-units (st
 CREATE TABLE IF NOT EXISTS marketplace_notifications (
   id serial PRIMARY KEY,
   recipient_wallet varchar(42) NOT NULL,
+  chain_id integer NOT NULL DEFAULT 11155111,
   type varchar(16) NOT NULL DEFAULT 'bid',
   title varchar(160) NOT NULL,
   body varchar(400) NOT NULL,
@@ -173,6 +174,7 @@ CREATE TABLE IF NOT EXISTS marketplace_notifications (
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   read_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_notifications_chain_id_positive CHECK (chain_id > 0),
   CONSTRAINT marketplace_notifications_recipient_dedupe_unique
     UNIQUE (recipient_wallet, dedupe_key)
 );
@@ -180,5 +182,12 @@ CREATE TABLE IF NOT EXISTS marketplace_notifications (
 CREATE INDEX IF NOT EXISTS idx_marketplace_notifications_recipient_created
   ON marketplace_notifications (recipient_wallet, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_marketplace_notifications_recipient_chain_created
+  ON marketplace_notifications (recipient_wallet, chain_id, created_at DESC);
+
 COMMENT ON TABLE marketplace_notifications IS
-  'In-app inbox: token-bid offers to wallets with an active ask on that tokenId.';
+  'In-app inbox (bid/trade/vault/price) scoped by recipient_wallet + chain_id.';
+COMMENT ON COLUMN marketplace_notifications.chain_id IS
+  'Chain of the related RWA/order — list/mark-read filtered by x-tokenable-chain-id.';
+COMMENT ON COLUMN marketplace_notifications.type IS
+  'Inbox tab: bid | trade | vault | price.';

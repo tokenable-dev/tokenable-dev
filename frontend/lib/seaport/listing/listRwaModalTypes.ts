@@ -15,6 +15,13 @@ export interface ListSuccessMeta {
   hint?: string;
   reasonCode?: MatchFailureCode;
   instantOnlyCancelled?: boolean;
+  /**
+   * Buyer could not fund the bid (USDC balance/allowance). Ask stays at the
+   * price the seller just set; dead bid should be invalidated.
+   */
+  keptAskAfterBuyerFundingFail?: boolean;
+  /** Bid that failed match — used to invalidate a dead offer. */
+  failedBidOrderHash?: string;
   /** New collection bucket awaiting admin Markets approval. */
   collectionUnderReview?: boolean;
 }

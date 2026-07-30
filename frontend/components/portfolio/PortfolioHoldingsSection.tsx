@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import type { RwaMetadata } from "@/lib/core";
+import type { Order, RwaMetadata } from "@/lib/core";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import {
   compareSortNum,
   compareSortText,
@@ -35,7 +36,7 @@ export function PortfolioHoldingsSection({
   assetRows,
   metadataByTokenId,
   tokenToCollectionKey,
-  highestBidByCollectionKey,
+  bidsByCollectionKey,
   costBasisByTokenId,
   valuesPending,
   canEditCostBasis,
@@ -48,7 +49,7 @@ export function PortfolioHoldingsSection({
   assetRows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
   tokenToCollectionKey: Record<number, string>;
-  highestBidByCollectionKey: Map<string, number | null>;
+  bidsByCollectionKey: Map<string, Order[]>;
   costBasisByTokenId: Map<number, number>;
   valuesPending: boolean;
   canEditCostBasis?: boolean;
@@ -126,7 +127,9 @@ export function PortfolioHoldingsSection({
           const isListed =
             row.listPriceUsd != null && row.activeListingOrderHash != null;
           const ck = tokenToCollectionKey[row.tokenId];
-          const highestBidUsd = ck ? highestBidByCollectionKey.get(ck) : null;
+          const highestBidUsd = ck
+            ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
+            : null;
 
           return (
             <PortfolioMobileAssetCard
@@ -225,7 +228,9 @@ export function PortfolioHoldingsSection({
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
             const ck = tokenToCollectionKey[row.tokenId];
-            const highestBidUsd = ck ? highestBidByCollectionKey.get(ck) : null;
+            const highestBidUsd = ck
+              ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
+              : null;
             const plClass = pnl
               ? pnl.positive
                 ? "pf-table-pl--pos"

@@ -92,7 +92,7 @@ Key facts:
 - Settlement currency: USDC (6 decimals); platform fee = 5% via Seaport consideration
 - Market pricing is **materialized** (DB-first, not live Cardhedger calls)
 - Collection bucket (`collection_key`) is created on **first ask listing**, not at mint
-- Sellers **accept token offers without lowering the public ask** (`docs/architecture/seaport-accept-offer.md`); failed accept must not mutate the ask
+- Sellers take token offers via **Edit price** (primary) or Accept offer (`docs/architecture/seaport-accept-offer.md`); Edit-price funding fail **keeps** the new ask; Accept-offer funding fail leaves the prior ask unchanged
 - Token-bid notifications go only to the **active ask owner** on that `tokenId` (`marketplace_notifications`)
 - Active P2P custody tokens cannot create Seaport asks
 

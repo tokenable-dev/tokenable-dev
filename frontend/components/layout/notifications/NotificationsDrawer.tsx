@@ -79,10 +79,10 @@ function NotificationItemView({
           ) : null}
         </div>
         <p className="tk-notif-item__desc">{item.desc}</p>
+        <span className="tk-notif-item__time mono">{item.time}</span>
         {item.ctaLabel ? (
           <span className="tk-notif-item__cta">{item.ctaLabel}</span>
         ) : null}
-        <span className="tk-notif-item__time mono">{item.time}</span>
       </div>
     </>
   );

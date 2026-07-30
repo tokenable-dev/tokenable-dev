@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
+import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
 import { VaultAsset } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
 import { VaultRedemption } from './entities/vault-redemption.entity';
@@ -24,6 +25,7 @@ import { VaultService } from './vault.service';
       VaultSubmissionItem,
       RwaToken,
     ]),
+    MarketplaceNotificationsModule,
   ],
   controllers: [VaultSubmissionsController],
   providers: [VaultService, VaultSubmissionService],

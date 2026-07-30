@@ -201,6 +201,18 @@ export class OrdersService {
           `notifyAskOwnerOfTokenBid failed: ${e instanceof Error ? e.message : String(e)}`,
         );
       });
+      void this.notifications.notifyBidderOfBidPlaced(saved).catch((e) => {
+        this.logger.warn(
+          `notifyBidderOfBidPlaced failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+    }
+    if (side === OrderSide.ASK) {
+      void this.notifications.notifySellerListingLive(saved).catch((e) => {
+        this.logger.warn(
+          `notifySellerListingLive failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
     }
     if (side === OrderSide.ASK && saved.collectionKey?.trim()) {
       const reviewStatus = await this.collectionService.getReviewStatus(
@@ -423,6 +435,11 @@ export class OrdersService {
       void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
         this.logger.warn(
           `notifyAskOwnerOfTokenBid (replace) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      void this.notifications.notifyBidderOfBidPlaced(saved).catch((e) => {
+        this.logger.warn(
+          `notifyBidderOfBidPlaced (replace) failed: ${e instanceof Error ? e.message : String(e)}`,
         );
       });
       return saved;
@@ -764,6 +781,38 @@ export class OrdersService {
     return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
   }
 
+  /**
+   * Portfolio transaction history for a wallet:
+   * - fulfilled asks they listed (SELL)
+   * - fulfilled bids they placed (BUY via sell-into-bid)
+   * - fulfilled asks they bought (`parameters._filledByBuyer`)
+   */
+  async findPortfolioActivityOrders(
+    walletAddress: string,
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const addr = walletAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 200), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :st', { st: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .andWhere(
+        `(LOWER(o.offerer) = :addr OR (o.side = :ask AND LOWER(COALESCE(o.parameters->>'_filledByBuyer', '')) = :addr))`,
+        { addr, ask: OrderSide.ASK },
+      )
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+
+    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
+  }
+
   async findOrdersBatchByTokenIds(
     tokenIds: number[],
     chainId?: SupportedChainId,
@@ -936,7 +985,18 @@ export class OrdersService {
     this.logger.log(
       `invalidateDeadBid ${orderHash.slice(0, 10)}… reason=${verdict.reason} by ${callerAddress.slice(0, 10)}…`,
     );
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+    void this.notifications.notifyAskOwnerOfUnfilledBid(saved).catch((e) => {
+      this.logger.warn(
+        `notifyAskOwnerOfUnfilledBid failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+    void this.notifications.notifyBidderOfDeadBid(saved).catch((e) => {
+      this.logger.warn(
+        `notifyBidderOfDeadBid failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+    return saved;
   }
 
   /**
@@ -960,12 +1020,23 @@ export class OrdersService {
       order.parameters = {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'buy',
+        ...(buyerAddress?.trim()
+          ? {
+              _filledByBuyer: buyerAddress.trim().toLowerCase(),
+              _settlementAmount: String(order.considerationAmount ?? '0'),
+            }
+          : {}),
       };
       backfillAskTokenIdFromParameters(order);
     } else if (order.side === OrderSide.BID) {
       order.parameters = {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'sell',
+        _settlementAmount: String(
+          order.parameters?.offer?.[0]?.startAmount ??
+            order.considerationAmount ??
+            '0',
+        ),
       };
     }
     const saved = await this.orderRepo.save(order);
@@ -973,11 +1044,14 @@ export class OrdersService {
     if (!isCriteriaCollectionBidOrder(saved) && saved.side === OrderSide.ASK) {
       const tid = resolveFulfilledAskTokenId(saved);
       if (tid != null) {
+        // NFT left this ask — clear sibling asks only. Other token bids stay
+        // (new owner / book can still see open offers on this tokenId).
         const cleared = await this.orderRepo.update(
           {
             tokenContract: saved.tokenContract,
             tokenId: tid,
             status: OrderStatus.ACTIVE,
+            side: OrderSide.ASK,
             id: Not(saved.id),
           },
           { status: OrderStatus.CANCELLED },
@@ -985,7 +1059,7 @@ export class OrdersService {
         const n = cleared.affected ?? 0;
         if (n > 0) {
           this.logger.log(
-            `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
+            `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active ask(s) for token #${tid}`,
           );
         }
       }
@@ -997,13 +1071,23 @@ export class OrdersService {
           saved.updatedAt ?? new Date(),
           chainId,
         );
+        void this.notifications
+          .notifyTradeSettled({
+            ask: saved,
+            buyerWallet: buyerAddress,
+          })
+          .catch((e) => {
+            this.logger.warn(
+              `notifyTradeSettled (fulfillOrder) failed: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          });
       }
     } else if (
       !isCriteriaCollectionBidOrder(saved) &&
       saved.side === OrderSide.BID &&
       Number(saved.parameters?.consideration?.[0]?.itemType) === 2
     ) {
-      // Seller accepted a token offer via fulfillOrder(bid) — clear leftover asks/bids.
+      // Seller accepted a token offer — clear leftover asks on this token only.
       const tid = normalizeDecimalTokenId(String(saved.tokenId));
       if (tid) {
         const cleared = await this.orderRepo.update(
@@ -1011,14 +1095,14 @@ export class OrdersService {
             tokenContract: saved.tokenContract,
             tokenId: tid,
             status: OrderStatus.ACTIVE,
-            id: Not(saved.id),
+            side: OrderSide.ASK,
           },
           { status: OrderStatus.CANCELLED },
         );
         const n = cleared.affected ?? 0;
         if (n > 0) {
           this.logger.log(
-            `fulfillOrder bid ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
+            `fulfillOrder bid ${orderHash.slice(0, 10)}…: cancelled ${n} active ask(s) for token #${tid}`,
           );
         }
       }
@@ -1035,6 +1119,11 @@ export class OrdersService {
             ...saved,
             side: OrderSide.ASK,
             considerationAmount: offerAmt,
+            parameters: {
+              ...(saved.parameters ?? {}),
+              _filledByBuyer: buyerAddress.trim().toLowerCase(),
+              _settlementAmount: offerAmt,
+            },
           } as Order,
           saved.updatedAt ?? new Date(),
           chainId,
@@ -1112,18 +1201,38 @@ export class OrdersService {
 
     ask.status = OrderStatus.FULFILLED;
     bid.status = OrderStatus.FULFILLED;
+    const settlementAmount = (() => {
+      const offerAmt = String(
+        bid.parameters?.offer?.[0]?.startAmount ?? '',
+      ).trim();
+      if (offerAmt) return offerAmt;
+      return String(bid.considerationAmount ?? ask.considerationAmount ?? '0');
+    })();
+    const buyer = bid.offerer.trim().toLowerCase();
     ask.parameters = {
       ...(ask.parameters ?? {}),
       _tapeFillSide: 'sell',
+      _filledByBuyer: buyer,
+      _matchedBidOrderHash: bid.orderHash,
+      _settlementAmount: settlementAmount,
+    };
+    bid.parameters = {
+      ...(bid.parameters ?? {}),
+      _tapeFillSide: 'sell',
+      _matchedAskOrderHash: ask.orderHash,
+      _settlementAmount: settlementAmount,
     };
     backfillAskTokenIdFromParameters(ask);
     await this.orderRepo.save([ask, bid]);
 
+    // Clear sibling asks only. Other open bids on this tokenId remain on the book
+    // (seller chose one offer; unmatched bids stay for the new owner / later fills).
     const cleared = await this.orderRepo.update(
       {
         tokenContract: ask.tokenContract,
         tokenId: ask.tokenId,
         status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
         id: Not(ask.id),
       },
       { status: OrderStatus.CANCELLED },
@@ -1131,16 +1240,32 @@ export class OrdersService {
     const n = cleared.affected ?? 0;
     if (n > 0) {
       this.logger.log(
-        `fulfillMatchedPair: cancelled ${n} other active order(s) for token #${ask.tokenId}`,
+        `fulfillMatchedPair: cancelled ${n} other active ask(s) for token #${ask.tokenId}`,
       );
     }
 
     await this.seedMarketplaceBuyFromAskFill(
       bid.offerer,
-      ask,
+      {
+        ...ask,
+        considerationAmount: settlementAmount,
+      } as Order,
       ask.updatedAt ?? new Date(),
       chainId,
     );
+
+    void this.notifications
+      .notifyTradeSettled({
+        ask,
+        bid,
+        buyerWallet: bid.offerer,
+        settlementMicros: settlementAmount,
+      })
+      .catch((e) => {
+        this.logger.warn(
+          `notifyTradeSettled (fulfillMatchedPair) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
 
     return { ask, bid };
   }
@@ -1182,8 +1307,25 @@ export class OrdersService {
   }
 
   private async expireOrders(): Promise<void> {
+    const now = new Date();
+    const due = await this.orderRepo.find({
+      where: { status: OrderStatus.ACTIVE, endTime: LessThan(now) },
+      take: 500,
+    });
+    if (due.length === 0) return;
+
+    for (const order of due) {
+      if (isTokenBidOrder(order)) {
+        void this.notifications.notifyBidderOfBidExpired(order).catch((e) => {
+          this.logger.warn(
+            `notifyBidderOfBidExpired failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+      }
+    }
+
     await this.orderRepo.update(
-      { status: OrderStatus.ACTIVE, endTime: LessThan(new Date()) },
+      { status: OrderStatus.ACTIVE, endTime: LessThan(now) },
       { status: OrderStatus.EXPIRED },
     );
   }

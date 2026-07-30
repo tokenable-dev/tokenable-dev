@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
@@ -17,16 +18,23 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import type { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 import { NotificationsService } from './notifications.service';
 
 @ApiTags('marketplace')
 @Controller('marketplace/notifications')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
+@ApiChainIdHeader()
 export class NotificationsController {
   constructor(
     private readonly notifications: NotificationsService,
     private readonly users: UserService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   private async walletsFor(userId: string): Promise<string[]> {
@@ -38,19 +46,30 @@ export class NotificationsController {
   @ApiOperation({
     summary: 'List marketplace notifications',
     description:
-      'JWT 필수. Returns inbox items for all wallets linked to the user (token-bid offers on active asks).',
+      'JWT 필수. Inbox for linked wallets on the active chain (`x-tokenable-chain-id`). Sepolia bids do not appear while on Polygon.',
   })
-  async list(@Req() req: Request & { user: User }) {
+  async list(
+    @Req() req: Request & { user: User },
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const wallets = await this.walletsFor(req.user.id);
-    const items = await this.notifications.listForWallets(wallets);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const items = await this.notifications.listForWallets(wallets, chainId);
     return { items };
   }
 
   @Patch('read-all')
-  @ApiOperation({ summary: 'Mark all notifications read' })
-  async markAllRead(@Req() req: Request & { user: User }) {
+  @ApiOperation({
+    summary: 'Mark all notifications read',
+    description: 'Marks unread items for the active chain only.',
+  })
+  async markAllRead(
+    @Req() req: Request & { user: User },
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const wallets = await this.walletsFor(req.user.id);
-    return this.notifications.markAllRead(wallets);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.notifications.markAllRead(wallets, chainId);
   }
 
   @Patch(':id/read')

@@ -7,7 +7,8 @@ import {
   Unique,
 } from 'typeorm';
 
-export type MarketplaceNotificationType = 'bid';
+/** Inbox filter tabs: Trade / Bid / Vault / Price Alert. */
+export type MarketplaceNotificationType = 'bid' | 'trade' | 'vault' | 'price';
 
 @Entity('marketplace_notifications')
 @Unique('marketplace_notifications_recipient_dedupe_unique', [
@@ -18,10 +19,18 @@ export class MarketplaceNotification {
   @PrimaryGeneratedColumn()
   id: number;
 
-  /** Ask offerer wallet that should see this inbox item (lowercase). */
+  /** Wallet that should see this inbox item (lowercase). */
   @Index()
   @Column({ name: 'recipient_wallet', type: 'varchar', length: 42 })
   recipientWallet: string;
+
+  /**
+   * Chain of the related RWA / order.
+   * List / mark-all-read are filtered by `x-tokenable-chain-id`.
+   */
+  @Index()
+  @Column({ name: 'chain_id', type: 'integer', default: 11155111 })
+  chainId: number;
 
   @Column({ type: 'varchar', length: 16, default: 'bid' })
   type: MarketplaceNotificationType;
@@ -33,16 +42,16 @@ export class MarketplaceNotification {
   body: string;
 
   /**
-   * Stable idempotency key, e.g. `token_bid:<orderHash>` or
-   * `token_bid_cancelled:<orderHash>`.
+   * Stable idempotency key, e.g. `top_bid:<orderHash>` or
+   * `seller_sold:<askHash>`.
    */
   @Column({ name: 'dedupe_key', type: 'varchar', length: 128 })
   dedupeKey: string;
 
   /**
    * Deep-link + display payload.
-   * `{ event?, bidOrderHash, tokenId, askOrderHash?, bidUsdc?, collectionKey?, ctaLabel? }`
-   * `event: 'cancelled'` for withdrawn offers (no Accept CTA).
+   * Spec event keys live in `eventKey`; optional `href` / `ctaLabel` override
+   * default deep-links in NotificationsService.toListItem.
    */
   @Column({ type: 'jsonb', default: {} })
   payload: Record<string, unknown>;

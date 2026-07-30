@@ -486,6 +486,8 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   if (
     low.includes("balance insufficient") ||
     low.includes("insufficient balance") ||
+    low.includes("buyer usdc insufficient") ||
+    low.includes("usdc insufficient") ||
     (low.includes("erc20") && low.includes("insufficient"))
   ) {
     return "insufficient_balance";

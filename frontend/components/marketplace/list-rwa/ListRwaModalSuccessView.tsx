@@ -95,14 +95,32 @@ export function ListRwaModalSuccessView({
       ) : null}
       {!successMeta?.matched && successMeta?.hint ? (
         <div className="text-[11px] text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 space-y-1.5">
-          <p>
-            A collection bid at or above your price was found, but it could not be filled
-            automatically.
-          </p>
-          {successMeta.reasonCode === "insufficient_balance" ? (
+          {successMeta.keptAskAfterBuyerFundingFail ? (
+            <>
+              <p>
+                That bid could no longer be filled. The offer was removed from the
+                book.
+              </p>
+              <p>
+                Your listing stays active at $
+                {Number.isFinite(priceNum)
+                  ? priceNum.toLocaleString("en-US")
+                  : price}
+                .
+              </p>
+            </>
+          ) : (
+            <p>
+              A collection bid at or above your price was found, but it could not be filled
+              automatically.
+            </p>
+          )}
+          {!successMeta.keptAskAfterBuyerFundingFail &&
+          successMeta.reasonCode === "insufficient_balance" ? (
             <p>Reason: Buyer balance insufficient.</p>
           ) : null}
-          {successMeta.reasonCode === "insufficient_allowance" ? (
+          {!successMeta.keptAskAfterBuyerFundingFail &&
+          successMeta.reasonCode === "insufficient_allowance" ? (
             <p>Reason: Buyer allowance insufficient.</p>
           ) : null}
           {successMeta.reasonCode === "merkle_mismatch" ? (
@@ -117,7 +135,9 @@ export function ListRwaModalSuccessView({
           {successMeta.instantOnlyCancelled ? (
             <p>Protection: Listing was auto-cancelled to enforce instant-only execution.</p>
           ) : null}
-          <p>{successMeta.hint}</p>
+          {!successMeta.keptAskAfterBuyerFundingFail ? (
+            <p>{successMeta.hint}</p>
+          ) : null}
         </div>
       ) : null}
       <TkButton variant="primary" onClick={onClose} className="mt-6 w-full justify-center">

@@ -1,13 +1,21 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { formatUnits, type Address, type PublicClient } from "viem";
-import { cancelOrder, getMarketplaceCollectionDetail, getOrderByHash, rq, type Order } from "@/lib/core";
 import {
+  cancelOrder,
+  getMarketplaceCollectionDetail,
+  getOrderByHash,
+  invalidateDeadBidApi,
+  type Order,
+} from "@/lib/core";
+import {
+  invalidateAfterDeadBid,
   invalidateAfterListing,
   invalidateForMatchRetry,
 } from "@/lib/core/invalidation";
 import {
   applyInstantOnlyProtection,
   isAbortLikeError,
+  isBuyerFundingMatchFailure,
   matchFlowHttpSignal,
   mergeBidsByOrderHash,
   orderCollectionKey,
@@ -28,6 +36,7 @@ import {
   runCriteriaMatch,
   runTokenBidMatch,
   classifyMatchFailureCode,
+  checkBuyerUsdcReadyForBid,
   mapMatchError,
   type MatchFailureCode,
   type MatchWriteContractAsync,
@@ -39,7 +48,7 @@ import {
   isSeaportOrderActiveAt,
 } from "@/lib/seaport/orders/seaportOrderTime";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
-import type { SupportedChainId } from "@/lib/chains";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 
 export type ListRwaInstantMatchDeps = {
@@ -172,6 +181,7 @@ async function tryMatchAfterListing(
     if (tokenCandidates.length > 0) {
       let lastErr = "";
       let lastReason: MatchFailureCode = "unknown";
+      let lastFailedBidHash: string | undefined;
       let listing: Order = created;
 
       for (const bid of tokenCandidates) {
@@ -233,6 +243,7 @@ async function tryMatchAfterListing(
         } catch (e: unknown) {
           lastErr = mapMatchError(e, { bidOfferer: bid.offerer });
           lastReason = classifyMatchFailureCode(e);
+          lastFailedBidHash = bid.orderHash;
         }
       }
 
@@ -240,6 +251,7 @@ async function tryMatchAfterListing(
         matched: false,
         reasonCode: lastReason,
         hint: lastErr || "Could not fill a bid automatically.",
+        failedBidOrderHash: lastFailedBidHash,
       };
       continue;
     }
@@ -291,6 +303,7 @@ async function tryMatchAfterListing(
 
     let lastErr = "";
     let lastReason: MatchFailureCode = "unknown";
+    let lastFailedBidHash: string | undefined;
     let listing: Order = created;
 
     for (const bid of candidates) {
@@ -355,6 +368,7 @@ async function tryMatchAfterListing(
       } catch (e: unknown) {
         lastErr = mapMatchError(e, { bidOfferer: bid.offerer });
         lastReason = classifyMatchFailureCode(e);
+        lastFailedBidHash = bid.orderHash;
       }
     }
 
@@ -368,6 +382,7 @@ async function tryMatchAfterListing(
       hint: lastErr
         ? `${lastErr}${merkleHint}`
         : "Could not fill a collection bid automatically.",
+      failedBidOrderHash: lastFailedBidHash,
     };
   }
 
@@ -405,13 +420,26 @@ export async function shouldRunInstantMatchAfterList(
   }
   const askAm = askGrossUsdcMicros(created);
   const propBids = deps.collectionBids ?? [];
-  const crosses = (rows: Order[]) =>
+  const tokenIdNorm = normalizeDecimalTokenId(deps.tokenId);
+
+  const crossesCriteria = (rows: Order[]) =>
     rows.some((b) => {
       if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
       const bk = orderCollectionKey(b);
       if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
       return bidUsdcAmount(b) >= askAm;
     });
+
+  /** Card-level token offers on this tokenId (notification / Edit-price path). */
+  const crossesToken = (rows: Order[]) =>
+    rows.some((b) => {
+      if (b.status !== "active" || !isTokenBidOrder(b)) return false;
+      if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+      return bidUsdcAmount(b) >= askAm;
+    });
+
+  const crosses = (rows: Order[]) => crossesCriteria(rows) || crossesToken(rows);
+
   const uiSaysCross =
     deps.topCollectionBid != null && deps.topCollectionBid.micros >= askAm;
   if (uiSaysCross || crosses(propBids)) {
@@ -436,9 +464,66 @@ export async function shouldRunInstantMatchAfterList(
     return { shouldRun: true, enforceImmediateFill: true };
   }
   if (timedOut) {
+    // RPC/detail slow — still attempt match (token bids may be in propBids / book).
     return { shouldRun: true, enforceImmediateFill: false };
   }
   return { shouldRun: false, enforceImmediateFill: false };
+}
+
+/**
+ * After a failed match, if the bid is still active but unfunded on-chain,
+ * mark reasonCode as funding-fail so keep-ask + dead-bid invalidate can run.
+ */
+async function enrichMetaWithBuyerFundingCheck(
+  deps: ListRwaInstantMatchDeps,
+  meta: ListSuccessMeta,
+): Promise<ListSuccessMeta> {
+  if (meta.matched || isBuyerFundingMatchFailure(meta.reasonCode)) return meta;
+  if (!meta.failedBidOrderHash || !deps.publicClient) return meta;
+
+  try {
+    const bid = await getOrderByHash(meta.failedBidOrderHash, {
+      signal: matchFlowHttpSignal(),
+    });
+    if (bid.status !== "active" || !isTokenBidOrder(bid)) return meta;
+    const { usdcAddress } = getChainContracts(deps.chainId);
+    const ready = await checkBuyerUsdcReadyForBid(
+      deps.publicClient,
+      bid,
+      usdcAddress,
+    );
+    if (ready.ok) return meta;
+    return {
+      ...meta,
+      reasonCode:
+        ready.code === "allowance"
+          ? "insufficient_allowance"
+          : "insufficient_balance",
+      hint: ready.message || meta.hint,
+      failedBidOrderHash: bid.orderHash,
+    };
+  } catch {
+    return meta;
+  }
+}
+
+async function invalidateFailedTokenBidIfDead(
+  deps: ListRwaInstantMatchDeps,
+  meta: ListSuccessMeta,
+): Promise<boolean> {
+  if (!isBuyerFundingMatchFailure(meta.reasonCode)) return false;
+  if (!meta.failedBidOrderHash || !deps.address) return false;
+  try {
+    await invalidateDeadBidApi(meta.failedBidOrderHash, deps.address);
+    await invalidateAfterDeadBid(deps.queryClient);
+    return true;
+  } catch (e) {
+    console.warn(
+      "[list-instant-match] dead-bid invalidate skipped:",
+      e instanceof Error ? e.message : e,
+    );
+    return false;
+  }
 }
 
 export async function cancelListingWithRetryAndVerify(
@@ -500,7 +585,27 @@ export async function runPostListInstantMatch(
     await invalidateForMatchRetry(deps.queryClient, ck);
   }
   let meta = await tryMatchAfterListingWithTimeout(deps, created);
-  if (!meta.matched && instantDecision.enforceImmediateFill) {
+  if (meta.matched) return meta;
+
+  meta = await enrichMetaWithBuyerFundingCheck(deps, meta);
+
+  // Dead token bid: remove from offers book + notify seller/buyer (backend).
+  if (isBuyerFundingMatchFailure(meta.reasonCode)) {
+    const invalidated = await invalidateFailedTokenBidIfDead(deps, meta);
+    return {
+      ...meta,
+      keptAskAfterBuyerFundingFail: true,
+      hint:
+        "That bid could not be filled (buyer USDC balance or Seaport allowance). " +
+        (invalidated
+          ? "The offer was removed. "
+          : "Could not remove the offer automatically — refresh the order book. ") +
+        "Your listing stays active at the price you set. " +
+        (meta.hint ?? ""),
+    };
+  }
+
+  if (instantDecision.enforceImmediateFill) {
     const cancelled = await cancelListingWithRetryAndVerify(deps, created.orderHash);
     meta = applyInstantOnlyProtection({
       ...meta,

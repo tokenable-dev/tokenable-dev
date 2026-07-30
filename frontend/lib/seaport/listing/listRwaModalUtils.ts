@@ -73,8 +73,11 @@ export function mergeBidsByOrderHash(api: Order[], hints: Order[]): Order[] {
 
 /**
  * Highest USDC bid first. Within the same price, FIFO by `createdAt` (oldest first),
- * then `orderHash`. If `preferred` is set, it only moves to the front **within the same
- * bid amount** — never before a strictly higher bid.
+ * then `orderHash`.
+ *
+ * If `preferred` is set and present, **only that bid** is returned — the seller
+ * explicitly chose it (e.g. $1 while a $2 bid also crosses). Do not auto-upgrade
+ * to a higher offer.
  */
 export function orderMatchCandidates(merkleOk: Order[], preferred?: string | null): Order[] {
   const createdMs = (o: Order) => {
@@ -95,24 +98,9 @@ export function orderMatchCandidates(merkleOk: Order[], preferred?: string | nul
   const p = preferred?.trim();
   if (!p) return sorted;
 
-  const out: Order[] = [];
-  let i = 0;
-  while (i < sorted.length) {
-    const tierPrice = bidUsdcAmount(sorted[i]!);
-    const tier: Order[] = [];
-    while (i < sorted.length && bidUsdcAmount(sorted[i]!) === tierPrice) {
-      tier.push(sorted[i]!);
-      i++;
-    }
-    const prefIdx = tier.findIndex((b) => b.orderHash === p);
-    if (prefIdx > 0) {
-      const pref = tier[prefIdx]!;
-      out.push(pref, ...tier.filter((_, j) => j !== prefIdx));
-    } else {
-      out.push(...tier);
-    }
-  }
-  return out;
+  const pref = sorted.find((b) => b.orderHash === p);
+  if (pref) return [pref];
+  return sorted;
 }
 
 export function applyInstantOnlyProtection<T extends { matched: boolean; instantOnlyCancelled?: boolean }>(
@@ -121,4 +109,14 @@ export function applyInstantOnlyProtection<T extends { matched: boolean; instant
   const next = { ...meta };
   if (!next.matched) next.instantOnlyCancelled = true;
   return next;
+}
+
+/** Buyer cannot settle — keep the seller's updated ask (do not instant-only cancel). */
+export function isBuyerFundingMatchFailure(
+  reasonCode: string | undefined,
+): boolean {
+  return (
+    reasonCode === "insufficient_balance" ||
+    reasonCode === "insufficient_allowance"
+  );
 }

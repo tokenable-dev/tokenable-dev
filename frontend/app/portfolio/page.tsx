@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
@@ -23,7 +23,12 @@ import {
 } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
-import { putPortfolioCostBasis, rq } from "@/lib/core";
+import {
+  getPortfolioActivityOrders,
+  putPortfolioCostBasis,
+  rq,
+  type Order,
+} from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
@@ -118,16 +123,23 @@ export default function PortfolioPage() {
     assets: hookAssets,
     tokenIds,
     activeOrders: allOrders,
-    historiesFlat,
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
-    isLoadingHistoryBatch: historyBatchLoading,
     refetchActiveOrders,
   } = useUserAssets(portfolioAddress, {
     enabled: portfolioDataEnabled,
-    includeOrderHistory: true,
+    includeOrderHistory: false,
     includeMarketPreview: false,
     retainPreviousOwner: false,
+  });
+
+  const chainId = activeRqChainId();
+  const activityQuery = useQuery({
+    queryKey: rq.portfolioActivity(portfolioAddress ?? "", chainId),
+    queryFn: () => getPortfolioActivityOrders(portfolioAddress!),
+    enabled: portfolioDataEnabled && Boolean(portfolioAddress?.trim()),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const assets: OwnedAsset[] = useMemo(
@@ -201,14 +213,14 @@ export default function PortfolioPage() {
 
   const fulfilledOrders = useMemo(
     () =>
-      historiesFlat
+      (activityQuery.data ?? [])
         .filter((o) => o.status === "fulfilled")
         .sort(
           (a, b) =>
             new Date(b.updatedAt ?? b.createdAt).getTime() -
             new Date(a.updatedAt ?? a.createdAt).getTime(),
         ),
-    [historiesFlat],
+    [activityQuery.data],
   );
 
   const { costBasisByTokenId, hiddenSet } = usePortfolioHoldings(
@@ -301,10 +313,10 @@ export default function PortfolioPage() {
     portfolioDataEnabled,
   );
 
-  const highestBidByCollectionKey = useMemo(() => {
-    const map = new Map<string, number | null>();
+  const bidsByCollectionKey = useMemo(() => {
+    const map = new Map<string, Order[]>();
     for (const [key, info] of collectionTopBids.byCollectionKey) {
-      map.set(key, info.highestBidUsd);
+      map.set(key, info.bids);
     }
     return map;
   }, [collectionTopBids.byCollectionKey]);
@@ -319,7 +331,7 @@ export default function PortfolioPage() {
   const assetsSectionLoading = idsLoading || assetsLoading;
   const portfolioValuePending = dailySnapshotsLoading;
   const bidsSectionLoading = myBids.loading;
-  const historySectionLoading = idsLoading || historyBatchLoading;
+  const historySectionLoading = idsLoading || activityQuery.isLoading;
 
   const portfolioViewedFiredRef = useRef(false);
   useEffect(() => {
@@ -414,7 +426,7 @@ export default function PortfolioPage() {
               assetRows={visibleAssetRows}
               metadataByTokenId={metadataByTokenId}
               tokenToCollectionKey={tokenToCollectionKey}
-              highestBidByCollectionKey={highestBidByCollectionKey}
+              bidsByCollectionKey={bidsByCollectionKey}
               costBasisByTokenId={costBasisByTokenId}
               valuesPending={valuesPending}
               canEditCostBasis={Boolean(signerAddress)}

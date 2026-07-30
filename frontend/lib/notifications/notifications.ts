@@ -27,14 +27,15 @@ export const NOTIFICATION_FILTERS: {
   { key: "price", label: "Price Alert" },
 ];
 
+/** Colors match `Tokenable-with design system-3/tk-notifications.js`. */
 const TYPE_STYLE: Record<
   Exclude<NotificationFilterKey, "all">,
   { icon: NotificationIcon; color: string }
 > = {
-  trade: { icon: "check", color: "#34d399" },
-  bid: { icon: "layer", color: "#60a5fa" },
-  vault: { icon: "shield", color: "#a78bfa" },
-  price: { icon: "trend", color: "#fbbf24" },
+  trade: { icon: "check", color: "#00C350" },
+  bid: { icon: "layer", color: "#1A6FFF" },
+  vault: { icon: "shield", color: "#1A6FFF" },
+  price: { icon: "trend", color: "#EA8200" },
 };
 
 export function notificationTypeStyle(
@@ -50,14 +51,23 @@ export function formatUnreadBadgeCount(count: number): string {
   return String(Math.floor(count));
 }
 
-/** Compact relative time for the notifications drawer. */
+/**
+ * Relative time for the notifications drawer — parity with tk-notifications.js
+ * (`Just now`, `2 min ago`, `1 hour ago`, `Yesterday`, …).
+ */
 export function formatNotificationTime(iso: string, nowMs = Date.now()): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
   const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
-  if (sec < 60) return "just now";
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  if (sec < 86400 * 7) return `${Math.floor(sec / 86400)}d ago`;
+  if (sec < 60) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min === 1 ? "1 min ago" : `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr === 1 ? "1 hour ago" : `${hr} hours ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return "Yesterday";
+  if (day < 7) return `${day} days ago`;
+  if (day < 14) return "1 week ago";
+  if (day < 30) return `${Math.floor(day / 7)} weeks ago`;
   return new Date(t).toLocaleDateString();
 }

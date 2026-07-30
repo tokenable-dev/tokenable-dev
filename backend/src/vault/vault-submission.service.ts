@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
+import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import {
   RegisterVaultShipmentDto,
   UpsertVaultSubmissionDraftDto,
@@ -20,11 +23,14 @@ export type VaultSubmissionScenario = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 
 
 @Injectable()
 export class VaultSubmissionService {
+  private readonly logger = new Logger(VaultSubmissionService.name);
+
   constructor(
     @InjectRepository(VaultSubmission)
     private readonly submissions: Repository<VaultSubmission>,
     @InjectRepository(VaultSubmissionItem)
     private readonly items: Repository<VaultSubmissionItem>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private static normalizeCert(cert: string): string {
@@ -470,6 +476,21 @@ export class VaultSubmissionService {
         await this.items.save(it);
       }
     }
+    const firstCard =
+      (sub.items ?? []).find((i) => i.displayName?.trim())?.displayName ??
+      (sub.items ?? [])[0]?.displayName ??
+      null;
+    void this.notifications
+      .notifySellerSubmissionReceived({
+        userId: sub.userId,
+        submissionPublicId: sub.publicId,
+        cardLabel: firstCard,
+      })
+      .catch((e) => {
+        this.logger.warn(
+          `notifySellerSubmissionReceived failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
     return this.adminGet(sub.id);
   }
 
@@ -513,6 +534,82 @@ export class VaultSubmissionService {
       }
     }
 
+    const cardLabel = item.displayName?.trim() || null;
+    if (status === 'approved') {
+      void this.notifications
+        .notifySellerVerifyDoneSetPrice({
+          userId: sub.userId,
+          submissionPublicId: sub.publicId,
+          itemId: item.id,
+          cardLabel,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerVerifyDoneSetPrice failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    } else if (status === 'rejected') {
+      void this.notifications
+        .notifySellerCardRejected({
+          userId: sub.userId,
+          submissionPublicId: sub.publicId,
+          itemId: item.id,
+          cardLabel,
+          reason: item.rejectionReason,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerCardRejected failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    } else if (status === 'failed') {
+      void this.notifications
+        .notifySellerListingFailed({
+          userId: sub.userId,
+          submissionPublicId: sub.publicId,
+          itemId: item.id,
+          cardLabel,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerListingFailed failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
+
     return this.adminGet(sub.id);
+  }
+
+  /**
+   * Daily: approved cards waiting 3+ days without a set price
+   * (SELLER_PRICE_PENDING_REMINDER).
+   */
+  @Cron('0 14 * * *')
+  async cronPricePendingReminders(): Promise<void> {
+    const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const items = await this.items.find({
+      where: {
+        status: In(['approved', 'completed']),
+        updatedAt: LessThan(cutoff),
+      },
+      relations: { submission: true },
+      take: 100,
+    });
+    for (const item of items) {
+      const sub = item.submission;
+      if (!sub?.userId || !sub.publicId) continue;
+      void this.notifications
+        .notifySellerPricePendingReminder({
+          userId: sub.userId,
+          itemId: item.id,
+          submissionPublicId: sub.publicId,
+          cardLabel: item.displayName,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerPricePendingReminder failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
   }
 }

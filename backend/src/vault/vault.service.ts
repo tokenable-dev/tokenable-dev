@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { keccak256, toUtf8Bytes } from 'ethers';
 import { In, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
+import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import { VaultAsset, VaultAssetType } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
 import { VaultRedemption } from './entities/vault-redemption.entity';
@@ -50,6 +51,7 @@ export class VaultService {
     private readonly redemptions: Repository<VaultRedemption>,
     @InjectRepository(RwaToken)
     private readonly rwaTokens: Repository<RwaToken>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private static normalizeCert(certNumber: string): string {
@@ -281,6 +283,18 @@ export class VaultService {
     cycle.status = 'redemption_requested';
     await this.cycles.save(cycle);
 
+    void this.notifications
+      .notifyWithdrawalRequested({
+        ownerWallet: params.ownerWalletAddress,
+        tokenId: params.tokenId,
+        redemptionId: saved.id,
+      })
+      .catch((e) => {
+        this.logger.warn(
+          `notifyWithdrawalRequested failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+
     return saved;
   }
 
@@ -362,7 +376,20 @@ export class VaultService {
     }
     redemption.status = 'completed';
     redemption.vaultReleasedAt = new Date();
-    return this.redemptions.save(redemption);
+    const saved = await this.redemptions.save(redemption);
+
+    void this.notifications
+      .notifyWithdrawalShipped({
+        ownerWallet: saved.ownerWalletAddress,
+        redemptionId: saved.id,
+      })
+      .catch((e) => {
+        this.logger.warn(
+          `notifyWithdrawalShipped failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+
+    return saved;
   }
 
   /** Full deposit/redeem history for a physical asset — ops visibility + audit. */

@@ -243,6 +243,8 @@ export async function invalidateAfterListing(
   // Broad prefix — all collection details (new listing changes market depth)
   await _invalidateAllCollections(qc);
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+  await qc.invalidateQueries({ queryKey: ["portfolio-activity"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
 
   if (opts.tokenId != null && Number.isFinite(opts.tokenId) && opts.tokenId >= 0) {
     await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(opts.tokenId) });
@@ -267,10 +269,17 @@ export async function invalidateAfterListing(
 export async function invalidateMarketplaceNotifications(
   qc: QueryClient,
   userId?: string | null,
+  chainId?: number | null,
 ): Promise<void> {
+  if (userId?.trim() && chainId != null) {
+    await qc.invalidateQueries({
+      queryKey: rq.marketplaceNotifications(userId.trim(), chainId),
+    });
+    return;
+  }
   if (userId?.trim()) {
     await qc.invalidateQueries({
-      queryKey: rq.marketplaceNotifications(userId.trim()),
+      queryKey: ["marketplace-notifications", userId.trim()],
     });
     return;
   }

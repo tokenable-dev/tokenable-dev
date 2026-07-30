@@ -33,6 +33,7 @@ sql/
 │   ├── add_collection_review_status.sql
 │   ├── add_portfolio_daily_snapshot_chain_id.sql
 │   ├── add_vault_cycles_chain_id.sql
+│   ├── add_marketplace_notifications_chain_id.sql
 │   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh
@@ -83,6 +84,17 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 ```
 
 **Do not rely on TypeORM `synchronize` for the portfolio unique-key change** — the old unique constraint must be dropped explicitly.
+
+### Existing DB: marketplace notifications chain_id
+
+If `marketplace_notifications` has no `chain_id` (inbox mixed Sepolia + Polygon alerts), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_marketplace_notifications_chain_id.sql
+```
+
+Legacy rows backfill as Sepolia (`11155111`). New bid alerts store the RWA contract’s chain.
 
 ### Existing DB: vault cycles chain_id
 

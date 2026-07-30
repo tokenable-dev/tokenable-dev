@@ -1,23 +1,32 @@
 import { backendFetch, getApiUrl } from "./client";
 
+export type MarketplaceNotificationType = "bid" | "trade" | "vault" | "price";
+
 export type MarketplaceNotificationItem = {
   id: number;
-  type: "bid";
+  type: MarketplaceNotificationType;
   title: string;
   body: string;
+  chainId: number;
   payload: {
-    event?: "cancelled";
+    eventKey?: string;
+    event?: "cancelled" | "unfilled" | "dead_bidder";
     bidOrderHash?: string;
     tokenId?: string;
     askOrderHash?: string;
     bidUsdc?: number;
     collectionKey?: string | null;
     ctaLabel?: string;
+    cardLabel?: string;
+    imageUrl?: string | null;
+    href?: string;
+    submissionPublicId?: string;
   };
   readAt: string | null;
   createdAt: string;
   href: string | null;
   ctaLabel: string | null;
+  imageUrl: string | null;
 };
 
 export async function fetchMarketplaceNotifications(): Promise<{

@@ -86,16 +86,16 @@ Bids are **token offers** on a specific card (`tokenId`), not collection-wide cr
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
 
-### BR-8b: Accept Offer Without Lowering Ask
+### BR-8b: Take Token Offer (Edit price primary)
 
-Sellers accept a specific token offer **without** changing their public ask price first.
+Sellers take a card-level token offer primarily by **Edit price** (set ask → instant match). Accept-offer without re-signing the ask remains a secondary path.
 
 - Settlement is Seaport atomic fill/match; bid funds are not escrowed in advance
-- Failed accept (e.g. buyer unfunded) **must leave the ask active and unchanged**; the dead bid is invalidated (`invalidate-dead-bid`)
-- Successful accept clears the ask because the NFT is sold
+- **Edit price → instant match fails** because the buyer is unfunded (USDC balance/allowance): **keep the ask at the price just set**; invalidate the dead bid (`invalidate-dead-bid`). Instant-only auto-cancel does not apply for those funding failures. Ask owner and bidder both get inbox notifications.
+- **Accept-offer fails** (buyer unfunded): leave the **existing** ask active and **unchanged**; invalidate the dead bid (same notifications)
+- Successful fill clears the ask because the NFT is sold
 - Notifications for new bids target owners of an **active ask on that `tokenId`**, not all collection sellers
-- Notification CTA **Accept offer** deep-links to `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`)
-- Sell / Change-price UX must not instruct sellers to lower the ask to match a lower bid
+- Notification CTA **Edit price** deep-links to `/portfolio?setprice={tokenId}` (opens Set/Edit price drawer)
 - Spec: [seaport-accept-offer.md](architecture/seaport-accept-offer.md)
 
 ### BR-9: USDC-Only Settlement

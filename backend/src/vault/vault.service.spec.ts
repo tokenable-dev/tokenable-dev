@@ -48,6 +48,10 @@ function makeService(
     makeCyclesRepo(openCycle),
     {} as Repository<VaultRedemption>,
     {} as Repository<RwaToken>,
+    {
+      notifyWithdrawalRequested: jest.fn(),
+      notifyWithdrawalShipped: jest.fn(),
+    } as never,
   );
 }
 

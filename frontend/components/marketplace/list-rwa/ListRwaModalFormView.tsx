@@ -280,8 +280,8 @@ export function ListRwaModalFormView({
             Instant sell target
           </p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-            {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid to
-            try first (if it fails, others are tried in price order).
+            {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid
+            to sell into — only that offer is matched; other bids stay on the book.
           </p>
           <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1">
             {crossingBidsForInstantSale.map((b) => {

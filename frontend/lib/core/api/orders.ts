@@ -71,11 +71,15 @@ export interface OrderListItem {
   collectionKey: string | null;
   /** USDC micros (same as DB consideration_amount) */
   price: string;
+  /** Actual settle micros when sell-into-bid (may differ from list price). */
+  settlementPrice?: string;
   side: "ask" | "bid";
   status: OrderStatus;
   createdAt: string;
   updatedAt?: string;
   offerer: string;
+  filledByBuyer?: string | null;
+  matchedOrderHash?: string | null;
   sellerDisplayName?: string | null;
   considerationRecipients: string[];
 }
@@ -109,6 +113,35 @@ export async function getCollectionBidsByOfferer(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to fetch bids" }));
     throw new Error((err as { message?: string }).message ?? "Failed to fetch bids");
+  }
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
+}
+
+/** Fulfilled trades for portfolio activity (seller asks + buyer bids/fills). */
+export async function getPortfolioActivityOrders(
+  address: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  const sp = new URLSearchParams();
+  sp.set("address", address);
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/portfolio-activity?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: "Failed to fetch portfolio activity",
+    }));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to fetch portfolio activity",
+    );
   }
   const raw = (await res.json()) as OrderListItem[];
   return raw.map((o) => ({

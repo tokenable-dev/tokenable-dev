@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import { UserService } from '../user/user.service';
 import { verifySumsubWebhookDigestWithSecrets } from './utils/sumsub-auth.util';
 import {
@@ -20,6 +21,7 @@ export class SumsubWebhookService {
   constructor(
     private readonly config: ConfigService,
     private readonly users: UserService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   assertDigest(
@@ -121,6 +123,20 @@ export class SumsubWebhookService {
         reviewAnswer: reviewAnswer || null,
       },
     });
+
+    if (nextStatus === 'approved' || nextStatus === 'rejected') {
+      void this.notifications
+        .notifySellerKycResult({
+          userId: user.id,
+          approved: nextStatus === 'approved',
+          reason,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerKycResult failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
 
     this.logger.log(
       JSON.stringify({

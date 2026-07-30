@@ -10,6 +10,7 @@ import {
   rq,
   type MarketplaceNotificationItem,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { invalidateMarketplaceNotifications } from "@/lib/core/invalidation";
 import {
   formatNotificationTime,
@@ -19,7 +20,13 @@ import {
 import { useAuthStore } from "@/store/authStore";
 
 function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
-  const type = row.type === "bid" ? "bid" : "bid";
+  const type =
+    row.type === "trade" ||
+    row.type === "bid" ||
+    row.type === "vault" ||
+    row.type === "price"
+      ? row.type
+      : "bid";
   const style = notificationTypeStyle(type);
   return {
     id: String(row.id),
@@ -29,21 +36,23 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
     title: row.title,
     desc: row.body,
     time: formatNotificationTime(row.createdAt),
+    imageUrl: row.imageUrl ?? row.payload.imageUrl ?? undefined,
     href: row.href,
     unread: row.readAt == null,
     ctaLabel: row.ctaLabel,
   };
 }
 
-/** Inbox for the signed-in user. Polls while logged in so header badges stay fresh. */
+/** Inbox for the signed-in user on the active app chain. */
 export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
+  const chainId = activeRqChainId();
   const queryClient = useQueryClient();
   const enabled = (options?.enabled ?? true) && Boolean(userId);
 
   const query = useQuery({
-    queryKey: rq.marketplaceNotifications(userId),
+    queryKey: rq.marketplaceNotifications(userId, chainId),
     queryFn: fetchMarketplaceNotifications,
     enabled,
     staleTime: 30_000,
@@ -58,14 +67,14 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const markRead = useMutation({
     mutationFn: (id: number) => markNotificationRead(id),
     onSuccess: async () => {
-      await invalidateMarketplaceNotifications(queryClient, userId);
+      await invalidateMarketplaceNotifications(queryClient, userId, chainId);
     },
   });
 
   const markAllRead = useMutation({
     mutationFn: markAllNotificationsRead,
     onSuccess: async () => {
-      await invalidateMarketplaceNotifications(queryClient, userId);
+      await invalidateMarketplaceNotifications(queryClient, userId, chainId);
     },
   });
 
