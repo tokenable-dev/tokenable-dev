@@ -387,10 +387,25 @@ export class CollectionService {
     chainId?: SupportedChainId;
     /** Public callers must pass `active`. Admin may pass pending_review / rejected / all. */
     reviewStatus?: CollectionReviewStatusFilter;
+    /**
+     * Free-text search (header / discovery). When set, cursor is ignored and
+     * results are capped; matches label, queryUsed, components, cert, key.
+     */
+    q?: string | null;
   }): Promise<{
     items: CollectionSummary[];
     nextCursor: string | null;
   }> {
+    const qRaw = (input.q ?? '').trim().slice(0, 80);
+    if (qRaw.length > 0) {
+      return this.searchSummaries({
+        q: qRaw,
+        limit: input.limit,
+        chainId: input.chainId,
+        reviewStatus: input.reviewStatus,
+      });
+    }
+
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 60);
     const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
     const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
@@ -453,6 +468,79 @@ export class CollectionService {
     );
 
     return { items, nextCursor };
+  }
+
+  /**
+   * Catalog text search for the header / discovery. Matches display fields and
+   * common component facets; ranks by active listing count then recency.
+   */
+  private async searchSummaries(input: {
+    q: string;
+    limit?: number;
+    chainId?: SupportedChainId;
+    reviewStatus?: CollectionReviewStatusFilter;
+  }): Promise<{ items: CollectionSummary[]; nextCursor: string | null }> {
+    const limit = Math.min(Math.max(input.limit ?? 30, 1), 40);
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const reviewFilter = input.reviewStatus ?? 'active';
+    const reviewParams =
+      reviewFilter === 'all' ? {} : { reviewStatus: reviewFilter };
+    const reviewSql =
+      reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+
+    const pattern = `%${CollectionService.escapeIlike(input.q)}%`;
+    const matchKey = input.q.length >= 4;
+    const searchSql = `(
+      c.display_label ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.query_used, '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.psa_cert_number, '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardName', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardNameDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSet', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSetDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaSubject', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaBrand', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'variant', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaVariety', '') ILIKE :pat ESCAPE '\\'
+      ${matchKey ? "OR c.collection_key ILIKE :pat ESCAPE '\\'" : ''}
+    )`;
+
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where(`${chainFilter} AND ${reviewSql} AND ${searchSql}`, {
+        rwaContract,
+        pat: pattern,
+        ...reviewParams,
+      })
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(limit)
+      .getMany();
+
+    if (rows.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const keys = rows.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const items = rows
+      .map((c) => this.toCollectionSummary(c, countMap))
+      .sort((a, b) => {
+        if (b.activeListingCount !== a.activeListingCount) {
+          return b.activeListingCount - a.activeListingCount;
+        }
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+
+    return { items, nextCursor: null };
+  }
+
+  /** Escape `%`, `_`, and `\` for PostgreSQL ILIKE … ESCAPE '\\'. */
+  static escapeIlike(raw: string): string {
+    return raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   }
 
   private toCollectionSummary(

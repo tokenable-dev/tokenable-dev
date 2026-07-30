@@ -128,7 +128,7 @@ export class OrdersService {
         }
         await this.assertActiveTokenBidLimit(
           dto.parameters.offerer,
-          dto.tokenId,
+          bidCollectionKey,
           chainId,
         );
       } else if (itemType === 4) {
@@ -552,26 +552,29 @@ export class OrdersService {
   private maxActiveCollectionBidsPerOfferer(): number {
     return (
       this.config.get<number>('marketplace.maxActiveCollectionBidsPerOfferer') ??
-      3
+      1
     );
   }
 
-  /** Per-wallet cap on simultaneous active offers for one card (tokenId + chain RWA). */
+  /**
+   * Per-wallet cap on simultaneous active token bids in one collection
+   * (`collection_key` + chain RWA). Default: 1.
+   */
   private async assertActiveTokenBidLimit(
     offererAddress: string,
-    tokenId: string,
+    collectionKey: string,
     chainId: SupportedChainId,
   ): Promise<void> {
     const max = this.maxActiveCollectionBidsPerOfferer();
     const addr = String(offererAddress ?? '').trim().toLowerCase();
-    const tid = normalizeDecimalTokenId(String(tokenId ?? ''));
-    if (!addr || !isValidDecimalTokenId(tid)) return;
+    const key = String(collectionKey ?? '').trim().toLowerCase();
+    if (!addr || !key) return;
 
     const rwa = this.chainConfig.getRwaAddress(chainId).toLowerCase();
     const activeCount = await this.orderRepo
       .createQueryBuilder('o')
       .where('LOWER(o.offerer) = :addr', { addr })
-      .andWhere('o.token_id = :tid', { tid })
+      .andWhere('LOWER(o.collection_key) = :key', { key })
       .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
       .andWhere('o.side = :side', { side: OrderSide.BID })
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
@@ -579,7 +582,9 @@ export class OrdersService {
 
     if (activeCount >= max) {
       throw new BadRequestException(
-        `Maximum ${max} bids per card. Cancel an existing bid to place a new one.`,
+        max === 1
+          ? 'You already have an active bid on this collection. Cancel or edit it to place a new one.'
+          : `Maximum ${max} bids per collection. Cancel an existing bid to place a new one.`,
       );
     }
   }

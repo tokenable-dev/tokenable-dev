@@ -198,6 +198,13 @@ export class CollectionsController {
   @ApiQuery({ name: 'limit', required: false, example: 30, description: '페이지당 건수' })
   @ApiQuery({ name: 'cursor', required: false, example: '', description: '다음 페이지 커서' })
   @ApiQuery({
+    name: 'q',
+    required: false,
+    example: 'charizard',
+    description:
+      'Free-text search (label, set, player/subject, cert, …). When set, cursor is ignored; max 40 results.',
+  })
+  @ApiQuery({
     name: 'reviewStatus',
     required: false,
     example: 'active',
@@ -209,6 +216,7 @@ export class CollectionsController {
     @Req() req: Request,
     @Query('limit') limitRaw?: string,
     @Query('cursor') cursor?: string,
+    @Query('q') qRaw?: string,
     @Query('reviewStatus') reviewStatusRaw?: string,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
@@ -234,6 +242,7 @@ export class CollectionsController {
       cursor: cursor?.trim() || null,
       chainId: this.chainConfig.resolveChainId(chainHeader),
       reviewStatus,
+      q: qRaw?.trim() || null,
     });
   }
 

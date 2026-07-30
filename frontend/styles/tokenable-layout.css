@@ -283,14 +283,46 @@
   flex-shrink: 0;
 }
 
-/* GNB search — was 300px in HTML prototype; narrowed for wallet chip + network switcher */
+/* GNB search — desktop: generous field + wider results panel (mobile uses full overlay) */
 .gnb-search-anchor {
-  --gnb-search-width: 220px;
+  --gnb-search-width: 300px;
   position: relative;
   flex: 0 0 var(--gnb-search-width);
   width: var(--gnb-search-width);
   min-width: var(--gnb-search-width);
   max-width: var(--gnb-search-width);
+  transition:
+    flex-basis 0.22s ease,
+    width 0.22s ease,
+    min-width 0.22s ease,
+    max-width 0.22s ease;
+}
+
+.gnb-search-anchor:focus-within,
+.gnb-search-anchor:has(.gnb-search-dropdown.open) {
+  --gnb-search-width: 360px;
+}
+
+@media (min-width: 1280px) {
+  .gnb-search-anchor {
+    --gnb-search-width: 340px;
+  }
+
+  .gnb-search-anchor:focus-within,
+  .gnb-search-anchor:has(.gnb-search-dropdown.open) {
+    --gnb-search-width: 400px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .gnb-search-anchor {
+    --gnb-search-width: 380px;
+  }
+
+  .gnb-search-anchor:focus-within,
+  .gnb-search-anchor:has(.gnb-search-dropdown.open) {
+    --gnb-search-width: 440px;
+  }
 }
 
 .gnb-right .tk-search {
@@ -355,15 +387,17 @@
   display: none;
   position: absolute;
   top: calc(100% + 0px);
-  left: 0;
+  left: auto;
   right: 0;
+  width: max(100%, min(480px, 42vw));
+  min-width: 100%;
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0 0 12px 12px;
   padding: 8px 16px 16px;
   z-index: 140;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  max-height: min(400px, 50vh);
+  max-height: min(480px, 60vh);
   overflow-y: auto;
 }
 

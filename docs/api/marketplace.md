@@ -44,7 +44,7 @@ Register a Seaport order (ask or card-level bid/offer) off-chain.
 }
 ```
 
-For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Max **3 active bids per wallet per tokenId**. Collection criteria bids (itemType `4`) are rejected.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Max **1 active bid per wallet per collection**. Collection criteria bids (itemType `4`) are rejected. Token bids expire after **7 days** (Seaport `endTime`).
 
 ---
 
@@ -199,12 +199,13 @@ Seller **take-offer** flows (Edit price primary; Accept offer secondary) are spe
 
 ### `GET /api/marketplace/collections`
 
-Returns a cursor-paginated list of collection summaries.
+Returns a cursor-paginated list of collection summaries, or a **text search** when `q` is set.
 
 | Query | Default | Description |
 |-------|---------|-------------|
-| `limit` | `30` | Max `60` |
-| `cursor` | — | Opaque cursor from prior page `nextCursor` |
+| `limit` | `30` | Max `60` (browse) / max `40` (when `q` set) |
+| `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
+| `q` | — | Free-text search across label, queryUsed, card name/set, PSA subject/brand/variety, cert, and (length ≥ 4) collection key. Results ranked by active listing count then recency. `nextCursor` is always `null`. |
 
 ---
 

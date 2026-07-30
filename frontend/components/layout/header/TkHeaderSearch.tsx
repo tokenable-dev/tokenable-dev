@@ -6,14 +6,13 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useDeferredValue,
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
-import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
+import { useMarketplaceCollectionSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
@@ -21,9 +20,6 @@ import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsT
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-const MIN_QUERY_LEN_FOR_KEY_MATCH = 4;
-const SEARCH_MAX_RESULTS = 64;
-const SEARCH_PREFETCH_MAX_PAGES = 8;
 const SEARCH_PLACEHOLDER = "Search cards, sets, players…";
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
@@ -48,6 +44,7 @@ function SearchResultsList({
   onHighlight,
   onSelect,
   searchTruncated,
+  isSearching,
   coverUrlMap,
 }: {
   filtered: MarketplaceCollectionSummary[];
@@ -55,12 +52,13 @@ function SearchResultsList({
   onHighlight: (idx: number) => void;
   onSelect: (c: MarketplaceCollectionSummary) => void;
   searchTruncated: boolean;
+  isSearching: boolean;
   coverUrlMap: Map<string, string>;
 }) {
   if (filtered.length === 0) {
     return (
       <div className="gnb-search-overlay__empty">
-        <p>No collections found</p>
+        <p>{isSearching ? "Searching…" : "No collections found"}</p>
       </div>
     );
   }
@@ -69,7 +67,7 @@ function SearchResultsList({
     <div role="listbox">
       {searchTruncated ? (
         <p className="gnb-search-truncated">
-          Showing first {SEARCH_MAX_RESULTS} matches — type more to narrow.
+          Showing top matches — type more to narrow.
         </p>
       ) : null}
       {filtered.map((c, i) => {
@@ -136,7 +134,6 @@ export function TkHeaderSearch({
   const setMobileOverlayOpen = onMobileOpenChange ?? setInternalMobileOpen;
 
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const desktopInputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
@@ -144,44 +141,16 @@ export function TkHeaderSearch({
   const router = useRouter();
 
   const searchActive = gnbMobile ? mobileOverlayOpen : desktopOpen;
+  const showResultsPanel =
+    searchActive && query.trim().length > 0;
 
-  const colInfinite = useMarketplaceCollectionsInfinite({ enabled: searchActive });
-  const collections = useMemo<MarketplaceCollectionSummary[]>(
-    () => colInfinite.data?.pages.flatMap((p) => p.items) ?? [],
-    [colInfinite.data],
-  );
-  const pagesLoaded = colInfinite.data?.pages.length ?? 0;
-
-  useEffect(() => {
-    if (!searchActive) return;
-    if (pagesLoaded >= SEARCH_PREFETCH_MAX_PAGES) return;
-    if (!colInfinite.hasNextPage) return;
-    void colInfinite.fetchNextPage();
-  }, [searchActive, pagesLoaded, colInfinite.hasNextPage, colInfinite.fetchNextPage]);
-
-  const { filtered, searchTruncated } = useMemo(() => {
-    const q = deferredQuery.trim().toLowerCase();
-    if (!q) return { filtered: [] as MarketplaceCollectionSummary[], searchTruncated: false };
-    const matchKey = q.length >= MIN_QUERY_LEN_FOR_KEY_MATCH;
-    const matches: MarketplaceCollectionSummary[] = [];
-    for (const c of collections) {
-      const label = c.displayLabel.toLowerCase();
-      const key = c.collectionKey.toLowerCase();
-      const qUsed = (c.queryUsed ?? "").toLowerCase();
-      const hit =
-        label.includes(q) ||
-        qUsed.includes(q) ||
-        (matchKey && key.includes(q));
-      if (hit) {
-        matches.push(c);
-        if (matches.length >= SEARCH_MAX_RESULTS) break;
-      }
-    }
-    return {
-      filtered: matches,
-      searchTruncated: matches.length >= SEARCH_MAX_RESULTS,
-    };
-  }, [deferredQuery, collections]);
+  const {
+    items: filtered,
+    isSearching,
+    truncated: searchTruncated,
+  } = useMarketplaceCollectionSearch(query, {
+    enabled: showResultsPanel,
+  });
 
   useEffect(() => {
     setHighlightIdx(-1);
@@ -314,10 +283,7 @@ export function TkHeaderSearch({
               {!query.trim() ? (
                 <div className="gnb-search-overlay__empty">
                   <p>Find a collection</p>
-                  <p>Search by card name, set, or player.</p>
-                  {colInfinite.isFetching && pagesLoaded < SEARCH_PREFETCH_MAX_PAGES ? (
-                    <p style={{ marginTop: 16, fontSize: 11 }}>Loading catalog…</p>
-                  ) : null}
+                  <p>Search by card name, set, player, or cert.</p>
                 </div>
               ) : (
                 <SearchResultsList
@@ -326,6 +292,7 @@ export function TkHeaderSearch({
                   onHighlight={setHighlightIdx}
                   onSelect={navigate}
                   searchTruncated={searchTruncated}
+                  isSearching={isSearching}
                   coverUrlMap={coverUrlMap}
                 />
               )}
@@ -366,6 +333,7 @@ export function TkHeaderSearch({
               onHighlight={setHighlightIdx}
               onSelect={navigate}
               searchTruncated={searchTruncated}
+              isSearching={isSearching}
               coverUrlMap={coverUrlMap}
             />
           </div>

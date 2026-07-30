@@ -81,7 +81,8 @@ All marketplace trades use **Seaport 1.5**. There is no relational bid/ask match
 Bids are **token offers** on a specific card (`tokenId`), not collection-wide criteria bids.
 
 - Collection **Offers** order book includes active token offers (and any legacy criteria bids still on the book)
-- Max **3 active offers** per wallet per `tokenId`
+- Max **1 active offer** per wallet per `collectionKey` (same collection, any tokenId)
+- Offers expire after **7 days** (Seaport `endTime`)
 - Soft UX floor: warn below 90% of listed ask (override allowed)
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short

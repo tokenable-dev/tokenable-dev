@@ -24,10 +24,12 @@ export interface MarketplaceCollectionSummary {
   reviewStatus?: CollectionReviewStatus;
 }
 
-/** Graded metadata-based collection summaries (cursor pagination). */
+/** Graded metadata-based collection summaries (cursor pagination or `q` search). */
 export async function getMarketplaceCollectionsPage(opts?: {
   cursor?: string | null;
   limit?: number;
+  /** Server-side text search; when set, cursor is ignored. */
+  q?: string | null;
   /** Admin session required for non-`active` values. */
   reviewStatus?: CollectionReviewStatusFilter;
 }): Promise<{
@@ -37,6 +39,7 @@ export async function getMarketplaceCollectionsPage(opts?: {
   const sp = new URLSearchParams();
   if (opts?.cursor) sp.set("cursor", opts.cursor);
   if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  if (opts?.q?.trim()) sp.set("q", opts.q.trim());
   if (opts?.reviewStatus) sp.set("reviewStatus", opts.reviewStatus);
   const q = sp.toString();
   const res = await backendFetch(

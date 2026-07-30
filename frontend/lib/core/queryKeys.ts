@@ -31,6 +31,9 @@ export const rq = {
     ] as const,
   collectionsMarketplace: (chainId: number) =>
     ["collections", "marketplace", chainId] as const,
+  /** Header / discovery text search (`GET /marketplace/collections?q=`). */
+  collectionsSearch: (chainId: number, q: string) =>
+    ["collections", "search", chainId, q] as const,
   /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
   homeAllCollections: (chainId: number) =>
     ["collections", "marketplace", "all", chainId] as const,

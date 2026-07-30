@@ -33,7 +33,7 @@ export default registerAs('marketplace', () => {
   );
   const maxActiveCollectionBidsPerOfferer = clampInt(
     process.env.MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER,
-    3,
+    1,
     1,
     20,
   );

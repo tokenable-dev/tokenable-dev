@@ -22,9 +22,8 @@ const ZERO_BYTES32 =
 const ZERO_ADDRESS = zeroAddress;
 /**
  * Seaport `endTime` window for card-level offers (place bid).
- * TEMP for QA: 5 minutes. Flip to `7 * 24 * 60 * 60` after expiry is verified.
  */
-export const TOKEN_BID_ORDER_DURATION_SECONDS = 5 * 60;
+export const TOKEN_BID_ORDER_DURATION_SECONDS = 7 * 24 * 60 * 60;
 const ITEM_ERC20 = 1;
 const ITEM_ERC721 = 2;
 

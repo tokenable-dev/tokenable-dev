@@ -27,7 +27,8 @@ import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
-export const MAX_ACTIVE_BIDS_PER_CARD = 3;
+export const MAX_ACTIVE_BIDS_PER_COLLECTION = 1;
+export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
 const MARKET_FLOOR_RATIO = 0.9;
 
 function formatUsdc2(n: number): string {
@@ -106,11 +107,12 @@ export function useTokenOffer(input: {
   });
 
   const activeBidsOnCard = useMemo(() => {
+    const ck = collectionKey.trim().toLowerCase();
     const fromBook = collectionBids.filter(
       (o) =>
         o.status === "active" &&
         isTokenBidOrder(o) &&
-        normalizeDecimalTokenId(o.tokenId) === tokenIdNorm &&
+        (o.collectionKey ?? "").trim().toLowerCase() === ck &&
         Boolean(address) &&
         o.offerer.toLowerCase() === address!.toLowerCase(),
     );
@@ -119,12 +121,13 @@ export function useTokenOffer(input: {
       (o) =>
         o.status === "active" &&
         o.side === "bid" &&
-        normalizeDecimalTokenId(o.tokenId) === tokenIdNorm,
+        (o.collectionKey ?? "").trim().toLowerCase() === ck,
     );
     return fromApi.length;
-  }, [collectionBids, myBidsQuery.data, address, tokenIdNorm]);
+  }, [collectionBids, myBidsQuery.data, address, collectionKey]);
 
-  const bidLimitReached = !isReplaceBid && activeBidsOnCard >= MAX_ACTIVE_BIDS_PER_CARD;
+  const bidLimitReached =
+    !isReplaceBid && activeBidsOnCard >= MAX_ACTIVE_BIDS_PER_COLLECTION;
 
   const { data: counter } = useReadContract({
     address: SEAPORT_ADDRESS,
@@ -212,7 +215,7 @@ export function useTokenOffer(input: {
     if (hintError) return { text: hintError, tone: "error" as const };
     if (bidLimitReached) {
       return {
-        text: `Maximum ${MAX_ACTIVE_BIDS_PER_CARD} bids per card. Cancel an existing bid to place a new one.`,
+        text: `You already have an active bid on this collection. Cancel or edit it to place a new one.`,
         tone: "error" as const,
       };
     }
