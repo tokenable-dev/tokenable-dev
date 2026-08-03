@@ -3,15 +3,19 @@ import {
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
   pickPreferredCollectionCoverUrl,
+  rankCollectionCoverUrls,
   scoreCollectionCoverUrl,
 } from './collection-image.util';
 
 describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
   const bubbleResize =
     'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/resize';
+  const bubbleCrop =
+    'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/crop_image';
   const bubbleOther =
     'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/card.jpg';
   const pokemonLargeUrl = 'https://images.pokemontcg.io/sv3pt5/199/large.png';
+  const pokemonHiresUrl = 'https://images.pokemontcg.io/sv10/49_hires.png';
   const pokemonSmallUrl = 'https://images.pokemontcg.io/sv3pt5/199/small.png';
 
   it('detects Bubble /resize demotion only when path ends with resize', () => {
@@ -20,8 +24,14 @@ describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
     expect(isCardhedgerBubbleResizeUrl(pokemonLargeUrl)).toBe(false);
   });
 
-  it('ranks Pokémon large above Bubble resize and non-resize', () => {
+  it('ranks Pokémon large / hires above Bubble crop and resize', () => {
     expect(scoreCollectionCoverUrl(pokemonLargeUrl)).toBeGreaterThan(
+      scoreCollectionCoverUrl(bubbleCrop),
+    );
+    expect(scoreCollectionCoverUrl(pokemonHiresUrl)).toBeGreaterThan(
+      scoreCollectionCoverUrl(bubbleCrop),
+    );
+    expect(scoreCollectionCoverUrl(bubbleCrop)).toBeGreaterThan(
       scoreCollectionCoverUrl(bubbleOther),
     );
     expect(scoreCollectionCoverUrl(bubbleOther)).toBeGreaterThan(
@@ -40,6 +50,9 @@ describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
     expect(
       pickPreferredCollectionCoverUrl([bubbleResize, bubbleOther]),
     ).toBe(bubbleOther);
+    expect(
+      rankCollectionCoverUrls([bubbleResize, bubbleCrop, pokemonHiresUrl]),
+    ).toEqual([pokemonHiresUrl, bubbleCrop, bubbleResize]);
   });
 });
 

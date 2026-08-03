@@ -34,6 +34,8 @@ export function isCardhedgerBubbleResizeUrl(url: string): boolean {
 /**
  * Higher = prefer for collection covers. Does not assume `/resize` exists;
  * known larger catalog hosts (Pokémon TCG large, etc.) outrank Bubble thumbs.
+ * Cardhedger `/crop_image` usually outranks `/resize` (some crop_image rows are
+ * still tiny — callers should verify pixel size after download).
  */
 export function scoreCollectionCoverUrl(url: string): number {
   const t = normalizeImageUrl(url);
@@ -44,7 +46,8 @@ export function scoreCollectionCoverUrl(url: string): number {
     const path = pathname.toLowerCase();
 
     if (host.includes('images.pokemontcg.io')) {
-      if (path.includes('/large')) return 100;
+      // Modern API: `*_hires.png` is exposed as `images.large`.
+      if (path.includes('_hires') || path.includes('/large')) return 100;
       if (path.includes('/small')) return 75;
       return 90;
     }
@@ -52,7 +55,9 @@ export function scoreCollectionCoverUrl(url: string): number {
       return 85;
     }
     if (host.includes('cdn.bubble.io')) {
-      return isCardhedgerBubbleResizeUrl(t) ? 25 : 55;
+      if (/\/crop_image$/i.test(path)) return 80;
+      if (isCardhedgerBubbleResizeUrl(t)) return 25;
+      return 55;
     }
     if (host.includes('cloudfront.net') && path.includes('/cert/')) {
       return 0;
@@ -64,23 +69,32 @@ export function scoreCollectionCoverUrl(url: string): number {
   }
 }
 
-/** Pick the highest-scoring cover candidate; ties keep the first occurrence. */
-export function pickPreferredCollectionCoverUrl(
+/** Unique cover candidates ranked best → worst (stable for equal scores). */
+export function rankCollectionCoverUrls(
   urls: Array<string | null | undefined>,
-): string | null {
-  let best: string | null = null;
-  let bestScore = -1;
-  for (const raw of urls) {
+): string[] {
+  const seen = new Set<string>();
+  const ranked: { url: string; score: number; idx: number }[] = [];
+  for (let i = 0; i < urls.length; i++) {
+    const raw = urls[i];
     if (typeof raw !== 'string' || !raw.trim()) continue;
     const url = normalizeImageUrl(raw);
     const score = scoreCollectionCoverUrl(url);
     if (score <= 0) continue;
-    if (score > bestScore) {
-      best = url;
-      bestScore = score;
-    }
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ranked.push({ url, score, idx: i });
   }
-  return best;
+  ranked.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return ranked.map((r) => r.url);
+}
+
+/** Pick the highest-scoring cover candidate; ties keep the first occurrence. */
+export function pickPreferredCollectionCoverUrl(
+  urls: Array<string | null | undefined>,
+): string | null {
+  return rankCollectionCoverUrls(urls)[0] ?? null;
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import sharp from 'sharp';
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',
@@ -14,6 +15,13 @@ const ALLOWED_MIME = new Set([
 ]);
 
 export const CATALOG_COVER_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Cardhedger sometimes returns `/crop_image` assets that are only ~180–260px
+ * (thumbnails). Prefer sources at least this large when ingesting to S3.
+ */
+export const CATALOG_COVER_MIN_WIDTH = 400;
+export const CATALOG_COVER_MIN_HEIGHT = 400;
 
 /** Stable per-collection object key — admin replaces overwrite this object. */
 export function stableCatalogCoverObjectKey(
@@ -224,15 +232,14 @@ export class CatalogCoverS3Service {
   }
 
   /**
-   * Download a remote image (Cardhedger / TCG / etc.) and store it as the
-   * collection's stable S3 cover object.
+   * Download remote image bytes (no S3 write). Normalizes protocol-relative URLs.
    */
-  async ingestRemoteImage(
-    collectionKey: string,
+  async downloadRemoteImage(
     sourceUrl: string,
-  ): Promise<{ objectKey: string; publicUrl: string }> {
-    this.assertConfigured();
-    const url = sourceUrl.trim();
+  ): Promise<{ body: Buffer; contentType: string; width: number; height: number }> {
+    const url = sourceUrl.trim().startsWith('//')
+      ? `https:${sourceUrl.trim()}`
+      : sourceUrl.trim();
     if (!/^https?:\/\//i.test(url)) {
       throw new Error('CATALOG_COVER_FETCH_FAILED');
     }
@@ -240,13 +247,16 @@ export class CatalogCoverS3Service {
     let res: Response;
     try {
       res = await fetch(url, {
-        headers: { 'User-Agent': 'TokenableBackend/1.0' },
+        headers: {
+          'User-Agent': 'TokenableBackend/1.0',
+          Accept: 'image/*,*/*',
+        },
         redirect: 'follow',
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(20_000),
       });
     } catch (e) {
       this.logger.warn(
-        `Catalog cover fetch failed for ${collectionKey}: ${
+        `Catalog cover fetch failed: ${
           e instanceof Error ? e.message : String(e)
         }`,
       );
@@ -257,12 +267,132 @@ export class CatalogCoverS3Service {
       throw new Error('CATALOG_COVER_FETCH_FAILED');
     }
 
-    const buf = Buffer.from(await res.arrayBuffer());
-    const mime = resolveCatalogCoverMime(res.headers.get('content-type'), buf);
-    if (!mime) {
+    const body = Buffer.from(await res.arrayBuffer());
+    if (!body.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    if (body.length > CATALOG_COVER_MAX_BYTES) {
+      throw new Error('CATALOG_COVER_FILE_TOO_LARGE');
+    }
+    const contentType = resolveCatalogCoverMime(
+      res.headers.get('content-type'),
+      body,
+    );
+    if (!contentType) {
       throw new Error('CATALOG_COVER_FILE_TYPE_INVALID');
     }
-    return this.putCollectionCoverBytes(collectionKey, buf, mime);
+
+    let width = 0;
+    let height = 0;
+    try {
+      const meta = await sharp(body).metadata();
+      width = meta.width ?? 0;
+      height = meta.height ?? 0;
+    } catch {
+      throw new Error('CATALOG_COVER_FILE_TYPE_INVALID');
+    }
+
+    return { body, contentType, width, height };
+  }
+
+  isAdequateCatalogCoverSize(width: number, height: number): boolean {
+    return (
+      width >= CATALOG_COVER_MIN_WIDTH && height >= CATALOG_COVER_MIN_HEIGHT
+    );
+  }
+
+  /**
+   * Download a remote image (Cardhedger / TCG / etc.) and store it as the
+   * collection's stable S3 cover object.
+   */
+  async ingestRemoteImage(
+    collectionKey: string,
+    sourceUrl: string,
+  ): Promise<{ objectKey: string; publicUrl: string }> {
+    this.assertConfigured();
+    const downloaded = await this.downloadRemoteImage(sourceUrl);
+    return this.putCollectionCoverBytes(
+      collectionKey,
+      downloaded.body,
+      downloaded.contentType,
+    );
+  }
+
+  /**
+   * Try ranked remote URLs until one meets the catalog size floor, then put to S3.
+   * If none are large enough, stores the largest downloaded candidate (last resort).
+   */
+  async ingestBestRemoteImage(
+    collectionKey: string,
+    sourceUrls: string[],
+  ): Promise<{ objectKey: string; publicUrl: string; sourceUrl: string }> {
+    this.assertConfigured();
+    const unique = [
+      ...new Set(
+        sourceUrls
+          .map((u) => (u.trim().startsWith('//') ? `https:${u.trim()}` : u.trim()))
+          .filter((u) => /^https?:\/\//i.test(u)),
+      ),
+    ];
+    if (unique.length === 0) {
+      throw new Error('CATALOG_COVER_FETCH_FAILED');
+    }
+
+    let fallback: {
+      body: Buffer;
+      contentType: string;
+      sourceUrl: string;
+      pixels: number;
+    } | null = null;
+
+    for (const sourceUrl of unique) {
+      try {
+        const downloaded = await this.downloadRemoteImage(sourceUrl);
+        const pixels = downloaded.width * downloaded.height;
+        if (this.isAdequateCatalogCoverSize(downloaded.width, downloaded.height)) {
+          const put = await this.putCollectionCoverBytes(
+            collectionKey,
+            downloaded.body,
+            downloaded.contentType,
+          );
+          this.logger.log(
+            `Catalog cover ingest ok for ${collectionKey}: ${downloaded.width}x${downloaded.height} from ${sourceUrl}`,
+          );
+          return { ...put, sourceUrl };
+        }
+        if (!fallback || pixels > fallback.pixels) {
+          fallback = {
+            body: downloaded.body,
+            contentType: downloaded.contentType,
+            sourceUrl,
+            pixels,
+          };
+        }
+        this.logger.warn(
+          `Catalog cover candidate too small for ${collectionKey}: ${downloaded.width}x${downloaded.height} from ${sourceUrl}`,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Catalog cover candidate failed for ${collectionKey}: ${sourceUrl} (${
+            e instanceof Error ? e.message : String(e)
+          })`,
+        );
+      }
+    }
+
+    if (!fallback) {
+      throw new Error('CATALOG_COVER_FETCH_FAILED');
+    }
+
+    this.logger.warn(
+      `Catalog cover falling back to largest small candidate for ${collectionKey}: ${fallback.sourceUrl}`,
+    );
+    const put = await this.putCollectionCoverBytes(
+      collectionKey,
+      fallback.body,
+      fallback.contentType,
+    );
+    return { ...put, sourceUrl: fallback.sourceUrl };
   }
 
   /**

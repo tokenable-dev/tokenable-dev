@@ -214,6 +214,7 @@ Funding readiness on the Users page uses `GET /api/privy/apps/settings` (same as
 |--------|------|
 | `GET` | `/marketplace/collections?reviewStatus=pending_review\|active\|rejected\|all` (admin cookie) |
 | `GET` | `/marketplace/collections/admin/review-counts` |
+| `POST` | `/marketplace/collections/admin/create-from-cert` body `{ certNumber }` — catalog create without mint |
 | `POST` | `/marketplace/collections/:key/admin/review` body `{ reviewStatus }` |
 | `POST` | `/marketplace/collections/:key/admin/cover` |
 | `POST` | `/marketplace/collections/:key/admin/cover/upload` |

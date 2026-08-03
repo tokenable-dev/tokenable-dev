@@ -62,6 +62,39 @@ export async function getAdminCollectionReviewCounts(): Promise<
   return res.json() as Promise<Record<CollectionReviewStatus, number>>;
 }
 
+export type AdminCatalogCollectionCreateResult = {
+  collectionKey: string;
+  created: boolean;
+  displayLabel: string;
+  reviewStatus: CollectionReviewStatus;
+  coverImageUrl: string | null;
+  psaCertNumber: string | null;
+};
+
+/** Admin: create collection from PSA cert (no mint / ask required). */
+export async function postAdminCreateCatalogCollectionFromCert(body: {
+  certNumber: string;
+}): Promise<AdminCatalogCollectionCreateResult> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/admin/create-from-cert`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = (err as { message?: string | string[] }).message;
+    throw new Error(
+      Array.isArray(msg)
+        ? msg.join(", ")
+        : (msg ?? "Failed to create collection from PSA cert"),
+    );
+  }
+  return res.json() as Promise<AdminCatalogCollectionCreateResult>;
+}
+
 export async function postAdminSetCollectionReviewStatus(
   collectionKey: string,
   body: { reviewStatus: CollectionReviewStatus },

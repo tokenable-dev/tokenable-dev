@@ -126,12 +126,13 @@ Admin cannot burn or deliver an NFT that has an active Seaport listing.
 
 ### BR-11b: New Collections Require Admin Review Before Markets
 
-A new `marketplace_collections` row created on first ask starts as `review_status = pending_review`.
+A new `marketplace_collections` row created on first ask **or** via admin catalog create (`POST …/collections/admin/create-from-cert`) starts as `review_status = pending_review`.
 
 - Sellers may still create/manage asks while pending
 - Home / Markets / public collection lists only show `review_status = active`
 - Admin approves (`active`) or rejects (`rejected`) from Marketplace Admin → Collections
 - Existing rows default to `active` so legacy catalog stays public
+- Catalog-only collections (no mint / ask yet) are visible on Markets after Approve — list SQL treats rows with no orders and no `rwa_tokens` as chain-global
 
 ---
 

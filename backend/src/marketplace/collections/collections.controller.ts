@@ -47,6 +47,7 @@ import {
   AdminSetCollectionCoverDto,
   AdminSetCollectionReviewStatusDto,
 } from './dto/admin-collection-cover.dto';
+import { AdminCreateCatalogCollectionDto } from './dto/admin-create-catalog-collection.dto';
 import type { CollectionReviewStatus } from '../entities/marketplace-collection.entity';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
@@ -257,6 +258,34 @@ export class CollectionsController {
     return this.collectionService.countByReviewStatus(
       this.chainConfig.resolveChainId(chainHeader),
     );
+  }
+
+  /**
+   * Admin: create a collection bucket from a PSA cert (no mint / ask).
+   * Starts as pending_review — Approve to show on Markets.
+   */
+  @ApiOperation({
+    summary: '[Admin] PSA cert로 카탈로그 컬렉션 생성 (민트/리스팅 불필요)',
+  })
+  @ApiBody({ type: AdminCreateCatalogCollectionDto })
+  @Post('collections/admin/create-from-cert')
+  async adminCreateCatalogCollectionFromCert(
+    @Req() req: Request,
+    @Body() body: AdminCreateCatalogCollectionDto,
+  ) {
+    this.assertAdminSession(req);
+    try {
+      return await this.collectionService.createCatalogCollectionFromPsaCert(
+        body.certNumber,
+      );
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`admin create-from-cert failed: ${msg}`);
+      throw new BadRequestException(
+        msg.length > 200 ? 'Failed to create collection from PSA cert' : msg,
+      );
+    }
   }
 
   /** 목록용 시장 스냅샷 배치 (등급·스파크라인 등) */

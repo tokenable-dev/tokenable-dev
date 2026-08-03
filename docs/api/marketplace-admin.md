@@ -187,12 +187,13 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 |--------|------|-------------|
 | GET | `/api/marketplace/collections?reviewStatus=` | Public: always `active`. Admin: `pending_review` \| `active` \| `rejected` \| `all` |
 | GET | `/api/marketplace/collections/admin/review-counts` | Admin counts by status |
+| POST | `/api/marketplace/collections/admin/create-from-cert` | Create catalog collection from PSA cert (no mint/ask). Body `{ certNumber }`. Resolves Cardhedger `card_id` into `components.cardhedgerCardId` (cert lookup + search fallback) and catalog image → S3 when configured. Starts `pending_review`. |
 | POST | `/api/marketplace/collections/:key/admin/review` | Set `{ reviewStatus }` |
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
 
-New collections start as `pending_review` on first ask; create-time cover is ingested to S3 when configured. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
+New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
 
 ---
 

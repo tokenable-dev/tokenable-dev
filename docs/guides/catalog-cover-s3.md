@@ -4,12 +4,16 @@ Marketplace **collection covers** (`marketplace_collections.coverImageUrl`) are 
 
 ## Default behavior on collection create
 
-When a collection row is first created (`ensureCollectionForListing`):
+When a collection row is first created (`ensureCollectionForListing` **or** admin `create-from-cert`):
 
-1. Resolve a Cardhedger (or Pokémon TCG fallback) image URL from RWA metadata.
-2. If catalog S3 env is configured: **download** that image and **PutObject** to the stable key.
+1. Resolve ranked catalog image URLs from metadata (Cardhedger + Pokémon TCG hires when applicable).
+   - **Ask-time:** from RWA / IPFS graded meta.
+   - **Admin catalog create (no mint):** PSA cert → Cardhedger `details-by-certs` (then `card-details` if needed) attaches `graded.cardhedger`, then the same cover resolve runs. PSA slab photos are **not** used as covers.
+2. If catalog S3 env is configured: **download candidates in rank order**, skip images smaller than **400×400** (some Cardhedger `/crop_image` rows are ~180px thumbs), **PutObject** the first adequate (or largest fallback) to the stable key.
 3. Persist the **S3 public URL** as `coverImageUrl`.
-4. If S3 is not configured, or download/upload fails: fall back to the remote Cardhedger/TCG URL so listing still succeeds.
+4. If S3 is not configured, or download/upload fails: fall back to the top remote Cardhedger/TCG URL so create/listing still succeeds.
+5. Admin can always replace the cover via URL paste or local file upload (same S3 overwrite model).
+6. Re-running admin create for the same cert upgrades an existing too-small S3 cover via the same ingest path.
 
 ## Object key (overwrite model)
 

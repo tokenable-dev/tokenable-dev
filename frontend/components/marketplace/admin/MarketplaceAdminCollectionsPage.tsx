@@ -13,6 +13,7 @@ import {
   ADMIN_LIST,
 } from "./adminUi";
 import { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
+import { MarketplaceAdminCreateCollectionPanel } from "./MarketplaceAdminCreateCollectionPanel";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 const FILTERS: {
@@ -63,7 +64,14 @@ export function MarketplaceAdminCollectionsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Collections"
-        subtitle="Review new buckets before Markets — check cover, names, prices, chart, and Cardhedger."
+        subtitle="Create catalog buckets from a PSA cert (no mint required), then review cover, names, prices, chart, and Cardhedger before Markets."
+      />
+
+      <MarketplaceAdminCreateCollectionPanel
+        onCreated={async () => {
+          setReviewFilter("pending_review");
+          await invalidateCollections();
+        }}
       />
 
       <div className="mb-5 flex flex-wrap gap-2">

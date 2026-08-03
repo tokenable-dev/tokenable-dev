@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +16,15 @@ import {
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
+import {
+  PsaPublicApiService,
+  type PsaCertRecord,
+} from '../../psa/psa-public-api.service';
+import {
+  extractPsaCertImageUrlsFromApiBody,
+  extractPsaCertImagesFromGetImagesBody,
+} from '../../psa/utils/psa-cert-images.util';
+import { buildBulkMintMetadataFromPsaCert } from '../../rwa/bulk-mint/bulk-mint-prepare.util';
 import {
   BUCKET_KEY_VERSION,
   computeMarketBucketKey,
@@ -41,10 +56,20 @@ import { CollectionBootService } from './collection-boot.service';
 import { CollectionComponentsService } from './collection-components.service';
 import { CollectionCoverService } from './collection-cover.service';
 import { CollectionIdentityService } from './collection-identity.service';
+import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
 } from './collection-listing-meta.helpers';
+
+export type CatalogCollectionCreateResult = {
+  collectionKey: string;
+  created: boolean;
+  displayLabel: string;
+  reviewStatus: CollectionReviewStatus;
+  coverImageUrl: string | null;
+  psaCertNumber: string | null;
+};
 
 export interface CollectionSummary {
   collectionKey: string;
@@ -87,6 +112,7 @@ export class CollectionService {
     private readonly cover: CollectionCoverService,
     private readonly components: CollectionComponentsService,
     private readonly identity: CollectionIdentityService,
+    private readonly psaPublicApi: PsaPublicApiService,
     @Inject(forwardRef(() => CollectionBootService))
     private readonly boot: CollectionBootService,
   ) {}
@@ -117,9 +143,6 @@ export class CollectionService {
   /**
    * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
    * graded 없으면 null (호출부에서 listing 거부).
-   *
-   * Cover: resolve Cardhedger/TCG image, download, store on catalog S3 (when configured).
-   * PSA cert snapshot upstream refresh is async — listing POST must stay within API timeout.
    */
   async ensureCollectionForListing(
     tokenId: string,
@@ -128,18 +151,195 @@ export class CollectionService {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const uri = await this.blockchain.getRwaTokenURI(Number(tokenId), resolved);
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
+      step: 'ensureCollectionForListing',
+      tokenId: String(tokenId),
+      tokenUri: typeof uri === 'string' ? uri : String(uri),
+      chainId: resolved,
+      linkRwaToken: true,
+    });
+    return result?.collectionKey ?? null;
+  }
+
+  /**
+   * Admin catalog create: PSA cert → graded identity → marketplace_collections.
+   * No mint / ask required. New rows start as `pending_review`.
+   */
+  async createCatalogCollectionFromPsaCert(
+    certNumberRaw: string,
+  ): Promise<CatalogCollectionCreateResult> {
+    const certNumber = certNumberRaw.trim();
+    if (!/^\d{7,10}$/.test(certNumber)) {
+      throw new BadRequestException('certNumber must be 7–10 digits');
+    }
+
+    const lookup = await this.psaPublicApi.getByCertNumber(certNumber, {
+      bypassCache: true,
+    });
+    if (lookup.status !== 'success' || !lookup.raw) {
+      let reason = `PSA lookup failed for cert ${certNumber}`;
+      if (lookup.status === 'error') reason = lookup.message;
+      else if (lookup.status === 'disabled') {
+        reason = 'PSA Public API is unavailable';
+      } else if (lookup.status === 'skipped') {
+        reason = `PSA lookup skipped: ${lookup.reason}`;
+      }
+      throw new BadRequestException(reason);
+    }
+
+    const psaCert = (lookup.raw as { PSACert?: PsaCertRecord }).PSACert;
+    if (!psaCert || typeof psaCert !== 'object') {
+      throw new BadRequestException(
+        `PSA cert ${certNumber} not found or response missing PSACert`,
+      );
+    }
+
+    let imageUrl =
+      extractPsaCertImageUrlsFromApiBody(lookup.raw, certNumber).front ?? null;
+    if (!imageUrl) {
+      const imgs = await this.psaPublicApi.getImagesByCertNumber(certNumber);
+      if (imgs.status === 'success') {
+        imageUrl =
+          extractPsaCertImagesFromGetImagesBody(imgs.raw).front ??
+          extractPsaCertImagesFromGetImagesBody(imgs.raw).back ??
+          null;
+      }
+    }
+
+    const { metadata } = buildBulkMintMetadataFromPsaCert({
+      certNumber,
+      psaCert,
+      imageUrl: imageUrl ?? '',
+    });
+    // Cardhedger catalog image (+ cardId) before insert so cover resolve can S3-ingest.
+    // PSA slab URLs stay in mint meta but are never used as collection covers.
+    const meta = await this.cover.attachCardhedgerFromPsaCert(
+      metadata as unknown as Record<string, unknown>,
+      certNumber,
+    );
+
+    const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
+      step: 'createCatalogCollectionFromPsaCert',
+      catalogSource: 'admin_psa_cert',
+      linkRwaToken: false,
+    });
+    if (!result) {
+      throw new BadRequestException(
+        'Could not derive a marketplace collection from this PSA cert (graded identity incomplete)',
+      );
+    }
+
+    // Guarantee components.cardhedgerCardId before the admin UI refreshes.
+    await this.ensureCatalogCardhedgerCardId(
+      result.collectionKey,
+      meta,
+      certNumber,
+    );
+    // Snapshot cold_start may have raced before id was filled — refresh again.
+    this.enqueueMarketSnapshotRefresh(result.collectionKey);
+
+    const row = await this.findOne(result.collectionKey);
+    return {
+      collectionKey: result.collectionKey,
+      created: result.created,
+      displayLabel: row?.displayLabel ?? result.displayLabel,
+      reviewStatus: (row?.reviewStatus ?? 'pending_review') as CollectionReviewStatus,
+      coverImageUrl: row?.coverImageUrl ?? result.coverImageUrl,
+      psaCertNumber: row?.psaCertNumber ?? certNumber,
+    };
+  }
+
+  /**
+   * Admin catalog create: ensure `components.cardhedgerCardId` is stored (and
+   * identity cache seeded) so review UI does not show "Missing cardhedgerCardId".
+   */
+  private async ensureCatalogCardhedgerCardId(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+    certNumber: string,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.findOne(key);
+    if (!row) return;
+
+    const existing = String(row.components?.cardhedgerCardId ?? '').trim();
+    if (existing) {
+      if (this.identity.isEnabled()) {
+        await this.identity.writeFromCertLookup(key, existing, null);
+      }
+      return;
+    }
+
+    let workingMeta = meta;
+    let ch = cardhedgerFromRwaMetadata(workingMeta);
+    if (!ch.cardId) {
+      workingMeta = await this.cover.attachCardhedgerFromPsaCert(
+        workingMeta,
+        certNumber,
+      );
+      ch = cardhedgerFromRwaMetadata(workingMeta);
+    }
+    if (!ch.cardId) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'catalog_create_cardhedger_id_missing',
+          collectionKey: key,
+          certNumber,
+        }),
+      );
+      return;
+    }
+
+    if (this.identity.isEnabled()) {
+      await this.identity.writeFromCertLookup(key, ch.cardId, ch.searchQuery);
+      return;
+    }
+
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: {
+          ...(row.components ?? {}),
+          cardhedgerCardId: ch.cardId,
+          cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+          ...(ch.searchQuery
+            ? { cardhedgerSearchQuery: ch.searchQuery }
+            : {}),
+          ...(ch.psaSpecId ? { psaSpecId: ch.psaSpecId } : {}),
+        } as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Shared insert path for ask-time ensure and admin catalog create.
+   * Returns null when graded bucket components cannot be extracted.
+   */
+  private async ensureCollectionBucketFromGradedMeta(
+    meta: Record<string, unknown>,
+    opts: {
+      step: string;
+      tokenId?: string;
+      tokenUri?: string;
+      chainId?: SupportedChainId;
+      linkRwaToken: boolean;
+      catalogSource?: string;
+    },
+  ): Promise<{
+    collectionKey: string;
+    created: boolean;
+    displayLabel: string;
+    coverImageUrl: string | null;
+  } | null> {
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) {
       this.logger.warn(
         JSON.stringify({
           msg: 'collection_key_pipeline',
-          step: 'ensureCollectionForListing',
+          step: opts.step,
           outcome: 'extract_bucket_failed',
-          tokenId: String(tokenId),
-          tokenUriSample:
-            typeof uri === 'string'
-              ? uri.slice(0, 120)
-              : String(uri).slice(0, 120),
+          tokenId: opts.tokenId ?? null,
+          tokenUriSample: opts.tokenUri?.slice(0, 120) ?? null,
           diagnosis: {
             code: extracted.code,
             gradedSource: extracted.gradedSource,
@@ -162,9 +362,9 @@ export class CollectionService {
       this.logger.log(
         JSON.stringify({
           msg: 'collection_key_pipeline',
-          step: 'ensureCollectionForListing',
+          step: opts.step,
           outcome: 'bucket_key_computed',
-          tokenId: String(tokenId),
+          tokenId: opts.tokenId ?? null,
           collectionKey,
           gradedSource: extracted.gradedSource,
           keyFormatNote:
@@ -181,17 +381,23 @@ export class CollectionService {
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
+    if (opts.catalogSource) {
+      compRecord.catalogSource = opts.catalogSource;
+    }
     const listingTitle = extractListingDisplayTitleFromMeta(meta);
     if (listingTitle) {
       compRecord.listingDisplayTitle = listingTitle;
     }
-    // When identity service is enabled, cardhedgerCardId is NOT written during INSERT.
-    // CollectionIdentityService.seedFromMintMetadataOnInsert() handles it post-insert
-    // so the identity service remains the sole write authority.
-    // When the flag is off, the legacy path writes it directly here (unchanged behavior).
-    if (ch.cardId && !this.identity.isEnabled()) {
+    // Persist Cardhedger identity on insert so admin review / snapshots are not
+    // "Missing cardhedgerCardId" while a fire-and-forget seed races the UI.
+    if (ch.cardId) {
       compRecord.cardhedgerCardId = ch.cardId;
-      if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
+      if (opts.catalogSource === 'admin_psa_cert') {
+        compRecord.cardhedgerCardIdSource = CARDHEDGER_CARD_ID_SOURCE_PSA_CERT;
+      }
+    }
+    if (ch.searchQuery) {
+      compRecord.cardhedgerSearchQuery = ch.searchQuery;
     }
     if (ch.psaSpecId) {
       compRecord.psaSpecId = ch.psaSpecId;
@@ -282,7 +488,6 @@ export class CollectionService {
         psaCertNumber: psaCert ?? null,
         marketParallelKey: parallelKey,
         bucketKeyVersion: BUCKET_KEY_VERSION,
-        // New buckets need admin review before Markets/Home discovery.
         reviewStatus: 'pending_review',
       })
       .orIgnore()
@@ -294,7 +499,6 @@ export class CollectionService {
         collectionKey,
         meta,
       );
-      // Already delegates to CollectionIdentityService.writeFromMintMetadata when flag is on.
       await this.components.mergeCardhedgerCardIdFromMetaIfMissing(
         collectionKey,
         meta,
@@ -312,32 +516,40 @@ export class CollectionService {
         psaCert,
         meta,
       );
-      // Upgrade Bubble/low-res covers when a better catalog URL is available.
       await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, meta);
-    } else {
-      // New collection row created. Seed identity state non-blocking.
-      // Snapshot correctness does NOT depend on seed completion — the snapshot
-      // pipeline uses whatever cardhedgerCardId is in DB at execution time, and
-      // falls back to search when null (CardhedgerResolveService handles both paths).
-      // When flag is off this is a no-op.
-      void this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
+    } else if (this.identity.isEnabled()) {
+      // Await so cache + DB are warm before snapshot cold_start / admin refresh.
+      if (opts.catalogSource === 'admin_psa_cert' && ch.cardId) {
+        await this.identity.writeFromCertLookup(
+          collectionKey,
+          ch.cardId,
+          ch.searchQuery,
+        );
+      } else {
+        await this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
+      }
     }
 
-    // Spec Grade1–10 lives on components (mutable catalog), not mint IPFS.
-    // SpecID-deduped: sibling cache first, else one GetPSASpecPopulation.
     await this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
       allowUpstream: true,
     });
 
-    void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
-      tokenUri: uri,
-      collectionKey,
-      chainId: resolved,
-    });
+    if (opts.linkRwaToken && opts.tokenId) {
+      void this.rwaTokenRegistry.upsertFromMetadata(opts.tokenId, meta, {
+        tokenUri: opts.tokenUri,
+        collectionKey,
+        chainId: opts.chainId,
+      });
+    }
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
-    return collectionKey;
+    return {
+      collectionKey,
+      created: inserted,
+      displayLabel,
+      coverImageUrl,
+    };
   }
 
   async resolveCollectionKeyFromTokenMetadata(
@@ -371,7 +583,11 @@ export class CollectionService {
     return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
   }
 
-  /** Collections with mints or orders on the selected chain's RWA contract. */
+  /**
+   * Collections visible for the selected chain:
+   * - have orders or rwa_tokens on that chain's RWA contract, OR
+   * - catalog-only (no orders / rwa_tokens on any chain) — admin-created before mint.
+   */
   private chainScopedCollectionSql(rwaContract: string): string {
     return `(
       EXISTS (
@@ -383,6 +599,16 @@ export class CollectionService {
         SELECT 1 FROM rwa_tokens t
         WHERE LOWER(t.collection_key) = LOWER(c.collection_key)
           AND LOWER(t.token_contract) = :rwaContract
+      )
+      OR (
+        NOT EXISTS (
+          SELECT 1 FROM orders o2
+          WHERE LOWER(o2.collection_key) = LOWER(c.collection_key)
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM rwa_tokens t2
+          WHERE LOWER(t2.collection_key) = LOWER(c.collection_key)
+        )
       )
     )`;
   }
