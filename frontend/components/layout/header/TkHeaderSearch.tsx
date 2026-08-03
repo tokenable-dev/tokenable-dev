@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { TkInput } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { useMarketplaceCollectionSearch } from "@/hooks/marketplace";
@@ -310,9 +311,8 @@ export function TkHeaderSearch({
             <span className="tk-search__icon">
               <SearchIcon />
             </span>
-            <input
+            <TkInput
               ref={desktopInputRef}
-              className="tk-input"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);

@@ -270,7 +270,7 @@ export class PsaController {
     description:
       'PSA upstream `GET /publicapi/pop/GetPSASpecPopulation/{specID}` 프록시.\n\n' +
       '**응답 모델:** `PSASpecPopulationModel` — Grade1~10·Q별 카운트, PSA/DNA pop.\n\n' +
-      'Tokenable 연결: `marketplace/collections` components (`psaSpecPopulation`, rarity) · collection detail pop chart.',
+      'Tokenable 연결: collection create → `marketplace_collections.components` (Grade1–10) · collection detail pop chart (read-only, no PSA call).',
   })
   @ApiParam({
     name: 'specId',

@@ -85,7 +85,7 @@ export function CollectionCoverFrame({
             />
           ) : imgFailed ? (
             <div
-              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
               role="img"
               aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
             >
@@ -97,7 +97,7 @@ export function CollectionCoverFrame({
               aria-hidden
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-zinc-600">
               No preview
             </div>
           )}
@@ -224,7 +224,7 @@ export function CollectionCoverFrame({
             </>
           ) : imgFailed ? (
             <div
-              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
               role="img"
               aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
             >
@@ -233,7 +233,7 @@ export function CollectionCoverFrame({
           ) : isLoading ? (
             <div className="absolute inset-0 bg-gray-900/80 animate-pulse" aria-hidden />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-zinc-600">
               No preview
             </div>
           )}

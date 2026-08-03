@@ -173,6 +173,8 @@ export const rq = {
     ["admin-vault-submissions", status ?? "all", q ?? ""] as const,
   adminVaultSubmissionCounts: () => ["admin-vault-submission-counts"] as const,
   adminVaultSubmission: (id: string) => ["admin-vault-submission", id] as const,
+  adminPsaArrivalReviews: (status?: string) =>
+    ["admin-psa-arrival-reviews", status ?? "pending"] as const,
   adminBulkMintJob: (jobId: string) => ["admin-bulk-mint-job", jobId] as const,
   adminBulkMintJobs: (partnerId?: string) =>
     ["admin-bulk-mint-jobs", partnerId ?? "all"] as const,

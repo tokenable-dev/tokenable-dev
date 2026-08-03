@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 
-export type SellProgressPhase = "submit" | "ship" | "portfolio";
+/** PSA-Shipping.html step rail: Submit → Ship → PSA → Live */
+export type SellProgressPhase = "submit" | "ship" | "psa" | "live";
 
 type StepState = "done" | "active" | "inactive" | "transit";
 
@@ -89,51 +90,53 @@ function ProgressStep({
 }
 
 type Props = {
-  /** Which of the three top-level phases is current. */
   phase: SellProgressPhase;
   /** Ship circle shows transit spinner after tracking is confirmed. */
   shipInTransit?: boolean;
   shipSublabel?: string;
-  portfolioSublabel?: string;
   /** Submit step is complete (user has left add-cards for shipping). */
   submitDone?: boolean;
   canGoSubmit?: boolean;
   canGoShip?: boolean;
-  canGoPortfolio?: boolean;
+  canGoLive?: boolean;
   onSubmit?: () => void;
   onShip?: () => void;
-  onPortfolio?: () => void;
+  onLive?: () => void;
 };
 
-/** Submit → Ship → Portfolio indicator. Clickable when the target step is reachable. */
+/** Submit → Ship → PSA → Live (PSA-Shipping.html). Clickable when reachable. */
 export function SellFlowProgressSteps({
   phase,
   shipInTransit = false,
   shipSublabel,
-  portfolioSublabel = "After PSA review",
   submitDone = false,
   canGoSubmit = false,
   canGoShip = false,
-  canGoPortfolio = false,
+  canGoLive = false,
   onSubmit,
   onShip,
-  onPortfolio,
+  onLive,
 }: Props) {
   const submitState: StepState =
     phase === "submit" && !submitDone ? "active" : submitDone || phase !== "submit" ? "done" : "inactive";
+
   const shipState: StepState =
     phase === "ship"
       ? shipInTransit
         ? "transit"
         : "active"
-      : phase === "portfolio"
+      : phase === "psa" || phase === "live"
         ? "done"
         : "inactive";
-  const portfolioState: StepState = phase === "portfolio" ? "active" : "inactive";
+
+  const psaState: StepState =
+    phase === "psa" ? "active" : phase === "live" ? "done" : "inactive";
+
+  const liveState: StepState = phase === "live" ? "active" : "inactive";
 
   const submitClickable = Boolean(onSubmit) && canGoSubmit;
   const shipClickable = Boolean(onShip) && canGoShip;
-  const portfolioClickable = Boolean(onPortfolio) && canGoPortfolio;
+  const liveClickable = Boolean(onLive) && canGoLive;
 
   return (
     <div className="sell-ship-steps" aria-label="Progress">
@@ -165,13 +168,23 @@ export function SellFlowProgressSteps({
         }`}
       />
       <ProgressStep
-        state={portfolioState}
-        label="Portfolio"
-        labelTone={phase === "portfolio" ? "on" : "muted"}
-        sublabel={portfolioSublabel}
+        state={psaState}
+        label="PSA"
+        labelTone={phase === "psa" ? "on" : psaState === "done" ? "pos" : "muted"}
         number="3"
-        onClick={onPortfolio}
-        disabled={!portfolioClickable}
+      />
+      <div
+        className={`sell-ship-connector${
+          psaState === "done" ? " sell-ship-connector--pos" : ""
+        }`}
+      />
+      <ProgressStep
+        state={liveState}
+        label="Live"
+        labelTone={phase === "live" ? "on" : "muted"}
+        number="4"
+        onClick={onLive}
+        disabled={!liveClickable}
       />
     </div>
   );

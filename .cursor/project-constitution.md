@@ -11,10 +11,10 @@ This document is written for AI agents. It describes the platform, architecture,
 Tokenable is a **non-custodial marketplace for PSA-graded trading card RWAs (Real World Assets)** on Polygon blockchain.
 
 Core user journey:
-1. User ships a physical PSA-graded card to the vault
+1. User ships a physical PSA-graded card to the vault (PSA vault) — or keeps it (self vault)
 2. PSA cert is looked up; IPFS metadata is uploaded
-3. Backend mints an ERC-721 NFT to a **platform custody wallet**
-4. Admin delivers the NFT to the user's primary linked wallet
+3. Backend mints an ERC-721 NFT — **custody** for PSA vault; **user wallet** for self vault (`deliveryMode=direct`)
+4. PSA vault: admin delivers the NFT to the user's linked wallet. Self vault: skip — already in portfolio
 5. User trades the NFT via Seaport 1.5 with USDC settlement
 6. User can redeem the NFT to retrieve the physical card (admin burns NFT + ships card)
 
@@ -51,9 +51,9 @@ Cardhedger pricing is never fetched on hot reads. `collection_market_snapshots` 
 
 There is no Google OAuth, email/password, or SIWE in the user-facing auth flow. Legacy services exist in code for admin tooling only. The `auth.controller.ts` exposes only 4 endpoints.
 
-### 4. Custody-first minting
+### 4. Custody-first minting (PSA / physical vault)
 
-NFTs mint to the platform custody wallet, not the user. Admin delivers via the admin UI. This enables ops verification before NFT delivery.
+PSA vault and default `POST /rwa/mint` mint to the platform custody wallet; admin delivers via the admin UI so ops can verify physical receipt. **Self vault** is the exception: `deliveryMode=direct` mints to the user's linked wallet immediately (no admin deliver).
 
 ### 5. One physical card, one active NFT
 

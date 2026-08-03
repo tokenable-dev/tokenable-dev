@@ -47,7 +47,7 @@ frontend/
 │   ├── markets/                   # MarketsPage, Top100, TopMovers sections
 │   ├── portfolio/
 │   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
-│   ├── vault/                     # MintForm (inbound mint UX — Vault system TBD)
+│   ├── vault/                     # MintForm (/vault/submit/mint); self-vault sell reuses mint APIs
 │   ├── auth/
 │   └── marketplace/
 │       ├── collection-detail/
@@ -139,6 +139,19 @@ When **site access** is enabled on the backend, the frontend `/site-access` page
 
 PSA display titles (Year → Brand → # → Subject → Variety) are built client-side in `lib/marketplace/assetDetailHeadline.ts` and related helpers — not always stored verbatim in DB.
 
+## Design system buttons (`TkButton`)
+
+DS variants already own chrome: `ghost` has an inset 1px outline; `primary` / `subtle` / `neutral` use top+bottom bevel shadows + pixel-notch `clip-path`.
+
+**Do not** add a second `border` or `box-shadow` on the same control via a feature class — it stacks as a double top edge (especially on `:hover`, where `.tk-btn--*:hover` can beat a single custom class).
+
+Rules:
+1. Prefer layout-only `className` (width / height / flex) and an unmodified DS variant.
+2. For a custom outline skin, use compound selectors (`.my-btn.tk-btn`, `:hover`, `:active`) that **fully replace** `box-shadow`, `border`, `clip-path`, and `transform`.
+3. Prefer `variant="ghost"` (already `clip-path: none`) when you need a quiet outline, then restyle color — don’t layer outline CSS on `subtle`.
+
+See also the comment in `styles/tokenable-ds-bridge.css`.
+
 ## Header auth
 
 Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk-wallet.js` (`HeaderWalletMenu`, `HeaderMobileWalletSection`). Privy still owns login/logout/session (`useLogin`, `completeSignOut` → `useLogout`); the dropdown is Tokenable product nav only.
@@ -154,6 +167,16 @@ Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk
 Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
 
 Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before.
+
+## Portfolio My Assets loading
+
+`/portfolio` uses `useUserAssets(..., { assetPageSize: 20 })`:
+
+1. `GET /blockchain/rwa/tokens/:address` — full owned token id list (on-chain scan; cached ~30s)
+2. Metadata (+ collection keys / market pricing) loads in **pages of 20** (newest `tokenId` first) via `useInfiniteQuery`
+3. **Load more** on `PortfolioHoldingsSection` fetches the next metadata page only
+
+Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row.
 
 ## Multi-chain support
 

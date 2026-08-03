@@ -74,7 +74,7 @@ Detail: [backend.md](./backend.md).
 ```
 PSA cert lookup / slab OCR
   → IPFS metadata upload (POST /rwa/upload)
-  → Platform backend mints NFT to custody wallet (POST /rwa/mint)
+  → Platform backend mints NFT (POST /rwa/mint; custody default, or direct for self vault)
   → Admin delivers NFT to user primary wallet (POST /admin/rwa-tokens/:id/deliver)
   → User lists for sale on Seaport (ask order)
   → Buyer fulfills order on-chain (fulfillOrder USDC)

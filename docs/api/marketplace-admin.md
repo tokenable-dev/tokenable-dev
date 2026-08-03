@@ -271,11 +271,15 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 
 **Controller:** `vault-submissions-admin.controller.ts`  
 **Base:** `/api/marketplace/admin/vault-submissions`  
-**UI:** `/marketplace/admin/vault/submissions`
+**UI:** `/marketplace/admin/vault/submissions` (packages) · `/marketplace/admin/vault/psa-mail` (Items Received inbox)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/counts` | Pipeline status counts (`all`, `draft`, `awaiting_shipment`, `in_transit`, `psa_reviewing`, `completed`, `cancelled`) |
+| GET | `/arrival-reviews` | PSA Items Received mail queue (`?status=pending\|confirmed\|dismissed`). Includes `ingestNote` when parse was incomplete (`no_certs`, etc.) |
+| POST | `/arrival-reviews/test-inject` | **TEST** inject Items Received into Gmail + poll (`PSA_RECEIVED_MAIL_TEST_INJECT=1`). Body: `{ cert, cardLabel? }` |
+| POST | `/arrival-reviews/:reviewId/confirm` | Confirm mail → mark matched packages arrived (`psa_reviewing`) |
+| POST | `/arrival-reviews/:reviewId/dismiss` | Dismiss without status change |
 | GET | `/` | List submissions (`?status=&q=` — public id, email, name, cert) |
 | GET | `/:idOrPublicId` | Detail + user email/name + items |
 | POST | `/:idOrPublicId/arrived` | Package arrived at PSA → `psa_reviewing`; cards `in_transit`/`confirmed` → `reviewing` |

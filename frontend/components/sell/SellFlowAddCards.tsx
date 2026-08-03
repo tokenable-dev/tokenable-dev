@@ -1,6 +1,6 @@
 "use client";
 
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
 import { SellFlowProgressSteps } from "./SellFlowProgressSteps";
 
@@ -25,6 +25,7 @@ function BackChevron() {
 
 export function SellFlowAddCards({ flow }: { flow: Flow }) {
   const {
+    vaultChoice,
     cards,
     maxCards,
     certInput,
@@ -33,38 +34,53 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
     lookupBusy,
     draftSavedFlash,
     draftRestored,
+    mintBusy,
+    mintStatus,
+    mintError,
     slabInputRef,
     canContinueShipping,
     lookupCert,
     scanSlab,
     onSlabFile,
     toggleConfirm,
+    setAllConfirmed,
     removeCard,
     saveDraft,
     continueToShipping,
-    goToRegister,
+    continueToSelfMint,
+    goToVault,
   } = flow;
+
+  const allConfirmed = cards.length > 0 && cards.every((c) => c.confirmed);
+  const isSelf = vaultChoice === "self";
+  const busy = lookupBusy || mintBusy;
 
   return (
     <section className="sell-flow-screen">
       <div className="sell-flow-col sell-flow-col--narrow">
-        <button type="button" className="sell-flow-back" onClick={goToRegister}>
+        <button type="button" className="sell-flow-back" onClick={goToVault} disabled={mintBusy}>
           <BackChevron />
-          Back to registration
+          Back to vault choice
         </button>
 
-        <div className="sell-flow-eyebrow">Step 1 of 2</div>
+        <div className="sell-flow-eyebrow">
+          {isSelf ? "Self vault" : "Step 1 of 2"}
+        </div>
         <h1 className="sell-flow-h1">Add your cards</h1>
-        <p className="sell-flow-sub">
-          Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card details from
-          PSA. You can add or remove cards anytime before you confirm shipment.
-        </p>
+        {!isSelf ? (
+          <p className="sell-flow-sub">
+            Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card
+            details from PSA.
+          </p>
+        ) : null}
 
-        <SellFlowProgressSteps
-          phase="submit"
-          canGoShip={canContinueShipping}
-          onShip={() => void continueToShipping()}
-        />
+        {!isSelf ? (
+          <SellFlowProgressSteps
+            phase="submit"
+            canGoShip={canContinueShipping}
+            onShip={() => void continueToShipping()}
+          />
+        ) : null}
 
         {draftRestored ? (
           <p className="sell-flow-draft-restored" role="status">
@@ -77,7 +93,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
             type="button"
             variant="subtle"
             className="sell-flow-scan-btn"
-            disabled={lookupBusy}
+            disabled={busy}
             onClick={scanSlab}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -103,42 +119,41 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
             <div className="sell-flow-or__line" />
           </div>
 
-          <label className="sell-flow-cert-label" htmlFor="sell-flow-cert">
-            Cert number
-          </label>
-          <div className="sell-flow-cert-row">
-            <input
-              id="sell-flow-cert"
-              className="sell-flow-cert-input tkl-mono"
-              type="text"
-              inputMode="numeric"
-              placeholder="e.g. 12345678"
-              autoComplete="off"
-              disabled={lookupBusy}
-              value={certInput}
-              onChange={(e) => setCertInput(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void lookupCert();
-                }
-              }}
-            />
-            <TkButton
-              type="button"
-              variant="primary"
-              className="sell-flow-lookup-btn"
-              disabled={lookupBusy}
-              onClick={() => void lookupCert()}
-            >
-              {lookupBusy ? <span className="sell-flow-spinner" aria-hidden /> : "Look up"}
-            </TkButton>
-          </div>
-          {certError ? (
-            <div className="sell-flow-cert-error" role="alert">
-              {certError}
+          <TkField
+            label="Cert number"
+            htmlFor="sell-flow-cert"
+            error={certError || undefined}
+          >
+            <div className="sell-flow-cert-row">
+              <TkInput
+                id="sell-flow-cert"
+                className="tkl-mono"
+                type="text"
+                inputMode="numeric"
+                placeholder="e.g. 12345678"
+                autoComplete="off"
+                disabled={busy}
+                value={certInput}
+                hasError={Boolean(certError)}
+                onChange={(e) => setCertInput(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void lookupCert();
+                  }
+                }}
+              />
+              <TkButton
+                type="button"
+                variant="primary"
+                className="sell-flow-lookup-btn"
+                disabled={busy}
+                onClick={() => void lookupCert()}
+              >
+                {lookupBusy ? <span className="sell-flow-spinner" aria-hidden /> : "Look up"}
+              </TkButton>
             </div>
-          ) : null}
+          </TkField>
         </div>
 
         <div className="sell-flow-cards-section">
@@ -149,6 +164,15 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
                 ({cards.length} of {maxCards})
               </span>
             </div>
+            {cards.length > 0 ? (
+              <button
+                type="button"
+                className="sell-flow-select-all"
+                onClick={() => setAllConfirmed(!allConfirmed)}
+              >
+                {allConfirmed ? "Deselect all" : "Select all"}
+              </button>
+            ) : null}
           </div>
           <div className="sell-flow-cards-box">
             {cards.length === 0 ? (
@@ -206,19 +230,56 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
           </div>
         </div>
 
+        {mintStatus ? (
+          <p className="sell-flow-draft-restored" role="status">
+            {mintStatus}
+          </p>
+        ) : null}
+        {mintError ? (
+          <p className="sell-flow-mint-error" role="alert">
+            {mintError}
+          </p>
+        ) : null}
+
         <div className="sell-flow-cards-cta">
-          <TkButton type="button" variant="subtle" className="sell-flow-draft-btn" onClick={saveDraft}>
-            {draftSavedFlash ? "Saved" : "Save as draft"}
-          </TkButton>
           <TkButton
             type="button"
-            variant="primary"
-            className="sell-flow-ship-btn"
-            disabled={!canContinueShipping}
-            onClick={continueToShipping}
+            variant="subtle"
+            className="sell-flow-draft-btn"
+            disabled={mintBusy}
+            onClick={() => void saveDraft()}
           >
-            Continue to shipping <ArrowIcon />
+            {draftSavedFlash ? "Saved" : "Save as draft"}
           </TkButton>
+          {isSelf ? (
+            <TkButton
+              type="button"
+              variant="primary"
+              className="sell-flow-ship-btn"
+              disabled={!canContinueShipping || mintBusy}
+              onClick={() => void continueToSelfMint()}
+            >
+              {mintBusy ? (
+                <>
+                  <span className="sell-flow-spinner" aria-hidden /> Minting…
+                </>
+              ) : (
+                <>
+                  Mint to portfolio <ArrowIcon />
+                </>
+              )}
+            </TkButton>
+          ) : (
+            <TkButton
+              type="button"
+              variant="primary"
+              className="sell-flow-ship-btn"
+              disabled={!canContinueShipping || mintBusy}
+              onClick={() => void continueToShipping()}
+            >
+              Continue to shipping <ArrowIcon />
+            </TkButton>
+          )}
         </div>
       </div>
     </section>

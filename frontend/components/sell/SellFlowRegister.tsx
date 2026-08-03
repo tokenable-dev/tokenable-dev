@@ -27,27 +27,38 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
     canContinueRegister,
     canContinueShipping,
     cards,
+    requiredConsentsOk,
     updateConsent,
     startVerification,
+    goToVault,
     goToCards,
     continueToShipping,
   } = flow;
 
   const showProgress = canContinueRegister || cards.length > 0;
+  const gateHint =
+    idState !== "verified"
+      ? "Verify your identity to continue."
+      : !requiredConsentsOk
+        ? "Agree to the required seller terms to continue."
+        : null;
 
   return (
     <section className="sell-flow-screen">
       <div className="sell-flow-col sell-flow-col--narrow">
         <div className="sell-flow-eyebrow">Become a seller</div>
         <h1 className="sell-flow-h1">Verify your identity to start selling</h1>
-        <p className="sell-flow-sub">One-time verification. You won&rsquo;t be asked again.</p>
+        <p className="sell-flow-sub">
+          Identity verification is one-time. Seller terms must be accepted again for every
+          submission.
+        </p>
 
         {showProgress ? (
           <SellFlowProgressSteps
             phase="submit"
             canGoSubmit={canContinueRegister}
             canGoShip={canContinueShipping}
-            onSubmit={goToCards}
+            onSubmit={cards.length > 0 ? goToCards : goToVault}
             onShip={() => void continueToShipping()}
           />
         ) : null}
@@ -199,10 +210,11 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
             variant="primary"
             className="sell-flow-continue"
             disabled={!canContinueRegister}
-            onClick={goToCards}
+            onClick={goToVault}
           >
             Continue
           </TkButton>
+          {gateHint ? <p className="sell-flow-gate-hint">{gateHint}</p> : null}
         </div>
       </div>
     </section>

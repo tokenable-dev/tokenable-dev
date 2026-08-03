@@ -62,7 +62,7 @@ function ListingMetaLine({
   title?: string;
 }) {
   return (
-    <p className="min-w-0 text-[10px] leading-snug text-zinc-300 sm:text-[11px]">
+    <p className="min-w-0 text-[10px] leading-snug text-zinc-300 sm:text-xs">
       <span className="text-zinc-500">{label}</span>{" "}
       <span
         className={`${mono ? "font-mono tabular-nums" : ""} break-all text-zinc-200`}
@@ -120,7 +120,7 @@ function OrderBookAskListingCard({
 
       <div className="flex min-h-0 flex-col gap-1 p-1.5 sm:p-2">
         <div className="min-w-0 space-y-0.5">
-          <p className="line-clamp-1 text-[11px] font-semibold leading-snug text-white sm:text-[12px]">
+          <p className="line-clamp-1 text-xs font-semibold leading-snug text-white sm:text-[12px]">
             {displayTitle}
           </p>
           {trust.certNumber ? (
@@ -137,7 +137,7 @@ function OrderBookAskListingCard({
           <button
             type="button"
             onClick={onBuy}
-            className="w-full rounded-lg border border-mint/35 bg-mint/[0.08] px-2 py-1.5 text-[10px] font-semibold text-mint transition-colors hover:bg-mint/[0.14] sm:text-[11px]"
+            className="w-full rounded-lg border border-mint/35 bg-mint/[0.08] px-2 py-1.5 text-[10px] font-semibold text-mint transition-colors hover:bg-mint/[0.14] sm:text-xs"
           >
             Buy
           </button>

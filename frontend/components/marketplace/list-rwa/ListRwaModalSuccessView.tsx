@@ -79,7 +79,7 @@ export function ListRwaModalSuccessView({
         </p>
       ) : null}
       {!successMeta?.matched && !isSetPrice && (
-        <p className="text-[11px] text-zinc-600 mt-2">Listing valid for 30 days</p>
+        <p className="text-xs text-zinc-600 mt-2">Listing valid for 30 days</p>
       )}
       {!successMeta?.matched && successMeta?.collectionUnderReview ? (
         <div className="mt-3 rounded-lg border border-sky-500/35 bg-sky-500/[0.1] px-3 py-2.5 text-left">
@@ -94,7 +94,7 @@ export function ListRwaModalSuccessView({
         </div>
       ) : null}
       {!successMeta?.matched && successMeta?.hint ? (
-        <div className="text-[11px] text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 space-y-1.5">
+        <div className="text-xs text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 space-y-1.5">
           {successMeta.keptAskAfterBuyerFundingFail ? (
             <>
               <p>

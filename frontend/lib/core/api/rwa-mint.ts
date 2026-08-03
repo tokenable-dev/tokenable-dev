@@ -15,6 +15,11 @@ export async function mintRwaViaBackend(input: {
   /** PSA cert number — permanent physical-asset identity behind the on-chain vaultRef. */
   certNumber: string;
   chainId: SupportedChainId;
+  /**
+   * custody (default): mint to platform wallet; admin delivers.
+   * direct: mint to recipientAddress (self vault).
+   */
+  deliveryMode?: "custody" | "direct";
 }): Promise<MintRwaResult> {
   const { chainId, ...body } = input;
   const res = await backendFetch(`${getApiUrl()}/rwa/mint`, {

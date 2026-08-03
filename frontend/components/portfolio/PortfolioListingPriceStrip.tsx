@@ -4,7 +4,7 @@ import { formatUsdCompact } from "@/lib/market";
 import { computeAskVsMarketPct } from "@/lib/portfolio/askVsMarketPct";
 
 const STRIP_MUTED_CLASS = "text-[#8BA1B3]";
-const STRIP_TEXT_CLASS = "text-[11px] leading-tight sm:text-[14px]";
+const STRIP_TEXT_CLASS = "text-xs leading-tight sm:text-[14px]";
 const STRIP_VALUE_CLASS = "font-semibold tabular-nums text-white";
 
 function formatMktDeltaPctLabel(pct: number, direction: "up" | "down" | "flat"): string {

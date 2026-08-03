@@ -11,7 +11,7 @@ import {
 } from "@/lib/core/api/p2p";
 import { PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
 import { useAppChain } from "@/providers/AppChainProvider";
 
 export default function P2pOrderPage() {
@@ -117,21 +117,25 @@ export default function P2pOrderPage() {
       {isSeller && order.status === "SOLD" && !order.trackingNumber ? (
         <div className="mt-8 space-y-3 border border-[var(--border)] p-4">
           <h2 className="text-sm font-semibold">Add tracking (FedEx / DHL / UPS)</h2>
-          <select
-            className="w-full border border-[var(--border)] px-3 py-2 text-sm"
-            value={carrier}
-            onChange={(e) => setCarrier(e.target.value as typeof carrier)}
-          >
-            <option value="FedEx">FedEx</option>
-            <option value="DHL">DHL</option>
-            <option value="UPS">UPS</option>
-          </select>
-          <input
-            className="w-full border border-[var(--border)] px-3 py-2 text-sm"
-            placeholder="Tracking number"
-            value={tracking}
-            onChange={(e) => setTracking(e.target.value)}
-          />
+          <TkField label="Carrier" htmlFor="p2p-order-carrier">
+            <TkSelect
+              id="p2p-order-carrier"
+              value={carrier}
+              onChange={(e) => setCarrier(e.target.value as typeof carrier)}
+            >
+              <option value="FedEx">FedEx</option>
+              <option value="DHL">DHL</option>
+              <option value="UPS">UPS</option>
+            </TkSelect>
+          </TkField>
+          <TkField label="Tracking number" htmlFor="p2p-order-tracking">
+            <TkInput
+              id="p2p-order-tracking"
+              placeholder="Tracking number"
+              value={tracking}
+              onChange={(e) => setTracking(e.target.value)}
+            />
+          </TkField>
           <TkButton type="button" variant="primary" disabled={busy} onClick={onTracking}>
             Save tracking
           </TkButton>

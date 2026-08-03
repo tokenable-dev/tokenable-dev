@@ -20,6 +20,7 @@ import {
 import type { Top100PriceMetrics } from "@/lib/markets/top100PriceMetrics";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
 import { AppPageState } from "@/components/ui/AppPageState";
+import { TkSelect } from "@/components/ds";
 
 const IMAGE_FILTER: CSSProperties = {
   filter: "saturate(1.04) contrast(1.02)",
@@ -165,7 +166,7 @@ function SalesVolumePanel({
         className={`relative overflow-hidden rounded-xl border border-white/[0.08] bg-black px-3 py-3 sm:px-4 sm:py-3.5 ${tileWidth}`}
       >
         <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-          <p className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white sm:text-[11px] sm:tracking-[0.1em]">
+          <p className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white sm:text-xs sm:tracking-[0.1em]">
             <span className="block truncate sm:hidden">{item.shortLabel}</span>
             <span className="hidden truncate sm:block">{item.label}</span>
           </p>
@@ -182,7 +183,7 @@ function SalesVolumePanel({
   return (
     <div className="mt-4 min-w-0 border-t border-white/[0.06] pt-4">
       <div className="mb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Sales activity
         </p>
       </div>
@@ -409,10 +410,10 @@ function Top100CardDetailContent({
             <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               <div className="flex flex-wrap items-center justify-end gap-2 border-b border-white/[0.06] px-3 py-3 sm:px-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <select
+                  <TkSelect
                     value={grade}
                     onChange={(e) => handleGradeChange(e.target.value)}
-                    className="rounded-lg border border-white/[0.1] bg-black px-2.5 py-1.5 text-xs font-semibold text-white outline-none focus:border-mint/40 sm:text-sm"
+                    className="text-xs font-semibold sm:text-sm"
                     aria-label="Grade"
                   >
                     {gradeOptions.map((g) => (
@@ -420,14 +421,14 @@ function Top100CardDetailContent({
                         {g}
                       </option>
                     ))}
-                  </select>
+                  </TkSelect>
                   <div className="flex rounded-lg border border-white/[0.08] bg-black p-0.5">
                     {CHART_DAYS_OPTIONS.map((d) => (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setChartDays(d)}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors sm:text-xs ${
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors sm:text-xs ${
                           chartDays === d
                             ? "bg-mint/15 text-mint"
                             : "text-zinc-500 hover:text-zinc-300"

@@ -29,7 +29,7 @@ export default function MarketplaceOtherListingsPage() {
         </Link>
 
         <header className="mb-8 border-b border-gray-800 pb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
             Ungrouped
           </p>
           <h1 className="text-2xl font-extrabold text-white">Other listings</h1>

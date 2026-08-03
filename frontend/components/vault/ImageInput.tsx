@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkInput } from "@/components/ds";
 
 type ImageMode = "file" | "fileOrUrl";
 
@@ -15,9 +15,6 @@ interface ImageInputProps {
   /** "file" = upload only, "fileOrUrl" = toggle between file upload and URL input */
   mode?: ImageMode;
 }
-
-const inputClass =
-  "w-full bg-[#141414] border border-white/[0.08] focus:border-[var(--azure)] focus:shadow-[0_0_0_3px_rgba(26,111,255,0.15)] rounded-xl px-3 py-2 text-sm text-white placeholder-white/35 outline-none transition-colors";
 
 const toggleBtnClass = (active: boolean) =>
   active
@@ -122,7 +119,7 @@ export function ImageInput({
                 <TkButton decorative variant="primary" size="md" className="px-10 py-3.5 text-base sm:px-12 sm:py-4 sm:text-lg">
                   Upload photo
                 </TkButton>
-                <span className="max-w-sm text-[11px] font-medium leading-relaxed text-white/35 sm:text-xs">
+                <span className="max-w-sm text-xs font-medium leading-relaxed text-white/35 sm:text-xs">
                   Upload a front photo of your PSA graded card (PSA 1–10 or AUTH). *PNG, JPG or WEBP
                 </span>
               </span>
@@ -149,7 +146,7 @@ export function ImageInput({
                   ×
                 </button>
               </div>
-              <p className="mt-2 text-[11px] text-white/35">Tap to replace</p>
+              <p className="mt-2 text-xs text-white/35">Tap to replace</p>
             </div>
           )}
         </>
@@ -157,13 +154,12 @@ export function ImageInput({
 
       {showUrlInput && (
         <>
-          <input
+          <TkInput
             type="url"
             value={typeof value === "string" ? value : ""}
             onChange={(e) => handleUrlChange(e.target.value)}
             required={required && toggleMode === "url"}
             placeholder="https://example.com/image.png"
-            className={inputClass}
           />
           {previewUrl && (
             <div className="mt-2">

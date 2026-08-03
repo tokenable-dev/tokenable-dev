@@ -10,6 +10,10 @@ import {
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
+import { PsaSpecPopulationCaptureService } from '../../psa/psa-spec-population-capture.service';
+import {
+  hasCompletePsaPopulationByGrade,
+} from '../../psa/psa-spec-population.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
@@ -46,6 +50,7 @@ export class CollectionComponentsService {
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly identity: CollectionIdentityService,
+    private readonly specPopCapture: PsaSpecPopulationCaptureService,
   ) {}
 
   private async fetchCompactCertFromApi(
@@ -147,23 +152,32 @@ export class CollectionComponentsService {
     );
     return true;
   }
+  /** Cert-line TotalPopulation only — Spec Grade1–10 is filled at collection create. */
   async mergePsaPopulationFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    const fresh = extractBucketComponentsFromMetadata(meta);
-    if (fresh?.psaTotalPopulation == null) return;
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: key },
     });
     if (!row) return;
-    const comp = row.components;
-    if (comp.psaTotalPopulation != null) return;
+
+    const fresh = extractBucketComponentsFromMetadata(meta);
+    if (
+      fresh?.psaTotalPopulation == null ||
+      row.components.psaTotalPopulation != null
+    ) {
+      return;
+    }
+    const next = {
+      ...row.components,
+      psaTotalPopulation: fresh.psaTotalPopulation,
+    };
     await this.collectionRepo.update(
       { collectionKey: key },
       {
-        components: { ...comp, psaTotalPopulation: fresh.psaTotalPopulation },
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
   }
@@ -239,17 +253,64 @@ export class CollectionComponentsService {
   }
 
   /**
-   * No-op — mint-only PSA policy. Spec population must be captured at mint time.
+   * Fill Spec Grade1–10 on collection components (collection-create path).
+   * Marketplace on-read must call without allowUpstream (no-op).
+   * Reuses sibling SpecID cache; otherwise one GetPSASpecPopulation.
    */
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
     opts?: { allowUpstream?: boolean },
   ): Promise<void> {
-    if (opts?.allowUpstream === true) {
-      this.logger.debug(
-        `ensurePsaSpecPopulationFromApi refused collection=${collectionKey} (PSA mint-only)`,
-      );
+    if (opts?.allowUpstream !== true) {
+      return;
     }
+
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!row) return;
+
+    const comp = (row.components ?? {}) as Record<string, unknown>;
+    if (hasCompletePsaPopulationByGrade(comp)) return;
+
+    const specId = psaSpecIdFromComponentsRow(comp);
+    if (!specId) {
+      this.logger.debug(
+        `ensurePsaSpecPopulationFromApi skipped collection=${key} (no psaSpecId)`,
+      );
+      return;
+    }
+
+    let capture;
+    try {
+      capture = await this.specPopCapture.captureForSpecId(specId);
+    } catch (e) {
+      this.logger.warn(
+        `ensurePsaSpecPopulationFromApi error collection=${key} specId=${specId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return;
+    }
+    if (!capture) return;
+
+    const next = {
+      ...row.components,
+      psaSpecId: capture.specId,
+      psaPopulationByGrade: capture.byGrade,
+      psaSpecTotalPopulation: capture.total,
+      psaGrade10Population: capture.grade10,
+    };
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+    this.logger.log(
+      `Collection ${key}: Spec pop stored from ${capture.source} specId=${capture.specId}`,
+    );
   }
 
   async ensurePsaTotalPopulationFromListings(

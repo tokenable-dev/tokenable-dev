@@ -40,6 +40,8 @@ export type AdminRwaCardRow = {
   hasActiveListing: boolean;
   burnedAt: string | null;
   vaultCycleStatus: string | null;
+  /** Present when burn done and physical release not yet confirmed. */
+  pendingReleaseRedemptionId: string | null;
 };
 
 /** @deprecated use AdminRwaCardRow */
@@ -179,6 +181,8 @@ export class RwaTokenAdminService {
       });
       for (const c of cycles) cycleById.set(c.id, c);
     }
+    const pendingReleaseByCycle =
+      await this.vault.findPendingReleaseByCycleIds(cycleIds);
 
     const items = await Promise.all(
       rows.map(async (registry) => {
@@ -222,6 +226,9 @@ export class RwaTokenAdminService {
           hasActiveListing: Boolean(order),
           burnedAt: registry.burnedAt?.toISOString() ?? null,
           vaultCycleStatus: cycle?.status ?? null,
+          pendingReleaseRedemptionId: registry.vaultCycleId
+            ? pendingReleaseByCycle.get(registry.vaultCycleId) ?? null
+            : null,
         };
       }),
     );

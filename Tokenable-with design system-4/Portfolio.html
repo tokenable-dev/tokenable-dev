@@ -231,6 +231,12 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
 }
   .tk-search .tk-input{height:36px!important;padding-top:0!important;padding-bottom:0!important;font-size:14px!important;text-overflow:ellipsis!important;overflow:hidden!important;white-space:nowrap!important;}
 
+  /* Load more (My Assets progressive metadata — Next .pf-load-more) */
+  .pf-load-more{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:20px;padding:8px 0 4px;}
+  .pf-load-more__meta{margin:0;font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+  .pf-load-more__btn{min-width:9.5rem;}
+  .pf-load-more.is-redeem-hidden{display:none;}
+
   /* Mobile asset cards */
   .mobile-asset-cards{display:none;}
   @media(max-width:768px){
@@ -478,7 +484,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
 
       
 
-    <!-- Tabs: My Assets / Active Bids / Watchlist / Transaction History -->
+    <!-- Tabs: My Assets / Active Bids / Transaction History (Next PortfolioMainSection) -->
     <div class="tk-tabs" style="margin-bottom:0;display:flex;gap:0;padding:0 16px;border-bottom:none;background:transparent;">
       
       <button class="tk-tab tk-tab--active pf-tab" data-tab="assets" style="display:inline-flex;align-items:center;gap:6px;padding:16px 16px;border:none;border-radius:0;font-family:var(--font-sans);font-size:15px;font-weight:700;cursor:pointer;background:transparent;color:var(--azure);transition:all 0.15s;border-bottom:2px solid var(--azure);margin-bottom:-1px;box-shadow:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> My Assets</button>
@@ -492,7 +498,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
     <div class="pf-mobile-sort" style="display:none;gap:8px;align-items:center;margin:12px 0;">
       <span class="mono" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);">Sort by</span>
       <div style="position:relative;flex:1;max-width:220px;">
-        <select id="pf-mobile-sort-sel" style="appearance:none;-webkit-appearance:none;background:#191919;color:#fff;border:0;font-family:var(--font-mono);font-size:13px;padding:10px 36px 10px 14px;border-radius:0;cursor:pointer;width:100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);"><option value="name">Name</option><option value="grade">Grade</option><option value="cost">Cost Basis</option><option value="value">Current Value</option><option value="pl">P/L</option></select>
+        <select id="pf-mobile-sort-sel" style="appearance:none;-webkit-appearance:none;background:#191919;color:#fff;border:0;font-family:var(--font-mono);font-size:13px;padding:10px 36px 10px 14px;border-radius:0;cursor:pointer;width:100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);"><option value="name">Name</option><option value="grade">Grade</option><option value="cost">Cost basis</option><option value="value">Mkt Price</option><option value="pl">P/L</option></select>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </div>
     </div>
@@ -500,12 +506,10 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
     <!-- Tab: My Assets -->
     <div id="pf-tab-assets">
 
-    <!-- Withdraw toolbar -->
+    <!-- Redeem toolbar (Next: Redeem only — no bulk Set prices) -->
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-bottom:14px;">
-      <button id="bp-mode-btn" class="tk-btn tk-btn--sm" style="height:38px;padding:0 18px;font-size:13px;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);border:0;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Set prices</button>
       <button id="wd-mode-btn" class="tk-btn tk-btn--sm" style="height:38px;padding:0 18px;font-size:13px;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);border:0;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>Redeem</button>
     </div>
-    <div id="bp-select-hint" style="display:none;font-size:12.5px;color:rgba(255,255,255,0.5);margin-bottom:14px;padding:12px 16px;background:rgba(26,111,255,0.06);border-radius:10px;">Select unpriced cards to price in bulk — a flat amount, or a percent of each card&rsquo;s recent sale.</div>
     <div id="wd-select-hint" style="display:none;font-size:12.5px;color:rgba(255,255,255,0.5);margin-bottom:14px;padding:12px 16px;background:rgba(26,111,255,0.06);border-radius:10px;">Select up to 50 cards to redeem together. One shipping fee covers the whole batch.</div>
 
     <div class="tk-table-wrap" style="overflow-x:auto;border-radius:16px;background:#191919;width:100%;"><table class="tk-table" style="width:100%;border-collapse:separate;border-spacing:0;">
@@ -513,7 +517,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
             <tr style="background:rgba(255,255,255,0.03);">
               <th style="text-align:left;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="text"><span style="display:flex;align-items:center;gap:4px;">Card <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
               <th style="text-align:left;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="text"><span style="display:flex;align-items:center;gap:4px;">Grade <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
-              <th style="text-align:right;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="num"><span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">Cost Basis <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
+              <th style="text-align:right;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="num"><span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">Cost basis <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
               <th style="text-align:right;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="num"><span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">Mkt Price <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
               <th style="text-align:right;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="num"><span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">Profit <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
               <th style="text-align:right;padding:10px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.7);font-weight:600;" data-sort="num"><span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">Return <span class="sort-arrow" style="opacity:0.5;display:inline-flex;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 10l4 4 4-4H4zM4 6l4-4 4 4H4z"/></svg></span></span></th>
@@ -525,21 +529,31 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
             <tr class="asset-row" style="opacity:0.6;" data-grade="PSA 10" data-name="2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE">
               <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-nidoking.jpg" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE</span></td>
               <td data-label="Grade" style="padding:12px 10px;"><span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 9</span> <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(234,130,0,0.12);color:rgb(234,130,0);">Verifying</span></td>
-              <td data-label="Cost Basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.2);">—</span></td>
+              <td data-label="Cost basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.2);">—</span></td>
               <td data-label="Mkt Price" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.2);">—</span></td>
               <td data-label="Profit" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.2);">—</span></td>
               <td data-label="Return" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.2);">—</span></td>
               <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;"><span style="font-size:11px;color:rgb(234,130,0);white-space:nowrap;">Vault verification pending</span></div></td>
             </tr>
-            <tr class="asset-row" style="opacity:0.6;" data-grade="PSA 10" data-name="1999 POKEMON BASE SET #4 CHARIZARD HOLO">
-              <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-charizard.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">1999 POKEMON BASE SET #4 CHARIZARD HOLO</span></td>
+            <!-- Redeem in flight — On the way (Next redeemSurfaceBadge transit) -->
+            <tr class="asset-row" style="opacity:0.6;" data-grade="PSA 10" data-name="1999 POKEMON BASE SET #4 CHARIZARD HOLO" data-redeem="transit">
+              <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-charizard.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">1999 POKEMON BASE SET #4 CHARIZARD HOLO</span><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(234,130,0,0.14);color:rgb(234,130,0);">On the way</span></td>
               <td data-label="Grade" style="padding:12px 10px;"><span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 10</span> <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.14);color:#5B9AFF;vertical-align:middle;white-space:nowrap;">PSA Vault</span></td>
-              <td data-label="Cost Basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);">$210,000</span></td>
+              <td data-label="Cost basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);">$210,000</span></td>
               <td data-label="Mkt Price" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:#fff;">$284,000</span></td>
               <td data-label="Profit" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:var(--pos);">+$74,000</span></td>
               <td data-label="Return" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:14px;font-weight:700;color:var(--pos);">+35%</span></td>
-              <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;" title="This card is on its way to you and can't be listed."><span style="font-size:11px;color:var(--azure);white-space:nowrap;">Withdrawing</span></div></td>
+              <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;" title="Redemption in progress — listing unavailable"><span class="mono" style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.55);white-space:nowrap;">On the way</span></div></td>
             </tr>
+            <!-- Redeeming (ownership_verified) -->
+            <tr class="asset-row" style="opacity:0.85;" data-grade="PSA 10" data-name="2022 POKEMON SWSH LOST ORIGIN #277 GIRATINA VSTAR" data-redeem="redeeming">
+              <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-pikachu.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">2022 POKEMON SWSH LOST ORIGIN #277 GIRATINA VSTAR</span><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.14);color:#7eb6ff;">Redeeming</span></td>
+              <td data-label="Grade" style="padding:12px 10px;"><span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 10</span> <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.14);color:#5B9AFF;vertical-align:middle;white-space:nowrap;">PSA Vault</span></td>
+              <td data-label="Cost basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);">$1,200</span></td>
+              <td data-label="Mkt Price" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:#fff;">$1,480</span></td>
+              <td data-label="Profit" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:var(--pos);">+$280</span></td>
+              <td data-label="Return" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:14px;font-weight:700;color:var(--pos);">+23%</span></td>
+              <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;" title="Redemption in progress — listing unavailable"><span class="mono" style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.55);white-space:nowrap;">Redeeming</span></div></td>
             </tr>
             <tr class="asset-row" style="cursor:pointer;" onmouseover="this.style.background='rgba(26,111,255,0.06)'" onmouseout="this.style.background=''" data-grade="PSA 10" data-cost="$180,000" data-mkt="$420,000" data-profit="+$240,000" data-return="+133%" data-img="images/card-charizard.png" data-name="2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE">
               <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-charizard.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE</span></td>
@@ -599,7 +613,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
             <tr class="asset-row" style="cursor:pointer;" onmouseover="this.style.background='rgba(26,111,255,0.06)'" onmouseout="this.style.background=''" data-grade="PSA 9" data-cost="$3,200" data-mkt="$4,100" data-profit="+$900" data-return="+28%" data-img="images/card-pikachu.png" data-name="2016 POKEMON XY EVOLUTIONS #11 CHARIZARD HOLO">
               <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-pikachu.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">2016 POKEMON XY EVOLUTIONS #11 CHARIZARD HOLO</span></td>
               <td data-label="Grade" style="padding:12px 10px;"><span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 9</span> <span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);vertical-align:middle;white-space:nowrap;">Courtyard Vault</span></td>
-              <td data-label="Cost Basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);">$3,200</span></td>
+              <td data-label="Cost basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);">$3,200</span></td>
               <td data-label="Mkt Price" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:#fff;">$4,100</span></td>
               <td data-label="Profit" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;font-weight:700;color:var(--pos);">+$900</span></td>
               <td data-label="Return" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:14px;font-weight:700;color:var(--pos);">+28%</span></td>
@@ -609,11 +623,11 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
             <tr class="asset-row" style="opacity:0.72;" data-grade="PSA 8" data-name="1986 FLEER #57 MICHAEL JORDAN ROOKIE">
               <td data-label="Card" style="padding:12px 10px;display:flex;align-items:center;gap:12px;"><div style="width:38px;height:56px;background:linear-gradient(180deg,#0e0e0e,#08080e);padding:2px;border-radius:4px;flex-shrink:0;"><img src="images/card-lebron.png" style="width:100%;height:100%;object-fit:contain;"></div><span style="font-family:var(--font-sans);font-weight:600;font-size:14px;color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">1986 FLEER #57 MICHAEL JORDAN ROOKIE</span></td>
               <td data-label="Grade" style="padding:12px 10px;"><span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 8</span></td>
-              <td data-label="Cost Basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.3);">&mdash;</span></td>
+              <td data-label="Cost basis" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.3);">&mdash;</span></td>
               <td data-label="Mkt Price" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.3);">&mdash;</span></td>
               <td data-label="Profit" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.3);">&mdash;</span></td>
               <td data-label="Return" style="text-align:right;padding:12px 10px;"><span class="mono" style="font-size:13px;color:rgba(255,255,255,0.3);">&mdash;</span></td>
-              <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;"><div style="font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;">In your possession</div><button class="tk-btn tk-btn--sm tk-btn--ghost" style="height:38px;padding:0 18px;font-size:14px;" data-pf-action="remove-asset" data-name="1986 FLEER #57 MICHAEL JORDAN ROOKIE">Remove</button></div></td>
+              <td data-label="Action" style="text-align:right;padding:12px 10px;"><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;"><span class="mono" style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.55);white-space:nowrap;">In your possession</span></div></td>
             </tr>
           </tbody>
           </table>
@@ -629,13 +643,21 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
           
         </div>
       </div>
-      <div class="mobile-asset-card" style="opacity:0.6;">
+      <div class="mobile-asset-card" style="opacity:0.6;" data-redeem="transit">
         <div class="mobile-asset-card__img"><img src="images/card-charizard.png" alt="1999 POKEMON BASE SET #4 CHARIZARD HOLO"></div>
         <div class="mobile-asset-card__info">
           <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">1999 POKEMON BASE SET #4 CHARIZARD HOLO</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 10</span></div>
-          <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.12);color:var(--azure);">Withdrawing</span></div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">This card is on its way to you and can&rsquo;t be listed.</div>
+          <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(234,130,0,0.14);color:rgb(234,130,0);">On the way</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">This card is on its way — it can&rsquo;t be listed.</div>
           
+        </div>
+      </div>
+      <div class="mobile-asset-card" style="opacity:0.85;" data-redeem="redeeming">
+        <div class="mobile-asset-card__img"><img src="images/card-pikachu.png" alt="Giratina VSTAR"></div>
+        <div class="mobile-asset-card__info">
+          <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">2022 POKEMON SWSH LOST ORIGIN #277 GIRATINA VSTAR</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 10</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.14);color:#7eb6ff;">Redeeming</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">Redemption in progress — listing unavailable.</div>
         </div>
       </div>
       <div class="mobile-asset-card">
@@ -713,6 +735,19 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
           <div style="margin-top:10px;"><div style="margin-bottom:6px;"><div style="font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;">Highest bid <span style="color:var(--pos);">$1,050</span></div></div><button class="tk-btn tk-btn--sm tk-btn--ghost" style="width:100%;height:44px;font-size:14px;" data-pf-action="set-price" data-name="2024 POKEMON SURGING SPARKS EN-SSP #238 PIKACHU EX SPECIAL ART RARE" data-val="1136" data-bid="1050" data-hasbids="1">Set price</button></div>
         </div>
       </div>
+      <div class="mobile-asset-card" style="opacity:0.72;" data-redeem="possession">
+        <div class="mobile-asset-card__img"><img src="images/card-lebron.png" alt="Jordan Rookie"></div>
+        <div class="mobile-asset-card__info">
+          <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">1986 FLEER #57 MICHAEL JORDAN ROOKIE</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 8</span></div>
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.55);margin-top:8px;font-family:var(--font-mono);">In your possession</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load more (Next PortfolioHoldingsSection — page size 20) -->
+    <div class="pf-load-more" id="pf-load-more">
+      <p class="pf-load-more__meta" id="pf-load-more-meta">Showing 10 of 48</p>
+      <button type="button" class="tk-btn tk-btn--sm tk-btn--subtle pf-load-more__btn" id="pf-load-more-btn">Load more</button>
     </div>
     </div>
 
@@ -1407,21 +1442,28 @@ document.addEventListener('click', function(e){
 });
 </script>
 </x-dc>
-<!-- Withdraw batch-select bottom bar -->
+<!-- Redeem batch-select bottom bar (Next useRedeemSelection) -->
 <div id="wd-batch-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(14,14,14,0.96);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.1);padding:14px clamp(16px,4vw,40px);align-items:center;gap:16px;">
   <span id="wd-batch-count" style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:#fff;">0 selected</span>
   <div style="flex:1;"></div>
   <button id="wd-batch-cancel" style="height:44px;padding:0 20px;font-size:14px;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);border:0;border-radius:10px;cursor:pointer;">Cancel</button>
-  <button id="wd-batch-go" style="height:44px;padding:0 22px;font-size:14px;font-weight:600;background:var(--azure);color:#fff;border:0;border-radius:10px;cursor:pointer;opacity:0.4;pointer-events:none;">Withdraw 0 cards</button>
+  <button id="wd-batch-go" style="height:44px;padding:0 22px;font-size:14px;font-weight:600;background:var(--azure);color:#fff;border:0;border-radius:10px;cursor:pointer;opacity:0.4;pointer-events:none;">Redeem 0 cards</button>
 </div>
 <script>
 (function(){
   var MAX=50, selecting=false;
   function eligibleRows(){
     return [].slice.call(document.querySelectorAll('#pf-tab-assets tbody tr')).filter(function(tr){
-      var b=tr.querySelector('button[data-pf-action="set-price"]');
+      if(tr.getAttribute('data-redeem')) return false;
+      var b=tr.querySelector('button[data-pf-action="set-price"], button[data-pf-action="edit-listing"]');
       var grade=tr.querySelector('[data-label="Grade"]');
       return b && grade && /Vault/.test(grade.textContent);
+    });
+  }
+  function eligibleMobileCards(){
+    return [].slice.call(document.querySelectorAll('#mobile-asset-cards .mobile-asset-card')).filter(function(card){
+      if(card.getAttribute('data-redeem')) return false;
+      return !!card.querySelector('button[data-pf-action="set-price"], button[data-pf-action="edit-listing"]');
     });
   }
   function updateBar(){
@@ -1431,18 +1473,29 @@ document.addEventListener('click', function(e){
     g.textContent='Redeem '+sel+' card'+(sel===1?'':'s');
     var ok=sel>0; g.style.opacity=ok?'1':'0.4'; g.style.pointerEvents=ok?'auto':'none';
   }
+  function addChk(host){
+    if(host.querySelector('.wd-chk-cell')) return;
+    var wrap=document.createElement('span'); wrap.className='wd-chk-cell'; wrap.style.cssText='margin-right:8px;display:inline-flex;align-items:center;flex-shrink:0;';
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.className='wd-chk'; cb.style.cssText='width:18px;height:18px;accent-color:var(--azure);cursor:pointer;';
+    wrap.appendChild(cb);
+    host.insertBefore(wrap, host.firstChild);
+  }
   function enter(){
     selecting=true;
     document.getElementById('wd-select-hint').style.display='block';
     document.getElementById('wd-batch-bar').style.display='flex';
     document.getElementById('wd-mode-btn').style.display='none';
-    [].slice.call(document.querySelectorAll('#pf-tab-assets tbody tr [data-pf-action], #pf-tab-assets tbody tr .cost-edit-btn')).forEach(function(b){ b.style.pointerEvents='none'; b.style.opacity='0.35'; b.setAttribute('data-wd-dim','1'); });
+    var lm=document.getElementById('pf-load-more'); if(lm) lm.classList.add('is-redeem-hidden');
+    [].slice.call(document.querySelectorAll('#pf-tab-assets tbody tr [data-pf-action], #pf-tab-assets tbody tr .cost-edit-btn, #mobile-asset-cards [data-pf-action]')).forEach(function(b){ b.style.pointerEvents='none'; b.style.opacity='0.35'; b.setAttribute('data-wd-dim','1'); });
     eligibleRows().forEach(function(tr){
-      if(tr.querySelector('.wd-chk-cell')) return;
       var card=tr.querySelector('[data-label="Card"]');
-      var wrap=document.createElement('span'); wrap.className='wd-chk-cell'; wrap.style.cssText='margin-right:6px;display:inline-flex;';
-      var cb=document.createElement('input'); cb.type='checkbox'; cb.className='wd-chk'; cb.style.cssText='width:18px;height:18px;accent-color:var(--azure);cursor:pointer;';
-      wrap.appendChild(cb); card.insertBefore(wrap, card.firstChild);
+      if(card) addChk(card);
+    });
+    eligibleMobileCards().forEach(function(card){
+      var info=card.querySelector('.mobile-asset-card__info')||card;
+      addChk(info);
+      card.style.boxShadow='inset 0 0 0 1px rgba(26,111,255,0.25)';
+      card.setAttribute('data-wd-select','1');
     });
     updateBar();
   }
@@ -1451,122 +1504,51 @@ document.addEventListener('click', function(e){
     document.getElementById('wd-select-hint').style.display='none';
     document.getElementById('wd-batch-bar').style.display='none';
     document.getElementById('wd-mode-btn').style.display='inline-flex';
-    [].slice.call(document.querySelectorAll('#pf-tab-assets [data-wd-dim]')).forEach(function(b){ b.style.pointerEvents=''; b.style.opacity=''; b.removeAttribute('data-wd-dim'); });
+    var lm=document.getElementById('pf-load-more'); if(lm) lm.classList.remove('is-redeem-hidden');
+    [].slice.call(document.querySelectorAll('#pf-tab-assets [data-wd-dim], #mobile-asset-cards [data-wd-dim]')).forEach(function(b){ b.style.pointerEvents=''; b.style.opacity=''; b.removeAttribute('data-wd-dim'); });
     [].slice.call(document.querySelectorAll('.wd-chk-cell')).forEach(function(el){ el.remove(); });
+    [].slice.call(document.querySelectorAll('[data-wd-select]')).forEach(function(el){ el.style.boxShadow=''; el.removeAttribute('data-wd-select'); });
   }
   document.addEventListener('click', function(e){
     if(e.target.closest&&e.target.closest('#wd-mode-btn')){ enter(); return; }
     if(e.target.closest&&e.target.closest('#wd-batch-cancel')){ exit(); return; }
-    if(e.target.closest&&e.target.closest('#wd-batch-go')){ if(document.querySelectorAll('.wd-chk:checked').length>0) window.location.href='Withdraw.html'; return; }
+    if(e.target.closest&&e.target.closest('#wd-batch-go')){ if(document.querySelectorAll('.wd-chk:checked').length>0) window.location.href='Redeem.html'; return; }
     if(e.target.classList&&e.target.classList.contains('wd-chk')){
       var sel=document.querySelectorAll('.wd-chk:checked').length;
       if(sel>MAX){ e.target.checked=false; alert('You can redeem up to 50 cards per shipment.'); }
       updateBar();
     }
   });
-})();
-</script>
-<!-- Bulk set-price bottom bar + dialog -->
-<div id="bp-batch-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(14,14,14,0.96);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.1);padding:14px clamp(16px,4vw,40px);align-items:center;gap:16px;">
-  <span id="bp-batch-count" style="font-family:var(--font-sans);font-size:14px;font-weight:600;color:#fff;">0 selected</span>
-  <div style="flex:1;"></div>
-  <button id="bp-batch-cancel" style="height:44px;padding:0 20px;font-size:14px;font-weight:600;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);border:0;border-radius:10px;cursor:pointer;">Cancel</button>
-  <button id="bp-batch-go" style="height:44px;padding:0 22px;font-size:14px;font-weight:600;background:var(--azure);color:#fff;border:0;border-radius:10px;cursor:pointer;opacity:0.4;pointer-events:none;">Set prices</button>
-</div>
-<div id="bp-dialog" style="display:none;position:fixed;inset:0;z-index:120;align-items:center;justify-content:center;background:rgba(6,6,14,0.72);backdrop-filter:blur(6px);padding:20px;">
-  <div style="width:100%;max-width:420px;background:#141414;border-radius:16px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,0.6);">
-    <h3 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#fff;">Set prices for <span id="bp-n">0</span> cards</h3>
-    <p style="margin:0 0 20px;font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5;">Apply one rule to every selected card. You can fine-tune individual prices afterward.</p>
-    <label style="display:flex;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;background:#191919;border-radius:10px;margin-bottom:10px;"><input type="radio" name="bp-mode" value="pct" checked style="accent-color:var(--azure);width:16px;height:16px;"><span style="font-size:14px;color:#fff;">Percent of recent sale</span></label>
-    <label style="display:flex;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;background:#191919;border-radius:10px;margin-bottom:16px;"><input type="radio" name="bp-mode" value="flat" style="accent-color:var(--azure);width:16px;height:16px;"><span style="font-size:14px;color:#fff;">Flat amount (same price each)</span></label>
-    <div style="position:relative;margin-bottom:8px;">
-      <span id="bp-prefix" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.4);font-family:var(--font-mono);font-size:15px;"></span>
-      <span id="bp-suffix" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.4);font-family:var(--font-mono);font-size:15px;">%</span>
-      <input id="bp-value" class="mono" value="95" style="width:100%;height:48px;padding:0 34px;background:#0e0e0e;border:0;border-radius:10px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.12);color:#fff;font-size:16px;font-weight:700;text-align:center;outline:none;">
-    </div>
-    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:20px;line-height:1.5;">You receive 95% after the 5% platform fee.</div>
-    <div style="display:flex;gap:12px;">
-      <button id="bp-cancel-2" style="flex:1;height:46px;font-size:14px;font-weight:600;background:rgba(255,255,255,0.06);color:#fff;border:0;border-radius:10px;cursor:pointer;">Cancel</button>
-      <button id="bp-apply" style="flex:1;height:46px;font-size:14px;font-weight:600;background:var(--azure);color:#fff;border:0;border-radius:10px;cursor:pointer;">List cards</button>
-    </div>
-  </div>
-</div>
-<script>
-(function(){
-  var MAX=50, selecting=false;
-  function eligibleRows(){
-    return [].slice.call(document.querySelectorAll('#pf-tab-assets tbody tr')).filter(function(tr){
-      var b=tr.querySelector('button[data-pf-action="set-price"]');
-      var grade=tr.querySelector('[data-label="Grade"]');
-      return b && grade && /Vault/.test(grade.textContent);
-    });
-  }
-  function selCount(){ return document.querySelectorAll('.bp-chk:checked').length; }
-  function updateBar(){
-    var s=selCount(), c=document.getElementById('bp-batch-count'), g=document.getElementById('bp-batch-go');
-    c.textContent=s+' selected';
-    var ok=s>0; g.style.opacity=ok?'1':'0.4'; g.style.pointerEvents=ok?'auto':'none';
-  }
-  function enter(){
-    selecting=true;
-    document.getElementById('bp-select-hint').style.display='block';
-    document.getElementById('bp-batch-bar').style.display='flex';
-    document.getElementById('bp-mode-btn').style.display='none';
-    document.getElementById('wd-mode-btn').style.display='none';
-    [].slice.call(document.querySelectorAll('#pf-tab-assets tbody tr [data-pf-action], #pf-tab-assets tbody tr .cost-edit-btn')).forEach(function(b){ b.style.pointerEvents='none'; b.style.opacity='0.35'; b.setAttribute('data-bp-dim','1'); });
-    eligibleRows().forEach(function(tr){
-      if(tr.querySelector('.bp-chk-cell')) return;
-      var card=tr.querySelector('[data-label="Card"]');
-      var wrap=document.createElement('span'); wrap.className='bp-chk-cell'; wrap.style.cssText='margin-right:6px;display:inline-flex;';
-      var cb=document.createElement('input'); cb.type='checkbox'; cb.className='bp-chk'; cb.style.cssText='width:18px;height:18px;accent-color:var(--azure);cursor:pointer;';
-      wrap.appendChild(cb); card.insertBefore(wrap, card.firstChild);
-    });
-    updateBar();
-  }
-  function exit(){
-    selecting=false;
-    document.getElementById('bp-select-hint').style.display='none';
-    document.getElementById('bp-batch-bar').style.display='none';
-    document.getElementById('bp-mode-btn').style.display='inline-flex';
-    document.getElementById('wd-mode-btn').style.display='inline-flex';
-    [].slice.call(document.querySelectorAll('#pf-tab-assets [data-bp-dim]')).forEach(function(b){ b.style.pointerEvents=''; b.style.opacity=''; b.removeAttribute('data-bp-dim'); });
-    [].slice.call(document.querySelectorAll('.bp-chk-cell')).forEach(function(el){ el.remove(); });
-  }
-  function money(n){ return '$'+Math.round(n).toLocaleString('en-US'); }
-  function applyPrices(){
-    var mode=(document.querySelector('input[name=bp-mode]:checked')||{}).value||'pct';
-    var val=parseFloat((document.getElementById('bp-value').value||'').replace(/[^0-9.]/g,''))||0;
-    [].slice.call(document.querySelectorAll('.bp-chk:checked')).forEach(function(cb){
-      var tr=cb.closest('tr'); if(!tr) return;
-      var btn=tr.querySelector('button[data-pf-action="set-price"]'); if(!btn) return;
-      var base=parseInt(btn.getAttribute('data-val'),10)||0;
-      var price = mode==='flat' ? val : Math.round(base*(val/100));
-      var cell=btn.closest('[data-label="Action"]');
-      if(cell){ cell.innerHTML='<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;"><div style="font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;"><span style="color:var(--azure);">Listed</span> &middot; '+money(price)+'</div><button class="tk-btn tk-btn--sm tk-btn--ghost" style="height:38px;padding:0 18px;font-size:14px;white-space:nowrap;" data-pf-action="edit-listing" data-name="'+(tr.getAttribute("data-name")||"")+'" data-val="'+price+'" data-listprice="'+price+'" data-hasbids="0" data-bid="0">Edit price</button></div>'; }
-    });
-    document.getElementById('bp-dialog').style.display='none';
-    exit();
-  }
-  function syncDialogUnits(){
-    var mode=(document.querySelector('input[name=bp-mode]:checked')||{}).value||'pct';
-    document.getElementById('bp-prefix').textContent = mode==='flat' ? '$' : '';
-    document.getElementById('bp-suffix').textContent = mode==='flat' ? '' : '%';
-    document.getElementById('bp-value').value = mode==='flat' ? '1000' : '95';
-  }
-  document.addEventListener('change', function(e){ if(e.target.name==='bp-mode') syncDialogUnits(); });
-  document.addEventListener('click', function(e){
-    if(e.target.closest&&e.target.closest('#bp-mode-btn')){ enter(); return; }
-    if(e.target.closest&&e.target.closest('#bp-batch-cancel')){ exit(); return; }
-    if(e.target.closest&&e.target.closest('#bp-batch-go')){ if(selCount()>0){ document.getElementById('bp-n').textContent=selCount(); syncDialogUnits(); document.getElementById('bp-dialog').style.display='flex'; } return; }
-    if(e.target.classList&&e.target.classList.contains('bp-chk')){
-      if(selCount()>MAX){ e.target.checked=false; alert('You can price up to 50 cards at once.'); }
-      updateBar(); return;
-    }
-    if(e.target.closest&&(e.target.closest('#bp-cancel-2')||e.target.id==='bp-dialog')){ document.getElementById('bp-dialog').style.display='none'; return; }
-    if(e.target.closest&&e.target.closest('#bp-apply')){ applyPrices(); return; }
+  document.addEventListener('change', function(e){
+    if(e.target.classList&&e.target.classList.contains('wd-chk')) updateBar();
   });
 })();
 </script>
+<script>
+/* My Assets Load more demo (Next PORTFOLIO_ASSETS_PAGE_SIZE = 20) */
+(function(){
+  var PAGE=20, TOTAL=48, loaded=10;
+  var meta=document.getElementById('pf-load-more-meta');
+  var btn=document.getElementById('pf-load-more-btn');
+  var wrap=document.getElementById('pf-load-more');
+  if(!btn||!meta||!wrap) return;
+  function paint(){
+    meta.textContent='Showing '+loaded+' of '+TOTAL;
+    if(loaded>=TOTAL){ wrap.style.display='none'; }
+  }
+  btn.addEventListener('click', function(){
+    btn.textContent='Loading…';
+    btn.disabled=true;
+    setTimeout(function(){
+      loaded=Math.min(TOTAL, loaded+PAGE);
+      btn.textContent='Load more';
+      btn.disabled=false;
+      paint();
+    }, 350);
+  });
+})();
+</script>
+
 <script src="tk-wallet.js"></script>
 <script src="tk-kyc.js"></script>
 <script src="tk-notifications.js"></script>

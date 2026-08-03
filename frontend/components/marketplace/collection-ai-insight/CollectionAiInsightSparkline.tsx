@@ -53,7 +53,7 @@ export function CollectionAiInsightSparkline({
       <div
         className={
           emptyClassName ??
-          `flex h-[140px] items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/40 text-[11px] text-zinc-500 ${className}`
+          `flex h-[140px] items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/40 text-xs text-zinc-500 ${className}`
         }
       >
         Chart data unavailable

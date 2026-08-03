@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
 import { useSellShipping } from "@/hooks/sell/useSellShipping";
 import { PSA_SHIP_TO, type SellCarrier } from "@/lib/sell/sellFlowDraft";
@@ -55,7 +55,7 @@ export function SellShippingView() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" aria-hidden>
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span className="sell-ship-banner__title">Ready to ship — send it directly to PSA</span>
+            <span className="sell-ship-banner__title">Ready to ship — send it to tokenable</span>
             <span className="sell-ship-banner__dot" aria-hidden />
             <span className="sell-ship-banner__card">{ship.bannerLabel}</span>
           </div>
@@ -72,10 +72,10 @@ export function SellShippingView() {
 
           <div className="sell-ship-header">
             <div className="sell-flow-eyebrow">Step 2 of 2</div>
-            <h1 className="sell-flow-h1">Ship to PSA</h1>
+            <h1 className="sell-flow-h1">Ship to tokenable</h1>
             <p className="sell-flow-sub">
-              Send your cards to PSA. Once verified, they land in your portfolio — set a price there to
-              go live.
+              Send your cards to tokenable. Once verified, they land in your portfolio — set a price
+              there to go live.
             </p>
           </div>
 
@@ -86,24 +86,26 @@ export function SellShippingView() {
             shipSublabel={ship.shipSublabel}
             canGoSubmit={!ship.confirmed}
             canGoShip={!ship.confirmed && ship.panel === "track"}
-            canGoPortfolio={ship.confirmed}
+            canGoLive={ship.confirmed}
             onSubmit={ship.backToCards}
             onShip={ship.goToPack}
-            onPortfolio={() => router.push("/portfolio")}
+            onLive={() => router.push("/portfolio")}
           />
 
           {ship.panel === "pack" ? (
             <div className="sell-ship-panel">
               <div className="sell-ship-track-top">
-                <button
+                <TkButton
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   className="sell-ship-outline-btn sell-ship-outline-btn--sm"
                   onClick={ship.backToCards}
                   disabled={ship.confirmed}
                 >
                   <BackChevron />
                   Back to cards
-                </button>
+                </TkButton>
                 <span className="sell-ship-panel__eyebrow sell-ship-panel__eyebrow--inline">
                   Step 2a · Pack &amp; prepare
                 </span>
@@ -113,7 +115,73 @@ export function SellShippingView() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="2" aria-hidden>
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
-                <span>Your cards are stored at PSA Vault, insured by Lloyd&rsquo;s of London.</span>
+                <span>Your cards are stored securely in the tokenable vault.</span>
+              </div>
+
+              <div className="sell-ship-box sell-ship-box--accent">
+                <span className="sell-ship-label">Ship To</span>
+                <div className="sell-ship-addr-name">{PSA_SHIP_TO.name}</div>
+                <div className="sell-ship-addr-lines">
+                  {PSA_SHIP_TO.lines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
+                </div>
+                <div className="sell-ship-addr-actions">
+                  <TkButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={`sell-ship-outline-btn${ship.addrCopied ? " sell-ship-outline-btn--ok" : ""}`}
+                    onClick={ship.copyAddress}
+                  >
+                    {ship.addrCopied ? (
+                      <>
+                        <CheckIcon /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <rect x="9" y="9" width="13" height="13" rx="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy address
+                      </>
+                    )}
+                  </TkButton>
+                </div>
+                <div className="sell-ship-divider" />
+                <div className="sell-ship-danger">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>
+                    The Packing Slip must be inside the box. PSA cannot match your card to your Tokenable
+                    account without it.
+                  </span>
+                </div>
+                <TkButton
+                  type="button"
+                  variant="ghost"
+                  className={`sell-ship-slip-btn${ship.slipDownloaded ? " sell-ship-slip-btn--done" : ""}`}
+                  onClick={ship.onDownloadSlip}
+                >
+                  {ship.slipDownloaded ? (
+                    <>
+                      <CheckIcon /> Downloaded
+                    </>
+                  ) : (
+                    <>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      Download Packing Slip
+                    </>
+                  )}
+                </TkButton>
               </div>
 
               <div className="sell-ship-box">
@@ -160,69 +228,6 @@ export function SellShippingView() {
                     </li>
                   ))}
                 </ul>
-              </div>
-
-              <div className="sell-ship-box sell-ship-box--accent">
-                <span className="sell-ship-label">Ship To</span>
-                <div className="sell-ship-addr-name">{PSA_SHIP_TO.name}</div>
-                <div className="sell-ship-addr-lines">
-                  {PSA_SHIP_TO.lines.map((line) => (
-                    <div key={line}>{line}</div>
-                  ))}
-                </div>
-                <div className="sell-ship-addr-actions">
-                  <button
-                    type="button"
-                    className={`sell-ship-outline-btn${ship.addrCopied ? " sell-ship-outline-btn--ok" : ""}`}
-                    onClick={ship.copyAddress}
-                  >
-                    {ship.addrCopied ? (
-                      <>
-                        <CheckIcon /> Copied!
-                      </>
-                    ) : (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                          <rect x="9" y="9" width="13" height="13" rx="2" />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        Copy address
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="sell-ship-divider" />
-                <div className="sell-ship-danger">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span>
-                    The Packing Slip must be inside the box. PSA cannot match your card to your Tokenable
-                    account without it.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={`sell-ship-slip-btn${ship.slipDownloaded ? " sell-ship-slip-btn--done" : ""}`}
-                  onClick={ship.onDownloadSlip}
-                >
-                  {ship.slipDownloaded ? (
-                    <>
-                      <CheckIcon /> Downloaded
-                    </>
-                  ) : (
-                    <>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                      Download Packing Slip
-                    </>
-                  )}
-                </button>
               </div>
 
               <div className="sell-ship-box">
@@ -276,15 +281,17 @@ export function SellShippingView() {
           ) : (
             <div className="sell-ship-panel">
               <div className="sell-ship-track-top">
-                <button
+                <TkButton
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   className="sell-ship-outline-btn sell-ship-outline-btn--sm"
                   onClick={ship.goToPack}
                   disabled={ship.confirmed}
                 >
                   <BackChevron />
                   Back
-                </button>
+                </TkButton>
                 <span className="sell-ship-panel__eyebrow sell-ship-panel__eyebrow--inline">
                   Step 2b · Register tracking
                 </span>
@@ -302,13 +309,9 @@ export function SellShippingView() {
                 </div>
 
                 <div className="sell-ship-track-grid">
-                  <div>
-                    <label className="sell-ship-field-lab" htmlFor="sell-ship-carrier">
-                      Carrier
-                    </label>
-                    <select
+                  <TkField label="Carrier" htmlFor="sell-ship-carrier">
+                    <TkSelect
                       id="sell-ship-carrier"
-                      className="sell-ship-select"
                       value={ship.carrier}
                       disabled={ship.confirmed}
                       onChange={(e) => ship.setCarrier(e.target.value as SellCarrier)}
@@ -316,42 +319,39 @@ export function SellShippingView() {
                       <option value="fedex">FedEx International Priority — recommended</option>
                       <option value="dhl">DHL Express — recommended</option>
                       <option value="ups">UPS Worldwide</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="sell-ship-field-lab" htmlFor="sell-ship-date">
-                      Shipping date
-                    </label>
-                    <input
+                    </TkSelect>
+                  </TkField>
+                  <TkField label="Shipping date" htmlFor="sell-ship-date">
+                    <TkInput
                       id="sell-ship-date"
                       type="date"
-                      className="sell-ship-input"
                       value={ship.shipDate}
                       disabled={ship.confirmed}
                       onChange={(e) => ship.setShipDate(e.target.value)}
                     />
-                  </div>
+                  </TkField>
                 </div>
 
                 <p className="sell-ship-track-note">
                   Untracked mail isn&rsquo;t supported — we confirm delivery through carrier tracking.
                 </p>
 
-                <div className="sell-ship-track-num">
-                  <label className="sell-ship-field-lab" htmlFor="sell-ship-tracking">
-                    Tracking number
-                  </label>
-                  <input
+                <TkField
+                  className="sell-ship-track-num"
+                  label="Tracking number"
+                  htmlFor="sell-ship-tracking"
+                  error={ship.trackingErr || undefined}
+                >
+                  <TkInput
                     id="sell-ship-tracking"
                     type="text"
-                    className="sell-ship-input"
                     placeholder="e.g. 7489 2345 6789"
                     value={ship.trackingNumber}
                     disabled={ship.confirmed}
+                    hasError={Boolean(ship.trackingErr)}
                     onChange={(e) => ship.setTrackingNumber(e.target.value)}
                   />
-                  {ship.trackingErr ? <div className="sell-ship-err">{ship.trackingErr}</div> : null}
-                </div>
+                </TkField>
 
                 <TkButton
                   type="button"

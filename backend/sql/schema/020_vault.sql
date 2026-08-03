@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS vault_redemptions (
   burned_at timestamptz,
   vault_released_at timestamptz,
   failure_reason text,
+  ship_to_name varchar(128),
+  ship_to_line1 varchar(256),
+  ship_to_line2 varchar(256),
+  ship_to_city varchar(128),
+  ship_to_region varchar(128),
+  ship_to_postal varchar(32),
+  ship_to_country varchar(8),
+  ship_to_phone varchar(40),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT vault_redemptions_status_check CHECK (
@@ -165,3 +173,29 @@ COMMENT ON TABLE vault_submission_items IS
   'Per-card rows inside a vault_submission. Links to vault_cycles after mint reserve.';
 COMMENT ON COLUMN vault_submission_items.vault_cycle_id IS
   'Set when reserveCycleForDeposit succeeds for this cert — bridges sell-flow → vault lifecycle.';
+
+-- PSA Items Received mail → admin review queue (not auto Ship→PSA)
+CREATE TABLE IF NOT EXISTS vault_psa_arrival_reviews (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  gmail_message_id varchar(128) NOT NULL,
+  subject varchar(512),
+  from_address varchar(320),
+  certs jsonb NOT NULL DEFAULT '[]'::jsonb,
+  matched_public_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  unmatched_certs jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ingest_note varchar(128),
+  status varchar(24) NOT NULL DEFAULT 'pending',
+  reviewed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT vault_psa_arrival_reviews_gmail_message_unique UNIQUE (gmail_message_id),
+  CONSTRAINT vault_psa_arrival_reviews_status_check CHECK (
+    status IN ('pending', 'confirmed', 'dismissed')
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_psa_arrival_reviews_status
+  ON vault_psa_arrival_reviews (status);
+
+COMMENT ON TABLE vault_psa_arrival_reviews IS
+  'Gmail Items Received mail queued for ops; confirm marks vault_submissions psa_reviewing.';

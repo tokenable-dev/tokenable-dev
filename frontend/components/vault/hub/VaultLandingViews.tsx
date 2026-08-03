@@ -16,7 +16,7 @@ const FEATURES = [
   {
     iconTone: "azure" as const,
     title: "Secure Vaulting",
-    text: "Cards held in insured custody with intake verification. Each token backed by a specific, verified card.",
+    text: "Cards held in secure custody with intake verification. Each token backed by a specific, verified card.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -61,7 +61,7 @@ export function VaultLandingView({ onSignIn }: { onSignIn: () => void }) {
       <p className="vault-landing__text">
         Submit your PSA-graded cards to our secure vault.
         <br />
-        We verify, insure, and mint your token — so you can trade without shipping.
+        We verify and mint your token — so you can trade without shipping.
       </p>
       <TkButton variant="primary" size="md" className="h-14 px-9 text-base" onClick={onSignIn}>
         Connect Wallet to Start →

@@ -72,7 +72,7 @@ export function PortfolioAssetCard({
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
-            <span className="font-mono text-[11px] text-gray-600">#{row.tokenId}</span>
+            <span className="font-mono text-xs text-gray-600">#{row.tokenId}</span>
             <span className="text-[10px] text-gray-600">No preview image</span>
           </div>
         )}

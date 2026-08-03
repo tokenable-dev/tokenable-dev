@@ -14,6 +14,160 @@
   margin: 0 auto;
 }
 
+.sell-flow-col--vault {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Choose a vault (Choose-Vault.html / Sell-Flow scr-choice) */
+.sell-flow-vault-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 36px;
+}
+
+.sell-flow-vault-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px;
+  background: var(--surf);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  border: 0;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: box-shadow 0.12s, transform 0.12s, background 0.12s;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.sell-flow-vault-opt:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.sell-flow-vault-opt--sel {
+  box-shadow: inset 0 0 0 2px var(--azure);
+  background: rgba(26, 111, 255, 0.05);
+}
+
+.sell-flow-vault-opt__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sell-flow-vault-opt__ic {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sell-flow-vault-opt__ic--self {
+  background: rgba(0, 200, 100, 0.12);
+  color: var(--pos);
+}
+
+.sell-flow-vault-opt__ic--psa {
+  background: rgba(26, 111, 255, 0.12);
+  color: var(--brand-400);
+}
+
+.sell-flow-vault-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+.sell-flow-vault-pill--pos {
+  background: rgba(0, 200, 100, 0.12);
+  color: var(--pos);
+}
+
+.sell-flow-vault-pill--muted {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--t2);
+}
+
+.sell-flow-vault-opt__title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sell-flow-vault-opt__desc {
+  margin-top: 5px;
+  font-size: 13.5px;
+  color: var(--t2);
+  line-height: 1.6;
+}
+
+.sell-flow-vault-opt__feats {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sell-flow-vault-feat {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+.sell-flow-vault-feat svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.sell-flow-vault-cta {
+  display: flex;
+  gap: 14px;
+  margin-top: 32px;
+}
+
+.sell-flow-vault-back {
+  height: 52px !important;
+  padding: 0 24px !important;
+  font-size: 15px !important;
+}
+
+.sell-flow-vault-continue {
+  height: 52px !important;
+  flex: 1;
+  max-width: 320px;
+  font-size: 15px !important;
+  justify-content: center;
+}
+
+.sell-flow-vault-continue:disabled {
+  opacity: 0.4;
+}
+
+.sell-flow-vault-hint {
+  font-size: 12.5px;
+  color: var(--t3);
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
 .sell-flow-eyebrow {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -281,7 +435,12 @@
 }
 
 .sell-flow-reg-cta {
+  position: sticky;
+  bottom: 0;
   margin-top: 28px;
+  padding: 16px 0 20px;
+  background: linear-gradient(180deg, rgba(14, 14, 14, 0) 0%, var(--ink, #0e0e0e) 40%);
+  z-index: 5;
 }
 
 .sell-flow-continue {
@@ -293,6 +452,14 @@
 
 .sell-flow-continue:disabled {
   opacity: 0.4;
+}
+
+.sell-flow-gate-hint {
+  font-size: 12.5px;
+  color: var(--t3);
+  text-align: center;
+  margin: 10px 0 0;
+  line-height: 1.5;
 }
 
 .sell-flow-scan-btn {
@@ -320,17 +487,9 @@
 }
 
 .sell-flow-or__label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--t3);
   letter-spacing: 0.08em;
-}
-
-.sell-flow-cert-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--t2);
-  margin-bottom: 8px;
 }
 
 .sell-flow-cert-row {
@@ -339,22 +498,10 @@
   align-items: stretch;
 }
 
-.sell-flow-cert-input {
+.sell-flow-cert-row .tk-input {
   flex: 1;
-  height: 52px;
-  padding: 0 16px;
-  background: #0e0e0e;
-  border: 0;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 15px;
+  min-height: 52px;
   letter-spacing: 0.04em;
-  outline: none;
-}
-
-.sell-flow-cert-input:focus {
-  box-shadow: inset 0 0 0 1.5px var(--azure);
 }
 
 .sell-flow-lookup-btn {
@@ -366,13 +513,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-
-.sell-flow-cert-error {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--neg);
-  line-height: 1.5;
+  flex-shrink: 0;
 }
 
 .sell-flow-cards-section {
@@ -383,12 +524,29 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
 .sell-flow-cards-title {
   font-size: 16px;
   font-weight: 700;
+  color: #fff;
+}
+
+.sell-flow-select-all {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--azure);
+}
+
+.sell-flow-select-all:hover {
   color: #fff;
 }
 
@@ -401,7 +559,7 @@
 .sell-flow-cards-box {
   background: #141414;
   border-radius: 14px;
-  max-height: 340px;
+  max-height: 480px;
   overflow-y: auto;
 }
 
@@ -421,9 +579,9 @@
 
 .sell-flow-cardrow {
   display: flex;
-  gap: 14px;
-  align-items: center;
-  padding: 14px 16px;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px 18px;
   animation: sell-flow-row-in 0.4s ease;
 }
 
@@ -443,10 +601,10 @@
 }
 
 .sell-flow-cardrow__thumb {
-  width: 38px;
-  height: 53px;
-  object-fit: cover;
-  border-radius: 6px;
+  width: 72px;
+  height: 100px;
+  object-fit: contain;
+  border-radius: 0;
   flex-shrink: 0;
   background: #0e0e0e;
 }
@@ -481,7 +639,7 @@
 }
 
 .sell-flow-grade {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
   padding: 3px 8px;
@@ -492,7 +650,7 @@
 }
 
 .sell-flow-cardrow__cert {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--t3);
 }
 
@@ -779,7 +937,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-panel__eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
@@ -818,7 +976,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
@@ -844,6 +1002,14 @@ button.sell-ship-step--btn:focus-visible {
   margin: 14px 0;
 }
 
+/*
+ * Outline chrome on TkButton — must beat DS ghost/subtle inset borders on
+ * :hover/:active (those are .tk-btn--* with equal or higher specificity).
+ * Never stack `border` + DS bevel/`inset 0 0 0 1px` on the same control.
+ */
+.sell-ship-outline-btn.tk-btn,
+.sell-ship-outline-btn.tk-btn:hover,
+.sell-ship-outline-btn.tk-btn:active,
 .sell-ship-outline-btn {
   display: inline-flex;
   align-items: center;
@@ -858,21 +1024,45 @@ button.sell-ship-step--btn:focus-visible {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 10px;
+  clip-path: none;
+  filter: none;
+  box-shadow: none;
+  transform: none;
   cursor: pointer;
   text-decoration: none;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
+.sell-ship-outline-btn.tk-btn:hover,
 .sell-ship-outline-btn:hover {
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
 }
 
+.sell-ship-outline-btn.tk-btn:active,
+.sell-ship-outline-btn:active {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  transform: none;
+}
+
+.sell-ship-outline-btn--ok.tk-btn,
 .sell-ship-outline-btn--ok {
   border-color: var(--pos);
   color: var(--pos);
 }
 
+.sell-ship-outline-btn--ok.tk-btn:hover,
+.sell-ship-outline-btn--ok:hover {
+  border-color: var(--pos);
+  color: var(--pos);
+  background: rgba(0, 200, 100, 0.06);
+}
+
+.sell-ship-outline-btn--sm.tk-btn,
 .sell-ship-outline-btn--sm {
   height: 36px;
   padding: 0 14px;
@@ -905,6 +1095,8 @@ button.sell-ship-step--btn:focus-visible {
   margin-bottom: 16px;
 }
 
+/* Outline slip CTA — must reset TkButton pixel-notch + primary bevel or the border tears. */
+.sell-ship-slip-btn.tk-btn,
 .sell-ship-slip-btn {
   display: inline-flex;
   align-items: center;
@@ -912,19 +1104,47 @@ button.sell-ship-step--btn:focus-visible {
   gap: 8px;
   width: 100%;
   height: 46px;
+  min-height: 46px;
   padding: 0 20px;
   font-size: 14px;
   font-weight: 600;
   font-family: var(--font-sans);
+  white-space: nowrap;
   background: transparent;
   color: var(--azure);
   border: 0;
   border-radius: 10px;
+  clip-path: none;
+  filter: none;
   box-shadow: inset 0 0 0 1.5px var(--azure);
+  transform: none;
   cursor: pointer;
 }
 
+.sell-ship-slip-btn.tk-btn:hover,
+.sell-ship-slip-btn:hover {
+  background: rgba(26, 111, 255, 0.08);
+  color: var(--azure);
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+  transform: none;
+}
+
+.sell-ship-slip-btn.tk-btn:active,
+.sell-ship-slip-btn:active {
+  background: rgba(26, 111, 255, 0.12);
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+  transform: none;
+}
+
+.sell-ship-slip-btn--done.tk-btn,
 .sell-ship-slip-btn--done {
+  color: var(--pos);
+  box-shadow: inset 0 0 0 1.5px var(--pos);
+}
+
+.sell-ship-slip-btn--done.tk-btn:hover,
+.sell-ship-slip-btn--done:hover {
+  background: rgba(0, 200, 100, 0.08);
   color: var(--pos);
   box-shadow: inset 0 0 0 1.5px var(--pos);
 }
@@ -934,7 +1154,7 @@ button.sell-ship-step--btn:focus-visible {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
   color: #fff;
 }
@@ -1006,7 +1226,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-check__text {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -1064,7 +1284,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-track-lock {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
   margin-left: auto;
   font-weight: 400;
@@ -1077,50 +1297,18 @@ button.sell-ship-step--btn:focus-visible {
   margin-bottom: 12px;
 }
 
-.sell-ship-field-lab {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-  margin-bottom: 4px;
-  display: block;
+.sell-ship-track-grid .tk-field,
+.sell-ship-track-num.tk-field {
+  min-width: 0;
 }
 
-.sell-ship-input,
-.sell-ship-select {
-  width: 100%;
-  height: 48px;
-  padding: 0 16px;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 14px;
-  outline: none;
-  font-family: var(--font-sans);
-  color-scheme: dark;
-}
-
-.sell-ship-input {
-  font-family: var(--font-mono);
-  font-size: 15px;
-}
-
-.sell-ship-input:focus,
-.sell-ship-select:focus {
-  border-color: var(--azure);
-  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15);
-}
-
-.sell-ship-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
-  cursor: pointer;
-  padding-right: 36px;
+/* Date picker chrome stays readable on white .tk-input inside dark sell pages */
+.sell-ship-track-grid input[type="date"].tk-input {
+  color-scheme: light;
 }
 
 .sell-ship-track-note {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
   margin: -4px 0 14px;
   line-height: 1.5;
@@ -1128,12 +1316,6 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-track-num {
   margin-bottom: 14px;
-}
-
-.sell-ship-err {
-  font-size: 11px;
-  color: #ff6b7a;
-  margin-top: 6px;
 }
 
 .sell-ship-confirm {
@@ -1264,16 +1446,17 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-package-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 4px 0;
 }
 
 .sell-ship-package-row__thumb {
-  width: 40px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
+  width: 72px;
+  height: 100px;
+  object-fit: contain;
+  border-radius: 0;
+  background: #0e0e0e;
   flex-shrink: 0;
 }
 
@@ -1297,7 +1480,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-package-row__meta {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -1322,6 +1505,12 @@ button.sell-ship-step--btn:focus-visible {
   cursor: not-allowed;
 }
 
+@media (max-width: 820px) {
+  .sell-flow-vault-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .sell-flow-cards-cta {
     flex-direction: column;
@@ -1335,6 +1524,23 @@ button.sell-ship-step--btn:focus-visible {
   .sell-ship-track-grid {
     grid-template-columns: 1fr;
   }
+
+  .sell-flow-vault-cta {
+    flex-direction: column;
+  }
+
+  .sell-flow-vault-back,
+  .sell-flow-vault-continue {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.sell-flow-mint-error {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #f87171;
 }
 
 @media (prefers-reduced-motion: reduce) {

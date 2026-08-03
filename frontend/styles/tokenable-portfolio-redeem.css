@@ -1,0 +1,634 @@
+/* Portfolio Redeem — selection mode + /portfolio/redeem flow (DS-4 Withdraw sync) */
+
+.pf-holdings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pf-redeem-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-redeem-hint {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  background: rgba(26, 111, 255, 0.06);
+  border-radius: 10px;
+}
+
+.pf-redeem-hint--err {
+  color: #ff8a8a;
+  background: rgba(255, 80, 80, 0.08);
+}
+
+.pf-redeem-chk-cell {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-chk-cell--mobile {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.pf-mobile-asset-card {
+  position: relative;
+}
+
+.pf-mobile-asset-card--select {
+  padding-left: 4px;
+}
+
+.pf-mobile-asset-card--selected {
+  outline: 1px solid rgba(26, 111, 255, 0.45);
+  background: rgba(26, 111, 255, 0.04);
+}
+
+.pf-holdings-row--selected td {
+  background: rgba(26, 111, 255, 0.04);
+}
+
+.pf-redeem-chk {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--azure, #1a6fff);
+  cursor: pointer;
+}
+
+.pf-redeem-chk:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.pf-redeem-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.pf-redeem-badge--redeeming {
+  background: rgba(26, 111, 255, 0.14);
+  color: #7eb6ff;
+}
+
+.pf-redeem-badge--transit {
+  background: rgba(234, 130, 0, 0.14);
+  color: rgb(234, 130, 0);
+}
+
+.pf-redeem-badge--possession {
+  background: rgba(0, 195, 80, 0.12);
+  color: #00c350;
+}
+
+.pf-redeem-mobile-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-table-actions--dim {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pf-table-actions--status {
+  justify-content: flex-end;
+}
+
+.pf-table-actions__status {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-redeem-batch-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(12, 12, 14, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.pf-redeem-batch-bar__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pf-redeem-batch-bar__left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pf-redeem-batch-bar__count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.pf-redeem-batch-bar__err {
+  font-size: 12px;
+  color: #ff8a8a;
+}
+
+.pf-redeem-batch-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portfolio-page--redeem-select {
+  padding-bottom: 96px;
+}
+
+/* Redeem flow page */
+.pf-redeem-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 4vw, 40px) 100px;
+  color: #fff;
+}
+
+.pf-redeem-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.pf-redeem-crumb a {
+  color: var(--azure, #1a6fff);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.pf-redeem-crumb a:hover {
+  color: #fff;
+}
+
+.pf-redeem-crumb__sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.pf-redeem-crumb__current {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-crumb {
+    display: none !important;
+  }
+
+  .pf-redeem-page {
+    padding-top: 24px;
+  }
+
+  .pf-redeem-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pf-redeem-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pf-redeem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pf-redeem-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.pf-redeem-summary {
+  border-radius: 16px;
+  background: #191919;
+  padding: 16px 20px;
+}
+
+.pf-redeem-summary__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pf-redeem-summary__thumbs {
+  display: flex;
+  align-items: center;
+}
+
+.pf-redeem-summary__thumb {
+  width: 36px;
+  height: 52px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0e0e0e;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pf-redeem-summary__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-summary__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-summary__count {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.pf-redeem-summary__sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.pf-redeem-summary__toggle {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--azure, #1a6fff);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 9px 16px;
+  border-radius: 8px;
+}
+
+.pf-redeem-summary__list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.pf-redeem-summary__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #191919;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.pf-redeem-summary__row-thumb {
+  width: 52px;
+  height: 74px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0e0e0e;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-summary__row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-summary__row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-summary__row-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pf-redeem-summary__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pf-redeem-chip {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pf-redeem-chip--vault {
+  background: rgba(26, 111, 255, 0.12);
+  color: #5b9aff;
+}
+
+.pf-redeem-summary__row-cert {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pf-redeem-summary__trash {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-summary__trash:hover {
+  color: #ff8a8a;
+  background: rgba(255, 80, 80, 0.1);
+}
+
+.pf-redeem-cost,
+.pf-redeem-shipto,
+.pf-redeem-shipment,
+.pf-redeem-next,
+.pf-redeem-paybox {
+  border-radius: 16px;
+  background: #191919;
+  padding: 20px;
+}
+
+.pf-redeem-cost__title,
+.pf-redeem-shipment__title,
+.pf-redeem-next__title {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-cost__copy,
+.pf-redeem-shipment__copy {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+
+.pf-redeem-cost__duty {
+  margin-top: 14px;
+  background: rgba(234, 130, 0, 0.08);
+  border: 1px solid rgba(234, 130, 0, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.pf-redeem-cost__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 14px;
+}
+
+.pf-redeem-cost__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  color: #fff;
+  font-weight: 600;
+}
+
+.pf-redeem-cost__label {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+  font-family: var(--font-sans, inherit);
+}
+
+.pf-redeem-cost__line--total {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 14px;
+  font-size: 16px;
+}
+
+.pf-redeem-shipto__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-shipto__body {
+  font-size: 14px;
+  color: #fff;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pf-redeem-paybox__copy {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.pf-redeem-paybox__bal {
+  color: rgb(0, 200, 100);
+  margin-left: 6px;
+}
+
+.pf-redeem-shipment__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.pf-redeem-shipment__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pf-redeem-shipment__k {
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-sans, inherit);
+}
+
+.pf-redeem-next__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pf-redeem-next__step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 0;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.pf-redeem-next__num {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  min-width: 1ch;
+}
+
+.pf-redeem-next__num--done {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-banner {
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.pf-redeem-banner__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--azure, #1a6fff);
+}
+
+.pf-redeem-banner strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.pf-redeem-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pf-redeem-banner--azure {
+  background: rgba(26, 111, 255, 0.08);
+  border: 1px solid rgba(26, 111, 255, 0.25);
+}
+
+.pf-redeem-banner--pos {
+  background: rgba(0, 200, 100, 0.08);
+  border: 1px solid rgba(0, 200, 100, 0.25);
+}
+
+.pf-redeem-banner--pos .pf-redeem-banner__icon,
+.pf-redeem-banner--pos > svg {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-banner--center {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 0;
+}
+
+.pf-redeem-banner--center > svg {
+  margin-bottom: 14px;
+}
+
+.pf-redeem-banner--center strong {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-banner--center p {
+  max-width: 400px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pf-redeem-error {
+  color: #ff8a8a;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pf-redeem-primary {
+  width: 100%;
+  height: 52px;
+}
+
+.pf-redeem-primary-link {
+  display: block;
+  text-decoration: none;
+}

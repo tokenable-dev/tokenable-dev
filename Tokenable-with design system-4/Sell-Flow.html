@@ -229,11 +229,11 @@
           </label>
           <label style="display:flex;gap:14px;align-items:flex-start;cursor:pointer;">
             <span class="chk" data-consent="req"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-            <span style="font-size:14px;color:var(--t1);line-height:1.6;">I&rsquo;m responsible for the authenticity of the cards I list. Tokenable doesn&rsquo;t authenticate cards. <span style="color:var(--azure);">*</span></span>
+            <span style="font-size:14px;color:var(--t1);line-height:1.6;">I&rsquo;m responsible for the authenticity of the cards I list. PSA verifies cert numbers; Tokenable doesn&rsquo;t authenticate cards. <span style="color:var(--azure);">*</span></span>
           </label>
           <label style="display:flex;gap:14px;align-items:flex-start;cursor:pointer;">
             <span class="chk" data-consent="req"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
-            <span style="font-size:14px;color:var(--t1);line-height:1.6;">Cards I keep in my own vault stay in my custody, and delivery on a sale or withdrawal is my responsibility. <span style="color:var(--azure);">*</span></span>
+            <span style="font-size:14px;color:var(--t1);line-height:1.6;">My cards are stored at PSA Vault. I agree to the <a href="#" style="color:var(--azure);text-decoration:none;">storage and withdrawal terms</a>. <span style="color:var(--azure);">*</span></span>
           </label>
           <label style="display:flex;gap:14px;align-items:flex-start;cursor:pointer;">
             <span class="chk" data-consent="req"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>
@@ -255,7 +255,7 @@
     </div>
   </section>
 
-  <!-- ============ SCREEN: VAULT CHOICE (partner only) ============ -->
+  <!-- ============ SCREEN: VAULT CHOICE ============ -->
   <section class="screen" id="scr-choice" style="padding:56px clamp(16px,4vw,40px) 100px;">
     <div style="max-width:900px;margin:0 auto;">
       <div class="eyebrow">Choose a vault</div>
@@ -279,7 +279,7 @@
         <button class="opt" data-vault="psa">
           <div style="display:flex;align-items:center;gap:14px;">
             <span class="opt__ic" style="background:rgba(26,111,255,0.12);color:var(--brand-400);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
-            <span class="pill" style="background:rgba(255,255,255,0.06);color:var(--t2);">0&ndash;15 BUSINESS DAYS AFTER ARRIVAL</span>
+            <span class="pill" style="background:rgba(255,255,255,0.06);color:var(--t2);">14&ndash;16 BUSINESS DAYS AFTER ARRIVAL</span>
           </div>
           <div><div class="opt__t">PSA vault</div><div class="opt__d" style="margin-top:5px;">Send them to PSA. Once verified, your listing goes live.</div></div>
           <div style="display:flex;flex-direction:column;gap:9px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.07);">
@@ -297,12 +297,13 @@
     </div>
   </section>
 
-  <!-- ============ SCREEN: ADD YOUR CARDS ============ -->
+  <!-- ============ SCREEN: ADD YOUR CARDS (self mint + PSA ship share this UI) ============ -->
   <section class="screen" id="scr-cards" style="padding:56px clamp(16px,4vw,40px) 100px;">
     <div class="col-narrow">
-      <div class="eyebrow">Step 1 of 2</div>
+      <button type="button" class="tk-btn tk-btn--subtle" id="cards-back" style="height:40px;padding:0 16px;font-size:13px;margin-bottom:20px;display:inline-flex;align-items:center;gap:8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Back to vault choice</button>
+      <div class="eyebrow" id="cards-eyebrow">Step 1 of 2</div>
       <h1 class="page-h1">Add your cards</h1>
-      <p class="page-sub">Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card details from PSA.</p>
+      <p class="page-sub" id="cards-sub">Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card details from PSA.</p>
 
       <!-- Add cards input -->
       <div class="glass" style="margin-top:36px;">
@@ -386,11 +387,27 @@
     '11112222': {name:'2016 POKEMON XY EVOLUTIONS #11 CHARIZARD HOLO', set:'Evolutions · 2016', grade:8, img:'images/card-charizard.png', recent:2100, topBid:1850}
   };
 
+  var ARROW_SVG = ' <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+
   function showScreen(id){
     ['scr-register','scr-choice','scr-cards'].forEach(function(s){
       var el=$(s); if(el) el.classList.toggle('on', s===id);
     });
+    if(id==='scr-cards') syncCardsUi();
     window.scrollTo(0,0);
+  }
+
+  /** Self vault uses the same add-cards UI as PSA; only eyebrow / sub / CTA differ (Next SellFlowAddCards). */
+  function syncCardsUi(){
+    var isSelf = st.vault==='self';
+    var eyebrow=$('cards-eyebrow');
+    if(eyebrow) eyebrow.textContent = isSelf ? 'Self vault' : 'Step 1 of 2';
+    var sub=$('cards-sub');
+    if(sub) sub.style.display = isSelf ? 'none' : '';
+    var cc=$('cards-continue');
+    if(cc){
+      cc.innerHTML = (isSelf ? 'Mint to portfolio' : 'Continue to shipping') + ARROW_SVG;
+    }
   }
 
   /* ---------- KYC ---------- */
@@ -552,7 +569,7 @@
   document.addEventListener('click', function(e){
     var t=e.target; if(!t.closest) return;
 
-    // Vault choice
+    // Vault choice — both Self and PSA continue into the same add-cards screen
     var opt=t.closest && t.closest('#scr-choice .opt');
     if(opt){
       st.vault=opt.getAttribute('data-vault');
@@ -560,8 +577,8 @@
       setBtn('choice-continue', true);
       var ch=$('choice-hint');
       if(ch) ch.textContent = st.vault==='self'
-        ? 'Your cards stay in your vault and can be listed right away.'
-        : 'You&rsquo;ll ship these cards to PSA to be verified before they go live.';
+        ? 'Confirmed cards mint straight to your portfolio wallet — no shipping, no admin deliver.'
+        : "You'll ship these cards to PSA to be verified before they go live.";
       var cc=$('choice-continue');
       if(cc) cc.textContent = st.vault==='self' ? 'Continue with self vault' : 'Continue with PSA vault';
       return;
@@ -569,8 +586,7 @@
     if(t.closest('#choice-back')){ showScreen('scr-register'); return; }
     if(t.closest('#choice-continue')){
       if(!st.vault) return;
-      if(st.vault==='self') window.location.href='Partner-Add-Cards.html';
-      else showScreen('scr-cards');
+      showScreen('scr-cards');
       return;
     }
 
@@ -599,12 +615,12 @@
     if(t.closest('#reg-continue')){
       if(st.id!=='verified'||!consentsOk()) return;
       try{ localStorage.setItem('tk_seller_ready','1'); }catch(_){}
-      var partner=false; try{ partner = localStorage.getItem('tk_partner_status')==='approved'; }catch(_){}
-      showScreen(partner ? 'scr-choice' : 'scr-cards');
+      showScreen('scr-choice');
       return;
     }
 
     // Cards
+    if(t.closest('#cards-back')){ showScreen('scr-choice'); return; }
     if(t.closest('#lookup-btn')){ lookup(); return; }
     if(t.closest('#scan-slab-btn')){ var inp=$('cert-input'); if(inp){ inp.focus(); } showCertError('Camera scan opens on a mobile device. For now, enter the cert number below.'); return; }
     var chk=t.closest('.cardchk');
@@ -612,7 +628,13 @@
     var del=t.closest('.carddel');
     if(del){ var di=+del.getAttribute('data-i'); st.cards.splice(di,1); renderCards(); return; }
     if(t.closest('#cards-draft')){ var b=$('cards-draft'); if(b){ b.textContent='Saved'; setTimeout(function(){ b.textContent='Save as draft'; },1400);} return; }
-    if(t.closest('#cards-continue')){ if(st.cards.some(function(c){return c.confirmed;})) window.location.href='PSA-Shipping.html'; return; }
+    if(t.closest('#cards-continue')){
+      if(!st.cards.some(function(c){return c.confirmed;})) return;
+      // Self vault: mint to portfolio (Next continueToSelfMint). PSA vault: shipping.
+      if(st.vault==='self') window.location.href='Portfolio.html';
+      else window.location.href='PSA-Shipping.html';
+      return;
+    }
   }, false);
 
   // Enter key in cert input + price inputs
@@ -636,9 +658,17 @@
   try{ var saved=localStorage.getItem('tk_kyc'); if(saved){ st.id=saved; } }catch(e){}
   renderId();
 
-  // The vault choice now lives in this page (scr-choice), so no deep-link override is
-  // needed. The old ?step=cards interval permanently forced the cards screen, which
-  // meant the vault choice could never appear.
+  // Deep-link from Choose-Vault.html → add-cards with vault choice (self or psa).
+  try{
+    var fromChoose = sessionStorage.getItem('tk_vault_choice');
+    if(fromChoose==='self' || fromChoose==='psa'){
+      st.vault = fromChoose;
+      sessionStorage.removeItem('tk_vault_choice');
+      if(location.hash==='#cards' || location.hash==='#scr-cards'){
+        showScreen('scr-cards');
+      }
+    }
+  }catch(e){}
 })();
 
 /* Mobile nav delegation */

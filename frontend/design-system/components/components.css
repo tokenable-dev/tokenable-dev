@@ -1,5 +1,6 @@
-/* Tokenable — component styles (designer handoff 2026-07).
-   Merged from Tokenable Design System (Standalone).html — Bold Blue + violet secondary. */
+/* Tokenable — component styles · CHUNKY PIXEL direction.
+   Multi-step staircase corners, thick inset borders, hard offset shadows.
+   Buttons have gradient depth for clear affordance. */
 
 /* ---------- Shared pixel clip-paths ---------- */
 :root{
@@ -22,7 +23,6 @@
 }
 .tk-btn--md{height:46px;padding:0 24px;font-size:15px}
 .tk-btn--sm{height:38px;padding:0 18px;font-size:14px;clip-path:var(--pixel-notch-md)}
-/* Compact table CTA — no pixel clip (dense rows; pairs with ghost) */
 .tk-btn--table{height:32px;padding:0 12px;font-size:13px;border-radius:8px;clip-path:none}
 .tk-btn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
 .tk-btn:disabled,.tk-btn[aria-disabled="true"]{cursor:not-allowed;opacity:.45;box-shadow:none !important;transform:none !important;pointer-events:none}
@@ -31,14 +31,14 @@
 .tk-btn--sm .tk-btn__icon svg{width:14px;height:14px}
 .tk-btn--table .tk-btn__icon svg{width:13px;height:13px}
 
-/* Primary — index.html Azure #1A6FFF */
+/* Primary — Bold Blue #0033FF */
 .tk-btn--primary{
-  color:#fff;background:#1A6FFF;
-  box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(80,160,255,0.6), inset 0 3px 0 0 rgba(80,170,255,0.7), inset 0 -3px 0 0 rgba(0,0,50,0.4);
-  filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));
+  color:#fff;background:#0033FF;
+  box-shadow:inset 0 3px 0 0 rgba(80,120,255,0.35), inset 0 -3px 0 0 rgba(0,10,80,0.4);
+  filter:none;
 }
-.tk-btn--primary:hover{background:#2E80FF;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(100,180,255,0.7), inset 0 3px 0 0 rgba(100,190,255,0.8), inset 0 -3px 0 0 rgba(0,0,50,0.45);filter:drop-shadow(6px 6px 0 rgba(26,111,255,0.65));transform:translate(-2px,-2px)}
-.tk-btn--primary:active{transform:translate(2px,2px);background:#1A6FFF;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.6), inset 0 0 0 1px rgba(60,140,255,0.4), inset 0 3px 0 0 rgba(0,0,50,0.3), inset 0 -3px 0 0 rgba(80,170,255,0.3);filter:drop-shadow(2px 2px 0 rgba(26,111,255,0.4))}
+.tk-btn--primary:hover{background:#2255FF;box-shadow:inset 0 3px 0 0 rgba(80,120,255,0.45), inset 0 -3px 0 0 rgba(0,10,80,0.45);transform:translate(-1px,-1px)}
+.tk-btn--primary:active{transform:translate(1px,1px);background:#0028DD;box-shadow:inset 0 3px 0 0 rgba(0,10,80,0.25), inset 0 -3px 0 0 rgba(80,120,255,0.15)}
 
 /* Neutral/Secondary — Light Violet #977DFF */
 .tk-btn--neutral{color:#fff;background:#977DFF;box-shadow:inset 0 3px 0 0 rgba(180,160,255,0.3), inset 0 -3px 0 0 rgba(60,40,120,0.35);filter:none}
@@ -50,6 +50,11 @@
 .tk-btn--subtle:hover{color:#fff;background:#58595b;box-shadow:inset 0 3px 0 0 rgba(255,255,255,0.12), inset 0 -3px 0 0 rgba(0,0,0,0.3);transform:translate(-1px,-1px)}
 .tk-btn--subtle:active{color:#fff;background:#383838;box-shadow:inset 0 3px 0 0 rgba(0,0,0,0.15), inset 0 -3px 0 0 rgba(255,255,255,0.05);transform:translate(1px,1px)}
 
+/* Danger — red (functional, kept for destructive actions) */
+.tk-btn--danger{color:#fff;background:#E4374A;box-shadow:inset 0 3px 0 0 rgba(255,150,160,0.3), inset 0 -3px 0 0 rgba(80,0,0,0.35);filter:none}
+.tk-btn--danger:hover{background:#F54A5C;box-shadow:inset 0 3px 0 0 rgba(255,170,180,0.4), inset 0 -3px 0 0 rgba(80,0,0,0.4);transform:translate(-1px,-1px)}
+.tk-btn--danger:active{transform:translate(1px,1px);box-shadow:inset 0 3px 0 0 rgba(80,0,0,0.2), inset 0 -3px 0 0 rgba(255,150,160,0.12)}
+
 /* Ghost — subtle filled outline, no 3D shadow (quiet level for dense tables) */
 .tk-btn--ghost{color:#fff;background:rgba(255,255,255,0.05);box-shadow:inset 0 0 0 1px var(--border-strong);filter:none;font-weight:600;clip-path:none;border-radius:10px}
 .tk-btn--ghost.tk-btn--table{border-radius:8px}
@@ -57,15 +62,9 @@
 .tk-btn--ghost:active{background:rgba(255,255,255,0.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);transform:none}
 .tk-btn--ghost:disabled,.tk-btn--ghost[aria-disabled="true"]{color:rgba(255,255,255,0.4);background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1) !important}
 
-/* Danger — red (functional, kept for destructive actions) */
-.tk-btn--danger{color:#fff;background:#E4374A;box-shadow:inset 0 3px 0 0 rgba(255,150,160,0.3), inset 0 -3px 0 0 rgba(80,0,0,0.35);filter:none}
-.tk-btn--danger:hover{background:#F54A5C;box-shadow:inset 0 3px 0 0 rgba(255,170,180,0.4), inset 0 -3px 0 0 rgba(80,0,0,0.4);transform:translate(-1px,-1px)}
-.tk-btn--danger:active{transform:translate(1px,1px);box-shadow:inset 0 3px 0 0 rgba(80,0,0,0.2), inset 0 -3px 0 0 rgba(255,150,160,0.12)}
-
-
 /* App extension — inverse CTA on brand panels (HomePartners); not in designer showcase bundle */
 .tk-btn--primary-inv{
-  color:#1A6FFF;background:#fff;
+  color:#0033FF;background:#fff;
   box-shadow:inset 0 0 0 3px rgba(0,0,20,0.15), inset 0 0 0 1px rgba(255,255,255,0.8), inset 0 3px 0 0 rgba(255,255,255,0.9), inset 0 -3px 0 0 rgba(0,0,50,0.1);
   filter:drop-shadow(4px 4px 0 rgba(4,39,119,0.5));
 }
@@ -80,9 +79,9 @@
 .tk-iconbtn--sm svg{width:18px;height:18px}
 .tk-iconbtn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
 .tk-iconbtn:disabled{cursor:not-allowed;opacity:.45;pointer-events:none}
-.tk-iconbtn--primary{color:#fff;background:#1A6FFF;box-shadow:inset 0 0 0 2px rgba(0,0,20,0.45), inset 0 2px 0 0 rgba(80,170,255,0.65), inset 0 -2px 0 0 rgba(0,0,50,0.35);filter:drop-shadow(3px 3px 0 rgba(26,111,255,0.45))}
-.tk-iconbtn--primary:hover{background:#2E80FF;box-shadow:inset 0 0 0 2px rgba(0,0,20,0.45), inset 0 2px 0 0 rgba(100,190,255,0.75), inset 0 -2px 0 0 rgba(0,0,50,0.4);transform:translate(-1px,-1px);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55))}
-.tk-iconbtn--primary:active{transform:translate(1px,1px);box-shadow:inset 0 0 0 2px rgba(0,0,20,0.5), inset 0 2px 0 0 rgba(0,0,50,0.25), inset 0 -2px 0 0 rgba(80,170,255,0.25);filter:drop-shadow(2px 2px 0 rgba(26,111,255,0.35))}
+.tk-iconbtn--primary{color:#fff;background:#0033FF;box-shadow:inset 0 2px 0 0 rgba(80,120,255,0.35), inset 0 -2px 0 0 rgba(0,10,80,0.4);filter:none}
+.tk-iconbtn--primary:hover{background:#2255FF;box-shadow:inset 0 2px 0 0 rgba(80,120,255,0.45), inset 0 -2px 0 0 rgba(0,10,80,0.45);transform:translate(-1px,-1px);filter:none}
+.tk-iconbtn--primary:active{transform:translate(1px,1px);box-shadow:inset 0 2px 0 0 rgba(0,10,80,0.25), inset 0 -2px 0 0 rgba(80,120,255,0.15);filter:none}
 .tk-iconbtn--neutral{color:#fff;background:#414042;box-shadow:inset 0 2px 0 0 rgba(255,255,255,0.1), inset 0 -2px 0 0 rgba(0,0,0,0.25)}
 .tk-iconbtn--neutral:hover{background:#58595b;box-shadow:inset 0 2px 0 0 rgba(255,255,255,0.15), inset 0 -2px 0 0 rgba(0,0,0,0.3)}
 .tk-iconbtn--subtle{color:#a7a9ac;background:transparent}
@@ -105,7 +104,7 @@
 }
 .tk-input::placeholder{color:rgba(0,0,0,0.4)}
 .tk-input:hover{box-shadow:inset 0 0 0 4px rgba(0,0,20,0.35), inset 0 2px 0 0 rgba(0,0,0,0.1), inset 0 -2px 0 0 rgba(255,255,255,0.6)}
-.tk-input:focus{box-shadow:inset 0 0 0 4px rgba(0,51,255,0.5), inset 0 2px 0 0 rgba(80,160,255,0.2), inset 0 -2px 0 0 rgba(255,255,255,0.5)}
+.tk-input:focus{box-shadow:inset 0 0 0 4px rgba(26,111,255,0.5), inset 0 2px 0 0 rgba(80,160,255,0.2), inset 0 -2px 0 0 rgba(255,255,255,0.5)}
 .tk-input:disabled{opacity:.5;cursor:not-allowed}
 .tk-input--error{box-shadow:inset 0 0 0 4px rgba(228,55,74,0.8), inset 0 2px 0 0 rgba(255,100,120,0.3), inset 0 -2px 0 0 rgba(228,55,74,0.4)}
 textarea.tk-input{resize:vertical;min-height:88px;line-height:1.5}
@@ -268,8 +267,8 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
 .tk-table thead th{background:#191919;border-bottom:none}
 .tk-table tbody tr{transition:background var(--duration-fast) var(--ease-standard)}
 .tk-table tbody tr:hover{background:rgba(255,255,255,0.04)}
-.tk-table__row--selected{background:rgba(0,51,255,0.1) !important}
-.tk-table__row--selected:hover{background:rgba(0,51,255,0.15) !important}
+.tk-table__row--selected{background:rgba(26,111,255,0.1) !important}
+.tk-table__row--selected:hover{background:rgba(26,111,255,0.15) !important}
 .tk-table tbody td{border-bottom:1px solid rgba(255,255,255,0.04)}
 .tk-table tbody tr:last-child td{border-bottom:none}
 .tk-table--sm td,.tk-table--sm th{padding:10px 14px}
@@ -279,8 +278,8 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
 .tk-table-wrap--mobile{display:flex;flex-direction:column;gap:8px}
 .tk-table-card{background:#191919;border-radius:12px;padding:14px 16px;transition:background var(--duration-fast) var(--ease-standard)}
 .tk-table-card:hover{background:#2c2c2c}
-.tk-table-card--selected{background:rgba(0,51,255,0.1) !important}
-.tk-table-card--selected:hover{background:rgba(0,51,255,0.15) !important}
+.tk-table-card--selected{background:rgba(26,111,255,0.1) !important}
+.tk-table-card--selected:hover{background:rgba(26,111,255,0.15) !important}
 
 /* ---------- Accessibility ---------- */
 .tk-tab:focus-visible,

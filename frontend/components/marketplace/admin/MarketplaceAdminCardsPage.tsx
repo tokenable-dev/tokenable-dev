@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useMarketplaceAdminCards } from "@/hooks/marketplace-admin/useMarketplaceAdminCards";
 import { useAdminCollectionMarketSnapshots } from "@/hooks/marketplace-admin/useAdminCollectionMarketSnapshots";
 import { useAdminBurnToken } from "@/hooks/marketplace-admin/useAdminBurnToken";
+import { useAdminConfirmRelease } from "@/hooks/marketplace-admin/useAdminConfirmRelease";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore, selectWallet } from "@/store";
 import { AdminBurnTokenPanel } from "./AdminBurnTokenPanel";
@@ -34,6 +35,7 @@ export function MarketplaceAdminCardsPage() {
   const { burningTokenId, burnToken } = useAdminBurnToken(
     isConnected && address ? address : undefined,
   );
+  const { confirmRelease, confirmingId } = useAdminConfirmRelease();
 
   const items = query.data?.items ?? [];
 
@@ -163,6 +165,16 @@ export function MarketplaceAdminCardsPage() {
                         hasActiveListing: row.hasActiveListing,
                         alreadyBurned: Boolean(row.burnedAt),
                       })
+                  : undefined
+              }
+              confirmingReleaseId={confirmingId}
+              onConfirmRelease={
+                row.pendingReleaseRedemptionId
+                  ? () =>
+                      void confirmRelease(
+                        row.pendingReleaseRedemptionId!,
+                        row.tokenId,
+                      )
                   : undefined
               }
             />

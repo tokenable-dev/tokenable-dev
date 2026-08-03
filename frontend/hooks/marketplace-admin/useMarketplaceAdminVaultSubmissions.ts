@@ -2,11 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  adminConfirmPsaArrivalReview,
+  adminDismissPsaArrivalReview,
+  adminInjectPsaReceivedTestMail,
   adminMarkVaultSubmissionArrived,
   adminSetVaultSubmissionItemStatus,
   adminSetVaultSubmissionStatus,
   getAdminVaultSubmission,
   getAdminVaultSubmissionCounts,
+  listAdminPsaArrivalReviews,
   listAdminVaultSubmissions,
   rq,
 } from "@/lib/core";
@@ -17,6 +21,17 @@ export function useAdminVaultSubmissionCounts() {
     queryFn: () => getAdminVaultSubmissionCounts(),
     staleTime: 10_000,
     refetchInterval: 20_000,
+  });
+}
+
+export function useAdminPsaArrivalReviews(
+  status: "pending" | "confirmed" | "dismissed" = "pending",
+) {
+  return useQuery({
+    queryKey: rq.adminPsaArrivalReviews(status),
+    queryFn: () => listAdminPsaArrivalReviews(status),
+    staleTime: 8_000,
+    refetchInterval: 15_000,
   });
 }
 
@@ -48,6 +63,7 @@ export function useAdminVaultSubmissionMutations() {
     void qc.invalidateQueries({ queryKey: ["admin-vault-submissions"] });
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission-counts"] });
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission"] });
+    void qc.invalidateQueries({ queryKey: ["admin-psa-arrival-reviews"] });
   };
 
   const markArrived = useMutation({
@@ -72,6 +88,26 @@ export function useAdminVaultSubmissionMutations() {
       }),
     onSuccess: invalidate,
   });
+  const confirmArrivalReview = useMutation({
+    mutationFn: (reviewId: string) => adminConfirmPsaArrivalReview(reviewId),
+    onSuccess: invalidate,
+  });
+  const dismissArrivalReview = useMutation({
+    mutationFn: (reviewId: string) => adminDismissPsaArrivalReview(reviewId),
+    onSuccess: invalidate,
+  });
+  const injectTestMail = useMutation({
+    mutationFn: (input: { cert: string; cardLabel?: string }) =>
+      adminInjectPsaReceivedTestMail(input),
+    onSuccess: invalidate,
+  });
 
-  return { markArrived, setStatus, setItemStatus };
+  return {
+    markArrived,
+    setStatus,
+    setItemStatus,
+    confirmArrivalReview,
+    dismissArrivalReview,
+    injectTestMail,
+  };
 }

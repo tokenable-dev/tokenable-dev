@@ -121,3 +121,100 @@ export async function adminSetVaultSubmissionItemStatus(
   }
   return res.json();
 }
+
+export type AdminPsaArrivalReviewPackage = {
+  publicId: string;
+  id: string;
+  status: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  certs: string[];
+};
+
+export type AdminPsaArrivalReview = {
+  id: string;
+  gmailMessageId: string;
+  subject: string | null;
+  fromAddress: string | null;
+  certs: string[];
+  unmatchedCerts: string[];
+  matchedPublicIds: string[];
+  ingestNote: string | null;
+  status: string;
+  reviewedAt: string | null;
+  createdAt: string;
+  packages: AdminPsaArrivalReviewPackage[];
+};
+
+export async function listAdminPsaArrivalReviews(
+  status: "pending" | "confirmed" | "dismissed" = "pending",
+): Promise<AdminPsaArrivalReview[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/arrival-reviews?status=${encodeURIComponent(status)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(`arrival-reviews failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminConfirmPsaArrivalReview(
+  reviewId: string,
+): Promise<{
+  review: AdminPsaArrivalReview;
+  markedPublicIds: string[];
+  skippedPublicIds: string[];
+  unmatchedCerts: string[];
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/arrival-reviews/${encodeURIComponent(reviewId)}/confirm`,
+    { method: "POST", credentials: "include" },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `confirm failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDismissPsaArrivalReview(
+  reviewId: string,
+): Promise<AdminPsaArrivalReview> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/arrival-reviews/${encodeURIComponent(reviewId)}/dismiss`,
+    { method: "POST", credentials: "include" },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `dismiss failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+/** TEST: insert Items Received into Gmail + run one poll. */
+export async function adminInjectPsaReceivedTestMail(input: {
+  cert: string;
+  cardLabel?: string;
+}): Promise<{
+  messageId: string;
+  cert: string;
+  poll: { processed: number; queued: string[]; skippedLock?: boolean };
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/arrival-reviews/test-inject`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cert: input.cert.trim(),
+        cardLabel: input.cardLabel?.trim() || undefined,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `test-inject failed: ${res.status}`);
+  }
+  return res.json();
+}

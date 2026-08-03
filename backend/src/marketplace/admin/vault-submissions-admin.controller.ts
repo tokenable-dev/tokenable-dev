@@ -12,7 +12,9 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { VaultSubmissionService } from '../../vault/vault-submission.service';
+import { PsaReceivedMailService } from '../../vault/psa-received-mail.service';
 import {
+  AdminInjectPsaReceivedMailDto,
   AdminUpdateItemStatusDto,
   AdminUpdateSubmissionStatusDto,
 } from '../../vault/dto/admin-vault-submission.dto';
@@ -24,6 +26,7 @@ export class VaultSubmissionsAdminController {
   constructor(
     private readonly admin: MarketplaceAdminService,
     private readonly submissions: VaultSubmissionService,
+    private readonly psaMail: PsaReceivedMailService,
   ) {}
 
   @Get('counts')
@@ -31,6 +34,60 @@ export class VaultSubmissionsAdminController {
   counts(@Req() req: Request) {
     this.admin.assertAdminSession(req);
     return this.submissions.adminCounts();
+  }
+
+  @Get('arrival-reviews')
+  @ApiOperation({
+    summary: 'PSA Items Received mail queue (pending admin confirm → PSA)',
+  })
+  listArrivalReviews(
+    @Req() req: Request,
+    @Query('status') status?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    const st =
+      status === 'pending' || status === 'confirmed' || status === 'dismissed'
+        ? status
+        : 'pending';
+    return this.submissions.listPsaArrivalReviews(st);
+  }
+
+  @Post('arrival-reviews/test-inject')
+  @ApiOperation({
+    summary:
+      'TEST: inject Items Received Gmail + poll once (PSA_RECEIVED_MAIL_TEST_INJECT=1)',
+  })
+  async testInjectArrivalMail(
+    @Req() req: Request,
+    @Body() dto: AdminInjectPsaReceivedMailDto,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.psaMail.injectTestItemsReceivedAndPoll({
+      cert: dto.cert,
+      cardLabel: dto.cardLabel,
+    });
+  }
+
+  @Post('arrival-reviews/:reviewId/confirm')
+  @ApiOperation({
+    summary: 'Confirm mail match and mark linked packages arrived at PSA',
+  })
+  confirmArrivalReview(
+    @Req() req: Request,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.submissions.confirmPsaArrivalReview(reviewId);
+  }
+
+  @Post('arrival-reviews/:reviewId/dismiss')
+  @ApiOperation({ summary: 'Dismiss a PSA arrival mail review without marking arrived' })
+  dismissArrivalReview(
+    @Req() req: Request,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.submissions.dismissPsaArrivalReview(reviewId);
   }
 
   @Get()

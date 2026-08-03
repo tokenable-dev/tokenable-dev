@@ -7,9 +7,11 @@ import { VaultCycle } from './entities/vault-cycle.entity';
 import { VaultRedemption } from './entities/vault-redemption.entity';
 import { VaultSubmissionItem } from './entities/vault-submission-item.entity';
 import { VaultSubmission } from './entities/vault-submission.entity';
+import { VaultPsaArrivalReview } from './entities/vault-psa-arrival-review.entity';
 import { VaultSubmissionService } from './vault-submission.service';
 import { VaultSubmissionsController } from './vault-submissions.controller';
 import { VaultService } from './vault.service';
+import { PsaReceivedMailService } from './psa-received-mail.service';
 
 /**
  * Owns the physical-asset lifecycle tables (VaultAsset -> VaultCycle ->
@@ -23,12 +25,13 @@ import { VaultService } from './vault.service';
       VaultRedemption,
       VaultSubmission,
       VaultSubmissionItem,
+      VaultPsaArrivalReview,
       RwaToken,
     ]),
     MarketplaceNotificationsModule,
   ],
   controllers: [VaultSubmissionsController],
-  providers: [VaultService, VaultSubmissionService],
-  exports: [VaultService, VaultSubmissionService],
+  providers: [VaultService, VaultSubmissionService, PsaReceivedMailService],
+  exports: [VaultService, VaultSubmissionService, PsaReceivedMailService],
 })
 export class VaultModule {}

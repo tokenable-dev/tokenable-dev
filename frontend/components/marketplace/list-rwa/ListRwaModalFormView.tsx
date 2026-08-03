@@ -4,7 +4,7 @@ import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { feePercent } from "@/lib/seaport/orders/platformFee";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkInput } from "@/components/ds";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
@@ -132,6 +132,17 @@ export function ListRwaModalFormView({
         </header>
       ) : null}
 
+      {isSetPrice && isReplaceListing ? (
+        <div className="rd-list-sheet__listed">
+          <div className="rd-list-sheet__ref-label">
+            {listedAt != null ? "Currently listed at" : "Status"}
+          </div>
+          <span className="rd-list-sheet__ref-val">
+            {listedAt != null ? formatPortfolioUsd(listedAt) : "Listed"}
+          </span>
+        </div>
+      ) : null}
+
       {isSetPrice && topCollectionBid ? (
         <div className="rd-list-sheet__ref">
           <div>
@@ -152,10 +163,12 @@ export function ListRwaModalFormView({
         </div>
       ) : null}
 
-      {isSetPrice && isReplaceListing && listedAt != null ? (
+      {isSetPrice && !topCollectionBid ? (
         <div className="rd-list-sheet__listed">
-          <div className="rd-list-sheet__ref-label">Currently listed at</div>
-          <span className="rd-list-sheet__ref-val">{formatPortfolioUsd(listedAt)}</span>
+          <div className="rd-list-sheet__ref-label">Offers</div>
+          <span className="rd-list-sheet__ref-val rd-list-sheet__ref-val--muted">
+            No bids yet
+          </span>
         </div>
       ) : null}
 
@@ -176,19 +189,13 @@ export function ListRwaModalFormView({
             {isReplaceListing ? "New listing price in USDC" : "Listing price in USDC"}
           </label>
         )}
-        <div
-          className={`relative rounded-xl border bg-mint/[0.04] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.06)] transition-[border-color,box-shadow] focus-within:border-mint/65 focus-within:shadow-[0_0_0_2px_rgba(45,212,191,0.12)] ${
-            isSheet
-              ? "rd-list-sheet__price-wrap border-mint/40"
-              : "border-mint/40"
-          } ${isEmbedded ? "rounded-2xl" : ""}`}
-        >
+        <div className={`relative ${isSheet ? "rd-list-sheet__price-wrap" : ""}`}>
           {isSetPrice ? (
             <span className="rd-list-sheet__dollar" aria-hidden>
               $
             </span>
           ) : null}
-          <input
+          <TkInput
             id="list-rwa-price-usdc"
             type="number"
             min="0.000001"
@@ -197,18 +204,18 @@ export function ListRwaModalFormView({
             value={price}
             onChange={(e) => onPriceChange(e.target.value)}
             disabled={isProcessing}
-            className={`w-full rounded-[10px] border-0 bg-transparent tabular-nums text-white outline-none placeholder:text-zinc-500 disabled:opacity-60 [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+            className={`tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
               isEmbedded
-                ? "px-4 py-3.5 pr-[4.5rem] text-2xl font-semibold sm:px-5 sm:py-4 sm:text-[1.75rem]"
+                ? "pr-[4.5rem] text-2xl font-semibold sm:text-[1.75rem]"
                 : isSetPrice
-                  ? "px-4 py-2.5 pl-8 pr-16 text-[16px] font-mono font-semibold"
-                  : "px-4 py-2.5 pr-16 text-[15px]"
+                  ? "text-[16px] font-mono font-semibold"
+                  : "pr-16 text-[15px]"
             }`}
           />
           <span
-            className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-medium uppercase tracking-wide ${
-              isSheet ? "rd-list-sheet__usdc text-mint/70" : "text-mint/70"
-            } ${isEmbedded ? "text-xs sm:text-sm" : "text-[11px]"}`}
+            className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-medium uppercase tracking-wide text-[rgba(0,0,0,0.45)] ${
+              isSheet ? "rd-list-sheet__usdc" : ""
+            } ${isEmbedded ? "text-xs sm:text-sm" : "text-xs"}`}
           >
             USDC
           </span>
@@ -227,7 +234,7 @@ export function ListRwaModalFormView({
               isSetPrice
                 ? "rd-list-sheet__fee"
                 : `space-y-2 rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-3 py-2.5 ${
-                    isEmbedded ? "text-sm" : "text-[11px]"
+                    isEmbedded ? "text-sm" : "text-xs"
                   }`
             }
           >
@@ -279,7 +286,7 @@ export function ListRwaModalFormView({
           <p className="text-[10px] font-semibold uppercase tracking-wide text-mint/95">
             Instant sell target
           </p>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+          <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
             {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid
             to sell into — only that offer is matched; other bids stay on the book.
           </p>

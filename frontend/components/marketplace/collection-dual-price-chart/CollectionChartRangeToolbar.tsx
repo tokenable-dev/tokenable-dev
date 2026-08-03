@@ -32,7 +32,7 @@ export function CollectionChartRangeToolbar({
             type="button"
             onClick={() => onChange(opt.id)}
             aria-pressed={active}
-            className={`touch-manipulation rounded-md px-2 py-1 text-[10px] font-semibold tracking-wide transition-colors sm:px-2.5 sm:text-[11px] ${
+            className={`touch-manipulation rounded-md px-2 py-1 text-[10px] font-semibold tracking-wide transition-colors sm:px-2.5 sm:text-xs ${
               active
                 ? "bg-mint/15 text-mint shadow-[inset_0_0_0_1px_rgba(16,211,51,0.35)]"
                 : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"

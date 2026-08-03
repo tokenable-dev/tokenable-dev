@@ -99,6 +99,26 @@
   .tmark.mk-vault{background:rgba(26,111,255,0.14);color:#5B9AFF;}
   .tmark.mk-vaultpsa{background:rgba(26,111,255,0.14);color:#5B9AFF;}
   .tmark.mk-p2p{background:rgba(234,130,0,0.15);color:#F0A24E;}
+  /* P2P section (Next MarketsP2pSection) */
+  .mk-p2p-grid{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .mk-p2p-card{display:block;text-decoration:none;border:1px solid rgba(255,255,255,0.1);background:#191919;padding:16px;transition:border-color 0.15s;}
+  .mk-p2p-card:hover{border-color:var(--azure);}
+  .mk-p2p-card__badge{display:inline-block;margin-bottom:8px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--azure);}
+  .mk-p2p-card__name{font-size:15px;font-weight:600;color:#fff;line-height:1.35;}
+  .mk-p2p-card__cert{margin-top:4px;font-size:13px;color:rgba(255,255,255,0.45);}
+  .mk-p2p-card__price{margin-top:12px;font-size:17px;font-weight:700;color:#fff;}
+  .mk-orphan-card{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:28px;padding:20px 22px;background:#191919;border-radius:16px;text-decoration:none;border:1px solid rgba(255,255,255,0.08);}
+  .mk-orphan-card:hover{border-color:rgba(26,111,255,0.45);}
+  .mk-empty{display:none;padding:64px 16px;text-align:center;}
+  .mk-empty.on{display:block;}
+  .mk-results-populated{display:block;}
+  .mk-results-populated.off{display:none;}
+  .mk-demo-toggle{display:flex;gap:8px;flex-wrap:wrap;padding:12px clamp(16px,4vw,40px) 0;max-width:1280px;margin:0 auto;}
+  .mk-demo-toggle button{height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;}
+  .mk-demo-toggle button.on{background:rgba(26,111,255,0.2);color:#5B9AFF;}
+  @media(max-width:880px){.mk-p2p-grid{grid-template-columns:1fr;}}
+  @media(min-width:881px) and (max-width:1040px){.mk-p2p-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
   .tmark.mk-vault::before,.tmark.mk-vaultpsa::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Cpath d='M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Cpath d='M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z'/%3E%3C/svg%3E");}
   .tmark.mk-p2p::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='1' y='3' width='15' height='13'/%3E%3Cpolygon points='16 8 20 8 23 11 23 16 16 16 16 8'/%3E%3Ccircle cx='5.5' cy='18.5' r='2.5'/%3E%3Ccircle cx='18.5' cy='18.5' r='2.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='1' y='3' width='15' height='13'/%3E%3Cpolygon points='16 8 20 8 23 11 23 16 16 16 16 8'/%3E%3Ccircle cx='5.5' cy='18.5' r='2.5'/%3E%3Ccircle cx='18.5' cy='18.5' r='2.5'/%3E%3C/svg%3E");}
   .mkt-ic-vault::before,.mkt-ic-p2p::before{content:'';width:13px;height:13px;flex:none;display:inline-block;margin-right:6px;background:currentColor;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;vertical-align:-2px;}
@@ -330,13 +350,53 @@
     <p class="sec-sub" style="max-width:600px;">Graded. Vaulted. Tokenized. Instant on-chain settlement.</p>
   </section>
 
+  <!-- Designer demo: empty / filter-empty states (Next MarketsPage) -->
+  <div class="mk-demo-toggle wrap" style="padding-left:clamp(16px,4vw,40px);padding-right:clamp(16px,4vw,40px);">
+    <button type="button" class="on" data-mk-demo="populated">Populated</button>
+    <button type="button" data-mk-demo="empty">Empty market</button>
+    <button type="button" data-mk-demo="filter-empty">Filter empty</button>
+  </div>
+
+
+
+  <!-- ============ P2P LISTINGS (Next MarketsP2pSection) ============ -->
+  <section class="wrap mk-p2p-section" style="padding:40px clamp(16px,4vw,40px) 0;box-sizing:border-box;width:100%;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div>
+        <h2 style="margin:0;font-family:var(--font-sans);font-weight:700;font-size:18px;color:#fff;">P2P listings</h2>
+        <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.5);line-height:1.45;">Buy the physical card — USDC held in escrow until you confirm receipt.</p>
+      </div>
+      <a href="Vault-Dashboard-Active.html" style="font-size:14px;color:var(--azure);text-decoration:none;white-space:nowrap;">List for P2P sale</a>
+    </div>
+    <div class="mk-p2p-grid">
+      <a class="mk-p2p-card" href="Card.html">
+        <div class="mk-p2p-card__badge">P2P · Physical delivery</div>
+        <div class="mk-p2p-card__name">1999 POKEMON BASE SET #4 CHARIZARD HOLO</div>
+        <div class="mk-p2p-card__cert">Cert 12345678</div>
+        <div class="mk-p2p-card__price">$2,400 USDC</div>
+      </a>
+      <a class="mk-p2p-card" href="Card.html">
+        <div class="mk-p2p-card__badge">P2P · Physical delivery</div>
+        <div class="mk-p2p-card__name">2025 POKEMON JAPANESE M2A #234 PIKACHU EX SAR</div>
+        <div class="mk-p2p-card__cert">Cert 88231044</div>
+        <div class="mk-p2p-card__price">$1,120 USDC</div>
+      </a>
+      <a class="mk-p2p-card" href="Card.html">
+        <div class="mk-p2p-card__badge">P2P · Physical delivery</div>
+        <div class="mk-p2p-card__name">2003 TOPPS CHROME #111 LEBRON JAMES RC</div>
+        <div class="mk-p2p-card__cert">Cert 55501248</div>
+        <div class="mk-p2p-card__price">$58,000 USDC</div>
+      </a>
+    </div>
+  </section>
+
   <!-- ============ FILTER / SECONDARY BAR ============ -->
   <style>
     .filter-bar-desktop{ display:flex; }
     .filter-bar-mobile-trigger{ display:none; }
     .filter-drawer{ display:none; position:fixed; inset:0; z-index:100; background:rgba(6,6,14,0); -webkit-backdrop-filter:blur(0); backdrop-filter:blur(0); transition:background 0.3s, backdrop-filter 0.3s; touch-action:none; }
     .filter-drawer.open{ display:flex; align-items:flex-end; background:rgba(6,6,14,0.85); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
-    @media(max-width:1024px){
+    @media(max-width:880px){
       .filter-bar-desktop{ display:none!important; }
       .filter-bar-mobile-trigger{ display:flex!important; }
     }
@@ -348,7 +408,7 @@
     .filter-drawer-panel .fd-chips{ display:flex; gap:8px; flex-wrap:wrap; }
     .filter-drawer-panel .fd-option{ padding:14px 18px; font-family:var(--font-mono); font-size:14px; color:rgba(255,255,255,0.9); cursor:pointer; background:rgba(255,255,255,0.18); border-radius:8px; }
     .filter-drawer-panel .fd-option:hover,.filter-drawer-panel .fd-option.sel{ color:#fff; box-shadow:none; background:var(--azure); }
-    @media(max-width:1024px){
+    @media(max-width:880px){
       .filter-bar-desktop{ display:none!important; }
       .filter-bar-mobile-trigger{ display:flex!important; }
     }
@@ -362,11 +422,10 @@
     <!-- Desktop: full filter bar -->
     <div class="wrap filter-bar-desktop" style="align-items:center;gap:9px;min-height:60px;flex-wrap:wrap;padding-top:11px;padding-bottom:11px;">
       <span class="pchip" style="height:36px;background:#191919;color:#5B9AFF;cursor:pointer;">All</span>
-      <span class="pchip" style="height:36px;cursor:pointer;">Pok&eacute;mon</span>
-      <span class="pchip" style="height:36px;cursor:pointer;">Basketball</span>
-      <span class="pchip" style="height:36px;cursor:pointer;">Baseball</span>
-      <span class="pchip" style="height:36px;cursor:pointer;">Football</span>
-      <span class="pchip" style="height:36px;cursor:pointer;">Sealed</span>
+      <span class="pchip" style="height:36px;cursor:pointer;">Pokemon</span>
+      <span class="pchip" style="height:36px;cursor:pointer;">NBA</span>
+      <span class="pchip" style="height:36px;cursor:pointer;">MLB</span>
+      <span class="pchip" style="height:36px;cursor:pointer;">Others</span>
       <div style="flex:1;"></div>
       <div class="dd">
         <button class="pchip ddtrig" style="height:36px;cursor:pointer;">Price: <span class="ddval" style="color:#fff;">Any</span> <span class="mono caret">&#9662;</span></button>
@@ -384,7 +443,6 @@
         <div class="ddmenu" style="min-width:240px;">
           <div class="ddlabel">Grade</div>
           <div class="ddi togg"><span class="chk"></span>PSA 10</div>
-          <div class="ddi togg"><span class="chk"></span>BGS 9.5</div>
           <div class="ddi togg"><span class="chk"></span>PSA 9</div>
         </div>
       </div>
@@ -412,11 +470,10 @@
         <span class="fd-label">Category</span>
         <div class="fd-chips">
           <span class="fd-option sel">All</span>
-          <span class="fd-option">Pok&eacute;mon</span>
-          <span class="fd-option">Basketball</span>
-          <span class="fd-option">Baseball</span>
-          <span class="fd-option">Football</span>
-          <span class="fd-option">Sealed</span>
+          <span class="fd-option">Pokemon</span>
+          <span class="fd-option">NBA</span>
+          <span class="fd-option">MLB</span>
+          <span class="fd-option">Others</span>
         </div>
       </div>
       <div class="fd-section">
@@ -433,7 +490,6 @@
         <span class="fd-label">Grade</span>
         <div class="fd-chips">
           <span class="fd-option">PSA 10</span>
-          <span class="fd-option">BGS 9.5</span>
           <span class="fd-option">PSA 9</span>
         </div>
       </div>
@@ -488,6 +544,17 @@
 
   <!-- ============ LISTINGS GRID ============ -->
   <section class="wrap" style="padding:32px clamp(16px,4vw,40px) 48px;">
+    <div class="mk-empty" id="mk-empty-market">
+      <p style="margin:0 0 8px;font-size:16px;color:rgba(255,255,255,0.65);">No assets listed for sale yet.</p>
+      <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4);">Mint and list your assets from <a href="Vault-Dashboard-Active.html" style="color:var(--azure);">Vault</a>.</p>
+    </div>
+    <div class="mk-empty" id="mk-empty-filter">
+      <div style="background:#191919;border-radius:16px;padding:48px 24px;">
+        <p style="margin:0;font-size:16px;color:rgba(255,255,255,0.65);">No collections match these filters yet.</p>
+        <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.4);">Try All, a different category, price range, or grade.</p>
+      </div>
+    </div>
+    <div class="mk-results-populated" id="mk-results-populated">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
       <span class="mono" style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--t2);"><b style="color:#fff;">1,284</b> results</span>
       <span class="mono" style="font-size:13px;color:var(--t2);">Live feed</span>
@@ -518,11 +585,44 @@
     </div>
     <div id="tk-loading" style="display:none;justify-content:center;padding:34px 0 6px;"><span class="mono" style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--t3);">Loading more…</span></div>
     <div id="tk-more" style="height:1px;"></div>
+    <!-- Other Listings (Next orphan asks — category All only) -->
+    <a class="mk-orphan-card" href="Card.html" title="Product route: /marketplace/other-listings">
+      <div>
+        <h3 style="margin:0;font-size:18px;font-weight:700;color:#fff;">Other Listings</h3>
+        <p style="margin:4px 0 0;font-size:14px;color:rgba(255,255,255,0.5);">No collection metadata</p>
+      </div>
+      <p class="mono" style="margin:0;font-size:13px;color:rgba(255,255,255,0.5);">Orders <b style="color:#fff;">3</b></p>
+    </a>
+    </div><!-- /mk-results-populated -->
   </section>
 
   <!-- ============ FOOTER (shared) ============ -->
   <div id="tk-footer"></div>
-  <script src="tk-footer.js"></script>
+  
+<script>
+(function(){
+  function setDemo(mode){
+    var pop=document.getElementById('mk-results-populated');
+    var empty=document.getElementById('mk-empty-market');
+    var filt=document.getElementById('mk-empty-filter');
+    var p2p=document.querySelector('.mk-p2p-section');
+    if(!pop||!empty||!filt) return;
+    pop.classList.toggle('off', mode!=='populated');
+    empty.classList.toggle('on', mode==='empty');
+    filt.classList.toggle('on', mode==='filter-empty');
+    if(p2p) p2p.style.display = mode==='populated' ? '' : 'none';
+    document.querySelectorAll('[data-mk-demo]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-mk-demo')===mode);
+    });
+  }
+  document.addEventListener('click', function(e){
+    var b=e.target.closest&&e.target.closest('[data-mk-demo]');
+    if(!b) return;
+    setDemo(b.getAttribute('data-mk-demo'));
+  });
+})();
+</script>
+<script src="tk-footer.js"></script>
 
 </div>
 </x-dc>

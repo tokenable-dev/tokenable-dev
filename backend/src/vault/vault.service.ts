@@ -13,7 +13,10 @@ import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import { VaultAsset, VaultAssetType } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
-import { VaultRedemption } from './entities/vault-redemption.entity';
+import {
+  VaultRedemption,
+  type VaultRedemptionStatus,
+} from './entities/vault-redemption.entity';
 
 export type VaultAssetHistoryEntry = {
   cycleId: string;
@@ -242,6 +245,16 @@ export class VaultService {
     tokenId: string;
     requestingUserId: string | null;
     ownerWalletAddress: string;
+    shipTo?: {
+      name: string;
+      line1: string;
+      line2?: string;
+      city: string;
+      region?: string;
+      postal: string;
+      country: string;
+      phone: string;
+    } | null;
   }): Promise<VaultRedemption> {
     const token = await this.rwaTokens.findOne({
       where: { tokenContract: params.tokenContract, tokenId: params.tokenId },
@@ -271,12 +284,21 @@ export class VaultService {
       return existingOpen;
     }
 
+    const ship = params.shipTo;
     const redemption = this.redemptions.create({
       vaultCycleId: cycle.id,
       requestedByUserId: params.requestingUserId,
       ownerWalletAddress: params.ownerWalletAddress.toLowerCase(),
       status: 'ownership_verified',
       ownershipVerifiedAt: new Date(),
+      shipToName: ship?.name?.trim() || null,
+      shipToLine1: ship?.line1?.trim() || null,
+      shipToLine2: ship?.line2?.trim() || null,
+      shipToCity: ship?.city?.trim() || null,
+      shipToRegion: ship?.region?.trim() || null,
+      shipToPostal: ship?.postal?.trim() || null,
+      shipToCountry: ship?.country?.trim() || null,
+      shipToPhone: ship?.phone?.trim() || null,
     });
     const saved = await this.redemptions.save(redemption);
 
@@ -361,6 +383,112 @@ export class VaultService {
     redemption.burnTxHash = params.burnTxHash;
     redemption.burnedAt = now;
     await this.redemptions.save(redemption);
+  }
+
+  /** Map vault_cycle_id → redemption id when status is `burned` (awaiting physical release). */
+  async findPendingReleaseByCycleIds(
+    cycleIds: string[],
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    if (cycleIds.length === 0) return out;
+    const rows = await this.redemptions.find({
+      where: { vaultCycleId: In(cycleIds), status: 'burned' },
+    });
+    for (const r of rows) out.set(r.vaultCycleId, r.id);
+    return out;
+  }
+
+  /**
+   * Block Seaport asks while a vault cycle is mid-redemption
+   * (redemption_requested) or the NFT is already burned.
+   */
+  async assertTokenRedeemableForListing(
+    tokenContract: string,
+    tokenId: string,
+  ): Promise<void> {
+    const token = await this.rwaTokens.findOne({
+      where: {
+        tokenContract: tokenContract.toLowerCase(),
+        tokenId: String(tokenId),
+      },
+    });
+    if (!token) return;
+    if (token.burnedAt) {
+      throw new BadRequestException(
+        `Token #${tokenId} has been redeemed and cannot be listed`,
+      );
+    }
+    if (!token.vaultCycleId) return;
+    const cycle = await this.cycles.findOne({ where: { id: token.vaultCycleId } });
+    if (cycle?.status === 'redemption_requested' || cycle?.status === 'redeemed') {
+      throw new BadRequestException(
+        `Token #${tokenId} has a pending or completed redemption and cannot be listed`,
+      );
+    }
+  }
+
+  async listOpenRedemptionsForUser(
+    userId: string,
+    tokenIds?: string[],
+  ): Promise<
+    Array<{
+      redemptionId: string;
+      tokenId: string;
+      tokenContract: string;
+      status: VaultRedemptionStatus;
+      vaultCycleStatus: string | null;
+      requestedAt: string;
+      vaultReleasedAt: string | null;
+    }>
+  > {
+    const qb = this.redemptions
+      .createQueryBuilder('r')
+      .innerJoin(VaultCycle, 'c', 'c.id = r.vault_cycle_id')
+      .innerJoin(RwaToken, 't', 't.vault_cycle_id = c.id')
+      .where('r.requested_by_user_id = :userId', { userId })
+      .andWhere("r.status NOT IN ('failed', 'cancelled')")
+      .orderBy('r.requested_at', 'DESC')
+      .select([
+        'r.id AS "redemptionId"',
+        't.token_id AS "tokenId"',
+        't.token_contract AS "tokenContract"',
+        'r.status AS status',
+        'c.status AS "vaultCycleStatus"',
+        'r.requested_at AS "requestedAt"',
+        'r.vault_released_at AS "vaultReleasedAt"',
+      ]);
+
+    if (tokenIds && tokenIds.length > 0) {
+      qb.andWhere('t.token_id IN (:...tokenIds)', { tokenIds });
+    }
+
+    const rows = await qb.getRawMany<{
+      redemptionId: string;
+      tokenId: string;
+      tokenContract: string;
+      status: VaultRedemptionStatus;
+      vaultCycleStatus: string | null;
+      requestedAt: Date;
+      vaultReleasedAt: Date | null;
+    }>();
+
+    return rows.map((row) => ({
+      redemptionId: row.redemptionId,
+      tokenId: String(row.tokenId),
+      tokenContract: String(row.tokenContract).toLowerCase(),
+      status: row.status,
+      vaultCycleStatus: row.vaultCycleStatus ?? null,
+      requestedAt:
+        row.requestedAt instanceof Date
+          ? row.requestedAt.toISOString()
+          : String(row.requestedAt),
+      vaultReleasedAt:
+        row.vaultReleasedAt instanceof Date
+          ? row.vaultReleasedAt.toISOString()
+          : row.vaultReleasedAt
+            ? String(row.vaultReleasedAt)
+            : null,
+    }));
   }
 
   /** Step 3 of "Redeem Request": ops confirms the physical asset shipped/released. */

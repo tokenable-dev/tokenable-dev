@@ -12,7 +12,7 @@ import {
 } from "@/lib/core/api/p2p";
 import { ERC20_APPROVE_ABI, PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput } from "@/components/ds";
 import { useAppChain } from "@/providers/AppChainProvider";
 
 function formatUsdc(atomic: string): string {
@@ -148,7 +148,7 @@ export default function P2pListingDetailPage() {
 
   return (
     <div className="tkl-wrap mx-auto max-w-xl py-10">
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--azure)]">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--azure)]">
         P2P · Physical delivery
       </div>
       <h1 className="text-2xl font-semibold">
@@ -165,31 +165,41 @@ export default function P2pListingDetailPage() {
       {canBuy ? (
         <div className="mt-8 space-y-3 border border-[var(--border)] p-4">
           <h2 className="text-sm font-semibold">Ship-to address</h2>
-          <input
-            className="w-full border border-[var(--border)] px-3 py-2 text-sm"
-            placeholder="Address line 1"
-            value={shipToLine1}
-            onChange={(e) => setShipToLine1(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <input
-              className="w-full border border-[var(--border)] px-3 py-2 text-sm"
-              placeholder="City"
-              value={shipToCity}
-              onChange={(e) => setShipToCity(e.target.value)}
+          <TkField label="Address line 1" htmlFor="p2p-ship-line1">
+            <TkInput
+              id="p2p-ship-line1"
+              placeholder="Address line 1"
+              value={shipToLine1}
+              onChange={(e) => setShipToLine1(e.target.value)}
             />
-            <input
-              className="w-32 border border-[var(--border)] px-3 py-2 text-sm"
-              placeholder="Postal"
-              value={shipToPostal}
-              onChange={(e) => setShipToPostal(e.target.value)}
-            />
-            <input
-              className="w-20 border border-[var(--border)] px-3 py-2 text-sm"
-              placeholder="Country"
-              value={shipToCountry}
-              onChange={(e) => setShipToCountry(e.target.value)}
-            />
+          </TkField>
+          <div className="flex flex-wrap gap-2">
+            <TkField className="min-w-0 flex-1" label="City" htmlFor="p2p-ship-city">
+              <TkInput
+                id="p2p-ship-city"
+                placeholder="City"
+                value={shipToCity}
+                onChange={(e) => setShipToCity(e.target.value)}
+              />
+            </TkField>
+            <TkField label="Postal" htmlFor="p2p-ship-postal">
+              <TkInput
+                id="p2p-ship-postal"
+                className="w-32"
+                placeholder="Postal"
+                value={shipToPostal}
+                onChange={(e) => setShipToPostal(e.target.value)}
+              />
+            </TkField>
+            <TkField label="Country" htmlFor="p2p-ship-country">
+              <TkInput
+                id="p2p-ship-country"
+                className="w-20"
+                placeholder="Country"
+                value={shipToCountry}
+                onChange={(e) => setShipToCountry(e.target.value)}
+              />
+            </TkField>
           </div>
           <TkButton type="button" variant="primary" disabled={busy} onClick={onBuy}>
             {busy ? "Processing…" : "Buy · deposit USDC to escrow"}

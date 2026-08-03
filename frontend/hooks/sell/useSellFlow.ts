@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   analyzePsaByCertNumber,
   analyzePsaSlab,
@@ -9,11 +10,14 @@ import {
   upsertVaultSubmissionDraft,
   type PsaAnalyzeResult,
 } from "@/lib/core";
+import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import type { KycStatus } from "@/lib/auth";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
   draftCardsFromSubmissionItems,
   readSellFlowDraftCards,
@@ -24,13 +28,17 @@ import {
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
   type SellDraftCard,
+  type SellVaultChoice,
 } from "@/lib/sell/sellFlowDraft";
+import { mintSellFlowCardByCert } from "@/lib/sell/mintSellFlowCard";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
-export type SellFlowScreen = "register" | "cards";
+export type SellFlowScreen = "register" | "vault" | "cards";
 
 const KYC_RETURN_KEY = "tk_kyc_return_to";
+/** Legacy key — consents are session-only now; cleared on hydrate. */
 const CONSENTS_KEY = "tk_seller_consents";
 const MAX_CARDS = 99;
 const SERVER_SYNC_MS = 900;
@@ -52,25 +60,6 @@ const EMPTY_CONSENTS: SellConsents = {
   fee: false,
   marketing: false,
 };
-
-function readConsents(): SellConsents {
-  try {
-    const raw = localStorage.getItem(CONSENTS_KEY);
-    if (!raw) return { ...EMPTY_CONSENTS };
-    const parsed = JSON.parse(raw) as Partial<SellConsents>;
-    return { ...EMPTY_CONSENTS, ...parsed };
-  } catch {
-    return { ...EMPTY_CONSENTS };
-  }
-}
-
-function writeConsents(next: SellConsents) {
-  try {
-    localStorage.setItem(CONSENTS_KEY, JSON.stringify(next));
-  } catch {
-    /* ignore */
-  }
-}
 
 function buildCardTitle(r: PsaAnalyzeResult): string {
   const year = r.psa.year?.trim();
@@ -98,7 +87,7 @@ function cardFromAnalyze(r: PsaAnalyzeResult, certFallback: string): SellFlowCar
     name: buildCardTitle(r),
     grade,
     img,
-    confirmed: false,
+    confirmed: true,
   };
 }
 
@@ -132,8 +121,13 @@ export function useSellFlow() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const { chainId } = useAppChain();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
+  const { runAccessGate } = useAccessGate(2, "/sell/flow");
+  const queryClient = useQueryClient();
 
   const [screen, setScreen] = useState<SellFlowScreen>("register");
+  const [vaultChoice, setVaultChoice] = useState<SellVaultChoice | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | undefined>(
@@ -146,19 +140,30 @@ export function useSellFlow() {
   const [certError, setCertError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [draftSavedFlash, setDraftSavedFlash] = useState(false);
+  const [mintBusy, setMintBusy] = useState(false);
+  const [mintStatus, setMintStatus] = useState<string | null>(null);
+  const [mintError, setMintError] = useState<string | null>(null);
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
+  const mintLockRef = useRef(false);
   const skipNextServerSyncRef = useRef(true);
   const hydrateDoneRef = useRef(false);
 
   const idState = mapKycToIdState(user, kycStatus ?? user?.kycStatus);
 
-  // Local restore (instant) — cards, consents, last step.
+  // Local restore (instant) — cards + last step. Consents are never persisted:
+  // seller policy must be re-accepted every visit / submission.
   useEffect(() => {
     const localCards = readSellFlowDraftCards();
     const progress = readSellFlowProgress();
-    setConsents(readConsents());
     setCards(localCards);
+    setVaultChoice(progress.vaultChoice);
+    setConsents({ ...EMPTY_CONSENTS });
+    try {
+      localStorage.removeItem(CONSENTS_KEY);
+    } catch {
+      /* ignore */
+    }
     if (
       localCards.length > 0 ||
       progress.step === "cards" ||
@@ -262,29 +267,15 @@ export function useSellFlow() {
   );
 
   const canContinueRegister = idState === "verified" && requiredConsentsOk;
+  const canContinueVault = vaultChoice === "self" || vaultChoice === "psa";
   const canContinueShipping = cards.some((c) => c.confirmed);
 
-  // Resume Add Cards once on hydrate when register gates + draft/progress say so.
-  // Do not re-force cards after the user navigates back to register.
-  const resumeScreenRef = useRef(false);
-  useEffect(() => {
-    if (!hydrated || !canContinueRegister || resumeScreenRef.current) return;
-    resumeScreenRef.current = true;
-    const progress = readSellFlowProgress();
-    const hasCards = cards.length > 0 || readSellFlowDraftCards().length > 0;
-    if (
-      progress.step === "cards" ||
-      progress.step === "shipping-pack" ||
-      progress.step === "shipping-track" ||
-      hasCards
-    ) {
-      setScreen("cards");
-    }
-  }, [hydrated, canContinueRegister, cards.length]);
-
-  // Debounced account sync whenever the card draft changes.
+  // Do not auto-advance when consents become valid — user must press Continue.
+  // Draft cards / progress are still restored into state for the Add-cards screen.
+  // Debounced account sync for PSA vault drafts only (self vault mints, no ship package).
   useEffect(() => {
     if (!hydrated || !user?.id) return;
+    if (vaultChoice === "self") return;
     if (skipNextServerSyncRef.current) {
       skipNextServerSyncRef.current = false;
       return;
@@ -295,11 +286,10 @@ export function useSellFlow() {
       });
     }, SERVER_SYNC_MS);
     return () => window.clearTimeout(timer);
-  }, [cards, hydrated, user?.id]);
+  }, [cards, hydrated, user?.id, vaultChoice]);
 
   const updateConsent = useCallback((key: keyof SellConsents | "all") => {
     setConsents((prev) => {
-      let next: SellConsents;
       if (key === "all") {
         const allOn =
           prev.terms &&
@@ -308,18 +298,15 @@ export function useSellFlow() {
           prev.fee &&
           prev.marketing;
         const turnOn = !allOn;
-        next = {
+        return {
           terms: turnOn,
           authenticity: turnOn,
           storage: turnOn,
           fee: turnOn,
           marketing: turnOn,
         };
-      } else {
-        next = { ...prev, [key]: !prev[key] };
       }
-      writeConsents(next);
-      return next;
+      return { ...prev, [key]: !prev[key] };
     });
   }, []);
 
@@ -333,18 +320,40 @@ export function useSellFlow() {
     router.push("/kyc");
   }, [router]);
 
-  const goToCards = useCallback(() => {
+  const goToVault = useCallback(() => {
     if (!canContinueRegister) return;
-    writeSellFlowProgress({ step: "cards" });
-    setScreen("cards");
+    writeSellFlowProgress({ step: "vault" });
+    setScreen("vault");
     window.scrollTo(0, 0);
   }, [canContinueRegister]);
+
+  const goToCards = useCallback(() => {
+    if (!canContinueRegister) return;
+    writeSellFlowProgress({ step: "cards", vaultChoice: vaultChoice ?? "psa" });
+    setScreen("cards");
+    window.scrollTo(0, 0);
+  }, [canContinueRegister, vaultChoice]);
 
   const goToRegister = useCallback(() => {
     writeSellFlowProgress({ step: "register" });
     setScreen("register");
     window.scrollTo(0, 0);
   }, []);
+
+  const selectVault = useCallback((choice: SellVaultChoice) => {
+    setVaultChoice(choice);
+    writeSellFlowProgress({ step: "vault", vaultChoice: choice });
+  }, []);
+
+  const continueFromVault = useCallback(() => {
+    if (!vaultChoice) return;
+    writeSellFlowProgress({
+      step: "cards",
+      vaultChoice: vaultChoice === "self" ? "self" : "psa",
+    });
+    setScreen("cards");
+    window.scrollTo(0, 0);
+  }, [vaultChoice]);
 
   const addCardFromResult = useCallback(
     (r: PsaAnalyzeResult, certFallback: string) => {
@@ -466,6 +475,17 @@ export function useSellFlow() {
     });
   }, []);
 
+  const setAllConfirmed = useCallback((confirmed: boolean) => {
+    setCards((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev.map((c) =>
+        c.confirmed === confirmed ? c : { ...c, confirmed },
+      );
+      writeSellFlowDraftCards(next);
+      return next;
+    });
+  }, []);
+
   const removeCard = useCallback((index: number) => {
     setCards((prev) => {
       const next = prev.filter((_, i) => i !== index);
@@ -489,15 +509,75 @@ export function useSellFlow() {
 
   const continueToShipping = useCallback(async () => {
     if (!canContinueShipping) return;
+    if (vaultChoice === "self") return;
     writeSellFlowDraftCards(cards);
-    writeSellFlowProgress({ step: "shipping-pack" });
+    writeSellFlowProgress({ step: "shipping-pack", vaultChoice: "psa" });
     try {
       await pushDraftToServer(cards);
     } catch {
       /* still allow shipping UI with local draft */
     }
     router.push("/sell/shipping");
-  }, [canContinueShipping, cards, router]);
+  }, [canContinueShipping, cards, router, vaultChoice]);
+
+  /** Self vault: mint confirmed cards directly to the user's portfolio wallet. */
+  const continueToSelfMint = useCallback(async () => {
+    if (vaultChoice !== "self" || !canContinueShipping) return;
+    if (mintLockRef.current) return;
+    if (!runAccessGate()) return;
+
+    const confirmed = cards.filter((c) => c.confirmed);
+    if (confirmed.length === 0) return;
+
+    mintLockRef.current = true;
+    setMintBusy(true);
+    setMintError(null);
+    setMintStatus(null);
+
+    try {
+      const recipientAddress = await ensureAccountWalletReady();
+      const minted: { cert: string; tokenId: number }[] = [];
+      for (let i = 0; i < confirmed.length; i++) {
+        const card = confirmed[i]!;
+        setMintStatus(
+          `Minting ${i + 1}/${confirmed.length}: cert #${card.cert}…`,
+        );
+        const result = await mintSellFlowCardByCert({
+          cert: card.cert,
+          recipientAddress,
+          chainId,
+        });
+        minted.push({ cert: result.cert, tokenId: result.tokenId });
+        await invalidateAfterRwaMintTx(queryClient, {
+          tokenId: result.tokenId,
+          address: recipientAddress,
+        });
+      }
+      writeSellFlowDraftCards([]);
+      clearSellSubmissionPublicId();
+      setCards([]);
+      writeSellFlowProgress({ step: "register", vaultChoice: null });
+      setMintStatus(`Minted ${minted.length} card(s) to your portfolio.`);
+      router.push("/portfolio");
+    } catch (e) {
+      setMintError(
+        e instanceof Error ? e.message : "Self vault mint failed",
+      );
+      setMintStatus(null);
+    } finally {
+      mintLockRef.current = false;
+      setMintBusy(false);
+    }
+  }, [
+    vaultChoice,
+    canContinueShipping,
+    cards,
+    runAccessGate,
+    ensureAccountWalletReady,
+    chainId,
+    queryClient,
+    router,
+  ]);
 
   return {
     screen,
@@ -509,6 +589,8 @@ export function useSellFlow() {
     allConsentsOn,
     requiredConsentsOk,
     canContinueRegister,
+    canContinueVault,
+    vaultChoice,
     cards,
     maxCards: MAX_CARDS,
     certInput,
@@ -516,18 +598,26 @@ export function useSellFlow() {
     certError,
     lookupBusy,
     draftSavedFlash,
+    mintBusy,
+    mintStatus,
+    mintError,
     slabInputRef,
     canContinueShipping,
     updateConsent,
     startVerification,
+    goToVault,
     goToCards,
     goToRegister,
+    selectVault,
+    continueFromVault,
     lookupCert,
     scanSlab,
     onSlabFile,
     toggleConfirm,
+    setAllConfirmed,
     removeCard,
     saveDraft,
     continueToShipping,
+    continueToSelfMint,
   };
 }

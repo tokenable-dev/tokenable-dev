@@ -151,7 +151,7 @@ In-app events (Notifications spec v1.1 — Email/Telegram/Web push not in this A
 | `BUYER_BID_FILLED` / `BUYER_FILL_FAILED` | bid | Bid filled or unfunded at settle |
 | `SELLER_SOLD` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / listing live |
 | `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
-| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Withdrawal request / physical release |
+| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Redeem request (`href=/portfolio`) / physical release (`href=/portfolio/redeem?view=transit`) |
 
 **Not emitted (no domain yet or voided in v1.1):** P2P shipping/dispute keys; `WD_READY_TO_PAY` (no ready-to-pay status); admin ops inbox (`ADMIN_*`); Email/Telegram/Web push.
 

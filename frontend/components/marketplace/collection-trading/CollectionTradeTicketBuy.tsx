@@ -11,6 +11,7 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
+import { TkField, TkInput, TkSelect } from "@/components/ds";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
@@ -113,8 +114,6 @@ export function CollectionTradeTicketBuy({
         ? "Ask row — buy at listed USDC."
         : "Tap the book to set price (asks = buy now).";
 
-  const inputShell = `rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} overflow-hidden focus-within:border-zinc-500`;
-
   return (
     <div className="w-full" aria-label="Buy">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9px] text-zinc-500">
@@ -139,62 +138,60 @@ export function CollectionTradeTicketBuy({
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="min-w-0 sm:col-span-2">
-            <label className="mb-1 block text-[10px] font-medium text-zinc-300">Price (USDC)</label>
-            <div className={inputShell}>
-              <input
-                type="text"
-                inputMode="decimal"
-                readOnly={selection?.side === "ask"}
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
-                title="USDC"
-                className="w-full bg-transparent px-2 py-1.5 text-xs text-white placeholder:text-zinc-600 font-mono tabular-nums read-only:opacity-90"
-                placeholder="0.00"
-              />
-            </div>
-          </div>
+          <TkField className="min-w-0 sm:col-span-2" label="Price (USDC)" htmlFor="trade-ticket-price">
+            <TkInput
+              id="trade-ticket-price"
+              type="text"
+              inputMode="decimal"
+              readOnly={selection?.side === "ask"}
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              title="USDC"
+              className="tkl-mono tabular-nums"
+              placeholder="0.00"
+            />
+          </TkField>
 
-          <div className="min-w-0">
-            <label className="mb-1 block text-[10px] font-medium text-zinc-300">Amount</label>
-            <input
+          <TkField className="min-w-0" label="Amount" htmlFor="trade-ticket-amount">
+            <TkInput
+              id="trade-ticket-amount"
               type="text"
               inputMode="numeric"
               readOnly={selection?.side === "ask"}
               value={amountInput}
               onChange={(e) => setAmountInput(e.target.value)}
               title="NFTs per transaction"
-              className={`w-full rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1.5 text-xs text-white font-mono tabular-nums read-only:opacity-90`}
+              className="tkl-mono tabular-nums"
               placeholder="1"
             />
-          </div>
+          </TkField>
 
           {selection?.side === "ask" && askOrders.length > 1 && (
-            <div className="min-w-0">
-              <label className="mb-1 block text-[10px] font-medium text-zinc-300">Token</label>
-              <select
+            <TkField className="min-w-0" label="Token" htmlFor="trade-ticket-token">
+              <TkSelect
+                id="trade-ticket-token"
                 value={askPickIdx}
                 onChange={(e) => setAskPickIdx(Number(e.target.value))}
-                className={`w-full rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} py-1.5 px-2 text-xs font-mono text-white`}
+                className="tkl-mono"
               >
                 {askOrders.map((o, i) => (
                   <option key={o.orderHash} value={i}>
                     #{o.tokenId} · {formatTradeTicketUsdcPrice(priceUsdcFromOrder(o))}
                   </option>
                 ))}
-              </select>
-            </div>
+              </TkSelect>
+            </TkField>
           )}
 
           {selection?.side === "ask" && askOrders.length <= 1 && (
-            <div className="min-w-0">
-              <label className="mb-1 block text-[10px] font-medium text-zinc-300">Token</label>
-              <div
-                className={`rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1.5 text-xs font-mono text-zinc-300 tabular-nums`}
-              >
-                {selectedAsk ? `#${selectedAsk.tokenId}` : "—"}
-              </div>
-            </div>
+            <TkField className="min-w-0" label="Token">
+              <TkInput
+                type="text"
+                readOnly
+                value={selectedAsk ? `#${selectedAsk.tokenId}` : "—"}
+                className="tkl-mono tabular-nums"
+              />
+            </TkField>
           )}
 
           {selection?.side === "bid" && (

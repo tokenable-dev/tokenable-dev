@@ -118,7 +118,7 @@ export function MintFormMintActions({
               <p className="mt-1.5 text-xs leading-relaxed text-amber-100/90">
                 {friendly.message}
               </p>
-              <ul className="mt-2.5 list-disc space-y-1 pl-4 text-[11px] leading-relaxed text-amber-100/80">
+              <ul className="mt-2.5 list-disc space-y-1 pl-4 text-xs leading-relaxed text-amber-100/80">
                 {friendly.hints.map((h) => (
                   <li key={h}>{h}</li>
                 ))}

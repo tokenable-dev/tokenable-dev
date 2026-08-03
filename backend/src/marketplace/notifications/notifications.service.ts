@@ -839,8 +839,9 @@ export class NotificationsService {
       dedupeKey: `wd_requested:${params.redemptionId}`,
       payload: {
         tokenId: tid || undefined,
-        ctaLabel: 'View',
+        ctaLabel: 'View portfolio',
         href: '/portfolio',
+        redemptionId: params.redemptionId,
       },
     });
   }
@@ -865,8 +866,9 @@ export class NotificationsService {
       body: tracking ? `Tracking: ${tracking}.` : 'Your shipment has left the vault.',
       dedupeKey: `wd_shipped:${params.redemptionId}`,
       payload: {
-        ctaLabel: 'Track',
-        href: '/portfolio',
+        ctaLabel: 'Track shipment',
+        href: '/portfolio/redeem?view=transit',
+        redemptionId: params.redemptionId,
       },
     });
   }

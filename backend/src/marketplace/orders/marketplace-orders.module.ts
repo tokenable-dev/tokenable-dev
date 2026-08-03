@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
+import { VaultModule } from '../../vault/vault.module';
 import { Order } from '../entities/order.entity';
 import { P2pListing } from '../entities/p2p-listing.entity';
 import { MarketplaceCollectionsModule } from '../collections/marketplace-collections.module';
@@ -18,6 +19,7 @@ import { OrdersService } from './orders.service';
     MarketplacePartnersModule,
     MarketplaceNotificationsModule,
     BlockchainModule,
+    VaultModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

@@ -166,7 +166,7 @@ export const RWA_TRADES_TAPE_GRID = ORDER_BOOK_TRADES_FOUR_COL_GRID;
 export const RWA_TRADES_PRICE_COL = "min-w-0 w-full truncate text-left tabular-nums";
 export const RWA_TRADES_SIDE_HDR_COL = "min-w-0 w-full truncate text-center";
 export const RWA_TRADES_SIDE_DATA_COL =
-  "min-w-0 w-full truncate text-center relative -left-1.5 text-[11px] font-semibold uppercase tracking-wide";
+  "min-w-0 w-full truncate text-center relative -left-1.5 text-xs font-semibold uppercase tracking-wide";
 export const RWA_TRADES_SOURCE_HDR_COL = orderBookTradesSourceHeaderColCls;
 export const RWA_TRADES_SOURCE_DATA_COL =
   "flex w-full min-w-0 items-center justify-center justify-self-center";

@@ -31,6 +31,8 @@ export function MarketplaceAdminCardRow({
   onClearImageOverride,
   onBurn,
   burningTokenId,
+  onConfirmRelease,
+  confirmingReleaseId,
 }: {
   row: AdminRwaCardRow;
   snapshot?: CollectionListMarketSnapshot;
@@ -44,6 +46,8 @@ export function MarketplaceAdminCardRow({
   onClearImageOverride: () => Promise<void>;
   onBurn?: () => void;
   burningTokenId?: number | null;
+  onConfirmRelease?: () => void;
+  confirmingReleaseId?: string | null;
 }) {
   const [displayName, setDisplayName] = useState(row.displayName ?? "");
   const [collectionKey, setCollectionKey] = useState(row.collectionKey ?? "");
@@ -118,6 +122,9 @@ export function MarketplaceAdminCardRow({
   const isBurned = Boolean(row.burnedAt);
   const isBurning = burningTokenId === row.tokenId;
   const canBurn = !isBurned && onBurn != null;
+  const pendingReleaseId = row.pendingReleaseRedemptionId?.trim() || null;
+  const isConfirmingRelease =
+    pendingReleaseId != null && confirmingReleaseId === pendingReleaseId;
 
   const refUsd = representativeGradeUsd(snapshot?.gradePrices, 10, "10");
   const floorUsd = snapshot?.marketStats?.floor ?? null;
@@ -263,6 +270,17 @@ export function MarketplaceAdminCardRow({
                 className={ADMIN_BTN_DANGER}
               >
                 {isBurning ? "Burning…" : isBurned ? "Burned" : "Burn token"}
+              </button>
+            ) : null}
+            {pendingReleaseId && onConfirmRelease ? (
+              <button
+                type="button"
+                disabled={disabled || isConfirmingRelease}
+                title="Mark physical card shipped / released from vault"
+                onClick={onConfirmRelease}
+                className={ADMIN_BTN_PRIMARY}
+              >
+                {isConfirmingRelease ? "Confirming…" : "Confirm release"}
               </button>
             ) : null}
             {row.collectionKey ? (

@@ -103,7 +103,7 @@
         <button class="opt" data-vault="psa">
           <div style="display:flex;align-items:center;gap:14px;">
             <span class="opt__ic" style="background:rgba(26,111,255,0.12);color:var(--brand-400);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
-            <span class="pill" style="background:rgba(255,255,255,0.06);color:var(--t2);">0&ndash;15 BUSINESS DAYS AFTER ARRIVAL</span>
+            <span class="pill" style="background:rgba(255,255,255,0.06);color:var(--t2);">14&ndash;16 BUSINESS DAYS AFTER ARRIVAL</span>
           </div>
           <div><div class="opt__t">PSA vault</div><div class="opt__d" style="margin-top:5px;">Send them to PSA. Once verified, your listing goes live.</div></div>
           <div style="display:flex;flex-direction:column;gap:9px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.07);">
@@ -114,7 +114,7 @@
       </div>
 
       <div style="display:flex;gap:14px;margin-top:32px;">
-        <button class="btn btn--subtle" style="height:52px;padding:0 24px;font-size:15px;">Back</button>
+        <button class="btn btn--subtle" id="back-btn" style="height:52px;padding:0 24px;font-size:15px;">Back</button>
         <button class="btn btn--primary" id="continue-btn" disabled style="height:52px;flex:1;max-width:320px;font-size:15px;">Continue</button>
       </div>
       <div id="hint" style="font-size:12.5px;color:var(--t3);margin-top:10px;line-height:1.5;">Pick a vault to continue.</div>
@@ -127,15 +127,27 @@
   var btn=document.getElementById('continue-btn');
   var hint=document.getElementById('hint');
   document.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('#back-btn')){
+      window.location.href='Sell-Flow.html';
+      return;
+    }
+    if(e.target.closest && e.target.closest('#continue-btn')){
+      if(!pick) return;
+      // Both vaults continue into Sell-Flow add-cards (same UI; self uses Mint to portfolio).
+      // Do not send self vault to Partner-Add-Cards.html.
+      try{ sessionStorage.setItem('tk_vault_choice', pick); }catch(_){}
+      window.location.href='Sell-Flow.html#cards';
+      return;
+    }
     var opt=e.target.closest && e.target.closest('.opt');
     if(!opt) return;
     pick=opt.getAttribute('data-vault');
     document.querySelectorAll('.opt').forEach(function(x){ x.classList.toggle('sel', x===opt); });
     btn.disabled=false;
     btn.textContent = pick==='self' ? 'Continue with self vault' : 'Continue with PSA vault';
-    hint.innerHTML = pick==='self'
-      ? 'Your cards stay in your vault and can be listed right away.'
-      : 'You&rsquo;ll ship these cards to PSA to be verified before they go live.';
+    hint.textContent = pick==='self'
+      ? 'Confirmed cards mint straight to your portfolio wallet — no shipping, no admin deliver.'
+      : "You'll ship these cards to PSA to be verified before they go live.";
   });
 })();
 </script>

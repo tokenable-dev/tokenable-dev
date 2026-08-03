@@ -18,8 +18,24 @@ import {
   VaultSubmission,
   VaultSubmissionStatus,
 } from './entities/vault-submission.entity';
+import {
+  VaultPsaArrivalReview,
+  type VaultPsaArrivalReviewStatus,
+} from './entities/vault-psa-arrival-review.entity';
 
 export type VaultSubmissionScenario = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
+
+export type OpenPackageByCertMatch = {
+  matchedCerts: string[];
+  unmatchedCerts: string[];
+  packages: Array<{
+    id: string;
+    publicId: string;
+    userId: string;
+    status: string;
+    certs: string[];
+  }>;
+};
 
 @Injectable()
 export class VaultSubmissionService {
@@ -30,6 +46,8 @@ export class VaultSubmissionService {
     private readonly submissions: Repository<VaultSubmission>,
     @InjectRepository(VaultSubmissionItem)
     private readonly items: Repository<VaultSubmissionItem>,
+    @InjectRepository(VaultPsaArrivalReview)
+    private readonly arrivalReviews: Repository<VaultPsaArrivalReview>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -151,9 +169,10 @@ export class VaultSubmissionService {
     return this.submissions.manager.transaction(async (em) => {
       let sub: VaultSubmission | null = null;
       if (dto.publicId?.trim()) {
+        // Lock the parent row only — relations + pessimistic_write emits
+        // LEFT JOIN … FOR UPDATE, which Postgres rejects (nullable outer join).
         sub = await em.findOne(VaultSubmission, {
           where: { publicId: dto.publicId.trim().toUpperCase(), userId },
-          relations: { items: true },
           lock: { mode: 'pessimistic_write' },
         });
         // Finished/cancelled package id left in the browser — ignore it.
@@ -170,11 +189,6 @@ export class VaultSubmissionService {
           .andWhere("s.status IN ('draft', 'awaiting_shipment')")
           .orderBy('s.updated_at', 'DESC')
           .getOne();
-        if (sub) {
-          sub.items = await em.find(VaultSubmissionItem, {
-            where: { submissionId: sub.id },
-          });
-        }
       }
 
       if (!sub) {
@@ -492,6 +506,270 @@ export class VaultSubmissionService {
         );
       });
     return this.adminGet(sub.id);
+  }
+
+  /**
+   * Match PSA cert numbers to open packages (in_transit / awaiting_shipment).
+   * Does not change status — used by mail ingest + admin review queue.
+   */
+  async findOpenPackagesByCerts(certs: string[]): Promise<OpenPackageByCertMatch> {
+    const normalized = [
+      ...new Set(
+        certs
+          .map((c) => VaultSubmissionService.normalizeCert(c))
+          .filter((c) => /^\d{7,10}$/.test(c)),
+      ),
+    ];
+    if (normalized.length === 0) {
+      return { matchedCerts: [], unmatchedCerts: [], packages: [] };
+    }
+
+    const items = await this.items
+      .createQueryBuilder('it')
+      .innerJoinAndSelect('it.submission', 's')
+      .where('it.cert_number IN (:...certs)', { certs: normalized })
+      .andWhere("s.status IN ('in_transit', 'awaiting_shipment')")
+      .getMany();
+
+    const matchedCerts = [
+      ...new Set(items.map((it) => it.certNumber.toUpperCase())),
+    ];
+    const unmatchedCerts = normalized.filter((c) => !matchedCerts.includes(c));
+
+    const byId = new Map<
+      string,
+      OpenPackageByCertMatch['packages'][number]
+    >();
+    for (const it of items) {
+      const sub = it.submission;
+      if (!sub?.id) continue;
+      const row = byId.get(sub.id) ?? {
+        id: sub.id,
+        publicId: sub.publicId,
+        userId: sub.userId,
+        status: sub.status,
+        certs: [],
+      };
+      row.certs.push(it.certNumber.toUpperCase());
+      byId.set(sub.id, row);
+    }
+
+    return {
+      matchedCerts,
+      unmatchedCerts,
+      packages: [...byId.values()],
+    };
+  }
+
+  /**
+   * Queue an Items Received mail for admin review (no auto Ship→PSA).
+   * Idempotent on gmailMessageId.
+   */
+  async enqueuePsaArrivalReview(input: {
+    gmailMessageId: string;
+    subject: string | null;
+    fromAddress: string | null;
+    certs: string[];
+    /** Set when parse did not fully match (e.g. no_certs) so ops can still see the mail. */
+    ingestNote?: string | null;
+  }): Promise<VaultPsaArrivalReview> {
+    const existing = await this.arrivalReviews.findOne({
+      where: { gmailMessageId: input.gmailMessageId },
+    });
+    if (existing) return existing;
+
+    const match = await this.findOpenPackagesByCerts(input.certs);
+    const row = this.arrivalReviews.create({
+      gmailMessageId: input.gmailMessageId,
+      subject: input.subject,
+      fromAddress: input.fromAddress,
+      certs: match.matchedCerts.length
+        ? [...new Set([...match.matchedCerts, ...match.unmatchedCerts])]
+        : [
+            ...new Set(
+              input.certs
+                .map((c) => VaultSubmissionService.normalizeCert(c))
+                .filter((c) => /^\d{7,10}$/.test(c)),
+            ),
+          ],
+      matchedPublicIds: match.packages.map((p) => p.publicId),
+      unmatchedCerts: match.unmatchedCerts,
+      ingestNote: input.ingestNote?.trim() || null,
+      status: 'pending',
+    });
+    // Prefer storing the full cert list from the mail when parse had certs.
+    if (input.certs.length) {
+      row.certs = [
+        ...new Set(
+          input.certs
+            .map((c) => VaultSubmissionService.normalizeCert(c))
+            .filter((c) => /^\d{7,10}$/.test(c)),
+        ),
+      ];
+    }
+    return this.arrivalReviews.save(row);
+  }
+
+  async listPsaArrivalReviews(status?: VaultPsaArrivalReviewStatus) {
+    const where =
+      status === 'pending' || status === 'confirmed' || status === 'dismissed'
+        ? { status }
+        : undefined;
+    const rows = await this.arrivalReviews.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+
+    const publicIds = [
+      ...new Set(rows.flatMap((r) => r.matchedPublicIds ?? [])),
+    ];
+    const packageByPublic = new Map<
+      string,
+      {
+        publicId: string;
+        id: string;
+        status: string;
+        userId: string;
+        userEmail: string | null;
+        userName: string | null;
+        certs: string[];
+      }
+    >();
+    if (publicIds.length) {
+      const subs = await this.submissions.find({
+        where: { publicId: In(publicIds) },
+        relations: { items: true },
+      });
+      for (const sub of subs) {
+        const userRows = await this.submissions.manager.query(
+          `SELECT email, name FROM users WHERE id = $1 LIMIT 1`,
+          [sub.userId],
+        );
+        const u = (userRows as { email?: string; name?: string }[])[0];
+        packageByPublic.set(sub.publicId, {
+          publicId: sub.publicId,
+          id: sub.id,
+          status: sub.status,
+          userId: sub.userId,
+          userEmail: u?.email ?? null,
+          userName: u?.name ?? null,
+          certs: (sub.items ?? []).map((i) => i.certNumber),
+        });
+      }
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      gmailMessageId: r.gmailMessageId,
+      subject: r.subject,
+      fromAddress: r.fromAddress,
+      certs: r.certs ?? [],
+      unmatchedCerts: r.unmatchedCerts ?? [],
+      matchedPublicIds: r.matchedPublicIds ?? [],
+      ingestNote: r.ingestNote ?? null,
+      status: r.status,
+      reviewedAt: r.reviewedAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      packages: (r.matchedPublicIds ?? [])
+        .map((pid) => packageByPublic.get(pid))
+        .filter(Boolean),
+    }));
+  }
+
+  /** Admin confirms mail match → mark matched open packages arrived. */
+  async confirmPsaArrivalReview(reviewId: string) {
+    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Arrival review not found');
+    if (review.status !== 'pending') {
+      throw new BadRequestException(`Review is already ${review.status}`);
+    }
+
+    const match = await this.findOpenPackagesByCerts(review.certs ?? []);
+    const markedPublicIds: string[] = [];
+    const skippedPublicIds: string[] = [];
+    for (const pkg of match.packages) {
+      try {
+        await this.adminMarkArrived(pkg.id);
+        markedPublicIds.push(pkg.publicId);
+      } catch (e) {
+        skippedPublicIds.push(pkg.publicId);
+        this.logger.warn(
+          `confirmPsaArrivalReview skip ${pkg.publicId}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    review.status = 'confirmed';
+    review.reviewedAt = new Date();
+    review.matchedPublicIds = [
+      ...new Set([...(review.matchedPublicIds ?? []), ...markedPublicIds]),
+    ];
+    review.unmatchedCerts = match.unmatchedCerts;
+    await this.arrivalReviews.save(review);
+
+    return {
+      review: await this.getArrivalReviewDto(review.id),
+      markedPublicIds,
+      skippedPublicIds,
+      unmatchedCerts: match.unmatchedCerts,
+    };
+  }
+
+  async dismissPsaArrivalReview(reviewId: string) {
+    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Arrival review not found');
+    if (review.status !== 'pending') {
+      throw new BadRequestException(`Review is already ${review.status}`);
+    }
+    review.status = 'dismissed';
+    review.reviewedAt = new Date();
+    await this.arrivalReviews.save(review);
+    return this.getArrivalReviewDto(review.id);
+  }
+
+  private async getArrivalReviewDto(id: string) {
+    const list = await this.listPsaArrivalReviews();
+    const row = list.find((r) => r.id === id);
+    if (!row) throw new NotFoundException('Arrival review not found');
+    return row;
+  }
+
+  /**
+   * @deprecated Prefer enqueue + admin confirm. Kept for tests / emergency scripts.
+   * Match certs and immediately mark arrived.
+   */
+  async markArrivedByCerts(certs: string[]): Promise<{
+    matchedCerts: string[];
+    unmatchedCerts: string[];
+    markedPublicIds: string[];
+    skippedPublicIds: string[];
+  }> {
+    const match = await this.findOpenPackagesByCerts(certs);
+    const markedPublicIds: string[] = [];
+    const skippedPublicIds: string[] = [];
+    for (const pkg of match.packages) {
+      try {
+        await this.adminMarkArrived(pkg.id);
+        markedPublicIds.push(pkg.publicId);
+      } catch (e) {
+        skippedPublicIds.push(pkg.publicId);
+        this.logger.warn(
+          `markArrivedByCerts skip ${pkg.publicId}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+    if (match.unmatchedCerts.length) {
+      this.logger.warn(
+        `markArrivedByCerts unmatched certs=${match.unmatchedCerts.join(',')}`,
+      );
+    }
+    return {
+      matchedCerts: match.matchedCerts,
+      unmatchedCerts: match.unmatchedCerts,
+      markedPublicIds,
+      skippedPublicIds,
+    };
   }
 
   async adminSetSubmissionStatus(

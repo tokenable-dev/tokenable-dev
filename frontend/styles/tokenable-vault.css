@@ -39,7 +39,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -381,7 +381,7 @@
 
 .vault-submit-header__eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -464,7 +464,7 @@
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
@@ -863,7 +863,7 @@
 
 .vault-stat-card__sub {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -963,7 +963,7 @@
 
 .vault-ip-meta .mono {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -1040,7 +1040,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1086,7 +1086,7 @@
 }
 
 .vault-table-card__sub {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.3);
 }
 
@@ -1451,7 +1451,7 @@
 }
 
 .vault-notify-check__hint {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.25);
 }
@@ -1535,7 +1535,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1781,7 +1781,7 @@
 
 .vault-shipping-header__eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1956,7 +1956,7 @@
 
 .vault-ship-carrier-row__tag {
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--azure);
 }
@@ -2109,7 +2109,7 @@
 
 .vault-ship-tracking__lock {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -2127,7 +2127,7 @@
 .vault-ship-field-label {
   display: block;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2473,7 +2473,7 @@
 
 .vault-detail-summary__cert {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2550,7 +2550,7 @@
   display: block;
   margin-bottom: 16px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2586,7 +2586,7 @@
 }
 
 .vault-detail-live__hint {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.2);
 }
 
@@ -2917,7 +2917,7 @@
 
 .vault-tl-time {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.3);
 }
 
@@ -2976,7 +2976,7 @@
 
 .vault-detail-k {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3023,7 +3023,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -3167,7 +3167,7 @@
 }
 
 .vault-ref-row__date {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.3);
 }
 
@@ -3405,7 +3405,7 @@
 
 .vault-hub-stat-card__sub {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -3546,7 +3546,7 @@
 .vault-hiw__num {
   margin-bottom: 12px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--azure);
@@ -3674,7 +3674,7 @@
   padding: 3px 10px;
   border-radius: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   background: rgba(0, 200, 100, 0.12);
@@ -3724,7 +3724,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3888,7 +3888,7 @@
 .vault-ip-card__more {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.45);
@@ -3923,13 +3923,13 @@
 .vault-ip-card__detail {
   margin-left: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.3);
 }
 
 .vault-ip-card__detail-text {
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -3941,7 +3941,7 @@
 
 .vault-ip-card__hint--amber {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--amber);
 }
 
@@ -4046,7 +4046,7 @@
 
 .vault-hub-mcard__label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.3);
@@ -4074,7 +4074,7 @@
   background: transparent;
   border: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.03em;
   color: rgba(255, 255, 255, 0.4);
@@ -4171,7 +4171,7 @@
   }
 
   .vault-hub-stat-card__label {
-    font-size: 11px;
+    font-size: 12px;
     margin-bottom: 6px;
   }
 
@@ -4381,7 +4381,7 @@
 
 .vault-ip-card__tracking-link {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: #4d8eff;
   margin-left: 6px;
   text-decoration: none;
@@ -4465,7 +4465,7 @@
 
 .vault-stepper__detail {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.35);
   line-height: 1.5;
@@ -4605,7 +4605,7 @@
 .vault-card-list-head__label,
 .vault-card-list-head__count {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.06em;
 }
@@ -4701,12 +4701,12 @@
 }
 
 .vault-card-row__cert {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-card-row__reject-msg {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--neg);
   font-weight: 600;
 }
@@ -4735,7 +4735,7 @@
 }
 
 .vault-card-row__confirm-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   color: rgba(255, 255, 255, 0.35);
@@ -4901,7 +4901,7 @@
 
 .vault-scan-modal__frame-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.35);
 }
@@ -4983,7 +4983,7 @@
 }
 
 .vault-ship-gate__lock {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
   margin-left: auto;
 }
@@ -5045,7 +5045,7 @@
 }
 
 .vault-ship-slip__warn {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--amber);
   margin-top: 10px;
   text-align: center;
@@ -5245,7 +5245,7 @@
 
 .vault-detail-package__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
@@ -5286,7 +5286,7 @@
 }
 
 .vault-detail-package__cert {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
   flex-shrink: 0;
 }
@@ -5337,13 +5337,15 @@
   flex-wrap: wrap;
 }
 
-.vault-detail-tracking-form .vault-ship-select {
-  height: 44px;
+.vault-detail-tracking-form .tk-select-wrap {
   flex: 0 0 140px;
 }
 
-.vault-detail-tracking-form .vault-ship-input {
-  height: 44px;
+.vault-detail-tracking-form .tk-input {
+  min-height: 44px;
+}
+
+.vault-detail-tracking-form > .tk-input {
   flex: 1;
   min-width: 180px;
 }
@@ -5469,7 +5471,7 @@
 }
 
 .vault-stat-pill__label {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   margin-top: 2px;
 }
@@ -5604,7 +5606,7 @@
 }
 
 .vault-lm-row__status {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -5624,7 +5626,7 @@
 }
 
 .vault-lm-row__token {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--azure);
   font-weight: 600;
   display: block;
@@ -5949,7 +5951,7 @@
 
 .vault-draft-card__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   margin-top: 4px;
   letter-spacing: 0.04em;

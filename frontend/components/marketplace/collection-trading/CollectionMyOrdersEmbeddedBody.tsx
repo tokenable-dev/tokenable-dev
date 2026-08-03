@@ -32,13 +32,13 @@ export function CollectionMyOrdersEmbeddedBody({
 
   const emptyCls = isOrderBook
     ? "py-8 text-center text-[13px] text-zinc-300"
-    : "py-6 text-center text-[11px] text-zinc-500";
+    : "py-6 text-center text-xs text-zinc-500";
   const sectionLabelCls = isOrderBook
-    ? "px-0.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-300"
+    ? "px-0.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-300"
     : "px-0.5 py-1 text-[9px] font-medium uppercase tracking-wide text-zinc-600";
   const rowCls = isOrderBook
     ? "flex items-center justify-between gap-3 py-2.5 text-[13px] first:pt-1.5"
-    : "flex items-center justify-between gap-2 py-2 text-[11px] first:pt-1";
+    : "flex items-center justify-between gap-2 py-2 text-xs first:pt-1";
   const sideLabelCls = isOrderBook ? "text-zinc-400" : "text-zinc-500";
   const priceCls = isOrderBook
     ? "ml-2 font-mono tabular-nums text-zinc-200"

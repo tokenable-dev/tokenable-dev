@@ -5,6 +5,7 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
 import { MarketplaceAdminModule } from '../marketplace/admin/marketplace-admin.module';
 import { MarketplaceOrdersModule } from '../marketplace/orders/marketplace-orders.module';
 import { MarketplacePartnersModule } from '../marketplace/partners/marketplace-partners.module';
+import { MarketplacePortfolioModule } from '../marketplace/portfolio/marketplace-portfolio.module';
 import { Order } from '../marketplace/entities/order.entity';
 import { PsaModule } from '../psa/psa.module';
 import { UserModule } from '../user/user.module';
@@ -31,6 +32,7 @@ import { RwaService } from './rwa.service';
     MarketplaceAdminModule,
     MarketplacePartnersModule,
     MarketplaceOrdersModule,
+    MarketplacePortfolioModule,
   ],
   controllers: [RwaController, BulkMintAdminController],
   providers: [

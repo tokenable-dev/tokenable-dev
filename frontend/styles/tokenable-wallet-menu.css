@@ -102,7 +102,7 @@
 
 .tk-wallet-user__kyc {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 2px;
 }
 
@@ -138,7 +138,7 @@
 
 .tk-wd-funds-error {
   margin: 0 12px 8px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   color: #f87171;
 }

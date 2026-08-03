@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
@@ -11,9 +12,11 @@ import {
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
 import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
+import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfolio-daily-snapshot.service';
+import { PortfolioHoldingService } from '../marketplace/portfolio/portfolio-holding.service';
 import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
-import { MintRwaDto } from './dto/mint-rwa.dto';
+import { MintRwaDto, type MintDeliveryMode } from './dto/mint-rwa.dto';
 
 export type MintRwaResult = {
   tokenId: number;
@@ -21,22 +24,33 @@ export type MintRwaResult = {
   vaultRef: string;
   txHash: string;
   chainId: number;
+  /** Platform custody wallet address (always returned for ops reference). */
   custodyWallet: string;
+  /** On-chain mint recipient (custody or user wallet). */
+  mintedTo: string;
   intendedRecipient: string;
+  deliveryMode: MintDeliveryMode;
 };
 
 /**
  * Orchestrates the "Vault Deposit" pipeline end to end:
  *   verify wallet link -> reserve vault cycle -> mint on-chain -> record result.
+ *
+ * Default `deliveryMode=custody`: mint to platform custody; admin delivers later.
+ * Self vault uses `deliveryMode=direct`: mint straight to the user's linked wallet.
  */
 @Injectable()
 export class RwaMintService {
+  private readonly logger = new Logger(RwaMintService.name);
+
   constructor(
     private readonly chainWriter: RwaChainWriterService,
     private readonly chainConfig: ChainConfigService,
     private readonly users: UserService,
     private readonly vault: VaultService,
     private readonly vaultSubmissions: VaultSubmissionService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
   ) {}
 
   async mintForUser(
@@ -47,6 +61,8 @@ export class RwaMintService {
     assertKycApprovedForCustody(user);
 
     const recipient = dto.recipientAddress.trim().toLowerCase();
+    const deliveryMode: MintDeliveryMode =
+      dto.deliveryMode === 'direct' ? 'direct' : 'custody';
 
     // Ensure the recipient wallet is linked to this Tokenable account.
     const wallets = await this.users.listWalletsForUser(user.id);
@@ -88,13 +104,13 @@ export class RwaMintService {
       cycleId: cycle.id,
     });
 
-    const custodyRecipient = await this.chainWriter.getCustodyWalletAddress(chainId);
+    const custodyWallet = await this.chainWriter.getCustodyWalletAddress(chainId);
+    const mintToAddress = deliveryMode === 'direct' ? recipient : custodyWallet;
     let tokenId: number;
     let txHash: string;
     try {
-      // Mint to platform custody first — ops delivers to `recipient` via admin UI.
       ({ tokenId, txHash } = await this.chainWriter.mintTo(
-        custodyRecipient,
+        mintToAddress,
         tokenURI,
         vaultRef,
         chainId,
@@ -117,14 +133,53 @@ export class RwaMintService {
     });
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
 
+    if (deliveryMode === 'direct') {
+      await this.seedDirectMintCostBasis(recipient, tokenId, chainId);
+    }
+
     return {
       tokenId,
       tokenURI,
       vaultRef,
       txHash,
       chainId,
-      custodyWallet: custodyRecipient,
+      custodyWallet,
+      mintedTo: mintToAddress,
       intendedRecipient: recipient,
+      deliveryMode,
     };
+  }
+
+  /** Same cost-basis seed as admin deliver, for self-vault direct mints. */
+  private async seedDirectMintCostBasis(
+    walletAddress: string,
+    tokenId: number,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    try {
+      const marks = await this.portfolioSnapshots.resolveMarkUsdByTokenIds(
+        [tokenId],
+        chainId,
+      );
+      const markUsd = marks.get(tokenId);
+      if (markUsd != null && Number.isFinite(markUsd)) {
+        await this.portfolioHoldings.seedVaultDeliveryCostBasis(
+          walletAddress,
+          tokenId,
+          markUsd,
+          new Date(),
+          chainId,
+        );
+      } else {
+        this.logger.warn(
+          `Direct mint: no mark USD for token #${tokenId} — cost basis not seeded`,
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `Direct mint: cost basis seed failed for token #${tokenId}: ${msg}`,
+      );
+    }
   }
 }

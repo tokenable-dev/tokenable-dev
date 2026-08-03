@@ -14,6 +14,8 @@ export type AdminRwaCardRow = {
   hasActiveListing: boolean;
   burnedAt: string | null;
   vaultCycleStatus: string | null;
+  /** Present when burn done and physical release not yet confirmed. */
+  pendingReleaseRedemptionId: string | null;
 };
 
 /** @deprecated use AdminRwaCardRow */
@@ -257,5 +259,27 @@ export async function postAdminRevokeRwaRole(body: {
     txHash: string;
     role: string;
     walletAddress: string;
+  }>;
+}
+
+/** Admin: confirm physical vault release after on-chain burn (WD_SHIPPED). */
+export async function postAdminConfirmRedemptionRelease(
+  redemptionId: string,
+): Promise<{ id: string; status: string; vaultReleasedAt: string | null }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/rwa-tokens/redemptions/${encodeURIComponent(redemptionId)}/confirm-release`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to confirm physical release");
+  }
+  return res.json() as Promise<{
+    id: string;
+    status: string;
+    vaultReleasedAt: string | null;
   }>;
 }

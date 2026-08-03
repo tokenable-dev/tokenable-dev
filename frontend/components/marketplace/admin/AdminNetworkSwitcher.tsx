@@ -100,7 +100,7 @@ export function AdminNetworkSwitcher() {
                     <ChainDot chainId={c.id} />
                     <span className="flex-1">
                       <span className="block font-medium">{c.label}</span>
-                      <span className="text-[11px] text-zinc-500">
+                      <span className="text-xs text-zinc-500">
                         {configured
                           ? `${c.nativeSymbol} · chain ${c.id}`
                           : `Not configured · chain ${c.id}`}

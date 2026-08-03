@@ -42,13 +42,15 @@ A `vault_asset` may have **at most one open vault cycle** at a time (status not 
 - **Enforced at:** `VaultService.reserveCycleForDeposit()` (DB check + contract check)
 - **Why:** Prevents duplicate deposit processes
 
-### BR-5: Mint Goes to Custody
+### BR-5: Mint Delivery Mode
 
-All vault mints land in the **platform custody wallet**, not directly to the user.
+**PSA vault / default mint** lands in the **platform custody wallet**; admin delivers after ops verification.
 
-- Backend calls `mint(custodyWallet, tokenURI, vaultRef)` — never `mint(userWallet, ...)`
+- Default `POST /api/rwa/mint` → `mint(custodyWallet, tokenURI, vaultRef)`
 - Admin must explicitly `deliver` the NFT to the user's wallet
-- **Why:** Allows ops team to verify physical card receipt before NFT delivery
+- **Why:** Ops verifies physical card receipt (PSA vault) before NFT delivery
+
+**Self vault** uses `deliveryMode: "direct"` → `mint(userLinkedWallet, …)` so the NFT appears in the minter's portfolio immediately (no admin deliver). Cost basis is seeded the same way as vault deliver.
 
 ### BR-6: Recipient Must Be Linked Wallet
 

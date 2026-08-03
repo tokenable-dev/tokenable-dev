@@ -136,7 +136,7 @@ export function PrivyFeaturesLab() {
           ) : null}
         </div>
         {authenticated ? (
-          <p className="mt-3 break-all font-mono text-[11px] text-gray-500">
+          <p className="mt-3 break-all font-mono text-xs text-gray-500">
             Privy ID: {privyUser?.id}
           </p>
         ) : null}
@@ -374,7 +374,7 @@ export function PrivyFeaturesLab() {
             Categories: {Object.keys(catalog.categories).join(" · ")}
           </p>
           {catalog.entries ? (
-            <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto text-[11px] text-gray-500">
+            <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto text-xs text-gray-500">
               {catalog.entries.slice(0, 24).map((e) => (
                 <li key={e.id}>
                   [{e.category}] {e.name} — {e.status}

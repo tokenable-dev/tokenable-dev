@@ -59,15 +59,15 @@ flowchart LR
 | 5 | `GET /order/GetSubmissionProgress/{submissionNumber}` | Submission status — same `OrderProgress` shape |
 | 6 | `GET /pop/GetPSASpecPopulation/{specID}` | Per-grade population (Grade1–10, Q) for a PSA spec |
 
-### Platform integration (mint-only PSA policy)
+### Platform integration (mint + collection-create PSA budget)
 
-**Live PSA Public API is reserved for mint-time only** (rate-limit budget). Marketplace reads, listings, portfolio mint-previews, and Cardhedger snapshot refresh **never** call PSA upstream.
+**Live PSA Public API is reserved for mint identity and first-time Spec population at collection create** (rate-limit budget). Marketplace collection **reads**, listings, portfolio mint-previews, and Cardhedger snapshot refresh **never** call PSA upstream.
 
 | PSA API | Tokenable connection | Priority |
 |---------|----------------------|----------|
-| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, partner **bulk-mint** prepare | **Required** — mint identity |
+| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, partner **bulk-mint** prepare | **Required** — mint identity (includes SpecID) |
 | **GetImagesByCertNumber** | Mint / bulk-mint slab `imageUrl` | **Required** — mint visual assets |
-| **GetPSASpecPopulation** | Only if captured at mint into `components` (no live fetch on collection detail) | Mint-time optional |
+| **GetPSASpecPopulation** | Collection create (`ensureCollectionForListing` → `ensurePsaSpecPopulationFromApi`): **once per SpecID** when Grade1–10 not already on any collection `components`; written to `marketplace_collections.components` (`psaPopulationByGrade` / `psaSpecTotalPopulation` / `psaGrade10Population`). Mint metadata keeps SpecID only — not Grade1–10. Collection detail reads never call PSA. | Collection-create, SpecID-deduped |
 | **GetByCertNumberForFileAppend** | **Disabled** (403 `PSA_MINT_ONLY`) | — |
 | **GetProgress / GetSubmissionProgress** | **Disabled** (403 `PSA_MINT_ONLY`) | — |
 

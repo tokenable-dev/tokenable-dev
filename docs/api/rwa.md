@@ -46,7 +46,7 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
 
 **Guard:** `JwtAuthGuard`
 
-Platform-signed on-chain mint to the custody wallet, with intent to deliver to the requesting user.
+Platform-signed on-chain mint. Default: custody wallet (admin delivers later). Self vault: `deliveryMode: "direct"` mints to the user's linked wallet.
 
 **Request body:**
 
@@ -54,7 +54,8 @@ Platform-signed on-chain mint to the custody wallet, with intent to deliver to t
 {
   "recipientAddress": "0xUserLinkedWalletAddress",
   "tokenURI": "ipfs://Qm.../metadata.json",
-  "certNumber": "83179580"
+  "certNumber": "83179580",
+  "deliveryMode": "custody"
 }
 ```
 
@@ -63,12 +64,14 @@ Platform-signed on-chain mint to the custody wallet, with intent to deliver to t
 | `recipientAddress` | Yes | Must be linked to the authenticated user account |
 | `tokenURI` | Yes | From `POST /rwa/upload` |
 | `certNumber` | Yes | PSA cert number — permanent physical asset identity; used to derive `vaultRef = keccak256(certNumber.toUpperCase())` |
+| `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`) |
 
 **Flow:**
 1. Validates `recipientAddress` is linked to the JWT user's account
 2. `VaultService.reserveCycleForDeposit()` — opens a vault cycle; fails if cert already has open cycle
-3. `RwaChainWriterService.mintTo(custodyWallet, tokenURI, vaultRef)` — backend wallet signs mint tx
+3. `RwaChainWriterService.mintTo(mintTo, tokenURI, vaultRef)` — `mintTo` is custody (`custody`) or `recipientAddress` (`direct`)
 4. `VaultService.recordMintResult()` — links `rwa_tokens` row to vault cycle
+5. If `direct`: seeds `vault_delivery` cost basis from current mark USD (same as admin deliver)
 
 **Response:**
 
@@ -80,9 +83,13 @@ Platform-signed on-chain mint to the custody wallet, with intent to deliver to t
   "txHash": "0x...",
   "chainId": 11155111,
   "custodyWallet": "0xPlatformCustodyAddress",
-  "intendedRecipient": "0xUserPrimaryWalletAddress"
+  "mintedTo": "0xPlatformCustodyAddress",
+  "intendedRecipient": "0xUserPrimaryWalletAddress",
+  "deliveryMode": "custody"
 }
 ```
+
+For self vault (`deliveryMode: "direct"`), `mintedTo` equals `intendedRecipient` (user wallet).
 
 **Errors:**
 - `403` — `recipientAddress` not linked to the authenticated user
@@ -94,37 +101,88 @@ Platform-signed on-chain mint to the custody wallet, with intent to deliver to t
 
 ## `POST /api/rwa/redeem-request`
 
-**Guard:** `JwtAuthGuard`
+**Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id` (required)
 
-User-initiated redemption request. Verifies the caller currently owns the NFT, then records the request. Actual on-chain burn + physical vault release are ops steps (see admin endpoints).
+User-initiated redemption request from Portfolio → Redeem. Verifies the caller currently owns the NFT on the requested chain, requires KYC Level 2 (`assertKycApprovedForCustody`), then records the request with optional ship-to address. Actual on-chain burn + physical vault release are ops steps (see admin endpoints).
+
+USDC payment (`WD_READY_TO_PAY`) is **not** implemented yet (Phase B). Shipping / redeem fee **estimates** are available via `GET /api/rwa/redeem/estimate` (PSA Vault published rates).
 
 **Request body:**
 
 ```json
 {
   "tokenId": 4,
-  "ownerWalletAddress": "0xTokenOwnerWalletAddress"
+  "shipTo": {
+    "name": "Daisy Kim",
+    "line1": "123 Market St",
+    "line2": "Apt 4",
+    "city": "San Francisco",
+    "region": "CA",
+    "postal": "94105",
+    "country": "us",
+    "phone": "+1 555 000 0000"
+  }
 }
 ```
 
+`shipTo.country` is one of `us` | `ca` | `intl`. Address fields are stored on `vault_redemptions` (`ship_to_*` columns).
+
 **Flow:**
-1. Validates `ownerWalletAddress` is linked to the JWT user
-2. Verifies on-chain ownership matches `ownerWalletAddress`
-3. `VaultService.requestRedemption()` — creates `vault_redemptions` row, sets cycle to `redemption_requested`
+1. Asserts KYC approved for custody
+2. Loads on-chain owner for `tokenId` on the chain from the header
+3. Verifies that owner is a wallet linked to the JWT user
+4. `VaultService.requestRedemption()` — creates `vault_redemptions` row (`ownership_verified`), sets cycle to `redemption_requested`, emits `WD_REQUEST_RECEIVED`
+5. Marketplace listing create is blocked while the cycle is `redemption_requested` / `redeemed`
+
+**Response:** `VaultRedemption` entity (includes `id`, `status`, ship-to fields).
+
+**Next steps (admin):**
+- `POST /api/marketplace/admin/rwa-tokens/:tokenId/burn` — burns token + sets cycle to `redeemed`
+- `POST /api/marketplace/admin/rwa-tokens/redemptions/:redemptionId/confirm-release` — marks physical card as released (`WD_SHIPPED` → FE `/portfolio/redeem?view=transit`)
+
+---
+
+## `GET /api/rwa/redemptions/mine`
+
+**Guard:** `JwtAuthGuard`
+
+Lists the signed-in user's redemption rows (excludes `failed` / `cancelled`) for portfolio badges and redeem status surfaces.
+
+**Query:** `tokenIds` (optional CSV of numeric token IDs)
+
+**Response:** array of `{ redemptionId, tokenId, tokenContract, status, vaultCycleStatus, requestedAt, vaultReleasedAt }`
+
+---
+
+## `GET /api/rwa/redeem/estimate`
+
+**Guard:** none (public rate schedule)
+
+Returns an estimate of redeem cost from the PSA Vault published shipping schedule plus per-card withdraw fee.
+
+**Query:**
+
+| Param | Required | Notes |
+|-------|----------|--------|
+| `country` | yes | `us` \| `ca` \| `intl` |
+| `cardCount` | no | 1–50, default `1` |
 
 **Response:**
 
 ```json
 {
-  "redemptionId": "uuid",
-  "tokenId": "4",
-  "status": "pending"
+  "currency": "USD",
+  "country": "us",
+  "cardCount": 2,
+  "shippingUsd": 5.99,
+  "withdrawFeePerCardUsd": 4.99,
+  "withdrawFeeTotalUsd": 9.98,
+  "totalUsd": 15.97,
+  "source": "psa_vault_published_schedule"
 }
 ```
 
-**Next steps (admin):**
-- `POST /api/marketplace/admin/rwa-tokens/:tokenId/burn` — burns token + sets cycle to `redeemed`
-- `POST /api/marketplace/admin/rwa-tokens/redemptions/:redemptionId/confirm-release` — marks physical card as released
+`withdrawFeePerCardUsd` defaults to `4.99` and can be overridden with env `PSA_VAULT_WITHDRAW_FEE_USD`. Shipping: US `$5.99`, Canada `$24.99`, other international `$31.99` (up to 50 items per shipment).
 
 ---
 
@@ -143,6 +201,7 @@ See [marketplace-admin.md](./marketplace-admin.md) for the full admin RWA API in
 
 | Variable | Purpose |
 |----------|---------|
+| `PSA_VAULT_WITHDRAW_FEE_USD` | Optional override for per-card redeem withdraw fee (default `4.99`) |
 | `PINATA_JWT` | Pinata API JWT for uploads |
 | `PINATA_GATEWAY` | Custom Pinata gateway domain |
 | `RWA_OWNER_PRIVATE_KEY` | Platform minter/burner signer (MINTER_ROLE + BURNER_ROLE) |

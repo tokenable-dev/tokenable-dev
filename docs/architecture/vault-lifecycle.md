@@ -15,10 +15,10 @@ flowchart LR
 
   subgraph mint ["Mint Phase"]
     Upload["IPFS metadata upload<br/>POST /rwa/upload"]
-    BackendMint["Backend mint → custody wallet<br/>POST /rwa/mint"]
+    BackendMint["Backend mint<br/>POST /rwa/mint"]
   end
 
-  subgraph custody ["Custody Phase"]
+  subgraph custody ["Custody Phase (PSA vault)"]
     Hold["Custody wallet holds NFT"]
     AdminDeliver["Admin delivers NFT<br/>POST /admin/.../deliver"]
   end
@@ -37,6 +37,7 @@ flowchart LR
 
   Ship --> Verify --> Upload --> BackendMint
   BackendMint --> Hold --> AdminDeliver --> Own
+  BackendMint -->|"self vault deliveryMode=direct"| Own
   Own --> List --> Buy
   Own --> Request --> Burn --> Release
 ```
@@ -124,7 +125,9 @@ vault_submission_items
 Scenario key for Vault-Detail UI (A~H) is derived from package + item statuses (`VaultSubmissionService.resolveScenario`).
 
 API (JWT): `GET/POST /api/vault/submissions…` — see `docs/api/vault-submissions.md`.  
-Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/vault/submissions`.
+Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/vault/submissions` (packages) · `/marketplace/admin/vault/psa-mail` (mail inbox).
+
+**Ship → PSA:** seller tracking → `in_transit`. Arrival is admin **Mark arrived**, or Gmail **Items Received** mail to `tokenable.dev@gmail.com` queued for ops confirm (`vault_psa_arrival_reviews` → Confirm on **PSA mail**). Incomplete parses get `ingest_note` and still queue (never silent-drop). Mail never auto-advances status.
 
 **Sell-flow draft resume:** localStorage holds cards + step progress; signed-in users also upsert via `POST /draft` so another device/browser can restore the open `draft` / `awaiting_shipment` package.
 
@@ -151,6 +154,20 @@ Any state  →  cancelled   (on-chain mint failure; compensating action)
 | `completed` | Admin ops | After physical card shipped (`confirmVaultRelease`) |
 | `cancelled` | Backend (compensating) | On-chain mint failed; cycle released for retry |
 
+### Portfolio Redeem UI (Phase A)
+
+User-facing flow (product copy: **Redeem**, route `/portfolio/redeem`):
+
+1. Portfolio My Assets → **Redeem** → select up to 50 eligible cards (not listed, no open redemption)
+2. Draft persisted in `sessionStorage` → `/portfolio/redeem` ship-to form (`TkField` / `TkInput` / `TkSelect`); estimate from `GET /api/rwa/redeem/estimate` (PSA withdraw fee + shipping rates)
+3. **Request redemption** → KYC Level 2 gate → `POST /api/rwa/redeem-request` per token (with `shipTo`)
+4. Holdings show **Redeeming** badge; Set price / list blocked client + server
+5. Admin burn → **Confirm release** on burned cards with `pendingReleaseRedemptionId` → `WD_SHIPPED` deep-links to `/portfolio/redeem?view=transit`
+
+Phase B (not live): shipping estimate, USDC pay (`WD_READY_TO_PAY`), user confirm-receipt. Pay / Done panels exist as UI skeletons only.
+
+Maintenance SQL for existing DBs: `backend/sql/maintenance/add_vault_redemptions_ship_to.sql`.
+
 ---
 
 ## VaultRef
@@ -170,10 +187,16 @@ vaultRef = keccak256(certNumber.trim().toUpperCase())
 
 ## Custody wallet
 
-Vault mints go to the **platform custody wallet**, not directly to the user:
+**Default / PSA vault** mints go to the **platform custody wallet**:
 
 ```
-mint(custodyWallet, tokenURI, vaultRef)   ← backend executes
+mint(custodyWallet, tokenURI, vaultRef)   ← backend executes (deliveryMode=custody)
+```
+
+**Self vault** (`deliveryMode=direct` on `POST /rwa/mint`) mints straight to the user's linked wallet:
+
+```
+mint(userLinkedWallet, tokenURI, vaultRef)   ← no admin deliver step
 ```
 
 The `custodyWallet` is configured via:
@@ -184,13 +207,13 @@ RWA_CUSTODY_PRIVATE_KEY=...        # signing key for delivery transfers
 # When unset: defaults to RWA_OWNER_PRIVATE_KEY / wallet
 ```
 
-**Admin delivery** transfers the NFT from custody to the depositor's primary linked wallet:
+**Admin delivery** (custody path only) transfers the NFT from custody to the depositor's primary linked wallet:
 
 ```
 safeTransferFrom(custodyWallet → user.primaryWallet, tokenId)
 ```
 
-The `intendedRecipient` (user's primary linked wallet at mint time) is recorded but is not enforced on-chain. Admin can deliver to any wallet linked to the depositor.
+The `intendedRecipient` (user's linked wallet at mint time) is recorded but is not enforced on-chain for custody mints. Admin can deliver to any wallet linked to the depositor.
 
 ---
 
@@ -238,7 +261,7 @@ All admin vault ops require the marketplace admin session.
 | File | Responsibility |
 |------|----------------|
 | `backend/src/vault/vault.service.ts` | DB state machine (reserveCycle, recordMintResult, requestRedemption, completeRedemptionBurn, confirmVaultRelease, getHistoryForCert) |
-| `backend/src/rwa/rwa-mint.service.ts` | Orchestrates upload → reserveCycle → mintTo(custody) → recordMintResult |
+| `backend/src/rwa/rwa-mint.service.ts` | reserveCycle → mintTo(custody|user) → recordMintResult (+ cost basis on direct) |
 | `backend/src/rwa/rwa-redeem.service.ts` | User redemption request flow |
 | `backend/src/blockchain/rwa-chain-writer.service.ts` | mintTo, safeTransferFromCustody, adminBurn |
 | `backend/src/marketplace/collections/rwa-token-admin.service.ts` | listCustodyHeldNfts, deliverCustodyNftToUser, burnTokenOnChain, confirmRedemptionRelease |

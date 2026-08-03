@@ -39,7 +39,7 @@ export function CollectionListingBuyerEducation() {
             <span className="cd-listing-prov__protect-check" aria-hidden>
               ✓
             </span>
-            <span>Want the physical card? Withdraw it anytime from your portfolio</span>
+            <span>Want the physical card? Redeem it anytime from your portfolio</span>
           </div>
         </div>
       </details>

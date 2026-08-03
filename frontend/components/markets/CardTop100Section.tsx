@@ -376,7 +376,7 @@ function LeaderboardCardRow({
           {top100CardTitle(item)}
         </p>
         {subText ? (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{subText}</p>
+          <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500">{subText}</p>
         ) : null}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
           <GradeBadge grade={item.grade} />

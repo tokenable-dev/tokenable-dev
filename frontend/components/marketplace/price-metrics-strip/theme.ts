@@ -27,7 +27,7 @@ export const orderBookTradesRowValueCls = `${collectionDetailArialClass} tabular
 export const orderBookRowValueCls = orderBookTradesRowValueCls;
 
 /** Order book column headers (Price, Side, Time) — distinct from tabs via case/color, not tiny type. */
-export const orderBookColumnHeaderCls = `${collectionDetailArialClass} text-[11px] font-medium uppercase leading-none tracking-[0.08em] text-zinc-500 lg:text-[13px] lg:tracking-[0.07em]`;
+export const orderBookColumnHeaderCls = `${collectionDetailArialClass} text-xs font-medium uppercase leading-none tracking-[0.08em] text-zinc-500 lg:text-[13px] lg:tracking-[0.07em]`;
 
 /** Trades / order book 3-column grid — equal width; Price right, middle centered, Time right. */
 export const ORDER_BOOK_THREE_COL_GRID = "grid grid-cols-3 gap-x-4 sm:gap-x-5";
@@ -39,7 +39,7 @@ export const ORDER_BOOK_TRADES_FOUR_COL_GRID = "grid grid-cols-4 gap-x-3";
 export const orderBookTradesContentValueCls = `${collectionDetailArialClass} text-[12px] font-normal leading-[1.3] tracking-tight tabular-nums`;
 
 /** Flush trades column headers. */
-export const orderBookTradesFlushHeaderCls = `${collectionDetailArialClass} text-[9px] font-medium uppercase leading-none tracking-[0.07em] text-zinc-500 sm:text-[10px] lg:text-[11px]`;
+export const orderBookTradesFlushHeaderCls = `${collectionDetailArialClass} text-[9px] font-medium uppercase leading-none tracking-[0.07em] text-zinc-500 sm:text-[10px] lg:text-xs`;
 
 export const orderBookColStartCls = "justify-self-start text-left";
 export const orderBookColMidCls = "justify-self-start text-left pl-0";

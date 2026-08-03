@@ -25,6 +25,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
 | `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
+| `/marketplace/admin/vault/psa-mail` | **PSA mail** | Items Received Gmail queue — confirm → At PSA |
 | `/marketplace/admin/vault/submissions` | **Submissions** | Sell-flow packages — live pipeline counts, mark arrived, approve/reject cards |
 | `/marketplace/admin/vault` | **Vault / PSA** | Mint-only PSA tools (`analyze-by-cert`, slab OCR). Raw Public API proxies disabled |
 

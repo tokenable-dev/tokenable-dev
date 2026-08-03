@@ -13,24 +13,18 @@ function formatUsdc(atomic: string): string {
 
 function P2pCard({ listing }: { listing: P2pListing }) {
   return (
-    <Link
-      href={`/p2p/listings/${listing.id}`}
-      className="block border border-[var(--border)] bg-[var(--surface)] p-4 transition hover:border-[var(--azure)]"
-    >
-      <div className="mb-2 inline-block text-[11px] font-semibold uppercase tracking-wide text-[var(--azure)]">
-        P2P · Physical delivery
-      </div>
-      <div className="text-[15px] font-medium text-[var(--ink)]">
+    <Link href={`/p2p/listings/${listing.id}`} className="mk-p2p-card">
+      <div className="mk-p2p-card__badge">P2P · Physical delivery</div>
+      <div className="mk-p2p-card__name">
         {listing.displayName || `PSA #${listing.certNumber}`}
       </div>
-      <div className="mt-1 text-[13px] text-[var(--muted)]">Cert {listing.certNumber}</div>
-      <div className="mt-3 text-[17px] font-semibold text-[var(--ink)]">
-        ${formatUsdc(listing.priceUsdc)} USDC
-      </div>
+      <div className="mk-p2p-card__cert">Cert {listing.certNumber}</div>
+      <div className="mk-p2p-card__price">${formatUsdc(listing.priceUsdc)} USDC</div>
     </Link>
   );
 }
 
+/** Markets.html P2P band — shown when active listings exist. */
 export function MarketsP2pSection() {
   const chainId = activeRqChainId();
   const q = useQuery({
@@ -42,9 +36,9 @@ export function MarketsP2pSection() {
   const items = q.data ?? [];
   if (q.isPending) {
     return (
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold text-[var(--ink)]">P2P listings</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">Loading…</p>
+      <section className="tkl-wrap mk-p2p-section">
+        <h2 className="mk-p2p-section__title">P2P listings</h2>
+        <p className="mk-p2p-section__sub">Loading…</p>
       </section>
     );
   }
@@ -52,19 +46,19 @@ export function MarketsP2pSection() {
   if (!items.length) return null;
 
   return (
-    <section className="mt-10">
-      <div className="mb-4 flex items-end justify-between gap-4">
+    <section className="tkl-wrap mk-p2p-section">
+      <div className="mk-p2p-section__head">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--ink)]">P2P listings</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
+          <h2 className="mk-p2p-section__title">P2P listings</h2>
+          <p className="mk-p2p-section__sub">
             Buy the physical card — USDC held in escrow until you confirm receipt.
           </p>
         </div>
-        <Link href="/sell/p2p" className="text-sm text-[var(--azure)] hover:underline">
+        <Link href="/sell/p2p" className="mk-p2p-section__cta">
           List for P2P sale
         </Link>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mk-p2p-grid">
         {items.map((listing) => (
           <P2pCard key={listing.id} listing={listing} />
         ))}

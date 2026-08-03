@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput } from "@/components/ds";
 import { TkDialog } from "@/components/ds/Dialog";
 
 export function PortfolioCostBasisModal({
@@ -61,19 +61,17 @@ export function PortfolioCostBasisModal({
         </div>
       }
     >
-      <label className="mb-1 block text-xs text-[var(--t2)]" htmlFor="cost-basis-usd">
-        Cost basis (USD)
-      </label>
-      <input
-        id="cost-basis-usd"
-        type="text"
-        inputMode="decimal"
-        className="w-full rounded-lg border border-white/12 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-mint/50"
-        placeholder="e.g. 1250"
-        value={value}
-        disabled={pending}
-        onChange={(e) => setValue(e.target.value)}
-      />
+      <TkField label="Cost basis (USD)" htmlFor="cost-basis-usd">
+        <TkInput
+          id="cost-basis-usd"
+          type="text"
+          inputMode="decimal"
+          placeholder="e.g. 1250"
+          value={value}
+          disabled={pending}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </TkField>
     </TkDialog>
   );
 }

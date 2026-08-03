@@ -83,7 +83,7 @@ export function MintForm() {
                 )}
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS &&
                   psa.lastAnalyze?.psa.cardNameHint?.trim() && (
-                    <p className="text-[11px] leading-relaxed text-gray-500">
+                    <p className="text-xs leading-relaxed text-gray-500">
                       Listing title uses the PSA slab label:{" "}
                       <span className="text-gray-400">
                         {psa.lastAnalyze.psa.cardNameHint.trim()}

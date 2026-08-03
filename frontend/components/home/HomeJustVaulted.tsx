@@ -19,7 +19,7 @@ export function HomeJustVaulted() {
           </p>
         </div>
         <button type="button" className="tkl-view-all" onClick={() => navigate("/markets", 0)}>
-          Browse markets ↗
+          Browse the vault ↗
         </button>
       </div>
       {isPending ? (

@@ -6,7 +6,7 @@ import { createP2pListing } from "@/lib/core/api/p2p";
 import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkCheckbox, TkField, TkInput } from "@/components/ds";
 
 /**
  * Minimal P2P list flow: assumes tokenURI already uploaded via /rwa/upload (or paste).
@@ -73,48 +73,39 @@ export default function SellP2pPage() {
         buyer after sale. USDC is held on-chain until they confirm receipt.
       </p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <label className="block text-sm">
-          <span className="text-[var(--muted)]">PSA cert number</span>
-          <input
-            className="mt-1 w-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+        <TkField label="PSA cert number" htmlFor="p2p-cert">
+          <TkInput
+            id="p2p-cert"
             value={certNumber}
             onChange={(e) => setCertNumber(e.target.value)}
             required
           />
-        </label>
-        <label className="block text-sm">
-          <span className="text-[var(--muted)]">tokenURI (from IPFS upload)</span>
-          <input
-            className="mt-1 w-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+        </TkField>
+        <TkField label="tokenURI (from IPFS upload)" htmlFor="p2p-token-uri">
+          <TkInput
+            id="p2p-token-uri"
             value={tokenURI}
             onChange={(e) => setTokenURI(e.target.value)}
             placeholder="ipfs://…"
             required
           />
-        </label>
-        <label className="block text-sm">
-          <span className="text-[var(--muted)]">Listing price (USD)</span>
-          <input
+        </TkField>
+        <TkField label="Listing price (USD)" htmlFor="p2p-price">
+          <TkInput
+            id="p2p-price"
             type="number"
             min="0"
             step="0.01"
-            className="mt-1 w-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
             value={priceUsd}
             onChange={(e) => setPriceUsd(e.target.value)}
             required
           />
-        </label>
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={accepted}
-            onChange={(e) => setAccepted(e.target.checked)}
-            className="mt-1"
-          />
-          <span>
-            I accept full responsibility for the authenticity of the card I am listing.
-          </span>
-        </label>
+        </TkField>
+        <TkCheckbox
+          label="I accept full responsibility for the authenticity of the card I am listing."
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+        />
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <TkButton type="submit" variant="primary" disabled={busy}>
           {busy ? "Minting & listing…" : "Mint & list"}

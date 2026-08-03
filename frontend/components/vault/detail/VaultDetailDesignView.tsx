@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { TkButton, TkTag } from "@/components/ds";
+import { TkButton, TkInput, TkSelect, TkTag } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
@@ -156,13 +156,13 @@ function TrackingCard({
           Register Tracking Number
         </span>
         <div className="vault-detail-tracking-form">
-          <select className="vault-ship-select" defaultValue="fedex" disabled>
-            <option>FedEx</option>
-            <option>DHL Express</option>
-            <option>UPS</option>
-            <option>Korea Post EMS</option>
-          </select>
-          <input className="vault-ship-input" placeholder="Tracking number" disabled />
+          <TkSelect defaultValue="fedex" disabled aria-label="Carrier">
+            <option value="fedex">FedEx</option>
+            <option value="dhl">DHL Express</option>
+            <option value="ups">UPS</option>
+            <option value="ems">Korea Post EMS</option>
+          </TkSelect>
+          <TkInput placeholder="Tracking number" disabled aria-label="Tracking number" />
         </div>
         <Link href="/sell/shipping" className="tk-btn tk-btn--primary vault-detail-tracking-cta">
           Register Tracking →
@@ -305,7 +305,7 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       </div>
       <div className="vault-detail-row">
         <span className="vault-detail-k">Stored</span>
-        <span className="vault-detail-v mono text-white/50">{stored ? "PSA · Lloyd’s" : "—"}</span>
+        <span className="vault-detail-v mono text-white/50">{stored ? "PSA Vault" : "—"}</span>
       </div>
       <div className="vault-detail-row">
         <span className="vault-detail-k">Status</span>

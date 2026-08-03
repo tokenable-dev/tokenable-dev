@@ -116,7 +116,7 @@ export const ADMIN_TABLE_TD =
   `border-b border-zinc-100 px-3 py-2.5 ${ADMIN_TEXT_BODY} first:pl-4 last:pr-4 sm:px-4`;
 
 export const ADMIN_BADGE =
-  "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium";
+  "inline-flex rounded-md px-2 py-0.5 text-xs font-medium";
 
 export const ADMIN_TOOLBAR =
   "mb-4 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:p-4";

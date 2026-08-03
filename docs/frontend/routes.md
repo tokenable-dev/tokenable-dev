@@ -19,7 +19,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/markets/top100/card/[cardId]` | `app/markets/top100/card/[cardId]/page.tsx` | Top 100 card detail |
 | `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / in-progress shipment |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
-| `/sell/flow` | `app/sell/flow/page.tsx` | Become a seller + add cards (KYC, PSA cert) |
+| `/sell/flow` | `app/sell/flow/page.tsx` | Become a seller → choose vault → add cards (PSA → ship, or self → custody mint) |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack & tracking (PSA Shipping) |
 | `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Mint entry alias |
@@ -45,6 +45,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/marketplace/admin/price-webhooks` | `app/marketplace/admin/price-webhooks/page.tsx` | Admin — Cardhedger price sync (delta import) |
 | `/marketplace/admin/contract-roles` | `app/marketplace/admin/contract-roles/page.tsx` | Admin — on-chain roles |
 | `/marketplace/admin/vault` | `app/marketplace/admin/vault/page.tsx` | Admin — PSA / vault tooling |
+| `/marketplace/admin/vault/psa-mail` | `app/marketplace/admin/vault/psa-mail/page.tsx` | Admin — PSA Items Received mail inbox |
 | `/marketplace/admin/vault/submissions` | `app/marketplace/admin/vault/submissions/page.tsx` | Admin — sell-flow package ops |
 
 Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=…`.

@@ -158,18 +158,17 @@
 }
 
 .rd-list-sheet__price-wrap {
-  border-color: rgba(0, 51, 255, 0.35) !important;
-  background: rgba(0, 51, 255, 0.06) !important;
-  box-shadow: inset 0 0 0 1px rgba(0, 51, 255, 0.08) !important;
+  position: relative;
 }
 
-.rd-list-sheet__price-wrap:focus-within {
-  border-color: rgba(0, 51, 255, 0.55) !important;
-  box-shadow: 0 0 0 2px rgba(0, 51, 255, 0.12) !important;
+/* Beat .tk-input { padding: 10px 14px } so $ prefix / USDC suffix don't overlap digits */
+.rd-list-sheet__price-wrap .tk-input {
+  padding-left: 34px;
+  padding-right: 58px;
 }
 
 .rd-list-sheet__usdc {
-  color: rgba(0, 51, 255, 0.75) !important;
+  color: rgba(0, 0, 0, 0.45) !important;
 }
 
 .rd-list-sheet__mkt {
@@ -214,6 +213,12 @@
   color: #fff;
 }
 
+.rd-list-sheet__ref-val--muted {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .rd-list-sheet__ref-actions {
   display: flex;
   flex-direction: column;
@@ -253,14 +258,16 @@
 
 .rd-list-sheet__dollar {
   position: absolute;
-  left: 14px;
+  left: 16px;
   top: 50%;
+  z-index: 1;
   transform: translateY(-50%);
   font-family: var(--font-mono);
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.4);
   pointer-events: none;
-  z-index: 1;
 }
 
 .rd-list-sheet__fee {

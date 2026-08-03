@@ -153,7 +153,7 @@ function MoverCardRow({
           {top100CardTitle(item)}
         </p>
         {subText ? (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{subText}</p>
+          <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500">{subText}</p>
         ) : null}
         {item.headlineGrade ? (
           <p className="mt-1 text-[10px] text-zinc-500">{item.headlineGrade}</p>
@@ -164,7 +164,7 @@ function MoverCardRow({
           {formatGainPct(item.gain)}
         </p>
         {item.headlinePrice != null ? (
-          <p className="mt-0.5 text-[10px] tabular-nums text-zinc-500 sm:text-[11px]">
+          <p className="mt-0.5 text-[10px] tabular-nums text-zinc-500 sm:text-xs">
             {formatTop100Usd(item.headlinePrice)}
           </p>
         ) : null}

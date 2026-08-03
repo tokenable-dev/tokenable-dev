@@ -7,7 +7,7 @@ const SOURCE_TEXT_CLASS =
   "min-w-0 max-w-full truncate text-center text-[12px] font-normal leading-snug tracking-tight text-zinc-400";
 
 const SOURCE_TEXT_CLASS_COMPACT =
-  "min-w-0 max-w-full truncate text-center text-[11px] font-normal leading-snug tracking-tight text-zinc-400";
+  "min-w-0 max-w-full truncate text-center text-xs font-normal leading-snug tracking-tight text-zinc-400";
 
 /** Full-width grid cell — Source label centered under the column header. */
 export function TradesSourceCell({

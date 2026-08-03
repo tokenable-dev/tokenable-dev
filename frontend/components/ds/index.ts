@@ -4,8 +4,8 @@ export type { TkButtonProps, TkButtonVariant, TkButtonSize } from "./Button";
 export { TkIconButton } from "./IconButton";
 export type { TkIconButtonProps, TkIconButtonVariant, TkIconButtonSize } from "./IconButton";
 
-export { TkInput, TkTextarea } from "./Input";
-export type { TkInputProps, TkTextareaProps } from "./Input";
+export { TkInput, TkTextarea, TkSelect } from "./Input";
+export type { TkInputProps, TkTextareaProps, TkSelectProps } from "./Input";
 
 export { TkField } from "./Field";
 export type { TkFieldProps } from "./Field";

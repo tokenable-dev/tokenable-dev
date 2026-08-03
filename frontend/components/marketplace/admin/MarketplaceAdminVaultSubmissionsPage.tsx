@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { AdminVaultSubmission } from "@/lib/core";
 import {
   useAdminVaultSubmissionCounts,
@@ -27,6 +28,7 @@ import {
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+import Link from "next/link";
 
 type PipelineKey =
   | "all"
@@ -141,9 +143,11 @@ function nextActionLabel(sub: AdminVaultSubmission): string | null {
 }
 
 export function MarketplaceAdminVaultSubmissionsPage() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams.get("q")?.trim() ?? "";
   const [status, setStatus] = useState<PipelineKey>("all");
-  const [q, setQ] = useState("");
-  const [search, setSearch] = useState("");
+  const [q, setQ] = useState(initialQ);
+  const [search, setSearch] = useState(initialQ);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejectItemId, setRejectItemId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -152,14 +156,26 @@ export function MarketplaceAdminVaultSubmissionsPage() {
   const countsQuery = useAdminVaultSubmissionCounts();
   const listQuery = useAdminVaultSubmissions(status, search);
   const detailQuery = useAdminVaultSubmissionDetail(selectedId);
-  const { markArrived, setStatus: setPkgStatus, setItemStatus } =
-    useAdminVaultSubmissionMutations();
+  const {
+    markArrived,
+    setStatus: setPkgStatus,
+    setItemStatus,
+  } = useAdminVaultSubmissionMutations();
 
   const counts = countsQuery.data;
   const list = listQuery.data ?? [];
   const detail = detailQuery.data ?? null;
   const busy =
-    markArrived.isPending || setPkgStatus.isPending || setItemStatus.isPending;
+    markArrived.isPending ||
+    setPkgStatus.isPending ||
+    setItemStatus.isPending;
+
+  useEffect(() => {
+    const next = searchParams.get("q")?.trim() ?? "";
+    if (!next) return;
+    setQ(next);
+    setSearch(next);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!selectedId && list.length > 0) {
@@ -195,6 +211,17 @@ export function MarketplaceAdminVaultSubmissionsPage() {
         title="Vault submissions"
         subtitle="Track sell-flow packages from draft → PSA → mint. Mark arrivals, approve or reject cards, and keep users’ Vault Detail scenarios in sync."
       />
+
+      <p className={`mb-4 text-sm ${ADMIN_TEXT_MUTED}`}>
+        PSA Items Received mail is managed in{" "}
+        <Link
+          href="/marketplace/admin/vault/psa-mail"
+          className="font-medium text-sky-800 underline-offset-2 hover:underline"
+        >
+          PSA mail
+        </Link>
+        .
+      </p>
 
       {/* Pipeline overview */}
       <div className={`${ADMIN_ARTICLE} mb-6`}>
@@ -249,7 +276,7 @@ export function MarketplaceAdminVaultSubmissionsPage() {
                   <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-900">
                     {n}
                   </p>
-                  <p className={`mt-0.5 text-[11px] leading-snug ${ADMIN_TEXT_META}`}>
+                  <p className={`mt-0.5 text-xs leading-snug ${ADMIN_TEXT_META}`}>
                     {stage.hint}
                   </p>
                 </button>

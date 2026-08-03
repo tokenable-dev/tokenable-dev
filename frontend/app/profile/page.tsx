@@ -147,7 +147,7 @@ export default function ProfilePage() {
 
                     {embedded ? (
                       <div className="border-t border-white/[0.06] pt-3">
-                        <p className="mb-2 text-[11px] leading-relaxed text-[var(--t2)]">
+                        <p className="mb-2 text-xs leading-relaxed text-[var(--t2)]">
                           Export your private key to import this wallet into MetaMask or any
                           external wallet app.
                         </p>
@@ -161,7 +161,7 @@ export default function ProfilePage() {
                           {exporting === w.address ? "Opening…" : "Export private key"}
                         </TkButton>
                         {exportError && exporting !== w.address ? (
-                          <p className="mt-2 text-[11px] text-[var(--neg)]">{exportError}</p>
+                          <p className="mt-2 text-xs text-[var(--neg)]">{exportError}</p>
                         ) : null}
                       </div>
                     ) : null}

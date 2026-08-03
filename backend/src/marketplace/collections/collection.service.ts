@@ -323,6 +323,12 @@ export class CollectionService {
       void this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
     }
 
+    // Spec Grade1–10 lives on components (mutable catalog), not mint IPFS.
+    // SpecID-deduped: sibling cache first, else one GetPSASpecPopulation.
+    await this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
+      allowUpstream: true,
+    });
+
     void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
       tokenUri: uri,
       collectionKey,
@@ -724,7 +730,7 @@ export class CollectionService {
     return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
   }
 
-  /** No-op — mint-only PSA policy (never fetch pop on collection read). */
+  /** No-op — Spec pop is filled at collection create, never on detail read. */
   async ensurePsaSpecPopulationOnReadIfMissing(
     _collectionKey: string,
   ): Promise<void> {

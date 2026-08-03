@@ -57,7 +57,7 @@ backend/src/
 ├── rwa/                     # IPFS upload (Pinata), platform-signed mint, redeem-request
 │   ├── rwa.controller.ts    # POST /upload, /mint, /redeem-request
 │   ├── rwa.service.ts       # IPFS upload logic + PSA 10 gate
-│   ├── rwa-mint.service.ts  # Orchestrates vault cycle + chain writer mint to custody
+│   ├── rwa-mint.service.ts  # Vault cycle + mint (custody default; direct for self vault)
 │   ├── rwa-redeem.service.ts
 │   ├── bulk-mint/           # Partner bulk mint jobs
 │   └── admin/               # Bulk-mint admin controller
@@ -131,11 +131,12 @@ POST /api/rwa/upload
 
 POST /api/rwa/mint  (JWT required)
   → VaultService.reserveCycleForDeposit()
-  → RwaChainWriterService.mintTo(custodyWallet, tokenURI, vaultRef)
+  → RwaChainWriterService.mintTo(custodyWallet | recipient, tokenURI, vaultRef)
+     (deliveryMode=custody default; direct for self vault)
   → VaultService.recordMintResult()
-  → returns { tokenId, txHash, custodyWallet, intendedRecipient }
+  → returns { tokenId, txHash, custodyWallet, mintedTo, intendedRecipient, deliveryMode }
 
-POST /api/marketplace/admin/rwa-tokens/:id/deliver
+POST /api/marketplace/admin/rwa-tokens/:id/deliver  (custody path only)
   → RwaChainWriterService.safeTransferFromCustody(tokenId, userPrimaryWallet)
 
 POST /api/rwa/redeem-request  (JWT required)

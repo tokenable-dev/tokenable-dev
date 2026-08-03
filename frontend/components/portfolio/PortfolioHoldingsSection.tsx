@@ -4,8 +4,12 @@ import { useMemo } from "react";
 import type { Order, RwaMetadata } from "@/lib/core";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  isRedeemInFlight,
+  redeemSurfaceBadge,
+} from "@/lib/portfolio/redeemDraft";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
-import { TkTable, TkTag } from "@/components/ds";
+import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import {
@@ -20,6 +24,7 @@ import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { RedeemSelectModeBar } from "./redeem/RedeemSelectModeBar";
 
 type HoldingsSortKey = "name" | "grade" | "cost" | "value" | "pl";
 
@@ -44,6 +49,21 @@ export function PortfolioHoldingsSection({
   savingCostBasisTokenId,
   onOpenToken,
   onSetPrice,
+  redeemSelectMode = false,
+  redeemSelected,
+  redeemEligibleIds,
+  redeemLimitError = null,
+  redeemStatusByTokenId,
+  onEnterRedeemSelect,
+  onExitRedeemSelect,
+  onToggleRedeemToken,
+  onContinueRedeem,
+  redeemMaxBatch = 50,
+  hasMoreAssets = false,
+  isLoadingMoreAssets = false,
+  onLoadMoreAssets,
+  loadedAssetCount,
+  totalAssetCount,
 }: {
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
@@ -57,6 +77,21 @@ export function PortfolioHoldingsSection({
   savingCostBasisTokenId?: number | null;
   onOpenToken: (tokenId: number) => void;
   onSetPrice: (tokenId: number) => void;
+  redeemSelectMode?: boolean;
+  redeemSelected?: Set<number>;
+  redeemEligibleIds?: Set<number>;
+  redeemLimitError?: string | null;
+  redeemStatusByTokenId?: Map<number, string>;
+  hasMoreAssets?: boolean;
+  isLoadingMoreAssets?: boolean;
+  onLoadMoreAssets?: () => void;
+  loadedAssetCount?: number;
+  totalAssetCount?: number;
+  onEnterRedeemSelect?: () => void;
+  onExitRedeemSelect?: () => void;
+  onToggleRedeemToken?: (tokenId: number, checked: boolean) => void;
+  onContinueRedeem?: () => void;
+  redeemMaxBatch?: number;
 }) {
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<HoldingsSortKey>("name");
@@ -111,8 +146,47 @@ export function PortfolioHoldingsSection({
     );
   }
 
+  const selectedCount = redeemSelected?.size ?? 0;
+
   return (
     <>
+      <div className="pf-holdings-toolbar">
+        {!redeemSelectMode ? (
+          <TkButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="pf-redeem-toolbar-btn"
+            onClick={onEnterRedeemSelect}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+            >
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="7.5 4.21 12 6.81 16.5 4.21" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            </svg>
+            Redeem
+          </TkButton>
+        ) : null}
+      </div>
+
+      {redeemSelectMode ? (
+        <div
+          className={`pf-redeem-hint${redeemLimitError ? " pf-redeem-hint--err" : ""}`}
+          role="status"
+        >
+          {redeemLimitError ??
+            `Select up to ${redeemMaxBatch} cards to redeem together. One shipping fee covers the whole batch.`}
+        </div>
+      ) : null}
+
       <PortfolioMobileSort
         options={[...HOLDINGS_SORT_OPTIONS]}
         value={mobileSortValue}
@@ -130,6 +204,10 @@ export function PortfolioHoldingsSection({
           const highestBidUsd = ck
             ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
             : null;
+          const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+          const badge = redeemSurfaceBadge(redeemStatus);
+          const tradeBlocked = isRedeemInFlight(redeemStatus);
+          const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
 
           return (
             <PortfolioMobileAssetCard
@@ -142,6 +220,20 @@ export function PortfolioHoldingsSection({
               savingCostBasis={savingCostBasisTokenId === row.tokenId}
               isListed={isListed}
               highestBidUsd={highestBidUsd}
+              selectMode={redeemSelectMode}
+              selected={redeemSelected?.has(row.tokenId) ?? false}
+              selectable={selectable}
+              redeemBadge={badge}
+              actionsDisabled={tradeBlocked || redeemSelectMode}
+              actionsDisabledTitle={
+                tradeBlocked
+                  ? "Redemption in progress — listing unavailable"
+                  : undefined
+              }
+              actionStatusLabel={badge?.label ?? null}
+              onToggleSelect={(checked) =>
+                onToggleRedeemToken?.(row.tokenId, checked)
+              }
               onOpen={() => onOpenToken(row.tokenId)}
               onSaveCostBasis={
                 onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
@@ -236,14 +328,34 @@ export function PortfolioHoldingsSection({
                 ? "pf-table-pl--pos"
                 : "pf-table-pl--neg"
               : "";
+            const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+            const badge = redeemSurfaceBadge(redeemStatus);
+            const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
+            const selected = redeemSelected?.has(row.tokenId) ?? false;
+            const costEditable =
+              Boolean(canEditCostBasis && onSaveCostBasis) &&
+              !redeemSelectMode &&
+              !tradeBlocked;
 
             return (
               <tr
                 key={row.tokenId}
-                onClick={() => onOpenToken(row.tokenId)}
+                className={redeemSelectMode && selected ? "pf-holdings-row--selected" : undefined}
+                onClick={() => {
+                  if (redeemSelectMode) {
+                    if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
+                    return;
+                  }
+                  onOpenToken(row.tokenId);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    if (redeemSelectMode) {
+                      if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
+                      return;
+                    }
                     onOpenToken(row.tokenId);
                   }
                 }}
@@ -252,6 +364,33 @@ export function PortfolioHoldingsSection({
               >
                 <td data-label="Card">
                   <div className="pf-table-card-cell">
+                    {redeemSelectMode ? (
+                      <span
+                        className="pf-redeem-chk-cell"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="pf-redeem-chk"
+                          checked={selected}
+                          disabled={!selectable}
+                          title={
+                            selectable
+                              ? "Select for redeem"
+                              : isListed
+                                ? "Cancel listing before redeeming"
+                                : tradeBlocked
+                                  ? "Already in a redemption"
+                                  : "Not eligible for redeem"
+                          }
+                          onChange={(e) =>
+                            onToggleRedeemToken?.(row.tokenId, e.target.checked)
+                          }
+                          aria-label={`Select ${row.name} for redeem`}
+                        />
+                      </span>
+                    ) : null}
                     <div className="pf-table-thumb">
                       {row.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -261,13 +400,21 @@ export function PortfolioHoldingsSection({
                     <span className="pf-table-card-name" title={row.name}>
                       {row.name}
                     </span>
+                    {badge ? (
+                      <span className={`pf-redeem-badge pf-redeem-badge--${badge.tone}`}>
+                        {badge.label}
+                      </span>
+                    ) : null}
                   </div>
                 </td>
                 <td data-label="Grade" className="pf-col-grade-cell">
                   {grade ? (
-                    <TkTag tone="neutral" appearance="soft">
-                      {grade}
-                    </TkTag>
+                    <span className="pf-grade-vault">
+                      <TkTag tone="neutral" appearance="soft">
+                        {grade}
+                      </TkTag>
+                      <span className="pf-vault-chip">PSA Vault</span>
+                    </span>
                   ) : (
                     "—"
                   )}
@@ -282,9 +429,9 @@ export function PortfolioHoldingsSection({
                       layout="desktop"
                       assetName={row.name}
                       valueUsd={cost}
-                      editable={Boolean(canEditCostBasis && onSaveCostBasis)}
+                      editable={costEditable}
                       saving={savingCostBasisTokenId === row.tokenId}
-                      showMintPriceNote={Boolean(canEditCostBasis && cost != null)}
+                      showMintPriceNote={Boolean(costEditable && cost != null)}
                       onSave={(usd) => void onSaveCostBasis?.(row.tokenId, usd)}
                     />
                   </div>
@@ -312,17 +459,22 @@ export function PortfolioHoldingsSection({
                 </td>
                 <td data-label="Action" className="pf-col-action-cell">
                   <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    <PortfolioHoldingsRowActions
-                      isListed={isListed}
-                      highestBidUsd={highestBidUsd}
-                      onSetPrice={() => {
-                        trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                          card_id: String(row.tokenId),
-                          current_price: row.currentPrice ?? undefined,
-                        });
-                        onSetPrice(row.tokenId);
-                      }}
-                    />
+                    {redeemSelectMode && !badge ? (
+                      <span className="tkl-mono pf-table-muted">—</span>
+                    ) : (
+                      <PortfolioHoldingsRowActions
+                        isListed={isListed}
+                        highestBidUsd={highestBidUsd}
+                        statusLabel={badge?.label ?? null}
+                        onSetPrice={() => {
+                          trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                            card_id: String(row.tokenId),
+                            current_price: row.currentPrice ?? undefined,
+                          });
+                          onSetPrice(row.tokenId);
+                        }}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -330,6 +482,38 @@ export function PortfolioHoldingsSection({
           })}
         </tbody>
       </TkTable>
+
+      {hasMoreAssets && onLoadMoreAssets && !redeemSelectMode ? (
+        <div className="pf-load-more">
+          {typeof loadedAssetCount === "number" &&
+          typeof totalAssetCount === "number" &&
+          totalAssetCount > 0 ? (
+            <p className="pf-load-more__meta">
+              Showing {loadedAssetCount} of {totalAssetCount}
+            </p>
+          ) : null}
+          <TkButton
+            type="button"
+            variant="subtle"
+            size="sm"
+            className="pf-load-more__btn"
+            disabled={isLoadingMoreAssets}
+            onClick={onLoadMoreAssets}
+          >
+            {isLoadingMoreAssets ? "Loading…" : "Load more"}
+          </TkButton>
+        </div>
+      ) : null}
+
+      {redeemSelectMode && onExitRedeemSelect && onContinueRedeem ? (
+        <RedeemSelectModeBar
+          selectedCount={selectedCount}
+          maxBatch={redeemMaxBatch}
+          limitError={redeemLimitError}
+          onCancel={onExitRedeemSelect}
+          onContinue={onContinueRedeem}
+        />
+      ) : null}
     </>
   );
 }

@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -21,6 +23,8 @@ import {
 } from '../blockchain/chain-config.service';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import { MintRwaDto } from './dto/mint-rwa.dto';
+import { ListMyRedemptionsQueryDto } from './dto/list-my-redemptions-query.dto';
+import { RedeemEstimateQueryDto } from './dto/redeem-estimate-query.dto';
 import { RedeemRequestDto } from './dto/redeem-request.dto';
 import { UploadRwaResult } from './interfaces/rwa-metadata.interface';
 import { RwaMintService } from './rwa-mint.service';
@@ -83,7 +87,7 @@ export class RwaController {
     return this.rwaService.uploadToIpfs(dto, chainId, file);
   }
 
-  /** Platform owner wallet mints RWA to custody; admin delivers to user's linked wallet. */
+  /** Mint RWA (owner-signed). Default custody + admin deliver; `deliveryMode=direct` for self vault. */
   @ApiBearerAuth()
   @ApiChainIdHeader()
   @ApiOperation({
@@ -120,5 +124,33 @@ export class RwaController {
   ) {
     const chainId = this.chainConfig.requireChainId(chainHeader);
     return this.rwaRedeem.requestRedemption(req.user, dto, chainId);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List redemption requests for the signed-in user (portfolio badges)',
+  })
+  @Get('redemptions/mine')
+  @UseGuards(JwtAuthGuard)
+  listMyRedemptions(
+    @Req() req: Request & { user: User },
+    @Query() query: ListMyRedemptionsQueryDto,
+  ) {
+    return this.rwaRedeem.listMyRedemptions(req.user, query.tokenIds);
+  }
+
+  /**
+   * PSA Vault shipping + per-card withdraw fee schedule for redeem estimate UI.
+   * Public — rates are published PSA schedule (override fee via env).
+   */
+  @ApiOperation({
+    summary: 'Estimate redeem shipping + PSA withdraw fees (rate API)',
+  })
+  @Get('redeem/estimate')
+  estimateRedeem(@Query() query: RedeemEstimateQueryDto) {
+    return this.rwaRedeem.estimateRedeemCost(
+      query.country,
+      query.cardCount ?? 1,
+    );
   }
 }

@@ -1,6 +1,6 @@
 # HTML prototypes (designer handoff)
 
-Path: `Tokenable-with design system/` (repo root). **Reference only** — not imported by Next.js.
+Path: `Tokenable-with design system-4/` (repo root). **Preferred HTML reference** — not imported by Next.js. Earlier folders (`Tokenable-with design system/`, `…-2/`, `…-3/`) are superseded for handoff.
 
 ## Page prototypes
 
@@ -12,7 +12,8 @@ Path: `Tokenable-with design system/` (repo root). **Reference only** — not im
 | `Portfolio.html` | Portfolio | `app/portfolio/page.tsx` | 6 |
 | `Watchlist.html` | Watchlist | `app/watchlist/page.tsx` | 7 |
 | `Sell.html` | Sell entry router | `app/sell/page.tsx` | 2 (ds-v2) |
-| `Sell-Flow.html` | KYC + add cards | `app/sell/flow/page.tsx` | ds-v2 |
+| `Sell-Flow.html` | KYC + vault choice + add cards (PSA ship / self mint) | `app/sell/flow/page.tsx` | ds-v2 |
+| `Choose-Vault.html` | Vault choice (standalone) | `SellFlowChooseVault` in `/sell/flow` | ds-v2 |
 | `PSA-Shipping.html` | Pack & tracking | `app/sell/shipping/page.tsx` | ds-v2 |
 | `Vault.html` | Vault landing | `app/vault/page.tsx` | 8 |
 | `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |

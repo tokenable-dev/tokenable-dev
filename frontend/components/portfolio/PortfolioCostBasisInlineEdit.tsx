@@ -102,7 +102,7 @@ export function PortfolioCostBasisInlineEdit({
       </span>
       <input
         ref={inputRef}
-        className="pf-cost-edit-input"
+        className="tk-input pf-cost-edit-input"
         type="text"
         inputMode="decimal"
         value={draft}

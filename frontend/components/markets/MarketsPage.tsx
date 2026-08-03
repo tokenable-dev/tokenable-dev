@@ -176,9 +176,7 @@ export default function MarketsPage() {
     <div className="markets-page">
       <HomeTicker />
       <MarketsPageHeader />
-      <div className="tkl-wrap">
-        <MarketsP2pSection />
-      </div>
+      <MarketsP2pSection />
 
       {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) && !showLoadingShell ? (
         <div className="tkl-wrap markets-preview-sections">

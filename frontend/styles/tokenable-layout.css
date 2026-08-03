@@ -387,14 +387,14 @@
   display: none;
   position: absolute;
   top: calc(100% + 0px);
-  left: auto;
+  left: 0;
   right: 0;
-  width: max(100%, min(480px, 42vw));
-  min-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0 0 12px 12px;
-  padding: 8px 16px 16px;
+  padding: 8px 12px 12px;
   z-index: 140;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   max-height: min(480px, 60vh);
@@ -470,7 +470,7 @@
 
 .gnb-search-item__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--t2);
   margin-top: 2px;
 }
@@ -577,7 +577,7 @@
 
 .gnb-search-truncated {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--warn);
   padding: 8px 0;
 }
@@ -804,7 +804,7 @@
 }
 
 .tkm-profile__kyc {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
@@ -1023,7 +1023,7 @@
 
 .gnb-search-overlay__dropdown h4 {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--t3);
@@ -1156,7 +1156,7 @@ body.gnb-drawer-open .mobile-page-root {
 
 .tk-footer__copy {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   letter-spacing: 0.04em;
   text-align: left;

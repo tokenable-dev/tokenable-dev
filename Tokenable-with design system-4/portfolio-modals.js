@@ -658,7 +658,8 @@ document.addEventListener('click', function(e){
     case 'remove-watch': pfRemoveWatchModal(name); break;
     case 'buy-now': pfBuyNowModal(name, val); break;
     case 'bid': pfBidModal(name, val); break;
-    case 'withdraw': window.location.href = 'Withdraw.html'; break;
+    case 'withdraw':
+    case 'redeem': window.location.href = 'Redeem.html'; break;
     case 'remove-asset': pfRemoveAssetModal(name); break;
   }
 });

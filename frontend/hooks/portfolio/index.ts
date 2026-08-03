@@ -1,4 +1,4 @@
-export { useUserAssets } from "./useUserAssets";
+export { useUserAssets, PORTFOLIO_ASSETS_PAGE_SIZE } from "./useUserAssets";
 export {
   usePortfolioCollectionKeys,
   usePortfolioListingCollectionKeys,
@@ -12,3 +12,6 @@ export { usePortfolioMyBids } from "./usePortfolioMyBids";
 export { usePortfolioBidActions } from "./usePortfolioBidActions";
 export { usePortfolioAcceptOffer } from "./usePortfolioAcceptOffer";
 export { usePortfolioCollectionTopBids } from "./usePortfolioCollectionTopBids";
+export { useRedeemSelection } from "./useRedeemSelection";
+export { useMyRedemptions } from "./useMyRedemptions";
+export { useRedeemFlow } from "./useRedeemFlow";

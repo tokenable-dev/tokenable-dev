@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import {
   getRwaTokensByOwner,
   postRwaMetadataBatchBatched,
@@ -31,6 +35,9 @@ const EMPTY_METADATA_ROWS: {
 }[] = [];
 const EMPTY_MARKET_PREVIEW: Record<number, CollectionMarketPreview> = {};
 
+/** Default My Assets page size when portfolio enables progressive metadata. */
+export const PORTFOLIO_ASSETS_PAGE_SIZE = 20;
+
 export interface UserOwnedAsset {
   tokenId: number;
   metadata: RwaMetadata | null;
@@ -48,6 +55,11 @@ export function useUserAssets(
     loadMarketOrders?: boolean;
     /** Keep prior page data while the owner address changes (default true). */
     retainPreviousOwner?: boolean;
+    /**
+     * When set, metadata loads in pages (newest tokenId first).
+     * Use `loadMoreAssets` / `hasMoreAssets` for a Load more control.
+     */
+    assetPageSize?: number;
   },
 ) {
   const enabled = (opts?.enabled ?? true) && Boolean(address?.trim());
@@ -56,6 +68,11 @@ export function useUserAssets(
   const retainPreviousOwner = opts?.retainPreviousOwner ?? true;
   const previousOwnerPlaceholder = retainPreviousOwner ? keepPreviousData : undefined;
   const chainId = activeRqChainId();
+  const pageSize =
+    typeof opts?.assetPageSize === "number" && opts.assetPageSize > 0
+      ? Math.floor(opts.assetPageSize)
+      : null;
+  const paged = pageSize != null;
 
   const tokenIdsQuery = useQuery({
     queryKey: rq.rwaTokens(address!, chainId),
@@ -66,10 +83,44 @@ export function useUserAssets(
 
   const tokenIds = useMemo(() => {
     const raw = tokenIdsQuery.data ?? EMPTY_TOKEN_IDS;
-    return [...new Set(raw)];
-  }, [tokenIdsQuery.data]);
+    const unique = [...new Set(raw)];
+    if (paged) {
+      // Newest mints first so the first page is the most relevant.
+      unique.sort((a, b) => b - a);
+    }
+    return unique;
+  }, [tokenIdsQuery.data, paged]);
 
-  const metadataQuery = useQuery({
+  const pagedMetadataQuery = useInfiniteQuery({
+    queryKey: [
+      ...rq.rwaMetadataBatch(address, tokenIds, chainId),
+      "infinite",
+      pageSize,
+    ] as const,
+    queryFn: async ({ pageParam }) => {
+      const start = pageParam;
+      const slice = tokenIds.slice(start, start + pageSize!);
+      const pack = await postRwaMetadataBatchBatched(slice);
+      primeRwaMetadataCache(
+        pack.items.map((it) => ({
+          tokenId: it.tokenId,
+          metadata: it.metadata,
+          imageUrl: it.imageUrl,
+        })),
+      );
+      return { start, slice, items: pack.items };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (last) => {
+      const next = last.start + last.slice.length;
+      return next < tokenIds.length ? next : undefined;
+    },
+    enabled: enabled && paged && tokenIds.length > 0,
+    staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
+    placeholderData: previousOwnerPlaceholder,
+  });
+
+  const fullMetadataQuery = useQuery({
     queryKey: rq.rwaMetadataBatch(address, tokenIds, chainId),
     queryFn: async () => {
       const pack = await postRwaMetadataBatchBatched(tokenIds);
@@ -82,10 +133,32 @@ export function useUserAssets(
       );
       return pack.items;
     },
-    enabled: enabled && tokenIds.length > 0,
+    enabled: enabled && !paged && tokenIds.length > 0,
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
     placeholderData: previousOwnerPlaceholder,
   });
+
+  const loadedTokenIds = useMemo(() => {
+    if (!paged) return tokenIds;
+    const ids: number[] = [];
+    for (const page of pagedMetadataQuery.data?.pages ?? []) {
+      ids.push(...page.slice);
+    }
+    return ids;
+  }, [paged, tokenIds, pagedMetadataQuery.data?.pages]);
+
+  const metadataRows = useMemo(() => {
+    if (!paged) return fullMetadataQuery.data ?? EMPTY_METADATA_ROWS;
+    const rows: {
+      tokenId: number;
+      metadata: RwaMetadata | null;
+      imageUrl: string | null;
+    }[] = [];
+    for (const page of pagedMetadataQuery.data?.pages ?? []) {
+      rows.push(...page.items);
+    }
+    return rows;
+  }, [paged, fullMetadataQuery.data, pagedMetadataQuery.data?.pages]);
 
   const ordersQuery = useQuery({
     queryKey: rq.ordersActive(chainId),
@@ -111,9 +184,9 @@ export function useUserAssets(
   });
 
   const assets: UserOwnedAsset[] = useMemo(() => {
-    const rows = metadataQuery.data ?? EMPTY_METADATA_ROWS;
-    const byToken = new Map(rows.map((row) => [row.tokenId, row]));
-    return tokenIds.map((tokenId) => {
+    const byToken = new Map(metadataRows.map((row) => [row.tokenId, row]));
+    const ids = paged ? loadedTokenIds : tokenIds;
+    return ids.map((tokenId) => {
       const row = byToken.get(tokenId);
       if (row) {
         return {
@@ -128,7 +201,7 @@ export function useUserAssets(
         imageUrl: getCachedRwaImageUrl(tokenId),
       };
     });
-  }, [tokenIds, metadataQuery.data]);
+  }, [paged, loadedTokenIds, tokenIds, metadataRows]);
 
   const historiesFlat: OrderListItem[] = useMemo(() => {
     const m = historyQuery.data ?? EMPTY_ORDER_HISTORY;
@@ -148,23 +221,45 @@ export function useUserAssets(
     [marketPreviewQuery.data],
   );
 
+  const isLoadingMetadata = paged
+    ? pagedMetadataQuery.isLoading
+    : fullMetadataQuery.isLoading;
+  const hasMoreAssets = paged
+    ? Boolean(pagedMetadataQuery.hasNextPage)
+    : false;
+  const isLoadingMoreAssets = paged
+    ? pagedMetadataQuery.isFetchingNextPage
+    : false;
+
+  const loadMoreAssets = useCallback(() => {
+    if (!paged || !pagedMetadataQuery.hasNextPage) return;
+    if (pagedMetadataQuery.isFetchingNextPage) return;
+    void pagedMetadataQuery.fetchNextPage();
+  }, [paged, pagedMetadataQuery]);
+
   return {
     address,
     tokenIds,
+    /** Token IDs that already have a metadata page loaded (paged mode). */
+    loadedTokenIds,
     assets,
     activeOrders,
     orderHistoryByToken,
     historiesFlat,
     marketPreviewByToken,
     isLoadingIds: tokenIdsQuery.isLoading,
-    isLoadingMetadata: metadataQuery.isLoading,
+    isLoadingMetadata,
     isLoadingHistoryBatch: historyQuery.isLoading,
-    isLoading: tokenIdsQuery.isLoading || metadataQuery.isLoading,
+    isLoading: tokenIdsQuery.isLoading || isLoadingMetadata,
+    hasMoreAssets,
+    isLoadingMoreAssets,
+    loadMoreAssets,
     marketPreviewLoading: marketPreviewQuery.isLoading,
     marketPreviewError: marketPreviewQuery.isError,
     refetchAll: () => {
       void tokenIdsQuery.refetch();
-      void metadataQuery.refetch();
+      if (paged) void pagedMetadataQuery.refetch();
+      else void fullMetadataQuery.refetch();
       void ordersQuery.refetch();
       void historyQuery.refetch();
       void marketPreviewQuery.refetch();

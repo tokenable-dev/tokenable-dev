@@ -132,7 +132,7 @@ export function CollectionMetadataExpandable({
           <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
             Collection key
           </dt>
-          <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">{collectionKey}</dd>
+          <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">{collectionKey}</dd>
         </div>
         {displayLabel ? (
           <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black px-2.5 py-2 sm:col-span-2`}>
@@ -153,7 +153,7 @@ export function CollectionMetadataExpandable({
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Match query
             </dt>
-            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
+            <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">
               {toCardDisplayUppercase(queryUsed)}
             </dd>
           </div>
@@ -163,7 +163,7 @@ export function CollectionMetadataExpandable({
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Cardhedger card ID
             </dt>
-            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
+            <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">
               {cardhedgerCardId}
             </dd>
           </div>
@@ -181,7 +181,7 @@ export function CollectionMetadataExpandable({
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Cover URL
             </dt>
-            <dd className="mt-0.5 font-mono text-[11px] text-zinc-300 break-all" title={representativeImageUrl}>
+            <dd className="mt-0.5 font-mono text-xs text-zinc-300 break-all" title={representativeImageUrl}>
               {truncateUrl(representativeImageUrl, 56)}
             </dd>
           </div>
@@ -198,7 +198,7 @@ export function CollectionMetadataExpandable({
       </dl>
 
       <details className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-2`}>
-        <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 select-none">
+        <summary className="cursor-pointer text-xs font-medium text-zinc-400 select-none">
           Raw components (JSON)
         </summary>
         <pre className={`mt-2 max-h-40 overflow-auto rounded-md border border-black ${COLLECTION_DETAILS_BG_CLASS} p-2 text-[10px] leading-relaxed text-zinc-400`}>
@@ -250,7 +250,7 @@ export function CollectionMetadataExpandable({
             aria-expanded={expanded}
           >
             <span>Additional details</span>
-            <span className="text-[11px] text-zinc-500 tabular-nums">
+            <span className="text-xs text-zinc-500 tabular-nums">
               {expanded ? "Collapse" : "Expand"}
             </span>
           </button>

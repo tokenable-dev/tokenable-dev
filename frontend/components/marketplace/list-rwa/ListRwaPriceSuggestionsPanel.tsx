@@ -52,7 +52,7 @@ function CompactTradeRow({ row }: { row: CollectionPlatformTapeFill }) {
   const source = tapeSourceDisplay(row);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 border-b border-zinc-800/50 py-2 text-[11px] last:border-b-0">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 border-b border-zinc-800/50 py-2 text-xs last:border-b-0">
       <span className="min-w-0 truncate font-mono tabular-nums text-zinc-100">
         {formatTradesTapePriceUsdc(row.priceUsdc)}
       </span>

@@ -15,7 +15,11 @@ import {
   usePortfolioMarketPricing,
   usePortfolioMyBids,
   useUserAssets,
+  PORTFOLIO_ASSETS_PAGE_SIZE,
+  useMyRedemptions,
+  useRedeemSelection,
 } from "@/hooks/portfolio";
+import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import { useIsMobileViewport } from "@/hooks/ui";
 import {
   PORTFOLIO_USDC_DECIMALS,
@@ -122,15 +126,20 @@ export default function PortfolioPage() {
   const {
     assets: hookAssets,
     tokenIds,
+    loadedTokenIds,
     activeOrders: allOrders,
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
+    hasMoreAssets,
+    isLoadingMoreAssets,
+    loadMoreAssets,
     refetchActiveOrders,
   } = useUserAssets(portfolioAddress, {
     enabled: portfolioDataEnabled,
     includeOrderHistory: false,
     includeMarketPreview: false,
     retainPreviousOwner: false,
+    assetPageSize: PORTFOLIO_ASSETS_PAGE_SIZE,
   });
 
   const chainId = activeRqChainId();
@@ -169,7 +178,8 @@ export default function PortfolioPage() {
     address: portfolioAddress,
     isConnected: portfolioDataEnabled,
     assets,
-    tokenIds,
+    // Only resolve keys for loaded pages — keeps Load more cheap.
+    tokenIds: loadedTokenIds,
     listingCollectionKeyByToken,
   });
 
@@ -290,8 +300,22 @@ export default function PortfolioPage() {
     [assetRows, hiddenSet],
   );
 
+  const { redeemStatusByTokenId } = useMyRedemptions(
+    portfolioDataEnabled ? tokenIds : [],
+  );
+
+  const redeemSelection = useRedeemSelection({
+    assetRows: visibleAssetRows,
+    metadataByTokenId,
+    redeemStatusByTokenId,
+  });
+
   const openPortfolioSetPriceModal = useCallback(
     (tokenId: number) => {
+      if (isRedeemInFlight(redeemStatusByTokenId.get(tokenId))) {
+        window.alert("This card has a redemption in progress and cannot be listed.");
+        return;
+      }
       runSellAccessGate(() => {
         const row = assetRows.find((r) => r.tokenId === tokenId);
         const listing = listingByTokenId.get(tokenId);
@@ -305,7 +329,13 @@ export default function PortfolioPage() {
         });
       });
     },
-    [assetRows, listingByTokenId, runSellAccessGate, tokenToCollectionKey],
+    [
+      assetRows,
+      listingByTokenId,
+      runSellAccessGate,
+      tokenToCollectionKey,
+      redeemStatusByTokenId,
+    ],
   );
 
   const collectionTopBids = usePortfolioCollectionTopBids(
@@ -340,7 +370,7 @@ export default function PortfolioPage() {
     if (portfolioViewedFiredRef.current) return;
     portfolioViewedFiredRef.current = true;
     trackEvent("portfolio_viewed", {
-      total_assets: visibleAssetRows.length,
+      total_assets: tokenIds.filter((id) => !hiddenSet.has(id)).length,
       total_value: portfolioValue ?? 0,
     });
   }, [
@@ -348,7 +378,8 @@ export default function PortfolioPage() {
     wallet.hasLinkedWallet,
     assetsSectionLoading,
     portfolioValuePending,
-    visibleAssetRows.length,
+    tokenIds,
+    hiddenSet,
     portfolioValue,
   ]);
 
@@ -395,7 +426,9 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="portfolio-page min-h-screen min-w-0 overflow-x-clip text-white">
+    <div
+      className={`portfolio-page min-h-screen min-w-0 overflow-x-clip text-white${redeemSelection.selectMode ? " portfolio-page--redeem-select" : ""}`}
+    >
       <HomeTicker />
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
         {!isConnected ? (
@@ -405,7 +438,10 @@ export default function PortfolioPage() {
         ) : null}
 
         <PortfolioSummaryBar
-          holdingsCount={visibleAssetRows.length}
+          holdingsCount={Math.max(
+            0,
+            tokenIds.filter((id) => !hiddenSet.has(id)).length,
+          )}
           tradesCount={txRows.length}
         />
 
@@ -419,7 +455,12 @@ export default function PortfolioPage() {
 
         <PortfolioMainSection
           activeTab={portfolioMainTab}
-          onTabChange={setPortfolioMainTab}
+          onTabChange={(tab) => {
+            if (tab !== "collectibles" && redeemSelection.selectMode) {
+              redeemSelection.exitSelectMode();
+            }
+            setPortfolioMainTab(tab);
+          }}
           collectiblesPanel={
             <PortfolioHoldingsSection
               assetsSectionLoading={assetsSectionLoading}
@@ -443,6 +484,24 @@ export default function PortfolioPage() {
                 }
               }}
               onSetPrice={openPortfolioSetPriceModal}
+              redeemSelectMode={redeemSelection.selectMode}
+              redeemSelected={redeemSelection.selected}
+              redeemEligibleIds={redeemSelection.eligibleIds}
+              redeemLimitError={redeemSelection.limitError}
+              redeemStatusByTokenId={redeemStatusByTokenId}
+              onEnterRedeemSelect={redeemSelection.enterSelectMode}
+              onExitRedeemSelect={redeemSelection.exitSelectMode}
+              onToggleRedeemToken={redeemSelection.toggleToken}
+              onContinueRedeem={redeemSelection.goToRedeem}
+              redeemMaxBatch={redeemSelection.maxBatch}
+              hasMoreAssets={hasMoreAssets}
+              isLoadingMoreAssets={isLoadingMoreAssets}
+              onLoadMoreAssets={loadMoreAssets}
+              loadedAssetCount={visibleAssetRows.length}
+              totalAssetCount={Math.max(
+                0,
+                tokenIds.filter((id) => !hiddenSet.has(id)).length,
+              )}
             />
           }
           bidsPanel={

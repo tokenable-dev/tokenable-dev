@@ -135,6 +135,12 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     label: "Vault",
     items: [
       {
+        href: "/marketplace/admin/vault/psa-mail",
+        label: "PSA mail",
+        prefix: "/marketplace/admin/vault/psa-mail",
+        description: "Items Received inbox — confirm arrival before At PSA",
+      },
+      {
         href: "/marketplace/admin/vault/submissions",
         label: "Submissions",
         prefix: "/marketplace/admin/vault/submissions",

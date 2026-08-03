@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { Order } from "@/lib/core";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkField, TkInput } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
@@ -113,13 +113,6 @@ export function CollectionListingBidCheckout({
     });
   };
 
-  const hintToneClass =
-    bid.policyHint.tone === "error"
-      ? " cd-listing-checkout__bid-hint--error"
-      : bid.policyHint.tone === "warn"
-        ? " cd-listing-checkout__bid-hint--warn"
-        : "";
-
   if (showSuccess) {
     const instant = bid.lastOutcome === "instant";
     return (
@@ -132,15 +125,15 @@ export function CollectionListingBidCheckout({
         </div>
         <p className="cd-listing-checkout__done-msg">
           {instant
-            ? "Owned instantly. Your card stays safe in the vault — withdraw it anytime."
+            ? "Owned instantly. Your card stays safe in the vault — redeem it anytime."
             : placedBidLabel
               ? `Your bid of $${placedBidLabel} is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`
               : `Your bid is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`}
         </p>
         <div className="cd-listing-checkout__done-actions">
-          <button type="button" className="cd-listing-checkout__done-secondary" onClick={onDone}>
+          <TkButton type="button" variant="ghost" className="cd-listing-checkout__done-secondary" onClick={onDone}>
             Done
-          </button>
+          </TkButton>
         </div>
       </div>
     );
@@ -148,38 +141,40 @@ export function CollectionListingBidCheckout({
 
   return (
     <>
-      <div className="cd-listing-checkout__bid">
-        <label className="cd-listing-checkout__bid-label" htmlFor="cd-listing-bid-amt">
-          Your bid
-        </label>
+      <TkField
+        className="cd-listing-checkout__bid"
+        label="Your bid"
+        htmlFor="cd-listing-bid-amt"
+        error={
+          bid.policyHint.tone === "error" ? bid.policyHint.text : undefined
+        }
+        hint={
+          bid.policyHint.tone === "error"
+            ? undefined
+            : bid.policyHint.tone === "muted" && !bid.price
+              ? listedHint
+              : bid.policyHint.text
+        }
+      >
         <div className="cd-listing-checkout__bid-input-wrap">
           <span className="cd-listing-checkout__bid-prefix" aria-hidden>
             $
           </span>
-          <input
+          <TkInput
             id="cd-listing-bid-amt"
             type="text"
             inputMode="decimal"
             placeholder="0"
             value={formatBidInputDisplay(bid.price)}
             disabled={bid.busy}
+            hasError={bid.policyHint.tone === "error"}
             onChange={(e) =>
               bid.setPriceDigits(e.target.value.replace(/[^0-9]/g, ""))
             }
             className="cd-listing-checkout__bid-input"
           />
         </div>
-        <div
-          className={`cd-listing-checkout__bid-hint tkl-mono${hintToneClass}`}
-          role={
-            bid.policyHint.tone === "error" || bid.policyHint.tone === "warn"
-              ? "alert"
-              : undefined
-          }
-        >
-          {bid.policyHint.tone === "muted" && !bid.price ? listedHint : bid.policyHint.text}
-        </div>
-      </div>
+      </TkField>
 
       {!bid.isConnected ? (
         <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected">

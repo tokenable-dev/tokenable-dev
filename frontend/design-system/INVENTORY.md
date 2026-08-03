@@ -26,7 +26,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 |--------------|-----------------|----------|
 | `.tk-btn--primary` / `neutral` / `subtle` / `ghost` / `danger`, sizes `md` `sm` `table` | `TkButton` | `components/ds/Button.tsx` |
 | `.tk-iconbtn` | `TkIconButton` | `components/ds/IconButton.tsx` |
-| `.tk-input`, `.tk-field` | `TkInput`, `TkField` | `components/ds/Input.tsx`, `Field.tsx` |
+| `.tk-input`, `.tk-field`, `.tk-select-wrap` | `TkInput`, `TkTextarea`, `TkSelect`, `TkField` | `components/ds/Input.tsx`, `Field.tsx` |
 | `.tk-dialog` | `TkDialog` | `components/ds/Dialog.tsx` |
 | `.tk-sheet-*` | `TkActionSheet` | `components/ds/ActionSheet.tsx` |
 | `.tk-tabs` | `TkTabs`, `TkTab` | `components/ds/Tabs.tsx` |
@@ -96,7 +96,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-collection-detail.css`
 
-**Phase 4 (ds-v2):** Set-level **Place a Bid** banner (Highest bid / Lowest ask). Listing rows and provenance foot are **Buy-only**. Verification tiles: Graded by / Cert # / Stored at (`PSA Vault · Lloyd's insured`). Soft custody copy: What you'll get + Buyer protection; checkout fine print **Owned instantly · stays safely in the vault**.
+**Phase 4 (ds-v2 / ds-4 sync):** Set-level **Place a Bid** banner (Highest bid / Lowest ask). Listing rows and provenance foot are **Buy-only**. Verification tiles: Graded by / Cert # / Stored at (`PSA Vault` — Lloyd’s wording removed in DS-4). Soft custody copy: What you'll get + Buyer protection; checkout fine print **Owned instantly · stays safely in the vault**.
 
 **Existing route:** `app/marketplace/collections/[collectionKey]/page.tsx`
 
@@ -112,14 +112,36 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
 | Tabs | `.tk-tabs` | `PortfolioMainSection` | `components/portfolio/PortfolioMainSection.tsx` |
 | Holdings | table + mobile cards | `PortfolioHoldingsSection` + `PortfolioHoldingsRowActions` (Set price / Edit price + bid meta) | `components/portfolio/*` |
+| Redeem select | toolbar + checkboxes + batch bar | `RedeemSelectModeBar`, `useRedeemSelection` | `components/portfolio/redeem/*`, `hooks/portfolio/useRedeemSelection.ts` |
 | Bids | bid rows | `PortfolioCollectionBidsSection` | `components/portfolio/PortfolioCollectionBidsSection.tsx` |
 | Watchlist tab | — | `PortfolioWatchlistSection` | `components/portfolio/PortfolioWatchlistSection.tsx` |
 | Transaction history | `.tk-table` | `PortfolioActivitySection` | `components/portfolio/PortfolioActivitySection.tsx` |
 | Confirm modals | portfolio-modals.js | `TkDialog` | `PortfolioHideConfirmModal`, `PortfolioCancelBidConfirmModal`, `PortfolioCancelListingConfirmModal` |
 
-**CSS:** `frontend/styles/tokenable-portfolio.css`
+**CSS:** `frontend/styles/tokenable-portfolio.css`, `frontend/styles/tokenable-portfolio-redeem.css`
 
 **Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** with Highest bid / No bids yet meta. Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
+
+---
+
+## Portfolio Redeem — `Withdraw.html` / DS-4 (Phase A — done)
+
+Product copy uses **Redeem** (not Withdraw). Prototype `Withdraw.html` maps to `/portfolio/redeem`.
+
+| Screen | Prototype | React | File |
+|--------|-----------|-------|------|
+| Select mode | Portfolio Redeem toolbar + `.wd-chk` | Holdings toolbar + checkboxes (desk + mobile) + batch bar | `PortfolioHoldingsSection`, `RedeemSelectModeBar` |
+| Request | `wd-request` | Ship-to form + estimate placeholder | `RedeemRequestPanel` |
+| Requested | waiting banner | Azure banner + next steps | `RedeemRequestedPanel` |
+| Pay | Step 2 (skeleton) | Gated “coming soon” | `RedeemPayPanel` |
+| In transit | tracking | Status from `WD_SHIPPED` / `?view=transit` | `RedeemTransitPanel` |
+| Done | possession | Skeleton / post-release | `RedeemDonePanel` |
+
+**Hooks / API:** `useRedeemFlow`, `useMyRedemptions`, `lib/core/api/rwa-redeem.ts`, draft + saved address `lib/portfolio/redeemDraft.ts`
+
+**Admin:** Confirm release on burned cards → `postAdminConfirmRedemptionRelease`
+
+**HTML sync notes (Phase A):** Form-first request order; Review list shows grade / PSA Vault / cert + trash; mobile checkboxes (HTML table-only bug fixed); breadcrumb hidden ≤768px; select mode dims cost edit; in-flight Action = status text; address saved to `localStorage`. Pay wallet/tracking/receipt remain Phase B skeletons.
 
 ---
 
@@ -168,8 +190,8 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | Route | React target |
 |-------|--------------|
 | `/sell` | `SellRouterView` — loader then → `/vault` (partner branch Phase 8) |
-| `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → add cards via PSA cert lookup) |
-| `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (pack checklist → tracking) |
+| `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → choose vault → add cards via PSA cert lookup) |
+| `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (progress: Submit → Ship → PSA → Live; pack checklist → tracking) |
 | `/vault` | `VaultHubView` (Selling hub / landing / empty dashboard) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
 | `/vault/submit/mint` | `MintForm` (personal/internal mint entry) |

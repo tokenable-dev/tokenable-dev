@@ -127,7 +127,7 @@ function ScoredBreakdown({
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         {components.map((c) => (
-          <div key={c.key} className="flex items-center justify-between gap-2 text-[11px]">
+          <div key={c.key} className="flex items-center justify-between gap-2 text-xs">
             <span className={t.scoredLabel}>
               {c.label}{" "}
               <span className={t.scoredWeight}>(w{c.weight}%)</span>
@@ -546,7 +546,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             </p>
           ) : null}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[320px] text-left text-[11px]">
+            <table className="w-full min-w-[320px] text-left text-xs">
               <thead>
                 <tr className={t.tableHead}>
                   <th className="pb-2 pr-3 font-medium">Date</th>

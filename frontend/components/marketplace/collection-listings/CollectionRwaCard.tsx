@@ -69,7 +69,7 @@ function ListingCtaPill({
     if (isBuy) {
       return (
         <span
-          className={`${rwaCardFont.className} relative z-[2] box-border inline-flex h-6 min-h-6 min-w-[4.75rem] shrink-0 items-center justify-center rounded-full border border-mint/80 bg-transparent px-6 text-center text-[11px] font-bold leading-none text-mint transition-[transform,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.98] motion-reduce:transition-none`}
+          className={`${rwaCardFont.className} relative z-[2] box-border inline-flex h-6 min-h-6 min-w-[4.75rem] shrink-0 items-center justify-center rounded-full border border-mint/80 bg-transparent px-6 text-center text-xs font-bold leading-none text-mint transition-[transform,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.98] motion-reduce:transition-none`}
           aria-hidden
         >
           {label}
@@ -126,7 +126,7 @@ function ListingCtaPill({
         className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-[14px] border border-black/80 px-3 py-0.5 leading-snug tracking-wide transition-[background-color,box-shadow,color] duration-200 ease-out sm:rounded-[17px] sm:px-5 sm:py-1 ${
           isBuy
             ? "bg-black text-[12px] font-bold text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] group-hover:bg-zinc-950 group-hover:brightness-110 sm:text-[14px]"
-            : "bg-black text-[11px] font-bold text-white group-hover:bg-zinc-950 sm:text-[13px]"
+            : "bg-black text-xs font-bold text-white group-hover:bg-zinc-950 sm:text-[13px]"
         }`}
       >
         {label}
@@ -352,7 +352,7 @@ export function CollectionRwaCard({
                   <p className="text-[15px] font-medium leading-none text-zinc-500">—</p>
                 )}
                 <p
-                  className="truncate text-[11px] font-normal leading-snug text-zinc-500"
+                  className="truncate text-xs font-normal leading-snug text-zinc-500"
                   title={sellerAddr}
                 >
                   Seller:{" "}

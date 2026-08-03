@@ -55,7 +55,7 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   return {
     gradedBy,
     certNumber: trust.certNumber ?? "—",
-    storedAt: "PSA Vault · Lloyd's insured",
+    storedAt: "PSA Vault",
   };
 }
 

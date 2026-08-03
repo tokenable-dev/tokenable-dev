@@ -42,14 +42,21 @@ function ensureSellLocalSchema() {
 
 export type SellFlowStep =
   | "register"
+  | "vault"
+  | "self-mint"
   | "cards"
   | "shipping-pack"
   | "shipping-track";
+
+/** Sell-Flow / Choose-Vault — how the seller will list cards. */
+export type SellVaultChoice = "self" | "psa";
 
 export type SellCarrier = "fedex" | "dhl" | "ups";
 
 export type SellFlowProgress = {
   step: SellFlowStep;
+  /** Set on the Choose a vault screen (null until picked). */
+  vaultChoice: SellVaultChoice | null;
   checklist: boolean[];
   slipDownloaded: boolean;
   carrier: SellCarrier;
@@ -91,6 +98,7 @@ export function defaultSellFlowProgress(
 ): SellFlowProgress {
   return {
     step: "register",
+    vaultChoice: null,
     checklist: emptyChecklist(),
     slipDownloaded: false,
     carrier: "fedex",
@@ -134,17 +142,24 @@ export function readSellFlowProgress(): SellFlowProgress {
     const step = parsed.step;
     const validStep: SellFlowStep =
       step === "register" ||
+      step === "vault" ||
+      step === "self-mint" ||
       step === "cards" ||
       step === "shipping-pack" ||
       step === "shipping-track"
         ? step
         : "register";
+    const vaultChoice: SellVaultChoice | null =
+      parsed.vaultChoice === "self" || parsed.vaultChoice === "psa"
+        ? parsed.vaultChoice
+        : null;
     const carrier: SellCarrier =
       parsed.carrier === "dhl" || parsed.carrier === "ups" || parsed.carrier === "fedex"
         ? parsed.carrier
         : "fedex";
     return defaultSellFlowProgress({
       step: validStep,
+      vaultChoice,
       checklist: checklist.slice(0, PSA_PACK_CHECKLIST.length),
       slipDownloaded: Boolean(parsed.slipDownloaded),
       carrier,

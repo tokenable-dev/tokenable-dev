@@ -30,7 +30,7 @@ export function RwaDetailMarketContextStrip({
     : "grid gap-3 rounded-xl border border-zinc-700/55 bg-gradient-to-br from-zinc-900/80 to-[#0a0c0f] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_-16px_rgba(0,0,0,0.65)] sm:gap-4 sm:p-4";
   const labelClass = isFlat
     ? "text-xs font-medium leading-tight text-zinc-500"
-    : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px]";
+    : "text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-xs";
   const changeLabel = isFlat
     ? `${changePeriodLabel} change`.toLowerCase()
     : `${changePeriodLabel} change`;

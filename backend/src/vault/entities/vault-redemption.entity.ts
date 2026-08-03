@@ -63,6 +63,30 @@ export class VaultRedemption {
   @Column({ name: 'failure_reason', type: 'text', nullable: true })
   failureReason: string | null;
 
+  @Column({ name: 'ship_to_name', type: 'varchar', length: 128, nullable: true })
+  shipToName: string | null;
+
+  @Column({ name: 'ship_to_line1', type: 'varchar', length: 256, nullable: true })
+  shipToLine1: string | null;
+
+  @Column({ name: 'ship_to_line2', type: 'varchar', length: 256, nullable: true })
+  shipToLine2: string | null;
+
+  @Column({ name: 'ship_to_city', type: 'varchar', length: 128, nullable: true })
+  shipToCity: string | null;
+
+  @Column({ name: 'ship_to_region', type: 'varchar', length: 128, nullable: true })
+  shipToRegion: string | null;
+
+  @Column({ name: 'ship_to_postal', type: 'varchar', length: 32, nullable: true })
+  shipToPostal: string | null;
+
+  @Column({ name: 'ship_to_country', type: 'varchar', length: 8, nullable: true })
+  shipToCountry: string | null;
+
+  @Column({ name: 'ship_to_phone', type: 'varchar', length: 40, nullable: true })
+  shipToPhone: string | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

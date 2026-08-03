@@ -1,5 +1,14 @@
-import { IsEthereumAddress, IsNotEmpty, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEthereumAddress,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/** PSA / ops path: mint to custody, admin delivers. Self vault: mint straight to user. */
+export type MintDeliveryMode = 'custody' | 'direct';
 
 export class MintRwaDto {
   @ApiProperty({ description: 'Recipient wallet address (must be linked to the user account)' })
@@ -27,4 +36,14 @@ export class MintRwaDto {
   @IsString()
   @IsNotEmpty()
   certNumber!: string;
+
+  @ApiPropertyOptional({
+    enum: ['custody', 'direct'],
+    default: 'custody',
+    description:
+      'custody (default): mint to platform custody; admin delivers. direct: mint to recipientAddress (self vault — no admin deliver).',
+  })
+  @IsOptional()
+  @IsIn(['custody', 'direct'])
+  deliveryMode?: MintDeliveryMode;
 }

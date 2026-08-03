@@ -3,9 +3,10 @@
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
 import { useSellFlow } from "@/hooks/sell/useSellFlow";
 import { SellFlowAddCards } from "./SellFlowAddCards";
+import { SellFlowChooseVault } from "./SellFlowChooseVault";
 import { SellFlowRegister } from "./SellFlowRegister";
 
-/** Sell-Flow.html — register then add cards (design system-2). */
+/** Sell-Flow — register → choose vault → add cards (PSA ship or self mint). */
 export function SellFlowView() {
   const flow = useSellFlow();
 
@@ -14,6 +15,8 @@ export function SellFlowView() {
       <div className="sell-flow-page">
         {flow.screen === "register" ? (
           <SellFlowRegister flow={flow} />
+        ) : flow.screen === "vault" ? (
+          <SellFlowChooseVault flow={flow} />
         ) : (
           <SellFlowAddCards flow={flow} />
         )}

@@ -34,6 +34,7 @@ import { microsToUsdc } from '../admin/platform-analytics.util';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { VaultService } from '../../vault/vault.service';
 import {
   backfillAskTokenIdFromParameters,
   isCriteriaCollectionBidOrder,
@@ -75,6 +76,7 @@ export class OrdersService {
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly partners: MarketplacePartnersService,
     private readonly notifications: NotificationsService,
+    private readonly vault: VaultService,
   ) {}
 
   private async withSellerDisplayNames(
@@ -144,6 +146,11 @@ export class OrdersService {
 
     if (side === OrderSide.ASK) {
       this.assertValidAskListing(dto, chainId);
+
+      await this.vault.assertTokenRedeemableForListing(
+        dto.tokenContract,
+        String(dto.tokenId),
+      );
 
       const p2pActive = await this.p2pListings.count({
         where: {

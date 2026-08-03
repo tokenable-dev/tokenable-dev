@@ -5,7 +5,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 
 **AI agents:** `.cursor/rules/design-system-migration.mdc` and `.cursor/rules/design-system-reference.mdc` apply to `frontend/**` and point here first.
 
-**Governance:** `Tokenable-with design system-2/` is the preferred HTML reference; `Tokenable-with design system/` is the earlier export. Neither is imported by Next.js — update `frontend/design-system/` intentionally when adopting prototype changes.
+**Governance:** `Tokenable-with design system-4/` is the preferred HTML reference; earlier `Tokenable-with design system/` / `-2` / `-3` folders are superseded for handoff. None are imported by Next.js — update `frontend/design-system/` intentionally when adopting prototype changes.
 
 ---
 
@@ -13,9 +13,9 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 
 | Layer | Path | Role |
 |-------|------|------|
-| Designer prototype | `Tokenable-with design system/` | HTML / `_ds` bundle — **reference only**, not imported by Next.js |
+| Designer prototype | `Tokenable-with design system-4/` | HTML / `_ds` bundle — **reference only**, not imported by Next.js |
 | Committed DS | `frontend/design-system/` | Tokens + `tk-*` CSS — **canonical styles for production** |
-| React primitives | `frontend/components/ds/` | `TkButton`, `TkDialog`, … |
+| React primitives | `frontend/components/ds/` | `TkButton`, `TkField`, `TkInput`, `TkSelect`, `TkDialog`, … |
 | App wiring | `frontend/styles/tokenable-ds-entry.css`, `globals.css` | Imports committed DS only |
 
 **Prototype updates do not auto-apply to the app.** Production UI changes only when `frontend/design-system/` (and related React/CSS) is intentionally updated and merged.
@@ -30,7 +30,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 | **Hybrid** | Some pages still use bridge aliases (`--azure`, `--ink`) or page-local CSS — acceptable; converge when touching that file |
 | **Not yet** | Full semantic-token coverage on every surface; designer may hand off additional tokens (e.g. background hover/selected/active) **later** — add to `fig-tokens.css`, do not hardcode one-off hex values |
 
-Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: designer handoff **Tokenable Design System (Standalone).html** → `frontend/design-system/tokens/fig-tokens.css` + `components/components.css`.
+Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: **`Tokenable-with design system-4/`** `_ds` bundle → `frontend/design-system/tokens/` + `components/components.css` (merged intentionally; `tk-btn--primary-inv` is an app-only extension).
 
 ---
 
@@ -39,7 +39,7 @@ Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **
 1. **This file** — tokens, components, do/don't, CSS import order
 2. **[INVENTORY.md](../../frontend/design-system/INVENTORY.md)** — which React component owns which screen section
 3. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
-4. Matching HTML prototype (reference only): `Tokenable-with design system/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
+4. Matching HTML prototype (reference only): `Tokenable-with design system-4/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
 
 **Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge. Admin backoffice: `http://localhost:3000/dev/admin-ui`.
 

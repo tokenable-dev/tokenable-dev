@@ -151,7 +151,7 @@
   padding: 0 14px;
   border: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -246,34 +246,14 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-.pf-mobile-sort__select-wrap {
-  position: relative;
+.pf-mobile-sort .tk-select-wrap {
   flex: 1;
   max-width: 220px;
 }
 
 .pf-mobile-sort__select {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  background: #191919;
-  color: #fff;
-  border: 0;
   font-family: var(--font-mono);
   font-size: 13px;
-  padding: 10px 36px 10px 14px;
-  border-radius: 0;
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-}
-
-.pf-mobile-sort__caret {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Tables (Portfolio.html tk-table) ───────────────────────────────────── */
@@ -344,6 +324,29 @@
 
 .portfolio-page .pf-table--holdings .pf-col-grade-cell {
   white-space: nowrap;
+}
+
+.pf-grade-vault {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pf-grade-vault--mobile {
+  flex-shrink: 0;
+}
+
+.pf-vault-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(26, 111, 255, 0.14);
+  color: #5b9aff;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action-cell {
@@ -526,7 +529,7 @@
 }
 
 .portfolio-page .pf-cost-basis-note {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
   text-align: right;
 }
@@ -544,31 +547,27 @@
 
 .portfolio-page .pf-cost-edit-prefix {
   position: absolute;
-  left: 8px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 1;
   font-family: var(--font-mono);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.45);
   pointer-events: none;
 }
 
 .portfolio-page .pf-cost-edit-input {
-  width: 110px;
-  padding: 6px 8px 6px 18px;
+  width: 120px;
+  padding: 6px 8px 6px 20px;
   font-family: var(--font-mono);
   font-size: 13px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--azure);
-  border-radius: 4px;
-  color: #fff;
   text-align: right;
-  outline: none;
 }
 
 .portfolio-page .pf-cost-edit-note {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   margin-top: 2px;
   text-align: right;
@@ -719,7 +718,7 @@
   height: 26px;
   padding: 0 12px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -856,7 +855,7 @@
 
 .portfolio-page .pf-tx-drawer__card-sub {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -885,7 +884,7 @@
 
 .portfolio-page .pf-tx-drawer__k {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
@@ -931,6 +930,31 @@
   color: var(--pos);
   background: rgba(0, 200, 100, 0.08);
   box-shadow: inset 0 0 0 2px rgba(0, 200, 100, 0.3);
+}
+
+/* ── Load more (My Assets progressive metadata) ─────────────────────────── */
+
+.portfolio-page .pf-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 8px 0 4px;
+}
+
+.portfolio-page .pf-load-more__meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.portfolio-page .pf-load-more__btn {
+  min-width: 9.5rem;
 }
 
 /* ── Empty states ───────────────────────────────────────────────────────── */
@@ -1042,7 +1066,7 @@
 
 .pf-mobile-asset-card__label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
