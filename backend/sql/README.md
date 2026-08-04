@@ -34,6 +34,7 @@ sql/
 │   ├── add_portfolio_daily_snapshot_chain_id.sql
 │   ├── add_vault_cycles_chain_id.sql
 │   ├── add_marketplace_notifications_chain_id.sql
+│   ├── add_user_settings_prefs_and_addresses.sql
 │   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh

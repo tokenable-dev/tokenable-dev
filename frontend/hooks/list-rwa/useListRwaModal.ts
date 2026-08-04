@@ -7,7 +7,7 @@ import {
   usePublicClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { getOrderByHash, rq } from "@/lib/core";
+import { getOrderByHash, getRwaSettlementPolicy, rq } from "@/lib/core";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -66,6 +66,14 @@ export function useListRwaModal({
     staleTime: 15_000,
   });
   const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
+
+  const { data: settlementPolicyData } = useQuery({
+    queryKey: ["rwa-settlement-policy", String(tokenId)],
+    queryFn: () => getRwaSettlementPolicy(tokenId),
+    staleTime: 60_000,
+  });
+  const settlementPolicy =
+    settlementPolicyData?.settlementPolicy ?? ("standard" as const);
 
   const [price, setPrice] = useState("");
   const [selectedBidHash, setSelectedBidHash] = useState<string | null>(null);
@@ -267,6 +275,7 @@ export function useListRwaModal({
           chainId,
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
+          settlementPolicy,
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -349,6 +358,7 @@ export function useListRwaModal({
         >[0]["writeContractAsync"],
         chainId,
         mode: "create",
+        settlementPolicy,
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {
@@ -415,6 +425,7 @@ export function useListRwaModal({
     selectedBidHash,
     setSelectedBidHash,
     topCollectionBid,
+    settlementPolicy,
     isProcessing,
     handleList,
     dismissSuccess,

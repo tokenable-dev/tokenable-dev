@@ -128,7 +128,11 @@ export function HeaderWalletMenuPanel({
           <div className="tk-wd-divider" />
         </>
       ) : null}
-      <button type="button" className={itemClass(variant)} onClick={() => go("/portfolio", 1)}>
+      <button
+        type="button"
+        className={itemClass(variant)}
+        onClick={() => go("/portfolio?tab=assets", 1)}
+      >
         <WalletPortfolioIcon />
         Portfolio
       </button>
@@ -170,7 +174,7 @@ export function HeaderWalletMenuPanel({
         <span className="tk-notif-menu-label">Notifications</span>
         <NotificationUnreadBadge count={unreadCount} />
       </button>
-      <button type="button" className={itemClass(variant)} onClick={() => go("/profile")}>
+      <button type="button" className={itemClass(variant)} onClick={() => go("/settings")}>
         <WalletSettingsIcon />
         Settings
       </button>

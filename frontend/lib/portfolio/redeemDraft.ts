@@ -72,19 +72,32 @@ export function clearRedeemDraft(): void {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
-export function readSavedRedeemAddress(): RedeemAddressForm | null {
+type StoredRedeemAddress = RedeemShipTo & { ownerUserId?: string };
+
+export function readSavedRedeemAddress(forUserId?: string): RedeemAddressForm | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(ADDRESS_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as RedeemShipTo;
+    const parsed = JSON.parse(raw) as StoredRedeemAddress;
     if (!parsed?.name || !parsed?.line1 || !parsed?.city || !parsed?.postal) {
+      return null;
+    }
+    // Require an owner tag when scoped — unscoped legacy payloads are untrusted
+    // on shared browsers (could belong to a previous account).
+    if (forUserId && parsed.ownerUserId !== forUserId) {
       return null;
     }
     return {
       ...EMPTY_REDEEM_ADDRESS_FORM,
-      ...parsed,
+      name: parsed.name,
+      line1: parsed.line1,
+      line2: parsed.line2,
+      city: parsed.city,
+      region: parsed.region,
+      postal: parsed.postal,
       country: parsed.country === "ca" || parsed.country === "intl" ? parsed.country : "us",
+      phone: parsed.phone,
       saveAddress: true,
     };
   } catch {
@@ -92,14 +105,39 @@ export function readSavedRedeemAddress(): RedeemAddressForm | null {
   }
 }
 
-export function writeSavedRedeemAddress(shipTo: RedeemShipTo): void {
+export function writeSavedRedeemAddress(
+  shipTo: RedeemShipTo,
+  ownerUserId?: string,
+): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ADDRESS_KEY, JSON.stringify(shipTo));
+  const payload: StoredRedeemAddress = ownerUserId
+    ? { ...shipTo, ownerUserId }
+    : shipTo;
+  localStorage.setItem(ADDRESS_KEY, JSON.stringify(payload));
 }
 
 export function clearSavedRedeemAddress(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ADDRESS_KEY);
+}
+
+/** One-shot flag: Settings migrated legacy redeem ship-to into the server address book. */
+export function hasMigratedRedeemAddress(userId: string): boolean {
+  if (typeof window === "undefined" || !userId) return true;
+  try {
+    return localStorage.getItem(`tk_ship_addr_migrated_v1:${userId}`) === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function markRedeemAddressMigrated(userId: string): void {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    localStorage.setItem(`tk_ship_addr_migrated_v1:${userId}`, "1");
+  } catch {
+    /* ignore */
+  }
 }
 
 export function certNumberFromMetadata(meta: RwaMetadata | null | undefined): string | null {

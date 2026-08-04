@@ -99,7 +99,8 @@ export function buildCollectionDualPriceChartOption(input: {
   const isYearView =
     merged.fixedWindowDays != null && merged.fixedWindowDays >= 300;
 
-  const yTickCount = compactTab ? 2 : isMobileChart ? 3 : 4;
+  // Soft cap only — actual density comes from $100 / $1k USD steps in niceScale.
+  const yTickCount = compactTab ? 8 : isMobileChart ? 10 : 12;
   const { min, max, interval } = isYearView
     ? yearViewPriceScale(merged.vMin, merged.vMax)
     : niceScale(merged.vMin, merged.vMax, yTickCount);
@@ -205,16 +206,7 @@ export function buildCollectionDualPriceChartOption(input: {
         formatter: (value: number) =>
           isYearView
             ? formatYAxisLabelPlain(value)
-            : isMobileChart
-              ? formatYAxisLabelCompact(value)
-              : (() => {
-                  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-                  if (value >= 1_000) {
-                    return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-                  }
-                  if (value >= 10) return `$${Math.round(value)}`;
-                  return `$${value.toFixed(value === 0 ? 0 : 2)}`;
-                })(),
+            : formatYAxisLabelCompact(value),
       },
     },
     tooltip: {

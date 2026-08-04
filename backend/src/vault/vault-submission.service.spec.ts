@@ -1,5 +1,49 @@
 import { VaultSubmissionService } from './vault-submission.service';
 
+describe('VaultSubmissionService.isBlockedForSelfVault', () => {
+  it('blocks after ship tracking (in transit / at PSA)', () => {
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'in_transit',
+        itemStatus: 'in_transit',
+      }),
+    ).toBe(true);
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'psa_reviewing',
+        itemStatus: 'reviewing',
+      }),
+    ).toBe(true);
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'in_transit',
+        itemStatus: 'confirmed',
+      }),
+    ).toBe(true);
+  });
+
+  it('allows draft / awaiting shipment / rejected returns', () => {
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'draft',
+        itemStatus: 'confirmed',
+      }),
+    ).toBe(false);
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'awaiting_shipment',
+        itemStatus: 'confirmed',
+      }),
+    ).toBe(false);
+    expect(
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: 'psa_reviewing',
+        itemStatus: 'rejected',
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('VaultSubmissionService.resolveScenario', () => {
   it('maps draft / awaiting / transit', () => {
     expect(VaultSubmissionService.resolveScenario('draft', [])).toBe('A');

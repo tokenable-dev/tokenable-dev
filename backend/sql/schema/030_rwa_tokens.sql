@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS rwa_tokens (
   vault_ref varchar(66),
   burned_at timestamptz,
   burn_tx_hash varchar(80),
+  settlement_policy varchar(32) NOT NULL DEFAULT 'standard',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (token_contract, token_id)
@@ -46,3 +47,5 @@ COMMENT ON COLUMN rwa_tokens.vault_ref IS
   'On-chain vaultRef this token was minted with (mirrors vault_assets.vault_ref).';
 COMMENT ON COLUMN rwa_tokens.burned_at IS
   'Set once on-chain adminBurn (redemption) is confirmed. NULL while the NFT is live.';
+COMMENT ON COLUMN rwa_tokens.settlement_policy IS
+  'standard = Seaport seller+fee split; self_vault_hold = 100% platform take, delayed seller payout';

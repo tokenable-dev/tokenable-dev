@@ -50,7 +50,7 @@ A `vault_asset` may have **at most one open vault cycle** at a time (status not 
 - Admin must explicitly `deliver` the NFT to the user's wallet
 - **Why:** Ops verifies physical card receipt (PSA vault) before NFT delivery
 
-**Self vault** uses `deliveryMode: "direct"` → `mint(userLinkedWallet, …)` so the NFT appears in the minter's portfolio immediately (no admin deliver). Cost basis is seeded the same way as vault deliver.
+**Self vault** uses `deliveryMode: "direct"` → `mint(userLinkedWallet, …)` so the NFT appears in the minter's portfolio immediately (no admin deliver). Cost basis is seeded the same way as vault deliver. The mint persists `rwa_tokens.settlement_policy = self_vault_hold` (see BR-8c).
 
 ### BR-6: Recipient Must Be Linked Wallet
 
@@ -77,6 +77,17 @@ All marketplace trades use **Seaport 1.5**. There is no relational bid/ask match
 - Orders are signed EIP-712 structures, not matched server-side
 - Settlement is on-chain (`fulfillOrder` / `matchAdvancedOrders`)
 - Platform fee (5% default) is encoded as Seaport consideration item on **asks** only — bids/offers have no bid fee
+- **Self-vault hold** asks encode **100%** of USDC to `PLATFORM_FEE_RECIPIENT` (no seller consideration line)
+
+### BR-8c: Self-Vault Hold Settlement (Option A)
+
+Self-vault minted tokens (`settlement_policy = self_vault_hold`) settle differently from standard asks:
+
+1. **Ask consideration** — single USDC item to the platform fee wallet (full listing price)
+2. **On fulfill** — NFT → buyer; USDC → company; seller gets **$0 on-chain**
+3. **Ledger** — `self_vault_settlements` row (`pending_confirm`) with `seller_payout_usdc` = gross × (1 − PLATFORM_FEE_BPS/10000)
+4. **Buyer confirm** (or admin confirm) → `confirmed`; admin records company→seller USDC tx → `paid`
+5. **Bid-only fulfill** (`fulfill_bid` when offer is below ask) is **blocked** for these tokens — match against a full-platform-take ask instead
 
 ### BR-8a: Card-Level Offers (Bids)
 

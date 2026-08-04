@@ -5,6 +5,7 @@ import type { Order } from "@/lib/core";
 import { TkButton, TkField, TkInput } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
+import { ActionCompletePanel } from "@/components/marketplace/trade/ActionCompleteModal";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 import { TOKEN_BID_ORDER_DURATION_SECONDS } from "@/lib/seaport/orders/submitTokenBid";
 
@@ -101,7 +102,7 @@ export function CollectionListingBidCheckout({
     onHeaderTitleChange?.(
       showSuccess
         ? bid.lastOutcome === "instant"
-          ? "Purchase complete"
+          ? "Receipt"
           : "Bid placed"
         : "Place a Bid",
     );
@@ -116,26 +117,24 @@ export function CollectionListingBidCheckout({
   if (showSuccess) {
     const instant = bid.lastOutcome === "instant";
     return (
-      <div className="cd-listing-checkout__done">
-        <div className="cd-listing-checkout__done-icon" aria-hidden>
-          <span>✓</span>
-        </div>
-        <div className="cd-listing-checkout__done-title">
-          {instant ? "Purchase complete" : "Bid submitted"}
-        </div>
-        <p className="cd-listing-checkout__done-msg">
-          {instant
+      <ActionCompletePanel
+        kind={instant ? "purchase" : "bid"}
+        priceUsdc={bid.priceUsdc > 0 ? bid.priceUsdc : null}
+        embedded
+        showStatus={instant}
+        sub={
+          instant
             ? "Owned instantly. Your card stays safe in the vault — redeem it anytime."
             : placedBidLabel
               ? `Your bid of $${placedBidLabel} is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`
-              : `Your bid is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`}
-        </p>
-        <div className="cd-listing-checkout__done-actions">
-          <TkButton type="button" variant="ghost" className="cd-listing-checkout__done-secondary" onClick={onDone}>
-            Done
-          </TkButton>
-        </div>
-      </div>
+              : `Your bid is live (${tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS).toLowerCase()}). We'll notify you when a seller meets your price — no funds held until it matches.`
+        }
+        secondaryLabel={instant ? "View in Portfolio" : undefined}
+        secondaryHref={instant ? "/portfolio?tab=assets" : undefined}
+        onSecondary={instant ? onDone : undefined}
+        primaryLabel="Done"
+        onPrimary={onDone}
+      />
     );
   }
 

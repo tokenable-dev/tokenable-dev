@@ -207,6 +207,8 @@ export class VaultService {
     txHash: string;
     certNumber: string;
     displayName?: string | null;
+    /** Persisted on `rwa_tokens`; defaults to `standard`. */
+    settlementPolicy?: 'standard' | 'self_vault_hold';
   }): Promise<void> {
     const cycle = await this.cycles.findOne({ where: { id: params.cycleId } });
     if (!cycle) {
@@ -217,8 +219,15 @@ export class VaultService {
     await this.cycles.save(cycle);
 
     const vaultRef = VaultService.computeVaultRef(params.certNumber);
-    await this.rwaTokens.upsert(
-      {
+    const settlementPolicy =
+      params.settlementPolicy === 'self_vault_hold'
+        ? 'self_vault_hold'
+        : 'standard';
+    await this.rwaTokens
+      .createQueryBuilder()
+      .insert()
+      .into(RwaToken)
+      .values({
         tokenContract: params.tokenContract,
         tokenId: params.tokenId,
         certNumber: VaultService.normalizeCert(params.certNumber),
@@ -226,10 +235,22 @@ export class VaultService {
         displayName: params.displayName?.trim() || null,
         vaultCycleId: cycle.id,
         vaultRef,
+        settlementPolicy,
         metadataSyncedAt: new Date(),
-      },
-      ['tokenContract', 'tokenId'],
-    );
+      })
+      .orUpdate(
+        [
+          'cert_number',
+          'token_uri',
+          'display_name',
+          'vault_cycle_id',
+          'vault_ref',
+          'settlement_policy',
+          'metadata_synced_at',
+        ],
+        ['token_contract', 'token_id'],
+      )
+      .execute();
   }
 
   /**
@@ -425,6 +446,24 @@ export class VaultService {
         `Token #${tokenId} has a pending or completed redemption and cannot be listed`,
       );
     }
+  }
+
+  /**
+   * Seaport settlement policy for a minted RWA (`standard` when unknown).
+   */
+  async getSettlementPolicy(
+    tokenContract: string,
+    tokenId: string,
+  ): Promise<'standard' | 'self_vault_hold'> {
+    const token = await this.rwaTokens.findOne({
+      where: {
+        tokenContract: tokenContract.toLowerCase(),
+        tokenId: String(tokenId).trim(),
+      },
+    });
+    return token?.settlementPolicy === 'self_vault_hold'
+      ? 'self_vault_hold'
+      : 'standard';
   }
 
   async listOpenRedemptionsForUser(

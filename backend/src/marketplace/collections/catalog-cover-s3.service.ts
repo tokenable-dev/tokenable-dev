@@ -91,6 +91,39 @@ export function isAllowedCatalogCoverPublicUrl(
   return url.toLowerCase().startsWith(`${base.toLowerCase()}/`);
 }
 
+/**
+ * Nest under the cover prefix so the existing IAM scope
+ * (`…/covers/*`, `…/dev/covers/*`) allows PutObject without a new policy.
+ * `dev/covers/` → `dev/covers/user-avatars/`.
+ */
+export function deriveUserAvatarS3Prefix(coverPrefix: string): string {
+  const p = coverPrefix.endsWith('/') ? coverPrefix : `${coverPrefix}/`;
+  return `${p}user-avatars/`;
+}
+
+export function stableUserAvatarObjectKey(
+  avatarPrefix: string,
+  userId: string,
+): string {
+  const p = avatarPrefix.endsWith('/') ? avatarPrefix : `${avatarPrefix}/`;
+  const id = userId.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '') || 'user';
+  return `${p}${id}/avatar`;
+}
+
+export function isPlatformHostedAvatarUrl(
+  publicUrl: string | null | undefined,
+  publicBaseUrl: string,
+  avatarPrefix: string,
+): boolean {
+  const base = publicBaseUrl.trim().replace(/\/+$/, '');
+  if (!base || !publicUrl?.trim()) return false;
+  const url = publicUrl.trim().split('?')[0] ?? '';
+  if (!url.toLowerCase().startsWith(`${base.toLowerCase()}/`)) return false;
+  const key = url.slice(base.length + 1).replace(/^\/+/, '');
+  const prefix = avatarPrefix.endsWith('/') ? avatarPrefix : `${avatarPrefix}/`;
+  return key.toLowerCase().startsWith(prefix.toLowerCase());
+}
+
 /** Prefer Content-Type; fall back to magic bytes (Cardhedger CDNs often omit MIME). */
 export function resolveCatalogCoverMime(
   declaredMime: string | null | undefined,
@@ -128,12 +161,19 @@ export class CatalogCoverS3Service {
   private readonly client: S3Client | null;
   private readonly bucket: string;
   private readonly prefix: string;
+  private readonly avatarPrefix: string;
   private readonly publicBaseUrl: string;
 
   constructor(private readonly config: ConfigService) {
     this.bucket = (this.config.get<string>('CATALOG_COVER_S3_BUCKET') ?? '').trim();
     const prefixRaw = (this.config.get<string>('CATALOG_COVER_S3_PREFIX') ?? 'covers/').trim();
     this.prefix = prefixRaw.endsWith('/') ? prefixRaw : `${prefixRaw}/`;
+    const avatarRaw = (this.config.get<string>('USER_AVATAR_S3_PREFIX') ?? '').trim();
+    this.avatarPrefix = avatarRaw
+      ? avatarRaw.endsWith('/')
+        ? avatarRaw
+        : `${avatarRaw}/`
+      : deriveUserAvatarS3Prefix(this.prefix);
     this.publicBaseUrl = (
       this.config.get<string>('CATALOG_COVER_PUBLIC_BASE_URL') ?? ''
     ).trim().replace(/\/+$/, '');
@@ -229,6 +269,60 @@ export class CatalogCoverS3Service {
     this.validateUploadFile(file);
     const mime = resolveCatalogCoverMime(file.mimetype, file.buffer)!;
     return this.putCollectionCoverBytes(collectionKey, file.buffer, mime);
+  }
+
+  isPlatformHostedAvatarUrl(publicUrl: string | null | undefined): boolean {
+    return isPlatformHostedAvatarUrl(
+      publicUrl,
+      this.publicBaseUrl,
+      this.avatarPrefix,
+    );
+  }
+
+  /**
+   * Put (or overwrite) the user's stable avatar object.
+   * Key shape: `{avatarPrefix}{userId}/avatar`
+   */
+  async putUserAvatarBytes(
+    userId: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<{ objectKey: string; publicUrl: string }> {
+    this.assertConfigured();
+    if (!body?.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    if (body.length > CATALOG_COVER_MAX_BYTES) {
+      throw new Error('CATALOG_COVER_FILE_TOO_LARGE');
+    }
+    const mime = resolveCatalogCoverMime(contentType, body);
+    if (!mime) {
+      throw new Error('CATALOG_COVER_FILE_TYPE_INVALID');
+    }
+
+    const objectKey = stableUserAvatarObjectKey(this.avatarPrefix, userId);
+    await this.client!.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: mime,
+        CacheControl: 'public, max-age=300, must-revalidate',
+      }),
+    );
+
+    const publicUrl = joinCatalogCoverPublicUrl(this.publicBaseUrl, objectKey);
+    this.logger.log(`User avatar put: s3://${this.bucket}/${objectKey}`);
+    return { objectKey, publicUrl };
+  }
+
+  async uploadUserAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ objectKey: string; publicUrl: string }> {
+    this.validateUploadFile(file);
+    const mime = resolveCatalogCoverMime(file.mimetype, file.buffer)!;
+    return this.putUserAvatarBytes(userId, file.buffer, mime);
   }
 
   /**

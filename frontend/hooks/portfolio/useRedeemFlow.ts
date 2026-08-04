@@ -22,6 +22,7 @@ import {
   postRedeemRequest,
   type RedeemShipTo,
 } from "@/lib/core/api/rwa-redeem";
+import { useAuthStore } from "@/store/authStore";
 
 export type RedeemFlowStep =
   | "request"
@@ -58,6 +59,7 @@ export function useRedeemFlow() {
   const queryClient = useQueryClient();
   const { chainId } = useAppChain();
   const { runAccessGate } = useAccessGate(2, "/portfolio/redeem");
+  const userId = useAuthStore((s) => s.user?.id);
 
   const viewParam = searchParams.get("view");
 
@@ -75,7 +77,7 @@ export function useRedeemFlow() {
     let cancelled = false;
 
     async function hydrate() {
-      const saved = readSavedRedeemAddress();
+      const saved = readSavedRedeemAddress(userId);
       if (saved && !cancelled) setForm(saved);
 
       if (viewParam === "transit" || viewParam === "done") {
@@ -141,7 +143,7 @@ export function useRedeemFlow() {
     return () => {
       cancelled = true;
     };
-  }, [chainId, viewParam]);
+  }, [chainId, viewParam, userId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -182,9 +184,9 @@ export function useRedeemFlow() {
     setError(null);
     const shipTo = toShipTo(form);
 
-    if (form.saveAddress) {
-      writeSavedRedeemAddress(shipTo);
-    } else {
+    if (form.saveAddress && userId) {
+      writeSavedRedeemAddress(shipTo, userId);
+    } else if (!form.saveAddress) {
       clearSavedRedeemAddress();
     }
 
@@ -226,7 +228,7 @@ export function useRedeemFlow() {
     clearRedeemDraft();
     setSubmitted(true);
     setStep("requested");
-  }, [draft, form, runAccessGate, queryClient, chainId]);
+  }, [draft, form, runAccessGate, queryClient, chainId, userId]);
 
   return useMemo(
     () => ({

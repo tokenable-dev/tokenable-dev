@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { CatalogCoverS3Service } from '../marketplace/collections/catalog-cover-s3.service';
 import { UserModule } from '../user/user.module';
+import { UserShippingAddressesController } from '../user/user-shipping-addresses.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -25,8 +27,14 @@ import { PrivyService } from './privy';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, PrivyService, JwtStrategy, JwtAuthGuard],
+  controllers: [AuthController, UserShippingAddressesController],
+  providers: [
+    AuthService,
+    PrivyService,
+    JwtStrategy,
+    JwtAuthGuard,
+    CatalogCoverS3Service,
+  ],
   exports: [AuthService, JwtAuthGuard, PrivyService],
 })
 export class AuthModule {}

@@ -217,7 +217,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'Edit price',
-        href: `/portfolio?setprice=${encodeURIComponent(tidNorm)}`,
+        href: `/portfolio?tab=assets&setprice=${encodeURIComponent(tidNorm)}`,
       },
     });
   }
@@ -256,7 +256,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'View bids',
-        href: '/portfolio',
+        href: '/portfolio?tab=bids',
       },
     });
   }
@@ -372,7 +372,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'Add funds',
-        href: '/portfolio',
+        href: '/portfolio?tab=assets&addfunds=1',
       },
     });
   }
@@ -471,7 +471,7 @@ export class NotificationsService {
           cardLabel,
           imageUrl,
           ctaLabel: 'View sale',
-          href: '/portfolio',
+          href: '/portfolio?tab=history',
         },
       });
     }
@@ -518,7 +518,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'View in portfolio',
-        href: '/portfolio',
+        href: '/portfolio?tab=assets',
       },
     });
   }
@@ -557,7 +557,7 @@ export class NotificationsService {
         ctaLabel: 'Re-bid',
         href: tidNorm
           ? `/marketplace/${encodeURIComponent(tidNorm)}`
-          : '/portfolio',
+          : '/portfolio?tab=bids',
       },
     });
   }
@@ -594,7 +594,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'View bid',
-        href: '/portfolio',
+        href: '/portfolio?tab=bids',
       },
     });
   }
@@ -709,7 +709,7 @@ export class NotificationsService {
     const card = params.cardLabel?.trim() || 'Your card';
     const tid = params.tokenId?.trim();
     const href = tid
-      ? `/portfolio?setprice=${encodeURIComponent(tid)}`
+      ? `/portfolio?tab=assets&setprice=${encodeURIComponent(tid)}`
       : `/vault/submissions/${encodeURIComponent(params.submissionPublicId)}`;
 
     await this.emitInbox({
@@ -812,7 +812,7 @@ export class NotificationsService {
         cardLabel: card,
         ctaLabel: 'Set price',
         href: tid
-          ? `/portfolio?setprice=${encodeURIComponent(tid)}`
+          ? `/portfolio?tab=assets&setprice=${encodeURIComponent(tid)}`
           : `/vault/submissions/${encodeURIComponent(params.submissionPublicId)}`,
       },
     });
@@ -840,7 +840,7 @@ export class NotificationsService {
       payload: {
         tokenId: tid || undefined,
         ctaLabel: 'View portfolio',
-        href: '/portfolio',
+        href: '/portfolio?tab=assets',
         redemptionId: params.redemptionId,
       },
     });
@@ -1060,29 +1060,27 @@ export class NotificationsService {
         ? payload.ctaLabel.trim()
         : null;
 
-    let href: string | null = payloadHref;
-    let ctaLabel: string | null = payloadCta;
-    const event = payload.event;
+    const event =
+      typeof payload.event === 'string' ? payload.event : '';
+    const eventKey =
+      typeof payload.eventKey === 'string' ? payload.eventKey : '';
     const noEditCta =
       event === 'cancelled' ||
       event === 'unfilled' ||
       event === 'dead_bidder';
 
-    if (
-      !href &&
-      row.type === 'bid' &&
-      !noEditCta &&
-      tokenId &&
-      payload.eventKey === 'SELLER_TOP_BID_UPDATED'
-    ) {
-      href = `/portfolio?setprice=${encodeURIComponent(tokenId)}`;
-      ctaLabel = ctaLabel ?? 'Edit price';
-    }
-
-    if (event === 'dead_bidder' && !href) {
-      href = '/portfolio';
-      ctaLabel = ctaLabel ?? 'Add funds';
-    }
+    const { href, ctaLabel } = this.resolveNotificationAction({
+      eventKey,
+      event,
+      tokenId,
+      noEditCta,
+      payloadHref,
+      payloadCta,
+      submissionPublicId:
+        typeof payload.submissionPublicId === 'string'
+          ? payload.submissionPublicId
+          : '',
+    });
 
     return {
       id: row.id,
@@ -1097,5 +1095,98 @@ export class NotificationsService {
       ctaLabel,
       imageUrl,
     };
+  }
+
+  /**
+   * Canonical inbox CTAs. Prefer eventKey so older rows with bare `/portfolio`
+   * still land on the right tab / modal.
+   */
+  private resolveNotificationAction(params: {
+    eventKey: string;
+    event: string;
+    tokenId: string;
+    noEditCta: boolean;
+    payloadHref: string | null;
+    payloadCta: string | null;
+    submissionPublicId: string;
+  }): { href: string | null; ctaLabel: string | null } {
+    const {
+      eventKey,
+      event,
+      tokenId,
+      noEditCta,
+      payloadHref,
+      payloadCta,
+      submissionPublicId,
+    } = params;
+    const setPriceHref = tokenId
+      ? `/portfolio?tab=assets&setprice=${encodeURIComponent(tokenId)}`
+      : null;
+    const marketplaceHref = tokenId
+      ? `/marketplace/${encodeURIComponent(tokenId)}`
+      : null;
+    const submissionHref = submissionPublicId
+      ? `/vault/submissions/${encodeURIComponent(submissionPublicId)}`
+      : null;
+
+    switch (eventKey) {
+      case 'SELLER_TOP_BID_UPDATED':
+        if (noEditCta || !setPriceHref) {
+          return { href: null, ctaLabel: null };
+        }
+        return { href: setPriceHref, ctaLabel: 'Edit price' };
+      case 'BUYER_BID_PLACED':
+        return { href: '/portfolio?tab=bids', ctaLabel: 'View bids' };
+      case 'BUYER_BID_EXPIRING':
+        return { href: '/portfolio?tab=bids', ctaLabel: 'View bid' };
+      case 'BUYER_BID_EXPIRED':
+        return {
+          href: marketplaceHref ?? '/portfolio?tab=bids',
+          ctaLabel: 'Re-bid',
+        };
+      case 'BUYER_FILL_FAILED':
+        return {
+          href: '/portfolio?tab=assets&addfunds=1',
+          ctaLabel: 'Add funds',
+        };
+      case 'SELLER_SOLD':
+        return { href: '/portfolio?tab=history', ctaLabel: 'View sale' };
+      case 'BUYER_VAULT_PURCHASED':
+        return { href: '/portfolio?tab=assets', ctaLabel: 'View in portfolio' };
+      case 'BUYER_BID_FILLED':
+        return {
+          href: marketplaceHref ?? '/portfolio?tab=assets',
+          ctaLabel: 'View purchase',
+        };
+      case 'SELLER_LISTING_LIVE':
+        return {
+          href: marketplaceHref ?? '/portfolio?tab=assets',
+          ctaLabel: 'View listing',
+        };
+      case 'SELLER_VERIFY_DONE_SET_PRICE':
+      case 'SELLER_PRICE_PENDING_REMINDER':
+        return {
+          href: setPriceHref ?? submissionHref ?? payloadHref,
+          ctaLabel: 'Set price',
+        };
+      case 'WD_REQUEST_RECEIVED':
+        return { href: '/portfolio?tab=assets', ctaLabel: 'View portfolio' };
+      case 'WD_SHIPPED':
+        return {
+          href: '/portfolio/redeem?view=transit',
+          ctaLabel: 'Track shipment',
+        };
+      default:
+        break;
+    }
+
+    if (event === 'dead_bidder') {
+      return {
+        href: '/portfolio?tab=assets&addfunds=1',
+        ctaLabel: payloadCta ?? 'Add funds',
+      };
+    }
+
+    return { href: payloadHref, ctaLabel: payloadCta };
   }
 }

@@ -84,6 +84,12 @@ export class RwaMintService {
       throw new BadRequestException('certNumber is required');
     }
 
+    // Self vault must never mint a slab that already finished PSA ship
+    // (in transit / at PSA). Custody mint for that PSA path remains allowed.
+    if (deliveryMode === 'direct') {
+      await this.vaultSubmissions.assertCertAvailableForSelfVault(certNumber);
+    }
+
     // The on-chain vaultRef MUST be derived from the permanent physical-asset
     // identity (PSA cert number), never from tokenURI — otherwise the
     // contract's anti-double-claim check across vault re-deposits is defeated.
@@ -130,6 +136,8 @@ export class RwaMintService {
       tokenURI,
       txHash,
       certNumber,
+      settlementPolicy:
+        deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
     });
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
 

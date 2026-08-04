@@ -51,6 +51,8 @@ Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` 
 `/sell/flow` → **PSA vault** uses this submissions + shipping pipeline (mint later lands in custody; admin delivers).  
 **Self vault** reuses the same Add-cards UI, then mints via `POST /api/rwa/upload` + `POST /api/rwa/mint` with `deliveryMode: "direct"` so the NFT goes straight to the minter's linked wallet / portfolio (no admin Custody deliver).
 
+**Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Draft / `awaiting_shipment` packages are still editable; rejected/failed/completed items do not block self vault.
+
 ### PSA “Items Received” mail → admin review → `psa_reviewing`
 
 After the seller registers tracking (`in_transit`), PSA eventually sends **Items Received at PSA Vault** to `tokenable.dev@gmail.com`. A Nest cron polls Gmail and **queues** a review row — it does **not** auto-advance packages.

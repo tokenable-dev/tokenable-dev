@@ -106,6 +106,13 @@ export function serializeAuthUser(
     linkedAt: p.linkedAt.toISOString(),
   }));
 
+  const emailNotifPrefs = {
+    trades: user.emailNotifPrefs?.trades ?? true,
+    bids: user.emailNotifPrefs?.bids ?? true,
+    price: user.emailNotifPrefs?.price ?? true,
+    vault: user.emailNotifPrefs?.vault ?? true,
+  };
+
   return {
     id: user.id,
     email: user.email,
@@ -122,6 +129,9 @@ export function serializeAuthUser(
     lastPrivySyncAt: user.lastPrivySyncAt
       ? new Date(user.lastPrivySyncAt).toISOString()
       : null,
+    marketingEmailsOptIn: user.marketingEmailsOptIn ?? false,
+    emailNotificationsEnabled: user.emailNotificationsEnabled ?? true,
+    emailNotifPrefs,
     walletAddress: primary?.walletAddress ?? user.walletAddress ?? null,
     walletLinkedAt: primary?.linkedAt
       ? new Date(primary.linkedAt).toISOString()

@@ -211,9 +211,17 @@ export function useTokenOffer(input: {
     return "submit";
   }, [bidLimitReached, insufficientFunds, belowSoftFloor]);
 
+  const busy =
+    step === "signing" ||
+    step === "submitting" ||
+    step === "buying" ||
+    fiatOnramp.inFlight;
+
   const policyHint = useMemo(() => {
     if (hintError) return { text: hintError, tone: "error" as const };
-    if (bidLimitReached) {
+    // After a successful submit, invalidate refreshes the book and briefly
+    // makes bidLimitReached true while still on the form — suppress that flash.
+    if (bidLimitReached && !busy && step !== "success") {
       return {
         text: `You already have an active bid on this collection. Cancel or edit it to place a new one.`,
         tone: "error" as const,
@@ -245,6 +253,8 @@ export function useTokenOffer(input: {
   }, [
     hintError,
     bidLimitReached,
+    busy,
+    step,
     insufficientFunds,
     shortfallUsdc,
     belowSoftFloor,
@@ -252,12 +262,6 @@ export function useTokenOffer(input: {
     errorMsg,
     hasListedAsk,
   ]);
-
-  const busy =
-    step === "signing" ||
-    step === "submitting" ||
-    step === "buying" ||
-    fiatOnramp.inFlight;
 
   const busyLabel =
     step === "buying"
@@ -349,9 +353,10 @@ export function useTokenOffer(input: {
           net_amount: Math.round(purchasePrice * 0.95 * 100) / 100,
         });
         if (paid != null) onInstantBuyFillUsdc?.(paid);
+        // Flip to success before cache refresh so limit/policy UI cannot flash.
+        setStep("success");
         await invalidateAfter();
         onPurchaseFilled?.();
-        setStep("success");
       } catch (e: unknown) {
         setErrorMsg(mapWalletError(e).message);
         setStep("error");
@@ -395,9 +400,11 @@ export function useTokenOffer(input: {
         card_id: String(tokenIdNorm),
         bid_amount: priceUsdc,
       });
+      // Flip to success before cache refresh so the just-placed bid is not
+      // momentarily treated as "already have an active bid" on the form.
+      setStep("success");
       await invalidateAfter();
       onPlaced?.(result.order);
-      setStep("success");
     } catch (e: unknown) {
       setErrorMsg(mapWalletError(e).message);
       setStep("error");

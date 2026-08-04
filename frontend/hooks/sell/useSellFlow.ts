@@ -31,6 +31,10 @@ import {
   type SellVaultChoice,
 } from "@/lib/sell/sellFlowDraft";
 import { mintSellFlowCardByCert } from "@/lib/sell/mintSellFlowCard";
+import {
+  findSelfVaultBlockedCert,
+  selfVaultBlockedMessage,
+} from "@/lib/sell/psaShipmentSelfVaultGuard";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -402,6 +406,14 @@ export function useSellFlow() {
     lookupLockRef.current = true;
     setLookupBusy(true);
     try {
+      if (vaultChoice === "self") {
+        const rows = await listVaultSubmissions();
+        const blocked = findSelfVaultBlockedCert(rows, cert);
+        if (blocked) {
+          setCertError(selfVaultBlockedMessage(blocked));
+          return;
+        }
+      }
       const r = await analyzePsaByCertNumber(cert);
       addCardFromResult(r, cert);
     } catch (e) {
@@ -420,7 +432,7 @@ export function useSellFlow() {
       lookupLockRef.current = false;
       setLookupBusy(false);
     }
-  }, [addCardFromResult, cards, certInput]);
+  }, [addCardFromResult, cards, certInput, vaultChoice]);
 
   const scanSlab = useCallback(() => {
     slabInputRef.current?.click();
@@ -445,6 +457,14 @@ export function useSellFlow() {
           );
           return;
         }
+        if (vaultChoice === "self") {
+          const rows = await listVaultSubmissions();
+          const blocked = findSelfVaultBlockedCert(rows, cert);
+          if (blocked) {
+            setCertError(selfVaultBlockedMessage(blocked));
+            return;
+          }
+        }
         addCardFromResult(r, cert);
       } catch (e) {
         if (isPsaRateLimitError(e)) {
@@ -462,7 +482,7 @@ export function useSellFlow() {
         if (slabInputRef.current) slabInputRef.current.value = "";
       }
     },
-    [addCardFromResult, cards.length],
+    [addCardFromResult, cards.length, vaultChoice],
   );
 
   const toggleConfirm = useCallback((index: number) => {
@@ -535,6 +555,14 @@ export function useSellFlow() {
     setMintStatus(null);
 
     try {
+      const rows = await listVaultSubmissions();
+      for (const card of confirmed) {
+        const blocked = findSelfVaultBlockedCert(rows, card.cert);
+        if (blocked) {
+          throw new Error(selfVaultBlockedMessage(blocked));
+        }
+      }
+
       const recipientAddress = await ensureAccountWalletReady();
       const minted: { cert: string; tokenId: number }[] = [];
       for (let i = 0; i < confirmed.length; i++) {

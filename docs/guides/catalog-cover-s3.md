@@ -29,6 +29,22 @@ Cache-Control on put: `public, max-age=300, must-revalidate` (covers are overwri
 
 Allowed types: JPEG / PNG / WebP, max **8MB**.
 
+### User avatars (same bucket)
+
+Settings profile uploads (`POST /api/auth/avatar`) reuse this bucket / public base:
+
+```
+{CATALOG_COVER_S3_PREFIX}user-avatars/{userId}/avatar
+```
+
+Example with `CATALOG_COVER_S3_PREFIX=dev/covers/`:
+
+```
+dev/covers/user-avatars/{userId}/avatar
+```
+
+This stays under the existing IAM scope (`…/dev/covers/*`). Optional override: `USER_AVATAR_S3_PREFIX` (must also be allowed by IAM). Same MIME/size limits as covers.
+
 ### Public URL shape
 
 Persisted `coverImageUrl` must be:
@@ -61,6 +77,7 @@ Not required for marketplace list/detail `<img>` tags. If you want direct browse
    - `s3:PutObject`
    - `s3:DeleteObject` (legacy uuid-key cleanup only)
    - scoped to `arn:aws:s3:::YOUR_BUCKET/covers/*` (and `dev/covers/*` if using a dev prefix)
+   - User avatars write under `{prefix}user-avatars/*`, so the same `covers/*` / `dev/covers/*` scope covers them. A sibling `avatars/` prefix needs an extra IAM statement.
 4. Smoke test: manually upload one object in the AWS console, then open  
    `{CATALOG_COVER_PUBLIC_BASE_URL}/{key}` in a browser.
 

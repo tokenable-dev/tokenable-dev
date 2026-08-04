@@ -26,7 +26,8 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
-| `/profile` | `app/profile/page.tsx` | User profile — wallets, email verification, password change |
+| `/settings` | `app/settings/page.tsx` | Account settings — Profile, Notifications, Wallet, Addresses, Identity, Legal, Security (`?section=`) |
+| `/profile` | `app/profile/page.tsx` | Redirects to `/settings` |
 | `/login` | `app/login/page.tsx` | Sign in — Privy modal launcher (Google, email, wallet) |
 | `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
@@ -76,7 +77,8 @@ Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=�
 | `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, batch metadata, `POST …/portfolio-market-batch`, `GET …/portfolio/daily/:wallet`, `GET …/portfolio/hidden/:wallet`, orders |
 | `/watchlist` | `GET/POST/DELETE /api/marketplace/watchlist` |
 | `/login`, `/signup` | Privy SDK (client-side modal) → `POST /api/auth/privy/session` |
-| `/profile` | `/api/auth/*` |
+| `/settings` | Session user + prefs (`PATCH /api/auth/profile`); address book (`/api/user/shipping-addresses`); USDC + Add funds (MoonPay); KYC via `/kyc`; delete via `POST /api/auth/delete-account` |
+| `/profile` | Redirect → `/settings` |
 | `/site-access` | `POST /api/site-access/verify` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/collections/[collectionKey]` | Collection detail, cardhedger, market-series, stats, ai-insight, Seaport orders |

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,14 +8,28 @@ import { getAddress } from 'ethers';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import type { ParsedAuthProvider, ParsedWalletLink } from '../auth/privy/privy.types';
+import type { UpdateProfileDto } from '../auth/dto/update-profile.dto';
+import type {
+  CreateShippingAddressDto,
+  UpdateShippingAddressDto,
+} from './dto/shipping-address.dto';
 import { UserAuthProvider } from './entities/user-auth-provider.entity';
 import { UserKycEvent, type KycStatusValue } from './entities/user-kyc-event.entity';
+import {
+  UserShippingAddress,
+  type ShippingCountry,
+} from './entities/user-shipping-address.entity';
 import { User } from './entities/user.entity';
 import {
   UserWallet,
   type UserWalletKind,
   type UserWalletSource,
 } from './entities/user-wallet.entity';
+import {
+  DEFAULT_EMAIL_NOTIF_PREFS,
+  MAX_SHIPPING_ADDRESSES_PER_USER,
+  normalizeEmailNotifPrefs,
+} from './user-settings.util';
 
 @Injectable()
 export class UserService {
@@ -27,6 +42,8 @@ export class UserService {
     private readonly authProviders: Repository<UserAuthProvider>,
     @InjectRepository(UserKycEvent)
     private readonly kycEvents: Repository<UserKycEvent>,
+    @InjectRepository(UserShippingAddress)
+    private readonly shippingAddresses: Repository<UserShippingAddress>,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -82,14 +99,8 @@ export class UserService {
     const byEmail = await this.findByEmail(email);
     if (byEmail) {
       byEmail.privyId = params.privyId;
-      if (params.name != null) byEmail.name = params.name;
-      if (params.pictureUrl != null) byEmail.pictureUrl = params.pictureUrl;
-      if (params.emailVerified !== undefined) {
-        byEmail.emailVerified = params.emailVerified;
-      }
-      if (params.googleId && !byEmail.googleId) {
-        byEmail.googleId = params.googleId;
-      }
+      // Same preserve rules as patchPrivyProfileIfNeeded (Settings name/avatar).
+      await this.patchPrivyProfileIfNeeded(byEmail, params);
       byEmail.lastPrivySyncAt = new Date();
       await this.users.save(byEmail);
       await this.syncPrivyIdentity(byEmail.id, params.authProviders ?? [], wallets);
@@ -127,11 +138,21 @@ export class UserService {
       user.email = email;
       dirty = true;
     }
-    if (params.name != null && params.name !== user.name) {
+    // Preserve Settings display name; only fill when empty.
+    if (
+      params.name != null &&
+      params.name !== user.name &&
+      !user.name?.trim()
+    ) {
       user.name = params.name;
       dirty = true;
     }
-    if (params.pictureUrl != null && params.pictureUrl !== user.pictureUrl) {
+    // Preserve Settings avatar upload; only fill when empty.
+    if (
+      params.pictureUrl != null &&
+      params.pictureUrl !== user.pictureUrl &&
+      !user.pictureUrl?.trim()
+    ) {
       user.pictureUrl = params.pictureUrl;
       dirty = true;
     }
@@ -454,11 +475,19 @@ export class UserService {
     },
   ): Promise<void> {
     let dirty = false;
-    if (params.name != null && params.name !== user.name) {
+    if (
+      params.name != null &&
+      params.name !== user.name &&
+      !user.name?.trim()
+    ) {
       user.name = params.name;
       dirty = true;
     }
-    if (params.pictureUrl != null && params.pictureUrl !== user.pictureUrl) {
+    if (
+      params.pictureUrl != null &&
+      params.pictureUrl !== user.pictureUrl &&
+      !user.pictureUrl?.trim()
+    ) {
       user.pictureUrl = params.pictureUrl;
       dirty = true;
     }
@@ -470,6 +499,14 @@ export class UserService {
       dirty = true;
     }
     if (dirty) await this.users.save(user);
+  }
+
+  async updatePictureUrl(userId: string, pictureUrl: string): Promise<User> {
+    const user = await this.findByIdOrFail(userId);
+    const url = pictureUrl.trim();
+    if (!url) throw new BadRequestException('Picture URL is required');
+    user.pictureUrl = url;
+    return this.users.save(user);
   }
 
   async listWalletsForUser(userId: string): Promise<UserWallet[]> {
@@ -609,5 +646,186 @@ export class UserService {
       return this.users.save(user);
     }
     return this.removeWallet(userId, primary.walletAddress);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
+    const user = await this.findByIdOrFail(userId);
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (!name) throw new BadRequestException('Display name is required');
+      user.name = name;
+    }
+    if (dto.marketingEmailsOptIn !== undefined) {
+      user.marketingEmailsOptIn = dto.marketingEmailsOptIn;
+    }
+    if (dto.emailNotificationsEnabled !== undefined) {
+      user.emailNotificationsEnabled = dto.emailNotificationsEnabled;
+    }
+    if (dto.emailNotifPrefs !== undefined) {
+      user.emailNotifPrefs = normalizeEmailNotifPrefs(
+        dto.emailNotifPrefs,
+        normalizeEmailNotifPrefs(user.emailNotifPrefs),
+      );
+    }
+    if (
+      user.emailNotifPrefs == null ||
+      typeof user.emailNotifPrefs !== 'object'
+    ) {
+      user.emailNotifPrefs = { ...DEFAULT_EMAIL_NOTIF_PREFS };
+    }
+    return this.users.save(user);
+  }
+
+  serializeShippingAddress(row: UserShippingAddress) {
+    return {
+      id: row.id,
+      label: row.label,
+      name: row.name,
+      line1: row.line1,
+      line2: row.line2,
+      city: row.city,
+      region: row.region,
+      postal: row.postal,
+      country: row.country,
+      phone: row.phone,
+      isDefault: row.isDefault,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  async listShippingAddresses(userId: string): Promise<UserShippingAddress[]> {
+    return this.shippingAddresses.find({
+      where: { userId },
+      order: { isDefault: 'DESC', createdAt: 'ASC' },
+    });
+  }
+
+  async createShippingAddress(
+    userId: string,
+    dto: CreateShippingAddressDto,
+  ): Promise<UserShippingAddress> {
+    return this.shippingAddresses.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(UserShippingAddress);
+      const count = await repo.count({ where: { userId } });
+      if (count >= MAX_SHIPPING_ADDRESSES_PER_USER) {
+        throw new BadRequestException(
+          `You can save up to ${MAX_SHIPPING_ADDRESSES_PER_USER} addresses`,
+        );
+      }
+      const makeDefault = dto.isDefault === true || count === 0;
+      if (makeDefault) {
+        await repo
+          .createQueryBuilder()
+          .update(UserShippingAddress)
+          .set({ isDefault: false })
+          .where('user_id = :userId AND is_default = true', { userId })
+          .execute();
+      }
+      const row = repo.create({
+        userId,
+        label: (dto.label?.trim() || 'Home').slice(0, 64),
+        name: dto.name.trim(),
+        line1: dto.line1.trim(),
+        line2: dto.line2?.trim() ? dto.line2.trim() : null,
+        city: dto.city.trim(),
+        region: dto.region?.trim() ? dto.region.trim() : null,
+        postal: dto.postal.trim(),
+        country: dto.country as ShippingCountry,
+        phone: dto.phone.trim(),
+        isDefault: makeDefault,
+      });
+      return repo.save(row);
+    });
+  }
+
+  async updateShippingAddress(
+    userId: string,
+    addressId: string,
+    dto: UpdateShippingAddressDto,
+  ): Promise<UserShippingAddress> {
+    return this.shippingAddresses.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(UserShippingAddress);
+      const row = await repo.findOne({
+        where: { id: addressId, userId },
+      });
+      if (!row) throw new NotFoundException('Address not found');
+
+      if (dto.label !== undefined) {
+        row.label = (dto.label.trim() || 'Home').slice(0, 64);
+      }
+      if (dto.name !== undefined) row.name = dto.name.trim();
+      if (dto.line1 !== undefined) row.line1 = dto.line1.trim();
+      if (dto.line2 !== undefined) {
+        row.line2 = dto.line2?.trim() ? dto.line2.trim() : null;
+      }
+      if (dto.city !== undefined) row.city = dto.city.trim();
+      if (dto.region !== undefined) {
+        row.region = dto.region?.trim() ? dto.region.trim() : null;
+      }
+      if (dto.postal !== undefined) row.postal = dto.postal.trim();
+      if (dto.country !== undefined) row.country = dto.country;
+      if (dto.phone !== undefined) row.phone = dto.phone.trim();
+
+      if (dto.isDefault === true) {
+        await repo
+          .createQueryBuilder()
+          .update(UserShippingAddress)
+          .set({ isDefault: false })
+          .where('user_id = :userId AND is_default = true', { userId })
+          .execute();
+        row.isDefault = true;
+      }
+
+      return repo.save(row);
+    });
+  }
+
+  async setDefaultShippingAddress(
+    userId: string,
+    addressId: string,
+  ): Promise<UserShippingAddress> {
+    return this.shippingAddresses.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(UserShippingAddress);
+      const row = await repo.findOne({ where: { id: addressId, userId } });
+      if (!row) throw new NotFoundException('Address not found');
+      if (row.isDefault) return row;
+
+      await repo
+        .createQueryBuilder()
+        .update(UserShippingAddress)
+        .set({ isDefault: false })
+        .where('user_id = :userId AND is_default = true', { userId })
+        .execute();
+
+      await repo
+        .createQueryBuilder()
+        .update(UserShippingAddress)
+        .set({ isDefault: true })
+        .where('id = :addressId AND user_id = :userId', { addressId, userId })
+        .execute();
+
+      const updated = await repo.findOne({ where: { id: addressId, userId } });
+      if (!updated) throw new NotFoundException('Address not found');
+      return updated;
+    });
+  }
+
+  async deleteShippingAddress(userId: string, addressId: string): Promise<void> {
+    const row = await this.shippingAddresses.findOne({
+      where: { id: addressId, userId },
+    });
+    if (!row) throw new NotFoundException('Address not found');
+    const wasDefault = row.isDefault;
+    await this.shippingAddresses.remove(row);
+    if (!wasDefault) return;
+    const next = await this.shippingAddresses.findOne({
+      where: { userId },
+      order: { createdAt: 'ASC' },
+    });
+    if (next) {
+      next.isDefault = true;
+      await this.shippingAddresses.save(next);
+    }
   }
 }

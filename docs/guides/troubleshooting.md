@@ -32,6 +32,15 @@
 
 **Symptom:** Clicking "Sign in" has no effect, or `POST /api/auth/privy/session` returns `400 Bad Request`.
 
+**Console: `POST https://auth.privy.io/api/v1/sessions` → 500**
+
+Privy’s own session restore failed (often a stale refresh token, sometimes a Privy outage). While that happens Privy never becomes `ready`, so `login()` does nothing even if **Sign up** is visible.
+
+1. DevTools → Application → clear site data for the origin, then reload.
+2. Confirm [status.privy.io](https://status.privy.io) and Dashboard **Allowed domains** include the exact origin (`http://localhost:3000` or `https://tokenable-dev.com`).
+
+Unrelated noise: `THREE.Clock` deprecation (home 3D) and `contentscript.js` / `ObjectMultiplex` (wallet browser extension) do **not** block Sign up.
+
 **Local dev**
 
 1. Verify `NEXT_PUBLIC_PRIVY_APP_ID` is set in `frontend/.env` and the dev server was restarted after adding it (Next.js bakes `NEXT_PUBLIC_*` at startup).

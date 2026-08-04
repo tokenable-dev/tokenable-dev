@@ -111,9 +111,8 @@ export default function PortfolioPage() {
       setPortfolioMainTab("history");
       return;
     }
-    if (tab === "collectibles" || tab === "assets") {
-      setPortfolioMainTab("collectibles");
-    }
+    // Bare /portfolio and ?tab=assets|collectibles → My Assets
+    setPortfolioMainTab("collectibles");
   }, [searchParams]);
 
   useEffect(() => {
@@ -388,16 +387,21 @@ export default function PortfolioPage() {
       searchParams.get("setprice")?.trim() ||
       searchParams.get("list")?.trim() ||
       "";
-    if (!/^\d+$/.test(listParam)) return;
+    if (!/^\d+$/.test(listParam)) {
+      // Clear after URL cleanup so the same notification can reopen the modal.
+      listQueryHandledRef.current = null;
+      return;
+    }
     if (listQueryHandledRef.current === listParam) return;
     if (!portfolioDataEnabled || assetsSectionLoading) return;
 
     const tokenId = Number(listParam);
-    const ownsToken = tokenIds.includes(tokenId);
     listQueryHandledRef.current = listParam;
-    router.replace("/portfolio", { scroll: false });
 
-    if (ownsToken) {
+    // Stay on My Assets after clearing the deep-link query.
+    router.replace("/portfolio?tab=assets", { scroll: false });
+
+    if (tokenIds.includes(tokenId)) {
       openPortfolioSetPriceModal(tokenId);
     }
   }, [
@@ -460,6 +464,12 @@ export default function PortfolioPage() {
               redeemSelection.exitSelectMode();
             }
             setPortfolioMainTab(tab);
+            const next =
+              tab === "bids" ? "bids" : tab === "history" ? "history" : "assets";
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("tab", next);
+            const qs = params.toString();
+            router.replace(qs ? `/portfolio?${qs}` : "/portfolio", { scroll: false });
           }}
           collectiblesPanel={
             <PortfolioHoldingsSection
@@ -614,7 +624,6 @@ export default function PortfolioPage() {
           }
           onMatchedSale={() => {
             void refetchActiveOrders();
-            setListModal(null);
           }}
           onClose={() => setListModal(null)}
           onListed={() => {
@@ -624,7 +633,7 @@ export default function PortfolioPage() {
               tokenId: listModal.tokenId,
             });
             void refetchActiveOrders();
-            setListModal(null);
+            // Keep sheet open so DS-4 complete state can render; Done closes via onClose.
           }}
         />
       ) : null}

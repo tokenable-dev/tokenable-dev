@@ -1,18 +1,24 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
+  ServiceUnavailableException,
+  UploadedFile,
   UseGuards,
-  BadRequestException,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
@@ -20,6 +26,10 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import {
+  CATALOG_COVER_MAX_BYTES,
+  CatalogCoverS3Service,
+} from '../marketplace/collections/catalog-cover-s3.service';
 import type { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
@@ -32,6 +42,7 @@ import {
 } from './auth-session.util';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { AuthSessionResponseDto } from './dto/auth-session.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { extractBearerToken } from './privy';
 import { apiBodyDefault } from '../swagger/api-body.util';
@@ -46,6 +57,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly config: ConfigService,
     private readonly users: UserService,
+    private readonly catalogCoverS3: CatalogCoverS3Service,
   ) {}
 
   @Get('session')
@@ -116,6 +128,109 @@ export class AuthController {
   logout(@Res() res: Response): void {
     clearAccessTokenCookie(res, this.config);
     res.end();
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: AuthSessionResponseDto })
+  @ApiOperation({
+    summary: '프로필 / 알림 설정 업데이트',
+    description:
+      'Display name, marketing opt-in, email notification master switch + category prefs.',
+  })
+  async updateProfile(
+    @Req() req: Request & { user: User },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const user = await this.users.updateProfile(req.user.id, dto);
+    const wallets = await this.users.listWalletsForUser(user.id);
+    const authProviders = await this.users.listAuthProvidersForUser(user.id);
+    return { user: serializeAuthUser(user, wallets, authProviders) };
+  }
+
+  @Post('avatar')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ type: AuthSessionResponseDto })
+  @ApiOperation({
+    summary: '프로필 아바타 업로드',
+    description:
+      'JPEG/PNG/WebP ≤ 8MB. Same S3 bucket as catalog covers (`{prefix}user-avatars/{userId}/avatar`).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: CATALOG_COVER_MAX_BYTES },
+      fileFilter: (_req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.mimetype)) {
+          cb(
+            new BadRequestException('Avatar must be a JPEG, PNG, or WebP image'),
+            false,
+          );
+          return;
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  async uploadAvatar(
+    @Req() req: Request & { user: User },
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!this.catalogCoverS3.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'Avatar storage is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+      );
+    }
+    if (!file) {
+      throw new BadRequestException('Avatar file is required');
+    }
+    try {
+      const { publicUrl } = await this.catalogCoverS3.uploadUserAvatar(
+        req.user.id,
+        file,
+      );
+      // Cache-bust overwrite so clients refresh the same object key immediately.
+      const pictureUrl = `${publicUrl}?v=${Date.now()}`;
+      const user = await this.users.updatePictureUrl(req.user.id, pictureUrl);
+      const wallets = await this.users.listWalletsForUser(user.id);
+      const authProviders = await this.users.listAuthProvidersForUser(user.id);
+      return { user: serializeAuthUser(user, wallets, authProviders) };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+        throw new ServiceUnavailableException(
+          'Avatar storage is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+        );
+      }
+      if (msg === 'CATALOG_COVER_FILE_TOO_LARGE') {
+        throw new BadRequestException('Avatar must be 8MB or smaller');
+      }
+      if (
+        msg === 'CATALOG_COVER_FILE_EMPTY' ||
+        msg === 'CATALOG_COVER_FILE_TYPE_INVALID'
+      ) {
+        throw new BadRequestException('Avatar must be a JPEG, PNG, or WebP image');
+      }
+      if (/AccessDenied|not authorized to perform: s3:PutObject/i.test(msg)) {
+        throw new ServiceUnavailableException(
+          'Avatar upload was denied by S3 IAM. Ensure the uploader can PutObject under your CATALOG_COVER_S3_PREFIX (avatars are stored at {prefix}user-avatars/{userId}/avatar).',
+        );
+      }
+      throw e;
+    }
   }
 
   @Post('delete-account')

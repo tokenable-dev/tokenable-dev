@@ -51,6 +51,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         isReplaceListing={modal.isReplaceListing}
         successMeta={modal.successMeta}
         copyVariant={copyVariant}
+        settlementPolicy={modal.settlementPolicy}
         onClose={onClose}
       />
     ) : (
@@ -70,6 +71,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         onRequestCancelListing={onRequestCancelListing}
         onClose={onClose}
         copyVariant={copyVariant}
+        settlementPolicy={modal.settlementPolicy}
         step={modal.step}
         errorMsg={modal.errorMsg}
         isProcessing={modal.isProcessing}

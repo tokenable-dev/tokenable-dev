@@ -56,6 +56,9 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 |--------|------|-------|-------------|
 | **POST** | **`/api/auth/privy/session`** | Bearer Privy | **Privy → Tokenable session** (`privy-access-token` in Swagger) |
 | GET | `/api/auth/session` | — | Current session (`{ user: null }` when anonymous — never 401) |
+| PATCH | `/api/auth/profile` | JWT | Display name + marketing / email notification prefs |
+| POST | `/api/auth/avatar` | JWT | Profile avatar upload (S3, multipart `file`) |
+| GET/POST/PATCH/DELETE | `/api/user/shipping-addresses` | JWT | Settings address book (see [auth.md](./auth.md)) |
 | POST | `/api/auth/logout` | — | Clear Tokenable cookie (204) |
 | POST | `/api/auth/delete-account` | JWT | Delete account (`password` optional — legacy email users only) |
 

@@ -9,16 +9,22 @@ import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { isSellPrimaryNavActive } from "@/lib/vault/vaultAccess";
 import { useAuthStore } from "@/store/authStore";
 
-/** Exact path or nested routes (strip query/hash before compare). */
-function isPrimaryHeaderNavActive(pathname: string | null | undefined, href: string): boolean {
-  if (!pathname) return false;
-  let pathOnly = pathname;
+function stripQueryAndHash(path: string): string {
+  let pathOnly = path;
   const qIdx = pathOnly.indexOf("?");
   if (qIdx >= 0) pathOnly = pathOnly.slice(0, qIdx);
   const hIdx = pathOnly.indexOf("#");
   if (hIdx >= 0) pathOnly = pathOnly.slice(0, hIdx);
-  if (pathOnly === href) return true;
-  const base = href.replace(/\/$/, "");
+  return pathOnly;
+}
+
+/** Exact path or nested routes (strip query/hash before compare). */
+function isPrimaryHeaderNavActive(pathname: string | null | undefined, href: string): boolean {
+  if (!pathname) return false;
+  const pathOnly = stripQueryAndHash(pathname);
+  const hrefPath = stripQueryAndHash(href);
+  if (pathOnly === hrefPath) return true;
+  const base = hrefPath.replace(/\/$/, "");
   return pathOnly.startsWith(`${base}/`);
 }
 
@@ -37,7 +43,7 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
-  { href: "/portfolio", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
+  { href: "/portfolio?tab=assets", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
   { href: "/sell", label: "Sell", minLevel: 1 as HeaderNavMinLevel },
 ] as const;
 
@@ -46,9 +52,10 @@ export function visibleHeaderNavItems() {
 }
 
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
-  if (href === "/markets") return isMarketsPrimaryNavActive(pathname);
-  if (href === "/sell") return isSellPrimaryNavActive(pathname);
-  return isPrimaryHeaderNavActive(pathname, href);
+  const hrefPath = stripQueryAndHash(href);
+  if (hrefPath === "/markets") return isMarketsPrimaryNavActive(pathname);
+  if (hrefPath === "/sell") return isSellPrimaryNavActive(pathname);
+  return isPrimaryHeaderNavActive(pathname, hrefPath);
 }
 
 function HeaderNavLink({

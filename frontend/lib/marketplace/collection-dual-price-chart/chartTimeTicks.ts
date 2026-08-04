@@ -102,11 +102,24 @@ export function formatTickYearOrMonthLabel(tSec: number, rangeStartSec: number):
   return d.toLocaleDateString("en-US", { month: "short" });
 }
 
+/** Axis label without `$` — `900`, `1k`, `2k`, `1.5k`, `3M`. */
 export function formatYAxisLabelPlain(value: number): string {
-  const rounded = Math.round(value);
-  if (rounded >= 1_000_000) return `${Math.round(rounded / 1_000_000)}M`;
-  if (rounded >= 10_000) return `${Math.round(rounded / 1_000)}k`;
-  return String(rounded);
+  if (!Number.isFinite(value)) return "—";
+  const n = Math.round(value);
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const m = n / 1_000_000;
+    return Number.isInteger(m) || Math.abs(m - Math.round(m)) < 1e-6
+      ? `${Math.round(m)}M`
+      : `${m.toFixed(1)}M`;
+  }
+  if (abs >= 1000) {
+    const k = n / 1000;
+    return Number.isInteger(k) || Math.abs(k - Math.round(k)) < 1e-6
+      ? `${Math.round(k)}k`
+      : `${k.toFixed(1)}k`;
+  }
+  return String(n);
 }
 
 export function formatHoverWhen(tSec: number): string {
@@ -118,10 +131,8 @@ export function formatTooltipUsd(v: number | null): string {
   return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
 }
 
+/** Axis label with `$` — `$900`, `$1k`, `$2k`. */
 export function formatYAxisLabelCompact(value: number): string {
-  if (value >= 1_000_000) return `$${Math.round(value / 1_000_000)}M`;
-  if (value >= 10_000) return `$${Math.round(value / 1_000)}k`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
-  if (value >= 10) return `$${Math.round(value)}`;
-  return `$${value.toFixed(value === 0 ? 0 : 1)}`;
+  if (!Number.isFinite(value)) return "—";
+  return `$${formatYAxisLabelPlain(value)}`;
 }

@@ -7,6 +7,7 @@
 @import "../styles/tokenable-home.css";
 @import "../styles/tokenable-markets.css";
 @import "../styles/tokenable-collection-detail.css";
+@import "../styles/tokenable-action-complete.css";
 @import "../styles/tokenable-portfolio.css";
 @import "../styles/tokenable-portfolio-redeem.css";
 @import "../styles/tokenable-watchlist.css";
@@ -15,6 +16,7 @@
 @import "../styles/tokenable-rwa-detail.css";
 @import "../styles/tokenable-page-states.css";
 @import "../styles/tokenable-secondary.css";
+@import "../styles/tokenable-settings.css";
 
 :root {
   --background: #000000;

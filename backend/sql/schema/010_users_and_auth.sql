@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
   kyc_external_id varchar(128),
   kyc_rejection_reason text,
   last_privy_sync_at timestamptz,
+  marketing_emails_opt_in boolean NOT NULL DEFAULT false,
+  email_notifications_enabled boolean NOT NULL DEFAULT true,
+  email_notif_prefs jsonb NOT NULL DEFAULT '{"trades":true,"bids":true,"price":true,"vault":true}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT users_email_unique UNIQUE (email),
@@ -37,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_users_wallet_address
 COMMENT ON TABLE users IS 'Platform accounts (Privy / Google / email) with optional linked wallet.';
 COMMENT ON COLUMN users.password_hash IS 'scrypt hash for email/password login; NULL for OAuth-only accounts.';
 COMMENT ON COLUMN users.wallet_address IS 'Primary linked wallet (denormalized). Same address may appear on multiple users.';
+COMMENT ON COLUMN users.marketing_emails_opt_in IS 'Settings: product news / drops opt-in (delivery TBD).';
+COMMENT ON COLUMN users.email_notifications_enabled IS 'Settings: master switch for category email prefs.';
+COMMENT ON COLUMN users.email_notif_prefs IS 'Settings: {trades,bids,price,vault} email category toggles.';
 
 CREATE TABLE IF NOT EXISTS user_wallets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -112,6 +118,35 @@ CREATE INDEX IF NOT EXISTS idx_user_kyc_events_user_id
   ON user_kyc_events (user_id, created_at DESC);
 
 COMMENT ON TABLE user_kyc_events IS 'Append-only KYC status transitions for audit and support.';
+
+CREATE TABLE IF NOT EXISTS user_shipping_addresses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label varchar(64) NOT NULL DEFAULT 'Home',
+  name varchar(128) NOT NULL,
+  line1 varchar(256) NOT NULL,
+  line2 varchar(256),
+  city varchar(128) NOT NULL,
+  region varchar(128),
+  postal varchar(32) NOT NULL,
+  country varchar(8) NOT NULL DEFAULT 'us',
+  phone varchar(40) NOT NULL,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT user_shipping_addresses_country_check
+    CHECK (country IN ('us', 'ca', 'intl'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_shipping_addresses_user_id
+  ON user_shipping_addresses (user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_shipping_addresses_one_default
+  ON user_shipping_addresses (user_id)
+  WHERE is_default = true;
+
+COMMENT ON TABLE user_shipping_addresses IS
+  'Saved ship-to addresses for vault redeem / physical withdrawal (Settings address book).';
 
 DO $$ BEGIN
   CREATE TYPE verification_token_type AS ENUM ('email_verify', 'password_reset');

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   formatReferencePercentChange,
@@ -22,6 +23,7 @@ export function HomeTicker() {
         shortTitle.length > 28 ? `${shortTitle.slice(0, 26)}…` : shortTitle;
       return {
         name,
+        collectionKey: collection.collectionKey,
         pct: formatReferencePercentChange(changePct ?? 0, 0),
         up: tone !== "down",
       };
@@ -43,7 +45,11 @@ export function HomeTicker() {
       <div className="home-ticker__viewport">
         <div className="ticker-row">
           {loop.map((item, i) => (
-            <span key={`${item.name}-${i}`} className="home-ticker__item">
+            <Link
+              key={`${item.collectionKey}-${i}`}
+              href={`/marketplace/collections/${encodeURIComponent(item.collectionKey)}`}
+              className="home-ticker__item"
+            >
               <span className="mono home-ticker__item-name">{item.name}</span>
               <span
                 className={`mono home-ticker__item-pct ${
@@ -52,7 +58,7 @@ export function HomeTicker() {
               >
                 {item.up ? "▲" : "▼"} {item.pct}
               </span>
-            </span>
+            </Link>
           ))}
         </div>
       </div>

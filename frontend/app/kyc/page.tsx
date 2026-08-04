@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
@@ -49,9 +49,20 @@ function resolveReturnPath(
   return path && path.startsWith("/") ? path : "/vault";
 }
 
+function formatKycError(e: unknown, fallback: string): string {
+  const message = e instanceof Error ? e.message : fallback;
+  if (/too many requests|throttler/i.test(message)) {
+    return "Too many verification requests. Wait about a minute, then try again.";
+  }
+  return message || fallback;
+}
+
 export default function KycPage() {
   const router = useRouter();
-  const { user, loading, initialized, setUser } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const loading = useAuthStore((s) => s.loading);
+  const initialized = useAuthStore((s) => s.initialized);
+  const setUser = useAuthStore((s) => s.setUser);
   const consumeReturnTo = useAuthUiStore((s) => s.consumeReturnTo);
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -61,6 +72,9 @@ export default function KycPage() {
     () => useAuthUiStore.getState().pendingReturnTo ?? readStoredReturnTo(),
   );
   const [autoContinuing, setAutoContinuing] = useState(false);
+  const statusLoadedForUser = useRef<string | null>(null);
+  const autoStartDone = useRef(false);
+  const bootingRef = useRef(false);
 
   useEffect(() => {
     if (!loading && initialized && !user) {
@@ -86,6 +100,8 @@ export default function KycPage() {
   }, [consumeReturnTo, returnTo, router]);
 
   const startVerification = useCallback(async () => {
+    if (bootingRef.current || accessToken) return;
+    bootingRef.current = true;
     setPageError(null);
     setBooting(true);
     try {
@@ -97,26 +113,39 @@ export default function KycPage() {
       if (nextStatus.status === "approved") return;
       const { token } = await fetchKycAccessToken();
       setAccessToken(token);
-      await refreshSession();
+      // Keep local status in sync without re-triggering boot effects.
+      setStatus((prev) =>
+        prev
+          ? { ...prev, status: prev.status === "none" ? "pending" : prev.status }
+          : prev,
+      );
+      void refreshSession().catch(() => undefined);
     } catch (e) {
-      setPageError(e instanceof Error ? e.message : "Could not start verification");
+      setPageError(formatKycError(e, "Could not start verification"));
     } finally {
+      bootingRef.current = false;
       setBooting(false);
     }
-  }, [loadStatus, refreshSession]);
+  }, [accessToken, loadStatus, refreshSession]);
 
+  // Load KYC status once per signed-in user (avoid session refresh loops).
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+    if (statusLoadedForUser.current === user.id) return;
+    statusLoadedForUser.current = user.id;
     void loadStatus().catch((e) => {
-      setPageError(e instanceof Error ? e.message : "Could not load KYC status");
+      setPageError(formatKycError(e, "Could not load KYC status"));
     });
-  }, [user, loadStatus]);
+  }, [user?.id, loadStatus]);
 
+  // Auto-open Sumsub once for new or abandoned (pending) applicants.
   useEffect(() => {
-    if (!user || !status) return;
-    if (status.status !== "none") return;
+    if (!user?.id || !status) return;
+    if (accessToken || autoStartDone.current) return;
+    if (status.status !== "none" && status.status !== "pending") return;
+    autoStartDone.current = true;
     void startVerification();
-  }, [user, status?.status, startVerification]);
+  }, [user?.id, status, accessToken, startVerification]);
 
   // After approval, return to the screen that launched KYC (e.g. /sell/flow).
   useEffect(() => {
@@ -218,7 +247,14 @@ export default function KycPage() {
               {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} Please resubmit your
               ID and liveness check.
             </p>
-            <TkButton variant="primary" disabled={booting} onClick={() => void startVerification()}>
+            <TkButton
+              variant="primary"
+              disabled={booting}
+              onClick={() => {
+                autoStartDone.current = true;
+                void startVerification();
+              }}
+            >
               {booting ? "Starting…" : "Try again"}
             </TkButton>
           </section>
@@ -226,8 +262,19 @@ export default function KycPage() {
 
         {pending && !accessToken && !rejected ? (
           <section className="kyc-status-card">
-            <p>Your verification is under review. This usually takes 1–2 minutes.</p>
-            <TkButton variant="neutral" disabled={booting} onClick={() => void startVerification()}>
+            <p>
+              {pageError
+                ? "You can retry opening Sumsub below once the rate limit clears."
+                : "Your verification is under review, or you left mid-flow. Continue to reopen Sumsub."}
+            </p>
+            <TkButton
+              variant="neutral"
+              disabled={booting}
+              onClick={() => {
+                autoStartDone.current = true;
+                void startVerification();
+              }}
+            >
               {booting ? "Loading…" : "Continue verification"}
             </TkButton>
           </section>

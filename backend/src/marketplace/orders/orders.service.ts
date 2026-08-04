@@ -35,6 +35,8 @@ import { MarketplacePartnersService } from '../partners/marketplace-partners.ser
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VaultService } from '../../vault/vault.service';
+import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
+import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
 import {
   backfillAskTokenIdFromParameters,
   isCriteriaCollectionBidOrder,
@@ -77,6 +79,7 @@ export class OrdersService {
     private readonly partners: MarketplacePartnersService,
     private readonly notifications: NotificationsService,
     private readonly vault: VaultService,
+    private readonly selfVaultSettlements: SelfVaultSettlementService,
   ) {}
 
   private async withSellerDisplayNames(
@@ -146,6 +149,7 @@ export class OrdersService {
 
     if (side === OrderSide.ASK) {
       this.assertValidAskListing(dto, chainId);
+      await this.assertAskSettlementPolicy(dto, chainId);
 
       await this.vault.assertTokenRedeemableForListing(
         dto.tokenContract,
@@ -299,6 +303,7 @@ export class OrdersService {
       );
     }
     this.assertValidAskListing(dto, chainId);
+    await this.assertAskSettlementPolicy(dto, chainId);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -641,8 +646,69 @@ export class OrdersService {
   }
 
   /**
+   * Self-vault hold asks: exactly one USDC consideration to PLATFORM_FEE_RECIPIENT
+   * (full amount). Standard asks keep the seller (+ optional fee) shape.
+   */
+  private async assertAskSettlementPolicy(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const policy = await this.vault.getSettlementPolicy(
+      dto.tokenContract,
+      String(dto.tokenId),
+    );
+    if (!isSelfVaultHoldPolicy(policy)) return;
+
+    const feeRecipient = (
+      this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!feeRecipient) {
+      throw new BadRequestException(
+        'PLATFORM_FEE_RECIPIENT is required for self-vault hold listings',
+      );
+    }
+
+    const cons = dto.parameters.consideration ?? [];
+    if (cons.length !== 1) {
+      throw new BadRequestException(
+        'Self-vault hold asks must have exactly one USDC consideration (100% platform take)',
+      );
+    }
+    const only = cons[0];
+    if (Number(only.itemType) !== 1) {
+      throw new BadRequestException(
+        'Self-vault hold consideration must be ERC20 USDC',
+      );
+    }
+    if (only.recipient.toLowerCase() !== feeRecipient) {
+      throw new BadRequestException(
+        `Self-vault hold consideration recipient must be the platform fee wallet (${feeRecipient})`,
+      );
+    }
+    if (
+      only.recipient.toLowerCase() ===
+      String(dto.parameters.offerer ?? '').toLowerCase()
+    ) {
+      throw new BadRequestException(
+        'Self-vault hold asks cannot pay the seller on-chain',
+      );
+    }
+    const amount = BigInt(only.startAmount);
+    const declared = BigInt(dto.considerationAmount);
+    if (amount !== declared) {
+      throw new BadRequestException(
+        'Self-vault hold consideration amount must equal considerationAmount',
+      );
+    }
+    void chainId;
+  }
+
+  /**
    * Ask listing: consideration[0] = USDC to seller, optional consideration[1] = USDC platform fee.
    * Sum of consideration amounts must equal dto.considerationAmount (= total price).
+   * Self-vault hold uses a single fee-recipient consideration (validated separately).
    */
   private assertValidAskListing(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
@@ -1026,6 +1092,22 @@ export class OrdersService {
       throw new BadRequestException(`Order is already ${order.status}`);
     }
 
+    // Self-vault hold: block fee-less bid-only fulfills (seller would get 100% USDC).
+    if (
+      order.side === OrderSide.BID &&
+      Number(order.parameters?.consideration?.[0]?.itemType) === 2
+    ) {
+      const policy = await this.vault.getSettlementPolicy(
+        order.tokenContract,
+        String(order.tokenId),
+      );
+      if (isSelfVaultHoldPolicy(policy)) {
+        throw new BadRequestException(
+          'Self-vault hold tokens cannot settle via bid-only fulfill. Match against a full-platform-take ask instead.',
+        );
+      }
+    }
+
     order.status = OrderStatus.FULFILLED;
     /** Tape UI: direct listing fill = buyer took offer (vs matchAdvanced pair = sell into bid). */
     if (order.side === OrderSide.ASK) {
@@ -1081,6 +1163,11 @@ export class OrdersService {
           buyerAddress,
           saved,
           saved.updatedAt ?? new Date(),
+          chainId,
+        );
+        await this.maybeCreateSelfVaultSettlement(
+          saved,
+          buyerAddress,
           chainId,
         );
         void this.notifications
@@ -1266,6 +1353,8 @@ export class OrdersService {
       chainId,
     );
 
+    await this.maybeCreateSelfVaultSettlement(ask, bid.offerer, chainId);
+
     void this.notifications
       .notifyTradeSettled({
         ask,
@@ -1280,6 +1369,32 @@ export class OrdersService {
       });
 
     return { ask, bid };
+  }
+
+  private async maybeCreateSelfVaultSettlement(
+    ask: Order,
+    buyerWallet: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    try {
+      const policy = await this.vault.getSettlementPolicy(
+        ask.tokenContract,
+        String(ask.tokenId),
+      );
+      if (!isSelfVaultHoldPolicy(policy)) return;
+      const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+      await this.selfVaultSettlements.createFromFulfilledAsk({
+        ask,
+        buyerWallet,
+        chainId: resolved,
+      });
+    } catch (e) {
+      this.logger.warn(
+        `self_vault_settlement create failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
   }
 
   private async seedMarketplaceBuyFromAskFill(

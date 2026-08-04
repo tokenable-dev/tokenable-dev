@@ -16,6 +16,8 @@ Sellers can settle against a specific incoming **token offer**. Bid USDC is **no
 
 **Secondary path:** Accept offer settles without first re-signing the ask (`matchAdvancedOrders` / bid fulfill as implemented).
 
+**Self-vault hold:** bid-only `fulfillOrder` (offer below ask) is blocked — USDC would bypass the 100% platform-take ask. Match when offer ≥ ask, or lower the ask first.
+
 **Rejected as primary:** silently publishing a discount ask *only* to hunt a lower bid without an explicit Edit price / Confirm — that snipes the open book. Explicit Edit price to the bid amount is intentional.
 
 ---
@@ -28,7 +30,7 @@ Sellers can settle against a specific incoming **token offer**. Bid USDC is **no
 | 2 | Buyer places token offer **38 USDC** on that `tokenId` |
 | 3 | Platform notifies the wallet with an **active ask on that `tokenId`** |
 | 4 | Seller taps notification CTA **Edit price** |
-| 5 | App opens **Portfolio → My Assets** Set/Edit price drawer (`?setprice={tokenId}`) |
+| 5 | App opens **Portfolio → My Assets** Set/Edit price drawer (`?tab=assets&setprice={tokenId}`) |
 | 6 | Seller sets ask to **38** and confirms; app lists at 38 and tries instant match |
 | 7a Success | On-chain settle at **38**; NFT transfers; ask ends |
 | 7b Failure (buyer USDC / allowance) | Dead bid **invalidated**; **ask stays live at 38** (the price just set). Instant-only auto-cancel does **not** apply for buyer-funding failures. |
@@ -53,7 +55,7 @@ Sellers can settle against a specific incoming **token offer**. Bid USDC is **no
 
 Locked query params:
 
-- Notification CTA **Edit price** → `/portfolio?setprice={tokenId}` (opens Set/Edit price drawer when owned).
+- Notification CTA **Edit price** → `/portfolio?tab=assets&setprice={tokenId}` (opens Set/Edit price drawer when owned; works even when already on Portfolio).
 - Accept-offer deep link (holdings / legacy): `acceptBid=<bidOrderHash>`, `tokenId=<id>`, optional `askHash=<askOrderHash>`.
 
 ### Edit price + instant match (primary)

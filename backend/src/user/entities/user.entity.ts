@@ -75,6 +75,30 @@ export class User {
   @Column({ name: 'last_privy_sync_at', type: 'timestamptz', nullable: true })
   lastPrivySyncAt: Date | null;
 
+  /** Opt-in for product news / drops (stored preference; delivery TBD). */
+  @Column({ name: 'marketing_emails_opt_in', type: 'boolean', default: false })
+  marketingEmailsOptIn: boolean;
+
+  /** Master switch for category email notification prefs. */
+  @Column({ name: 'email_notifications_enabled', type: 'boolean', default: true })
+  emailNotificationsEnabled: boolean;
+
+  /**
+   * Per-category email prefs: trades | bids | price | vault.
+   * Stored for Settings; senders should honor when email delivery exists.
+   */
+  @Column({
+    name: 'email_notif_prefs',
+    type: 'jsonb',
+    default: () => `'{"trades":true,"bids":true,"price":true,"vault":true}'`,
+  })
+  emailNotifPrefs: {
+    trades: boolean;
+    bids: boolean;
+    price: boolean;
+    vault: boolean;
+  };
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

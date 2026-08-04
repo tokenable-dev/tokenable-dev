@@ -3,6 +3,7 @@ export * from "./client";
 export * from "./rwa-types";
 export * from "./rwa-upload";
 export * from "./rwa-mint";
+export * from "./rwa-settlement";
 export * from "./rwa-redeem";
 export * from "./psa";
 export * from "./rwa-blockchain";

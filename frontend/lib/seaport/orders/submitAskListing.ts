@@ -12,9 +12,11 @@ import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
   buildAskConsiderationPayload,
+  type AskSettlementPolicy,
 } from "./platformFee";
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import { getRwaSettlementPolicy } from "@/lib/core";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -44,11 +46,16 @@ export async function submitAskListingOrder(params: {
   chainId: SupportedChainId;
   mode: "create" | "replace";
   oldOrderHash?: string;
+  /** When omitted, fetched from backend (`rwa_tokens.settlement_policy`). */
+  settlementPolicy?: AskSettlementPolicy;
 }): Promise<Order> {
   const { priceUsdc, address, publicClient, signSeaportOrder, writeContractAsync, mode, chainId } =
     params;
   const { rwaAddress, usdcAddress } = getChainContracts(chainId);
   const tokenIdStr = normalizeDecimalTokenId(params.tokenId);
+  const settlementPolicy: AskSettlementPolicy =
+    params.settlementPolicy ??
+    (await getRwaSettlementPolicy(tokenIdStr)).settlementPolicy;
   const tokenIdBn = BigInt(tokenIdStr);
   const n = parseFloat(priceUsdc);
   if (!Number.isFinite(n) || n <= 0) {
@@ -101,7 +108,12 @@ export async function submitAskListingOrder(params: {
     await publicClient.waitForTransactionReceipt({ hash: setAllTx });
   }
 
-  const considerationItems = buildAskConsideration(priceInUnits, address, usdcAddress);
+  const considerationItems = buildAskConsideration(
+    priceInUnits,
+    address,
+    usdcAddress,
+    settlementPolicy,
+  );
 
   const orderMessage = {
     offerer: address,
@@ -132,6 +144,7 @@ export async function submitAskListingOrder(params: {
     priceInUnits,
     address,
     usdcAddress,
+    settlementPolicy,
   );
   const payload: CreateOrderPayload = {
     side: "ask",

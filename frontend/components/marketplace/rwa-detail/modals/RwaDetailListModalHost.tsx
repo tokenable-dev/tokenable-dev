@@ -40,7 +40,7 @@ export function RwaDetailListModalHost({
   listedPriceUsd?: number | null;
   copyVariant?: "default" | "set-price";
   onRequestCancelListing?: () => void;
-  onMatchedSale: () => void;
+  onMatchedSale?: () => void;
   onClose: () => void;
   onListed: () => void;
 }) {

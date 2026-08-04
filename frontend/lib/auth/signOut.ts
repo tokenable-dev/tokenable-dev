@@ -1,3 +1,4 @@
+import { clearSavedRedeemAddress } from "@/lib/portfolio/redeemDraft";
 import {
   getPrivySignOutHandler,
   setSignOutInProgress,
@@ -23,6 +24,8 @@ export async function completeSignOut(
       await fallbackClearTokenableSession();
     }
   } finally {
+    // Avoid leaking ship-to into the next account on the same browser.
+    clearSavedRedeemAddress();
     setSignOutInProgress(false);
   }
 }

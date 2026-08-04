@@ -28,6 +28,12 @@ CREATE TRIGGER trg_user_auth_providers_updated_at
   FOR EACH ROW
   EXECUTE PROCEDURE tokenable_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_user_shipping_addresses_updated_at ON user_shipping_addresses;
+CREATE TRIGGER trg_user_shipping_addresses_updated_at
+  BEFORE UPDATE ON user_shipping_addresses
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
 DROP TRIGGER IF EXISTS trg_marketplace_admins_updated_at ON marketplace_admins;
 CREATE TRIGGER trg_marketplace_admins_updated_at
   BEFORE UPDATE ON marketplace_admins
@@ -97,6 +103,12 @@ CREATE TRIGGER trg_p2p_listings_updated_at
 DROP TRIGGER IF EXISTS trg_p2p_orders_updated_at ON p2p_orders;
 CREATE TRIGGER trg_p2p_orders_updated_at
   BEFORE UPDATE ON p2p_orders
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_self_vault_settlements_updated_at ON self_vault_settlements;
+CREATE TRIGGER trg_self_vault_settlements_updated_at
+  BEFORE UPDATE ON self_vault_settlements
   FOR EACH ROW
   EXECUTE PROCEDURE tokenable_set_updated_at();
 

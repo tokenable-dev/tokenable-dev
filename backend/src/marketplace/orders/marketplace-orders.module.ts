@@ -8,6 +8,7 @@ import { MarketplaceCollectionsModule } from '../collections/marketplace-collect
 import { MarketplacePartnersModule } from '../partners/marketplace-partners.module';
 import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
 import { MarketplaceNotificationsModule } from '../notifications/marketplace-notifications.module';
+import { SelfVaultSettlementModule } from '../settlement/self-vault-settlement.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -20,6 +21,7 @@ import { OrdersService } from './orders.service';
     MarketplaceNotificationsModule,
     BlockchainModule,
     VaultModule,
+    SelfVaultSettlementModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

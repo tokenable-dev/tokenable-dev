@@ -199,6 +199,8 @@ mint(custodyWallet, tokenURI, vaultRef)   ← backend executes (deliveryMode=cus
 mint(userLinkedWallet, tokenURI, vaultRef)   ← no admin deliver step
 ```
 
+If the same PSA cert is already on a vault submission that finished shipping (`in_transit` / at PSA), `deliveryMode=direct` is rejected. The PSA custody mint path for that package remains available.
+
 The `custodyWallet` is configured via:
 
 ```env

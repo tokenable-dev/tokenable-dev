@@ -333,7 +333,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         collectionBids={collectionBids}
         listPricePresetUsdc={listPricePresetUsdc}
         preferredBidOrderHash={preferredBidOrderHash}
-        onSaleCelebration={() => setTradeCelebration("sale")}
       />
 
       <OrderBookAskListingModal

@@ -13,7 +13,7 @@
 |------|--------|
 | **Domain tables** | Auth/users, vault lifecycle, marketplace core, portfolio, Cardhedger price infra, admin |
 | **No FK constraints (marketplace core)** | Core bucket/order relationships are **logical** (enforced in app code) |
-| **FK on user-scoped tables** | `user_wallets`, `user_watchlist`, `verification_tokens`, `user_kyc_events` reference `users(id)` with CASCADE |
+| **FK on user-scoped tables** | `user_wallets`, `user_shipping_addresses`, `user_watchlist`, `verification_tokens`, `user_kyc_events` reference `users(id)` with CASCADE |
 | **FK on vault tables** | `vault_cycles` → `vault_assets`, `vault_redemptions` → `vault_cycles` with RESTRICT |
 | **Bucket vs pricing split** | `marketplace_collections` = metadata · `collection_market_snapshots` = Cardhedger pricing |
 | **PSA cert facet** | `marketplace_collections.psa_cert_number` + `components` PSA mirror fields (live API / mint metadata) |
@@ -27,9 +27,10 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `users` | Platform account (email, profile, Privy DID, KYC snapshot) | `user/entities/user.entity.ts` |
+| `users` | Platform account (email, profile, Privy DID, KYC snapshot, Settings email/marketing prefs) | `user/entities/user.entity.ts` |
 | `user_auth_providers` | Linked login methods (email, Google, Apple, wallet, passkey) — synced from Privy | `user/entities/user-auth-provider.entity.ts` |
 | `user_wallets` | Multiple linked wallets per user with embedded/external metadata | `user/entities/user-wallet.entity.ts` |
+| `user_shipping_addresses` | Saved ship-to address book (Settings → Addresses; redeem) | `user/entities/user-shipping-address.entity.ts` |
 | `user_kyc_events` | Append-only KYC status audit trail | `user/entities/user-kyc-event.entity.ts` |
 | `verification_tokens` | Hashed single-use tokens (legacy admin flows only) | `auth/entities/verification-token.entity.ts` |
 
@@ -48,11 +49,12 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
-| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS) | `marketplace/entities/rwa-token.entity.ts` |
+| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`) | `marketplace/entities/rwa-token.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
 | `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
 | `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |
 | `orders` | Seaport signed asks/bids + fulfilled trade tape | `marketplace/entities/order.entity.ts` |
+| `self_vault_settlements` | Self-vault hold ledger (confirm → company→seller payout) | `marketplace/entities/self-vault-settlement.entity.ts` |
 | `marketplace_notifications` | In-app inbox (`bid`/`trade`/`vault`/`price`; **per `chain_id`**) | `marketplace/entities/marketplace-notification.entity.ts` |
 
 ### Portfolio & engagement
@@ -139,6 +141,7 @@ erDiagram
 
     users ||--o{ user_wallets : "user_id"
     users ||--o{ user_auth_providers : "user_id"
+    users ||--o{ user_shipping_addresses : "user_id"
     users ||--o{ user_kyc_events : "user_id"
     vault_assets ||--o{ vault_cycles : "vault_asset_id"
     vault_cycles ||--o{ vault_redemptions : "vault_cycle_id"
@@ -203,6 +206,7 @@ pending_deposit
 | `vault_cycle_id` | Links to vault lifecycle |
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
+| `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
 | **Unique constraint** | `(token_contract, cert_number) WHERE burned_at IS NULL` — allows re-mint of same cert after burn |
 
 ---
@@ -228,10 +232,12 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 
 | # | File | Contents |
 |---|------|----------|
-| 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events`, `verification_tokens` |
+| 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_shipping_addresses`, `user_kyc_events`, `verification_tokens` |
 | 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_submissions`, `vault_submission_items` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
+| 045 | `045_p2p.sql` | P2P listings/orders |
+| 046 | `046_self_vault_settlements.sql` | Self-vault hold settlement ledger |
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
@@ -250,6 +256,9 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |
+| `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
+| `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |
+| `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 
 **Seeds (dev only):**
 

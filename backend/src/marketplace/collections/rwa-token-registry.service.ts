@@ -49,8 +49,12 @@ export class RwaTokenRegistryService {
     const tokenUri = opts?.tokenUri?.trim() || null;
     const metadataCid = tokenUri ? metadataCidFromTokenUri(tokenUri) : null;
 
-    await this.repo.upsert(
-      {
+    // Explicit orUpdate columns — never touch `settlement_policy` (set at mint).
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(RwaToken)
+      .values({
         tokenContract: contract,
         tokenId: tid,
         certNumber: cert,
@@ -59,9 +63,19 @@ export class RwaTokenRegistryService {
         displayName,
         collectionKey: opts?.collectionKey?.toLowerCase() ?? null,
         metadataSyncedAt: new Date(),
-      },
-      ['tokenContract', 'tokenId'],
-    );
+      })
+      .orUpdate(
+        [
+          'cert_number',
+          'token_uri',
+          'metadata_cid',
+          'display_name',
+          'collection_key',
+          'metadata_synced_at',
+        ],
+        ['token_contract', 'token_id'],
+      )
+      .execute();
   }
 
   async syncTokenFromChain(

@@ -24,6 +24,22 @@ export class AuthSessionUserDto {
   @ApiPropertyOptional({ nullable: true })
   pictureUrl!: string | null;
 
+  @ApiPropertyOptional()
+  marketingEmailsOptIn?: boolean;
+
+  @ApiPropertyOptional()
+  emailNotificationsEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Email category prefs: trades, bids, price, vault',
+  })
+  emailNotifPrefs?: {
+    trades: boolean;
+    bids: boolean;
+    price: boolean;
+    vault: boolean;
+  };
+
   @ApiProperty()
   emailVerified!: boolean;
 

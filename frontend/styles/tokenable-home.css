@@ -90,6 +90,14 @@
   padding: 0 22px;
   height: 40px;
   box-shadow: inset -2px 0 0 0 var(--line-2, rgba(255, 255, 255, 0.05));
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.home-ticker__item:hover .home-ticker__item-name {
+  color: #fff;
 }
 
 .home-ticker__item-name {
@@ -98,6 +106,7 @@
   text-transform: uppercase;
   color: var(--t2);
   white-space: nowrap;
+  transition: color 0.15s ease;
 }
 
 .home-ticker__item-pct {
@@ -931,27 +940,18 @@
 
   .home-partners__label {
     text-align: center;
+    width: 100%;
   }
 
   .home-partners__logos {
-    overflow: hidden;
-    flex-wrap: nowrap;
-    gap: 0;
     width: 100%;
-    mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
-    animation: partners-scroll 12s linear infinite;
-  }
-
-  .home-partners__logos img {
-    flex-shrink: 0;
-    margin-right: 48px;
+    justify-content: center;
+    gap: 28px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-row,
-  .home-partners__logos {
+  .ticker-row {
     animation: none !important;
   }
 

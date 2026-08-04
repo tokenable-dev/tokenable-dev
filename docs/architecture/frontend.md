@@ -158,11 +158,13 @@ Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk
 
 `HeaderAuthControls` renders:
 
-- Skeleton while Privy + Tokenable session init  
-- `TkButton` **Sign up** → `useLogin()` when logged out  
-- `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in  
+- Skeleton while Privy + Tokenable session init (`usePrivyInitGate` — if Privy never becomes `ready`, e.g. `POST auth.privy.io/api/v1/sessions` 500, falls back to Sign up after ~5s instead of an infinite skeleton)
+- `TkButton` **Sign up** → `useLogin()` when logged out
+- `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in
 
 `PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
+
+**Settings** (`/settings`, Settings.html parity): side-nav sections for Profile, Notifications, Wallet & balance, Addresses, Identity, Legal, Security. Wired today: display name (`PATCH /auth/profile`), avatar upload (`POST /auth/avatar` → S3), email notification + marketing prefs (stored; delivery TBD), shipping address book CRUD (`/user/shipping-addresses`), USDC + Add funds (MoonPay), linked wallet link/unlink/export, KYC → `/kyc`, sign out + delete account (delete clears Privy too). Honest “Coming soon” stubs: Telegram bot, server web-push, payment methods, multi-device sessions, 2FA, agreement document pages, consent audit log. Legacy `/profile` redirects here.
 
 Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
 

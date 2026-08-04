@@ -8,13 +8,19 @@ export {
   LIVE_MARKET_LINE,
 } from "./constants";
 export { buildCollectionDualPriceChartOption } from "./buildCollectionDualPriceChartOption";
-export { computeSmartTimeDomain, niceScale } from "./chartScale";
+export {
+  computeSmartTimeDomain,
+  niceScale,
+  ticksFromScale,
+  yearViewPriceScale,
+} from "./chartScale";
 export {
   formatHoverWhen,
   formatTickDate,
   formatTickShortMdYear,
   formatTooltipUsd,
   formatYAxisLabelCompact,
+  formatYAxisLabelPlain,
   roughTickConfigByWindowDays,
 } from "./chartTimeTicks";
 export { mergeExternalChartSeries } from "./mergeExternalChartSeries";

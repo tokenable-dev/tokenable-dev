@@ -48,7 +48,10 @@ Returns the current session user. Never returns `401`.
     "kycStatus": "none|pending|approved|rejected",
     "wallets": [...],
     "name": "...",
-    "pictureUrl": "..."
+    "pictureUrl": "...",
+    "marketingEmailsOptIn": false,
+    "emailNotificationsEnabled": true,
+    "emailNotifPrefs": { "trades": true, "bids": true, "price": true, "vault": true }
   }
 }
 
@@ -66,13 +69,55 @@ Clears the `access_token` cookie.
 
 ---
 
+### `PATCH /api/auth/profile`
+
+Update display name and notification / marketing preferences for the authenticated user.
+
+- **Guard:** `JwtAuthGuard`
+- **Body (all optional):**
+  - `name` — display name (1–200 chars)
+  - `marketingEmailsOptIn` — boolean
+  - `emailNotificationsEnabled` — master switch for category email prefs
+  - `emailNotifPrefs` — `{ trades?, bids?, price?, vault? }` booleans
+- **Response:** `{ user: … }` (same shape as session; includes the new preference fields)
+- **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`.
+
+### `POST /api/auth/avatar`
+
+Upload a custom profile avatar (Settings → Profile). Uses the same S3 bucket / public base as catalog covers.
+
+- **Guard:** `JwtAuthGuard`
+- **Body:** `multipart/form-data` field `file` (JPEG / PNG / WebP, max 8MB)
+- **Object key:** `{CATALOG_COVER_S3_PREFIX}user-avatars/{userId}/avatar` (overwrite-stable; under cover IAM scope)
+- **Response:** `{ user: … }` with updated `pictureUrl` (includes `?v=` cache-bust)
+- **Errors:** `503` if S3 not configured or IAM denies PutObject; `400` for bad type/size
+- **Env:** same as catalog covers; optional `USER_AVATAR_S3_PREFIX` override (requires matching IAM)
+
+---
+
+### Shipping addresses (`/api/user/shipping-addresses`)
+
+Saved ship-to book for vault redeem / physical withdrawal. Controller: `user-shipping-addresses.controller.ts` (registered on `AuthModule`).
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/api/user/shipping-addresses` | `{ addresses: [...] }` |
+| `POST` | `/api/user/shipping-addresses` | Create (max 10). First address or `isDefault: true` becomes default. |
+| `PATCH` | `/api/user/shipping-addresses/:id` | Update fields / `isDefault` |
+| `POST` | `/api/user/shipping-addresses/:id/default` | Set default |
+| `DELETE` | `/api/user/shipping-addresses/:id` | Delete; promotes another default if needed |
+
+All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`.
+
+---
+
 ### `POST /api/auth/delete-account`
 
 Permanently delete the authenticated account. Clears the session cookie.
 
 - **Guard:** `JwtAuthGuard`
 - **Response:** `204 No Content`
-- **Side effects:** Deletes `users` row; `user_wallets`, `user_watchlist`, `user_auth_providers`, and `user_kyc_events` cascade
+- **Side effects:** Deletes `users` row; `user_wallets`, `user_shipping_addresses`, `user_watchlist`, `user_auth_providers`, and `user_kyc_events` cascade. Client should also clear the Privy session (`completeSignOut`) so a new account is not immediately recreated.
 
 ---
 

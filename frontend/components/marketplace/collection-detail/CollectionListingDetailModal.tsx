@@ -182,6 +182,8 @@ export function CollectionListingDetailModal({
 
   if (!open || tokenId == null || typeof document === "undefined") return null;
 
+  const cardTitle = listingAssetTitle(metadata, tokenId);
+
   return createPortal(
     <>
       <div
@@ -195,8 +197,8 @@ export function CollectionListingDetailModal({
       >
         <div className="cd-listing-prov__panel cd-notch">
           <div className="cd-listing-prov__head">
-            <h2 id="cd-listing-prov-title" className="cd-listing-prov__title">
-              Listing details
+            <h2 id="cd-listing-prov-title" className="cd-listing-prov__title" title={cardTitle}>
+              {cardTitle}
             </h2>
             <button
               type="button"

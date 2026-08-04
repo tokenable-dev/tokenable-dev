@@ -70,7 +70,7 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
 1. Validates `recipientAddress` is linked to the JWT user's account
 2. `VaultService.reserveCycleForDeposit()` — opens a vault cycle; fails if cert already has open cycle
 3. `RwaChainWriterService.mintTo(mintTo, tokenURI, vaultRef)` — `mintTo` is custody (`custody`) or `recipientAddress` (`direct`)
-4. `VaultService.recordMintResult()` — links `rwa_tokens` row to vault cycle
+4. `VaultService.recordMintResult()` — links `rwa_tokens` to vault cycle; sets `settlement_policy` to `self_vault_hold` when `direct`, else `standard`
 5. If `direct`: seeds `vault_delivery` cost basis from current mark USD (same as admin deliver)
 
 **Response:**

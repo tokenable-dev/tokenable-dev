@@ -151,7 +151,7 @@ In-app events (Notifications spec v1.1 — Email/Telegram/Web push not in this A
 | `BUYER_BID_FILLED` / `BUYER_FILL_FAILED` | bid | Bid filled or unfunded at settle |
 | `SELLER_SOLD` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / listing live |
 | `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
-| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Redeem request (`href=/portfolio`) / physical release (`href=/portfolio/redeem?view=transit`) |
+| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Redeem request (`href=/portfolio?tab=assets`) / physical release (`href=/portfolio/redeem?view=transit`) |
 
 **Not emitted (no domain yet or voided in v1.1):** P2P shipping/dispute keys; `WD_READY_TO_PAY` (no ready-to-pay status); admin ops inbox (`ADMIN_*`); Email/Telegram/Web push.
 
@@ -171,9 +171,26 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 
 ---
 
+### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
+
+Returns `{ tokenId, settlementPolicy }` where `settlementPolicy` is `standard` or `self_vault_hold`. Used by list-ask builders.
+
+### Self-vault settlements
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/self-vault-settlements/mine` | JWT | Buyer/seller wallet settlements |
+| POST | `/self-vault-settlements/:id/confirm` | JWT | Buyer confirms → `confirmed` |
+| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=` |
+| POST | `/admin/self-vault-settlements/:id/confirm` | Admin | Ops confirm |
+| POST | `/admin/self-vault-settlements/:id/reject` | Admin | Reject |
+| POST | `/admin/self-vault-settlements/:id/record-payout` | Admin | Body `{ payoutTxHash }` → `paid` |
+
+Created automatically when a `self_vault_hold` ask is fulfilled (or matched). See BR-8c.
+
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 
-Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
+Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). Rejects bid-only fulfill for `self_vault_hold` tokens.
 
 | Query | Required | Description |
 |-------|----------|-------------|

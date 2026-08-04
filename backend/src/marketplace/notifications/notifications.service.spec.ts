@@ -422,16 +422,60 @@ describe('NotificationsService', () => {
         tokenId: '7',
         askOrderHash: '0xask',
         imageUrl: 'https://cdn.example/card.png',
+        // Legacy bare portfolio href must be upgraded on read.
+        href: '/portfolio',
       },
       readAt: null,
       createdAt: new Date('2026-07-23T00:00:00.000Z'),
     } as MarketplaceNotification);
 
     const items = await service.listForWallets(['0xSELLER'], 11155111);
-    expect(items[0].href).toBe('/portfolio?setprice=7');
+    expect(items[0].href).toBe('/portfolio?tab=assets&setprice=7');
     expect(items[0].ctaLabel).toBe('Edit price');
     expect(items[0].imageUrl).toBe('https://cdn.example/card.png');
     expect(items[0].chainId).toBe(11155111);
+  });
+
+  it('rewrites legacy portfolio hrefs for bid / sale CTAs', async () => {
+    saved.push(
+      {
+        id: 11,
+        recipientWallet: '0xseller',
+        chainId: 11155111,
+        type: 'bid',
+        title: 'Bid placed',
+        body: 'body',
+        dedupeKey: 'bid_placed:0xbid',
+        payload: {
+          eventKey: 'BUYER_BID_PLACED',
+          href: '/portfolio',
+          ctaLabel: 'View bids',
+        },
+        readAt: null,
+        createdAt: new Date('2026-07-23T00:00:00.000Z'),
+      } as MarketplaceNotification,
+      {
+        id: 12,
+        recipientWallet: '0xseller',
+        chainId: 11155111,
+        type: 'trade',
+        title: 'Sold',
+        body: 'body',
+        dedupeKey: 'seller_sold:0xask',
+        payload: {
+          eventKey: 'SELLER_SOLD',
+          href: '/portfolio',
+          ctaLabel: 'View sale',
+        },
+        readAt: null,
+        createdAt: new Date('2026-07-23T00:00:01.000Z'),
+      } as MarketplaceNotification,
+    );
+
+    const items = await service.listForWallets(['0xSELLER'], 11155111);
+    const byId = new Map(items.map((i) => [i.id, i]));
+    expect(byId.get(11)?.href).toBe('/portfolio?tab=bids');
+    expect(byId.get(12)?.href).toBe('/portfolio?tab=history');
   });
 
   it('emits seller sold with net after fees', async () => {

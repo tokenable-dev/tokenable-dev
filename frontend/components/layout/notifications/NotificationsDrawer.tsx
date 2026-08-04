@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { usePrivyFiatOnramp } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { cn } from "@/lib/ds/cn";
 import {
   NOTIFICATION_FILTERS,
@@ -18,6 +20,12 @@ function hexToRgb(hex: string): string {
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
+}
+
+function isAddFundsNotification(item: NotificationItem): boolean {
+  if (item.ctaLabel === "Add funds") return true;
+  const href = item.href ?? "";
+  return href.includes("addfunds=1");
 }
 
 function NotifIcon({ icon }: { icon: NotificationIcon }) {
@@ -92,19 +100,6 @@ function NotificationItemView({
     item.unread && "tk-notif-item--unread",
   );
 
-  if (item.href) {
-    return (
-      <Link
-        href={item.href}
-        className={className}
-        data-type={item.type}
-        onClick={() => onActivate(item)}
-      >
-        {body}
-      </Link>
-    );
-  }
-
   return (
     <button
       type="button"
@@ -125,12 +120,17 @@ export function NotificationsDrawer({
   onClose: () => void;
 }) {
   const mounted = useClientMounted();
+  const router = useRouter();
   const titleId = useId();
   const [filter, setFilter] = useState<NotificationFilterKey>("all");
   const [visible, setVisible] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
   const { items: allItems, isLoading, markRead, markAllRead, refetch } =
     useMarketplaceNotifications();
+  const { walletAddress, refetchBalance } = useHeaderWalletMenuData();
+  const { startFunding } = usePrivyFiatOnramp({
+    onComplete: () => void refetchBalance(),
+  });
 
   useEffect(() => {
     if (open) {
@@ -186,15 +186,6 @@ export function NotificationsDrawer({
             Notifications
           </span>
           <div className="tk-notif-panel__header-actions">
-            {hasUnread ? (
-              <button
-                type="button"
-                className="tk-notif-panel__mark-all"
-                onClick={() => markAllRead()}
-              >
-                Mark all read
-              </button>
-            ) : null}
             <button type="button" className="tk-notif-panel__close" aria-label="Close" onClick={onClose}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -219,7 +210,18 @@ export function NotificationsDrawer({
 
         <div className="tk-notif-panel__divider" />
 
-        <div className="tk-notif-panel__section">Recent</div>
+        <div className="tk-notif-panel__section">
+          <span>Recent</span>
+          {hasUnread ? (
+            <button
+              type="button"
+              className="tk-notif-panel__mark-all"
+              onClick={() => markAllRead()}
+            >
+              Mark all read
+            </button>
+          ) : null}
+        </div>
 
         <div className="tk-notif-list">
           {items.map((item) => (
@@ -228,7 +230,16 @@ export function NotificationsDrawer({
               item={item}
               onActivate={(n) => {
                 if (n.unread) markRead(n.id);
-                if (n.href) onClose();
+                if (isAddFundsNotification(n)) {
+                  onClose();
+                  void startFunding(walletAddress);
+                  return;
+                }
+                if (n.href) {
+                  onClose();
+                  // router.push so same-route query deep-links (e.g. setprice) always apply
+                  router.push(n.href);
+                }
               }}
             />
           ))}

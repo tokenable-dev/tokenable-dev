@@ -55,6 +55,82 @@ export class VaultSubmissionService {
     return cert.trim().toUpperCase();
   }
 
+  /**
+   * After PSA vault ship tracking is registered, the physical card is in
+   * transit / at PSA — self-vault (`deliveryMode=direct`) must not mint it.
+   */
+  static readonly SELF_VAULT_BLOCKED_ITEM_STATUSES = [
+    'in_transit',
+    'reviewing',
+    'approved',
+    'minting',
+  ] as const;
+
+  static readonly SELF_VAULT_BLOCKED_SUBMISSION_STATUSES = [
+    'in_transit',
+    'psa_reviewing',
+  ] as const;
+
+  static isBlockedForSelfVault(params: {
+    submissionStatus: VaultSubmissionStatus | string;
+    itemStatus: VaultSubmissionItem['status'] | string;
+  }): boolean {
+    const item = String(params.itemStatus);
+    if (item === 'rejected' || item === 'failed' || item === 'completed') {
+      return false;
+    }
+    if (
+      (
+        VaultSubmissionService.SELF_VAULT_BLOCKED_ITEM_STATUSES as readonly string[]
+      ).includes(item)
+    ) {
+      return true;
+    }
+    return (
+      VaultSubmissionService.SELF_VAULT_BLOCKED_SUBMISSION_STATUSES as readonly string[]
+    ).includes(String(params.submissionStatus));
+  }
+
+  /**
+   * Throws when this cert is already on a non-cancelled PSA shipment that has
+   * finished the ship step (tracking registered) or is further along at PSA.
+   * Global across users — the physical slab cannot be in two vault paths.
+   */
+  async assertCertAvailableForSelfVault(certNumber: string): Promise<void> {
+    const cert = VaultSubmissionService.normalizeCert(certNumber);
+    if (!cert) {
+      throw new BadRequestException('certNumber is required');
+    }
+
+    const rows = await this.items
+      .createQueryBuilder('i')
+      .innerJoin('i.submission', 's')
+      .select('i.status', 'itemStatus')
+      .addSelect('s.status', 'submissionStatus')
+      .addSelect('s.public_id', 'publicId')
+      .where('i.cert_number = :cert', { cert })
+      .andWhere("s.status <> 'cancelled'")
+      .getRawMany<{
+        itemStatus: string;
+        submissionStatus: string;
+        publicId: string;
+      }>();
+
+    const hit = rows.find((r) =>
+      VaultSubmissionService.isBlockedForSelfVault({
+        submissionStatus: r.submissionStatus,
+        itemStatus: r.itemStatus,
+      }),
+    );
+    if (!hit) return;
+
+    throw new BadRequestException(
+      `PSA cert #${cert} is already in PSA vault shipment ${hit.publicId} ` +
+        `(${hit.submissionStatus}/${hit.itemStatus}). Self vault mint is not ` +
+        `allowed while the card is in transit or at PSA.`,
+    );
+  }
+
   static createPublicId(): string {
     const d = new Date();
     const y = d.getFullYear();

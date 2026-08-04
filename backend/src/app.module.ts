@@ -30,6 +30,7 @@ import { RwaToken } from './marketplace/entities/rwa-token.entity';
 import { UserAuthProvider } from './user/entities/user-auth-provider.entity';
 import { UserKycEvent } from './user/entities/user-kyc-event.entity';
 import { User } from './user/entities/user.entity';
+import { UserShippingAddress } from './user/entities/user-shipping-address.entity';
 import { UserWallet } from './user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
@@ -121,6 +122,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           RwaToken,
           User,
           UserWallet,
+          UserShippingAddress,
           UserAuthProvider,
           UserKycEvent,
           PortfolioDailySnapshot,

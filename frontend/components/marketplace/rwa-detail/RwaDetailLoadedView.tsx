@@ -96,7 +96,7 @@ export function RwaDetailLoadedView({
   const collectionKey = market.collectionKeyForMatch;
 
   const handleListed = () => {
-    listFlow.closeListModal();
+    // Keep list sheet open for DS-4 complete state; Done calls closeListModal.
     void buyFlow.invalidateMarketplaceQueries();
   };
 
@@ -180,7 +180,6 @@ export function RwaDetailLoadedView({
         collectionBids={market.collectionBids}
         existingAskOrder={listing && isListingSeller ? listing : undefined}
         initialPriceUsdc={listFlow.listModalInitialPrice}
-        onMatchedSale={() => listFlow.setTradeCelebration("sale")}
         onClose={listFlow.closeListModal}
         onListed={handleListed}
       />

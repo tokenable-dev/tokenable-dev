@@ -36,17 +36,14 @@
   line-height: 1.18;
   letter-spacing: -0.02em;
   color: #fff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* Full name on collection detail — Markets cards keep their own ellipsis. */
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }
 
 .collection-detail-page .cd-page-headline__title > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1595,7 +1592,7 @@
 .cd-listing-prov__head,
 .cd-listing-checkout__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 18px;
 }
@@ -1611,6 +1608,15 @@
   font-weight: 700;
   font-size: 20px;
   color: #fff;
+}
+
+.cd-listing-prov__title {
+  min-width: 0;
+  flex: 1;
+  padding-right: 12px;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .cd-listing-prov__close,

@@ -64,6 +64,19 @@ export class RwaToken {
   @Column({ name: 'burn_tx_hash', type: 'varchar', length: 80, nullable: true })
   burnTxHash: string | null;
 
+  /**
+   * Seaport settlement policy:
+   * - `standard` — seller + platform fee split (default ~5%)
+   * - `self_vault_hold` — 100% USDC to platform fee recipient; seller paid later
+   */
+  @Column({
+    name: 'settlement_policy',
+    type: 'varchar',
+    length: 32,
+    default: 'standard',
+  })
+  settlementPolicy: 'standard' | 'self_vault_hold';
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

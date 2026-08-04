@@ -3,7 +3,10 @@
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
-import { feePercent } from "@/lib/seaport/orders/platformFee";
+import {
+  feePercent,
+  type AskSettlementPolicy,
+} from "@/lib/seaport/orders/platformFee";
 import { TkButton, TkInput } from "@/components/ds";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
@@ -27,6 +30,7 @@ export function ListRwaModalFormView({
   onRequestCancelListing,
   onClose,
   copyVariant = "default",
+  settlementPolicy = "standard",
   step,
   errorMsg,
   isProcessing,
@@ -48,6 +52,7 @@ export function ListRwaModalFormView({
   onRequestCancelListing?: () => void;
   onClose?: () => void;
   copyVariant?: "default" | "set-price";
+  settlementPolicy?: AskSettlementPolicy;
   step: ListRwaModalStep;
   errorMsg: string;
   isProcessing: boolean;
@@ -96,9 +101,14 @@ export function ListRwaModalFormView({
       : null;
   const mkt =
     marketValueUsd != null && Number.isFinite(marketValueUsd) ? marketValueUsd : null;
-  const feePct = feePercent();
+  const isSelfVaultHold = settlementPolicy === "self_vault_hold";
+  const feePct = feePercent(settlementPolicy);
   const priceNum = parseFloat(price);
   const showFee = price && Number.isFinite(priceNum) && priceNum > 0 && feePct > 0;
+  const netPct = isSelfVaultHold ? 5 : feePct; // platform keeps 5%; rest paid after confirm
+  const netAmount = isSelfVaultHold
+    ? (priceNum * 0.95).toFixed(2)
+    : (priceNum * (1 - feePct / 100)).toFixed(2);
 
   return (
     <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
@@ -245,9 +255,13 @@ export function ListRwaModalFormView({
                   : "flex justify-between gap-2 text-zinc-500"
               }
             >
-              <span>Platform fee ({feePct}%)</span>
+              <span>
+                {isSelfVaultHold
+                  ? "Held at sale (100% to platform)"
+                  : `Platform fee (${feePct}%)`}
+              </span>
               <span className={isSetPrice ? "rd-list-sheet__fee-amt" : "font-mono text-zinc-400 tabular-nums"}>
-                -{(priceNum * feePct / 100).toFixed(2)}
+                -{(priceNum * (isSelfVaultHold ? 1 : feePct / 100)).toFixed(2)}
                 {isSetPrice ? "" : " USDC"}
               </span>
             </div>
@@ -259,7 +273,7 @@ export function ListRwaModalFormView({
               }
             >
               <span className={isSetPrice ? "rd-list-sheet__fee-net-label" : "text-zinc-400"}>
-                You receive
+                {isSelfVaultHold ? "Payout after confirm" : "You receive"}
               </span>
               <span
                 className={
@@ -268,10 +282,16 @@ export function ListRwaModalFormView({
                     : "font-mono font-medium tabular-nums text-white"
                 }
               >
-                {(priceNum * (1 - feePct / 100)).toFixed(2)}
+                {netAmount}
                 {isSetPrice ? "" : " USDC"}
               </span>
             </div>
+            {isSelfVaultHold ? (
+              <p className="text-[11px] leading-snug text-zinc-500 pt-1">
+                Sale USDC goes to Tokenable first. After the buyer confirms, you
+                receive ~{netAmount} USDC (after {netPct}% platform fee).
+              </p>
+            ) : null}
           </div>
         ) : null}
         {isSetPrice && topCollectionBid ? (

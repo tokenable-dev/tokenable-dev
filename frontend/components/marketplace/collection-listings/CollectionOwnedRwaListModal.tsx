@@ -13,7 +13,6 @@ export function CollectionOwnedRwaListModal({
   collectionBids = [],
   listPricePresetUsdc,
   preferredBidOrderHash,
-  onSaleCelebration,
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,7 +21,6 @@ export function CollectionOwnedRwaListModal({
   collectionBids?: Order[];
   listPricePresetUsdc?: string | null;
   preferredBidOrderHash?: string | null;
-  onSaleCelebration?: () => void;
 }) {
   const modal = useCollectionOwnedRwaListModal({ open, onClose, collectionKey });
 
@@ -116,12 +114,13 @@ export function CollectionOwnedRwaListModal({
               : undefined
           }
           initialPriceUsdc={listPricePresetUsdc ?? undefined}
-          onMatchedSale={() => onSaleCelebration?.()}
-          onClose={() => modal.setListingTokenId(null)}
-          onListed={() => {
+          onClose={() => {
             modal.setListingTokenId(null);
-            modal.invalidateAfterList();
             onClose();
+          }}
+          onListed={() => {
+            modal.invalidateAfterList();
+            // Keep sheet open for DS-4 complete state; Done closes via onClose.
           }}
         />
       )}

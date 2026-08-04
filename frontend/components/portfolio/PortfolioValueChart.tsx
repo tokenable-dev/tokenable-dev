@@ -2,82 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { formatUsdCompact } from "@/lib/market";
-
-function formatSnapshotAxisLabel(snapshotDateKst: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(snapshotDateKst.trim());
-  if (m) return `${Number(m[2])}/${Number(m[3])}`;
-  return snapshotDateKst;
-}
-
-function niceYTicks(min: number, max: number, count = 5): number[] {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
-  if (max < min) [min, max] = [max, min];
-  if (max <= min) return [min];
-  const range = max - min;
-  const parts = Math.max(2, Math.min(12, Math.floor(Number(count)) || 5));
-  let rough = range / (parts - 1);
-  if (!Number.isFinite(rough) || rough <= 0) return [min, max];
-
-  const log10 = Math.log10(rough);
-  if (!Number.isFinite(log10)) return [min, max];
-  const mag = Math.pow(10, Math.floor(log10));
-  if (!Number.isFinite(mag) || mag <= 0) return [min, max];
-
-  const mult = [1, 2, 5, 10].find((n) => n * mag >= rough);
-  if (mult == null) return [min, max];
-  let nice = mult * mag;
-  if (!Number.isFinite(nice) || nice <= 0) return [min, max];
-
-  /** When the chart span is tiny, avoid microscopic `nice` (millions of iterations / browser hang). */
-  const minStep = range / 80;
-  if (nice < minStep) nice = minStep;
-
-  const lo = Math.floor(min / nice) * nice;
-  if (!Number.isFinite(lo)) return [min, max];
-  const hi = max + nice * 0.01;
-  const ticks: number[] = [];
-  const maxTicks = 64;
-  for (let i = 0; i < maxTicks; i++) {
-    const v = lo + i * nice;
-    if (v > hi) break;
-    ticks.push(v);
-  }
-  return ticks.length > 0 ? ticks : [min, max];
-}
-
-/** Collapse duplicate Y values (float noise / step overlap) so list keys and SVG lines stay unique. */
-function uniqChartTicks(ticks: number[]): number[] {
-  const out: number[] = [];
-  for (const t of ticks) {
-    if (!Number.isFinite(t)) continue;
-    const prev = out[out.length - 1];
-    if (
-      prev != null &&
-      Math.abs(t - prev) <= 1e-6 * Math.max(1, Math.abs(t), Math.abs(prev))
-    ) {
-      continue;
-    }
-    out.push(t);
-  }
-  return out;
-}
-
-function fmtAxisVal(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-}
-
-/** Portfolio.html Y-axis — `$560k`, `$480k`, … */
-function fmtAxisValCompact(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) {
-    const m = v / 1_000_000;
-    return `$${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
-  }
-  if (abs >= 1000) return `$${Math.round(v / 1000)}k`;
-  return `$${Math.round(v)}`;
-}
+import {
+  formatYAxisLabelCompact,
+  niceScale,
+  ticksFromScale,
+} from "@/lib/marketplace/collection-dual-price-chart";
 
 /** Keep value callout inside chart viewBox (last point sits on the right edge). */
 function chartValueCalloutBox(
@@ -203,10 +132,12 @@ export function PortfolioValueChart({
   const dataMin = Math.min(...points);
   const dataMax = Math.max(...points);
   const pad = (dataMax - dataMin) * 0.1 || Math.max(dataMax * 0.05, 1);
-  const yMin = dataMin - pad;
-  const yMax = dataMax + pad;
-
-  const ticks = uniqChartTicks(niceYTicks(yMin, yMax, 5));
+  const {
+    min: yMin,
+    max: yMax,
+    interval: yInterval,
+  } = niceScale(Math.max(0, dataMin - pad), dataMax + pad, 12);
+  const ticks = ticksFromScale(yMin, yMax, yInterval);
   const timeLabels =
     xLabels && xLabels.length === points.length
       ? xLabels
@@ -216,7 +147,7 @@ export function PortfolioValueChart({
     if (points.length <= 1) return LEFT + chartW / 2;
     return LEFT + (i / (points.length - 1)) * chartW;
   };
-  const yOf = (v: number) => TOP + (1 - (v - yMin) / (yMax - yMin)) * chartH;
+  const yOf = (v: number) => TOP + (1 - (v - yMin) / (yMax - yMin || 1)) * chartH;
 
   const linePath =
     points.length >= 2
@@ -234,7 +165,7 @@ export function PortfolioValueChart({
   const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
   const labelStep = Math.max(1, Math.floor(points.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)));
-  const axisFmt = isPortfolioHtml ? fmtAxisValCompact : fmtAxisVal;
+  const axisFmt = formatYAxisLabelCompact;
   const axisFill = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFill : sz.axisFill;
   const axisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.axisFont;
   const xAxisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.xAxisFont;

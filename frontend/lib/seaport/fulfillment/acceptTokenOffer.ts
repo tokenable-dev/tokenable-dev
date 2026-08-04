@@ -6,7 +6,7 @@ import {
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
-import { fulfillOrderApi, type Order } from "@/lib/core";
+import { fulfillOrderApi, getRwaSettlementPolicy, type Order } from "@/lib/core";
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
 import { askGrossUsdcMicros, bidUsdcAmount } from "../orders/bidUsdc";
 import { isTokenBidOrder } from "../orders/isTokenBidOrder";
@@ -155,6 +155,13 @@ export async function acceptTokenOffer(params: {
         chainId,
       });
       return { mode: "match" };
+    }
+
+    const { settlementPolicy } = await getRwaSettlementPolicy(bidTokenId);
+    if (settlementPolicy === "self_vault_hold") {
+      throw new Error(
+        "Self-vault cards cannot accept an offer below the ask. Match against your listing (offer ≥ ask) or lower the ask first.",
+      );
     }
 
     const gas = await gasWithCapFast(

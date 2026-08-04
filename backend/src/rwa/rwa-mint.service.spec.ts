@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RwaMintService } from './rwa-mint.service';
 import type { MintRwaDto } from './dto/mint-rwa.dto';
 import type { User } from '../user/entities/user.entity';
@@ -27,6 +27,7 @@ describe('RwaMintService', () => {
     cancelCycle: jest.fn().mockResolvedValue(undefined),
   };
   const vaultSubmissions = {
+    assertCertAvailableForSelfVault: jest.fn().mockResolvedValue(undefined),
     attachCycleForCert: jest.fn().mockResolvedValue(undefined),
     markItemCompletedForCycle: jest.fn().mockResolvedValue(undefined),
   };
@@ -75,6 +76,9 @@ describe('RwaMintService', () => {
     expect(result.mintedTo).toBe('0xcustody');
     expect(result.intendedRecipient).toBe('0xuserwallet');
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ settlementPolicy: 'standard' }),
+    );
   });
 
   it('mints directly to recipient and seeds cost basis when deliveryMode=direct', async () => {
@@ -84,6 +88,9 @@ describe('RwaMintService', () => {
       chainId,
     );
 
+    expect(
+      vaultSubmissions.assertCertAvailableForSelfVault,
+    ).toHaveBeenCalledWith('83179580');
     expect(chainWriter.mintTo).toHaveBeenCalledWith(
       '0xuserwallet',
       'ipfs://QmMeta',
@@ -100,6 +107,31 @@ describe('RwaMintService', () => {
       expect.any(Date),
       chainId,
     );
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ settlementPolicy: 'self_vault_hold' }),
+    );
+  });
+
+  it('does not run self-vault shipment guard for custody mints', async () => {
+    await service.mintForUser(user, baseDto, chainId);
+    expect(
+      vaultSubmissions.assertCertAvailableForSelfVault,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('rejects direct mint when cert is locked in a PSA shipment', async () => {
+    vaultSubmissions.assertCertAvailableForSelfVault.mockRejectedValueOnce(
+      new BadRequestException('in transit'),
+    );
+    await expect(
+      service.mintForUser(
+        user,
+        { ...baseDto, deliveryMode: 'direct' },
+        chainId,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(vault.reserveCycleForDeposit).not.toHaveBeenCalled();
+    expect(chainWriter.mintTo).not.toHaveBeenCalled();
   });
 
   it('rejects unlinked recipient wallets', async () => {

@@ -3,6 +3,13 @@ import type { AuthProviderLink, LinkedWallet } from "./wallets";
 
 export type KycStatus = "none" | "pending" | "approved" | "rejected";
 
+export type EmailNotifPrefs = {
+  trades: boolean;
+  bids: boolean;
+  price: boolean;
+  vault: boolean;
+};
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -19,7 +26,17 @@ export interface AuthUser {
   kycVerifiedAt?: string | null;
   kycProvider?: string | null;
   lastPrivySyncAt?: string | null;
+  marketingEmailsOptIn?: boolean;
+  emailNotificationsEnabled?: boolean;
+  emailNotifPrefs?: EmailNotifPrefs;
 }
+
+export type UpdateProfileInput = {
+  name?: string;
+  marketingEmailsOptIn?: boolean;
+  emailNotificationsEnabled?: boolean;
+  emailNotifPrefs?: Partial<EmailNotifPrefs>;
+};
 
 /** Returns null when unauthenticated (`/auth/session` → `{ user: null }`). */
 export async function fetchAuthMe(): Promise<AuthUser | null> {
@@ -50,4 +67,39 @@ export async function deleteAccount(): Promise<void> {
       (err as { message?: string | string[] }).message ?? "Delete failed";
     throw new Error(Array.isArray(message) ? message.join(", ") : message);
   }
+}
+
+export async function updateAuthProfile(
+  input: UpdateProfileInput,
+): Promise<AuthUser> {
+  const res = await backendFetch(`${getApiUrl()}/auth/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Update failed" }));
+    const message =
+      (err as { message?: string | string[] }).message ?? "Update failed";
+    throw new Error(Array.isArray(message) ? message.join(", ") : message);
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  return data.user;
+}
+
+export async function uploadAuthAvatar(file: File): Promise<AuthUser> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await backendFetch(`${getApiUrl()}/auth/avatar`, {
+    method: "POST",
+    body,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Upload failed" }));
+    const message =
+      (err as { message?: string | string[] }).message ?? "Upload failed";
+    throw new Error(Array.isArray(message) ? message.join(", ") : message);
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  return data.user;
 }

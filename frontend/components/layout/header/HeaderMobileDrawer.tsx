@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { useLogin } from "@privy-io/react-auth";
 import { useCallback, useEffect, useState } from "react";
 import { TkButton } from "@/components/ds";
 import {
@@ -29,8 +29,8 @@ import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
-import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { completeSignOut } from "@/lib/auth/signOut";
 import type { HeaderKycTone } from "@/lib/wallet/walletMenuDisplay";
 import { cn } from "@/lib/ds/cn";
@@ -120,20 +120,20 @@ export function HeaderMobileDrawer({
   const searchParams = useSearchParams();
   const navigate = useHeaderNavGate();
   const { login } = useLogin();
-  const { ready, authenticated } = usePrivy();
+  const { canShowAuthUi, authenticated, privyUnavailable } = usePrivyInitGate();
   const { unreadCount } = useMarketplaceNotifications();
-  const mounted = useClientMounted();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const logout = useAuthStore((s) => s.logout);
   const { displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
   const [signingOut, setSigningOut] = useState(false);
 
-  const authPending = !mounted || !ready || !initialized || loading;
+  const sessionPending =
+    !canShowAuthUi || (!authenticated && (!initialized || loading) && !privyUnavailable);
   const isLoggedIn = authenticated;
-  const showProfile = !authPending && isLoggedIn;
-  const showConnect = !authPending && !isLoggedIn;
-  const showProfileSkeleton = authPending && isLoggedIn;
+  const showProfile = !sessionPending && isLoggedIn;
+  const showConnect = !sessionPending && !isLoggedIn;
+  const showProfileSkeleton = sessionPending && isLoggedIn;
 
   useEffect(() => {
     if (!open || !isLoggedIn) return;
@@ -230,7 +230,7 @@ export function HeaderMobileDrawer({
         <nav className="tkm-nav" aria-label="Main">
           {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
             const Icon = PRIMARY_ICONS[label];
-            const isPortfolio = href === "/portfolio";
+            const isPortfolio = href.startsWith("/portfolio");
             const itemActive = isPortfolio
               ? isPortfolioMainActive(pathname, searchParams)
               : navItemActive(pathname, href);
@@ -240,7 +240,7 @@ export function HeaderMobileDrawer({
                 <button
                   type="button"
                   className={cn("tkm-item", itemActive && "active")}
-                  onClick={() => go(href, minLevel)}
+                  onClick={() => go(isPortfolio ? "/portfolio?tab=assets" : href, minLevel)}
                 >
                   <Icon aria-hidden />
                   {label}
@@ -301,8 +301,8 @@ export function HeaderMobileDrawer({
           </button>
           <button
             type="button"
-            className={cn("tkm-item", isSecondaryNavActive(pathname, "/profile") && "active")}
-            onClick={() => go("/profile")}
+            className={cn("tkm-item", isSecondaryNavActive(pathname, "/settings") && "active")}
+            onClick={() => go("/settings")}
           >
             <MobileDrawerSettingsIcon aria-hidden />
             Settings
