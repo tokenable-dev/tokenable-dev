@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThan, Repository } from 'typeorm';
+import { EntityManager, In, LessThan, Repository } from 'typeorm';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import {
   RegisterVaultShipmentDto,
@@ -131,13 +132,46 @@ export class VaultSubmissionService {
     );
   }
 
-  static createPublicId(): string {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const seq = String(Math.floor(Math.random() * 90000) + 10000);
-    return `SUB-${y}${m}${day}-${seq}`;
+  /**
+   * `SUB-YYYYMMDD-#####` — date stamp + per-day sequence (00001, 00002, …).
+   * Must run inside a transaction; uses a day-scoped advisory lock for concurrency.
+   */
+  async nextDailyPublicId(
+    em: EntityManager,
+    now = new Date(),
+  ): Promise<string> {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const prefix = `SUB-${y}${m}${day}-`;
+    const dayKey = Number(`${y}${m}${day}`);
+    if (!Number.isFinite(dayKey)) {
+      throw new InternalServerErrorException('Invalid submission date key');
+    }
+
+    // Serialize creates for this calendar day across concurrent transactions.
+    await em.query('SELECT pg_advisory_xact_lock($1)', [dayKey]);
+
+    const rows = await em
+      .createQueryBuilder(VaultSubmission, 's')
+      .select('s.public_id', 'publicId')
+      .where('s.public_id LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('s.public_id', 'DESC')
+      .limit(1)
+      .getRawMany<{ publicId: string }>();
+
+    let next = 1;
+    const last = rows[0]?.publicId?.trim();
+    if (last?.startsWith(prefix)) {
+      const n = Number(last.slice(prefix.length));
+      if (Number.isFinite(n) && n >= 0) next = Math.floor(n) + 1;
+    }
+    if (next > 99_999) {
+      throw new InternalServerErrorException(
+        'Daily vault submission id sequence exhausted (max 99999)',
+      );
+    }
+    return `${prefix}${String(next).padStart(5, '0')}`;
   }
 
   /**
@@ -241,7 +275,25 @@ export class VaultSubmissionService {
     throw new NotFoundException('Submission not found');
   }
 
+  /**
+   * Upsert the sell-flow shipping package.
+   * Add-cards is local-only — callers must send ≥1 confirmed card.
+   * New rows are created as `awaiting_shipment` (never `draft`).
+   * Legacy `draft` rows are still accepted and upgraded when cards are confirmed.
+   */
   async upsertDraft(userId: string, dto: UpsertVaultSubmissionDraftDto) {
+    const cards = dto.cards ?? [];
+    if (cards.length === 0) {
+      throw new BadRequestException(
+        'Add at least one confirmed card before saving the shipping package',
+      );
+    }
+    if (!cards.every((c) => c.confirmed === true)) {
+      throw new BadRequestException(
+        'Confirm every card before saving the shipping package',
+      );
+    }
+
     return this.submissions.manager.transaction(async (em) => {
       let sub: VaultSubmission | null = null;
       if (dto.publicId?.trim()) {
@@ -257,28 +309,37 @@ export class VaultSubmissionService {
         }
       }
       if (!sub) {
-        // Prefer continuing the latest open draft if present.
+        // Prefer open shipping package; fall back to legacy draft to upgrade.
         sub = await em
           .createQueryBuilder(VaultSubmission, 's')
           .setLock('pessimistic_write')
           .where('s.user_id = :userId', { userId })
-          .andWhere("s.status IN ('draft', 'awaiting_shipment')")
+          .andWhere("s.status = 'awaiting_shipment'")
           .orderBy('s.updated_at', 'DESC')
           .getOne();
+        if (!sub) {
+          sub = await em
+            .createQueryBuilder(VaultSubmission, 's')
+            .setLock('pessimistic_write')
+            .where('s.user_id = :userId', { userId })
+            .andWhere("s.status = 'draft'")
+            .orderBy('s.updated_at', 'DESC')
+            .getOne();
+        }
       }
 
       if (!sub) {
+        const publicId = await this.nextDailyPublicId(em);
         sub = em.create(VaultSubmission, {
-          publicId: VaultSubmissionService.createPublicId(),
+          publicId,
           userId,
-          status: 'draft',
+          status: 'awaiting_shipment',
         });
         sub = await em.save(sub);
       }
 
       await em.delete(VaultSubmissionItem, { submissionId: sub.id });
 
-      const cards = dto.cards ?? [];
       const nextItems: VaultSubmissionItem[] = cards.map((c, i) =>
         em.create(VaultSubmissionItem, this.cardToItem(sub!.id, c, i)),
       );
@@ -287,14 +348,14 @@ export class VaultSubmissionService {
       // Update status via QueryBuilder — never em.save(sub) here.
       // OneToMany cascade:true would try to null submission_id on items when
       // the in-memory relation is stale/empty (Postgres NOT NULL → 500).
+      // Never demote to draft — ship-stage upsert always lands awaiting_shipment.
       if (sub.status === 'draft' || sub.status === 'awaiting_shipment') {
-        const allConfirmed =
-          nextItems.length > 0 && nextItems.every((it) => it.status === 'confirmed');
-        const nextStatus: VaultSubmissionStatus = allConfirmed
-          ? 'awaiting_shipment'
-          : 'draft';
-        await em.update(VaultSubmission, { id: sub.id }, { status: nextStatus });
-        sub.status = nextStatus;
+        await em.update(
+          VaultSubmission,
+          { id: sub.id },
+          { status: 'awaiting_shipment' },
+        );
+        sub.status = 'awaiting_shipment';
       }
 
       const full = await em.findOneOrFail(VaultSubmission, {
@@ -333,6 +394,7 @@ export class VaultSubmissionService {
 
   async registerTracking(userId: string, idOrPublicId: string, dto: RegisterVaultShipmentDto) {
     const sub = await this.findOwned(userId, idOrPublicId);
+    // Normal path is awaiting_shipment; draft kept for legacy pre-ship rows.
     if (!['draft', 'awaiting_shipment', 'in_transit'].includes(sub.status)) {
       throw new BadRequestException(`Cannot register tracking while status is ${sub.status}`);
     }
@@ -420,6 +482,79 @@ export class VaultSubmissionService {
   }
 
   // ── Admin ops ──────────────────────────────────────────────────────────
+
+  /**
+   * Flat queue of cards at PSA waiting for ops mint → user wallet (Live).
+   * Includes item status `reviewing` or `approved` on `psa_reviewing` packages.
+   */
+  async listAdminMintQueue(params?: { q?: string }) {
+    // No QueryBuilder joins — TypeORM 0.3 throws `databaseName` on join+orderBy
+    // for these entities (see adminList). Two plain finds keep the path reliable.
+    const packages = await this.submissions.find({
+      where: { status: 'psa_reviewing' },
+      order: { updatedAt: 'DESC' },
+      take: 200,
+    });
+    if (packages.length === 0) return [];
+
+    const subById = new Map(packages.map((s) => [s.id, s]));
+    const items = await this.items.find({
+      where: {
+        submissionId: In(packages.map((p) => p.id)),
+        status: In(['reviewing', 'approved'] as const),
+      },
+      order: { updatedAt: 'DESC', sortOrder: 'ASC' },
+      take: 200,
+    });
+    if (items.length === 0) return [];
+
+    const userIds = [
+      ...new Set(packages.map((s) => s.userId).filter(Boolean)),
+    ];
+    const userRows: Array<{ id: string; email: string | null; name: string | null }> =
+      userIds.length > 0
+        ? await this.submissions.manager.query(
+            `SELECT id, email, name FROM users WHERE id = ANY($1::uuid[])`,
+            [userIds],
+          )
+        : [];
+    const userById = new Map(userRows.map((u) => [u.id, u]));
+
+    const q = params?.q?.trim().toLowerCase() ?? '';
+    const rows = items.flatMap((item) => {
+      const sub = subById.get(item.submissionId);
+      if (!sub) return [];
+      const user = userById.get(sub.userId);
+      const row = {
+        itemId: item.id,
+        submissionId: sub.id,
+        publicId: sub.publicId,
+        packageStatus: sub.status,
+        itemStatus: item.status,
+        cert: item.certNumber,
+        name: item.displayName,
+        grade: item.grade,
+        imageUrl: item.imageUrl,
+        userId: sub.userId,
+        userEmail: user?.email ?? null,
+        userName: user?.name ?? null,
+        updatedAt: (item.updatedAt ?? sub.updatedAt).toISOString(),
+      };
+      if (!q) return [row];
+      const hay = [
+        row.publicId,
+        row.cert,
+        row.name ?? '',
+        row.userEmail ?? '',
+        row.userName ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q) ? [row] : [];
+    });
+
+    return rows;
+  }
 
   async adminCounts() {
     const rows = await this.submissions

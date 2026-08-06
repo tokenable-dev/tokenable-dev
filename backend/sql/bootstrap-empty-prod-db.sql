@@ -23,6 +23,7 @@ BEGIN;
 \ir schema/050_portfolio.sql
 \ir schema/060_admin.sql
 \ir schema/064_marketplace_partners.sql
+\ir schema/066_marketplace_partner_addresses.sql
 \ir schema/065_bulk_mint.sql
 \ir schema/070_cardhedger.sql
 \ir schema/900_triggers.sql

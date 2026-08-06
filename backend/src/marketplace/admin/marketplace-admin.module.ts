@@ -41,6 +41,8 @@ import { Ga4AnalyticsService } from './ga4-analytics.service';
 import { UserAdminController } from './user-admin.controller';
 import { UserAdminService } from './user-admin.service';
 import { VaultSubmissionsAdminController } from './vault-submissions-admin.controller';
+import { RedeemsAdminController } from './redeems-admin.controller';
+import { RedeemsAdminService } from './redeems-admin.service';
 
 @Module({
   imports: [
@@ -83,6 +85,7 @@ import { VaultSubmissionsAdminController } from './vault-submissions-admin.contr
     PlatformAnalyticsController,
     DataInventoryController,
     VaultSubmissionsAdminController,
+    RedeemsAdminController,
   ],
   providers: [
     MarketplaceAdminService,
@@ -91,6 +94,7 @@ import { VaultSubmissionsAdminController } from './vault-submissions-admin.contr
     PlatformAnalyticsService,
     Ga4AnalyticsService,
     DataInventoryService,
+    RedeemsAdminService,
   ],
   exports: [MarketplaceAdminService],
 })

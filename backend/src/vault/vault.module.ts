@@ -4,6 +4,7 @@ import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
 import { VaultAsset } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
+import { VaultRedeemPaymentClaim } from './entities/vault-redeem-payment-claim.entity';
 import { VaultRedemption } from './entities/vault-redemption.entity';
 import { VaultSubmissionItem } from './entities/vault-submission-item.entity';
 import { VaultSubmission } from './entities/vault-submission.entity';
@@ -23,6 +24,7 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
       VaultAsset,
       VaultCycle,
       VaultRedemption,
+      VaultRedeemPaymentClaim,
       VaultSubmission,
       VaultSubmissionItem,
       VaultPsaArrivalReview,

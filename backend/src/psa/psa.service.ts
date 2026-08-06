@@ -155,6 +155,18 @@ async function probeCertImageUrlReachable(url: string): Promise<boolean> {
   }
 }
 
+/**
+ * Cardhedger OCR / missing-image fallbacks must stay inside the browser + nginx
+ * budgets. Default Cardhedger retries (20s × 4) stack past the 25s FE timeout
+ * when the upstream hangs on empty catalog images.
+ */
+const CARDHEDGER_OCR_TIMEOUT_MS = 12_000;
+const CARDHEDGER_OCR_MAX_RETRIES = 1;
+const CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS = 10_000;
+const CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES = 0;
+/** Wall-clock cap for catalog/image enrich after PSA returns no slab photo. */
+const PSA_ANALYZE_IMAGE_FALLBACK_BUDGET_MS = 15_000;
+
 @Injectable()
 export class PsaService {
   private readonly logger = new Logger(PsaService.name);
@@ -484,10 +496,35 @@ export class PsaService {
     for (const body of tryBodies) {
       const raw = await this.cardhedgerService.forwardJson('POST', path, {
         body,
+        timeoutMs: CARDHEDGER_OCR_TIMEOUT_MS,
+        maxRetries: CARDHEDGER_OCR_MAX_RETRIES,
       });
       if (typeof raw === 'object' && raw != null) return raw;
     }
     return null;
+  }
+
+  private async withAnalyzeImageFallbackBudget<T>(
+    work: Promise<T>,
+    fallback: T,
+    label: string,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        work,
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => {
+            this.logger.warn(
+              `${label} hit ${PSA_ANALYZE_IMAGE_FALLBACK_BUDGET_MS}ms budget — continuing without catalog image`,
+            );
+            resolve(fallback);
+          }, PSA_ANALYZE_IMAGE_FALLBACK_BUDGET_MS);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   private static isCertOcrResolveUsable(
@@ -562,7 +599,7 @@ export class PsaService {
       cardSet?: string;
       psaVariety?: string | null;
     },
-    opts?: { allowApproximate?: boolean },
+    opts?: { allowApproximate?: boolean; failFast?: boolean },
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
     try {
       this.cardhedgerService.assertConfigured();
@@ -585,6 +622,12 @@ export class PsaService {
       '/v1/cards/card-search',
       {
         body: { search: searchQuery, page: 1, page_size: 25 },
+        ...(opts?.failFast
+          ? {
+              timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+              maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
+            }
+          : {}),
       },
     );
     const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
@@ -684,7 +727,11 @@ export class PsaService {
       const detailsBody = await this.cardhedgerService.forwardJson(
         'POST',
         '/v1/cards/card-details',
-        { body: { card_id: id } },
+        {
+          body: { card_id: id },
+          timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+          maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
+        },
       );
       const detailCards = (detailsBody as { cards?: unknown[] }).cards;
       if (Array.isArray(detailCards) && detailCards.length > 0) {
@@ -721,7 +768,11 @@ export class PsaService {
       const raw = await this.cardhedgerService.forwardJson(
         'POST',
         '/v1/cards/prices-by-cert',
-        { body: { cert: digits, grader: 'PSA', days: 30 } },
+        {
+          body: { cert: digits, grader: 'PSA', days: 30 },
+          timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+          maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
+        },
       );
       const mapped = PsaService.mapCertLookupToOcrResolve(raw, {
         certLookupComplete: true,
@@ -795,7 +846,7 @@ export class PsaService {
               : undefined,
           psaVariety: psaParsed.varietyHint,
         },
-        { allowApproximate: true },
+        { allowApproximate: true, failFast: true },
       );
       if (relaxed) {
         mint = mint
@@ -1482,13 +1533,19 @@ export class PsaService {
       }
     }
 
-    // PSA cert metadata OK but no official slab URL → Cardhedger catalog image for mint
+    // PSA cert metadata OK but no official slab URL → Cardhedger catalog image for mint.
+    // Bound wall-clock time: empty Cardhedger images used to stack multi-minute retries.
     if (selectedCert && apiLookupSuccess && !psaCertImages?.front) {
-      cardhedgerMint = await this.enrichCardhedgerMintWhenPsaSlabMissing(
-        selectedCert,
-        psaParsed,
-        cardhedgerQuery,
-        cardhedgerMint,
+      const before = cardhedgerMint;
+      cardhedgerMint = await this.withAnalyzeImageFallbackBudget(
+        this.enrichCardhedgerMintWhenPsaSlabMissing(
+          selectedCert,
+          psaParsed,
+          cardhedgerQuery,
+          cardhedgerMint,
+        ),
+        before,
+        'enrichCardhedgerMintWhenPsaSlabMissing',
       );
     }
 
@@ -1514,13 +1571,18 @@ export class PsaService {
         }
       }
 
-      // 2) Cardhedger image-search — visual matching with the slab image
+      // 2) Cardhedger image-search — visual matching (fail-fast; often hangs when no match)
       if (!cardhedgerMint?.imageUrl) {
-        const chImgSearchUrl = await this.tryCardhedgerImageSearch(imageBuffer);
+        const mintBeforeSearch = cardhedgerMint;
+        const chImgSearchUrl = await this.withAnalyzeImageFallbackBudget(
+          this.tryCardhedgerImageSearch(imageBuffer),
+          null,
+          'tryCardhedgerImageSearch',
+        );
         if (chImgSearchUrl) {
           cardhedgerMint = {
             matchConfidence: 'approximate',
-            ...(cardhedgerMint ?? {}),
+            ...(mintBeforeSearch ?? {}),
             imageUrl: chImgSearchUrl,
           };
         }
@@ -1581,6 +1643,8 @@ export class PsaService {
         '/v1/cards/image-search',
         {
           body: { image_base64: b64 },
+          timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+          maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
         },
       );
       const cards = Array.isArray((raw as { cards?: unknown[] })?.cards)

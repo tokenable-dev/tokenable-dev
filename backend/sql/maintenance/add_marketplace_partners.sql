@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS marketplace_partners (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   display_name varchar(128) NOT NULL,
   wallet_address varchar(42) NOT NULL,
-  encrypted_private_key text NOT NULL,
+  encrypted_private_key text,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),

@@ -19,9 +19,9 @@ export class MarketplacePartner {
   @Column({ name: 'wallet_address', type: 'varchar', length: 42 })
   walletAddress!: string;
 
-  /** AES-256-GCM blob — never expose via API. */
-  @Column({ name: 'encrypted_private_key', type: 'text' })
-  encryptedPrivateKey!: string;
+  /** AES-256-GCM blob — never expose via API. Null when partner is wallet-only (self vault). */
+  @Column({ name: 'encrypted_private_key', type: 'text', nullable: true })
+  encryptedPrivateKey!: string | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;

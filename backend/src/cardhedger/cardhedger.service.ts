@@ -173,8 +173,12 @@ export class CardhedgerService {
     url: URL,
     init: RequestInit,
     timeoutMs?: number,
+    maxRetries?: number,
   ): Promise<globalThis.Response> {
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES =
+      maxRetries != null && Number.isFinite(maxRetries)
+        ? Math.max(0, Math.min(5, Math.floor(maxRetries)))
+        : 3;
     const BASE_DELAY_MS = 500;
     const effectiveTimeout = timeoutMs ?? this.httpTimeoutMs();
 
@@ -242,6 +246,14 @@ export class CardhedgerService {
       body?: unknown;
       /** Optional logical operation for per-flow upstream metrics (Phase 0+). */
       metricsOperation?: CardhedgerUpstreamOperation;
+      /**
+       * Per-attempt HTTP timeout (ms). Defaults to CARDHEDGER_HTTP_TIMEOUT_MS.
+       * Use a shorter value for OCR / image-fallback paths so PSA analyze
+       * cannot stack ~80s Cardhedger retries past the browser budget.
+       */
+      timeoutMs?: number;
+      /** Override retry count (default 3). Pass 0–1 for OCR fail-fast. */
+      maxRetries?: number;
     },
   ): Promise<unknown> {
     if (this.isCircuitOpen()) {
@@ -283,7 +295,12 @@ export class CardhedgerService {
 
     let upstream: globalThis.Response;
     try {
-      upstream = await this.attemptFetch(url, init);
+      upstream = await this.attemptFetch(
+        url,
+        init,
+        opts?.timeoutMs,
+        opts?.maxRetries,
+      );
     } catch (e) {
       // Network failure after all retries — counts as infrastructure failure.
       this.recordCircuitFailure();

@@ -47,6 +47,7 @@ function makeService(
     assets,
     makeCyclesRepo(openCycle),
     {} as Repository<VaultRedemption>,
+    {} as never, // paymentClaims
     {} as Repository<RwaToken>,
     {
       notifyWithdrawalRequested: jest.fn(),

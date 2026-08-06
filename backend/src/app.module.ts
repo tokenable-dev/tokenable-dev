@@ -43,16 +43,19 @@ import { CardhedgerPriceDeltaImportRun } from './cardhedger/entities/cardhedger-
 import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entity';
 import { VaultAsset } from './vault/entities/vault-asset.entity';
 import { VaultCycle } from './vault/entities/vault-cycle.entity';
+import { VaultRedeemPaymentClaim } from './vault/entities/vault-redeem-payment-claim.entity';
 import { VaultRedemption } from './vault/entities/vault-redemption.entity';
 import { VaultSubmission } from './vault/entities/vault-submission.entity';
 import { VaultSubmissionItem } from './vault/entities/vault-submission-item.entity';
 import { VaultPsaArrivalReview } from './vault/entities/vault-psa-arrival-review.entity';
 import { MarketplacePartner } from './marketplace/entities/marketplace-partner.entity';
+import { MarketplacePartnerAddress } from './marketplace/entities/marketplace-partner-address.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
 import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
 import { P2pListing } from './marketplace/entities/p2p-listing.entity';
 import { P2pOrder } from './marketplace/entities/p2p-order.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
+import { SelfVaultSettlement } from './marketplace/entities/self-vault-settlement.entity';
 import { VaultModule } from './vault/vault.module';
 
 /**
@@ -135,9 +138,11 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           CardhedgerPriceDeltaImportRun,
           MarketplaceAdmin,
           MarketplacePartner,
+          MarketplacePartnerAddress,
           VaultAsset,
           VaultCycle,
           VaultRedemption,
+          VaultRedeemPaymentClaim,
           VaultSubmission,
           VaultSubmissionItem,
           VaultPsaArrivalReview,
@@ -146,6 +151,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           P2pListing,
           P2pOrder,
           MarketplaceNotification,
+          SelfVaultSettlement,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production

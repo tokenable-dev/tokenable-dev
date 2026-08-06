@@ -76,24 +76,106 @@ CREATE TABLE IF NOT EXISTS vault_redemptions (
   ship_to_postal varchar(32),
   ship_to_country varchar(8),
   ship_to_phone varchar(40),
+  fee_retrieval_usd numeric(12, 2),
+  fee_early_withdrawal_usd numeric(12, 2),
+  fee_shipping_usd numeric(12, 2),
+  fee_total_usd numeric(12, 2),
+  payment_tx_hash varchar(80),
+  payment_batch_id uuid,
+  paid_at timestamptz,
+  payment_received_usdc_micros numeric(24, 0),
+  chain_id integer,
+  custody_tx_hash varchar(80),
+  custody_at timestamptz,
+  custody_return_tx_hash varchar(80),
+  custody_returned_at timestamptz,
+  refund_status varchar(24) NOT NULL DEFAULT 'none',
+  refund_tx_hash varchar(80),
+  refunded_usdc_micros numeric(24, 0),
+  refunded_at timestamptz,
+  tracking_number varchar(128),
+  tracking_carrier varchar(64),
+  tracking_set_at timestamptz,
+  admin_memo text,
+  vaulted_at timestamptz,
+  early_withdrawal boolean,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT vault_redemptions_status_check CHECK (
     status IN (
-      'pending', 'ownership_verified', 'burned', 'vault_release_pending',
-      'completed', 'failed', 'cancelled'
+      'pending', 'ownership_verified', 'in_custody', 'burned',
+      'vault_release_pending', 'completed', 'failed', 'cancelled', 'refunded'
+    )
+  ),
+  CONSTRAINT vault_redemptions_refund_status_check CHECK (
+    refund_status IN (
+      'none', 'usdc_refunded', 'nft_returned', 'fully_refunded'
     )
   )
 );
 
 CREATE INDEX IF NOT EXISTS idx_vault_redemptions_cycle_id ON vault_redemptions (vault_cycle_id);
 
+CREATE INDEX IF NOT EXISTS idx_vault_redemptions_status
+  ON vault_redemptions (status);
+
+CREATE INDEX IF NOT EXISTS idx_vault_redemptions_payment_tx
+  ON vault_redemptions (payment_tx_hash)
+  WHERE payment_tx_hash IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_vault_redemptions_payment_batch
+  ON vault_redemptions (payment_batch_id)
+  WHERE payment_batch_id IS NOT NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_vault_redemptions_one_open_per_cycle
   ON vault_redemptions (vault_cycle_id)
-  WHERE status NOT IN ('completed', 'failed', 'cancelled');
+  WHERE status NOT IN ('completed', 'failed', 'cancelled', 'refunded');
 
 COMMENT ON TABLE vault_redemptions IS
-  'Redemption state machine: ownership verification → on-chain burn → physical vault release.';
+  'Redemption state machine: pay → user custody transfer → burn → physical release (or refund before tracking).';
+
+COMMENT ON COLUMN vault_redemptions.payment_received_usdc_micros IS
+  'Batch-total USDC micros actually received (copied onto every sibling row). Never SUM across a batch; use once or read vault_redeem_payment_claims.';
+COMMENT ON COLUMN vault_redemptions.refunded_usdc_micros IS
+  'Batch-total USDC micros refunded (copied onto every sibling row). Never SUM across a batch.';
+COMMENT ON COLUMN vault_redemptions.custody_tx_hash IS
+  'User-signed ERC-721 transfer into RWA_CUSTODY_WALLET_ADDRESS.';
+COMMENT ON COLUMN vault_redemptions.refund_status IS
+  'none | usdc_refunded | nft_returned | fully_refunded';
+COMMENT ON COLUMN vault_redemptions.tracking_number IS
+  'When set, refunds are blocked.';
+COMMENT ON COLUMN vault_redemptions.ship_to_country IS
+  'ISO-3166 alpha-2 destination stored at redeem time (not the fee bucket us|ca|intl).';
+
+-- One payment_tx_hash → one batch (multi-card redemptions denormalize the same hash).
+CREATE TABLE IF NOT EXISTS vault_redeem_payment_claims (
+  payment_tx_hash varchar(80) PRIMARY KEY,
+  payment_batch_id uuid NOT NULL,
+  payment_received_usdc_micros numeric(24, 0),
+  chain_id integer,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_vault_redeem_payment_claims_batch
+  ON vault_redeem_payment_claims (payment_batch_id);
+
+COMMENT ON TABLE vault_redeem_payment_claims IS
+  'Ledger uniqueness: one USDC payment_tx_hash funds one payment_batch_id. Redemption rows denormalize these fields for ops joins.';
+
+-- Paid redemption rows may reference the claims ledger (NULL payment_tx_hash = unpaid / legacy).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_vault_redemptions_payment_claim'
+  ) THEN
+    ALTER TABLE vault_redemptions
+      ADD CONSTRAINT fk_vault_redemptions_payment_claim
+      FOREIGN KEY (payment_tx_hash)
+      REFERENCES vault_redeem_payment_claims (payment_tx_hash)
+      ON UPDATE CASCADE
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Sell-flow submissions (pre-mint package tracking: draft → ship → PSA → live)

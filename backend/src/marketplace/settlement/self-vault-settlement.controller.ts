@@ -10,10 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsString, Matches } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsString, Matches } from 'class-validator';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ChainConfigService } from '../../blockchain/chain-config.service';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
 import type { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
 import { VaultService } from '../../vault/vault.service';
@@ -22,12 +25,24 @@ import {
   SelfVaultSettlement,
   type SelfVaultSettlementStatus,
 } from '../entities/self-vault-settlement.entity';
+import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
+import {
+  formatPartnerVaultLabel,
+  PSA_VAULT_LABEL,
+} from '../partners/partner-vault-label.util';
 import { SelfVaultSettlementService } from './self-vault-settlement.service';
 
 class RecordPayoutDto {
   @IsString()
   @Matches(/^0x[a-fA-F0-9]{64}$/)
   payoutTxHash!: string;
+}
+
+class VaultInfoBatchDto {
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  tokenIds!: string[];
 }
 
 @ApiTags('marketplace')
@@ -39,6 +54,7 @@ export class SelfVaultSettlementController {
     private readonly vault: VaultService,
     private readonly chainConfig: ChainConfigService,
     private readonly admin: MarketplaceAdminService,
+    private readonly partners: MarketplacePartnersService,
   ) {}
 
   @Get('rwa-tokens/:tokenId/settlement-policy')
@@ -50,11 +66,46 @@ export class SelfVaultSettlementController {
     const tokenContract = this.chainConfig.getRwaAddress(
       this.chainConfig.getDefaultChainId(),
     );
-    const settlementPolicy = await this.vault.getSettlementPolicy(
-      tokenContract,
-      tid,
+    const rows = await this.vault.getVaultCustodyRows(tokenContract, [tid]);
+    const row = rows[0];
+    const settlementPolicy = row?.settlementPolicy ?? 'standard';
+    let vaultLabel = PSA_VAULT_LABEL;
+    if (settlementPolicy === 'self_vault_hold') {
+      const names = await this.partners.getDisplayNamesByIds(
+        row?.vaultPartnerId ? [row.vaultPartnerId] : [],
+      );
+      vaultLabel = formatPartnerVaultLabel(
+        row?.vaultPartnerId ? names.get(row.vaultPartnerId) : null,
+      );
+    }
+    return { tokenId: tid, settlementPolicy, vaultLabel };
+  }
+
+  @Post('rwa-tokens/vault-info/batch')
+  async batchVaultInfo(@Body() body: VaultInfoBatchDto) {
+    const tokenContract = this.chainConfig.getRwaAddress(
+      this.chainConfig.getDefaultChainId(),
     );
-    return { tokenId: tid, settlementPolicy };
+    const rows = await this.vault.getVaultCustodyRows(
+      tokenContract,
+      body.tokenIds ?? [],
+    );
+    const partnerIds = rows
+      .map((r) => r.vaultPartnerId)
+      .filter((id): id is string => Boolean(id));
+    const names = await this.partners.getDisplayNamesByIds(partnerIds);
+    return {
+      items: rows.map((r) => ({
+        tokenId: r.tokenId,
+        settlementPolicy: r.settlementPolicy,
+        vaultLabel:
+          r.settlementPolicy === 'self_vault_hold'
+            ? formatPartnerVaultLabel(
+                r.vaultPartnerId ? names.get(r.vaultPartnerId) : null,
+              )
+            : PSA_VAULT_LABEL,
+      })),
+    };
   }
 
   @ApiBearerAuth()
@@ -105,8 +156,29 @@ export class SelfVaultSettlementController {
     @Query('status') status?: SelfVaultSettlementStatus,
   ) {
     this.admin.assertAdminSession(req);
-    const items = await this.settlements.listByStatus(status);
-    return { items };
+    const allowed: SelfVaultSettlementStatus[] = [
+      'pending_confirm',
+      'confirmed',
+      'paid',
+      'rejected',
+    ];
+    const statusFilter =
+      status && allowed.includes(status) ? status : undefined;
+    const chainId = this.chainConfig.resolveChainId(
+      req.header(CHAIN_ID_HEADER) ?? undefined,
+    );
+    const items = await this.settlements.listByStatus(statusFilter, chainId);
+    return { items, chainId };
+  }
+
+  /** Repair: create ledger rows for fulfilled self-vault asks missing a settlement. */
+  @Post('admin/self-vault-settlements/backfill-missing')
+  async adminBackfillMissing(@Req() req: Request) {
+    this.admin.assertAdminSession(req);
+    const chainId = this.chainConfig.resolveChainId(
+      req.header(CHAIN_ID_HEADER) ?? undefined,
+    );
+    return this.settlements.backfillMissingFromFulfilledAsks({ chainId });
   }
 
   @Post('admin/self-vault-settlements/:id/confirm')
@@ -121,6 +193,14 @@ export class SelfVaultSettlementController {
     return this.settlements.adminReject(id);
   }
 
+  /** Send seller net USDC from PLATFORM_FEE wallet, then mark paid. */
+  @Post('admin/self-vault-settlements/:id/execute-payout')
+  async adminExecutePayout(@Req() req: Request, @Param('id') id: string) {
+    this.admin.assertAdminSession(req);
+    return this.settlements.executePayout(id);
+  }
+
+  /** Manual fallback when ops already sent USDC out-of-band. */
   @Post('admin/self-vault-settlements/:id/record-payout')
   async adminRecordPayout(
     @Req() req: Request,

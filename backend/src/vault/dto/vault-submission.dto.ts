@@ -44,8 +44,9 @@ export class UpsertVaultSubmissionDraftDto {
   @MaxLength(32)
   publicId?: string;
 
+  /** Confirmed cards for the shipping package (≥1). Add-cards is local-only. */
   @IsArray()
-  @ArrayMinSize(0)
+  @ArrayMinSize(1)
   @ArrayMaxSize(99)
   @ValidateNested({ each: true })
   @Type(() => VaultSubmissionCardDto)

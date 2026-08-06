@@ -1,0 +1,45 @@
+import {
+  Controller,
+  Headers,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+} from '@nestjs/common';
+import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
+import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
+import { VaultSubmissionAdminMintService } from './vault-submission-admin-mint.service';
+
+@ApiTags('marketplace-admin-vault-submissions')
+@ApiCookieAuth('marketplace_admin_session')
+@ApiChainIdHeader()
+@Controller('marketplace/admin/vault-submissions')
+export class VaultSubmissionAdminMintController {
+  constructor(
+    private readonly admin: MarketplaceAdminService,
+    private readonly mintAdmin: VaultSubmissionAdminMintService,
+    private readonly chainConfig: ChainConfigService,
+  ) {}
+
+  @Post(':idOrPublicId/items/:itemId/mint-and-deliver')
+  @ApiOperation({
+    summary:
+      'Mint custody NFT for a PSA vault item and deliver to depositor wallet (Live)',
+  })
+  mintAndDeliver(
+    @Req() req: Request,
+    @Param('idOrPublicId') idOrPublicId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.mintAdmin.mintAndDeliverItem(idOrPublicId, itemId, chainId);
+  }
+}

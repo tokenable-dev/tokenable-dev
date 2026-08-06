@@ -1,10 +1,18 @@
-import { SelfVaultSettlementService } from './self-vault-settlement.service';
+import {
+  SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS_DEFAULT,
+  SelfVaultSettlementService,
+} from './self-vault-settlement.service';
 
 describe('SelfVaultSettlementService.computeSellerPayoutMicros', () => {
   function svc(bps: string) {
     return new SelfVaultSettlementService(
       {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
       { get: () => bps } as never,
+      {} as never,
+      { isConfigured: () => false } as never,
     );
   }
 
@@ -14,5 +22,152 @@ describe('SelfVaultSettlementService.computeSellerPayoutMicros', () => {
 
   it('handles zero fee bps', () => {
     expect(svc('0').computeSellerPayoutMicros('1000000')).toBe('1000000');
+  });
+});
+
+describe('SelfVaultSettlementService.autoPayoutDelaySeconds', () => {
+  function svc(env: Record<string, string | undefined>) {
+    return new SelfVaultSettlementService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { get: (k: string) => env[k] } as never,
+      {} as never,
+      { isConfigured: () => false } as never,
+    );
+  }
+
+  it('defaults to 300 seconds (5 minutes)', () => {
+    expect(svc({}).autoPayoutDelaySeconds()).toBe(
+      SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS_DEFAULT,
+    );
+  });
+
+  it('reads SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS', () => {
+    expect(
+      svc({ SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS: '120' }).autoPayoutDelaySeconds(),
+    ).toBe(120);
+  });
+
+  it('falls back on invalid values', () => {
+    expect(
+      svc({ SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS: 'nope' }).autoPayoutDelaySeconds(),
+    ).toBe(SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS_DEFAULT);
+  });
+});
+
+describe('SelfVaultSettlementService.executePayout', () => {
+  it('auto-confirms pending_confirm then pays', async () => {
+    const row = {
+      id: 's1',
+      status: 'pending_confirm',
+      sellerWallet: '0xabc',
+      sellerPayoutUsdc: '950000',
+      chainId: 11155111,
+      confirmedAt: null as Date | null,
+      payoutTxHash: null as string | null,
+      paidAt: null as Date | null,
+    };
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(row),
+      save: jest.fn(async (r: typeof row) => r),
+    };
+    const platformFeeWallet = {
+      isConfigured: () => true,
+      transferUsdc: jest.fn().mockResolvedValue({ txHash: '0x' + 'ab'.repeat(32) }),
+    };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { get: () => undefined } as never,
+      {} as never,
+      platformFeeWallet as never,
+    );
+
+    const out = await svc.executePayout('s1');
+    expect(platformFeeWallet.transferUsdc).toHaveBeenCalledWith({
+      to: '0xabc',
+      amountMicros: '950000',
+      chainId: 11155111,
+    });
+    expect(out.status).toBe('paid');
+    expect(out.confirmedAt).toBeInstanceOf(Date);
+    expect(out.payoutTxHash).toMatch(/^0x/);
+  });
+
+  it('no-ops when already paid', async () => {
+    const row = { id: 's1', status: 'paid' };
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(row),
+      save: jest.fn(),
+    };
+    const platformFeeWallet = {
+      isConfigured: () => true,
+      transferUsdc: jest.fn(),
+    };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { get: () => undefined } as never,
+      {} as never,
+      platformFeeWallet as never,
+    );
+
+    await expect(svc.executePayout('s1')).resolves.toBe(row);
+    expect(platformFeeWallet.transferUsdc).not.toHaveBeenCalled();
+  });
+});
+
+describe('SelfVaultSettlementService.autoPayoutCron', () => {
+  it('skips when cron disabled', async () => {
+    const repo = { find: jest.fn() };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        get: (k: string) =>
+          k === 'SELF_VAULT_AUTO_PAYOUT_CRON' ? '0' : undefined,
+      } as never,
+      {} as never,
+      { isConfigured: () => true } as never,
+    );
+
+    await svc.autoPayoutCron();
+    expect(repo.find).not.toHaveBeenCalled();
+  });
+
+  it('pays due pending settlements', async () => {
+    const due = [{ id: 'due-1', tokenId: '9' }];
+    const repo = {
+      find: jest.fn().mockResolvedValue(due),
+      findOne: jest.fn(),
+      save: jest.fn(),
+    };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        get: (k: string) =>
+          k === 'SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS' ? '300' : undefined,
+      } as never,
+      {} as never,
+      { isConfigured: () => true } as never,
+    );
+    const pay = jest
+      .spyOn(svc, 'executePayout')
+      .mockResolvedValue({ id: 'due-1', status: 'paid' } as never);
+
+    await svc.autoPayoutCron();
+    expect(repo.find).toHaveBeenCalled();
+    expect(pay).toHaveBeenCalledWith('due-1');
   });
 });

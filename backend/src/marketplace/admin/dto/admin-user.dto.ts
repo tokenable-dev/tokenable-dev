@@ -68,6 +68,25 @@ export class AdminUserListQueryDto {
     | 'kyc_rejected'
     | 'kyc_none';
 
+  @ApiPropertyOptional({
+    description:
+      'Partner role via wallet ∩ marketplace_partners (active or inactive)',
+    enum: ['partner', 'individual'],
+  })
+  @IsOptional()
+  @IsIn(['partner', 'individual'])
+  role?: 'partner' | 'individual';
+
+  @ApiPropertyOptional({
+    description:
+      'Account moderation status. restricted/suspended have no backend yet — return empty.',
+    enum: ['all', 'active', 'restricted', 'suspended'],
+    default: 'all',
+  })
+  @IsOptional()
+  @IsIn(['all', 'active', 'restricted', 'suspended'])
+  accountStatus?: 'all' | 'active' | 'restricted' | 'suspended';
+
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
   @Type(() => Number)

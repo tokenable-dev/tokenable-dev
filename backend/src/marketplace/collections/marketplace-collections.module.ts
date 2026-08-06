@@ -98,6 +98,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
   ],
   exports: [
     CollectionService,
+    CollectionCoverService,
     CollectionEnrichmentService,
     RwaTokenRegistryService,
     CollectionMarketService,

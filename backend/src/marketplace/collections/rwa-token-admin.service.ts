@@ -577,6 +577,28 @@ export class RwaTokenAdminService {
       );
     }
 
+    if (existing?.vaultCycleId) {
+      const openRedeem = await this.vault.findOpenRedemptionForCycle(
+        existing.vaultCycleId,
+      );
+      if (openRedeem) {
+        if (openRedeem.refundStatus !== 'none') {
+          throw new BadRequestException(
+            `Token #${tid} redeem refund is in progress (refundStatus=${openRedeem.refundStatus}) — burn is blocked`,
+          );
+        }
+        if (
+          openRedeem.status !== 'in_custody' &&
+          openRedeem.status !== 'burned' &&
+          openRedeem.status !== 'vault_release_pending'
+        ) {
+          throw new BadRequestException(
+            `Token #${tid} redeem is ${openRedeem.status} — wait until NFT is in custody (in_custody) before burning`,
+          );
+        }
+      }
+    }
+
     const cancelledOrderHashes = await this.cancelActiveOrdersForToken(
       contract,
       tid,

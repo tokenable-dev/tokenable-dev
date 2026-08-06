@@ -112,6 +112,18 @@ CREATE TRIGGER trg_self_vault_settlements_updated_at
   FOR EACH ROW
   EXECUTE PROCEDURE tokenable_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_marketplace_partners_updated_at ON marketplace_partners;
+CREATE TRIGGER trg_marketplace_partners_updated_at
+  BEFORE UPDATE ON marketplace_partners
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_marketplace_partner_addresses_updated_at ON marketplace_partner_addresses;
+CREATE TRIGGER trg_marketplace_partner_addresses_updated_at
+  BEFORE UPDATE ON marketplace_partner_addresses
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
 DROP TRIGGER IF EXISTS trg_cardhedger_price_delta_checkpoints_updated_at ON cardhedger_price_delta_checkpoints;
 CREATE TRIGGER trg_cardhedger_price_delta_checkpoints_updated_at
   BEFORE UPDATE ON cardhedger_price_delta_checkpoints

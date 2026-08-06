@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getAddress } from 'ethers';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser';
 import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import {
@@ -14,6 +14,8 @@ import {
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { UserService } from '../../user/user.service';
+import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
+import { MarketplacePartner } from '../entities/marketplace-partner.entity';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import type {
   AdminUpdateUserDto,
@@ -42,6 +44,13 @@ export type AdminAuthProviderRow = {
   linkedAt: string;
 };
 
+export type AdminUserPartnerInfo = {
+  id: string;
+  displayName: string;
+  walletAddress: string;
+  isActive: boolean;
+};
+
 export type AdminUserSummary = {
   id: string;
   email: string;
@@ -60,6 +69,14 @@ export type AdminUserSummary = {
   lastPrivySyncAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Derived from wallet ∩ marketplace_partners. */
+  role: 'partner' | 'individual';
+  partner: AdminUserPartnerInfo | null;
+  /** Live vault cycles (status=minted) deposited by this user. */
+  custodyCardCount: number;
+  /** Moderation placeholder until strike/restrict schema exists. */
+  accountStatus: 'active';
+  strikeCount: number;
 };
 
 export type AdminUserWalletRow = {
@@ -144,6 +161,8 @@ function toSummary(
   walletCount: number,
   watchlistCount: number,
   authProviderTypes: string[],
+  partner: AdminUserPartnerInfo | null,
+  custodyCardCount: number,
 ): AdminUserSummary {
   return {
     id: user.id,
@@ -163,6 +182,11 @@ function toSummary(
     lastPrivySyncAt: user.lastPrivySyncAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
+    role: partner ? 'partner' : 'individual',
+    partner,
+    custodyCardCount,
+    accountStatus: 'active',
+    strikeCount: 0,
   };
 }
 
@@ -179,6 +203,10 @@ export class UserAdminService {
     private readonly watchlistRepo: Repository<UserWatchlist>,
     @InjectRepository(UserKycEvent)
     private readonly kycEventsRepo: Repository<UserKycEvent>,
+    @InjectRepository(MarketplacePartner)
+    private readonly partnersRepo: Repository<MarketplacePartner>,
+    @InjectRepository(VaultCycle)
+    private readonly vaultCyclesRepo: Repository<VaultCycle>,
     private readonly users: UserService,
   ) {}
 
@@ -286,6 +314,12 @@ export class UserAdminService {
     const limit = Math.min(query.limit ?? 30, 100);
     const skip = (page - 1) * limit;
     const filter = query.filter ?? 'all';
+    const accountStatus = query.accountStatus ?? 'all';
+
+    // Moderation statuses are UI-only until strike/restrict schema exists.
+    if (accountStatus === 'restricted' || accountStatus === 'suspended') {
+      return { items: [], total: 0, page, limit, hasMore: false };
+    }
 
     const qb = this.usersRepo.createQueryBuilder('u');
     const q = query.q?.trim().toLowerCase();
@@ -354,21 +388,40 @@ export class UserAdminService {
       qb.andWhere('u.wallet_address IS NOT NULL');
     }
 
+    const partnerWalletExists = `EXISTS (
+      SELECT 1 FROM user_wallets w
+      INNER JOIN marketplace_partners mp
+        ON LOWER(mp.wallet_address) = LOWER(w.wallet_address)
+      WHERE w.user_id = u.id
+    ) OR EXISTS (
+      SELECT 1 FROM marketplace_partners mp
+      WHERE u.wallet_address IS NOT NULL
+        AND LOWER(mp.wallet_address) = LOWER(u.wallet_address)
+    )`;
+
+    if (query.role === 'partner') {
+      qb.andWhere(partnerWalletExists);
+    } else if (query.role === 'individual') {
+      qb.andWhere(`NOT (${partnerWalletExists})`);
+    }
+
     qb.orderBy('u.created_at', 'DESC').skip(skip).take(limit);
     const [rows, total] = await qb.getManyAndCount();
 
     const ids = rows.map((r) => r.id);
-    const walletCounts = await this.countByUserIds(
-      this.walletsRepo,
-      'user_id',
-      ids,
-    );
-    const watchCounts = await this.countByUserIds(
-      this.watchlistRepo,
-      'user_id',
-      ids,
-    );
-    const providerTypesByUser = await this.providerTypesByUserIds(ids);
+    const [
+      walletCounts,
+      watchCounts,
+      providerTypesByUser,
+      partnersByUser,
+      custodyByUser,
+    ] = await Promise.all([
+      this.countByUserIds(this.walletsRepo, 'user_id', ids),
+      this.countByUserIds(this.watchlistRepo, 'user_id', ids),
+      this.providerTypesByUserIds(ids),
+      this.partnersByUserIds(ids, rows),
+      this.custodyCardCountsByUserIds(ids),
+    ]);
 
     const items = rows.map((user) =>
       toSummary(
@@ -376,6 +429,8 @@ export class UserAdminService {
         walletCounts.get(user.id) ?? 0,
         watchCounts.get(user.id) ?? 0,
         providerTypesByUser.get(user.id) ?? [],
+        partnersByUser.get(user.id) ?? null,
+        custodyByUser.get(user.id) ?? 0,
       ),
     );
 
@@ -390,7 +445,14 @@ export class UserAdminService {
 
   async getUserDetail(userId: string): Promise<AdminUserDetail> {
     const user = await this.users.findByIdOrFail(userId);
-    const [wallets, authProviders, watchlistRows, kycEvents] = await Promise.all([
+    const [
+      wallets,
+      authProviders,
+      watchlistRows,
+      kycEvents,
+      partnersByUser,
+      custodyByUser,
+    ] = await Promise.all([
       this.users.listWalletsForUser(userId),
       this.users.listAuthProvidersForUser(userId),
       this.watchlistRepo.find({
@@ -403,6 +465,8 @@ export class UserAdminService {
         order: { createdAt: 'DESC' },
         take: 50,
       }),
+      this.partnersByUserIds([userId], [user]),
+      this.custodyCardCountsByUserIds([userId]),
     ]);
 
     const authProviderTypes = authProviders.map((p) => p.providerType);
@@ -411,6 +475,8 @@ export class UserAdminService {
       wallets.length,
       watchlistRows.length,
       authProviderTypes,
+      partnersByUser.get(userId) ?? null,
+      custodyByUser.get(userId) ?? 0,
     );
 
     return {
@@ -524,6 +590,78 @@ export class UserAdminService {
     return this.getUserDetail(userId);
   }
 
+  private async partnersByUserIds(
+    userIds: string[],
+    users: User[],
+  ): Promise<Map<string, AdminUserPartnerInfo>> {
+    const out = new Map<string, AdminUserPartnerInfo>();
+    if (userIds.length === 0) return out;
+
+    const walletRows = await this.walletsRepo.find({
+      where: { userId: In(userIds) },
+      select: ['userId', 'walletAddress'],
+    });
+
+    const addresses = new Set<string>();
+    const userByAddress = new Map<string, string>();
+    for (const w of walletRows) {
+      const addr = w.walletAddress.trim().toLowerCase();
+      if (!addr) continue;
+      addresses.add(addr);
+      if (!userByAddress.has(addr)) userByAddress.set(addr, w.userId);
+    }
+    for (const u of users) {
+      const legacy = u.walletAddress?.trim().toLowerCase();
+      if (!legacy) continue;
+      addresses.add(legacy);
+      if (!userByAddress.has(legacy)) userByAddress.set(legacy, u.id);
+    }
+
+    if (addresses.size === 0) return out;
+
+    const partners = await this.partnersRepo
+      .createQueryBuilder('mp')
+      .where('LOWER(mp.wallet_address) IN (:...addrs)', {
+        addrs: [...addresses],
+      })
+      .getMany();
+
+    // Prefer active partner when multiple wallets match (rare).
+    for (const p of partners) {
+      const addr = p.walletAddress.trim().toLowerCase();
+      const uid = userByAddress.get(addr);
+      if (!uid) continue;
+      const existing = out.get(uid);
+      if (existing?.isActive && !p.isActive) continue;
+      out.set(uid, {
+        id: p.id,
+        displayName: p.displayName,
+        walletAddress: p.walletAddress,
+        isActive: p.isActive,
+      });
+    }
+    return out;
+  }
+
+  private async custodyCardCountsByUserIds(
+    userIds: string[],
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (userIds.length === 0) return out;
+    const rows = await this.vaultCyclesRepo
+      .createQueryBuilder('c')
+      .select('c.deposited_by_user_id', 'userId')
+      .addSelect('COUNT(*)::int', 'cnt')
+      .where('c.deposited_by_user_id IN (:...userIds)', { userIds })
+      .andWhere("c.status = 'minted'")
+      .groupBy('c.deposited_by_user_id')
+      .getRawMany<{ userId: string; cnt: number }>();
+    for (const row of rows) {
+      if (row.userId) out.set(row.userId, row.cnt);
+    }
+    return out;
+  }
+
   private async providerTypesByUserIds(
     userIds: string[],
   ): Promise<Map<string, string[]>> {
@@ -573,4 +711,10 @@ export function formatAdminUserEmail(email: string): string {
     return `${wallet.slice(0, 6)}…${wallet.slice(-4)} (wallet-only)`;
   }
   return email;
+}
+
+/** Display-only short id: U- + first 5 hex of UUID (no dashes). */
+export function adminUserShortId(userId: string): string {
+  const hex = userId.replace(/-/g, '').slice(0, 5).toUpperCase();
+  return `U-${hex}`;
 }

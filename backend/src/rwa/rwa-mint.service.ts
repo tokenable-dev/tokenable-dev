@@ -7,6 +7,7 @@ import {
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   ChainConfigService,
   type SupportedChainId,
@@ -16,6 +17,7 @@ import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfoli
 import { PortfolioHoldingService } from '../marketplace/portfolio/portfolio-holding.service';
 import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
+import { MarketplacePartnersService } from '../marketplace/partners/marketplace-partners.service';
 import { MintRwaDto, type MintDeliveryMode } from './dto/mint-rwa.dto';
 
 export type MintRwaResult = {
@@ -45,12 +47,14 @@ export class RwaMintService {
 
   constructor(
     private readonly chainWriter: RwaChainWriterService,
+    private readonly blockchain: BlockchainService,
     private readonly chainConfig: ChainConfigService,
     private readonly users: UserService,
     private readonly vault: VaultService,
     private readonly vaultSubmissions: VaultSubmissionService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    private readonly partners: MarketplacePartnersService,
   ) {}
 
   async mintForUser(
@@ -86,7 +90,13 @@ export class RwaMintService {
 
     // Self vault must never mint a slab that already finished PSA ship
     // (in transit / at PSA). Custody mint for that PSA path remains allowed.
+    // Only contracted (active) partners with company Origin may mint direct.
+    let vaultPartnerId: string | null = null;
     if (deliveryMode === 'direct') {
+      const partner = await this.partners.assertSelfVaultEligibleForWallet(
+        recipient,
+      );
+      vaultPartnerId = partner.partnerId;
       await this.vaultSubmissions.assertCertAvailableForSelfVault(certNumber);
     }
 
@@ -138,6 +148,7 @@ export class RwaMintService {
       certNumber,
       settlementPolicy:
         deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
+      vaultPartnerId,
     });
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
 
@@ -155,6 +166,124 @@ export class RwaMintService {
       mintedTo: mintToAddress,
       intendedRecipient: recipient,
       deliveryMode,
+    };
+  }
+
+  /**
+   * Admin PSA-vault path: mint to custody (standard settlement), then
+   * immediately transfer to the depositor's linked wallet — one ops action.
+   * Does not use deliveryMode=direct (that path is blocked for shipped certs).
+   */
+  async mintCustodyThenDeliverForUser(
+    user: User,
+    dto: MintRwaDto,
+    chainId: SupportedChainId,
+  ): Promise<MintRwaResult & { deliverTxHash: string }> {
+    const mint = await this.mintForUser(
+      user,
+      { ...dto, deliveryMode: 'custody' },
+      chainId,
+    );
+    const recipient = mint.intendedRecipient;
+    const { txHash: deliverTxHash } =
+      await this.chainWriter.safeTransferFromCustody(
+        mint.tokenId,
+        recipient,
+        chainId,
+      );
+    await this.seedDirectMintCostBasis(recipient, mint.tokenId, chainId);
+    return {
+      ...mint,
+      mintedTo: recipient,
+      deliverTxHash,
+    };
+  }
+
+  /**
+   * Admin mint-queue: cert already has a minted cycle — attach sell-flow item
+   * and deliver from custody (or skip transfer if the user already holds it).
+   */
+  async adoptExistingMintedAndDeliverForUser(
+    user: User,
+    params: {
+      recipientAddress: string;
+      certNumber: string;
+      tokenId: number;
+      tokenURI: string;
+      vaultRef: string;
+      cycleId: string;
+    },
+    chainId: SupportedChainId,
+  ): Promise<
+    MintRwaResult & {
+      deliverTxHash: string | null;
+      adoptedExisting: true;
+      alreadyWithUser: boolean;
+    }
+  > {
+    assertKycApprovedForCustody(user);
+
+    const recipient = params.recipientAddress.trim().toLowerCase();
+    const wallets = await this.users.listWalletsForUser(user.id);
+    const linked = wallets.some(
+      (w) => w.walletAddress.trim().toLowerCase() === recipient,
+    );
+    if (!linked) {
+      throw new ForbiddenException(
+        'Recipient wallet must be linked to the depositor Tokenable account',
+      );
+    }
+
+    await this.vaultSubmissions.attachCycleForCert({
+      userId: user.id,
+      certNumber: params.certNumber,
+      cycleId: params.cycleId,
+    });
+
+    const custodyWallet =
+      await this.chainWriter.getCustodyWalletAddress(chainId);
+    const onChainOwner = await this.blockchain.getRwaTokenOwner(
+      params.tokenId,
+      chainId,
+    );
+
+    let deliverTxHash: string | null = null;
+    let alreadyWithUser = false;
+
+    if (onChainOwner === recipient) {
+      alreadyWithUser = true;
+      this.logger.log(
+        `Adopt existing mint: token #${params.tokenId} already with user ${recipient}`,
+      );
+    } else if (onChainOwner === custodyWallet) {
+      const transferred = await this.chainWriter.safeTransferFromCustody(
+        params.tokenId,
+        recipient,
+        chainId,
+      );
+      deliverTxHash = transferred.txHash;
+      await this.seedDirectMintCostBasis(recipient, params.tokenId, chainId);
+    } else {
+      throw new BadRequestException(
+        `Token #${params.tokenId} is neither in custody nor the depositor wallet (owner=${onChainOwner}). Resolve ownership before mint-queue adopt.`,
+      );
+    }
+
+    await this.vaultSubmissions.markItemCompletedForCycle(params.cycleId);
+
+    return {
+      tokenId: params.tokenId,
+      tokenURI: params.tokenURI,
+      vaultRef: params.vaultRef,
+      txHash: deliverTxHash ?? '0x',
+      chainId,
+      custodyWallet,
+      mintedTo: recipient,
+      intendedRecipient: recipient,
+      deliveryMode: 'custody',
+      deliverTxHash,
+      adoptedExisting: true,
+      alreadyWithUser,
     };
   }
 

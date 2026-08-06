@@ -52,6 +52,16 @@ export class VaultSubmissionsAdminController {
     return this.submissions.listPsaArrivalReviews(st);
   }
 
+  @Get('mint-queue')
+  @ApiOperation({
+    summary:
+      'PSA reviewing / approved cards ready for admin mint + deliver to user',
+  })
+  listMintQueue(@Req() req: Request, @Query('q') q?: string) {
+    this.admin.assertAdminSession(req);
+    return this.submissions.listAdminMintQueue({ q });
+  }
+
   @Post('arrival-reviews/test-inject')
   @ApiOperation({
     summary:

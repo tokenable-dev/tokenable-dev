@@ -18,6 +18,7 @@ sql/
 │   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
 │   ├── 060_admin.sql             # marketplace_admins
 │   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
+│   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
 │   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
 │   ├── 070_cardhedger.sql        # Cardhedger infra + top100 snapshots
 │   └── 900_triggers.sql          # updated_at triggers
@@ -28,14 +29,23 @@ sql/
 │   ├── reset_marketplace_data.sql       # wipe marketplace + vault rows (keep users)
 │   ├── add_vault_submissions.sql        # existing DBs: sell-flow submission tables
 │   ├── add_marketplace_partners.sql     # existing DBs: partners table
+│   ├── add_marketplace_partner_addresses.sql  # existing DBs: partner Origin address
 │   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
 │   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
 │   ├── add_collection_review_status.sql
 │   ├── add_portfolio_daily_snapshot_chain_id.sql
 │   ├── add_vault_cycles_chain_id.sql
 │   ├── add_marketplace_notifications_chain_id.sql
-│   ├── add_user_settings_prefs_and_addresses.sql
-│   └── ensure_marketplace_chain_indexes.sql
+│   ├── cancel_legacy_vault_submission_drafts.sql  # cancel orphan status=draft packages
+│   ├── add_self_vault_settlements.sql
+│   ├── add_rwa_tokens_settlement_policy.sql
+│   ├── alter_marketplace_partners_optional_pk.sql
+│   ├── add_rwa_tokens_vault_partner_id.sql
+   │   ├── add_user_settings_prefs_and_addresses.sql
+   │   ├── add_vault_redemptions_custody_refund.sql  # redeem payment micros, custody, refunds, memo, tracking
+   │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
+   │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
+   │   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh
 ```

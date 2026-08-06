@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
 } from '@nestjs/common';
 import {
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
+import { UpsertMarketplacePartnerAddressDto } from './dto/marketplace-partner-address.dto';
 import {
   CreateMarketplacePartnerDto,
   UpdateMarketplacePartnerDto,
@@ -46,9 +48,43 @@ export class PartnersAdminController {
     return this.partners.getPublicOrThrow(id);
   }
 
+  @Get(':id/company-address')
+  @ApiOperation({ summary: 'Get partner company / Self-vault Origin address' })
+  async getCompanyAddress(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    await this.partners.getOrThrow(id);
+    const address = await this.partners.findAddressByPartnerId(id);
+    return {
+      partnerId: id,
+      hasCompanyAddress: Boolean(address),
+      address: address ? this.partners.toAddressPublic(address) : null,
+    };
+  }
+
+  @Put(':id/company-address')
+  @ApiOperation({
+    summary: 'Create or replace partner company / Self-vault Origin address',
+  })
+  async putCompanyAddress(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpsertMarketplacePartnerAddressDto,
+  ) {
+    this.admin.assertAdminSession(req);
+    const address = await this.partners.upsertCompanyAddressForPartner(
+      id,
+      body,
+    );
+    return { address };
+  }
+
   @Post()
   @ApiOperation({
-    summary: 'Register partner company wallet (private key encrypted at rest)',
+    summary:
+      'Register partner wallet for Self vault (privateKey optional; required later for bulk mint)',
   })
   async create(@Req() req: Request, @Body() body: CreateMarketplacePartnerDto) {
     this.admin.assertAdminSession(req);

@@ -1,4 +1,4 @@
-import { privyAuthMethod } from './user-admin.service';
+import { privyAuthMethod, adminUserShortId } from './user-admin.service';
 import type { User } from '../../user/entities/user.entity';
 
 function mockUser(partial: Partial<User>): User {
@@ -31,5 +31,13 @@ describe('UserAdminService privyAuthMethod', () => {
         ['google_oauth'],
       ),
     ).toBe('legacy');
+  });
+});
+
+describe('adminUserShortId', () => {
+  it('builds U- + first 5 hex of uuid', () => {
+    expect(adminUserShortId('a1b2c3d4-5678-90ab-cdef-1234567890ab')).toBe(
+      'U-A1B2C',
+    );
   });
 });

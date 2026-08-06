@@ -31,6 +31,7 @@ export class VaultSubmission {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
+  /** Prefer awaiting_shipment on create; `draft` remains for legacy rows only. */
   @Column({ type: 'varchar', length: 32, default: 'draft' })
   status: VaultSubmissionStatus;
 

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Post,
   Query,
   Req,
@@ -25,12 +26,16 @@ import { UploadRwaDto } from './dto/upload-rwa.dto';
 import { MintRwaDto } from './dto/mint-rwa.dto';
 import { ListMyRedemptionsQueryDto } from './dto/list-my-redemptions-query.dto';
 import { RedeemEstimateQueryDto } from './dto/redeem-estimate-query.dto';
-import { RedeemRequestDto } from './dto/redeem-request.dto';
+import { RedeemEstimateBodyDto } from './dto/redeem-estimate-body.dto';
+import {
+  RedeemBatchCustodyDto,
+  RedeemBatchRequestDto,
+  RedeemRequestDto,
+} from './dto/redeem-request.dto';
 import { UploadRwaResult } from './interfaces/rwa-metadata.interface';
 import { RwaMintService } from './rwa-mint.service';
 import { RwaRedeemService } from './rwa-redeem.service';
 import { RwaService } from './rwa.service';
-
 /**
  * RWA 민트용 메타데이터 — IPFS 업로드 + owner-signed on-chain mint.
  * `POST /api/rwa/upload` · `POST /api/rwa/mint`
@@ -109,6 +114,8 @@ export class RwaController {
    * NFT (via a linked wallet), then records the request. Actual burn +
    * physical vault release are executed by ops once redemption is confirmed
    * (see POST /marketplace/admin/rwa-tokens/:tokenId/burn).
+   *
+   * @deprecated Prefer POST /rwa/redeem-batch (requires USDC payment).
    */
   @ApiBearerAuth()
   @ApiChainIdHeader()
@@ -127,6 +134,72 @@ export class RwaController {
   }
 
   @ApiBearerAuth()
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary:
+      'Pay USDC (to PLATFORM_FEE_RECIPIENT) then redeem one or more tokens in one shipment',
+  })
+  @Post('redeem-batch')
+  @UseGuards(JwtAuthGuard)
+  redeemBatch(
+    @Req() req: Request & { user: User },
+    @Body() dto: RedeemBatchRequestDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaRedeem.requestRedemptionBatch(req.user, dto, chainId);
+  }
+
+  @ApiBearerAuth()
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary:
+      'Confirm user-signed NFT transfers into RWA custody for a paid redeem batch',
+  })
+  @Post('redeem-batch/:batchId/custody')
+  @UseGuards(JwtAuthGuard)
+  confirmRedeemCustody(
+    @Req() req: Request & { user: User },
+    @Param('batchId') batchId: string,
+    @Body() dto: RedeemBatchCustodyDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaRedeem.confirmCustodyTransfers(
+      req.user,
+      batchId,
+      dto,
+      chainId,
+    );
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Confirm physical receipt for a redeem batch (I\'ve received my cards → Done)',
+  })
+  @Post('redeem-batch/:batchId/confirm-received')
+  @UseGuards(JwtAuthGuard)
+  confirmRedeemReceived(
+    @Req() req: Request & { user: User },
+    @Param('batchId') batchId: string,
+  ) {
+    return this.rwaRedeem.confirmReceipt(req.user, batchId);
+  }
+
+  @ApiBearerAuth()
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary: 'RWA custody wallet address for user-signed NFT intake',
+  })
+  @Get('redeem/custody-wallet')
+  @UseGuards(JwtAuthGuard)
+  getRedeemCustodyWallet(@Headers(CHAIN_ID_HEADER) chainHeader?: string) {
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaRedeem.getCustodyWallet(chainId);
+  }
+
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'List redemption requests for the signed-in user (portfolio badges)',
   })
@@ -140,17 +213,96 @@ export class RwaController {
   }
 
   /**
-   * PSA Vault shipping + per-card withdraw fee schedule for redeem estimate UI.
-   * Public — rates are published PSA schedule (override fee via env).
+   * PSA Vault retrieval + early-withdrawal + shipping schedule for redeem UI.
+   * Pass tokenIds (+ chain header) for deposited_at-based early fees.
+   * Prefer POST with shipTo when Partner FedEx Rate is enabled.
    */
+  @ApiChainIdHeader()
   @ApiOperation({
-    summary: 'Estimate redeem shipping + PSA withdraw fees (rate API)',
+    summary: 'Estimate redeem shipping + PSA vault withdraw fees',
   })
   @Get('redeem/estimate')
-  estimateRedeem(@Query() query: RedeemEstimateQueryDto) {
-    return this.rwaRedeem.estimateRedeemCost(
-      query.country,
-      query.cardCount ?? 1,
+  estimateRedeem(
+    @Query() query: RedeemEstimateQueryDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.runEstimate(
+      {
+        country: query.country,
+        cardCount: query.cardCount ?? 1,
+        tokenIds: query.tokenIds
+          ? query.tokenIds
+              .split(',')
+              .map((s) => Number(s.trim()))
+              .filter((n) => n > 0)
+          : undefined,
+      },
+      chainHeader,
     );
+  }
+
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary:
+      'Estimate redeem fees with shipTo (required for Partner FedEx Rate)',
+  })
+  @Post('redeem/estimate')
+  estimateRedeemPost(
+    @Body() body: RedeemEstimateBodyDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.runEstimate(
+      {
+        country: body.country,
+        cardCount: body.cardCount ?? 1,
+        tokenIds: body.tokenIds,
+        shipTo: body.shipTo
+          ? {
+              name: body.shipTo.name,
+              line1: body.shipTo.line1,
+              line2: body.shipTo.line2,
+              city: body.shipTo.city,
+              region: body.shipTo.region,
+              postal: body.shipTo.postal,
+              phone: body.shipTo.phone,
+              countryCode: body.shipTo.countryCode,
+            }
+          : undefined,
+      },
+      chainHeader,
+    );
+  }
+
+  private runEstimate(
+    params: {
+      country: 'us' | 'ca' | 'intl';
+      cardCount: number;
+      tokenIds?: number[];
+      shipTo?: {
+        name: string;
+        line1: string;
+        line2?: string;
+        city: string;
+        region?: string;
+        postal: string;
+        phone: string;
+        countryCode?: string;
+      };
+    },
+    chainHeader?: string,
+  ) {
+    let chainId: ReturnType<ChainConfigService['requireChainId']> | undefined;
+    try {
+      chainId = this.chainConfig.requireChainId(chainHeader);
+    } catch {
+      chainId = this.chainConfig.getDefaultChainId();
+    }
+    return this.rwaRedeem.estimateRedeemCost({
+      country: params.country,
+      cardCount: params.cardCount,
+      tokenIds: params.tokenIds,
+      chainId,
+      shipTo: params.shipTo,
+    });
   }
 }

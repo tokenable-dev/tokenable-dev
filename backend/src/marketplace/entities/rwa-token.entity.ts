@@ -77,6 +77,14 @@ export class RwaToken {
   })
   settlementPolicy: 'standard' | 'self_vault_hold';
 
+  /**
+   * Self-vault partner who holds the physical card.
+   * Used for "{displayName} vault" labels after ownership transfers.
+   */
+  @Index()
+  @Column({ name: 'vault_partner_id', type: 'uuid', nullable: true })
+  vaultPartnerId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

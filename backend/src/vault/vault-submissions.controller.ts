@@ -33,7 +33,10 @@ export class VaultSubmissionsController {
 
   // Static paths before `:idOrPublicId` so `draft` is never treated as a public id.
   @Post('draft')
-  @ApiOperation({ summary: 'Create or update draft cards for sell flow' })
+  @ApiOperation({
+    summary:
+      'Upsert shipping package (confirmed cards → awaiting_shipment). Add-cards is local-only.',
+  })
   upsertDraft(
     @Req() req: Request & { user: User },
     @Body() dto: UpsertVaultSubmissionDraftDto,
@@ -61,7 +64,9 @@ export class VaultSubmissionsController {
   }
 
   @Patch(':idOrPublicId/draft')
-  @ApiOperation({ summary: 'Alias of POST /draft with publicId pinned' })
+  @ApiOperation({
+    summary: 'Alias of POST /draft with publicId pinned (ship-stage package upsert)',
+  })
   patchDraft(
     @Req() req: Request & { user: User },
     @Param('idOrPublicId') idOrPublicId: string,

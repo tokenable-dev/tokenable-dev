@@ -7,6 +7,7 @@ import {
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateMarketplacePartnerDto {
@@ -17,20 +18,23 @@ export class CreateMarketplacePartnerDto {
   displayName!: string;
 
   @ApiProperty({
-    description: 'Company wallet address (must match private key)',
+    description: 'Company wallet (self-vault eligibility + bulk-mint offerer)',
     example: '0xAc5EBB0573Ca515741D8986a1bA1CDC178F46539',
   })
   @IsEthereumAddress()
   walletAddress!: string;
 
-  @ApiProperty({
-    description: 'Company wallet private key (write-only; never returned)',
+  @ApiPropertyOptional({
+    description:
+      'Optional entrusted private key for partner bulk mint+list. Write-only; never returned. Must match walletAddress when set.',
     example: '0x…64 hex chars…',
   })
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && String(v).trim() !== '')
   @IsString()
   @MinLength(64)
   @MaxLength(66)
-  privateKey!: string;
+  privateKey?: string;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
@@ -47,9 +51,10 @@ export class UpdateMarketplacePartnerDto {
   displayName?: string;
 
   @ApiPropertyOptional({
-    description: 'Replace entrusted private key (write-only)',
+    description: 'Replace or add entrusted private key (write-only)',
   })
   @IsOptional()
+  @ValidateIf((_, v) => v != null && String(v).trim() !== '')
   @IsString()
   @MinLength(64)
   @MaxLength(66)

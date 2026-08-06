@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS rwa_tokens (
   burned_at timestamptz,
   burn_tx_hash varchar(80),
   settlement_policy varchar(32) NOT NULL DEFAULT 'standard',
+  -- FK added in 064_marketplace_partners.sql (partners table created later).
+  vault_partner_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (token_contract, token_id)
@@ -49,3 +51,5 @@ COMMENT ON COLUMN rwa_tokens.burned_at IS
   'Set once on-chain adminBurn (redemption) is confirmed. NULL while the NFT is live.';
 COMMENT ON COLUMN rwa_tokens.settlement_policy IS
   'standard = Seaport seller+fee split; self_vault_hold = 100% platform take, delayed seller payout';
+COMMENT ON COLUMN rwa_tokens.vault_partner_id IS
+  'Self-vault partner who holds the physical card; used for "{name} vault" UI labels';
