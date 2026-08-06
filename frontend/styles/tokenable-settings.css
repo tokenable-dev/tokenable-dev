@@ -487,7 +487,7 @@
   display: none;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .tk-settings {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -631,7 +631,7 @@
   }
 
   .tk-settings__matrix th {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .tk-settings__avatar {

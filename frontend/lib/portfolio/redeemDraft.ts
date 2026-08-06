@@ -1,6 +1,8 @@
 import type { SupportedChainId } from "@/lib/chains/types";
 import type { RedeemShipTo } from "@/lib/core/api/rwa-redeem";
 import type { RwaMetadata } from "@/lib/core";
+import { PHONE_DIAL_CODE_VALUES } from "@/lib/shipping/phoneDialOptions";
+import { splitShipToPhone } from "@/lib/shipping/shipToValidation";
 
 const STORAGE_KEY = "tk_redeem_draft_v1";
 const ADDRESS_KEY = "tk_redeem_ship_to_v1";
@@ -21,7 +23,11 @@ export type RedeemDraft = {
   savedAt: number;
 };
 
-export type RedeemAddressForm = RedeemShipTo & { saveAddress: boolean };
+export type RedeemAddressForm = RedeemShipTo & {
+  saveAddress: boolean;
+  /** Country dial for national `phone` (composed into RedeemShipTo.phone on submit). */
+  phoneDial: string;
+};
 
 export const EMPTY_REDEEM_ADDRESS_FORM: RedeemAddressForm = {
   name: "",
@@ -32,6 +38,7 @@ export const EMPTY_REDEEM_ADDRESS_FORM: RedeemAddressForm = {
   postal: "",
   country: "us",
   phone: "",
+  phoneDial: "+1",
   saveAddress: true,
 };
 
@@ -88,6 +95,10 @@ export function readSavedRedeemAddress(forUserId?: string): RedeemAddressForm | 
     if (forUserId && parsed.ownerUserId !== forUserId) {
       return null;
     }
+    const { phoneDial, phoneNational } = splitShipToPhone(
+      parsed.phone ?? "",
+      PHONE_DIAL_CODE_VALUES,
+    );
     return {
       ...EMPTY_REDEEM_ADDRESS_FORM,
       name: parsed.name,
@@ -97,7 +108,8 @@ export function readSavedRedeemAddress(forUserId?: string): RedeemAddressForm | 
       region: parsed.region,
       postal: parsed.postal,
       country: parsed.country === "ca" || parsed.country === "intl" ? parsed.country : "us",
-      phone: parsed.phone,
+      phone: phoneNational,
+      phoneDial,
       saveAddress: true,
     };
   } catch {
@@ -170,23 +182,78 @@ export function isRedeemInFlight(status?: string | null): boolean {
   return (
     status === "ownership_verified" ||
     status === "pending" ||
+    status === "in_custody" ||
     status === "burned" ||
     status === "vault_release_pending"
   );
 }
 
+/** Preparing = custody held, shipment not yet ticketed. */
+export function isRedeemPreparingPhase(
+  status?: string | null,
+  trackingNumber?: string | null,
+): boolean {
+  return status === "in_custody" && !trackingNumber?.trim();
+}
+
+/** In transit = tracking set (and/or burn/release) while still open. */
+export function isRedeemTransitPhase(
+  status?: string | null,
+  trackingNumber?: string | null,
+): boolean {
+  if (status === "burned" || status === "vault_release_pending") return true;
+  return status === "in_custody" && Boolean(trackingNumber?.trim());
+}
+
+export type RedeemSurfaceBadge = {
+  label: string;
+  tone: "redeeming" | "transit" | "possession";
+  kind: "custody_pending" | "preparing" | "transit" | "possession";
+  /** Deep-link into redeem status / resume screens (null for possession). */
+  statusHref: string | null;
+};
+
 export function redeemSurfaceBadge(
   status?: string | null,
-): { label: string; tone: "redeeming" | "transit" | "possession" } | null {
+  trackingNumber?: string | null,
+): RedeemSurfaceBadge | null {
   if (!status) return null;
   if (status === "completed") {
-    return { label: "In your possession", tone: "possession" };
+    return {
+      label: "In your possession",
+      tone: "possession",
+      kind: "possession",
+      statusHref: "/portfolio/redeem?view=done",
+    };
   }
-  if (status === "burned" || status === "vault_release_pending") {
-    return { label: "On the way", tone: "transit" };
+  const tracked = Boolean(trackingNumber?.trim());
+  if (
+    status === "burned" ||
+    status === "vault_release_pending" ||
+    (status === "in_custody" && tracked)
+  ) {
+    return {
+      label: "In transit",
+      tone: "transit",
+      kind: "transit",
+      statusHref: "/portfolio/redeem?view=transit",
+    };
+  }
+  if (status === "in_custody") {
+    return {
+      label: "Redeeming — preparing",
+      tone: "redeeming",
+      kind: "preparing",
+      statusHref: "/portfolio/redeem?view=preparing",
+    };
   }
   if (status === "ownership_verified" || status === "pending") {
-    return { label: "Redeeming", tone: "redeeming" };
+    return {
+      label: "Redeeming — finish transfer",
+      tone: "redeeming",
+      kind: "custody_pending",
+      statusHref: "/portfolio/redeem?view=resume",
+    };
   }
   return null;
 }

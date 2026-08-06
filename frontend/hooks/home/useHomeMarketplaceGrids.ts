@@ -10,7 +10,7 @@ import {
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
-import { resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
+import { resolveMarketsListingMarketChangePct, resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 
 export const HOME_TOP_MOVERS_LIMIT = 20;
 export const HOME_JUST_VAULTED_LIMIT = 20;
@@ -74,7 +74,8 @@ export function useHomeMarketplaceGrids() {
       collections
         .map((c) => {
           const snapshot = snapshotByKey.get(c.collectionKey.toLowerCase());
-          const changePct = resolveMarketsListingMarketChangePct90d(snapshot);
+          /* Same 1Y / best-window reference % as collection detail + Markets cards. */
+          const changePct = resolveMarketsListingMarketChangePct(snapshot);
           return { collection: c, changePct };
         })
         .filter((row) => row.changePct != null && Number.isFinite(row.changePct))

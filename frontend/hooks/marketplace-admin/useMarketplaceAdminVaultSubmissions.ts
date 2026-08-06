@@ -6,11 +6,13 @@ import {
   adminDismissPsaArrivalReview,
   adminInjectPsaReceivedTestMail,
   adminMarkVaultSubmissionArrived,
+  adminMintAndDeliverVaultItem,
   adminSetVaultSubmissionItemStatus,
   adminSetVaultSubmissionStatus,
   getAdminVaultSubmission,
   getAdminVaultSubmissionCounts,
   listAdminPsaArrivalReviews,
+  listAdminVaultMintQueue,
   listAdminVaultSubmissions,
   rq,
 } from "@/lib/core";
@@ -30,6 +32,15 @@ export function useAdminPsaArrivalReviews(
   return useQuery({
     queryKey: rq.adminPsaArrivalReviews(status),
     queryFn: () => listAdminPsaArrivalReviews(status),
+    staleTime: 8_000,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useAdminVaultMintQueue(q: string) {
+  return useQuery({
+    queryKey: rq.adminVaultMintQueue(q),
+    queryFn: () => listAdminVaultMintQueue({ q: q.trim() || undefined }),
     staleTime: 8_000,
     refetchInterval: 15_000,
   });
@@ -64,6 +75,8 @@ export function useAdminVaultSubmissionMutations() {
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission-counts"] });
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission"] });
     void qc.invalidateQueries({ queryKey: ["admin-psa-arrival-reviews"] });
+    void qc.invalidateQueries({ queryKey: ["admin-vault-mint-queue"] });
+    void qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
   };
 
   const markArrived = useMutation({
@@ -101,6 +114,11 @@ export function useAdminVaultSubmissionMutations() {
       adminInjectPsaReceivedTestMail(input),
     onSuccess: invalidate,
   });
+  const mintAndDeliver = useMutation({
+    mutationFn: (p: { id: string; itemId: string }) =>
+      adminMintAndDeliverVaultItem(p.id, p.itemId),
+    onSuccess: invalidate,
+  });
 
   return {
     markArrived,
@@ -109,5 +127,6 @@ export function useAdminVaultSubmissionMutations() {
     confirmArrivalReview,
     dismissArrivalReview,
     injectTestMail,
+    mintAndDeliver,
   };
 }

@@ -18,7 +18,7 @@ export function RedeemSelectModeBar({
     <div className="pf-redeem-batch-bar" role="region" aria-label="Redeem selection">
       <div className="pf-redeem-batch-bar__inner">
         <div className="pf-redeem-batch-bar__left">
-          <span className="pf-redeem-batch-bar__count tkl-mono">
+          <span className="pf-redeem-batch-bar__count">
             {selectedCount} selected
           </span>
           {limitError ? (
@@ -28,13 +28,20 @@ export function RedeemSelectModeBar({
           ) : null}
         </div>
         <div className="pf-redeem-batch-bar__actions">
-          <TkButton type="button" variant="ghost" size="sm" onClick={onCancel}>
+          <TkButton
+            type="button"
+            variant="subtle"
+            size="sm"
+            className="pf-redeem-batch-bar__cancel"
+            onClick={onCancel}
+          >
             Cancel
           </TkButton>
           <TkButton
             type="button"
             variant="primary"
             size="sm"
+            className="pf-redeem-batch-bar__go"
             disabled={selectedCount === 0}
             onClick={onContinue}
           >

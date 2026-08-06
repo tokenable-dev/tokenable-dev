@@ -93,7 +93,7 @@ export function MarketplaceAdminMobileMenuButton({
     <button
       type="button"
       onClick={onClick}
-      className={`${ADMIN_BTN_GHOST} lg:hidden`}
+      className={`${ADMIN_BTN_GHOST} !min-h-11 !w-11 shrink-0 !px-0 lg:hidden`}
       aria-expanded={open}
       aria-label={open ? "Close menu" : "Open menu"}
     >

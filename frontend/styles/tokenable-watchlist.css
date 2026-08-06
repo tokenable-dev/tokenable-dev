@@ -225,12 +225,12 @@
   }
 
   .watchlist-grid .watchlist-card__grade {
-    font-size: 9px;
+    font-size: 10px;
     padding: 3px 6px;
   }
 
   .watchlist-grid .card__stat {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .watchlist-grid .card__price {
@@ -258,8 +258,8 @@
   }
 
   .watchlist-grid .card__img .fav-btn {
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
   }
 
   .watchlist-grid .card__img .fav-btn svg {

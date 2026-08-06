@@ -31,6 +31,8 @@ export interface TxRow {
   amount: number;
   price: number;
   date: string;
+  /** Epoch ms for chronological sort (display `date` is locale text). */
+  dateMs: number;
   orderHash: string;
 }
 

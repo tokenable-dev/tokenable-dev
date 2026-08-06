@@ -5,6 +5,7 @@ export { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
 export { PortfolioDisconnectedState } from "./PortfolioDisconnectedState";
 export { PortfolioGuestState } from "./PortfolioGuestState";
 export { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
+export { PortfolioRedeemInProgressSection } from "./PortfolioRedeemInProgressSection";
 export { PortfolioCollectionBidsSection } from "./PortfolioCollectionBidsSection";
 export {
   PortfolioMainSection,

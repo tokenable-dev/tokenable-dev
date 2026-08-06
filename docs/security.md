@@ -33,6 +33,7 @@ Security model, secret management, and threat considerations for the Tokenable p
 | Key | What it controls | Risk if compromised |
 |-----|-----------------|---------------------|
 | `RWA_OWNER_PRIVATE_KEY` | MINTER_ROLE + BURNER_ROLE | Unauthorized mints or burns of all tokens |
+| `PLATFORM_FEE_PRIVATE_KEY` | Self-vault seller USDC payouts (`PLATFORM_FEE_RECIPIENT`) | Drain of accumulated marketplace fee / hold USDC |
 | `RWA_CUSTODY_PRIVATE_KEY` | Transfers from custody wallet | NFTs in custody could be stolen |
 | `JWT_SECRET` | All platform session cookies | Account impersonation |
 | `MARKETPLACE_ADMIN_SESSION_SECRET` | Admin console sessions | Admin access |

@@ -1,20 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useRedeemFlow } from "@/hooks/portfolio/useRedeemFlow";
-import { RedeemRequestPanel } from "./RedeemRequestPanel";
-import { RedeemRequestedPanel } from "./RedeemRequestedPanel";
 import { RedeemPayPanel } from "./RedeemPayPanel";
+import { RedeemPreparingPanel } from "./RedeemPreparingPanel";
+import { RedeemRequestPanel } from "./RedeemRequestPanel";
 import { RedeemTransitPanel } from "./RedeemTransitPanel";
 import { RedeemDonePanel } from "./RedeemDonePanel";
+import { useRedeemFlow } from "@/hooks/portfolio/useRedeemFlow";
 
 export function RedeemFlowView() {
   const flow = useRedeemFlow();
 
-  if (!flow.hydrated || (!flow.draft && flow.step === "request")) {
+  const needsCards = flow.step === "request" || flow.step === "pay";
+  if (!flow.hydrated) {
     return (
       <div className="pf-redeem-page">
         <p className="sell-flow-sub">Loading…</p>
+      </div>
+    );
+  }
+
+  if (needsCards && flow.cards.length === 0) {
+    return (
+      <div className="pf-redeem-page">
+        <nav className="pf-redeem-crumb" aria-label="Breadcrumb">
+          <Link href="/portfolio">Portfolio</Link>
+          <span className="pf-redeem-crumb__sep" aria-hidden>
+            ›
+          </span>
+          <span className="pf-redeem-crumb__current">Redeem</span>
+        </nav>
+        <p className="sell-flow-sub">
+          No open redemption to finish.{" "}
+          <Link href="/portfolio">Back to portfolio</Link>
+        </p>
       </div>
     );
   }
@@ -37,23 +56,40 @@ export function RedeemFlowView() {
           onRemoveCard={flow.removeCard}
           busy={flow.busy}
           error={flow.error}
-          onSubmit={() => void flow.submitRequest()}
+          onContinue={() => void flow.goToPay()}
         />
-      ) : null}
-
-      {flow.step === "requested" ? (
-        <RedeemRequestedPanel count={flow.successCount || flow.cards.length} />
       ) : null}
 
       {flow.step === "pay" ? (
         <RedeemPayPanel
           cards={flow.cards}
           form={flow.form}
+          busy={flow.busy}
+          error={flow.error}
           onEditAddress={flow.goRequest}
+          onPay={() => void flow.submitPay()}
+          custodyPending={Boolean(flow.custodyPending)}
+          onResumeCustody={() => void flow.resumeCustody()}
         />
       ) : null}
 
-      {flow.step === "transit" ? <RedeemTransitPanel cards={flow.cards} /> : null}
+      {flow.step === "preparing" ? (
+        <RedeemPreparingPanel
+          cards={flow.cards}
+          form={flow.form}
+          shipments={flow.shipments}
+        />
+      ) : null}
+
+      {flow.step === "transit" ? (
+        <RedeemTransitPanel
+          cards={flow.cards}
+          shipments={flow.shipments}
+          busy={flow.busy}
+          error={flow.error}
+          onConfirmReceived={() => void flow.confirmReceived()}
+        />
+      ) : null}
 
       {flow.step === "done" ? <RedeemDonePanel /> : null}
     </div>

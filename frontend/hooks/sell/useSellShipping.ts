@@ -28,6 +28,7 @@ import {
   markVaultPackingSlipDownloaded,
   registerVaultSubmissionTracking,
   upsertVaultSubmissionDraft,
+  type VaultSubmissionApi,
 } from "@/lib/core";
 
 export type ShipPanel = "pack" | "track";
@@ -36,9 +37,54 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function syncErrorMessage(err: unknown): string {
+  let msg =
+    err instanceof Error
+      ? err.message
+      : "Could not save your shipping package. Check your connection and try again.";
+  try {
+    const parsed = JSON.parse(msg) as { message?: string };
+    if (parsed?.message) msg = parsed.message;
+  } catch {
+    /* plain text */
+  }
+  return msg;
+}
+
+/**
+ * First durable vault_submissions write for the sell flow.
+ * Always sends confirmed cards so the package lands as awaiting_shipment.
+ */
+async function upsertAwaitingShipmentPackage(
+  cards: SellDraftCard[],
+): Promise<VaultSubmissionApi> {
+  const confirmed = confirmedSellCards(cards);
+  if (confirmed.length === 0) {
+    throw new Error("No confirmed cards to ship");
+  }
+  const saved = await upsertVaultSubmissionDraft({
+    publicId: readSellSubmissionPublicId() ?? undefined,
+    cards: confirmed.map((c) => ({
+      cert: c.cert,
+      name: c.name,
+      grade: c.grade,
+      img: c.img,
+      confirmed: true,
+    })),
+  });
+  writeSellSubmissionPublicId(saved.publicId);
+  if (saved.status !== "awaiting_shipment") {
+    throw new Error(
+      `Package did not reach awaiting_shipment (got ${saved.status}). Tap retry.`,
+    );
+  }
+  return saved;
+}
+
 export function useSellShipping() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [bootMessage, setBootMessage] = useState("Loading shipping…");
   const [cards, setCards] = useState<SellDraftCard[]>([]);
   const [panel, setPanel] = useState<ShipPanel>("pack");
   const [checked, setChecked] = useState<boolean[]>(() =>
@@ -52,69 +98,98 @@ export function useSellShipping() {
   const [trackingTouched, setTrackingTouched] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [packageReady, setPackageReady] = useState(false);
+  const [packageSyncing, setPackageSyncing] = useState(false);
+  const [packageSyncError, setPackageSyncError] = useState<string | null>(null);
   const progressPersistReady = useRef(false);
+  const packageCardsRef = useRef<SellDraftCard[]>([]);
+
+  const persistPackage = useCallback(async (packageCards: SellDraftCard[]) => {
+    packageCardsRef.current = packageCards;
+    setPackageSyncing(true);
+    setPackageSyncError(null);
+    try {
+      await upsertAwaitingShipmentPackage(packageCards);
+      setPackageReady(true);
+      return true;
+    } catch (err) {
+      setPackageReady(false);
+      setPackageSyncError(syncErrorMessage(err));
+      return false;
+    } finally {
+      setPackageSyncing(false);
+    }
+  }, []);
+
+  const retryPackageSync = useCallback(() => {
+    void persistPackage(packageCardsRef.current);
+  }, [persistPackage]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      let draft = readSellFlowDraftCards();
+      setBootMessage("Loading shipping…");
+      let localCards = readSellFlowDraftCards();
       let progress = readSellFlowProgress();
 
       try {
         const rows = await listVaultSubmissions();
         if (cancelled) return;
-        const open = rows.find(
-          (s) => s.status === "draft" || s.status === "awaiting_shipment",
-        );
-        if (open) {
-          writeSellSubmissionPublicId(open.publicId);
-          const serverCards = draftCardsFromSubmissionItems(open.items);
-          if (serverCards.length > 0 && confirmedSellCards(serverCards).length > 0) {
-            if (draft.length === 0 || confirmedSellCards(draft).length === 0) {
-              writeSellFlowDraftCards(serverCards);
-              draft = serverCards;
-            }
+
+        // Pre-ship server package is awaiting_shipment only (draft rows are ignored).
+        const openShip = rows.find((s) => s.status === "awaiting_shipment");
+        if (openShip) {
+          writeSellSubmissionPublicId(openShip.publicId);
+          const serverCards = draftCardsFromSubmissionItems(openShip.items);
+          const serverConfirmed = confirmedSellCards(serverCards);
+          if (
+            serverConfirmed.length > 0 &&
+            confirmedSellCards(localCards).length === 0
+          ) {
+            // Resume mid-ship on a new browser with empty local cards.
+            writeSellFlowDraftCards(serverCards);
+            localCards = serverCards;
           }
-          if (open.packingSlipDownloadedAt) {
+          if (openShip.packingSlipDownloadedAt) {
             writeSellFlowProgress({ slipDownloaded: true });
             progress = { ...progress, slipDownloaded: true };
           }
         } else {
-          // Server has no open draft — drop stale SUB-… from localStorage (common after DB wipe).
+          // Stale SUB-… from a cancelled package or legacy draft — start clean.
           clearSellSubmissionPublicId();
         }
       } catch {
-        /* local draft is enough for paint; we still try upsert below */
+        /* local cards still paint; upsert below may fail → retry UI */
       }
 
       if (cancelled) return;
 
-      const confirmedCards = confirmedSellCards(draft);
-      if (confirmedCards.length === 0) {
+      const packageCards = confirmedSellCards(localCards);
+      if (packageCards.length === 0) {
         router.replace("/sell/flow");
         return;
       }
 
-      // Persist as awaiting_shipment so leaving before tracking still leaves an admin-visible draft.
+      // First durable write for this sell flow (or refresh of open ship package).
+      setBootMessage("Saving your package…");
+      packageCardsRef.current = packageCards;
+      setPackageSyncing(true);
+      setPackageSyncError(null);
       try {
-        const saved = await upsertVaultSubmissionDraft({
-          publicId: readSellSubmissionPublicId() ?? undefined,
-          cards: confirmedCards.map((c) => ({
-            cert: c.cert,
-            name: c.name,
-            grade: c.grade,
-            img: c.img,
-            confirmed: true,
-          })),
-        });
-        if (!cancelled) writeSellSubmissionPublicId(saved.publicId);
-      } catch {
-        /* local progress still works; hub/admin need server draft */
+        await upsertAwaitingShipmentPackage(packageCards);
+        if (!cancelled) setPackageReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setPackageReady(false);
+          setPackageSyncError(syncErrorMessage(err));
+        }
+      } finally {
+        if (!cancelled) setPackageSyncing(false);
       }
 
       if (cancelled) return;
 
-      setCards(draft);
+      setCards(packageCards);
       setChecked(
         progress.checklist.length === PSA_PACK_CHECKLIST.length
           ? progress.checklist
@@ -132,7 +207,10 @@ export function useSellShipping() {
         setPanel("track");
       } else {
         setPanel("pack");
-        writeSellFlowProgress({ step: "shipping-pack" });
+        writeSellFlowProgress({
+          step: "shipping-pack",
+          vaultChoice: "psa",
+        });
       }
       progressPersistReady.current = true;
       setReady(true);
@@ -152,12 +230,14 @@ export function useSellShipping() {
       carrier,
       shipDate,
       trackingNumber,
+      vaultChoice: "psa",
     });
   }, [ready, panel, checked, slipDownloaded, carrier, shipDate, trackingNumber]);
 
   const checkedCount = checked.filter(Boolean).length;
   const allChecked = checkedCount === PSA_PACK_CHECKLIST.length;
-  const canContinuePack = allChecked && slipDownloaded;
+  const canContinuePack =
+    allChecked && slipDownloaded && packageReady && !packageSyncing;
 
   const trackingCheck = useMemo(
     () => validateTracking(carrier, trackingNumber),
@@ -169,7 +249,13 @@ export function useSellShipping() {
       : "";
 
   const canConfirm =
-    allChecked && slipDownloaded && trackingCheck.ok && !confirmed && !confirming;
+    allChecked &&
+    slipDownloaded &&
+    trackingCheck.ok &&
+    packageReady &&
+    !packageSyncing &&
+    !confirmed &&
+    !confirming;
 
   const bannerLabel = useMemo(() => bannerCardLabel(cards), [cards]);
 
@@ -203,15 +289,17 @@ export function useSellShipping() {
       setSlipDownloaded(true);
       writeSellFlowProgress({ slipDownloaded: true });
       const publicId = readSellSubmissionPublicId();
-      if (!publicId) return;
+      if (!publicId || !packageReady) return;
       try {
         await markVaultPackingSlipDownloaded(publicId);
       } catch {
-        // Stale publicId (DB wipe) — clear so confirm upsert creates a fresh row.
+        // Stale publicId — clear and re-upsert so confirm can recreate.
         clearSellSubmissionPublicId();
+        setPackageReady(false);
+        await persistPackage(packageCardsRef.current);
       }
     })();
-  }, [cards]);
+  }, [cards, packageReady, persistPackage]);
 
   const goToTrack = useCallback(() => {
     if (!canContinuePack) return;
@@ -230,19 +318,31 @@ export function useSellShipping() {
   const removeCard = useCallback(
     (index: number) => {
       if (confirmed) return;
-      const next = cards.filter((_, i) => i !== index);
-      writeSellFlowDraftCards(next);
-      setCards(next);
-      if (confirmedSellCards(next).length === 0) {
+      const removed = cards[index];
+      if (!removed) return;
+
+      const nextPackage = cards.filter((_, i) => i !== index);
+      setCards(nextPackage);
+      packageCardsRef.current = nextPackage;
+
+      // Keep unconfirmed local cards for Add-cards; drop this cert from full draft.
+      const fullLocal = readSellFlowDraftCards().filter(
+        (c) => c.cert !== removed.cert,
+      );
+      writeSellFlowDraftCards(fullLocal);
+
+      if (confirmedSellCards(nextPackage).length === 0) {
         writeSellFlowProgress({ step: "cards" });
         router.push("/sell/flow");
         return;
       }
+
       setSlipDownloaded(false);
       writeSellFlowProgress({ slipDownloaded: false, step: "shipping-pack" });
       setPanel("pack");
+      void persistPackage(nextPackage);
     },
-    [cards, confirmed, router],
+    [cards, confirmed, persistPackage, router],
   );
 
   const confirmShipment = useCallback(() => {
@@ -251,24 +351,15 @@ export function useSellShipping() {
       return;
     }
     const cleaned = trackingNumber.replace(/\s+/g, "").toUpperCase();
-    const confirmedCards = confirmedSellCards(cards);
     setConfirming(true);
     void (async () => {
       try {
-        // Always upsert first — localStorage publicId may be stale (DB reset, old env,
-        // or draft never persisted). Tracking alone would 404 "Submission not found".
-        const draft = await upsertVaultSubmissionDraft({
-          publicId: readSellSubmissionPublicId() ?? undefined,
-          cards: confirmedCards.map((c) => ({
-            cert: c.cert,
-            name: c.name,
-            grade: c.grade,
-            img: c.img,
-            confirmed: true,
-          })),
-        });
+        // Refresh package then register tracking → in_transit.
+        const draft = await upsertAwaitingShipmentPackage(cards);
         let publicId = draft.publicId;
         writeSellSubmissionPublicId(publicId);
+        setPackageReady(true);
+        setPackageSyncError(null);
 
         const shipped = await registerVaultSubmissionTracking(publicId, {
           carrier,
@@ -283,17 +374,8 @@ export function useSellShipping() {
           router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
         }, 1200);
       } catch (err) {
-        let msg =
-          err instanceof Error
-            ? err.message
-            : "Failed to register shipment on the server. Please try again.";
-        try {
-          const parsed = JSON.parse(msg) as { message?: string };
-          if (parsed?.message) msg = parsed.message;
-        } catch {
-          /* plain text */
-        }
-        window.alert(msg);
+        setPackageSyncError(syncErrorMessage(err));
+        window.alert(syncErrorMessage(err));
       } finally {
         setConfirming(false);
       }
@@ -312,6 +394,7 @@ export function useSellShipping() {
 
   return {
     ready,
+    bootMessage,
     cards,
     panel,
     checklistItems: PSA_PACK_CHECKLIST,
@@ -321,6 +404,10 @@ export function useSellShipping() {
     slipDownloaded,
     addrCopied,
     canContinuePack,
+    packageReady,
+    packageSyncing,
+    packageSyncError,
+    retryPackageSync,
     carrier,
     setCarrier,
     shipDate,

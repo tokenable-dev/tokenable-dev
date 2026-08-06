@@ -14,7 +14,7 @@ alwaysApply: true
 
 3. `PRIVY_APP_SECRET` is server-side only. Never reference it in frontend code or pass it to the client.
 
-4. `RWA_OWNER_PRIVATE_KEY` and `RWA_CUSTODY_PRIVATE_KEY` control on-chain writes. Treat them as the most sensitive secrets in the system.
+4. `RWA_OWNER_PRIVATE_KEY` and `RWA_CUSTODY_PRIVATE_KEY` control on-chain writes. Treat them as the most sensitive secrets in the system. `PLATFORM_FEE_PRIVATE_KEY` controls self-vault seller USDC payouts from the fee wallet — same sensitivity for treasury funds.
 
 5. If any secret is accidentally logged or exposed: rotate it immediately and document the incident.
 

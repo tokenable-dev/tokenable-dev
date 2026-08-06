@@ -221,8 +221,8 @@
   }
 
   .collection-detail-page .cd-listing-orderbook__btn {
-    height: 38px !important;
-    min-height: 38px;
+    height: 44px !important;
+    min-height: 44px;
     padding-left: 14px !important;
     padding-right: 14px !important;
     font-size: 13px !important;
@@ -695,8 +695,8 @@
 
 .collection-detail-page .cd-listing-card__btn--buy {
   width: 100%;
-  height: 38px !important;
-  min-height: 38px;
+  height: 44px !important;
+  min-height: 44px;
   font-size: 15px !important;
 }
 
@@ -1514,17 +1514,24 @@
   }
 
   .cd-stat-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .cd-stat-grid__cell {
-    padding: 12px 14px;
+    padding: 10px 8px;
     min-height: 0;
+    min-width: 0;
+  }
+
+  .cd-stat-grid__label {
+    font-size: 10px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
   }
 
   .cd-stat-grid__value {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .cd-listings-header__title {

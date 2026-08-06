@@ -48,7 +48,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Home — `index.html` (Phase 3 — done)
+## Home — `index.html` (Phase 3 — done; sync from design system-5)
 
 | Section | Prototype class / id | React target | File |
 |---------|----------------------|--------------|------|
@@ -57,7 +57,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |
-| Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` |
+| Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` — ds-5: Instant settlement; Three guarantees, every token. |
 | Partners + CTA | partners row | `HomePartners` | `components/home/HomePartners.tsx` |
 | Page compose | — | `HomePageContent` | `components/home/HomePageContent.tsx` |
 
@@ -120,28 +120,30 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-portfolio.css`, `frontend/styles/tokenable-portfolio-redeem.css`
 
-**Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** with Highest bid / No bids yet meta. Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
+**Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** only (bid meta lives in the Set price drawer, not on the row). Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
+
+**ds-5 holdings note:** Card cell = thumb + name only (no redeem chip under/beside title). **In transit** / **Redeeming — preparing** chips + View status live only in the Action column (`PortfolioHoldingsRowActions`). Possession is Action text only.
 
 ---
 
-## Portfolio Redeem — `Withdraw.html` / DS-4 (Phase A — done)
+## Portfolio Redeem — `Redeem.html` / design system-5 (pay-first)
 
-Product copy uses **Redeem** (not Withdraw). Prototype `Withdraw.html` maps to `/portfolio/redeem`.
+Product copy uses **Redeem** (not Withdraw). Canonical prototype: `Tokenable-with design system-5/Redeem.html` → `/portfolio/redeem`.
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|
-| Select mode | Portfolio Redeem toolbar + `.wd-chk` | Holdings toolbar + checkboxes (desk + mobile) + batch bar | `PortfolioHoldingsSection`, `RedeemSelectModeBar` |
-| Request | `wd-request` | Ship-to form + estimate placeholder | `RedeemRequestPanel` |
-| Requested | waiting banner | Azure banner + next steps | `RedeemRequestedPanel` |
-| Pay | Step 2 (skeleton) | Gated “coming soon” | `RedeemPayPanel` |
-| In transit | tracking | Status from `WD_SHIPPED` / `?view=transit` | `RedeemTransitPanel` |
-| Done | possession | Skeleton / post-release | `RedeemDonePanel` |
+| Select mode | Portfolio holdings | Holdings toolbar + checkboxes + batch bar | `PortfolioHoldingsSection`, `RedeemSelectModeBar` |
+| Address | `#wd-request` | Ship-to + **Calculate shipping cost** (idle/loading/quoted/stale) → **Review and pay** | `RedeemRequestPanel`, `shipToValidation.ts` |
+| Review & pay | `#wd-pay` | Cost + ship-to + USDC pay → redeem-batch | `RedeemPayPanel` |
+| Preparing | `#wd-preparing` | Payment-received banner + progress | `RedeemPreparingPanel`; `?view=preparing` |
+| In transit | `#wd-transit` | Tracking / `WD_SHIPPED` | `RedeemTransitPanel`; `?view=transit` |
+| Done | `#wd-done` | Possession complete | `RedeemDonePanel`; `?view=done` |
 
 **Hooks / API:** `useRedeemFlow`, `useMyRedemptions`, `lib/core/api/rwa-redeem.ts`, draft + saved address `lib/portfolio/redeemDraft.ts`
 
 **Admin:** Confirm release on burned cards → `postAdminConfirmRedemptionRelease`
 
-**HTML sync notes (Phase A):** Form-first request order; Review list shows grade / PSA Vault / cert + trash; mobile checkboxes (HTML table-only bug fixed); breadcrumb hidden ≤768px; select mode dims cost edit; in-flight Action = status text; address saved to `localStorage`. Pay wallet/tracking/receipt remain Phase B skeletons.
+**HTML sync notes (ds-5):** Pay-first UX — address → pay → preparing. Cancel redeem / real USDC charge / receipt confirm remain later.
 
 ---
 
@@ -149,7 +151,8 @@ Product copy uses **Redeem** (not Withdraw). Prototype `Withdraw.html` maps to `
 
 | Modal function | Purpose | React modal |
 |----------------|---------|-------------|
-| `pfSetPriceModal` | Set / Edit list price | `ListRwaModal` (`copyVariant="set-price"`) |
+| `pfSetPriceModal` | Set / Edit list price | `ListRwaModal` (`copyVariant="set-price"`) → sheet form |
+| `pfSaleResult` | Listed / price updated / sold / fill-failed | `ActionCompleteModal` via `ListRwaModalSuccessView` (sheet closes first) |
 | `pfAcceptOffersModal` | Accept highest bid | `PortfolioAcceptOfferModal` (wired later) |
 | `pfCancelListingModal` | Cancel ask | `PortfolioCancelListingConfirmModal` |
 | `pfCancelBidModal` | Cancel bid | `PortfolioCancelBidConfirmModal` |

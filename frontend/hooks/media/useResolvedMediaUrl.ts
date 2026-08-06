@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { postResolveMediaUrls, rq, marketplaceRqPolicy } from "@/lib/core";
 import { uriNeedsBackendResolve } from "@/lib/marketplace";
 
@@ -65,6 +65,8 @@ export function useResolvedMediaUrlMap(
     },
     enabled: enabled && toResolve.length > 0,
     staleTime: 60 * 60 * 1000,
+    // Growing Markets/home grids change the batch key — keep prior HTTPS maps so covers don't blank.
+    placeholderData: keepPreviousData,
   });
 
   const map = useMemo(() => {
@@ -76,5 +78,5 @@ export function useResolvedMediaUrlMap(
     return out;
   }, [passThrough, q.data]);
 
-  return { map, isLoading: q.isLoading };
+  return { map, isLoading: q.isLoading && !q.data };
 }

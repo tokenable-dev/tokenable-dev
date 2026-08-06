@@ -28,7 +28,7 @@ export function PortfolioActivitySection({
 }) {
   const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
-    usePortfolioTableSort<HistorySortKey>("date");
+    usePortfolioTableSort<HistorySortKey>("date", "desc");
 
   const sortedRows = useMemo(() => {
     const rows = [...txRows];
@@ -41,7 +41,7 @@ export function PortfolioActivitySection({
         case "amount":
           return compareSortNum(a.price, b.price, sortDir);
         default:
-          return compareSortText(a.date, b.date, sortDir);
+          return compareSortNum(a.dateMs, b.dateMs, sortDir);
       }
     });
     return rows;

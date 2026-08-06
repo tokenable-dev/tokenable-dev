@@ -117,12 +117,27 @@ CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
 CHAIN_137_RWA_ADDRESS=0x30D41cC4Efa7F1d5cAFE721Eba5743D9B8e5b96E
 CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
-# RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
-# RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
+# Redeem NFT custody — independent of fee wallet (Sepolia v1 may equal PLATFORM_FEE_*)
+# RWA_CUSTODY_WALLET_ADDRESS=0x...
+# RWA_CUSTODY_PRIVATE_KEY=...       (defaults to RWA_OWNER_PRIVATE_KEY if unset)
 # Partner mint+list (encrypts marketplace_partners private keys):
 PARTNER_WALLET_ENCRYPTION_KEY=<64 hex chars — openssl rand -hex 32>
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
+PLATFORM_FEE_PRIVATE_KEY=0x...   # self-vault seller payouts + redeem USDC refunds (same wallet as RECIPIENT)
+# SELF_VAULT_AUTO_PAYOUT_CRON=1              # set 0 to disable
+# SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300   # fulfill → auto pay (default 5 min)
+
+# Partner FedEx Rates (optional; stub PARTNER_VAULT_SHIPPING_* when disabled)
+# FEDEX_RATE_ENABLED=true
+# FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
+# FEDEX_CLIENT_ID=
+# FEDEX_CLIENT_SECRET=
+# FEDEX_ACCOUNT_NUMBER=
+# FEDEX_RATE_QUOTE_TTL_MINUTES=15
+# PARTNER_VAULT_SHIPPING_US_USD=12.99
+# PARTNER_VAULT_SHIPPING_CA_USD=28.99
+# PARTNER_VAULT_SHIPPING_INTL_USD=39.99
 
 # MoonPay readiness target (Sepolia-first public deploy)
 PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111

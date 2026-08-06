@@ -84,7 +84,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
 
         {draftRestored ? (
           <p className="sell-flow-draft-restored" role="status">
-            Draft restored — your cards are still here from last time.
+            Draft restored — your cards are still here on this device.
           </p>
         ) : null}
 
@@ -246,8 +246,8 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
             type="button"
             variant="subtle"
             className="sell-flow-draft-btn"
-            disabled={mintBusy}
-            onClick={() => void saveDraft()}
+            disabled={mintBusy || cards.length === 0}
+            onClick={() => saveDraft()}
           >
             {draftSavedFlash ? "Saved" : "Save as draft"}
           </TkButton>
@@ -275,7 +275,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
               variant="primary"
               className="sell-flow-ship-btn"
               disabled={!canContinueShipping || mintBusy}
-              onClick={() => void continueToShipping()}
+              onClick={() => continueToShipping()}
             >
               Continue to shipping <ArrowIcon />
             </TkButton>

@@ -12,6 +12,11 @@ import {
   type ShippingCountry,
 } from "@/lib/core/api/shipping-addresses";
 import {
+  ShippingAddressFormFields,
+  type ShippingAddressFormValues,
+} from "@/components/shipping/ShippingAddressFormFields";
+import { TkField, TkInput } from "@/components/ds";
+import {
   clearSavedRedeemAddress,
   hasMigratedRedeemAddress,
   markRedeemAddressMigrated,
@@ -19,17 +24,10 @@ import {
   writeSavedRedeemAddress,
 } from "@/lib/portfolio/redeemDraft";
 import { SettingsBtn } from "./SettingsBtn";
+import { SettingsPartnerVaultSection } from "./SettingsPartnerVaultSection";
 
-type AddressForm = {
+type AddressForm = ShippingAddressFormValues & {
   label: string;
-  name: string;
-  line1: string;
-  line2: string;
-  city: string;
-  region: string;
-  postal: string;
-  country: ShippingCountry;
-  phone: string;
   isDefault: boolean;
 };
 
@@ -114,8 +112,6 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
     try {
       let rows = await listShippingAddresses();
       if (rows.length === 0) {
-        // One-shot per user — never resurrect after the user cleared the book,
-        // and never migrate another account's localStorage into this user.
         if (!hasMigratedRedeemAddress(userId)) {
           const legacy = readSavedRedeemAddress(userId);
           if (legacy) {
@@ -226,14 +222,29 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
     }
   }
 
+  const shipValues: ShippingAddressFormValues = {
+    name: form.name,
+    line1: form.line1,
+    line2: form.line2,
+    city: form.city,
+    region: form.region,
+    postal: form.postal,
+    country: form.country as ShippingCountry,
+    phone: form.phone,
+  };
+
   return (
     <section className="tk-settings__sec">
       <h1 className="tk-settings__sec-h">Addresses</h1>
       <p className="tk-settings__sec-sub">
-        Used when you withdraw physical cards from the vault.
+        Ship-to addresses for when you redeem cards to your home. Partners also
+        set a Partner vault Origin below for Self vault shipping rates.
       </p>
 
+      <SettingsPartnerVaultSection />
+
       <div className="tk-settings__card">
+        <div className="tk-settings__row-t mb-3">Ship-to addresses</div>
         {loading ? (
           <p className="py-4 text-sm text-[var(--t2)]">Loading addresses…</p>
         ) : null}
@@ -297,145 +308,52 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
           + Add address
         </SettingsBtn>
       ) : (
-        <div className="tk-settings__card mt-3">
-          <div className="tk-settings__lbl" style={{ marginBottom: 12 }}>
+        <div className="tk-settings__card tk-settings__card--ship-form mt-3">
+          <div className="tk-settings__lbl" style={{ marginBottom: 16 }}>
             {editor === "create" ? "New address" : "Edit address"}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-label">
-                Label
-              </label>
-              <input
-                id="addr-label"
-                className="tk-settings__inp"
-                value={form.label}
-                onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-name">
-                Recipient name
-              </label>
-              <input
-                id="addr-name"
-                className="tk-settings__inp"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="tk-settings__lbl" htmlFor="addr-line1">
-                Street address
-              </label>
-              <input
-                id="addr-line1"
-                className="tk-settings__inp"
-                value={form.line1}
-                onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="tk-settings__lbl" htmlFor="addr-line2">
-                Apt / suite (optional)
-              </label>
-              <input
-                id="addr-line2"
-                className="tk-settings__inp"
-                value={form.line2}
-                onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-city">
-                City
-              </label>
-              <input
-                id="addr-city"
-                className="tk-settings__inp"
-                value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-region">
-                State / region
-              </label>
-              <input
-                id="addr-region"
-                className="tk-settings__inp"
-                value={form.region}
-                onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-postal">
-                Postal code
-              </label>
-              <input
-                id="addr-postal"
-                className="tk-settings__inp"
-                value={form.postal}
-                onChange={(e) => setForm((f) => ({ ...f, postal: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <label className="tk-settings__lbl" htmlFor="addr-country">
-                Country
-              </label>
-              <select
-                id="addr-country"
-                className="tk-settings__inp"
-                value={form.country}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    country: e.target.value as ShippingCountry,
-                  }))
-                }
-                disabled={saving}
-              >
-                <option value="us">United States</option>
-                <option value="ca">Canada</option>
-                <option value="intl">Other / International</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="tk-settings__lbl" htmlFor="addr-phone">
-                Phone
-              </label>
-              <input
-                id="addr-phone"
-                className="tk-settings__inp"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                disabled={saving}
-              />
-            </div>
-          </div>
-          {editor !== "create" && form.isDefault ? (
-            <p className="mt-4 text-sm text-[var(--t2)]">
-              This is your default address. Use <strong className="text-white">Set as default</strong>{" "}
-              on another address to change it.
-            </p>
-          ) : (
-            <label className="mt-4 flex items-center gap-2 text-sm text-[var(--t2)]">
-              <input
-                type="checkbox"
-                checked={form.isDefault}
-                onChange={(e) => setForm((f) => ({ ...f, isDefault: e.target.checked }))}
-                disabled={saving}
-              />
-              Set as default
-            </label>
-          )}
+          <ShippingAddressFormFields
+            idPrefix={editor === "create" ? "addr-new" : `addr-${editor}`}
+            value={shipValues}
+            disabled={saving}
+            onChange={(next) => setForm((f) => ({ ...f, ...next }))}
+            extrasBefore={
+              <div className="tk-ship-form__section">
+                <TkField label="Label" htmlFor="addr-label">
+                  <TkInput
+                    id="addr-label"
+                    value={form.label}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, label: e.target.value }))
+                    }
+                    disabled={saving}
+                    placeholder="Home"
+                  />
+                </TkField>
+              </div>
+            }
+            extrasAfter={
+              editor !== "create" && form.isDefault ? (
+                <p className="tk-ship-form__note">
+                  This is your default address. Use{" "}
+                  <strong>Set as default</strong> on another address to change
+                  it.
+                </p>
+              ) : (
+                <label className="tk-ship-cbx">
+                  <input
+                    type="checkbox"
+                    checked={form.isDefault}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, isDefault: e.target.checked }))
+                    }
+                    disabled={saving}
+                  />
+                  Set as default
+                </label>
+              )
+            }
+          />
           <div className="mt-5 flex gap-2.5">
             <SettingsBtn
               variant="primary"

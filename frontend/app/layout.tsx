@@ -7,7 +7,9 @@ import { TkFooter } from "@/components/layout/TkFooter";
 import { ASSETS } from "@/constants/assets";
 import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 import { SiteAnalytics } from "@/components/analytics";
+import { PartnerCompanyAddressRequiredModal } from "@/components/partner/PartnerCompanyAddressRequiredModal";
 import { cn } from "@/lib/ds/cn";
+import { Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -68,6 +70,9 @@ export default function RootLayout({
           <div className="tk-app-shell">
             <div className="tk-shell-scroll">
               <TkHeader />
+              <Suspense fallback={null}>
+                <PartnerCompanyAddressRequiredModal />
+              </Suspense>
               <main className={cn(MOBILE_PAGE_SHELL_CLASS, "tk-shell-main flex flex-col")}>
                 {children}
               </main>

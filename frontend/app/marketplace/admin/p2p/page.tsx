@@ -34,7 +34,16 @@ export default function AdminP2pPage() {
     <div className="p-6">
       <h1 className="text-xl font-semibold">P2P escrow orders</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">
-        Arbiter refund for no-ship / accepted disputes. Auto jobs also run on the backend.
+        Arbiter refund for no-ship / accepted disputes (Payment Escrow contract).
+        This is <strong>not</strong> marketplace Seaport self-vault payouts — those
+        are under{" "}
+        <a
+          className="underline"
+          href="/marketplace/admin/self-vault-payouts"
+        >
+          Catalog → Self-vault payouts
+        </a>
+        .
       </p>
       <div className="mt-4 flex gap-2">
         <select

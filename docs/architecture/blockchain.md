@@ -93,7 +93,12 @@ The single backend service that signs and submits transactions. Uses two keys:
 | Key env var | Purpose |
 |-------------|---------|
 | `RWA_OWNER_PRIVATE_KEY` | Signs `mint()` (MINTER_ROLE) and `adminBurn()` (BURNER_ROLE) |
-| `RWA_CUSTODY_PRIVATE_KEY` | Signs `safeTransferFrom()` for custody delivery (defaults to owner key) |
+| `RWA_CUSTODY_WALLET_ADDRESS` | Where redeemers send NFTs (and mint deliver-from). Independent of fee wallet |
+| `RWA_CUSTODY_PRIVATE_KEY` | Signs custody `safeTransferFrom` (deliver to user / return on refund). Defaults to owner key if unset |
+| `PLATFORM_FEE_RECIPIENT` | Receives redeem USDC fees (+ self-vault sale proceeds) |
+| `PLATFORM_FEE_PRIVATE_KEY` | Signs USDC outflows (self-vault seller payouts, redeem USDC refunds) |
+
+Sepolia redeem v1 may set `RWA_CUSTODY_*` to the same values as `PLATFORM_FEE_*` **in env only** — do not couple them in code.
 
 ### Methods
 
@@ -172,7 +177,7 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 
 **Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address.
 
-**Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks buyer confirm + admin `record-payout` (company wallet USDC → seller). See BR-8c.
+**Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c.
 
 **Buy (buyer):**
 1. USDC `approve(Seaport, amount)` if insufficient allowance

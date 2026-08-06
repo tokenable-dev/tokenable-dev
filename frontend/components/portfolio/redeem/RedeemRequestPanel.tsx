@@ -1,223 +1,427 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { TkButton } from "@/components/ds";
 import {
-  TkButton,
-  TkCheckbox,
-  TkField,
-  TkInput,
-  TkSelect,
-} from "@/components/ds";
+  ShippingAddressFormFields,
+  type ShippingAddressFormValues,
+} from "@/components/shipping/ShippingAddressFormFields";
 import {
-  formatRedeemUsd,
   getRedeemEstimate,
+  type RedeemEstimate,
 } from "@/lib/core/api/rwa-redeem";
 import type {
   RedeemAddressForm,
   RedeemDraftCard,
 } from "@/lib/portfolio/redeemDraft";
-import type { RedeemShipTo } from "@/lib/core/api/rwa-redeem";
+import {
+  phoneDialLensFor,
+  PHONE_DIAL_CODE_VALUES,
+} from "@/lib/shipping/phoneDialOptions";
+import {
+  composeShipToPhone,
+  firstShipToErrorKey,
+  type ShipToFieldErrors,
+  validateShipToFields,
+} from "@/lib/shipping/shipToValidation";
+import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { RedeemCardSummary } from "./RedeemCardSummary";
+import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
+
+type QuoteState = "idle" | "loading" | "done" | "stale";
+type StaleReason = "address" | "cards" | "both";
+
+function formAddressKey(form: RedeemAddressForm): string {
+  return [
+    form.name,
+    form.line1,
+    form.line2 ?? "",
+    form.city,
+    form.region ?? "",
+    form.postal,
+    form.country,
+    form.phoneDial,
+    form.phone,
+  ].join("|");
+}
+
+function formCardsKey(tokenIds: number[]): string {
+  return tokenIds.join(",");
+}
+
+function quoteSnapshotKey(form: RedeemAddressForm, tokenIds: number[]): string {
+  return `${formAddressKey(form)}||${formCardsKey(tokenIds)}`;
+}
+
+function staleReasonFromKeys(
+  quotedKey: string,
+  nextKey: string,
+): StaleReason {
+  const [qAddr = "", qCards = ""] = quotedKey.split("||");
+  const [nAddr = "", nCards = ""] = nextKey.split("||");
+  const addrChanged = qAddr !== nAddr;
+  const cardsChanged = qCards !== nCards;
+  if (addrChanged && cardsChanged) return "both";
+  if (cardsChanged) return "cards";
+  return "address";
+}
+
+const STALE_COPY: Record<
+  StaleReason,
+  { badge: string; note: string }
+> = {
+  address: {
+    badge: "Address changed",
+    note: "Your address changed — recalculate to get the cost for the new address.",
+  },
+  cards: {
+    badge: "Cards changed",
+    note: "Your card selection changed — recalculate to update shipping and fees.",
+  },
+  both: {
+    badge: "Details changed",
+    note: "Your address or cards changed — recalculate to get an updated cost.",
+  },
+};
+
+const QUOTE_BADGE: Record<
+  Exclude<QuoteState, "stale">,
+  { label: string; tone: "idle" | "loading" | "done" | "stale" }
+> = {
+  idle: { label: "Not calculated", tone: "idle" },
+  loading: { label: "Calculating", tone: "loading" },
+  done: { label: "Quoted", tone: "done" },
+};
 
 export function RedeemRequestPanel({
   cards,
   form,
   onChange,
   onRemoveCard,
-  busy,
+  busy = false,
   error,
-  onSubmit,
+  onContinue,
 }: {
   cards: RedeemDraftCard[];
   form: RedeemAddressForm;
   onChange: (next: RedeemAddressForm) => void;
   onRemoveCard: (tokenId: number) => void;
-  busy: boolean;
+  busy?: boolean;
   error: string | null;
-  onSubmit: () => void;
+  onContinue: () => void;
 }) {
-  const set = <K extends keyof RedeemAddressForm>(key: K, value: RedeemAddressForm[K]) => {
-    onChange({ ...form, [key]: value });
+  const { chainId } = useAppChain();
+  const tokenIds = cards.map((c) => c.tokenId);
+  const quoteKey = useMemo(
+    () => quoteSnapshotKey(form, tokenIds),
+    [form, tokenIds],
+  );
+
+  const [fieldErrors, setFieldErrors] = useState<ShipToFieldErrors>({});
+  const [quoteState, setQuoteState] = useState<QuoteState>("idle");
+  const [quotedKey, setQuotedKey] = useState("");
+  const [staleReason, setStaleReason] = useState<StaleReason>("address");
+  const [est, setEst] = useState<RedeemEstimate | undefined>();
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [loadProgress, setLoadProgress] = useState(8);
+
+  useEffect(() => {
+    if (quoteState === "done" && quotedKey && quoteKey !== quotedKey) {
+      setStaleReason(staleReasonFromKeys(quotedKey, quoteKey));
+      setQuoteState("stale");
+    }
+  }, [quoteKey, quotedKey, quoteState]);
+
+  useEffect(() => {
+    if (quoteState !== "loading") return;
+    setLoadProgress(8);
+    const t = window.setInterval(() => {
+      setLoadProgress((p) => Math.min(96, p + 8 + Math.random() * 18));
+    }, 260);
+    return () => window.clearInterval(t);
+  }, [quoteState]);
+
+  const shipValues: ShippingAddressFormValues = {
+    name: form.name,
+    line1: form.line1,
+    line2: form.line2 ?? "",
+    city: form.city,
+    region: form.region ?? "",
+    postal: form.postal,
+    country: form.country,
+    phone: form.phone,
+    phoneDial: form.phoneDial || "+1",
   };
 
-  const estimateQuery = useQuery({
-    queryKey: ["rwa", "redeem", "estimate", form.country, cards.length],
-    queryFn: () =>
-      getRedeemEstimate({ country: form.country, cardCount: Math.max(1, cards.length) }),
-    enabled: cards.length > 0,
-    staleTime: 60_000,
-  });
-  const est = estimateQuery.data;
+  const patchForm = (next: ShippingAddressFormValues) => {
+    const dial = next.phoneDial ?? form.phoneDial ?? "+1";
+    onChange({
+      ...form,
+      name: next.name,
+      line1: next.line1,
+      line2: next.line2,
+      city: next.city,
+      region: next.region,
+      postal: next.postal,
+      country: next.country,
+      phone: next.phone,
+      phoneDial: dial,
+    });
+    setFieldErrors({});
+    setQuoteError(null);
+  };
+
+  const runQuote = async () => {
+    const errors = validateShipToFields({
+      name: form.name,
+      line1: form.line1,
+      city: form.city,
+      region: form.region ?? "",
+      postal: form.postal,
+      country: form.country,
+      phone: form.phone,
+      phoneDial: form.phoneDial || "+1",
+      phoneDialLens: phoneDialLensFor(form.phoneDial || "+1"),
+    });
+    setFieldErrors(errors);
+    const first = firstShipToErrorKey(errors);
+    if (first) {
+      const el = document.getElementById(`redeem-${first === "line1" ? "line1" : first}`);
+      if (el) {
+        el.focus({ preventScroll: true });
+        window.scrollTo({
+          top: el.getBoundingClientRect().top + window.scrollY - 140,
+          behavior: "smooth",
+        });
+      }
+      return;
+    }
+
+    setQuoteError(null);
+    setQuoteState("loading");
+    try {
+      const shipTo = {
+        name: form.name.trim(),
+        line1: form.line1.trim(),
+        line2: form.line2?.trim() || undefined,
+        city: form.city.trim(),
+        region: form.region?.trim() || undefined,
+        postal: form.postal.trim(),
+        country: form.country,
+        countryCode: redeemDestinationCountryCode({
+          country: form.country,
+          phoneDial: form.phoneDial || "+1",
+        }),
+        phone: composeShipToPhone(
+          form.phoneDial || "+1",
+          form.phone,
+          PHONE_DIAL_CODE_VALUES,
+        ),
+      };
+      const next = await getRedeemEstimate({
+        country: form.country,
+        cardCount: Math.max(1, cards.length),
+        tokenIds,
+        chainId,
+        shipTo,
+      });
+      setEst(next);
+      setQuotedKey(quoteKey);
+      setLoadProgress(100);
+      setQuoteState("done");
+    } catch (e) {
+      setQuoteState("idle");
+      setQuoteError(
+        e instanceof Error ? e.message : "Could not calculate shipping cost.",
+      );
+    }
+  };
+
+  const badge =
+    quoteState === "stale"
+      ? { label: STALE_COPY[staleReason].badge, tone: "stale" as const }
+      : QUOTE_BADGE[quoteState];
 
   return (
     <div className="pf-redeem-panel">
-      <div className="sell-flow-eyebrow">Redeem · Step 1 of 2</div>
-      <h1 className="sell-flow-h1">Have your cards shipped to you</h1>
-      <p className="sell-flow-sub">
+      <div className="pf-redeem-eyebrow">Redeem · Step 1 of 2</div>
+      <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
+      <p className="pf-redeem-sub">
         We&rsquo;ll ship your physical cards from the vault to the address below.
       </p>
 
-      <div className="pf-redeem-form">
-        <TkField label="Recipient name" htmlFor="redeem-name">
-          <TkInput
-            id="redeem-name"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            autoComplete="name"
-            disabled={busy}
-          />
-        </TkField>
-        <TkField label="Street address" htmlFor="redeem-line1">
-          <TkInput
-            id="redeem-line1"
-            value={form.line1}
-            onChange={(e) => set("line1", e.target.value)}
-            autoComplete="address-line1"
-            disabled={busy}
-          />
-        </TkField>
-        <TkField label="Apt, suite, unit (optional)" htmlFor="redeem-line2">
-          <TkInput
-            id="redeem-line2"
-            value={form.line2 ?? ""}
-            onChange={(e) => set("line2", e.target.value)}
-            autoComplete="address-line2"
-            disabled={busy}
-          />
-        </TkField>
-        <div className="pf-redeem-form__row">
-          <TkField label="City" htmlFor="redeem-city">
-            <TkInput
-              id="redeem-city"
-              value={form.city}
-              onChange={(e) => set("city", e.target.value)}
-              autoComplete="address-level2"
+      <ShippingAddressFormFields
+        idPrefix="redeem"
+        value={shipValues}
+        disabled={busy || quoteState === "loading"}
+        showPhoneDial
+        fieldErrors={fieldErrors}
+        onChange={patchForm}
+        extrasAfter={
+          <label className="tk-ship-cbx">
+            <input
+              type="checkbox"
+              checked={form.saveAddress}
               disabled={busy}
-            />
-          </TkField>
-          <TkField label="State / region" htmlFor="redeem-region">
-            <TkInput
-              id="redeem-region"
-              value={form.region ?? ""}
-              onChange={(e) => set("region", e.target.value)}
-              autoComplete="address-level1"
-              disabled={busy}
-            />
-          </TkField>
-        </div>
-        <div className="pf-redeem-form__row">
-          <TkField label="Postal code" htmlFor="redeem-postal">
-            <TkInput
-              id="redeem-postal"
-              value={form.postal}
-              onChange={(e) => set("postal", e.target.value)}
-              autoComplete="postal-code"
-              disabled={busy}
-            />
-          </TkField>
-          <TkField label="Country" htmlFor="redeem-country">
-            <TkSelect
-              id="redeem-country"
-              value={form.country}
               onChange={(e) =>
-                set("country", e.target.value as RedeemShipTo["country"])
+                onChange({ ...form, saveAddress: e.target.checked })
               }
-              disabled={busy}
-            >
-              <option value="us">United States</option>
-              <option value="ca">Canada</option>
-              <option value="intl">Other international</option>
-            </TkSelect>
-          </TkField>
-        </div>
-        <TkField label="Phone" htmlFor="redeem-phone">
-          <TkInput
-            id="redeem-phone"
-            type="tel"
-            className="tkl-mono"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            autoComplete="tel"
-            placeholder="+1 555 000 0000"
-            disabled={busy}
-          />
-        </TkField>
-        <TkCheckbox
-          label="Save this address for future redemptions"
-          checked={form.saveAddress}
-          onChange={(e) => set("saveAddress", e.target.checked)}
-          disabled={busy}
-        />
-      </div>
+            />
+            Save this address for future redemptions
+          </label>
+        }
+      />
 
       <RedeemCardSummary cards={cards} onRemove={onRemoveCard} />
 
-      <div className="pf-redeem-cost">
-        <div className="pf-redeem-cost__title">Estimated cost</div>
-        <div className="pf-redeem-cost__lines tkl-mono">
-          <div className="pf-redeem-cost__line">
-            <span className="pf-redeem-cost__label">Shipping &amp; handling</span>
-            <span>
-              {est
-                ? formatRedeemUsd(est.shippingUsd)
-                : estimateQuery.isLoading
-                  ? "…"
-                  : "—"}
-            </span>
-          </div>
-          <div className="pf-redeem-cost__line">
-            <span className="pf-redeem-cost__label">
-              Redemption fee
-              {est
-                ? ` (${cards.length} × ${formatRedeemUsd(est.withdrawFeePerCardUsd)})`
-                : ` × ${cards.length}`}
-            </span>
-            <span>
-              {est
-                ? formatRedeemUsd(est.withdrawFeeTotalUsd)
-                : estimateQuery.isLoading
-                  ? "…"
-                  : "—"}
-            </span>
-          </div>
-          <div className="pf-redeem-cost__line pf-redeem-cost__line--total">
-            <span>Estimated total</span>
-            <span>
-              {est
-                ? formatRedeemUsd(est.totalUsd)
-                : estimateQuery.isLoading
-                  ? "…"
-                  : "Pending confirmation"}
-            </span>
-          </div>
+      <div
+        className={[
+          "pf-redeem-cost pf-redeem-quote",
+          `pf-redeem-quote--${quoteState}`,
+        ].join(" ")}
+      >
+        <div className="pf-redeem-quote__head">
+          <span className="pf-redeem-cost__title" style={{ margin: 0 }}>
+            Cost
+          </span>
+          <span
+            className={`pf-redeem-quote__badge pf-redeem-quote__badge--${badge.tone} tkl-mono`}
+          >
+            {badge.label}
+          </span>
         </div>
-        <p className="pf-redeem-cost__copy">
-          Estimate from PSA Vault withdraw + shipping rates — no markup. Shipping is
-          charged once per shipment — the more cards you ship together, the less you
-          pay per card. You&rsquo;ll pay the exact amount after we confirm it.
-        </p>
-        {form.country !== "us" ? (
-          <p className="pf-redeem-cost__duty" role="note">
-            Import duties, if any, are charged separately by the carrier on delivery.
-          </p>
-        ) : null}
+
+        <div className="pf-redeem-quote__stage">
+          {quoteState === "idle" ? (
+            <div className="pf-redeem-quote__body">
+              <p className="pf-redeem-cost__copy pf-redeem-quote__intro">
+                We price shipping from the carrier for the address above. Enter
+                your address, then calculate the cost.
+              </p>
+              <TkButton
+                type="button"
+                variant="primary"
+                className="pf-redeem-primary"
+                disabled={busy || cards.length === 0}
+                onClick={() => void runQuote()}
+              >
+                Calculate shipping cost
+              </TkButton>
+            </div>
+          ) : null}
+
+          {quoteState === "loading" ? (
+            <div className="pf-redeem-quote__body" aria-busy="true">
+              <div className="pf-redeem-quote__skeleton">
+                <div className="pf-redeem-quote__sk-row">
+                  <span className="pf-redeem-quote__sk-chip" />
+                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--sm" />
+                </div>
+                <div className="pf-redeem-quote__sk-row">
+                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--md" />
+                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--sm" />
+                </div>
+                <div className="pf-redeem-quote__sk-row pf-redeem-quote__sk-row--total">
+                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--md" />
+                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--lg" />
+                </div>
+              </div>
+              <div className="pf-redeem-quote__bar" aria-hidden>
+                <div
+                  className="pf-redeem-quote__bar-fill"
+                  style={{ width: `${loadProgress}%` }}
+                />
+              </div>
+              <TkButton
+                type="button"
+                variant="primary"
+                className="pf-redeem-primary pf-redeem-primary--busy"
+                disabled
+              >
+                <span className="pf-redeem-quote__spin" aria-hidden />
+                Getting rates for your address…
+              </TkButton>
+            </div>
+          ) : null}
+
+          {quoteState === "done" ? (
+            <div className="pf-redeem-quote__body pf-redeem-quote__body--result">
+              <RedeemCostBreakdown
+                est={est}
+                loading={false}
+                cardCount={cards.length}
+                embed
+                title={null}
+              />
+              <p className="pf-redeem-cost__copy">
+                This is the final amount — no markup. Shipping is charged once
+                per shipment — the more cards you ship together, the less you
+                pay per card.
+              </p>
+              {form.country !== "us" ? (
+                <p className="pf-redeem-cost__duty" role="note">
+                  Import duties, if any, are charged separately by the carrier on
+                  delivery.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {quoteState === "stale" ? (
+            <div className="pf-redeem-quote__body">
+              <p
+                className="pf-redeem-cost__duty pf-redeem-quote__stale-note"
+                role="note"
+              >
+                {STALE_COPY[staleReason].note}
+              </p>
+              <TkButton
+                type="button"
+                variant="primary"
+                className="pf-redeem-primary"
+                disabled={busy || cards.length === 0}
+                onClick={() => void runQuote()}
+              >
+                Recalculate shipping cost
+              </TkButton>
+            </div>
+          ) : null}
+        </div>
       </div>
 
+      {quoteError ? (
+        <p className="pf-redeem-error" role="alert">
+          {quoteError}
+        </p>
+      ) : null}
       {error ? (
         <p className="pf-redeem-error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <TkButton
-        type="button"
-        variant="primary"
-        className="pf-redeem-primary"
-        disabled={busy || cards.length === 0}
-        onClick={onSubmit}
-      >
-        {busy ? "Requesting…" : "Request redemption"}
-      </TkButton>
+      {quoteState === "done" ? (
+        <div className="pf-redeem-quote__continue">
+          <TkButton
+            type="button"
+            variant="primary"
+            className="pf-redeem-primary"
+            disabled={busy || cards.length === 0 || !est}
+            onClick={onContinue}
+          >
+            {busy
+              ? "Saving…"
+              : cards.length === 0
+                ? "No cards selected"
+                : "Review and pay"}
+          </TkButton>
+          <p className="pf-redeem-hint-below">
+            You pay shipping and the Redemption fee now — it&rsquo;s the final
+            amount, with no markup.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

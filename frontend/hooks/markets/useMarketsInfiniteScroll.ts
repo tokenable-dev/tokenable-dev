@@ -17,7 +17,8 @@ export function useMarketsInfiniteScroll(opts: {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-    rootMargin = "600px",
+    // Prefetch before the sentinel so the next page is often ready as you arrive.
+    rootMargin = "420px",
   } = opts;
 
   useEffect(() => {

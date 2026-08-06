@@ -184,15 +184,15 @@ export function useCollectionDetailMarketData(params: {
 
   const gradeAwareExternalUsd =
     gradeChart.selectedPriceUsd ?? resolvedExternal.usd;
-  const gradeAwareChangeResult =
-    gradeChart.chartExternalRollingUsd.length >= 2
-      ? gradeChart.selectedPriceChangeResult
-      : externalPriceChangeResult;
+  /*
+   * Headline % must match list / Indices ticker / Markets cards:
+   * server `marketChangePct` on full archive (1Y best window) — not recomputed from
+   * the chart-day-filtered or alternate-grade series (that caused 800% vs 50% jumps).
+   * Spot USD above can still follow the selected grade.
+   */
+  const gradeAwareChangeResult = externalPriceChangeResult;
   const gradeAwareChange1MoPct = gradeAwareChangeResult.pct;
-  const gradeAwareChangeCoverageHint =
-    gradeChart.chartExternalRollingUsd.length >= 2
-      ? gradeChart.selectedPriceChangeCoverageHint
-      : externalPriceChangeCoverageHint;
+  const gradeAwareChangeCoverageHint = externalPriceChangeCoverageHint;
   const gradeAwareTierLabel = gradeChart.activeGrade;
   const gradeAwarePriceLoading =
     gradeChart.gradeChartLoading || marketSeriesLoading;

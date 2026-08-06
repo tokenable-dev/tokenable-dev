@@ -46,13 +46,13 @@ export const ADMIN_INPUT_DANGER =
   `${ADMIN_INPUT_MONO} border-red-900/60 focus:border-red-500/60`;
 
 export const ADMIN_BTN_PRIMARY =
-  "inline-flex items-center justify-center rounded-md bg-[var(--brand-500)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--brand-500)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--brand-600)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-2";
 
 export const ADMIN_BTN_SECONDARY =
-  "inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-2";
 
 export const ADMIN_BTN_GHOST =
-  `inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium ${ADMIN_TEXT_SECONDARY} transition-colors hover:bg-zinc-100 hover:text-zinc-900`;
+  `inline-flex min-h-11 items-center justify-center rounded-md px-3 py-2.5 text-sm font-medium ${ADMIN_TEXT_SECONDARY} transition-colors hover:bg-zinc-100 hover:text-zinc-900 sm:min-h-0 sm:py-2`;
 
 export const ADMIN_BTN_LOAD_MORE =
   "w-full rounded-md border border-zinc-300 bg-white py-3 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:opacity-50";
@@ -131,7 +131,7 @@ export const ADMIN_SEGMENT_BTN_ACTIVE =
   "rounded bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 sm:text-sm";
 
 export const ADMIN_NAV_LINK =
-  "rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900";
+  "flex min-h-11 items-center rounded-md px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900";
 
 export const ADMIN_NAV_LINK_ACTIVE =
-  "rounded-md bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200";
+  "flex min-h-11 items-center rounded-md bg-zinc-100 px-3 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200";

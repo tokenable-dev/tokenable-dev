@@ -12,7 +12,14 @@ Self-vault mints (`deliveryMode=direct`) persist `rwa_tokens.settlement_policy =
 
 1. Fulfill/match creates `self_vault_settlements` (`pending_confirm`).
 2. `seller_payout_usdc` = gross × (1 − `PLATFORM_FEE_BPS` / 10000) — same net as a standard 5% fee sale.
-3. Buyer `POST …/confirm` (or admin confirm) → `confirmed`.
-4. Ops sends USDC from the company wallet and `POST …/record-payout` with the tx hash → `paid`.
+3. **Admin early payout** — `POST …/execute-payout` (confirm if still pending, then platform-fee-wallet USDC → seller) → `paid`.
+4. **Auto payout** — cron every minute pays rows still `pending_confirm` or `confirmed` once `created_at` + delay has passed (default **300s / 5 min**). Auto path confirms then pays. Skip if `rejected` or already `paid`.
+5. Buyer `POST …/confirm` (or admin confirm) still works as an optional status step before early pay; not required for auto pay.
+
+**Disable / tuning:** `SELF_VAULT_AUTO_PAYOUT_CRON=0` turns the cron off; `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` overrides the delay (default `300`).
+
+**Admin UI:** `/marketplace/admin/self-vault-payouts` — list by status on the active chain, pay early, reject, or wait for auto. APIs: `GET/POST /api/marketplace/admin/self-vault-settlements…` (admin session).
+
+**Platform fee wallet key:** set `PLATFORM_FEE_PRIVATE_KEY` in backend `.env` (must derive the same address as `PLATFORM_FEE_RECIPIENT`). Admin **Pay seller** and auto-payout both use this key. Never commit the key; treat it like `RWA_OWNER_PRIVATE_KEY`.
 
 See [business-rules.md](../business-rules.md) BR-8c and [blockchain.md](blockchain.md).

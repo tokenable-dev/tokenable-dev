@@ -191,6 +191,71 @@ export async function adminDismissPsaArrivalReview(
   return res.json();
 }
 
+export type AdminVaultMintQueueItem = {
+  itemId: string;
+  submissionId: string;
+  publicId: string;
+  packageStatus: string;
+  itemStatus: string;
+  cert: string;
+  name: string | null;
+  grade: string | null;
+  imageUrl: string | null;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  updatedAt: string;
+};
+
+export type AdminVaultMintAndDeliverResult = {
+  submissionId: string;
+  publicId: string;
+  itemId: string;
+  cert: string;
+  tokenId: number;
+  tokenURI: string;
+  vaultRef: string;
+  mintTxHash: string;
+  deliverTxHash: string | null;
+  recipientAddress: string;
+  chainId: number;
+  adoptedExisting?: boolean;
+  alreadyWithUser?: boolean;
+};
+
+export async function listAdminVaultMintQueue(params?: {
+  q?: string;
+}): Promise<AdminVaultMintQueueItem[]> {
+  const sp = new URLSearchParams();
+  if (params?.q?.trim()) sp.set("q", params.q.trim());
+  const qs = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/mint-queue${qs ? `?${qs}` : ""}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(`mint-queue failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminMintAndDeliverVaultItem(
+  idOrPublicId: string,
+  itemId: string,
+): Promise<AdminVaultMintAndDeliverResult> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/${encodeURIComponent(idOrPublicId)}/items/${encodeURIComponent(itemId)}/mint-and-deliver`,
+    {
+      method: "POST",
+      credentials: "include",
+      timeoutMs: 180_000,
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `mint-and-deliver failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 /** TEST: insert Items Received into Gmail + run one poll. */
 export async function adminInjectPsaReceivedTestMail(input: {
   cert: string;

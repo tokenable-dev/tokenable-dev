@@ -1,4 +1,4 @@
-/* Portfolio Redeem — selection mode + /portfolio/redeem flow (DS-4 Withdraw sync) */
+/* Portfolio Redeem — selection mode + /portfolio/redeem flow (design system-5) */
 
 .pf-holdings-toolbar {
   display: flex;
@@ -8,19 +8,42 @@
   margin-bottom: 14px;
 }
 
-.pf-redeem-toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.pf-redeem-toolbar-btn.tk-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  background: rgba(26, 111, 255, 0.16) !important;
+  color: #5b9aff !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+.pf-redeem-toolbar-btn.tk-btn:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.24) !important;
+  color: #7eb6ff !important;
+  filter: none !important;
+}
+
+.pf-redeem-toolbar-btn.tk-btn:disabled {
+  opacity: 0.45 !important;
 }
 
 .pf-redeem-hint {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.55);
-  margin-bottom: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 14px;
   padding: 12px 16px;
   background: rgba(26, 111, 255, 0.06);
   border-radius: 10px;
+  line-height: 1.5;
 }
 
 .pf-redeem-hint--err {
@@ -93,8 +116,9 @@
 }
 
 .pf-redeem-badge--redeeming {
-  background: rgba(26, 111, 255, 0.14);
-  color: #7eb6ff;
+  background: rgba(26, 111, 255, 0.22);
+  color: #8ec2ff;
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.55);
 }
 
 .pf-redeem-badge--transit {
@@ -107,20 +131,20 @@
   color: #00c350;
 }
 
-.pf-redeem-mobile-hint {
-  margin: 0 0 8px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.45);
-}
-
 .pf-table-actions--dim {
   opacity: 0.4;
   pointer-events: none;
 }
 
 .pf-table-actions--status {
+  flex-direction: column;
+  align-items: flex-end;
   justify-content: flex-end;
+  gap: 6px;
+}
+
+.pf-table-actions--preparing {
+  gap: 8px;
 }
 
 .pf-table-actions__status {
@@ -129,16 +153,69 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+.pf-table-actions__status-link {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--azure, #1a6fff);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-table-actions__status-link:hover {
+  color: #fff;
+}
+
+.pf-table-actions__status-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--azure, #1a6fff);
+  color: #fff;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-table-actions__status-btn:hover {
+  filter: brightness(1.08);
+}
+
+.pf-table-actions--full .pf-table-actions__status-btn {
+  width: 100%;
+  height: 44px;
+}
+
+.pf-holdings-row--transit {
+  opacity: 0.6;
+}
+
+.pf-holdings-row--possession {
+  opacity: 0.72;
+}
+
+.pf-mobile-asset-card--transit {
+  opacity: 0.6;
+}
+
+.pf-mobile-asset-card--possession {
+  opacity: 0.72;
+}
+
 .pf-redeem-batch-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 60;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(12, 12, 14, 0.94);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
+  padding: 14px clamp(16px, 4vw, 40px) calc(14px + env(safe-area-inset-bottom));
+  background: rgba(14, 14, 14, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
 }
 
 .pf-redeem-batch-bar__inner {
@@ -148,7 +225,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
 
 .pf-redeem-batch-bar__left {
@@ -159,6 +236,7 @@
 }
 
 .pf-redeem-batch-bar__count {
+  font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 14px;
   font-weight: 600;
   color: #fff;
@@ -172,7 +250,51 @@
 .pf-redeem-batch-bar__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.pf-redeem-batch-bar__cancel.tk-btn {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+.pf-redeem-batch-bar__cancel.tk-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  filter: none !important;
+}
+
+.pf-redeem-batch-bar__go.tk-btn {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 22px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: var(--azure, #1a6fff) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+.pf-redeem-batch-bar__go.tk-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.pf-redeem-batch-bar__go.tk-btn:disabled {
+  opacity: 0.4 !important;
+  pointer-events: none;
 }
 
 .portfolio-page--redeem-select {
@@ -182,9 +304,13 @@
 /* Redeem flow page */
 .pf-redeem-page {
   max-width: 640px;
+  width: 100%;
   margin: 0 auto;
   padding: 40px clamp(16px, 4vw, 40px) 100px;
   color: #fff;
+  box-sizing: border-box;
+  /* Avoid horizontal jump when a tall quote adds/removes the page scrollbar */
+  scrollbar-gutter: stable;
 }
 
 .pf-redeem-crumb {
@@ -232,25 +358,236 @@
 .pf-redeem-panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
 }
 
-.pf-redeem-form {
+/* Headers — Redeem.html `.eyebrow` / h1 / sub */
+.pf-redeem-eyebrow {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--azure, #1a6fff);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pf-redeem-h1 {
+  margin: 10px 0 6px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-weight: 700;
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.pf-redeem-sub {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+}
+
+/* Shared ship-to form — Redeem.html + Settings Addresses (`.tk-ship-form`) */
+.tk-ship-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
-.pf-redeem-form__row {
+.pf-redeem-form.tk-ship-form,
+.pf-redeem-panel .tk-ship-form {
+  margin-bottom: 28px;
+}
+
+.tk-ship-form__section {
+  margin-bottom: 24px;
+}
+
+.tk-ship-form__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
+.tk-ship-form__row > .tk-ship-form__section {
+  margin-bottom: 24px;
+  min-width: 0;
+}
+
+.tk-ship-form .tk-field {
+  gap: 0;
+}
+
+.tk-ship-form .tk-field__label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.tk-ship-form .tk-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px !important;
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+  font-family: var(--font-sans, system-ui, sans-serif) !important;
+  font-size: 15px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tk-ship-form .tk-input::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.tk-ship-form .tk-input:hover:not(:disabled) {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.tk-ship-form .tk-input:focus {
+  border-color: var(--azure, #1a6fff) !important;
+  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15) !important;
+}
+
+.tk-ship-form .tk-ship-form__mono {
+  font-family: var(--font-mono, ui-monospace, monospace) !important;
+}
+
+.tk-ship-form__phone-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Higher specificity than `.tk-ship-form .tk-select-wrap { width:100% }` */
+.tk-ship-form .tk-ship-form__phone-row .tk-select-wrap.tk-ship-form__dial {
+  width: 148px;
+  flex: 0 0 148px;
+  max-width: 148px;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .tk-ship-form .tk-ship-form__phone-row .tk-select-wrap.tk-ship-form__dial {
+    width: 118px;
+    flex-basis: 118px;
+    max-width: 118px;
+  }
+}
+
+.tk-ship-form .tk-ship-form__phone-row .tk-ship-form__dial-select {
+  width: 100%;
+  min-width: 0;
+  padding-right: 34px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tk-ship-form .tk-ship-form__phone-row .tk-ship-form__phone-national {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.tk-ship-form__street {
+  margin-bottom: 10px !important;
+}
+
+.tk-ship-form__apt {
+  margin-top: 0;
+}
+
+.tk-ship-form .tk-select-wrap {
+  width: 100%;
+}
+
+.tk-ship-form .tk-select-wrap svg {
+  right: 16px;
+  width: 12px;
+  height: 12px;
+  color: #888;
+}
+
+.tk-ship-form select.tk-input {
+  padding-right: 40px !important;
+  cursor: pointer;
+}
+
+/* Native checkbox — Redeem.html `.cbx` */
+.tk-ship-cbx,
+.pf-redeem-cbx {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.tk-ship-cbx input,
+.pf-redeem-cbx input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--azure, #1a6fff);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tk-ship-cbx input:disabled,
+.pf-redeem-cbx input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tk-ship-form__note {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+.tk-ship-form__note strong {
+  color: #fff;
+  font-weight: 600;
+}
+
 .pf-redeem-summary {
+  margin-bottom: 28px;
   border-radius: 16px;
   background: #191919;
   padding: 16px 20px;
+}
+
+.pf-redeem-hint-below {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .tk-ship-form__row,
+  .pf-redeem-form__row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pf-redeem-summary__head {
@@ -413,6 +750,260 @@
   border-radius: 16px;
   background: #191919;
   padding: 20px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-quote {
+  /* Keep Cost card from collapsing when idle → loading (old spinner was tiny) */
+  min-height: 196px;
+  transition:
+    min-height 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.pf-redeem-quote--loading {
+  border: 1px solid rgba(26, 111, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(26, 111, 255, 0.06);
+}
+
+.pf-redeem-quote--done {
+  min-height: 0;
+}
+
+.pf-redeem-quote__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
+.pf-redeem-quote__badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.pf-redeem-quote__badge--idle {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pf-redeem-quote__badge--loading {
+  background: rgba(26, 111, 255, 0.14);
+  color: #5b9aff;
+}
+
+.pf-redeem-quote__badge--done {
+  background: rgba(0, 200, 100, 0.14);
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-quote__badge--stale {
+  background: rgba(234, 130, 0, 0.14);
+  color: #ea8200;
+}
+
+.pf-redeem-quote__stage {
+  margin-top: 14px;
+  /* Reserve idle footprint so Calculate → loading never shrinks the card */
+  min-height: 118px;
+}
+
+.pf-redeem-quote__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: pf-redeem-quote-in 220ms ease both;
+}
+
+.pf-redeem-quote__body--result {
+  gap: 12px;
+}
+
+@keyframes pf-redeem-quote-in {
+  from {
+    opacity: 0.45;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-redeem-quote,
+  .pf-redeem-quote__body,
+  .pf-redeem-quote__badge,
+  .pf-redeem-quote__bar-fill,
+  .pf-redeem-quote__continue {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.pf-redeem-quote__intro {
+  margin: 0;
+}
+
+.pf-redeem-quote__stale-note {
+  margin: 0;
+}
+
+.pf-redeem-quote__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pf-redeem-quote__sk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+}
+
+.pf-redeem-quote__sk-row--total {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 14px;
+}
+
+.pf-redeem-quote__sk-chip {
+  display: block;
+  height: 12px;
+  width: 46%;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: pf-redeem-shimmer 1.1s ease-in-out infinite;
+}
+
+.pf-redeem-quote__sk-chip--sm {
+  width: 22%;
+}
+
+.pf-redeem-quote__sk-chip--md {
+  width: 38%;
+}
+
+.pf-redeem-quote__sk-chip--lg {
+  width: 28%;
+  height: 14px;
+}
+
+@keyframes pf-redeem-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.pf-redeem-quote__loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-redeem-quote__spin {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--azure, #1a6fff);
+  animation: pf-redeem-spin 0.7s linear infinite;
+}
+
+@keyframes pf-redeem-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pf-redeem-quote__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.pf-redeem-quote__bar-fill {
+  height: 100%;
+  background: var(--azure, #1a6fff);
+  transition: width 220ms linear;
+}
+
+.pf-redeem-quote__continue {
+  animation: pf-redeem-quote-in 260ms ease both;
+}
+
+.pf-redeem-cost__inner {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.pf-redeem-cost__shipment {
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-cost__shipment:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.pf-redeem-cost__shipment-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-cost__shipment-count {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+}
+
+.pf-redeem-shipto--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pf-redeem-edit-btn.tk-btn {
+  height: 38px;
+  font-size: 13px;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-error {
+  color: #ff8a8a;
+  font-size: 13px;
+  margin: 0 0 14px;
 }
 
 .pf-redeem-cost__title,
@@ -486,6 +1077,39 @@
   color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.pf-redeem-shipto__muted {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-redeem-banner__icon--pos {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-prep-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 13.5px;
+  color: #fff;
+}
+
+.pf-redeem-status-pill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+
+.pf-redeem-status-pill--warn {
+  background: rgba(234, 130, 0, 0.14);
+  color: #ea8200;
 }
 
 .pf-redeem-shipto__body {
@@ -617,18 +1241,147 @@
   line-height: 1.6;
 }
 
-.pf-redeem-error {
-  color: #ff8a8a;
-  font-size: 13px;
-  margin: 0;
-}
-
 .pf-redeem-primary {
   width: 100%;
   height: 52px;
 }
 
+.pf-redeem-primary--busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0.92;
+}
+
+.pf-redeem-primary--busy .pf-redeem-quote__spin {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+}
+
 .pf-redeem-primary-link {
   display: block;
   text-decoration: none;
+}
+
+/* Portfolio Redeem tab — in-progress + completed history */
+.pf-redeem-progress {
+  padding-top: 8px;
+}
+
+.pf-redeem-progress__section {
+  margin-bottom: 28px;
+}
+
+.pf-redeem-progress__section-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.pf-redeem-progress__intro {
+  margin: 0 0 18px;
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pf-redeem-progress__orders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pf-redeem-progress__order {
+  border-radius: 16px;
+  padding: 16px 18px;
+  background: #191919;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-progress__order-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pf-redeem-progress__order-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+}
+
+.pf-redeem-progress__order-meta {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-progress__status-link {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azure);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-redeem-progress__status-link:hover {
+  text-decoration: underline;
+}
+
+.pf-redeem-progress__cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-redeem-progress__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pf-redeem-progress__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-progress__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pf-redeem-progress__card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pf-redeem-progress__card-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
 }

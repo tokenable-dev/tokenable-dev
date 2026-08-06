@@ -30,7 +30,7 @@ flowchart LR
   end
 
   subgraph redeem ["Redemption Phase"]
-    Request["User requests redemption<br/>POST /rwa/redeem-request"]
+    Request["User pays USDC + redeem-batch<br/>POST /rwa/redeem-batch"]
     Burn["Admin burns NFT<br/>POST /admin/.../burn"]
     Release["Admin releases physical card<br/>POST /admin/.../confirm-release"]
   end
@@ -106,30 +106,34 @@ rwa_tokens
 
 ### VaultSubmission (sell-flow package, pre-mint)
 
-Tracks the collector sell UI end-to-end **before** a `vault_cycle` exists, so an account’s in-flight packages are durable across devices/sessions.
+Tracks the collector **shipping package** once they enter `/sell/shipping` (Add-cards stays in localStorage). Durable across devices for `awaiting_shipment`+.
 
 ```
 vault_submissions
-  public_id: SUB-YYYYMMDD-#####
+  public_id: SUB-YYYYMMDD-#####   # e.g. SUB-20260805-00001 (per-day sequence)
   user_id
-  status: draft | awaiting_shipment | in_transit | psa_reviewing | completed | cancelled
+  status: awaiting_shipment | in_transit | psa_reviewing | completed | cancelled
+          (legacy: draft — no longer created by POST /draft)
   carrier / tracking_number / ship_date / shipped_at
   packing_slip_downloaded_at
 
 vault_submission_items
   cert_number, display_name, grade, image_url
-  status: draft | confirmed | in_transit | reviewing | approved | rejected | minting | completed | failed
+  status: confirmed | in_transit | reviewing | approved | rejected | minting | completed | failed
+          (legacy item draft unused on ship upsert — cards must be confirmed)
   vault_cycle_id  — set when POST /rwa/mint reserves a cycle for this cert
 ```
 
 Scenario key for Vault-Detail UI (A~H) is derived from package + item statuses (`VaultSubmissionService.resolveScenario`).
 
 API (JWT): `GET/POST /api/vault/submissions…` — see `docs/api/vault-submissions.md`.  
-Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/vault/submissions` (packages) · `/marketplace/admin/vault/psa-mail` (mail inbox).
+Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/vault/submissions` (packages) · `/marketplace/admin/vault/psa-mail` (mail inbox) · `/marketplace/admin/vault/mint-queue` (mint & deliver).
 
 **Ship → PSA:** seller tracking → `in_transit`. Arrival is admin **Mark arrived**, or Gmail **Items Received** mail to `tokenable.dev@gmail.com` queued for ops confirm (`vault_psa_arrival_reviews` → Confirm on **PSA mail**). Incomplete parses get `ingest_note` and still queue (never silent-drop). Mail never auto-advances status.
 
-**Sell-flow draft resume:** localStorage holds cards + step progress; signed-in users also upsert via `POST /draft` so another device/browser can restore the open `draft` / `awaiting_shipment` package.
+**PSA → Live:** after `psa_reviewing`, further PSA mail is not expected. Ops use **Mint queue** (`POST …/items/:itemId/mint-and-deliver`): PSA cert analyze → IPFS upload → custody mint → immediate deliver to the depositor’s linked wallet. Item becomes `completed` (product “Live”); seller gets set-price notification with `tokenId`. If an open `minted` cycle already exists for the cert on that chain (e.g. sell-flow minted but never linked the submission item), Mint queue adopts that cycle instead of reminting. Missing PSA slab images fall back to Cardhedger catalog (same resolve as collection cover, e.g. Bubble `crop_image`), then the bundled Tokenable logo.
+
+**Sell-flow draft resume:** Add-cards progress is **localStorage only** (no `status=draft` package rows). Entering `/sell/shipping` **upserts confirmed cards** as `awaiting_shipment` (first durable write; Hub shows Add tracking). Confirm tracking → `in_transit`.
 
 ---
 
@@ -154,19 +158,24 @@ Any state  →  cancelled   (on-chain mint failure; compensating action)
 | `completed` | Admin ops | After physical card shipped (`confirmVaultRelease`) |
 | `cancelled` | Backend (compensating) | On-chain mint failed; cycle released for retry |
 
-### Portfolio Redeem UI (Phase A)
+### Portfolio Redeem UI (design system-5 — pay-first)
 
 User-facing flow (product copy: **Redeem**, route `/portfolio/redeem`):
 
 1. Portfolio My Assets → **Redeem** → select up to 50 eligible cards (not listed, no open redemption)
-2. Draft persisted in `sessionStorage` → `/portfolio/redeem` ship-to form (`TkField` / `TkInput` / `TkSelect`); estimate from `GET /api/rwa/redeem/estimate` (PSA withdraw fee + shipping rates)
-3. **Request redemption** → KYC Level 2 gate → `POST /api/rwa/redeem-request` per token (with `shipTo`)
-4. Holdings show **Redeeming** badge; Set price / list blocked client + server
-5. Admin burn → **Confirm release** on burned cards with `pendingReleaseRedemptionId` → `WD_SHIPPED` deep-links to `/portfolio/redeem?view=transit`
+2. Draft in `sessionStorage` → `/portfolio/redeem` ship-to form; cost from `GET /api/rwa/redeem/estimate?tokenIds=` (retrieval + early if vaulted &lt;90d via `deposited_at` + shipping once)
+3. **Review and pay** → Review & pay screen
+4. **Pay and redeem** → KYC Level 2 → USDC `transfer` to `PLATFORM_FEE_RECIPIENT` → `POST /api/rwa/redeem-batch` (stores `payment_received_usdc_micros`) → buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALLET_ADDRESS` for every batch NFT → `POST /api/rwa/redeem-batch/:batchId/custody` → only when **all** are `in_custody` → **Preparing** (`?view=preparing`)
+5. Mid-transfer abandonment (wallet cancel / close tab): Portfolio shows **Redeeming — finish transfer** → **Finish transfer** → `/portfolio/redeem?view=resume` (Finish NFT transfers; no second USDC). Also works from `/portfolio/redeem?view=preparing` if cards are still `ownership_verified`. Hydrate from open redemptions + optional `sessionStorage`; custody address from `GET /rwa/redeem/custody-wallet`
+6. Holdings show **Redeeming — preparing** for `in_custody` without tracking (and **finish transfer** while `ownership_verified`). Cards already transferred to custody are still listed on Portfolio as redeeming rows (from `GET /rwa/redemptions/mine`), with Set price blocked · **View status** → Preparing
+7. Admin sets **tracking per vault shipment** (`psa_vault` / `partner:<id>`) on the payment batch → that shipment shows **On the way**; when any shipment is tracked the user surface advances to **In transit** with one box per vault (Redeem.html). Carrier is editable on Admin Redeems (including after tracking is set). Refunds lock after any tracking is set.
+8. When **all** vault shipments have tracking, the user can tap **I've received my cards** → `POST /rwa/redeem-batch/:batchId/confirm-received` → status `completed` (**Done** / “In your possession”). Burn / confirm-release may still follow for ops. Portfolio **Redeem** tab keeps completed orders under **Completed** history (`GET /rwa/redemptions/mine` still returns them).
 
-Phase B (not live): shipping estimate, USDC pay (`WD_READY_TO_PAY`), user confirm-receipt. Pay / Done panels exist as UI skeletons only.
+**Refunds (admin):** allowed until a `tracking_number` is set (blocked after burn/completed). USDC refund is **once per payment batch** (stored micros; never recompute) — not once per redemption row. Return custody NFTs via custody signer (per card). UI: `/marketplace/admin/redeems` (batch header shows paid amount + refund actions).
 
-Maintenance SQL for existing DBs: `backend/sql/maintenance/add_vault_redemptions_ship_to.sql`.
+Physical PSA outbound remains ops (no PSA vault withdraw API). Apply `backend/sql/maintenance/add_vault_redemptions_fee_payment.sql`, `add_vault_redemptions_custody_refund.sql`, and `add_vault_redeem_payment_claims.sql` (UNIQUE `payment_tx_hash` claim table + atomic batch create).
+
+Maintenance SQL for ship-to on existing DBs: `backend/sql/maintenance/add_vault_redemptions_ship_to.sql`.
 
 ---
 

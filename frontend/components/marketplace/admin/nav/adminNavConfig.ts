@@ -69,6 +69,18 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         description: "Deliver vaulted cards to users",
       },
       {
+        href: "/marketplace/admin/redeems",
+        label: "Redeems",
+        prefix: "/marketplace/admin/redeems",
+        description: "Payment, custody intake, shipping & refunds",
+      },
+      {
+        href: "/marketplace/admin/self-vault-payouts",
+        label: "Self-vault payouts",
+        prefix: "/marketplace/admin/self-vault-payouts",
+        description: "Confirm & record seller USDC after self-vault sales",
+      },
+      {
         href: "/marketplace/admin/partners",
         label: "Partners",
         prefix: "/marketplace/admin/partners",
@@ -139,6 +151,12 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         label: "PSA mail",
         prefix: "/marketplace/admin/vault/psa-mail",
         description: "Items Received inbox — confirm arrival before At PSA",
+      },
+      {
+        href: "/marketplace/admin/vault/mint-queue",
+        label: "Mint queue",
+        prefix: "/marketplace/admin/vault/mint-queue",
+        description: "At PSA → mint & deliver NFT to depositor (Live)",
       },
       {
         href: "/marketplace/admin/vault/submissions",

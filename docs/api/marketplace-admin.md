@@ -160,13 +160,13 @@ Full deposit/redeem audit history for a physical asset (PSA cert).
 
 **Base:** `/api/marketplace/admin/users`
 
-**Admin UI:** `/marketplace/admin/users` — compact stats + filters (Privy, wallet, KYC states). Expanded row: identity (Privy/Google/password flag), KYC/Sumsub (applicant id, reject reason, event log, approve/reject/reset), auth providers, wallets (source/client/connector/Privy wallet id), watchlist, delete.
+**Admin UI:** `/marketplace/admin/users` (Korean table) → detail `/marketplace/admin/users/:id`. Partner approve from user detail uses `POST /marketplace/admin/partners` (wallet-keyed; no `userId` on partners). Strike / restrict / suspend controls are UI stubs only.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/stats` | Counts incl. `kycApproved` / `kycPending` / `kycRejected` / `kycNone` |
-| GET | `/` | List — filters: `privy`, `with_wallet`, `kyc_approved`, `kyc_pending`, `kyc_rejected`, `kyc_none`, `legacy`, …; search email/Privy/wallet/applicant id |
-| GET | `/:id` | Detail — wallets, auth providers, KYC fields + `kycEvents` |
+| GET | `/` | List — `filter` (KYC / privy / …), `role=partner\|individual`, `accountStatus=all\|active\|restricted\|suspended` (restricted/suspended → empty), search email/name/Privy/wallet. Each item includes `role`, `partner`, `custodyCardCount`, `accountStatus`, `strikeCount` |
+| GET | `/:id` | Detail — same enrichment + wallets, auth providers, KYC fields + `kycEvents` |
 | PATCH | `/:id` | Display name / email verified |
 | POST | `/:id/kyc` | Admin KYC override `{ status, reason? }` — writes `user_kyc_events` (`source: admin`) |
 | DELETE | `/:id` | Delete user |
@@ -206,25 +206,52 @@ New collections start as `pending_review` on first ask **or** admin `create-from
 
 ---
 
-## Partners (consignment wallets)
+## Partners (Self vault + consignment)
 
-**Controller:** `backend/src/marketplace/partners/partners-admin.controller.ts`  
-**Base:** `/api/marketplace/admin/partners`
+**Controllers:**
+- Admin: `backend/src/marketplace/partners/partners-admin.controller.ts` — `/api/marketplace/admin/partners`
+- Public: `backend/src/marketplace/partners/partners-public.controller.ts` — `/api/marketplace/partners`
 
-Register company wallets entrusted to Tokenable. Private keys are AES-256-GCM encrypted with `PARTNER_WALLET_ENCRYPTION_KEY` (32-byte hex) and **never** returned from the API.
+Register company wallets for **Self vault** eligibility and optional partner bulk mint/list. Private keys are optional at create (Self vault only). When present they are AES-256-GCM encrypted with `PARTNER_WALLET_ENCRYPTION_KEY` and **never** returned. Portfolio/listing chips show `{displayName} vault` for `self_vault_hold` tokens (via `rwa_tokens.vault_partner_id`).
+
+Ops can also approve a user as partner from **Users → detail → 파트너 승인** (same `POST` create; wallet must be unique). Revoke uses `PATCH isActive: false`.
 
 | Env | Required | Purpose |
 |-----|----------|---------|
-| `PARTNER_WALLET_ENCRYPTION_KEY` | Yes (for partners/bulk mint) | AES-256-GCM master key — `openssl rand -hex 32` |
+| `PARTNER_WALLET_ENCRYPTION_KEY` | When storing/using a partner PK | AES-256-GCM master key — `openssl rand -hex 32` |
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | List partners (no key material) |
-| GET | `/:id` | Get partner |
-| POST | `/` | Create `{ displayName, walletAddress, privateKey, isActive? }` |
-| PATCH | `/:id` | Update display name / active / rotate `privateKey` |
+| GET | `/api/marketplace/admin/partners` | List partners (`hasPrivateKey`, `hasCompanyAddress`, no key material) |
+| GET | `/api/marketplace/admin/partners/:id` | Get partner |
+| GET | `/api/marketplace/admin/partners/:id/company-address` | Partner company / Self-vault Origin address |
+| PUT | `/api/marketplace/admin/partners/:id/company-address` | Upsert company Origin address (FedEx ship-from) |
+| POST | `/api/marketplace/admin/partners` | Create `{ displayName, walletAddress, privateKey?, isActive? }` |
+| PATCH | `/api/marketplace/admin/partners/:id` | Update display name / active / add or rotate `privateKey` |
+| GET | `/api/marketplace/partners/me` | JWT — partner session + company address status |
+| GET / PUT | `/api/marketplace/partners/me/company-address` | JWT — get / upsert Origin address (active partner only) |
+| GET | `/api/marketplace/partners/self-vault-eligibility?wallet=` | `{ eligible, isPartner, hasCompanyAddress, partnerId, displayName, vaultLabel }` — `eligible` requires company address |
 
-**Existing DB:** `backend/sql/maintenance/add_marketplace_partners.sql`
+Company Origin columns live in `marketplace_partner_addresses` (1:1 with `marketplace_partners`). Country is ISO 3166-1 alpha-2. `region` required for US/CA. Used later as FedEx Rate **shipper** when buyers redeem Self vault cards.
+
+**Existing DB:** `add_marketplace_partners.sql`, then `alter_marketplace_partners_optional_pk.sql` + `add_rwa_tokens_vault_partner_id.sql` if upgrading; for addresses apply `add_marketplace_partner_addresses.sql`.
+
+---
+
+## FedEx Rate probe (admin / Swagger)
+
+**Controller:** `backend/src/rwa/admin/fedex-rate-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/fedex`
+
+Live sandbox/production Rate call using `FEDEX_*` env. Returns OAuth status, the exact POST body we send, raw FedEx JSON, and the quote redeem would pick (cheapest **ACCOUNT** rate when available, else **LIST**; soft stub fallback). Origin/destination must be ISO-2 (no phone inference). Does **not** return client secret.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/rate-probe` | Admin session required. Body: `origin`, `destination`, `destinationBucket` (`us`/`ca`/`intl`), optional `packageCount` |
+
+Swagger tag: `marketplace-admin-fedex` — examples **US→KR** (expect `fedex_rate`), **US→US**, **KR→KR** (rejected — no stub quote; Korea domestic Partner shipping unsupported).
+
+Requires `FEDEX_RATE_ENABLED=true` and `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET` / `FEDEX_ACCOUNT_NUMBER` (+ optional `FEDEX_API_BASE_URL`).
 
 ---
 
@@ -268,19 +295,49 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 
 ---
 
-## Vault submissions (sell-flow ops)
+## Redeems (custody / refund ops)
 
-**Controller:** `vault-submissions-admin.controller.ts`  
-**Base:** `/api/marketplace/admin/vault-submissions`  
-**UI:** `/marketplace/admin/vault/submissions` (packages) · `/marketplace/admin/vault/psa-mail` (Items Received inbox)
+**Controller:** `redeems-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/redeems`  
+**Auth:** Admin session (`assertAdminSession`)
+
+Lists `vault_redemptions` joined to `vault_cycles` + `rwa_tokens` (tokenId, cert, display name). Each row includes computed `paymentStatus` (`unpaid`|`paid`|`refunded`), `custodyStatus` (`pending`|`in_custody`|`returned`|`n/a`), and `shippingStatus` (`pending`|`tracked`|`released`).
+
+**Refund gate:** blocked when any row in the batch has a non-empty `tracking_number`, or `status` ∈ `burned` | `vault_release_pending` | `completed`. USDC refunds use stored `payment_received_usdc_micros` (never fee recompute) via `PlatformFeeWalletService.transferUsdc`. NFT return uses `RwaChainWriterService.safeTransferFromCustody` → `owner_wallet_address`. Chain: `row.chainId` or default (v1 Sepolia `11155111`).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/counts` | Pipeline status counts (`all`, `draft`, `awaiting_shipment`, `in_transit`, `psa_reviewing`, `completed`, `cancelled`) |
+| GET | `/` | List redeems (`?status=&paymentBatchId=&limit=`) |
+| GET | `/batches/:batchId` | All cards in a payment batch |
+| PATCH | `/batches/:batchId/memo` | Body `{ memo }` — same memo on every row in the payment batch (UI: one order) |
+| PATCH | `/batches/:batchId/tracking` | Body `{ shipmentKey, trackingNumber, trackingCarrier? }` — tracking for **one vault shipment** (`psa_vault` or `partner:<id>`); locks refunds for the order. Same tracking # may be re-sent to **update carrier** |
+| PATCH | `/:id/memo` | Body `{ memo }` — single-row memo (solo / fallback) |
+| PATCH | `/:id/tracking` | Body `{ trackingNumber, trackingCarrier? }` — single-row tracking (carrier updatable after number is set) |
+| POST | `/batches/:batchId/refund-usdc` | One PLATFORM_FEE USDC transfer of recorded micros to first row’s owner; idempotent if already `usdc_refunded`/`fully_refunded`. Status → `refunded` when NFT already returned or never in custody; else `refundStatus=usdc_refunded` |
+| POST | `/:id/return-nft` | Custody → owner NFT transfer; requires `in_custody` or `custody_at` |
+| POST | `/batches/:batchId/refund-full` | `refund-usdc` then return every NFT still in custody |
+
+Requires `add_vault_redemptions_custody_refund.sql` applied. Does not change FedEx / rating paths.
+
+**UI:** `/marketplace/admin/redeems` — **one payment batch = one order** (per-vault tracking + carrier / memo / USDC refund; per-card Return NFT list).
+
+---
+
+## Vault submissions (sell-flow ops)
+
+**Controllers:** `vault-submissions-admin.controller.ts` + `vault-submission-admin-mint.controller.ts`  
+**Base:** `/api/marketplace/admin/vault-submissions`  
+**UI:** `/marketplace/admin/vault/submissions` · `/marketplace/admin/vault/psa-mail` · `/marketplace/admin/vault/mint-queue`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/counts` | Pipeline status counts (`all`, `draft` legacy, `awaiting_shipment`, `in_transit`, `psa_reviewing`, `completed`, `cancelled`) |
 | GET | `/arrival-reviews` | PSA Items Received mail queue (`?status=pending\|confirmed\|dismissed`). Includes `ingestNote` when parse was incomplete (`no_certs`, etc.) |
 | POST | `/arrival-reviews/test-inject` | **TEST** inject Items Received into Gmail + poll (`PSA_RECEIVED_MAIL_TEST_INJECT=1`). Body: `{ cert, cardLabel? }` |
 | POST | `/arrival-reviews/:reviewId/confirm` | Confirm mail → mark matched packages arrived (`psa_reviewing`) |
 | POST | `/arrival-reviews/:reviewId/dismiss` | Dismiss without status change |
+| GET | `/mint-queue` | Flat list of cards at PSA (`reviewing`/`approved` on `psa_reviewing` packages). `?q=` |
+| POST | `/:idOrPublicId/items/:itemId/mint-and-deliver` | PSA analyze → IPFS → custody mint → deliver to depositor wallet (requires `x-tokenable-chain-id`). Item → `completed` / Live. If cert already has open `minted` cycle on chain, adopts existing token (no remint; may return `adoptedExisting`). Image fallback: PSA front → Cardhedger mint → item → Cardhedger catalog (collection-cover path) → Tokenable logo |
 | GET | `/` | List submissions (`?status=&q=` — public id, email, name, cert) |
 | GET | `/:idOrPublicId` | Detail + user email/name + items |
 | POST | `/:idOrPublicId/arrived` | Package arrived at PSA → `psa_reviewing`; cards `in_transit`/`confirmed` → `reviewing` |
@@ -288,6 +345,24 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 | PATCH | `/:idOrPublicId/items/:itemId` | Set card status `{ status, rejectionReason? }` |
 
 User-facing JWT API: [vault-submissions.md](./vault-submissions.md).
+
+---
+
+## Self-vault payouts
+
+**Controller:** `self-vault-settlement.controller.ts` (under `/api/marketplace/admin/…`)  
+**UI:** `/marketplace/admin/self-vault-payouts`  
+**Chain:** list is scoped by `x-tokenable-chain-id`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/self-vault-settlements` | Ledger rows (`?status=pending_confirm\|confirmed\|paid\|rejected`) |
+| POST | `/self-vault-settlements/:id/confirm` | Ops confirm (skip buyer) → `confirmed` |
+| POST | `/self-vault-settlements/:id/reject` | Reject |
+| POST | `/self-vault-settlements/:id/execute-payout` | Send `seller_payout_usdc` from `PLATFORM_FEE_PRIVATE_KEY` wallet (auto-confirms if pending) → mark `paid`. Cron also auto-pays ~5 min after fulfill. |
+| POST | `/self-vault-settlements/backfill-missing` | Create ledger rows for fulfilled self-vault asks missing a settlement (repair) |
+
+Created when a `self_vault_hold` ask is fulfilled. Seller net ≈ gross × (1 − `PLATFORM_FEE_BPS`/10000). Auto payout cron: `SELF_VAULT_AUTO_PAYOUT_CRON` / `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` (default 300). See [self-vault-hold-settlement.md](../architecture/self-vault-hold-settlement.md).
 
 ---
 

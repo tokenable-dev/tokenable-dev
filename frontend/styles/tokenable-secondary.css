@@ -222,6 +222,36 @@
   background: rgba(0, 51, 255, 0.08) !important;
 }
 
+/* Override globals.css black scrollbars — admin shell is light. */
+.admin-console,
+.admin-console * {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 #ffffff;
+}
+
+.admin-console *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-console *::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.admin-console *::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+}
+
+.admin-console *::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+.admin-console *::-webkit-scrollbar-corner {
+  background: #ffffff;
+}
+
 /* Dialog wallet highlight blocks */
 
 .secondary-dialog-wallet {
@@ -362,14 +392,46 @@
   background: #12121a;
 }
 
+.kyc-status-card .tk-btn {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
-  .kyc-page__shell {
-    padding-top: 20px;
-    padding-bottom: 48px;
+  .kyc-page {
+    min-height: calc(100dvh - 4rem);
   }
 
+  .kyc-page__shell {
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(48px, calc(24px + env(safe-area-inset-bottom, 0px)));
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+  }
+
+  .kyc-page__title {
+    font-size: 1.4rem;
+  }
+
+  .kyc-page__header--compact {
+    margin-bottom: 12px;
+  }
+
+  .kyc-sdk {
+    border-radius: 12px;
+  }
+
+  /* Prefer viewport-relative height so Sumsub fits without awkward nested scroll. */
   .kyc-sdk__frame,
   .kyc-sdk__frame iframe {
-    min-height: min(70dvh, 560px);
+    min-height: min(78dvh, 720px);
+  }
+}
+
+@media (max-width: 400px) {
+  .kyc-sdk__frame,
+  .kyc-sdk__frame iframe {
+    min-height: min(72dvh, 640px);
   }
 }

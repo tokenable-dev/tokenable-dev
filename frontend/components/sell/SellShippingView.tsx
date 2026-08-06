@@ -41,7 +41,10 @@ export function SellShippingView() {
     return (
       <VaultAuthGate>
         <div className="sell-flow-page">
-          <div className="sell-ship-loading">Loading shipping…</div>
+          <div className="sell-ship-loading" role="status" aria-live="polite">
+            <span className="sell-flow-spinner" aria-hidden />
+            <span>{ship.bootMessage}</span>
+          </div>
         </div>
       </VaultAuthGate>
     );
@@ -91,6 +94,35 @@ export function SellShippingView() {
             onShip={ship.goToPack}
             onLive={() => router.push("/portfolio")}
           />
+
+          {ship.packageSyncError ? (
+            <div className="sell-ship-package-sync sell-ship-package-sync--err" role="alert">
+              <div className="sell-ship-package-sync__body">
+                <p className="sell-ship-package-sync__title">Couldn&rsquo;t save package</p>
+                <p className="sell-ship-package-sync__copy">{ship.packageSyncError}</p>
+              </div>
+              <TkButton
+                type="button"
+                variant="primary"
+                size="sm"
+                className="sell-ship-package-sync__retry"
+                disabled={ship.packageSyncing}
+                onClick={ship.retryPackageSync}
+              >
+                {ship.packageSyncing ? "Saving…" : "Retry save"}
+              </TkButton>
+            </div>
+          ) : ship.packageReady && !ship.confirmed ? (
+            <p className="sell-ship-package-sync sell-ship-package-sync--ok" role="status">
+              Package saved to your account ({ship.cards.length} card
+              {ship.cards.length === 1 ? "" : "s"}). You can leave and finish tracking later from
+              Vault.
+            </p>
+          ) : ship.packageSyncing ? (
+            <p className="sell-ship-package-sync sell-ship-package-sync--pending" role="status">
+              Saving package…
+            </p>
+          ) : null}
 
           {ship.panel === "pack" ? (
             <div className="sell-ship-panel">
@@ -209,7 +241,6 @@ export function SellShippingView() {
                         <div className="sell-ship-package-row__name">{card.name}</div>
                         <div className="sell-ship-package-row__meta tkl-mono">
                           PSA {card.grade} · Cert #{card.cert}
-                          {!card.confirmed ? " · not confirmed" : ""}
                         </div>
                       </div>
                       <button
@@ -274,7 +305,11 @@ export function SellShippingView() {
               </TkButton>
               {!ship.canContinuePack ? (
                 <p className="sell-ship-gate-hint">
-                  Download the Packing Slip and finish the checklist to continue.
+                  {ship.packageSyncError
+                    ? "Save your package (retry above) before continuing."
+                    : ship.packageSyncing
+                      ? "Saving your package…"
+                      : "Download the Packing Slip and finish the checklist to continue."}
                 </p>
               ) : null}
             </div>
@@ -364,12 +399,21 @@ export function SellShippingView() {
                     <>
                       <CheckIcon size={16} /> Shipment confirmed
                     </>
+                  ) : ship.confirming ? (
+                    <>
+                      <span className="sell-flow-spinner" aria-hidden /> Confirming…
+                    </>
                   ) : (
                     <>
                       Confirm shipment <ArrowRightIcon />
                     </>
                   )}
                 </TkButton>
+                {!ship.packageReady && !ship.confirmed ? (
+                  <p className="sell-ship-gate-hint">
+                    Save your package before confirming tracking.
+                  </p>
+                ) : null}
               </div>
 
               <div className="sell-ship-warn">

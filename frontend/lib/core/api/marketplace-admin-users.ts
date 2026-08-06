@@ -24,6 +24,13 @@ export type AdminUserFilter =
   | "kyc_rejected"
   | "kyc_none";
 
+export type AdminUserRoleFilter = "partner" | "individual";
+export type AdminUserAccountStatusFilter =
+  | "all"
+  | "active"
+  | "restricted"
+  | "suspended";
+
 export type AdminAuthProviderRow = {
   id: string;
   providerType: string;
@@ -33,6 +40,13 @@ export type AdminAuthProviderRow = {
   displayName: string | null;
   isVerified: boolean;
   linkedAt: string;
+};
+
+export type AdminUserPartnerInfo = {
+  id: string;
+  displayName: string;
+  walletAddress: string;
+  isActive: boolean;
 };
 
 export type AdminUserSummary = {
@@ -53,6 +67,11 @@ export type AdminUserSummary = {
   lastPrivySyncAt: string | null;
   createdAt: string;
   updatedAt: string;
+  role: "partner" | "individual";
+  partner: AdminUserPartnerInfo | null;
+  custodyCardCount: number;
+  accountStatus: "active";
+  strikeCount: number;
 };
 
 export type AdminUserWalletRow = {
@@ -120,6 +139,8 @@ export async function getAdminUserStats(): Promise<AdminUserStats> {
 export async function getAdminUsers(params: {
   q?: string;
   filter?: AdminUserFilter;
+  role?: AdminUserRoleFilter;
+  accountStatus?: AdminUserAccountStatusFilter;
   page?: number;
   limit?: number;
 }): Promise<{
@@ -132,6 +153,10 @@ export async function getAdminUsers(params: {
   const sp = new URLSearchParams();
   if (params.q?.trim()) sp.set("q", params.q.trim());
   if (params.filter && params.filter !== "all") sp.set("filter", params.filter);
+  if (params.role) sp.set("role", params.role);
+  if (params.accountStatus && params.accountStatus !== "all") {
+    sp.set("accountStatus", params.accountStatus);
+  }
   if (params.page != null) sp.set("page", String(params.page));
   if (params.limit != null) sp.set("limit", String(params.limit));
   const qs = sp.toString();
@@ -261,6 +286,12 @@ export function formatAdminUserEmail(email: string): string {
   return email;
 }
 
+/** Display-only short id matching admin users mockup (U-xxxxx). */
+export function formatAdminUserShortId(userId: string): string {
+  const hex = userId.replace(/-/g, "").slice(0, 5).toUpperCase();
+  return `U-${hex}`;
+}
+
 export function formatPrivyAuthMethod(method: AdminPrivyAuthMethod): string {
   const labels: Record<AdminPrivyAuthMethod, string> = {
     wallet: "Wallet",
@@ -289,10 +320,32 @@ export function formatAuthProviderLabel(type: string): string {
 }
 
 export function formatKycStatus(status: AdminUserSummary["kycStatus"]): string {
-  if (status === "approved") return "KYC ✓";
-  if (status === "pending") return "KYC …";
-  if (status === "rejected") return "KYC ✕";
-  return "KYC —";
+  if (status === "approved") return "검수 통과";
+  if (status === "pending") return "심사 중";
+  if (status === "rejected") return "실패";
+  return "해당 없음";
+}
+
+export function formatAdminJoinDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
+
+export function userInitials(name: string | null, email: string): string {
+  const n = name?.trim();
+  if (n) {
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+    }
+    return n.slice(0, 2).toUpperCase();
+  }
+  const local = formatAdminUserEmail(email).replace(/\(wallet.*$/i, "").trim();
+  return local.slice(0, 2).toUpperCase() || "?";
 }
 
 export function privyAuthMethodBadgeClass(method: AdminPrivyAuthMethod): string {

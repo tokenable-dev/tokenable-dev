@@ -91,6 +91,7 @@ export async function analyzePsaByCertForAdmin(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ certNumber: certNumber.trim() }),
+    timeoutMs: 55_000,
   });
   await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
@@ -108,6 +109,7 @@ export async function analyzePsaSlabForAdmin(
   const res = await backendFetch(`${getApiUrl()}/psa/analyze`, {
     method: "POST",
     body: fd,
+    timeoutMs: 55_000,
   });
   await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;

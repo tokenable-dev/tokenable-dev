@@ -35,16 +35,17 @@ export function ListRwaModal(props: ListRwaModalProps) {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (shell === "sheet") return;
+    if (shell === "sheet" || modal.step === "success") return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [shell]);
+  }, [shell, modal.step]);
 
-  const body =
-    modal.step === "success" ? (
+  // portfolio-modals.js `pfSaleResult`: close set-price sheet, then centered overlay.
+  if (modal.step === "success") {
+    return (
       <ListRwaModalSuccessView
         tokenId={tokenId}
         price={modal.price}
@@ -54,36 +55,39 @@ export function ListRwaModal(props: ListRwaModalProps) {
         settlementPolicy={modal.settlementPolicy}
         onClose={onClose}
       />
-    ) : (
-      <ListRwaModalFormView
-        tokenId={tokenId}
-        assetTitle={assetTitle}
-        collectionKey={collectionKey}
-        isReplaceListing={modal.isReplaceListing}
-        price={modal.price}
-        onPriceChange={modal.setPrice}
-        crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
-        selectedBidHash={modal.selectedBidHash}
-        onSelectBidHash={modal.setSelectedBidHash}
-        topCollectionBid={modal.topCollectionBid}
-        marketValueUsd={marketValueUsd}
-        listedPriceUsd={listedPriceUsd}
-        onRequestCancelListing={onRequestCancelListing}
-        onClose={onClose}
-        copyVariant={copyVariant}
-        settlementPolicy={modal.settlementPolicy}
-        step={modal.step}
-        errorMsg={modal.errorMsg}
-        isProcessing={modal.isProcessing}
-        onSubmit={() => void modal.handleList()}
-        variant={formVariant}
-      />
     );
+  }
+
+  const form = (
+    <ListRwaModalFormView
+      tokenId={tokenId}
+      assetTitle={assetTitle}
+      collectionKey={collectionKey}
+      isReplaceListing={modal.isReplaceListing}
+      price={modal.price}
+      onPriceChange={modal.setPrice}
+      crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
+      selectedBidHash={modal.selectedBidHash}
+      onSelectBidHash={modal.setSelectedBidHash}
+      topCollectionBid={modal.topCollectionBid}
+      marketValueUsd={marketValueUsd}
+      listedPriceUsd={listedPriceUsd}
+      onRequestCancelListing={onRequestCancelListing}
+      onClose={onClose}
+      copyVariant={copyVariant}
+      settlementPolicy={modal.settlementPolicy}
+      step={modal.step}
+      errorMsg={modal.errorMsg}
+      isProcessing={modal.isProcessing}
+      onSubmit={() => void modal.handleList()}
+      variant={formVariant}
+    />
+  );
 
   if (shell === "sheet") {
     return (
       <TkActionSheet open onClose={onClose} aria-label={sheetLabel}>
-        {body}
+        {form}
       </TkActionSheet>
     );
   }
@@ -105,7 +109,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         >
           ✕
         </button>
-        {body}
+        {form}
       </div>
     </div>,
     document.body,

@@ -69,9 +69,11 @@ export async function analyzePsaSlab(
   fd.append("slabFront", slabFront);
   if (slabBack) fd.append("slabBack", slabBack);
   if (certHint?.trim()) fd.append("certNumber", certHint.trim());
+  // Slab OCR + Cardhedger can exceed the default 25s API budget; nginx allows 60s.
   const res = await backendFetch(`${getApiUrl()}/psa/analyze`, {
     method: "POST",
     body: fd,
+    timeoutMs: 55_000,
   });
   await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
@@ -85,6 +87,7 @@ export async function analyzePsaByCertNumber(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ certNumber: certNumberOrUrl.trim() }),
+    timeoutMs: 55_000,
   });
   await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;

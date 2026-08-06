@@ -29,25 +29,14 @@ function packageMeta(items: VaultSubmissionApi["items"]) {
 
 function apiToInProgress(s: VaultSubmissionApi): VaultInProgressItem | null {
   if (s.status === "cancelled" || s.status === "completed") return null;
-  if (!["awaiting_shipment", "in_transit", "psa_reviewing", "draft"].includes(s.status)) {
+  // Pre-ship add-cards drafts are local-only — never surface status=draft here.
+  if (!["awaiting_shipment", "in_transit", "psa_reviewing"].includes(s.status)) {
     return null;
   }
 
   const meta = packageMeta(s.items);
   const carrier = (s.carrier ?? "fedex") as SellCarrier;
   const resumeHref = sellSubmissionResumeHref(s.status, s.publicId);
-
-  if (s.status === "draft") {
-    return {
-      id: s.publicId,
-      ...meta,
-      statusKind: "action-needed",
-      statusLabel: "Draft",
-      detail: `${meta.cardCount} card${meta.cardCount === 1 ? "" : "s"} saved`,
-      actionNeeded: true,
-      cta: { label: "Continue", href: resumeHref, primary: true },
-    };
-  }
 
   if (s.status === "awaiting_shipment") {
     return {
@@ -57,7 +46,7 @@ function apiToInProgress(s: VaultSubmissionApi): VaultInProgressItem | null {
       statusLabel: "Shipping to vault",
       detail: "Tracking number required",
       actionNeeded: true,
-      cta: { label: "Add tracking", href: "/sell/shipping", primary: true },
+      cta: { label: "Add tracking", href: resumeHref, primary: true },
     };
   }
 
@@ -247,7 +236,6 @@ export function useHasSellShipment(): boolean {
         setHas(
           rows.some(
             (r) =>
-              r.status === "draft" ||
               r.status === "awaiting_shipment" ||
               r.status === "in_transit" ||
               r.status === "psa_reviewing",

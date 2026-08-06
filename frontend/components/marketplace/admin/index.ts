@@ -2,10 +2,17 @@ export { AdminGa4ExternalLink } from "./AdminGa4ExternalLink";
 export { MarketplaceAdminAnalyticsPage } from "./MarketplaceAdminAnalyticsPage";
 export { MarketplaceAdminOverviewPage } from "./MarketplaceAdminOverviewPage";
 export { MarketplaceAdminUsersPage } from "./MarketplaceAdminUsersPage";
-export { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
+export { MarketplaceAdminUserDetailPage } from "./MarketplaceAdminUserDetailPage";
+export {
+  MarketplaceAdminUserManagePanel,
+  MarketplaceAdminUserRow,
+} from "./MarketplaceAdminUserRow";
+export { MarketplaceAdminPartnerApproveModal } from "./MarketplaceAdminPartnerApproveModal";
 export { MarketplaceAdminContractRolesPage } from "./MarketplaceAdminContractRolesPage";
 export { MarketplaceAdminCardsPage } from "./MarketplaceAdminCardsPage";
 export { MarketplaceAdminCustodyNftsPage } from "./MarketplaceAdminCustodyNftsPage";
+export { MarketplaceAdminSelfVaultSettlementsPage } from "./MarketplaceAdminSelfVaultSettlementsPage";
+export { MarketplaceAdminRedeemsPage } from "./MarketplaceAdminRedeemsPage";
 export { MarketplaceAdminBulkMintPage } from "./MarketplaceAdminBulkMintPage";
 export { MarketplaceAdminPartnersPage } from "./MarketplaceAdminPartnersPage";
 export { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";

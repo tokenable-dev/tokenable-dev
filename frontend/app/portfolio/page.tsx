@@ -29,9 +29,13 @@ import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import {
   getPortfolioActivityOrders,
+  marketplaceRqPolicy,
+  postRwaMetadataBatchBatched,
+  postRwaVaultInfoBatch,
   putPortfolioCostBasis,
   rq,
   type Order,
+  type RwaMetadata,
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
@@ -47,6 +51,7 @@ import {
   PortfolioCancelBidConfirmModal,
   PortfolioCancelListingConfirmModal,
   PortfolioHoldingsSection,
+  PortfolioRedeemInProgressSection,
   PortfolioMainSection,
   type PortfolioMainTab,
   PortfolioSummaryBar,
@@ -81,7 +86,8 @@ export default function PortfolioPage() {
     Boolean(portfolioAddress) &&
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
-  const isMobileViewport = useIsMobileViewport();
+  /** Align with GNB / portfolio CSS mobile breakpoint (≤1024). */
+  const isMobileViewport = useIsMobileViewport(1024);
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
   const [savingCostBasisTokenId, setSavingCostBasisTokenId] = useState<number | null>(null);
   const [listModal, setListModal] = useState<{
@@ -105,6 +111,10 @@ export default function PortfolioPage() {
     const tab = searchParams.get("tab");
     if (tab === "bids") {
       setPortfolioMainTab("bids");
+      return;
+    }
+    if (tab === "redeem" || tab === "redemptions") {
+      setPortfolioMainTab("redeem");
       return;
     }
     if (tab === "history" || tab === "transaction-history" || tab === "watchlist") {
@@ -232,6 +242,57 @@ export default function PortfolioPage() {
     [activityQuery.data],
   );
 
+  const activityTokenIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const o of fulfilledOrders) {
+      const tid = Number(o.tokenId);
+      if (Number.isFinite(tid) && tid >= 0) ids.add(tid);
+    }
+    return [...ids].sort((a, b) => a - b);
+  }, [fulfilledOrders]);
+
+  const activityMetaQuery = useQuery({
+    queryKey: rq.rwaMetadataBatch(
+      portfolioAddress,
+      activityTokenIds,
+      activeRqChainId(),
+    ),
+    queryFn: () => postRwaMetadataBatchBatched(activityTokenIds),
+    enabled: Boolean(portfolioDataEnabled && portfolioAddress && activityTokenIds.length > 0),
+    staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
+  });
+
+  const activityMetadataByTokenId = useMemo(() => {
+    const m = new Map<number, RwaMetadata | null>(metadataByTokenId);
+    for (const item of activityMetaQuery.data?.items ?? []) {
+      m.set(item.tokenId, item.metadata);
+    }
+    return m;
+  }, [metadataByTokenId, activityMetaQuery.data]);
+
+  const vaultInfoQuery = useQuery({
+    queryKey: rq.rwaVaultInfoBatch(
+      portfolioAddress,
+      loadedTokenIds,
+      activeRqChainId(),
+    ),
+    queryFn: () => postRwaVaultInfoBatch(loadedTokenIds),
+    enabled: Boolean(
+      portfolioDataEnabled && portfolioAddress && loadedTokenIds.length > 0,
+    ),
+    staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
+  });
+
+  const vaultLabelByTokenId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const item of vaultInfoQuery.data?.items ?? []) {
+      const tid = Number(item.tokenId);
+      if (!Number.isFinite(tid)) continue;
+      m.set(tid, item.vaultLabel || "PSA Vault");
+    }
+    return m;
+  }, [vaultInfoQuery.data]);
+
   const { costBasisByTokenId, hiddenSet } = usePortfolioHoldings(
     portfolioAddress,
     tokenIds,
@@ -291,23 +352,184 @@ export default function PortfolioPage() {
 
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
-    return buildPortfolioTxRows(fulfilledOrders, portfolioAddress, assets);
-  }, [fulfilledOrders, portfolioAddress, assets]);
+    return buildPortfolioTxRows(
+      fulfilledOrders,
+      portfolioAddress,
+      activityMetadataByTokenId,
+    );
+  }, [fulfilledOrders, portfolioAddress, activityMetadataByTokenId]);
 
   const visibleAssetRows = useMemo(
     () => assetRows.filter((row) => !hiddenSet.has(row.tokenId)),
     [assetRows, hiddenSet],
   );
 
-  const { redeemStatusByTokenId } = useMyRedemptions(
-    portfolioDataEnabled ? tokenIds : [],
-  );
+  const { redeemStatusByTokenId, redeemTrackingByTokenId, inFlightRows, completedRows, query: myRedemptionsQuery } =
+    useMyRedemptions(portfolioDataEnabled);
+
+  const ownedTokenIdSet = useMemo(() => new Set(tokenIds), [tokenIds]);
+
+  const phantomRedeemTokenIds = useMemo(() => {
+    const ids: number[] = [];
+    const seen = new Set<number>();
+    for (const row of inFlightRows) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id) || ownedTokenIdSet.has(id) || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }, [inFlightRows, ownedTokenIdSet]);
+
+  /** In-flight + completed (not in wallet) — name/image for Redeem tab. */
+  const redeemMetaTokenIds = useMemo(() => {
+    const ids: number[] = [];
+    const seen = new Set<number>();
+    for (const row of [...inFlightRows, ...completedRows]) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id) || ownedTokenIdSet.has(id) || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }, [inFlightRows, completedRows, ownedTokenIdSet]);
+
+  const phantomMetaQuery = useQuery({
+    queryKey: [
+      "rwa",
+      "metadata",
+      "redeem-phantom",
+      redeemMetaTokenIds.join(","),
+      activeRqChainId(),
+    ],
+    queryFn: () => postRwaMetadataBatchBatched(redeemMetaTokenIds),
+    enabled: portfolioDataEnabled && redeemMetaTokenIds.length > 0,
+    staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
+  });
+
+  const redeemPhantomAssetRows = useMemo(() => {
+    if (phantomRedeemTokenIds.length === 0) return [] as typeof assetRows;
+    const byId = new Map(
+      (phantomMetaQuery.data?.items ?? []).map((it) => [it.tokenId, it]),
+    );
+    return phantomRedeemTokenIds.map((tokenId) => {
+      const it = byId.get(tokenId);
+      const meta = (it?.metadata ?? null) as RwaMetadata | null;
+      const name =
+        meta && typeof meta.name === "string" && meta.name.trim()
+          ? meta.name.trim()
+          : `RWA #${tokenId}`;
+      return {
+        tokenId,
+        name,
+        imageUrl: it?.imageUrl ?? null,
+        category: null,
+        amount: 1,
+        currentPrice: null,
+        priceSource: "none" as const,
+        liquidityLabel: null,
+        listPriceUsd: null,
+        activeListingOrderHash: null,
+        setName: null,
+        marketPreviewRaw: null,
+      };
+    });
+  }, [phantomRedeemTokenIds, phantomMetaQuery.data]);
+
+  const redeemHistoryAssetRows = useMemo(() => {
+    const inFlightSet = new Set(phantomRedeemTokenIds);
+    const completedIds: number[] = [];
+    const seen = new Set<number>();
+    for (const row of completedRows) {
+      const id = Number(row.tokenId);
+      if (
+        !Number.isFinite(id) ||
+        ownedTokenIdSet.has(id) ||
+        inFlightSet.has(id) ||
+        seen.has(id)
+      ) {
+        continue;
+      }
+      seen.add(id);
+      completedIds.push(id);
+    }
+    if (completedIds.length === 0) return [] as typeof assetRows;
+    const byId = new Map(
+      (phantomMetaQuery.data?.items ?? []).map((it) => [it.tokenId, it]),
+    );
+    return completedIds.map((tokenId) => {
+      const it = byId.get(tokenId);
+      const meta = (it?.metadata ?? null) as RwaMetadata | null;
+      const name =
+        meta && typeof meta.name === "string" && meta.name.trim()
+          ? meta.name.trim()
+          : `RWA #${tokenId}`;
+      return {
+        tokenId,
+        name,
+        imageUrl: it?.imageUrl ?? null,
+        category: null,
+        amount: 1,
+        currentPrice: null,
+        priceSource: "none" as const,
+        liquidityLabel: null,
+        listPriceUsd: null,
+        activeListingOrderHash: null,
+        setName: null,
+        marketPreviewRaw: null,
+      };
+    });
+  }, [
+    completedRows,
+    phantomRedeemTokenIds,
+    ownedTokenIdSet,
+    phantomMetaQuery.data,
+  ]);
 
   const redeemSelection = useRedeemSelection({
     assetRows: visibleAssetRows,
     metadataByTokenId,
     redeemStatusByTokenId,
+    vaultLabelByTokenId,
   });
+
+  const holdingsDisplayRows = useMemo(() => {
+    if (redeemPhantomAssetRows.length === 0) return visibleAssetRows;
+    /* Redeeming (custody) cards first so Preparing status stays visible. */
+    return [...redeemPhantomAssetRows, ...visibleAssetRows];
+  }, [redeemPhantomAssetRows, visibleAssetRows]);
+
+  const holdingsMetadataByTokenId = useMemo(() => {
+    const m = new Map(metadataByTokenId);
+    for (const it of phantomMetaQuery.data?.items ?? []) {
+      if (!m.has(it.tokenId)) {
+        m.set(it.tokenId, (it.metadata ?? null) as RwaMetadata | null);
+      }
+    }
+    return m;
+  }, [metadataByTokenId, phantomMetaQuery.data]);
+
+  const holdingsDisplayCount = useMemo(
+    () =>
+      Math.max(0, tokenIds.filter((id) => !hiddenSet.has(id)).length) +
+      redeemPhantomAssetRows.length,
+    [tokenIds, hiddenSet, redeemPhantomAssetRows.length],
+  );
+
+  const assetRowsByTokenId = useMemo(() => {
+    const m = new Map<number, (typeof holdingsDisplayRows)[number]>();
+    for (const row of holdingsDisplayRows) m.set(row.tokenId, row);
+    for (const row of redeemHistoryAssetRows) {
+      if (!m.has(row.tokenId)) m.set(row.tokenId, row);
+    }
+    return m;
+  }, [holdingsDisplayRows, redeemHistoryAssetRows]);
+
+  const redeemInProgressCount = inFlightRows.length;
 
   const openPortfolioSetPriceModal = useCallback(
     (tokenId: number) => {
@@ -459,13 +681,29 @@ export default function PortfolioPage() {
 
         <PortfolioMainSection
           activeTab={portfolioMainTab}
+          counts={{
+            assets: holdingsDisplayCount,
+            redeem: redeemInProgressCount,
+            bids: myBids.activeBids.length,
+            history: txRows.length,
+          }}
+          showRedeemButton={
+            portfolioMainTab === "collectibles" && !redeemSelection.selectMode
+          }
+          onEnterRedeemSelect={redeemSelection.enterSelectMode}
           onTabChange={(tab) => {
             if (tab !== "collectibles" && redeemSelection.selectMode) {
               redeemSelection.exitSelectMode();
             }
             setPortfolioMainTab(tab);
             const next =
-              tab === "bids" ? "bids" : tab === "history" ? "history" : "assets";
+              tab === "bids"
+                ? "bids"
+                : tab === "history"
+                  ? "history"
+                  : tab === "redeem"
+                    ? "redeem"
+                    : "assets";
             const params = new URLSearchParams(searchParams.toString());
             params.set("tab", next);
             const qs = params.toString();
@@ -474,8 +712,8 @@ export default function PortfolioPage() {
           collectiblesPanel={
             <PortfolioHoldingsSection
               assetsSectionLoading={assetsSectionLoading}
-              assetRows={visibleAssetRows}
-              metadataByTokenId={metadataByTokenId}
+              assetRows={holdingsDisplayRows}
+              metadataByTokenId={holdingsMetadataByTokenId}
               tokenToCollectionKey={tokenToCollectionKey}
               bidsByCollectionKey={bidsByCollectionKey}
               costBasisByTokenId={costBasisByTokenId}
@@ -499,7 +737,7 @@ export default function PortfolioPage() {
               redeemEligibleIds={redeemSelection.eligibleIds}
               redeemLimitError={redeemSelection.limitError}
               redeemStatusByTokenId={redeemStatusByTokenId}
-              onEnterRedeemSelect={redeemSelection.enterSelectMode}
+              redeemTrackingByTokenId={redeemTrackingByTokenId}
               onExitRedeemSelect={redeemSelection.exitSelectMode}
               onToggleRedeemToken={redeemSelection.toggleToken}
               onContinueRedeem={redeemSelection.goToRedeem}
@@ -507,11 +745,17 @@ export default function PortfolioPage() {
               hasMoreAssets={hasMoreAssets}
               isLoadingMoreAssets={isLoadingMoreAssets}
               onLoadMoreAssets={loadMoreAssets}
-              loadedAssetCount={visibleAssetRows.length}
-              totalAssetCount={Math.max(
-                0,
-                tokenIds.filter((id) => !hiddenSet.has(id)).length,
-              )}
+              loadedAssetCount={holdingsDisplayRows.length}
+              totalAssetCount={holdingsDisplayCount}
+              vaultLabelByTokenId={vaultLabelByTokenId}
+            />
+          }
+          redeemPanel={
+            <PortfolioRedeemInProgressSection
+              loading={myRedemptionsQuery.isLoading}
+              inFlightRows={inFlightRows}
+              completedRows={completedRows}
+              assetRowsByTokenId={assetRowsByTokenId}
             />
           }
           bidsPanel={

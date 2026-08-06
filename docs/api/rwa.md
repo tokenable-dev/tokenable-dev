@@ -64,14 +64,24 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
 | `recipientAddress` | Yes | Must be linked to the authenticated user account |
 | `tokenURI` | Yes | From `POST /rwa/upload` |
 | `certNumber` | Yes | PSA cert number — permanent physical asset identity; used to derive `vaultRef = keccak256(certNumber.toUpperCase())` |
-| `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`) |
+| `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`; **active marketplace partner wallet + company Origin address required**) |
+
+**Self vault (`direct`) errors (403):**
+
+| `code` | When |
+|--------|------|
+| `SELF_VAULT_PARTNER_ONLY` | Wallet is not an active `marketplace_partners` row |
+| `COMPANY_ADDRESS_REQUIRED` | Partner has no `marketplace_partner_addresses` Origin — set in Settings → Addresses |
+
+Backend enforcement is via `MarketplacePartnersService.assertSelfVaultEligibleForWallet` (do not rely on frontend alone). PSA vault (`custody`), markets, redeem-batch, and settlements are **not** gated by company address.
 
 **Flow:**
 1. Validates `recipientAddress` is linked to the JWT user's account
-2. `VaultService.reserveCycleForDeposit()` — opens a vault cycle; fails if cert already has open cycle
-3. `RwaChainWriterService.mintTo(mintTo, tokenURI, vaultRef)` — `mintTo` is custody (`custody`) or `recipientAddress` (`direct`)
-4. `VaultService.recordMintResult()` — links `rwa_tokens` to vault cycle; sets `settlement_policy` to `self_vault_hold` when `direct`, else `standard`
-5. If `direct`: seeds `vault_delivery` cost basis from current mark USD (same as admin deliver)
+2. If `direct`: asserts partner + company Origin (`COMPANY_ADDRESS_REQUIRED` / `SELF_VAULT_PARTNER_ONLY`)
+3. `VaultService.reserveCycleForDeposit()` — opens a vault cycle; fails if cert already has open cycle
+4. `RwaChainWriterService.mintTo(mintTo, tokenURI, vaultRef)` — `mintTo` is custody (`custody`) or `recipientAddress` (`direct`)
+5. `VaultService.recordMintResult()` — links `rwa_tokens` to vault cycle; sets `settlement_policy` to `self_vault_hold` when `direct`, else `standard`; stores `vault_partner_id` for Self vault labels
+6. If `direct`: seeds `vault_delivery` cost basis from current mark USD (same as admin deliver)
 
 **Response:**
 
@@ -99,46 +109,56 @@ For self vault (`deliveryMode: "direct"`), `mintedTo` equals `intendedRecipient`
 
 ---
 
-## `POST /api/rwa/redeem-request`
+## `POST /api/rwa/redeem-batch`
 
-**Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id` (required)
+**Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id` (required) · **v1 chain:** Sepolia (`11155111`) only
 
-User-initiated redemption request from Portfolio → Redeem. Verifies the caller currently owns the NFT on the requested chain, requires KYC Level 2 (`assertKycApprovedForCustody`), then records the request with optional ship-to address. Actual on-chain burn + physical vault release are ops steps (see admin endpoints).
-
-USDC payment (`WD_READY_TO_PAY`) is **not** implemented yet (Phase B). Shipping / redeem fee **estimates** are available via `GET /api/rwa/redeem/estimate` (PSA Vault published rates).
-
-**Request body:**
+Pay-first multi-card redeem. Client transfers USDC to `PLATFORM_FEE_RECIPIENT`, then posts the tx hash with `tokenIds` + `shipTo`. Backend verifies the ERC-20 `Transfer` amount ≥ estimate, stores the **exact** receipted amount as `payment_received_usdc_micros` (canonical refund amount — never recompute from fees), and creates one `vault_redemptions` row per token (`status=ownership_verified`) with fee snapshots.
 
 ```json
 {
-  "tokenId": 4,
-  "shipTo": {
-    "name": "Daisy Kim",
-    "line1": "123 Market St",
-    "line2": "Apt 4",
-    "city": "San Francisco",
-    "region": "CA",
-    "postal": "94105",
-    "country": "us",
-    "phone": "+1 555 000 0000"
-  }
+  "tokenIds": [4, 5],
+  "shipTo": { "name": "…", "line1": "…", "city": "…", "postal": "…", "country": "us", "phone": "…" },
+  "paymentTxHash": "0x…"
 }
 ```
 
-`shipTo.country` is one of `us` | `ca` | `intl`. Address fields are stored on `vault_redemptions` (`ship_to_*` columns).
+**Response includes** `paymentBatchId`, `paymentReceivedUsdcMicros`, `custodyWalletAddress` (`RWA_CUSTODY_WALLET_ADDRESS`), `nextStep: "transfer_nfts_to_custody"`.
 
-**Flow:**
-1. Asserts KYC approved for custody
-2. Loads on-chain owner for `tokenId` on the chain from the header
-3. Verifies that owner is a wallet linked to the JWT user
-4. `VaultService.requestRedemption()` — creates `vault_redemptions` row (`ownership_verified`), sets cycle to `redemption_requested`, emits `WD_REQUEST_RECEIVED`
-5. Marketplace listing create is blocked while the cycle is `redemption_requested` / `redeemed`
+Payment uniqueness is enforced by `vault_redeem_payment_claims.payment_tx_hash` (PRIMARY KEY). Batch row creation runs in a single DB transaction so a failed card rolls back the claim and all sibling rows.
 
-**Response:** `VaultRedemption` entity (includes `id`, `status`, ship-to fields).
+Fee snapshot columns: `fee_retrieval_usd`, `fee_early_withdrawal_usd`, `fee_shipping_usd`, `fee_total_usd`, `payment_tx_hash`, `payment_batch_id`, `paid_at`, `payment_received_usdc_micros`, `vaulted_at`, `early_withdrawal`, `chain_id`.
 
-**Next steps (admin):**
-- `POST /api/marketplace/admin/rwa-tokens/:tokenId/burn` — burns token + sets cycle to `redeemed`
-- `POST /api/marketplace/admin/rwa-tokens/redemptions/:redemptionId/confirm-release` — marks physical card as released (`WD_SHIPPED` → FE `/portfolio/redeem?view=transit`)
+Early withdrawal uses `vault_cycles.deposited_at` vs `PSA_VAULT_EARLY_WITHDRAWAL_DAYS` (default 90). Unknown age → early fee charged (conservative).
+
+### `POST /api/rwa/redeem-batch/:batchId/custody`
+
+**Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id`
+
+After the buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALLET_ADDRESS`, post transfer hashes for tokens still needing confirmation. Backend verifies Transfer logs + current `ownerOf` == custody, then marks each row `in_custody`. Tokens **already** owned by custody on-chain (partial resume after wallet cancel) are accepted without a new tx — `transfers` may be `[]` when every outstanding NFT is already at custody. **No partial advance** — any token still in the user wallet without a matching transfer → 400. When `allInCustody=true`, the redeem UI may show Preparing.
+
+```json
+{
+  "transfers": [
+    { "tokenId": 4, "txHash": "0x…" },
+    { "tokenId": 5, "txHash": "0x…" }
+  ]
+}
+```
+
+The backend never pulls NFTs from the buyer. PSA Vault and Partner Self Vault share this custody intake; shipping provider differs later.
+
+**Ops after custody:** Admin sets **tracking per vault shipment** (and optional **carrier**) → user In transit. User confirms receipt via `confirm-received` → Done (`completed`). Burn / confirm-release may still follow for ops. Admin refunds (USDC + NFT return) until a tracking number is set — see `docs/api/marketplace-admin.md` Redeems.
+
+### `POST /api/rwa/redeem-batch/:batchId/confirm-received`
+
+**Guard:** `JwtAuthGuard`
+
+User tap **I've received my cards**. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at`. Idempotent if already completed.
+
+## `POST /api/rwa/redeem-request`
+
+**Deprecated** for unpaid calls — returns 400 directing clients to `redeem-batch`.
 
 ---
 
@@ -146,43 +166,62 @@ USDC payment (`WD_READY_TO_PAY`) is **not** implemented yet (Phase B). Shipping 
 
 **Guard:** `JwtAuthGuard`
 
-Lists the signed-in user's redemption rows (excludes `failed` / `cancelled`) for portfolio badges and redeem status surfaces.
+Lists the signed-in user's redemption rows (excludes `failed` / `cancelled`) for portfolio badges and redeem status surfaces — including **`completed`** (Redeem tab history).
 
 **Query:** `tokenIds` (optional CSV of numeric token IDs)
 
-**Response:** array of `{ redemptionId, tokenId, tokenContract, status, vaultCycleStatus, requestedAt, vaultReleasedAt }`
+**Response:** array of `{ redemptionId, tokenId, tokenContract, status, vaultCycleStatus, requestedAt, vaultReleasedAt, paymentBatchId, paymentTxHash, custody…, feeRetrievalUsd, feeEarlyWithdrawalUsd, feeShippingUsd, feeTotalUsd, paymentReceivedUsdcMicros, earlyWithdrawal }` — fee columns are **per-card snapshots**; `paymentReceivedUsdcMicros` is **batch-total** (identical on sibling rows — do not SUM).
 
 ---
 
 ## `GET /api/rwa/redeem/estimate`
 
-**Guard:** none (public rate schedule)
+**Guard:** none · `x-tokenable-chain-id` **required** when `tokenIds` is set
 
-Returns an estimate of redeem cost from the PSA Vault published shipping schedule plus per-card withdraw fee.
+Estimates may group tokens into **multiple shipments** (one USDC total):
 
-**Query:**
+| Provider | How detected | Shipping |
+|----------|--------------|----------|
+| PSA Vault | `rwa_tokens.settlement_policy = standard` | Published PSA schedule |
+| Partner Self vault | `settlement_policy = self_vault_hold` + `vault_partner_id` | FedEx Rate client (`FEDEX_RATE_ENABLED`) or stub (`PARTNER_VAULT_SHIPPING_*`) from partner Origin → ship-to |
 
-| Param | Required | Notes |
-|-------|----------|--------|
-| `country` | yes | `us` \| `ca` \| `intl` |
-| `cardCount` | no | 1–50, default `1` |
+PSA schedule:
 
-**Response:**
+| Component | Default |
+|-----------|---------|
+| Retrieval | `$1.99` / card (`PSA_VAULT_RETRIEVAL_FEE_USD`) |
+| Early withdrawal | `+$4.99` / card if vaulted &lt; 90d |
+| Shipping | US `$5.99` · CA `$24.99` · intl `$31.99` once per **PSA** shipment ≤50 |
 
-```json
-{
-  "currency": "USD",
-  "country": "us",
-  "cardCount": 2,
-  "shippingUsd": 5.99,
-  "withdrawFeePerCardUsd": 4.99,
-  "withdrawFeeTotalUsd": 9.98,
-  "totalUsd": 15.97,
-  "source": "psa_vault_published_schedule"
-}
-```
+Partner path: no retrieval/early; shipping once per Partner Origin shipment via **FedEx Rates API** when `FEDEX_RATE_ENABLED=true` (else `PARTNER_VAULT_SHIPPING_*` stub). Partner Origin missing → `400` `COMPANY_ADDRESS_REQUIRED`. **Korea → Korea** Partner lanes are unsupported (no stub price) — buyer sees an English message to change the vault ship-from country.
 
-`withdrawFeePerCardUsd` defaults to `4.99` and can be overridden with env `PSA_VAULT_WITHDRAW_FEE_USD`. Shipping: US `$5.99`, Canada `$24.99`, other international `$31.99` (up to 50 items per shipment).
+Destination country for FedEx must be **ISO-3166 alpha-2** via `shipTo.countryCode` (required when fee bucket `country` is `intl`). Buckets `us`/`ca` map to `US`/`CA` when `countryCode` is omitted. Backend **never** infers country from phone or uses `XX`.
+
+FedEx selects the **cheapest** service among ACCOUNT-priced rows when available (else LIST). Quotes include `expiresAt` (default 15 minutes, `FEDEX_RATE_QUOTE_TTL_MINUTES`) surfaced on Partner shipments / estimate as `shippingQuoteExpiresAt`.
+
+Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RATE_RETRYABLE`, `FEDEX_RATE_INVALID_ADDRESS`) — buyers see the friendly `message`; server logs keep the raw FedEx code/text.
+
+**Query (GET):** `country`, `cardCount?`, `tokenIds?` (CSV)
+
+**Body (POST)** preferred for Partner Rate: same fields + `shipTo` (full address + optional `countryCode`). Frontend Calculate uses POST.
+
+**Response** includes totals plus `shipments[]` (`provider`, `vaultLabel`, fee lines, `shippingSource`, optional FedEx quote metadata) and flat `cards[]` for payment reconciliation.
+
+| Env | Purpose |
+|-----|---------|
+| `PSA_VAULT_*` | PSA fee schedule |
+| `FEDEX_RATE_ENABLED` | `true` to call FedEx Rate (sandbox or prod base URL) |
+| `FEDEX_API_BASE_URL` | Default `https://apis-sandbox.fedex.com` |
+| `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET` / `FEDEX_ACCOUNT_NUMBER` | Project credentials |
+| `FEDEX_RATE_BASE_WEIGHT_LB` / `FEDEX_RATE_WEIGHT_PER_CARD_LB` | Package weight for Rate |
+| `FEDEX_RATE_QUOTE_TTL_MINUTES` | Quote validity window (default `15`) |
+| `FEDEX_RATE_FALLBACK_STUB` | Optional: stub on *any* Rate failure. **KR→KR is never stubbed** — estimate fails with a clear message instead. |
+| `PARTNER_VAULT_SHIPPING_US/CA/INTL_USD` | Stub when Rate disabled |
+| `PLATFORM_FEE_RECIPIENT` | USDC pay destination |
+
+Architecture: `RedeemShippingFeeCalculator` + `ShippingRateClient` (`FedExRateClient`) under `backend/src/rwa/` — UPS/DHL can add parallel clients later.
+
+Admin Swagger probe (raw FedEx request/response): `POST /api/marketplace/admin/fedex/rate-probe` — see `docs/api/marketplace-admin.md`.
 
 ---
 

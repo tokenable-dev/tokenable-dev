@@ -18,6 +18,7 @@ export function useRedeemSelection(input: {
   assetRows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
   redeemStatusByTokenId: Map<number, string>;
+  vaultLabelByTokenId?: Map<number, string>;
 }) {
   const router = useRouter();
   const { chainId } = useAppChain();
@@ -90,7 +91,8 @@ export function useRedeemSelection(input: {
         imageUrl: row.imageUrl,
         grade: formatPortfolioGradeLabel(meta),
         certNumber: certNumberFromMetadata(meta),
-        vaultLabel: "PSA Vault",
+        vaultLabel:
+          input.vaultLabelByTokenId?.get(tokenId) ?? "PSA Vault",
       });
     }
     if (cards.length === 0) return;
@@ -100,6 +102,7 @@ export function useRedeemSelection(input: {
     selected,
     input.assetRows,
     input.metadataByTokenId,
+    input.vaultLabelByTokenId,
     chainId,
     router,
   ]);

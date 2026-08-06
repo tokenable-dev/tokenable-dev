@@ -34,11 +34,7 @@ export function HomeFeatures() {
     <section id="home-features" className="home-features-band">
       <div className="tkl-wrap home-features-band__inner">
           <div className="home-features-band__intro">
-            <h2 className="tkl-sec-title">
-              Three guarantees
-              <br />
-              for every token.
-            </h2>
+            <h2 className="tkl-sec-title">Three guarantees, every token.</h2>
             <p className="tkl-sec-sub">
               Every card is graded, custodied, and tokenized before it ever reaches the
               order book — so what you trade is exactly what you own.
@@ -99,7 +95,7 @@ export function HomeFeatures() {
                 </div>
                 <span className="feat__num">03</span>
               </div>
-              <h3>Liquidity via on-chain settlement</h3>
+              <h3>Instant settlement</h3>
               <p>
                 Cards stay vaulted while transactions settle atomically — continuous
                 trading with no shipping, fees, customs, chargebacks, returns, or

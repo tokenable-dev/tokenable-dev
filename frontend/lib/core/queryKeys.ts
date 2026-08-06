@@ -58,6 +58,20 @@ export const rq = {
       address ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
+  selfVaultPartnerEligibility: (wallet: string, chainId: number) =>
+    ["self-vault-partner-eligibility", chainId, wallet.toLowerCase()] as const,
+  partnerMe: () => ["partner-me"] as const,
+  rwaVaultInfoBatch: (
+    address: string | undefined,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
+    [
+      "rwa-vault-info-batch",
+      chainId,
+      address ?? "",
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   marketMintPreviews: (
     address: string | undefined,
     tokenIds: readonly number[],
@@ -175,6 +189,14 @@ export const rq = {
   adminVaultSubmission: (id: string) => ["admin-vault-submission", id] as const,
   adminPsaArrivalReviews: (status?: string) =>
     ["admin-psa-arrival-reviews", status ?? "pending"] as const,
+  adminVaultMintQueue: (q?: string) =>
+    ["admin-vault-mint-queue", q ?? ""] as const,
+  adminSelfVaultSettlements: (
+    chainId: number,
+    status?: string,
+  ) => ["admin-self-vault-settlements", chainId, status ?? "all"] as const,
+  adminRedeems: (status?: string) =>
+    ["admin-redeems", status ?? "all"] as const,
   adminBulkMintJob: (jobId: string) => ["admin-bulk-mint-job", jobId] as const,
   adminBulkMintJobs: (partnerId?: string) =>
     ["admin-bulk-mint-jobs", partnerId ?? "all"] as const,
@@ -195,9 +217,12 @@ export const rq = {
   adminUsersList: (
     q: string,
     filter: string,
+    role: string,
+    accountStatus: string,
     page: number,
     limit: number,
-  ) => ["admin-users-list", q, filter, page, limit] as const,
+  ) =>
+    ["admin-users-list", q, filter, role, accountStatus, page, limit] as const,
   adminUserDetail: (userId: string) => ["admin-user-detail", userId] as const,
   /** Admin — marketplace collections list (cursor pages). */
   adminCollectionsList: () => ["admin-collections-list"] as const,

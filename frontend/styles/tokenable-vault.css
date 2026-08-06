@@ -20,6 +20,8 @@
 /* Submission detail — Layout B needs 1400px (Vault-Detail.html perCardShell) */
 .vault-page--detail > .vault-page__shell {
   max-width: 1400px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 40px clamp(16px, 4vw, 40px) 80px;
 }
 
@@ -2966,6 +2968,8 @@
 .vault-detail-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
@@ -2981,6 +2985,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.35);
+  flex: 0 0 auto;
+  max-width: 40%;
 }
 
 .vault-detail-v {
@@ -2988,6 +2994,11 @@
   font-weight: 600;
   text-align: right;
   color: #fff;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 65%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .vault-reject-banner {
@@ -4160,19 +4171,21 @@
 }
 
 @media (max-width: 1024px) {
-  /* Keep 3 tabs on one row (HTML active/empty use inline repeat(3,1fr)) */
   .vault-hub-stat-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
   }
 
   .vault-hub-stat-card {
     padding: 14px 12px;
+    min-width: 0;
   }
 
   .vault-hub-stat-card__label {
     font-size: 12px;
     margin-bottom: 6px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
   }
 
   .vault-hub-stat-card__num {
@@ -4238,6 +4251,31 @@
   }
 }
 
+@media (max-width: 640px) {
+  /* Phone: stack hub KPIs so long labels ("Added to portfolio") stay readable. */
+  .vault-hub-stat-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .vault-hub-stat-card {
+    padding: 14px 16px;
+  }
+
+  .vault-hub-stat-card__label {
+    font-size: 12px;
+  }
+
+  .vault-hub-stat-card__num {
+    font-size: 24px;
+  }
+
+  .vault-hub-stat-card__sub {
+    font-size: 11px;
+  }
+}
+
 @media (max-width: 768px) {
   .vault-submit-layout {
     grid-template-columns: 1fr;
@@ -4265,7 +4303,7 @@
   }
 
   .vault-stepper:not(.vault-stepper--rich) .vault-stepper__label {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   /* Detail rich bar keeps Vault-Detail.html sizes on mobile */
@@ -5122,7 +5160,9 @@
 
 .vault-detail-page--layout-b {
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .vault-detail-layout-b__notif {
@@ -5405,19 +5445,28 @@
   gap: 24px;
   align-items: flex-start;
   min-height: 100vh;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .vault-detail-layout-b__left {
   flex: 0 0 55%;
+  width: 55%;
   max-width: 55%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .vault-detail-layout-b__right {
   flex: 0 0 45%;
+  width: 45%;
   max-width: 45%;
+  min-width: 0;
   position: sticky;
   top: 80px;
   height: calc(100vh - 100px);
+  overflow-x: hidden;
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.03);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
@@ -5426,6 +5475,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .vault-detail-layout-b__right.selected {
@@ -5526,6 +5576,8 @@
   border: 0;
   text-align: left;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .vault-lm-row:hover {
@@ -5655,9 +5707,16 @@
   line-height: 1.5;
 }
 
+.vault-lb-panel {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .vault-lb-panel__hero {
   text-align: center;
   margin-bottom: 20px;
+  min-width: 0;
 }
 
 .vault-lb-panel__img {
@@ -5667,6 +5726,8 @@
   background: #0e0e0e;
   border-radius: 10px;
   padding: 6px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .vault-lb-panel__img--dim {
@@ -5678,6 +5739,9 @@
   font-weight: 700;
   color: #fff;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  padding: 0 4px;
 }
 
 .vault-lb-panel__pending,
@@ -5745,7 +5809,9 @@
   .vault-detail-layout-b__left,
   .vault-detail-layout-b__right {
     flex: 1 1 auto;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
   }
 
   .vault-detail-layout-b__right {
@@ -5880,9 +5946,16 @@
 }
 
 .vault-lb-sheet__content {
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
+  min-width: 0;
   padding: 0 20px 24px;
+  box-sizing: border-box;
+}
+
+.vault-lb-sheet__content .vault-lb-panel {
+  width: 100%;
 }
 
 /* ── Stepper mobile compact (Vault-Step-Indicator.html) ───────────────────── */
@@ -6019,6 +6092,10 @@
   border: 1px solid rgba(228, 55, 74, 0.2);
   border-radius: 12px;
   padding: 16px;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .vault-lb-panel__failed-box {

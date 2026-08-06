@@ -360,7 +360,7 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
             <span className="vault-detail-section-label vault-detail-section-label--box">Error</span>
             <div className="vault-detail-row">
               <span className="vault-detail-k">Reason</span>
-              <span className="vault-detail-v text-right max-w-[62%]">
+              <span className="vault-detail-v">
                 Your card is safe at PSA — we&apos;re having trouble getting the listing live.
               </span>
             </div>

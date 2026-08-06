@@ -2,8 +2,15 @@
 
 import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
-import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
+import {
+  useMarketplaceCollectionsInfinite,
+  MARKETS_COLLECTIONS_PAGE_SIZE,
+} from "@/hooks/marketplace";
+import {
+  useMarketsOrders,
+  useMarketsSnapshots,
+  useMarketsStableSortedCollections,
+} from "@/hooks/markets/useMarketsPageData";
 import { useMarketsInfiniteScroll } from "@/hooks/markets/useMarketsInfiniteScroll";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
@@ -16,7 +23,6 @@ import {
 } from "@/lib/market";
 import {
   collectionKeyLower,
-  compareMarketsCollections,
   MARKETS_DEFAULT_SORT_ID,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
@@ -105,19 +111,21 @@ export default function MarketsPage() {
     return [...u].sort();
   }, [collectionSummaries]);
 
-  const { snapshotByKey, isPending: snapshotsPending } = useMarketsSnapshots(
-    snapshotKeysSorted,
-    !isInitialLoading,
-  );
+  const {
+    snapshotByKey,
+    isPending: snapshotsPending,
+    isFetching: snapshotsFetching,
+  } = useMarketsSnapshots(snapshotKeysSorted, !isInitialLoading);
 
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
 
-  const sortedForRank = useMemo(() => {
-    return [...collectionSummaries].sort((a, b) =>
-      compareMarketsCollections(a, b, sortId, snapshotByKey),
-    );
-  }, [collectionSummaries, snapshotByKey, sortId]);
+  const sortedForRank = useMarketsStableSortedCollections(
+    collectionSummaries,
+    snapshotByKey,
+    sortId,
+    snapshotsFetching,
+  );
 
   const orphanAsks = orders.filter(
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
@@ -272,7 +280,11 @@ export default function MarketsPage() {
           <>
             <div className="markets-results-meta">
               <span className="markets-results-count">
-                <b>{filteredSorted.length.toLocaleString()}</b> results
+                <b>{filteredSorted.length.toLocaleString()}</b>
+                {hasNextPage ? "+" : ""} results
+                {hasNextPage ? (
+                  <span className="markets-results-more"> · scroll for more</span>
+                ) : null}
               </span>
               <span className="markets-results-live">Live feed</span>
             </div>
@@ -282,6 +294,7 @@ export default function MarketsPage() {
               snapshotByKey={snapshotByKey}
               resolvedCoverMap={resolvedCoverMap}
               changeLoading={showMarketSnapshotLoadingBar}
+              snapshotsFetching={snapshotsFetching}
               onBeforeNavigate={() =>
                 saveCollectionBrowseContext({
                   source: "markets-grid",
@@ -292,16 +305,31 @@ export default function MarketsPage() {
               }
             />
 
+            {isFetchingNextPage ? (
+              <div className="markets-grid markets-grid--tail" aria-hidden>
+                {Array.from(
+                  { length: Math.min(4, MARKETS_COLLECTIONS_PAGE_SIZE) },
+                  (_, i) => (
+                    <div
+                      key={`markets-tail-skel-${i}`}
+                      className="markets-tail-skeleton aspect-[3/4] rounded-2xl bg-[var(--surf)]"
+                    />
+                  ),
+                )}
+              </div>
+            ) : null}
+
             {hasNextPage ? (
               <>
                 <div
                   className={cn(
                     "markets-load-more",
-                    isFetchingNextPage && "markets-load-more--visible",
+                    (isFetchingNextPage || snapshotsFetching) &&
+                      "markets-load-more--visible",
                   )}
                   role="status"
                   aria-live="polite"
-                  aria-busy={isFetchingNextPage}
+                  aria-busy={isFetchingNextPage || snapshotsFetching}
                 >
                   <span className="markets-load-more__label">Loading more…</span>
                 </div>

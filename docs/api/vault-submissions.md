@@ -1,6 +1,6 @@
 # Vault submissions API
 
-Sell-flow package tracking (draft → ship → PSA → mint link).
+Sell-flow package tracking (local cards → ship package → PSA → mint link).
 
 **Auth:** `JwtAuthGuard` (cookie session).  
 **Base:** `/api/vault/submissions`
@@ -8,9 +8,9 @@ Sell-flow package tracking (draft → ship → PSA → mint link).
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/` | List my submissions (newest first) |
-| `GET` | `/:idOrPublicId` | Detail by uuid or `SUB-…` |
-| `POST` | `/draft` | Upsert draft cards (`{ publicId?, cards[] }`) |
-| `PATCH` | `/:idOrPublicId/draft` | Same as draft with pinned public id |
+| `GET` | `/:idOrPublicId` | Detail by uuid or `SUB-…` (`SUB-YYYYMMDD-#####`, daily sequence e.g. `00001`) |
+| `POST` | `/draft` | Upsert **shipping package** (`{ publicId?, cards[] }` all `confirmed: true`) → `awaiting_shipment`. Does **not** create `status=draft` rows. |
+| `PATCH` | `/:idOrPublicId/draft` | Same upsert with pinned public id |
 | `POST` | `/:idOrPublicId/packing-slip` | Mark packing slip downloaded |
 | `POST` | `/:idOrPublicId/tracking` | Register carrier + tracking → `in_transit` |
 
@@ -20,21 +20,25 @@ Sell-flow package tracking (draft → ship → PSA → mint link).
 { "cert": "12345678", "name": "…", "grade": 10, "img": null, "confirmed": true }
 ```
 
+`POST /draft` requires **≥1 card** and **every** card `confirmed: true`. Otherwise `400` with a client-readable message (Add-cards UI keeps drafts in `localStorage` only).
+
 ### Response
 
 Includes `scenario` (`A`–`H`) for Vault-Detail UI, plus `items[]` and shipment fields.
 
 ### Draft resume (frontend)
 
-Sell flow persists progress so users can leave and return:
+Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** create `vault_submissions` rows with `status=draft`.
 
 | Layer | What |
 |-------|------|
 | `localStorage` (`tk_sell_flow_draft`) | Card list (cert, confirm flags) |
-| `localStorage` (`tk_sell_flow_progress`) | Step (`register` / `cards` / `shipping-pack` / `shipping-track`), packing checklist, tracking form |
-| Account API `POST /draft` | Debounced upsert while signed in; rehydrate on return if local empty |
+| `localStorage` (`tk_sell_flow_progress`) | Step (`register` / `vault` / `cards` / `shipping-pack` / `shipping-track`), packing checklist, tracking form |
+| Account API on `/sell/shipping` mount | **First durable write** — upsert confirmed cards → `awaiting_shipment` (retry UI if fail). Tracking confirm upserts again then `POST …/tracking` → `in_transit` |
 
-Vault hub lists `draft` and `awaiting_shipment` with **Continue** / **Ship**. After tracking confirm, local draft keys are cleared (shipment record kept).
+Vault hub lists `awaiting_shipment`+ (Add tracking / Track / View). Pre-ship drafts do not appear on the hub — resume Add cards via `/sell/flow` from this device. After tracking confirm, local draft keys are cleared (shipment record kept).
+
+**Legacy cleanup:** `backend/sql/maintenance/cancel_legacy_vault_submission_drafts.sql` sets orphan `status=draft` packages (no tracking) to `cancelled`.
 
 Users can move freely before shipment confirm: clickable **Submit / Ship / Portfolio** indicators, Back buttons (register ↔ cards ↔ pack ↔ track), and add/remove of PSA cards on Add Cards or the shipping package list.
 
@@ -44,14 +48,18 @@ Users can move freely before shipment confirm: clickable **Submit / Ship / Portf
 
 ### Admin ops
 
-Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` — counts, list, mark arrived, package/item status. UI: `/marketplace/admin/vault/submissions`. See [marketplace-admin.md](./marketplace-admin.md).
+Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` — counts, list, mark arrived, package/item status, **mint-queue**, **mint-and-deliver**. UI: `/marketplace/admin/vault/submissions` · `/marketplace/admin/vault/mint-queue`. See [marketplace-admin.md](./marketplace-admin.md).
+
+**Mint & deliver (PSA → Live):** `GET …/mint-queue` lists `reviewing`/`approved` items on `psa_reviewing` packages. `POST …/:id/items/:itemId/mint-and-deliver` runs analyze → IPFS → custody mint → transfer to depositor wallet (requires chain header). Prefer this over status-only “Mark mint complete”. If the cert already has an open `minted` vault cycle on that chain (orphan from a prior sell-flow mint), the endpoint **adopts** that token: attach cycle → deliver from custody if needed → mark item `completed` (no remint; response may include `adoptedExisting: true`).
+
+**Mint image:** preferred order is PSA cert front → Cardhedger mint image (from analyze) → submission item `imageUrl` → **Cardhedger catalog resolve** (same path as collection cover: `details-by-certs` / card-search → Bubble `cdn.bubble.io/.../crop_image` etc.) → bundled Tokenable logo (`backend/src/assets/tokenable_logo.png`). Mint is not blocked when PSA slab images are missing.
 
 ### Sell flow vault choice
 
 `/sell/flow` → **PSA vault** uses this submissions + shipping pipeline (mint later lands in custody; admin delivers).  
 **Self vault** reuses the same Add-cards UI, then mints via `POST /api/rwa/upload` + `POST /api/rwa/mint` with `deliveryMode: "direct"` so the NFT goes straight to the minter's linked wallet / portfolio (no admin Custody deliver).
 
-**Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Draft / `awaiting_shipment` packages are still editable; rejected/failed/completed items do not block self vault.
+**Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Open `awaiting_shipment` packages are still editable via ship upsert; rejected/failed/completed items do not block self vault.
 
 ### PSA “Items Received” mail → admin review → `psa_reviewing`
 

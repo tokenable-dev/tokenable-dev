@@ -49,13 +49,16 @@ const CHART_SIZE = {
   },
 } as const;
 
+/** Matches design-system-4 `portfolio-chart-v2.js` (PB=30) + static x-labels at y=228. */
 const PORTFOLIO_HTML_CHART = {
   W: 760,
   H: 245,
   LEFT: 56,
   RIGHT: 16,
   TOP: 16,
-  BOTTOM: 17,
+  /** Plot bottom ≈ 206; keeps the line/area above date labels at y=228. */
+  BOTTOM: 39,
+  xLabelY: 228,
   lineColor: "rgb(0,51,255)",
   areaGradId: "portfolio-html-area-grad",
   gridStroke: "rgba(255,255,255,0.04)",
@@ -65,6 +68,8 @@ const PORTFOLIO_HTML_CHART = {
   dotStroke: "#fff",
   lineWidth: 2.5,
   axisFont: 10,
+  /** Min horizontal gap between x-axis date labels (viewBox units). */
+  xLabelMinGap: 56,
   dotR: 4,
   dotStrokeWidth: 2,
 } as const;
@@ -164,12 +169,35 @@ export function PortfolioValueChart({
   const barY = TOP + chartH + 2;
   const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
-  const labelStep = Math.max(1, Math.floor(points.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)));
+  const labelStep = Math.max(
+    1,
+    Math.floor(points.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)),
+  );
   const axisFmt = formatYAxisLabelCompact;
   const axisFill = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFill : sz.axisFill;
   const axisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.axisFont;
   const xAxisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.xAxisFont;
   const xAxisFamily = isPortfolioHtml ? "var(--font-mono)" : "ui-sans-serif, system-ui, sans-serif";
+
+  /** Thin x labels so neighboring dates do not collide (esp. dense daily series). */
+  const xLabelIndices = (() => {
+    if (points.length === 0) return [] as number[];
+    const idxs: number[] = [];
+    const minGap = isPortfolioHtml ? PORTFOLIO_HTML_CHART.xLabelMinGap : chartW / 7;
+    let lastX = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const isLast = i === points.length - 1;
+      if (!isLast && i % labelStep !== 0) continue;
+      const x = xOf(i);
+      if (!isLast && x - lastX < minGap) continue;
+      if (isLast && idxs.length > 0 && x - lastX < minGap * 0.65) {
+        idxs.pop();
+      }
+      idxs.push(i);
+      lastX = x;
+    }
+    return idxs;
+  })();
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const svg = e.currentTarget;
@@ -267,15 +295,25 @@ export function PortfolioValueChart({
           );
         })}
 
-        {/* X-axis labels */}
-        {timeLabels.map((label, i) => {
-          if (i % labelStep !== 0 && i !== points.length - 1) return null;
+        {/* X-axis labels — below plot (portfolio: y=228, plot ends ~206) */}
+        {xLabelIndices.map((i) => {
+          const label = timeLabels[i] ?? "";
           return (
             <text
               key={i}
               x={xOf(i)}
-              y={H - (isPortfolioHtml ? 17 : size === "large" ? 8 : 4)}
-              textAnchor={i === points.length - 1 && isPortfolioHtml ? "end" : i === 0 && isPortfolioHtml ? "start" : "middle"}
+              y={
+                isPortfolioHtml
+                  ? PORTFOLIO_HTML_CHART.xLabelY
+                  : H - (size === "large" ? 8 : 4)
+              }
+              textAnchor={
+                i === points.length - 1 && isPortfolioHtml
+                  ? "end"
+                  : i === 0 && isPortfolioHtml
+                    ? "start"
+                    : "middle"
+              }
               fill={axisFill}
               fontSize={xAxisFont}
               fontFamily={xAxisFamily}

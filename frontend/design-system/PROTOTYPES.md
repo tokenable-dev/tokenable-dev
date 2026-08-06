@@ -1,6 +1,6 @@
 # HTML prototypes (designer handoff)
 
-Path: `Tokenable-with design system-4/` (repo root). **Preferred HTML reference** — not imported by Next.js. Earlier folders (`Tokenable-with design system/`, `…-2/`, `…-3/`) are superseded for handoff.
+Path: `Tokenable-with design system-5/` (repo root). **Preferred HTML reference** — not imported by Next.js. Earlier folders (`Tokenable-with design system/` … `-4`) are superseded for handoff.
 
 ## Page prototypes
 
@@ -10,6 +10,7 @@ Path: `Tokenable-with design system-4/` (repo root). **Preferred HTML reference*
 | `Markets.html` | Markets browse | `app/markets/page.tsx` | 4 |
 | `Card.html` | Collection / card detail | `app/marketplace/collections/[collectionKey]/page.tsx` | 5 |
 | `Portfolio.html` | Portfolio | `app/portfolio/page.tsx` | 6 |
+| `Redeem.html` | Portfolio redeem (pay-first) | `app/portfolio/redeem/page.tsx` | ds-5 |
 | `Watchlist.html` | Watchlist | `app/watchlist/page.tsx` | 7 |
 | `Sell.html` | Sell entry router | `app/sell/page.tsx` | 2 (ds-v2) |
 | `Sell-Flow.html` | KYC + vault choice + add cards (PSA ship / self mint) | `app/sell/flow/page.tsx` | ds-v2 |

@@ -12,6 +12,11 @@ export type TkDialogProps = {
   children?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  /**
+   * When false: no X button, Escape, or backdrop dismiss.
+   * Use for required onboarding gates (e.g. partner company address).
+   */
+  dismissible?: boolean;
 };
 
 function CloseIcon() {
@@ -35,6 +40,7 @@ export function TkDialog({
   children,
   footer,
   className,
+  dismissible = true,
 }: TkDialogProps) {
   const titleId = useId();
   const descId = useId();
@@ -42,7 +48,7 @@ export function TkDialog({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && dismissible) onClose();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -51,7 +57,7 @@ export function TkDialog({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -59,7 +65,7 @@ export function TkDialog({
     <div
       className="tk-dialog__overlay"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (dismissible && e.target === e.currentTarget) onClose();
       }}
     >
       <div
@@ -81,14 +87,16 @@ export function TkDialog({
         </div>
         {children ? <div className="tk-dialog__body">{children}</div> : null}
         {footer ? <div className="tk-dialog__foot">{footer}</div> : null}
-        <button
-          type="button"
-          className="tk-dialog__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <CloseIcon />
-        </button>
+        {dismissible ? (
+          <button
+            type="button"
+            className="tk-dialog__close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <CloseIcon />
+          </button>
+        ) : null}
       </div>
     </div>,
     document.body,

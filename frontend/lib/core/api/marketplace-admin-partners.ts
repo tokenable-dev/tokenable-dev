@@ -5,7 +5,8 @@ export type AdminMarketplacePartner = {
   displayName: string;
   walletAddress: string;
   isActive: boolean;
-  hasPrivateKey: true;
+  hasPrivateKey: boolean;
+  hasCompanyAddress: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -30,7 +31,7 @@ export async function listAdminMarketplacePartners(): Promise<
 export async function postAdminMarketplacePartner(body: {
   displayName: string;
   walletAddress: string;
-  privateKey: string;
+  privateKey?: string;
   isActive?: boolean;
 }): Promise<AdminMarketplacePartner> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/admin/partners`, {

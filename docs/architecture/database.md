@@ -40,8 +40,9 @@
 |-------|---------|--------|
 | `vault_assets` | Permanent physical card identity (PSA cert → vaultRef = keccak256) | `vault/entities/vault-asset.entity.ts` |
 | `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
-| `vault_redemptions` | Redemption state machine: pending → ownership_verified → burned → completed | `vault/entities/vault-redemption.entity.ts` |
-| `vault_submissions` | Sell-flow package (draft → ship → PSA) per user | `vault/entities/vault-submission.entity.ts` |
+| `vault_redemptions` | Per-card redeem state machine + denormalized fee/payment/custody/refund/tracking fields | `vault/entities/vault-redemption.entity.ts` |
+| `vault_redeem_payment_claims` | Ledger: unique `payment_tx_hash` → one `payment_batch_id` (batch total micros). Referenced by paid `vault_redemptions.payment_tx_hash` | `vault/entities/vault-redeem-payment-claim.entity.ts` |
+| `vault_submissions` | Sell-flow shipping package (awaiting_shipment → PSA; add-cards is local) | `vault/entities/vault-submission.entity.ts` |
 | `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
 
 ### Marketplace core
@@ -49,7 +50,7 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
-| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`) | `marketplace/entities/rwa-token.entity.ts` |
+| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`, `vault_partner_id`) | `marketplace/entities/rwa-token.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
 | `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
 | `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |
@@ -70,7 +71,8 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_admins` | Marketplace admin console credentials | `marketplace/entities/marketplace-admin.entity.ts` |
-| `marketplace_partners` | Consignment sellers (encrypted wallet keys) | `marketplace/entities/marketplace-partner.entity.ts` |
+| `marketplace_partners` | Company wallets for Self vault (+ optional encrypted PK for bulk mint) | `marketplace/entities/marketplace-partner.entity.ts` |
+| `marketplace_partner_addresses` | Partner Self-vault Origin address (FedEx Rate ship-from; 1:1) | `marketplace/entities/marketplace-partner-address.entity.ts` |
 | `bulk_mint_jobs` | Partner mint+list job runs | `rwa/entities/bulk-mint-job.entity.ts` |
 | `bulk_mint_job_items` | Per-cert price + order status rows | `rwa/entities/bulk-mint-job-item.entity.ts` |
 | `card_top100_daily_snapshots` | Daily Top 100 rank snapshots | `cardhedger/entities/card-top100-snapshot.entity.ts` |
@@ -130,6 +132,13 @@ erDiagram
         uuid vault_cycle_id FK
         varchar owner_wallet_address
         varchar status
+        varchar payment_tx_hash FK
+        uuid payment_batch_id
+    }
+    vault_redeem_payment_claims {
+        varchar payment_tx_hash PK
+        uuid payment_batch_id UK
+        numeric payment_received_usdc_micros
     }
     rwa_tokens {
         varchar token_contract PK
@@ -146,6 +155,7 @@ erDiagram
     vault_assets ||--o{ vault_cycles : "vault_asset_id"
     vault_cycles ||--o{ vault_redemptions : "vault_cycle_id"
     vault_cycles ||--o| rwa_tokens : "vault_cycle_id (logical)"
+    vault_redeem_payment_claims ||--o{ vault_redemptions : "payment_tx_hash"
 ```
 
 ### Marketplace core (logical links — no FK)
@@ -207,6 +217,7 @@ pending_deposit
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
 | `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
+| `vault_partner_id` | FK to `marketplace_partners` for Self vault `{name} vault` labels |
 | **Unique constraint** | `(token_contract, cert_number) WHERE burned_at IS NULL` — allows re-mint of same cert after burn |
 
 ---
@@ -233,7 +244,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | # | File | Contents |
 |---|------|----------|
 | 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_shipping_addresses`, `user_kyc_events`, `verification_tokens` |
-| 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_submissions`, `vault_submission_items` |
+| 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_redeem_payment_claims`, `vault_submissions`, `vault_submission_items` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
 | 045 | `045_p2p.sql` | P2P listings/orders |
@@ -241,6 +252,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
+| 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
 | 065 | `065_bulk_mint.sql` | `bulk_mint_jobs`, `bulk_mint_job_items` (partner mint+list) |
 | 070 | `070_cardhedger.sql` | Cardhedger infra + `card_top100_daily_snapshots` |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
@@ -251,13 +263,17 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 |------|---------|
 | `maintenance/reset_marketplace_data.sql` | Wipe marketplace + vault data (keeps users/admins) |
 | `maintenance/add_marketplace_partners.sql` | Existing DBs: create `marketplace_partners` |
+| `maintenance/add_marketplace_partner_addresses.sql` | Existing DBs: partner company Origin addresses |
 | `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
 | `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |
 | `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
+| `maintenance/alter_marketplace_partners_optional_pk.sql` | Existing DBs: nullable partner private key |
+| `maintenance/add_rwa_tokens_vault_partner_id.sql` | Existing DBs: `rwa_tokens.vault_partner_id` |
 | `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |
+| `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 
 **Seeds (dev only):**

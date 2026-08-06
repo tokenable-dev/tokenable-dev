@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Choose a vault</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#F5F5F7; --surf:#FFFFFF;
+    --azure:#1A6FFF; --brand-400:#5B9AFF; --pos:#00C864; --warn:#EA8200;
+    --t1:rgba(17,17,17,0.95); --t2:rgba(17,17,17,0.55); --t3:rgba(17,17,17,0.35);
+    --font-sans:'Inter',sans-serif; --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#18181B;font-family:var(--font-sans);-webkit-font-smoothing:antialiased;}
+  a{color:var(--azure);text-decoration:none;}
+  .mono{font-family:var(--font-mono);}
+
+  header{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid rgba(17,17,17,0.08);}
+  .gnb{display:flex;align-items:center;height:64px;padding:0 clamp(16px,4vw,40px);}
+  .wordmark{font-weight:800;font-size:17px;letter-spacing:0.14em;color:#18181B;}
+  .navlink{font-size:14.5px;font-weight:500;color:var(--t2);height:64px;display:inline-flex;align-items:center;position:relative;}
+  .navlink.on{color:#18181B;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.06em;padding:5px 10px;border-radius:6px;}
+
+  .eyebrow{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--azure);}
+  .page-h1{margin:12px 0 0;font-weight:700;font-size:clamp(26px,3.6vw,38px);letter-spacing:-0.025em;line-height:1.1;}
+  .page-sub{margin:10px 0 0;font-size:15px;color:var(--t2);line-height:1.55;max-width:620px;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;
+    clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
+  .btn--primary{background:var(--azure);color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
+  .btn--primary:hover:not([disabled]){filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
+  .btn--subtle{background:var(--surf);color:#18181B;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(17,17,17,0.1),inset 0 3px 0 0 rgba(17,17,17,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--subtle:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
+  .btn[disabled]{opacity:0.4;cursor:not-allowed;filter:none;transform:none;}
+
+  .opt{position:relative;display:flex;flex-direction:column;gap:14px;padding:26px;background:var(--surf);border-radius:16px;cursor:pointer;text-align:left;border:0;color:#18181B;box-shadow:inset 0 0 0 1px rgba(17,17,17,0.06);transition:all 0.12s;width:100%;font-family:var(--font-sans);}
+  .opt:hover{box-shadow:inset 0 0 0 1px rgba(17,17,17,0.16);transform:translateY(-2px);}
+  .opt.sel{box-shadow:inset 0 0 0 2px var(--azure);background:rgba(26,111,255,0.05);}
+  .opt__ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .opt__t{font-size:18px;font-weight:700;letter-spacing:-0.01em;}
+  .opt__d{font-size:13.5px;color:var(--t2);line-height:1.6;}
+  .feat{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--t2);line-height:1.5;}
+  .feat svg{flex-shrink:0;margin-top:2px;}
+  .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;}
+  @media(max-width:820px){ .nav-links{display:none;} .opt-grid{grid-template-columns:1fr;} }
+  /* explainer sections */
+  .sec{max-width:900px;margin:0 auto;padding-left:clamp(16px,4vw,40px);padding-right:clamp(16px,4vw,40px);}
+  .sec-h{font-size:clamp(20px,2.4vw,26px);font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;}
+  .sec-p{font-size:14px;color:var(--t2);line-height:1.6;margin:0 0 20px;max-width:620px;}
+  .val-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .val{background:var(--surf);border-radius:14px;padding:18px;}
+  .val__t{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .val__d{font-size:12.5px;color:var(--t2);line-height:1.55;}
+  .how-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .how{background:var(--surf);border-radius:16px;padding:22px;}
+  .how h3{margin:0 0 14px;font-size:16px;font-weight:700;}
+  .how ol{margin:0;padding-left:20px;}
+  .how li{font-size:13.5px;color:var(--t2);line-height:1.6;margin-bottom:10px;}
+  table.cmp{width:100%;border-collapse:collapse;background:var(--surf);border-radius:16px;overflow:hidden;}
+  table.cmp th,table.cmp td{text-align:left;padding:14px 18px;font-size:13.5px;vertical-align:top;}
+  table.cmp thead th{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);background:rgba(17,17,17,0.04);}
+  table.cmp tbody th{font-weight:600;color:var(--t2);width:26%;}
+  table.cmp td{color:#18181B;}
+  table.cmp tbody tr + tr th,table.cmp tbody tr + tr td{border-top:1px solid rgba(17,17,17,0.06);}
+  .faq{background:var(--surf);border-radius:16px;overflow:hidden;}
+  .faq details + details{border-top:1px solid rgba(17,17,17,0.06);}
+  .faq summary{list-style:none;cursor:pointer;padding:16px 18px;font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .faq summary::-webkit-details-marker{display:none;}
+  .faq summary::after{content:'+';font-family:var(--font-mono);font-size:18px;color:var(--t2);}
+  .faq details[open] summary::after{content:'\2013';}
+  .faq p{margin:0;padding:0 18px 18px;font-size:13.5px;color:var(--t2);line-height:1.65;}
+  @media(max-width:820px){ .val-grid{grid-template-columns:1fr 1fr;} .how-grid{grid-template-columns:1fr;} }
+  @media(max-width:560px){ .val-grid{grid-template-columns:1fr;} table.cmp th,table.cmp td{padding:12px 14px;font-size:13px;} }
+  .callout{background:rgba(234,130,0,0.08);border-radius:14px;padding:16px 18px;font-size:13px;line-height:1.65;color:#EABF7A;margin-top:14px;}
+  .val__t{display:block;}
+  .psa-only{background:var(--surf);border-radius:16px;padding:26px;display:flex;gap:16px;align-items:flex-start;}
+
+
+  /* ===== Light mode — the sell-a-card flow runs light ===== */
+  :root:root{
+    --ink:#F5F5F7; --ink-2:#FFFFFF; --surf:#FFFFFF; --surf-2:#FFFFFF;
+    --t1:rgba(17,17,17,0.95); --t2:rgba(17,17,17,0.6); --t3:rgba(17,17,17,0.42);
+    --line:rgba(17,17,17,0.1);
+  }
+  body{background:#F5F5F7;color:#18181B;}
+  .box,.card-box,.glass,.opt,.faq,.how,.val,.psa-only,table.cmp,.shipto{background:#FFFFFF!important;box-shadow:0 1px 2px rgba(17,17,17,0.06),0 0 0 1px rgba(17,17,17,0.07)!important;}
+  .tk-btn--primary,.btn--primary{color:#fff!important;}
+  .tk-btn--primary *,.btn--primary *{color:#fff!important;}
+  .tk-btn--subtle,.btn--subtle,.btn--ghost{background:#FFFFFF!important;color:#18181B!important;box-shadow:inset 0 0 0 1px rgba(17,17,17,0.16)!important;filter:none!important;}
+  .tk-btn--subtle:hover,.btn--subtle:hover,.btn--ghost:hover{background:#F0F0F3!important;}
+  .btn--outline{color:#18181B!important;border-color:rgba(17,17,17,0.2)!important;}
+  input,select,textarea,.form-input,.form-select,.tkg-input{background:#FFFFFF!important;color:#18181B!important;box-shadow:inset 0 0 0 1.5px rgba(17,17,17,0.16)!important;}
+  input::placeholder{color:rgba(17,17,17,0.38)!important;}
+  .tk-search .tk-input{background:#F0F0F3!important;color:#18181B!important;}
+  table.cmp thead th{background:rgba(17,17,17,0.04);color:rgba(17,17,17,0.6);}
+
+  /* Navigation stays dark everywhere — it's shared chrome, not part of the flow */
+  header{background:#0e0e0e!important;border-bottom:1px solid rgba(255,255,255,0.08)!important;}
+  header .navlink{color:rgba(255,255,255,0.55)!important;}
+  header .navlink:hover{color:#fff!important;}
+  header .navlink.on{color:#fff!important;}
+  header .burger-lines span{background:#fff!important;}
+  header .gnb-burger,header .gnb-search-mobile{color:#fff!important;}
+  header .tk-search .tk-input{background:rgba(255,255,255,0.9)!important;color:#111!important;}
+  header .tk-wallet-chip{background:rgba(255,255,255,0.06)!important;}
+  header .tk-wallet-chip span{color:#fff!important;}
+  .gnb-drawer{background:#0e0e0e!important;}
+  .gnb-drawer .navlink{color:#fff!important;}
+  .tkm-drawer{background:#0e0e0e!important;}
+  .btn-back:hover,#track-back:hover{border-color:rgba(17,17,17,0.35)!important;background:rgba(17,17,17,0.04)!important;}
+</style>
+</head>
+<body>
+
+<template id="__bundler_thumbnail" data-bg-color="#F5F5F7">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#F5F5F7"/>
+    <rect x="360" y="250" width="200" height="200" rx="26" fill="#FFFFFF"/>
+    <rect x="640" y="250" width="200" height="200" rx="26" fill="#FFFFFF"/>
+    <rect x="392" y="292" width="60" height="60" rx="14" fill="rgba(0,200,100,0.18)"/>
+    <rect x="672" y="292" width="60" height="60" rx="14" fill="rgba(26,111,255,0.2)"/>
+    <rect x="392" y="378" width="128" height="14" rx="7" fill="rgba(17,17,17,0.5)"/>
+    <rect x="672" y="378" width="128" height="14" rx="7" fill="rgba(17,17,17,0.5)"/>
+    <rect x="392" y="406" width="90" height="10" rx="5" fill="rgba(17,17,17,0.22)"/>
+    <rect x="672" y="406" width="90" height="10" rx="5" fill="rgba(17,17,17,0.22)"/>
+    <rect x="440" y="516" width="320" height="46" rx="8" fill="#1A6FFF"/>
+    <rect x="470" y="150" width="260" height="20" rx="10" fill="rgba(17,17,17,0.75)"/>
+  </svg>
+</template>
+
+  <header>
+    <div class="gnb">
+      <span class="wordmark">TOKENABLE</span>
+      <nav class="nav-links" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="#">Markets</a>
+        <a class="navlink" href="#">Portfolio</a>
+        <a class="navlink on" href="#">Sell</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <span class="pill" id="acct-pill" style="background:rgba(17,17,17,0.06);color:var(--t2);">INDIVIDUAL SELLER</span>
+    </div>
+  </header>
+
+  <!-- Individual sellers: PSA Vault is the only route, so no chooser is shown -->
+  <section id="hero-individual" style="display:none;padding:56px clamp(16px,4vw,40px) 80px;">
+    <div style="max-width:900px;margin:0 auto;">
+      <button type="button" class="btn-back" id="back-btn-2" style="height:36px;padding:0 14px;font-size:13px;font-weight:600;background:transparent;color:#18181B;border:1px solid rgba(17,17,17,0.2);border-radius:10px;clip-path:none;box-shadow:none;filter:none;display:inline-flex;align-items:center;margin-bottom:16px;cursor:pointer;font-family:var(--font-sans);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <div class="eyebrow">Your vault</div>
+      <h1 class="page-h1">Your cards will be stored in PSA Vault</h1>
+      <p class="page-sub">PSA checks each card, stores it in a professional facility, and insures it while it&rsquo;s there. You can redeem it and have the physical card shipped to you at any time.</p>
+      <div class="psa-only" style="margin-top:32px;">
+        <span class="opt__ic" style="background:rgba(26,111,255,0.12);color:var(--brand-400);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
+        <div>
+          <div class="opt__t">PSA Vault</div>
+          <div class="opt__d" style="margin-top:5px;">Send your cards to PSA. Once verified, your listing goes live &mdash; usually 14&ndash;16 business days after arrival.</div>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px;">
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Verified by PSA before it goes live</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Insured while stored at PSA Vault</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>PSA ships it whenever you redeem</span>
+          </div>
+          <button class="btn btn--primary" id="psa-continue" style="height:52px;padding:0 28px;font-size:15px;margin-top:22px;">Continue with PSA Vault</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="hero-partner" style="display:none;padding:56px clamp(16px,4vw,40px) 100px;">
+    <div style="max-width:900px;margin:0 auto;">
+      <button type="button" class="btn-back" id="back-btn" style="height:36px;padding:0 14px;font-size:13px;font-weight:600;background:transparent;color:#18181B;border:1px solid rgba(17,17,17,0.2);border-radius:10px;clip-path:none;box-shadow:none;filter:none;display:inline-flex;align-items:center;margin-bottom:16px;cursor:pointer;font-family:var(--font-sans);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <div class="eyebrow">Choose a vault</div>
+      <h1 class="page-h1">How do you want to list these cards?</h1>
+      <p class="page-sub">List straight from your own vault, or send the cards to PSA to be verified first.</p>
+
+      <div class="opt-grid">
+        <button class="opt" data-vault="self">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span class="opt__ic" style="background:rgba(0,200,100,0.12);color:var(--pos);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 4v16M17 4v16"/></svg></span>
+            <span class="pill" style="background:rgba(0,200,100,0.12);color:var(--pos);">INSTANT</span>
+          </div>
+          <div><div class="opt__t">Self vault</div><div class="opt__d" style="margin-top:5px;">Cards you already hold. List them right away &mdash; no shipping, no review.</div></div>
+          <div style="display:flex;flex-direction:column;gap:9px;padding-top:14px;border-top:1px solid rgba(17,17,17,0.07);">
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Listed within minutes</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Stays in your own vault</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>You attest to authenticity and condition</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>You ship on redeem</span>
+          </div>
+        </button>
+
+        <button class="opt" data-vault="psa">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span class="opt__ic" style="background:rgba(26,111,255,0.12);color:var(--brand-400);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
+            <span class="pill" style="background:rgba(17,17,17,0.06);color:var(--t2);">14&ndash;16 BUSINESS DAYS AFTER ARRIVAL</span>
+          </div>
+          <div><div class="opt__t">PSA vault</div><div class="opt__d" style="margin-top:5px;">Send them to PSA. Once verified, your listing goes live.</div></div>
+          <div style="display:flex;flex-direction:column;gap:9px;padding-top:14px;border-top:1px solid rgba(17,17,17,0.07);">
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Verified by PSA before it goes live</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>Insured while stored at PSA Vault</span>
+            <span class="feat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>Requires shipping and intake review</span>
+          </div>
+        </button>
+      </div>
+
+      <div style="margin-top:32px;">
+        <button class="btn btn--primary" id="continue-btn" disabled style="height:52px;padding:0 28px;min-width:260px;font-size:15px;">Continue</button>
+      </div>
+      <div id="hint" style="font-size:12.5px;color:var(--t3);margin-top:10px;line-height:1.5;">Pick a vault to continue.</div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-bottom:56px;">
+    <div class="val-grid">
+      <div class="val"><span class="val__t">Sell instantly</span><span class="val__d">Sell straight from the vault in seconds. No packing, no shipping.</span></div>
+      <div class="val"><span class="val__t">PSA-verified</span><span class="val__d">Cards in PSA Vault are graded and verified by PSA before they&rsquo;re listed.</span></div>
+      <div class="val"><span class="val__t">Insured storage</span><span class="val__d">Cards in PSA Vault are stored in a professional facility and insured while there.</span></div>
+      <div class="val"><span class="val__t">Yours anytime</span><span class="val__d">Redeem whenever you want and have the physical card shipped to you.</span></div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-bottom:56px;">
+    <h2 class="sec-h">How it works</h2>
+    <p class="sec-p">The real card stays safely in a vault; only ownership trades. That&rsquo;s what makes selling instant.</p>
+    <div class="how-grid">
+      <div class="how">
+        <h3>PSA Vault</h3>
+        <ol>
+          <li><strong>List or buy an eligible card</strong> &mdash; it&rsquo;s routed to PSA Vault.</li>
+          <li><strong>It&rsquo;s verified and stored</strong> &mdash; PSA checks the card and keeps it in the vault.</li>
+          <li><strong>Sell instantly</strong> &mdash; when it sells, ownership transfers right away; the card doesn&rsquo;t move.</li>
+          <li><strong>Redeem anytime</strong> &mdash; PSA ships the physical card from the vault to whoever redeems it.</li>
+        </ol>
+      </div>
+      <div class="how">
+        <h3>Self vault <span class="pill" style="background:rgba(17,17,17,0.06);color:var(--t2);margin-left:6px;">PARTNERS ONLY</span></h3>
+        <ol>
+          <li><strong>A partner holds the card</strong> &mdash; a contracted partner lists cards they store in their own facility. Nothing is sent to PSA.</li>
+          <li><strong>Sell instantly</strong> &mdash; when it sells, ownership transfers right away; the card stays in the partner&rsquo;s vault.</li>
+          <li><strong>Partner ships on redeem</strong> &mdash; when the owner redeems, the partner packages and ships the physical card.</li>
+        </ol>
+        <div class="callout">Self vault cards are held by a contracted partner, not by the platform. They&rsquo;re not independently PSA-verified and not insured by the platform &mdash; the partner attests to authenticity and condition. Every listing shows a <strong>Self vault</strong> badge so buyers know before they buy.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-bottom:56px;">
+    <h2 class="sec-h">Compare the two</h2>
+    <table class="cmp">
+      <thead><tr><th></th><th>PSA Vault</th><th>Self vault</th></tr></thead>
+      <tbody>
+        <tr><th>Open to (as a seller)</th><td>Anyone &mdash; the only option for individual sellers.</td><td>Contracted partners only.</td></tr>
+        <tr><th>Who holds the card</th><td>PSA, in a professional facility.</td><td>The contracted partner, in their facility.</td></tr>
+        <tr><th>Authenticity</th><td>Graded and verified by PSA before listing.</td><td>Attested by the partner. Not independently PSA-verified.</td></tr>
+        <tr><th>Insurance</th><td>Insured while stored at PSA Vault.</td><td>Not insured by the platform.</td></tr>
+        <tr><th>When a buyer redeems</th><td>PSA ships it from the vault.</td><td>The partner ships it.</td></tr>
+        <tr><th>Buying</th><td>Open to anyone.</td><td>Open to anyone &mdash; you just buy the ownership; the partner keeps custody.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="sec" style="padding-bottom:80px;">
+    <h2 class="sec-h">FAQs</h2>
+    <p class="sec-p">Answers for both sellers and buyers.</p>
+    <div class="faq">
+      <details><summary>What is a vault?</summary><p>A way to hold your card so you can sell or trade it instantly without shipping anything each time. The real card stays safely stored; only ownership trades. With PSA Vault, PSA stores it; with Self vault, a contracted partner stores it.</p></details>
+      <details><summary>What&rsquo;s the difference between PSA Vault and Self vault?</summary><p>PSA Vault &mdash; PSA verifies your card, stores it, insures it while stored, and ships it when someone redeems. Self vault &mdash; a contracted partner stores it, attests to it, and ships it on redeem; it isn&rsquo;t independently PSA-verified or insured by the platform. Every listing shows which vault a card is in.</p></details>
+      <details><summary>Can I choose Self vault?</summary><p>Self vault is only for contracted partners. If you&rsquo;re an individual seller, your card goes through <strong>PSA Vault</strong> &mdash; it&rsquo;s verified, insured while stored, and shipped for you.</p></details>
+      <details><summary>Is my card insured?</summary><p>Cards in <strong>PSA Vault</strong> are insured while stored. <strong>Self vault</strong> cards are not insured by the platform.</p></details>
+      <details><summary>Should I trust a Self vault listing when buying?</summary><p>Self vault cards are held and attested by a contracted partner, but they&rsquo;re not independently PSA-verified or platform-insured. If you want independent verification and insured storage, choose a <strong>PSA Vault</strong> listing. The badge on every listing tells you which is which.</p></details>
+      <details><summary>Are there fees?</summary><p>Storing a card is free. Fees apply when someone <strong>redeems</strong> &mdash; that covers the withdrawal and shipping. You&rsquo;ll see the exact cost before confirming, with no markup.</p></details>
+      <details><summary>How do I get the physical card?</summary><p>Redeem it: pick the card(s), enter your address, review the cost, confirm and pay. For <strong>PSA Vault</strong>, PSA ships it from the vault; for <strong>Self vault</strong>, the partner ships it. Once it arrives it shows as <strong>in your possession</strong>.</p></details>
+      <details><summary>Can I sell a card without ever shipping it?</summary><p>Yes &mdash; that&rsquo;s the point. When it sells, ownership transfers instantly and the card stays in its vault. It only ships when someone redeems.</p></details>
+      <details><summary>Who verifies the card is real?</summary><p>For <strong>PSA Vault</strong>, PSA grades and verifies it before listing. For <strong>Self vault</strong>, the contracted partner attests to it; it isn&rsquo;t independently PSA-verified. The badge tells you which.</p></details>
+    </div>
+    <div class="faq" style="margin-top:14px;">
+      <details><summary>Terms &amp; conditions</summary><p>Vault storage, listing and redemption are covered by our <a href="#">Terms of Service</a>, <a href="#">Seller Agreement</a> and <a href="#">Vault Storage Terms</a>. Read them before you list.</p></details>
+    </div>
+  </section>
+
+<script>
+(function(){
+  /* Self vault exists only for contracted partners — individual sellers never see the chooser */
+  var partner=false;
+  try{ partner = localStorage.getItem('tk_partner_status')==='approved'; }catch(_){}
+  document.getElementById('hero-partner').style.display = partner ? 'block' : 'none';
+  document.getElementById('hero-individual').style.display = partner ? 'none' : 'block';
+  var pill=document.getElementById('acct-pill');
+  if(pill && partner){ pill.textContent='PARTNER ACCOUNT'; pill.style.background='rgba(26,111,255,0.14)'; pill.style.color='var(--brand-400)'; }
+
+  var pick=null;
+  var btn=document.getElementById('continue-btn');
+  var hint=document.getElementById('hint');
+  document.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('#psa-continue')){
+      try{ sessionStorage.setItem('tk_vault_choice','psa'); }catch(_){}
+      window.location.href='Sell-Flow.html#cards';
+      return;
+    }
+    if(e.target.closest && (e.target.closest('#back-btn')||e.target.closest('#back-btn-2'))){
+      window.location.href='Sell-Flow.html';
+      return;
+    }
+    if(e.target.closest && e.target.closest('#continue-btn')){
+      if(!pick) return;
+      // Both vaults continue into Sell-Flow add-cards (same UI; self uses Mint to portfolio).
+      // Do not send self vault to Partner-Add-Cards.html.
+      try{ sessionStorage.setItem('tk_vault_choice', pick); }catch(_){}
+      window.location.href='Sell-Flow.html#cards';
+      return;
+    }
+    var opt=e.target.closest && e.target.closest('.opt');
+    if(!opt) return;
+    pick=opt.getAttribute('data-vault');
+    document.querySelectorAll('.opt').forEach(function(x){ x.classList.toggle('sel', x===opt); });
+    btn.disabled=false;
+    btn.textContent = pick==='self' ? 'Continue with self vault' : 'Continue with PSA vault';
+    hint.textContent = pick==='self'
+      ? 'Your cards stay with you and are listed within minutes — no shipping, no review.'
+      : "You'll ship these cards to PSA to be verified before they go live.";
+  });
+})();
+</script>
+</body>
+</html>

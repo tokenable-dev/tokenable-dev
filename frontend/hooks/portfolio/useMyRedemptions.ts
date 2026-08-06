@@ -6,19 +6,20 @@ import {
   getMyRedemptions,
   type MyRedemptionRow,
 } from "@/lib/core/api/rwa-redeem";
+import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import { useAuthStore } from "@/store/authStore";
 
-export function useMyRedemptions(tokenIds: number[]) {
+/**
+ * Open redemptions for the signed-in user (all tokens — including those
+ * already transferred to custody and therefore missing from wallet holdings).
+ */
+export function useMyRedemptions(enabled = true) {
   const user = useAuthStore((s) => s.user);
-  const sortedKey = useMemo(
-    () => [...tokenIds].sort((a, b) => a - b).join(","),
-    [tokenIds],
-  );
 
   const query = useQuery({
-    queryKey: ["rwa", "redemptions", "mine", user?.id ?? null, sortedKey],
-    queryFn: () => getMyRedemptions(tokenIds),
-    enabled: Boolean(user?.id) && tokenIds.length > 0,
+    queryKey: ["rwa", "redemptions", "mine", user?.id ?? null],
+    queryFn: () => getMyRedemptions(),
+    enabled: Boolean(user?.id) && enabled,
     staleTime: 30_000,
   });
 
@@ -33,6 +34,17 @@ export function useMyRedemptions(tokenIds: number[]) {
     return m;
   }, [query.data]);
 
+  const redeemTrackingByTokenId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const row of query.data ?? []) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id)) continue;
+      const t = row.trackingNumber?.trim();
+      if (t && !m.has(id)) m.set(id, t);
+    }
+    return m;
+  }, [query.data]);
+
   const redemptionByTokenId = useMemo(() => {
     const m = new Map<number, MyRedemptionRow>();
     for (const row of query.data ?? []) {
@@ -43,5 +55,40 @@ export function useMyRedemptions(tokenIds: number[]) {
     return m;
   }, [query.data]);
 
-  return { query, redeemStatusByTokenId, redemptionByTokenId };
+  /** In-flight redemptions (preparing / custody / transit) — for phantom holdings. */
+  const inFlightRows = useMemo(() => {
+    const seen = new Set<number>();
+    const out: MyRedemptionRow[] = [];
+    for (const row of query.data ?? []) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id) || seen.has(id)) continue;
+      if (!isRedeemInFlight(row.status)) continue;
+      seen.add(id);
+      out.push(row);
+    }
+    return out;
+  }, [query.data]);
+
+  /** Completed redemptions — Redeem tab history (still listed by /mine). */
+  const completedRows = useMemo(() => {
+    const seen = new Set<number>();
+    const out: MyRedemptionRow[] = [];
+    for (const row of query.data ?? []) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id) || seen.has(id)) continue;
+      if (row.status !== "completed") continue;
+      seen.add(id);
+      out.push(row);
+    }
+    return out;
+  }, [query.data]);
+
+  return {
+    query,
+    redeemStatusByTokenId,
+    redeemTrackingByTokenId,
+    redemptionByTokenId,
+    inFlightRows,
+    completedRows,
+  };
 }

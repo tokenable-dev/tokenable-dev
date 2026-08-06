@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
 
 function TrashIcon() {
@@ -21,6 +21,12 @@ export function RedeemCardSummary({
 }) {
   const [open, setOpen] = useState(false);
   const thumbs = cards.slice(0, 4);
+  const vaultCount = useMemo(() => {
+    const labels = new Set(
+      cards.map((c) => (c.vaultLabel || "PSA Vault").trim()),
+    );
+    return labels.size;
+  }, [cards]);
 
   return (
     <div className="pf-redeem-summary">
@@ -44,7 +50,9 @@ export function RedeemCardSummary({
             {cards.length} card{cards.length === 1 ? "" : "s"}
           </div>
           <div className="pf-redeem-summary__sub">
-            Shipping together in one delivery
+            {vaultCount > 1
+              ? `Shipping in ${vaultCount} deliveries by vault`
+              : "Shipping together in one delivery"}
           </div>
         </div>
         <button

@@ -74,8 +74,19 @@ export const TOKENABLE_RWA_READ_ABI = [
   },
 ] as const;
 
-/** ERC-721 transfer (test burn-to-address flow). */
+/** ERC-721 transfer (custody intake + test burn-to-address). */
 export const TOKENABLE_RWA_TRANSFER_ABI = [
+  {
+    name: "safeTransferFrom",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [],
+  },
   {
     name: "transferFrom",
     type: "function",
@@ -159,6 +170,16 @@ export const USDC_ABI = [
     stateMutability: "view",
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
   },
   {
     name: "allowance",

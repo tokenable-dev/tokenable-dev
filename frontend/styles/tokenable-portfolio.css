@@ -186,22 +186,24 @@
 
 .portfolio-page__tabs.tk-tabs {
   display: flex;
+  align-items: center;
   width: 100%;
   gap: 0;
   clip-path: none;
   background: transparent;
   border-radius: 0;
-  padding: 0 16px;
+  padding: 0;
   border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
   margin-bottom: 0;
 }
 
 .portfolio-page__tabs .tk-tab {
-  flex: 1;
+  flex: 0 0 auto;
   justify-content: center;
   gap: 6px;
-  padding: 16px 16px;
+  padding: 14px 16px;
   border-radius: 0;
   clip-path: none;
   font-family: var(--font-sans);
@@ -224,9 +226,32 @@
   box-shadow: none;
 }
 
+.portfolio-page__tabs .pf-tab-n {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin-left: 2px;
+  line-height: 1.2;
+}
+
+.portfolio-page__tabs .pf-redeem-toolbar-btn {
+  margin-left: auto;
+  align-self: center;
+  flex-shrink: 0;
+}
+
 .portfolio-page__tab-panel {
   min-width: 0;
-  padding-top: 6px;
+  padding-top: 16px;
+}
+
+.portfolio-page__tab-panel .pf-table-wrap,
+.portfolio-page__tab-panel .pf-holdings-table-wrap {
+  border-radius: 16px;
 }
 
 /* ── Mobile sort ────────────────────────────────────────────────────────── */
@@ -714,17 +739,31 @@
 .portfolio-page .pf-hbadge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   height: 26px;
+  min-width: 96px;
   padding: 0 12px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   border-radius: 0;
   background: transparent;
   box-sizing: border-box;
+}
+
+/* Transaction history — match Portfolio.html hx-row typography */
+.portfolio-page .pf-history-row td[data-label="Date"] .pf-table-muted {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t2);
+}
+
+.portfolio-page .pf-history-row .pf-table-type {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .portfolio-page .pf-hbadge--settled {
@@ -1129,9 +1168,9 @@
   font-size: 14px;
 }
 
-/* ── Mobile ─────────────────────────────────────────────────────────────── */
+/* ── Mobile / tablet (align with GNB ≤1024) ─────────────────────────────── */
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .portfolio-page__shell {
     padding-top: 20px;
   }
@@ -1146,7 +1185,7 @@
   }
 
   .pf-stat-card__label {
-    font-size: 9px;
+    font-size: 10px;
     gap: 4px;
   }
 
@@ -1164,7 +1203,7 @@
   }
 
   .pf-period {
-    font-size: 10px;
+    font-size: 11px;
     padding: 0 10px;
   }
 
@@ -1174,27 +1213,42 @@
 
   .portfolio-page__tabs.tk-tabs {
     position: sticky;
-    top: 58px;
+    /* Match fixed header height (tokenable-layout.css ≤1024). */
+    top: 64px;
     z-index: 40;
-    width: 100vw;
+    width: auto;
     margin-left: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px)));
     margin-right: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px)));
-    background: var(--ink);
-    padding: 8px max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px))
-      8px max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    background: var(--ink, #0e0e0e);
+    padding: 0 max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px))
+      0 max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
+    box-shadow: none;
     border-radius: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .portfolio-page__tabs .tk-tab {
     white-space: nowrap;
-    font-size: 12px;
-    padding: 10px 0;
+    font-size: 13px;
+    padding: 12px 10px;
     gap: 5px;
-    flex: 1;
+    flex: 0 0 auto;
     border-bottom-width: 2px;
+  }
+
+  .portfolio-page__tabs .pf-tab-n {
+    font-size: 10.5px;
+    padding: 2px 5px;
+  }
+
+  .portfolio-page__tabs .pf-redeem-toolbar-btn {
+    margin-left: 12px;
+  }
+
+  .portfolio-page__tab-panel {
+    padding-top: 12px;
   }
 
   .portfolio-page .pf-holdings-table-wrap {
@@ -1214,7 +1268,7 @@
   #portfolio-panel-bids .pf-table-btn,
   #portfolio-panel-history .pf-table-btn {
     width: 100%;
-    min-height: 38px;
+    min-height: 44px;
     font-size: 14px;
   }
 

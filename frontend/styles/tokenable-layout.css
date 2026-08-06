@@ -575,6 +575,14 @@
   max-width: 11rem;
 }
 
+@media (max-width: 400px) {
+  .tk-header__mobile-actions .gnb-network-chip {
+    max-width: 7.5rem;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}
+
 .gnb-search-truncated {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -584,8 +592,8 @@
 
 .gnb-burger {
   display: none;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   background: transparent;
   color: #fff;
@@ -623,8 +631,8 @@
 
 .gnb-search-mobile {
   display: none;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   background: transparent;
   color: #fff;

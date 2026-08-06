@@ -4,9 +4,12 @@ import { useMemo, useState } from "react";
 
 export type PortfolioSortDir = "asc" | "desc";
 
-export function usePortfolioTableSort<T extends string>(defaultKey: T) {
+export function usePortfolioTableSort<T extends string>(
+  defaultKey: T,
+  defaultDir: PortfolioSortDir = "asc",
+) {
   const [sortKey, setSortKey] = useState<T>(defaultKey);
-  const [sortDir, setSortDir] = useState<PortfolioSortDir>("asc");
+  const [sortDir, setSortDir] = useState<PortfolioSortDir>(defaultDir);
 
   function toggleSort(key: T) {
     if (sortKey === key) {

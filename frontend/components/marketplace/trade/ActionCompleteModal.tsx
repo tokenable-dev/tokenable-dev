@@ -226,7 +226,8 @@ export function ActionCompletePanel({
           {hasSecondary && secondaryHref ? (
             <TkButton
               variant="primary"
-              className="flex-1 justify-center"
+              size="md"
+              className="tk-ac-btn"
               href={secondaryHref}
               onClick={onSecondary}
             >
@@ -236,7 +237,8 @@ export function ActionCompletePanel({
             <TkButton
               type="button"
               variant="primary"
-              className="flex-1 justify-center"
+              size="md"
+              className="tk-ac-btn"
               onClick={onSecondary}
             >
               {secondaryLabel}
@@ -246,7 +248,8 @@ export function ActionCompletePanel({
             <TkButton
               type="button"
               variant={hasSecondary ? "subtle" : "primary"}
-              className="flex-1 justify-center"
+              size="md"
+              className="tk-ac-btn"
               onClick={onPrimary}
             >
               {primaryLabel}

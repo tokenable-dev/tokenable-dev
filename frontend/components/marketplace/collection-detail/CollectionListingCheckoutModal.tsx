@@ -77,14 +77,14 @@ export function CollectionListingCheckoutModal({
 
   const price = formatListingUsdc(listing.considerationAmount);
   const title = listingAssetTitle(metadata, tokenId);
-  const fee = "15.00";
-  const total =
-    mode === "buy"
-      ? (Number(price.replace(/,/g, "")) + Number(fee)).toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : price;
+  const priceLabel = (() => {
+    const n = Number(price.replace(/,/g, ""));
+    if (!Number.isFinite(n)) return price;
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  })();
 
   const handlePay = () => {
     runTradeAccessGate(() => onFulfillBuy());
@@ -125,7 +125,7 @@ export function CollectionListingCheckoutModal({
           <div className="cd-listing-checkout__item-meta">
             <div className="cd-listing-checkout__item-title">{title}</div>
             <div className="cd-listing-checkout__item-sub tkl-mono">
-              Listed ${price} · Vaulted
+              Listed ${priceLabel} · Vaulted
             </div>
           </div>
         </div>
@@ -135,15 +135,11 @@ export function CollectionListingCheckoutModal({
             <div className="cd-listing-checkout__rows">
               <div className="cd-listing-checkout__row">
                 <span>Item price</span>
-                <span className="tkl-mono">${price}.00</span>
-              </div>
-              <div className="cd-listing-checkout__row">
-                <span>Network &amp; settlement fee</span>
-                <span className="tkl-mono">${fee}</span>
+                <span className="tkl-mono">${priceLabel}</span>
               </div>
               <div className="cd-listing-checkout__row cd-listing-checkout__row--total">
-                <span>Total</span>
-                <span>${total}</span>
+                <span>Total (USDC)</span>
+                <span>${priceLabel}</span>
               </div>
             </div>
             {buyErr ? (
@@ -165,7 +161,8 @@ export function CollectionListingCheckoutModal({
                   : "Connect wallet to pay"}
             </TkButton>
             <p className="cd-listing-checkout__fine tkl-mono">
-              Owned instantly · stays safely in the vault
+              Owned instantly · stays safely in the vault. Network gas is paid
+              separately in the chain&apos;s native token.
             </p>
           </>
         ) : (
@@ -174,7 +171,7 @@ export function CollectionListingCheckoutModal({
             tokenId={tokenId}
             listing={listing}
             collectionBids={collectionBids}
-            listedPriceLabel={`${price}.00`}
+            listedPriceLabel={priceLabel}
             connectedAddress={connectedAddress}
             onHeaderTitleChange={setBidHeaderTitle}
             onPlaced={() => onBidPlaced?.()}

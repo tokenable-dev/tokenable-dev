@@ -8,13 +8,14 @@ export type SellDraftCard = {
 
 export const SELL_FLOW_DRAFT_KEY = "tk_sell_flow_draft";
 export const SELL_SHIPMENT_KEY = "tk_sell_shipment";
-/** Server-backed submission public id (SUB-…) after draft upsert. */
+/** Server-backed submission public id (SUB-…) after shipping upsert. */
 export const SELL_SUBMISSION_PUBLIC_ID_KEY = "tk_sell_submission_public_id";
-/** In-progress UI step + shipping form fields (survives refresh / tab close). */
+/** In-progress UI step + shipping form fields (survives refresh / tab close). Card drafts are local-only until shipping. */
 export const SELL_FLOW_PROGRESS_KEY = "tk_sell_flow_progress";
 /** Bump only to drop offline-only fake In Transit shipments (not card drafts). */
 const SELL_LOCAL_SCHEMA_KEY = "tk_sell_local_schema";
-const SELL_LOCAL_SCHEMA = "5";
+/** 6 — clear stale SUB-… after draft packages stopped being created server-side. */
+const SELL_LOCAL_SCHEMA = "6";
 
 /** Wipe browser-only sell progress (not server DB). Safe to call often. */
 export function clearAllSellLocalState() {
@@ -32,8 +33,9 @@ function ensureSellLocalSchema() {
   if (typeof window === "undefined") return;
   try {
     if (localStorage.getItem(SELL_LOCAL_SCHEMA_KEY) === SELL_LOCAL_SCHEMA) return;
-    // Drop offline-confirmed shipment mocks — keep in-progress card drafts.
+    // Drop offline-confirmed shipment mocks + stale package ids pointing at cancelled drafts.
     localStorage.removeItem(SELL_SHIPMENT_KEY);
+    localStorage.removeItem(SELL_SUBMISSION_PUBLIC_ID_KEY);
     localStorage.setItem(SELL_LOCAL_SCHEMA_KEY, SELL_LOCAL_SCHEMA);
   } catch {
     /* ignore */
@@ -66,10 +68,10 @@ export type SellFlowProgress = {
 };
 
 export const PSA_SHIP_TO = {
-  name: "PSA — Professional Sports Authenticator",
+  name: "TOKENABLE LIMITED (106101801)",
   lines: [
-    "1610 E Saint Andrew Place, Suite 150",
-    "Santa Ana, CA 92705",
+    "600 SHIPS LANDING WAY",
+    "NEW CASTLE, DE 19720",
     "United States",
   ],
 } as const;
@@ -249,10 +251,12 @@ export function draftCardsFromSubmissionItems(
   }));
 }
 
-/** Resume URL for an open submission (draft → ship → detail). */
+/** Resume URL for a server-backed package (ship+). Pre-ship drafts are local-only. */
 export function sellSubmissionResumeHref(status: string, publicId: string): string {
-  if (status === "draft") return "/sell/flow";
-  if (status === "awaiting_shipment") return "/sell/shipping";
+  if (status === "awaiting_shipment" || status === "draft") {
+    // Legacy status=draft should go to shipping, not /sell/flow (cards are local).
+    return "/sell/shipping";
+  }
   return `/vault/submissions/${encodeURIComponent(publicId)}`;
 }
 

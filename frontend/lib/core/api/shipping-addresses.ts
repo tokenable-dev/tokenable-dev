@@ -91,3 +91,26 @@ export async function deleteShippingAddress(id: string): Promise<void> {
   );
   if (!res.ok) throw new Error(await readError(res, "Failed to delete address"));
 }
+
+/**
+ * Save as the user's default profile address (Settings → Addresses).
+ * Updates the current default if one exists; otherwise creates a new default.
+ */
+export async function upsertDefaultShippingAddress(
+  input: ShippingAddressInput,
+): Promise<ShippingAddress> {
+  const rows = await listShippingAddresses();
+  const current = rows.find((a) => a.isDefault) ?? rows[0] ?? null;
+  if (current) {
+    return updateShippingAddress(current.id, {
+      ...input,
+      label: input.label ?? current.label,
+      isDefault: true,
+    });
+  }
+  return createShippingAddress({
+    ...input,
+    label: input.label ?? "Home",
+    isDefault: true,
+  });
+}

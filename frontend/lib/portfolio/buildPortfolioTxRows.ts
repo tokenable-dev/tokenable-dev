@@ -1,6 +1,11 @@
-import type { OrderListItem } from "@/lib/core";
+import type { OrderListItem, RwaMetadata } from "@/lib/core";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { extractCategory } from "@/lib/portfolio/portfolioAssetMeta";
-import type { OwnedAsset, TxRow } from "@/lib/portfolio/portfolioTypes";
+import type { TxRow } from "@/lib/portfolio/portfolioTypes";
 import { PORTFOLIO_USDC_DECIMALS } from "@/lib/portfolio/buildPortfolioPricedRows";
 
 function usdcFromMicros(raw: string | undefined): number {
@@ -11,6 +16,18 @@ function usdcFromMicros(raw: string | undefined): number {
   }
 }
 
+/** Same headline rule as My Assets: year · set · # · name · variety. */
+export function portfolioTxAssetDisplayName(
+  metadata: RwaMetadata | null | undefined,
+  tokenId: number,
+): string {
+  const fallback = `RWA #${tokenId}`;
+  const psaTitle = formatAssetDetailHeadlineText(
+    buildRwaAssetDetailHeadlineParts(metadata ?? null, fallback),
+  );
+  return psaTitle || displayAssetNameFromMetadata(metadata ?? null, fallback);
+}
+
 /**
  * Build portfolio transaction rows from portfolio-activity orders.
  * One row per settlement: seller sees SELL on their ask; buyer sees BUY on their
@@ -19,7 +36,7 @@ function usdcFromMicros(raw: string | undefined): number {
 export function buildPortfolioTxRows(
   fulfilledOrders: OrderListItem[],
   address: string,
-  assets: OwnedAsset[],
+  metadataByTokenId: Map<number, RwaMetadata | null>,
 ): TxRow[] {
   const w = address.trim().toLowerCase();
   if (!w) return [];
@@ -45,7 +62,9 @@ export function buildPortfolioTxRows(
     const matched = o.matchedOrderHash?.trim().toLowerCase() ?? "";
     const price = usdcFromMicros(o.settlementPrice || o.price);
     const tokenId = Number(o.tokenId);
-    const asset = assets.find((a) => a.tokenId === tokenId);
+    const metadata = Number.isFinite(tokenId)
+      ? metadataByTokenId.get(tokenId) ?? null
+      : null;
 
     let type: "SELL" | "BUY" | null = null;
     let dedupeKey = o.orderHash.toLowerCase();
@@ -68,8 +87,9 @@ export function buildPortfolioTxRows(
 
     rows.push({
       type,
-      asset: asset?.metadata?.name ?? `RWA #${o.tokenId}`,
-      category: asset ? extractCategory(asset.metadata) : null,
+      status: "settled",
+      asset: portfolioTxAssetDisplayName(metadata, tokenId),
+      category: extractCategory(metadata),
       amount: 1,
       price,
       date: new Date(o.updatedAt ?? o.createdAt).toLocaleDateString("en-US", {
@@ -77,12 +97,11 @@ export function buildPortfolioTxRows(
         day: "numeric",
         year: "numeric",
       }),
+      dateMs: new Date(o.updatedAt ?? o.createdAt).getTime(),
       orderHash: o.orderHash,
     });
   }
 
-  return rows.sort((a, b) => {
-    // Keep API order roughly; stable by orderHash
-    return a.orderHash.localeCompare(b.orderHash);
-  });
+  // fulfilledOrders is already newest-first; preserve that order.
+  return rows;
 }

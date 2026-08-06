@@ -54,7 +54,7 @@ export function PortfolioHoldingsSection({
   redeemEligibleIds,
   redeemLimitError = null,
   redeemStatusByTokenId,
-  onEnterRedeemSelect,
+  redeemTrackingByTokenId,
   onExitRedeemSelect,
   onToggleRedeemToken,
   onContinueRedeem,
@@ -64,6 +64,7 @@ export function PortfolioHoldingsSection({
   onLoadMoreAssets,
   loadedAssetCount,
   totalAssetCount,
+  vaultLabelByTokenId,
 }: {
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
@@ -82,16 +83,18 @@ export function PortfolioHoldingsSection({
   redeemEligibleIds?: Set<number>;
   redeemLimitError?: string | null;
   redeemStatusByTokenId?: Map<number, string>;
+  redeemTrackingByTokenId?: Map<number, string>;
   hasMoreAssets?: boolean;
   isLoadingMoreAssets?: boolean;
   onLoadMoreAssets?: () => void;
   loadedAssetCount?: number;
   totalAssetCount?: number;
-  onEnterRedeemSelect?: () => void;
   onExitRedeemSelect?: () => void;
   onToggleRedeemToken?: (tokenId: number, checked: boolean) => void;
   onContinueRedeem?: () => void;
   redeemMaxBatch?: number;
+  /** tokenId → "PSA Vault" | "{partner} vault" */
+  vaultLabelByTokenId?: Map<number, string>;
 }) {
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<HoldingsSortKey>("name");
@@ -150,33 +153,6 @@ export function PortfolioHoldingsSection({
 
   return (
     <>
-      <div className="pf-holdings-toolbar">
-        {!redeemSelectMode ? (
-          <TkButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="pf-redeem-toolbar-btn"
-            onClick={onEnterRedeemSelect}
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="7.5 4.21 12 6.81 16.5 4.21" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            </svg>
-            Redeem
-          </TkButton>
-        ) : null}
-      </div>
-
       {redeemSelectMode ? (
         <div
           className={`pf-redeem-hint${redeemLimitError ? " pf-redeem-hint--err" : ""}`}
@@ -205,7 +181,10 @@ export function PortfolioHoldingsSection({
             ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
             : null;
           const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
-          const badge = redeemSurfaceBadge(redeemStatus);
+          const badge = redeemSurfaceBadge(
+            redeemStatus,
+            redeemTrackingByTokenId?.get(row.tokenId),
+          );
           const tradeBlocked = isRedeemInFlight(redeemStatus);
           const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
 
@@ -223,14 +202,13 @@ export function PortfolioHoldingsSection({
               selectMode={redeemSelectMode}
               selected={redeemSelected?.has(row.tokenId) ?? false}
               selectable={selectable}
-              redeemBadge={badge}
+              redeemStatus={badge}
               actionsDisabled={tradeBlocked || redeemSelectMode}
               actionsDisabledTitle={
                 tradeBlocked
                   ? "Redemption in progress — listing unavailable"
                   : undefined
               }
-              actionStatusLabel={badge?.label ?? null}
               onToggleSelect={(checked) =>
                 onToggleRedeemToken?.(row.tokenId, checked)
               }
@@ -245,6 +223,7 @@ export function PortfolioHoldingsSection({
                 });
                 onSetPrice(row.tokenId);
               }}
+              vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
             />
           );
         })}
@@ -329,7 +308,10 @@ export function PortfolioHoldingsSection({
                 : "pf-table-pl--neg"
               : "";
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
-            const badge = redeemSurfaceBadge(redeemStatus);
+            const badge = redeemSurfaceBadge(
+              redeemStatus,
+              redeemTrackingByTokenId?.get(row.tokenId),
+            );
             const tradeBlocked = isRedeemInFlight(redeemStatus);
             const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
             const selected = redeemSelected?.has(row.tokenId) ?? false;
@@ -341,7 +323,13 @@ export function PortfolioHoldingsSection({
             return (
               <tr
                 key={row.tokenId}
-                className={redeemSelectMode && selected ? "pf-holdings-row--selected" : undefined}
+                className={[
+                  redeemSelectMode && selected ? "pf-holdings-row--selected" : null,
+                  badge?.kind === "transit" ? "pf-holdings-row--transit" : null,
+                  badge?.kind === "possession" ? "pf-holdings-row--possession" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined}
                 onClick={() => {
                   if (redeemSelectMode) {
                     if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
@@ -400,11 +388,6 @@ export function PortfolioHoldingsSection({
                     <span className="pf-table-card-name" title={row.name}>
                       {row.name}
                     </span>
-                    {badge ? (
-                      <span className={`pf-redeem-badge pf-redeem-badge--${badge.tone}`}>
-                        {badge.label}
-                      </span>
-                    ) : null}
                   </div>
                 </td>
                 <td data-label="Grade" className="pf-col-grade-cell">
@@ -413,7 +396,9 @@ export function PortfolioHoldingsSection({
                       <TkTag tone="neutral" appearance="soft">
                         {grade}
                       </TkTag>
-                      <span className="pf-vault-chip">PSA Vault</span>
+                      <span className="pf-vault-chip">
+                        {vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
+                      </span>
                     </span>
                   ) : (
                     "—"
@@ -465,7 +450,7 @@ export function PortfolioHoldingsSection({
                       <PortfolioHoldingsRowActions
                         isListed={isListed}
                         highestBidUsd={highestBidUsd}
-                        statusLabel={badge?.label ?? null}
+                        redeemStatus={badge}
                         onSetPrice={() => {
                           trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
                             card_id: String(row.tokenId),

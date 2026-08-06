@@ -56,8 +56,8 @@ export function MarketplaceOrderBook({
   const rowGrid =
     "grid gap-2 w-full px-3 font-mono tabular-nums " +
     (isFull
-      ? "grid-cols-[1fr_64px_80px] text-sm min-h-[40px] items-center"
-      : "grid-cols-[1fr_48px_56px] px-2 text-xs min-h-[30px]");
+      ? "grid-cols-[1fr_64px_80px] text-sm min-h-[44px] items-center"
+      : "grid-cols-[1fr_48px_56px] px-2 text-xs min-h-[36px]");
 
   return (
     <div className={`${shell} ${className}`.trim()}>
@@ -92,7 +92,7 @@ export function MarketplaceOrderBook({
                 key={order.orderHash}
                 href={`/marketplace/${tokenId}`}
                 className={`relative flex items-center rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors group ${
-                  isFull ? "min-h-[42px]" : ""
+                  isFull ? "min-h-[44px]" : ""
                 }`}
               >
                 <div

@@ -241,7 +241,7 @@ frontend/
 │   │   └── invalidation.ts # Centralized cache invalidation after mutations
 │   ├── auth/               # accountAccess.ts (access gates)
 │   ├── marketplace/        # Market data helpers
-│   ├── sell/               # sellFlowDraft (draft + PSA address + checklist)
+│   ├── sell/               # sellFlowDraft (local cards + progress; package id after ship)
 │   ├── vault/              # mint helpers, vaultAccess, vaultDetailScenarios, vaultHubTypes
 │   ├── portfolio/          # Portfolio type definitions
 │   ├── privy/              # Privy config, session bridge, signing

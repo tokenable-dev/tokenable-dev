@@ -13,8 +13,10 @@ import {
   postAdminLinkUserWallet,
   postAdminUserKyc,
   rq,
+  type AdminUserAccountStatusFilter,
   type AdminUserDetail,
   type AdminUserFilter,
+  type AdminUserRoleFilter,
   type AdminUserSummary,
 } from "@/lib/core";
 
@@ -30,7 +32,7 @@ export function useMarketplaceAdminUserStats() {
 
 export function useMarketplaceAdminUserDetail(
   userId: string | null,
-  enabled: boolean,
+  enabled = true,
 ) {
   return useQuery({
     queryKey: rq.adminUserDetail(userId ?? ""),
@@ -43,17 +45,30 @@ export function useMarketplaceAdminUserDetail(
 export function useMarketplaceAdminUsers(params: {
   q: string;
   filter: AdminUserFilter;
+  role?: AdminUserRoleFilter | null;
+  accountStatus?: AdminUserAccountStatusFilter;
   page: number;
 }) {
   const qc = useQueryClient();
   const { q, filter, page } = params;
+  const role = params.role ?? null;
+  const accountStatus = params.accountStatus ?? "all";
 
   const listQuery = useQuery({
-    queryKey: rq.adminUsersList(q, filter, page, ADMIN_USERS_PAGE_SIZE),
+    queryKey: rq.adminUsersList(
+      q,
+      filter,
+      role ?? "",
+      accountStatus,
+      page,
+      ADMIN_USERS_PAGE_SIZE,
+    ),
     queryFn: () =>
       getAdminUsers({
         q: q || undefined,
         filter,
+        role: role ?? undefined,
+        accountStatus,
         page,
         limit: ADMIN_USERS_PAGE_SIZE,
       }),
@@ -64,6 +79,7 @@ export function useMarketplaceAdminUsers(params: {
     await qc.invalidateQueries({ queryKey: rq.adminUserStats() });
     await qc.invalidateQueries({ queryKey: ["admin-users-list"] });
     await qc.invalidateQueries({ queryKey: ["admin-user-detail"] });
+    await qc.invalidateQueries({ queryKey: rq.adminMarketplacePartners });
   };
 
   const patchMutation = useMutation({

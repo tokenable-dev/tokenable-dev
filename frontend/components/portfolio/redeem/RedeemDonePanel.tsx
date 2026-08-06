@@ -21,8 +21,10 @@ export function RedeemDonePanel() {
         </svg>
         <strong>Redemption complete</strong>
         <p>
-          Your cards are now in your hands. They&rsquo;ll show as “In your possession”
-          in your portfolio — remove them anytime you like.
+          Your cards are now in your hands. They&rsquo;ve been removed from your
+          online assets — you own the physical cards. They&rsquo;ll show as “In
+          your possession” in your portfolio, and you can remove them anytime you
+          like.
         </p>
       </div>
       <Link href="/portfolio" className="pf-redeem-primary-link">

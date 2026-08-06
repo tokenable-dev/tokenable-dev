@@ -137,34 +137,42 @@ export default function P2pListingDetailPage() {
   }
 
   if (listingQ.isPending) {
-    return <div className="tkl-wrap py-10 text-[var(--muted)]">Loading…</div>;
+    return (
+      <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 text-[var(--t2)] sm:py-10">
+        Loading…
+      </div>
+    );
   }
   if (!listing) {
-    return <div className="tkl-wrap py-10">Listing not found</div>;
+    return (
+      <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 sm:py-10">Listing not found</div>
+    );
   }
 
   const isSeller = user?.id && listing.sellerUserId === user.id;
   const canBuy = listing.status === "P2P_LISTED" && !isSeller;
 
   return (
-    <div className="tkl-wrap mx-auto max-w-xl py-10">
+    <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 sm:py-10">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--azure)]">
         P2P · Physical delivery
       </div>
-      <h1 className="text-2xl font-semibold">
+      <h1 className="text-2xl font-semibold text-[#fff]">
         {listing.displayName || `PSA #${listing.certNumber}`}
       </h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">
+      <p className="mt-2 text-sm text-[var(--t2)]">
         Cert {listing.certNumber} · Token #{listing.tokenId} · {listing.status}
       </p>
-      <p className="mt-4 text-xl font-semibold">${formatUsdc(listing.priceUsdc)} USDC</p>
-      <p className="mt-2 text-sm text-[var(--muted)]">
+      <p className="mt-4 text-xl font-semibold text-[#fff]">
+        ${formatUsdc(listing.priceUsdc)} USDC
+      </p>
+      <p className="mt-2 text-sm text-[var(--t2)]">
         Payment is locked in the escrow contract until you confirm receipt of the physical card.
       </p>
 
       {canBuy ? (
-        <div className="mt-8 space-y-3 border border-[var(--border)] p-4">
-          <h2 className="text-sm font-semibold">Ship-to address</h2>
+        <div className="mt-8 space-y-3 rounded-xl border border-white/10 bg-[#191919] p-4">
+          <h2 className="text-sm font-semibold text-[#fff]">Ship-to address</h2>
           <TkField label="Address line 1" htmlFor="p2p-ship-line1">
             <TkInput
               id="p2p-ship-line1"
@@ -173,7 +181,7 @@ export default function P2pListingDetailPage() {
               onChange={(e) => setShipToLine1(e.target.value)}
             />
           </TkField>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <TkField className="min-w-0 flex-1" label="City" htmlFor="p2p-ship-city">
               <TkInput
                 id="p2p-ship-city"
@@ -182,40 +190,52 @@ export default function P2pListingDetailPage() {
                 onChange={(e) => setShipToCity(e.target.value)}
               />
             </TkField>
-            <TkField label="Postal" htmlFor="p2p-ship-postal">
+            <TkField className="min-w-0 flex-1 sm:max-w-[8rem]" label="Postal" htmlFor="p2p-ship-postal">
               <TkInput
                 id="p2p-ship-postal"
-                className="w-32"
+                className="w-full"
                 placeholder="Postal"
                 value={shipToPostal}
                 onChange={(e) => setShipToPostal(e.target.value)}
               />
             </TkField>
-            <TkField label="Country" htmlFor="p2p-ship-country">
+            <TkField className="min-w-0 flex-1 sm:max-w-[6rem]" label="Country" htmlFor="p2p-ship-country">
               <TkInput
                 id="p2p-ship-country"
-                className="w-20"
+                className="w-full"
                 placeholder="Country"
                 value={shipToCountry}
                 onChange={(e) => setShipToCountry(e.target.value)}
               />
             </TkField>
           </div>
-          <TkButton type="button" variant="primary" disabled={busy} onClick={onBuy}>
-            {busy ? "Processing…" : "Buy · deposit USDC to escrow"}
+          <TkButton
+            type="button"
+            variant="primary"
+            className="w-full min-h-11"
+            disabled={busy}
+            onClick={onBuy}
+          >
+            {busy ? "Processing…" : "Buy · deposit USDC"}
           </TkButton>
         </div>
       ) : null}
 
       {isSeller && listing.status === "P2P_LISTED" ? (
         <div className="mt-6">
-          <TkButton type="button" variant="danger" disabled={busy} onClick={onCancel}>
-            Cancel listing (permanent)
+          <TkButton
+            type="button"
+            variant="danger"
+            className="w-full min-h-11 sm:w-auto"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            Cancel listing
           </TkButton>
         </div>
       ) : null}
 
-      {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mt-4 text-sm text-[var(--neg)]">{error}</p> : null}
     </div>
   );
 }

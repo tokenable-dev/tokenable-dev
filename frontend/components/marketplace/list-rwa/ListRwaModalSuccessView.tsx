@@ -4,7 +4,7 @@ import {
   feePercent,
   type AskSettlementPolicy,
 } from "@/lib/seaport/orders/platformFee";
-import { ActionCompletePanel } from "@/components/marketplace/trade/ActionCompleteModal";
+import { ActionCompleteModal } from "@/components/marketplace/trade/ActionCompleteModal";
 import type { ActionCompleteKind } from "@/components/marketplace/trade/ActionCompleteModal";
 import type { ListSuccessMeta } from "@/lib/seaport/listing/listRwaModalTypes";
 
@@ -87,17 +87,6 @@ export function ListRwaModalSuccessView({
       </p>
     ) : null;
 
-  const reviewHint =
-    !successMeta?.matched && !fillFailed && successMeta?.collectionUnderReview ? (
-      <div className="rounded-lg border border-sky-500/35 bg-sky-500/[0.1] px-3 py-2.5">
-        <p className="text-[13px] font-semibold text-sky-100">Collection under review</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-sky-100/85">
-          Your listing was submitted. This collection is new, so it will appear on Markets
-          after an admin review. You can manage your listing anytime from your portfolio.
-        </p>
-      </div>
-    ) : null;
-
   const matchHint =
     !successMeta?.matched &&
     !fillFailed &&
@@ -128,21 +117,19 @@ export function ListRwaModalSuccessView({
     ) : null;
 
   return (
-    <ActionCompletePanel
+    <ActionCompleteModal
+      open
       kind={kind}
       priceUsdc={priceUsdc}
       sub={sub}
-      embedded
-      showStatus={false}
       extra={
         <>
           {feeHint}
-          {reviewHint}
           {matchHint}
         </>
       }
       primaryLabel="Done"
-      onPrimary={onClose}
+      onClose={onClose}
     />
   );
 }

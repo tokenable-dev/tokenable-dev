@@ -2,6 +2,7 @@
 
 import { TkTag } from "@/components/ds";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
@@ -9,7 +10,7 @@ import {
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 
-/** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
+/** Mobile My Assets card — Portfolio.html `mobile-asset-card` (status only in actions). */
 export function PortfolioMobileAssetCard({
   row,
   grade,
@@ -22,14 +23,14 @@ export function PortfolioMobileAssetCard({
   selectMode = false,
   selected = false,
   selectable = false,
-  redeemBadge = null,
+  redeemStatus = null,
   actionsDisabled = false,
   actionsDisabledTitle,
-  actionStatusLabel = null,
   onToggleSelect,
   onOpen,
   onSaveCostBasis,
   onSetPrice,
+  vaultLabel = "PSA Vault",
 }: {
   row: AssetRow;
   grade: string | null;
@@ -42,22 +43,28 @@ export function PortfolioMobileAssetCard({
   selectMode?: boolean;
   selected?: boolean;
   selectable?: boolean;
-  redeemBadge?: { label: string; tone: string } | null;
+  redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  actionStatusLabel?: string | null;
   onToggleSelect?: (checked: boolean) => void;
   onOpen: () => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
   onSetPrice: () => void;
+  vaultLabel?: string;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
-  const costEditable = canEditCostBasis && !selectMode && !actionStatusLabel;
+  const costEditable = canEditCostBasis && !selectMode && !redeemStatus;
+  const dimClass =
+    redeemStatus?.kind === "transit"
+      ? " pf-mobile-asset-card--transit"
+      : redeemStatus?.kind === "possession"
+        ? " pf-mobile-asset-card--possession"
+        : "";
 
   return (
     <div
-      className={`pf-mobile-asset-card${selectMode && selected ? " pf-mobile-asset-card--selected" : ""}${selectMode ? " pf-mobile-asset-card--select" : ""}`}
+      className={`pf-mobile-asset-card${selectMode && selected ? " pf-mobile-asset-card--selected" : ""}${selectMode ? " pf-mobile-asset-card--select" : ""}${dimClass}`}
       role="button"
       tabIndex={0}
       onClick={() => {
@@ -94,7 +101,7 @@ export function PortfolioMobileAssetCard({
                 ? "Select for redeem"
                 : isListed
                   ? "Cancel listing before redeeming"
-                  : actionStatusLabel
+                  : redeemStatus
                     ? "Already in a redemption"
                     : "Not eligible for redeem"
             }
@@ -119,23 +126,10 @@ export function PortfolioMobileAssetCard({
               <TkTag tone="neutral" appearance="soft" className="pf-mobile-asset-card__grade">
                 {grade}
               </TkTag>
-              <span className="pf-vault-chip">PSA Vault</span>
-            </span>
-          ) : null}
-          {redeemBadge ? (
-            <span className={`pf-redeem-badge pf-redeem-badge--${redeemBadge.tone}`}>
-              {redeemBadge.label}
+              <span className="pf-vault-chip">{vaultLabel}</span>
             </span>
           ) : null}
         </div>
-
-        {redeemBadge && !selectMode ? (
-          <p className="pf-redeem-mobile-hint">
-            {redeemBadge.tone === "transit"
-              ? "This card is on its way — it can’t be listed."
-              : "Redemption in progress — listing unavailable."}
-          </p>
-        ) : null}
 
         <div
           onClick={(e) => e.stopPropagation()}
@@ -190,7 +184,7 @@ export function PortfolioMobileAssetCard({
               fullWidth
               disabled={actionsDisabled}
               disabledTitle={actionsDisabledTitle}
-              statusLabel={actionStatusLabel}
+              redeemStatus={redeemStatus}
               onSetPrice={onSetPrice}
             />
           </div>

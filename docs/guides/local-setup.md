@@ -89,12 +89,30 @@ CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 
 # Platform signing keys (required for vault mint/burn)
 RWA_OWNER_PRIVATE_KEY=0x...   # MINTER_ROLE + BURNER_ROLE
-# RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to derived from RWA_OWNER_PRIVATE_KEY)
-# RWA_CUSTODY_PRIVATE_KEY=0x...     (optional separate custody key)
+# Redeem NFT custody (independent of fee wallet; Sepolia v1 may equal PLATFORM_FEE_*)
+# RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to address of RWA_CUSTODY_PRIVATE_KEY / owner)
+# RWA_CUSTODY_PRIVATE_KEY=0x...     (optional; defaults to RWA_OWNER_PRIVATE_KEY)
 # Partner consignment mint+list — AES-256-GCM master key (openssl rand -hex 32):
 PARTNER_WALLET_ENCRYPTION_KEY=
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
+# Fee-wallet USDC outflows: self_vault seller payouts + redeem refunds (must derive PLATFORM_FEE_RECIPIENT)
+PLATFORM_FEE_PRIVATE_KEY=
+# Self-vault auto confirm+payout (~5 min after fulfill). Set CRON=0 to disable.
+SELF_VAULT_AUTO_PAYOUT_CRON=1
+SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300
+
+# Partner Self vault shipping (FedEx Rates). Stub USD when FEDEX_RATE_ENABLED=false.
+# FEDEX_RATE_ENABLED=false
+# FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
+# FEDEX_CLIENT_ID=
+# FEDEX_CLIENT_SECRET=
+# FEDEX_ACCOUNT_NUMBER=
+# FEDEX_RATE_QUOTE_TTL_MINUTES=15
+# PARTNER_VAULT_SHIPPING_US_USD=12.99
+# PARTNER_VAULT_SHIPPING_CA_USD=28.99
+# PARTNER_VAULT_SHIPPING_INTL_USD=39.99
+# Soft stub for some unsupported packaging lanes; KR→KR hard-fails (no stub).
 
 # P2P payment escrow (after `cd contracts && pnpm deploy:escrow:sepolia`)
 # CHAIN_11155111_PAYMENT_ESCROW_ADDRESS=0x...

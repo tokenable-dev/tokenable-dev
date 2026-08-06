@@ -55,16 +55,16 @@ const PIPELINE: {
   },
   {
     key: "draft",
-    label: "Draft",
-    short: "Draft",
-    hint: "Cards saved, not ready",
+    label: "Legacy draft",
+    short: "Legacy",
+    hint: "Old pre-ship rows — no longer created",
     accent: "bg-zinc-200 text-zinc-800",
   },
   {
     key: "awaiting_shipment",
     label: "Ready to ship",
     short: "Ready",
-    hint: "Packing slip · awaiting drop-off",
+    hint: "Packing · tracking not registered",
     accent: "bg-amber-100 text-amber-900",
   },
   {
@@ -194,6 +194,14 @@ export function MarketplaceAdminVaultSubmissionsPage() {
     return (counts.in_transit ?? 0) + (counts.psa_reviewing ?? 0);
   }, [counts]);
 
+  /** Hide empty legacy-draft tile so the pipeline stays uncluttered on mobile. */
+  const visiblePipeline = useMemo(() => {
+    return PIPELINE.filter((p) => {
+      if (p.key !== "draft") return true;
+      return (counts?.draft ?? 0) > 0 || status === "draft";
+    });
+  }, [counts, status]);
+
   const run = async (fn: () => Promise<unknown>) => {
     setActionError(null);
     try {
@@ -209,7 +217,7 @@ export function MarketplaceAdminVaultSubmissionsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Vault submissions"
-        subtitle="Track sell-flow packages from draft → PSA → mint. Mark arrivals, approve or reject cards, and keep users’ Vault Detail scenarios in sync."
+        subtitle="Track sell-flow packages from ready-to-ship → PSA → mint. Mark arrivals, approve or reject cards, and keep users’ Vault Detail scenarios in sync. (Add-cards drafts are local-only — no new draft packages.)"
       />
 
       <p className={`mb-4 text-sm ${ADMIN_TEXT_MUTED}`}>
@@ -243,8 +251,8 @@ export function MarketplaceAdminVaultSubmissionsPage() {
             Failed to load pipeline counts
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {PIPELINE.map((stage, idx) => {
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7">
+            {visiblePipeline.map((stage, idx) => {
               const n = counts?.[stage.key] ?? 0;
               const active = status === stage.key;
               return (
@@ -263,13 +271,11 @@ export function MarketplaceAdminVaultSubmissionsPage() {
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span
-                      className={`${ADMIN_BADGE} ${stage.accent} ${
-                        stage.key === "all" ? "" : ""
-                      }`}
+                      className={`${ADMIN_BADGE} ${stage.accent}`}
                     >
                       {stage.short}
                     </span>
-                    {idx > 0 && idx < PIPELINE.length - 1 ? (
+                    {idx > 0 && idx < visiblePipeline.length - 1 ? (
                       <span className={`text-[10px] ${ADMIN_TEXT_MUTED}`}>→</span>
                     ) : null}
                   </div>
@@ -298,7 +304,7 @@ export function MarketplaceAdminVaultSubmissionsPage() {
       {/* Filters */}
       <div className={`${ADMIN_ARTICLE} mb-6 space-y-3`}>
         <div className={`flex flex-wrap gap-1 ${ADMIN_SEGMENT}`}>
-          {PIPELINE.map((p) => (
+          {visiblePipeline.map((p) => (
             <button
               key={`seg-${p.key}`}
               type="button"
@@ -618,9 +624,9 @@ function SubmissionDetail({
               type="button"
               disabled={busy}
               className={ADMIN_BTN_SECONDARY}
-              onClick={() => onSetPackageStatus("draft")}
+              onClick={() => onSetPackageStatus("awaiting_shipment")}
             >
-              Reopen as draft
+              Reopen as ready to ship
             </button>
           ) : null}
         </div>

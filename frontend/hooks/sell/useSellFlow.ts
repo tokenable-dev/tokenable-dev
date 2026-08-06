@@ -2,27 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   analyzePsaByCertNumber,
   analyzePsaSlab,
+  getSelfVaultPartnerEligibility,
   listVaultSubmissions,
-  upsertVaultSubmissionDraft,
+  rq,
   type PsaAnalyzeResult,
 } from "@/lib/core";
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { fetchAuthMe } from "@/lib/auth";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import type { KycStatus } from "@/lib/auth";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
+import { activeRqChainId } from "@/lib/chains";
 import {
   draftCardsFromSubmissionItems,
   readSellFlowDraftCards,
   readSellFlowProgress,
-  readSellSubmissionPublicId,
   clearSellSubmissionPublicId,
   writeSellFlowDraftCards,
   writeSellFlowProgress,
@@ -45,7 +47,6 @@ const KYC_RETURN_KEY = "tk_kyc_return_to";
 /** Legacy key — consents are session-only now; cleared on hydrate. */
 const CONSENTS_KEY = "tk_seller_consents";
 const MAX_CARDS = 99;
-const SERVER_SYNC_MS = 900;
 
 export type SellFlowCard = SellDraftCard;
 
@@ -76,7 +77,11 @@ function buildCardTitle(r: PsaAnalyzeResult): string {
   return cert ? `PSA CERT #${cert}` : "PSA GRADED CARD";
 }
 
-function cardFromAnalyze(r: PsaAnalyzeResult, certFallback: string): SellFlowCard | { error: string } {
+function cardFromAnalyze(
+  r: PsaAnalyzeResult,
+  certFallback: string,
+  uploadPreviewDataUrl?: string | null,
+): SellFlowCard | { error: string } {
   const cert = (r.psa.certNumber ?? certFallback).trim();
   const grade = r.psa.gradeScore;
   if (grade !== 9 && grade !== 10) {
@@ -85,6 +90,7 @@ function cardFromAnalyze(r: PsaAnalyzeResult, certFallback: string): SellFlowCar
   const img =
     r.psaCertImages?.front?.trim() ||
     r.cardhedgerMint?.imageUrl?.trim() ||
+    uploadPreviewDataUrl?.trim() ||
     null;
   return {
     cert,
@@ -95,6 +101,36 @@ function cardFromAnalyze(r: PsaAnalyzeResult, certFallback: string): SellFlowCar
   };
 }
 
+/** Compact JPEG data URL so draft localStorage can keep a thumb when PSA/CH have none. */
+async function fileToThumbDataUrl(file: File): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxW = 480;
+    const scale = Math.min(1, maxW / Math.max(1, bitmap.width));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.72);
+  } catch {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
 function mapKycToIdState(
   user: Parameters<typeof isKycComplete>[0],
   status: KycStatus | undefined,
@@ -103,22 +139,6 @@ function mapKycToIdState(
   if (status === "pending" || user?.kycStatus === "pending") return "review";
   if (status === "rejected" || user?.kycStatus === "rejected") return "failed";
   return "idle";
-}
-
-async function pushDraftToServer(cards: SellFlowCard[]) {
-  const publicId = readSellSubmissionPublicId() ?? undefined;
-  const res = await upsertVaultSubmissionDraft({
-    publicId,
-    cards: cards.map((c) => ({
-      cert: c.cert,
-      name: c.name,
-      grade: c.grade,
-      img: c.img,
-      confirmed: c.confirmed,
-    })),
-  });
-  writeSellSubmissionPublicId(res.publicId);
-  return res;
 }
 
 export function useSellFlow() {
@@ -150,7 +170,6 @@ export function useSellFlow() {
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
   const mintLockRef = useRef(false);
-  const skipNextServerSyncRef = useRef(true);
   const hydrateDoneRef = useRef(false);
 
   const idState = mapKycToIdState(user, kycStatus ?? user?.kycStatus);
@@ -204,7 +223,11 @@ export function useSellFlow() {
     };
   }, [user?.id, setUser]);
 
-  // Account hydrate — pull open draft from server if local is empty / out of date.
+  /**
+   * Pre-ship cards live in localStorage only — do not hydrate from status=draft.
+   * If an awaiting_shipment package already exists (left mid-ship), remember its
+   * publicId and soft-fill cards only when local is empty so shipping can resume.
+   */
   useEffect(() => {
     if (!user?.id || !hydrated || hydrateDoneRef.current) return;
     hydrateDoneRef.current = true;
@@ -213,42 +236,32 @@ export function useSellFlow() {
       try {
         const rows = await listVaultSubmissions();
         if (cancelled) return;
-        const open = rows.find(
-          (s) => s.status === "draft" || s.status === "awaiting_shipment",
-        );
-        if (!open) {
+        const openShip = rows.find((s) => s.status === "awaiting_shipment");
+        if (!openShip) {
           clearSellSubmissionPublicId();
           return;
         }
 
-        writeSellSubmissionPublicId(open.publicId);
-        const serverCards = draftCardsFromSubmissionItems(open.items);
-        const localCards = readSellFlowDraftCards();
-        const preferServer =
-          localCards.length === 0 ||
-          (serverCards.length > localCards.length &&
-            new Date(open.updatedAt).getTime() >
-              new Date(readSellFlowProgress().updatedAt).getTime());
-
-        if (preferServer && serverCards.length > 0) {
-          skipNextServerSyncRef.current = true;
-          writeSellFlowDraftCards(serverCards);
-          setCards(serverCards);
-          setDraftRestored(true);
-          writeSellFlowProgress({
-            step:
-              open.status === "awaiting_shipment"
-                ? "shipping-pack"
-                : serverCards.length > 0
-                  ? "cards"
-                  : "register",
-            slipDownloaded: Boolean(open.packingSlipDownloadedAt),
-          });
-        } else if (open.packingSlipDownloadedAt) {
+        writeSellSubmissionPublicId(openShip.publicId);
+        if (openShip.packingSlipDownloadedAt) {
           writeSellFlowProgress({ slipDownloaded: true });
         }
+
+        const localCards = readSellFlowDraftCards();
+        if (localCards.length > 0) return;
+
+        const serverCards = draftCardsFromSubmissionItems(openShip.items);
+        if (serverCards.length === 0) return;
+        writeSellFlowDraftCards(serverCards);
+        setCards(serverCards);
+        setDraftRestored(true);
+        writeSellFlowProgress({
+          step: "shipping-pack",
+          vaultChoice: "psa",
+          slipDownloaded: Boolean(openShip.packingSlipDownloadedAt),
+        });
       } catch {
-        /* offline / not signed in edge — local draft still works */
+        /* offline — local draft still works */
       }
     })();
     return () => {
@@ -271,26 +284,41 @@ export function useSellFlow() {
   );
 
   const canContinueRegister = idState === "verified" && requiredConsentsOk;
-  const canContinueVault = vaultChoice === "self" || vaultChoice === "psa";
+
+  const primaryWallet = useMemo(
+    () => getPrimaryWalletAddress(user)?.toLowerCase() ?? "",
+    [user],
+  );
+
+  const selfVaultEligibilityQuery = useQuery({
+    queryKey: rq.selfVaultPartnerEligibility(primaryWallet, activeRqChainId()),
+    queryFn: () => getSelfVaultPartnerEligibility(primaryWallet),
+    enabled: Boolean(primaryWallet) && screen === "vault",
+    staleTime: 60_000,
+  });
+
+  const selfVaultEligible = Boolean(selfVaultEligibilityQuery.data?.eligible);
+  const selfVaultIsPartner = Boolean(
+    selfVaultEligibilityQuery.data?.isPartner,
+  );
+  const selfVaultNeedsCompanyAddress =
+    selfVaultIsPartner &&
+    !selfVaultEligible &&
+    selfVaultEligibilityQuery.data?.hasCompanyAddress === false;
+  const selfVaultPartnerOnly =
+    vaultChoice === "self" &&
+    !selfVaultEligibilityQuery.isLoading &&
+    Boolean(primaryWallet) &&
+    !selfVaultEligible &&
+    !selfVaultNeedsCompanyAddress;
+
+  const canContinueVault =
+    vaultChoice === "psa" ||
+    (vaultChoice === "self" && selfVaultEligible);
   const canContinueShipping = cards.some((c) => c.confirmed);
 
   // Do not auto-advance when consents become valid — user must press Continue.
-  // Draft cards / progress are still restored into state for the Add-cards screen.
-  // Debounced account sync for PSA vault drafts only (self vault mints, no ship package).
-  useEffect(() => {
-    if (!hydrated || !user?.id) return;
-    if (vaultChoice === "self") return;
-    if (skipNextServerSyncRef.current) {
-      skipNextServerSyncRef.current = false;
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void pushDraftToServer(cards).catch(() => {
-        /* keep local draft */
-      });
-    }, SERVER_SYNC_MS);
-    return () => window.clearTimeout(timer);
-  }, [cards, hydrated, user?.id, vaultChoice]);
+  // Draft cards / progress stay local until shipping (no vault_submissions draft rows).
 
   const updateConsent = useCallback((key: keyof SellConsents | "all") => {
     setConsents((prev) => {
@@ -351,17 +379,22 @@ export function useSellFlow() {
 
   const continueFromVault = useCallback(() => {
     if (!vaultChoice) return;
+    if (vaultChoice === "self" && !selfVaultEligible) return;
     writeSellFlowProgress({
       step: "cards",
       vaultChoice: vaultChoice === "self" ? "self" : "psa",
     });
     setScreen("cards");
     window.scrollTo(0, 0);
-  }, [vaultChoice]);
+  }, [vaultChoice, selfVaultEligible]);
 
   const addCardFromResult = useCallback(
-    (r: PsaAnalyzeResult, certFallback: string) => {
-      const built = cardFromAnalyze(r, certFallback);
+    (
+      r: PsaAnalyzeResult,
+      certFallback: string,
+      uploadPreviewDataUrl?: string | null,
+    ) => {
+      const built = cardFromAnalyze(r, certFallback, uploadPreviewDataUrl);
       if ("error" in built) {
         setCertError(built.error);
         return false;
@@ -449,6 +482,7 @@ export function useSellFlow() {
       lookupLockRef.current = true;
       setLookupBusy(true);
       try {
+        const uploadPreview = await fileToThumbDataUrl(file);
         const r = await analyzePsaSlab(file);
         const cert = r.psa.certNumber?.trim() ?? "";
         if (!cert) {
@@ -465,7 +499,7 @@ export function useSellFlow() {
             return;
           }
         }
-        addCardFromResult(r, cert);
+        addCardFromResult(r, cert, uploadPreview);
       } catch (e) {
         if (isPsaRateLimitError(e)) {
           setCertError(
@@ -515,34 +549,37 @@ export function useSellFlow() {
     });
   }, []);
 
-  const saveDraft = useCallback(async () => {
+  /** Local-only — does not create vault_submissions rows. */
+  const saveDraft = useCallback(() => {
     writeSellFlowDraftCards(cards);
-    writeSellFlowProgress({ step: "cards" });
-    try {
-      await pushDraftToServer(cards);
-    } catch {
-      /* keep local draft even if API fails */
-    }
+    writeSellFlowProgress({
+      step: "cards",
+      ...(vaultChoice === "self" || vaultChoice === "psa"
+        ? { vaultChoice }
+        : {}),
+    });
     setDraftSavedFlash(true);
-    window.setTimeout(() => setDraftSavedFlash(false), 1400);
-  }, [cards]);
+    window.setTimeout(() => setDraftSavedFlash(false), 1800);
+  }, [cards, vaultChoice]);
 
-  const continueToShipping = useCallback(async () => {
+  const continueToShipping = useCallback(() => {
     if (!canContinueShipping) return;
     if (vaultChoice === "self") return;
     writeSellFlowDraftCards(cards);
     writeSellFlowProgress({ step: "shipping-pack", vaultChoice: "psa" });
-    try {
-      await pushDraftToServer(cards);
-    } catch {
-      /* still allow shipping UI with local draft */
-    }
+    // First vault_submissions write happens on /sell/shipping (awaiting_shipment).
     router.push("/sell/shipping");
   }, [canContinueShipping, cards, router, vaultChoice]);
 
   /** Self vault: mint confirmed cards directly to the user's portfolio wallet. */
   const continueToSelfMint = useCallback(async () => {
     if (vaultChoice !== "self" || !canContinueShipping) return;
+    if (!selfVaultEligible) {
+      setMintError(
+        "Self vault is available only to contracted Tokenable partners.",
+      );
+      return;
+    }
     if (mintLockRef.current) return;
     if (!runAccessGate()) return;
 
@@ -599,6 +636,7 @@ export function useSellFlow() {
   }, [
     vaultChoice,
     canContinueShipping,
+    selfVaultEligible,
     cards,
     runAccessGate,
     ensureAccountWalletReady,
@@ -618,6 +656,9 @@ export function useSellFlow() {
     requiredConsentsOk,
     canContinueRegister,
     canContinueVault,
+    selfVaultEligible,
+    selfVaultPartnerOnly,
+    selfVaultNeedsCompanyAddress,
     vaultChoice,
     cards,
     maxCards: MAX_CARDS,

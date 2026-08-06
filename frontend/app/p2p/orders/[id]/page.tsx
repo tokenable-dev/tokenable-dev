@@ -86,19 +86,25 @@ export default function P2pOrderPage() {
   }
 
   if (orderQ.isPending) {
-    return <div className="tkl-wrap py-10 text-[var(--muted)]">Loading…</div>;
+    return (
+      <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 text-[var(--t2)] sm:py-10">
+        Loading…
+      </div>
+    );
   }
   if (!order) {
-    return <div className="tkl-wrap py-10">Order not found</div>;
+    return (
+      <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 sm:py-10">Order not found</div>
+    );
   }
 
   return (
-    <div className="tkl-wrap mx-auto max-w-xl py-10">
-      <h1 className="text-2xl font-semibold">P2P order</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">
+    <div className="tkl-wrap mx-auto max-w-xl px-4 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold text-[#fff]">P2P order</h1>
+      <p className="mt-2 text-sm text-[var(--t2)]">
         Status: {order.status} · Token #{order.tokenId}
       </p>
-      <ul className="mt-4 space-y-1 text-sm text-[var(--muted)]">
+      <ul className="mt-4 space-y-1 break-words text-sm text-[var(--t2)]">
         <li>Ship by: {new Date(order.shipByAt).toLocaleString()}</li>
         <li>Auto-release: {new Date(order.autoReleaseAt).toLocaleString()}</li>
         {order.trackingNumber ? (
@@ -115,8 +121,8 @@ export default function P2pOrderPage() {
       </ul>
 
       {isSeller && order.status === "SOLD" && !order.trackingNumber ? (
-        <div className="mt-8 space-y-3 border border-[var(--border)] p-4">
-          <h2 className="text-sm font-semibold">Add tracking (FedEx / DHL / UPS)</h2>
+        <div className="mt-8 space-y-3 rounded-xl border border-white/10 bg-[#191919] p-4">
+          <h2 className="text-sm font-semibold text-[#fff]">Add tracking</h2>
           <TkField label="Carrier" htmlFor="p2p-order-carrier">
             <TkSelect
               id="p2p-order-carrier"
@@ -136,7 +142,13 @@ export default function P2pOrderPage() {
               onChange={(e) => setTracking(e.target.value)}
             />
           </TkField>
-          <TkButton type="button" variant="primary" disabled={busy} onClick={onTracking}>
+          <TkButton
+            type="button"
+            variant="primary"
+            className="w-full min-h-11"
+            disabled={busy}
+            onClick={onTracking}
+          >
             Save tracking
           </TkButton>
         </div>
@@ -144,13 +156,19 @@ export default function P2pOrderPage() {
 
       {isBuyer && order.status === "SOLD" ? (
         <div className="mt-8">
-          <TkButton type="button" variant="primary" disabled={busy} onClick={onConfirm}>
-            {busy ? "Confirming…" : "Confirm receipt · release payment"}
+          <TkButton
+            type="button"
+            variant="primary"
+            className="w-full min-h-11"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? "Confirming…" : "Confirm receipt"}
           </TkButton>
         </div>
       ) : null}
 
-      {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mt-4 text-sm text-[var(--neg)]">{error}</p> : null}
     </div>
   );
 }

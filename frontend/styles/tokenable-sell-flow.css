@@ -55,6 +55,48 @@
   background: rgba(26, 111, 255, 0.05);
 }
 
+/* Individual seller: Self vault selectable but clearly unavailable */
+.sell-flow-vault-opt--gated {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sell-flow-vault-opt--gated:hover {
+  transform: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.sell-flow-vault-opt--gated.sell-flow-vault-opt--sel {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.sell-flow-vault-opt--gated .sell-flow-vault-opt__title {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.sell-flow-vault-back-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  margin-bottom: 16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.sell-flow-vault-back-top:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .sell-flow-vault-opt__head {
   display: flex;
   align-items: center;
@@ -140,7 +182,11 @@
 .sell-flow-vault-cta {
   display: flex;
   gap: 14px;
-  margin-top: 32px;
+  margin-top: 12px;
+}
+
+.sell-flow-vault-cta--solo {
+  justify-content: flex-start;
 }
 
 .sell-flow-vault-back {
@@ -151,8 +197,8 @@
 
 .sell-flow-vault-continue {
   height: 52px !important;
-  flex: 1;
-  max-width: 320px;
+  padding: 0 28px !important;
+  min-width: 260px !important;
   font-size: 15px !important;
   justify-content: center;
 }
@@ -162,10 +208,87 @@
 }
 
 .sell-flow-vault-hint {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--t3);
-  margin: 10px 0 0;
-  line-height: 1.5;
+  margin: 28px 0 0;
+  line-height: 1.6;
+}
+
+.sell-flow-vault-hint--partner {
+  color: var(--neg, #e4374a);
+  font-weight: 600;
+}
+
+.sell-flow-vault-faq-wrap {
+  margin-top: 56px;
+}
+
+.sell-flow-vault-sec-h {
+  margin: 0 0 6px;
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.sell-flow-vault-sec-p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.6;
+  max-width: 620px;
+}
+
+.sell-flow-vault-faq {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.sell-flow-vault-faq--terms {
+  margin-top: 14px;
+}
+
+.sell-flow-vault-faq details + details {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sell-flow-vault-faq summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 18px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sell-flow-vault-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.sell-flow-vault-faq summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--t2);
+  flex-shrink: 0;
+}
+
+.sell-flow-vault-faq details[open] summary::after {
+  content: "\2013";
+}
+
+.sell-flow-vault-faq p {
+  margin: 0;
+  padding: 0 18px 18px;
+  font-size: 13.5px;
+  color: var(--t2);
+  line-height: 1.65;
 }
 
 .sell-flow-eyebrow {
@@ -665,8 +788,8 @@
 }
 
 .sell-flow-cardrow__del {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border: 0;
   background: transparent;
@@ -681,12 +804,14 @@
   display: flex;
   gap: 14px;
   margin-top: 32px;
+  align-items: flex-start;
 }
 
 .sell-flow-draft-btn {
   height: 52px !important;
   padding: 0 24px !important;
   font-size: 15px !important;
+  flex-shrink: 0;
 }
 
 .sell-flow-ship-btn {
@@ -707,6 +832,63 @@
   text-align: center;
   color: var(--t2);
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.sell-ship-package-sync {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sell-ship-package-sync--ok {
+  background: rgba(26, 111, 255, 0.08);
+  border: 1px solid rgba(26, 111, 255, 0.22);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.sell-ship-package-sync--pending {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--t3);
+}
+
+.sell-ship-package-sync--err {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(228, 55, 74, 0.1);
+  border: 1px solid rgba(228, 55, 74, 0.35);
+  color: rgba(255, 220, 220, 0.92);
+}
+
+.sell-ship-package-sync__body {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.sell-ship-package-sync__title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #fff;
+}
+
+.sell-ship-package-sync__copy {
+  margin: 0;
+  word-break: break-word;
+}
+
+.sell-ship-package-sync__retry {
+  flex: 0 0 auto;
+  min-height: 40px !important;
 }
 
 .sell-ship-banner {
@@ -1514,15 +1696,44 @@ button.sell-ship-step--btn:focus-visible {
 @media (max-width: 640px) {
   .sell-flow-cards-cta {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .sell-flow-draft-btn,
+  .sell-flow-draft-btn {
+    width: 100%;
+    order: 2;
+  }
+
   .sell-flow-ship-btn {
+    order: 1;
     width: 100%;
   }
 
   .sell-ship-track-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sell-ship-package-sync--err {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sell-ship-package-sync__retry {
+    width: 100%;
+  }
+
+  .sell-ship-banner__dot {
+    display: none;
+  }
+
+  .sell-ship-banner__inner {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .sell-ship-banner__title,
+  .sell-ship-banner__card {
+    line-height: 1.35;
   }
 
   .sell-flow-vault-cta {
@@ -1533,6 +1744,41 @@ button.sell-ship-step--btn:focus-visible {
   .sell-flow-vault-continue {
     width: 100%;
     max-width: none;
+  }
+
+  /* Step rail: keep circles readable; wrap/hide crowded labels. */
+  .sell-ship-steps {
+    margin-bottom: 28px;
+  }
+
+  .sell-ship-step {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .sell-ship-step__label {
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.2;
+    max-width: 4.75rem;
+  }
+
+  .sell-ship-step__sub {
+    display: none;
+  }
+
+  .sell-ship-connector {
+    margin-top: 15px;
+    min-width: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sell-ship-step__label {
+    font-size: 10px;
+    max-width: 3.5rem;
   }
 }
 

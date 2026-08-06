@@ -15,18 +15,21 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
 | `/marketplace/admin/data-inventory` | **Data inventory** | All accumulated PostgreSQL stores — row counts, date ranges, how each table is written, links to related admin pages |
-| `/marketplace/admin/users` | **Users** | Privy accounts — search/filters, KYC, wallets; **Privy & Add funds** readiness panel; support snapshot (Privy ID, on-ramp wallet hint) |
+| `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
+| `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
-| `/marketplace/admin/partners` | **Partners** | Company display name + entrusted wallet (encrypted PK) for consignment mint & list |
+| `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | Ledger for self-vault sales — pay early (~95% USDC) or wait for auto (~5 min); reject to skip |
+| `/marketplace/admin/partners` | **Partners** | Company display name + wallet for Self vault; optional encrypted PK for consignment mint & list |
 | `/marketplace/admin/bulk-mint` | **Partner bulk mint** | Excel cert+price → PSA prepare → mint to company wallet + Seaport list (Listed/Sold). Any admin session for now |
 | `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
 | `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
 | `/marketplace/admin/vault/psa-mail` | **PSA mail** | Items Received Gmail queue — confirm → At PSA |
-| `/marketplace/admin/vault/submissions` | **Submissions** | Sell-flow packages — live pipeline counts, mark arrived, approve/reject cards |
+| `/marketplace/admin/vault/mint-queue` | **Mint queue** | At PSA cards — mint & deliver NFT to depositor (Live) |
+| `/marketplace/admin/vault/submissions` | **Submissions** | Sell-flow packages (ready-to-ship → PSA → mint) — mark arrived, approve/reject; legacy draft tile only if any remain |
 | `/marketplace/admin/vault` | **Vault / PSA** | Mint-only PSA tools (`analyze-by-cert`, slab OCR). Raw Public API proxies disabled |
 
 Legacy redirects: `/marketplace/admin/analytics` → Overview; `/top100` and `/top-movers` → `/markets?tab=…`.
@@ -82,6 +85,7 @@ app/marketplace/admin/
   page.tsx                → MarketplaceAdminOverviewPage
   analytics/page.tsx      → MarketplaceAdminAnalyticsPage
   users/page.tsx          → MarketplaceAdminUsersPage
+  users/[id]/page.tsx     → MarketplaceAdminUserDetailPage
   …
 
 components/marketplace/admin/
@@ -184,12 +188,12 @@ Requires `GA4_PROPERTY_ID` + service account JSON. `Ga4AnalyticsService` support
 
 ### Users
 
-UI filters: All · Privy · With wallet · KYC approved/pending · Pre-Privy. Expanded row: profile name, force-verify email, wallets (link/unlink), watchlist remove, delete account. MoonPay payment history is **not** in Tokenable — use Privy Dashboard → Users.
+Korean list UI (`전체 유저` / `플래그·제한` stub). Filters: KYC, account status (restricted/suspended empty until schema exists), role (partner vs individual via wallet ∩ `marketplace_partners`). Row navigates to `/marketplace/admin/users/:id` (UUID). Detail: **파트너 승인** modal (`displayName` + wallet → `POST /partners`) or **파트너 해제** (`PATCH isActive: false`); strike / 계정 제한 / 판매 정지 buttons alert “준비 중”. Legacy KYC/wallet/delete tools remain on the detail page footer. Display short id `U-` + first 5 hex of UUID is cosmetic only.
 
 | Method | Path |
 |--------|------|
 | `GET` | `/marketplace/admin/users/stats` |
-| `GET` | `/marketplace/admin/users?q=&filter=&page=` |
+| `GET` | `/marketplace/admin/users?q=&filter=&role=&accountStatus=&page=` |
 | `GET` | `/marketplace/admin/users/:id` |
 | `PATCH` | `/marketplace/admin/users/:id` |
 | `DELETE` | `/marketplace/admin/users/:id` |
@@ -198,7 +202,7 @@ UI filters: All · Privy · With wallet · KYC approved/pending · Pre-Privy. Ex
 | `DELETE` | `/marketplace/admin/users/:id/wallets/:address` |
 | `DELETE` | `/marketplace/admin/users/:id/watchlist/:collectionKey` |
 
-Funding readiness on the Users page uses `GET /api/privy/apps/settings` (same as header Add funds). See [privy-wallet-funding.md](privy-wallet-funding.md).
+List/detail enrichment: `role`, `partner`, `custodyCardCount` (minted vault cycles), `accountStatus`/`strikeCount` placeholders.
 
 ### Listed RWA cards
 

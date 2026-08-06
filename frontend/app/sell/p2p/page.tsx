@@ -66,9 +66,9 @@ export default function SellP2pPage() {
   }
 
   return (
-    <div className="tkl-wrap mx-auto max-w-lg py-10">
-      <h1 className="text-2xl font-semibold text-[var(--ink)]">List for P2P sale</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">
+    <div className="tkl-wrap mx-auto max-w-lg px-4 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold text-[#fff]">List for P2P sale</h1>
+      <p className="mt-2 text-sm text-[var(--t2)]">
         We mint the RWA into platform custody (escrow). You keep the physical card and ship to the
         buyer after sale. USDC is held on-chain until they confirm receipt.
       </p>
@@ -106,8 +106,8 @@ export default function SellP2pPage() {
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
         />
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <TkButton type="submit" variant="primary" disabled={busy}>
+        {error ? <p className="text-sm text-[var(--neg)]">{error}</p> : null}
+        <TkButton type="submit" variant="primary" className="w-full min-h-11" disabled={busy}>
           {busy ? "Minting & listing…" : "Mint & list"}
         </TkButton>
       </form>

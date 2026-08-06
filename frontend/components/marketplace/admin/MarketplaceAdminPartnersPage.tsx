@@ -51,11 +51,11 @@ export function MarketplaceAdminPartnersPage() {
       const pk = privateKey.trim();
       if (!name) throw new Error("Enter a company display name.");
       if (!ETH_ADDR.test(wallet)) throw new Error("Enter a valid wallet address (0x…).");
-      if (!PK.test(pk)) throw new Error("Enter a 32-byte hex private key.");
+      if (pk && !PK.test(pk)) throw new Error("Private key must be 32-byte hex when provided.");
       return postAdminMarketplacePartner({
         displayName: name,
         walletAddress: wallet,
-        privateKey: pk,
+        ...(pk ? { privateKey: pk } : {}),
       });
     },
     onSuccess: () => {
@@ -90,19 +90,23 @@ export function MarketplaceAdminPartnersPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Partners"
-        subtitle="Register company wallets entrusted to Tokenable for partner mint & list. Private keys are encrypted at rest and never shown again."
+        subtitle="Register company wallets for Self vault and optional partner mint & list. Private keys are optional for Self vault eligibility; bulk mint requires a key encrypted at rest."
       />
 
       <p className={`mb-6 text-sm ${ADMIN_TEXT_SECONDARY}`}>
-        After registering a partner, use{" "}
+        Active partners with a company Origin address can use <strong>Self vault</strong> in
+        the sell flow (Continue is enabled for their linked wallet). Listings and portfolio show{" "}
+        <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">
+          {"{company name} vault"}
+        </code>
+        . After adding a private key, use{" "}
         <a
           className="font-medium text-[var(--brand-500)] hover:underline"
           href="/marketplace/admin/bulk-mint"
         >
           Partner bulk mint
         </a>{" "}
-        with an Excel of certNumber + price. Listings show the company display name;
-        USDC from Seaport fills goes to the company wallet.
+        with certNumber + price rows.
       </p>
 
       <section className={`${ADMIN_ARTICLE} mb-6 space-y-4`}>
@@ -135,7 +139,7 @@ export function MarketplaceAdminPartnersPage() {
         </div>
         <div>
           <label className={ADMIN_LABEL} htmlFor="partner-pk">
-            Private key (write-only)
+            Private key (optional — required later for bulk mint)
           </label>
           <input
             id="partner-pk"
@@ -143,12 +147,12 @@ export function MarketplaceAdminPartnersPage() {
             type="password"
             value={privateKey}
             onChange={(e) => setPrivateKey(e.target.value)}
-            placeholder="0x… or 64 hex chars"
+            placeholder="Leave blank for Self vault only"
             autoComplete="off"
           />
           <p className={`mt-1 text-xs ${ADMIN_TEXT_MUTED}`}>
-            Must match the wallet address. Stored AES-256-GCM encrypted — not returned by
-            the API.
+            When set, must match the wallet address. Stored AES-256-GCM encrypted — not returned by
+            the API. Skip for Self vault access without bulk mint.
           </p>
         </div>
         {formError || createMutation.isError ? (
@@ -193,6 +197,8 @@ export function MarketplaceAdminPartnersPage() {
                 <tr>
                   <th className="px-3 py-2 font-medium">Name</th>
                   <th className="px-3 py-2 font-medium">Wallet</th>
+                  <th className="px-3 py-2 font-medium">Key</th>
+                  <th className="px-3 py-2 font-medium">Origin</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                   <th className="px-3 py-2 font-medium">Actions</th>
                 </tr>
@@ -217,6 +223,12 @@ export function MarketplaceAdminPartnersPage() {
                     </td>
                     <td className="px-3 py-2 font-mono text-xs text-zinc-700">
                       {p.walletAddress}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-zinc-600">
+                      {p.hasPrivateKey ? "Yes" : "Self vault only"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-zinc-600">
+                      {p.hasCompanyAddress ? "Set" : "Missing"}
                     </td>
                     <td className="px-3 py-2">
                       <span

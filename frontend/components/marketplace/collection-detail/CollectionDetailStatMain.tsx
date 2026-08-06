@@ -25,13 +25,12 @@ function formatChangeTag(pct: number): { arrow: string; label: string } {
 
 function changePeriodHint(
   period: ReferencePercentChangeResult | null | undefined,
-  gradeLabel: string,
 ): string {
   const window = formatReferenceChangePeriodShort(
     period ?? null,
     period?.marketChangeWindow ?? null,
   );
-  return `${window} change · ${gradeLabel}`;
+  return `${window} change`;
 }
 
 export function CollectionDetailStatMain({
@@ -129,7 +128,7 @@ export function CollectionDetailStatMain({
             )}
           </div>
           <div className="cd-stat-main__hint">
-            {changePeriodHint(changePeriod, popMetrics.gradeLabel || gradeLabel)}
+            {changePeriodHint(changePeriod)}
           </div>
         </div>
       </div>

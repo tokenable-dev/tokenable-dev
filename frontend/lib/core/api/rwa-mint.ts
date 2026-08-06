@@ -32,10 +32,25 @@ export async function mintRwaViaBackend(input: {
     credentials: "include",
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: "Mint failed" }));
-    throw new Error(
-      (error as { message?: string }).message ?? "On-chain mint failed",
-    );
+    const error = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+      code?: string;
+    };
+    const msg = Array.isArray(error.message)
+      ? error.message.join(", ")
+      : error.message;
+    if (error.code === "COMPANY_ADDRESS_REQUIRED") {
+      throw new Error(
+        msg ??
+          "Self vault requires a company vault address — set it in Settings → Addresses",
+      );
+    }
+    if (error.code === "SELF_VAULT_PARTNER_ONLY") {
+      throw new Error(
+        msg ?? "Self vault is available only to contracted Tokenable partners",
+      );
+    }
+    throw new Error(msg ?? "On-chain mint failed");
   }
   return res.json() as Promise<MintRwaResult>;
 }

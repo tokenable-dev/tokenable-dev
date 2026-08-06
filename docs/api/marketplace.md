@@ -173,7 +173,30 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 
 ### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
 
-Returns `{ tokenId, settlementPolicy }` where `settlementPolicy` is `standard` or `self_vault_hold`. Used by list-ask builders.
+Returns `{ tokenId, settlementPolicy, vaultLabel }` where `settlementPolicy` is `standard` or `self_vault_hold`.  
+`vaultLabel` is `PSA Vault` for standard custody, or `{partner displayName} vault` for Self vault. Used by list-ask builders and portfolio chips.
+
+### `POST /api/marketplace/rwa-tokens/vault-info/batch`
+
+Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, settlementPolicy, vaultLabel }] }`.
+
+### `GET /api/marketplace/partners/self-vault-eligibility?wallet=`
+
+Public. Returns whether an active partner wallet may use Self vault:
+
+`{ eligible, isPartner, hasCompanyAddress, partnerId, displayName, vaultLabel }`
+
+`eligible` is true only when the wallet matches an **active** partner **and** a company Origin address exists (`marketplace_partner_addresses`).
+
+### `GET /api/marketplace/partners/me` (JWT)
+
+Partner session for the signed-in user (wallet ∩ partners): `{ isPartner, partnerId, displayName, vaultLabel, hasCompanyAddress, companyAddress }`.
+
+### `GET|PUT /api/marketplace/partners/me/company-address` (JWT)
+
+Get or upsert the partner company / Self-vault Origin address (FedEx Rate ship-from). Country is ISO 3166-1 alpha-2; `region` required for US/CA.
+
+**UX:** Approved partners without an Origin see the designer **shipping-origin** modal (`PartnerCompanyAddressRequiredModal`). **Remind me later** dismisses to a sticky banner; Self vault mint/list stay locked until the address is saved. Backend also rejects `POST /rwa/mint` with `deliveryMode=direct` using `COMPANY_ADDRESS_REQUIRED` (see [rwa.md](./rwa.md)).
 
 ### Self-vault settlements
 
@@ -181,12 +204,12 @@ Returns `{ tokenId, settlementPolicy }` where `settlementPolicy` is `standard` o
 |--------|------|------|-------|
 | GET | `/self-vault-settlements/mine` | JWT | Buyer/seller wallet settlements |
 | POST | `/self-vault-settlements/:id/confirm` | JWT | Buyer confirms → `confirmed` |
-| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=` |
+| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=`; scoped to `x-tokenable-chain-id`. UI: `/marketplace/admin/self-vault-payouts` |
 | POST | `/admin/self-vault-settlements/:id/confirm` | Admin | Ops confirm |
 | POST | `/admin/self-vault-settlements/:id/reject` | Admin | Reject |
-| POST | `/admin/self-vault-settlements/:id/record-payout` | Admin | Body `{ payoutTxHash }` → `paid` |
+| POST | `/admin/self-vault-settlements/:id/execute-payout` | Admin | Platform fee wallet → seller USDC → `paid` (early; also auto after ~5 min) |
 
-Created automatically when a `self_vault_hold` ask is fulfilled (or matched). See BR-8c.
+Created automatically when a `self_vault_hold` ask is fulfilled (or matched). Admin can pay early; otherwise cron auto confirm+payout after ~5 minutes. See BR-8c.
 
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 

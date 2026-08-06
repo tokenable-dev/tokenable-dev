@@ -107,7 +107,7 @@ Saved ship-to book for vault redeem / physical withdrawal. Controller: `user-shi
 | `POST` | `/api/user/shipping-addresses/:id/default` | Set default |
 | `DELETE` | `/api/user/shipping-addresses/:id` | Delete; promotes another default if needed |
 
-All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`.
+All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`. Redeem’s “Save this address…” checkbox upserts the **default** address here (same fields / form UI as Settings).
 
 ---
 
