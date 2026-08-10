@@ -95,7 +95,6 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
     CacheModule,
     CardhedgerMetricsModule,
 
-    HealthModule,
     SiteAccessModule,
 
     TypeOrmModule.forRootAsync({
@@ -169,6 +168,9 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
             : undefined,
       }),
     }),
+
+    /** After TypeORM so SchemaAssertService can inject DataSource. */
+    HealthModule,
 
     AuthModule,
     PrivyModule,

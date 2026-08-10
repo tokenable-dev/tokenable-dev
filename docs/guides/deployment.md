@@ -233,7 +233,9 @@ curl -sS https://your-domain.com/api/health
 - [ ] Privy Dashboard → **Domains** includes `https://your-domain.com`
 - [ ] `RWA_OWNER_PRIVATE_KEY` configured with MINTER_ROLE + BURNER_ROLE on deployed contract
 - [ ] If custody wallet differs from minter: `RWA_CUSTODY_WALLET_ADDRESS` + `RWA_CUSTODY_PRIVATE_KEY`
+- [ ] `PLATFORM_FEE_PRIVATE_KEY` set (self-vault payouts + redeem USDC refunds)
 - [ ] `PARTNER_WALLET_ENCRYPTION_KEY` set before using Partners / bulk mint+list
+- [ ] **Schema:** after pulling new code, apply any pending `backend/sql/maintenance/*.sql` **before** restarting backend. Production boot runs `SchemaAssertService` and **exits** if required columns/tables are missing (e.g. `rwa_tokens.vault_partner_id`). Escape hatch: `SCHEMA_ASSERT_ON_BOOT=0`.
 - [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
 - [ ] Ethereum mainnet: add `CHAIN_1_*` env vars when ready
 - [ ] Polygon mainnet: add `CHAIN_137_*` / `NEXT_PUBLIC_CHAIN_137_*` after deploy
@@ -241,6 +243,10 @@ curl -sS https://your-domain.com/api/health
 ---
 
 ## Troubleshooting
+
+### Backend exits on boot: “Database schema is behind”
+
+Production asserts required tables/columns (see `backend/src/health/schema-assert.service.ts`). Apply the listed `backend/sql/maintenance/…` files, then restart. Temporary bypass: `SCHEMA_ASSERT_ON_BOOT=0` (do not leave on).
 
 ### `/api/...` returns 502 Bad Gateway
 

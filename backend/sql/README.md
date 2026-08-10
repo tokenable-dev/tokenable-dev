@@ -56,6 +56,7 @@ sql/
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
 | **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
+| **Existing prod after code pull** | Apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
 | **Site relaunch (keep users)** | `maintenance/reset_marketplace_data.sql` — run `node scripts/burn-all-rwa-tokens.mjs` first if re-minting same PSA certs |
 | **Review / audit** | Read `schema/*.sql` — one file per domain |
 
