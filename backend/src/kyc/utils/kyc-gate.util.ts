@@ -37,16 +37,44 @@ function isDevBypassWallet(user: User): boolean {
   return false;
 }
 
-export function isKycApprovedForCustody(user: User): boolean {
+export function isInternalDevKycBypass(user: User): boolean {
   const email = user.email?.trim().toLowerCase() ?? '';
   if (email && KYC_DEV_BYPASS_EMAILS.has(email)) return true;
-  if (isDevBypassWallet(user)) return true;
+  return isDevBypassWallet(user);
+}
+
+/** Local dev only — when Sumsub env is not configured. */
+export function isKycApprovedForCustody(user: User): boolean {
+  if (isInternalDevKycBypass(user)) return true;
+  return user.kycStatus === 'approved';
+}
+
+/** Sumsub configured — trust reconciled `users.kyc_status` only (no email bypass). */
+export function isKycApprovedFromDb(user: User): boolean {
   return user.kycStatus === 'approved';
 }
 
 /** Vault mint / physical redeem — Level 2 custody actions. */
 export function assertKycApprovedForCustody(user: User): void {
   if (isKycApprovedForCustody(user)) return;
+  if (user.kycStatus === 'pending') {
+    throw new ForbiddenException(
+      'Identity verification is still in progress. Please wait for approval before continuing.',
+    );
+  }
+  if (user.kycStatus === 'rejected') {
+    throw new ForbiddenException(
+      'Identity verification was not approved. Please retry KYC before continuing.',
+    );
+  }
+  throw new ForbiddenException(
+    'Identity verification is required before vault deposit or physical card redemption.',
+  );
+}
+
+/** After Sumsub reconcile — no internal dev bypass. */
+export function assertKycApprovedFromDb(user: User): void {
+  if (isKycApprovedFromDb(user)) return;
   if (user.kycStatus === 'pending') {
     throw new ForbiddenException(
       'Identity verification is still in progress. Please wait for approval before continuing.',

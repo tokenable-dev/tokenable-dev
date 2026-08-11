@@ -31,6 +31,53 @@ export function shouldApplyKycTransition(
   return true;
 }
 
+/** Sumsub API reconcile — current app is source of truth (incl. stale DB downgrade). */
+export function shouldApplyReconcileTransition(
+  current: KycStatusValue,
+  next: KycStatusValue,
+): boolean {
+  return current !== next;
+}
+
+export type SumsubApplicantSnapshot = {
+  id: string;
+  reviewStatus: string;
+  reviewAnswer: string;
+};
+
+export function parseSumsubApplicant(
+  data: Record<string, unknown>,
+): SumsubApplicantSnapshot | null {
+  const id = String(data.id ?? '').trim();
+  if (!id) return null;
+
+  const review =
+    data.review && typeof data.review === 'object'
+      ? (data.review as Record<string, unknown>)
+      : {};
+  const reviewResult =
+    review.reviewResult && typeof review.reviewResult === 'object'
+      ? (review.reviewResult as Record<string, unknown>)
+      : {};
+
+  return {
+    id,
+    reviewStatus: String(review.reviewStatus ?? ''),
+    reviewAnswer: String(reviewResult.reviewAnswer ?? ''),
+  };
+}
+
+export function resolveKycStatusFromSumsubApplicant(
+  snapshot: SumsubApplicantSnapshot | null,
+): KycStatusValue {
+  if (!snapshot) return 'none';
+  const mapped = mapSumsubReviewToKycStatus(
+    snapshot.reviewStatus,
+    snapshot.reviewAnswer,
+  );
+  return mapped ?? 'pending';
+}
+
 export function extractSumsubRejectionReason(
   reviewResult: Record<string, unknown> | undefined,
 ): string | null {

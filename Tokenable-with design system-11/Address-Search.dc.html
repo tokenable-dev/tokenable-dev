@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="ds-base.js"></script>
+<script src="tk-address.js"></script>
+<script src="address-gallery.js"></script>
+<style>
+  :root{--ink:#0e0e0e;--azure:rgb(26,111,255);--pos:rgb(0,200,100);--neg:rgb(228,55,74);--t1:rgba(255,255,255,0.95);--t2:rgba(255,255,255,0.6);--t3:rgba(255,255,255,0.38);--font-sans:Inter,system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:#0e0e0e;}
+  body{font-family:var(--font-sans);color:var(--t1);-webkit-font-smoothing:antialiased;}
+  a{color:var(--azure);text-decoration:none;}
+  a:hover{color:#5B9AFF;}
+</style>
+</helmet>
+
+<div style="background:#0e0e0e;min-height:100vh;font-family:var(--font-sans);color:var(--t1);">
+
+  <header style="position:sticky;top:0;z-index:60;background:#0e0e0e;border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="display:flex;align-items:center;gap:52px;height:64px;padding:0 clamp(16px,4vw,40px);">
+      <a href="index.html" style="display:flex;align-items:center;"><img src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"></a>
+      <nav style="display:flex;gap:40px;">
+        <a href="Markets.html" style="font-size:15px;font-weight:500;color:rgba(255,255,255,0.6);">Markets</a>
+        <a href="Portfolio.html" style="font-size:15px;font-weight:500;color:rgba(255,255,255,0.6);">Portfolio</a>
+        <a href="Vault-Dashboard-Active.html" style="font-size:15px;font-weight:500;color:rgba(255,255,255,0.6);">Sell</a>
+        <a href="Screens.dc.html" style="font-size:15px;font-weight:500;color:rgba(255,255,255,0.6);">Screens</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="width:100%;max-width:1180px;margin:0 auto;padding:56px clamp(16px,4vw,40px) 120px;">
+    <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);">Address search</div>
+    <h1 style="font-size:clamp(30px,4vw,44px);font-weight:700;letter-spacing:-0.025em;line-height:1.05;margin:14px 0 0;">One search line, every state</h1>
+    <p style="font-size:15px;color:var(--t2);margin:12px 0 0;max-width:640px;line-height:1.55;text-wrap:pretty;">Google Places replaces the address form on all five screens that collect one. The person types, picks, and confirms against a map — the detail fields fill themselves and stay editable underneath.</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;">
+      <a href="PSA-Shipping.html" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;background:#141414;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Return address</a>
+      <a href="Redeem.html" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;background:#141414;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Redeem delivery</a>
+      <a href="Partner-Shipping-Origin.html" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;background:#141414;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Partner origin</a>
+      <a href="P2P-Shipping.html" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;background:#141414;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Seller origin</a>
+      <a href="Settings.html?sec=addresses" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;background:#141414;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Address book</a>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:20px;margin-top:44px;align-items:start;">
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">Resting</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">01</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">One line. Saved addresses sit under it so a repeat shipment is a single tap.</p>
+        <div id="g-empty"></div>
+      </section>
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">Typing</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">02</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">Matched text is bolded in azure. Five predictions, then the Google attribution the API terms require.</p>
+        <div id="g-typing" style="min-height:300px;"></div>
+      </section>
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">No match</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">03</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">A dead end always offers the manual route rather than just saying no.</p>
+        <div id="g-none" style="min-height:190px;"></div>
+      </section>
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">Picked</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">04</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">Map preview to confirm against, unit line Google never returns, and the default-address checkbox.</p>
+        <div id="g-picked"></div>
+      </section>
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">Undeliverable</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">05</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">Places resolves the address, our insurer refuses it. The verified badge drops; the block is explicit about why.</p>
+        <div id="g-blocked"></div>
+      </section>
+
+      <section style="background:#141414;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;">Bad input</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);">06</span>
+        </div>
+        <p style="font-size:13px;color:var(--t2);line-height:1.5;margin:0 0 20px;">Hand-edited fields are judged against the country's own rules &mdash; a four-digit US ZIP and a short phone number both fail, and the message names the format.</p>
+        <div id="g-invalid"></div>
+        <div id="g-invalid-fields" class="tka" data-tone="dark" style="margin-top:16px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;">Address line 1</div>
+            <input id="v-a1" class="tka__input" style="padding-left:16px;" type="text" placeholder="Street address">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+              <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;">City</div>
+              <input id="v-city" class="tka__input" style="padding-left:16px;" type="text" placeholder="City">
+            </div>
+            <div>
+              <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;">State</div>
+              <input id="v-state" class="tka__input" style="padding-left:16px;" type="text" placeholder="State or region">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;">Postal code</div>
+              <input id="v-zip" class="tka__input" style="padding-left:16px;font-family:var(--font-mono);" type="text" placeholder="Postal code">
+            </div>
+            <div>
+              <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;">Phone</div>
+              <input id="v-phone" class="tka__input" style="padding-left:16px;font-family:var(--font-mono);" type="tel" placeholder="Phone">
+            </div>
+          </div>
+          <input id="v-country" type="hidden" value="us">
+        </div>
+      </section>
+
+      <section style="background:#F5F5F7;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;color:#18181B;">Light surface</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(17,17,17,0.42);">07</span>
+        </div>
+        <p style="font-size:13px;color:rgba(17,17,17,0.6);line-height:1.5;margin:0 0 20px;">The shipping flows run on the light surface — same component, tone flipped.</p>
+        <div id="g-light"></div>
+      </section>
+
+      <section style="background:#F5F5F7;border-radius:16px;padding:24px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+          <h2 style="font-size:17px;font-weight:600;margin:0;color:#18181B;">Light \u00b7 picked</h2>
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(17,17,17,0.42);">08</span>
+        </div>
+        <p style="font-size:13px;color:rgba(17,17,17,0.6);line-height:1.5;margin:0 0 20px;">Global coverage — non-US results keep their own postal grammar.</p>
+        <div id="g-lightpicked"></div>
+      </section>
+
+    </div>
+
+    <section style="margin-top:52px;background:#141414;border-radius:16px;padding:26px 28px;">
+      <h2 style="font-size:17px;font-weight:600;margin:0 0 10px;">Going live</h2>
+      <p style="font-size:14px;color:var(--t2);line-height:1.65;margin:0;max-width:760px;text-wrap:pretty;">The block ships against a local index so the flows are clickable without a key. Swapping in the real API is two functions: <span style="font-family:var(--font-mono);font-size:13px;color:#fff;">predict()</span> becomes <span style="font-family:var(--font-mono);font-size:13px;color:#fff;">AutocompleteSuggestion.fetchAutocompleteSuggestions</span>, and selection becomes <span style="font-family:var(--font-mono);font-size:13px;color:#fff;">Place.fetchFields</span> for the address components and the map centre. Markup, states and validation stay untouched.</p>
+    </section>
+  </main>
+</div>
+
+</x-dc>
+</body>
+</html>

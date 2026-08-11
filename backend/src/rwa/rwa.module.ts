@@ -20,6 +20,7 @@ import { PartnerSeaportAskService } from './bulk-mint/partner-seaport-ask.servic
 import { BulkMintJobItem } from './entities/bulk-mint-job-item.entity';
 import { BulkMintJob } from './entities/bulk-mint-job.entity';
 import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
+import { KycModule } from '../kyc/kyc.module';
 import { VaultSubmissionItem } from '../vault/entities/vault-submission-item.entity';
 import { PinataService } from './pinata/pinata.service';
 import { RwaController } from './rwa.controller';
@@ -48,6 +49,7 @@ import { RwaService } from './rwa.service';
     MarketplaceOrdersModule,
     MarketplacePortfolioModule,
     MarketplaceNotificationsModule,
+    KycModule,
   ],
   controllers: [
     RwaController,

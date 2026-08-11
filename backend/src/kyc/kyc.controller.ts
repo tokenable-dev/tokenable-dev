@@ -14,7 +14,7 @@ export class KycController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Current user KYC status (Sumsub-backed)' })
-  status(@Req() req: Request & { user: User }) {
+  async status(@Req() req: Request & { user: User }) {
     return this.kyc.getStatus(req.user);
   }
 
@@ -24,7 +24,7 @@ export class KycController {
   @ApiOperation({
     summary: 'Issue Sumsub WebSDK access token for the signed-in user',
   })
-  accessToken(@Req() req: Request & { user: User }) {
+  async accessToken(@Req() req: Request & { user: User }) {
     return this.kyc.createAccessToken(req.user);
   }
 }

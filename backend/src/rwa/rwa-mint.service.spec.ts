@@ -97,6 +97,7 @@ describe('RwaMintService', () => {
       portfolioHoldings as never,
       portfolioSnapshots as never,
       partners as never,
+      { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
     );
   });
 

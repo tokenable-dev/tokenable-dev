@@ -17,7 +17,7 @@ import {
   ChainConfigService,
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
-import { assertKycApprovedForCustody } from '../../kyc/utils/kyc-gate.util';
+import { KycService } from '../../kyc/kyc.service';
 import { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
 import { VaultService } from '../../vault/vault.service';
@@ -57,6 +57,7 @@ export class P2pService {
     private readonly escrowWriter: PaymentEscrowWriterService,
     private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
+    private readonly kyc: KycService,
   ) {}
 
   private autoReleaseSeconds(): number {
@@ -160,7 +161,7 @@ export class P2pService {
     escrowAddress: string;
     chainId: number;
   }> {
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
 
     const sellerWallet = dto.sellerWallet.trim().toLowerCase();
     const wallets = await this.users.listWalletsForUser(user.id);

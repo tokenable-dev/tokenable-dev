@@ -1,6 +1,6 @@
 # Sumsub KYC (WebSDK 2.0)
 
-Tokenable uses [Sumsub WebSDK 2.0](https://docs.sumsub.com/docs/get-started-with-web-sdk) for identity verification. Auth remains Privy; KYC status is stored on `users.kyc_status` and updated from Sumsub webhooks (source of truth).
+Tokenable uses [Sumsub WebSDK 2.0](https://docs.sumsub.com/docs/get-started-with-web-sdk) for identity verification. Auth remains Privy. **`users.kyc_status` is a cache** — when `SUMSUB_*` is configured, `GET /api/kyc/status` and custody APIs reconcile against the **current Sumsub app** (`externalUserId` = `users.id`) before trusting approval.
 
 ## Product levels
 
@@ -71,7 +71,8 @@ Never expose `SUMSUB_SECRET_KEY` or webhook secrets in frontend code.
 2. `POST /api/kyc/access-token` creates/reuses Sumsub applicant (`externalUserId` = Tokenable `users.id`) and returns SDK token (`ttl` from Sumsub API; level from `SUMSUB_LEVEL_NAME`).
 3. User completes WebSDK (ID + liveness).
 4. Sumsub webhook `applicantReviewed` → HMAC verify → `users.kyc_status` `approved` / `rejected`.
-5. Approved user continues vault ship / redeem. Rejected users see reason + retry on `/kyc`.
+5. **Reconcile** — `GET /api/kyc/status`, session refresh (frontend), and vault/redeem/mint gates call Sumsub `GET applicant by externalUserId`. Stale DB `approved` rows with **no applicant in the current app** are reset to `none`.
+6. Approved user continues vault ship / redeem. Rejected users see reason + retry on `/kyc`.
 
 Reusable KYC: same applicant id is reused on later `access-token` calls.
 
@@ -109,7 +110,9 @@ SDK completion events are UI hints only; final status comes from webhooks.
 
 ## Going live
 
-Remove the internal-dev KYC / chain-switcher bypass before mainnet public launch (`frontend/lib/auth/accountAccess.ts` + `backend/src/kyc/utils/kyc-gate.util.ts` — keep emails/wallets identical until then: emails `tokenable.dev@gmail.com`, `ekvkd88@gmail.com`, `giunssen@gmail.com`, `dev@tokenable.io`, `jongnam0309@gmail.com`; wallet `0xd5abdd307414718c59949ac5465930a1f8a52691`).
+Remove the internal-dev **chain switcher** bypass before mainnet public launch (`frontend/lib/auth/accountAccess.ts` + `backend/src/kyc/utils/kyc-gate.util.ts` — keep emails/wallets identical until then).
+
+When `SUMSUB_*` is configured, **KYC no longer uses the email/wallet bypass** — team accounts must pass Sumsub like everyone else. The bypass still applies only when Sumsub env is missing (local dev without keys).
 
 ## Code layout
 

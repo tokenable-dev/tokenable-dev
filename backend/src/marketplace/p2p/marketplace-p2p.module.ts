@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
+import { KycModule } from '../../kyc/kyc.module';
 import { UserModule } from '../../user/user.module';
 import { VaultModule } from '../../vault/vault.module';
 import { MarketplaceAdminModule } from '../admin/marketplace-admin.module';
@@ -17,6 +18,7 @@ import { P2pService } from './p2p.service';
     UserModule,
     VaultModule,
     MarketplaceAdminModule,
+    KycModule,
   ],
   controllers: [P2pController, P2pAdminController],
   providers: [P2pService],

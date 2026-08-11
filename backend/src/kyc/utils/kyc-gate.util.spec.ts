@@ -2,7 +2,10 @@ import { ForbiddenException } from '@nestjs/common';
 import type { User } from '../../user/entities/user.entity';
 import {
   assertKycApprovedForCustody,
+  assertKycApprovedFromDb,
+  isInternalDevKycBypass,
   isKycApprovedForCustody,
+  isKycApprovedFromDb,
 } from './kyc-gate.util';
 
 function user(partial: Partial<User>): User {
@@ -17,40 +20,26 @@ describe('kyc-gate.util', () => {
     ).not.toThrow();
   });
 
-  it('allows internal staging bypass emails', () => {
-    for (const email of [
-      'tokenable.dev@gmail.com',
-      'ekvkd88@gmail.com',
-      'giunssen@gmail.com',
-      'dev@tokenable.io',
-      'jongnam0309@gmail.com',
-    ]) {
-      expect(
-        isKycApprovedForCustody(user({ email, kycStatus: 'none' })),
-      ).toBe(true);
-    }
+  it('allows internal staging bypass when Sumsub is not configured', () => {
+    expect(
+      isKycApprovedForCustody(
+        user({ email: 'dev@tokenable.io', kycStatus: 'none' }),
+      ),
+    ).toBe(true);
+    expect(isInternalDevKycBypass(user({ email: 'dev@tokenable.io' }))).toBe(
+      true,
+    );
   });
 
-  it('allows internal staging bypass wallets', () => {
+  it('strict db gate ignores bypass', () => {
     expect(
-      isKycApprovedForCustody(
-        user({
-          walletAddress: '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-          kycStatus: 'none',
-          email: 'other@example.com',
-        }),
+      isKycApprovedFromDb(user({ email: 'dev@tokenable.io', kycStatus: 'none' })),
+    ).toBe(false);
+    expect(() =>
+      assertKycApprovedFromDb(
+        user({ email: 'dev@tokenable.io', kycStatus: 'none' }),
       ),
-    ).toBe(true);
-
-    expect(
-      isKycApprovedForCustody(
-        user({
-          email: '0xd5abdd307414718c59949ac5465930a1f8a52691@privy.wallet',
-          kycStatus: 'none',
-          walletAddress: null,
-        }),
-      ),
-    ).toBe(true);
+    ).toThrow(ForbiddenException);
   });
 
   it('blocks none / pending / rejected with distinct messages', () => {

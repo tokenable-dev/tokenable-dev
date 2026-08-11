@@ -112,16 +112,22 @@ export class SumsubApiService {
     return json as T;
   }
 
-  async getApplicantByExternalUserId(externalUserId: string): Promise<{
-    id: string;
-  } | null> {
+  async fetchApplicantByExternalUserId(
+    externalUserId: string,
+  ): Promise<Record<string, unknown> | null> {
     const path = `/resources/applicants/-;externalUserId=${encodeURIComponent(externalUserId)}/one`;
-    const data = await this.request<{ id?: string }>(
+    return this.request<Record<string, unknown>>(
       { method: 'GET', path },
       { allowNotFound: true },
     );
+  }
+
+  async getApplicantByExternalUserId(externalUserId: string): Promise<{
+    id: string;
+  } | null> {
+    const data = await this.fetchApplicantByExternalUserId(externalUserId);
     if (!data?.id) return null;
-    return { id: data.id };
+    return { id: String(data.id) };
   }
 
   async createApplicant(params: {

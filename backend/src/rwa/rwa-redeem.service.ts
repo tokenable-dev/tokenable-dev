@@ -16,7 +16,7 @@ import {
 } from '../blockchain/chain-config.service';
 import { PlatformFeeWalletService } from '../blockchain/platform-fee-wallet.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
-import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
+import { KycService } from '../kyc/kyc.service';
 import { VaultService } from '../vault/vault.service';
 import {
   RedeemBatchCustodyDto,
@@ -51,6 +51,7 @@ export class RwaRedeemService {
     private readonly platformFee: PlatformFeeWalletService,
     private readonly feeCalculator: RedeemShippingFeeCalculator,
     private readonly chainWriter: RwaChainWriterService,
+    private readonly kyc: KycService,
   ) {}
 
   async estimateRedeemCost(params: {
@@ -88,7 +89,7 @@ export class RwaRedeemService {
     dto: RedeemBatchRequestDto,
     chainId: SupportedChainId,
   ) {
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
     if (chainId !== REDEEM_V1_CHAIN_ID) {
       throw new BadRequestException(
         'Redeem payment + custody intake is Sepolia-only in v1',
@@ -262,7 +263,7 @@ export class RwaRedeemService {
     dto: RedeemBatchCustodyDto,
     chainId: SupportedChainId,
   ) {
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
     if (chainId !== REDEEM_V1_CHAIN_ID) {
       throw new BadRequestException(
         'Redeem custody intake is Sepolia-only in v1',

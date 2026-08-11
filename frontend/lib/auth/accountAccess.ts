@@ -49,9 +49,8 @@ export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boole
   return isInternalDevUser(user);
 }
 
-/** KYC Level 2 — `users.kyc_status === approved` (or staging bypass). */
+/** KYC Level 2 — Sumsub `approved` on reconciled session (see GET /api/kyc/status). */
 export function isKycComplete(user: AuthUser | null | undefined): boolean {
-  if (isInternalDevUser(user)) return true;
   return user?.kycStatus === "approved";
 }
 

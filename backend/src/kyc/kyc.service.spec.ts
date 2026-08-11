@@ -43,6 +43,7 @@ describe('KycService.createAccessToken', () => {
       .mockResolvedValue({ token: 'tok', userId: 'user-1' });
     const sumsub = {
       getApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
+      fetchApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
       createApplicant,
       createSdkAccessToken,
       isConfigured: jest.fn().mockReturnValue(true),
@@ -75,6 +76,7 @@ describe('KycService.createAccessToken', () => {
       .mockResolvedValue({ token: 'tok', userId: 'user-1' });
     const sumsub = {
       getApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
+      fetchApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
       createApplicant,
       createSdkAccessToken,
       isConfigured: jest.fn().mockReturnValue(true),
@@ -94,5 +96,67 @@ describe('KycService.createAccessToken', () => {
       externalUserId: 'user-1',
       email: 'user@example.com',
     });
+  });
+});
+
+describe('KycService.reconcileUser', () => {
+  function makeUser(overrides: Partial<User>): User {
+    return {
+      id: 'user-1',
+      email: 'user@example.com',
+      kycStatus: 'approved',
+      kycExternalId: 'old-app-applicant',
+      ...overrides,
+    } as User;
+  }
+
+  it('clears stale approved when applicant missing in current Sumsub app', async () => {
+    const updateKycStatus = jest.fn().mockResolvedValue(
+      makeUser({ kycStatus: 'none', kycExternalId: null }),
+    );
+    const sumsub = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      fetchApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
+    } as unknown as SumsubApiService;
+    const users = { updateKycStatus } as unknown as UserService;
+
+    const service = new KycService(users, sumsub);
+    const result = await service.reconcileUser(makeUser({}));
+
+    expect(updateKycStatus).toHaveBeenCalledWith('user-1', {
+      status: 'none',
+      provider: 'sumsub',
+      externalId: null,
+      payload: expect.objectContaining({ reason: 'applicant_not_found' }),
+    });
+    expect(result.kycStatus).toBe('none');
+  });
+
+  it('syncs approved from Sumsub GREEN review', async () => {
+    const updateKycStatus = jest.fn().mockResolvedValue(
+      makeUser({ kycStatus: 'approved', kycExternalId: 'app-new' }),
+    );
+    const sumsub = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      fetchApplicantByExternalUserId: jest.fn().mockResolvedValue({
+        id: 'app-new',
+        review: {
+          reviewStatus: 'completed',
+          reviewResult: { reviewAnswer: 'GREEN' },
+        },
+      }),
+    } as unknown as SumsubApiService;
+    const users = { updateKycStatus } as unknown as UserService;
+
+    const service = new KycService(users, sumsub);
+    await service.reconcileUser(makeUser({ kycStatus: 'none', kycExternalId: null }));
+
+    expect(updateKycStatus).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        status: 'approved',
+        externalId: 'app-new',
+      }),
+    );
   });
 });

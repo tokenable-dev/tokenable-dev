@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { SupportedChainId } from '../../blockchain/chain-config.service';
-import { assertKycApprovedForCustody } from '../../kyc/utils/kyc-gate.util';
+import { KycService } from '../../kyc/kyc.service';
 import { CollectionCoverService } from '../../marketplace/collections/collection-cover.service';
 import { NotificationsService } from '../../marketplace/notifications/notifications.service';
 import { PsaService } from '../../psa/psa.service';
@@ -37,6 +37,7 @@ export class VaultSubmissionAdminMintService {
     private readonly vault: VaultService,
     private readonly notifications: NotificationsService,
     private readonly collectionCover: CollectionCoverService,
+    private readonly kyc: KycService,
   ) {}
 
   /**
@@ -74,7 +75,7 @@ export class VaultSubmissionAdminMintService {
     const cert = item.certNumber.trim();
 
     const user = await this.users.findByIdOrFail(detail.userId);
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
 
     const wallets = await this.users.listWalletsForUser(user.id);
     const primary =

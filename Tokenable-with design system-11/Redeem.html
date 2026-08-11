@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Redeem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<style>/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+</style>
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #0e0e0e; --ink-2: #0e0e0e;
+    --surf: #141414; --surf-2: #111111;
+    --line: rgba(255,255,255,0.08);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --warn: rgb(234,130,0);
+    --t1: rgba(255,255,255,0.95); --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #191919;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  .mono{font-family:var(--font-mono);}
+
+  /* GNB */
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;transition:color 0.15s;cursor:pointer;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;}
+  .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;}
+  .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-right{display:flex;align-items:center;gap:14px;}
+  .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
+  .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
+  .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;font-size:14px!important;}
+
+  /* Breadcrumb */
+  .breadcrumb{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;margin-bottom:16px;}
+  .breadcrumb a{color:var(--azure);text-decoration:none;font-weight:600;letter-spacing:0.04em;}
+  .breadcrumb a:hover{color:#fff;}
+  .breadcrumb .sep{color:rgba(255,255,255,0.2);}
+  .breadcrumb .current{color:rgba(255,255,255,0.5);}
+
+  .eyebrow{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;}
+
+  /* Card summary */
+  .card-summary{display:flex;gap:20px;align-items:center;background:#191919;border-radius:16px;padding:20px;margin-bottom:28px;}
+  .card-summary__img{width:80px;height:112px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;}
+  .card-summary__img img{width:100%;height:100%;object-fit:contain;}
+
+  /* Form */
+  .form-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:8px;display:block;}
+  .form-input{width:100%;height:50px;padding:0 16px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-sans);font-size:15px;outline:none;transition:border-color 0.2s;}
+  .form-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.15);}
+  @keyframes wd-spin{ to{ transform:rotate(360deg); } }
+  .wd-spin{animation:wd-spin 700ms linear infinite;}
+  #wd-request-btn[disabled]{opacity:0.35;pointer-events:none;}
+  .form-input.err{border-color:var(--neg);box-shadow:0 0 0 3px rgba(228,55,74,0.15);}
+  .fld-err{display:none;font-size:12.5px;color:#FF6B7A;margin-top:7px;line-height:1.5;}
+  .fld-err.on{display:block;}
+  .form-input.mono{font-family:var(--font-mono);}
+  .form-section{margin-bottom:24px;}
+  select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;}
+
+  .box{background:#191919;border-radius:16px;padding:20px;margin-bottom:24px;}
+  .cost-row{display:flex;justify-content:space-between;padding:9px 0;font-size:14px;}
+  .cost-row__label{color:rgba(255,255,255,0.55);}
+  .cost-row__val{font-family:var(--font-mono);font-weight:600;color:#fff;}
+  .cost-row--total{border-top:1px solid rgba(255,255,255,0.1);margin-top:8px;padding-top:14px;font-weight:700;font-size:16px;}
+  .cost-row--total .cost-row__val{color:#fff;font-size:20px;}
+
+  .note{font-size:12.5px;color:rgba(255,255,255,0.45);line-height:1.6;margin-top:12px;}
+  .note-amber{background:rgba(234,130,0,0.08);border:1px solid rgba(234,130,0,0.2);border-radius:10px;padding:12px 16px;font-size:12.5px;color:rgba(255,255,255,0.7);line-height:1.6;margin-top:14px;}
+
+  /* Checkbox */
+  .cbx{display:flex;gap:10px;align-items:center;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.6);}
+  .cbx input{width:16px;height:16px;accent-color:var(--azure);cursor:pointer;}
+
+  /* Status banner */
+  .status-banner{border-radius:14px;padding:18px 20px;margin-bottom:24px;display:flex;gap:12px;align-items:flex-start;}
+  .status-banner--azure{background:rgba(26,111,255,0.08);border:1px solid rgba(26,111,255,0.25);}
+  .status-banner--pos{background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.25);}
+
+  .tk-btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;font-size:15px;height:52px;border-radius:12px;transition:all 0.12s;}
+  .tk-btn--primary{background:var(--azure);color:#fff;}
+  .tk-btn--primary:hover{filter:brightness(1.08);}
+  .tk-btn--subtle{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
+  .tk-btn--subtle:hover{background:rgba(255,255,255,0.1);}
+
+  /* Demo state switcher */
+  .demo-ctl{position:fixed;bottom:16px;right:16px;z-index:80;display:flex;gap:6px;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);}
+  .demo-ctl button{border:0;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);font-family:var(--font-mono);font-size:11px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer;}
+  .demo-ctl button.on{background:var(--azure);color:#fff;}
+
+  .wd-screen{display:none;}
+  .wd-screen.on{display:block;}
+
+  /* Mobile nav */
+  .gnb-drawer{display:none;position:fixed;inset:64px 0 0 0;z-index:45;background:var(--ink-2);flex-direction:column;gap:4px;padding:16px;overflow-y:auto;}
+  .gnb-drawer .navlink{height:auto;font-size:18px;padding:16px;color:#fff;}
+  .gnb-drawer .navlink::after{display:none!important;}
+
+  @media(max-width:1024px){
+    .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}
+  }
+  @media(max-width:768px){
+    .card-summary{flex-direction:column;align-items:flex-start;gap:14px;}
+    .card-summary__img{width:100px;height:140px;}
+    .breadcrumb{display:none!important;}
+    .grid-2{grid-template-columns:1fr!important;}
+  }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink on" href="Portfolio.html">Portfolio</a>
+        <a class="navlink" href="Vault-Dashboard-Active.html">Sell</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <button class="gnb-search-mobile" aria-label="Search" style="display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg></button>
+      <button class="gnb-burger" aria-label="Open menu"><span class="burger-lines"><span></span><span></span></span></button>
+      <div class="gnb-right">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards, sets, players…" hint-size="300px,44px"></x-import>
+        <div class="tk-wallet-chip" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;background:rgba(255,255,255,0.04);clip-path:var(--pixel-notch-lg);cursor:pointer;">
+          <span style="width:22px;height:22px;flex:none;background:linear-gradient(135deg,var(--azure),var(--brand-400));clip-path:var(--pixel-notch-lg);"></span>
+          <span class="mono" style="font-size:12px;font-weight:700;color:var(--pos);">2,480.00 USDC</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="gnb-drawer">
+    <a class="navlink" href="index.html">Home</a>
+    <a class="navlink" href="Markets.html">Markets</a>
+    <a class="navlink" href="Portfolio.html">Portfolio</a>
+    <a class="navlink" href="Vault-Dashboard-Active.html">Sell</a>
+  </div>
+
+  <!-- ============ PAGE ============ -->
+  <section style="max-width:640px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 100px;">
+
+    <div class="breadcrumb">
+      <a href="Portfolio.html">Portfolio</a>
+      <span class="sep">›</span>
+      <span class="current">Redeem</span>
+    </div>
+
+    <div id="wd-batch-head" style="display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#191919;border-radius:14px;padding:14px 18px;margin-bottom:20px;">
+      <div>
+        <div class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45);font-weight:600;">Redemption</div>
+        <div class="mono" id="wd-batch-id" style="font-size:14px;font-weight:700;color:#fff;margin-top:4px;">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45);font-weight:600;">In this redemption</div>
+        <div id="wd-batch-scope" style="font-size:14px;font-weight:700;color:#fff;margin-top:4px;">—</div>
+      </div>
+    </div>
+
+    <!-- ========== ① REQUEST ========== -->
+    <div class="wd-screen on" id="wd-request">
+      <span class="eyebrow">Redeem · Step 1 of 2</span>
+      <h1 style="margin:10px 0 6px;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,4vw,34px);letter-spacing:-0.025em;line-height:1.1;color:#fff;">Have your cards shipped to you</h1>
+      <p style="margin:0 0 28px;font-size:15px;color:rgba(255,255,255,0.5);line-height:1.5;">We'll ship your physical cards from the vault to the address below.</p>
+
+      <div class="form-section">
+        <label class="form-label">Recipient name</label>
+        <input class="form-input" id="ad-name" type="text" placeholder="Recipient name" autocomplete="name"><span class="fld-err" data-for="ad-name">Enter the recipient’s name</span>
+      </div>
+      <div class="form-section" id="rd-addr-search"></div>
+
+      <div id="rd-address-details">
+      <div class="form-section">
+        <label class="form-label">Street address</label>
+        <input class="form-input" id="ad-street" type="text" placeholder="Street address" autocomplete="address-line1"><span class="fld-err" data-for="ad-street">Enter a street address</span><div style="height:10px;"></div>
+        <label class="form-label">Apt, suite, unit (optional)</label>
+        <input class="form-input" id="ad-apt" type="text" placeholder="Apt, suite, unit (optional)" autocomplete="address-line2">
+      </div>
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-section">
+          <label class="form-label">City</label>
+          <input class="form-input" id="ad-city" type="text" placeholder="City" autocomplete="address-level2"><span class="fld-err" data-for="ad-city">Enter a city</span>
+        </div>
+        <div class="form-section">
+          <label class="form-label">State / region</label>
+          <input class="form-input" id="ad-state" type="text" placeholder="State / region" autocomplete="address-level1"><span class="fld-err" data-for="ad-state">Enter a state or region</span>
+        </div>
+      </div>
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-section">
+          <label class="form-label">Postal code</label>
+          <input class="form-input mono" id="ad-zip" type="text" placeholder="Postal code" autocomplete="postal-code"><span class="fld-err" data-for="ad-zip">Enter a valid postal code</span>
+        </div>
+        <div class="form-section">
+          <label class="form-label">Country</label>
+          <select class="form-input" id="wd-country">
+            <option value="us" selected="">United States</option>
+            <option value="ca">Canada</option>
+            <option value="intl">Other international</option>
+          </select>
+        </div>
+      </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label" for="ad-phone">Phone</label>
+        <div style="display:flex;gap:10px;">
+          <select class="form-input mono" id="ad-dial" style="width:210px;flex:none;">
+            <option value="+93" data-len="9">Afghanistan +93</option>
+            <option value="+355" data-len="8,9">Albania +355</option>
+            <option value="+213" data-len="9">Algeria +213</option>
+            <option value="+54" data-len="10">Argentina +54</option>
+            <option value="+374" data-len="8">Armenia +374</option>
+            <option value="+61" data-len="9">Australia +61</option>
+            <option value="+43" data-len="10,11">Austria +43</option>
+            <option value="+994" data-len="9">Azerbaijan +994</option>
+            <option value="+973" data-len="8">Bahrain +973</option>
+            <option value="+880" data-len="10">Bangladesh +880</option>
+            <option value="+375" data-len="9">Belarus +375</option>
+            <option value="+32" data-len="9">Belgium +32</option>
+            <option value="+591" data-len="8,9">Bolivia +591</option>
+            <option value="+387" data-len="8">Bosnia &amp; Herzegovina +387</option>
+            <option value="+55" data-len="10,11">Brazil +55</option>
+            <option value="+359" data-len="8,9">Bulgaria +359</option>
+            <option value="+855" data-len="8,9">Cambodia +855</option>
+            <option value="+237" data-len="9">Cameroon +237</option>
+            <option value="+1" data-len="10">Canada +1</option>
+            <option value="+56" data-len="9">Chile +56</option>
+            <option value="+86" data-len="11">China +86</option>
+            <option value="+57" data-len="10">Colombia +57</option>
+            <option value="+506" data-len="8">Costa Rica +506</option>
+            <option value="+385" data-len="9">Croatia +385</option>
+            <option value="+357" data-len="8">Cyprus +357</option>
+            <option value="+420" data-len="9">Czechia +420</option>
+            <option value="+45" data-len="8">Denmark +45</option>
+            <option value="+593" data-len="9">Ecuador +593</option>
+            <option value="+20" data-len="10">Egypt +20</option>
+            <option value="+503" data-len="8">El Salvador +503</option>
+            <option value="+372" data-len="7,8">Estonia +372</option>
+            <option value="+251" data-len="9">Ethiopia +251</option>
+            <option value="+358" data-len="9,10">Finland +358</option>
+            <option value="+33" data-len="9">France +33</option>
+            <option value="+995" data-len="9">Georgia +995</option>
+            <option value="+49" data-len="10,11">Germany +49</option>
+            <option value="+233" data-len="9">Ghana +233</option>
+            <option value="+30" data-len="10">Greece +30</option>
+            <option value="+502" data-len="8">Guatemala +502</option>
+            <option value="+852" data-len="8">Hong Kong +852</option>
+            <option value="+36" data-len="9">Hungary +36</option>
+            <option value="+354" data-len="7">Iceland +354</option>
+            <option value="+91" data-len="10">India +91</option>
+            <option value="+62" data-len="9,12">Indonesia +62</option>
+            <option value="+98" data-len="10">Iran +98</option>
+            <option value="+964" data-len="10">Iraq +964</option>
+            <option value="+353" data-len="9">Ireland +353</option>
+            <option value="+972" data-len="9">Israel +972</option>
+            <option value="+39" data-len="9,10">Italy +39</option>
+            <option value="+81" data-len="10">Japan +81</option>
+            <option value="+962" data-len="9">Jordan +962</option>
+            <option value="+7" data-len="10">Kazakhstan +7</option>
+            <option value="+254" data-len="9">Kenya +254</option>
+            <option value="+965" data-len="8">Kuwait +965</option>
+            <option value="+996" data-len="9">Kyrgyzstan +996</option>
+            <option value="+856" data-len="9,10">Laos +856</option>
+            <option value="+371" data-len="8">Latvia +371</option>
+            <option value="+961" data-len="8">Lebanon +961</option>
+            <option value="+370" data-len="8">Lithuania +370</option>
+            <option value="+352" data-len="9">Luxembourg +352</option>
+            <option value="+853" data-len="8">Macao +853</option>
+            <option value="+60" data-len="9,10">Malaysia +60</option>
+            <option value="+960" data-len="7">Maldives +960</option>
+            <option value="+52" data-len="10">Mexico +52</option>
+            <option value="+373" data-len="8">Moldova +373</option>
+            <option value="+976" data-len="8">Mongolia +976</option>
+            <option value="+212" data-len="9">Morocco +212</option>
+            <option value="+95" data-len="8,10">Myanmar +95</option>
+            <option value="+977" data-len="10">Nepal +977</option>
+            <option value="+31" data-len="9">Netherlands +31</option>
+            <option value="+64" data-len="8,9">New Zealand +64</option>
+            <option value="+234" data-len="10">Nigeria +234</option>
+            <option value="+47" data-len="8">Norway +47</option>
+            <option value="+968" data-len="8">Oman +968</option>
+            <option value="+92" data-len="10">Pakistan +92</option>
+            <option value="+507" data-len="8">Panama +507</option>
+            <option value="+595" data-len="9">Paraguay +595</option>
+            <option value="+51" data-len="9">Peru +51</option>
+            <option value="+63" data-len="10">Philippines +63</option>
+            <option value="+48" data-len="9">Poland +48</option>
+            <option value="+351" data-len="9">Portugal +351</option>
+            <option value="+974" data-len="8">Qatar +974</option>
+            <option value="+40" data-len="9">Romania +40</option>
+            <option value="+7" data-len="10">Russia +7</option>
+            <option value="+966" data-len="9">Saudi Arabia +966</option>
+            <option value="+381" data-len="9">Serbia +381</option>
+            <option value="+65" data-len="8">Singapore +65</option>
+            <option value="+421" data-len="9">Slovakia +421</option>
+            <option value="+386" data-len="8">Slovenia +386</option>
+            <option value="+27" data-len="9">South Africa +27</option>
+            <option value="+82" data-len="9,10">South Korea +82</option>
+            <option value="+34" data-len="9">Spain +34</option>
+            <option value="+94" data-len="9">Sri Lanka +94</option>
+            <option value="+46" data-len="7,9">Sweden +46</option>
+            <option value="+41" data-len="9">Switzerland +41</option>
+            <option value="+886" data-len="9">Taiwan +886</option>
+            <option value="+66" data-len="9">Thailand +66</option>
+            <option value="+216" data-len="8">Tunisia +216</option>
+            <option value="+90" data-len="10">Turkey +90</option>
+            <option value="+380" data-len="9">Ukraine +380</option>
+            <option value="+971" data-len="9">United Arab Emirates +971</option>
+            <option value="+44" data-len="10">United Kingdom +44</option>
+            <option value="+1" data-len="10" selected="">United States +1</option>
+            <option value="+598" data-len="8">Uruguay +598</option>
+            <option value="+998" data-len="9">Uzbekistan +998</option>
+            <option value="+58" data-len="10">Venezuela +58</option>
+            <option value="+84" data-len="9,10">Vietnam +84</option>
+          </select>
+          <input class="form-input mono" id="ad-phone" type="tel" inputmode="numeric" placeholder="555 000 0000" autocomplete="tel-national" style="flex:1;min-width:0;">
+        </div>
+        <span class="fld-err" data-for="ad-phone">Enter a valid phone number for the selected country</span>
+      </div>
+      <label class="cbx" style="margin-bottom:24px;"><input type="checkbox" checked=""> Save this address for future redemptions</label>
+
+      <!-- Selected cards (collapsed summary) -->
+      <div style="margin-bottom:28px;">
+        <div style="display:flex;align-items:center;gap:14px;background:#191919;border-radius:16px;padding:16px 20px;">
+          <div id="wd-thumbs" style="display:flex;align-items:center;"></div>
+          <div style="flex:1;"><span id="wd-count-lbl" style="font-size:14px;font-weight:700;color:#fff;">3 cards</span><div id="wd-batch-sub" style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">Shipping together in one delivery</div></div>
+          <button id="wd-review-btn" style="border:0;background:rgba(255,255,255,0.06);color:var(--azure);font-family:var(--font-sans);font-size:13px;font-weight:600;padding:9px 16px;border-radius:8px;cursor:pointer;">Review</button>
+        </div>
+        <div id="wd-card-list-wrap" style="display:none;max-height:340px;overflow-y:auto;margin-top:10px;">
+    <div id="wd-card-list" style="margin-bottom:28px;">
+      <div class="wd-card-item" data-wd-card="" data-vault="psa" style="display:flex;gap:16px;align-items:center;background:#191919;border-radius:16px;padding:16px 20px;margin-bottom:10px;">
+        <div style="width:52px;height:74px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;"><img src="images/card-charizard.png" alt="" style="width:100%;height:100%;object-fit:contain;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3;">1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);">PSA 10</span><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(26,111,255,0.12);color:#5B9AFF;">PSA Vault</span><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Cert #12345678</span></div>
+        </div>
+        <button class="wd-remove" aria-label="Remove card" style="width:34px;height:34px;flex-shrink:0;border:0;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+      </div>
+      <div class="wd-card-item" data-wd-card="" data-vault="psa" style="display:flex;gap:16px;align-items:center;background:#191919;border-radius:16px;padding:16px 20px;margin-bottom:10px;">
+        <div style="width:52px;height:74px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;"><img src="images/card-pikachu.png" alt="" style="width:100%;height:100%;object-fit:contain;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3;">2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);">PSA 10</span><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(26,111,255,0.12);color:#5B9AFF;">PSA Vault</span><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Cert #88231044</span></div>
+        </div>
+        <button class="wd-remove" aria-label="Remove card" style="width:34px;height:34px;flex-shrink:0;border:0;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+      </div>
+      <div class="wd-card-item" data-wd-card="" data-vault="courtyard" style="display:flex;gap:16px;align-items:center;background:#191919;border-radius:16px;padding:16px 20px;margin-bottom:10px;">
+        <div style="width:52px;height:74px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;"><img src="images/card-lebron.png" alt="" style="width:100%;height:100%;object-fit:contain;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3;">2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;"><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);">PSA 10</span><span style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);">Courtyard Vault</span><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Cert #55501248</span></div>
+        </div>
+        <button class="wd-remove" aria-label="Remove card" style="width:34px;height:34px;flex-shrink:0;border:0;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+      </div>
+    </div>
+        </div>
+      </div>
+
+      <div class="box" id="wd-cost-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+          <span class="form-label" style="margin:0;">Cost</span>
+          <span class="mono" id="wd-quote-state" style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);">Not calculated</span>
+        </div>
+
+        <div id="wd-quote-idle" style="margin-top:14px;">
+          <div class="note" style="margin:0 0 14px;">We price shipping from the carrier for the address above. Enter your address, then calculate the cost.</div>
+          <button class="tk-btn tk-btn--primary" id="wd-quote-btn" style="width:100%;height:48px;font-size:15px;">Calculate shipping cost</button>
+        </div>
+
+        <div id="wd-quote-loading" style="display:none;margin-top:18px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="wd-spin" style="width:18px;height:18px;flex:none;border-radius:50%;border:2px solid rgba(255,255,255,0.15);border-top-color:var(--azure);"></span>
+            <span style="font-size:14px;color:rgba(255,255,255,0.7);">Getting rates for your address…</span>
+          </div>
+          <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.07);overflow:hidden;margin-top:14px;"><div id="wd-quote-bar" style="height:100%;width:8%;background:var(--azure);transition:width 220ms linear;"></div></div>
+        </div>
+
+        <div id="wd-quote-result" style="display:none;margin-top:14px;">
+          <div id="wd-cost-rows"></div>
+          <div class="note">This is the final amount — no markup. Shipping is charged once per shipment — the more cards you ship together, the less you pay per card.</div>
+          <div class="note-amber" id="wd-duty">Import duties, if any, are charged separately by the carrier on delivery.</div>
+        </div>
+
+        <div id="wd-quote-stale" style="display:none;margin-top:14px;">
+          <div class="note-amber" style="margin:0 0 14px;">Your address changed — recalculate to get the cost for the new address.</div>
+          <button class="tk-btn tk-btn--primary" id="wd-requote-btn" style="width:100%;height:48px;font-size:15px;">Recalculate shipping cost</button>
+        </div>
+      </div>
+
+      <button class="tk-btn tk-btn--primary" id="wd-request-btn" style="width:100%;display:none;">Review and pay</button>
+      <div class="note" id="wd-request-hint" style="text-align:center;margin-top:14px;">You pay shipping and the Redemption fee now — it’s the final amount, with no markup.</div>
+    </div>
+
+    <!-- ========== ② CONFIRMED & PREPARING (already paid) ========== -->
+    <div class="wd-screen" id="wd-preparing">
+      <div class="status-banner status-banner--azure">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.4" style="flex-shrink:0;margin-top:1px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">Payment received — your cards are being prepared</div>
+          <div style="font-size:13.5px;color:rgba(255,255,255,0.6);line-height:1.5;">While your cards are on their way, Tokenable holds their ownership for you. They can’t be sold or listed until they’re delivered.</div>
+        </div>
+      </div>
+      <div class="box">
+        <div class="form-label" style="margin-bottom:14px;">Shipment progress</div>
+        <div id="wd-prep-shipments"></div>
+      </div>
+      <div class="box">
+        <div class="form-label" style="margin-bottom:6px;">Paid</div>
+        <div id="wd-prep-cost-rows"></div>
+        <div class="note">Charged when you confirmed — no markup.</div>
+      </div>
+      <button class="tk-btn tk-btn--subtle" id="wd-cancel-btn" style="width:100%;margin-bottom:12px;">Cancel redemption</button>
+      <div class="note" style="text-align:center;margin-bottom:20px;">You can cancel until the courier is contacted. Cancelling refunds shipping and the Redemption fee in full, and ownership returns to your account.</div>
+      <a href="Portfolio.html" class="tk-btn tk-btn--primary" style="width:100%;text-decoration:none;">Back to Portfolio</a>
+    </div>
+
+    <!-- ========== ③ PAY ========== -->
+    <div class="wd-screen" id="wd-pay">
+      <span class="eyebrow">Redeem · Step 2 of 2</span>
+      <h1 style="margin:10px 0 6px;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,4vw,34px);letter-spacing:-0.025em;line-height:1.1;color:#fff;">Review &amp; pay</h1>
+      <p style="margin:0 0 28px;font-size:15px;color:rgba(255,255,255,0.5);line-height:1.5;">This is the final amount and it’s charged now. We start preparing your cards right after.</p>
+
+      <div style="margin-bottom:28px;">
+        <div style="display:flex;align-items:center;gap:14px;background:#191919;border-radius:16px;padding:16px 20px;">
+          <div id="wd-pay-thumbs" style="display:flex;align-items:center;"></div>
+          <div style="flex:1;"><span style="font-size:14px;font-weight:700;color:#fff;">3 cards</span><div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">Shipping together in one delivery</div></div>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="form-label" style="margin-bottom:6px;">Total charged now</div>
+        <div id="wd-pay-cost-rows"></div>
+        <div class="note">Matches — no markup.</div>
+      </div>
+
+      <div class="box" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="form-label" style="margin-bottom:6px;">Ship to</div>
+          <div id="wd-shipto" style="font-size:14px;color:#fff;line-height:1.5;">Daisy Kim<br><span style="color:rgba(255,255,255,0.55);">1425 Market Street, Apt 8B<br>San Francisco, CA 94103</span></div>
+        </div>
+        <button class="tk-btn tk-btn--subtle" id="wd-edit-addr" style="height:38px;font-size:13px;padding:0 16px;">Edit</button>
+      </div>
+
+      <div class="box" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="form-label" style="margin-bottom:6px;">Payment</div>
+          <div style="font-size:14px;color:#fff;">Wallet balance <span class="mono" style="color:var(--pos);margin-left:6px;">— USDC</span></div>
+          <div class="note" style="margin-top:10px;">USDC payment goes live at launch.</div>
+        </div>
+      </div>
+
+      <button class="tk-btn tk-btn--primary" id="wd-pay-btn" style="width:100%;">Pay and redeem (coming soon)</button>
+      <div class="note" style="text-align:center;margin-top:14px;">While your cards are on their way, Tokenable holds their ownership for you.</div>
+    </div>
+
+    <!-- ========== ④ IN TRANSIT ========== -->
+    <div class="wd-screen" id="wd-transit">
+      <div class="status-banner status-banner--azure">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">Your cards are on their way</div>
+          <div style="font-size:13.5px;color:rgba(255,255,255,0.6);line-height:1.5;">Confirm once your cards arrive so we can complete the redemption.</div>
+        </div>
+      </div>
+
+      <div id="wd-transit-shipments"></div>
+
+      <button class="tk-btn tk-btn--primary" id="wd-received-btn" style="width:100%;">I've received my cards</button>
+      <a href="Portfolio.html" class="tk-btn tk-btn--subtle" style="width:100%;margin-top:10px;text-decoration:none;">Back to Portfolio</a>
+    </div>
+
+    <!-- ========== ⑤ DONE ========== -->
+    <div class="wd-screen" id="wd-done">
+      <div class="status-banner status-banner--pos" style="flex-direction:column;align-items:center;text-align:center;padding:40px 24px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2" style="margin-bottom:14px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">Redemption complete</div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.6);line-height:1.6;max-width:400px;">Your cards are now in your hands. They’ve been removed from your online assets — you own the physical cards. They’ll show as “In your possession” in your portfolio, and you can remove them anytime you like.</div>
+      </div>
+      <a href="Portfolio.html" class="tk-btn tk-btn--primary" style="width:100%;text-decoration:none;">Back to Portfolio</a>
+    </div>
+
+  </section>
+
+  <!-- Demo state switcher -->
+  <div class="demo-ctl">
+    <button data-wd="wd-request" class="on">Address</button>
+    <button data-wd="wd-pay">Review &amp; pay</button>
+    <button data-wd="wd-preparing">Preparing</button>
+    <button data-wd="wd-transit">In transit</button>
+    <button data-wd="wd-done">Done</button>
+  </div>
+
+
+<script src="tk-wallet.js"></script>
+<script src="tk-kyc.js"></script>
+<script src="tk-notifications.js"></script>
+<script src="tk-role-nav.js"></script>
+<script src="tk-mobile-nav.js"></script>
+
+
+</x-dc>
+
+<script>
+/* Inline page scripts live outside <x-dc> — the DC runtime rewrites identifiers
+   inside the template — and run once the component has painted. */
+window.__tkBoot = window.__tkBoot || function(fn){
+  var n = 0;
+  (function w(){
+    var root = document.querySelector('x-dc');
+    if((root && root.querySelectorAll('*').length > 30) || n++ > 400){ try{ fn(); }catch(e){ console.error(e); } }
+    else setTimeout(w, 25);
+  })();
+};
+</script>
+<script src="tk-address.js"></script>
+<script>
+__tkBoot(function(){
+  TKAddress.mount('#rd-addr-search', {
+    tone: 'dark',
+    label: 'Delivery address',
+    placeholder: 'Start typing where the cards should go…',
+    details: '#rd-address-details',
+    saveLabel: 'Save as my default delivery address',
+    hideFields: ['#ad-apt'],
+    fields: { line1:'#ad-street', line2:'#ad-apt', city:'#ad-city', state:'#ad-state', zip:'#ad-zip', country:'#wd-country' },
+    saved: [
+      { id:'s1', tag:'Home', name:'Alex Rivera', line:'350 Fifth Avenue, New York',
+        line1:'350 Fifth Avenue', city:'New York', state:'NY', zip:'10118', country:'us', cc:'US' },
+      { id:'s2', tag:'Office', name:'Rivera Holdings', line:'1 Apple Park Way, Cupertino',
+        line1:'1 Apple Park Way', city:'Cupertino', state:'CA', zip:'95014', country:'us', cc:'US' }
+    ]
+  });
+});
+</script>
+<script>
+__tkBoot(function(){
+
+  var VAULTS = {
+    psa:       { name:'PSA Vault',       ship:{us:5.99, ca:24.99, intl:31.99}, fee:4.99, carrier:'FedEx',  track:'778234561290',  url:'https://www.fedex.com/fedextrack/?trknbr=' },
+    courtyard: { name:'Courtyard Vault', ship:{us:4.99, ca:14.99, intl:19.99}, fee:2.99, carrier:'UPS',    track:'1Z884452019A620',url:'https://www.ups.com/track?tracknum=' }
+  };
+  function money(n){ return '$' + n.toFixed(2); }
+
+  function groups(){
+    var country = (document.getElementById('wd-country')||{}).value || 'intl';
+    var order = [], map = {};
+    [].slice.call(document.querySelectorAll('#wd-card-list [data-wd-card]')).forEach(function(it){
+      var v = it.getAttribute('data-vault') || 'psa';
+      if(!map[v]){ map[v]=[]; order.push(v); }
+      map[v].push(it);
+    });
+    return order.map(function(v,i){
+      var vault = VAULTS[v] || VAULTS.psa, count = map[v].length;
+      var ship = vault.ship[country]!=null ? vault.ship[country] : vault.ship.intl;
+      var fee = vault.fee * count;
+      return { key:v, name:vault.name, count:count, ship:ship, feeEach:vault.fee, fee:fee, sub:ship+fee, items:map[v], idx:i+1, meta:vault };
+    });
+  }
+
+  function costHTML(gs, totalLabel){
+    var total = 0, html = '';
+    gs.forEach(function(g){
+      total += g.sub;
+      html += '<div style="padding:14px 0;border-top:1px solid rgba(255,255,255,0.06);">'
+        + '<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">Shipment ' + g.idx + ' &middot; ' + g.name + ' <span style="color:rgba(255,255,255,0.4);font-weight:500;">(' + g.count + ' card' + (g.count===1?'':'s') + ')</span></div>'
+        + '<div class="cost-row" style="padding:5px 0;"><span class="cost-row__label">Shipping &amp; handling</span><span class="cost-row__val">' + money(g.ship) + '</span></div>'
+        + '<div class="cost-row" style="padding:5px 0;"><span class="cost-row__label">Redemption fee (' + g.count + ' × ' + money(g.feeEach) + ')</span><span class="cost-row__val">' + money(g.fee) + '</span></div>'
+        + '</div>';
+    });
+    html += '<div class="cost-row cost-row--total"><span class="cost-row__label">' + totalLabel + '</span><span class="cost-row__val">' + money(total) + '</span></div>';
+    return html;
+  }
+
+  function recalc(){
+    var gs = groups();
+    var count = gs.reduce(function(a,g){ return a+g.count; }, 0);
+    var country = (document.getElementById('wd-country')||{}).value || 'intl';
+    var er = document.getElementById('wd-cost-rows'); if(er) er.innerHTML = costHTML(gs, 'Total');
+    var pr = document.getElementById('wd-pay-cost-rows'); if(pr) pr.innerHTML = costHTML(gs, 'Total');
+    var pp = document.getElementById('wd-prep-cost-rows'); if(pp) pp.innerHTML = costHTML(gs, 'Total paid');
+    var ps = document.getElementById('wd-prep-shipments');
+    if(ps) ps.innerHTML = gs.map(function(g){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;">'
+        + '<span style="font-size:13.5px;color:#fff;">Shipment ' + g.idx + ' &middot; ' + g.name + ' (' + g.count + ' card' + (g.count===1?'':'s') + ')</span>'
+        + '<span class="mono" style="font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:4px 9px;border-radius:6px;background:rgba(234,130,0,0.14);color:#EA8200;">Preparing</span>'
+        + '</div>';
+    }).join('');
+    var d = document.getElementById('wd-duty'); if(d) d.style.display = (country==='us') ? 'none' : 'block';
+    var cl = document.getElementById('wd-count-lbl'); if(cl) cl.textContent = count + ' card' + (count===1?'':'s');
+    var sub = document.getElementById('wd-batch-sub'); if(sub) sub.textContent = gs.length>1 ? ('Shipping in ' + gs.length + ' deliveries by vault') : 'Shipping together in one delivery';
+    var th = document.getElementById('wd-thumbs');
+    if(th){ th.innerHTML=''; [].slice.call(document.querySelectorAll('#wd-card-list [data-wd-card] img')).slice(0,4).forEach(function(img,i){ var d2=document.createElement('div'); d2.style.cssText='width:30px;height:42px;background:#0e0e0e;border-radius:5px;padding:2px;margin-left:'+(i===0?'0':'-12px')+';border:1px solid #191919;'; var im=document.createElement('img'); im.src=img.src; im.style.cssText='width:100%;height:100%;object-fit:contain;'; d2.appendChild(im); th.appendChild(d2); }); }
+    renderTransit(gs);
+    var rb=document.getElementById('wd-request-btn');
+    if(rb){ var ok=count>0; rb.style.opacity=ok?'1':'0.4'; rb.style.pointerEvents=ok?'auto':'none'; rb.textContent = ok ? 'Review and pay' : 'No cards selected'; }
+  }
+
+  function renderTransit(gs){
+    var wrap = document.getElementById('wd-transit-shipments'); if(!wrap) return;
+    wrap.innerHTML = gs.map(function(g){
+      var thumbs = g.items.map(function(it){ var src=(it.querySelector('img')||{}).src||''; return '<div style="width:40px;height:56px;background:#0e0e0e;border-radius:6px;padding:2px;"><img src="'+src+'" style="width:100%;height:100%;object-fit:contain;"></div>'; }).join('');
+      return '<div class="box" data-shipment="' + g.key + '">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">'
+        +   '<span class="form-label" style="margin:0;">Shipment ' + g.idx + ' &middot; ' + g.name + ' (' + g.count + ' card' + (g.count===1?'':'s') + ')</span>'
+        +   '<span class="mono" data-ship-state style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:rgba(234,130,0,0.14);color:#EA8200;">On the way</span>'
+        + '</div>'
+        + '<div class="cost-row"><span class="cost-row__label">Carrier</span><span class="cost-row__val">' + g.meta.carrier + '</span></div>'
+        + '<div class="cost-row"><span class="cost-row__label">Tracking</span><a href="' + g.meta.url + g.meta.track + '" target="_blank" rel="noopener" class="mono" style="font-weight:600;color:var(--azure);text-decoration:none;">' + g.meta.track + ' →</a></div>'
+        + '<div class="cost-row"><span class="cost-row__label">Est. delivery</span><span class="cost-row__val">Jul 25, 2026</span></div>'
+        + '<div style="display:flex;gap:8px;margin-top:14px;">' + thumbs + '</div>'
+        + '<button class="tk-btn tk-btn--subtle wd-ship-received" data-ship="' + g.key + '" style="width:100%;height:42px;font-size:14px;margin-top:14px;">Mark this shipment received</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function showWd(id){
+    document.querySelectorAll('.wd-screen').forEach(function(s){ s.classList.toggle('on', s.id===id); });
+    document.querySelectorAll('.demo-ctl button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-wd')===id); });
+    window.scrollTo(0,0);
+  }
+
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id==='wd-country') recalc();
+  });
+
+  document.addEventListener('click', function(e){
+    var burger=e.target.closest&&e.target.closest('.gnb-burger');
+    if(burger){ var dr=document.querySelector('.gnb-drawer'); if(dr) dr.classList.toggle('open'); return; }
+
+    if(e.target.closest&&e.target.closest('#wd-review-btn')){
+      var w=document.getElementById('wd-card-list-wrap'), b=document.getElementById('wd-review-btn');
+      var open=w.style.display!=='none'; w.style.display=open?'none':'block'; b.textContent=open?'Review':'Hide';
+      return;
+    }
+    if(e.target.closest&&e.target.closest('.wd-remove')){
+      var item=e.target.closest('[data-wd-card]');
+      if(item){ item.remove(); recalc(); }
+      return;
+    }
+    var demo=e.target.closest&&e.target.closest('.demo-ctl button');
+    if(demo){ showWd(demo.getAttribute('data-wd')); return; }
+
+    if(e.target.closest&&e.target.closest('#wd-quote-btn') || e.target.closest&&e.target.closest('#wd-requote-btn')){
+      runQuote(); return;
+    }
+    if(e.target.closest&&e.target.closest('#wd-request-btn')){
+      if(quote.state!=='done'){ return; }
+      syncShipTo();
+      showWd('wd-pay');
+      return;
+    }
+    if(e.target.closest&&e.target.closest('#wd-edit-addr')){ showWd('wd-request'); return; }
+    if(e.target.closest&&e.target.closest('#wd-pay-btn')){ showWd('wd-preparing'); return; }
+    if(e.target.closest&&e.target.closest('#wd-prep-continue')){ showWd('wd-transit'); return; }
+    if(e.target.closest&&e.target.closest('#wd-cancel-btn')){
+      var cb=document.getElementById('wd-cancel-btn');
+      cb.textContent='Cancelled — refunded in full'; cb.style.opacity='0.6'; cb.style.pointerEvents='none';
+      return;
+    }
+    var shipBtn=e.target.closest&&e.target.closest('.wd-ship-received');
+    if(shipBtn){
+      var box=shipBtn.closest('[data-shipment]');
+      box.setAttribute('data-received','1');
+      var tag=box.querySelector('[data-ship-state]');
+      if(tag){ tag.textContent='Received'; tag.style.background='rgba(0,200,100,0.14)'; tag.style.color='var(--pos)'; }
+      shipBtn.textContent='Received'; shipBtn.style.opacity='0.5'; shipBtn.style.pointerEvents='none';
+      syncTransitCta();
+      if(shipmentsAllReceived()) showWd('wd-done');
+      return;
+    }
+    if(e.target.closest&&e.target.closest('#wd-received-btn')){
+      [].slice.call(document.querySelectorAll('#wd-transit-shipments [data-shipment]')).forEach(function(b){ b.setAttribute('data-received','1'); });
+      showWd('wd-done'); return;
+    }
+  });
+
+  /* Seed the form once; the runtime re-applies markup, so value="" attributes
+     would overwrite whatever the user typed on every render. */
+  (function seed(){
+    var SEED={ 'ad-name':'Daisy Kim','ad-street':'1425 Market Street','ad-apt':'Apt 8B','ad-city':'San Francisco','ad-state':'CA','ad-zip':'94103','ad-phone':'555 000 0000' };
+    /* re-apply whenever a render blanks the field; stop only once the user types */
+    function fill(){
+      Object.keys(SEED).forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el || el.dataset.userEdited) return;
+        if(el.value==='') el.value=SEED[id];
+      });
+    }
+    fill();
+    setInterval(fill, 250);
+  })();
+
+  /* Address validation — postal + phone rules follow the selected country */
+  /* Postal rules come from tk-address.js so every address screen agrees. */
+  function postalRule(cc){
+    var R = window.TKAddress ? window.TKAddress.rule(cc) : null;
+    if(!R) return { re:/^[A-Za-z0-9][A-Za-z0-9 -]{2,11}$/, msg:'Enter a valid postal code' };
+    return { re:R.postal, msg: R.postalEg
+      ? 'Enter a valid ' + R.name + ' postal code (e.g. ' + R.postalEg + ')'
+      : 'Enter a valid postal code' };
+  }
+  function val(id){ var el=document.getElementById(id); return el ? el.value.trim() : ''; }
+  function setErr(id, msg){
+    var el=document.getElementById(id), m=document.querySelector('.fld-err[data-for="'+id+'"]');
+    if(!el) return;
+    el.classList.toggle('err', !!msg);
+    if(m){ m.classList.toggle('on', !!msg); if(msg) m.textContent=msg; }
+  }
+  function validateAddress(){
+    var country=(document.getElementById('wd-country')||{}).value||'us';
+    var first=null;
+    function check(id, ok, msg){ setErr(id, ok?'':msg); if(!ok && !first) first=id; }
+
+    check('ad-name',   val('ad-name').length>1,   'Enter the recipient\u2019s name');
+    check('ad-street', val('ad-street').length>3, 'Enter a street address');
+    check('ad-city',   val('ad-city').length>1,   'Enter a city');
+    check('ad-state',  val('ad-state').length>0,  'Enter a state or region');
+
+    var rule=postalRule(country);
+    check('ad-zip', rule.re.test(val('ad-zip')), rule.msg);
+
+    var digits=val('ad-phone').replace(/[^\d]/g,'');
+    var dialSel=document.getElementById('ad-dial');
+    var lens=((dialSel && dialSel.selectedOptions[0] && dialSel.selectedOptions[0].dataset.len) || '7,15').split(',').map(Number);
+    var okLen = lens.length===2 && lens[1]-lens[0] > 1
+      ? (digits.length>=lens[0] && digits.length<=lens[1])
+      : lens.indexOf(digits.length)>=0;
+    var dialTxt=(dialSel && dialSel.value) ? dialSel.value + ' ' : '';
+    check('ad-phone', okLen, 'Enter a valid ' + (lens.length===1 ? lens[0]+'-digit' : lens.join(' or ')+'-digit') + ' number for ' + (dialTxt||'the selected country'));
+
+    if(first){
+      var el=document.getElementById(first);
+      el.focus({preventScroll:true});
+      el.closest('.form-section').scrollIntoView ? null : null;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 140, behavior:'smooth' });
+      return false;
+    }
+    return true;
+  }
+  function syncShipTo(){
+    var box=document.getElementById('wd-shipto'); if(!box) return;
+    var line2=[val('ad-street'), val('ad-apt')].filter(Boolean).join(', ');
+    var line3=[val('ad-city'), val('ad-state'), val('ad-zip')].filter(Boolean).join(', ');
+    var dial=(document.getElementById('ad-dial')||{}).value||'';
+    var phone=[dial, val('ad-phone')].filter(Boolean).join(' ');
+    box.innerHTML = val('ad-name') + '<br><span style="color:rgba(255,255,255,0.55);">' + line2 + '<br>' + line3 + (phone ? '<br>' + phone : '') + '</span>';
+  }
+  /* clear an error as soon as the field is edited */
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.classList && e.target.classList.contains('form-input')){
+      e.target.dataset.userEdited='1';
+      setErr(e.target.id, '');
+      syncShipTo();
+      invalidateQuote();
+    }
+  });
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id==='wd-country') setErr('ad-zip','');
+    if(e.target && (e.target.id==='wd-country' || e.target.id==='ad-dial')){ invalidateQuote(); syncShipTo(); }
+  });
+
+  /* Shipping cost is a carrier quote, not a live calculation: the user asks for it,
+     we validate the address once, run the rate lookup, then freeze the number.
+     Editing the address afterwards invalidates the quote instead of re-querying. */
+  var quote = { state:'idle', key:'' };
+
+  function addressKey(){
+    return ['ad-name','ad-street','ad-apt','ad-city','ad-state','ad-zip','ad-phone'].map(val).join('|')
+      + '|' + ((document.getElementById('wd-country')||{}).value||'')
+      + '|' + ((document.getElementById('ad-dial')||{}).value||'')
+      + '|' + document.querySelectorAll('#wd-card-list [data-wd-card]').length;
+  }
+
+  function setQuoteState(next){
+    quote.state = next;
+    var show = { idle:'wd-quote-idle', loading:'wd-quote-loading', done:'wd-quote-result', stale:'wd-quote-stale' };
+    Object.keys(show).forEach(function(k){
+      var el=document.getElementById(show[k]); if(el) el.style.display = (k===next) ? 'block' : 'none';
+    });
+    var tag=document.getElementById('wd-quote-state');
+    if(tag){
+      var map={ idle:['Not calculated','rgba(255,255,255,0.06)','rgba(255,255,255,0.5)'],
+                loading:['Calculating','rgba(26,111,255,0.14)','#5B9AFF'],
+                done:['Quoted','rgba(0,200,100,0.14)','var(--pos)'],
+                stale:['Address changed','rgba(234,130,0,0.14)','#EA8200'] };
+      tag.textContent=map[next][0]; tag.style.background=map[next][1]; tag.style.color=map[next][2];
+    }
+    var pay=document.getElementById('wd-request-btn');
+    if(pay){ pay.style.display = (next==='done') ? 'block' : 'none'; pay.disabled = false; }
+    var hint=document.getElementById('wd-request-hint');
+    if(hint) hint.style.display = (next==='done') ? 'block' : 'none';
+  }
+
+  function runQuote(){
+    if(!validateAddress()) return;
+    setQuoteState('loading');
+    var bar=document.getElementById('wd-quote-bar'), p=8;
+    var t=setInterval(function(){ p=Math.min(96,p+Math.random()*22); if(bar) bar.style.width=p+'%'; }, 260);
+    setTimeout(function(){
+      clearInterval(t);
+      if(bar) bar.style.width='100%';
+      quote.key = addressKey();
+      recalc();
+      setQuoteState('done');
+      syncShipTo();
+    }, 1600);
+  }
+
+  function invalidateQuote(){
+    if(quote.state==='done' && addressKey()!==quote.key) setQuoteState('stale');
+  }
+
+  setTimeout(function(){ if(document.getElementById('wd-quote-idle')) setQuoteState('idle'); }, 500);
+
+  /* Deep link: ?state=…&batch=RDM-… — a redemption is a BATCH, this page is its status page */
+  function initState(){
+    var q=window.location.search||'';
+    var m=/[?&]state=([a-z]+)/.exec(q);
+    var b=/[?&]batch=([^&]+)/.exec(q);
+    /* no pay entry — a stale link must not reopen payment after it is charged */
+    var map={ request:'wd-request', preparing:'wd-preparing', transit:'wd-transit', done:'wd-done' };
+    var id=m && map[m[1]];
+    if(id) showWd(id);
+    var head=document.getElementById('wd-batch-head');
+    if(b && head && id && id!=='wd-request'){
+      head.style.display='flex';
+      document.getElementById('wd-batch-id').textContent=decodeURIComponent(b[1]);
+      var gs=groups(), cards=gs.reduce(function(a,g){return a+g.count;},0);
+      document.getElementById('wd-batch-scope').textContent = cards + ' card' + (cards===1?'':'s') + ' · ' + gs.length + ' shipment' + (gs.length===1?'':'s');
+    }
+  }
+
+  /* Partial delivery: the batch stays "In transit" until every shipment is confirmed */
+  function shipmentsAllReceived(){
+    var boxes=[].slice.call(document.querySelectorAll('#wd-transit-shipments [data-shipment]'));
+    return boxes.length>0 && boxes.every(function(b){ return b.getAttribute('data-received')==='1'; });
+  }
+  function syncTransitCta(){
+    var btn=document.getElementById('wd-received-btn'); if(!btn) return;
+    var boxes=[].slice.call(document.querySelectorAll('#wd-transit-shipments [data-shipment]'));
+    var done=boxes.filter(function(b){ return b.getAttribute('data-received')==='1'; }).length;
+    btn.textContent = boxes.length>1 && done>0 && done<boxes.length
+      ? "I've received my cards (" + done + ' of ' + boxes.length + ' shipments confirmed)'
+      : "I've received my cards";
+  }
+
+  setTimeout(function(){ recalc(); initState(); }, 200);
+
+});
+</script>
+</body></html>

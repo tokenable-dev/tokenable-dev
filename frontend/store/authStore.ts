@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AuthUser } from "@/lib/auth";
 import { fetchAuthMe, logoutAuth } from "@/lib/auth";
+import { fetchKycStatus } from "@/lib/kyc/api";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 
 interface AuthState {
@@ -31,6 +32,20 @@ function mergeAuthUser(prev: AuthUser | null, next: AuthUser | null): AuthUser |
   return next;
 }
 
+async function syncKycFromSumsub(user: AuthUser): Promise<AuthUser> {
+  try {
+    const kyc = await fetchKycStatus();
+    return {
+      ...user,
+      kycStatus: kyc.status,
+      kycVerifiedAt: kyc.verifiedAt,
+      kycProvider: kyc.provider ?? user.kycProvider,
+    };
+  } catch {
+    return user;
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: true,
@@ -41,7 +56,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const showLoading = options?.showLoading !== false;
     if (showLoading) set({ loading: true });
     try {
-      const user = await fetchAuthMe();
+      const sessionUser = await fetchAuthMe();
+      const user = sessionUser ? await syncKycFromSumsub(sessionUser) : null;
       // Stale GET /auth/session can finish after PrivySessionBridge already linked wallets.
       set({ user: mergeAuthUser(get().user, user), initialized: true });
     } catch {

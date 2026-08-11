@@ -12,7 +12,7 @@ import {
   ChainConfigService,
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
-import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
+import { KycService } from '../kyc/kyc.service';
 import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from '../marketplace/portfolio/portfolio-holding.service';
 import { VaultService } from '../vault/vault.service';
@@ -55,6 +55,7 @@ export class RwaMintService {
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly partners: MarketplacePartnersService,
+    private readonly kyc: KycService,
   ) {}
 
   async mintForUser(
@@ -62,7 +63,7 @@ export class RwaMintService {
     dto: MintRwaDto,
     chainId: SupportedChainId,
   ): Promise<MintRwaResult> {
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
 
     const recipient = dto.recipientAddress.trim().toLowerCase();
     const deliveryMode: MintDeliveryMode =
@@ -221,7 +222,7 @@ export class RwaMintService {
       alreadyWithUser: boolean;
     }
   > {
-    assertKycApprovedForCustody(user);
+    await this.kyc.assertApprovedForCustody(user);
 
     const recipient = params.recipientAddress.trim().toLowerCase();
     const wallets = await this.users.listWalletsForUser(user.id);

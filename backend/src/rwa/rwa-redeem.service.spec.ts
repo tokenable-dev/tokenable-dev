@@ -42,6 +42,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         platformFee as never,
         feeCalculator,
         {} as never,
+        { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
       ),
       vault,
       partners,
@@ -271,6 +272,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
       {} as never,
       {} as never,
       {} as never,
+      { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
     );
   }
 
