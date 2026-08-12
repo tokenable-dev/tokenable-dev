@@ -58,7 +58,11 @@ export function SellShippingView() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" aria-hidden>
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span className="sell-ship-banner__title">Ready to ship — send it directly to PSA</span>
+            <span className="sell-ship-banner__title">
+              {ship.isTrackingEdit
+                ? "Update tracking — keep your PSA shipment linked"
+                : "Ready to ship — send it directly to PSA"}
+            </span>
             <span className="sell-ship-banner__dot" aria-hidden />
             <span className="sell-ship-banner__card">{ship.bannerLabel}</span>
           </div>
@@ -87,8 +91,8 @@ export function SellShippingView() {
             submitDone
             shipInTransit={ship.confirmed}
             shipSublabel={ship.shipSublabel}
-            canGoSubmit={!ship.confirmed}
-            canGoShip={!ship.confirmed && ship.panel === "track"}
+            canGoSubmit={!ship.confirmed && !ship.isTrackingEdit}
+            canGoShip={!ship.confirmed && ship.panel === "track" && !ship.isTrackingEdit}
             canGoLive={ship.confirmed}
             onSubmit={ship.backToCards}
             onShip={ship.goToPack}
@@ -566,15 +570,18 @@ export function SellShippingView() {
                 >
                   {ship.confirmed ? (
                     <>
-                      <CheckIcon size={16} /> Shipment confirmed
+                      <CheckIcon size={16} />{" "}
+                      {ship.isTrackingEdit ? "Tracking updated" : "Shipment confirmed"}
                     </>
                   ) : ship.confirming ? (
                     <>
-                      <span className="sell-flow-spinner" aria-hidden /> Confirming…
+                      <span className="sell-flow-spinner" aria-hidden />{" "}
+                      {ship.isTrackingEdit ? "Updating…" : "Confirming…"}
                     </>
                   ) : (
                     <>
-                      Confirm shipment <ArrowRightIcon />
+                      {ship.isTrackingEdit ? "Update tracking" : "Confirm shipment"}{" "}
+                      <ArrowRightIcon />
                     </>
                   )}
                 </TkButton>
@@ -607,7 +614,11 @@ export function SellShippingView() {
                 <div className="sell-ship-success">
                   <div className="sell-ship-success__title">
                     <CheckIcon size={20} />
-                    <span>Tracking registered successfully</span>
+                    <span>
+                      {ship.isTrackingEdit
+                        ? "Tracking updated successfully"
+                        : "Tracking registered successfully"}
+                    </span>
                   </div>
                   <p className="sell-ship-success__copy">
                     Your card is now <strong>In Transit to PSA</strong>. We&rsquo;ll notify you when PSA
@@ -626,6 +637,14 @@ export function SellShippingView() {
                       </a>
                     ) : null}
                   </div>
+                  <TkButton
+                    type="button"
+                    variant="subtle"
+                    className="sell-ship-change-tracking"
+                    onClick={ship.beginChangeTracking}
+                  >
+                    Change Tracking
+                  </TkButton>
                 </div>
               ) : null}
 
@@ -636,7 +655,7 @@ export function SellShippingView() {
                 onClick={ship.backToCards}
                 disabled={ship.confirmed}
               >
-                Back to Card Details
+                {ship.isTrackingEdit ? "Back to package" : "Back to Card Details"}
               </TkButton>
             </div>
           )}

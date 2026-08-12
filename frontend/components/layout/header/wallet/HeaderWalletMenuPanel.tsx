@@ -9,7 +9,9 @@ import {
 } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { completeSignOut } from "@/lib/auth/signOut";
+import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
@@ -26,6 +28,7 @@ import {
   WalletVerifyIcon,
   WalletWatchlistIcon,
 } from "./HeaderWalletMenuIcons";
+import { HeaderWalletCopyAddressButton } from "./HeaderWalletCopyAddressButton";
 
 type MenuVariant = "dropdown" | "mobile";
 
@@ -95,7 +98,10 @@ export function HeaderWalletMenuPanel({
           <WalletUserIcon />
         </span>
         <div className="tk-wallet-user__meta">
-          <div className="tk-wallet-user__addr">{displayAddress}</div>
+          <div className="tk-wallet-user__addr-row">
+            <div className="tk-wallet-user__addr">{displayAddress}</div>
+            <HeaderWalletCopyAddressButton address={walletAddress} />
+          </div>
           <div className={`tk-wallet-user__kyc tk-wallet-user__kyc--${kyc.tone}`}>{kyc.text}</div>
         </div>
         {variant === "mobile" ? (
@@ -161,7 +167,15 @@ export function HeaderWalletMenuPanel({
         Watchlist
       </button>
       {showVerifyIdentity ? (
-        <button type="button" className={itemClass(variant)} onClick={() => go("/kyc", 1)}>
+        <button
+          type="button"
+          className={itemClass(variant)}
+          onClick={() => {
+            rememberKycReturnTo("/settings?section=identity");
+            useAuthUiStore.getState().setPendingReturnTo("/settings?section=identity");
+            go("/kyc", 1);
+          }}
+        >
           <WalletVerifyIcon />
           Verify Identity
         </button>

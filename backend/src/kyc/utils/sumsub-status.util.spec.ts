@@ -18,7 +18,20 @@ describe('sumsub-status.util', () => {
 
   it('maps in-progress review to pending', () => {
     expect(mapSumsubReviewToKycStatus('pending', '')).toBe('pending');
+    expect(mapSumsubReviewToKycStatus('prechecked', '')).toBe('pending');
     expect(mapSumsubReviewToKycStatus('onHold', '')).toBe('pending');
+  });
+
+  it('maps init / empty review to none (SDK opened, not submitted)', () => {
+    expect(mapSumsubReviewToKycStatus('init', '')).toBe('none');
+    expect(mapSumsubReviewToKycStatus('', '')).toBe('none');
+    expect(
+      resolveKycStatusFromSumsubApplicant({
+        id: 'app-init',
+        reviewStatus: 'init',
+        reviewAnswer: '',
+      }),
+    ).toBe('none');
   });
 
   it('skips downgrade from approved to pending', () => {

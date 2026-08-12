@@ -87,17 +87,21 @@ function LayoutAContent({
   scenario,
   packageCards,
   tracking,
+  submissionId,
 }: {
   scenario: VaultDetailScenario;
   packageCards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
   tracking: { label: string; url: string } | null;
+  submissionId: string;
 }) {
   return (
     <div className="vault-detail-layout-a">
       <DetailHero hero={scenario.hero} />
       <VaultStepper rich steps={scenario.steps} />
       <PackageInfoCard cards={packageCards} />
-      {scenario.ship ? <TrackingCard ship={scenario.ship} tracking={tracking} /> : null}
+      {scenario.ship ? (
+        <TrackingCard ship={scenario.ship} tracking={tracking} submissionId={submissionId} />
+      ) : null}
       <NotifBanner msg={scenario.notif} />
       <CtaRow ctas={scenario.cta} />
     </div>
@@ -145,10 +149,14 @@ function PackageInfoCard({
 function TrackingCard({
   ship,
   tracking,
+  submissionId,
 }: {
   ship: "pending" | "intransit";
   tracking: { label: string; url: string } | null;
+  submissionId: string;
 }) {
+  const shippingHref = `/sell/shipping?submission=${encodeURIComponent(submissionId)}`;
+
   if (ship === "pending") {
     return (
       <div className="vault-card-box vault-detail-tracking">
@@ -164,7 +172,7 @@ function TrackingCard({
           </TkSelect>
           <TkInput placeholder="Tracking number" disabled aria-label="Tracking number" />
         </div>
-        <Link href="/sell/shipping" className="tk-btn tk-btn--primary vault-detail-tracking-cta">
+        <Link href={shippingHref} className="tk-btn tk-btn--primary vault-detail-tracking-cta">
           Register Tracking →
         </Link>
       </div>
@@ -201,7 +209,7 @@ function TrackingCard({
         <span className="mono vault-detail-tracking-link">Tracking details pending</span>
       )}
       <div className="vault-detail-tracking-change-wrap">
-        <Link href="/sell/shipping" className="tk-btn tk-btn--subtle vault-detail-tracking-change">
+        <Link href={shippingHref} className="tk-btn tk-btn--subtle vault-detail-tracking-change">
           Change Tracking
         </Link>
       </div>
@@ -686,6 +694,7 @@ export function VaultDetailDesignView({
           scenario={scenario}
           packageCards={layoutACards}
           tracking={tracking}
+          submissionId={submissionId}
         />
       ) : (
         <>

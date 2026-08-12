@@ -1,4 +1,5 @@
 import { clearSavedRedeemAddress } from "@/lib/portfolio/redeemDraft";
+import { clearAllSellLocalState } from "@/lib/sell/sellFlowDraft";
 import {
   getPrivySignOutHandler,
   setSignOutInProgress,
@@ -24,8 +25,9 @@ export async function completeSignOut(
       await fallbackClearTokenableSession();
     }
   } finally {
-    // Avoid leaking ship-to into the next account on the same browser.
+    // Avoid leaking ship-to / sell OCR drafts into the next account on the same browser.
     clearSavedRedeemAddress();
+    clearAllSellLocalState();
     setSignOutInProgress(false);
   }
 }

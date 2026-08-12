@@ -6,48 +6,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
+import {
+  clearKycReturnTo,
+  peekKycReturnTo,
+  rememberKycReturnTo,
+  resolveKycReturnPath,
+} from "@/lib/kyc/returnPath";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 const SumsubWebSdk = dynamic(() => import("@sumsub/websdk-react"), { ssr: false });
 
-const KYC_RETURN_KEY = "tk_kyc_return_to";
-
-function readStoredReturnTo(): string | null {
-  try {
-    return sessionStorage.getItem(KYC_RETURN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function clearStoredReturnTo() {
-  try {
-    sessionStorage.removeItem(KYC_RETURN_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-function hasExplicitReturnTo(
-  pending: string | null | undefined,
-  captured: string | null | undefined,
-): boolean {
-  return Boolean(
-    (pending && pending.startsWith("/")) ||
-      (captured && captured.startsWith("/")) ||
-      readStoredReturnTo(),
-  );
-}
-
-function resolveReturnPath(
-  pending: string | null | undefined,
-  captured: string | null | undefined,
-): string {
-  const stored = readStoredReturnTo();
-  const path = pending ?? captured ?? stored;
-  return path && path.startsWith("/") ? path : "/vault";
-}
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 45;
+const AUTO_CONTINUE_DELAY_MS = 1200;
 
 function formatKycError(e: unknown, fallback: string): string {
   const message = e instanceof Error ? e.message : fallback;
@@ -55,6 +27,24 @@ function formatKycError(e: unknown, fallback: string): string {
     return "Too many verification requests. Wait about a minute, then try again.";
   }
   return message || fallback;
+}
+
+function reviewAnswerFromPayload(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const row = payload as Record<string, unknown>;
+  if (typeof row.answer === "string") return row.answer;
+  const result = row.reviewResult;
+  if (result && typeof result === "object") {
+    const answer = (result as { reviewAnswer?: unknown }).reviewAnswer;
+    if (typeof answer === "string") return answer;
+  }
+  return undefined;
+}
+
+function reviewStatusFromPayload(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const status = (payload as { reviewStatus?: unknown }).reviewStatus;
+  return typeof status === "string" ? status : undefined;
 }
 
 export default function KycPage() {
@@ -68,13 +58,17 @@ export default function KycPage() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [booting, setBooting] = useState(false);
-  const [returnTo] = useState(
-    () => useAuthUiStore.getState().pendingReturnTo ?? readStoredReturnTo(),
-  );
+  const [returnTo] = useState(() => {
+    const fromStore = useAuthUiStore.getState().pendingReturnTo;
+    if (fromStore) rememberKycReturnTo(fromStore);
+    return resolveKycReturnPath(fromStore, peekKycReturnTo());
+  });
   const [autoContinuing, setAutoContinuing] = useState(false);
   const statusLoadedForUser = useRef<string | null>(null);
   const autoStartDone = useRef(false);
   const bootingRef = useRef(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollAttemptsRef = useRef(0);
 
   useEffect(() => {
     if (!loading && initialized && !user) {
@@ -82,22 +76,70 @@ export default function KycPage() {
     }
   }, [user, loading, initialized, router]);
 
-  const refreshSession = useCallback(async () => {
-    const me = await fetchAuthMe();
-    if (me) setUser(me);
-  }, [setUser]);
+  const stopStatusPoll = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    pollAttemptsRef.current = 0;
+  }, []);
+
+  useEffect(() => () => stopStatusPoll(), [stopStatusPoll]);
+
+  const applyStatus = useCallback(
+    async (next: KycStatusResponse) => {
+      setStatus(next);
+      if (next.status === "approved" || next.status === "rejected") {
+        setAccessToken(null);
+        stopStatusPoll();
+      }
+      const current = useAuthStore.getState().user;
+      if (current) {
+        setUser({
+          ...current,
+          kycStatus: next.status,
+          kycVerifiedAt: next.verifiedAt ?? current.kycVerifiedAt,
+          kycProvider: next.provider ?? current.kycProvider,
+        });
+      }
+      return next;
+    },
+    [setUser, stopStatusPoll],
+  );
 
   const loadStatus = useCallback(async () => {
     const next = await fetchKycStatus();
-    setStatus(next);
-    return next;
-  }, []);
+    return applyStatus(next);
+  }, [applyStatus]);
 
   const continueAfterApproval = useCallback(() => {
-    const path = resolveReturnPath(consumeReturnTo(), returnTo);
-    clearStoredReturnTo();
+    const path = resolveKycReturnPath(consumeReturnTo(), returnTo, peekKycReturnTo());
+    clearKycReturnTo();
     router.replace(path);
   }, [consumeReturnTo, returnTo, router]);
+
+  const startStatusPoll = useCallback(() => {
+    if (pollTimerRef.current) return;
+    pollAttemptsRef.current = 0;
+    const tick = () => {
+      pollAttemptsRef.current += 1;
+      void loadStatus()
+        .then((next) => {
+          if (
+            next.status === "approved" ||
+            next.status === "rejected" ||
+            pollAttemptsRef.current >= POLL_MAX_ATTEMPTS
+          ) {
+            stopStatusPoll();
+          }
+        })
+        .catch(() => {
+          if (pollAttemptsRef.current >= POLL_MAX_ATTEMPTS) stopStatusPoll();
+        });
+    };
+    tick();
+    pollTimerRef.current = setInterval(tick, POLL_INTERVAL_MS);
+  }, [loadStatus, stopStatusPoll]);
 
   const startVerification = useCallback(async () => {
     if (bootingRef.current || accessToken) return;
@@ -113,20 +155,18 @@ export default function KycPage() {
       if (nextStatus.status === "approved") return;
       const { token } = await fetchKycAccessToken();
       setAccessToken(token);
-      // Keep local status in sync without re-triggering boot effects.
-      setStatus((prev) =>
-        prev
-          ? { ...prev, status: prev.status === "none" ? "pending" : prev.status }
-          : prev,
-      );
-      void refreshSession().catch(() => undefined);
+      void fetchAuthMe()
+        .then((me) => {
+          if (me) setUser(me);
+        })
+        .catch(() => undefined);
     } catch (e) {
       setPageError(formatKycError(e, "Could not start verification"));
     } finally {
       bootingRef.current = false;
       setBooting(false);
     }
-  }, [accessToken, loadStatus, refreshSession]);
+  }, [accessToken, loadStatus, setUser]);
 
   // Load KYC status once per signed-in user (avoid session refresh loops).
   useEffect(() => {
@@ -147,17 +187,15 @@ export default function KycPage() {
     void startVerification();
   }, [user?.id, status, accessToken, startVerification]);
 
-  // After approval, return to the screen that launched KYC (e.g. /sell/flow).
+  // After approval, return to the screen that launched KYC.
   useEffect(() => {
     if (status?.status !== "approved" || autoContinuing) return;
-    const pending = useAuthUiStore.getState().pendingReturnTo;
-    if (!hasExplicitReturnTo(pending, returnTo)) return;
     setAutoContinuing(true);
     const t = window.setTimeout(() => {
       continueAfterApproval();
-    }, 600);
+    }, AUTO_CONTINUE_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [status?.status, returnTo, autoContinuing, continueAfterApproval]);
+  }, [status?.status, autoContinuing, continueAfterApproval]);
 
   const expirationHandler = useCallback(async () => {
     const { token } = await fetchKycAccessToken();
@@ -166,24 +204,34 @@ export default function KycPage() {
 
   const handleSdkMessage = useCallback(
     (type: string, payload: unknown) => {
-      if (type === "idCheck.onApplicantSubmitted") {
-        void refreshSession();
+      const answer = reviewAnswerFromPayload(payload)?.toUpperCase();
+      const reviewStatus = reviewStatusFromPayload(payload)?.toLowerCase();
+
+      if (
+        type === "idCheck.onApplicantSubmitted" ||
+        type === "idCheck.onApplicantResubmitted"
+      ) {
+        startStatusPoll();
+        return;
       }
+
       if (
         type === "idCheck.onApplicantStatusChanged" ||
-        type === "idCheck.onApplicantVerificationCompleted"
+        type === "idCheck.applicantStatus" ||
+        type === "idCheck.onApplicantVerificationCompleted" ||
+        type === "idCheck.onApplicantReviewComplete" ||
+        type === "idCheck.applicantReviewComplete" ||
+        type === "idCheck.moduleResultPresented"
       ) {
-        const review = payload as {
-          reviewStatus?: string;
-          reviewResult?: { reviewAnswer?: string };
-        };
-        const answer = review.reviewResult?.reviewAnswer;
-        if (review.reviewStatus === "completed" && answer === "GREEN") {
-          void refreshSession().then(() => void loadStatus());
+        void loadStatus().catch(() => undefined);
+        if (answer === "GREEN" || reviewStatus === "completed") {
+          startStatusPoll();
+        } else if (reviewStatus === "pending" || reviewStatus === "onhold" || reviewStatus === "queued") {
+          startStatusPoll();
         }
       }
     },
-    [loadStatus, refreshSession],
+    [loadStatus, startStatusPoll],
   );
 
   if (!initialized || loading || !user) {

@@ -14,7 +14,9 @@ export function mapSumsubReviewToKycStatus(
   }
 
   if (status === 'onhold' || status === 'on_hold') return 'pending';
-  if (['init', 'pending', 'prechecked', 'queued'].includes(status)) {
+  // Applicant created / SDK opened, but user has not submitted docs yet.
+  if (status === 'init' || status === '') return 'none';
+  if (['pending', 'prechecked', 'queued'].includes(status)) {
     return 'pending';
   }
 
@@ -75,7 +77,8 @@ export function resolveKycStatusFromSumsubApplicant(
     snapshot.reviewStatus,
     snapshot.reviewAnswer,
   );
-  return mapped ?? 'pending';
+  // Unknown reviewStatus: do not invent "pending" — keep as not started.
+  return mapped ?? 'none';
 }
 
 export function extractSumsubRejectionReason(

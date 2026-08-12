@@ -93,11 +93,50 @@
   min-width: 0;
 }
 
+.tk-wallet-user__addr-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .tk-wallet-user__addr {
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   color: #fff;
+}
+
+.tk-copy-addr {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.07);
+  border: 0;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.tk-copy-addr:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tk-copy-addr--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tk-copy-addr.is-copied {
+  color: var(--pos, #00c350);
+  background: rgba(0, 200, 100, 0.16);
 }
 
 .tk-wallet-user__kyc {

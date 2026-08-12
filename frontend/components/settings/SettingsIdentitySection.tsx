@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import type { AuthUser } from "@/lib/auth";
+import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { SettingsBtn } from "./SettingsBtn";
 
-const KYC_RETURN_KEY = "tk_kyc_return_to";
 const SETTINGS_IDENTITY_PATH = "/settings?section=identity";
 
 function formatVerifiedDate(iso: string | null | undefined): string | null {
@@ -41,15 +41,9 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
   }
 
   function goToKyc() {
-    try {
-      sessionStorage.setItem(KYC_RETURN_KEY, SETTINGS_IDENTITY_PATH);
-    } catch {
-      /* ignore */
-    }
-    useAuthUiStore.setState({
-      kycOpen: false,
-      pendingReturnTo: SETTINGS_IDENTITY_PATH,
-    });
+    rememberKycReturnTo(SETTINGS_IDENTITY_PATH);
+    useAuthUiStore.getState().setPendingReturnTo(SETTINGS_IDENTITY_PATH);
+    useAuthUiStore.setState({ kycOpen: false });
     router.push("/kyc");
   }
 

@@ -2313,6 +2313,11 @@ button.sell-ship-step--btn:focus-visible {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.sell-ship-change-tracking {
+  margin-left: 30px;
 }
 
 .sell-ship-success__summary {

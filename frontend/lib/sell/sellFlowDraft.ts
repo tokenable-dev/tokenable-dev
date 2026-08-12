@@ -12,6 +12,8 @@ export const SELL_SHIPMENT_KEY = "tk_sell_shipment";
 export const SELL_SUBMISSION_PUBLIC_ID_KEY = "tk_sell_submission_public_id";
 /** In-progress UI step + shipping form fields (survives refresh / tab close). Card drafts are local-only until shipping. */
 export const SELL_FLOW_PROGRESS_KEY = "tk_sell_flow_progress";
+/** Which Tokenable user owns the current browser sell draft (prevents cross-account leaks). */
+const SELL_FLOW_OWNER_KEY = "tk_sell_flow_owner";
 /** Bump only to drop offline-only fake In Transit shipments (not card drafts). */
 const SELL_LOCAL_SCHEMA_KEY = "tk_sell_local_schema";
 /** 6 — clear stale SUB-… after draft packages stopped being created server-side. */
@@ -24,8 +26,37 @@ export function clearAllSellLocalState() {
     localStorage.removeItem(SELL_FLOW_PROGRESS_KEY);
     localStorage.removeItem(SELL_SHIPMENT_KEY);
     localStorage.removeItem(SELL_SUBMISSION_PUBLIC_ID_KEY);
+    localStorage.removeItem(SELL_FLOW_OWNER_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * Bind local sell draft keys to the signed-in user.
+ * Returns true when storage was cleared (account switch / logout / legacy orphan).
+ */
+export function bindSellFlowToUser(userId: string | null | undefined): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const next = userId?.trim() || "";
+    const prev = localStorage.getItem(SELL_FLOW_OWNER_KEY)?.trim() || "";
+    if (!next) {
+      const hadData =
+        Boolean(prev) ||
+        Boolean(localStorage.getItem(SELL_FLOW_DRAFT_KEY)) ||
+        Boolean(localStorage.getItem(SELL_FLOW_PROGRESS_KEY)) ||
+        Boolean(localStorage.getItem(SELL_SUBMISSION_PUBLIC_ID_KEY));
+      if (hadData) clearAllSellLocalState();
+      return hadData;
+    }
+    if (prev === next) return false;
+    // Different account, or legacy unscoped draft with no owner — start clean.
+    clearAllSellLocalState();
+    localStorage.setItem(SELL_FLOW_OWNER_KEY, next);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -274,6 +305,7 @@ export function clearSellFlowDraftLocal() {
     localStorage.removeItem(SELL_FLOW_DRAFT_KEY);
     localStorage.removeItem(SELL_FLOW_PROGRESS_KEY);
     localStorage.removeItem(SELL_SHIPMENT_KEY);
+    // Keep SELL_FLOW_OWNER_KEY so the next write stays on this account.
   } catch {
     /* ignore */
   }
@@ -324,7 +356,7 @@ export function draftCardsFromSubmissionItems(
 export function sellSubmissionResumeHref(status: string, publicId: string): string {
   if (status === "awaiting_shipment" || status === "draft") {
     // Legacy status=draft should go to shipping, not /sell/flow (cards are local).
-    return "/sell/shipping";
+    return `/sell/shipping?submission=${encodeURIComponent(publicId)}`;
   }
   return `/vault/submissions/${encodeURIComponent(publicId)}`;
 }

@@ -840,12 +840,22 @@
   min-width: 0;
 }
 
+.tkm-profile__addr-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .tkm-profile__addr {
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
   color: #fff;
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tkm-profile__kyc {

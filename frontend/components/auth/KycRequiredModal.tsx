@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { TkButton, TkDialog } from "@/components/ds";
+import { rememberKycReturnTo, peekKycReturnTo } from "@/lib/kyc/returnPath";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -52,6 +53,9 @@ export function KycRequiredModal() {
           variant="primary"
           className="w-full justify-center"
           onClick={() => {
+            const returnTo =
+              useAuthUiStore.getState().pendingReturnTo ?? peekKycReturnTo();
+            rememberKycReturnTo(returnTo);
             closeKyc();
             router.push("/kyc");
           }}

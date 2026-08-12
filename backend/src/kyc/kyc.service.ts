@@ -150,28 +150,16 @@ export class KycService {
         applicantId = created.id;
       }
 
+      // Opening the SDK creates an applicant — that is NOT "pending review".
+      // Keep kyc_status as-is (usually `none`) until Sumsub reports real progress.
       if (synced.kycExternalId !== applicantId) {
         await this.users.updateKycStatus(synced.id, {
-          status: synced.kycStatus === 'none' ? 'pending' : synced.kycStatus,
-          provider: 'sumsub',
-          externalId: applicantId,
-          payload: { source: 'access_token' },
-        });
-      } else if (synced.kycStatus === 'none') {
-        await this.users.updateKycStatus(synced.id, {
-          status: 'pending',
+          status: synced.kycStatus,
           provider: 'sumsub',
           externalId: applicantId,
           payload: { source: 'access_token' },
         });
       }
-    } else if (synced.kycStatus === 'none') {
-      await this.users.updateKycStatus(synced.id, {
-        status: 'pending',
-        provider: 'sumsub',
-        externalId: applicantId,
-        payload: { source: 'access_token' },
-      });
     }
 
     return this.sumsub.createSdkAccessToken({

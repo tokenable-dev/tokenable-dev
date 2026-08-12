@@ -14,6 +14,7 @@ import {
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycStatus } from "@/lib/kyc/api";
+import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import type { KycStatus } from "@/lib/auth";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
@@ -21,6 +22,7 @@ import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
   draftCardsFromSubmissionItems,
+  bindSellFlowToUser,
   readSellFlowDraftCards,
   readSellFlowProgress,
   clearSellSubmissionPublicId,
@@ -41,7 +43,6 @@ import { useAuthUiStore } from "@/store/authUiStore";
 
 export type SellFlowScreen = "register" | "vault" | "cards";
 
-const KYC_RETURN_KEY = "tk_kyc_return_to";
 /** Legacy key — consents are session-only now; cleared on hydrate. */
 const CONSENTS_KEY = "tk_seller_consents";
 const MAX_CARDS = 99;
@@ -143,6 +144,7 @@ export function useSellFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
+  const authInitialized = useAuthStore((s) => s.initialized);
   const setUser = useAuthStore((s) => s.setUser);
   const { chainId } = useAppChain();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
@@ -175,12 +177,26 @@ export function useSellFlow() {
 
   const idState = mapKycToIdState(user, kycStatus ?? user?.kycStatus);
 
+  // Bind draft keys to the signed-in user before any local restore (blocks cross-account OCR leaks).
+  useEffect(() => {
+    if (!authInitialized) return;
+    const wiped = bindSellFlowToUser(user?.id ?? null);
+    if (!wiped) return;
+    setCards([]);
+    setDraftRestored(false);
+    setVaultChoice(null);
+    hydrateDoneRef.current = false;
+    localHydrateDoneRef.current = false;
+  }, [authInitialized, user?.id]);
+
   // Local restore — draft cards only. Always open register (seller terms each
   // visit). Optional `?vault=self|psa` prefills vault after Continue.
   useEffect(() => {
+    if (!authInitialized) return;
     if (localHydrateDoneRef.current) return;
     localHydrateDoneRef.current = true;
-    const localCards = readSellFlowDraftCards();
+    if (user?.id) bindSellFlowToUser(user.id);
+    const localCards = user?.id ? readSellFlowDraftCards() : [];
     const q = searchParams.get("vault");
     const prefillsVault: SellVaultChoice | null =
       q === "self" || q === "psa" ? q : null;
@@ -201,7 +217,7 @@ export function useSellFlow() {
       setDraftRestored(true);
     }
     setHydrated(true);
-  }, [searchParams]);
+  }, [authInitialized, user?.id, searchParams]);
 
   useEffect(() => {
     setKycStatus(user?.kycStatus);
@@ -335,12 +351,9 @@ export function useSellFlow() {
   }, []);
 
   const startVerification = useCallback(() => {
-    try {
-      sessionStorage.setItem(KYC_RETURN_KEY, "/sell/flow");
-    } catch {
-      /* ignore */
-    }
-    useAuthUiStore.setState({ kycOpen: false, pendingReturnTo: "/sell/flow" });
+    rememberKycReturnTo("/sell/flow");
+    useAuthUiStore.getState().setPendingReturnTo("/sell/flow");
+    useAuthUiStore.setState({ kycOpen: false });
     router.push("/kyc");
   }, [router]);
 

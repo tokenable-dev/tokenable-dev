@@ -41,6 +41,7 @@ import {
 } from "@/lib/portfolio/portfolioPaths";
 import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
 import { useAuthStore } from "@/store/authStore";
+import { HeaderWalletCopyAddressButton } from "@/components/layout/header/wallet/HeaderWalletCopyAddressButton";
 
 function mobileDrawerKycLabel(tone: HeaderKycTone, text: string): string {
   if (tone === "pos") return "Verified";
@@ -135,7 +136,7 @@ export function HeaderMobileDrawer({
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const logout = useAuthStore((s) => s.logout);
-  const { displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
+  const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
   const portfolioHref = usePortfolioNavHref();
   const portfolioBase = portfolioBaseForPath(pathname);
   const [signingOut, setSigningOut] = useState(false);
@@ -200,7 +201,10 @@ export function HeaderMobileDrawer({
                 <MobileDrawerUserIcon />
               </div>
               <div className="tkm-profile__info">
-                <span className="tkm-profile__addr">{displayAddress}</span>
+                <span className="tkm-profile__addr-row">
+                  <span className="tkm-profile__addr">{displayAddress}</span>
+                  <HeaderWalletCopyAddressButton address={walletAddress} size="sm" />
+                </span>
                 <span className={cn("tkm-profile__kyc", `tkm-profile__kyc--${kyc.tone}`)}>
                   {kyc.tone === "pos" ? <MobileDrawerKycCheckIcon aria-hidden /> : null}
                   {mobileDrawerKycLabel(kyc.tone, kyc.text)}

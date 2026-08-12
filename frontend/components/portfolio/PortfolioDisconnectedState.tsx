@@ -25,7 +25,7 @@ export function PortfolioDisconnectedState() {
               type="button"
               variant="primary"
               className="mt-7 w-full justify-center"
-              onClick={() => openConnectWallet({ returnTo: "/portfolio" })}
+              onClick={() => openConnectWallet({ returnTo: "/portfolio?tab=assets" })}
             >
               Connect wallet
             </TkButton>

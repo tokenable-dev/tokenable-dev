@@ -74,6 +74,7 @@ describe('KycService.createAccessToken', () => {
     const createSdkAccessToken = jest
       .fn()
       .mockResolvedValue({ token: 'tok', userId: 'user-1' });
+    const updateKycStatus = jest.fn().mockResolvedValue(undefined);
     const sumsub = {
       getApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
       fetchApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
@@ -82,7 +83,7 @@ describe('KycService.createAccessToken', () => {
       isConfigured: jest.fn().mockReturnValue(true),
     } as unknown as SumsubApiService;
     const users = {
-      updateKycStatus: jest.fn().mockResolvedValue(undefined),
+      updateKycStatus,
     } as unknown as UserService;
 
     const service = new KycService(users, sumsub);
@@ -96,6 +97,13 @@ describe('KycService.createAccessToken', () => {
       externalUserId: 'user-1',
       email: 'user@example.com',
     });
+    expect(updateKycStatus).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        status: 'none',
+        externalId: 'app-2',
+      }),
+    );
   });
 });
 

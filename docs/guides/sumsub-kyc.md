@@ -68,10 +68,10 @@ Never expose `SUMSUB_SECRET_KEY` or webhook secrets in frontend code.
 ## Flow
 
 1. User hits a Level-2 action → frontend `useAccessGate(2)` → `KycRequiredModal` (status-aware copy) → `/kyc`.
-2. `POST /api/kyc/access-token` creates/reuses Sumsub applicant (`externalUserId` = Tokenable `users.id`) and returns SDK token (`ttl` from Sumsub API; level from `SUMSUB_LEVEL_NAME`).
+2. `POST /api/kyc/access-token` creates/reuses Sumsub applicant (`externalUserId` = Tokenable `users.id`) and returns SDK token (`ttl` from Sumsub API; level from `SUMSUB_LEVEL_NAME`). **Opening the SDK alone does not set `pending`** — `users.kyc_status` stays `none` until Sumsub reports real progress (`pending` / `prechecked` / webhook) or a final result.
 3. User completes WebSDK (ID + liveness).
-4. Sumsub webhook `applicantReviewed` → HMAC verify → `users.kyc_status` `approved` / `rejected`.
-5. **Reconcile** — `GET /api/kyc/status`, session refresh (frontend), and vault/redeem/mint gates call Sumsub `GET applicant by externalUserId`. Stale DB `approved` rows with **no applicant in the current app** are reset to `none`.
+4. Sumsub webhook `applicantReviewed` → HMAC verify → `users.kyc_status` `approved` / `rejected`. `applicantPending` (and similar) → `pending`.
+5. **Reconcile** — `GET /api/kyc/status`, session refresh (frontend), and vault/redeem/mint gates call Sumsub `GET applicant by externalUserId`. Sumsub `init` (applicant exists, no docs yet) maps to **`none`**, not `pending`. Stale DB `approved` rows with **no applicant in the current app** are reset to `none`.
 6. Approved user continues vault ship / redeem. Rejected users see reason + retry on `/kyc`.
 
 Reusable KYC: same applicant id is reused on later `access-token` calls.
@@ -95,8 +95,9 @@ Custody enforcement (server):
 
 ## Frontend
 
-- Page: `/kyc` — `@sumsub/websdk-react`; after approval, continues to `pendingReturnTo` (vault path) when set
-- `KycRequiredModal` — Start Verification / pending / rejected copy
+- Page: `/kyc` — `@sumsub/websdk-react`; after approval, auto-returns to the path that launched KYC (`tk_kyc_return_to` / `pendingReturnTo`, fallback `/vault`)
+- While Sumsub is open, the page polls `GET /api/kyc/status` (Sumsub reconcile) so UI moves `pending` → `approved` without a full reload
+- `KycRequiredModal` — Start Verification / pending / rejected copy; remembers return path before `/kyc`
 - Gates: vault submit & shipping design CTAs, mint form; sell/list stays Level 1
 
 SDK completion events are UI hints only; final status comes from webhooks.

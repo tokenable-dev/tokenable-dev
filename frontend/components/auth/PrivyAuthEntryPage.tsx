@@ -1,22 +1,30 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { PrivyUserPill } from "@/components/privy/PrivyUserPill";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 
 type PrivyAuthEntryPageProps = {
   mode?: "login" | "signup";
 };
 
+function sanitizeNextPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
 /** Opens Privy's native login modal; UserPill is the fallback if the modal is dismissed. */
 export function PrivyAuthEntryPage({ mode = "login" }: PrivyAuthEntryPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin();
   const { user, loading, initialized } = useAuthStore();
   const loginOpened = useRef(false);
+  const nextFromQuery = sanitizeNextPath(searchParams.get("next"));
 
   const title = mode === "signup" ? "Create your account" : "Sign in to Tokenable";
   const subtitle =
@@ -25,11 +33,16 @@ export function PrivyAuthEntryPage({ mode = "login" }: PrivyAuthEntryPageProps) 
       : "Connect with email or wallet to access your portfolio and vault.";
 
   useEffect(() => {
+    if (!nextFromQuery) return;
+    useAuthUiStore.getState().setPendingReturnTo(nextFromQuery);
+  }, [nextFromQuery]);
+
+  useEffect(() => {
     if (!loading && initialized && user) {
-      router.replace("/");
+      const returnTo = useAuthUiStore.getState().consumeReturnTo();
+      router.replace(returnTo ?? "/");
     }
   }, [user, loading, initialized, router]);
-
   useEffect(() => {
     if (!ready || authenticated || loginOpened.current) return;
     loginOpened.current = true;
