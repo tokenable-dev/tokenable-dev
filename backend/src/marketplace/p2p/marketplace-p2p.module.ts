@@ -4,6 +4,7 @@ import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { KycModule } from '../../kyc/kyc.module';
 import { UserModule } from '../../user/user.module';
 import { VaultModule } from '../../vault/vault.module';
+import { RwaModule } from '../../rwa/rwa.module';
 import { MarketplaceAdminModule } from '../admin/marketplace-admin.module';
 import { P2pListing } from '../entities/p2p-listing.entity';
 import { P2pOrder } from '../entities/p2p-order.entity';
@@ -17,6 +18,7 @@ import { P2pService } from './p2p.service';
     BlockchainModule,
     UserModule,
     VaultModule,
+    RwaModule,
     MarketplaceAdminModule,
     KycModule,
   ],

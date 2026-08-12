@@ -14,9 +14,11 @@ export function CollectionListingsSectionHeader({
       className={compact ? "cd-listings-header cd-listings-header--mobile" : "cd-listings-header"}
       aria-labelledby="collection-listings-heading"
     >
-      <h2 id="collection-listings-heading" className="cd-listings-header__title">
-        Listings
-      </h2>
+      <div className="cd-listings-header__copy">
+        <h2 id="collection-listings-heading" className="cd-listings-header__title">
+          Listings
+        </h2>
+      </div>
       {activeCount != null ? (
         <span className="cd-listings-header__count">
           {activeCount} active

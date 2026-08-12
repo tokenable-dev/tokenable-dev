@@ -26,6 +26,7 @@ export type MyRedemptionRow = {
   redemptionId: string;
   tokenId: string;
   tokenContract: string;
+  chainId?: number | null;
   status: string;
   vaultCycleStatus: string | null;
   requestedAt: string;
@@ -306,12 +307,16 @@ export type RedeemConfirmReceivedResult = {
 /** User: I've received my cards → Done (all vault shipments must be tracked). */
 export async function postRedeemBatchConfirmReceived(
   batchId: string,
+  chainId: SupportedChainId,
 ): Promise<RedeemConfirmReceivedResult> {
   const res = await backendFetch(
     `${getApiUrl()}/rwa/redeem-batch/${encodeURIComponent(batchId)}/confirm-received`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        [CHAIN_ID_HEADER]: String(chainId),
+      },
       credentials: "include",
     },
   );
@@ -326,6 +331,7 @@ export async function postRedeemBatchConfirmReceived(
 }
 
 export async function getMyRedemptions(
+  chainId: number,
   tokenIds?: number[],
 ): Promise<MyRedemptionRow[]> {
   const q =
@@ -334,6 +340,7 @@ export async function getMyRedemptions(
       : "";
   const res = await backendFetch(`${getApiUrl()}/rwa/redemptions/mine${q}`, {
     credentials: "include",
+    headers: { [CHAIN_ID_HEADER]: String(chainId) },
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

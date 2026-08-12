@@ -1,9 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { TkButton } from "@/components/ds";
-import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { TkButton, TkDialog } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 
 export type ActionCompleteKind =
@@ -21,7 +19,6 @@ type KindConfig = {
   tone: Tone;
   title: string;
   sub: string;
-  notch?: boolean;
   statusLabel?: string;
   statusValue?: string;
 };
@@ -45,7 +42,6 @@ export function actionCompleteConfig(
     case "purchase":
       return {
         tone: "pos",
-        notch: true,
         title: "Purchase complete",
         sub:
           override ??
@@ -71,7 +67,6 @@ export function actionCompleteConfig(
     case "bid":
       return {
         tone: "pos",
-        notch: true,
         title: "Bid submitted",
         sub:
           override ??
@@ -115,43 +110,10 @@ export function actionCompleteConfig(
   }
 }
 
-function CheckIcon() {
-  return (
-    <svg
-      width="32"
-      height="32"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      width="32"
-      height="32"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-/** Shared complete content — overlay or embedded in a sheet (Card.html #tkb-done). */
+/**
+ * Shared complete content — Feedback-States Dialog (title / body / Done).
+ * Embedded variant for sheets (bid checkout) keeps the same copy hierarchy.
+ */
 export function ActionCompletePanel({
   kind,
   priceUsdc,
@@ -184,30 +146,17 @@ export function ActionCompletePanel({
   const cfg = actionCompleteConfig(kind, { priceUsdc, sub });
   const resolvedTitle = title ?? cfg.title;
   const resolvedSub = sub ?? cfg.sub;
-  const toneClass =
-    cfg.tone === "neg"
-      ? "tk-ac-icon--neg"
-      : cfg.tone === "info"
-        ? "tk-ac-icon--info"
-        : "tk-ac-icon--pos";
   const statusOn = showStatus ?? Boolean(cfg.statusLabel && embedded);
   const hasSecondary = Boolean(secondaryLabel && (secondaryHref || onSecondary));
 
   return (
     <div
-      className={cn("tk-ac-panel", embedded && "tk-ac-panel--embedded", className)}
+      className={cn(
+        "tk-ac-panel",
+        embedded && "tk-ac-panel--embedded",
+        className,
+      )}
     >
-      <div
-        className={cn(
-          "tk-ac-icon",
-          toneClass,
-          cfg.notch && "tk-ac-icon--notch",
-          cfg.tone !== "neg" && "tk-ac-icon--draw",
-        )}
-        aria-hidden
-      >
-        {cfg.tone === "neg" ? <XIcon /> : <CheckIcon />}
-      </div>
       <h2 className="tk-ac-title" id="tk-ac-title">
         {resolvedTitle}
       </h2>
@@ -261,7 +210,7 @@ export function ActionCompletePanel({
   );
 }
 
-/** Full-screen complete modal — portfolio-modals.js `pfSaleResult`. */
+/** Full-screen result modal — Feedback-States.dc.html Dialog pattern via TkDialog. */
 export function ActionCompleteModal({
   open,
   kind,
@@ -289,35 +238,54 @@ export function ActionCompleteModal({
   onClose: () => void;
   extra?: ReactNode;
 }) {
-  const mounted = useClientMounted();
-  if (!mounted || !open) return null;
+  const cfg = actionCompleteConfig(kind, { priceUsdc, sub });
+  const resolvedTitle = title ?? cfg.title;
+  const resolvedSub = (sub ?? cfg.sub) || undefined;
+  const hasSecondary = Boolean(secondaryLabel && (secondaryHref || onSecondary));
 
-  return createPortal(
-    <div
-      className="tk-ac-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="tk-ac-title"
+  return (
+    <TkDialog
+      open={open}
+      onClose={onClose}
+      title={resolvedTitle}
+      description={resolvedSub}
+      className="tk-ac-dialog"
+      footer={
+        <div className={cn("tk-ac-actions", !hasSecondary && "tk-ac-actions--stack")}>
+          {hasSecondary && secondaryHref ? (
+            <TkButton
+              variant="primary"
+              size="md"
+              className="tk-ac-btn"
+              href={secondaryHref}
+              onClick={onSecondary}
+            >
+              {secondaryLabel}
+            </TkButton>
+          ) : hasSecondary ? (
+            <TkButton
+              type="button"
+              variant="primary"
+              size="md"
+              className="tk-ac-btn"
+              onClick={onSecondary}
+            >
+              {secondaryLabel}
+            </TkButton>
+          ) : null}
+          <TkButton
+            type="button"
+            variant={hasSecondary ? "subtle" : "primary"}
+            size="md"
+            className="tk-ac-btn"
+            onClick={onPrimary ?? onClose}
+          >
+            {primaryLabel}
+          </TkButton>
+        </div>
+      }
     >
-      <button
-        type="button"
-        className="tk-ac-overlay__scrim"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      <ActionCompletePanel
-        kind={kind}
-        priceUsdc={priceUsdc}
-        title={title}
-        sub={sub}
-        extra={extra}
-        primaryLabel={primaryLabel}
-        secondaryLabel={secondaryLabel}
-        secondaryHref={secondaryHref}
-        onPrimary={onPrimary ?? onClose}
-        onSecondary={onSecondary}
-      />
-    </div>,
-    document.body,
+      {extra}
+    </TkDialog>
   );
 }

@@ -50,7 +50,6 @@ export function useCollectionOverviewLayout(input: {
   } = input;
 
   const hasBookColumn = orderBook != null || tradeTicket != null;
-  const marketsTriple = tradePanel != null && orderBookNextToChart != null;
   const orderBookToggleEnabled = onShowOrderBookChange != null;
   const orderBookColumnVisible = !orderBookToggleEnabled || showOrderBook;
 
@@ -71,6 +70,15 @@ export function useCollectionOverviewLayout(input: {
   const showMobileHeroIdentity = Boolean(headlineTitleLayout && headlineTitle);
   const hideTopHeadlineBarOnMobile = showMobileHeroIdentity && statsLength === 0;
   const useMobileTabbedMarket = mobileTabbedMarketUi && mobileMarketTabs != null;
+  /**
+   * Card.html cluster: chart + order book (+ optional trade dock).
+   * Driven by `orderBookNextToChart` — trade dock is optional (removed on
+   * collection detail); do not require `tradePanel` or the layout collapses
+   * into the narrow classic chart panel.
+   */
+  const marketsTriple =
+    orderBookNextToChart != null &&
+    (tradePanel != null || useMobileTabbedMarket);
   // Desktop cluster must stay mounted whenever tabbed UI is used; visibility is
   // CSS-only. Unmounting it on mobile blanked the page on widen (Tailwind hides
   // the mobile column at ≥1024px before React remounts desktop).

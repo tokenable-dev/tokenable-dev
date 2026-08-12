@@ -21,6 +21,7 @@ import { KycService } from '../../kyc/kyc.service';
 import { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
 import { VaultService } from '../../vault/vault.service';
+import { RwaSlabS3Service } from '../../rwa/rwa-slab-s3.service';
 import { P2pListing } from '../entities/p2p-listing.entity';
 import { P2pOrder } from '../entities/p2p-order.entity';
 import { CreateP2pListingDto } from './dto/create-p2p-listing.dto';
@@ -58,12 +59,42 @@ export class P2pService {
     private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly kyc: KycService,
+    private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
   private autoReleaseSeconds(): number {
     const raw = this.config.get<string>('P2P_AUTO_RELEASE_SECONDS')?.trim();
     const n = Number(raw);
     return Number.isFinite(n) && n > 60 ? n : AUTO_RELEASE_SECS_DEFAULT;
+  }
+
+  /** Best-effort S3 display URL — mint succeeds even when S3 is down or no image is provided. */
+  private async resolveP2pMintDisplayImageUrl(
+    chainId: SupportedChainId,
+    certNumber: string,
+    displayImageUrl?: string,
+    imageUrl?: string,
+  ): Promise<string | null> {
+    const trusted = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      displayImageUrl,
+      chainId,
+      certNumber,
+    );
+    if (trusted) return trusted;
+
+    const source = imageUrl?.trim();
+    if (!source) return null;
+
+    const ingested = await this.rwaSlabS3.ingestMintSlabBestEffort({
+      chainId,
+      certNumber,
+      sourceUrl: source,
+    });
+    return this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      ingested,
+      chainId,
+      certNumber,
+    );
   }
 
   async listActiveListings(
@@ -213,6 +244,12 @@ export class P2pService {
     }
 
     const tokenContract = this.chainConfig.getRwaAddress(resolved);
+    const displayImageUrl = await this.resolveP2pMintDisplayImageUrl(
+      resolved,
+      certNumber,
+      dto.displayImageUrl,
+      dto.imageUrl,
+    );
     await this.vault.recordMintResult({
       cycleId: cycle.id,
       tokenContract,
@@ -221,6 +258,7 @@ export class P2pService {
       txHash,
       certNumber,
       displayName: dto.displayName?.trim() || null,
+      displayImageUrl,
     });
 
     const listing = await this.listings.save(

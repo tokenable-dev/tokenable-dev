@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Address } from "viem";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
@@ -12,9 +12,7 @@ import { CollectionOverviewBoard } from "@/components/marketplace/collection-ove
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
-import { CollectionTradingTabs } from "@/components/marketplace/collection-trading";
 import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
-import { CollectionOwnedRwaListModal } from "@/components/marketplace/collection-listings";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -27,6 +25,7 @@ import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 import { useCollectionListingModal } from "@/hooks/collection-detail/useCollectionListingModal";
 import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
 import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
+import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
 import {
   buildCollectionDetailMarketsSlots,
 } from "./buildCollectionDetailMarketsSlots";
@@ -47,24 +46,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     collectionBids,
     listings,
     invalidateCollection,
-    presetPriceFromBook,
-    listPricePresetUsdc,
-    preferredBidOrderHash,
     collectionOrderBookProps,
-    sellModalOpen,
-    setSellModalOpen,
     tradeCelebration,
     setTradeCelebration,
-    bookSelection,
     orderBookAskPicker,
     setOrderBookAskPicker,
     showOrderBook,
     setShowOrderBook,
-    tradeFlow,
-    setTradeFlow,
-    tradeDockOpen,
-    setTradeDockOpen,
-    setSessionFillPoint,
   } = detail;
 
   const collection = data.collection!;
@@ -150,6 +138,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   );
   const canPlaceSetBid = asks.length > 0;
 
+  const openBuyFloor = () => {
+    const active = [...listings.askMap.values()].filter((o) => o.status === "active");
+    active.sort((a, b) => {
+      const pa = Number(a.considerationAmount) || 0;
+      const pb = Number(b.considerationAmount) || 0;
+      return pa - pb;
+    });
+    const floor = active[0];
+    if (floor?.tokenId == null) return;
+    const tid = Number(floor.tokenId);
+    if (!Number.isFinite(tid)) return;
+    listingModal.openListing(tid, "buy");
+  };
+
   const collectionListingsGrid = (
     <CollectionDetailListingsGrid
       collectionKey={collectionKey}
@@ -198,24 +200,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     lowestAskUsd,
     onPlaceBid: listingModal.openSetLevelBid,
     placeBidDisabled: !canPlaceSetBid,
+    onBuyLowestAsk: openBuyFloor,
+    buyDisabled: asks.length === 0,
   });
 
   const collectionListingsBody = (
-    <CollectionDetailListingsSection
-      listingCount={asks.length}
-      highestBidUsd={highestBidUsd}
-      lowestAskUsd={lowestAskUsd}
-      onPlaceBid={listingModal.openSetLevelBid}
-      placeBidDisabled={!canPlaceSetBid}
-    >
+    <CollectionDetailListingsSection listingCount={asks.length}>
       {collectionListingsGrid}
     </CollectionDetailListingsSection>
   );
 
   return (
-    <div className="collection-detail-page min-h-screen min-w-0 overflow-x-clip text-white max-lg:min-h-0">
+    <div className="collection-detail-page min-h-screen min-w-0 text-white max-lg:min-h-0">
       <div
-        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-lg:overflow-visible sm:pb-20 lg:overflow-visible`}
+        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-md:overflow-visible max-md:pb-[120px] md:overflow-visible md:pb-0`}
       >
         <CollectionDetailMobileNav />
         <CollectionDetailBreadcrumb
@@ -276,63 +274,28 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           mobileMarketTabs={mobileScrollPanel}
           showOrderBook={showOrderBook}
           onShowOrderBookChange={setShowOrderBook}
-          marketsDockTradePanel
+          marketsDockTradePanel={false}
           listingCount={asks.length}
           showListingSummary={false}
           priceChart={collectionDualPriceChart}
           orderBookNextToChart={collectionOrderBook}
-          tradePanel={
-            <CollectionTradingTabs
-              bookSelection={bookSelection}
-              address={address as Address | undefined}
-              onBuySuccess={() => {
-                setSellModalOpen(false);
-                setTradeCelebration("purchase");
-                invalidateCollection();
-              }}
-              onOpenSellModal={() => setSellModalOpen(true)}
-              collectionKey={collection.collectionKey}
-              collectionLabel={headline.collectionHeadlineDisplayTitle}
-              asks={asks}
-              collectionBids={collectionBids}
-              connectedAddress={address ?? undefined}
-              onInvalidate={invalidateCollection}
-              onInstantBuyFillUsdc={(usdc) =>
-                setSessionFillPoint({ t: Math.floor(Date.now() / 1000), v: usdc })
-              }
-              onPurchaseFilled={() => {
-                setSellModalOpen(false);
-                setTradeCelebration("purchase");
-                invalidateCollection();
-              }}
-              presetPriceFromBook={presetPriceFromBook}
-              listingCount={asks.length}
-              showSellListingCount={false}
-              tradeFlow={tradeFlow}
-              onTradeFlowChange={setTradeFlow}
-              marketsDock
-              dockOpen={tradeDockOpen}
-              onDockOpenChange={setTradeDockOpen}
-            />
-          }
           marketsBelowChart={collectionListingsBody}
         />
       </div>
+
+      <CollectionMobileTradeBar
+        lowestAskUsd={lowestAskUsd}
+        highestBidUsd={highestBidUsd}
+        onBuy={asks.length > 0 ? openBuyFloor : undefined}
+        onBid={listingModal.openSetLevelBid}
+        buyDisabled={asks.length === 0}
+        bidDisabled={!canPlaceSetBid}
+      />
 
       <TradeCelebrationModal
         open={tradeCelebration != null}
         kind={tradeCelebration ?? "purchase"}
         onClose={() => setTradeCelebration(null)}
-      />
-
-      <CollectionOwnedRwaListModal
-        open={sellModalOpen}
-        onClose={() => setSellModalOpen(false)}
-        collectionKey={collection.collectionKey}
-        collectionLabel={headline.collectionHeadlineDisplayTitle}
-        collectionBids={collectionBids}
-        listPricePresetUsdc={listPricePresetUsdc}
-        preferredBidOrderHash={preferredBidOrderHash}
       />
 
       <OrderBookAskListingModal

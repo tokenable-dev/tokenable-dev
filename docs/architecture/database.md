@@ -266,6 +266,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_marketplace_partner_addresses.sql` | Existing DBs: partner company Origin addresses |
 | `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
 | `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
+| `maintenance/add_bulk_mint_slab_display_image_url.sql` | Add `bulk_mint_job_items.slab_display_image_url` (S3 cache from prepare) |
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |

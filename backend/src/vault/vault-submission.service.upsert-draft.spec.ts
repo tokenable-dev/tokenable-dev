@@ -143,6 +143,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -196,6 +197,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -227,6 +229,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     const fixed = new Date(2026, 7, 5); // local Aug 5, 2026
     const { em } = makeEm({
@@ -239,6 +242,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
 
   it('starts at 00001 when no packages exist that day', async () => {
     const service = new VaultSubmissionService(
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -263,6 +267,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await expect(service.upsertDraft('user-1', { cards: [] })).rejects.toBeInstanceOf(
@@ -280,6 +285,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
     };
     const service = new VaultSubmissionService(
       submissions as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -345,6 +351,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
 
     const service = new VaultSubmissionService(
       submissions as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

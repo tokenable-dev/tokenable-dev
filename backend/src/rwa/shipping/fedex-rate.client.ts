@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { requireIso2CountryCode } from './destination-country';
 import {
+  isRetryableFedExRateError,
   mapFedExRateError,
   mapFedExRateErrorFromResponse,
   mappedNoQuotesError,
@@ -86,16 +87,29 @@ export class FedExRateClient implements ShippingRateClient {
     try {
       return await this.liveQuote(input);
     } catch (e) {
-      if (e instanceof BadRequestException) throw e;
+      let err: unknown = e;
+      if (isRetryableFedExRateError(err)) {
+        this.logger.warn(
+          `FedEx Rate transient failure — retrying once: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        try {
+          return await this.liveQuote(input);
+        } catch (e2) {
+          err = e2;
+        }
+      }
+      if (err instanceof BadRequestException) throw err;
       if (truthy(this.config, 'FEDEX_RATE_FALLBACK_STUB')) {
         this.logger.warn(
           `FedEx Rate failed — falling back to stub: ${
-            e instanceof Error ? e.message : String(e)
+            err instanceof Error ? err.message : String(err)
           }`,
         );
         return this.stubQuote(input);
       }
-      throw e;
+      throw err;
     }
   }
 

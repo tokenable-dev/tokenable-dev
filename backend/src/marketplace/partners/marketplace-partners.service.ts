@@ -345,6 +345,10 @@ export class MarketplacePartnersService {
   /**
    * Hard gate for Self vault mint (`deliveryMode=direct`).
    * Throws structured 403 — do not rely on frontend alone.
+   *
+   * Prefer {@link assertSelfVaultEligibleForUser} from authenticated mint —
+   * wallet-only lookup misses partners whose row is tied to a non-primary
+   * linked wallet (same resolution as PartnerGate / GET partner me).
    */
   async assertSelfVaultEligibleForWallet(walletAddress: string): Promise<{
     partnerId: string;
@@ -352,6 +356,31 @@ export class MarketplacePartnersService {
     vaultLabel: string;
   }> {
     const eligibility = await this.getSelfVaultEligibility(walletAddress);
+    return this.assertEligibilityOrThrow(eligibility);
+  }
+
+  /** Authenticated Self vault mint gate — any linked wallet may match the partner row. */
+  async assertSelfVaultEligibleForUser(userId: string): Promise<{
+    partnerId: string;
+    displayName: string;
+    vaultLabel: string;
+  }> {
+    const session = await this.getPartnerMe(userId);
+    return this.assertEligibilityOrThrow({
+      eligible: session.isPartner && session.hasCompanyAddress,
+      isPartner: session.isPartner,
+      hasCompanyAddress: session.hasCompanyAddress,
+      partnerId: session.partnerId,
+      displayName: session.displayName,
+      vaultLabel: session.vaultLabel,
+    });
+  }
+
+  private assertEligibilityOrThrow(eligibility: SelfVaultPartnerEligibility): {
+    partnerId: string;
+    displayName: string;
+    vaultLabel: string;
+  } {
     if (!eligibility.isPartner || !eligibility.partnerId) {
       throw new ForbiddenException({
         statusCode: 403,

@@ -141,21 +141,29 @@ See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
 
 JWT required. Lists inbox items for **all wallets linked to the user** on the **active chain** (`x-tokenable-chain-id`). Sepolia alerts do not appear while the app is on Polygon (and vice versa).
 
-In-app events (Notifications spec v1.1 — Email/Telegram/Web push not in this API):
+In-app events (Notifications spec **v2 2026-08** — Email/Telegram/Web push delivery TBD; in-app + toast now):
 
 | eventKey | type | Trigger |
 |----------|------|---------|
 | `SELLER_TOP_BID_UPDATED` | bid | New **highest** token bid on an active ask (Edit price CTA) |
-| `SELLER_BID_CANCELLED` / `SELLER_BID_UNFILLED` | bid | Bid withdrawn / dead after fill attempt (ask owner) |
+| `SELLER_BID_CANCELLED` / `SELLER_BID_UNFILLED` | bid | Bid withdrawn / dead after fill attempt (ask owner; not in v2 table — kept) |
 | `BUYER_BID_PLACED` / `BUYER_BID_EXPIRING` / `BUYER_BID_EXPIRED` | bid | Bidder lifecycle |
 | `BUYER_BID_FILLED` / `BUYER_FILL_FAILED` | bid | Bid filled or unfunded at settle |
-| `SELLER_SOLD` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / listing live |
+| `SELLER_SOLD` / `SELLER_PAYOUT_DONE` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / self-vault payout / listing live |
 | `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
-| `WD_REQUEST_RECEIVED` / `WD_SHIPPED` | vault | Redeem request (`href=/portfolio?tab=assets`) / physical release (`href=/portfolio/redeem?view=transit`) |
+| `RD_PAID_PREPARING` | vault | Ship-from-vault prepaid confirmed / preparing (`href=/portfolio/redeem?view=…`) |
+| `RD_SHIPPED` | vault | Tracking set (`href=/portfolio/redeem?view=transit`, CTA Track) |
+| `RD_RECEIVED_REMINDER` | vault | Ask to confirm receipt (emit helper ready; cron TBD) |
+| `RD_AUTO_CANCELLED_REFUND` | vault | Cancelled + refunded (admin refund today; auto SLA later) |
+| `PARTNER_SHIPMENT_REQUEST` | vault | Self-vault partner must ship (`href=/partner/shipments`) |
+| `FUNDS_WITHDRAW_SUBMITTED` / `SENT` / `FAILED` | vault | Bank cash-out helpers ready; domain not wired yet |
+| `REDEEM_COMPLETED` | vault | User confirmed receipt (ack; not in v2 table) |
 
-**Not emitted (no domain yet or voided in v1.1):** P2P shipping/dispute keys; `WD_READY_TO_PAY` (no ready-to-pay status); admin ops inbox (`ADMIN_*`); Email/Telegram/Web push.
+**Legacy aliases** (still resolved for old inbox rows): `WD_REQUEST_RECEIVED`, `WD_SHIPPED`, `REDEEM_PREPARING`, `REDEEM_REFUNDED`, `SELLER_REDEEM_SHIP`.
 
-**Response:** `{ items: NotificationListItem[] }` (`chainId`, `type`, `href`, `ctaLabel`, `payload.eventKey` on each item)
+**Not yet emitted (domain missing):** `SELLER_STRIKE` / `SELLER_SUSPENDED`, `PARTNER_SLA_WARN` / `PARTNER_SLA_BREACH`, admin ops inbox (`ADMIN_*`).
+
+**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel`. New unread items (after the first fetch seed) surface as toasts; click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
 
 ---
 
@@ -197,6 +205,14 @@ Partner session for the signed-in user (wallet ∩ partners): `{ isPartner, part
 Get or upsert the partner company / Self-vault Origin address (FedEx Rate ship-from). Country is ISO 3166-1 alpha-2; `region` required for US/CA.
 
 **UX:** Approved partners without an Origin see the designer **shipping-origin** modal (`PartnerCompanyAddressRequiredModal`). **Remind me later** dismisses to a sticky banner; Self vault mint/list stay locked until the address is saved. Backend also rejects `POST /rwa/mint` with `deliveryMode=direct` using `COMPANY_ADDRESS_REQUIRED` (see [rwa.md](./rwa.md)).
+
+### `GET /api/marketplace/partners/me/redeems` (JWT)
+
+List Partner-vault redemptions for the signed-in partner (`vault_partner_id` = me). Same row shape as admin redeems. Frontend: `/partner/shipments`.
+
+### `PATCH /api/marketplace/partners/me/redeems/batches/:batchId/tracking` (JWT)
+
+Set tracking for this partner’s shipment within a payment batch. Body: `{ shipmentKey, trackingNumber, trackingCarrier? }`. `shipmentKey` must be `partner:<me.partnerId>` — writes the same `vault_redemptions` columns as admin tracking.
 
 ### Self-vault settlements
 

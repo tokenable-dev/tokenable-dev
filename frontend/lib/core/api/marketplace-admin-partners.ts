@@ -1,4 +1,8 @@
 import { backendFetch, getApiUrl } from "./client";
+import type {
+  PartnerCompanyAddress,
+  PartnerCompanyAddressInput,
+} from "./marketplace-partner-me";
 
 export type AdminMarketplacePartner = {
   id: string;
@@ -9,6 +13,11 @@ export type AdminMarketplacePartner = {
   hasCompanyAddress: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type {
+  PartnerCompanyAddress as AdminPartnerCompanyAddress,
+  PartnerCompanyAddressInput as AdminPartnerCompanyAddressInput,
 };
 
 async function parseAdminError(res: Response, fallback: string): Promise<never> {
@@ -61,4 +70,41 @@ export async function patchAdminMarketplacePartner(
   );
   if (!res.ok) await parseAdminError(res, "Failed to update partner");
   return res.json() as Promise<AdminMarketplacePartner>;
+}
+
+export async function getAdminPartnerCompanyAddress(partnerId: string): Promise<{
+  partnerId: string;
+  hasCompanyAddress: boolean;
+  address: PartnerCompanyAddress | null;
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/partners/${encodeURIComponent(partnerId)}/company-address`,
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to load company Origin address");
+  }
+  return res.json() as Promise<{
+    partnerId: string;
+    hasCompanyAddress: boolean;
+    address: PartnerCompanyAddress | null;
+  }>;
+}
+
+export async function putAdminPartnerCompanyAddress(
+  partnerId: string,
+  body: PartnerCompanyAddressInput,
+): Promise<PartnerCompanyAddress> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/partners/${encodeURIComponent(partnerId)}/company-address`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to save company Origin address");
+  }
+  const data = (await res.json()) as { address: PartnerCompanyAddress };
+  return data.address;
 }

@@ -58,6 +58,8 @@ export default function MarketsPage() {
   const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
   const [priceFilter, setPriceFilter] = useState<MarketsPriceFilterId>(MARKETS_DEFAULT_PRICE_FILTER);
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [setFilter, setSetFilter] = useState<string | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleGradeFilter = useCallback((grade: MarketsGradeFilterId) => {
@@ -142,8 +144,18 @@ export default function MarketsPage() {
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
       priceFilter,
       gradeFilters,
+      q: setFilter ? undefined : searchQuery,
+      setLabel: setFilter ?? undefined,
     });
-  }, [sortedForRank, snapshotByKey, categoryFilter, priceFilter, gradeFilters]);
+  }, [
+    sortedForRank,
+    snapshotByKey,
+    categoryFilter,
+    priceFilter,
+    gradeFilters,
+    searchQuery,
+    setFilter,
+  ]);
 
   useMarketsInfiniteScroll({
     sentinelRef: loadMoreSentinelRef,
@@ -229,6 +241,12 @@ export default function MarketsPage() {
           onGradeToggle={toggleGradeFilter}
           onGradeFiltersChange={setGradeFilters}
           filters={MARKETS_CATEGORY_FILTERS}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          setFilter={setFilter}
+          onSetFilterChange={setSetFilter}
+          collections={collectionSummaries}
+          snapshotByKey={snapshotByKey}
         />
       ) : null}
 

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  adminPurgeAllRedeems,
   adminRefundRedeemFull,
   adminRefundRedeemUsdc,
   adminReturnRedeemNft,
@@ -85,6 +86,11 @@ export function useAdminRedeemActions() {
     onSuccess: invalidate,
   });
 
+  const purgeAll = useMutation({
+    mutationFn: () => adminPurgeAllRedeems(),
+    onSuccess: invalidate,
+  });
+
   return {
     updateMemo,
     updateMemoBatch,
@@ -93,5 +99,6 @@ export function useAdminRedeemActions() {
     refundUsdc,
     returnNft,
     refundFull,
+    purgeAll,
   };
 }

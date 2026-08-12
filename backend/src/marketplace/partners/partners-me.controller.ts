@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Put, Query, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -7,11 +7,16 @@ import {
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import type { User } from '../../user/entities/user.entity';
+import {
+  AdminRedeemsListQueryDto,
+  PartnerRedeemShipmentTrackingDto,
+} from '../admin/dto/admin-redeems.dto';
+import { RedeemsAdminService } from '../admin/redeems-admin.service';
 import { UpsertMarketplacePartnerAddressDto } from './dto/marketplace-partner-address.dto';
 import { MarketplacePartnersService } from './marketplace-partners.service';
 
 /**
- * Partner-facing company Origin address (Self vault FedEx ship-from).
+ * Partner-facing company Origin address + redeem shipments for Partner vault.
  * Partner is resolved via JWT user wallets ∩ marketplace_partners.
  */
 @ApiTags('marketplace')
@@ -19,7 +24,10 @@ import { MarketplacePartnersService } from './marketplace-partners.service';
 @UseGuards(JwtAuthGuard)
 @Controller('marketplace/partners/me')
 export class PartnersMeController {
-  constructor(private readonly partners: MarketplacePartnersService) {}
+  constructor(
+    private readonly partners: MarketplacePartnersService,
+    private readonly redeems: RedeemsAdminService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -56,5 +64,45 @@ export class PartnersMeController {
       body,
     );
     return { address };
+  }
+
+  @Get('redeems')
+  @ApiOperation({
+    summary:
+      'List Partner-vault redemptions for the signed-in partner (to ship / shipped)',
+  })
+  async listRedeems(
+    @Req() req: Request & { user: User },
+    @Query() query: AdminRedeemsListQueryDto,
+  ) {
+    const partnerId = await this.requireActivePartnerId(req.user.id);
+    return this.redeems.listForPartner(partnerId, { limit: query.limit });
+  }
+
+  @Patch('redeems/batches/:batchId/tracking')
+  @ApiOperation({
+    summary:
+      'Set shipping tracking for this partner’s shipment within a payment batch',
+  })
+  async updateRedeemTracking(
+    @Req() req: Request & { user: User },
+    @Param('batchId', ParseUUIDPipe) batchId: string,
+    @Body() body: PartnerRedeemShipmentTrackingDto,
+  ) {
+    const partnerId = await this.requireActivePartnerId(req.user.id);
+    return this.redeems.updateTrackingBatchForPartner(partnerId, batchId, {
+      shipmentKey: body.shipmentKey,
+      trackingNumber: body.trackingNumber,
+      trackingCarrier: body.trackingCarrier,
+      redemptionIds: body.redemptionIds,
+    });
+  }
+
+  private async requireActivePartnerId(userId: string): Promise<string> {
+    const session = await this.partners.getPartnerMe(userId);
+    if (!session.isPartner || !session.partnerId) {
+      throw new ForbiddenException('Active partner account required');
+    }
+    return session.partnerId;
   }
 }

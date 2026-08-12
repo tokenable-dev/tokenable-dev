@@ -2,23 +2,22 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { resolveSellRouterDestination } from "@/lib/vault/vaultAccess";
+import { useAuthStore } from "@/store/authStore";
 
-/** Matches Tokenable-with design system-2/Sell.html — full-screen loader then role route. */
+/**
+ * `/sell` router — everyone lands on `/vault` (Vault-Dashboard-Active.html).
+ * Guests see the signed-out landing; signed-in users see the sell hub dashboard.
+ */
 export function SellRouterView() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const initialized = useAuthStore((s) => s.initialized);
+  const loading = useAuthStore((s) => s.loading);
 
   useEffect(() => {
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      router.replace(resolveSellRouterDestination());
-    }, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [router]);
+    if (!initialized || loading) return;
+    router.replace("/vault");
+  }, [initialized, loading, user, router]);
 
   return (
     <div className="sell-router" role="status" aria-live="polite" aria-busy="true">

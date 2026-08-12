@@ -2,7 +2,6 @@
 
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
-import { SellFlowProgressSteps } from "./SellFlowProgressSteps";
 
 type Flow = ReturnType<typeof useSellFlow>;
 
@@ -19,29 +18,27 @@ function ConsentCheck({ on }: { on: boolean }) {
   );
 }
 
+/** Sell-Flow.html screen 1 — KYC + seller consents (no Submit→Ship progress rail here). */
 export function SellFlowRegister({ flow }: { flow: Flow }) {
   const {
     idState,
     consents,
     allConsentsOn,
     canContinueRegister,
-    canContinueShipping,
-    cards,
     requiredConsentsOk,
     updateConsent,
     startVerification,
     goToVault,
-    goToCards,
-    continueToShipping,
   } = flow;
 
-  const showProgress = canContinueRegister || cards.length > 0;
   const gateHint =
-    idState !== "verified"
-      ? "Verify your identity to continue."
-      : !requiredConsentsOk
-        ? "Agree to the required seller terms to continue."
-        : null;
+    canContinueRegister
+      ? null
+      : idState !== "verified"
+        ? "Verify your identity to continue."
+        : !requiredConsentsOk
+          ? "Accept the required seller terms to continue."
+          : null;
 
   return (
     <section className="sell-flow-screen">
@@ -49,22 +46,13 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
         <div className="sell-flow-eyebrow">Become a seller</div>
         <h1 className="sell-flow-h1">Verify your identity to start selling</h1>
         <p className="sell-flow-sub">
-          Identity verification is one-time. Seller terms must be accepted again for every
-          submission.
+          Identity verification is one-time. Confirm the seller terms for each submission.
         </p>
 
-        {showProgress ? (
-          <SellFlowProgressSteps
-            phase="submit"
-            canGoSubmit={canContinueRegister}
-            canGoShip={canContinueShipping}
-            onSubmit={cards.length > 0 ? goToCards : goToVault}
-            onShip={() => void continueToShipping()}
-          />
-        ) : null}
-
         <div
-          className={`sell-flow-glass${idState === "verified" ? " sell-flow-glass--dim" : ""}`}
+          className={`sell-flow-glass sell-flow-glass--identity${
+            idState === "verified" ? " sell-flow-glass--dim" : ""
+          }`}
         >
           <div className="sell-flow-id-top">
             <div>
@@ -117,7 +105,7 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
               </div>
             ) : null}
             {idState === "failed" ? (
-              <div>
+              <div className="sell-flow-id-failed">
                 <div className="sell-flow-status-chip sell-flow-status-chip--neg sell-flow-status-chip--mb">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                     <circle cx="12" cy="12" r="10" />
@@ -126,6 +114,9 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
                   </svg>
                   We couldn&rsquo;t verify your ID
                 </div>
+                <p className="sell-flow-id-failed-copy">
+                  Check that your ID is fully visible and try again.
+                </p>
                 <TkButton type="button" variant="subtle" className="sell-flow-id-retry" onClick={startVerification}>
                   Try again
                 </TkButton>
@@ -179,23 +170,6 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
                   storage and withdrawal terms
                 </a>
                 . <span className="sell-flow-req">*</span>
-              </span>
-            </button>
-            <button type="button" className="sell-flow-consent-row" onClick={() => updateConsent("fee")}>
-              <ConsentCheck on={consents.fee} />
-              <span>
-                I agree to the 5% platform fee on completed sales.{" "}
-                <span className="sell-flow-req">*</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              className="sell-flow-consent-row"
-              onClick={() => updateConsent("marketing")}
-            >
-              <ConsentCheck on={consents.marketing} />
-              <span className="sell-flow-consent-muted">
-                Send me marketing emails. <span className="sell-flow-opt">(optional)</span>
               </span>
             </button>
           </div>

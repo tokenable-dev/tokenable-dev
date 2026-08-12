@@ -193,13 +193,14 @@ Import from `@/components/ds`:
 | `TkButton` | `tk-btn--primary`, `neutral`, `subtle`, `ghost`, `primaryInv`; sizes `md` `sm` `table` | CTAs, form actions, dense table actions (`ghost`+`table`); `decorative` for labels inside links |
 | `TkIconButton` | `tk-iconbtn--*` | Icon-only controls |
 | `TkInput`, `TkField` | `tk-input`, `tk-field` | Forms |
-| `TkDialog` | `tk-dialog` | Center modal — confirm, simple flows |
+| `TkDialog` | `tk-dialog` | Center modal — confirm / result (Feedback-States Dialog: title, body, foot) |
+| `TkNote` | `tk-note` / `tk-note--positive\|warning\|danger\|brand` | Inline banners + ephemeral toasts (`NotificationToastsHost`) |
 | `TkActionSheet` | `tk-sheet-*` | Portfolio list/bid/sell — drawer / bottom sheet |
 | `TkTabs`, `TkTable`, `TkTag`, `TkCard`, … | matching `tk-*` | See showcase page |
 
 **Domain cards:** `CollectibleCard` for marketplace tiles (not raw `.card` markup in pages).
 
-**Modals:** Center (`TkDialog`) vs sheet (`TkActionSheet`) — do not mix patterns on the same flow without reason.
+**Modals:** Center (`TkDialog`) vs sheet (`TkActionSheet`) — do not mix patterns on the same flow without reason. Result overlays (`ActionCompleteModal`) use `TkDialog`. Exception: sell partner **Add to my vault** success (`SellFlowPartnerDoneModal`) stays white-card by design.
 
 ---
 

@@ -60,16 +60,31 @@
   color: var(--t2);
 }
 
+/* Shares the breakpoint spec with .markets-grid — see tokenable-markets.css. */
 .watchlist-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 22px;
   row-gap: 32px;
 }
 
-@media (max-width: 1040px) {
+@media (min-width: 1600px) {
   .watchlist-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .watchlist-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+
+@media (max-width: 820px) {
+  .watchlist-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
   }
 }
 
@@ -80,11 +95,6 @@
 
   .watchlist-results-section {
     padding-top: 24px;
-  }
-
-  .watchlist-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
   }
 
   .watchlist-results-bar {
@@ -101,6 +111,7 @@
 .watchlist-card .card__body {
   padding: 0 0 4px;
   gap: 8px;
+  flex: 1;
 }
 
 .watchlist-card .card__set {
@@ -137,10 +148,12 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Cards stretch to the tallest in the row, so pin the CTAs to the bottom. */
 .watchlist-card-actions {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 8px;
   pointer-events: none;
 }
 
@@ -188,6 +201,7 @@
 
 @media (max-width: 560px) {
   .watchlist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
@@ -269,7 +283,7 @@
 
   .watchlist-card-actions {
     gap: 6px;
-    margin-top: 6px;
+    padding-top: 6px;
   }
 
   .watchlist-card-actions__btn {

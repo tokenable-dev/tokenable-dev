@@ -79,6 +79,33 @@ export function validatePartnerCompanyAddressForm(
   return null;
 }
 
+export function partnerCompanyAddressToForm(
+  address: {
+    companyName: string;
+    contactName: string;
+    phone: string;
+    country: string;
+    city: string;
+    region: string | null;
+    postal: string;
+    line1: string;
+    line2: string | null;
+  } | null | undefined,
+): PartnerCompanyAddressFormState {
+  if (!address) return { ...EMPTY_PARTNER_COMPANY_ADDRESS_FORM };
+  return {
+    companyName: address.companyName ?? "",
+    contactName: address.contactName ?? "",
+    phone: address.phone ?? "",
+    country: (address.country || "US").toUpperCase(),
+    city: address.city ?? "",
+    region: address.region ?? "",
+    postal: address.postal ?? "",
+    line1: address.line1 ?? "",
+    line2: address.line2 ?? "",
+  };
+}
+
 /**
  * Company Origin fields — same layout as `ShippingAddressFormFields`
  * (Settings Addresses / Redeem ship-to).

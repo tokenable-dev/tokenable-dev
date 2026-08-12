@@ -45,6 +45,41 @@ dev/covers/user-avatars/{userId}/avatar
 
 This stays under the existing IAM scope (`…/dev/covers/*`). Optional override: `USER_AVATAR_S3_PREFIX` (must also be allowed by IAM). Same MIME/size limits as covers.
 
+### RWA mint slab images (Phase 1–3 — sell / custody / bulk mint)
+
+At `POST /api/rwa/upload`, the backend copies the slab image (PSA URL or uploaded file) to:
+
+```
+{CATALOG_COVER_S3_PREFIX}rwa-slabs/{chainId}/{certNumber}/slab
+```
+
+Example: `dev/covers/rwa-slabs/84532/84089328/slab`
+
+- On-chain `metadata.image` remains **Pinata / IPFS** (unchanged).
+- `displayImageUrl` in upload response + optional `POST /api/rwa/mint` field → `rwa_tokens.display_image_url`.
+- Partner **bulk mint** stores `slab_display_image_url` on `bulk_mint_job_items` at prepare and writes to `rwa_tokens` at commit.
+- S3 ingest is **best-effort** — upload/mint succeed even when S3 is down, misconfigured, or the image source is missing (bulk prepare still requires a PSA slab URL for IPFS).
+- Optional env override: `RWA_SLAB_S3_PREFIX` (default: `rwa-slabs/` nested under `CATALOG_COVER_S3_PREFIX`).
+
+**Maintenance migration** (existing DBs):
+
+```bash
+psql "$DATABASE_URL" -f backend/sql/maintenance/add_bulk_mint_slab_display_image_url.sql
+```
+
+**Backfill** existing tokens without `display_image_url`:
+
+```bash
+curl -X POST \
+  -H "Cookie: marketplace_admin=..." \
+  -H "x-tokenable-chain-id: 84532" \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 100, "dryRun": false}' \
+  "http://localhost:4100/api/marketplace/admin/rwa-slab/backfill-display-images"
+```
+
+Skips rows with no cert, no `token_uri`, no HTTPS image in metadata (`certImageSourceUrl` / Cardhedger), or when S3 ingest fails. Re-run safely — only rows with `display_image_url IS NULL` are scanned.
+
 ### Public URL shape
 
 Persisted `coverImageUrl` must be:

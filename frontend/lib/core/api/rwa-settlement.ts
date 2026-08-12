@@ -28,7 +28,9 @@ export async function getRwaSettlementPolicy(
     settlementPolicy: raw.settlementPolicy,
     vaultLabel:
       raw.vaultLabel ??
-      (raw.settlementPolicy === "self_vault_hold" ? "Self vault" : "PSA Vault"),
+      (raw.settlementPolicy === "self_vault_hold"
+        ? "Partner vault"
+        : "PSA Vault"),
   };
 }
 

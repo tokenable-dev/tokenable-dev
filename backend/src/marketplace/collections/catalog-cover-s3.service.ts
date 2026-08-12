@@ -262,6 +262,43 @@ export class CatalogCoverS3Service {
     return { objectKey, publicUrl };
   }
 
+  /**
+   * Generic PutObject for nested prefixes under the catalog bucket (e.g. rwa-slabs).
+   */
+  async putBytesAtKey(
+    objectKey: string,
+    body: Buffer,
+    contentType: string,
+    cacheControl = 'public, max-age=300, must-revalidate',
+  ): Promise<{ objectKey: string; publicUrl: string }> {
+    this.assertConfigured();
+    if (!body?.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    if (body.length > CATALOG_COVER_MAX_BYTES) {
+      throw new Error('CATALOG_COVER_FILE_TOO_LARGE');
+    }
+    const mime = resolveCatalogCoverMime(contentType, body);
+    if (!mime) {
+      throw new Error('CATALOG_COVER_FILE_TYPE_INVALID');
+    }
+
+    const key = objectKey.replace(/^\/+/, '');
+    await this.client!.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: mime,
+        CacheControl: cacheControl,
+      }),
+    );
+
+    const publicUrl = joinCatalogCoverPublicUrl(this.publicBaseUrl, key);
+    this.logger.log(`S3 object put: s3://${this.bucket}/${key}`);
+    return { objectKey: key, publicUrl };
+  }
+
   async uploadCollectionCover(
     collectionKey: string,
     file: Express.Multer.File,

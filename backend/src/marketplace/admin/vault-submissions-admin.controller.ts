@@ -62,6 +62,32 @@ export class VaultSubmissionsAdminController {
     return this.submissions.listAdminMintQueue({ q });
   }
 
+  @Get('vaulted-reviews')
+  @ApiOperation({
+    summary: 'PSA Items Vaulted (secured) mail audit queue',
+  })
+  listVaultedReviews(@Req() req: Request, @Query('status') status?: string) {
+    this.admin.assertAdminSession(req);
+    const st =
+      status === 'pending' ||
+      status === 'minted' ||
+      status === 'failed' ||
+      status === 'dismissed'
+        ? status
+        : 'pending';
+    return this.submissions.listPsaVaultedReviews(st);
+  }
+
+  @Post('vaulted-reviews/:reviewId/dismiss')
+  @ApiOperation({ summary: 'Dismiss a vaulted mail review without minting' })
+  dismissVaultedReview(
+    @Req() req: Request,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.submissions.dismissPsaVaultedReview(reviewId);
+  }
+
   @Post('arrival-reviews/test-inject')
   @ApiOperation({
     summary:

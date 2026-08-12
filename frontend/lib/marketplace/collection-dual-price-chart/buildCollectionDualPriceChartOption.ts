@@ -99,7 +99,7 @@ export function buildCollectionDualPriceChartOption(input: {
   const isYearView =
     merged.fixedWindowDays != null && merged.fixedWindowDays >= 300;
 
-  // Soft cap only — actual density comes from $100 / $1k USD steps in niceScale.
+  // Soft cap only — step size comes from niceScale (incl. $1 steps for cheap cards).
   const yTickCount = compactTab ? 8 : isMobileChart ? 10 : 12;
   const { min, max, interval } = isYearView
     ? yearViewPriceScale(merged.vMin, merged.vMax)

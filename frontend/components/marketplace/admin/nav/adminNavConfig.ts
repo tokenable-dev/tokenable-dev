@@ -150,7 +150,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         href: "/marketplace/admin/vault/psa-mail",
         label: "PSA mail",
         prefix: "/marketplace/admin/vault/psa-mail",
-        description: "Items Received inbox — confirm arrival before At PSA",
+        description: "Items Received inbox — auto + manual arrival confirm",
       },
       {
         href: "/marketplace/admin/vault/mint-queue",

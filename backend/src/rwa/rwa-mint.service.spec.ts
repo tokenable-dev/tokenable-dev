@@ -55,11 +55,15 @@ describe('RwaMintService', () => {
       displayName: 'Acme',
       vaultLabel: 'Acme vault',
     }),
-    assertSelfVaultEligibleForWallet: jest.fn().mockResolvedValue({
+    assertSelfVaultEligibleForUser: jest.fn().mockResolvedValue({
       partnerId: 'partner-1',
       displayName: 'Acme',
       vaultLabel: 'Acme vault',
     }),
+  };
+
+  const rwaSlabS3 = {
+    normalizeTrustedMintSlabUrl: jest.fn().mockReturnValue(null),
   };
 
   let service: RwaMintService;
@@ -82,7 +86,7 @@ describe('RwaMintService', () => {
       displayName: 'Acme',
       vaultLabel: 'Acme vault',
     });
-    partners.assertSelfVaultEligibleForWallet.mockResolvedValue({
+    partners.assertSelfVaultEligibleForUser.mockResolvedValue({
       partnerId: 'partner-1',
       displayName: 'Acme',
       vaultLabel: 'Acme vault',
@@ -98,6 +102,42 @@ describe('RwaMintService', () => {
       portfolioSnapshots as never,
       partners as never,
       { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
+      rwaSlabS3 as never,
+    );
+  });
+
+  it('persists trusted displayImageUrl on mint when upload provided S3 URL', async () => {
+    const slabUrl =
+      'https://cdn.example.com/dev/covers/rwa-slabs/137/83179580/slab';
+    rwaSlabS3.normalizeTrustedMintSlabUrl.mockReturnValueOnce(slabUrl);
+
+    await service.mintForUser(
+      user,
+      { ...baseDto, displayImageUrl: slabUrl },
+      chainId,
+    );
+
+    expect(rwaSlabS3.normalizeTrustedMintSlabUrl).toHaveBeenCalledWith(
+      slabUrl,
+      chainId,
+      '83179580',
+    );
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ displayImageUrl: slabUrl }),
+    );
+  });
+
+  it('ignores untrusted displayImageUrl without failing mint', async () => {
+    rwaSlabS3.normalizeTrustedMintSlabUrl.mockReturnValueOnce(null);
+
+    await service.mintForUser(
+      user,
+      { ...baseDto, displayImageUrl: 'https://evil.example/slab.jpg' },
+      chainId,
+    );
+
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ displayImageUrl: null }),
     );
   });
 
@@ -154,7 +194,7 @@ describe('RwaMintService', () => {
   });
 
   it('rejects direct mint for non-partner wallets', async () => {
-    partners.assertSelfVaultEligibleForWallet.mockRejectedValueOnce(
+    partners.assertSelfVaultEligibleForUser.mockRejectedValueOnce(
       new ForbiddenException({
         statusCode: 403,
         code: 'SELF_VAULT_PARTNER_ONLY',
@@ -174,7 +214,7 @@ describe('RwaMintService', () => {
   });
 
   it('rejects direct mint when partner lacks company address', async () => {
-    partners.assertSelfVaultEligibleForWallet.mockRejectedValueOnce(
+    partners.assertSelfVaultEligibleForUser.mockRejectedValueOnce(
       new ForbiddenException({
         statusCode: 403,
         code: 'COMPANY_ADDRESS_REQUIRED',

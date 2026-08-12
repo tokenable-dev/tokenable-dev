@@ -13,7 +13,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Search dropdown | `.gnb-search-dropdown` | `TkHeaderSearch` | `components/layout/header/TkHeaderSearch.tsx` |
 | Mobile burger | `.gnb-drawer` | drawer in `TkHeader` | `components/layout/TkHeader.tsx` |
 | Mobile search overlay | `.gnb-search-overlay` | `TkHeaderSearch` | `components/layout/header/TkHeaderSearch.tsx` |
-| Wallet connect | `tk-wallet.js` | `HeaderWalletMenu`, `HeaderMobileWalletSection` | `components/layout/header/wallet/` |
+| Wallet connect | `tk-wallet.js` | `HeaderWalletMenu`, `HeaderWalletMenuPanel` | `components/layout/header/wallet/` |
 | Notifications | `tk-notifications.js` | bell + panel | (Phase 10) |
 | Footer | `tk-footer.js` | `TkFooter` | `components/layout/TkFooter.tsx` |
 | Page container | `.wrap` | `tkl-wrap` | `constants/layout.ts` (`APP_MAIN_SHELL_CLASS`) |
@@ -65,21 +65,23 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Markets — `Markets.html` (Phase 4 — done)
+## Markets — `Markets.html` (Phase 4 — ds-13 slim filters)
 
 | Section | React target | File |
 |---------|--------------|------|
 | Page header | eyebrow + title | `components/markets/MarketsPageHeader.tsx` |
 | Ticker | `HomeTicker` | `components/home/HomeTicker.tsx` |
-| Filter / sort bar | `MarketsFilterBar` | `components/markets/MarketsFilterBar.tsx` |
+| Filter / sort bar | Slim Category / Grade / Price chips + More filters drawer + Sort | `components/markets/MarketsFilterBar.tsx` |
 | Card grid | `MarketsCollectionGrid` + `CollectibleCard` | `components/markets/MarketsCollectionGrid.tsx`, `components/collectibles/CollectibleCard.tsx` |
 | Page compose | `MarketsPage` | `components/markets/MarketsPage.tsx` |
 
-**CSS:** `frontend/styles/tokenable-markets.css`
+**CSS:** `frontend/styles/tokenable-markets.css` (grid 6/5/3/3/2 — do not regress)
+
+**Facets wired (client-side):** category, price, grade (PSA 10 / PSA 9 only), sort. Year / vault / BGS / category tree deferred until backend supports them.
 
 ---
 
-## Collection detail — `Card.html` (Phase 5 — done)
+## Collection detail — `Card.html` (Phase 5 — ds-13 mobile trade bar; Phase 7 ≤768)
 
 | Section | Prototype class | React target | File |
 |---------|-----------------|--------------|------|
@@ -88,7 +90,8 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Metrics / price band | `.notch` stat tiles | `CollectionPriceMetricsStrip` | `buildCollectionDetailMarketsSlots.tsx` |
 | Chart + periods | `.tk-period`, Price history | `CollectionDetailPriceChart` | `components/marketplace/collection-detail/CollectionDetailPriceChart.tsx` |
 | Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` (Buy-only) | `components/marketplace/collection-detail/*` |
-| Set-level bid | Name your price banner | `CollectionPlaceBidBanner` | `CollectionPlaceBidBanner.tsx` |
+| Set-level bid | Sticky hero + mobile trade bar | `CollectionDetailStatMain` / `CollectionMobileTradeBar` | `CollectionDetailStatMain.tsx` |
+| Mobile trade bar | `#ob-bottom-bar` | `CollectionMobileTradeBar` (Buy now / Place bid) | `CollectionMobileTradeBar.tsx` |
 | Listing detail | `#tk-prov` | `CollectionListingDetailModal` + `CollectionListingBuyerEducation` | `CollectionListingDetailModal.tsx` |
 | Trades / order book | sidebar `.notch` | `CollectionUnifiedOrderBook` | `components/marketplace/unified-order-book/*` |
 | Details / PSA tabs | tab row | `CollectionHeroDetailsTabs` | `components/marketplace/collection-hero/*` |
@@ -96,7 +99,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-collection-detail.css`
 
-**Phase 4 (ds-v2 / ds-4 sync):** Set-level **Place a Bid** banner (Highest bid / Lowest ask). Listing rows and provenance foot are **Buy-only**. Verification tiles: Graded by / Cert # / Stored at (`PSA Vault` — Lloyd’s wording removed in DS-4). Soft custody copy: What you'll get + Buyer protection; checkout fine print **Owned instantly · stays safely in the vault**.
+**Fees:** bid checkout fine print uses `feePercent()` from `platformFee.ts` (not hardcoded 5%).
 
 **Existing route:** `app/marketplace/collections/[collectionKey]/page.tsx`
 
@@ -126,9 +129,9 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Portfolio Redeem — `Redeem.html` / design system-5 (pay-first)
+## Portfolio Redeem — `Ship-From-Vault.html` / design system-13 (pay-first)
 
-Product copy uses **Redeem** (not Withdraw). Canonical prototype: `Tokenable-with design system-5/Redeem.html` → `/portfolio/redeem`.
+Product copy uses **Redeem** / **Ship from vault**. Canonical prototype: `Tokenable-with design system-13/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged).
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|
@@ -136,14 +139,14 @@ Product copy uses **Redeem** (not Withdraw). Canonical prototype: `Tokenable-wit
 | Address | `#wd-request` | Ship-to + **Calculate shipping cost** (idle/loading/quoted/stale) → **Review and pay** | `RedeemRequestPanel`, `shipToValidation.ts` |
 | Review & pay | `#wd-pay` | Cost + ship-to + USDC pay → redeem-batch | `RedeemPayPanel` |
 | Preparing | `#wd-preparing` | Payment-received banner + progress | `RedeemPreparingPanel`; `?view=preparing` |
-| In transit | `#wd-transit` | Tracking / `WD_SHIPPED` | `RedeemTransitPanel`; `?view=transit` |
+| In transit | `#wd-transit` | Tracking links + per-card Report (UI-only) + per-shipment received checklist | `RedeemTransitPanel`; `?view=transit` |
 | Done | `#wd-done` | Possession complete | `RedeemDonePanel`; `?view=done` |
 
 **Hooks / API:** `useRedeemFlow`, `useMyRedemptions`, `lib/core/api/rwa-redeem.ts`, draft + saved address `lib/portfolio/redeemDraft.ts`
 
 **Admin:** Confirm release on burned cards → `postAdminConfirmRedemptionRelease`
 
-**HTML sync notes (ds-5):** Pay-first UX — address → pay → preparing. Cancel redeem / real USDC charge / receipt confirm remain later.
+**HTML sync notes (ds-13):** Pay-first UX — address → pay → preparing → transit → done. Deferred: cancel redeem API, real claim/report API, PSA return-address intake (UI stores locally + prefills from Settings).
 
 ---
 
@@ -261,6 +264,45 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 | `/dev/admin-ui` | `AdminUiShowcase` | Admin UI contract (not production) |
 
 **Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`
+
+---
+
+## Partner vault — ds-13 Partner-* (Phase 5)
+
+| HTML | Route | React |
+|------|-------|-------|
+| `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — `PartnerPortfolioHeader` (eyebrow + Redeem requests CTA); tabs: My Assets / Active Bids / Transaction History only + **Ship from vault** toolbar btn; GNB adds **Redeem requests** for active partners; `/portfolio` redirects here |
+| `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/sell/flow` with `vaultChoice=self` |
+| `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — breadcrumb, summary pills, 24h urgency banner, tabs; tracking via `PATCH …/redeems/batches/:id/tracking` with `redemptionIds` (scoped by `trackingGroupKey` = batch + ship-to) → same `vault_redemptions` rows as admin redeem page |
+| `Partner-Shipping-Origin.html` | Settings `#partner-origin` | existing Origin modal + Settings section |
+
+**Gate:** `PartnerGate` via `GET /marketplace/partners/me`  
+**API:** `GET/PATCH …/partners/me/redeems…` (writes same `vault_redemptions` tracking as admin)  
+**Admin Origin:** `/marketplace/admin/partners` → Origin expand panel (`AdminPartnerOriginPanel`) uses admin GET/PUT company-address  
+**CSS:** `tokenable-partner.css` (underline tabs + ≤1100 card meta; ≤640 stack CTAs + bottom-sheet modal)  
+**Sell router:** partners → `/partner/add-cards` via `resolveSellRouterDestinationAsync`
+
+---
+
+## ds-13 Phase 6 — Partner ↔ Admin SoT (done)
+
+- Admin Partners Origin panel (`AdminPartnerOriginPanel`) via admin company-address GET/PUT
+- Admin Redeems locked tracking shows carrier + shared-SoT note
+- Terminology: Partner vault (not Self vault) in admin partner docs/UI
+
+## ds-13 Phase 7 — Global UI polish / responsive (done)
+
+Skin-only alignment with HTML (no new APIs):
+
+- Card trade bar + shell clearance at ≤768 (`md:hidden` / `max-md:pb`)
+- Markets “More filters” icon-only on ≤640; Portfolio tabs equal-width + table→cards at ≤768
+- Sell / Choose-Vault / PSA shipping light canvas (`tokenable-sell-flow.css`)
+- Partner Shipments underline tabs + dense cards ≤1100
+- Login fallback atmosphere + orbit card (`secondary-page--auth`)
+- Footer column ≤768; Settings snav collapse ≤860 / short labels ≤640
+- Redeem ship-to + summary wrap ≤768; drawer safe-area padding
+
+Deferred (feature, not polish): claim API, cancel redeem, Markets unsupported facets, partner application approve/reject, PSA return-address intake API.
 
 ---
 

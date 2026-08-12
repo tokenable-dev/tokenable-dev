@@ -174,6 +174,7 @@ export class RwaController {
   }
 
   @ApiBearerAuth()
+  @ApiChainIdHeader()
   @ApiOperation({
     summary:
       'Confirm physical receipt for a redeem batch (I\'ve received my cards → Done)',
@@ -183,8 +184,10 @@ export class RwaController {
   confirmRedeemReceived(
     @Req() req: Request & { user: User },
     @Param('batchId') batchId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.rwaRedeem.confirmReceipt(req.user, batchId);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaRedeem.confirmReceipt(req.user, batchId, chainId);
   }
 
   @ApiBearerAuth()
@@ -200,6 +203,7 @@ export class RwaController {
   }
 
   @ApiBearerAuth()
+  @ApiChainIdHeader()
   @ApiOperation({
     summary: 'List redemption requests for the signed-in user (portfolio badges)',
   })
@@ -208,8 +212,10 @@ export class RwaController {
   listMyRedemptions(
     @Req() req: Request & { user: User },
     @Query() query: ListMyRedemptionsQueryDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.rwaRedeem.listMyRedemptions(req.user, query.tokenIds);
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaRedeem.listMyRedemptions(req.user, chainId, query.tokenIds);
   }
 
   /**

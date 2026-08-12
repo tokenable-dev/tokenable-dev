@@ -32,7 +32,7 @@ export function TkFooter() {
           <Link href="/markets" className="navlink">
             Markets
           </Link>
-          <button type="button" className="navlink" onClick={() => navigate("/sell", 1)}>
+          <button type="button" className="navlink" onClick={() => navigate("/vault", 0)}>
             Sell
           </button>
           <span className="navlink" aria-disabled>

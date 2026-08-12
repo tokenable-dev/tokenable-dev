@@ -9,8 +9,9 @@ import {
 import { VaultSubmissionService } from './vault-submission.service';
 
 const PROCESSED_LABEL = 'tokenable-psa-processed';
+/** Prefer intake body so vault-confirmation mails are left for the vaulted poller. */
 const GMAIL_QUERY =
-  'from:noreply@collectors.com subject:"Items Received at PSA Vault" -label:tokenable-psa-processed';
+  'from:noreply@collectors.com subject:"Items Received at PSA Vault" "have been received and securely stored" -label:tokenable-psa-processed';
 /** Cap per poll — avoids starving other work on huge backlogs. */
 const MAX_MESSAGES_PER_POLL = 200;
 const PAGE_SIZE = 25;
@@ -44,11 +45,11 @@ type GmailLabelList = {
 };
 
 /**
- * Polls Gmail (tokenable.dev@gmail.com) for PSA Vault “Items Received” mail and
- * enqueues admin review rows. Does NOT auto-advance packages to psa_reviewing.
+ * Polls Gmail (tokenable.dev@gmail.com) for PSA Vault “Items Received” mail,
+ * enqueues arrival reviews, and auto-confirms matched open packages (Ship→PSA).
  *
  * Gate: PSA_RECEIVED_MAIL_ENABLED=1 plus GMAIL_* OAuth env.
- * Recommended OAuth scope for production: gmail.modify (not full mail.google.com).
+ * Auto-confirm: on by default; set PSA_RECEIVED_MAIL_AUTO_CONFIRM=0 to queue-only.
  */
 @Injectable()
 export class PsaReceivedMailService implements OnModuleInit {
@@ -159,10 +160,15 @@ export class PsaReceivedMailService implements OnModuleInit {
           fromAddress: from,
           certs: parsed.certs,
           ingestNote,
+          autoConfirmEligible: parsed.matched,
         });
+        const autoTag =
+          review.status === 'confirmed' && review.confirmedVia === 'auto'
+            ? ' auto-confirmed'
+            : '';
         queued.push(review.id);
         this.logger.log(
-          `PSA received mail queued reviewId=${review.id} messageId=${id} certs=${parsed.certs.join(',') || '(none)'} matched=${(review.matchedPublicIds ?? []).join(',') || '(none)'} unmatched=${(review.unmatchedCerts ?? []).join(',') || '(none)'} note=${ingestNote ?? 'ok'}`,
+          `PSA received mail queued reviewId=${review.id} messageId=${id} status=${review.status}${autoTag} certs=${parsed.certs.join(',') || '(none)'} matched=${(review.matchedPublicIds ?? []).join(',') || '(none)'} unmatched=${(review.unmatchedCerts ?? []).join(',') || '(none)'} note=${ingestNote ?? 'ok'}`,
         );
         await this.markProcessed(accessToken, id, labelId);
         processed += 1;

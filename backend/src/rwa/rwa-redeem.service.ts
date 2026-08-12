@@ -17,6 +17,7 @@ import {
 import { PlatformFeeWalletService } from '../blockchain/platform-fee-wallet.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
 import { KycService } from '../kyc/kyc.service';
+import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import { VaultService } from '../vault/vault.service';
 import {
   RedeemBatchCustodyDto,
@@ -37,12 +38,26 @@ const ERC20_TRANSFER_TOPIC = ethersId('Transfer(address,address,uint256)');
 /** v1: Sepolia only for redeem custody intake (multi-chain later). */
 const REDEEM_V1_CHAIN_ID = 11155111 as SupportedChainId;
 
+const QUOTE_PIN_TTL_MS = 15 * 60_000;
+const QUOTE_PIN_MAX_ENTRIES = 500;
+
 /**
  * Redeem orchestration: KYC → multi-shipment fee estimate → USDC verify → redemptions.
  * Fee math lives in RedeemShippingFeeCalculator (PSA schedule vs Partner Rate/stub).
  */
 @Injectable()
 export class RwaRedeemService {
+  /**
+   * Recently issued estimate totals, keyed by token set + destination.
+   * Payment verification accepts a payment matching any unexpired quote so a
+   * FedEx re-quote between "user paid" and "server verified" never strands a
+   * completed USDC transfer.
+   */
+  private readonly recentQuoteTotals = new Map<
+    string,
+    { totalMicros: bigint; expiresAtMs: number }
+  >();
+
   constructor(
     private readonly users: UserService,
     private readonly blockchain: BlockchainService,
@@ -52,7 +67,52 @@ export class RwaRedeemService {
     private readonly feeCalculator: RedeemShippingFeeCalculator,
     private readonly chainWriter: RwaChainWriterService,
     private readonly kyc: KycService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  private static quotePinKey(
+    tokenIds: number[],
+    dest: { country?: string | null; countryCode?: string | null; postal?: string | null },
+  ): string {
+    const ids = [...new Set(tokenIds)].sort((a, b) => a - b).join(',');
+    const country = (dest.countryCode || dest.country || '')
+      .toString()
+      .trim()
+      .toLowerCase();
+    const postal = (dest.postal ?? '').trim().toLowerCase();
+    return `${ids}|${country}|${postal}`;
+  }
+
+  private pinQuote(key: string, totalMicros: bigint, expiresAtIso?: string | null): void {
+    const now = Date.now();
+    for (const [k, v] of this.recentQuoteTotals) {
+      if (v.expiresAtMs <= now) this.recentQuoteTotals.delete(k);
+    }
+    if (this.recentQuoteTotals.size >= QUOTE_PIN_MAX_ENTRIES) {
+      const first = this.recentQuoteTotals.keys().next().value;
+      if (first) this.recentQuoteTotals.delete(first);
+    }
+    const parsed = expiresAtIso ? Date.parse(expiresAtIso) : NaN;
+    const expiresAtMs = Number.isFinite(parsed)
+      ? parsed
+      : now + QUOTE_PIN_TTL_MS;
+    const existing = this.recentQuoteTotals.get(key);
+    /* Keep the cheapest unexpired quote — the user may have paid the lower one. */
+    if (
+      existing &&
+      existing.expiresAtMs > now &&
+      existing.totalMicros <= totalMicros
+    ) {
+      return;
+    }
+    this.recentQuoteTotals.set(key, { totalMicros, expiresAtMs });
+  }
+
+  private pinnedQuoteMicros(key: string): bigint | null {
+    const pin = this.recentQuoteTotals.get(key);
+    if (!pin || pin.expiresAtMs <= Date.now()) return null;
+    return pin.totalMicros;
+  }
 
   async estimateRedeemCost(params: {
     country: RedeemCountry;
@@ -70,7 +130,27 @@ export class RwaRedeemService {
       countryCode?: string | null;
     };
   }): Promise<RedeemEstimate> {
-    return this.feeCalculator.estimate(params);
+    const tokenIds = (params.tokenIds ?? []).filter((n) => n > 0);
+    if (tokenIds.length > 0 && params.chainId != null) {
+      /* Surface non-redeemable tokens at quote time — before any USDC moves. */
+      await this.vault.assertTokensRedeemable(
+        this.chainConfig.getRwaAddress(params.chainId),
+        tokenIds.map(String),
+      );
+    }
+    const estimate = await this.feeCalculator.estimate(params);
+    if (tokenIds.length > 0) {
+      this.pinQuote(
+        RwaRedeemService.quotePinKey(tokenIds, {
+          country: params.country,
+          countryCode: params.shipTo?.countryCode,
+          postal: params.shipTo?.postal,
+        }),
+        BigInt(estimate.totalUsdcMicros),
+        estimate.shippingQuoteExpiresAt,
+      );
+    }
+    return estimate;
   }
 
   /** Legacy single-card path without payment — blocked. Use redeem-batch. */
@@ -111,6 +191,12 @@ export class RwaRedeemService {
       countryCode: shipTo.countryCode,
     });
 
+    /* Same validation the estimate ran — clear error instead of a late DB failure. */
+    await this.vault.assertTokensRedeemable(
+      this.chainConfig.getRwaAddress(chainId),
+      tokenIds.map(String),
+    );
+
     const estimate = await this.feeCalculator.estimate({
       country: shipTo.country,
       tokenIds,
@@ -142,13 +228,32 @@ export class RwaRedeemService {
       );
     }
 
+    /*
+     * The user paid against a quote fetched moments earlier. Carrier rates can
+     * drift between that quote and this recompute — accept the cheaper of the
+     * fresh total and any unexpired pinned quote for the same token set +
+     * destination, so a completed payment is never rejected by re-quote drift.
+     */
+    const freshMicros = BigInt(estimate.totalUsdcMicros);
+    const pinnedMicros = this.pinnedQuoteMicros(
+      RwaRedeemService.quotePinKey(tokenIds, {
+        country: shipTo.country,
+        countryCode: shipTo.countryCode ?? destinationCountryIso,
+        postal: shipTo.postal,
+      }),
+    );
+    const expectedMicros =
+      pinnedMicros != null && pinnedMicros < freshMicros
+        ? pinnedMicros
+        : freshMicros;
+
     const payerCandidates = wallets.map((w) =>
       w.walletAddress.trim().toLowerCase(),
     );
     const paidMicros = await this.verifyUsdcPaymentToFeeRecipient({
       txHash: paymentTxHash,
       fromAddresses: payerCandidates,
-      expectedMicros: BigInt(estimate.totalUsdcMicros),
+      expectedMicros,
       chainId,
     });
 
@@ -270,7 +375,7 @@ export class RwaRedeemService {
       );
     }
 
-    const rows = await this.vault.findRedemptionsByBatchId(batchId);
+    const rows = await this.vault.findRedemptionsByBatchId(batchId, chainId);
     if (rows.length === 0) {
       throw new BadRequestException('Unknown paymentBatchId');
     }
@@ -362,12 +467,20 @@ export class RwaRedeemService {
       });
     }
 
-    const updated = await this.vault.findRedemptionsByBatchId(batchId);
+    const updated = await this.vault.findRedemptionsByBatchId(batchId, chainId);
     const allInCustody = updated.every((r) => r.status === 'in_custody');
     if (!allInCustody) {
       throw new BadRequestException(
         'Not all NFTs in this batch are in custody yet',
       );
+    }
+
+    if (pending.length > 0) {
+      void this.vault
+        .emitRedeemCustodyNotifications(batchId, chainId, updated)
+        .catch((e) => {
+          /* logged in vault service */
+        });
     }
 
     return {
@@ -507,8 +620,12 @@ export class RwaRedeemService {
    * User confirms physical receipt for a paid batch → status `completed`.
    * Requires every card in the batch to have a tracking number (all vaults shipped).
    */
-  async confirmReceipt(user: User, batchId: string) {
-    const rows = await this.vault.findRedemptionsByBatchId(batchId);
+  async confirmReceipt(
+    user: User,
+    batchId: string,
+    chainId: SupportedChainId,
+  ) {
+    const rows = await this.vault.findRedemptionsByBatchId(batchId, chainId);
     if (rows.length === 0) {
       throw new BadRequestException('Unknown paymentBatchId');
     }
@@ -550,6 +667,15 @@ export class RwaRedeemService {
     }
 
     const saved = await this.vault.markUserReceiptConfirmed(rows);
+    if (!rows.every((r) => r.status === 'completed')) {
+      void this.notifications
+        .notifyRedeemCompleted({
+          ownerWallet: rows[0].ownerWalletAddress,
+          paymentBatchId: batchId,
+          chainId,
+        })
+        .catch(() => undefined);
+    }
     return {
       paymentBatchId: batchId,
       status: 'completed' as const,
@@ -562,13 +688,13 @@ export class RwaRedeemService {
     };
   }
 
-  listMyRedemptions(user: User, tokenIdsCsv?: string) {
+  listMyRedemptions(user: User, chainId: SupportedChainId, tokenIdsCsv?: string) {
     const tokenIds = tokenIdsCsv
       ? tokenIdsCsv
           .split(',')
           .map((s) => s.trim())
           .filter((s) => /^\d+$/.test(s))
       : undefined;
-    return this.vault.listOpenRedemptionsForUser(user.id, tokenIds);
+    return this.vault.listOpenRedemptionsForUser(user.id, chainId, tokenIds);
   }
 }

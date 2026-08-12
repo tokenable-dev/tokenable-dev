@@ -19,6 +19,7 @@ import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
 import { MarketplacePartnersService } from '../marketplace/partners/marketplace-partners.service';
 import { MintRwaDto, type MintDeliveryMode } from './dto/mint-rwa.dto';
+import { RwaSlabS3Service } from './rwa-slab-s3.service';
 
 export type MintRwaResult = {
   tokenId: number;
@@ -56,6 +57,7 @@ export class RwaMintService {
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly partners: MarketplacePartnersService,
     private readonly kyc: KycService,
+    private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
   async mintForUser(
@@ -94,8 +96,8 @@ export class RwaMintService {
     // Only contracted (active) partners with company Origin may mint direct.
     let vaultPartnerId: string | null = null;
     if (deliveryMode === 'direct') {
-      const partner = await this.partners.assertSelfVaultEligibleForWallet(
-        recipient,
+      const partner = await this.partners.assertSelfVaultEligibleForUser(
+        user.id,
       );
       vaultPartnerId = partner.partnerId;
       await this.vaultSubmissions.assertCertAvailableForSelfVault(certNumber);
@@ -140,6 +142,11 @@ export class RwaMintService {
     }
 
     const contract = this.chainConfig.getRwaAddress(chainId);
+    const displayImageUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      dto.displayImageUrl,
+      chainId,
+      certNumber,
+    );
     await this.vault.recordMintResult({
       cycleId: cycle.id,
       tokenContract: contract,
@@ -147,6 +154,7 @@ export class RwaMintService {
       tokenURI,
       txHash,
       certNumber,
+      displayImageUrl,
       settlementPolicy:
         deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
       vaultPartnerId,

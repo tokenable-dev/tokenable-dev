@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS bulk_mint_job_items (
   tx_hash varchar(66),
   order_hash varchar(66),
   vault_cycle_id uuid,
+  slab_display_image_url text,
   error_message text,
   sort_index int NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),

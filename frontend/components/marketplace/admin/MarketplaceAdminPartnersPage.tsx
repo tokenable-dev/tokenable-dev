@@ -21,10 +21,17 @@ import {
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { AdminPartnerOriginPanel } from "./AdminPartnerOriginPanel";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 const ETH_ADDR = /^0x[a-fA-F0-9]{40}$/;
 const PK = /^(0x)?[a-fA-F0-9]{64}$/;
+
+function shortWallet(addr: string): string {
+  const s = addr.trim();
+  if (s.length < 12) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
 
 /**
  * Register consignment company wallets (display name + entrusted private key).
@@ -38,6 +45,7 @@ export function MarketplaceAdminPartnersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [rotateId, setRotateId] = useState<string | null>(null);
   const [rotateKey, setRotateKey] = useState("");
+  const [originId, setOriginId] = useState<string | null>(null);
 
   const partnersQuery = useQuery({
     queryKey: rq.adminMarketplacePartners,
@@ -90,16 +98,17 @@ export function MarketplaceAdminPartnersPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Partners"
-        subtitle="Register company wallets for Self vault and optional partner mint & list. Private keys are optional for Self vault eligibility; bulk mint requires a key encrypted at rest."
+        subtitle="Register company wallets for Partner vault and optional partner mint & list. Private keys are optional for Partner vault eligibility; bulk mint requires a key encrypted at rest."
       />
 
       <p className={`mb-6 text-sm ${ADMIN_TEXT_SECONDARY}`}>
-        Active partners with a company Origin address can use <strong>Self vault</strong> in
-        the sell flow (Continue is enabled for their linked wallet). Listings and portfolio show{" "}
+        Active partners with a company Origin address can use{" "}
+        <strong>Partner vault</strong> in the sell flow. Listings and portfolio show{" "}
         <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">
           {"{company name} vault"}
         </code>
-        . After adding a private key, use{" "}
+        . Origin is the FedEx ship-from for Partner vault redeems — edit it below
+        or from the partner&rsquo;s Settings. After adding a private key, use{" "}
         <a
           className="font-medium text-[var(--brand-500)] hover:underline"
           href="/marketplace/admin/bulk-mint"
@@ -147,12 +156,12 @@ export function MarketplaceAdminPartnersPage() {
             type="password"
             value={privateKey}
             onChange={(e) => setPrivateKey(e.target.value)}
-            placeholder="Leave blank for Self vault only"
+            placeholder="Leave blank for Partner vault only"
             autoComplete="off"
           />
           <p className={`mt-1 text-xs ${ADMIN_TEXT_MUTED}`}>
             When set, must match the wallet address. Stored AES-256-GCM encrypted — not returned by
-            the API. Skip for Self vault access without bulk mint.
+            the API. Skip for Partner vault access without bulk mint.
           </p>
         </div>
         {formError || createMutation.isError ? (
@@ -191,126 +200,206 @@ export function MarketplaceAdminPartnersPage() {
         ) : !partners.length ? (
           <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>No partners yet.</p>
         ) : (
-          <div className="overflow-auto rounded-md border border-zinc-200">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-600">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Name</th>
-                  <th className="px-3 py-2 font-medium">Wallet</th>
-                  <th className="px-3 py-2 font-medium">Key</th>
-                  <th className="px-3 py-2 font-medium">Origin</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partners.map((p: AdminMarketplacePartner) => (
-                  <tr key={p.id} className="border-t border-zinc-100 align-top">
-                    <td className="px-3 py-2 font-medium text-zinc-900">
+          <>
+            <div className="hidden overflow-auto rounded-md border border-zinc-200 md:block">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-600">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Name</th>
+                    <th className="px-3 py-2 font-medium">Wallet</th>
+                    <th className="px-3 py-2 font-medium">Key</th>
+                    <th className="px-3 py-2 font-medium">Origin</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                    <th className="px-3 py-2 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partners.map((p: AdminMarketplacePartner) => (
+                    <PartnerTableRow
+                      key={p.id}
+                      partner={p}
+                      rotateId={rotateId}
+                      rotateKey={rotateKey}
+                      originOpen={originId === p.id}
+                      patchPending={patchMutation.isPending}
+                      onRename={(next) =>
+                        patchMutation.mutate({
+                          id: p.id,
+                          body: { displayName: next },
+                        })
+                      }
+                      onToggleActive={() =>
+                        patchMutation.mutate({
+                          id: p.id,
+                          body: { isActive: !p.isActive },
+                        })
+                      }
+                      onOpenOrigin={() =>
+                        setOriginId((cur) => (cur === p.id ? null : p.id))
+                      }
+                      onStartRotate={() => {
+                        setRotateId(p.id);
+                        setRotateKey("");
+                      }}
+                      onCancelRotate={() => {
+                        setRotateId(null);
+                        setRotateKey("");
+                      }}
+                      onRotateKeyChange={setRotateKey}
+                      onSaveRotate={() => {
+                        if (!PK.test(rotateKey.trim())) {
+                          window.alert("Enter a valid 32-byte hex private key.");
+                          return;
+                        }
+                        patchMutation.mutate({
+                          id: p.id,
+                          body: { privateKey: rotateKey.trim() },
+                        });
+                      }}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <ul className="space-y-3 md:hidden">
+              {partners.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-lg border border-zinc-200 bg-white p-3"
+                >
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <input
+                      className={`${ADMIN_INPUT} min-w-0 flex-1`}
+                      defaultValue={p.displayName}
+                      aria-label={`Rename ${p.displayName}`}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (!next || next === p.displayName) return;
+                        patchMutation.mutate({
+                          id: p.id,
+                          body: { displayName: next },
+                        });
+                      }}
+                    />
+                    <span
+                      className={
+                        p.isActive
+                          ? "shrink-0 text-xs font-semibold text-emerald-700"
+                          : "shrink-0 text-xs text-zinc-500"
+                      }
+                    >
+                      {p.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className={`mb-1 font-mono text-xs ${ADMIN_TEXT_SECONDARY}`}>
+                    {shortWallet(p.walletAddress)}
+                  </p>
+                  <p className={`mb-3 text-xs ${ADMIN_TEXT_MUTED}`}>
+                    Key: {p.hasPrivateKey ? "Yes" : "Partner vault only"} · Origin:{" "}
+                    {p.hasCompanyAddress ? "Set" : "Missing"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={ADMIN_BTN_SECONDARY}
+                      onClick={() =>
+                        setOriginId((cur) => (cur === p.id ? null : p.id))
+                      }
+                    >
+                      {originId === p.id ? "Hide Origin" : "Origin"}
+                    </button>
+                    <button
+                      type="button"
+                      className={ADMIN_BTN_SECONDARY}
+                      disabled={patchMutation.isPending}
+                      onClick={() =>
+                        patchMutation.mutate({
+                          id: p.id,
+                          body: { isActive: !p.isActive },
+                        })
+                      }
+                    >
+                      {p.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      type="button"
+                      className={ADMIN_BTN_SECONDARY}
+                      onClick={() => {
+                        setRotateId(p.id);
+                        setRotateKey("");
+                      }}
+                    >
+                      Rotate key
+                    </button>
+                  </div>
+                  {rotateId === p.id ? (
+                    <div className="mt-3 space-y-2">
                       <input
-                        className={`${ADMIN_INPUT} min-w-[140px]`}
-                        defaultValue={p.displayName}
-                        aria-label={`Rename ${p.displayName}`}
-                        onBlur={(e) => {
-                          const next = e.target.value.trim();
-                          if (!next || next === p.displayName) return;
-                          patchMutation.mutate({
-                            id: p.id,
-                            body: { displayName: next },
-                          });
-                        }}
+                        className={ADMIN_INPUT_MONO}
+                        type="password"
+                        placeholder="New private key"
+                        value={rotateKey}
+                        onChange={(e) => setRotateKey(e.target.value)}
+                        autoComplete="off"
                       />
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-zinc-700">
-                      {p.walletAddress}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-zinc-600">
-                      {p.hasPrivateKey ? "Yes" : "Self vault only"}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-zinc-600">
-                      {p.hasCompanyAddress ? "Set" : "Missing"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={
-                          p.isActive ? "text-emerald-700" : "text-zinc-500"
-                        }
-                      >
-                        {p.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="space-y-2 px-3 py-2">
-                      <button
-                        type="button"
-                        className={ADMIN_BTN_SECONDARY}
-                        disabled={patchMutation.isPending}
-                        onClick={() =>
-                          patchMutation.mutate({
-                            id: p.id,
-                            body: { isActive: !p.isActive },
-                          })
-                        }
-                      >
-                        {p.isActive ? "Deactivate" : "Activate"}
-                      </button>
-                      {rotateId === p.id ? (
-                        <div className="mt-2 space-y-2">
-                          <input
-                            className={ADMIN_INPUT_MONO}
-                            type="password"
-                            placeholder="New private key"
-                            value={rotateKey}
-                            onChange={(e) => setRotateKey(e.target.value)}
-                            autoComplete="off"
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              className={ADMIN_BTN_PRIMARY}
-                              disabled={patchMutation.isPending}
-                              onClick={() => {
-                                if (!PK.test(rotateKey.trim())) {
-                                  window.alert("Enter a valid 32-byte hex private key.");
-                                  return;
-                                }
-                                patchMutation.mutate({
-                                  id: p.id,
-                                  body: { privateKey: rotateKey.trim() },
-                                });
-                              }}
-                            >
-                              Save key
-                            </button>
-                            <button
-                              type="button"
-                              className={ADMIN_BTN_SECONDARY}
-                              onClick={() => {
-                                setRotateId(null);
-                                setRotateKey("");
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className={`${ADMIN_BTN_SECONDARY} ml-2`}
+                          className={ADMIN_BTN_PRIMARY}
+                          disabled={patchMutation.isPending}
                           onClick={() => {
-                            setRotateId(p.id);
+                            if (!PK.test(rotateKey.trim())) {
+                              window.alert("Enter a valid 32-byte hex private key.");
+                              return;
+                            }
+                            patchMutation.mutate({
+                              id: p.id,
+                              body: { privateKey: rotateKey.trim() },
+                            });
+                          }}
+                        >
+                          Save key
+                        </button>
+                        <button
+                          type="button"
+                          className={ADMIN_BTN_SECONDARY}
+                          onClick={() => {
+                            setRotateId(null);
                             setRotateKey("");
                           }}
                         >
-                          Rotate key
+                          Cancel
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  {originId === p.id ? (
+                    <AdminPartnerOriginPanel
+                      partnerId={p.id}
+                      partnerName={p.displayName}
+                      onClose={() => setOriginId(null)}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+
+            {originId ? (
+              <div className="hidden md:block">
+                {partners
+                  .filter((p) => p.id === originId)
+                  .map((p) => (
+                    <AdminPartnerOriginPanel
+                      key={p.id}
+                      partnerId={p.id}
+                      partnerName={p.displayName}
+                      onClose={() => setOriginId(null)}
+                    />
+                  ))}
+              </div>
+            ) : null}
+          </>
         )}
         {patchMutation.isError ? (
           <p className={ADMIN_TEXT_ERROR} role="alert">
@@ -321,5 +410,128 @@ export function MarketplaceAdminPartnersPage() {
         ) : null}
       </section>
     </>
+  );
+}
+
+function PartnerTableRow({
+  partner: p,
+  rotateId,
+  rotateKey,
+  originOpen,
+  patchPending,
+  onRename,
+  onToggleActive,
+  onOpenOrigin,
+  onStartRotate,
+  onCancelRotate,
+  onRotateKeyChange,
+  onSaveRotate,
+}: {
+  partner: AdminMarketplacePartner;
+  rotateId: string | null;
+  rotateKey: string;
+  originOpen: boolean;
+  patchPending: boolean;
+  onRename: (next: string) => void;
+  onToggleActive: () => void;
+  onOpenOrigin: () => void;
+  onStartRotate: () => void;
+  onCancelRotate: () => void;
+  onRotateKeyChange: (v: string) => void;
+  onSaveRotate: () => void;
+}) {
+  return (
+    <tr className="border-t border-zinc-100 align-top">
+      <td className="px-3 py-2 font-medium text-zinc-900">
+        <input
+          className={`${ADMIN_INPUT} min-w-[140px]`}
+          defaultValue={p.displayName}
+          aria-label={`Rename ${p.displayName}`}
+          onBlur={(e) => {
+            const next = e.target.value.trim();
+            if (!next || next === p.displayName) return;
+            onRename(next);
+          }}
+        />
+      </td>
+      <td className="px-3 py-2 font-mono text-xs text-zinc-700">
+        {p.walletAddress}
+      </td>
+      <td className="px-3 py-2 text-xs text-zinc-600">
+        {p.hasPrivateKey ? "Yes" : "Partner vault only"}
+      </td>
+      <td className="px-3 py-2 text-xs">
+        <button
+          type="button"
+          className={
+            p.hasCompanyAddress
+              ? "font-medium text-emerald-700 underline-offset-2 hover:underline"
+              : "font-medium text-amber-700 underline-offset-2 hover:underline"
+          }
+          onClick={onOpenOrigin}
+        >
+          {originOpen
+            ? "Hide"
+            : p.hasCompanyAddress
+              ? "Set · view"
+              : "Missing · add"}
+        </button>
+      </td>
+      <td className="px-3 py-2">
+        <span className={p.isActive ? "text-emerald-700" : "text-zinc-500"}>
+          {p.isActive ? "Active" : "Inactive"}
+        </span>
+      </td>
+      <td className="space-y-2 px-3 py-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={patchPending}
+            onClick={onToggleActive}
+          >
+            {p.isActive ? "Deactivate" : "Activate"}
+          </button>
+          {rotateId === p.id ? null : (
+            <button
+              type="button"
+              className={ADMIN_BTN_SECONDARY}
+              onClick={onStartRotate}
+            >
+              Rotate key
+            </button>
+          )}
+        </div>
+        {rotateId === p.id ? (
+          <div className="mt-2 space-y-2">
+            <input
+              className={ADMIN_INPUT_MONO}
+              type="password"
+              placeholder="New private key"
+              value={rotateKey}
+              onChange={(e) => onRotateKeyChange(e.target.value)}
+              autoComplete="off"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={ADMIN_BTN_PRIMARY}
+                disabled={patchPending}
+                onClick={onSaveRotate}
+              >
+                Save key
+              </button>
+              <button
+                type="button"
+                className={ADMIN_BTN_SECONDARY}
+                onClick={onCancelRotate}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </td>
+    </tr>
   );
 }

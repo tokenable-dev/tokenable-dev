@@ -8,6 +8,7 @@ import {
   getMyRedemptions,
   paidEstimateFromMyRedemptions,
 } from "@/lib/core/api/rwa-redeem";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { buildRedeemShipments, type RedeemShipmentView } from "@/lib/portfolio/buildRedeemShipments";
 import type {
   RedeemAddressForm,
@@ -26,11 +27,12 @@ export function RedeemPreparingPanel({
   form: RedeemAddressForm;
   shipments?: RedeemShipmentView[];
 }) {
+  const { chainId } = useAppChain();
   const count = cards.length;
   const tokenIds = cards.map((c) => c.tokenId);
   const paidQuery = useQuery({
-    queryKey: ["rwa", "redemptions", "mine", "paid", tokenIds.join(",")],
-    queryFn: () => getMyRedemptions(tokenIds),
+    queryKey: ["rwa", "redemptions", "mine", "paid", chainId, tokenIds.join(",")],
+    queryFn: () => getMyRedemptions(chainId, tokenIds),
     enabled: count > 0,
     staleTime: 30_000,
   });
@@ -127,12 +129,12 @@ export function RedeemPreparingPanel({
         className="pf-redeem-primary"
         disabled
       >
-        Cancel redemption
+        Cancel this request
       </TkButton>
       <p className="pf-redeem-hint-below" style={{ marginBottom: 20 }}>
-        You can cancel until the courier is contacted. Cancelling refunds shipping
-        and the Redemption fee in full, and ownership returns to your account.
-        (Cancel ships in a later update.)
+        You can cancel until the courier is contacted. Your ship-from-vault
+        request is refunded in full — shipping and the Redemption fee — and
+        ownership is back in your account. (Cancel ships in a later update.)
       </p>
 
       <Link href="/portfolio" className="pf-redeem-primary-link">

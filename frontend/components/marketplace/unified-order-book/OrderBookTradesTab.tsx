@@ -99,68 +99,85 @@ export function OrderBookTradesTab({
     ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
 
+  const showHeader = Boolean(flush) || (!tapeLoading && tapeFills.length > 0);
+  const bodyClass = collectionDetail
+    ? "cd-ob-trades-scroll flex min-h-0 flex-1 flex-col"
+    : "flex min-h-0 flex-1 flex-col";
+
   if (tapeError) {
     return (
-      <div
-        className={
-          flush
-            ? `flex min-h-[8rem] flex-1 flex-col items-center justify-center px-4 text-center${
-                collectionDetail ? " cd-ob-trades-empty" : ""
-              }`
-            : "flex min-h-[12rem] flex-1 items-center justify-center px-4 text-center"
-        }
-      >
-        <span className={`${rowValueCls} text-rose-400/90`}>
-          {tapeErrorMessage?.trim() || "Failed to load trades"}
-        </span>
-      </div>
-    );
-  }
-
-  if (!tapeLoading && tapeFills.length === 0) {
-    return (
-      <div
-        className={
-          flush
-            ? `flex h-full min-h-0 flex-1 flex-col items-center justify-center overflow-hidden${
-                collectionDetail ? " cd-ob-trades-empty" : ""
-              }`
-            : "flex min-h-[12rem] flex-1 items-center justify-center"
-        }
-      >
-        <span className={`${rowValueCls} text-zinc-500`}>{emptyLabel}</span>
+      <div className={rootClass}>
+        {flush ? (
+          <TradesColumnHeader
+            flush
+            gridClass={gridClass}
+            collectionDetail={collectionDetail}
+          />
+        ) : null}
+        <div
+          className={
+            flush
+              ? `flex min-h-[8rem] flex-1 flex-col items-center justify-center px-4 text-center${
+                  collectionDetail ? " cd-ob-trades-empty" : ""
+                }`
+              : "flex min-h-[12rem] flex-1 items-center justify-center px-4 text-center"
+          }
+        >
+          <span className={`${rowValueCls} text-rose-400/90`}>
+            {tapeErrorMessage?.trim() || "Failed to load trades"}
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className={rootClass}>
-      {flush ? (
-        <TradesColumnHeader flush gridClass={gridClass} collectionDetail={collectionDetail} />
+      {showHeader ? (
+        <TradesColumnHeader
+          flush={flush}
+          gridClass={gridClass}
+          collectionDetail={collectionDetail}
+        />
       ) : null}
 
-      {tapeLoading ? (
+      {tapeLoading && tapeFills.length === 0 ? (
         <div
-          className={`flex min-h-0 flex-1 items-center justify-center px-3 ${rowValueCls} text-zinc-500`}
+          className={`${bodyClass} items-center justify-center px-3 ${rowValueCls} text-zinc-500${
+            collectionDetail ? " cd-ob-trades-empty" : ""
+          }`}
         >
           Loading trades…
         </div>
+      ) : tapeFills.length === 0 ? (
+        <div
+          className={
+            flush
+              ? `${bodyClass} items-center justify-center overflow-hidden${
+                  collectionDetail ? " cd-ob-trades-empty" : ""
+                }`
+              : "flex min-h-[12rem] flex-1 items-center justify-center"
+          }
+        >
+          <span className={`${rowValueCls} text-zinc-500`}>{emptyLabel}</span>
+        </div>
       ) : (
-        <>
-          {!flush ? (
-            <TradesColumnHeader flush={flush} gridClass={gridClass} collectionDetail={collectionDetail} />
-          ) : null}
-          <TradesTapeScrollList
-            tapeFills={tapeFills}
-            flush={Boolean(flush)}
-            collectionDetail={collectionDetail}
-            insetXClass={flush && !collectionDetail ? COLLECTION_ORDER_BOOK_FLUSH_INSET_X : ""}
-            scrollClass={COLLECTION_ORDER_BOOK_SCROLL_CLASS}
-            maxHeightClass={
-              collectionDetail ? "cd-ob-trades-scroll" : flush ? TRADES_TAPE_SCROLL_HEIGHT_CLASS : undefined
-            }
-          />
-        </>
+        <TradesTapeScrollList
+          tapeFills={tapeFills}
+          flush={Boolean(flush)}
+          collectionDetail={collectionDetail}
+          insetXClass={
+            flush && !collectionDetail ? COLLECTION_ORDER_BOOK_FLUSH_INSET_X : ""
+          }
+          scrollClass={COLLECTION_ORDER_BOOK_SCROLL_CLASS}
+          maxHeightClass={
+            collectionDetail
+              ? "cd-ob-trades-scroll"
+              : flush
+                ? TRADES_TAPE_SCROLL_HEIGHT_CLASS
+                : undefined
+          }
+        />
       )}
     </div>
   );

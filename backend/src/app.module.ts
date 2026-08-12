@@ -48,6 +48,7 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
 import { VaultSubmission } from './vault/entities/vault-submission.entity';
 import { VaultSubmissionItem } from './vault/entities/vault-submission-item.entity';
 import { VaultPsaArrivalReview } from './vault/entities/vault-psa-arrival-review.entity';
+import { VaultPsaVaultedReview } from './vault/entities/vault-psa-vaulted-review.entity';
 import { MarketplacePartner } from './marketplace/entities/marketplace-partner.entity';
 import { MarketplacePartnerAddress } from './marketplace/entities/marketplace-partner-address.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
@@ -145,6 +146,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           VaultSubmission,
           VaultSubmissionItem,
           VaultPsaArrivalReview,
+          VaultPsaVaultedReview,
           BulkMintJob,
           BulkMintJobItem,
           P2pListing,

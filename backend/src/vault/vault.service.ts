@@ -10,7 +10,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { keccak256, toUtf8Bytes } from 'ethers';
 import { EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
+import { MarketplacePartner } from '../marketplace/entities/marketplace-partner.entity';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../blockchain/chain-config.service';
 import { VaultAsset, VaultAssetType } from './entities/vault-asset.entity';
 import { VaultCycle } from './entities/vault-cycle.entity';
 import { VaultRedeemPaymentClaim } from './entities/vault-redeem-payment-claim.entity';
@@ -57,7 +62,10 @@ export class VaultService {
     private readonly paymentClaims: Repository<VaultRedeemPaymentClaim>,
     @InjectRepository(RwaToken)
     private readonly rwaTokens: Repository<RwaToken>,
+    @InjectRepository(MarketplacePartner)
+    private readonly marketplacePartners: Repository<MarketplacePartner>,
     private readonly notifications: NotificationsService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   private static normalizeCert(certNumber: string): string {
@@ -255,6 +263,7 @@ export class VaultService {
     txHash: string;
     certNumber: string;
     displayName?: string | null;
+    displayImageUrl?: string | null;
     /** Persisted on `rwa_tokens`; defaults to `standard`. */
     settlementPolicy?: 'standard' | 'self_vault_hold';
     /** Self-vault partner id — set when settlementPolicy is self_vault_hold. */
@@ -287,6 +296,7 @@ export class VaultService {
         certNumber: VaultService.normalizeCert(params.certNumber),
         tokenUri: params.tokenURI,
         displayName: params.displayName?.trim() || null,
+        displayImageUrl: params.displayImageUrl?.trim() || null,
         vaultCycleId: cycle.id,
         vaultRef,
         settlementPolicy,
@@ -298,6 +308,7 @@ export class VaultService {
           'cert_number',
           'token_uri',
           'display_name',
+          'display_image_url',
           'vault_cycle_id',
           'vault_ref',
           'settlement_policy',
@@ -499,16 +510,18 @@ export class VaultService {
       return out;
     });
 
-    for (const { redemption, tokenId } of created) {
+    const ownerWallet = created[0]?.redemption.ownerWalletAddress;
+    if (ownerWallet) {
       void this.notifications
-        .notifyWithdrawalRequested({
-          ownerWallet: redemption.ownerWalletAddress,
-          tokenId,
-          redemptionId: redemption.id,
+        .notifyRedeemPaymentReceived({
+          ownerWallet,
+          paymentBatchId,
+          cardCount: created.length,
+          chainId: params.chainId as SupportedChainId,
         })
         .catch((e) => {
           this.logger.warn(
-            `notifyWithdrawalRequested failed: ${e instanceof Error ? e.message : String(e)}`,
+            `notifyRedeemPaymentReceived failed: ${e instanceof Error ? e.message : String(e)}`,
           );
         });
     }
@@ -548,6 +561,85 @@ export class VaultService {
     }
   }
 
+  /**
+   * Repair path for tokens minted on-chain whose DB row lost (or never had)
+   * a vault cycle — e.g. rows created by the chain registry sync after a DB
+   * reset. Creates/links the VaultAsset + a `minted` cycle from the token's
+   * cert number so a paid redeem is never stranded after USDC moved.
+   */
+  private async backfillCycleForToken(
+    em: EntityManager,
+    token: RwaToken,
+    chainId: number,
+  ): Promise<string> {
+    const cert = token.certNumber?.trim();
+    if (!cert) {
+      throw new NotFoundException(
+        `Token #${token.tokenId} has no vault record and no PSA cert number — cannot process redemption. Contact support.`,
+      );
+    }
+    const normalized = VaultService.normalizeCert(cert);
+
+    let asset = await em.findOne(VaultAsset, {
+      where: { assetType: 'psa_graded', externalCertNumber: normalized },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!asset) {
+      asset = await em.save(
+        em.create(VaultAsset, {
+          assetType: 'psa_graded',
+          externalCertNumber: normalized,
+          vaultRef: VaultService.computeVaultRef(normalized),
+          displayName: token.displayName?.trim() || null,
+        }),
+      );
+    }
+
+    const openCycle = await em
+      .createQueryBuilder(VaultCycle, 'c')
+      .setLock('pessimistic_write')
+      .where('c.vault_asset_id = :assetId', { assetId: asset.id })
+      .andWhere('c.chain_id = :chainId', { chainId })
+      .andWhere("c.status NOT IN ('redeemed', 'cancelled')")
+      .getOne();
+
+    let cycle: VaultCycle;
+    if (openCycle) {
+      if (openCycle.status !== 'minted') {
+        throw new ConflictException(
+          `Vault cycle is not in a redeemable state (status=${openCycle.status})`,
+        );
+      }
+      cycle = openCycle;
+    } else {
+      const priorCount = await em.count(VaultCycle, {
+        where: { vaultAssetId: asset.id },
+      });
+      cycle = await em.save(
+        em.create(VaultCycle, {
+          vaultAssetId: asset.id,
+          chainId,
+          cycleNumber: priorCount + 1,
+          status: 'minted',
+          /* Unknown vault age — fee estimate already treated it as early. */
+          depositedAt: null,
+          depositVerifiedBy: null,
+          depositedByUserId: null,
+        }),
+      );
+    }
+
+    token.vaultCycleId = cycle.id;
+    if (!token.vaultRef) {
+      token.vaultRef = VaultService.computeVaultRef(normalized);
+    }
+    await em.save(token);
+    this.logger.warn(
+      `Backfilled vault cycle ${cycle.id} for token #${token.tokenId} (cert ${normalized}) during paid redeem`,
+    );
+    return cycle.id;
+  }
+
   private async insertPaidRedemptionRow(
     em: EntityManager,
     params: {
@@ -585,17 +677,21 @@ export class VaultService {
       },
       lock: { mode: 'pessimistic_write' },
     });
-    if (!token?.vaultCycleId) {
+    if (!token) {
       throw new NotFoundException(
-        `No vault cycle linked to token #${params.tokenId} — cannot process redemption`,
+        `Token #${params.tokenId} is not registered on Tokenable — cannot process redemption. Contact support.`,
       );
     }
     if (token.burnedAt) {
       throw new BadRequestException('Token has already been redeemed');
     }
 
+    const cycleId =
+      token.vaultCycleId ??
+      (await this.backfillCycleForToken(em, token, params.chainId));
+
     const cycle = await em.findOne(VaultCycle, {
-      where: { id: token.vaultCycleId },
+      where: { id: cycleId },
       lock: { mode: 'pessimistic_write' },
     });
     if (!cycle || cycle.status !== 'minted') {
@@ -644,6 +740,9 @@ export class VaultService {
       chainId: params.chainId,
       paymentReceivedUsdcMicros: params.paymentReceivedUsdcMicros,
       refundStatus: 'none',
+      trackingNumber: null,
+      trackingCarrier: null,
+      trackingSetAt: null,
       vaultedAt: params.vaultedAt ?? cycle.depositedAt ?? null,
       earlyWithdrawal: params.earlyWithdrawal,
     });
@@ -781,6 +880,63 @@ export class VaultService {
   }
 
   /** Batch load settlement + partner id for portfolio / listing vault chips. */
+  /**
+   * Fail-fast redeemability check for the estimate step — so users see the
+   * real blocker BEFORE paying USDC (batch creation happens after payment).
+   * Tokens with a missing cycle but a known cert pass (backfilled at pay).
+   */
+  async assertTokensRedeemable(
+    tokenContract: string,
+    tokenIds: string[],
+  ): Promise<void> {
+    const ids = [...new Set(tokenIds.map((t) => String(t).trim()))].filter(
+      (t) => /^\d+$/.test(t),
+    );
+    if (ids.length === 0) return;
+
+    const rows = await this.rwaTokens.find({
+      where: { tokenContract: tokenContract.toLowerCase(), tokenId: In(ids) },
+    });
+    const byId = new Map(rows.map((r) => [r.tokenId, r]));
+
+    const cycleIds = rows
+      .map((r) => r.vaultCycleId)
+      .filter((id): id is string => Boolean(id));
+    const cycles =
+      cycleIds.length > 0
+        ? await this.cycles.find({ where: { id: In(cycleIds) } })
+        : [];
+    const cycleById = new Map(cycles.map((c) => [c.id, c]));
+
+    for (const tokenId of ids) {
+      const token = byId.get(tokenId);
+      if (!token) {
+        throw new BadRequestException(
+          `Token #${tokenId} is not registered on Tokenable yet — it cannot be redeemed. Contact support.`,
+        );
+      }
+      if (token.burnedAt) {
+        throw new BadRequestException(
+          `Token #${tokenId} has already been redeemed`,
+        );
+      }
+      if (!token.vaultCycleId) {
+        if (!token.certNumber?.trim()) {
+          throw new BadRequestException(
+            `Token #${tokenId} is missing its vault record (no PSA cert on file) — contact support before redeeming.`,
+          );
+        }
+        continue; // healable at pay time via backfillCycleForToken
+      }
+      const cycle = cycleById.get(token.vaultCycleId);
+      if (cycle && cycle.status !== 'minted') {
+        throw new ConflictException(
+          `Token #${tokenId} is not redeemable right now (vault status: ${cycle.status})`,
+        );
+      }
+    }
+  }
+
   async getVaultCustodyRows(
     tokenContract: string,
     tokenIds: string[],
@@ -825,6 +981,7 @@ export class VaultService {
 
   async listOpenRedemptionsForUser(
     userId: string,
+    chainId: number,
     tokenIds?: string[],
   ): Promise<
     Array<{
@@ -860,6 +1017,7 @@ export class VaultService {
       .innerJoin(RwaToken, 't', 't.vault_cycle_id = c.id')
       .where('r.requested_by_user_id = :userId', { userId })
       .andWhere("r.status NOT IN ('failed', 'cancelled')")
+      .andWhere('COALESCE(r.chain_id, c.chain_id) = :chainId', { chainId })
       .orderBy('r.requested_at', 'DESC')
       .select([
         'r.id AS "redemptionId"',
@@ -1016,6 +1174,96 @@ export class VaultService {
     return this.redemptions.save(rows);
   }
 
+  /** In-app alerts when a paid redeem batch reaches full custody. */
+  async emitRedeemCustodyNotifications(
+    paymentBatchId: string,
+    chainId: SupportedChainId,
+    rows: VaultRedemption[],
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const ownerWallet = rows[0].ownerWalletAddress;
+    void this.notifications
+      .notifyRedeemPreparing({ ownerWallet, paymentBatchId, chainId })
+      .catch((e) => {
+        this.logger.warn(
+          `notifyRedeemPreparing failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+
+    const partnerTargets = await this.resolveSelfVaultPartnerShipTargets(rows);
+    for (const target of partnerTargets) {
+      void this.notifications
+        .notifySellerRedeemShipRequired({
+          partnerWallet: target.partnerWallet,
+          redemptionId: target.redemptionId,
+          tokenId: target.tokenId,
+          chainId,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifySellerRedeemShipRequired failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
+  }
+
+  private async resolveSelfVaultPartnerShipTargets(
+    rows: VaultRedemption[],
+  ): Promise<
+    Array<{ redemptionId: string; partnerWallet: string; tokenId: string }>
+  > {
+    if (rows.length === 0) return [];
+    const cycleIds = [...new Set(rows.map((r) => r.vaultCycleId))];
+    const tokens = await this.rwaTokens.find({
+      where: { vaultCycleId: In(cycleIds) },
+    });
+    const tokenByCycle = new Map(tokens.map((t) => [t.vaultCycleId as string, t]));
+    const partnerIds = [
+      ...new Set(
+        tokens
+          .filter(
+            (t) =>
+              t.settlementPolicy === 'self_vault_hold' && t.vaultPartnerId,
+          )
+          .map((t) => t.vaultPartnerId!)
+          .filter(Boolean),
+      ),
+    ];
+    if (partnerIds.length === 0) return [];
+
+    const partners = await this.marketplacePartners.find({
+      where: { id: In(partnerIds), isActive: true },
+      select: ['id', 'walletAddress'],
+    });
+    const walletByPartnerId = new Map(
+      partners.map((p) => [p.id, p.walletAddress.trim().toLowerCase()]),
+    );
+
+    const out: Array<{
+      redemptionId: string;
+      partnerWallet: string;
+      tokenId: string;
+    }> = [];
+    for (const row of rows) {
+      const token = tokenByCycle.get(row.vaultCycleId);
+      if (
+        !token ||
+        token.settlementPolicy !== 'self_vault_hold' ||
+        !token.vaultPartnerId
+      ) {
+        continue;
+      }
+      const partnerWallet = walletByPartnerId.get(token.vaultPartnerId);
+      if (!partnerWallet) continue;
+      out.push({
+        redemptionId: row.id,
+        partnerWallet,
+        tokenId: String(token.tokenId),
+      });
+    }
+    return out;
+  }
+
   /** Full deposit/redeem history for a physical asset — ops visibility + audit. */
   async getHistoryForCert(
     certNumber: string,
@@ -1130,13 +1378,27 @@ export class VaultService {
     return fromRow && /^\d+$/.test(fromRow) ? fromRow : null;
   }
 
-  async findRedemptionsByBatchId(paymentBatchId: string) {
+  async findRedemptionsByBatchId(
+    paymentBatchId: string,
+    chainId?: number,
+  ) {
     const id = paymentBatchId.trim();
     if (!id) return [];
-    return this.redemptions.find({
-      where: { paymentBatchId: id },
-      order: { requestedAt: 'ASC' },
-    });
+
+    if (chainId == null) {
+      return this.redemptions.find({
+        where: { paymentBatchId: id },
+        order: { requestedAt: 'ASC' },
+      });
+    }
+
+    return this.redemptions
+      .createQueryBuilder('r')
+      .innerJoin(VaultCycle, 'c', 'c.id = r.vault_cycle_id')
+      .where('r.payment_batch_id = :batchId', { batchId: id })
+      .andWhere('COALESCE(r.chain_id, c.chain_id) = :chainId', { chainId })
+      .orderBy('r.requested_at', 'ASC')
+      .getMany();
   }
 
   /** Open redeem for a vault cycle (excludes terminal statuses). */

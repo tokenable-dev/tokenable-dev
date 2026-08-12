@@ -224,8 +224,8 @@ Ops can also approve a user as partner from **Users → detail → 파트너 승
 |--------|------|-------------|
 | GET | `/api/marketplace/admin/partners` | List partners (`hasPrivateKey`, `hasCompanyAddress`, no key material) |
 | GET | `/api/marketplace/admin/partners/:id` | Get partner |
-| GET | `/api/marketplace/admin/partners/:id/company-address` | Partner company / Self-vault Origin address |
-| PUT | `/api/marketplace/admin/partners/:id/company-address` | Upsert company Origin address (FedEx ship-from) |
+| GET | `/api/marketplace/admin/partners/:id/company-address` | Partner company / Partner vault Origin address |
+| PUT | `/api/marketplace/admin/partners/:id/company-address` | Upsert company Origin (FedEx ship-from; same SoT as partner Settings) |
 | POST | `/api/marketplace/admin/partners` | Create `{ displayName, walletAddress, privateKey?, isActive? }` |
 | PATCH | `/api/marketplace/admin/partners/:id` | Update display name / active / add or rotate `privateKey` |
 | GET | `/api/marketplace/partners/me` | JWT — partner session + company address status |
@@ -276,6 +276,8 @@ Excel/CSV **certNumber + price** → **prepare** (PSA + IPFS) → **one approve*
 
 **Item statuses:** `pending` · `preparing` · `ready` · `minting` · `minted` · `listed` · `prepare_failed` · `mint_failed` · `list_failed` · `skipped`
 
+Prepare downloads each PSA slab once → IPFS (`metadata.image`) + S3 (`slab_display_image_url` on the item, then `rwa_tokens.display_image_url` at commit). If S3 ingest fails, prepare still succeeds when IPFS upload works (`slab_display_image_url` null). If PSA has no slab image, the item becomes `prepare_failed`.
+
 **Example (JSON):**
 
 ```bash
@@ -291,7 +293,30 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
   }'
 ```
 
-**Existing DB:** apply `add_marketplace_partners.sql` then `add_bulk_mint_tables.sql`. If upgrading from custody-recipient bulk mint, use `migrate_bulk_mint_to_partner_list.sql`.
+**Existing DB:** apply `add_marketplace_partners.sql` then `add_bulk_mint_tables.sql`. If upgrading from custody-recipient bulk mint, use `migrate_bulk_mint_to_partner_list.sql`. For S3 slab URLs on job items: `add_bulk_mint_slab_display_image_url.sql`.
+
+---
+
+## RWA slab display images (backfill)
+
+**Controller:** `backend/src/rwa/admin/rwa-slab-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/rwa-slab`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/backfill-display-images` | Copy slab images to S3 for `rwa_tokens` missing `display_image_url` (reads IPFS metadata for HTTPS source) |
+
+Body: `{ "limit": 50, "dryRun": false }` (optional; `limit` 1–500, default 50).
+
+Per-row outcomes: `updated` · `skipped` (`no_cert_number`, `no_token_uri`, `no_https_image_source`, `s3_not_configured`) · `failed` (`metadata_fetch_failed`, `s3_ingest_failed`) · `dry_run`. Safe to re-run.
+
+```bash
+curl -X POST "$API/marketplace/admin/rwa-slab/backfill-display-images" \
+  -H "Cookie: marketplace_admin_session=…" \
+  -H "x-tokenable-chain-id: 84532" \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 100, "dryRun": true}'
+```
 
 ---
 
@@ -316,6 +341,7 @@ Lists `vault_redemptions` joined to `vault_cycles` + `rwa_tokens` (tokenId, cert
 | POST | `/batches/:batchId/refund-usdc` | One PLATFORM_FEE USDC transfer of recorded micros to first row’s owner; idempotent if already `usdc_refunded`/`fully_refunded`. Status → `refunded` when NFT already returned or never in custody; else `refundStatus=usdc_refunded` |
 | POST | `/:id/return-nft` | Custody → owner NFT transfer; requires `in_custody` or `custody_at` |
 | POST | `/batches/:batchId/refund-full` | `refund-usdc` then return every NFT still in custody |
+| POST | `/purge-all` | **Dev/staging only** (`NODE_ENV !== production`). Body `{ confirm: "DELETE_ALL_REDEEMS" }`. Deletes all `vault_redemptions` + `vault_redeem_payment_claims`; resets `vault_cycles` stuck in `redemption_requested`/`redeemed` → `minted`; clears `rwa_tokens.burned_at` / `burn_tx_hash` (DB only — on-chain state unchanged). |
 
 Requires `add_vault_redemptions_custody_refund.sql` applied. Does not change FedEx / rating paths.
 
@@ -332,11 +358,15 @@ Requires `add_vault_redemptions_custody_refund.sql` applied. Does not change Fed
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/counts` | Pipeline status counts (`all`, `draft` legacy, `awaiting_shipment`, `in_transit`, `psa_reviewing`, `completed`, `cancelled`) |
-| GET | `/arrival-reviews` | PSA Items Received mail queue (`?status=pending\|confirmed\|dismissed`). Includes `ingestNote` when parse was incomplete (`no_certs`, etc.) |
+| GET | `/arrival-reviews` | PSA Items Received mail queue (`?status=pending\|confirmed\|dismissed`). Response includes `confirmedVia` (`auto` \| `admin`), `skippedPublicIds`, `ingestNote` when parse incomplete |
 | POST | `/arrival-reviews/test-inject` | **TEST** inject Items Received into Gmail + poll (`PSA_RECEIVED_MAIL_TEST_INJECT=1`). Body: `{ cert, cardLabel? }` |
-| POST | `/arrival-reviews/:reviewId/confirm` | Confirm mail → mark matched packages arrived (`psa_reviewing`) |
+| POST | `/arrival-reviews/:reviewId/confirm` | Manual confirm → mark matched packages arrived (`psa_reviewing`); sets `confirmedVia=admin` |
 | POST | `/arrival-reviews/:reviewId/dismiss` | Dismiss without status change |
 | GET | `/mint-queue` | Flat list of cards at PSA (`reviewing`/`approved` on `psa_reviewing` packages). `?q=` |
+| GET | `/vaulted-reviews` | Items Vaulted (secured) mail audit (`?status=pending\|minted\|failed\|dismissed`). Includes `mintedVia`, `mintResults` |
+| POST | `/vaulted-reviews/test-inject` | **TEST** inject vaulted Gmail + poll/auto-mint (`PSA_VAULTED_MAIL_TEST_INJECT=1` or `PSA_RECEIVED_MAIL_TEST_INJECT=1`) |
+| POST | `/vaulted-reviews/:reviewId/mint` | Manual mint & deliver for a vaulted review |
+| POST | `/vaulted-reviews/:reviewId/dismiss` | Dismiss without minting |
 | POST | `/:idOrPublicId/items/:itemId/mint-and-deliver` | PSA analyze → IPFS → custody mint → deliver to depositor wallet (requires `x-tokenable-chain-id`). Item → `completed` / Live. If cert already has open `minted` cycle on chain, adopts existing token (no remint; may return `adoptedExisting`). Image fallback: PSA front → Cardhedger mint → item → Cardhedger catalog (collection-cover path) → Tokenable logo |
 | GET | `/` | List submissions (`?status=&q=` — public id, email, name, cert) |
 | GET | `/:idOrPublicId` | Detail + user email/name + items |

@@ -13,6 +13,7 @@ describe('SelfVaultSettlementService.computeSellerPayoutMicros', () => {
       { get: () => bps } as never,
       {} as never,
       { isConfigured: () => false } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
     );
   }
 
@@ -35,6 +36,7 @@ describe('SelfVaultSettlementService.autoPayoutDelaySeconds', () => {
       { get: (k: string) => env[k] } as never,
       {} as never,
       { isConfigured: () => false } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
     );
   }
 
@@ -64,6 +66,8 @@ describe('SelfVaultSettlementService.executePayout', () => {
       status: 'pending_confirm',
       sellerWallet: '0xabc',
       sellerPayoutUsdc: '950000',
+      tokenId: '42',
+      orderHash: '0xorder',
       chainId: 11155111,
       confirmedAt: null as Date | null,
       payoutTxHash: null as string | null,
@@ -85,6 +89,7 @@ describe('SelfVaultSettlementService.executePayout', () => {
       { get: () => undefined } as never,
       {} as never,
       platformFeeWallet as never,
+      { notifySellerPayoutDone: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     const out = await svc.executePayout('s1');
@@ -116,6 +121,7 @@ describe('SelfVaultSettlementService.executePayout', () => {
       { get: () => undefined } as never,
       {} as never,
       platformFeeWallet as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
     );
 
     await expect(svc.executePayout('s1')).resolves.toBe(row);
@@ -137,6 +143,7 @@ describe('SelfVaultSettlementService.autoPayoutCron', () => {
       } as never,
       {} as never,
       { isConfigured: () => true } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
     );
 
     await svc.autoPayoutCron();
@@ -161,6 +168,7 @@ describe('SelfVaultSettlementService.autoPayoutCron', () => {
       } as never,
       {} as never,
       { isConfigured: () => true } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
     );
     const pay = jest
       .spyOn(svc, 'executePayout')

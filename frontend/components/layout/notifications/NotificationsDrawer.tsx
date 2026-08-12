@@ -14,18 +14,13 @@ import {
   type NotificationIcon,
   type NotificationItem,
 } from "@/lib/notifications/notifications";
+import { isAddFundsNotification } from "@/lib/notifications/activateNotification";
 
 function hexToRgb(hex: string): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
-}
-
-function isAddFundsNotification(item: NotificationItem): boolean {
-  if (item.ctaLabel === "Add funds") return true;
-  const href = item.href ?? "";
-  return href.includes("addfunds=1");
 }
 
 function NotifIcon({ icon }: { icon: NotificationIcon }) {
@@ -86,7 +81,7 @@ function NotificationItemView({
             <img src={item.imageUrl} alt="" className="tk-notif-item__thumb" />
           ) : null}
         </div>
-        <p className="tk-notif-item__desc">{item.desc}</p>
+        {item.desc ? <p className="tk-notif-item__desc">{item.desc}</p> : null}
         <span className="tk-notif-item__time mono">{item.time}</span>
         {item.ctaLabel ? (
           <span className="tk-notif-item__cta">{item.ctaLabel}</span>

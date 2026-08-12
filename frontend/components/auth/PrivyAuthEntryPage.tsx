@@ -39,7 +39,7 @@ export function PrivyAuthEntryPage({ mode = "login" }: PrivyAuthEntryPageProps) 
   if (!ready) {
     return (
       <div
-        className="secondary-page secondary-page--centered"
+        className="secondary-page secondary-page--auth secondary-page--centered"
         aria-busy
         aria-label="Loading"
       >
@@ -49,8 +49,13 @@ export function PrivyAuthEntryPage({ mode = "login" }: PrivyAuthEntryPageProps) 
   }
 
   return (
-    <div className="secondary-page secondary-page--centered px-4">
+    <div className="secondary-page secondary-page--auth secondary-page--centered px-4">
       <div className="secondary-auth-card">
+        <img
+          className="secondary-auth-card__logo"
+          src="/assets/ds/logo-tokenable.svg"
+          alt="Tokenable"
+        />
         <h1 className="secondary-auth-card__title">{title}</h1>
         <p className="secondary-auth-card__text">{subtitle}</p>
         <div className="flex justify-center">

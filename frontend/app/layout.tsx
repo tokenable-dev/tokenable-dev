@@ -8,6 +8,7 @@ import { ASSETS } from "@/constants/assets";
 import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 import { SiteAnalytics } from "@/components/analytics";
 import { PartnerCompanyAddressRequiredModal } from "@/components/partner/PartnerCompanyAddressRequiredModal";
+import { NotificationToastsHost } from "@/components/layout/notifications/NotificationToastsHost";
 import { cn } from "@/lib/ds/cn";
 import { Suspense } from "react";
 
@@ -72,6 +73,9 @@ export default function RootLayout({
               <TkHeader />
               <Suspense fallback={null}>
                 <PartnerCompanyAddressRequiredModal />
+              </Suspense>
+              <Suspense fallback={null}>
+                <NotificationToastsHost />
               </Suspense>
               <main className={cn(MOBILE_PAGE_SHELL_CLASS, "tk-shell-main flex flex-col")}>
                 {children}

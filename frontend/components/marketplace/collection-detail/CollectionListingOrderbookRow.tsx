@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { TkButton, TkTag } from "@/components/ds";
 import type { Order } from "@/lib/core";
-import { listingVerifiedCollectorLabel } from "@/lib/marketplace/collectionListingModalHelpers";
+import { listingVaultBadge } from "@/lib/marketplace/collectionListingModalHelpers";
 
 function formatUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
     if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   } catch {
     return "—";
   }
@@ -33,7 +33,7 @@ export function CollectionListingOrderbookRow({
   const fromQs = `fromCollection=${encodeURIComponent(collectionKey)}`;
   const detailHref = `/marketplace/${tokenId}?${fromQs}`;
   const price = formatUsdc(listing.considerationAmount);
-  const seller = listingVerifiedCollectorLabel(listing);
+  const vault = listingVaultBadge(listing);
 
   const thumb = imageUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -59,8 +59,11 @@ export function CollectionListingOrderbookRow({
       )}
       <div className="cd-listing-orderbook__meta">
         <div className="cd-listing-orderbook__price">${price}</div>
-        <div className="cd-listing-orderbook__seller tkl-mono" title={seller.title}>
-          {seller.label}
+        <div
+          className={`cd-listing-orderbook__seller tkl-mono cd-listing-orderbook__vault--${vault.tone}`}
+          title={vault.title}
+        >
+          {vault.label}
         </div>
       </div>
       {gradeLabel ? (

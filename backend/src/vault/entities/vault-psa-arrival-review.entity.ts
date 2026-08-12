@@ -14,8 +14,7 @@ export type VaultPsaArrivalReviewStatus =
   | 'dismissed';
 
 /**
- * PSA “Items Received” mail queued for ops review before Ship→PSA.
- * Mail poll never auto-advances packages — admin confirm calls mark arrived.
+ * PSA “Items Received” mail → Ship→PSA via Gmail poll (auto) or admin confirm.
  */
 @Entity('vault_psa_arrival_reviews')
 @Unique('vault_psa_arrival_reviews_gmail_message_unique', ['gmailMessageId'])
@@ -51,6 +50,14 @@ export class VaultPsaArrivalReview {
   @Index()
   @Column({ type: 'varchar', length: 24, default: 'pending' })
   status: VaultPsaArrivalReviewStatus;
+
+  /** Set when status becomes confirmed — auto (Gmail poll) or admin. */
+  @Column({ name: 'confirmed_via', type: 'varchar', length: 16, nullable: true })
+  confirmedVia: 'auto' | 'admin' | null;
+
+  /** Packages that failed mark-arrived at confirm (audit). */
+  @Column({ name: 'skipped_public_ids', type: 'jsonb', default: () => "'[]'" })
+  skippedPublicIds: string[];
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
   reviewedAt: Date | null;

@@ -29,7 +29,7 @@ export function VaultHubView() {
   }
 
   if (!user) {
-    return <VaultLandingView onSignIn={() => openSignIn({ returnTo: "/sell" })} />;
+    return <VaultLandingView onSignIn={() => openSignIn({ returnTo: "/vault" })} />;
   }
 
   return (

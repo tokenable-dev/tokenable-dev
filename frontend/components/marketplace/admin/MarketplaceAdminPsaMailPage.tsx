@@ -27,9 +27,19 @@ type ReviewFilter = "pending" | "confirmed" | "dismissed";
 
 const FILTERS: { key: ReviewFilter; label: string }[] = [
   { key: "pending", label: "Pending" },
-  { key: "confirmed", label: "Confirmed" },
+  { key: "confirmed", label: "Processed" },
   { key: "dismissed", label: "Dismissed" },
 ];
+
+function confirmBadge(rev: {
+  status: string;
+  confirmedVia: "auto" | "admin" | null;
+}): string | null {
+  if (rev.status !== "confirmed") return null;
+  if (rev.confirmedVia === "auto") return "Auto-confirmed";
+  if (rev.confirmedVia === "admin") return "Confirmed manually";
+  return "Confirmed";
+}
 
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -51,14 +61,15 @@ export function MarketplaceAdminPsaMailPage() {
   const [testCardLabel, setTestCardLabel] = useState("");
 
   const arrivalReviewsQuery = useAdminPsaArrivalReviews(filter);
-  const { confirmArrivalReview, dismissArrivalReview, injectTestMail } =
+  const { confirmArrivalReview, dismissArrivalReview, injectTestMail, injectVaultedTestMail } =
     useAdminVaultSubmissionMutations();
 
   const arrivalReviews = arrivalReviewsQuery.data ?? [];
   const busy =
     confirmArrivalReview.isPending ||
     dismissArrivalReview.isPending ||
-    injectTestMail.isPending;
+    injectTestMail.isPending ||
+    injectVaultedTestMail.isPending;
   const isPendingTab = filter === "pending";
 
   const previewCert = testCert.trim() || "86507410";
@@ -79,7 +90,7 @@ export function MarketplaceAdminPsaMailPage() {
     <>
       <MarketplaceAdminPageHeader
         title="PSA mail inbox"
-        subtitle="Items Received mails from Gmail are queued here. Confirm to mark matched packages At PSA — mail never auto-advances status."
+        subtitle="Items Received mails from Gmail auto-advance matched packages to At PSA. Incomplete or unmatched mail stays in Pending for manual Confirm or Dismiss."
       />
 
       <div className={`${ADMIN_ARTICLE} mb-6`}>
@@ -138,13 +149,28 @@ export function MarketplaceAdminPsaMailPage() {
           </p>
         ) : (
           <ul className="space-y-3">
-            {arrivalReviews.map((rev) => (
+            {arrivalReviews.map((rev) => {
+              const badge = confirmBadge(rev);
+              return (
               <li key={rev.id} className={`${ADMIN_PANEL} p-4`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-sm font-semibold text-zinc-900">
-                      {rev.subject ?? "Items Received at PSA Vault"}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {rev.subject ?? "Items Received at PSA Vault"}
+                      </p>
+                      {badge ? (
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                            rev.confirmedVia === "auto"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-sky-100 text-sky-800"
+                          }`}
+                        >
+                          {badge}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className={`text-xs ${ADMIN_TEXT_META}`}>
                       {formatWhen(rev.createdAt)}
                       {rev.reviewedAt
@@ -167,6 +193,9 @@ export function MarketplaceAdminPsaMailPage() {
                       Certs: {rev.certs.join(", ") || "—"}
                       {rev.unmatchedCerts.length > 0
                         ? ` · unmatched: ${rev.unmatchedCerts.join(", ")}`
+                        : ""}
+                      {rev.skippedPublicIds.length > 0
+                        ? ` · skipped at confirm: ${rev.skippedPublicIds.join(", ")}`
                         : ""}
                     </p>
                     {(rev.packages ?? []).length === 0 ? (
@@ -233,11 +262,13 @@ export function MarketplaceAdminPsaMailPage() {
                   ) : (
                     <p className={`text-xs ${ADMIN_TEXT_MUTED} shrink-0`}>
                       {rev.status}
+                      {badge ? ` · ${badge}` : ""}
                     </p>
                   )}
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </div>
@@ -299,12 +330,13 @@ export function MarketplaceAdminPsaMailPage() {
             />
           </label>
           <div className={`rounded-md bg-zinc-50 p-3 text-xs ${ADMIN_TEXT_META}`}>
-            <p className="mb-1 font-medium text-zinc-700">Mail preview</p>
+            <p className="mb-1 font-medium text-zinc-700">Mail preview (arrival → At PSA)</p>
             <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-600">
               {`From: PSA Vault <noreply@collectors.com>
 Subject: Items Received at PSA Vault
 
-Your submission
+Items Vaulted
+Your items have been received and securely stored in your vault.
 
 ${previewCert} - ${previewLabel}`}
             </pre>
@@ -316,7 +348,75 @@ ${previewCert} - ${previewLabel}`}
           >
             {injectTestMail.isPending
               ? "Sending & polling…"
-              : "Send test mail & poll"}
+              : "Send test arrival mail & poll"}
+          </button>
+        </form>
+      </div>
+
+      <div className={`${ADMIN_ARTICLE} mb-6`}>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <AdminSectionTitle title="Send test Items Vaulted (secured) mail" />
+          <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
+            Auto mint &amp; deliver · requires{" "}
+            <code className="text-xs">PSA_RECEIVED_MAIL_TEST_INJECT=1</code>{" "}
+            (or{" "}
+            <code className="text-xs">PSA_VAULTED_MAIL_TEST_INJECT=1</code>) ·
+            cert must be on a{" "}
+            <Link
+              href="/marketplace/admin/vault/mint-queue"
+              className="text-sky-800 underline-offset-2 hover:underline"
+            >
+              mint-queue
+            </Link>{" "}
+            item
+          </p>
+        </div>
+        <form
+          className={`${ADMIN_PANEL} space-y-3 p-4`}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const cert = testCert.trim();
+            if (!/^\d{7,10}$/.test(cert)) {
+              setActionError(
+                "Cert must be 7–10 digits (from a psa_reviewing mint-queue item).",
+              );
+              return;
+            }
+            void run(async () => {
+              const res = await injectVaultedTestMail.mutateAsync({
+                cert,
+                cardLabel: testCardLabel.trim() || undefined,
+              });
+              setInjectOk(
+                `Injected vaulted message ${res.messageId} · queued ${res.poll.queued.length} · auto-minted ${res.poll.minted.length}`,
+              );
+            });
+          }}
+        >
+          <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>
+            Reuses the cert / label fields above. Body uses “now secured in your
+            PSA Vault” so the vaulted poller (not arrival) picks it up.
+          </p>
+          <div className={`rounded-md bg-zinc-50 p-3 text-xs ${ADMIN_TEXT_META}`}>
+            <p className="mb-1 font-medium text-zinc-700">Mail preview (vaulted → Live)</p>
+            <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-600">
+              {`From: PSA Vault <noreply@collectors.com>
+Subject: Items Received at PSA Vault
+
+Items Vaulted
+The following items are now secured in your PSA Vault.
+
+${previewCert} - ${previewLabel}`}
+            </pre>
+          </div>
+          <button
+            type="submit"
+            className={ADMIN_BTN_PRIMARY}
+            disabled={busy || !testCert.trim()}
+          >
+            {injectVaultedTestMail.isPending
+              ? "Sending, polling & minting…"
+              : "Send test vaulted mail & poll"}
           </button>
         </form>
       </div>

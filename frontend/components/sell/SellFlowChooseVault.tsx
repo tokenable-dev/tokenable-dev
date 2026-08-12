@@ -8,48 +8,98 @@ import type { SellVaultChoice } from "@/lib/sell/sellFlowDraft";
 type Flow = ReturnType<typeof useSellFlow>;
 
 const PARTNER_SELF_VAULT_HINT =
-  "Self vault is a partner service for companies under contract with Tokenable. To apply, contact ";
+  "Partner vault is a partner service for companies under contract with Tokenable. To apply, contact ";
 
+/** Choose-Vault.html #hero-partner — partner vault first, PSA second, no pre-selection. */
 const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
   {
     q: "What is a vault?",
-    a: "A vault is where a card sits while it is listed and traded. Because the card stays in one place, it can be bought and sold without being shipped each time. When you want the physical card, you redeem it.",
+    a: (
+      <>
+        A way to hold your card so you can sell or trade it instantly without shipping anything each
+        time. The real card stays safely stored; only ownership trades. With PSA Vault, PSA stores
+        it; with Partner vault, a contracted partner stores it.
+      </>
+    ),
   },
   {
-    q: "What is the difference between PSA Vault and Self vault?",
-    a: "With PSA Vault the card is sent to PSA, checked against its certification, and stored and insured there. With Self vault the owner keeps the card. We do not hold it, do not verify it and do not insure it.",
+    q: "What's the difference between PSA Vault and Partner vault?",
+    a: (
+      <>
+        <strong>PSA Vault</strong> — PSA verifies your card, stores it, insures it while stored, and
+        ships it when someone redeems. <strong>Partner vault</strong> — a contracted partner stores
+        it, attests to it, and ships it on redeem; it isn&rsquo;t independently PSA-verified or
+        insured by the platform. Every listing shows which vault a card is in.
+      </>
+    ),
   },
   {
-    q: "Which one should I choose?",
-    a: "Choose PSA Vault if you want the card verified and stored before it goes live, and you can wait for shipping and intake. Choose Self vault if you want to list today and you are comfortable standing behind the card yourself.",
+    q: "Can I choose Partner vault?",
+    a: (
+      <>
+        Partner vault is only for contracted partners. If you&rsquo;re an individual seller, your card
+        goes through <strong>PSA Vault</strong> — it&rsquo;s verified, insured while stored, and
+        shipped for you.
+      </>
+    ),
   },
   {
     q: "Is my card insured?",
-    a: "Cards are insured while they are stored at PSA Vault. Self vault cards are not insured by us — they stay in the owner's hands and under the owner's own arrangements.",
+    a: (
+      <>
+        Cards in <strong>PSA Vault</strong> are insured while stored.{" "}
+        <strong>Partner vault</strong> cards are not insured by the platform.
+      </>
+    ),
   },
   {
-    q: "If I sell a Self vault card, what am I responsible for?",
-    a: "Everything about the card. You confirm it is authentic, that the grade and cert number are correct, and that its condition matches your listing. You also ship it to the buyer when the sale requires it. If the card is not as described, that is on you, not on us.",
-  },
-  {
-    q: "Should I trust a Self vault listing when buying?",
-    a: "Judge it on its own. A Self vault card has not been checked by us or by PSA at listing time, and it is not held by us. The trust is between you and the seller. If you want a card that was verified before listing, look for the PSA Vault badge.",
+    q: "Should I trust a Partner vault listing when buying?",
+    a: (
+      <>
+        Partner vault cards are held and attested by a contracted partner, but they&rsquo;re not
+        independently PSA-verified or platform-insured. If you want independent verification and
+        insured storage, choose a <strong>PSA Vault</strong> listing. The badge on every listing
+        tells you which is which.
+      </>
+    ),
   },
   {
     q: "Are there fees?",
-    a: "Yes. Listing and selling carry a platform fee, and PSA Vault adds storage and intake costs. Redeeming a card has a shipping and handling cost, charged at what it costs — with no markup. The exact amounts are shown before you confirm anything.",
+    a: (
+      <>
+        Storing a card is free. Fees apply when someone <strong>redeems</strong> — that covers the
+        withdrawal and shipping. You&rsquo;ll see the exact cost before confirming, with no markup.
+      </>
+    ),
   },
   {
     q: "How do I get the physical card?",
-    a: "Redeem it. You enter a shipping address, review the cost, and confirm. For PSA Vault, PSA ships from the vault. For Self vault, the owner ships it themselves. See the redemption steps in your portfolio for details.",
+    a: (
+      <>
+        Redeem it: pick the card(s), enter your address, review the cost, confirm and pay. For{" "}
+        <strong>PSA Vault</strong>, PSA ships it from the vault; for <strong>Partner vault</strong>
+        , the partner ships it. Once it arrives it shows as <strong>in your possession</strong>.
+      </>
+    ),
   },
   {
-    q: "Can I sell without ever shipping?",
-    a: "If the card is in PSA Vault, yes — it stays in the vault and ownership transfers to the buyer. With Self vault the card is in your hands, so shipping is your responsibility when the buyer wants it.",
+    q: "Can I sell a card without ever shipping it?",
+    a: (
+      <>
+        Yes — that&rsquo;s the point. When it sells, ownership transfers instantly and the card stays
+        in its vault. It only ships when someone redeems.
+      </>
+    ),
   },
   {
     q: "Who verifies the card is real?",
-    a: "PSA does, for cards sent to PSA Vault — each card is matched to its certification at intake. For Self vault cards nobody verifies them on our side; the seller alone stands behind the card.",
+    a: (
+      <>
+        For <strong>PSA Vault</strong>, PSA grades and verifies it before listing. For{" "}
+        <strong>Partner vault</strong>, the contracted partner attests to it; it isn&rsquo;t
+        independently PSA-verified. The badge tells you which.
+      </>
+    ),
   },
 ];
 
@@ -91,7 +141,6 @@ function VaultOption({
   title: string;
   description: string;
   features: { text: string; tone?: "pos" | "warn" }[];
-  /** Individual sellers: Self vault stays selectable but visually unavailable. */
   gated?: boolean;
 }) {
   return (
@@ -130,7 +179,6 @@ function VaultOption({
   );
 }
 
-/** Choose-Vault Individual — PSA first, Self vault gated for non-partners + FAQ. */
 export function SellFlowChooseVault({ flow }: { flow: Flow }) {
   const {
     vaultChoice,
@@ -147,19 +195,21 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
 
   const continueLabel =
     vaultChoice === "self"
-      ? "Continue with self vault"
+      ? "Continue with partner vault"
       : vaultChoice === "psa"
         ? "Continue with PSA vault"
         : "Continue";
 
   const hint =
-    selfVaultPartnerOnly || selfVaultNeedsCompanyAddress
+    selfVaultNeedsCompanyAddress && vaultChoice === "self"
       ? null
-      : vaultChoice === "self" && selfVaultEligible
-        ? "Confirmed cards are listed straight from your own vault — no shipping, no review."
-        : vaultChoice === "psa"
-          ? "You'll ship these cards to PSA to be verified before they go live."
-          : "Pick a vault to continue.";
+      : selfVaultPartnerOnly
+        ? null
+        : vaultChoice === "self" && selfVaultEligible
+          ? "Your cards stay with you and are listed within minutes — no shipping, no review."
+          : vaultChoice === "psa"
+            ? "You'll ship these cards to PSA to be verified before they go live."
+            : "Pick a vault to continue.";
 
   return (
     <section className="sell-flow-screen">
@@ -179,6 +229,29 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
 
         <div className="sell-flow-vault-grid">
           <VaultOption
+            id="self"
+            selected={vaultChoice === "self"}
+            onSelect={() => selectVault("self")}
+            gated={selfGated}
+            badge="INSTANT"
+            badgeTone="pos"
+            icon={
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <circle cx="12" cy="12" r="3" />
+                <path d="M7 4v16M17 4v16" />
+              </svg>
+            }
+            title="Partner vault"
+            description="Cards you already hold. List them right away — no shipping, no review."
+            features={[
+              { text: "Listed within minutes" },
+              { text: "Stays in your own vault" },
+              { text: "You attest to authenticity and condition", tone: "warn" },
+              { text: "You ship on redeem", tone: "warn" },
+            ]}
+          />
+          <VaultOption
             id="psa"
             selected={vaultChoice === "psa"}
             onSelect={() => selectVault("psa")}
@@ -194,65 +267,11 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
             description="Send them to PSA. Once verified, your listing goes live."
             features={[
               { text: "Verified by PSA before it goes live" },
+              { text: "Insured while stored at PSA Vault" },
               { text: "Requires shipping and intake review", tone: "warn" },
             ]}
           />
-          <VaultOption
-            id="self"
-            selected={vaultChoice === "self"}
-            onSelect={() => selectVault("self")}
-            gated={selfGated}
-            badge="INSTANT"
-            badgeTone="pos"
-            icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <rect x="3" y="4" width="18" height="16" rx="2" />
-                <circle cx="12" cy="12" r="3" />
-                <path d="M7 4v16M17 4v16" />
-              </svg>
-            }
-            title="Self vault"
-            description="Cards you already hold. List them right away — no shipping, no review."
-            features={[
-              { text: "Listed within minutes" },
-              { text: "Stays in your own vault" },
-              { text: "You attest to authenticity and condition", tone: "warn" },
-            ]}
-          />
         </div>
-
-        <p
-          className={`sell-flow-vault-hint${
-            selfVaultPartnerOnly || selfVaultNeedsCompanyAddress
-              ? " sell-flow-vault-hint--partner"
-              : ""
-          }`}
-          role={
-            selfVaultPartnerOnly || selfVaultNeedsCompanyAddress
-              ? "alert"
-              : undefined
-          }
-        >
-          {selfVaultNeedsCompanyAddress ? (
-            <>
-              Add your company vault address before using Self vault.{" "}
-              <a className="sell-flow-link" href="/settings?section=addresses#partner-origin">
-                Open Settings → Addresses
-              </a>
-              .
-            </>
-          ) : selfVaultPartnerOnly ? (
-            <>
-              {PARTNER_SELF_VAULT_HINT}
-              <a className="sell-flow-link" href="mailto:dev@tokenable.com">
-                dev@tokenable.com
-              </a>
-              .
-            </>
-          ) : (
-            hint
-          )}
-        </p>
 
         <div className="sell-flow-vault-cta sell-flow-vault-cta--solo">
           <TkButton
@@ -266,8 +285,28 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
           </TkButton>
         </div>
 
+        {selfVaultNeedsCompanyAddress && vaultChoice === "self" ? (
+          <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
+            Add your company vault address before using Partner vault.{" "}
+            <a className="sell-flow-link" href="/settings?section=addresses#partner-origin">
+              Open Settings → Addresses
+            </a>
+            .
+          </p>
+        ) : selfVaultPartnerOnly ? (
+          <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
+            {PARTNER_SELF_VAULT_HINT}
+            <a className="sell-flow-link" href="mailto:dev@tokenable.com">
+              dev@tokenable.com
+            </a>
+            .
+          </p>
+        ) : hint ? (
+          <p className="sell-flow-vault-hint">{hint}</p>
+        ) : null}
+
         <div className="sell-flow-vault-faq-wrap">
-          <h2 className="sell-flow-vault-sec-h">FAQ</h2>
+          <h2 className="sell-flow-vault-sec-h">FAQs</h2>
           <p className="sell-flow-vault-sec-p">Answers for both sellers and buyers.</p>
           <div className="sell-flow-vault-faq">
             {FAQ_ITEMS.map((item) => (

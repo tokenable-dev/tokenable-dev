@@ -43,7 +43,7 @@ export function HomePartners() {
           </p>
         </div>
         <div className="home-partners__cta-actions">
-          <TkButton variant="primaryInv" size="md" onClick={() => navigate("/sell", 1)}>
+          <TkButton variant="primaryInv" size="md" onClick={() => navigate("/vault", 0)}>
             Start selling <span className="tkl-mono text-[17px]">↗</span>
           </TkButton>
         </div>

@@ -14,6 +14,7 @@ export type NotificationItem = {
   href?: string | null;
   unread?: boolean;
   ctaLabel?: string | null;
+  eventKey?: string | null;
 };
 
 export const NOTIFICATION_FILTERS: {

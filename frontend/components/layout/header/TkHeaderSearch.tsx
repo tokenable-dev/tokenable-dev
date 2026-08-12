@@ -21,22 +21,75 @@ import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsT
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
+/** poiu/index.html — desktop + mobile use the same placeholder */
 const SEARCH_PLACEHOLDER = "Search cards, sets, players…";
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width={20}
-      height={20}
+      width={18}
+      height={18}
       fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
       aria-hidden
       style={muted ? { opacity: 0.4 } : undefined}
     >
-      <circle cx={11} cy={11} r={7} stroke="currentColor" strokeWidth={2} />
-      <line x1={16.5} y1={16.5} x2={21} y2={21} stroke="currentColor" strokeWidth={2} />
+      <circle cx={11} cy={11} r={7} />
+      <line x1={16.5} y1={16.5} x2={21} y2={21} />
     </svg>
   );
+}
+
+/** DS Search `type="search"` clear — custom so it shows on all browsers. */
+function SearchClearButton({
+  onClick,
+  className,
+}: {
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn("tk-search__clear", className)}
+      onClick={onClick}
+      aria-label="Clear search"
+      tabIndex={-1}
+    >
+      <svg viewBox="0 0 16 16" width={10} height={10} aria-hidden>
+        <path
+          d="M3.5 3.5l9 9M12.5 3.5l-9 9"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
+function formatSearchMeta(c: MarketplaceCollectionSummary): string {
+  const comp = c.components;
+  const company = (comp.gradingCompanyDisplay || comp.gradingCompany || "PSA").trim();
+  const score = (comp.gradeScore || "").trim();
+  const grade = score ? `${company} ${score}` : company;
+  const set =
+    (comp.cardSetDisplay || comp.psaBrand || comp.cardSet || "").trim() ||
+    (c.queryUsed ? toCardDisplayUppercase(c.queryUsed) : "");
+  if (grade && set) return `${grade} · ${set}`;
+  if (grade) return grade;
+  if (set) return set;
+  const n = c.activeListingCount;
+  return `${n} listing${n !== 1 ? "s" : ""}`;
+}
+
+function formatSearchPrice(c: MarketplaceCollectionSummary): string | null {
+  const usd = c.components.psaEstimateUsd;
+  if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
+  return `$${Math.round(usd).toLocaleString("en-US")}`;
 }
 
 function SearchResultsList({
@@ -47,6 +100,7 @@ function SearchResultsList({
   searchTruncated,
   isSearching,
   coverUrlMap,
+  heading,
 }: {
   filtered: MarketplaceCollectionSummary[];
   highlightIdx: number;
@@ -55,6 +109,7 @@ function SearchResultsList({
   searchTruncated: boolean;
   isSearching: boolean;
   coverUrlMap: Map<string, string>;
+  heading?: string | null;
 }) {
   if (filtered.length === 0) {
     return (
@@ -66,6 +121,7 @@ function SearchResultsList({
 
   return (
     <div role="listbox">
+      {heading ? <h4 className="gnb-search-dropdown__heading">{heading}</h4> : null}
       {searchTruncated ? (
         <p className="gnb-search-truncated">
           Showing top matches — type more to narrow.
@@ -74,6 +130,7 @@ function SearchResultsList({
       {filtered.map((c, i) => {
         const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
         const selected = i === highlightIdx;
+        const price = formatSearchPrice(c);
         return (
           <button
             key={c.collectionKey}
@@ -107,11 +164,13 @@ function SearchResultsList({
               <div className="gnb-search-item__name">
                 {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
               </div>
-              <div className="gnb-search-item__meta">
-                {c.activeListingCount} listing{c.activeListingCount !== 1 ? "s" : ""}
-                {c.queryUsed ? ` · ${toCardDisplayUppercase(c.queryUsed)}` : ""}
-              </div>
+              <div className="gnb-search-item__meta">{formatSearchMeta(c)}</div>
             </div>
+            {price ? (
+              <div className="gnb-search-item__price">
+                <div className="gnb-search-item__price-val">{price}</div>
+              </div>
+            ) : null}
           </button>
         );
       })}
@@ -165,6 +224,17 @@ export function TkHeaderSearch({
     desktopInputRef.current?.blur();
     mobileInputRef.current?.blur();
   }, [setMobileOverlayOpen]);
+
+  const clearQuery = useCallback(() => {
+    setQuery("");
+    setHighlightIdx(-1);
+    if (gnbMobile) {
+      mobileInputRef.current?.focus();
+    } else {
+      desktopInputRef.current?.focus();
+      setDesktopOpen(true);
+    }
+  }, [gnbMobile]);
 
   useEffect(() => {
     if (!mobileOverlayOpen) return;
@@ -260,18 +330,30 @@ export function TkHeaderSearch({
               <span className="gnb-search-overlay__bar-icon" aria-hidden>
                 <SearchIcon muted />
               </span>
-              <input
-                ref={mobileInputRef}
-                className="gnb-search-overlay__input"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={SEARCH_PLACEHOLDER}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                enterKeyHint="search"
-              />
+              <div className="gnb-search-overlay__field">
+                <input
+                  ref={mobileInputRef}
+                  className={cn(
+                    "gnb-search-overlay__input",
+                    query.length > 0 && "has-clear",
+                  )}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={SEARCH_PLACEHOLDER}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="search"
+                />
+                {query.length > 0 ? (
+                  <SearchClearButton
+                    className="gnb-search-overlay__clear"
+                    onClick={clearQuery}
+                  />
+                ) : null}
+              </div>
               <button
                 type="button"
                 className="gnb-search-overlay__cancel"
@@ -295,6 +377,7 @@ export function TkHeaderSearch({
                   searchTruncated={searchTruncated}
                   isSearching={isSearching}
                   coverUrlMap={coverUrlMap}
+                  heading="Results"
                 />
               )}
             </div>
@@ -307,12 +390,19 @@ export function TkHeaderSearch({
     <>
       {!gnbMobile ? (
         <div ref={desktopWrapperRef} className="gnb-search-anchor">
-          <div className={cn("tk-search", compact && "tk-search--compact")}>
+          <div
+            className={cn(
+              "tk-search",
+              compact && "tk-search--compact",
+              query.length > 0 && "tk-search--has-clear",
+            )}
+          >
             <span className="tk-search__icon">
               <SearchIcon />
             </span>
             <TkInput
               ref={desktopInputRef}
+              type="search"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -325,6 +415,9 @@ export function TkHeaderSearch({
               autoCorrect="off"
               spellCheck={false}
             />
+            {query.length > 0 ? (
+              <SearchClearButton onClick={clearQuery} />
+            ) : null}
           </div>
           <div className={cn("gnb-search-dropdown", showDesktopDropdown && "open")}>
             <SearchResultsList
@@ -335,6 +428,7 @@ export function TkHeaderSearch({
               searchTruncated={searchTruncated}
               isSearching={isSearching}
               coverUrlMap={coverUrlMap}
+              heading="Results"
             />
           </div>
         </div>

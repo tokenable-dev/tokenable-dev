@@ -23,6 +23,10 @@ import {
   VaultPsaArrivalReview,
   type VaultPsaArrivalReviewStatus,
 } from './entities/vault-psa-arrival-review.entity';
+import {
+  VaultPsaVaultedReview,
+  type VaultPsaVaultedReviewStatus,
+} from './entities/vault-psa-vaulted-review.entity';
 
 export type VaultSubmissionScenario = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 
@@ -49,6 +53,8 @@ export class VaultSubmissionService {
     private readonly items: Repository<VaultSubmissionItem>,
     @InjectRepository(VaultPsaArrivalReview)
     private readonly arrivalReviews: Repository<VaultPsaArrivalReview>,
+    @InjectRepository(VaultPsaVaultedReview)
+    private readonly vaultedReviews: Repository<VaultPsaVaultedReview>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -773,7 +779,8 @@ export class VaultSubmissionService {
   }
 
   /**
-   * Queue an Items Received mail for admin review (no auto Ship→PSA).
+   * Queue an Items Received mail for admin review.
+   * When `autoConfirmEligible`, Gmail poll may immediately mark matched packages arrived.
    * Idempotent on gmailMessageId.
    */
   async enqueuePsaArrivalReview(input: {
@@ -783,11 +790,21 @@ export class VaultSubmissionService {
     certs: string[];
     /** Set when parse did not fully match (e.g. no_certs) so ops can still see the mail. */
     ingestNote?: string | null;
+    /** True when parsePsaReceivedMail returned matched — enables auto-confirm. */
+    autoConfirmEligible?: boolean;
   }): Promise<VaultPsaArrivalReview> {
     const existing = await this.arrivalReviews.findOne({
       where: { gmailMessageId: input.gmailMessageId },
     });
-    if (existing) return existing;
+    if (existing) {
+      if (existing.status === 'pending' && input.autoConfirmEligible) {
+        await this.maybeAutoConfirmPsaArrivalReview(existing.id);
+      }
+      return (
+        (await this.arrivalReviews.findOne({ where: { id: existing.id } })) ??
+        existing
+      );
+    }
 
     const match = await this.findOpenPackagesByCerts(input.certs);
     const row = this.arrivalReviews.create({
@@ -807,6 +824,8 @@ export class VaultSubmissionService {
       unmatchedCerts: match.unmatchedCerts,
       ingestNote: input.ingestNote?.trim() || null,
       status: 'pending',
+      confirmedVia: null,
+      skippedPublicIds: [],
     });
     // Prefer storing the full cert list from the mail when parse had certs.
     if (input.certs.length) {
@@ -818,7 +837,13 @@ export class VaultSubmissionService {
         ),
       ];
     }
-    return this.arrivalReviews.save(row);
+    const saved = await this.arrivalReviews.save(row);
+    if (input.autoConfirmEligible) {
+      await this.maybeAutoConfirmPsaArrivalReview(saved.id);
+    }
+    return (
+      (await this.arrivalReviews.findOne({ where: { id: saved.id } })) ?? saved
+    );
   }
 
   async listPsaArrivalReviews(status?: VaultPsaArrivalReviewStatus) {
@@ -831,7 +856,122 @@ export class VaultSubmissionService {
       order: { createdAt: 'DESC' },
       take: 100,
     });
+    return this.toArrivalReviewDtos(rows);
+  }
 
+  /** Admin confirms mail match → mark matched open packages arrived. */
+  async confirmPsaArrivalReview(reviewId: string) {
+    return this.applyPsaArrivalConfirm(reviewId, 'admin');
+  }
+
+  /**
+   * Gmail poll: auto-confirm when parse matched and open packages exist.
+   * Stays pending when auto is disabled, ingest incomplete, or no open package match.
+   */
+  async maybeAutoConfirmPsaArrivalReview(reviewId: string): Promise<{
+    confirmed: boolean;
+    reason?: string;
+  }> {
+    if (!VaultSubmissionService.isAutoConfirmEnabled()) {
+      return { confirmed: false, reason: 'auto_confirm_disabled' };
+    }
+    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
+    if (!review) return { confirmed: false, reason: 'not_found' };
+    if (review.status !== 'pending') {
+      return { confirmed: false, reason: `already_${review.status}` };
+    }
+    if (review.ingestNote) {
+      return { confirmed: false, reason: 'ingest_incomplete' };
+    }
+    const match = await this.findOpenPackagesByCerts(review.certs ?? []);
+    if (match.packages.length === 0) {
+      return { confirmed: false, reason: 'no_open_packages' };
+    }
+    try {
+      await this.applyPsaArrivalConfirm(reviewId, 'auto');
+      return { confirmed: true };
+    } catch (e) {
+      this.logger.warn(
+        `maybeAutoConfirmPsaArrivalReview failed reviewId=${reviewId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return { confirmed: false, reason: 'apply_failed' };
+    }
+  }
+
+  private static isAutoConfirmEnabled(): boolean {
+    const v = process.env.PSA_RECEIVED_MAIL_AUTO_CONFIRM?.trim();
+    return v !== '0' && v !== 'false';
+  }
+
+  private async applyPsaArrivalConfirm(
+    reviewId: string,
+    via: 'auto' | 'admin',
+  ) {
+    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Arrival review not found');
+    if (review.status !== 'pending') {
+      throw new BadRequestException(`Review is already ${review.status}`);
+    }
+
+    const match = await this.findOpenPackagesByCerts(review.certs ?? []);
+    const markedPublicIds: string[] = [];
+    const skippedPublicIds: string[] = [];
+    for (const pkg of match.packages) {
+      try {
+        await this.adminMarkArrived(pkg.id);
+        markedPublicIds.push(pkg.publicId);
+      } catch (e) {
+        skippedPublicIds.push(pkg.publicId);
+        this.logger.warn(
+          `applyPsaArrivalConfirm(${via}) skip ${pkg.publicId}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    if (via === 'auto' && markedPublicIds.length === 0) {
+      throw new BadRequestException(
+        'Auto-confirm found no packages to mark arrived',
+      );
+    }
+
+    review.status = 'confirmed';
+    review.confirmedVia = via;
+    review.reviewedAt = new Date();
+    review.skippedPublicIds = skippedPublicIds;
+    review.matchedPublicIds = [
+      ...new Set([...(review.matchedPublicIds ?? []), ...markedPublicIds]),
+    ];
+    review.unmatchedCerts = match.unmatchedCerts;
+    await this.arrivalReviews.save(review);
+
+    return {
+      review: await this.getArrivalReviewDto(review.id),
+      markedPublicIds,
+      skippedPublicIds,
+      unmatchedCerts: match.unmatchedCerts,
+    };
+  }
+
+  async dismissPsaArrivalReview(reviewId: string) {
+    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Arrival review not found');
+    if (review.status !== 'pending') {
+      throw new BadRequestException(`Review is already ${review.status}`);
+    }
+    review.status = 'dismissed';
+    review.reviewedAt = new Date();
+    await this.arrivalReviews.save(review);
+    return this.getArrivalReviewDto(review.id);
+  }
+
+  private async getArrivalReviewDto(id: string) {
+    const entity = await this.arrivalReviews.findOne({ where: { id } });
+    if (!entity) throw new NotFoundException('Arrival review not found');
+    const [dto] = await this.toArrivalReviewDtos([entity]);
+    return dto;
+  }
+
+  private async toArrivalReviewDtos(rows: VaultPsaArrivalReview[]) {
     const publicIds = [
       ...new Set(rows.flatMap((r) => r.matchedPublicIds ?? [])),
     ];
@@ -880,70 +1020,14 @@ export class VaultSubmissionService {
       matchedPublicIds: r.matchedPublicIds ?? [],
       ingestNote: r.ingestNote ?? null,
       status: r.status,
+      confirmedVia: r.confirmedVia ?? null,
+      skippedPublicIds: r.skippedPublicIds ?? [],
       reviewedAt: r.reviewedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
       packages: (r.matchedPublicIds ?? [])
         .map((pid) => packageByPublic.get(pid))
         .filter(Boolean),
     }));
-  }
-
-  /** Admin confirms mail match → mark matched open packages arrived. */
-  async confirmPsaArrivalReview(reviewId: string) {
-    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
-    if (!review) throw new NotFoundException('Arrival review not found');
-    if (review.status !== 'pending') {
-      throw new BadRequestException(`Review is already ${review.status}`);
-    }
-
-    const match = await this.findOpenPackagesByCerts(review.certs ?? []);
-    const markedPublicIds: string[] = [];
-    const skippedPublicIds: string[] = [];
-    for (const pkg of match.packages) {
-      try {
-        await this.adminMarkArrived(pkg.id);
-        markedPublicIds.push(pkg.publicId);
-      } catch (e) {
-        skippedPublicIds.push(pkg.publicId);
-        this.logger.warn(
-          `confirmPsaArrivalReview skip ${pkg.publicId}: ${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
-    }
-
-    review.status = 'confirmed';
-    review.reviewedAt = new Date();
-    review.matchedPublicIds = [
-      ...new Set([...(review.matchedPublicIds ?? []), ...markedPublicIds]),
-    ];
-    review.unmatchedCerts = match.unmatchedCerts;
-    await this.arrivalReviews.save(review);
-
-    return {
-      review: await this.getArrivalReviewDto(review.id),
-      markedPublicIds,
-      skippedPublicIds,
-      unmatchedCerts: match.unmatchedCerts,
-    };
-  }
-
-  async dismissPsaArrivalReview(reviewId: string) {
-    const review = await this.arrivalReviews.findOne({ where: { id: reviewId } });
-    if (!review) throw new NotFoundException('Arrival review not found');
-    if (review.status !== 'pending') {
-      throw new BadRequestException(`Review is already ${review.status}`);
-    }
-    review.status = 'dismissed';
-    review.reviewedAt = new Date();
-    await this.arrivalReviews.save(review);
-    return this.getArrivalReviewDto(review.id);
-  }
-
-  private async getArrivalReviewDto(id: string) {
-    const list = await this.listPsaArrivalReviews();
-    const row = list.find((r) => r.id === id);
-    if (!row) throw new NotFoundException('Arrival review not found');
-    return row;
   }
 
   /**
@@ -981,6 +1065,317 @@ export class VaultSubmissionService {
       markedPublicIds,
       skippedPublicIds,
     };
+  }
+
+  /**
+   * Match certs to mint-queue items (psa_reviewing + reviewing/approved, no cycle).
+   */
+  async findMintQueueItemsByCerts(certs: string[]): Promise<{
+    matchedCerts: string[];
+    unmatchedCerts: string[];
+    items: Array<{
+      itemId: string;
+      submissionId: string;
+      publicId: string;
+      cert: string;
+      itemStatus: string;
+      name: string | null;
+    }>;
+  }> {
+    const normalized = [
+      ...new Set(
+        certs
+          .map((c) => VaultSubmissionService.normalizeCert(c))
+          .filter((c) => /^\d{7,10}$/.test(c)),
+      ),
+    ];
+    if (normalized.length === 0) {
+      return { matchedCerts: [], unmatchedCerts: [], items: [] };
+    }
+
+    const rows = await this.items
+      .createQueryBuilder('it')
+      .innerJoinAndSelect('it.submission', 's')
+      .where('it.cert_number IN (:...certs)', { certs: normalized })
+      .andWhere("s.status = 'psa_reviewing'")
+      .andWhere("it.status IN ('reviewing', 'approved')")
+      .andWhere('it.vault_cycle_id IS NULL')
+      .getMany();
+
+    const matchedCerts = [
+      ...new Set(rows.map((it) => it.certNumber.toUpperCase())),
+    ];
+    const unmatchedCerts = normalized.filter((c) => !matchedCerts.includes(c));
+    const items = rows.map((it) => ({
+      itemId: it.id,
+      submissionId: it.submissionId,
+      publicId: it.submission?.publicId ?? '',
+      cert: it.certNumber,
+      itemStatus: it.status,
+      name: it.displayName,
+    }));
+    return { matchedCerts, unmatchedCerts, items };
+  }
+
+  async enqueuePsaVaultedReview(input: {
+    gmailMessageId: string;
+    subject: string | null;
+    fromAddress: string | null;
+    certs: string[];
+    ingestNote?: string | null;
+  }): Promise<VaultPsaVaultedReview> {
+    const existing = await this.vaultedReviews.findOne({
+      where: { gmailMessageId: input.gmailMessageId },
+    });
+    if (existing) return existing;
+
+    const match = await this.findMintQueueItemsByCerts(input.certs);
+    const certList = input.certs.length
+      ? [
+          ...new Set(
+            input.certs
+              .map((c) => VaultSubmissionService.normalizeCert(c))
+              .filter((c) => /^\d{7,10}$/.test(c)),
+          ),
+        ]
+      : match.matchedCerts;
+
+    const row = this.vaultedReviews.create({
+      gmailMessageId: input.gmailMessageId,
+      subject: input.subject,
+      fromAddress: input.fromAddress,
+      certs: certList,
+      matchedItemIds: match.items.map((i) => i.itemId),
+      matchedPublicIds: [
+        ...new Set(match.items.map((i) => i.publicId).filter(Boolean)),
+      ],
+      unmatchedCerts: match.unmatchedCerts,
+      ingestNote: input.ingestNote?.trim() || null,
+      status: 'pending',
+      mintedVia: null,
+      mintResults: [],
+      errorSummary: null,
+    });
+    return this.vaultedReviews.save(row);
+  }
+
+  async findPsaVaultedReviewById(id: string) {
+    return this.vaultedReviews.findOne({ where: { id } });
+  }
+
+  async listPsaVaultedReviews(status?: VaultPsaVaultedReviewStatus) {
+    const where =
+      status === 'pending' ||
+      status === 'minted' ||
+      status === 'failed' ||
+      status === 'dismissed'
+        ? { status }
+        : undefined;
+    const rows = await this.vaultedReviews.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+    return this.toVaultedReviewDtos(rows);
+  }
+
+  async dismissPsaVaultedReview(reviewId: string) {
+    const review = await this.vaultedReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Vaulted review not found');
+    if (review.status !== 'pending' && review.status !== 'failed') {
+      throw new BadRequestException(`Review is already ${review.status}`);
+    }
+    review.status = 'dismissed';
+    review.reviewedAt = new Date();
+    await this.vaultedReviews.save(review);
+    return this.getVaultedReviewDto(review.id);
+  }
+
+  async recordPsaVaultedMintOutcome(
+    reviewId: string,
+    input: {
+      via: 'auto' | 'admin';
+      results: Array<{
+        cert: string;
+        itemId?: string;
+        publicId?: string;
+        ok: boolean;
+        tokenId?: number;
+        error?: string;
+      }>;
+    },
+  ) {
+    const review = await this.vaultedReviews.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Vaulted review not found');
+
+    // Merge with prior successes so partial retries do not erase Live certs.
+    const merged = this.mergeVaultedMintResults(
+      review.mintResults ?? [],
+      input.results,
+    );
+
+    const anyOk = merged.some((r) => r.ok);
+    const anyFail = merged.some((r) => !r.ok);
+    review.mintResults = merged;
+    review.mintedVia = input.via;
+    review.reviewedAt = new Date();
+    review.matchedItemIds = [
+      ...new Set([
+        ...(review.matchedItemIds ?? []),
+        ...merged
+          .map((r) => r.itemId)
+          .filter((id): id is string => Boolean(id)),
+      ]),
+    ];
+    review.matchedPublicIds = [
+      ...new Set([
+        ...(review.matchedPublicIds ?? []),
+        ...merged
+          .map((r) => r.publicId)
+          .filter((id): id is string => Boolean(id)),
+      ]),
+    ];
+    if (anyOk && !anyFail) {
+      review.status = 'minted';
+      review.errorSummary = null;
+    } else if (anyOk && anyFail) {
+      review.status = 'minted';
+      review.errorSummary = merged
+        .filter((r) => !r.ok)
+        .map((r) => `${r.cert}: ${r.error ?? 'failed'}`)
+        .join('; ');
+    } else {
+      review.status = 'failed';
+      review.errorSummary =
+        merged
+          .map((r) => `${r.cert}: ${r.error ?? 'failed'}`)
+          .join('; ') || 'mint failed';
+    }
+    await this.vaultedReviews.save(review);
+    return this.getVaultedReviewDto(review.id);
+  }
+
+  private mergeVaultedMintResults(
+    previous: Array<{
+      cert: string;
+      itemId?: string;
+      publicId?: string;
+      ok: boolean;
+      tokenId?: number;
+      error?: string;
+    }>,
+    next: Array<{
+      cert: string;
+      itemId?: string;
+      publicId?: string;
+      ok: boolean;
+      tokenId?: number;
+      error?: string;
+    }>,
+  ) {
+    const byCert = new Map<string, (typeof next)[number]>();
+    for (const r of previous) {
+      byCert.set(r.cert.toUpperCase(), r);
+    }
+    for (const r of next) {
+      const key = r.cert.toUpperCase();
+      const prev = byCert.get(key);
+      if (prev?.ok && !r.ok) {
+        // Keep prior success (e.g. already Live; retry sees unmatched).
+        continue;
+      }
+      byCert.set(key, r);
+    }
+    return [...byCert.values()];
+  }
+
+  private async getVaultedReviewDto(id: string) {
+    const entity = await this.vaultedReviews.findOne({ where: { id } });
+    if (!entity) throw new NotFoundException('Vaulted review not found');
+    const [dto] = await this.toVaultedReviewDtos([entity]);
+    return dto;
+  }
+
+  private async toVaultedReviewDtos(rows: VaultPsaVaultedReview[]) {
+    const itemIds = [...new Set(rows.flatMap((r) => r.matchedItemIds ?? []))];
+    const itemById = new Map<
+      string,
+      {
+        itemId: string;
+        submissionId: string;
+        publicId: string;
+        cert: string;
+        itemStatus: string;
+        name: string | null;
+        userEmail: string | null;
+        userName: string | null;
+        tokenId: number | null;
+      }
+    >();
+
+    if (itemIds.length) {
+      const items = await this.items.find({
+        where: { id: In(itemIds) },
+        relations: { submission: true },
+      });
+      const userIds = [
+        ...new Set(
+          items.map((i) => i.submission?.userId).filter(Boolean) as string[],
+        ),
+      ];
+      const userRows: Array<{
+        id: string;
+        email: string | null;
+        name: string | null;
+      }> =
+        userIds.length > 0
+          ? await this.submissions.manager.query(
+              `SELECT id, email, name FROM users WHERE id = ANY($1::uuid[])`,
+              [userIds],
+            )
+          : [];
+      const userById = new Map(userRows.map((u) => [u.id, u]));
+
+      for (const it of items) {
+        const sub = it.submission;
+        const u = sub ? userById.get(sub.userId) : undefined;
+        const mintHit = rows
+          .flatMap((r) => r.mintResults ?? [])
+          .find((m) => m.itemId === it.id && m.ok);
+        itemById.set(it.id, {
+          itemId: it.id,
+          submissionId: it.submissionId,
+          publicId: sub?.publicId ?? '',
+          cert: it.certNumber,
+          itemStatus: it.status,
+          name: it.displayName,
+          userEmail: u?.email ?? null,
+          userName: u?.name ?? null,
+          tokenId: mintHit?.tokenId ?? null,
+        });
+      }
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      gmailMessageId: r.gmailMessageId,
+      subject: r.subject,
+      fromAddress: r.fromAddress,
+      certs: r.certs ?? [],
+      unmatchedCerts: r.unmatchedCerts ?? [],
+      matchedItemIds: r.matchedItemIds ?? [],
+      matchedPublicIds: r.matchedPublicIds ?? [],
+      ingestNote: r.ingestNote ?? null,
+      status: r.status,
+      mintedVia: r.mintedVia ?? null,
+      mintResults: r.mintResults ?? [],
+      errorSummary: r.errorSummary ?? null,
+      reviewedAt: r.reviewedAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+      items: (r.matchedItemIds ?? [])
+        .map((id) => itemById.get(id))
+        .filter(Boolean),
+    }));
   }
 
   async adminSetSubmissionStatus(

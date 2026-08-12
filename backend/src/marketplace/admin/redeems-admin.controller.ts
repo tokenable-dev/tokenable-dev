@@ -13,6 +13,7 @@ import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import {
   AdminRedeemMemoDto,
+  AdminRedeemPurgeDto,
   AdminRedeemsListQueryDto,
   AdminRedeemShipmentTrackingDto,
   AdminRedeemTrackingDto,
@@ -41,6 +42,16 @@ export class RedeemsAdminController {
       paymentBatchId: query.paymentBatchId,
       limit: query.limit,
     });
+  }
+
+  @Post('purge-all')
+  @ApiOperation({
+    summary:
+      '[Dev/staging only] Delete all redeem rows, payment claims, and reset vault cycles',
+  })
+  purgeAll(@Req() req: Request, @Body() _body: AdminRedeemPurgeDto) {
+    this.admin.assertAdminSession(req);
+    return this.redeems.purgeAllDevData();
   }
 
   @Get('batches/:batchId')

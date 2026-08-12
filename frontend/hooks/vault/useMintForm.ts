@@ -207,6 +207,7 @@ export function useMintForm() {
           tokenURI: uploadResult.tokenURI,
           certNumber,
           chainId,
+          displayImageUrl: uploadResult.displayImageUrl,
         });
 
         setResult({

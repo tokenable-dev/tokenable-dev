@@ -13,10 +13,28 @@ import type {
   RedeemAddressForm,
   RedeemDraftCard,
 } from "@/lib/portfolio/redeemDraft";
+import type { RedeemPayPhase } from "@/hooks/portfolio/useRedeemFlow";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore } from "@/store";
 import { RedeemCardSummary } from "./RedeemCardSummary";
 import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
+
+function busyLabel(phase: RedeemPayPhase): string {
+  switch (phase?.kind) {
+    case "quote":
+      return "Confirming final cost…";
+    case "pay":
+      return "Confirm the USDC payment in your wallet…";
+    case "record":
+      return "Recording your payment…";
+    case "custody":
+      return phase.total > 1
+        ? `Transferring card ${phase.current} of ${phase.total} — confirm in wallet…`
+        : "Transferring your card — confirm in wallet…";
+    default:
+      return "Working…";
+  }
+}
 
 /**
  * Step 2 — review & pay USDC, or finish NFT→custody if payment already recorded.
@@ -25,6 +43,7 @@ export function RedeemPayPanel({
   cards,
   form,
   busy,
+  payPhase = null,
   error,
   onEditAddress,
   onPay,
@@ -34,6 +53,7 @@ export function RedeemPayPanel({
   cards: RedeemDraftCard[];
   form: RedeemAddressForm;
   busy: boolean;
+  payPhase?: RedeemPayPhase;
   error: string | null;
   onEditAddress: () => void;
   onPay: () => void;
@@ -90,7 +110,7 @@ export function RedeemPayPanel({
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-eyebrow">Redeem · Step 2 of 2</div>
+      <div className="pf-redeem-eyebrow">Ship from vault · Step 2 of 2</div>
       <h1 className="pf-redeem-h1">
         {custodyPending ? "Finish NFT transfer" : "Review & pay"}
       </h1>
@@ -159,7 +179,7 @@ export function RedeemPayPanel({
         <div className="pf-redeem-paybox">
           <div className="pf-redeem-cost__title">Payment</div>
           <p className="pf-redeem-paybox__copy">
-            Wallet balance{" "}
+            Account balance{" "}
             <span className="tkl-mono pf-redeem-paybox__bal">
               {usdcBalanceFormatted} USDC
             </span>
@@ -169,6 +189,36 @@ export function RedeemPayPanel({
           </p>
         </div>
       ) : null}
+
+      <div className="pf-redeem-paybox">
+        <div className="pf-redeem-cost__title">
+          What your wallet will ask you to sign
+        </div>
+        <ol className="pf-redeem-sign-steps">
+          {!custodyPending ? (
+            <li>
+              <strong>USDC payment</strong> — one transfer
+              {est ? ` of ${formatRedeemUsd(est.totalUsd)} USDC` : ""} to the
+              Tokenable fee wallet. This covers shipping and vault fees — the
+              exact amount shown above, nothing else.
+            </li>
+          ) : null}
+          <li>
+            <strong>
+              {cards.length === 1
+                ? "1 card transfer"
+                : `${cards.length} card transfers`}
+            </strong>{" "}
+            — one confirmation per card, moving each card&rsquo;s NFT into
+            Tokenable custody. This proves you gave up the token in exchange
+            for the physical card. No USDC is charged by these transfers.
+          </li>
+        </ol>
+        <p className="pf-redeem-cost__copy">
+          If you close your wallet mid-way, nothing is lost — come back and
+          we&rsquo;ll resume exactly where you stopped, without charging again.
+        </p>
+      </div>
 
       {error ? (
         <p className="pf-redeem-error" role="alert">
@@ -185,7 +235,7 @@ export function RedeemPayPanel({
             disabled={busy || cards.length === 0}
             onClick={() => (onResumeCustody ? onResumeCustody() : onPay())}
           >
-            {busy ? "Waiting for wallet…" : "Finish NFT transfers"}
+            {busy ? busyLabel(payPhase) : "Finish NFT transfers"}
           </TkButton>
           <p className="pf-redeem-hint-below">
             Your wallet will ask you to transfer each remaining card into
@@ -204,10 +254,10 @@ export function RedeemPayPanel({
             onClick={onPay}
           >
             {busy
-              ? "Paying…"
+              ? busyLabel(payPhase)
               : est
-                ? `Pay ${formatRedeemUsd(est.totalUsd)} USDC & redeem`
-                : "Pay and redeem"}
+                ? `Pay ${formatRedeemUsd(est.totalUsd)} USDC & ship`
+                : "Pay and ship"}
           </TkButton>
           <p className="pf-redeem-hint-below">
             While your cards are on their way, Tokenable holds their ownership

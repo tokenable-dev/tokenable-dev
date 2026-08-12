@@ -19,6 +19,7 @@ import { VaultRedemption } from '../../vault/entities/vault-redemption.entity';
 import { VaultSubmissionItem } from '../../vault/entities/vault-submission-item.entity';
 import { VaultSubmission } from '../../vault/entities/vault-submission.entity';
 import { VaultModule } from '../../vault/vault.module';
+import { MarketplaceNotificationsModule } from '../notifications/marketplace-notifications.module';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { MarketplacePartner } from '../entities/marketplace-partner.entity';
@@ -78,6 +79,7 @@ import { RedeemsAdminService } from './redeems-admin.service';
     UserModule,
     VaultModule,
     BlockchainModule,
+    MarketplaceNotificationsModule,
   ],
   controllers: [
     MarketplaceAdminAuthController,
@@ -96,6 +98,6 @@ import { RedeemsAdminService } from './redeems-admin.service';
     DataInventoryService,
     RedeemsAdminService,
   ],
-  exports: [MarketplaceAdminService],
+  exports: [MarketplaceAdminService, RedeemsAdminService],
 })
 export class MarketplaceAdminModule {}

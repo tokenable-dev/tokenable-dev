@@ -4,7 +4,7 @@ export const VAULT_PUBLIC_ENABLED = false;
 export const VAULT_COMING_SOON_MESSAGE =
   "This Sell feature is coming soon. It is not available yet.";
 
-/** Sell hub destination after `/sell` router (collector path). */
+/** Sell hub destination after `/sell` router (collector + partner). */
 export const SELL_COLLECTOR_HUB_PATH = "/vault";
 
 export function isVaultPublicPath(path: string): boolean {
@@ -56,21 +56,14 @@ export function isSellPrimaryNavActive(pathname: string | null | undefined): boo
 }
 
 /**
- * Prototype Sell.html role branch. Partner add-cards ships in Phase 8;
- * until then approved partners land on the collector sell hub.
+ * `/sell` router — all signed-in users land on the sell hub dashboard (`/vault`).
+ * Partner bulk add-cards stays at `/partner/add-cards` (deep link only).
  */
 export function resolveSellRouterDestination(): string {
-  if (typeof window === "undefined") return SELL_COLLECTOR_HUB_PATH;
-  try {
-    const role = window.localStorage.getItem("tk_role") || "user";
-    const partnerOk = window.localStorage.getItem("tk_partner_status") === "approved";
-    if (role === "partner" && partnerOk) {
-      // Phase 8: return "/partner/add-cards";
-      return SELL_COLLECTOR_HUB_PATH;
-    }
-  } catch {
-    /* ignore storage errors */
-  }
+  return SELL_COLLECTOR_HUB_PATH;
+}
+
+export async function resolveSellRouterDestinationAsync(): Promise<string> {
   return SELL_COLLECTOR_HUB_PATH;
 }
 

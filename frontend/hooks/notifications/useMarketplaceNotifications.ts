@@ -40,6 +40,7 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
     href: row.href,
     unread: row.readAt == null,
     ctaLabel: row.ctaLabel,
+    eventKey: row.payload.eventKey ?? null,
   };
 }
 
@@ -55,8 +56,8 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     queryKey: rq.marketplaceNotifications(userId, chainId),
     queryFn: fetchMarketplaceNotifications,
     enabled,
-    staleTime: 30_000,
-    refetchInterval: enabled ? 60_000 : false,
+    staleTime: 15_000,
+    refetchInterval: enabled ? 15_000 : false,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,
   });

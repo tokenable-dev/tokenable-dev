@@ -25,9 +25,15 @@ import {
   validateShipToFields,
 } from "@/lib/shipping/shipToValidation";
 import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
+import { resolveHeaderNavGate } from "@/lib/auth/accountAccess";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
+import { useAuthStore } from "@/store/authStore";
 import { useAppChain } from "@/providers/AppChainProvider";
+import { RedeemAccessGate, RedeemVerifiedChip } from "./RedeemAccessGate";
 import { RedeemCardSummary } from "./RedeemCardSummary";
 import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
+
+const REDEEM_RETURN_TO = "/portfolio/redeem";
 
 type QuoteState = "idle" | "loading" | "done" | "stale";
 type StaleReason = "address" | "cards" | "both";
@@ -94,6 +100,18 @@ const QUOTE_BADGE: Record<
   done: { label: "Quoted", tone: "done" },
 };
 
+function RedeemRequestHeader() {
+  return (
+    <>
+      <div className="pf-redeem-eyebrow">Ship from vault · Step 1 of 2</div>
+      <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
+      <p className="pf-redeem-sub">
+        We&rsquo;ll ship your physical cards from the vault to the address below.
+      </p>
+    </>
+  );
+}
+
 export function RedeemRequestPanel({
   cards,
   form,
@@ -112,6 +130,10 @@ export function RedeemRequestPanel({
   onContinue: () => void;
 }) {
   const { chainId } = useAppChain();
+  const user = useAuthStore((s) => s.user);
+  const authReady = useAuthStore((s) => s.initialized);
+  const { runAccessGate } = useAccessGate(2, REDEEM_RETURN_TO);
+  const gate = resolveHeaderNavGate(user, 2, REDEEM_RETURN_TO);
   const tokenIds = cards.map((c) => c.tokenId);
   const quoteKey = useMemo(
     () => quoteSnapshotKey(form, tokenIds),
@@ -243,13 +265,32 @@ export function RedeemRequestPanel({
       ? { label: STALE_COPY[staleReason].badge, tone: "stale" as const }
       : QUOTE_BADGE[quoteState];
 
+  if (!authReady) {
+    return (
+      <div className="pf-redeem-panel">
+        <RedeemRequestHeader />
+        <div className="pf-redeem-gate pf-redeem-gate--loading" aria-hidden />
+      </div>
+    );
+  }
+
+  if (gate.action !== "allow") {
+    return (
+      <div className="pf-redeem-panel">
+        <RedeemRequestHeader />
+        <RedeemAccessGate
+          action={gate.action}
+          kycStatus={user?.kycStatus}
+          onContinue={() => runAccessGate()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-eyebrow">Redeem · Step 1 of 2</div>
-      <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
-      <p className="pf-redeem-sub">
-        We&rsquo;ll ship your physical cards from the vault to the address below.
-      </p>
+      <RedeemRequestHeader />
+      <RedeemVerifiedChip />
 
       <ShippingAddressFormFields
         idPrefix="redeem"
@@ -268,7 +309,7 @@ export function RedeemRequestPanel({
                 onChange({ ...form, saveAddress: e.target.checked })
               }
             />
-            Save this address for future redemptions
+            Save this address for future shipments
           </label>
         }
       />

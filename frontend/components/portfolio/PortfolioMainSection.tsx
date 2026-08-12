@@ -58,6 +58,7 @@ export function PortfolioMainSection({
   activeTab,
   onTabChange,
   counts,
+  variant = "default",
   showRedeemButton = false,
   onEnterRedeemSelect,
   collectiblesPanel,
@@ -68,6 +69,7 @@ export function PortfolioMainSection({
   activeTab: PortfolioMainTab;
   onTabChange: (tab: PortfolioMainTab) => void;
   counts: { assets: number; redeem: number; bids: number; history: number };
+  variant?: "default" | "partner";
   showRedeemButton?: boolean;
   onEnterRedeemSelect?: () => void;
   collectiblesPanel: ReactNode;
@@ -75,9 +77,14 @@ export function PortfolioMainSection({
   bidsPanel: ReactNode;
   historyPanel: ReactNode;
 }) {
+  const isPartner = variant === "partner";
+
   return (
     <section className="pf-main-section" aria-label="Portfolio holdings">
-      <TkTabs className="portfolio-page__tabs" aria-label="Portfolio sections">
+      <TkTabs
+        className={`portfolio-page__tabs${isPartner ? " portfolio-page__tabs--partner" : ""}`}
+        aria-label="Portfolio sections"
+      >
         <TkTab
           id="portfolio-tab-collectibles"
           active={activeTab === "collectibles"}
@@ -88,16 +95,18 @@ export function PortfolioMainSection({
           My Assets
           <TabCount value={counts.assets} />
         </TkTab>
-        <TkTab
-          id="portfolio-tab-redeem"
-          active={activeTab === "redeem"}
-          aria-controls="portfolio-panel-redeem"
-          onClick={() => onTabChange("redeem")}
-        >
-          <RedeemTabIcon />
-          Redeem
-          <TabCount value={counts.redeem} />
-        </TkTab>
+        {!isPartner ? (
+          <TkTab
+            id="portfolio-tab-redeem"
+            active={activeTab === "redeem"}
+            aria-controls="portfolio-panel-redeem"
+            onClick={() => onTabChange("redeem")}
+          >
+            <RedeemTabIcon />
+            Redeem
+            <TabCount value={counts.redeem} />
+          </TkTab>
+        ) : null}
         <TkTab
           id="portfolio-tab-bids"
           active={activeTab === "bids"}
@@ -128,7 +137,7 @@ export function PortfolioMainSection({
             onClick={onEnterRedeemSelect}
           >
             <RedeemTabIcon />
-            Start redeem
+            Ship from vault
           </TkButton>
         ) : null}
       </TkTabs>

@@ -46,4 +46,16 @@ export class MintRwaDto {
   @IsOptional()
   @IsIn(['custody', 'direct'])
   deliveryMode?: MintDeliveryMode;
+
+  /**
+   * Optional S3 slab URL from POST /rwa/upload — stored on rwa_tokens when it
+   * matches the platform key for this cert + chain. Ignored if invalid.
+   */
+  @ApiPropertyOptional({
+    description:
+      'Platform S3 slab URL from upload response (validated server-side)',
+  })
+  @IsOptional()
+  @IsString()
+  displayImageUrl?: string;
 }

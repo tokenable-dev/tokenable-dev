@@ -19,8 +19,12 @@ import {
   writeSellFlowDraftCards,
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
+  emptySellReturnAddress,
+  formatSellReturnAddressSummary,
+  isSellReturnAddressComplete,
   type SellCarrier,
   type SellDraftCard,
+  type SellReturnAddressDraft,
   validateTracking,
 } from "@/lib/sell/sellFlowDraft";
 import {
@@ -30,6 +34,7 @@ import {
   upsertVaultSubmissionDraft,
   type VaultSubmissionApi,
 } from "@/lib/core";
+import { listShippingAddresses } from "@/lib/core/api/shipping-addresses";
 
 export type ShipPanel = "pack" | "track";
 
@@ -95,6 +100,12 @@ export function useSellShipping() {
   const [carrier, setCarrier] = useState<SellCarrier>("fedex");
   const [shipDate, setShipDate] = useState(todayIsoDate);
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [returnAddress, setReturnAddress] = useState<SellReturnAddressDraft>(
+    emptySellReturnAddress,
+  );
+  /** Collapsed saved summary vs editable fields (PSA-Shipping.html return-saved). */
+  const [returnEditing, setReturnEditing] = useState(true);
+  const [returnTouched, setReturnTouched] = useState(false);
   const [trackingTouched, setTrackingTouched] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -199,11 +210,37 @@ export function useSellShipping() {
       setCarrier(progress.carrier);
       setShipDate(progress.shipDate || todayIsoDate());
       setTrackingNumber(progress.trackingNumber);
-      if (
-        progress.step === "shipping-track" &&
-        progress.slipDownloaded &&
-        progress.checklist.every(Boolean)
-      ) {
+      let nextReturn = progress.returnAddress;
+      const returnBlank =
+        !nextReturn.name.trim() &&
+        !nextReturn.line1.trim() &&
+        !nextReturn.city.trim();
+      if (returnBlank) {
+        try {
+          const rows = await listShippingAddresses();
+          const preferred =
+            rows.find((r) => r.isDefault) ?? rows[0] ?? null;
+          if (preferred) {
+            nextReturn = {
+              name: preferred.name || "",
+              line1: preferred.line1 || "",
+              line2: preferred.line2 || "",
+              city: preferred.city || "",
+              region: preferred.region || "",
+              postal: preferred.postal || "",
+              country: preferred.country || "us",
+              phone: preferred.phone || "",
+            };
+          }
+        } catch {
+          /* optional prefill */
+        }
+      }
+      if (!cancelled) {
+        setReturnAddress(nextReturn);
+        setReturnEditing(!isSellReturnAddressComplete(nextReturn));
+      }
+      if (progress.step === "shipping-track") {
         setPanel("track");
       } else {
         setPanel("pack");
@@ -230,14 +267,15 @@ export function useSellShipping() {
       carrier,
       shipDate,
       trackingNumber,
+      returnAddress,
       vaultChoice: "psa",
     });
-  }, [ready, panel, checked, slipDownloaded, carrier, shipDate, trackingNumber]);
+  }, [ready, panel, checked, slipDownloaded, carrier, shipDate, trackingNumber, returnAddress]);
 
   const checkedCount = checked.filter(Boolean).length;
   const allChecked = checkedCount === PSA_PACK_CHECKLIST.length;
-  const canContinuePack =
-    allChecked && slipDownloaded && packageReady && !packageSyncing;
+  /** PSA-Shipping.html: pack → track is always open; we still require package upsert. */
+  const canContinuePack = packageReady && !packageSyncing;
 
   const trackingCheck = useMemo(
     () => validateTracking(carrier, trackingNumber),
@@ -248,10 +286,11 @@ export function useSellShipping() {
       ? trackingCheck.hint
       : "";
 
+  /** Tracking format + complete return address (manual entry; no Maps). */
+  const returnComplete = isSellReturnAddressComplete(returnAddress);
   const canConfirm =
-    allChecked &&
-    slipDownloaded &&
     trackingCheck.ok &&
+    returnComplete &&
     packageReady &&
     !packageSyncing &&
     !confirmed &&
@@ -348,6 +387,10 @@ export function useSellShipping() {
   const confirmShipment = useCallback(() => {
     if (!canConfirm) {
       setTrackingTouched(true);
+      setReturnTouched(true);
+      if (!isSellReturnAddressComplete(returnAddress)) {
+        setReturnEditing(true);
+      }
       return;
     }
     const cleaned = trackingNumber.replace(/\s+/g, "").toUpperCase();
@@ -369,6 +412,11 @@ export function useSellShipping() {
         publicId = shipped.publicId;
         writeSellSubmissionPublicId(publicId);
         clearSellFlowDraftLocal();
+        // Preserve return address for the next PSA submission (manual entry; no Maps).
+        writeSellFlowProgress({
+          returnAddress,
+          vaultChoice: "psa",
+        });
         setConfirmed(true);
         window.setTimeout(() => {
           router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
@@ -380,7 +428,7 @@ export function useSellShipping() {
         setConfirming(false);
       }
     })();
-  }, [canConfirm, carrier, cards, router, shipDate, trackingNumber]);
+  }, [canConfirm, carrier, cards, returnAddress, router, shipDate, trackingNumber]);
 
   const trackUrl = confirmed
     ? `${CARRIER_TRACK_URLS[carrier]}${encodeURIComponent(
@@ -416,6 +464,25 @@ export function useSellShipping() {
     setTrackingNumber: (v: string) => {
       setTrackingNumber(v);
       setTrackingTouched(true);
+    },
+    returnAddress,
+    returnEditing,
+    returnSummary: formatSellReturnAddressSummary(returnAddress),
+    returnComplete,
+    returnTouched,
+    editReturnAddress: () => {
+      if (confirmed) return;
+      setReturnEditing(true);
+      setReturnAddress(emptySellReturnAddress());
+      setReturnTouched(false);
+    },
+    setReturnAddressField: <K extends keyof SellReturnAddressDraft>(
+      key: K,
+      value: SellReturnAddressDraft[K],
+    ) => {
+      setReturnEditing(true);
+      setReturnTouched(true);
+      setReturnAddress((prev) => ({ ...prev, [key]: value }));
     },
     trackingErr,
     canConfirm,

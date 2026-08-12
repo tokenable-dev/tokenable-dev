@@ -117,6 +117,13 @@
   align-items: flex-start;
 }
 
+/* Settings.html `.row > .btn` — the control keeps its intrinsic width so the
+   label column absorbs the squeeze instead of the button label wrapping. */
+.tk-settings__row > .tk-settings__btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .tk-settings__row-t {
   font-size: 14.5px;
   font-weight: 600;
@@ -487,7 +494,8 @@
   display: none;
 }
 
-@media (max-width: 1024px) {
+/* Settings.html collapses snav nearer ~860; keep tablet sidebar until then */
+@media (max-width: 860px) {
   .tk-settings {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -532,14 +540,6 @@
   .tk-settings__snav-item svg {
     width: 16px;
     height: 16px;
-  }
-
-  .tk-settings__lbltxt--full {
-    display: none;
-  }
-
-  .tk-settings__lbltxt--short {
-    display: inline;
   }
 
   .tk-settings__sec-h {
@@ -643,6 +643,16 @@
   .tk-settings__btn--sm {
     height: 40px;
     padding: 0 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .tk-settings__lbltxt--full {
+    display: none;
+  }
+
+  .tk-settings__lbltxt--short {
+    display: inline;
   }
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   MARKETS_SORT_OPTIONS,
+  MARKETS_SORT_UI_IDS,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
 
@@ -75,7 +76,9 @@ function SortMenu({
         <p className="px-3.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Sort
         </p>
-        {MARKETS_SORT_OPTIONS.map((opt) => {
+        {MARKETS_SORT_UI_IDS.map((id) => {
+          const opt = MARKETS_SORT_OPTIONS.find((o) => o.id === id);
+          if (!opt) return null;
           const selected = sortId === opt.id;
           return (
             <button

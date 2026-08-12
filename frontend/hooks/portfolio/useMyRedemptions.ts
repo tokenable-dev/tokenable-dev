@@ -8,17 +8,19 @@ import {
 } from "@/lib/core/api/rwa-redeem";
 import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import { useAuthStore } from "@/store/authStore";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 /**
- * Open redemptions for the signed-in user (all tokens — including those
- * already transferred to custody and therefore missing from wallet holdings).
+ * Open redemptions for the signed-in user on the **active app chain** (including
+ * tokens already transferred to custody and therefore missing from wallet holdings).
  */
 export function useMyRedemptions(enabled = true) {
   const user = useAuthStore((s) => s.user);
+  const { chainId } = useAppChain();
 
   const query = useQuery({
-    queryKey: ["rwa", "redemptions", "mine", user?.id ?? null],
-    queryFn: () => getMyRedemptions(),
+    queryKey: ["rwa", "redemptions", "mine", user?.id ?? null, chainId],
+    queryFn: () => getMyRedemptions(chainId),
     enabled: Boolean(user?.id) && enabled,
     staleTime: 30_000,
   });

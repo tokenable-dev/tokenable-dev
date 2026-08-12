@@ -19,6 +19,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     const vault = {
       getVaultCustodyRows: jest.fn().mockResolvedValue([]),
       getDepositedAtByTokenIds: jest.fn().mockResolvedValue(new Map()),
+      assertTokensRedeemable: jest.fn().mockResolvedValue(undefined),
     };
     const partners = {
       getDisplayNamesByIds: jest.fn().mockResolvedValue(new Map()),
@@ -43,6 +44,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         feeCalculator,
         {} as never,
         { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
+        { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
       ),
       vault,
       partners,
@@ -257,6 +259,50 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
       }),
     ).rejects.toThrow(/countryCode/);
   });
+
+  it('fails the estimate when a token is not redeemable (before any payment)', async () => {
+    const { svc, vault } = makeService();
+    vault.assertTokensRedeemable.mockRejectedValue(
+      new Error('Token #49 is not registered on Tokenable yet'),
+    );
+    await expect(
+      svc.estimateRedeemCost({
+        country: 'us',
+        tokenIds: [49],
+        chainId: 11155111 as never,
+      }),
+    ).rejects.toThrow(/not registered/);
+  });
+
+  it('pins the estimate total and keeps the cheapest unexpired quote', async () => {
+    const { svc } = makeService();
+    await svc.estimateRedeemCost({
+      country: 'us',
+      tokenIds: [7],
+      chainId: 11155111 as never,
+    });
+
+    type PinApi = {
+      pinQuote(key: string, micros: bigint, iso?: string | null): void;
+      pinnedQuoteMicros(key: string): bigint | null;
+    };
+    const pins = svc as unknown as PinApi;
+    const key = '7|us|';
+    // PSA us single card: 5.99 shipping + 1.99 retrieval + 4.99 early = 12.97
+    expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(12_970_000));
+
+    // A later, more expensive quote must not evict the cheaper one.
+    pins.pinQuote(key, BigInt(20_000_000));
+    expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(12_970_000));
+
+    // A cheaper re-quote wins.
+    pins.pinQuote(key, BigInt(10_000_000));
+    expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(10_000_000));
+
+    // Expired pins are ignored.
+    pins.pinQuote('8|us|', BigInt(1), new Date(Date.now() - 1000).toISOString());
+    expect(pins.pinnedQuoteMicros('8|us|')).toBeNull();
+  });
 });
 
 describe('RwaRedeemService.confirmReceipt', () => {
@@ -273,6 +319,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
       {} as never,
       {} as never,
       { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
+      { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
     );
   }
 
@@ -299,7 +346,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
       markUserReceiptConfirmed: jest.fn(),
     };
     await expect(
-      makeConfirmService(vault).confirmReceipt(user, 'batch-1'),
+      makeConfirmService(vault).confirmReceipt(user, 'batch-1', 11155111),
     ).rejects.toThrow(/tracking number/);
     expect(vault.markUserReceiptConfirmed).not.toHaveBeenCalled();
   });
@@ -336,6 +383,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
     const result = await makeConfirmService(vault).confirmReceipt(
       user,
       'batch-1',
+      11155111,
     );
     expect(result.status).toBe('completed');
     expect(result.alreadyCompleted).toBe(false);

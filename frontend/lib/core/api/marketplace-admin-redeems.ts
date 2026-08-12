@@ -71,6 +71,7 @@ export type AdminRedeemRow = {
   settlementPolicy: "standard" | "self_vault_hold" | null;
   vaultPartnerId: string | null;
   shipmentKey: string;
+  trackingGroupKey?: string;
   vaultLabel: string;
   updatedAt: string;
 };
@@ -239,4 +240,28 @@ export async function adminRefundRedeemFull(batchId: string): Promise<{
     throw new Error(adminErrorMessage(body, "Failed to run full refund"));
   }
   return res.json();
+}
+
+export type AdminRedeemPurgeResult = {
+  deletedRedemptions: number;
+  deletedPaymentClaims: number;
+  resetVaultCycles: number;
+  clearedTokenBurns: number;
+};
+
+/** Dev/staging only — wipes all redeem DB history. */
+export async function adminPurgeAllRedeems(): Promise<AdminRedeemPurgeResult> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/redeems/purge-all`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "DELETE_ALL_REDEEMS" }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(adminErrorMessage(body, "Failed to purge redeems"));
+  }
+  return res.json() as Promise<AdminRedeemPurgeResult>;
 }

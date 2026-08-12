@@ -293,3 +293,16 @@ export function isMappedFedExHttpException(e: unknown): boolean {
   const code = (res as { code?: string }).code;
   return typeof code === 'string' && code.startsWith('FEDEX_RATE_');
 }
+
+/** Transient failures worth one immediate retry (FedEx 5xx/429 or raw network error). */
+export function isRetryableFedExRateError(e: unknown): boolean {
+  if (e instanceof HttpException) {
+    const res = e.getResponse();
+    if (res && typeof res === 'object') {
+      return (res as { category?: string }).category === 'retryable';
+    }
+    return false;
+  }
+  // fetch/network-level failure (TypeError, aborted socket, DNS…)
+  return e instanceof Error && !(e instanceof BadRequestException);
+}

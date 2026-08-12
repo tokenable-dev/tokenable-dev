@@ -6,7 +6,7 @@ import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/co
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
   bestAskByToken,
-  sortedTokenIdsByOldestListing,
+  sortedTokenIdsByLowestAsk,
 } from "@/lib/marketplace/collectionListingUtils";
 
 export function useCollectionDetailListings(params: {
@@ -18,7 +18,7 @@ export function useCollectionDetailListings(params: {
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
-    () => (enabled ? sortedTokenIdsByOldestListing(asks) : []),
+    () => (enabled ? sortedTokenIdsByLowestAsk(asks) : []),
     [enabled, asks],
   );
 

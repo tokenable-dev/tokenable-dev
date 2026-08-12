@@ -22,7 +22,7 @@ export function PortfolioGuestState() {
               type="button"
               variant="primary"
               className="mt-7 w-full justify-center"
-              onClick={() => openSignIn({ returnTo: "/portfolio" })}
+              onClick={() => openSignIn({ returnTo: "/portfolio?tab=assets" })}
             >
               Sign in
             </TkButton>

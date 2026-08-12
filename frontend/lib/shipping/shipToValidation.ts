@@ -1,4 +1,5 @@
 import type { ShippingCountry } from "@/lib/core/api/shipping-addresses";
+import { phoneDialLensFor } from "@/lib/shipping/phoneDialOptions";
 
 export type ShipToFieldKey =
   | "name"
@@ -56,6 +57,63 @@ function phoneLengthOk(digits: string, lensCsv: string): boolean {
   return lens.includes(digits.length);
 }
 
+/**
+ * NANP numbers have no domestic trunk prefix, so a leading `0` there is a typo
+ * rather than slack we should strip.
+ */
+const TRUNK_PREFIX_EXEMPT_DIALS = new Set(["+1"]);
+
+/**
+ * Ways a user may have typed the same national number: with the international
+ * access code (`0082…`), with the dial code repeated (`8210…`), or with the
+ * domestic trunk prefix (`010…`). Ordered most-specific-last.
+ */
+function phoneDigitCandidates(digits: string, phoneDial: string): string[] {
+  const out: string[] = [];
+  const push = (value: string) => {
+    if (value && !out.includes(value)) out.push(value);
+  };
+
+  push(digits);
+  if (digits.startsWith("00")) push(digits.slice(2));
+
+  const dialDigits = phoneDial.replace(/[^\d]/g, "");
+  if (dialDigits) {
+    for (const value of [...out]) {
+      if (value.startsWith(dialDigits)) push(value.slice(dialDigits.length));
+    }
+  }
+
+  if (!TRUNK_PREFIX_EXEMPT_DIALS.has(phoneDial)) {
+    for (const value of [...out]) {
+      if (value.startsWith("0")) push(value.slice(1));
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Strip the trunk prefix / duplicated dial code so the stored E.164 number is
+ * dial + national digits only (e.g. `+82 01012345678` → `+82 1012345678`).
+ */
+export function normalizeNationalPhoneDigits(
+  phoneDial: string,
+  national: string,
+  lensCsv: string,
+): string {
+  const digits = nationalPhoneDigits(national);
+  if (!digits) return "";
+  const lens = lensCsv || "7,15";
+  const valid = phoneDigitCandidates(digits, phoneDial).filter((c) =>
+    phoneLengthOk(c, lens),
+  );
+  if (valid.length === 0) return digits;
+  // Both the trunk-prefixed and stripped forms can be length-valid (e.g. +49
+  // allows 10 or 11). A national significant number never keeps the trunk 0.
+  return valid.find((c) => !c.startsWith("0")) ?? valid[0]!;
+}
+
 /** Field-level rules from designer Redeem.html (postal + dial length). */
 export function validateShipToFields(
   input: ShipToValidateInput,
@@ -81,7 +139,12 @@ export function validateShipToFields(
 
   const digits = input.phone.replace(/[^\d]/g, "");
   const lens = input.phoneDialLens || "7,15";
-  if (!phoneLengthOk(digits, lens)) {
+  const phoneAccepted =
+    digits.length > 0 &&
+    phoneDigitCandidates(digits, input.phoneDial).some((c) =>
+      phoneLengthOk(c, lens),
+    );
+  if (!phoneAccepted) {
     const parts = lens.split(",").map((s) => s.trim()).filter(Boolean);
     const lenHint =
       parts.length === 1
@@ -125,7 +188,7 @@ export function composeShipToPhone(
     codes,
   );
   if (!n) return d;
-  return `${d} ${n}`.trim();
+  return `${d} ${normalizeNationalPhoneDigits(d, n, phoneDialLensFor(d))}`.trim();
 }
 
 /**

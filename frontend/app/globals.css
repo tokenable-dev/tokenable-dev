@@ -18,6 +18,7 @@
 @import "../styles/tokenable-secondary.css";
 @import "../styles/tokenable-settings.css";
 @import "../styles/tokenable-partner-origin.css";
+@import "../styles/tokenable-partner.css";
 
 :root {
   --background: #000000;

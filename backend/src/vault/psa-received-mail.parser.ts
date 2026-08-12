@@ -1,12 +1,21 @@
 /**
- * Pure parser for PSA Vault “Items Received” emails.
+ * Pure parser for PSA Vault “Items Received” (intake/arrival) emails.
  * Shipping-instruction mails (print & include…) must return matched: false.
+ * Vault-confirmation (“now secured…”) mails are handled by psa-vaulted-mail.
  */
 
-export const PSA_RECEIVED_SUBJECT = 'Items Received at PSA Vault';
+import {
+  PSA_ARRIVAL_BODY_MARKER,
+  PSA_ITEMS_RECEIVED_SUBJECT,
+  PSA_VAULTED_SECURED_MARKER,
+  bodyHasPsaVaultedSecuredMarker,
+  extractPsaMailCerts,
+  isPsaCollectorsFrom,
+} from './psa-mail.shared';
 
-const CERT_LINE =
-  /(?:^|\n)\s*(\d{7,10})\s*[-–—]\s*.+/gim;
+/** @deprecated use PSA_ITEMS_RECEIVED_SUBJECT */
+export const PSA_RECEIVED_SUBJECT = PSA_ITEMS_RECEIVED_SUBJECT;
+export { PSA_ARRIVAL_BODY_MARKER, PSA_VAULTED_SECURED_MARKER };
 
 export type PsaReceivedMailParseInput = {
   subject?: string | null;
@@ -20,30 +29,8 @@ export type PsaReceivedMailParseResult = {
   reason?: string;
 };
 
-function normalizeCert(raw: string): string {
-  return raw.trim().toUpperCase();
-}
-
-function isCollectorsFrom(from: string | null | undefined): boolean {
-  if (!from?.trim()) return false;
-  const lower = from.toLowerCase();
-  return (
-    lower.includes('noreply@collectors.com') ||
-    /@collectors\.com\b/i.test(from)
-  );
-}
-
-function extractCerts(body: string): string[] {
-  const found = new Set<string>();
-  for (const m of body.matchAll(CERT_LINE)) {
-    const cert = normalizeCert(m[1] ?? '');
-    if (/^\d{7,10}$/.test(cert)) found.add(cert);
-  }
-  return [...found];
-}
-
 /**
- * Returns matched:true only for Items Received mails with at least one cert.
+ * Returns matched:true only for Items Received (intake) mails with at least one cert.
  */
 export function parsePsaReceivedMail(
   input: PsaReceivedMailParseInput,
@@ -52,23 +39,35 @@ export function parsePsaReceivedMail(
   const from = input.from ?? '';
   const body = input.bodyText ?? '';
 
-  if (!isCollectorsFrom(from)) {
+  if (!isPsaCollectorsFrom(from)) {
     return { matched: false, certs: [], reason: 'from_not_collectors' };
   }
 
   const subjectOk = subject
     .toLowerCase()
-    .includes(PSA_RECEIVED_SUBJECT.toLowerCase());
+    .includes(PSA_ITEMS_RECEIVED_SUBJECT.toLowerCase());
   if (!subjectOk) {
     return { matched: false, certs: [], reason: 'subject_not_items_received' };
   }
 
-  // Shipping-instruction body (even if subject were wrong) — belt & suspenders.
   if (/print this email and include with your submission/i.test(body)) {
     return { matched: false, certs: [], reason: 'shipping_instruction_body' };
   }
 
-  const certs = extractCerts(body);
+  // Both markers in one body — do not treat as arrival (ops must inspect).
+  if (
+    bodyHasPsaVaultedSecuredMarker(body) &&
+    new RegExp(PSA_ARRIVAL_BODY_MARKER, 'i').test(body)
+  ) {
+    return { matched: false, certs: [], reason: 'ambiguous_arrival_and_vaulted' };
+  }
+
+  // Vault-confirmation mail (same subject) — mint path, not arrival.
+  if (bodyHasPsaVaultedSecuredMarker(body)) {
+    return { matched: false, certs: [], reason: 'vaulted_secured_body' };
+  }
+
+  const certs = extractPsaMailCerts(body);
   if (certs.length === 0) {
     return { matched: false, certs: [], reason: 'no_certs' };
   }
@@ -86,9 +85,11 @@ export function decidePsaMailIngest(
   if (parsed.matched) return 'enqueue';
   if (
     parsed.reason === 'shipping_instruction_body' ||
-    parsed.reason === 'subject_not_items_received'
+    parsed.reason === 'subject_not_items_received' ||
+    parsed.reason === 'vaulted_secured_body'
   ) {
     return 'skip_label';
   }
+  // Ambiguous: enqueue so ops can see it (never silent-drop).
   return 'enqueue';
 }

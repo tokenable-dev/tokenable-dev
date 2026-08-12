@@ -10,16 +10,26 @@ import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } 
 
 export const MARKETS_DEFAULT_SORT_ID = "pct_change_high" as const;
 
+/** Labels match `Tokenable-with design system-13/Markets.html` Sort menu. */
 export const MARKETS_SORT_OPTIONS = [
-  { id: "pct_change_high", label: "Highest % Chg." },
-  { id: "recent_listed", label: "Recent listed" },
-  { id: "high_price", label: "High price" },
-  { id: "low_price", label: "Low price" },
-  { id: "population_low", label: "Population low" },
+  { id: "pct_change_high", label: "Top gainers" },
+  { id: "low_price", label: "Price: low → high" },
+  { id: "high_price", label: "Price: high → low" },
+  { id: "recent_listed", label: "Newest listings" },
+  { id: "population_low", label: "Population: low → high" },
   { id: "recent_sold", label: "Recent sold" },
 ] as const;
 
 export type MarketsSortId = (typeof MARKETS_SORT_OPTIONS)[number]["id"];
+
+/** Markets.html Sort menu order (excludes watchlist-only `recent_sold`). */
+export const MARKETS_SORT_UI_IDS: readonly MarketsSortId[] = [
+  "pct_change_high",
+  "low_price",
+  "high_price",
+  "recent_listed",
+  "population_low",
+];
 
 export function collectionKeyLower(c: MarketplaceCollectionSummary): string {
   return c.collectionKey?.trim().toLowerCase() ?? "";

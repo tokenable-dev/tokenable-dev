@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -16,16 +18,23 @@ import { RwaChainWriterService } from '../../blockchain/rwa-chain-writer.service
 import { User } from '../../user/entities/user.entity';
 import { VaultAsset } from '../../vault/entities/vault-asset.entity';
 import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
+import { VaultRedeemPaymentClaim } from '../../vault/entities/vault-redeem-payment-claim.entity';
 import {
   VaultRedemption,
   type VaultRedemptionRefundStatus,
   type VaultRedemptionStatus,
 } from '../../vault/entities/vault-redemption.entity';
 import { VaultService } from '../../vault/vault.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplacePartner } from '../entities/marketplace-partner.entity';
 import { formatPartnerVaultLabel } from '../partners/partner-vault-label.util';
-import { redeemShipmentKey } from '../../rwa/redeem-shipment-key.util';
+import {
+  isActiveRedeemShipmentStatus,
+  redeemShipmentKey,
+  redeemShipToFingerprint,
+  redeemTrackingGroupKey,
+} from '../../rwa/redeem-shipment-key.util';
 
 const BLOCKED_REFUND_STATUSES: ReadonlySet<VaultRedemptionStatus> = new Set([
   'burned',
@@ -85,6 +94,7 @@ export type AdminRedeemRow = {
   tokenContract: string | null;
   certNumber: string | null;
   displayName: string | null;
+  imageUrl: string | null;
   vaultCycleId: string;
   vaultCycleStatus: string | null;
   requestedByUserId: string | null;
@@ -100,8 +110,17 @@ export type AdminRedeemRow = {
   vaultPartnerId: string | null;
   /** psa_vault | partner:<id> — groups cards for per-vault tracking. */
   shipmentKey: string;
+  /** batch + shipmentKey + ship-to — partner portal tracking scope. */
+  trackingGroupKey: string;
   vaultLabel: string;
   updatedAt: string;
+};
+
+export type AdminRedeemPurgeResult = {
+  deletedRedemptions: number;
+  deletedPaymentClaims: number;
+  resetVaultCycles: number;
+  clearedTokenBurns: number;
 };
 
 type RedeemRawJoin = {
@@ -110,6 +129,7 @@ type RedeemRawJoin = {
   tokenContract: string | null;
   certNumber: string | null;
   displayName: string | null;
+  imageUrl: string | null;
   vaultCycleStatus: string | null;
   userEmail: string | null;
   settlementPolicy: 'standard' | 'self_vault_hold' | null;
@@ -194,7 +214,61 @@ export class RedeemsAdminService {
     private readonly chainWriter: RwaChainWriterService,
     private readonly chainConfig: ChainConfigService,
     private readonly vault: VaultService,
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Dev/staging only — wipe redeem ledger rows and undo local vault/token redeem flags.
+   * Does not touch on-chain burns or USDC payments.
+   */
+  async purgeAllDevData(): Promise<AdminRedeemPurgeResult> {
+    const isProduction =
+      this.config.get<boolean>('app.isProduction') ??
+      this.config.get<string>('NODE_ENV') === 'production';
+    if (isProduction) {
+      throw new ForbiddenException('Redeem purge is disabled in production');
+    }
+
+    return this.redemptions.manager.transaction(async (em) => {
+      const deletedRedemptions = await em.count(VaultRedemption);
+      const deletedPaymentClaims = await em.count(VaultRedeemPaymentClaim);
+
+      await em.createQueryBuilder().delete().from(VaultRedemption).execute();
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(VaultRedeemPaymentClaim)
+        .execute();
+
+      const cycleResult = await em
+        .createQueryBuilder()
+        .update(VaultCycle)
+        .set({ status: 'minted', redeemedAt: null })
+        .where('status IN (:...statuses)', {
+          statuses: ['redemption_requested', 'redeemed'],
+        })
+        .execute();
+
+      const tokenResult = await em
+        .createQueryBuilder()
+        .update(RwaToken)
+        .set({ burnedAt: null, burnTxHash: null })
+        .where('burned_at IS NOT NULL OR burn_tx_hash IS NOT NULL')
+        .execute();
+
+      const result: AdminRedeemPurgeResult = {
+        deletedRedemptions,
+        deletedPaymentClaims,
+        resetVaultCycles: cycleResult.affected ?? 0,
+        clearedTokenBurns: tokenResult.affected ?? 0,
+      };
+
+      this.logger.warn(JSON.stringify({ msg: 'admin_redeem_purge_all', ...result }));
+
+      return result;
+    });
+  }
 
   private withBatchLock<T>(batchId: string, fn: () => Promise<T>): Promise<T> {
     const prev = this.batchLocks.get(batchId) ?? Promise.resolve();
@@ -263,6 +337,7 @@ export class RedeemsAdminService {
       tokenContract: raw.tokenContract,
       certNumber: raw.certNumber,
       displayName: raw.displayName,
+      imageUrl: raw.imageUrl,
       vaultCycleId: r.vaultCycleId,
       vaultCycleStatus: raw.vaultCycleStatus,
       requestedByUserId: r.requestedByUserId,
@@ -279,6 +354,22 @@ export class RedeemsAdminService {
       shipmentKey: redeemShipmentKey({
         settlementPolicy: raw.settlementPolicy,
         vaultPartnerId: raw.vaultPartnerId,
+      }),
+      trackingGroupKey: redeemTrackingGroupKey({
+        paymentBatchId: r.paymentBatchId,
+        shipmentKey: redeemShipmentKey({
+          settlementPolicy: raw.settlementPolicy,
+          vaultPartnerId: raw.vaultPartnerId,
+        }),
+        shipTo: {
+          name: r.shipToName,
+          line1: r.shipToLine1,
+          line2: r.shipToLine2,
+          city: r.shipToCity,
+          region: r.shipToRegion,
+          postal: r.shipToPostal,
+          country: r.shipToCountry,
+        },
       }),
       vaultLabel: raw.vaultLabel,
       updatedAt: iso(r.updatedAt) ?? new Date(0).toISOString(),
@@ -359,6 +450,7 @@ export class RedeemsAdminService {
         tokenContract: token?.tokenContract?.toLowerCase() ?? null,
         certNumber: token?.certNumber ?? asset?.externalCertNumber ?? null,
         displayName: token?.displayName ?? asset?.displayName ?? null,
+        imageUrl: token?.displayImageUrl?.trim() || null,
         vaultCycleStatus: cycle?.status ?? null,
         userEmail: redemption.requestedByUserId
           ? emailByUser.get(redemption.requestedByUserId) ?? null
@@ -385,6 +477,7 @@ export class RedeemsAdminService {
         tokenContract: null,
         certNumber: null,
         displayName: null,
+        imageUrl: null,
         vaultCycleStatus: null,
         userEmail: null,
         settlementPolicy: null,
@@ -417,6 +510,61 @@ export class RedeemsAdminService {
 
     const rows = await qb.getMany();
     return { items: await this.serializeRows(rows) };
+  }
+
+  /**
+   * Partner-scoped list — only self-vault redemptions for this partner's cards.
+   * Same row shape as admin so the partner UI can reuse serializers / grouping.
+   */
+  async listForPartner(
+    partnerId: string,
+    params?: { limit?: number },
+  ): Promise<{ items: AdminRedeemRow[] }> {
+    const id = partnerId.trim();
+    if (!id) throw new BadRequestException('partnerId is required');
+    const limit = Math.min(Math.max(params?.limit ?? 100, 1), 200);
+    const rows = await this.redemptions
+      .createQueryBuilder('r')
+      .where(
+        `EXISTS (
+          SELECT 1 FROM rwa_tokens t
+          WHERE t.vault_cycle_id = r.vault_cycle_id
+            AND t.vault_partner_id = :partnerId
+            AND t.settlement_policy = :policy
+        )`,
+        { partnerId: id, policy: 'self_vault_hold' },
+      )
+      .orderBy('r.requestedAt', 'DESC')
+      .addOrderBy('r.id', 'ASC')
+      .take(limit)
+      .getMany();
+    return { items: await this.serializeRows(rows) };
+  }
+
+  /**
+   * Partner may only write tracking for their own `partner:<id>` shipment key.
+   */
+  async updateTrackingBatchForPartner(
+    partnerId: string,
+    batchId: string,
+    params: {
+      shipmentKey: string;
+      trackingNumber: string;
+      trackingCarrier?: string;
+      redemptionIds: string[];
+    },
+  ): Promise<{ paymentBatchId: string; shipmentKey: string; items: AdminRedeemRow[] }> {
+    const expected = `partner:${partnerId.trim()}`;
+    const key = params.shipmentKey.trim();
+    if (key !== expected) {
+      throw new ForbiddenException(
+        `Partners may only update tracking for ${expected}`,
+      );
+    }
+    return this.updateTrackingBatch(batchId, {
+      ...params,
+      partnerOnly: true,
+    });
   }
 
   async getBatch(batchId: string): Promise<{
@@ -477,6 +625,7 @@ export class RedeemsAdminService {
       throw new BadRequestException('trackingNumber is required');
     }
     const existing = row.trackingNumber?.trim();
+    const isNewTracking = !existing;
     if (existing && existing !== trackingNumber) {
       throw new BadRequestException(
         `Redemption already has a different tracking number`,
@@ -493,6 +642,26 @@ export class RedeemsAdminService {
       row.trackingCarrier = null;
     }
     await this.redemptions.save(row);
+    if (isNewTracking && row.paymentBatchId) {
+      const [joined] = await this.enrich([row]);
+      const chainId = this.resolveChainId(row);
+      void this.notifications
+        .notifyRedeemShipped({
+          ownerWallet: row.ownerWalletAddress,
+          paymentBatchId: row.paymentBatchId,
+          shipmentKey: redeemShipmentKey({
+            settlementPolicy: joined?.settlementPolicy ?? null,
+            vaultPartnerId: joined?.vaultPartnerId ?? null,
+          }),
+          trackingNumber: row.trackingNumber,
+          chainId,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifyRedeemShipped failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
     return this.serializeOne(row);
   }
 
@@ -503,11 +672,17 @@ export class RedeemsAdminService {
       shipmentKey: string;
       trackingNumber: string;
       trackingCarrier?: string;
+      redemptionIds?: string[];
+      /** When true, require redemptionIds and reject terminal rows. */
+      partnerOnly?: boolean;
     },
   ): Promise<{ paymentBatchId: string; shipmentKey: string; items: AdminRedeemRow[] }> {
     const shipmentKey = params.shipmentKey.trim();
     if (!shipmentKey) {
       throw new BadRequestException('shipmentKey is required');
+    }
+    if (params.partnerOnly && (!params.redemptionIds || params.redemptionIds.length === 0)) {
+      throw new BadRequestException('redemptionIds is required for partner tracking');
     }
     const rows = await this.redemptions.find({
       where: { paymentBatchId: batchId },
@@ -523,18 +698,57 @@ export class RedeemsAdminService {
     const carrier = params.trackingCarrier?.trim() || null;
     const at = new Date();
     const joined = await this.enrich(rows);
-    const targets = joined.filter(
-      (j) =>
-        redeemShipmentKey({
-          settlementPolicy: j.settlementPolicy,
-          vaultPartnerId: j.vaultPartnerId,
-        }) === shipmentKey,
-    );
+    const redemptionIdSet = params.redemptionIds?.length
+      ? new Set(params.redemptionIds)
+      : null;
+    let targets = joined.filter((j) => {
+      const key = redeemShipmentKey({
+        settlementPolicy: j.settlementPolicy,
+        vaultPartnerId: j.vaultPartnerId,
+      });
+      if (key !== shipmentKey) return false;
+      if (redemptionIdSet && !redemptionIdSet.has(j.redemption.id)) {
+        return false;
+      }
+      if (!isActiveRedeemShipmentStatus(j.redemption.status)) {
+        return false;
+      }
+      return true;
+    });
     if (targets.length === 0) {
       throw new NotFoundException(
-        `No cards in batch ${batchId} for shipment ${shipmentKey}`,
+        `No active cards in batch ${batchId} for shipment ${shipmentKey}`,
       );
     }
+    if (params.partnerOnly) {
+      const expectedFp = redeemShipToFingerprint({
+        name: targets[0]!.redemption.shipToName,
+        line1: targets[0]!.redemption.shipToLine1,
+        line2: targets[0]!.redemption.shipToLine2,
+        city: targets[0]!.redemption.shipToCity,
+        region: targets[0]!.redemption.shipToRegion,
+        postal: targets[0]!.redemption.shipToPostal,
+        country: targets[0]!.redemption.shipToCountry,
+      });
+      const mixedShipTo = targets.some(
+        (t) =>
+          redeemShipToFingerprint({
+            name: t.redemption.shipToName,
+            line1: t.redemption.shipToLine1,
+            line2: t.redemption.shipToLine2,
+            city: t.redemption.shipToCity,
+            region: t.redemption.shipToRegion,
+            postal: t.redemption.shipToPostal,
+            country: t.redemption.shipToCountry,
+          }) !== expectedFp,
+      );
+      if (mixedShipTo) {
+        throw new BadRequestException(
+          'Partner tracking updates must target one ship-to destination per request',
+        );
+      }
+    }
+    let appliedNewTracking = false;
     for (const { redemption: row } of targets) {
       if (row.trackingNumber?.trim()) {
         if (row.trackingNumber.trim() !== trackingNumber) {
@@ -548,11 +762,29 @@ export class RedeemsAdminService {
         }
         continue;
       }
+      appliedNewTracking = true;
       row.trackingNumber = trackingNumber;
       row.trackingCarrier = carrier;
       row.trackingSetAt = at;
     }
     await this.redemptions.save(targets.map((t) => t.redemption));
+    if (appliedNewTracking) {
+      const ownerWallet = rows[0].ownerWalletAddress;
+      const chainId = this.resolveChainId(rows[0]);
+      void this.notifications
+        .notifyRedeemShipped({
+          ownerWallet,
+          paymentBatchId: batchId,
+          shipmentKey,
+          trackingNumber,
+          chainId,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifyRedeemShipped failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
     return {
       paymentBatchId: batchId,
       shipmentKey,
@@ -678,6 +910,18 @@ export class RedeemsAdminService {
       this.logger.log(
         `Redeem batch ${batchId} USDC refund ${amountMicros} → ${to} tx=${txHash}`,
       );
+
+      void this.notifications
+        .notifyRedeemRefunded({
+          ownerWallet: to,
+          paymentBatchId: batchId,
+          chainId,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifyRedeemRefunded failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
 
       return {
         paymentBatchId: batchId,

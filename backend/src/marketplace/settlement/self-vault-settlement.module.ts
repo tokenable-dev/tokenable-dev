@@ -5,6 +5,7 @@ import { UserModule } from '../../user/user.module';
 import { VaultModule } from '../../vault/vault.module';
 import { MarketplaceAdminModule } from '../admin/marketplace-admin.module';
 import { MarketplacePartnersModule } from '../partners/marketplace-partners.module';
+import { MarketplaceNotificationsModule } from '../notifications/marketplace-notifications.module';
 import { Order } from '../entities/order.entity';
 import { PortfolioHolding } from '../entities/portfolio-holding.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -25,6 +26,7 @@ import { SelfVaultSettlementService } from './self-vault-settlement.service';
     VaultModule,
     BlockchainModule,
     MarketplacePartnersModule,
+    MarketplaceNotificationsModule,
   ],
   controllers: [SelfVaultSettlementController],
   providers: [SelfVaultSettlementService],

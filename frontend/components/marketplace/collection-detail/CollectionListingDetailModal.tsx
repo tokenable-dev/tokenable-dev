@@ -12,6 +12,7 @@ import {
   listingAssetTitle,
   listingGalleryImages,
   listingSellerVerifiedLabel,
+  listingVaultBadge,
   listingVerificationTiles,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { CollectionListingBuyerEducation } from "./CollectionListingBuyerEducation";
@@ -143,6 +144,7 @@ export function CollectionListingDetailModal({
   const price =
     listing != null ? formatListingUsdc(listing.considerationAmount) : "—";
   const sellerLine = listingSellerVerifiedLabel(listing);
+  const vaultBadge = listingVaultBadge(listing);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
@@ -285,8 +287,11 @@ export function CollectionListingDetailModal({
               <div className="cd-listing-prov__timeline-dot cd-listing-prov__timeline-dot--active" />
               <div>
                 <div className="cd-listing-prov__timeline-title">Current listing</div>
-                <div className="cd-listing-prov__timeline-addr tkl-mono" title={sellerLine.title}>
-                  Verified collector
+                <div
+                  className={`cd-listing-prov__timeline-addr tkl-mono cd-listing-card__vault--${vaultBadge.tone}`}
+                  title={vaultBadge.title}
+                >
+                  {vaultBadge.label}
                 </div>
                 <div className="cd-listing-prov__timeline-meta tkl-mono">
                   Listed at ${price}
@@ -300,7 +305,10 @@ export function CollectionListingDetailModal({
           <div className="cd-listing-prov__foot">
             <div className="cd-listing-prov__foot-top">
               <span className="cd-listing-prov__price">${price}</span>
-              <span className="cd-listing-prov__seller tkl-mono" title={sellerLine.title}>
+              <span
+                className={`cd-listing-prov__seller tkl-mono cd-listing-card__vault--${sellerLine.tone}`}
+                title={sellerLine.title}
+              >
                 {sellerLine.label}
               </span>
             </div>

@@ -3,7 +3,15 @@ import { CHART_DAY_SEC, CHART_HOUR_SEC } from "./constants";
 
 /** Expand interval when a chart would otherwise paint too many grid lines. */
 function expandUsdInterval(interval: number): number {
-  if (interval < 100) return 100;
+  if (interval < 0.25) return 0.25;
+  if (interval === 0.25) return 0.5;
+  if (interval === 0.5) return 1;
+  if (interval === 1) return 2;
+  if (interval === 2) return 5;
+  if (interval === 5) return 10;
+  if (interval === 10) return 20;
+  if (interval === 20) return 50;
+  if (interval === 50) return 100;
   if (interval === 100) return 200;
   if (interval === 200) return 500;
   if (interval === 500) return 1000;
@@ -20,19 +28,37 @@ function expandUsdInterval(interval: number): number {
 }
 
 /**
- * Prefer dense USD steps:
- * - ≤ ~$1k → $100 (800, 900, 1000)
- * - ≤ ~$12k → $1k (1k, 2k, 3k, 4k, 5k)
+ * Prefer readable USD steps across cheap → expensive cards:
+ * - ≤ ~$2 → $0.25
+ * - ≤ ~$5 → $0.50
+ * - ≤ ~$15 → $1   (e.g. ~$9 cards → 0…10 axis, not 0…100)
+ * - ≤ ~$40 → $5
+ * - ≤ ~$100 → $10
+ * - ≤ ~$1k → $100
+ * - ≤ ~$12k → $1k
  * - ≤ ~$120k → $10k
  * - else → $100k / $1M
  */
 function pickUsdInterval(rawMax: number, span: number): number {
   const ref = Math.max(Math.abs(rawMax), span);
+  if (ref <= 2) return 0.25;
+  if (ref <= 5) return 0.5;
+  if (ref <= 15) return 1;
+  if (ref <= 40) return 5;
+  if (ref <= 100) return 10;
   if (ref <= 1000) return 100;
   if (ref <= 12_000) return 1000;
   if (ref <= 120_000) return 10_000;
   if (ref <= 1_200_000) return 100_000;
   return 1_000_000;
+}
+
+function snapDown(v: number, interval: number): number {
+  return Math.floor((v + 1e-9) / interval) * interval;
+}
+
+function snapUp(v: number, interval: number): number {
+  return Math.ceil((v - 1e-9) / interval) * interval;
 }
 
 /**
@@ -60,14 +86,14 @@ export function niceScale(
   let interval = pickUsdInterval(hi, span);
   const maxTickCount = Math.max(6, Math.min(14, Math.floor(targetTicks) || 12));
 
-  let min = Math.max(0, Math.floor(lo / interval) * interval);
-  let max = Math.ceil(hi / interval) * interval;
+  let min = Math.max(0, snapDown(lo, interval));
+  let max = snapUp(hi, interval);
   if (max <= min) max = min + interval;
 
   while ((max - min) / interval > maxTickCount) {
     interval = expandUsdInterval(interval);
-    min = Math.max(0, Math.floor(lo / interval) * interval);
-    max = Math.ceil(hi / interval) * interval;
+    min = Math.max(0, snapDown(lo, interval));
+    max = snapUp(hi, interval);
     if (max <= min) max = min + interval;
   }
 
@@ -84,20 +110,22 @@ export function ticksFromScale(min: number, max: number, interval: number): numb
   for (let i = 0; i < 64; i++) {
     const v = min + i * interval;
     if (v > hi) break;
-    ticks.push(v);
+    ticks.push(Number(v.toFixed(6)));
   }
   return ticks.length > 0 ? ticks : [min, max];
 }
 
-/** 1y collection chart — always from $0 with dense USD steps. */
+/** 1y collection chart — from $0 with steps that fit the price magnitude. */
 export function yearViewPriceScale(
   rawMin: number,
   rawMax: number,
 ): { min: number; max: number; interval: number } {
-  const paddedMax = rawMax * 1.06;
-  if (!Number.isFinite(paddedMax) || paddedMax <= 0) {
+  if (!Number.isFinite(rawMax) || rawMax <= 0) {
     return { min: 0, max: 1000, interval: 100 };
   }
+  /* Cheap cards need a little more headroom so the line isn't glued to the top. */
+  const pad = rawMax <= 50 ? 1.15 : 1.06;
+  const paddedMax = rawMax * pad;
   void rawMin;
   return niceScale(0, paddedMax, 12);
 }

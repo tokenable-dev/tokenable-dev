@@ -142,6 +142,8 @@ export type AdminPsaArrivalReview = {
   matchedPublicIds: string[];
   ingestNote: string | null;
   status: string;
+  confirmedVia: "auto" | "admin" | null;
+  skippedPublicIds: string[];
   reviewedAt: string | null;
   createdAt: string;
   packages: AdminPsaArrivalReviewPackage[];
@@ -280,6 +282,118 @@ export async function adminInjectPsaReceivedTestMail(input: {
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new Error(t || `test-inject failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export type AdminPsaVaultedReview = {
+  id: string;
+  gmailMessageId: string;
+  subject: string | null;
+  fromAddress: string | null;
+  certs: string[];
+  unmatchedCerts: string[];
+  matchedItemIds: string[];
+  matchedPublicIds: string[];
+  ingestNote: string | null;
+  status: string;
+  mintedVia: "auto" | "admin" | null;
+  mintResults: Array<{
+    cert: string;
+    itemId?: string;
+    publicId?: string;
+    ok: boolean;
+    tokenId?: number;
+    error?: string;
+  }>;
+  errorSummary: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  items: Array<{
+    itemId: string;
+    submissionId: string;
+    publicId: string;
+    cert: string;
+    itemStatus: string;
+    name: string | null;
+    userEmail: string | null;
+    userName: string | null;
+    tokenId: number | null;
+  }>;
+};
+
+export async function listAdminPsaVaultedReviews(
+  status: "pending" | "minted" | "failed" | "dismissed" = "pending",
+): Promise<AdminPsaVaultedReview[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/vaulted-reviews?status=${encodeURIComponent(status)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(`vaulted-reviews failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminInjectPsaVaultedTestMail(input: {
+  cert: string;
+  cardLabel?: string;
+}): Promise<{
+  messageId: string;
+  cert: string;
+  poll: {
+    processed: number;
+    queued: string[];
+    minted: string[];
+    skippedLock?: boolean;
+  };
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/vaulted-reviews/test-inject`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cert: input.cert.trim(),
+        cardLabel: input.cardLabel?.trim() || undefined,
+      }),
+      timeoutMs: 180_000,
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `vaulted test-inject failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminMintPsaVaultedReview(
+  reviewId: string,
+): Promise<{ minted: boolean }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/vaulted-reviews/${encodeURIComponent(reviewId)}/mint`,
+    {
+      method: "POST",
+      credentials: "include",
+      timeoutMs: 300_000,
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `vaulted mint failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDismissPsaVaultedReview(
+  reviewId: string,
+): Promise<AdminPsaVaultedReview> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/vault-submissions/vaulted-reviews/${encodeURIComponent(reviewId)}/dismiss`,
+    { method: "POST", credentials: "include" },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `vaulted dismiss failed: ${res.status}`);
   }
   return res.json();
 }

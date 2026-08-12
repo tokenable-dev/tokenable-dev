@@ -59,30 +59,33 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
-/** Desktop listing / prov sticky — Card.html `Seller · verified`. */
-export function listingSellerVerifiedLabel(
+/** Vault badge for listing cards / orderbook — Card.html `PSA vault` / `{Partner} vault`. */
+export function listingVaultBadge(
   listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
-): { label: string; title?: string } {
-  if (!listing) return { label: "—" };
+): { label: string; tone: "psa" | "partner"; title?: string } {
+  if (!listing) return { label: "—", tone: "psa" };
   const addr = listing.offerer || listing.parameters?.offerer;
   const name = listing.sellerDisplayName?.trim();
-  return {
-    label: name ? `Seller · ${name}` : "Seller · verified",
-    title: addr,
-  };
+  if (name) {
+    const label = /vault$/i.test(name) ? name : `${name} vault`;
+    return { label, tone: "partner", title: addr };
+  }
+  return { label: "PSA vault", tone: "psa", title: addr };
 }
 
-/** Mobile orderbook row — Card.html `Verified collector`. */
+/** Desktop listing / prov sticky — Card.html vault badge. */
+export function listingSellerVerifiedLabel(
+  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+): { label: string; title?: string; tone: "psa" | "partner" } {
+  const badge = listingVaultBadge(listing);
+  return { label: badge.label, title: badge.title, tone: badge.tone };
+}
+
+/** Mobile orderbook row — Card.html vault badge. */
 export function listingVerifiedCollectorLabel(
   listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
-): { label: string; title?: string } {
-  if (!listing) return { label: "—" };
-  const addr = listing.offerer || listing.parameters?.offerer;
-  const name = listing.sellerDisplayName?.trim();
-  return {
-    label: name || "Verified collector",
-    title: addr,
-  };
+): { label: string; title?: string; tone: "psa" | "partner" } {
+  return listingVaultBadge(listing);
 }
 
 function normalizeListingImageUrl(raw: string): string {

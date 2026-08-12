@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import type { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import type { VaultAsset } from './entities/vault-asset.entity';
@@ -49,10 +49,13 @@ function makeService(
     {} as Repository<VaultRedemption>,
     {} as never, // paymentClaims
     {} as Repository<RwaToken>,
+    {} as never, // marketplacePartners
     {
       notifyWithdrawalRequested: jest.fn(),
       notifyWithdrawalShipped: jest.fn(),
+      notifyRedeemPaymentReceived: jest.fn(),
     } as never,
+    { getDefaultChainId: jest.fn(() => 11155111) } as never,
   );
 }
 
@@ -78,6 +81,85 @@ describe('VaultService.assertAvailableForNewCycle (chain-scoped)', () => {
     ).assets.findOne.mockResolvedValue(null);
     await expect(
       service.assertAvailableForNewCycle('999999999', POLYGON),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('VaultService.assertTokensRedeemable', () => {
+  function makeRedeemableService(
+    tokens: Array<Partial<RwaToken>>,
+    cycles: Array<{ id: string; status: string }> = [],
+  ) {
+    const rwaTokens = {
+      find: jest.fn(() => Promise.resolve(tokens)),
+    } as unknown as Repository<RwaToken>;
+    const cyclesRepo = {
+      find: jest.fn(() => Promise.resolve(cycles)),
+    } as unknown as Repository<VaultCycle>;
+    return new VaultService(
+      {} as Repository<VaultAsset>,
+      cyclesRepo,
+      {} as Repository<VaultRedemption>,
+      {} as never,
+      rwaTokens,
+      {} as never,
+      {} as never,
+      { getDefaultChainId: jest.fn(() => SEPOLIA) } as never,
+    );
+  }
+
+  const contract = '0xabc';
+
+  it('rejects a token that has no registry row', async () => {
+    await expect(
+      makeRedeemableService([]).assertTokensRedeemable(contract, ['49']),
+    ).rejects.toThrow(/not registered/);
+  });
+
+  it('rejects an already-burned token', async () => {
+    await expect(
+      makeRedeemableService([
+        { tokenId: '49', burnedAt: new Date(), vaultCycleId: 'c1' },
+      ]).assertTokensRedeemable(contract, ['49']),
+    ).rejects.toThrow(/already been redeemed/);
+  });
+
+  it('rejects missing cycle when no cert number (unhealable)', async () => {
+    await expect(
+      makeRedeemableService([
+        { tokenId: '49', burnedAt: null, vaultCycleId: null, certNumber: null },
+      ]).assertTokensRedeemable(contract, ['49']),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows missing cycle when cert is on file (backfilled at pay)', async () => {
+    await expect(
+      makeRedeemableService([
+        {
+          tokenId: '49',
+          burnedAt: null,
+          vaultCycleId: null,
+          certNumber: '12345678',
+        },
+      ]).assertTokensRedeemable(contract, ['49']),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects when the vault cycle is not minted', async () => {
+    await expect(
+      makeRedeemableService(
+        [{ tokenId: '49', burnedAt: null, vaultCycleId: 'c1' }],
+        [{ id: 'c1', status: 'redemption_requested' }],
+      ).assertTokensRedeemable(contract, ['49']),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('passes a healthy minted token', async () => {
+    await expect(
+      makeRedeemableService(
+        [{ tokenId: '49', burnedAt: null, vaultCycleId: 'c1' }],
+        [{ id: 'c1', status: 'minted' }],
+      ).assertTokensRedeemable(contract, ['49']),
     ).resolves.toBeUndefined();
   });
 });

@@ -99,12 +99,33 @@ describe('parsePsaReceivedMail', () => {
     expect(decidePsaMailIngest(r)).toBe('enqueue');
   });
 
-  it('decidePsaMailIngest skips shipping-instruction noise', () => {
+  it('decidePsaMailIngest skips vaulted secured body (mint path)', () => {
     const r = parsePsaReceivedMail({
-      subject: '106008542 - Your PSA Vault Submission',
+      subject: PSA_RECEIVED_SUBJECT,
       from: 'noreply@collectors.com',
-      bodyText: SHIPPING_INSTRUCTION_BODY,
+      bodyText: `
+The following items are now secured in your PSA Vault.
+
+48785771 - CARD PSA 10
+`,
     });
+    expect(r.matched).toBe(false);
+    expect(r.reason).toBe('vaulted_secured_body');
     expect(decidePsaMailIngest(r)).toBe('skip_label');
+  });
+
+  it('enqueues ambiguous body with both arrival and vaulted markers', () => {
+    const r = parsePsaReceivedMail({
+      subject: PSA_RECEIVED_SUBJECT,
+      from: 'noreply@collectors.com',
+      bodyText: `
+Your items have been received and securely stored in your vault.
+The following items are now secured in your PSA Vault.
+148872613 - CARD A PSA 10
+`,
+    });
+    expect(r.matched).toBe(false);
+    expect(r.reason).toBe('ambiguous_arrival_and_vaulted');
+    expect(decidePsaMailIngest(r)).toBe('enqueue');
   });
 });

@@ -41,9 +41,11 @@ import {
   postRedeemBatchCustody,
   type RedeemShipTo,
 } from "@/lib/core/api/rwa-redeem";
+import { getPartnerMe } from "@/lib/core/api/marketplace-partner-me";
 import {
   listShippingAddresses,
   upsertDefaultShippingAddress,
+  type ShippingCountry,
 } from "@/lib/core/api/shipping-addresses";
 import { useAuthStore } from "@/store/authStore";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
@@ -76,6 +78,14 @@ export type RedeemFlowStep =
   | "preparing"
   | "transit"
   | "done";
+
+/** Which wallet interaction is in flight — drives button labels + signing hints. */
+export type RedeemPayPhase =
+  | { kind: "quote" }
+  | { kind: "pay" }
+  | { kind: "record" }
+  | { kind: "custody"; current: number; total: number }
+  | null;
 
 function validateShipTo(form: RedeemAddressForm): string | null {
   const errors = validateShipToFields({
@@ -128,12 +138,24 @@ function formFromShipTo(shipTo: RedeemShipTo, saveAddress: boolean): RedeemAddre
   };
 }
 
+function shippingCountryFromIso(raw: string | null | undefined): ShippingCountry {
+  const c = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (c === "us" || c === "usa") return "us";
+  if (c === "ca" || c === "can") return "ca";
+  if (c === "intl") return "intl";
+  return "intl";
+}
+
 async function loadProfileAddressForm(
   userId: string | undefined,
 ): Promise<RedeemAddressForm> {
   if (!userId) {
     return { ...EMPTY_REDEEM_ADDRESS_FORM };
   }
+
+  /* 1) Settings → Addresses default (personal ship-to book). */
   try {
     const rows = await listShippingAddresses();
     const def = rows.find((a) => a.isDefault) ?? rows[0] ?? null;
@@ -153,8 +175,34 @@ async function loadProfileAddressForm(
       return formFromShipTo(shipTo, true);
     }
   } catch {
+    /* fall through */
+  }
+
+  /*
+   * 2) Partner company Origin — partners often only have this on file.
+   * Use contact + street as ship-to so Ship from vault isn't blank.
+   */
+  try {
+    const me = await getPartnerMe();
+    const origin = me.companyAddress;
+    if (me.isPartner && origin) {
+      const shipTo: RedeemShipTo = {
+        name: origin.contactName.trim() || origin.companyName.trim(),
+        line1: origin.line1,
+        line2: origin.line2 ?? undefined,
+        city: origin.city,
+        region: origin.region ?? undefined,
+        postal: origin.postal,
+        country: shippingCountryFromIso(origin.country),
+        phone: origin.phone,
+      };
+      writeSavedRedeemAddress(shipTo, userId);
+      return formFromShipTo(shipTo, true);
+    }
+  } catch {
     /* fall through to local cache */
   }
+
   const local = readSavedRedeemAddress(userId);
   return local ?? { ...EMPTY_REDEEM_ADDRESS_FORM };
 }
@@ -193,7 +241,7 @@ async function resolvePendingCustody(input: {
     return session;
   }
 
-  const rows = await getMyRedemptions(input.tokenIds);
+  const rows = await getMyRedemptions(input.chainId, input.tokenIds);
   const awaiting = rows.filter((r) => r.status === "ownership_verified");
   if (awaiting.length === 0) {
     clearRedeemCustodyPending();
@@ -294,7 +342,7 @@ async function resolveOpenCustodyResume(chainId: number): Promise<{
   cards: RedeemDraftCard[];
 } | null> {
   const session = readRedeemCustodyPending();
-  const rows = await getMyRedemptions();
+  const rows = await getMyRedemptions(chainId);
   const awaiting = rows.filter(
     (r) => r.status === "ownership_verified" && r.paymentBatchId?.trim(),
   );
@@ -340,6 +388,7 @@ export function useRedeemFlow() {
   const { chainId } = useAppChain();
   const { runAccessGate } = useAccessGate(2, "/portfolio/redeem");
   const userId = useAuthStore((s) => s.user?.id);
+  const authReady = useAuthStore((s) => s.initialized);
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
@@ -354,6 +403,7 @@ export function useRedeemFlow() {
   const [step, setStep] = useState<RedeemFlowStep>("request");
   const [form, setForm] = useState<RedeemAddressForm>(EMPTY_REDEEM_ADDRESS_FORM);
   const [busy, setBusy] = useState(false);
+  const [payPhase, setPayPhase] = useState<RedeemPayPhase>(null);
   const [error, setError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState(0);
   const [custodyPending, setCustodyPending] =
@@ -366,6 +416,7 @@ export function useRedeemFlow() {
   const [paymentBatchId, setPaymentBatchId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!authReady) return;
     let cancelled = false;
 
     async function hydrate() {
@@ -374,7 +425,7 @@ export function useRedeemFlow() {
 
       if (viewParam === "transit" || viewParam === "done") {
         try {
-          const rows = await getMyRedemptions();
+          const rows = await getMyRedemptions(chainId);
           if (cancelled) return;
           const draftCards = readRedeemDraft()?.cards ?? [];
           const filtered = rows.filter((r) => {
@@ -431,7 +482,7 @@ export function useRedeemFlow() {
 
       if (viewParam === "preparing" || viewParam === "resume") {
         try {
-          const rows = await getMyRedemptions();
+          const rows = await getMyRedemptions(chainId);
           if (cancelled) return;
           const draftCards = readRedeemDraft()?.cards ?? [];
 
@@ -568,7 +619,7 @@ export function useRedeemFlow() {
     return () => {
       cancelled = true;
     };
-  }, [chainId, viewParam, userId, router]);
+  }, [authReady, chainId, viewParam, userId, router]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -632,7 +683,7 @@ export function useRedeemFlow() {
       const custodyWallet = getAddress(pending.custodyWalletAddress);
       const userWallet = getAddress(address);
       const { rwaAddress } = getChainContracts(pending.chainId);
-      const rows = await getMyRedemptions(pending.tokenIds);
+      const rows = await getMyRedemptions(pending.chainId, pending.tokenIds);
       const needTransfer = rows
         .filter(
           (r) =>
@@ -658,7 +709,14 @@ export function useRedeemFlow() {
       }
 
       const transfers: Array<{ tokenId: number; txHash: `0x${string}` }> = [];
+      let transferIndex = 0;
       for (const tokenId of needTransfer) {
+        transferIndex += 1;
+        setPayPhase({
+          kind: "custody",
+          current: transferIndex,
+          total: needTransfer.length,
+        });
         const ownerRaw = await publicClient.readContract({
           address: rwaAddress,
           abi: TOKENABLE_RWA_READ_ABI,
@@ -721,6 +779,7 @@ export function useRedeemFlow() {
     setError(null);
     try {
       const result = await finishCustodyTransfers(custodyPending);
+      setPayPhase(null);
       await queryClient.invalidateQueries({
         queryKey: ["rwa", "redemptions", "mine"],
       });
@@ -733,6 +792,7 @@ export function useRedeemFlow() {
       setStep("preparing");
     } catch (e) {
       setBusy(false);
+      setPayPhase(null);
       const mapped = mapWalletError(e);
       if (mapped.code === "USER_REJECTED") {
         setError(
@@ -807,15 +867,24 @@ export function useRedeemFlow() {
     }
 
     let paymentRecorded = false;
+    let paymentSent = false;
     try {
       const tokenIds = draft.cards.map((c) => c.tokenId);
-      const estimate = await getRedeemEstimate({
-        country: form.country,
-        cardCount: tokenIds.length,
-        tokenIds,
-        chainId,
-        shipTo,
-      });
+      setPayPhase({ kind: "quote" });
+      let estimate;
+      try {
+        estimate = await getRedeemEstimate({
+          country: form.country,
+          cardCount: tokenIds.length,
+          tokenIds,
+          chainId,
+          shipTo,
+        });
+      } catch (quoteErr) {
+        const detail =
+          quoteErr instanceof Error ? quoteErr.message : String(quoteErr);
+        throw new Error(`${detail} No payment was made — you can try again.`);
+      }
       const amount = BigInt(estimate.totalUsdcMicros);
       if (usdcBalance < amount) {
         throw new Error(
@@ -823,6 +892,7 @@ export function useRedeemFlow() {
         );
       }
 
+      setPayPhase({ kind: "pay" });
       const { usdcAddress } = getChainContracts(chainId);
       const hash = await writeContractAsync({
         chainId,
@@ -831,8 +901,10 @@ export function useRedeemFlow() {
         functionName: "transfer",
         args: [payTo, amount],
       });
+      paymentSent = true;
       await publicClient.waitForTransactionReceipt({ hash });
 
+      setPayPhase({ kind: "record" });
       let batch;
       try {
         batch = await postRedeemBatch({
@@ -869,6 +941,7 @@ export function useRedeemFlow() {
       setCustodyPending(pending);
 
       await finishCustodyTransfers(pending);
+      setPayPhase(null);
 
       await queryClient.invalidateQueries({
         queryKey: ["rwa", "redemptions", "mine"],
@@ -881,12 +954,15 @@ export function useRedeemFlow() {
       setStep("preparing");
     } catch (e) {
       setBusy(false);
+      setPayPhase(null);
       const mapped = mapWalletError(e);
       if (mapped.code === "USER_REJECTED") {
         setError(
           paymentRecorded
             ? "You cancelled the NFT transfer. Your USDC payment is already recorded — use Finish NFT transfers below (do not pay again)."
-            : "You cancelled the wallet request. No payment was completed — try again when ready.",
+            : paymentSent
+              ? "You cancelled after the USDC payment was sent. Do not pay again — reload this page to resume with the same payment."
+              : "You cancelled the wallet request. No payment was completed — try again when ready.",
         );
         return;
       }
@@ -923,7 +999,7 @@ export function useRedeemFlow() {
     setBusy(true);
     setError(null);
     try {
-      await postRedeemBatchConfirmReceived(paymentBatchId);
+      await postRedeemBatchConfirmReceived(paymentBatchId, chainId);
       clearRedeemDraft();
       clearRedeemCustodyPending();
       void queryClient.invalidateQueries({
@@ -938,7 +1014,7 @@ export function useRedeemFlow() {
     } finally {
       setBusy(false);
     }
-  }, [paymentBatchId, queryClient, router]);
+  }, [paymentBatchId, chainId, queryClient, router]);
 
   return useMemo(
     () => ({
@@ -949,6 +1025,7 @@ export function useRedeemFlow() {
       form,
       setForm,
       busy,
+      payPhase,
       error,
       successCount,
       custodyPending,
@@ -972,6 +1049,7 @@ export function useRedeemFlow() {
       step,
       form,
       busy,
+      payPhase,
       error,
       successCount,
       custodyPending,

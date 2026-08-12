@@ -1,26 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   analyzePsaByCertNumber,
   analyzePsaSlab,
-  getSelfVaultPartnerEligibility,
+  getPartnerMe,
   listVaultSubmissions,
   rq,
   type PsaAnalyzeResult,
 } from "@/lib/core";
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { fetchAuthMe } from "@/lib/auth";
-import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import type { KycStatus } from "@/lib/auth";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { activeRqChainId } from "@/lib/chains";
 import {
   draftCardsFromSubmissionItems,
   readSellFlowDraftCards,
@@ -143,6 +141,7 @@ function mapKycToIdState(
 
 export function useSellFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const { chainId } = useAppChain();
@@ -167,36 +166,42 @@ export function useSellFlow() {
   const [mintBusy, setMintBusy] = useState(false);
   const [mintStatus, setMintStatus] = useState<string | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
+  const [partnerMintSuccess, setPartnerMintSuccess] = useState<number | null>(null);
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
   const mintLockRef = useRef(false);
+  const localHydrateDoneRef = useRef(false);
   const hydrateDoneRef = useRef(false);
 
   const idState = mapKycToIdState(user, kycStatus ?? user?.kycStatus);
 
-  // Local restore (instant) — cards + last step. Consents are never persisted:
-  // seller policy must be re-accepted every visit / submission.
+  // Local restore — draft cards only. Always open register (seller terms each
+  // visit). Optional `?vault=self|psa` prefills vault after Continue.
   useEffect(() => {
+    if (localHydrateDoneRef.current) return;
+    localHydrateDoneRef.current = true;
     const localCards = readSellFlowDraftCards();
-    const progress = readSellFlowProgress();
+    const q = searchParams.get("vault");
+    const prefillsVault: SellVaultChoice | null =
+      q === "self" || q === "psa" ? q : null;
     setCards(localCards);
-    setVaultChoice(progress.vaultChoice);
+    setVaultChoice(prefillsVault);
+    setScreen("register");
+    writeSellFlowProgress({
+      step: "register",
+      vaultChoice: prefillsVault,
+    });
     setConsents({ ...EMPTY_CONSENTS });
     try {
       localStorage.removeItem(CONSENTS_KEY);
     } catch {
       /* ignore */
     }
-    if (
-      localCards.length > 0 ||
-      progress.step === "cards" ||
-      progress.step === "shipping-pack" ||
-      progress.step === "shipping-track"
-    ) {
-      setDraftRestored(localCards.length > 0);
+    if (localCards.length > 0) {
+      setDraftRestored(true);
     }
     setHydrated(true);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     setKycStatus(user?.kycStatus);
@@ -270,45 +275,38 @@ export function useSellFlow() {
   }, [user?.id, hydrated]);
 
   const requiredConsentsOk = useMemo(
-    () =>
-      consents.terms &&
-      consents.authenticity &&
-      consents.storage &&
-      consents.fee,
+    () => consents.terms && consents.authenticity && consents.storage,
     [consents],
   );
 
-  const allConsentsOn = useMemo(
-    () => requiredConsentsOk && consents.marketing,
-    [requiredConsentsOk, consents.marketing],
-  );
+  const allConsentsOn = requiredConsentsOk;
 
   const canContinueRegister = idState === "verified" && requiredConsentsOk;
 
-  const primaryWallet = useMemo(
-    () => getPrimaryWalletAddress(user)?.toLowerCase() ?? "",
-    [user],
-  );
-
+  /*
+   * Same session as PartnerGate (`GET /marketplace/partners/me`): any linked
+   * wallet may match the partner row. Wallet-only eligibility missed that and
+   * was also disabled on the cards screen after refresh → false "partners only".
+   */
   const selfVaultEligibilityQuery = useQuery({
-    queryKey: rq.selfVaultPartnerEligibility(primaryWallet, activeRqChainId()),
-    queryFn: () => getSelfVaultPartnerEligibility(primaryWallet),
-    enabled: Boolean(primaryWallet) && screen === "vault",
+    queryKey: rq.partnerMe(),
+    queryFn: getPartnerMe,
+    enabled:
+      Boolean(user) && (screen === "vault" || vaultChoice === "self"),
     staleTime: 60_000,
   });
 
-  const selfVaultEligible = Boolean(selfVaultEligibilityQuery.data?.eligible);
-  const selfVaultIsPartner = Boolean(
-    selfVaultEligibilityQuery.data?.isPartner,
+  const selfVaultIsPartner = Boolean(selfVaultEligibilityQuery.data?.isPartner);
+  const selfVaultEligible = Boolean(
+    selfVaultIsPartner && selfVaultEligibilityQuery.data?.hasCompanyAddress,
   );
   const selfVaultNeedsCompanyAddress =
     selfVaultIsPartner &&
-    !selfVaultEligible &&
     selfVaultEligibilityQuery.data?.hasCompanyAddress === false;
   const selfVaultPartnerOnly =
     vaultChoice === "self" &&
     !selfVaultEligibilityQuery.isLoading &&
-    Boolean(primaryWallet) &&
+    Boolean(user) &&
     !selfVaultEligible &&
     !selfVaultNeedsCompanyAddress;
 
@@ -323,22 +321,16 @@ export function useSellFlow() {
   const updateConsent = useCallback((key: keyof SellConsents | "all") => {
     setConsents((prev) => {
       if (key === "all") {
-        const allOn =
-          prev.terms &&
-          prev.authenticity &&
-          prev.storage &&
-          prev.fee &&
-          prev.marketing;
-        const turnOn = !allOn;
+        const turnOn = !(prev.terms && prev.authenticity && prev.storage);
         return {
+          ...prev,
           terms: turnOn,
           authenticity: turnOn,
           storage: turnOn,
-          fee: turnOn,
-          marketing: turnOn,
         };
       }
-      return { ...prev, [key]: !prev[key] };
+      const next = { ...prev, [key]: !prev[key] };
+      return next;
     });
   }, []);
 
@@ -352,12 +344,18 @@ export function useSellFlow() {
     router.push("/kyc");
   }, [router]);
 
+  /** After consents: resume cards if vault already chosen, else Choose vault. */
   const goToVault = useCallback(() => {
     if (!canContinueRegister) return;
-    writeSellFlowProgress({ step: "vault" });
-    setScreen("vault");
+    if (vaultChoice === "self" || vaultChoice === "psa") {
+      writeSellFlowProgress({ step: "cards", vaultChoice });
+      setScreen("cards");
+    } else {
+      writeSellFlowProgress({ step: "vault", vaultChoice: null });
+      setScreen("vault");
+    }
     window.scrollTo(0, 0);
-  }, [canContinueRegister]);
+  }, [canContinueRegister, vaultChoice]);
 
   const goToCards = useCallback(() => {
     if (!canContinueRegister) return;
@@ -371,6 +369,14 @@ export function useSellFlow() {
     setScreen("register");
     window.scrollTo(0, 0);
   }, []);
+
+  const goBackToVaultChoice = useCallback(() => {
+    if (!canContinueRegister) return;
+    setVaultChoice(null);
+    writeSellFlowProgress({ step: "vault", vaultChoice: null });
+    setScreen("vault");
+    window.scrollTo(0, 0);
+  }, [canContinueRegister]);
 
   const selectVault = useCallback((choice: SellVaultChoice) => {
     setVaultChoice(choice);
@@ -571,13 +577,19 @@ export function useSellFlow() {
     router.push("/sell/shipping");
   }, [canContinueShipping, cards, router, vaultChoice]);
 
-  /** Self vault: mint confirmed cards directly to the user's portfolio wallet. */
+  /** Partner vault: mint confirmed cards directly to the user's portfolio wallet. */
   const continueToSelfMint = useCallback(async () => {
     if (vaultChoice !== "self" || !canContinueShipping) return;
     if (!selfVaultEligible) {
-      setMintError(
-        "Self vault is available only to contracted Tokenable partners.",
-      );
+      if (selfVaultNeedsCompanyAddress) {
+        setMintError(
+          "Partner vault requires a company vault address — set it in Settings → Addresses.",
+        );
+      } else {
+        setMintError(
+          "Partner vault is available only to contracted Tokenable partners.",
+        );
+      }
       return;
     }
     if (mintLockRef.current) return;
@@ -621,12 +633,11 @@ export function useSellFlow() {
       writeSellFlowDraftCards([]);
       clearSellSubmissionPublicId();
       setCards([]);
-      writeSellFlowProgress({ step: "register", vaultChoice: null });
-      setMintStatus(`Minted ${minted.length} card(s) to your portfolio.`);
-      router.push("/portfolio");
+      writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
+      setPartnerMintSuccess(minted.length);
     } catch (e) {
       setMintError(
-        e instanceof Error ? e.message : "Self vault mint failed",
+        e instanceof Error ? e.message : "Partner vault mint failed",
       );
       setMintStatus(null);
     } finally {
@@ -637,13 +648,25 @@ export function useSellFlow() {
     vaultChoice,
     canContinueShipping,
     selfVaultEligible,
+    selfVaultNeedsCompanyAddress,
     cards,
     runAccessGate,
     ensureAccountWalletReady,
     chainId,
     queryClient,
-    router,
   ]);
+
+  const resetPartnerAddCards = useCallback(() => {
+    setPartnerMintSuccess(null);
+    setCards([]);
+    setCertInput("");
+    setCertError(null);
+    setMintError(null);
+    setMintStatus(null);
+    writeSellFlowDraftCards([]);
+    writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
+    window.scrollTo(0, 0);
+  }, []);
 
   return {
     screen,
@@ -670,11 +693,13 @@ export function useSellFlow() {
     mintBusy,
     mintStatus,
     mintError,
+    partnerMintSuccess,
     slabInputRef,
     canContinueShipping,
     updateConsent,
     startVerification,
     goToVault,
+    goBackToVaultChoice,
     goToCards,
     goToRegister,
     selectVault,
@@ -688,5 +713,6 @@ export function useSellFlow() {
     saveDraft,
     continueToShipping,
     continueToSelfMint,
+    resetPartnerAddCards,
   };
 }

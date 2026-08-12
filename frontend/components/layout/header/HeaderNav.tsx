@@ -7,6 +7,9 @@ import type { HeaderNavMinLevel } from "@/lib/auth/accountAccess";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { isSellPrimaryNavActive } from "@/lib/vault/vaultAccess";
+import { isPortfolioRoute } from "@/lib/portfolio/portfolioPaths";
+import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
+import { useActivePartner } from "@/hooks/partner/useActivePartner";
 import { useAuthStore } from "@/store/authStore";
 
 function stripQueryAndHash(path: string): string {
@@ -44,17 +47,28 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
   { href: "/portfolio?tab=assets", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
-  { href: "/sell", label: "Sell", minLevel: 1 as HeaderNavMinLevel },
+  { href: "/vault", label: "Sell", minLevel: 0 as HeaderNavMinLevel },
 ] as const;
 
-export function visibleHeaderNavItems() {
-  return HEADER_NAV_ITEMS;
+export const PARTNER_HEADER_NAV_ITEM = {
+  href: "/partner/shipments",
+  label: "Redeem requests",
+  minLevel: 1 as HeaderNavMinLevel,
+} as const;
+
+export function visibleHeaderNavItems(isActivePartner = false, onPartnerRoute = false) {
+  if (!isActivePartner && !onPartnerRoute) return HEADER_NAV_ITEMS;
+  return [...HEADER_NAV_ITEMS, PARTNER_HEADER_NAV_ITEM];
 }
 
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
   const hrefPath = stripQueryAndHash(href);
   if (hrefPath === "/markets") return isMarketsPrimaryNavActive(pathname);
   if (hrefPath === "/sell") return isSellPrimaryNavActive(pathname);
+  if (hrefPath === "/portfolio") return isPortfolioRoute(pathname);
+  if (hrefPath === "/partner/shipments") {
+    return pathname?.startsWith("/partner/shipments") ?? false;
+  }
   return isPrimaryHeaderNavActive(pathname, hrefPath);
 }
 
@@ -85,24 +99,38 @@ function HeaderNavLink({
   );
 }
 
+function resolveNavHref(
+  label: string,
+  href: string,
+  portfolioHref: string,
+): string {
+  return label === "Portfolio" ? portfolioHref : href;
+}
+
 /** Desktop primary nav — visible above GNB mobile breakpoint. */
 export function HeaderDesktopNav() {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
-  const navItems = visibleHeaderNavItems();
+  const portfolioHref = usePortfolioNavHref();
+  const { isActivePartner } = useActivePartner();
+  const onPartnerRoute = pathname?.startsWith("/partner") ?? false;
+  const navItems = visibleHeaderNavItems(isActivePartner, onPartnerRoute);
 
   return (
     <nav className="gnb-nav" aria-label="Main">
-      {navItems.map(({ href, label, minLevel }) => (
-        <HeaderNavLink
-          key={href}
-          href={href}
-          label={label}
-          minLevel={minLevel}
-          active={navItemActive(pathname, href)}
-          onNavigate={navigate}
-        />
-      ))}
+      {navItems.map(({ href, label, minLevel }) => {
+        const itemHref = resolveNavHref(label, href, portfolioHref);
+        return (
+          <HeaderNavLink
+            key={label}
+            href={itemHref}
+            label={label}
+            minLevel={minLevel}
+            active={navItemActive(pathname, itemHref)}
+            onNavigate={navigate}
+          />
+        );
+      })}
     </nav>
   );
 }
@@ -114,7 +142,10 @@ export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
   const loading = useAuthStore((s) => s.loading);
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
-  const navItems = visibleHeaderNavItems();
+  const portfolioHref = usePortfolioNavHref();
+  const { isActivePartner } = useActivePartner();
+  const onPartnerRoute = pathname?.startsWith("/partner") ?? false;
+  const navItems = visibleHeaderNavItems(isActivePartner, onPartnerRoute);
 
   if (!mounted || !initialized || loading) {
     return null;
@@ -122,19 +153,22 @@ export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {navItems.map(({ href, label, minLevel }) => (
-        <HeaderNavLink
-          key={href}
-          href={href}
-          label={label}
-          minLevel={minLevel}
-          active={navItemActive(pathname, href)}
-          onNavigate={(h, level) => {
-            navigate(h, level);
-            onClose();
-          }}
-        />
-      ))}
+      {navItems.map(({ href, label, minLevel }) => {
+        const itemHref = resolveNavHref(label, href, portfolioHref);
+        return (
+          <HeaderNavLink
+            key={label}
+            href={itemHref}
+            label={label}
+            minLevel={minLevel}
+            active={navItemActive(pathname, itemHref)}
+            onNavigate={(h, level) => {
+              navigate(h, level);
+              onClose();
+            }}
+          />
+        );
+      })}
     </>
   );
 }

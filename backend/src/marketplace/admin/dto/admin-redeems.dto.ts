@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  IsArray,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Equals,
   Max,
   MaxLength,
   Min,
@@ -62,4 +65,25 @@ export class AdminRedeemShipmentTrackingDto extends AdminRedeemTrackingDto {
   @IsString()
   @MaxLength(80)
   shipmentKey!: string;
+}
+
+/** Partner portal — scope tracking to explicit redemption rows (never whole partner vault). */
+export class PartnerRedeemShipmentTrackingDto extends AdminRedeemShipmentTrackingDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'Redemption row ids in this shipment (batch + ship-to). Required for partner writes.',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  redemptionIds!: string[];
+}
+
+/** Dev/staging only — must match exactly. */
+export class AdminRedeemPurgeDto {
+  @ApiProperty({ example: 'DELETE_ALL_REDEEMS' })
+  @IsString()
+  @Equals('DELETE_ALL_REDEEMS')
+  confirm!: string;
 }

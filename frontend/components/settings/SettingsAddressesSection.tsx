@@ -237,8 +237,9 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
     <section className="tk-settings__sec">
       <h1 className="tk-settings__sec-h">Addresses</h1>
       <p className="tk-settings__sec-sub">
-        Ship-to addresses for when you redeem cards to your home. Partners also
-        set a Partner vault Origin below for Self vault shipping rates.
+        Ship-to addresses for when you ship cards from the vault to your home.
+        Partners also set a Partner vault Origin below, used for shipping rates
+        out of that vault.
       </p>
 
       <SettingsPartnerVaultSection />

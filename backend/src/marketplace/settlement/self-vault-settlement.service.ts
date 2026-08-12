@@ -24,6 +24,8 @@ import {
   SelfVaultSettlement,
   type SelfVaultSettlementStatus,
 } from '../entities/self-vault-settlement.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { microsToUsdc } from '../admin/platform-analytics.util';
 import { isSelfVaultHoldPolicy } from './rwa-settlement-policy';
 
 /** Default delay before auto confirm+payout (fulfill → paid). */
@@ -47,6 +49,7 @@ export class SelfVaultSettlementService {
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
     private readonly platformFeeWallet: PlatformFeeWalletService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private platformFeeBps(): number {
@@ -227,7 +230,21 @@ export class SelfVaultSettlementService {
     row.status = 'paid';
     row.payoutTxHash = tx;
     row.paidAt = new Date();
-    return this.repo.save(row);
+    const saved = await this.repo.save(row);
+    void this.notifications
+      .notifySellerPayoutDone({
+        sellerWallet: saved.sellerWallet,
+        tokenId: saved.tokenId,
+        payoutUsdc: microsToUsdc(saved.sellerPayoutUsdc),
+        orderHash: saved.orderHash,
+        chainId: saved.chainId as SupportedChainId,
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `notifySellerPayoutDone failed: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+    return saved;
   }
 
   /**
@@ -272,7 +289,21 @@ export class SelfVaultSettlementService {
       row.status = 'paid';
       row.payoutTxHash = txHash;
       row.paidAt = new Date();
-      return this.repo.save(row);
+      const saved = await this.repo.save(row);
+      void this.notifications
+        .notifySellerPayoutDone({
+          sellerWallet: saved.sellerWallet,
+          tokenId: saved.tokenId,
+          payoutUsdc: microsToUsdc(saved.sellerPayoutUsdc),
+          orderHash: saved.orderHash,
+          chainId: saved.chainId as SupportedChainId,
+        })
+        .catch((e) =>
+          this.logger.warn(
+            `notifySellerPayoutDone failed: ${e instanceof Error ? e.message : String(e)}`,
+          ),
+        );
+      return saved;
     });
   }
 

@@ -18,6 +18,12 @@ export function CollectionDetailMetricsStrip({
   marketCapUsd,
   psaPopulationMetrics,
   totalPopulation,
+  lowestAskUsd,
+  highestBidUsd,
+  onBuyLowestAsk,
+  onPlaceBid,
+  buyDisabled,
+  bidDisabled,
 }: {
   coverImageUrl?: string | null;
   priceUsd: number | null;
@@ -31,6 +37,12 @@ export function CollectionDetailMetricsStrip({
   marketCapUsd: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
+  lowestAskUsd?: number | null;
+  highestBidUsd?: number | null;
+  onBuyLowestAsk?: () => void;
+  onPlaceBid?: () => void;
+  buyDisabled?: boolean;
+  bidDisabled?: boolean;
 }) {
   return (
     <div className="cd-metrics-strip">
@@ -48,6 +60,12 @@ export function CollectionDetailMetricsStrip({
         formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}
         psaPopulationMetrics={psaPopulationMetrics}
         totalPopulation={totalPopulation}
+        lowestAskUsd={lowestAskUsd}
+        highestBidUsd={highestBidUsd}
+        onBuyLowestAsk={onBuyLowestAsk}
+        onPlaceBid={onPlaceBid}
+        buyDisabled={buyDisabled}
+        bidDisabled={bidDisabled}
       />
     </div>
   );

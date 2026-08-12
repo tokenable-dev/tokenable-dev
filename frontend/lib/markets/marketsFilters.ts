@@ -2,6 +2,7 @@ import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from 
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
+import { collectionMatchesMarketsSearch } from "@/lib/markets/marketsTypeahead";
 
 export type MarketsPriceFilterId =
   | "any"
@@ -83,12 +84,22 @@ export function applyMarketsListingFilters(
   opts: {
     priceFilter: MarketsPriceFilterId;
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
+    q?: string;
+    setLabel?: string;
   },
 ): MarketplaceCollectionSummary[] {
   return collections.filter((c) => {
     const snap = snapshotByKey.get(collectionKeyLower(c));
     if (!collectionMatchesPriceFilter(c, snap, opts.priceFilter)) return false;
     if (!collectionMatchesGradeFilters(c, opts.gradeFilters)) return false;
+    if (
+      !collectionMatchesMarketsSearch(c, snap, {
+        q: opts.q,
+        setLabel: opts.setLabel,
+      })
+    ) {
+      return false;
+    }
     return true;
   });
 }

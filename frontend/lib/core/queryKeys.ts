@@ -61,6 +61,7 @@ export const rq = {
   selfVaultPartnerEligibility: (wallet: string, chainId: number) =>
     ["self-vault-partner-eligibility", chainId, wallet.toLowerCase()] as const,
   partnerMe: () => ["partner-me"] as const,
+  partnerRedeems: () => ["partner-me", "redeems"] as const,
   rwaVaultInfoBatch: (
     address: string | undefined,
     tokenIds: readonly number[],
@@ -189,6 +190,8 @@ export const rq = {
   adminVaultSubmission: (id: string) => ["admin-vault-submission", id] as const,
   adminPsaArrivalReviews: (status?: string) =>
     ["admin-psa-arrival-reviews", status ?? "pending"] as const,
+  adminPsaVaultedReviews: (status?: string) =>
+    ["admin-psa-vaulted-reviews", status ?? "pending"] as const,
   adminVaultMintQueue: (q?: string) =>
     ["admin-vault-mint-queue", q ?? ""] as const,
   adminSelfVaultSettlements: (
@@ -203,6 +206,8 @@ export const rq = {
   adminPartnerInventory: (partnerId: string) =>
     ["admin-partner-inventory", partnerId] as const,
   adminMarketplacePartners: ["admin-marketplace-partners"] as const,
+  adminPartnerCompanyAddress: (partnerId: string) =>
+    ["admin-partner-company-address", partnerId] as const,
   adminRwaRolesOverview: (chainId: number) =>
     ["admin-rwa-roles-overview", chainId] as const,
   adminRwaRolesStatus: (wallet: string, chainId: number) =>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLogin } from "@privy-io/react-auth";
 import { useCallback, useEffect, useState } from "react";
@@ -26,7 +25,6 @@ import {
 } from "@/components/layout/header/wallet/HeaderWalletMenuIcons";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
-import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
@@ -34,6 +32,14 @@ import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplac
 import { completeSignOut } from "@/lib/auth/signOut";
 import type { HeaderKycTone } from "@/lib/wallet/walletMenuDisplay";
 import { cn } from "@/lib/ds/cn";
+import {
+  isPartnerPortfolioRoute,
+  isPortfolioRoute,
+  portfolioUrl,
+  PARTNER_PORTFOLIO_PATH,
+  PORTFOLIO_PATH,
+} from "@/lib/portfolio/portfolioPaths";
+import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
 import { useAuthStore } from "@/store/authStore";
 
 function mobileDrawerKycLabel(tone: HeaderKycTone, text: string): string {
@@ -69,7 +75,7 @@ function isPortfolioMainActive(
   pathname: string | null | undefined,
   searchParams: URLSearchParams | null,
 ): boolean {
-  if (!isSecondaryNavActive(pathname, "/portfolio")) return false;
+  if (!isPortfolioRoute(pathname)) return false;
   const tab = portfolioTabFromSearch(searchParams);
   return tab == null || tab === "collectibles";
 }
@@ -79,8 +85,12 @@ function isPortfolioSubActive(
   searchParams: URLSearchParams | null,
   tab: "bids" | "history",
 ): boolean {
-  if (!isSecondaryNavActive(pathname, "/portfolio")) return false;
+  if (!isPortfolioRoute(pathname)) return false;
   return portfolioTabFromSearch(searchParams) === tab;
+}
+
+function portfolioBaseForPath(pathname: string | null | undefined): string {
+  return isPartnerPortfolioRoute(pathname) ? PARTNER_PORTFOLIO_PATH : PORTFOLIO_PATH;
 }
 
 const PRIMARY_ICONS = {
@@ -126,6 +136,8 @@ export function HeaderMobileDrawer({
   const loading = useAuthStore((s) => s.loading);
   const logout = useAuthStore((s) => s.logout);
   const { displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
+  const portfolioHref = usePortfolioNavHref();
+  const portfolioBase = portfolioBaseForPath(pathname);
   const [signingOut, setSigningOut] = useState(false);
 
   const sessionPending =
@@ -179,16 +191,6 @@ export function HeaderMobileDrawer({
         aria-modal={open}
         aria-label="Navigation menu"
       >
-        <div className="tkm-header">
-          <Link href="/" className="tkm-logo" onClick={onClose} aria-label="Tokenable home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ASSETS.logo.tokenableSymbol} alt="" width={28} height={28} />
-          </Link>
-          <button type="button" className="tkm-close" aria-label="Close menu" onClick={onClose}>
-            &times;
-          </button>
-        </div>
-
         {showProfileSkeleton ? <MobileDrawerProfileSkeleton /> : null}
 
         {showProfile ? (
@@ -230,17 +232,18 @@ export function HeaderMobileDrawer({
         <nav className="tkm-nav" aria-label="Main">
           {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
             const Icon = PRIMARY_ICONS[label];
-            const isPortfolio = href.startsWith("/portfolio");
+            const isPortfolio = label === "Portfolio";
+            const itemHref = isPortfolio ? portfolioHref : href;
             const itemActive = isPortfolio
               ? isPortfolioMainActive(pathname, searchParams)
-              : navItemActive(pathname, href);
+              : navItemActive(pathname, itemHref);
 
             return (
-              <div key={href}>
+              <div key={label}>
                 <button
                   type="button"
                   className={cn("tkm-item", itemActive && "active")}
-                  onClick={() => go(isPortfolio ? "/portfolio?tab=assets" : href, minLevel)}
+                  onClick={() => go(itemHref, minLevel)}
                 >
                   <Icon aria-hidden />
                   {label}
@@ -253,7 +256,7 @@ export function HeaderMobileDrawer({
                         "tkm-item tkm-item--sub",
                         isPortfolioSubActive(pathname, searchParams, "bids") && "active",
                       )}
-                      onClick={() => go("/portfolio?tab=bids", 1)}
+                      onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
                     >
                       <WalletBidsIcon width={16} height={16} aria-hidden />
                       Active Bids
@@ -264,7 +267,7 @@ export function HeaderMobileDrawer({
                         "tkm-item tkm-item--sub",
                         isPortfolioSubActive(pathname, searchParams, "history") && "active",
                       )}
-                      onClick={() => go("/portfolio?tab=history", 1)}
+                      onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
                     >
                       <WalletHistoryIcon width={16} height={16} aria-hidden />
                       Transaction History

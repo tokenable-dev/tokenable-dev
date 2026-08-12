@@ -36,9 +36,12 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
   "tokenURI": "ipfs://Qm.../metadata.json",
   "metadataCid": "Qm...",
   "imageCid": "Qm...",
-  "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm..."
+  "metadata": { },
+  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab"
 }
 ```
+
+`displayImageUrl` is set when catalog S3 is configured (`CATALOG_COVER_S3_*`). The slab image is downloaded once (PSA URL or uploaded file), pinned to IPFS for `metadata.image`, and copied to S3 for fast UI reads. If S3 ingest fails, upload still succeeds and `displayImageUrl` is `null`.
 
 ---
 
@@ -55,7 +58,8 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
   "recipientAddress": "0xUserLinkedWalletAddress",
   "tokenURI": "ipfs://Qm.../metadata.json",
   "certNumber": "83179580",
-  "deliveryMode": "custody"
+  "deliveryMode": "custody",
+  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab"
 }
 ```
 
@@ -65,6 +69,17 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
 | `tokenURI` | Yes | From `POST /rwa/upload` |
 | `certNumber` | Yes | PSA cert number — permanent physical asset identity; used to derive `vaultRef = keccak256(certNumber.toUpperCase())` |
 | `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`; **active marketplace partner wallet + company Origin address required**) |
+| `displayImageUrl` | No | Pass through from upload response. Stored on `rwa_tokens.display_image_url` only when the URL matches the platform S3 key for this `certNumber` + chain. Spoofed URLs are ignored (mint still succeeds). |
+
+**Mint paths that set `display_image_url`:** sell/custody upload+mint (Phase 1), partner bulk mint prepare+commit (Phase 2), vault submission admin mint, P2P listing create (optional `displayImageUrl` / `imageUrl`). Legacy rows: admin `POST /marketplace/admin/rwa-slab/backfill-display-images` (Phase 3).
+
+**Local QA (upload prep, no on-chain mint):**
+
+```bash
+cd backend
+pnpm exec ts-node -r tsconfig-paths/register scripts/simulate-rwa-mint-prep.ts 151380671
+pnpm exec ts-node -r tsconfig-paths/register scripts/simulate-rwa-mint-prep.ts 151380671 --upload
+```
 
 **Self vault (`direct`) errors (403):**
 
@@ -115,6 +130,10 @@ For self vault (`deliveryMode: "direct"`), `mintedTo` equals `intendedRecipient`
 
 Pay-first multi-card redeem. Client transfers USDC to `PLATFORM_FEE_RECIPIENT`, then posts the tx hash with `tokenIds` + `shipTo`. Backend verifies the ERC-20 `Transfer` amount ≥ estimate, stores the **exact** receipted amount as `payment_received_usdc_micros` (canonical refund amount — never recompute from fees), and creates one `vault_redemptions` row per token (`status=ownership_verified`) with fee snapshots.
 
+**Quote pinning:** the server recomputes the estimate at verification time, but carrier rates can drift between the buyer's quote and this recompute. Payment is accepted against the **cheaper** of the fresh total and any unexpired recently issued estimate for the same token set + destination (in-memory, TTL = quote validity) — a completed USDC transfer is never rejected by re-quote drift.
+
+**Missing vault cycle self-heal:** if an `rwa_tokens` row has no `vault_cycle_id` (e.g. row created by the chain registry sync after a DB reset) but has a PSA cert on file, batch creation backfills the `vault_assets` / `vault_cycles` records (status `minted`, unknown `deposited_at` → treated as early withdrawal) instead of stranding a paid redeem. Tokens with no registry row or no cert fail the **estimate** with a clear message before any payment.
+
 ```json
 {
   "tokenIds": [4, 5],
@@ -152,9 +171,9 @@ The backend never pulls NFTs from the buyer. PSA Vault and Partner Self Vault sh
 
 ### `POST /api/rwa/redeem-batch/:batchId/confirm-received`
 
-**Guard:** `JwtAuthGuard`
+**Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-User tap **I've received my cards**. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at`. Idempotent if already completed.
+User tap **I've received my cards**. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at`. Idempotent if already completed.
 
 ## `POST /api/rwa/redeem-request`
 
@@ -164,9 +183,9 @@ User tap **I've received my cards**. Requires every row in the payment batch to 
 
 ## `GET /api/rwa/redemptions/mine`
 
-**Guard:** `JwtAuthGuard`
+**Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-Lists the signed-in user's redemption rows (excludes `failed` / `cancelled`) for portfolio badges and redeem status surfaces — including **`completed`** (Redeem tab history).
+Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(vault_redemptions.chain_id, vault_cycles.chain_id)`), excluding `failed` / `cancelled` — for portfolio badges and redeem status surfaces, including **`completed`** (Redeem tab history).
 
 **Query:** `tokenIds` (optional CSV of numeric token IDs)
 
@@ -177,6 +196,8 @@ Lists the signed-in user's redemption rows (excludes `failed` / `cancelled`) for
 ## `GET /api/rwa/redeem/estimate`
 
 **Guard:** none · `x-tokenable-chain-id` **required** when `tokenIds` is set
+
+When `tokenIds` is set, the estimate first runs a **redeemability check** (`VaultService.assertTokensRedeemable`): token must exist in `rwa_tokens`, not be burned, and its vault cycle (if any) must be `minted`. Tokens missing a cycle but with a cert on file pass (backfilled at pay). This surfaces blockers at "Calculate" time — **before** any USDC moves.
 
 Estimates may group tokens into **multiple shipments** (one USDC total):
 
@@ -199,7 +220,7 @@ Destination country for FedEx must be **ISO-3166 alpha-2** via `shipTo.countryCo
 
 FedEx selects the **cheapest** service among ACCOUNT-priced rows when available (else LIST). Quotes include `expiresAt` (default 15 minutes, `FEDEX_RATE_QUOTE_TTL_MINUTES`) surfaced on Partner shipments / estimate as `shippingQuoteExpiresAt`.
 
-Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RATE_RETRYABLE`, `FEDEX_RATE_INVALID_ADDRESS`) — buyers see the friendly `message`; server logs keep the raw FedEx code/text.
+Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RATE_RETRYABLE`, `FEDEX_RATE_INVALID_ADDRESS`) — buyers see the friendly `message`; server logs keep the raw FedEx code/text. Transient failures (FedEx 5xx/429, network errors) are **retried once** before falling back to the stub (`FEDEX_RATE_FALLBACK_STUB`) or surfacing the error.
 
 **Query (GET):** `country`, `cardCount?`, `tokenIds?` (CSV)
 

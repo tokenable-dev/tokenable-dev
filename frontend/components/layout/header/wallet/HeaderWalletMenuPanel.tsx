@@ -12,6 +12,8 @@ import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
+import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
+import { portfolioUrl, stripPathQueryHash } from "@/lib/portfolio/portfolioPaths";
 import {
   WalletAddFundsIcon,
   WalletBidsIcon,
@@ -56,6 +58,8 @@ export function HeaderWalletMenuPanel({
     isLoadingConfig: fundingConfigLoading,
   } = usePrivyFiatOnramp({ onComplete: () => void refetchBalance() });
   const [signingOut, setSigningOut] = useState(false);
+  const portfolioHref = usePortfolioNavHref();
+  const portfolioBase = stripPathQueryHash(portfolioHref);
   const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
   const showVerifyIdentity = !isKycComplete(user);
 
@@ -131,7 +135,7 @@ export function HeaderWalletMenuPanel({
       <button
         type="button"
         className={itemClass(variant)}
-        onClick={() => go("/portfolio?tab=assets", 1)}
+        onClick={() => go(portfolioHref, 1)}
       >
         <WalletPortfolioIcon />
         Portfolio
@@ -139,7 +143,7 @@ export function HeaderWalletMenuPanel({
       <button
         type="button"
         className={itemClass(variant, true)}
-        onClick={() => go("/portfolio?tab=bids", 1)}
+        onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
       >
         <WalletBidsIcon />
         Active Bids
@@ -147,7 +151,7 @@ export function HeaderWalletMenuPanel({
       <button
         type="button"
         className={itemClass(variant, true)}
-        onClick={() => go("/portfolio?tab=history", 1)}
+        onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
       >
         <WalletHistoryIcon />
         Transaction History

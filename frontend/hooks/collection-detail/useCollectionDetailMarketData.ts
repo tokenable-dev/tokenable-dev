@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   getCollectionMarketSeries,
   getCollectionPlatformTrades,
@@ -78,16 +78,40 @@ export function useCollectionDetailMarketData(params: {
 
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
-  const { data: platformTradesData, isPending: platformTradesPending, isFetching: platformTradesFetching, isError: platformTradesError, error: platformTradesErrorDetail } = useQuery({
-    queryKey: rq.collectionPlatformTrades(key, chainId, undefined, activeGradeForTrades),
-    queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
-    enabled: key.length > 0,
+  /*
+   * Wait for market-series before the first trades fetch. Until then
+   * activeGrade falls back to "PSA 10", which keys a wrong query and later
+   * swaps the tape (keepPreviousData alone still flickers content).
+   */
+  const tradesQueryEnabled =
+    key.length > 0 && !detailError && !marketSeriesLoading;
+
+  const {
+    data: platformTradesData,
+    isPending: platformTradesPending,
+    isFetching: platformTradesFetching,
+    isError: platformTradesError,
+    error: platformTradesErrorDetail,
+  } = useQuery({
+    queryKey: rq.collectionPlatformTrades(
+      key,
+      chainId,
+      undefined,
+      activeGradeForTrades,
+    ),
+    queryFn: () =>
+      getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
+    enabled: tradesQueryEnabled,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
   });
 
+  /* Soft refetch / grade picker change must not blank the panel. */
   const platformTradesLoading =
-    platformTradesPending || (platformTradesFetching && platformTradesData == null);
+    !tradesQueryEnabled ||
+    (platformTradesData == null &&
+      (platformTradesPending || platformTradesFetching));
 
   const platformPtsBase = useMemo(
     () => platformTradesData?.platformUsd ?? [],
@@ -257,7 +281,8 @@ export function useCollectionDetailMarketData(params: {
       marketSeries?.spotPriceBasis === "psa_estimate"
         ? `PSA Estimate shown for ${gradeChart.activeGrade} — no sales history in this window.`
         : `No price history for ${gradeChart.activeGrade} in this window.`,
-    isLoading: platformTradesLoading || gradeChart.gradeChartLoading,
+    /* Trades fetch must not blank the chart — that reflows the sticky hero. */
+    isLoading: gradeChart.gradeChartLoading,
     errorMessage: null as string | null,
   };
 

@@ -4,8 +4,12 @@ import type { ReactNode } from "react";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
- * Collection detail desktop — Card.html card-detail-grid:
- * left (1.7fr): stat block → chart → listings; right (1fr, sticky): order book → details → trade dock.
+ * Collection detail desktop — Card.html layout:
+ *
+ * Sticky `#hero-bar` must be a descendant of a TALL container that also
+ * includes the chart/listings grid. Short wrappers around the bar alone
+ * prevent `position:sticky` from pinning (sticky cannot escape its parent).
+ * Card.html puts `#hero-bar` as a direct child of `.wrap` above the grid.
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,
@@ -27,19 +31,14 @@ export function CollectionOverviewMarketsClusterDesktop({
   const hasMetrics = chartMetricsRow != null;
 
   return (
-    <div className="relative hidden w-full min-w-0 max-w-full lg:block cd-markets-cluster">
-      <div className="cd-markets-cluster__inner w-full min-w-0 max-w-full">
-        <div className="cd-markets-cluster__mat w-full min-w-0">
-          <div className="cd-detail-grid grid min-w-0 items-start gap-x-[clamp(20px,3vw,40px)] gap-y-[26px]">
-            {hasMetrics ? (
-              <div className="cd-detail-grid__left cd-detail-grid__metrics min-w-0">
-                {chartMetricsRow}
-              </div>
-            ) : null}
+    <div className="relative hidden w-full min-w-0 max-w-full overflow-visible lg:block cd-markets-cluster">
+      <div className="cd-markets-cluster__inner w-full min-w-0 overflow-visible">
+        {/* Tall sticky scope: hero + grid share one parent (Card.html `.wrap`) */}
+        <div className="cd-markets-cluster__mat cd-hero-sticky-scope w-full min-w-0 overflow-visible">
+          {hasMetrics ? chartMetricsRow : null}
 
-            <div
-              className="cd-detail-grid__left cd-detail-grid__chart min-h-0 min-w-0 overflow-hidden"
-            >
+          <div className="cd-detail-grid min-w-0">
+            <div className="cd-detail-grid__left cd-detail-grid__chart min-h-0 min-w-0 overflow-hidden">
               <div className="flex h-full min-h-0 w-full flex-col [&>*]:min-h-0 [&>*]:flex-1">
                 {priceChart}
               </div>

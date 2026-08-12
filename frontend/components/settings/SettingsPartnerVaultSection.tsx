@@ -44,7 +44,7 @@ function formatPartnerOriginInline(addr: PartnerCompanyAddress): string {
 
 /**
  * Partner vault Origin — same list/edit UX as ship-to addresses.
- * Saved address is FedEx ship-from when buyers redeem Self vault cards.
+ * Saved address is FedEx ship-from when buyers redeem Partner vault cards.
  */
 export function SettingsPartnerVaultSection() {
   const qc = useQueryClient();
@@ -133,12 +133,12 @@ export function SettingsPartnerVaultSection() {
               meQuery.data.displayName ??
               "your partner vault"}
           </strong>
-          . Used for FedEx rates when buyers redeem Self vault cards.
+          . Used for FedEx rates when buyers ship Partner vault cards home.
         </p>
 
         {!hasAddress && !editorOpen ? (
           <p className="tk-settings__hint" role="status" style={{ marginBottom: 12 }}>
-            Add your vault Origin address to unlock Self vault listing.
+            Add your vault Origin address to unlock Partner vault listing.
           </p>
         ) : null}
 
@@ -235,7 +235,7 @@ export function SettingsPartnerVaultSection() {
 
       {savedFlash ? (
         <p className="tk-settings__hint mt-3" role="status">
-          Partner vault address saved. Self vault redeem shipping will use this
+          Partner vault address saved. Shipping out of this vault will use this
           Origin.
         </p>
       ) : null}

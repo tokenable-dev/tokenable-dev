@@ -361,7 +361,7 @@ export class NotificationsService {
       type: 'bid',
       eventKey: 'BUYER_FILL_FAILED',
       title: "Your offer couldn't be filled",
-      body: 'Your balance was insufficient. Re-bid once funded.',
+      body: 'Add funds and re-bid.',
       dedupeKey: `token_bid_dead_bidder:${bid.orderHash}`,
       payload: {
         event: 'dead_bidder',
@@ -398,7 +398,7 @@ export class NotificationsService {
       type: 'trade',
       eventKey: 'SELLER_LISTING_LIVE',
       title: `${cardLabel} is now listed`,
-      body: 'Your listing is live on the marketplace.',
+      body: '',
       dedupeKey: `listing_live:${ask.orderHash}`,
       payload: {
         tokenId: tidNorm,
@@ -485,7 +485,7 @@ export class NotificationsService {
         type: 'bid',
         eventKey: 'BUYER_BID_FILLED',
         title: `You won ${cardLabel} at ${saleLabel}`,
-        body: 'Your bid was filled.',
+        body: '',
         dedupeKey: `bid_filled:${bid.orderHash}`,
         payload: {
           tokenId: tidNorm,
@@ -532,7 +532,6 @@ export class NotificationsService {
     if (!recipient) return;
 
     const bidUsdc = bidOfferUsdc(bid);
-    const priceLabel = formatUsdLabel(bidUsdc);
     const { cardLabel, imageUrl } = await this.resolveCardPresentation(
       bid.tokenContract,
       tidNorm,
@@ -545,7 +544,7 @@ export class NotificationsService {
       type: 'bid',
       eventKey: 'BUYER_BID_EXPIRED',
       title: 'Your bid expired',
-      body: `${priceLabel} on ${cardLabel}. Place a new bid anytime.`,
+      body: 'Re-bid anytime.',
       dedupeKey: `bid_expired:${bid.orderHash}`,
       payload: {
         bidOrderHash: bid.orderHash,
@@ -584,7 +583,7 @@ export class NotificationsService {
       type: 'bid',
       eventKey: 'BUYER_BID_EXPIRING',
       title: 'Your bid expires tomorrow',
-      body: `${priceLabel} on ${cardLabel}. Re-bid to keep it active.`,
+      body: `${priceLabel} on ${cardLabel}.`,
       dedupeKey: `bid_expiring:${bid.orderHash}`,
       payload: {
         bidOrderHash: bid.orderHash,
@@ -593,7 +592,7 @@ export class NotificationsService {
         collectionKey: bid.collectionKey,
         cardLabel,
         imageUrl,
-        ctaLabel: 'View bid',
+        ctaLabel: 'Re-bid',
         href: '/portfolio?tab=bids',
       },
     });
@@ -691,7 +690,7 @@ export class NotificationsService {
       payload: {
         submissionPublicId: params.submissionPublicId,
         cardLabel: card,
-        ctaLabel: 'View submission',
+        ctaLabel: 'View',
         href: `/vault/submissions/${encodeURIComponent(params.submissionPublicId)}`,
       },
     });
@@ -774,7 +773,7 @@ export class NotificationsService {
       type: 'vault',
       eventKey: 'SELLER_LISTING_FAILED',
       title: `We're having trouble listing ${card}`,
-      body: "Your card is safe at the vault — we're retrying.",
+      body: "Your card is safe — we're retrying.",
       dedupeKey: `listing_failed:${params.itemId}`,
       payload: {
         submissionPublicId: params.submissionPublicId,
@@ -818,7 +817,7 @@ export class NotificationsService {
     });
   }
 
-  /** WD_REQUEST_RECEIVED */
+  /** Legacy unpaid redeem request (prepaid model preferred — keep for old path). */
   async notifyWithdrawalRequested(params: {
     ownerWallet: string;
     tokenId?: string | null;
@@ -833,20 +832,117 @@ export class NotificationsService {
       recipientWallet: recipient,
       chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
       type: 'vault',
-      eventKey: 'WD_REQUEST_RECEIVED',
-      title: 'Withdrawal requested',
-      body: "We're confirming the exact cost. We'll notify you to pay.",
+      eventKey: 'RD_PAID_PREPARING',
+      title: 'Redemption confirmed',
+      body: 'Complete payment so we can prepare your cards.',
       dedupeKey: `wd_requested:${params.redemptionId}`,
       payload: {
         tokenId: tid || undefined,
-        ctaLabel: 'View portfolio',
+        ctaLabel: 'View',
         href: '/portfolio?tab=assets',
         redemptionId: params.redemptionId,
       },
     });
   }
 
-  /** WD_SHIPPED — physical release confirmed (tracking optional). */
+  /**
+   * RD_PAID_PREPARING — ship-from-vault prepaid request confirmed
+   * (Notifications spec v2).
+   */
+  async notifyRedeemPaymentReceived(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    cardCount: number;
+    chainId?: SupportedChainId;
+    totalPaidUsdc?: number | null;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+    const count = Math.max(1, params.cardCount);
+    const cardLabel = count === 1 ? 'card' : 'cards';
+    const paid =
+      params.totalPaidUsdc != null && Number.isFinite(params.totalPaidUsdc)
+        ? formatUsdLabel(params.totalPaidUsdc)
+        : null;
+    const body = paid
+      ? `${count} ${cardLabel} · ${paid} paid — being prepared.`
+      : 'Payment received — your cards are being prepared.';
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'RD_PAID_PREPARING',
+      title: 'Redemption confirmed',
+      body,
+      dedupeKey: `redeem_paid:batch:${params.paymentBatchId}`,
+      payload: {
+        ctaLabel: 'View',
+        href: '/portfolio/redeem?view=resume',
+        paymentBatchId: params.paymentBatchId,
+      },
+    });
+  }
+
+  /**
+   * RD_PAID_PREPARING — custody complete (same v2 key; separate dedupe stage).
+   */
+  async notifyRedeemPreparing(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'RD_PAID_PREPARING',
+      title: 'Redemption confirmed',
+      body: 'Payment received — your cards are being prepared.',
+      dedupeKey: `redeem_preparing:batch:${params.paymentBatchId}`,
+      payload: {
+        ctaLabel: 'View',
+        href: '/portfolio/redeem?view=preparing',
+        paymentBatchId: params.paymentBatchId,
+      },
+    });
+  }
+
+  /** RD_SHIPPED — tracking set for a vault shipment. */
+  async notifyRedeemShipped(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    shipmentKey: string;
+    trackingNumber?: string | null;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+    const tracking = params.trackingNumber?.trim();
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'RD_SHIPPED',
+      title: 'Your cards are on their way',
+      body: tracking
+        ? `Tracking: ${tracking}.`
+        : 'Your shipment has left the vault.',
+      dedupeKey: `wd_shipped:${params.paymentBatchId}:${params.shipmentKey}`,
+      payload: {
+        ctaLabel: 'Track',
+        href: '/portfolio/redeem?view=transit',
+        paymentBatchId: params.paymentBatchId,
+        shipmentKey: params.shipmentKey,
+      },
+    });
+  }
+
+  /** RD_SHIPPED — legacy admin confirm-release after burn. */
   async notifyWithdrawalShipped(params: {
     ownerWallet: string;
     redemptionId: string;
@@ -861,14 +957,235 @@ export class NotificationsService {
       recipientWallet: recipient,
       chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
       type: 'vault',
-      eventKey: 'WD_SHIPPED',
+      eventKey: 'RD_SHIPPED',
       title: 'Your cards are on their way',
       body: tracking ? `Tracking: ${tracking}.` : 'Your shipment has left the vault.',
       dedupeKey: `wd_shipped:${params.redemptionId}`,
       payload: {
-        ctaLabel: 'Track shipment',
+        ctaLabel: 'Track',
         href: '/portfolio/redeem?view=transit',
         redemptionId: params.redemptionId,
+      },
+    });
+  }
+
+  /**
+   * RD_RECEIVED_REMINDER — ask holder to confirm receipt after delivery.
+   * (Completion after confirm still uses notifyRedeemCompleted.)
+   */
+  async notifyRedeemReceivedReminder(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'RD_RECEIVED_REMINDER',
+      title: 'Confirm you received your cards',
+      body: '',
+      dedupeKey: `redeem_received_reminder:batch:${params.paymentBatchId}`,
+      payload: {
+        ctaLabel: "I've received my cards",
+        href: '/portfolio/redeem?view=transit',
+        paymentBatchId: params.paymentBatchId,
+      },
+    });
+  }
+
+  /** User confirmed physical receipt (post-confirm ack; not in v2 table). */
+  async notifyRedeemCompleted(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'REDEEM_COMPLETED',
+      title: 'Redeem complete',
+      body: 'You confirmed receipt. Your cards are now in your possession.',
+      dedupeKey: `redeem_completed:batch:${params.paymentBatchId}`,
+      payload: {
+        ctaLabel: 'View',
+        href: '/portfolio/redeem?view=done',
+        paymentBatchId: params.paymentBatchId,
+      },
+    });
+  }
+
+  /** PARTNER_SHIPMENT_REQUEST — Self-vault partner must ship. */
+  async notifySellerRedeemShipRequired(params: {
+    partnerWallet: string;
+    redemptionId: string;
+    tokenId?: string | null;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.partnerWallet);
+    if (!recipient) return;
+    const tid = params.tokenId?.trim();
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'PARTNER_SHIPMENT_REQUEST',
+      title: 'New shipment request',
+      body: 'Ship within 5 days and add tracking.',
+      dedupeKey: `seller_redeem_ship:${params.redemptionId}`,
+      payload: {
+        tokenId: tid || undefined,
+        ctaLabel: 'Open shipments',
+        href: '/partner/shipments',
+        redemptionId: params.redemptionId,
+      },
+    });
+  }
+
+  /**
+   * RD_AUTO_CANCELLED_REFUND — ship-from-vault cancelled and refunded
+   * (manual admin refund today; auto-cancel when partner SLA lands).
+   */
+  async notifyRedeemRefunded(params: {
+    ownerWallet: string;
+    paymentBatchId: string;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.ownerWallet);
+    if (!recipient) return;
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'RD_AUTO_CANCELLED_REFUND',
+      title: 'Your ship-from-vault request was cancelled and refunded',
+      body: "The seller didn't ship in time. You've been fully refunded and still own the card.",
+      dedupeKey: `redeem_refunded:batch:${params.paymentBatchId}`,
+      payload: {
+        ctaLabel: 'View',
+        href: '/portfolio?tab=assets',
+        paymentBatchId: params.paymentBatchId,
+      },
+    });
+  }
+
+  /** SELLER_PAYOUT_DONE — self-vault USDC payout completed. */
+  async notifySellerPayoutDone(params: {
+    sellerWallet: string;
+    tokenId: string;
+    payoutUsdc: number;
+    orderHash?: string | null;
+    cardLabel?: string | null;
+    chainId?: SupportedChainId;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.sellerWallet);
+    if (!recipient) return;
+    const tid = params.tokenId.trim();
+    const card = params.cardLabel?.trim() || (tid ? `card #${tid}` : 'your card');
+    const paid = formatUsdLabel(params.payoutUsdc);
+    const dedupe =
+      params.orderHash?.trim() ||
+      `payout:${recipient}:${tid}:${Math.round(params.payoutUsdc * 1e6)}`;
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'trade',
+      eventKey: 'SELLER_PAYOUT_DONE',
+      title: "You've been paid",
+      body: `${paid} for ${card}.`,
+      dedupeKey: `seller_payout_done:${dedupe}`,
+      payload: {
+        tokenId: tid || undefined,
+        cardLabel: card,
+        ctaLabel: 'View',
+        href: '/portfolio?tab=history',
+      },
+    });
+  }
+
+  /**
+   * FUNDS_WITHDRAW_* — bank cash-out (Withdraw funds). Call when that domain ships.
+   */
+  async notifyFundsWithdrawSubmitted(params: {
+    userWallet: string;
+    amountLabel: string;
+    destinationLabel: string;
+    etaLabel?: string | null;
+    chainId?: SupportedChainId;
+    withdrawId: string;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.userWallet);
+    if (!recipient) return;
+    const eta = params.etaLabel?.trim();
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'FUNDS_WITHDRAW_SUBMITTED',
+      title: 'Withdrawal submitted',
+      body: eta
+        ? `${params.amountLabel} to ${params.destinationLabel} — arriving ${eta}.`
+        : `${params.amountLabel} to ${params.destinationLabel}.`,
+      dedupeKey: `funds_withdraw_submitted:${params.withdrawId}`,
+      payload: {
+        ctaLabel: 'Track',
+        href: '/portfolio?tab=assets',
+      },
+    });
+  }
+
+  async notifyFundsWithdrawSent(params: {
+    userWallet: string;
+    amountLabel: string;
+    destinationLabel: string;
+    chainId?: SupportedChainId;
+    withdrawId: string;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.userWallet);
+    if (!recipient) return;
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'FUNDS_WITHDRAW_SENT',
+      title: 'Withdrawal sent',
+      body: `${params.amountLabel} to ${params.destinationLabel}.`,
+      dedupeKey: `funds_withdraw_sent:${params.withdrawId}`,
+      payload: {
+        ctaLabel: 'View',
+        href: '/portfolio?tab=assets',
+      },
+    });
+  }
+
+  async notifyFundsWithdrawFailed(params: {
+    userWallet: string;
+    chainId?: SupportedChainId;
+    withdrawId: string;
+  }): Promise<void> {
+    const recipient = normalizeWallet(params.userWallet);
+    if (!recipient) return;
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
+      type: 'vault',
+      eventKey: 'FUNDS_WITHDRAW_FAILED',
+      title: "Withdrawal couldn't be completed",
+      body: 'Refunded to your balance.',
+      dedupeKey: `funds_withdraw_failed:${params.withdrawId}`,
+      payload: {
+        ctaLabel: 'Try again',
+        href: '/portfolio?tab=assets',
       },
     });
   }
@@ -1138,7 +1455,7 @@ export class NotificationsService {
       case 'BUYER_BID_PLACED':
         return { href: '/portfolio?tab=bids', ctaLabel: 'View bids' };
       case 'BUYER_BID_EXPIRING':
-        return { href: '/portfolio?tab=bids', ctaLabel: 'View bid' };
+        return { href: '/portfolio?tab=bids', ctaLabel: 'Re-bid' };
       case 'BUYER_BID_EXPIRED':
         return {
           href: marketplaceHref ?? '/portfolio?tab=bids',
@@ -1151,6 +1468,8 @@ export class NotificationsService {
         };
       case 'SELLER_SOLD':
         return { href: '/portfolio?tab=history', ctaLabel: 'View sale' };
+      case 'SELLER_PAYOUT_DONE':
+        return { href: '/portfolio?tab=history', ctaLabel: 'View' };
       case 'BUYER_VAULT_PURCHASED':
         return { href: '/portfolio?tab=assets', ctaLabel: 'View in portfolio' };
       case 'BUYER_BID_FILLED':
@@ -1169,12 +1488,49 @@ export class NotificationsService {
           href: setPriceHref ?? submissionHref ?? payloadHref,
           ctaLabel: 'Set price',
         };
+      case 'SELLER_SUBMISSION_RECEIVED':
+        return {
+          href: submissionHref ?? payloadHref,
+          ctaLabel: 'View',
+        };
+      // v2 ship-from-vault + legacy aliases
+      case 'RD_PAID_PREPARING':
       case 'WD_REQUEST_RECEIVED':
-        return { href: '/portfolio?tab=assets', ctaLabel: 'View portfolio' };
+      case 'REDEEM_PREPARING':
+        return {
+          href: payloadHref ?? '/portfolio/redeem?view=resume',
+          ctaLabel: payloadCta ?? 'View',
+        };
+      case 'RD_SHIPPED':
       case 'WD_SHIPPED':
         return {
           href: '/portfolio/redeem?view=transit',
-          ctaLabel: 'Track shipment',
+          ctaLabel: 'Track',
+        };
+      case 'RD_RECEIVED_REMINDER':
+        return {
+          href: '/portfolio/redeem?view=transit',
+          ctaLabel: "I've received my cards",
+        };
+      case 'REDEEM_COMPLETED':
+        return {
+          href: '/portfolio/redeem?view=done',
+          ctaLabel: 'View',
+        };
+      case 'PARTNER_SHIPMENT_REQUEST':
+      case 'SELLER_REDEEM_SHIP':
+        return { href: '/partner/shipments', ctaLabel: 'Open shipments' };
+      case 'RD_AUTO_CANCELLED_REFUND':
+      case 'REDEEM_REFUNDED':
+        return { href: '/portfolio?tab=assets', ctaLabel: 'View' };
+      case 'FUNDS_WITHDRAW_SUBMITTED':
+        return { href: payloadHref ?? '/portfolio?tab=assets', ctaLabel: 'Track' };
+      case 'FUNDS_WITHDRAW_SENT':
+        return { href: payloadHref ?? '/portfolio?tab=assets', ctaLabel: 'View' };
+      case 'FUNDS_WITHDRAW_FAILED':
+        return {
+          href: payloadHref ?? '/portfolio?tab=assets',
+          ctaLabel: 'Try again',
         };
       default:
         break;

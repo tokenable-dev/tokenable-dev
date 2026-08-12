@@ -55,6 +55,8 @@ export function buildCollectionDetailMarketsSlots(input: {
   lowestAskUsd?: number | null;
   onPlaceBid?: () => void;
   placeBidDisabled?: boolean;
+  onBuyLowestAsk?: () => void;
+  buyDisabled?: boolean;
 }): {
   marketsPriceMetricsStrip: ReactNode;
   collectionDualPriceChart: ReactNode;
@@ -74,11 +76,21 @@ export function buildCollectionDetailMarketsSlots(input: {
     lowestAskUsd,
     onPlaceBid,
     placeBidDisabled,
+    onBuyLowestAsk,
+    buyDisabled,
   } = input;
   const chartProps = market.chartProps as CollectionDualPriceChartProps;
   const metricsProps = metricsStripProps(market, coverImageUrl);
   const renderMetricsStrip = () => (
-    <CollectionDetailMetricsStrip {...metricsProps} />
+    <CollectionDetailMetricsStrip
+      {...metricsProps}
+      lowestAskUsd={lowestAskUsd}
+      highestBidUsd={highestBidUsd}
+      onBuyLowestAsk={onBuyLowestAsk}
+      onPlaceBid={onPlaceBid}
+      buyDisabled={buyDisabled}
+      bidDisabled={placeBidDisabled}
+    />
   );
 
   const collectionDualPriceChartMobile = (
@@ -112,13 +124,7 @@ export function buildCollectionDetailMarketsSlots(input: {
         statBlock={renderMetricsStrip()}
         chartPanel={collectionDualPriceChartMobile}
         listingsPanel={
-          <CollectionDetailMobileListingsSection
-            listingCount={mobileListingCount}
-            highestBidUsd={highestBidUsd}
-            lowestAskUsd={lowestAskUsd}
-            onPlaceBid={onPlaceBid}
-            placeBidDisabled={placeBidDisabled}
-          >
+          <CollectionDetailMobileListingsSection listingCount={mobileListingCount}>
             {mobileListingsBody}
           </CollectionDetailMobileListingsSection>
         }

@@ -8,6 +8,7 @@ import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { ActionCompletePanel } from "@/components/marketplace/trade/ActionCompleteModal";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 import { TOKEN_BID_ORDER_DURATION_SECONDS } from "@/lib/seaport/orders/submitTokenBid";
+import { feePercent } from "@/lib/seaport/orders/platformFee";
 
 function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
@@ -224,7 +225,8 @@ export function CollectionListingBidCheckout({
       ) : null}
 
       <p className="cd-listing-checkout__fine tkl-mono">
-        No bid fee · 5% charged on sale only · {tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS)}
+        No bid fee · {feePercent()}% charged on sale only ·{" "}
+        {tokenBidExpiryHint(TOKEN_BID_ORDER_DURATION_SECONDS)}
       </p>
     </>
   );

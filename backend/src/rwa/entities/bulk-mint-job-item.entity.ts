@@ -67,6 +67,10 @@ export class BulkMintJobItem {
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage!: string | null;
 
+  /** S3 slab URL from prepare — written to rwa_tokens at commit. */
+  @Column({ name: 'slab_display_image_url', type: 'text', nullable: true })
+  slabDisplayImageUrl!: string | null;
+
   @Column({ name: 'sort_index', type: 'int', default: 0 })
   sortIndex!: number;
 

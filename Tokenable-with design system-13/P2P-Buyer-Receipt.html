@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Confirm receipt</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #0e0e0e; --ink-2: #0e0e0e;
+    --surf: #141414; --surf-2: #111111;
+    --line: rgba(255,255,255,0.08);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --amber: #F59E0B; --amber-bg: rgba(245,158,11,0.08); --amber-border: rgba(245,158,11,0.25);
+    --red-bg: rgba(228,55,74,0.08); --red-border: rgba(228,55,74,0.28);
+    --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #191919;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  a{color:var(--azure);text-decoration:none;}
+  a:hover{color:var(--brand-400);}
+  .mono{font-family:var(--font-mono);}
+
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;transition:color 0.15s;cursor:pointer;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;border-radius:0;clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
+  .btn--primary{background:#1A6FFF;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
+  .btn--primary:hover{filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
+  .btn--ghost{background:#191919;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
+  .btn--outline{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:10px;clip-path:none;box-shadow:none;filter:none;}
+  .btn--outline:hover{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04);}
+  .btn[disabled]{opacity:0.4;cursor:not-allowed;filter:none!important;transform:none!important;}
+
+  .card-box{background:#191919;border-radius:16px;padding:24px;}
+  .form-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:8px;display:block;}
+  .form-input{width:100%;height:48px;padding:0 16px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-mono);font-size:15px;outline:none;transition:border-color 0.2s;}
+  .form-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.15);}
+  .form-select{width:100%;height:48px;padding:0 16px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-sans);font-size:14px;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;cursor:pointer;}
+  .form-textarea{width:100%;min-height:96px;padding:14px 16px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-sans);font-size:14px;line-height:1.6;outline:none;resize:vertical;transition:border-color 0.2s;}
+  .form-textarea:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.15);}
+
+  .warn-banner{background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:12px;padding:14px 18px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--amber);line-height:1.6;}
+  .red-banner{background:var(--red-bg);border:1px solid var(--red-border);border-radius:12px;padding:14px 18px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#FF6B7A;line-height:1.6;}
+  .info-banner{background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.2);border-radius:12px;padding:14px 18px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--brand-400);line-height:1.6;}
+
+  .status-banner{background:var(--pos);padding:14px 0;}
+  .status-banner .inner{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:0 clamp(16px,4vw,40px);}
+  .status-banner .badge{font-family:var(--font-mono);font-size:12px;background:rgba(0,0,0,0.18);padding:3px 10px;border-radius:6px;font-weight:600;color:#00200f;}
+  .status-banner .dot{width:4px;height:4px;border-radius:50%;background:rgba(0,0,0,0.3);flex-shrink:0;}
+
+  /* Reason cards */
+  .reason{display:flex;align-items:center;gap:16px;padding:20px;background:#191919;border-radius:14px;cursor:pointer;transition:all 0.12s;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);text-align:left;width:100%;border:0;color:#fff;}
+  .reason:hover{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.15);transform:translateY(-1px);}
+  .reason__ic{width:44px;height:44px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .reason__arrow{margin-left:auto;color:var(--t3);flex-shrink:0;}
+
+  /* Refund stepper */
+  .rf-step{display:flex;gap:16px;}
+  .rf-rail{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+  .rf-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;font-weight:700;flex-shrink:0;}
+  .rf-dot--done{background:var(--pos);color:#fff;}
+  .rf-dot--active{background:var(--azure);color:#fff;box-shadow:0 0 0 4px rgba(26,111,255,0.18);}
+  .rf-dot--todo{background:transparent;border:2px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.3);}
+  .rf-line{width:2px;flex:1;margin:6px 0;min-height:22px;background:rgba(255,255,255,0.1);}
+  .rf-line--done{background:var(--pos);}
+  .rf-body{padding-bottom:26px;flex:1;min-width:0;}
+  .rf-title{font-family:var(--font-sans);font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;}
+  .rf-title.muted{color:rgba(255,255,255,0.4);font-weight:600;}
+  .rf-desc{font-size:13.5px;color:var(--t2);line-height:1.6;}
+
+  .upload{border:1.5px dashed rgba(255,255,255,0.18);border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:all 0.15s;background:rgba(255,255,255,0.02);}
+  .upload:hover{border-color:var(--azure);background:rgba(26,111,255,0.05);}
+  .thumb{width:64px;height:80px;border-radius:8px;background:#101018;display:flex;align-items:center;justify-content:center;color:var(--t3);flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);}
+
+  [data-screen]{display:none;}
+  [data-screen].on{display:block;}
+
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media(max-width:768px){ .gnb-nav,.gnb-right{display:none!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;} .two-col{grid-template-columns:1fr!important;} }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;gap:0;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink on" href="Portfolio.html">Portfolio</a>
+        <a class="navlink" href="Vault-Dashboard-Active.html">Sell</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <div class="gnb-right" style="display:flex;align-items:center;gap:12px;">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards…" hint-size="300px,44px"></x-import>
+        <button class="tk-btn tk-btn--primary tk-connect" style="height:44px;padding:0 18px;font-size:14px;">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ STATUS BANNER ============ -->
+  <div class="status-banner">
+    <div class="inner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00200f" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+      <span style="font-size:15px;font-weight:700;color:#00200f;">Delivered — Confirm your card</span>
+      <span class="dot"></span>
+      <span class="badge mono">ORD-20260716-0042</span>
+      <span class="dot"></span>
+      <span style="font-size:13px;color:rgba(0,0,0,0.7);">Charizard · PSA 10 · $25,000</span>
+    </div>
+  </div>
+
+  <section style="max-width:720px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 90px;">
+
+    <!-- Breadcrumb -->
+    <div style="margin-bottom:22px;font-size:13px;color:rgba(255,255,255,0.35);">
+      <a href="Portfolio.html" style="font-weight:600;letter-spacing:0.04em;">Portfolio</a>
+      <span style="margin:0 8px;color:rgba(255,255,255,0.2);">›</span>
+      <a href="Portfolio.html" style="font-weight:600;letter-spacing:0.04em;">Orders</a>
+      <span style="margin:0 8px;color:rgba(255,255,255,0.2);">›</span>
+      <span class="mono" style="color:var(--azure);font-weight:600;">ORD-20260716-0042</span>
+    </div>
+
+    <!-- ==================== SCREEN: ORDER DETAIL ==================== -->
+    <div data-screen="order" class="on">
+      <div style="margin-bottom:26px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--pos);font-weight:700;">Delivered</span>
+        <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,3.6vw,38px);line-height:1.12;letter-spacing:-0.02em;color:#fff;">Confirm your card arrived</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:rgba(255,255,255,0.5);line-height:1.55;">Check the card against your order. When it's right, confirm receipt to complete the sale.</p>
+      </div>
+
+      <!-- Shipment status -->
+      <div class="card-box" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,200,100,0.12);display:flex;align-items:center;justify-content:center;color:var(--pos);flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#fff;">FedEx</div>
+              <div class="mono" style="font-size:12.5px;color:var(--t2);margin-top:2px;">FX 7489 2345 6789</div>
+            </div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.06em;color:var(--pos);background:rgba(0,200,100,0.12);padding:7px 12px;border-radius:8px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--pos);"></span>DELIVERED</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);">
+          <span style="font-size:13px;color:var(--t2);">Delivered Jul 16, 2026 · 2:41 PM</span>
+          <a href="#" target="_blank" rel="noopener" class="btn btn--outline" style="height:36px;padding:0 16px;font-size:13px;color:var(--azure);border-color:rgba(26,111,255,0.3);">Track package →</a>
+        </div>
+      </div>
+
+      <!-- Card + payment -->
+      <div class="card-box" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:18px;">
+          <div style="flex:none;background:linear-gradient(180deg,#0e0e0e,#08080e);border-radius:10px;padding:10px;"><img src="images/card-charizard.png" alt="Charizard" style="height:104px;object-fit:contain;display:block;"></div>
+          <div style="min-width:0;flex:1;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <span class="mono" style="font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,0.08);padding:5px 10px;border-radius:7px;">PSA 10</span>
+              <span class="mono" style="font-size:11px;font-weight:700;color:var(--t2);background:rgba(255,255,255,0.05);padding:5px 10px;border-radius:7px;">CERT #12345678</span>
+            </div>
+            <div style="font-family:var(--font-sans);font-weight:600;font-size:16px;color:#fff;line-height:1.3;">1999 Pokémon Base Set 1st Edition #4 Charizard Holo</div>
+            <div style="font-size:13px;color:var(--t3);margin-top:4px;">Sold by <span style="color:var(--t2);">@vaultkeeper</span> · P2P direct shipment</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
+          <span style="font-size:13px;color:var(--t2);">You paid</span>
+          <span class="mono" style="font-size:20px;font-weight:700;color:#fff;">$25,000</span>
+        </div>
+      </div>
+
+      <!-- Auto-settle notice -->
+      <div class="info-banner" style="margin-bottom:24px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>If you don't confirm, this order settles automatically in <strong id="auto-days" style="color:#fff;">7 days</strong>. Confirm now to release payment to the seller and take ownership.</span>
+      </div>
+
+      <!-- CTAs -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn--primary" id="confirm-btn" style="height:56px;width:100%;font-size:16px;">Confirm receipt</button>
+        <button class="btn btn--ghost" data-goto="report" style="height:48px;width:100%;font-size:14px;">Report a problem</button>
+      </div>
+      <p style="text-align:center;font-size:12px;color:var(--t3);margin-top:14px;line-height:1.6;">Only confirm once you've inspected the card and cert. This can't be undone.</p>
+    </div>
+
+    <!-- ==================== SCREEN: ORDER COMPLETE ==================== -->
+    <div data-screen="complete">
+      <div class="card-box" style="text-align:center;padding:44px 28px;">
+        <div style="width:72px;height:72px;border-radius:50%;background:rgba(0,200,100,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <h1 style="margin:0;font-family:var(--font-sans);font-weight:700;font-size:26px;letter-spacing:-0.02em;color:#fff;">Order complete</h1>
+        <p style="margin:12px auto 0;font-size:15px;color:var(--t2);line-height:1.6;max-width:420px;">Payment of <strong style="color:#fff;">$25,000</strong> was released to the seller. The Charizard PSA 10 is now yours and shows in your portfolio.</p>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:28px;max-width:340px;margin-left:auto;margin-right:auto;">
+          <a href="Portfolio.html" class="btn btn--primary" style="height:52px;width:100%;font-size:15px;">View in portfolio</a>
+          <a href="Markets.html" class="btn btn--ghost" style="height:46px;width:100%;font-size:14px;">Back to markets</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: REPORT — REASON ==================== -->
+    <div data-screen="report">
+      <button class="btn btn--outline" data-goto="order" style="height:36px;padding:0 14px;font-size:13px;margin-bottom:22px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back to order</button>
+      <div style="margin-bottom:24px;">
+        <h1 style="margin:0;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,3.4vw,32px);letter-spacing:-0.02em;color:#fff;">What's the problem?</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:var(--t2);line-height:1.55;">Pick what happened. What we can do depends on the reason.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="reason" data-goto="report-mismatch">
+          <span class="reason__ic" style="background:rgba(26,111,255,0.12);color:var(--brand-400);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></span>
+          <span style="min-width:0;">
+            <span style="display:block;font-size:15.5px;font-weight:700;color:#fff;">Wrong or mismatched card</span>
+            <span style="display:block;font-size:13px;color:var(--t2);margin-top:3px;line-height:1.5;">The card or cert doesn't match your order. Eligible for a refund.</span>
+          </span>
+          <span class="reason__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+        <button class="reason" data-goto="report-damaged">
+          <span class="reason__ic" style="background:rgba(245,158,11,0.12);color:var(--amber);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><line x1="7" y1="4" x2="17" y2="20"/></svg></span>
+          <span style="min-width:0;">
+            <span style="display:block;font-size:15.5px;font-weight:700;color:#fff;">Damaged in transit</span>
+            <span style="display:block;font-size:13px;color:var(--t2);margin-top:3px;line-height:1.5;">The package or slab was damaged during shipping.</span>
+          </span>
+          <span class="reason__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+        <button class="reason" data-goto="report-authentic">
+          <span class="reason__ic" style="background:rgba(255,255,255,0.06);color:var(--t2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+          <span style="min-width:0;">
+            <span style="display:block;font-size:15.5px;font-weight:700;color:#fff;">I think it's not authentic</span>
+            <span style="display:block;font-size:13px;color:var(--t2);margin-top:3px;line-height:1.5;">You have doubts about whether the card is genuine.</span>
+          </span>
+          <span class="reason__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: REPORT — MISMATCH (refund path) ==================== -->
+    <div data-screen="report-mismatch">
+      <button class="btn btn--outline" data-goto="report" style="height:36px;padding:0 14px;font-size:13px;margin-bottom:22px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <div style="margin-bottom:22px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--brand-400);font-weight:700;">Wrong or mismatched card</span>
+        <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,3.4vw,32px);letter-spacing:-0.02em;color:#fff;">Tell us what's wrong</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:var(--t2);line-height:1.55;">We'll check the cert against your listing. Add clear photos so we can verify it fast.</p>
+      </div>
+
+      <div class="card-box" style="margin-bottom:16px;">
+        <span class="form-label">What doesn't match?</span>
+        <textarea class="form-textarea" id="mm-desc" placeholder="e.g. Cert #12345678 on the order, but the slab I received reads #99887766 (a different card)."></textarea>
+      </div>
+
+      <div class="card-box" style="margin-bottom:16px;">
+        <span class="form-label">Evidence · photos</span>
+        <p style="font-size:12.5px;color:var(--t3);margin:0 0 14px;line-height:1.6;">Upload photos of the card and slab with the <strong style="color:var(--t2);">cert number clearly visible</strong>. Include the front of the slab and the graded label.</p>
+        <div class="upload" id="mm-upload">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" style="margin-bottom:10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size:14px;font-weight:600;color:#fff;">Add photos</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:4px;">JPG or PNG · up to 8 files</div>
+        </div>
+        <div id="mm-thumbs" style="display:none;gap:10px;margin-top:14px;flex-wrap:wrap;">
+          <div class="thumb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+          <div class="thumb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+          <div class="thumb" style="color:var(--t3);font-family:var(--font-mono);font-size:12px;">+ add</div>
+        </div>
+      </div>
+
+      <div class="info-banner" style="margin-bottom:24px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Don't confirm receipt while this is open. Auto-settlement is paused until your report is resolved.</span>
+      </div>
+
+      <button class="btn btn--primary" id="mm-submit" style="height:54px;width:100%;font-size:16px;">Submit report</button>
+    </div>
+
+    <!-- ==================== SCREEN: REPORT SUBMITTED ==================== -->
+    <div data-screen="report-submitted">
+      <div class="card-box" style="text-align:center;padding:44px 28px;">
+        <div style="width:72px;height:72px;border-radius:50%;background:rgba(26,111,255,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--brand-400)" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <h1 style="margin:0;font-family:var(--font-sans);font-weight:700;font-size:24px;letter-spacing:-0.02em;color:#fff;">We're reviewing your report</h1>
+        <p style="margin:12px auto 0;font-size:14.5px;color:var(--t2);line-height:1.6;max-width:440px;">We'll check the cert on your evidence against the listing. Most reviews finish within 1–2 business days. Payment stays on hold until it's resolved.</p>
+        <div style="text-align:left;max-width:420px;margin:24px auto 0;background:#141414;border-radius:12px;padding:18px;">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:var(--t2);">Case</span><span class="mono" style="font-size:13px;color:#fff;">CASE-8842-CERT</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:var(--t2);">Reason</span><span style="font-size:13px;color:#fff;">Mismatched card</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:var(--t2);">Status</span><span style="font-size:13px;color:var(--amber);font-weight:600;">Under review</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:24px;max-width:360px;margin-left:auto;margin-right:auto;">
+          <button class="btn btn--primary" data-goto="refund" id="demo-approve" style="height:50px;width:100%;font-size:14px;">Preview: report approved →</button>
+          <a href="Portfolio.html" class="btn btn--ghost" style="height:46px;width:100%;font-size:14px;">Back to orders</a>
+        </div>
+        <p style="font-size:11px;color:var(--t3);margin-top:12px;">The blue button simulates admin approval for this prototype.</p>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: REPORT — DAMAGED (carrier claim) ==================== -->
+    <div data-screen="report-damaged">
+      <button class="btn btn--outline" data-goto="report" style="height:36px;padding:0 14px;font-size:13px;margin-bottom:22px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <div style="margin-bottom:22px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--amber);font-weight:700;">Damaged in transit</span>
+        <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,3.4vw,32px);letter-spacing:-0.02em;color:#fff;">File a claim with the carrier</h1>
+      </div>
+
+      <div class="red-banner" style="margin-bottom:20px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span><strong>This isn't covered by a Tokenable refund.</strong> Shipping damage is handled by the carrier, not Tokenable.</span>
+      </div>
+
+      <div class="card-box" style="margin-bottom:16px;">
+        <p style="margin:0 0 18px;font-size:14.5px;color:var(--t2);line-height:1.65;">File a claim with <strong style="color:#fff;">FedEx</strong> using your tracking number — carriers insure shipments and will process damage claims directly.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#141414;border-radius:12px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:4px;">Carrier</div>
+            <div style="font-size:15px;font-weight:700;color:#fff;">FedEx</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;font-family:var(--font-mono);margin-bottom:4px;">Tracking number</div>
+            <div class="mono" style="font-size:14px;font-weight:600;color:#fff;">FX 7489 2345 6789</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="https://www.fedex.com/en-us/customer-support/claims.html" target="_blank" rel="noopener" class="btn btn--primary" style="height:48px;flex:1;min-width:180px;font-size:14px;">File a FedEx claim →</a>
+          <button class="btn btn--outline" id="dmg-copy" style="height:48px;padding:0 18px;font-size:13px;">Copy tracking #</button>
+        </div>
+      </div>
+
+      <div class="warn-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Keep all packaging and take photos before you file — carriers usually require them for damage claims.</span>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: REPORT — NOT AUTHENTIC (not covered) ==================== -->
+    <div data-screen="report-authentic">
+      <button class="btn btn--outline" data-goto="report" style="height:36px;padding:0 14px;font-size:13px;margin-bottom:22px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <div style="margin-bottom:22px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--t2);font-weight:700;">Authenticity</span>
+        <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,3.4vw,32px);letter-spacing:-0.02em;color:#fff;">Authenticity isn't verified by us</h1>
+      </div>
+
+      <div class="card-box" style="margin-bottom:16px;">
+        <p style="margin:0;font-size:14.5px;color:var(--t2);line-height:1.7;">We only list <strong style="color:#fff;">PSA-graded</strong> cards and rely on the grader's authentication — we don't verify authenticity ourselves, so a general authenticity doubt isn't covered.</p>
+      </div>
+
+      <div class="info-banner" style="margin-bottom:24px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span><strong>Is the cert wrong?</strong> If the slab's cert number doesn't match the card you ordered, that <em>is</em> covered — report it as a mismatched card instead.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn--primary" data-goto="report-mismatch" style="height:52px;width:100%;font-size:15px;">Report a mismatched card instead</button>
+        <button class="btn btn--ghost" data-goto="order" style="height:46px;width:100%;font-size:14px;">Back to order</button>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: REFUND PROGRESS ==================== -->
+    <div data-screen="refund">
+      <div style="margin-bottom:24px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--pos);font-weight:700;">Refund approved</span>
+        <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(24px,3.4vw,32px);letter-spacing:-0.02em;color:#fff;">Return the card to get your refund</h1>
+        <p style="margin:10px 0 0;font-size:15px;color:var(--t2);line-height:1.55;">Ship the card back. Once the seller confirms it's received, we refund <strong style="color:#fff;">$25,000</strong> to your balance.</p>
+      </div>
+
+      <div class="card-box" style="margin-bottom:20px;">
+        <!-- Step 1 -->
+        <div class="rf-step">
+          <div class="rf-rail"><div class="rf-dot rf-dot--done" data-dot="1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="rf-line rf-line--done" data-line="1"></div></div>
+          <div class="rf-body">
+            <div class="rf-title">Report approved</div>
+            <div class="rf-desc">Your report was approved. Ship the card back to get your refund.</div>
+          </div>
+        </div>
+        <!-- Step 2 -->
+        <div class="rf-step">
+          <div class="rf-rail"><div class="rf-dot rf-dot--active" data-dot="2">2</div><div class="rf-line" data-line="2"></div></div>
+          <div class="rf-body">
+            <div class="rf-title" data-title="2">Return instructions</div>
+            <div class="rf-desc" style="margin-bottom:14px;">Send the exact card and slab back to the seller, using a tracked carrier.</div>
+            <div data-detail="2">
+              <div style="background:#141414;border-radius:12px;padding:16px;margin-bottom:12px;">
+                <div class="form-label" style="margin-bottom:8px;">Return to · seller</div>
+                <div style="font-size:14px;font-weight:700;color:#fff;">Vault Keeper Collectibles</div>
+                <div class="mono" style="font-size:13px;color:var(--t2);line-height:1.8;margin-top:4px;">RETURNS #ORD-20260716-0042<br>884 Hudson Yards, Unit 12<br>New York, NY 10001<br>United States</div>
+                <button class="btn btn--outline" id="rf-copy-addr" style="height:36px;padding:0 14px;font-size:13px;margin-top:12px;">Copy return address</button>
+              </div>
+              <div class="warn-banner" style="margin-bottom:12px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span><strong>Return shipping risk is yours.</strong> You're responsible for the return shipment until the seller receives it — pack safely and use a tracked carrier.</span>
+              </div>
+              <div class="info-banner">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Return shipping cost is covered by the seller — you won't be charged. Safe packaging is still your responsibility.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Step 3 -->
+        <div class="rf-step">
+          <div class="rf-rail"><div class="rf-dot rf-dot--todo" data-dot="3">3</div><div class="rf-line" data-line="3"></div></div>
+          <div class="rf-body">
+            <div class="rf-title muted" data-title="3">Register return tracking</div>
+            <div class="rf-desc" data-desc-collapsed="3" style="margin-bottom:14px;">Add the tracking number for your return shipment.</div>
+            <div data-detail="3" style="display:none;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;" class="two-col">
+                <div>
+                  <label style="font-size:11px;color:var(--t3);margin-bottom:6px;display:block;">Carrier</label>
+                  <select class="form-select" id="rf-carrier"><option>FedEx</option><option>UPS</option><option>USPS</option><option>DHL</option></select>
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--t3);margin-bottom:6px;display:block;">Tracking number</label>
+                  <input type="text" class="form-input" id="rf-track" placeholder="e.g. 7749 8812 3300">
+                </div>
+              </div>
+              <button class="btn btn--primary" id="rf-submit-track" style="height:48px;width:100%;font-size:14px;" disabled>Submit return tracking</button>
+            </div>
+          </div>
+        </div>
+        <!-- Step 4 -->
+        <div class="rf-step">
+          <div class="rf-rail"><div class="rf-dot rf-dot--todo" data-dot="4">4</div><div class="rf-line" data-line="4"></div></div>
+          <div class="rf-body">
+            <div class="rf-title muted" data-title="4">Seller confirms receipt</div>
+            <div class="rf-desc" data-desc-collapsed="4">The seller checks the returned card.</div>
+            <div data-detail="4" style="display:none;">
+              <div style="display:flex;align-items:center;gap:12px;background:#141414;border-radius:12px;padding:16px;">
+                <div style="width:22px;height:22px;border:2.5px solid rgba(255,255,255,0.15);border-top-color:var(--azure);border-radius:50%;animation:spin 0.9s linear infinite;flex-shrink:0;"></div>
+                <div style="font-size:13.5px;color:var(--t2);line-height:1.5;">The seller is confirming the returned card. We'll refund you as soon as they do.</div>
+              </div>
+              <button class="btn btn--outline" id="demo-seller-confirm" style="height:40px;padding:0 16px;font-size:12px;margin-top:12px;">Preview: seller confirms →</button>
+            </div>
+          </div>
+        </div>
+        <!-- Step 5 -->
+        <div class="rf-step">
+          <div class="rf-rail"><div class="rf-dot rf-dot--todo" data-dot="5">5</div></div>
+          <div class="rf-body" style="padding-bottom:0;">
+            <div class="rf-title muted" data-title="5">Refund complete</div>
+            <div class="rf-desc" data-desc-collapsed="5">$25,000 returned to your balance.</div>
+            <div data-detail="5" style="display:none;">
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);border-radius:12px;padding:16px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+                <div style="font-size:14px;color:#fff;line-height:1.5;"><strong>Refund complete</strong> — $25,000 returned to your balance.</div>
+              </div>
+              <a href="Portfolio.html" class="btn btn--primary" style="height:48px;width:100%;font-size:14px;margin-top:14px;">View balance</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <script src="tk-footer.js"></script>
+</x-dc>
+
+<script>
+setTimeout(function(){
+  var root = document.currentScript ? document : document;
+  function show(name){
+    document.querySelectorAll('[data-screen]').forEach(function(s){ s.classList.toggle('on', s.getAttribute('data-screen')===name); });
+    window.scrollTo(0,0);
+  }
+
+  document.addEventListener('click', function(e){
+    var g = e.target.closest('[data-goto]');
+    if(g){ show(g.getAttribute('data-goto')); return; }
+
+    if(e.target.closest('#confirm-btn')){ show('complete'); return; }
+    if(e.target.closest('#mm-submit')){ show('report-submitted'); return; }
+
+    var up = e.target.closest('#mm-upload');
+    if(up){ var t=document.getElementById('mm-thumbs'); if(t) t.style.display='flex'; return; }
+
+    if(e.target.closest('#dmg-copy')){
+      navigator.clipboard && navigator.clipboard.writeText('FX 7489 2345 6789');
+      var b=e.target.closest('#dmg-copy'); var o=b.textContent; b.textContent='Copied!'; b.style.color='var(--pos)'; b.style.borderColor='var(--pos)';
+      setTimeout(function(){ b.textContent=o; b.style.color=''; b.style.borderColor=''; }, 1800); return;
+    }
+    if(e.target.closest('#rf-copy-addr')){
+      navigator.clipboard && navigator.clipboard.writeText('Vault Keeper Collectibles\nRETURNS #ORD-20260716-0042\n884 Hudson Yards, Unit 12\nNew York, NY 10001\nUnited States');
+      var rb=e.target.closest('#rf-copy-addr'); var ro=rb.textContent; rb.textContent='Copied!'; rb.style.color='var(--pos)'; rb.style.borderColor='var(--pos)';
+      setTimeout(function(){ rb.textContent=ro; rb.style.color=''; rb.style.borderColor=''; }, 1800); return;
+    }
+
+    // Refund: advance to step 3 (register tracking) — happens automatically on load of refund screen
+    if(e.target.closest('#rf-submit-track')){ refundStage(4); return; }
+    if(e.target.closest('#demo-seller-confirm')){ refundStage(5); return; }
+  });
+
+  // enable return tracking submit when filled
+  document.addEventListener('input', function(e){
+    if(e.target.id==='rf-track'){
+      var btn=document.getElementById('rf-submit-track');
+      if(btn) btn.disabled = e.target.value.trim().length < 5;
+    }
+  });
+
+  // Refund stepper control
+  function setDot(n, kind, num){
+    var d=document.querySelector('[data-dot="'+n+'"]');
+    if(!d) return;
+    d.className='rf-dot rf-dot--'+kind;
+    if(kind==='done') d.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    else d.textContent=num;
+    var line=document.querySelector('[data-line="'+n+'"]');
+    if(line) line.classList.toggle('rf-line--done', kind==='done');
+  }
+  window.refundStage = function(active){
+    setDot(1,'done',1);
+    for(var i=2;i<=5;i++){
+      var kind = i<active ? 'done' : (i===active ? 'active' : 'todo');
+      setDot(i, kind, i);
+      var t=document.querySelector('[data-title="'+i+'"]');
+      if(t) t.classList.toggle('muted', i>active);
+      // detail visible for the active step, plus keep return instructions (2) visible while registering tracking (3)
+      var showDetail = (i===active) || (i===2 && active===3);
+      var det=document.querySelector('[data-detail="'+i+'"]'); if(det) det.style.display = showDetail ? 'block':'none';
+      var dc=document.querySelector('[data-desc-collapsed="'+i+'"]'); if(dc) dc.style.display = showDetail ? 'none':'block';
+    }
+  };
+
+  // On entering the refund screen: steps 1–2 done, step 3 (return tracking) active, instructions still visible.
+  document.addEventListener('click', function(e){
+    if(e.target.closest('[data-goto="refund"]')){ setTimeout(function(){ refundStage(3); }, 60); }
+  });
+}, 300);
+</script>
+<script src="tk-wallet.js"></script>
+<script src="tk-notifications.js"></script>
+<script src="tk-role-nav.js"></script>
+<script src="tk-mobile-nav.js"></script>
+</body>
+</html>

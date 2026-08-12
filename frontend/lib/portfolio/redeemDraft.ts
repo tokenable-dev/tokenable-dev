@@ -257,3 +257,89 @@ export function redeemSurfaceBadge(
   }
   return null;
 }
+
+/**
+ * The manifest for one outbound shipment, so the owner can cross-check the
+ * physical slabs against what we say shipped before confirming receipt.
+ * A batch can hold up to `REDEEM_BATCH_MAX` cards, so this is a document
+ * rather than an on-screen list.
+ */
+export async function downloadRedeemManifest(input: {
+  idx: number;
+  vaultLabel: string;
+  cards: RedeemDraftCard[];
+  trackingNumber: string | null;
+  trackingCarrier: string | null;
+}): Promise<void> {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const marginX = 56;
+  let y = 64;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("TOKENABLE — PACKING SLIP", marginX, y);
+  y += 26;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  const count = input.cards.length;
+  doc.text(
+    `Shipment ${input.idx} · ${input.vaultLabel} · ${count} card${count === 1 ? "" : "s"}`,
+    marginX,
+    y,
+  );
+  y += 16;
+  if (input.trackingNumber) {
+    doc.text(
+      `Tracking ${input.trackingNumber}${input.trackingCarrier ? ` · ${input.trackingCarrier}` : ""}`,
+      marginX,
+      y,
+    );
+    y += 16;
+  }
+  y += 12;
+
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("CARDS IN THIS SHIPMENT", marginX, y);
+  y += 18;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+
+  for (const [i, c] of input.cards.entries()) {
+    const parts = [
+      `${i + 1}.`,
+      c.certNumber ? `Cert #${c.certNumber}` : "Cert —",
+      c.grade || "Ungraded",
+      c.name,
+    ];
+    const wrapped = doc.splitTextToSize(parts.join("  |  "), 500);
+    doc.text(wrapped, marginX, y);
+    y += wrapped.length * 13 + 4;
+    if (y > 720) {
+      doc.addPage();
+      y = 64;
+    }
+  }
+
+  y += 20;
+  doc.setDrawColor(200);
+  doc.line(marginX, y, 556, y);
+  y += 20;
+
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(
+    doc.splitTextToSize(
+      "Check each slab against its cert number before confirming receipt.",
+      500,
+    ),
+    marginX,
+    y,
+  );
+
+  doc.save(`tokenable-packing-slip-shipment-${input.idx}.pdf`);
+}

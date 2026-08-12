@@ -39,6 +39,7 @@ import {
 } from './bulk-mint-cert-list.util';
 import { buildBulkMintMetadataFromPsaCert } from './bulk-mint-prepare.util';
 import { PartnerSeaportAskService } from './partner-seaport-ask.service';
+import { RwaSlabS3Service } from '../rwa-slab-s3.service';
 
 export type CreateBulkMintJobInput = {
   partnerId: string;
@@ -116,6 +117,7 @@ export class BulkMintJobService {
     private readonly partners: MarketplacePartnersService,
     private readonly partnerAsks: PartnerSeaportAskService,
     private readonly orders: OrdersService,
+    private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
   async listJobs(opts?: {
@@ -491,20 +493,40 @@ export class BulkMintJobService {
         throw new Error('No PSA slab image URL available for this cert');
       }
 
+      let fetched: { buffer: Buffer; mimeType: string; extension: string };
+      try {
+        fetched = await this.pinata.fetchImageBufferFromUrl(imageUrl);
+      } catch {
+        throw new Error('Failed to download PSA slab image');
+      }
+
+      const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+        chainId,
+        certNumber: item.certNumber,
+        buffer: fetched.buffer,
+        contentType: fetched.mimeType,
+      });
+
       const { name, metadata } = buildBulkMintMetadataFromPsaCert({
         certNumber: item.certNumber,
         psaCert,
         imageUrl: '',
+        certImageSourceUrl: imageUrl,
       });
 
       let imageCid: string;
       try {
-        imageCid = await this.pinata.uploadFromUrl(imageUrl, name);
+        imageCid = await this.pinata.uploadBuffer(
+          fetched.buffer,
+          `${name}.${fetched.extension}`,
+          fetched.mimeType,
+        );
       } catch (e) {
         throw new Error(
           `IPFS image upload failed: ${e instanceof Error ? e.message : String(e)}`,
         );
       }
+      const slabDisplayImageUrl = await slabPromise;
       metadata.image = this.pinata.ipfsHttpsUrl(imageCid);
       const metadataCid = await this.pinata.uploadMetadata(metadata);
       const tokenUri = `ipfs://${metadataCid}`;
@@ -516,6 +538,7 @@ export class BulkMintJobService {
           status: 'ready',
           tokenUri,
           vaultRef,
+          slabDisplayImageUrl,
           errorMessage: null,
         },
       );
@@ -731,6 +754,13 @@ export class BulkMintJobService {
           tokenURI: r.item.tokenUri!,
           txHash,
           certNumber: r.item.certNumber,
+          displayImageUrl: this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+            r.item.slabDisplayImageUrl,
+            job.chainId,
+            r.item.certNumber,
+          ),
+          settlementPolicy: 'self_vault_hold',
+          vaultPartnerId: job.partnerId,
         });
         await this.itemRepo.update(
           { id: r.item.id },

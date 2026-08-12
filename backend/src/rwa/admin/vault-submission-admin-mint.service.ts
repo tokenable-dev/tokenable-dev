@@ -218,6 +218,7 @@ export class VaultSubmissionAdminMintService {
           recipientAddress,
           tokenURI: upload.tokenURI,
           certNumber: cert,
+          displayImageUrl: upload.displayImageUrl ?? undefined,
         },
         chainId,
       );

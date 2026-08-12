@@ -28,10 +28,10 @@ export function RedeemFlowView() {
           <span className="pf-redeem-crumb__sep" aria-hidden>
             ›
           </span>
-          <span className="pf-redeem-crumb__current">Redeem</span>
+          <span className="pf-redeem-crumb__current">Ship from vault</span>
         </nav>
         <p className="sell-flow-sub">
-          No open redemption to finish.{" "}
+          No open request to finish.{" "}
           <Link href="/portfolio">Back to portfolio</Link>
         </p>
       </div>
@@ -45,7 +45,7 @@ export function RedeemFlowView() {
         <span className="pf-redeem-crumb__sep" aria-hidden>
           ›
         </span>
-        <span className="pf-redeem-crumb__current">Redeem</span>
+        <span className="pf-redeem-crumb__current">Ship from vault</span>
       </nav>
 
       {flow.step === "request" ? (
@@ -65,6 +65,7 @@ export function RedeemFlowView() {
           cards={flow.cards}
           form={flow.form}
           busy={flow.busy}
+          payPhase={flow.payPhase}
           error={flow.error}
           onEditAddress={flow.goRequest}
           onPay={() => void flow.submitPay()}

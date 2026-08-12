@@ -18,7 +18,7 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
-import { listingSellerVerifiedLabel } from "@/lib/marketplace/collectionListingModalHelpers";
+import { listingVaultBadge } from "@/lib/marketplace/collectionListingModalHelpers";
 
 const rwaCardFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -43,7 +43,8 @@ function formatUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
     if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    /* Card.html listings use whole-dollar figures ($9,000). */
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   } catch {
     return "—";
   }
@@ -190,7 +191,7 @@ export function CollectionRwaCard({
     : undefined;
   const sellerDisplay =
     listing?.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
-  const sellerVerified = listingSellerVerifiedLabel(listing);
+  const vaultBadge = listingVaultBadge(listing);
 
   const displayTitle =
     formatAssetDetailHeadlineText(
@@ -263,6 +264,11 @@ export function CollectionRwaCard({
 
         {listing ? (
           <div className="cd-listing-card__actions">
+            {listingPrice !== "—" ? (
+              <span className="cd-listing-card__price">${listingPrice}</span>
+            ) : (
+              <span className="cd-listing-card__price cd-listing-card__price--muted">—</span>
+            )}
             {onOpenListing ? (
               <TkButton
                 type="button"
@@ -305,13 +311,11 @@ export function CollectionRwaCard({
         )}
 
         <div className="cd-listing-card__foot">
-          {listing && listingPrice !== "—" ? (
-            <span className="cd-listing-card__price">${listingPrice}</span>
-          ) : (
-            <span className="cd-listing-card__price cd-listing-card__price--muted">—</span>
-          )}
-          <span className="cd-listing-card__seller" title={sellerVerified.title}>
-            {listing ? sellerVerified.label : "—"}
+          <span
+            className={`cd-listing-card__vault cd-listing-card__vault--${vaultBadge.tone}`}
+            title={vaultBadge.title}
+          >
+            {listing ? vaultBadge.label : "—"}
           </span>
         </div>
       </article>

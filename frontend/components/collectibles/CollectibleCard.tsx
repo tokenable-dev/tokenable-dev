@@ -210,7 +210,7 @@ export function CollectibleCard({
           <span className="card__price">{formatUsdCompact(priceUsd)}</span>
           <span className={`card__sub card__sub--${sub.tone}`}>
             {sub.label}
-            {sub.period ? <span className="card__per"> {sub.period}</span> : null}
+            {sub.period ? <span className="card__per">{sub.period}</span> : null}
           </span>
         </div>
       </div>

@@ -50,4 +50,12 @@ export class CreateP2pListingDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Platform S3 slab URL from POST /rwa/upload (preferred over imageUrl for display_image_url)',
+  })
+  @IsOptional()
+  @IsString()
+  displayImageUrl?: string;
 }

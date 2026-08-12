@@ -58,6 +58,6 @@ export function selfVaultBlockedMessage(hit: {
 }): string {
   return (
     `PSA cert #${hit.cert} is already in PSA vault shipment ${hit.publicId}. ` +
-    `Self vault mint is not allowed while the card is in transit or at PSA.`
+    `Partner vault mint is not allowed while the card is in transit or at PSA.`
   );
 }

@@ -266,8 +266,24 @@ function ShipmentTrackingBlock({
         <div className="space-y-2">
           <p className={`text-xs ${ADMIN_TEXT_MUTED}`}>
             Tracking locked ·{" "}
-            <span className="tkl-mono">{tracked?.trackingNumber}</span> ·{" "}
-            {formatWhen(tracked?.trackingSetAt ?? null)}
+            {tracked?.trackingCarrier?.trim() ? (
+              <>
+                <span className="font-medium text-zinc-700">
+                  {tracked.trackingCarrier}
+                </span>
+                {" · "}
+              </>
+            ) : null}
+            <span className="tkl-mono">{tracked?.trackingNumber}</span>
+            {tracked?.trackingSetAt ? (
+              <>
+                {" · "}
+                {formatWhen(tracked.trackingSetAt)}
+              </>
+            ) : null}
+            <span className="mt-1 block text-[11px] text-zinc-500">
+              Same tracking partners enter on Partner Shipments.
+            </span>
           </p>
           <div className="grid gap-1 sm:grid-cols-[1fr_auto]">
             <input
@@ -473,6 +489,26 @@ export function MarketplaceAdminRedeemsPage() {
       <MarketplaceAdminPageHeader
         title="Redeems"
         subtitle="Each payment batch is one order. Tracking is per vault shipment (PSA / each Partner). Memo and USDC refund are order-level. Return NFT is per card. Any tracking locks refunds."
+        actions={
+          <button
+            type="button"
+            className={ADMIN_BTN_DANGER}
+            disabled={actions.purgeAll.isPending}
+            onClick={() => {
+              const ok = window.confirm(
+                "Delete ALL redeem history from the database?\n\n" +
+                  "• vault_redemptions + payment claims\n" +
+                  "• Reset vault cycles stuck in redeem\n" +
+                  "• Clear rwa_tokens burn flags (DB only)\n\n" +
+                  "On-chain burns / USDC are NOT reversed. Dev/staging only.",
+              );
+              if (!ok) return;
+              void run("purge-all", () => actions.purgeAll.mutateAsync());
+            }}
+          >
+            {actions.purgeAll.isPending ? "Purging…" : "Purge all redeems (dev)"}
+          </button>
+        }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5">

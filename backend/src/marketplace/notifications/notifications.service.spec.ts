@@ -360,9 +360,7 @@ describe('NotificationsService', () => {
       '0xbuyer0000000000000000000000000000000001',
     );
     expect(saved[0].title).toBe("Your offer couldn't be filled");
-    expect(saved[0].body).toBe(
-      'Your balance was insufficient. Re-bid once funded.',
-    );
+    expect(saved[0].body).toBe('Add funds and re-bid.');
     expect(saved[0].dedupeKey).toBe('token_bid_dead_bidder:0xbidhash');
     expect(saved[0].payload).toMatchObject({
       event: 'dead_bidder',
@@ -515,5 +513,57 @@ describe('NotificationsService', () => {
     expect(titles).toContain('Owned — Card A');
     const sold = saved.find((r) => r.payload?.['eventKey'] === 'SELLER_SOLD');
     expect(sold?.body).toBe('You receive $97.50 after fees.');
+  });
+
+  it('emits redeem stage notifications with dedupe keys', async () => {
+    const wallet = '0xabc0000000000000000000000000000000000001';
+    await service.notifyRedeemPaymentReceived({
+      ownerWallet: wallet,
+      paymentBatchId: 'batch-1',
+      cardCount: 2,
+      chainId: 11155111,
+    });
+    await service.notifyRedeemPreparing({
+      ownerWallet: wallet,
+      paymentBatchId: 'batch-1',
+      chainId: 11155111,
+    });
+    await service.notifyRedeemShipped({
+      ownerWallet: wallet,
+      paymentBatchId: 'batch-1',
+      shipmentKey: 'psa_vault',
+      trackingNumber: '1ZTEST',
+      chainId: 11155111,
+    });
+    await service.notifyRedeemCompleted({
+      ownerWallet: wallet,
+      paymentBatchId: 'batch-1',
+      chainId: 11155111,
+    });
+    await service.notifySellerRedeemShipRequired({
+      partnerWallet: '0xdef0000000000000000000000000000000000002',
+      redemptionId: 'red-1',
+      tokenId: '7',
+      chainId: 11155111,
+    });
+    await service.notifyRedeemRefunded({
+      ownerWallet: wallet,
+      paymentBatchId: 'batch-1',
+      chainId: 11155111,
+    });
+
+    expect(saved).toHaveLength(6);
+    const keys = saved.map((r) => r.dedupeKey);
+    expect(keys).toContain('redeem_paid:batch:batch-1');
+    expect(keys).toContain('redeem_preparing:batch:batch-1');
+    expect(keys).toContain('wd_shipped:batch-1:psa_vault');
+    expect(keys).toContain('redeem_completed:batch:batch-1');
+    expect(keys).toContain('seller_redeem_ship:red-1');
+    expect(keys).toContain('redeem_refunded:batch:batch-1');
+    const eventKeys = saved.map((r) => r.payload?.['eventKey']);
+    expect(eventKeys).toContain('RD_PAID_PREPARING');
+    expect(eventKeys).toContain('RD_SHIPPED');
+    expect(eventKeys).toContain('PARTNER_SHIPMENT_REQUEST');
+    expect(eventKeys).toContain('RD_AUTO_CANCELLED_REFUND');
   });
 });

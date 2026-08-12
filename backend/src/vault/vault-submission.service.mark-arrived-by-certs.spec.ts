@@ -27,6 +27,7 @@ describe('VaultSubmissionService.markArrivedByCerts', () => {
       submissions as never,
       items as never,
       { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
+      { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
       { notifySellerSubmissionReceived: jest.fn() } as never,
     );
     service.adminMarkArrived = jest.fn(

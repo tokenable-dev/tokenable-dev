@@ -4,14 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminConfirmPsaArrivalReview,
   adminDismissPsaArrivalReview,
+  adminDismissPsaVaultedReview,
   adminInjectPsaReceivedTestMail,
+  adminInjectPsaVaultedTestMail,
   adminMarkVaultSubmissionArrived,
   adminMintAndDeliverVaultItem,
+  adminMintPsaVaultedReview,
   adminSetVaultSubmissionItemStatus,
   adminSetVaultSubmissionStatus,
   getAdminVaultSubmission,
   getAdminVaultSubmissionCounts,
   listAdminPsaArrivalReviews,
+  listAdminPsaVaultedReviews,
   listAdminVaultMintQueue,
   listAdminVaultSubmissions,
   rq,
@@ -32,6 +36,17 @@ export function useAdminPsaArrivalReviews(
   return useQuery({
     queryKey: rq.adminPsaArrivalReviews(status),
     queryFn: () => listAdminPsaArrivalReviews(status),
+    staleTime: 8_000,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useAdminPsaVaultedReviews(
+  status: "pending" | "minted" | "failed" | "dismissed" = "pending",
+) {
+  return useQuery({
+    queryKey: rq.adminPsaVaultedReviews(status),
+    queryFn: () => listAdminPsaVaultedReviews(status),
     staleTime: 8_000,
     refetchInterval: 15_000,
   });
@@ -75,6 +90,7 @@ export function useAdminVaultSubmissionMutations() {
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission-counts"] });
     void qc.invalidateQueries({ queryKey: ["admin-vault-submission"] });
     void qc.invalidateQueries({ queryKey: ["admin-psa-arrival-reviews"] });
+    void qc.invalidateQueries({ queryKey: ["admin-psa-vaulted-reviews"] });
     void qc.invalidateQueries({ queryKey: ["admin-vault-mint-queue"] });
     void qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
   };
@@ -114,6 +130,19 @@ export function useAdminVaultSubmissionMutations() {
       adminInjectPsaReceivedTestMail(input),
     onSuccess: invalidate,
   });
+  const injectVaultedTestMail = useMutation({
+    mutationFn: (input: { cert: string; cardLabel?: string }) =>
+      adminInjectPsaVaultedTestMail(input),
+    onSuccess: invalidate,
+  });
+  const mintVaultedReview = useMutation({
+    mutationFn: (reviewId: string) => adminMintPsaVaultedReview(reviewId),
+    onSuccess: invalidate,
+  });
+  const dismissVaultedReview = useMutation({
+    mutationFn: (reviewId: string) => adminDismissPsaVaultedReview(reviewId),
+    onSuccess: invalidate,
+  });
   const mintAndDeliver = useMutation({
     mutationFn: (p: { id: string; itemId: string }) =>
       adminMintAndDeliverVaultItem(p.id, p.itemId),
@@ -127,6 +156,9 @@ export function useAdminVaultSubmissionMutations() {
     confirmArrivalReview,
     dismissArrivalReview,
     injectTestMail,
+    injectVaultedTestMail,
+    mintVaultedReview,
+    dismissVaultedReview,
     mintAndDeliver,
   };
 }

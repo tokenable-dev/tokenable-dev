@@ -102,6 +102,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
     CollectionEnrichmentService,
     RwaTokenRegistryService,
     CollectionMarketService,
+    CatalogCoverS3Service,
   ],
 })
 export class MarketplaceCollectionsModule {}

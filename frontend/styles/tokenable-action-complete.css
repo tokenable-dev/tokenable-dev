@@ -1,123 +1,35 @@
-/* Design system-4 — portfolio-modals.js pfSaleResult / pfConfirmAction + Card.html #tkb-done */
+/* Action-complete result surfaces — Feedback-States Dialog hierarchy.
+   Overlay modals use TkDialog (.tk-dialog); embedded panels keep title/body/actions. */
 
-@keyframes tk-ac-pop {
-  0% {
-    transform: scale(0.7);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+.tk-ac-dialog.tk-dialog {
+  text-align: left;
 }
 
-@keyframes tk-ac-check {
-  0% {
-    opacity: 0;
-    stroke-dasharray: 30;
-    stroke-dashoffset: 30;
-  }
-  100% {
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
+.tk-ac-dialog .tk-dialog__foot {
+  width: 100%;
 }
 
-.tk-ac-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 230;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(6, 6, 14, 0.84);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-.tk-ac-overlay__scrim {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
+.tk-ac-dialog .tk-ac-actions {
+  width: 100%;
+  margin-top: 0;
 }
 
 .tk-ac-panel {
   position: relative;
   width: 100%;
-  max-width: 340px;
-  text-align: center;
-  animation: tk-ac-pop 0.5s ease forwards;
+  max-width: 480px;
+  text-align: left;
 }
 
 .tk-ac-panel--embedded {
   max-width: none;
-  animation: none;
   padding: 6px 0 4px;
-}
-
-.tk-ac-icon {
-  width: 68px;
-  height: 68px;
-  margin: 0 auto 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.tk-ac-icon--pos {
-  background: rgba(0, 200, 100, 0.12);
-  color: #00c864;
-}
-
-.tk-ac-icon--info {
-  background: rgba(26, 111, 255, 0.14);
-  color: #1a6fff;
-}
-
-.tk-ac-icon--neg {
-  background: rgba(228, 55, 74, 0.12);
-  color: #e4374a;
-  border-radius: 16px;
-}
-
-.tk-ac-icon--notch {
-  width: 64px;
-  height: 64px;
-  background: var(--background-positive-tertiary, rgba(0, 200, 100, 0.12));
-  color: var(--pos, #00c864);
-  border-radius: 0;
-  clip-path: polygon(
-    0 8px,
-    8px 0,
-    56px 0,
-    64px 8px,
-    64px 56px,
-    56px 64px,
-    8px 64px,
-    0 56px
-  );
-}
-
-.tk-ac-icon svg {
-  display: block;
-}
-
-.tk-ac-icon--draw svg {
-  opacity: 0;
-  animation: tk-ac-check 0.4s ease 0.15s forwards;
 }
 
 .tk-ac-title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -127,9 +39,9 @@
 .tk-ac-sub {
   margin: 8px 0 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.55);
+  color: #a7a9ac;
 }
 
 .tk-ac-status {
@@ -139,7 +51,7 @@
   gap: 12px;
   padding: 14px;
   margin: 18px 0 0;
-  background: var(--ink-2, rgba(255, 255, 255, 0.04));
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .tk-ac-status__label {
@@ -159,6 +71,7 @@
 
 .tk-ac-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 22px;
   width: 100%;
@@ -168,16 +81,15 @@
   flex-direction: column;
 }
 
-/* portfolio-modals.js pfSaleResult Done — full-width 46px primary */
 .tk-ac-actions .tk-ac-btn {
   flex: 1 1 0;
   width: 100%;
-  min-height: 46px;
-  height: 46px;
+  min-height: 44px;
+  height: 44px;
   box-sizing: border-box;
 }
 
 .tk-ac-extra {
-  margin-top: 14px;
+  margin-top: 0;
   text-align: left;
 }

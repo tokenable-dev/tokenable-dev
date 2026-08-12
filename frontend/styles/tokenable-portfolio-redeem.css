@@ -1112,6 +1112,130 @@
   color: #ea8200;
 }
 
+.pf-redeem-status-pill--pos {
+  background: rgba(0, 200, 100, 0.14);
+  color: #00c864;
+}
+
+.pf-redeem-shipment__head {
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pf-redeem-track-link {
+  color: var(--azure, #1a6fff);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.pf-redeem-track-link:hover {
+  text-decoration: underline;
+}
+
+.pf-redeem-ship-received {
+  width: 100%;
+  height: 42px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+.pf-redeem-flag {
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-sans, inherit);
+  font-size: 11.5px;
+  font-weight: 600;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.pf-redeem-flag:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pf-redeem-flag--reported,
+.pf-redeem-flag:disabled {
+  background: rgba(228, 55, 74, 0.16);
+  color: #ff6b7a;
+  cursor: default;
+}
+
+.pf-redeem-report-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: rgba(0, 0, 0, 0.66);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.pf-redeem-report-modal {
+  width: 460px;
+  max-width: 100%;
+  background: #191919;
+  border-radius: 16px;
+  padding: 26px;
+}
+
+.pf-redeem-report-modal__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-report-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.pf-redeem-report-modal__meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-report-modal__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.pf-redeem-report-modal__opt {
+  width: 100%;
+  height: 46px;
+  font-size: 14px;
+}
+
+.pf-redeem-report-modal__note {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-redeem-report-modal__close {
+  width: 100%;
+  height: 42px;
+  font-size: 14px;
+}
+
 .pf-redeem-shipto__body {
   font-size: 14px;
   color: #fff;
@@ -1128,6 +1252,23 @@
 .pf-redeem-paybox__bal {
   color: rgb(0, 200, 100);
   margin-left: 6px;
+}
+
+/* "What your wallet will ask you to sign" list */
+.pf-redeem-sign-steps {
+  margin: 10px 0 12px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pf-redeem-sign-steps strong {
+  color: #fff;
+  font-weight: 600;
 }
 
 .pf-redeem-shipment__meta {
@@ -1262,6 +1403,7 @@
 .pf-redeem-primary-link {
   display: block;
   text-decoration: none;
+  margin-top: 10px;
 }
 
 /* Portfolio Redeem tab — in-progress + completed history */
@@ -1384,4 +1526,393 @@
   margin-top: 2px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
+}
+
+/* Step 1 access gate — shipping a physical card needs a verified owner */
+.pf-redeem-gate {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #191919;
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-gate--loading {
+  min-height: 148px;
+}
+
+.pf-redeem-gate__icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: rgba(26, 111, 255, 0.12);
+  color: var(--azure, #1a6fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-gate__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-gate__title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.pf-redeem-gate__copy {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pf-redeem-gate__sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pf-redeem-gate__cta {
+  height: 46px;
+  padding: 0 22px;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+.pf-redeem-verified {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 22px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(0, 200, 100);
+}
+
+/* Transit shipment contents — searchable manifest for up to 50 cards */
+.pf-redeem-contents {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-contents__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pf-redeem-contents__tog {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pf-redeem-contents__caret {
+  transition: transform 0.15s;
+}
+
+.pf-redeem-contents__caret--open {
+  transform: rotate(90deg);
+}
+
+.pf-redeem-contents__slip {
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--azure, #1a6fff);
+  font-family: var(--font-sans, inherit);
+  font-size: 12px;
+  font-weight: 600;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pf-redeem-contents__slip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pf-redeem-contents__slip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pf-redeem-contents__panel {
+  margin-top: 12px;
+}
+
+.pf-redeem-contents__search {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-contents__search::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.pf-redeem-contents__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+.pf-redeem-contents__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.pf-redeem-contents__row + .pf-redeem-contents__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pf-redeem-contents__thumb {
+  width: 32px;
+  height: 45px;
+  flex-shrink: 0;
+  background: #0e0e0e;
+  border-radius: 5px;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-contents__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-contents__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-contents__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.pf-redeem-contents__meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.pf-redeem-contents__meta .pf-redeem-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.pf-redeem-contents__cert {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.pf-redeem-contents__empty {
+  padding: 16px 12px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-contents__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Done — shipping out closes the online side, but it isn't a one-way door */
+.pf-redeem-return {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #191919;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-return__icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(26, 111, 255, 0.12);
+  color: var(--azure, #1a6fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-return__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-return__body strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.pf-redeem-return__body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pf-redeem-return__link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azure, #1a6fff);
+  text-decoration: none;
+}
+
+.pf-redeem-return__link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-summary__head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .pf-redeem-summary__meta {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+
+  /* Pay ship-to + Edit — stack so Edit is not squeezed (Ship-From-Vault ≤768) */
+  .pf-redeem-shipto--row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .pf-redeem-edit-btn.tk-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pf-redeem-gate,
+  .pf-redeem-return {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* The icon is decoration — on a phone the copy needs the full width */
+  .pf-redeem-gate__icon,
+  .pf-redeem-return__icon {
+    display: none;
+  }
+
+  .pf-redeem-gate__cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Label above value beats a squeezed two-column row */
+  .pf-redeem-shipment__meta > div {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pf-redeem-contents__bar {
+    gap: 8px;
+  }
+
+  .pf-redeem-contents__slip {
+    flex: 1 1 auto;
+  }
+
+  .pf-redeem-contents__list {
+    max-height: 320px;
+  }
+
+  .pf-redeem-contents__row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pf-redeem-contents__info {
+    flex: 1 1 calc(100% - 100px);
+  }
+
+  .pf-redeem-flag {
+    margin-left: auto;
+  }
+
+  .pf-redeem-report-scrim {
+    padding: 16px;
+    align-items: flex-end;
+  }
+
+  .pf-redeem-report-modal {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 22px 18px
+      max(22px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .pf-redeem-primary,
+  .pf-redeem-ship-received {
+    width: 100%;
+  }
 }

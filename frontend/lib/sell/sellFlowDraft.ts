@@ -55,6 +55,19 @@ export type SellVaultChoice = "self" | "psa";
 
 export type SellCarrier = "fedex" | "dhl" | "ups";
 
+/** Local-only PSA return address draft (not yet sent to PSA intake APIs). */
+export type SellReturnAddressDraft = {
+  name: string;
+  line1: string;
+  line2: string;
+  city: string;
+  region: string;
+  postal: string;
+  /** ISO-ish country key used by the form select. */
+  country: string;
+  phone: string;
+};
+
 export type SellFlowProgress = {
   step: SellFlowStep;
   /** Set on the Choose a vault screen (null until picked). */
@@ -64,11 +77,12 @@ export type SellFlowProgress = {
   carrier: SellCarrier;
   shipDate: string;
   trackingNumber: string;
+  returnAddress: SellReturnAddressDraft;
   updatedAt: string;
 };
 
 export const PSA_SHIP_TO = {
-  name: "TOKENABLE LIMITED (106101801)",
+  name: "TOKENABLE LIMITED (107038975)",
   lines: [
     "600 SHIPS LANDING WAY",
     "NEW CASTLE, DE 19720",
@@ -95,6 +109,59 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function emptySellReturnAddress(): SellReturnAddressDraft {
+  return {
+    name: "",
+    line1: "",
+    line2: "",
+    city: "",
+    region: "",
+    postal: "",
+    country: "",
+    phone: "",
+  };
+}
+
+/** Required fields for PSA return address (PSA-Shipping.html returnAddrValid). */
+export function isSellReturnAddressComplete(addr: SellReturnAddressDraft): boolean {
+  return (
+    addr.name.trim().length > 0 &&
+    addr.line1.trim().length > 0 &&
+    addr.city.trim().length > 0 &&
+    addr.region.trim().length > 0 &&
+    addr.postal.trim().length > 0 &&
+    addr.country.trim().length > 0 &&
+    addr.phone.trim().length > 0
+  );
+}
+
+export function formatSellReturnAddressSummary(addr: SellReturnAddressDraft): string {
+  const line = [addr.line1.trim(), addr.line2.trim()].filter(Boolean).join(", ");
+  const cityLine = [addr.city.trim(), addr.region.trim(), addr.postal.trim()]
+    .filter(Boolean)
+    .join(", ");
+  const parts = [addr.name.trim(), line, cityLine].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function parseReturnAddress(raw: unknown): SellReturnAddressDraft {
+  const empty = emptySellReturnAddress();
+  if (!raw || typeof raw !== "object") return empty;
+  const o = raw as Record<string, unknown>;
+  const str = (key: keyof SellReturnAddressDraft) =>
+    typeof o[key] === "string" ? (o[key] as string) : empty[key];
+  return {
+    name: str("name"),
+    line1: str("line1"),
+    line2: str("line2"),
+    city: str("city"),
+    region: str("region"),
+    postal: str("postal"),
+    country: str("country") || "us",
+    phone: str("phone"),
+  };
+}
+
 export function defaultSellFlowProgress(
   overrides?: Partial<SellFlowProgress>,
 ): SellFlowProgress {
@@ -106,6 +173,7 @@ export function defaultSellFlowProgress(
     carrier: "fedex",
     shipDate: todayIsoDate(),
     trackingNumber: "",
+    returnAddress: emptySellReturnAddress(),
     updatedAt: new Date().toISOString(),
     ...overrides,
   };
@@ -171,6 +239,7 @@ export function readSellFlowProgress(): SellFlowProgress {
           : todayIsoDate(),
       trackingNumber:
         typeof parsed.trackingNumber === "string" ? parsed.trackingNumber : "",
+      returnAddress: parseReturnAddress(parsed.returnAddress),
       updatedAt:
         typeof parsed.updatedAt === "string"
           ? parsed.updatedAt
