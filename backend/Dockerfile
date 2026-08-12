@@ -23,7 +23,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN pnpm build
+# nest build must emit dist/main.js (tsconfig.build.json includes only src/).
+# If scripts/*.ts are compiled, output becomes dist/src/main.js and the image is unusable.
+RUN pnpm build \
+  && test -f dist/main.js \
+  || (echo "ERROR: expected dist/main.js after nest build; found:" >&2 \
+      && find dist -name 'main.js' -print >&2 \
+      && ls -la dist >&2 \
+      && exit 1)
 
 # ── Stage 3: 실행 (최소 이미지) ──────────────────────────────────
 FROM node:22-bookworm-slim AS runner
@@ -45,7 +52,9 @@ RUN CI= pnpm exec playwright-core install --with-deps chromium
 ENV CI=true
 
 COPY --from=builder /app/dist ./dist
+RUN test -f dist/main.js
 
 EXPOSE 4000
 
-CMD ["node", "dist/main.js"]
+# Prefer flat Nest output; keep legacy fallback for older images if layout regresses.
+CMD ["sh", "-c", "if [ -f dist/main.js ]; then exec node dist/main.js; elif [ -f dist/src/main.js ]; then exec node dist/src/main.js; else echo 'FATAL: no dist/main.js or dist/src/main.js' >&2; ls -la dist >&2; exit 1; fi"]

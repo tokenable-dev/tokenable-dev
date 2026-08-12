@@ -37,3 +37,8 @@ jobs:
 
       - name: Unit tests
         run: pnpm test:ci
+
+      - name: Build and assert production entrypoint
+        run: |
+          pnpm build
+          test -f dist/main.js

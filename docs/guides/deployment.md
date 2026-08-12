@@ -276,7 +276,8 @@ Production asserts required tables/columns (see `backend/src/health/schema-asser
 | `docker-compose.yml` | Base services |
 | `docker-compose.ec2.yml` | EC2 overlay (env_file, image tags) |
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
-| `backend/Dockerfile` | Multi-stage NestJS build |
+| `backend/Dockerfile` | Multi-stage NestJS build; fails if `dist/main.js` missing |
+| `backend/tsconfig.build.json` | Compile `src/` only so entrypoint is `dist/main.js` |
 | `backend/sql/bootstrap-empty-prod-db.sql` | Initial schema |
 | `contracts/scripts/deploy-tokenable-rwa-uups.ts` | Contract deployment |
 | `contracts/scripts/sync-abi.mjs` | ABI sync after contract change |

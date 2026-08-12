@@ -1,5 +1,35 @@
 # Troubleshooting
 
+## Backend restart loop: `Cannot find module '/app/dist/main.js'`
+
+**Symptom:** `tokenable-backend` is `Restarting`, nginx returns **502**, `/api/health` fails.
+
+**Cause:** Nest compiled with a project-root `rootDir` (e.g. `scripts/*.ts` included), so the entrypoint landed at `dist/src/main.js` while the container CMD expected `dist/main.js`.
+
+**Prevention (repo):**
+- `backend/tsconfig.build.json` includes only `src/**/*`
+- `backend/Dockerfile` fails the image build unless `dist/main.js` exists
+- Backend CI runs `pnpm build` and asserts `dist/main.js`
+
+**Emergency on EC2 (current broken image only):**
+```bash
+cd ~/app
+cat > /tmp/backend-cmd.yml <<'EOF'
+services:
+  backend:
+    command: ["node", "dist/src/main.js"]
+EOF
+docker-compose -f docker-compose.yml -f docker-compose.ec2.yml -f /tmp/backend-cmd.yml \
+  up -d --force-recreate --no-deps backend
+docker logs tokenable-backend --tail 80
+docker inspect tokenable-backend --format '{{json .Config.Cmd}}'
+curl -sS http://127.0.0.1/api/health
+```
+
+After a fixed image is pushed to ECR, redeploy without the override file.
+
+---
+
 ## PSA `/api/psa/analyze` returns 500 on deployed server
 
 1. Check backend logs for `PSA analyze failed:`:
