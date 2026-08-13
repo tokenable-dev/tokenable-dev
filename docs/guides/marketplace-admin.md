@@ -89,12 +89,13 @@ app/marketplace/admin/
   …
 
 components/marketplace/admin/
-  MarketplaceAdminShell.tsx       → Sidebar + top bar (backoffice layout)
+  MarketplaceAdminShell.tsx       → 240px paper sidebar + main (from `admin/` HTML)
   MarketplaceAdminGate.tsx        → Login gate + shell wrapper
-  MarketplaceAdminNav.tsx         → Sidebar nav items
-  MarketplaceAdminPageHeader.tsx  → Page title + subtitle
+  MarketplaceAdminNav.tsx         → Sidebar nav items (icons + active tint)
+  MarketplaceAdminPageHeader.tsx  → Page title + subtitle (flush to main header)
   MarketplaceAdmin*Page.tsx       → One page component per route
   adminUi.ts                      → Shared tokens (cards, buttons, tables)
+  styles/tokenable-admin.css      → Admin chrome only — not marketplace tk-*
   AdminAnalyticsWidgets.tsx       → KPI tiles, mini charts, funnel bars
   …
 
@@ -277,9 +278,9 @@ If login returns **502 / API proxy failed**, the Nest process is usually down or
 ## Extending the admin
 
 1. **New page:** Add `app/marketplace/admin/<segment>/page.tsx` → page component in `components/marketplace/admin/` → hook in `hooks/marketplace-admin/` → API client in `lib/core/api/`.
-2. **New nav item:** Add entry to `ADMIN_NAV_SECTIONS` in `components/marketplace/admin/nav/adminNavConfig.ts`.
+2. **New nav item:** Add entry (including `icon`) to `ADMIN_NAV_SECTIONS` in `components/marketplace/admin/nav/adminNavConfig.ts`.
 3. **New API:** Prefer `MarketplaceAdminModule` or an existing module that imports `MarketplaceAdminService`; call `assertAdminSession(req)` on each handler.
-4. **UI tokens:** Reuse `adminUi.ts` (`ADMIN_ARTICLE`, `ADMIN_BTN_PRIMARY`, `ADMIN_TABLE_WRAP`, …) for consistent backoffice styling.
+4. **UI tokens:** Reuse `adminUi.ts` for cards/buttons/tables. Shell/sidebar chrome lives in `frontend/styles/tokenable-admin.css` (from `admin/` HTML) — not marketplace `tk-*`.
 
 Avoid merging GA4 logic into `PlatformAnalyticsService` — keep PostgreSQL platform metrics and GA4 traffic as separate services/endpoints.
 

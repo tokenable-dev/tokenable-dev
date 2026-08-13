@@ -255,7 +255,7 @@ Key facts:
 - **Prototype sync:** `Tokenable-with design system/` is reference only; production styles live in `frontend/design-system/`.
 - Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
 - Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
-- Admin console uses `adminUi.ts` (light Tailwind) intentionally — not pixel `tk-btn`.
+- Admin console uses light chrome (`tokenable-admin.css` + `adminUi.ts`) — not pixel `tk-btn`. Layout matches `admin/` HTML (sidebar + main).
 
 ---
 

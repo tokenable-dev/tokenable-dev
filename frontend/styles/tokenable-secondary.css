@@ -330,47 +330,6 @@
   color: var(--neg);
 }
 
-/* ── Admin console (minimal DS chrome) ────────────────────────────────────── */
-
-.admin-console .admin-login-card {
-  border-radius: 16px;
-}
-
-.admin-console .admin-nav-link--active {
-  color: var(--azure) !important;
-  background: rgba(0, 51, 255, 0.08) !important;
-}
-
-/* Override globals.css black scrollbars — admin shell is light. */
-.admin-console,
-.admin-console * {
-  scrollbar-width: thin;
-  scrollbar-color: #d4d4d8 #ffffff;
-}
-
-.admin-console *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.admin-console *::-webkit-scrollbar-track {
-  background: #ffffff;
-}
-
-.admin-console *::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 9999px;
-  border: 2px solid #ffffff;
-}
-
-.admin-console *::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
-}
-
-.admin-console *::-webkit-scrollbar-corner {
-  background: #ffffff;
-}
-
 /* Dialog wallet highlight blocks */
 
 .secondary-dialog-wallet {

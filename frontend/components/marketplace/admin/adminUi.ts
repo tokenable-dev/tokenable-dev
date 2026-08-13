@@ -1,6 +1,6 @@
 /** Shared layout + typography for marketplace admin (backoffice style). */
 
-export const ADMIN_SHELL_BG = "bg-zinc-100 text-zinc-900";
+export const ADMIN_SHELL_BG = "bg-white text-zinc-900";
 
 /** Readable text on white / zinc-50 cards (WCAG-friendly on light UI). */
 export const ADMIN_TEXT_BODY = "text-zinc-800";
@@ -12,10 +12,9 @@ export const ADMIN_TEXT_ERROR = "text-sm text-red-600";
 export const ADMIN_TEXT_BRAND = "font-semibold text-[var(--brand-600)]";
 
 export const ADMIN_PAGE_TITLE =
-  "text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl";
+  "admin-page-header__title";
 
-export const ADMIN_PAGE_SUBTITLE =
-  `mt-1 max-w-3xl text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`;
+export const ADMIN_PAGE_SUBTITLE = "admin-page-header__subtitle";
 
 export const ADMIN_LIST = "space-y-4 sm:space-y-5";
 
@@ -131,7 +130,7 @@ export const ADMIN_SEGMENT_BTN_ACTIVE =
   "rounded bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 shadow-sm ring-1 ring-zinc-200 sm:text-sm";
 
 export const ADMIN_NAV_LINK =
-  "flex min-h-11 items-center rounded-md px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900";
+  "admin-nav__link";
 
 export const ADMIN_NAV_LINK_ACTIVE =
-  "flex min-h-11 items-center rounded-md bg-zinc-100 px-3 py-2.5 text-sm font-semibold text-zinc-900 ring-1 ring-zinc-200";
+  "admin-nav__link admin-nav__link--active";

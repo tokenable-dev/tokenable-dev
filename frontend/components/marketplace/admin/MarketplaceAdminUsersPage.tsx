@@ -24,8 +24,6 @@ import {
   ADMIN_BTN_PRIMARY,
   ADMIN_COUNT,
   ADMIN_INPUT,
-  ADMIN_PAGE_SUBTITLE,
-  ADMIN_PAGE_TITLE,
   ADMIN_SEGMENT,
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
@@ -38,6 +36,7 @@ import {
   ADMIN_TEXT_META,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 type ListTab = "all" | "flagged";
 
@@ -145,12 +144,10 @@ export function MarketplaceAdminUsersPage() {
 
   return (
     <div>
-      <header className="mb-5 sm:mb-6">
-        <h1 className={ADMIN_PAGE_TITLE}>유저</h1>
-        <p className={ADMIN_PAGE_SUBTITLE}>
-          Sumsub 셀러 인증 상태와 정책 위반 셀러
-        </p>
-      </header>
+      <MarketplaceAdminPageHeader
+        title="유저"
+        subtitle="Sumsub 셀러 인증 상태와 정책 위반 셀러"
+      />
 
       <div
         className="mb-5 flex gap-1 border-b border-zinc-200 sm:mb-6"

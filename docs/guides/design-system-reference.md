@@ -56,7 +56,7 @@ Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azu
 | `tokenable-home.css` | `.home-*`, `.grid4` carousel (home only) |
 | `tokenable-markets.css` | `.markets-*`, `.markets-grid` card overrides |
 | `tokenable-watchlist.css` | `.watchlist-*`, `.watchlist-grid` card overrides |
-| Other `tokenable-*.css` | One file per route domain (portfolio, vault, …) |
+| Other `tokenable-*.css` | One file per route domain (portfolio, vault, admin chrome, …) |
 
 New pages: reuse `CollectibleCard` + `tkl-wrap`; add page CSS only for layout unique to that screen.
 

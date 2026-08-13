@@ -40,17 +40,17 @@ export function AdminNetworkSwitcher() {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="admin-network-switcher relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`${ADMIN_BTN_SECONDARY} gap-2 px-3 py-1.5`}
+        className={`admin-network-switcher__trigger ${ADMIN_BTN_SECONDARY} gap-2 px-3 py-1.5`}
         aria-expanded={open}
         aria-haspopup="listbox"
         title={`Active network: ${chain.label}`}
       >
         <ChainDot chainId={chainId} />
-        <span className="max-w-[7rem] truncate">{chain.shortLabel}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{chain.shortLabel}</span>
         <span
           className={`text-[10px] text-zinc-500 transition ${open ? "rotate-180" : ""}`}
           aria-hidden
@@ -63,7 +63,7 @@ export function AdminNetworkSwitcher() {
         <div
           role="listbox"
           aria-label="Select admin network"
-          className="absolute right-0 z-40 mt-1 w-56 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+          className="admin-network-switcher__menu absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
         >
           <p className="border-b border-zinc-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
             Network · assets &amp; custody

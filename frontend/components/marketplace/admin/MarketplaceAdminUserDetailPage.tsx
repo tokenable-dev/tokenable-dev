@@ -20,13 +20,12 @@ import {
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_SECONDARY,
-  ADMIN_PAGE_SUBTITLE,
-  ADMIN_PAGE_TITLE,
   ADMIN_PANEL,
   ADMIN_TEXT_META,
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 import { MarketplaceAdminPartnerApproveModal } from "./MarketplaceAdminPartnerApproveModal";
 import { MarketplaceAdminUserManagePanel } from "./MarketplaceAdminUserRow";
 
@@ -171,12 +170,10 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
 
   return (
     <div>
-      <header className="mb-5 sm:mb-6">
-        <h1 className={ADMIN_PAGE_TITLE}>유저</h1>
-        <p className={ADMIN_PAGE_SUBTITLE}>
-          Sumsub 셀러 인증 상태와 정책 위반 셀러
-        </p>
-      </header>
+      <MarketplaceAdminPageHeader
+        title="유저"
+        subtitle="Sumsub 셀러 인증 상태와 정책 위반 셀러"
+      />
 
       <div
         className="mb-5 flex gap-1 border-b border-zinc-200 sm:mb-6"

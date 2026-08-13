@@ -263,7 +263,7 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 | `/marketplace/admin/vault/submissions` | `MarketplaceAdminVaultSubmissionsPage` | Sell-flow package ops (pipeline, arrive, approve/reject) |
 | `/dev/admin-ui` | `AdminUiShowcase` | Admin UI contract (not production) |
 
-**Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`
+**Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`, `frontend/styles/tokenable-admin.css` (sidebar chrome from `admin/` HTML)
 
 ---
 

@@ -22,15 +22,7 @@
   color: var(--eyebrow);
   display: inline-flex;
   align-items: center;
-  gap: 9px;
   white-space: nowrap;
-}
-
-.tkl-eyebrow::before {
-  content: "";
-  width: 18px;
-  height: 2px;
-  background: var(--eyebrow);
 }
 
 .tkl-sec-title {
