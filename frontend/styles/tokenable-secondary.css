@@ -402,6 +402,7 @@
 
 .kyc-page__shell--sdk {
   max-width: min(720px, 100%);
+  padding-top: 16px;
 }
 
 .kyc-page__header {
@@ -448,7 +449,7 @@
 
 .kyc-sdk {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 0;
   border-radius: 16px;
   overflow: hidden;
   background: #12121a;
@@ -459,14 +460,15 @@
 .kyc-sdk__frame {
   display: block;
   width: 100% !important;
-  min-height: 640px;
+  min-height: 0;
 }
 
 .kyc-sdk__frame iframe {
   width: 100% !important;
-  min-height: 640px;
+  min-height: 0;
   border: 0;
   display: block;
+  vertical-align: top;
   background: #12121a;
 }
 
@@ -492,24 +494,7 @@
     font-size: 22px;
   }
 
-  .kyc-page__header--compact {
-    margin-bottom: 12px;
-  }
-
   .kyc-sdk {
     border-radius: 12px;
-  }
-
-  /* Prefer viewport-relative height so Sumsub fits without awkward nested scroll. */
-  .kyc-sdk__frame,
-  .kyc-sdk__frame iframe {
-    min-height: min(78dvh, 720px);
-  }
-}
-
-@media (max-width: 400px) {
-  .kyc-sdk__frame,
-  .kyc-sdk__frame iframe {
-    min-height: min(72dvh, 640px);
   }
 }

@@ -41,7 +41,7 @@
   .btn--danger{background:transparent;color:#FF6B7A;box-shadow:inset 0 0 0 1px rgba(228,55,74,0.4);} .btn--danger:hover{background:rgba(228,55,74,0.08);}
   .btn--sm{height:38px;padding:0 16px;font-size:13px;}
 
-  .layout{max-width:1040px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 100px;display:grid;grid-template-columns:232px 1fr;gap:clamp(20px,3vw,44px);align-items:start;}
+  .layout{max-width:1040px;margin:0 auto;padding:16px clamp(16px,4vw,40px) 100px;display:grid;grid-template-columns:232px 1fr;gap:clamp(20px,3vw,44px);align-items:start;}
   .snav{position:sticky;top:88px;display:flex;flex-direction:column;gap:2px;}
   .snav__item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;color:var(--t2);font-size:14.5px;font-weight:500;transition:all 0.12s;background:transparent;border:0;text-align:left;width:100%;}
   .snav__item:hover{background:rgba(255,255,255,0.04);color:#fff;}
@@ -49,6 +49,7 @@
   .snav__item svg{width:18px;height:18px;flex-shrink:0;}
 
   .sec{display:none;} .sec.on{display:block;animation:fade 0.2s ease;}
+  .snav__chev{display:none;}
   @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
   .sec__h{font-size:22px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;}
   .sec__sub{font-size:14px;color:var(--t2);line-height:1.55;margin:0 0 24px;}
@@ -84,9 +85,18 @@
 
   @media(max-width:860px){
     .gnb-nav{display:none!important;} .gnb-burger{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}
-    .layout{grid-template-columns:1fr;gap:20px;}
-    .snav{position:static;flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px;}
-    .snav__item{white-space:nowrap;} .snav__item .lbltxt{display:inline;}
+    .layout{grid-template-columns:1fr;gap:0;}
+    .snav{flex-direction:column;gap:0;background:#141414;border-radius:12px;overflow:hidden;}
+    .snav__item{border-radius:0!important;border-bottom:1px solid rgba(255,255,255,0.06);padding:15px 14px;justify-content:space-between;box-shadow:none!important;}
+    .snav__item:last-child{border-bottom:0;}
+    .snav__item .snav__label{display:flex;align-items:center;gap:12px;}
+    .snav__item .snav__chev{display:block;width:16px;height:16px;flex-shrink:0;color:var(--t3);}
+    .snav__item.on{background:transparent;color:var(--t2);font-weight:500;}
+    body.settings-drill-open .snav{display:none;}
+    body:not(.settings-drill-open) .settings-content{display:none;}
+    #settingsTitleBack{display:none;}
+    body.settings-drill-open #settingsTitleBack{display:block!important;}
+    body.settings-drill-open #settingsTitle{cursor:pointer;font-size:15px!important;font-weight:600!important;color:var(--t2)!important;}
   }
 </style>
 </helmet>
@@ -112,20 +122,27 @@
     <a class="navlink" href="Vault-Dashboard-Active.html">Sell</a>
   </div>
 
+  <div style="max-width:1040px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 0;">
+    <button type="button" id="settingsTitle" style="display:flex;align-items:center;gap:4px;background:transparent;border:0;padding:0;cursor:default;margin:0;font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,3.2vw,38px);letter-spacing:-0.025em;line-height:1.05;color:#fff;">
+      <svg id="settingsTitleBack" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="display:none;flex-shrink:0;"><polyline points="15 6 9 12 15 18"/></svg>
+      <span id="settingsTitleText">Settings</span>
+    </button>
+  </div>
+
   <div class="layout">
     <!-- LEFT NAV -->
     <nav class="snav" id="snav">
-      <button class="snav__item on" data-sec="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="lbltxt">Profile</span></button>
-      <button class="snav__item" data-sec="notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="lbltxt">Notifications</span></button>
-      <button class="snav__item" data-sec="wallet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="lbltxt">Wallet &amp; balance</span></button>
-      <button class="snav__item" data-sec="addresses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span class="lbltxt">Addresses</span></button>
-      <button class="snav__item" data-sec="identity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M13 9h5M13 13h5M5 16c1-2 3-2 4 0"/></svg><span class="lbltxt">Identity</span></button>
-      <button class="snav__item" data-sec="legal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="lbltxt">Legal &amp; consents</span></button>
-      <button class="snav__item" data-sec="security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="lbltxt">Security</span></button>
+      <button class="snav__item on" data-sec="profile"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="lbltxt">Profile</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="notifications"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="lbltxt">Notifications</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="wallet"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="lbltxt">Wallet &amp; balance</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="addresses"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span class="lbltxt">Addresses</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="identity"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M13 9h5M13 13h5M5 16c1-2 3-2 4 0"/></svg><span class="lbltxt">Identity</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="legal"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="lbltxt">Legal &amp; consents</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
+      <button class="snav__item" data-sec="security"><span class="snav__label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="lbltxt">Security</span></span><svg class="snav__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 6 15 12 9 18"/></svg></button>
     </nav>
 
     <!-- RIGHT CONTENT -->
-    <div>
+    <div class="settings-content">
       <!-- PROFILE -->
       <section class="sec on" data-sec="profile">
         <h1 class="sec__h">Profile</h1>
@@ -158,7 +175,7 @@
           </div>
           <div class="row">
             <div style="display:flex;align-items:center;gap:12px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><div><div class="row__t">Web push</div><div class="row__d">Browser notifications on this device. On iOS, add Tokenable to your Home Screen first — Safari only allows push from installed web apps.</div></div></div>
-            <button class="btn btn--ghost btn--sm" id="push-btn">Enable</button>
+            <button class="sw" data-toggle id="push-btn" aria-label="Push notifications"></button>
           </div>
           <div class="row">
             <div style="display:flex;align-items:center;gap:12px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg><div><div class="row__t">Email</div><div class="row__d">daisy@example.com · always on as a backup.</div></div></div>
@@ -359,17 +376,30 @@ __tkBoot(function(){
 <script>
 setTimeout(function(){
   var $=function(id){return document.getElementById(id);};
+  var SEC_LABELS = { profile:'Profile', notifications:'Notifications', wallet:'Wallet & balance', addresses:'Addresses', identity:'Identity', legal:'Legal & consents', security:'Security' };
   function showSec(name){
     document.querySelectorAll('.sec').forEach(function(s){ s.classList.toggle('on', s.getAttribute('data-sec')===name); });
     document.querySelectorAll('.snav__item').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-sec')===name); });
+    var t=$('settingsTitleText'); if(t) t.textContent = 'Settings';
     try{ localStorage.setItem('tk_settings_sec', name); }catch(e){}
     window.scrollTo(0,0);
   }
-  try{ var s=localStorage.getItem('tk_settings_sec'); if(s) showSec(s); }catch(e){}
+  var isMobile = function(){ return window.matchMedia('(max-width:860px)').matches; };
+  try{ var s=localStorage.getItem('tk_settings_sec'); if(s && !isMobile()) showSec(s); }catch(e){}
 
   document.addEventListener('click', function(e){
     var nav=e.target.closest && e.target.closest('.snav__item');
-    if(nav){ showSec(nav.getAttribute('data-sec')); return; }
+    if(nav){
+      showSec(nav.getAttribute('data-sec'));
+      if(isMobile()){
+        document.body.classList.add('settings-drill-open');
+      }
+      return;
+    }
+    if(e.target.closest && e.target.closest('#settingsTitle') && document.body.classList.contains('settings-drill-open')){
+      document.body.classList.remove('settings-drill-open');
+      return;
+    }
 
     var sw=e.target.closest && e.target.closest('[data-toggle]');
     if(sw){ sw.classList.toggle('on'); return; }
@@ -394,8 +424,9 @@ setTimeout(function(){
     // Web push
     if(e.target.closest && e.target.closest('#push-btn')){
       var pb=$('push-btn');
-      if(window.Notification && Notification.requestPermission){ try{ Notification.requestPermission(); }catch(_){} }
-      pb.className='btn btn--ghost btn--sm'; pb.textContent='Enabled'; pb.style.color='var(--pos)'; pb.style.boxShadow='inset 0 0 0 1px rgba(0,200,100,0.4)';
+      var turningOn = !pb.classList.contains('on');
+      if(turningOn && window.Notification && Notification.requestPermission){ try{ Notification.requestPermission(); }catch(_){} }
+      pb.classList.toggle('on', turningOn);
       return;
     }
 

@@ -194,6 +194,7 @@
   body.show-empty #view-active{display:none;}
   body.show-empty #view-landing{display:none;}
   body.show-empty .page-header{display:flex;}
+  body.show-empty .vd-sell-cta{display:none;}
 
   /* Signed-out landing — mirrors frontend/styles/tokenable-vault.css .vault-landing */
   .vault-landing{max-width:720px;margin:0 auto;padding:80px 24px 60px;text-align:center;}
@@ -207,6 +208,8 @@
   .vault-landing-feat h3{margin:0 0 8px;font-size:16px;font-weight:700;color:#fff;}
   .vault-landing-feat p{margin:0;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.52);}
   @media(max-width:768px){
+    .eyebrow{display:none!important;}
+    .vd-page-sub{display:none!important;}
     .vault-landing{padding:48px 16px 40px;}
     .vault-landing__features{grid-template-columns:1fr;gap:14px;margin-top:40px;}
   }
@@ -234,8 +237,8 @@
 
   @media(max-width:1024px){
     .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}
-    .stat-grid{gap:1px;}
-    .stat-card{padding:8px 11px;}
+    .stat-grid{gap:1px;display:flex!important;width:100%;}
+    .stat-card{padding:14px 11px;flex:1 1 0;}
     .stat-num{font-size:16px;}
     .ip-grid{flex-direction:column!important;}
     /* On a phone the row can't hold card + status + action side by side —
@@ -256,8 +259,20 @@
     .rej-card > div:last-child .btn{flex:1;}
     .page-wrap{padding:24px 16px 80px!important;}
     .page-header{flex-direction:column;align-items:flex-start!important;}
-    .hiw-grid{grid-template-columns:1fr;gap:8px;max-width:400px;}
+    .hiw-grid{grid-template-columns:1fr;gap:0;max-width:480px;}
     .hiw-connector{display:none;}
+    .hiw-section{padding-top:36px;}
+    .hiw-title{margin-bottom:20px;text-align:center;}
+    .hiw-step{display:flex;flex-direction:row;align-items:flex-start;gap:14px;text-align:left;padding:18px;background:#191919;border-radius:14px;}
+    .hiw-step + .hiw-step{margin-top:12px;}
+    .hiw-step-icon{margin:0;flex-shrink:0;}
+    .hiw-textcol{display:flex;flex-direction:column;min-width:0;}
+    .hiw-numtitle{display:flex;align-items:baseline;gap:8px;}
+    .hiw-numtitle .hiw-num{margin-bottom:0;}
+    .hiw-numtitle .hiw-step-title{margin-bottom:0;}
+    .hiw-step-icon{margin:0;flex-shrink:0;width:44px;height:44px;}
+    .hiw-num{margin-bottom:4px;}
+    .hiw-step-title{margin-bottom:4px;}
     .state-toggle{bottom:16px;right:16px;}
   }
 </style>
@@ -319,11 +334,11 @@
       <div>
         <span class="eyebrow" style="font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;">Selling</span>
         <h1 style="margin:10px 0 0;font-weight:700;font-size:clamp(26px,3.2vw,38px);letter-spacing:-0.025em;line-height:1.05;">Track what you&rsquo;re selling</h1>
-        <p style="margin:10px 0 0;font-size:15px;color:var(--t2);">Get your cards verified and listed. Once live, manage them in your Portfolio.</p>
+        <p class="vd-page-sub" style="margin:10px 0 0;font-size:15px;color:var(--t2);">Get your cards verified and listed. Once live, manage them in your Portfolio.</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         
-        <a href="Choose-Vault-Individual.html" data-tk-link="sell-start" class="tk-btn tk-btn--primary" style="height:48px;padding:0 24px;font-size:14px;font-weight:700;text-decoration:none;">
+        <a href="Choose-Vault-Individual.html" data-tk-link="sell-start" class="tk-btn tk-btn--primary vd-sell-cta" style="height:48px;padding:0 24px;font-size:14px;font-weight:700;text-decoration:none;">
           + Sell a Card <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </div>
@@ -407,9 +422,9 @@
         <div class="hiw-grid">
           <div class="hiw-connector hiw-connector--1"></div>
           <div class="hiw-connector hiw-connector--2"></div>
-          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></div><div class="hiw-num">01</div><div class="hiw-step-title">Submit</div><div class="hiw-step-desc">Enter your PSA certification number to verify your card</div></div>
-          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><rect x="2" y="7" width="15" height="13" rx="2"/><path d="M17 11h3l2 3v4h-5"/><circle cx="7" cy="20" r="2"/><circle cx="19" cy="20" r="2"/></svg></div><div class="hiw-num">02</div><div class="hiw-step-title">Ship</div><div class="hiw-step-desc">Send your card to our secure vault facility</div></div>
-          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="hiw-num">03</div><div class="hiw-step-title">Get Your Token</div><div class="hiw-step-desc">Receive your token automatically once your card is vaulted</div></div>
+          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></div><div class="hiw-textcol"><div class="hiw-numtitle"><div class="hiw-num">01</div><div class="hiw-step-title">Submit</div></div><div class="hiw-step-desc">Enter your PSA certification number to verify your card</div></div></div>
+          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><rect x="2" y="7" width="15" height="13" rx="2"/><path d="M17 11h3l2 3v4h-5"/><circle cx="7" cy="20" r="2"/><circle cx="19" cy="20" r="2"/></svg></div><div class="hiw-textcol"><div class="hiw-numtitle"><div class="hiw-num">02</div><div class="hiw-step-title">Ship</div></div><div class="hiw-step-desc">Send your card to our secure vault facility</div></div></div>
+          <div class="hiw-step"><div class="hiw-step-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div class="hiw-textcol"><div class="hiw-numtitle"><div class="hiw-num">03</div><div class="hiw-step-title">Get Your Token</div></div><div class="hiw-step-desc">Receive your token automatically once your card is vaulted</div></div></div>
         </div>
       </div>
     </div>

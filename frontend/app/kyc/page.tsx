@@ -53,7 +53,6 @@ export default function KycPage() {
   const loading = useAuthStore((s) => s.loading);
   const initialized = useAuthStore((s) => s.initialized);
   const setUser = useAuthStore((s) => s.setUser);
-  const consumeReturnTo = useAuthUiStore((s) => s.consumeReturnTo);
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -64,6 +63,7 @@ export default function KycPage() {
     return resolveKycReturnPath(fromStore, peekKycReturnTo());
   });
   const [autoContinuing, setAutoContinuing] = useState(false);
+  const continueAfterApprovalRef = useRef<() => void>(() => undefined);
   const statusLoadedForUser = useRef<string | null>(null);
   const autoStartDone = useRef(false);
   const bootingRef = useRef(false);
@@ -113,10 +113,13 @@ export default function KycPage() {
   }, [applyStatus]);
 
   const continueAfterApproval = useCallback(() => {
-    const path = resolveKycReturnPath(consumeReturnTo(), returnTo, peekKycReturnTo());
+    const path = resolveKycReturnPath(returnTo, peekKycReturnTo());
     clearKycReturnTo();
+    useAuthUiStore.getState().consumeReturnTo();
     router.replace(path);
-  }, [consumeReturnTo, returnTo, router]);
+  }, [returnTo, router]);
+
+  continueAfterApprovalRef.current = continueAfterApproval;
 
   const startStatusPoll = useCallback(() => {
     if (pollTimerRef.current) return;
@@ -188,14 +191,21 @@ export default function KycPage() {
   }, [user?.id, status, accessToken, startVerification]);
 
   // After approval, return to the screen that launched KYC.
+  // Do not depend on `autoContinuing` — setState would re-run this effect,
+  // clear the timeout in cleanup, and leave the user stuck on "Taking you back…".
   useEffect(() => {
-    if (status?.status !== "approved" || autoContinuing) return;
+    if (status?.status !== "approved") return;
     setAutoContinuing(true);
     const t = window.setTimeout(() => {
-      continueAfterApproval();
+      continueAfterApprovalRef.current();
     }, AUTO_CONTINUE_DELAY_MS);
     return () => window.clearTimeout(t);
-  }, [status?.status, autoContinuing, continueAfterApproval]);
+  }, [status?.status]);
+
+  useEffect(() => {
+    if (!accessToken || status?.status === "approved") return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [accessToken, status?.status]);
 
   const expirationHandler = useCallback(async () => {
     const { token } = await fetchKycAccessToken();
@@ -252,20 +262,16 @@ export default function KycPage() {
   return (
     <main className="kyc-page">
       <div className={`kyc-page__shell${sdkActive ? " kyc-page__shell--sdk" : ""}`}>
-        <header className={`kyc-page__header${sdkActive ? " kyc-page__header--compact" : ""}`}>
-          <h1 className="kyc-page__title">Verify your identity</h1>
-          {!sdkActive ? (
+        {sdkActive ? null : (
+          <header className="kyc-page__header">
+            <h1 className="kyc-page__title">Verify your identity</h1>
             <p className="kyc-page__lead">
               We need a quick identity check before you can ship cards to the vault or redeem a
               physical card — ID (passport or driver’s license), a liveness selfie, usually 1–2
               minutes.
             </p>
-          ) : (
-            <p className="kyc-page__lead">
-              Complete the steps below. Camera access may be requested for the liveness check.
-            </p>
-          )}
-        </header>
+          </header>
+        )}
 
         {pageError ? (
           <p className="tk-form-error" role="alert">
@@ -280,11 +286,9 @@ export default function KycPage() {
                 ? "Identity verification is complete. Taking you back…"
                 : "Identity verification is complete. You can now ship cards to the vault or redeem a physical card."}
             </p>
-            {!autoContinuing ? (
-              <TkButton variant="primary" onClick={continueAfterApproval}>
-                Continue
-              </TkButton>
-            ) : null}
+            <TkButton variant="primary" onClick={continueAfterApproval}>
+              Continue
+            </TkButton>
           </section>
         ) : null}
 
@@ -338,7 +342,7 @@ export default function KycPage() {
               options={{
                 addViewportTag: false,
                 adaptIframeHeight: true,
-                enableScrollIntoView: true,
+                enableScrollIntoView: false,
               }}
               onMessage={handleSdkMessage}
               onError={(err: unknown) => {

@@ -45,6 +45,7 @@
   .notch{border-radius:16px;}
   /* eyebrow */
   .eyebrow{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;white-space:nowrap;}
+  @media(max-width:768px){ .eyebrow{display:none!important;} }
   .eyebrow::before{content:none;}
   .sec-title{font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,3.2vw,38px);letter-spacing:-0.025em;line-height:1.05;margin:14px 0 0;}
   .sec-sub{font-size:15px;color:var(--t2);margin:10px 0 0;max-width:520px;line-height:1.5;}

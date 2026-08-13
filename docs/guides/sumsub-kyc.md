@@ -95,7 +95,7 @@ Custody enforcement (server):
 
 ## Frontend
 
-- Page: `/kyc` — `@sumsub/websdk-react`; after approval, auto-returns to the path that launched KYC (`tk_kyc_return_to` / `pendingReturnTo`, fallback `/vault`)
+- Page: `/kyc` — `@sumsub/websdk-react`; when the completion copy appears, auto-returns (~1.2s) to the path that launched KYC (`tk_kyc_return_to` / `pendingReturnTo`, fallback `/vault`). Continue is still available if auto-return is interrupted.
 - While Sumsub is open, the page polls `GET /api/kyc/status` (Sumsub reconcile) so UI moves `pending` → `approved` without a full reload
 - `KycRequiredModal` — Start Verification / pending / rejected copy; remembers return path before `/kyc`
 - Gates: vault submit & shipping design CTAs, mint form; sell/list stays Level 1

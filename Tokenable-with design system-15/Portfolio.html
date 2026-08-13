@@ -45,6 +45,7 @@
   .notch{border-radius:16px;}
   /* eyebrow */
   .eyebrow{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;white-space:nowrap;}
+  @media(max-width:768px){ .eyebrow{display:none!important;} }
   .eyebrow::before{content:none;}
   .sec-title{font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,3.2vw,38px);letter-spacing:-0.025em;line-height:1.05;margin:14px 0 0;}
   .sec-sub{font-size:15px;color:var(--t2);margin:10px 0 0;max-width:520px;line-height:1.5;}
@@ -243,8 +244,8 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
   .mobile-asset-cards{display:none;}
   @media(max-width:768px){
     #pf-tab-assets .tk-table-wrap{display:none!important;}
-    .mobile-asset-cards{display:flex;flex-direction:column;gap:12px;}
-    .mobile-asset-card{display:flex;gap:16px;background:#191919;border-radius:12px;padding:16px;}
+    .mobile-asset-cards{display:flex!important;flex-direction:column!important;gap:12px;}
+    .mobile-asset-card{display:flex!important;width:100%!important;box-sizing:border-box!important;flex:0 0 auto!important;gap:16px;background:#191919;border-radius:12px;padding:16px;}
     .mobile-asset-card__img{width:90px;height:126px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;}
     .mobile-asset-card__img img{width:100%;height:100%;object-fit:contain;}
     .mobile-asset-card__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
@@ -304,6 +305,13 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
   .notch{overflow:hidden!important;}
   .pf-period{font-size:10px!important;padding:0 10px!important;}
   .tk-tabs{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;clip-path:none!important;}
+  /* Ship from vault only makes sense for My Assets, so on mobile it moves
+     below that tab's own sort control instead of hiding inside the scrolling
+     tab row. */
+  #wd-mode-btn{width:100%!important;justify-content:center!important;height:44px!important;margin:0 0 12px!important;}
+  .pf-mobile-sort{flex-wrap:wrap!important;}
+  .tk-tabs-row{padding:0 0 0 8px!important;}
+  #wd-mode-btn{margin-right:8px!important;}
   .tk-tab{white-space:nowrap!important;font-size:13px!important;padding:8px 12px!important;clip-path:none!important;}
   .pf-stat-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
 }
@@ -385,25 +393,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
   </div>
 
 
-  <!-- ============ LIVE TICKER ============ -->
-  <div class="ticker-wrap" style="background:var(--ink-2);display:flex;align-items:stretch;border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);">
-    <span class="ticker-label" style="display:inline-flex;align-items:center;gap:9px;padding:0 22px;height:40px;background:transparent;flex:none;z-index:2;box-shadow:inset -2px 0 0 0 var(--line-2);">
-      <span style="width:6px;height:6px;background:var(--azure);animation:tk-pulse 1.6s infinite;"></span>
-      <span class="mono" style="font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--t2);white-space:nowrap;">Indices 1Y<span class="ticker-label-full"> return</span></span>
-    </span>
-    <div class="ticker-viewport" style="overflow:hidden;flex:1;min-width:0;">
-    <div class="ticker-row">
-      <sc-for list="{{ tickerLoop }}" as="t" hint-placeholder-count="12">
-        <span style="display:inline-flex;align-items:center;gap:10px;padding:0 22px;height:40px;box-shadow:inset -2px 0 0 0 var(--line-2);">
-          <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);white-space:nowrap;">{{ t.name }}</span>
-          <span class="mono" style="font-size:11px;font-weight:700;white-space:nowrap;color:{{ t.color }};">{{ t.glyph }} {{ t.pct }}</span>
-        </span>
-      </sc-for>
-    </div>
-    </div>
-  </div>
-
-  <!-- ============ PORTFOLIO ============ -->
+    <!-- ============ PORTFOLIO ============ -->
   <section class="wrap" style="padding:32px clamp(16px,4vw,40px) 0;box-sizing:border-box;width:100%;">
     <!-- Top row: value + 24h change -->
     <!-- Page header -->
@@ -479,12 +469,13 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
       <button class="tk-tab pf-tab" data-tab="bids" style="display:inline-flex;align-items:center;gap:6px;padding:16px 16px;border:none;border-radius:0;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;background:transparent;color:var(--t3);transition:all 0.15s;box-shadow:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Active Bids <span class="pf-tab-n" data-tabcount="bids" style="font-family:var(--font-mono);font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.08);border-radius:5px;padding:2px 6px;margin-left:2px;">0</span></button>
       
       <button class="tk-tab pf-tab" data-tab="history" style="display:inline-flex;align-items:center;gap:6px;padding:16px 16px;border:none;border-radius:0;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;background:transparent;color:var(--t3);transition:all 0.15s;box-shadow:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Transaction History <span class="pf-tab-n" data-tabcount="history" style="font-family:var(--font-mono);font-size:11.5px;font-weight:700;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.08);border-radius:5px;padding:2px 6px;margin-left:2px;">0</span></button>
-      <button id="wd-mode-btn" class="tk-btn tk-btn--sm" style="height:36px;padding:0 16px;font-size:13px;font-weight:600;background:rgba(26,111,255,0.16);color:#5B9AFF;border:0;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin-left:auto;align-self:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>Ship from vault</button>
+      <button id="wd-mode-btn" class="tk-btn tk-btn--sm" style="height:36px;padding:0 16px;font-size:13px;font-weight:600;background:rgba(26,111,255,0.16);color:#5B9AFF;border:0;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;margin-left:auto;align-self:center;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>Ship from vault</button>
     </div>
-
+    <span id="wd-mode-btn-anchor" style="display:none;"></span>
 
     <!-- Mobile sort dropdown -->
-    <div class="pf-mobile-sort" style="display:none;gap:8px;align-items:center;margin:12px 0;">
+    <div class="pf-mobile-sort" id="pf-mobile-sort" style="display:none;gap:8px;align-items:center;margin:12px 0;">
       <span class="mono" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);">Sort by</span>
       <div style="position:relative;flex:1;max-width:220px;">
         <select id="pf-mobile-sort-sel" style="appearance:none;-webkit-appearance:none;background:#191919;color:#fff;border:0;font-family:var(--font-mono);font-size:13px;padding:10px 36px 10px 14px;border-radius:0;cursor:pointer;width:100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);"><option value="name">Name</option><option value="grade">Grade</option><option value="cost">Cost basis</option><option value="value">Mkt Price</option><option value="pl">P/L</option></select>
@@ -634,7 +625,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
           <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">1999 POKEMON BASE SET #4 CHARIZARD HOLO</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 10</span></div>
           <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(234,130,0,0.14);color:rgb(234,130,0);">In transit</span></div>
           <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;">This card is on its way — it can&rsquo;t be listed.</div>
-          
+          <div style="margin-top:10px;"><a href="Ship-From-Vault.html" class="tk-btn tk-btn--sm tk-btn--ghost" style="display:flex;align-items:center;justify-content:center;width:100%;height:44px;font-size:14px;text-decoration:none;">View status</a></div>
         </div>
       </div>
       <div class="mobile-asset-card" data-redeem="preparing" data-redemption="RDM-20260731-0042">
@@ -643,6 +634,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
           <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">2022 POKEMON SWSH LOST ORIGIN #277 GIRATINA VSTAR</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 10</span></div>
           <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.22);color:#8ec2ff;box-shadow:inset 0 0 0 1px rgba(26,111,255,0.55);white-space:nowrap;flex-shrink:0;">Redeeming — preparing</span></div>
           <div style="font-size:11px;color:#8ec2ff;margin-top:4px;">Paid — your cards are being prepared.</div>
+          <div style="margin-top:10px;"><a href="Ship-From-Vault.html?state=preparing&amp;batch=RDM-20260731-0042" class="tk-btn tk-btn--sm tk-btn--primary" style="display:flex;align-items:center;justify-content:center;width:100%;height:44px;font-size:14px;text-decoration:none;">View status</a></div>
         </div>
       </div>
       <div class="mobile-asset-card">
@@ -676,7 +668,7 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
         <div class="mobile-asset-card__info">
           <div style="display:flex;align-items:flex-start;gap:8px;"><div class="mobile-asset-card__title" style="flex:1;">2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="flex-shrink:0;white-space:nowrap;font-size:10px;">PSA 10</span></div>
           
-          <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Cost <span style="font-size:9px;color:rgba(255,255,255,0.2);">Value at listing ✏️</span></span><span class="mobile-asset-card__val">$770</span></div>
+          <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Cost</span><span class="mobile-asset-card__val">$770</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Mkt Price</span><span class="mobile-asset-card__val">$1,136</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Profit</span><span class="mobile-asset-card__val" style="color:var(--pos);">+$366</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Return</span><span class="mobile-asset-card__val" style="font-size:15px;font-weight:700;color:var(--pos);">+47%</span></div>
@@ -691,12 +683,12 @@ th[data-sort]{cursor:pointer;user-select:none;} th[data-sort]:hover{color:var(--
           <div style="display:flex;align-items:center;gap:6px;margin:4px 0;"><span style="font-family:var(--font-mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(26,111,255,0.22);color:#8ec2ff;box-shadow:inset 0 0 0 1px rgba(26,111,255,0.55);white-space:nowrap;flex-shrink:0;">Redeeming — preparing</span></div>
           <div style="font-size:11px;color:#8ec2ff;margin-top:2px;margin-bottom:4px;">Paid — your cards are being prepared.</div>
           
-          <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Cost <span style="font-size:9px;color:rgba(255,255,255,0.2);">Value at listing ✏️</span></span><span class="mobile-asset-card__val">$16,100</span></div>
+          <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Cost</span><span class="mobile-asset-card__val">$16,100</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Mkt Price</span><span class="mobile-asset-card__val">$19,154</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Profit</span><span class="mobile-asset-card__val" style="color:var(--pos);">+$3,054</span></div>
           <div class="mobile-asset-card__row"><span class="mobile-asset-card__label">Return</span><span class="mobile-asset-card__val" style="font-size:15px;font-weight:700;color:var(--pos);">+19%</span></div>
         
-          
+          <div style="margin-top:10px;"><a href="Ship-From-Vault.html?state=preparing&amp;batch=RDM-20260731-0042" class="tk-btn tk-btn--sm tk-btn--ghost" style="display:flex;align-items:center;justify-content:center;width:100%;height:44px;font-size:14px;text-decoration:none;">View status</a></div>
         </div>
       </div>
       <div class="mobile-asset-card">
@@ -1720,6 +1712,74 @@ document.addEventListener('click', function(e){
 </script>
 <script src="tk-role-nav.js"></script>
 <script src="tk-gas.js"></script>
+<script>
+/* Ship from vault belongs with My Assets — on mobile it moves below that
+   tab's sort control instead of sitting inside the scrolling tab row. */
+(function(){
+  function apply(){
+    var btn = document.getElementById('wd-mode-btn');
+    var anchor = document.getElementById('wd-mode-btn-anchor');
+    var sortBar = document.getElementById('pf-mobile-sort');
+    if(!btn || !anchor || !sortBar) return;
+    if(window.innerWidth <= 768){
+      if(btn.previousElementSibling !== sortBar) sortBar.insertAdjacentElement('afterend', btn);
+    } else if(btn.previousElementSibling !== anchor){
+      anchor.insertAdjacentElement('afterend', btn);
+    }
+  }
+  apply();
+  window.addEventListener('resize', apply);
+  setTimeout(apply, 300);
+  setTimeout(apply, 1200);
+})();
+</script>
+<script>
+/* Belt-and-suspenders: some preview contexts don't evaluate the @media rules
+   above reliably, so this drives the same layout directly off innerWidth. */
+(function(){
+  // Hard fix for a recurring runtime bug: the host occasionally re-parents a
+  // card INSIDE a previous card instead of appending it as a sibling. Flatten
+  // any such nesting back out on every pass so the flex column always holds
+  // plain siblings, regardless of why the corruption happened.
+  function unnest(){
+    var root = document.getElementById('mobile-asset-cards');
+    if(!root) return;
+    var guard = 0;
+    var nested;
+    while((nested = root.querySelector('.mobile-asset-card .mobile-asset-card')) && guard++ < 50){
+      var parent = nested.parentElement.closest('.mobile-asset-card');
+      if(!parent){ root.appendChild(nested); continue; }
+      parent.insertAdjacentElement('afterend', nested);
+    }
+  }
+  function apply(){
+    var mobile = window.innerWidth <= 768;
+    var cards = document.getElementById('mobile-asset-cards');
+    var tw = document.querySelector('#pf-tab-assets .tk-table-wrap');
+    if(cards){
+      cards.style.display = mobile ? 'flex' : 'none';
+      cards.style.flexDirection = 'column';
+      cards.style.gap = '12px';
+      [].slice.call(cards.querySelectorAll('.mobile-asset-card')).forEach(function(c){
+        c.style.display = 'flex';
+        c.style.width = '100%';
+        c.style.boxSizing = 'border-box';
+        c.style.flex = '0 0 auto';
+      });
+    }
+    if(tw) tw.style.display = mobile ? 'none' : '';
+  }
+  apply();
+  window.addEventListener('resize', apply);
+  document.addEventListener('DOMContentLoaded', apply);
+  setTimeout(apply, 300);
+  setTimeout(apply, 1200);
+  unnest();
+  setTimeout(unnest, 300);
+  setTimeout(unnest, 1200);
+  new MutationObserver(unnest).observe(document.getElementById('mobile-asset-cards') || document.body, { childList: true, subtree: true });
+})();
+</script>
 <script src="tk-mobile-nav.js"></script>
 </body>
 </html>

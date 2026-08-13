@@ -87,7 +87,7 @@
     '<nav class="tkm-nav">',
     '  <a class="tkm-item' + (activeNav==='Markets'?' active':'') + '" href="Markets.html">' + icons.markets + 'Markets</a>',
     '  <a class="tkm-item' + (activeNav==='Portfolio'?' active':'') + '" href="' + window.tkPortfolioHref() + '">' + icons.portfolio + 'Portfolio</a>',
-    '  <a class="tkm-item' + (activeNav==='Vault'?' active':'') + '" href="Vault-Dashboard-Active.html">' + icons.vault + 'Vault</a>',
+    '  <a class="tkm-item' + (activeNav==='Vault'?' active':'') + '" href="Vault-Dashboard-Active.html">' + icons.vault + 'Sell</a>',
     (window.tkIsPartner ? '  <a class="tkm-item" href="Partner-Shipments.html">' + icons.vault + 'Redeem requests</a>' : ''),
     '</nav>',
     '<div class="tkm-divider"></div>',
