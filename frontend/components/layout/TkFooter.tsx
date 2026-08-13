@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ASSETS } from "@/constants/assets";
+import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 function shouldHideChrome(pathname: string | null | undefined): boolean {
@@ -20,8 +21,10 @@ export function TkFooter() {
   const navigate = useHeaderNavGate();
   if (shouldHideChrome(pathname)) return null;
 
+  const hideOnMobile = isMarketplaceCollectionDetailPath(pathname);
+
   return (
-    <footer className="tk-footer">
+    <footer className={hideOnMobile ? "tk-footer tk-footer--cd-desktop-only" : "tk-footer"}>
       <div className="tk-footer__inner">
         <div className="tk-footer__brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}

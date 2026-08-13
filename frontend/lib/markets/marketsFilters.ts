@@ -1,4 +1,8 @@
-import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
+import type {
+  CollectionListMarketSnapshot,
+  MarketplaceCollectionSummary,
+  Order,
+} from "@/lib/core";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
@@ -39,6 +43,54 @@ export const MARKETS_GRADE_FILTER_OPTIONS: MarketsGradeFilterId[] = [
   "BGS 10",
   "BGS 9.5",
 ];
+
+export type MarketsVaultFilterId = "psa" | "partner";
+
+export const MARKETS_VAULT_FILTER_OPTIONS: {
+  id: MarketsVaultFilterId;
+  chipLabel: string;
+}[] = [
+  { id: "psa", chipLabel: "PSA Vault" },
+  { id: "partner", chipLabel: "Partner vault" },
+];
+
+export function vaultKindFromAsk(order: {
+  sellerDisplayName?: string | null;
+}): MarketsVaultFilterId {
+  return order.sellerDisplayName?.trim() ? "partner" : "psa";
+}
+
+export function collectionVaultKindsFromAsks(
+  orders: readonly Pick<Order, "side" | "collectionKey" | "sellerDisplayName">[],
+): Map<string, Set<MarketsVaultFilterId>> {
+  const m = new Map<string, Set<MarketsVaultFilterId>>();
+  for (const o of orders) {
+    if (o.side === "bid") continue;
+    const key = o.collectionKey?.trim().toLowerCase();
+    if (!key) continue;
+    let set = m.get(key);
+    if (!set) {
+      set = new Set();
+      m.set(key, set);
+    }
+    set.add(vaultKindFromAsk(o));
+  }
+  return m;
+}
+
+export function collectionMatchesVaultFilters(
+  collection: MarketplaceCollectionSummary,
+  vaultKindsByKey: Map<string, Set<MarketsVaultFilterId>>,
+  selected: ReadonlySet<MarketsVaultFilterId>,
+): boolean {
+  if (selected.size === 0) return true;
+  const kinds = vaultKindsByKey.get(collectionKeyLower(collection));
+  if (!kinds || kinds.size === 0) return false;
+  for (const id of selected) {
+    if (kinds.has(id)) return true;
+  }
+  return false;
+}
 
 export function formatCollectionGradeLabel(collection: MarketplaceCollectionSummary): string | null {
   const comp = parseCollectionComponents(collection.components);
@@ -92,6 +144,8 @@ export function applyMarketsListingFilters(
   opts: {
     priceFilter: MarketsPriceFilterId;
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
+    vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
+    vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
     q?: string;
     setLabel?: string;
   },
@@ -100,6 +154,13 @@ export function applyMarketsListingFilters(
     const snap = snapshotByKey.get(collectionKeyLower(c));
     if (!collectionMatchesPriceFilter(c, snap, opts.priceFilter)) return false;
     if (!collectionMatchesGradeFilters(c, opts.gradeFilters)) return false;
+    if (
+      opts.vaultFilters &&
+      opts.vaultKindsByKey &&
+      !collectionMatchesVaultFilters(c, opts.vaultKindsByKey, opts.vaultFilters)
+    ) {
+      return false;
+    }
     if (
       !collectionMatchesMarketsSearch(c, snap, {
         q: opts.q,

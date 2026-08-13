@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Withdraw funds</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<script src="withdraw-funds.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; }
+  :root{
+    --ink:#0e0e0e; --ink-2:#0e0e0e; --surf:#191919; --surf-2:#141414;
+    --azure:rgb(26,111,255); --pos:rgb(0,200,100); --neg:rgb(228,55,74); --warn:rgb(234,130,0);
+    --t1:rgba(255,255,255,0.95); --t2: rgba(255,255,255,0.7); --t3: rgba(255,255,255,0.52);
+    --brand-400:#5B9AFF;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans,'Inter',sans-serif);-webkit-font-smoothing:antialiased;}
+  a{color:var(--azure);text-decoration:none;} a:hover{color:var(--brand-400);}
+  .mono{font-family:var(--font-mono);}
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;cursor:pointer;}
+  .navlink:hover{color:#fff;} .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-logo-full{height:22px;} .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;}
+  .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;} .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;border-radius:10px;transition:all 0.12s;}
+  .btn--primary{background:var(--azure);color:#fff;} .btn--primary:hover{filter:brightness(1.08);}
+  .btn--primary[disabled]{background:rgba(255,255,255,0.09);color:var(--t3);cursor:not-allowed;filter:none;}
+  .btn--ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);} .btn--ghost:hover{background:rgba(255,255,255,0.06);}
+  .btn--sm{height:38px;padding:0 16px;font-size:13px;}
+  .btn--lg{height:50px;padding:0 24px;font-size:15px;}
+
+  .layout{max-width:600px;margin:0 auto;padding:36px clamp(16px,4vw,40px) 96px;}
+  .card{background:var(--surf);border-radius:16px;padding:22px;margin-bottom:16px;}
+  .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--t2);font-weight:600;margin-bottom:8px;display:block;}
+  .inp{width:100%;height:48px;padding:0 15px;background:var(--surf-2);border:0;border-radius:11px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.1);color:#fff;font-size:15px;outline:none;font-family:inherit;}
+  .inp:focus{box-shadow:inset 0 0 0 1.5px var(--azure);}
+  .inp--err{box-shadow:inset 0 0 0 1.5px var(--neg);}
+  .inp--mono{font-family:var(--font-mono);font-size:14px;}
+
+  /* steps */
+  .steps{display:flex;align-items:center;gap:8px;margin-bottom:26px;}
+  .step{display:flex;align-items:center;gap:8px;}
+  .step__n{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:700;background:rgba(255,255,255,0.08);color:var(--t3);}
+  .step.on .step__n{background:var(--azure);color:#fff;}
+  .step.done .step__n{background:rgba(0,200,100,0.16);color:var(--pos);}
+  .step__l{font-size:12.5px;font-weight:600;color:var(--t3);white-space:nowrap;}
+  .step.on .step__l{color:#fff;} .step.done .step__l{color:var(--t2);}
+  .step__bar{flex:1;height:1.5px;background:rgba(255,255,255,0.1);min-width:12px;}
+
+  .pane{display:none;} .pane.on{display:block;animation:fade 0.2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  /* amount */
+  .amt{display:flex;align-items:center;gap:10px;background:var(--surf-2);border-radius:12px;padding:0 16px;height:72px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.1);}
+  .amt:focus-within{box-shadow:inset 0 0 0 1.5px var(--azure);}
+  .amt.err{box-shadow:inset 0 0 0 1.5px var(--neg);}
+  .amt__sym{font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--t2);}
+  .amt input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:#fff;font-family:var(--font-mono);font-size:32px;font-weight:700;letter-spacing:-0.02em;}
+  .amt input::placeholder{color:rgba(255,255,255,0.2);}
+  .amt__cur{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--t2);}
+  .maxbtn{height:32px;padding:0 12px;border:0;border-radius:8px;background:rgba(26,111,255,0.16);color:var(--brand-400);font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.06em;cursor:pointer;}
+  .maxbtn:hover{background:rgba(26,111,255,0.26);}
+
+  /* method */
+  .method{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;padding:16px;border:0;border-radius:12px;background:var(--surf-2);cursor:pointer;transition:all 0.12s;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.07);margin-bottom:10px;font-family:inherit;}
+  .method:hover{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.16);}
+  .method.on{box-shadow:inset 0 0 0 1.5px var(--azure);background:rgba(26,111,255,0.07);}
+  .method__ico{width:38px;height:38px;flex:none;border-radius:10px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;color:#fff;}
+  .method.on .method__ico{background:rgba(26,111,255,0.18);color:var(--brand-400);}
+  .method__t{font-size:14.5px;font-weight:600;color:#fff;}
+  .method__d{font-size:12.5px;color:var(--t2);margin-top:3px;line-height:1.5;}
+  .method__meta{font-family:var(--font-mono);font-size:11px;color:var(--t3);margin-top:7px;letter-spacing:0.03em;}
+
+  .row{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:13px 0;border-top:1px solid rgba(255,255,255,0.06);}
+  .row:first-child{border-top:0;}
+  .row__k{font-size:13.5px;color:var(--t2);}
+  .row__v{font-family:var(--font-mono);font-size:13.5px;font-weight:600;color:#fff;text-align:right;word-break:break-all;}
+  .row--net{border-top:1px solid rgba(255,255,255,0.14);padding-top:16px;margin-top:3px;}
+  .row--net .row__k{font-size:14.5px;font-weight:600;color:#fff;}
+  .row--net .row__v{font-size:20px;color:var(--pos);}
+
+  .banner{border-radius:12px;padding:13px 15px;font-size:12.5px;line-height:1.55;display:flex;gap:10px;align-items:flex-start;}
+  .banner svg{flex:none;margin-top:1px;}
+  .banner--info{background:rgba(26,111,255,0.06);box-shadow:inset 0 0 0 1px rgba(26,111,255,0.2);color:var(--brand-400);}
+  .banner--warn{background:rgba(234,130,0,0.07);box-shadow:inset 0 0 0 1px rgba(234,130,0,0.24);color:#F0A845;}
+  .banner--danger{background:rgba(228,55,74,0.07);box-shadow:inset 0 0 0 1px rgba(228,55,74,0.26);color:#FF7E8B;}
+  .banner b{color:#fff;font-weight:600;}
+  .err{font-size:12.5px;color:#FF7E8B;margin-top:8px;display:none;}
+  .err.on{display:block;}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:0.06em;padding:5px 10px;border-radius:7px;}
+  .chip--pos{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .chip--warn{background:rgba(234,130,0,0.12);color:var(--warn);}
+  .chip--muted{background:rgba(255,255,255,0.06);color:var(--t2);}
+
+  .otp{display:flex;gap:8px;}
+  .otp input{width:100%;height:54px;text-align:center;background:var(--surf-2);border:0;border-radius:10px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.1);color:#fff;font-family:var(--font-mono);font-size:20px;font-weight:700;outline:none;}
+  .otp input:focus{box-shadow:inset 0 0 0 1.5px var(--azure);}
+
+  .actions{display:flex;gap:10px;margin-top:22px;}
+  .actions .btn{flex:1;}
+
+  .track{display:flex;gap:14px;padding-bottom:20px;position:relative;}
+  .track:last-child{padding-bottom:0;}
+  .track__dot{width:12px;height:12px;flex:none;border-radius:50%;margin-top:3px;background:rgba(255,255,255,0.14);}
+  .track.done .track__dot{background:var(--pos);}
+  .track.now .track__dot{background:var(--azure);box-shadow:0 0 0 4px rgba(26,111,255,0.2);}
+  .track::before{content:"";position:absolute;left:5.5px;top:18px;bottom:2px;width:1.5px;background:rgba(255,255,255,0.1);}
+  .track:last-child::before{display:none;}
+  .track__t{font-size:14px;font-weight:600;color:#fff;}
+  .track:not(.done):not(.now) .track__t{color:var(--t3);}
+  .track__d{font-size:12.5px;color:var(--t2);margin-top:2px;}
+
+  .devbar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(10,10,16,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.08);padding:9px clamp(16px,4vw,40px);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .devbar span{font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);}
+  .devbtn{height:28px;padding:0 11px;border:0;border-radius:7px;background:rgba(255,255,255,0.07);color:var(--t2);font-family:var(--font-mono);font-size:11px;font-weight:600;cursor:pointer;}
+  .devbtn.on{background:rgba(26,111,255,0.2);color:var(--brand-400);}
+
+  @media(max-width:860px){
+    .gnb-nav{display:none!important;} .gnb-burger{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}
+    .step__l{display:none;} .step__bar{min-width:8px;}
+  }
+</style>
+</helmet>
+
+  <header>
+    <div style="display:flex;align-items:center;height:64px;padding:0 clamp(16px,4vw,40px);">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink" href="Portfolio.html">Portfolio</a>
+        <a class="navlink" href="Vault-Dashboard-Active.html">Sell</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <a class="btn btn--ghost btn--sm" href="Settings.html?sec=wallet">Wallet &amp; balance</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <a href="Settings.html?sec=wallet" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--t2);margin-bottom:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>Wallet &amp; balance</a>
+
+    <h1 style="font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;">Withdraw funds</h1>
+    <p style="font-size:14px;color:var(--t2);line-height:1.55;margin:0 0 26px;">Move money out of your Tokenable balance. To get a physical card out of the vault, use <a href="Ship-From-Vault.html">Redeem</a> instead.</p>
+
+    <!-- STEP RAIL -->
+    <div class="steps" id="steps">
+      <div class="step on" data-step="1"><span class="step__n">1</span><span class="step__l">Amount</span></div>
+      <div class="step__bar"></div>
+      <div class="step" data-step="2"><span class="step__n">2</span><span class="step__l">Destination</span></div>
+      <div class="step__bar"></div>
+      <div class="step" data-step="3"><span class="step__n">3</span><span class="step__l">Review</span></div>
+      <div class="step__bar"></div>
+      <div class="step" data-step="4"><span class="step__n">4</span><span class="step__l">Status</span></div>
+    </div>
+
+    <!-- ========== GATE: KYC REQUIRED ========== -->
+    <div class="pane" id="pane-kyc">
+      <div class="card" style="text-align:center;padding:38px 26px;">
+        <div style="width:54px;height:54px;border-radius:14px;background:rgba(234,130,0,0.13);color:var(--warn);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M13 9h5M13 13h5M5 16c1-2 3-2 4 0"/></svg>
+        </div>
+        <h2 style="font-size:19px;font-weight:700;margin:0 0 8px;">Verify your identity to withdraw</h2>
+        <p style="font-size:14px;color:var(--t2);line-height:1.6;margin:0 auto 22px;max-width:400px;">Cashing out to a bank requires identity verification by our payout provider. It usually takes a few minutes, and you'll come straight back here.</p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <a class="btn btn--primary btn--lg" href="KYC.html?return=Withdraw-Funds.html">Verify identity</a>
+          <button class="btn btn--ghost btn--lg" data-goto="1">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 1 · AMOUNT + METHOD ========== -->
+    <div class="pane on" id="pane-1">
+      <div class="card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;">
+          <div>
+            <span class="lbl" style="margin-bottom:6px;">Available to withdraw</span>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span class="mono" style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:#fff;">2,480.00</span>
+              <span class="mono" style="font-size:14px;color:var(--t2);font-weight:600;">USDC</span>
+            </div>
+          </div>
+          <span class="chip chip--muted">BALANCE</span>
+        </div>
+        <div class="banner banner--info" style="margin-bottom:20px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span><b>640.00 USDC reserved</b> by 3 open bids — <a href="Portfolio.html?tab=bids">cancel bids</a> to free it.</span>
+        </div>
+
+        <span class="lbl">Amount</span>
+        <div class="amt" id="amtBox">
+          <span class="amt__sym">$</span>
+          <input type="text" inputmode="decimal" id="amtInput" placeholder="0.00" autocomplete="off">
+          <span class="amt__cur">USDC</span>
+          <button class="maxbtn" id="maxBtn">MAX</button>
+        </div>
+        <div class="err" id="amtErr"></div>
+        <div class="mono" style="font-size:11px;color:var(--t3);margin-top:10px;letter-spacing:0.03em;">Minimum $20.00 · Daily limit $25,000.00</div>
+      </div>
+
+      <div class="card">
+        <span class="lbl" style="margin-bottom:12px;">Where to send it</span>
+        <button class="method on" data-method="bank">
+          <span class="method__ico"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18M5 10v9M19 10v9M9 10v9M15 10v9M2 21h20M12 3 3 8h18z"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span class="method__t" style="display:block;">To your bank</span>
+            <span class="method__d" style="display:block;">Cash out to your bank account in your local currency.</span>
+            <span class="method__meta" style="display:block;">1–3 BUSINESS DAYS · 1.5% + $0.50 · IDENTITY CHECK REQUIRED</span>
+          </span>
+        </button>
+        <button class="method" data-method="wallet">
+          <span class="method__ico"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17.5" cy="14.5" r="1.2" fill="currentColor" stroke="none"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span class="method__t" style="display:block;">To an external wallet</span>
+            <span class="method__d" style="display:block;">Send USDC on-chain to a wallet you control, like MetaMask.</span>
+            <span class="method__meta" style="display:block;">USUALLY MINUTES · NETWORK FEE ONLY</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="actions">
+        <a class="btn btn--ghost btn--lg" href="Settings.html?sec=wallet" style="flex:0 0 auto;padding:0 20px;">Cancel</a>
+        <button class="btn btn--primary btn--lg" id="next1" disabled>Continue</button>
+      </div>
+    </div>
+
+    <!-- ========== 2 · DESTINATION ========== -->
+    <div class="pane" id="pane-2">
+      <!-- bank -->
+      <div class="card" id="dest-bank">
+        <span class="lbl" style="margin-bottom:12px;">Bank account</span>
+        <button class="method on" data-bank="saved">
+          <span class="method__ico"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18M5 10v9M19 10v9M2 21h20M12 3 3 8h18z"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span class="method__t" style="display:block;">Chase Bank <span class="mono" style="color:var(--t2);font-weight:600;">•••• 4417</span></span>
+            <span class="method__d" style="display:block;">Daisy Kim · Checking · United States</span>
+          </span>
+          <span class="chip chip--pos" style="flex:none;">VERIFIED</span>
+        </button>
+        <button class="method" data-bank="new">
+          <span class="method__ico"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+          <span style="flex:1;min-width:0;">
+            <span class="method__t" style="display:block;">Add a bank account</span>
+            <span class="method__d" style="display:block;">Handled by our payout provider. Availability varies by country.</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- wallet -->
+      <div class="card" id="dest-wallet" style="display:none;">
+        <span class="lbl">Destination address</span>
+        <input class="inp inp--mono" id="addrInput" placeholder="0x…" autocomplete="off" spellcheck="false">
+        <div class="err" id="addrErr"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="devbtn" id="useMine" style="height:30px;">Use my connected wallet</button>
+        </div>
+
+        <span class="lbl" style="margin-top:22px;">Network</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="devbtn on" data-net="Polygon" style="height:34px;padding:0 14px;">Polygon</button>
+          <button class="devbtn" data-net="Ethereum" style="height:34px;padding:0 14px;">Ethereum</button>
+          <button class="devbtn" data-net="Base" style="height:34px;padding:0 14px;">Base</button>
+        </div>
+
+        <div class="banner banner--warn" style="margin-top:20px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span><b>Double-check the address and network.</b> On-chain transfers can't be reversed, and funds sent to the wrong network are lost.</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--ghost btn--lg" data-goto="1" style="flex:0 0 auto;padding:0 20px;">Back</button>
+        <button class="btn btn--primary btn--lg" id="next2">Review withdrawal</button>
+      </div>
+    </div>
+
+    <!-- ========== 3 · REVIEW & CONFIRM ========== -->
+    <div class="pane" id="pane-3">
+      <div class="card">
+        <span class="lbl" style="margin-bottom:6px;">You're withdrawing</span>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:18px;">
+          <span class="mono" id="rvAmount" style="font-size:32px;font-weight:700;letter-spacing:-0.02em;color:#fff;">$0.00</span>
+          <span class="mono" style="font-size:14px;color:var(--t2);font-weight:600;">USDC</span>
+        </div>
+        <div class="row"><span class="row__k">Method</span><span class="row__v" id="rvMethod">To your bank</span></div>
+        <div class="row"><span class="row__k">Destination</span><span class="row__v" id="rvDest">Chase •••• 4417</span></div>
+        <div class="row" id="rvNetRow" style="display:none;"><span class="row__k">Network</span><span class="row__v" id="rvNet">Polygon</span></div>
+        <div class="row"><span class="row__k" id="rvFeeK">Payout fee (1.5% + $0.50)</span><span class="row__v" id="rvFee">−$0.00</span></div>
+        <div class="row"><span class="row__k">Estimated arrival</span><span class="row__v" id="rvEta">1–3 business days</span></div>
+        <div class="row row--net"><span class="row__k">You'll receive</span><span class="row__v" id="rvNetAmt">$0.00</span></div>
+      </div>
+
+      <div class="card">
+        <span class="lbl">Security check</span>
+        <p style="font-size:13px;color:var(--t2);line-height:1.55;margin:0 0 16px;">Enter the 6-digit code from your authenticator app to approve this withdrawal.</p>
+        <div class="otp" id="otp">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 1">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 2">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 3">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 4">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 5">
+          <input maxlength="1" inputmode="numeric" aria-label="Digit 6">
+        </div>
+        <div class="err" id="otpErr">That code didn't match. Try again.</div>
+      </div>
+
+      <div class="banner banner--danger" id="reviewWarn" style="display:none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>This transfer is <b>irreversible</b>. Confirm the address one more time before you approve.</span>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn--ghost btn--lg" data-goto="2" style="flex:0 0 auto;padding:0 20px;">Back</button>
+        <button class="btn btn--primary btn--lg" id="confirmBtn" disabled>Confirm withdrawal</button>
+      </div>
+    </div>
+
+    <!-- ========== 4 · SUBMITTED ========== -->
+    <div class="pane" id="pane-4">
+      <div class="card" style="text-align:center;padding:34px 26px 28px;">
+        <div style="width:54px;height:54px;border-radius:50%;background:rgba(0,200,100,0.14);color:var(--pos);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 6px;">Withdrawal submitted</h2>
+        <p style="font-size:14px;color:var(--t2);line-height:1.6;margin:0 0 20px;"><span class="mono" id="okAmount" style="color:#fff;font-weight:700;">$0.00</span> is on its way to <span id="okDest" style="color:#fff;">Chase •••• 4417</span>.</p>
+        <div style="display:inline-flex;align-items:center;gap:8px;">
+          <span class="chip chip--warn">PROCESSING</span>
+          <span class="mono" style="font-size:11.5px;color:var(--t3);letter-spacing:0.04em;">REF <span id="okRef">WD-20260807-0114</span></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="lbl" style="margin-bottom:16px;">Status</span>
+        <div class="track done"><span class="track__dot"></span><div><div class="track__t">Requested</div><div class="track__d" id="okTime">Aug 7, 2026 · 2:14 PM</div></div></div>
+        <div class="track now"><span class="track__dot"></span><div><div class="track__t">Processing</div><div class="track__d" id="okEta">Arriving in 1–3 business days</div></div></div>
+        <div class="track"><span class="track__dot"></span><div><div class="track__t" id="okFinal">Paid to your bank</div><div class="track__d">We'll notify you when it lands.</div></div></div>
+      </div>
+
+      <div class="banner banner--info">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>If a withdrawal fails, the full amount returns to your balance and we'll let you know why.</span>
+      </div>
+
+      <div class="actions">
+        <a class="btn btn--ghost btn--lg" href="Settings.html?sec=wallet" style="flex:1;">Back to wallet</a>
+        <a class="btn btn--primary btn--lg" href="Portfolio.html?tab=history" style="flex:1;">Track in activity</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="devbar">
+    <span>Demo</span>
+    <button class="devbtn" id="devKyc">Identity: verified</button>
+    <button class="devbtn" id="devFail">Simulate failure</button>
+    <button class="devbtn" id="devReset">Reset flow</button>
+    <span style="margin-left:auto;">Any 6 digits approve</span>
+  </div>
+
+</x-dc>
+</body>
+</html>

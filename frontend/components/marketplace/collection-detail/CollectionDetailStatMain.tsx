@@ -39,8 +39,8 @@ function formatBookUsd(n: number | null | undefined): string {
 }
 
 /**
- * Card.html `#hero-bar` — sticky, binary `is-stuck` when `top <= 70`,
- * with CSS `transition` on padding / image height (same as the prototype).
+ * Card.html `#hero-bar` — sticky on desktop and mobile, binary `is-stuck`
+ * when `top <= 70`, with CSS `transition` on padding / image height.
  */
 export function CollectionDetailStatMain({
   imageUrl,
@@ -98,7 +98,8 @@ export function CollectionDetailStatMain({
     let lastBarH = -1;
 
     const publishBarH = () => {
-      if (window.innerWidth <= 900) {
+      /* `--bar-h` offsets the desktop sidebar under the sticky hero. */
+      if (window.innerWidth <= 1023) {
         if (lastBarH !== -1) {
           document.documentElement.style.removeProperty("--bar-h");
           lastBarH = -1;
@@ -181,14 +182,6 @@ export function CollectionDetailStatMain({
     /** Card.html `onScroll` — stuck iff sticky bar has reached its top offset. */
     const onScroll = () => {
       raf = 0;
-      if (window.innerWidth <= 900) {
-        bar.classList.remove("is-stuck");
-        if (lastBarH !== -1) {
-          document.documentElement.style.removeProperty("--bar-h");
-          lastBarH = -1;
-        }
-        return;
-      }
       const r = bar.getBoundingClientRect();
       const stuck = r.top <= 70;
       const wasStuck = bar.classList.contains("is-stuck");

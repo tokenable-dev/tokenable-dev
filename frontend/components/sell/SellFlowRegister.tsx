@@ -43,7 +43,7 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
   return (
     <section className="sell-flow-screen">
       <div className="sell-flow-col sell-flow-col--narrow">
-        <div className="sell-flow-eyebrow">Become a seller</div>
+        <div className="sell-flow-eyebrow">Seller verification</div>
         <h1 className="sell-flow-h1">Verify your identity to start selling</h1>
         <p className="sell-flow-sub">
           Identity verification is one-time. Confirm the seller terms for each submission.
@@ -167,7 +167,7 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
               <span>
                 My cards are stored at PSA Vault. I agree to the{" "}
                 <a href="/terms" className="sell-flow-link" onClick={(e) => e.stopPropagation()}>
-                  storage and withdrawal terms
+                  storage and shipping terms
                 </a>
                 . <span className="sell-flow-req">*</span>
               </span>

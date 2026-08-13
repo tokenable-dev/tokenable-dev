@@ -46,6 +46,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
     saveDraft,
     continueToShipping,
     goToVault,
+    vaultChoice,
   } = flow;
 
   const allConfirmed = cards.length > 0 && cards.every((c) => c.confirmed);
@@ -64,7 +65,9 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
           Back
         </button>
 
-        <div className="sell-flow-eyebrow">Step 1 of 2</div>
+        <div className="sell-flow-eyebrow">
+          {vaultChoice === "self" ? "Partner vault" : "PSA Vault"}
+        </div>
         <h1 className="sell-flow-h1">Add your cards</h1>
         <p className="sell-flow-sub">
           Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card details from

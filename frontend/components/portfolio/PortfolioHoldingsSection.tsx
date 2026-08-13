@@ -11,7 +11,6 @@ import {
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
-import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import {
   compareSortNum,
   compareSortText,
@@ -40,8 +39,8 @@ export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
   metadataByTokenId,
-  tokenToCollectionKey,
-  bidsByCollectionKey,
+  tokenToCollectionKey: _tokenToCollectionKey,
+  bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
   valuesPending,
   canEditCostBasis,
@@ -176,10 +175,6 @@ export function PortfolioHoldingsSection({
           const cost = costBasisByTokenId.get(row.tokenId);
           const isListed =
             row.listPriceUsd != null && row.activeListingOrderHash != null;
-          const ck = tokenToCollectionKey[row.tokenId];
-          const highestBidUsd = ck
-            ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
-            : null;
           const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
           const badge = redeemSurfaceBadge(
             redeemStatus,
@@ -198,7 +193,6 @@ export function PortfolioHoldingsSection({
               canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
               savingCostBasis={savingCostBasisTokenId === row.tokenId}
               isListed={isListed}
-              highestBidUsd={highestBidUsd}
               selectMode={redeemSelectMode}
               selected={redeemSelected?.has(row.tokenId) ?? false}
               selectable={selectable}
@@ -297,10 +291,6 @@ export function PortfolioHoldingsSection({
             const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
-            const ck = tokenToCollectionKey[row.tokenId];
-            const highestBidUsd = ck
-              ? highestBidUsdForHolding(bidsByCollectionKey.get(ck), row.tokenId)
-              : null;
             const plClass = pnl
               ? pnl.positive
                 ? "pf-table-pl--pos"
@@ -448,7 +438,6 @@ export function PortfolioHoldingsSection({
                     ) : (
                       <PortfolioHoldingsRowActions
                         isListed={isListed}
-                        highestBidUsd={highestBidUsd}
                         redeemStatus={badge}
                         onSetPrice={() => {
                           trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {

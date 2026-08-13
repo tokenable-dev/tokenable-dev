@@ -277,10 +277,11 @@ export function useCollectionDetailHeadline(params: {
       "card-number",
       "variant",
       "set",
+      "year",
       "category",
       "grade",
       "grader",
-      "year",
+      "cert",
       "language",
     ] as const;
     const byId = new Map(collectionMarketDetailCards.map((c) => [c.id, c]));

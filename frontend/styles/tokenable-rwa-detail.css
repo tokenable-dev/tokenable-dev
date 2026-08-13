@@ -339,3 +339,246 @@
   line-height: 1.45;
   color: var(--t2);
 }
+
+/* tk-price-input.js — Set price / Edit price */
+.tk-price__refs {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 4px 14px;
+  margin-bottom: 16px;
+}
+
+.tk-price__ref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.tk-price__ref-lbl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-price__ref-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tk-price__ref-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tk-price__use {
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--azure, #1a6fff);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.tk-price__use:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tk-price__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 10px;
+}
+
+.tk-price__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pos, #00c864);
+}
+
+.tk-price__loading {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.tk-price__your {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tk-price__base-tog {
+  border: 0;
+  background: transparent;
+  color: var(--azure, #1a6fff);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tk-price__field {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.tk-price__dollar {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.tk-price__input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px 0 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  outline: none;
+}
+
+.tk-price__input:disabled {
+  opacity: 0.55;
+}
+
+.tk-price__chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tk-price__chip {
+  flex: 1;
+  min-width: 58px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tk-price__chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-price__chip--on {
+  background: var(--azure, #1a6fff);
+  color: #fff;
+}
+
+.tk-price__undercut {
+  width: 100%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.tk-price__undercut:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-price__basenote {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.5;
+}
+
+.tk-price__hint {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(234, 130, 0, 0.1);
+  color: #ea8200;
+}
+
+.tk-price__hint--good {
+  background: rgba(0, 200, 100, 0.1);
+  color: var(--pos, #00c864);
+}
+
+.tk-price__fee {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-price__fee-amt {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-price__net {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-price__net-lbl {
+  color: #fff;
+}
+
+.tk-price__net-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pos, #00c864);
+}
+
+.tk-price__payout-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+}
+

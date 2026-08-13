@@ -2,40 +2,11 @@
 
 import Link from "next/link";
 import { TkButton } from "@/components/ds";
-import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
-
-function HoldingsBidMeta({
-  isListed,
-  highestBidUsd,
-}: {
-  isListed: boolean;
-  highestBidUsd?: number | null;
-}) {
-  const hasBid = highestBidUsd != null && highestBidUsd > 0;
-  if (!hasBid) {
-    return (
-      <div className="pf-holdings-bid-meta pf-holdings-bid-meta--empty">No bids yet</div>
-    );
-  }
-  return (
-    <div className="pf-holdings-bid-meta">
-      {isListed ? (
-        <>
-          <span className="pf-holdings-bid-meta__listed">Listed</span>
-          <span className="pf-holdings-bid-meta__dot">·</span>
-        </>
-      ) : null}
-      Highest bid{" "}
-      <span className="pf-holdings-bid-meta__bid">{formatPortfolioUsd(highestBidUsd)}</span>
-    </div>
-  );
-}
 
 /** Set price / Edit price — or redeem status CTAs (right-side Action only). */
 export function PortfolioHoldingsRowActions({
   isListed,
-  highestBidUsd,
   fullWidth = false,
   disabled = false,
   disabledTitle,
@@ -43,8 +14,7 @@ export function PortfolioHoldingsRowActions({
   onSetPrice,
 }: {
   isListed: boolean;
-  highestBidUsd?: number | null;
-  /** Mobile cards use full-width ghost CTA (height 44) + bid meta. */
+  /** Mobile cards use full-width ghost CTA (height 44). */
   fullWidth?: boolean;
   disabled?: boolean;
   disabledTitle?: string;
@@ -129,9 +99,6 @@ export function PortfolioHoldingsRowActions({
     <div
       className={`pf-table-actions pf-table-actions--set-price${fullWidth ? " pf-table-actions--full" : ""}${disabled ? " pf-table-actions--dim" : ""}`}
     >
-      {fullWidth ? (
-        <HoldingsBidMeta isListed={isListed} highestBidUsd={highestBidUsd} />
-      ) : null}
       <TkButton
         type="button"
         variant="ghost"

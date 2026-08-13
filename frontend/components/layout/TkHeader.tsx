@@ -111,7 +111,6 @@ export function TkHeader() {
           <div className="tk-header__spacer" aria-hidden />
 
           <div className="tk-header__mobile-actions">
-            <NetworkSwitcher />
             <TkHeaderSearchMobileButton onClick={() => setMobileSearchOpen(true)} />
 
             <button

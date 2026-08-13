@@ -28,9 +28,11 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import {
   applyMarketsListingFilters,
+  collectionVaultKindsFromAsks,
   MARKETS_DEFAULT_PRICE_FILTER,
   type MarketsGradeFilterId,
   type MarketsPriceFilterId,
+  type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import { MarketsFilterBar } from "./MarketsFilterBar";
 import { MarketsPageHeader } from "./MarketsPageHeader";
@@ -58,6 +60,7 @@ export default function MarketsPage() {
   const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
   const [priceFilter, setPriceFilter] = useState<MarketsPriceFilterId>(MARKETS_DEFAULT_PRICE_FILTER);
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
+  const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [setFilter, setSetFilter] = useState<string | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
@@ -67,6 +70,15 @@ export default function MarketsPage() {
       const next = new Set(prev);
       if (next.has(grade)) next.delete(grade);
       else next.add(grade);
+      return next;
+    });
+  }, []);
+
+  const toggleVaultFilter = useCallback((id: MarketsVaultFilterId) => {
+    setVaultFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
@@ -133,6 +145,11 @@ export default function MarketsPage() {
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
+  const vaultKindsByKey = useMemo(
+    () => collectionVaultKindsFromAsks(orders),
+    [orders],
+  );
+
   const filteredSorted = useMemo(() => {
     const categoryFiltered = sortedForRank.filter((c) =>
       collectionMatchesCategoryFilter(
@@ -144,6 +161,8 @@ export default function MarketsPage() {
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
       priceFilter,
       gradeFilters,
+      vaultFilters,
+      vaultKindsByKey,
       q: setFilter ? undefined : searchQuery,
       setLabel: setFilter ?? undefined,
     });
@@ -153,6 +172,8 @@ export default function MarketsPage() {
     categoryFilter,
     priceFilter,
     gradeFilters,
+    vaultFilters,
+    vaultKindsByKey,
     searchQuery,
     setFilter,
   ]);
@@ -240,6 +261,9 @@ export default function MarketsPage() {
           gradeFilters={gradeFilters}
           onGradeToggle={toggleGradeFilter}
           onGradeFiltersChange={setGradeFilters}
+          vaultFilters={vaultFilters}
+          onVaultToggle={toggleVaultFilter}
+          onVaultFiltersChange={setVaultFilters}
           filters={MARKETS_CATEGORY_FILTERS}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}

@@ -16,8 +16,10 @@ import {
   MARKETS_DEFAULT_PRICE_FILTER,
   MARKETS_GRADE_FILTER_OPTIONS,
   MARKETS_PRICE_FILTER_OPTIONS,
+  MARKETS_VAULT_FILTER_OPTIONS,
   type MarketsGradeFilterId,
   type MarketsPriceFilterId,
+  type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
   buildMarketsTypeaheadGroups,
@@ -172,6 +174,9 @@ export function MarketsFilterBar({
   gradeFilters,
   onGradeToggle,
   onGradeFiltersChange,
+  vaultFilters,
+  onVaultToggle,
+  onVaultFiltersChange,
   filters = MARKETS_CATEGORY_FILTERS,
   searchQuery = "",
   onSearchQueryChange,
@@ -189,6 +194,9 @@ export function MarketsFilterBar({
   gradeFilters: ReadonlySet<MarketsGradeFilterId>;
   onGradeToggle: (id: MarketsGradeFilterId) => void;
   onGradeFiltersChange: (grades: Set<MarketsGradeFilterId>) => void;
+  vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
+  onVaultToggle?: (id: MarketsVaultFilterId) => void;
+  onVaultFiltersChange?: (vaults: Set<MarketsVaultFilterId>) => void;
   filters?: CategoryFilterOption[];
   searchQuery?: string;
   onSearchQueryChange?: (q: string) => void;
@@ -206,8 +214,12 @@ export function MarketsFilterBar({
   const [draftGrades, setDraftGrades] = useState<Set<MarketsGradeFilterId>>(
     () => new Set(gradeFilters),
   );
+  const [draftVaults, setDraftVaults] = useState<Set<MarketsVaultFilterId>>(
+    () => new Set(vaultFilters ?? []),
+  );
   const [draftSearch, setDraftSearch] = useState(searchQuery);
   const [taOpen, setTaOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const catRef = useRef<HTMLDivElement>(null);
   const gradeRef = useRef<HTMLDivElement>(null);
@@ -219,11 +231,30 @@ export function MarketsFilterBar({
   useDropdownDismiss(openPop === "grade", () => setOpenPop(null), gradeRef);
   useDropdownDismiss(openPop === "price", () => setOpenPop(null), priceRef);
   useDropdownDismiss(openPop === "sort", () => setOpenPop(null), sortRef);
-  useDropdownDismiss(taOpen, () => setTaOpen(false), searchRef);
+  useDropdownDismiss(taOpen && !searchModalOpen, () => setTaOpen(false), searchRef);
 
   useEffect(() => {
     setDraftSearch(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchModalOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setSearchModalOpen(false);
+    }
+    function onResize() {
+      if (window.innerWidth > 820) setSearchModalOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+      document.body.style.overflow = prev;
+    };
+  }, [searchModalOpen]);
 
   const typeaheadGroups = useMemo(
     () =>
@@ -254,13 +285,16 @@ export function MarketsFilterBar({
         ? [...gradeFilters][0]
         : `${gradeFilters.size}`;
 
+  const vaultActive = (vaultFilters?.size ?? 0) > 0;
+
   const moreCount = useMemo(() => {
     let n = 0;
     if (categoryActive) n += 1;
     if (priceActive) n += 1;
     if (gradeActive) n += 1;
+    if (vaultActive) n += 1;
     return n;
-  }, [categoryActive, priceActive, gradeActive]);
+  }, [categoryActive, priceActive, gradeActive, vaultActive]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -268,12 +302,13 @@ export function MarketsFilterBar({
     setDraftSort(sortId);
     setDraftPrice(priceFilter);
     setDraftGrades(new Set(gradeFilters));
+    setDraftVaults(new Set(vaultFilters ?? []));
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [drawerOpen, categoryFilter, sortId, priceFilter, gradeFilters]);
+  }, [drawerOpen, categoryFilter, sortId, priceFilter, gradeFilters, vaultFilters]);
 
   function applyDrawer() {
     if (draftCategory !== categoryFilter) {
@@ -307,6 +342,7 @@ export function MarketsFilterBar({
     onSortChange(draftSort);
     onPriceFilterChange(draftPrice);
     onGradeFiltersChange(new Set(draftGrades));
+    onVaultFiltersChange?.(new Set(draftVaults));
     setDrawerOpen(false);
   }
 
@@ -314,12 +350,14 @@ export function MarketsFilterBar({
     onCategoryChange("all");
     onPriceFilterChange(MARKETS_DEFAULT_PRICE_FILTER);
     onGradeFiltersChange(new Set());
+    onVaultFiltersChange?.(new Set());
     onSearchQueryChange?.("");
     onSetFilterChange?.(null);
     setDraftSearch("");
     setDraftCategory("all");
     setDraftPrice(MARKETS_DEFAULT_PRICE_FILTER);
     setDraftGrades(new Set());
+    setDraftVaults(new Set());
   }
 
   function applySearchText(q: string) {
@@ -327,6 +365,7 @@ export function MarketsFilterBar({
     onSearchQueryChange?.(next);
     onSetFilterChange?.(null);
     setTaOpen(false);
+    setSearchModalOpen(false);
     trackEvent("filter_applied", {
       filter_type: "search",
       filter_value: next || "cleared",
@@ -357,6 +396,7 @@ export function MarketsFilterBar({
       );
     }
     setTaOpen(false);
+    setSearchModalOpen(false);
     setOpenPop(null);
   }
 
@@ -365,6 +405,15 @@ export function MarketsFilterBar({
       const next = new Set(prev);
       if (next.has(grade)) next.delete(grade);
       else next.add(grade);
+      return next;
+    });
+  }
+
+  function toggleDraftVault(id: MarketsVaultFilterId) {
+    setDraftVaults((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -390,6 +439,15 @@ export function MarketsFilterBar({
         key: `grade-${g}`,
         label: g,
         onClear: () => onGradeToggle(g),
+      });
+    }
+  }
+  for (const opt of MARKETS_VAULT_FILTER_OPTIONS) {
+    if (vaultFilters?.has(opt.id)) {
+      activeChips.push({
+        key: `vault-${opt.id}`,
+        label: opt.chipLabel,
+        onClear: () => onVaultToggle?.(opt.id),
       });
     }
   }
@@ -599,11 +657,36 @@ export function MarketsFilterBar({
           ) : null}
         </button>
 
+        {searchEnabled ? (
+          <button
+            type="button"
+            className="markets-ddchip markets-search-icon-btn"
+            aria-label="Search"
+            onClick={() => {
+              setOpenPop(null);
+              setSearchModalOpen(true);
+            }}
+          >
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden
+            >
+              <circle cx={11} cy={11} r={7} />
+              <line x1={16.5} y1={16.5} x2={21} y2={21} />
+            </svg>
+          </button>
+        ) : null}
+
         <div className="markets-slim-bar__sp" aria-hidden />
 
         <div className="markets-slim-bar__end">
         {searchEnabled ? (
-          <div ref={searchRef} className="markets-usearch">
+          <div ref={searchRef} className="markets-usearch markets-usearch--bar">
             <div className="markets-usearch__box">
               <svg
                 width={16}
@@ -760,6 +843,133 @@ export function MarketsFilterBar({
         </div>
       </div>
 
+      {searchEnabled && searchModalOpen ? (
+        <div
+          className="markets-search-modal open"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSearchModalOpen(false);
+          }}
+        >
+          <div className="markets-search-modal-head">
+            <button
+              type="button"
+              className="markets-search-modal-close"
+              aria-label="Close search"
+              onClick={() => setSearchModalOpen(false)}
+            >
+              <svg
+                width={16}
+                height={16}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                aria-hidden
+              >
+                <line x1={18} y1={6} x2={6} y2={18} />
+                <line x1={6} y1={6} x2={18} y2={18} />
+              </svg>
+            </button>
+          </div>
+          <div className="markets-usearch">
+            <div className="markets-usearch__box">
+              <svg
+                width={16}
+                height={16}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden
+              >
+                <circle cx={11} cy={11} r={7} />
+                <line x1={16.5} y1={16.5} x2={21} y2={21} />
+              </svg>
+              <input
+                type="search"
+                value={draftSearch}
+                autoComplete="off"
+                autoFocus
+                placeholder="Search cards, sets, players…"
+                aria-label="Search cards, sets, players"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraftSearch(v);
+                  setTaOpen(v.trim().length > 0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applySearchText(draftSearch);
+                  }
+                }}
+              />
+            </div>
+            {taOpen && draftSearch.trim() ? (
+              <div className="markets-ta markets-ta--open" role="listbox">
+                {typeaheadGroups.length === 0 ? (
+                  <div className="markets-ta__none">
+                    No matches for “{draftSearch.trim()}”
+                  </div>
+                ) : (
+                  typeaheadGroups.map((g) => (
+                    <div key={g.key} className="markets-ta__group">
+                      <div className="markets-ta__head">
+                        {g.label}{" "}
+                        <span>{g.total.toLocaleString("en-US")}</span>
+                      </div>
+                      {g.rows.map((row) => (
+                        <button
+                          key={
+                            row.kind === "card"
+                              ? row.collectionKey
+                              : `${row.kind}-${row.label}`
+                          }
+                          type="button"
+                          role="option"
+                          className="markets-ta__row"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => onTypeaheadSelect(row)}
+                        >
+                          <span className="markets-ta__label">{row.label}</span>
+                          {row.count != null ? (
+                            <span className="markets-ta__count">
+                              {row.count.toLocaleString("en-US")}
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="markets-ta__all"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (g.key === "sets" && g.rows[0]?.kind === "set") {
+                            onTypeaheadSelect(g.rows[0]);
+                          } else if (
+                            g.key === "categories" &&
+                            g.rows[0]?.kind === "category"
+                          ) {
+                            onTypeaheadSelect(g.rows[0]);
+                          } else {
+                            applySearchText(draftSearch);
+                          }
+                        }}
+                      >
+                        See all {g.label.toLowerCase()}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {activeChips.length > 0 ? (
         <div className="tkl-wrap markets-achips">
           {activeChips.map((chip) => (
@@ -873,6 +1083,27 @@ export function MarketsFilterBar({
               ))}
             </div>
           </div>
+
+          {onVaultFiltersChange ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Vault</span>
+              <div className="markets-fd-chips">
+                {MARKETS_VAULT_FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={cn(
+                      "markets-fd-option",
+                      draftVaults.has(opt.id) && "markets-fd-option--sel",
+                    )}
+                    onClick={() => toggleDraftVault(opt.id)}
+                  >
+                    {opt.chipLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Sort by</span>

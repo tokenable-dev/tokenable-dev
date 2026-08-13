@@ -7,11 +7,11 @@ import {
   feePercent,
   type AskSettlementPolicy,
 } from "@/lib/seaport/orders/platformFee";
-import { TkButton, TkInput } from "@/components/ds";
+import { TkButton } from "@/components/ds";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
-import { ListRwaPriceSuggestionsPanel } from "./ListRwaPriceSuggestionsPanel";
+import { ListRwaPriceInput } from "./ListRwaPriceInput";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 
 export function ListRwaModalFormView({
@@ -24,7 +24,7 @@ export function ListRwaModalFormView({
   crossingBidsForInstantSale,
   selectedBidHash,
   onSelectBidHash,
-  topCollectionBid,
+  topCollectionBid: _topCollectionBid,
   marketValueUsd,
   listedPriceUsd,
   onRequestCancelListing,
@@ -79,18 +79,12 @@ export function ListRwaModalFormView({
       ? "Update listing"
       : "New listing";
 
-  const priceFieldLabel = isSetPrice
-    ? "Your price"
-    : isReplaceListing
-      ? "Enter your new sale price in USDC below."
-      : "Enter your sale price in USDC below.";
-
   const ctaLabel = isProcessing
     ? "Processing..."
     : isSetPrice
       ? isReplaceListing
         ? "Update price →"
-        : "Set price →"
+        : "List for sale →"
       : isReplaceListing
         ? "Update listing"
         : "List for sale";
@@ -99,16 +93,8 @@ export function ListRwaModalFormView({
     listedPriceUsd != null && Number.isFinite(listedPriceUsd)
       ? listedPriceUsd
       : null;
-  const mkt =
-    marketValueUsd != null && Number.isFinite(marketValueUsd) ? marketValueUsd : null;
   const isSelfVaultHold = settlementPolicy === "self_vault_hold";
-  const feePct = feePercent(settlementPolicy);
-  const priceNum = parseFloat(price);
-  const showFee = price && Number.isFinite(priceNum) && priceNum > 0 && feePct > 0;
-  const netPct = isSelfVaultHold ? 5 : feePct; // platform keeps 5%; rest paid after confirm
-  const netAmount = isSelfVaultHold
-    ? (priceNum * 0.95).toFixed(2)
-    : (priceNum * (1 - feePct / 100)).toFixed(2);
+  const feePct = isSelfVaultHold ? 5 : feePercent(settlementPolicy);
 
   return (
     <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
@@ -132,17 +118,12 @@ export function ListRwaModalFormView({
             >
               {listModalAssetLabel(tokenId, assetTitle)}
             </h2>
-            {isSetPrice && mkt != null ? (
-              <p className="rd-list-sheet__mkt">
-                Current market value: {formatPortfolioUsd(mkt)}
-              </p>
-            ) : null}
           </div>
           {!isSheet ? <div className="w-7 shrink-0 sm:w-8" aria-hidden /> : null}
         </header>
       ) : null}
 
-      {isSetPrice && isReplaceListing ? (
+      {isReplaceListing ? (
         <div className="rd-list-sheet__listed">
           <div className="rd-list-sheet__ref-label">
             {listedAt != null ? "Currently listed at" : "Status"}
@@ -153,153 +134,28 @@ export function ListRwaModalFormView({
         </div>
       ) : null}
 
-      {isSetPrice && topCollectionBid ? (
-        <div className="rd-list-sheet__ref">
-          <div>
-            <div className="rd-list-sheet__ref-label">Highest bid</div>
-            <span className="rd-list-sheet__ref-val">${topCollectionBid.label}</span>
-          </div>
-          <div className="rd-list-sheet__ref-actions">
-            <span className="rd-list-sheet__ref-tag">TOP OFFER</span>
-            <button
-              type="button"
-              className="rd-list-sheet__match"
-              disabled={isProcessing}
-              onClick={() => onPriceChange(topCollectionBid.inputValue)}
-            >
-              Match highest bid
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <ListRwaPriceInput
+        tokenId={tokenId}
+        collectionKey={collectionKey}
+        price={price}
+        onPriceChange={onPriceChange}
+        feePercent={feePct}
+        marketValueUsd={marketValueUsd}
+        disabled={isProcessing}
+        payoutNote={
+          isSelfVaultHold
+            ? "Sale USDC goes to Tokenable first. After the buyer confirms, you receive the amount above (after the platform fee)."
+            : null
+        }
+      />
 
-      {isSetPrice && !topCollectionBid ? (
-        <div className="rd-list-sheet__listed">
-          <div className="rd-list-sheet__ref-label">Offers</div>
-          <span className="rd-list-sheet__ref-val rd-list-sheet__ref-val--muted">
-            No bids yet
-          </span>
-        </div>
+      {isSetPrice ? (
+        <p className="rd-list-sheet__hint">
+          {isReplaceListing
+            ? "The new price applies as soon as you update it."
+            : "Your card goes live at the price you set."}
+        </p>
       ) : null}
-
-      <div className={isEmbedded ? "space-y-3" : "space-y-2.5"}>
-        {!isEmbedded ? (
-          <label
-            htmlFor="list-rwa-price-usdc"
-            className={
-              isSetPrice
-                ? "rd-list-sheet__ref-label block"
-                : "block text-sm leading-relaxed text-zinc-300"
-            }
-          >
-            {priceFieldLabel}
-          </label>
-        ) : (
-          <label htmlFor="list-rwa-price-usdc" className="sr-only">
-            {isReplaceListing ? "New listing price in USDC" : "Listing price in USDC"}
-          </label>
-        )}
-        <div className={`relative ${isSheet ? "rd-list-sheet__price-wrap" : ""}`}>
-          {isSetPrice ? (
-            <span className="rd-list-sheet__dollar" aria-hidden>
-              $
-            </span>
-          ) : null}
-          <TkInput
-            id="list-rwa-price-usdc"
-            type="number"
-            min="0.000001"
-            step="any"
-            placeholder="0.00"
-            value={price}
-            onChange={(e) => onPriceChange(e.target.value)}
-            disabled={isProcessing}
-            className={`tabular-nums [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
-              isEmbedded
-                ? "pr-[4.5rem] text-2xl font-semibold sm:text-[1.75rem]"
-                : isSetPrice
-                  ? "text-[16px] font-mono font-semibold"
-                  : "pr-16 text-[15px]"
-            }`}
-          />
-          <span
-            className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-medium uppercase tracking-wide text-[rgba(0,0,0,0.45)] ${
-              isSheet ? "rd-list-sheet__usdc" : ""
-            } ${isEmbedded ? "text-xs sm:text-sm" : "text-xs"}`}
-          >
-            USDC
-          </span>
-        </div>
-        {!isSetPrice ? (
-          <ListRwaPriceSuggestionsPanel
-            tokenId={tokenId}
-            collectionKey={collectionKey}
-            onApplyPrice={onPriceChange}
-            disabled={isProcessing}
-          />
-        ) : null}
-        {showFee ? (
-          <div
-            className={
-              isSetPrice
-                ? "rd-list-sheet__fee"
-                : `space-y-2 rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-3 py-2.5 ${
-                    isEmbedded ? "text-sm" : "text-xs"
-                  }`
-            }
-          >
-            <div
-              className={
-                isSetPrice
-                  ? "rd-list-sheet__fee-row"
-                  : "flex justify-between gap-2 text-zinc-500"
-              }
-            >
-              <span>
-                {isSelfVaultHold
-                  ? "Held at sale (100% to platform)"
-                  : `Platform fee (${feePct}%)`}
-              </span>
-              <span className={isSetPrice ? "rd-list-sheet__fee-amt" : "font-mono text-zinc-400 tabular-nums"}>
-                -{(priceNum * (isSelfVaultHold ? 1 : feePct / 100)).toFixed(2)}
-                {isSetPrice ? "" : " USDC"}
-              </span>
-            </div>
-            <div
-              className={
-                isSetPrice
-                  ? "rd-list-sheet__fee-row rd-list-sheet__fee-row--net"
-                  : "flex justify-between gap-2 border-t border-zinc-700/40 pt-1.5 text-zinc-500"
-              }
-            >
-              <span className={isSetPrice ? "rd-list-sheet__fee-net-label" : "text-zinc-400"}>
-                {isSelfVaultHold ? "Payout after confirm" : "You receive"}
-              </span>
-              <span
-                className={
-                  isSetPrice
-                    ? "rd-list-sheet__fee-net"
-                    : "font-mono font-medium tabular-nums text-white"
-                }
-              >
-                {netAmount}
-                {isSetPrice ? "" : " USDC"}
-              </span>
-            </div>
-            {isSelfVaultHold ? (
-              <p className="text-[11px] leading-snug text-zinc-500 pt-1">
-                Sale USDC goes to Tokenable first. After the buyer confirms, you
-                receive ~{netAmount} USDC (after {netPct}% platform fee).
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        {isSetPrice && topCollectionBid ? (
-          <p className="rd-list-sheet__hint">
-            Highest bid shown for reference. Your card goes live at the price you set.
-          </p>
-        ) : null}
-      </div>
 
       {crossingBidsForInstantSale.length >= 2 && selectedBidHash ? (
         <div className="rounded-xl border border-mint/25 bg-mint/[0.07] px-3 py-2.5">

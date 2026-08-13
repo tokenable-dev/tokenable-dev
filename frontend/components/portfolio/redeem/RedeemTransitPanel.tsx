@@ -5,10 +5,7 @@ import { useMemo, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type { RedeemShipmentView } from "@/lib/portfolio/buildRedeemShipments";
-import {
-  downloadRedeemManifest,
-  type RedeemDraftCard,
-} from "@/lib/portfolio/redeemDraft";
+import { type RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
 import { buildCarrierTrackingUrl } from "@/lib/psa/psaOrderProgressDisplay";
 
 type ReportKind = "missing" | "damaged" | "wrong";
@@ -121,7 +118,6 @@ function ShipmentContents({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [slipBusy, setSlipBusy] = useState(false);
 
   const term = query.trim().toLowerCase();
   const matches = term
@@ -135,21 +131,6 @@ function ShipmentContents({
     : shipment.cardCount > 6
       ? `Scroll for the full list · ${shipment.cardCount} cards`
       : "Check each slab against its cert number.";
-
-  const downloadSlip = async () => {
-    setSlipBusy(true);
-    try {
-      await downloadRedeemManifest({
-        idx: shipment.idx,
-        vaultLabel: shipment.vaultLabel,
-        cards: shipment.cards,
-        trackingNumber: shipment.trackingNumber,
-        trackingCarrier: shipment.trackingCarrier,
-      });
-    } finally {
-      setSlipBusy(false);
-    }
-  };
 
   return (
     <div className="pf-redeem-contents">
@@ -175,15 +156,7 @@ function ShipmentContents({
           >
             <polyline points="9 6 15 12 9 18" />
           </svg>
-          Contents ({shipment.cardCount})
-        </button>
-        <button
-          type="button"
-          className="pf-redeem-contents__slip"
-          disabled={slipBusy}
-          onClick={() => void downloadSlip()}
-        >
-          {slipBusy ? "Preparing…" : "View packing slip"}
+          Cards ({shipment.cardCount})
         </button>
       </div>
 

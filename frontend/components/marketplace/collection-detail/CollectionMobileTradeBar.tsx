@@ -63,7 +63,7 @@ export function CollectionMobileTradeBar({
             disabled={buyDisabled || !hasAsk}
             onClick={onBuy}
           >
-            Buy now
+            {hasAsk ? `Buy now · ${formatUsd(lowestAskUsd)}` : "Buy now"}
           </TkButton>
         ) : null}
       </div>

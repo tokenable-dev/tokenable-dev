@@ -19,7 +19,6 @@ export function PortfolioMobileAssetCard({
   canEditCostBasis,
   savingCostBasis,
   isListed,
-  highestBidUsd,
   selectMode = false,
   selected = false,
   selectable = false,
@@ -38,7 +37,6 @@ export function PortfolioMobileAssetCard({
   canEditCostBasis: boolean;
   savingCostBasis?: boolean;
   isListed: boolean;
-  highestBidUsd?: number | null;
   selectMode?: boolean;
   selected?: boolean;
   selectable?: boolean;
@@ -205,7 +203,6 @@ export function PortfolioMobileAssetCard({
           >
             <PortfolioHoldingsRowActions
               isListed={isListed}
-              highestBidUsd={highestBidUsd}
               fullWidth
               disabled={actionsDisabled}
               disabledTitle={actionsDisabledTitle}

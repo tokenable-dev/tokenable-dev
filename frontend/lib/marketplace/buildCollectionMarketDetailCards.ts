@@ -50,7 +50,7 @@ export function buildCollectionMarketDetailCards(params: {
   if (cardNumRaw) {
     rows.push({
       id: "card-number",
-      label: "Card Number",
+      label: "Card number",
       value: headlineCardNumberToken?.trim() || cardNumRaw,
     });
   }
@@ -89,6 +89,15 @@ export function buildCollectionMarketDetailCards(params: {
       id: "grader",
       label: "Grader",
       value: grader,
+    });
+  }
+
+  const cert = typeof comp.psaCertNumber === "string" ? comp.psaCertNumber.trim() : "";
+  if (cert) {
+    rows.push({
+      id: "cert",
+      label: "Cert #",
+      value: cert,
     });
   }
 
@@ -167,6 +176,6 @@ export function buildCollectionMarketDetailCards(params: {
 
   return rows.map((row) => ({
     ...row,
-    value: toCardDisplayUppercase(row.value),
+    value: row.id === "cert" ? row.value : toCardDisplayUppercase(row.value),
   }));
 }

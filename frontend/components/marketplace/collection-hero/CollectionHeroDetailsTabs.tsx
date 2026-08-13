@@ -71,27 +71,22 @@ export function CollectionHeroDetailsTabs({
         </div>
       </div>
 
-      <div className="cd-sidebar-tabs__body grid">
-        <div
-          id="collection-sidebar-panel-details"
-          role="tabpanel"
-          aria-labelledby="collection-sidebar-tab-details"
-          aria-hidden={tab !== "details"}
-          className={`cd-sidebar-tabs__panel${
-            tab === "details" ? "" : " cd-sidebar-tabs__panel--inactive"
-          }`}
-        >
-          {detailsPanel}
-        </div>
-        {showPsa ? (
+      <div className="cd-sidebar-tabs__body">
+        {tab === "details" ? (
+          <div
+            id="collection-sidebar-panel-details"
+            role="tabpanel"
+            aria-labelledby="collection-sidebar-tab-details"
+            className="cd-sidebar-tabs__panel"
+          >
+            {detailsPanel}
+          </div>
+        ) : showPsa ? (
           <div
             id="collection-sidebar-panel-psa"
             role="tabpanel"
             aria-labelledby="collection-sidebar-tab-psa"
-            aria-hidden={tab !== "psa"}
-            className={`cd-sidebar-tabs__panel${
-              tab === "psa" ? "" : " cd-sidebar-tabs__panel--inactive"
-            }`}
+            className="cd-sidebar-tabs__panel"
           >
             {psaPanel}
           </div>

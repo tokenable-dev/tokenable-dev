@@ -4133,9 +4133,46 @@
     justify-content: center;
   }
 
-  .vault-ip-card__bottom .vault-hub-cta-link,
-  .vault-ip-card__bottom .tk-btn {
+  .vault-ip-grid .vault-ip-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .vault-ip-card__top {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .vault-ip-card__thumb {
+    width: 46px;
+    height: 64px;
+  }
+
+  .vault-ip-card__name {
+    font-size: 13.5px;
+    line-height: 1.35;
+    white-space: normal;
+  }
+
+  .vault-ip-card__status {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-top: 8px;
+  }
+
+  .vault-ip-card__bottom {
     width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .vault-ip-card__bottom .vault-hub-cta-link,
+  .vault-ip-card__bottom .tk-btn,
+  .vault-ip-card__bottom > a.tk-btn,
+  .vault-ip-card__bottom > button {
+    flex: 1 1 140px;
+    width: auto;
     justify-content: center;
   }
 

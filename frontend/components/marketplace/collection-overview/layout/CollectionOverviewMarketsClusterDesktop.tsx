@@ -55,15 +55,19 @@ export function CollectionOverviewMarketsClusterDesktop({
             ) : null}
 
             <div className="cd-detail-grid__sidebar">
+              {/* Card.html `.detail-rail` — Trades/Offers + Details pin together. */}
               <div className="cd-sidebar-sticky flex flex-col gap-5">
-                <div className="cd-sidebar-orderbook flex min-h-0 flex-col overflow-hidden">
-                  <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+                <div className="cd-sidebar-orderbook flex shrink-0 flex-col overflow-hidden">
+                  <div className="flex w-full shrink-0 flex-col">
                     {withFlushProp(orderBookNextToChart)}
                   </div>
                 </div>
 
                 {belowCover != null ? (
-                  <div className="cd-sidebar-details flex min-w-0 flex-col" aria-label="Collection details">
+                  <div
+                    className="cd-sidebar-details flex min-w-0 shrink-0 flex-col"
+                    aria-label="Collection details"
+                  >
                     {belowCover}
                   </div>
                 ) : null}

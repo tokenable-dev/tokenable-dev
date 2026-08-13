@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Partner shipping origin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<style>/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek-ext */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+/* cyrillic-ext */
+
+/* cyrillic */
+
+/* greek */
+
+/* vietnamese */
+
+/* latin-ext */
+
+/* latin */
+
+</style>
+<style>
+  :root:root{ --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; }
+  :root{ --ink:#0e0e0e; --azure:rgb(26,111,255); --t2: rgba(255,255,255,0.7); --t3: rgba(255,255,255,0.52); }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:rgba(255,255,255,0.95);font-family:var(--font-sans,Inter,sans-serif);-webkit-font-smoothing:antialiased;}
+  a{color:#5B9AFF;text-decoration:none;}
+  a:hover{color:#fff;}
+  .mono{font-family:var(--font-mono);}
+  .ref{max-width:900px;margin:0 auto;padding:48px clamp(16px,4vw,40px) 80px;}
+  .ref h1{font-size:clamp(24px,3vw,32px);font-weight:700;letter-spacing:-0.02em;margin:12px 0 0;}
+  .ref p{font-size:15px;line-height:1.6;color:var(--t2);max-width:640px;}
+  .ref .eyebrow{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);}
+  .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px;}
+  .note{background:#141414;border-radius:12px;padding:18px 20px;margin-top:28px;font-size:13.5px;line-height:1.7;color:var(--t2);}
+  .note b{color:#fff;font-weight:600;}
+</style>
+</helmet>
+
+  <div class="ref">
+    <div class="eyebrow">Vault partner setup</div>
+    <h1>Shipping-origin onboarding modal</h1>
+    <p style="margin-top:12px;">This is the one-time modal an approved partner sees on first login when no shipping origin is on file. It also appears inside Partner Portfolio automatically — this page is the isolated reference.</p>
+    <div class="ctas">
+      <button class="tk-btn tk-btn--primary" id="ref-open" style="height:48px;padding:0 22px;font-size:15px;">Show the modal</button>
+      <button class="tk-btn tk-btn--subtle" id="ref-banner" style="height:48px;padding:0 20px;font-size:15px;">Show the deferred state</button>
+      <button class="tk-btn tk-btn--subtle" id="ref-reset" style="height:48px;padding:0 20px;font-size:15px;">Reset saved origin</button>
+    </div>
+    <div class="note">
+      <b>Gate.</b> Saving stores the address on the partner profile and unblocks listing. <b>Remind me later</b> closes the modal but keeps a persistent banner, and the partner’s cards stay unlisted until an origin exists.<br>
+      <a href="Partner-Portfolio.html">Open Partner Portfolio →</a>
+    </div>
+  </div>
+
+<script src="partner-shipping-origin.js"></script>
+</x-dc>
+<script>
+/* Inline page scripts live outside <x-dc> — the DC runtime rewrites identifiers
+   inside the template — and run once the component has painted. */
+window.__tkBoot = window.__tkBoot || function(fn){
+  var n = 0;
+  (function w(){
+    var root = document.querySelector('x-dc');
+    if((root && root.querySelectorAll('*').length > 30) || n++ > 400){ try{ fn(); }catch(e){ console.error(e); } }
+    else setTimeout(w, 25);
+  })();
+};
+</script>
+<script src="tk-address.js"></script>
+<script>
+__tkBoot(function(){
+
+setTimeout(function(){
+  function reset(){ try{ localStorage.removeItem('tk_partner_origin'); localStorage.removeItem('tk_partner_origin_deferred'); localStorage.setItem('tk_partner_status','approved'); }catch(_){} }
+  document.getElementById('ref-open').addEventListener('click', function(){
+    reset(); var b=document.querySelector('.po-banner'); if(b) b.remove();
+    var s=document.querySelector('.po-scrim'); if(s) s.remove();
+    window.location.reload();
+  });
+  document.getElementById('ref-banner').addEventListener('click', function(){
+    reset(); try{ localStorage.setItem('tk_partner_origin_deferred','1'); }catch(_){}
+    window.location.reload();
+  });
+  document.getElementById('ref-reset').addEventListener('click', function(){ reset(); window.location.reload(); });
+}, 300);
+
+});
+</script>
+
+
+
+</body></html>

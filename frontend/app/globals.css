@@ -312,6 +312,11 @@ body {
     max-width: 100%;
     min-width: 0;
   }
+
+  /* overflow-x:hidden on html breaks position:sticky (WebKit). */
+  html.collection-details-scroll {
+    overflow-x: visible;
+  }
 }
 
 /* Horizontal carousels / badge strips: contain swipe overscroll inside the strip */

@@ -1284,6 +1284,14 @@ body.gnb-drawer-open .mobile-page-root {
   cursor: default;
 }
 
+/* Collection detail: hide site footer on mobile so it doesn't sit under the trade bar.
+   Desktop / browser keeps the footer (Card.html). */
+@media (max-width: 1023px) {
+  .tk-footer--cd-desktop-only {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .tk-footer__inner {
     flex-direction: column;

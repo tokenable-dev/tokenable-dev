@@ -155,11 +155,6 @@
     margin-bottom: 0;
   }
 
-  .collection-detail-page .cd-mobile-scroll__stat .cd-hero-bar {
-    position: static;
-    box-shadow: none;
-  }
-
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel.cd-notch {
     background: #191919;
     border-radius: 16px;
@@ -209,6 +204,9 @@
     background: #191919;
     border-radius: 16px;
     overflow: hidden;
+    flex: none;
+    height: auto;
+    max-height: none;
   }
 
   .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs {
@@ -289,7 +287,9 @@
 /* Hero is a sibling ABOVE the grid (Card.html). Collapse the metrics wrapper
    so `#hero-bar`’s sticky containing block is `.cd-hero-sticky-scope` (hero +
    chart/listings) — a short parent stops sticky from pinning to the viewport. */
-.collection-detail-page .cd-hero-sticky-scope > .cd-metrics-strip {
+.collection-detail-page .cd-hero-sticky-scope > .cd-metrics-strip,
+.collection-detail-page .cd-hero-sticky-scope > .cd-mobile-scroll__stat,
+.collection-detail-page .cd-hero-sticky-scope .cd-metrics-strip {
   display: contents;
 }
 
@@ -307,10 +307,18 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  height: auto;
 }
 
 .collection-detail-page .cd-sidebar-sticky {
   position: sticky;
+  align-self: start;
+  width: 100%;
+  z-index: 2;
   /*
    * Sit under sticky hero. Fallback ~expanded bar (150px thumb + padding),
    * not condensed 72px — wrong fallback briefly opens max-height too wide and
@@ -318,7 +326,9 @@
    */
   top: calc(64px + var(--bar-h, 182px) + 12px);
   max-height: calc(100vh - 64px - var(--bar-h, 182px) - 24px);
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* ── Sticky hero bar — mirrors Card.html `#hero-bar` exactly ─────────────── */
@@ -388,16 +398,30 @@
   display: none !important;
 }
 
-.cd-hero-bar.is-stuck #hero-priceblock {
+.cd-hero-bar.is-stuck #hero-priceblock,
+.cd-hero-bar.is-stuck .cd-hero-bar__priceblock {
   display: flex !important;
-  align-items: center;
-  gap: 14px;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 14px !important;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
-.cd-hero-bar.is-stuck #hero-chg {
+.cd-hero-bar.is-stuck .cd-hero-bar__price {
   margin-top: 0 !important;
-  margin-left: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.cd-hero-bar.is-stuck #hero-chg,
+.cd-hero-bar.is-stuck .cd-hero-bar__chg {
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
 }
 
 .cd-hero-bar.is-stuck #hero-lastlbl {
@@ -630,6 +654,29 @@
   white-space: nowrap;
 }
 
+/*
+ * Card.html Buy uses `tk-btn tk-btn--primary` from the HTML DS bundle (#0033FF),
+ * not page-local `.btn--primary` (#1A6FFF). Match that fill on marketplace Buy.
+ * Checkout / provenance modals portal to body, so they are listed separately.
+ */
+.collection-detail-page .tk-btn--primary,
+.cd-listing-prov .tk-btn--primary,
+.cd-listing-checkout .tk-btn--primary {
+  background: #0033ff;
+}
+
+.collection-detail-page .tk-btn--primary:hover,
+.cd-listing-prov .tk-btn--primary:hover,
+.cd-listing-checkout .tk-btn--primary:hover {
+  background: #2255ff;
+}
+
+.collection-detail-page .tk-btn--primary:active,
+.cd-listing-prov .tk-btn--primary:active,
+.cd-listing-checkout .tk-btn--primary:active {
+  background: #0028dd;
+}
+
 .cd-hero-bar__bid-btn.tk-btn,
 .cd-hero-bar__bid-btn,
 .cd-hero-bar .bid-btn {
@@ -666,16 +713,46 @@
   }
 }
 
-/* ≤1023 — mobile column: book → bottom bar; card + price stay side by side */
+/* ≤1023 — Card.html mobile chrome; sticky condensed row like desktop */
 @media (max-width: 1023px) {
   .cd-hero-bar {
-    position: static !important;
+    position: sticky !important;
+    top: 64px;
+    z-index: 50;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     box-shadow: none;
     padding: 14px 16px;
     gap: 14px;
+  }
+
+  .cd-hero-bar.is-stuck {
+    flex-wrap: nowrap;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    gap: 12px;
+  }
+
+  .cd-hero-bar.is-stuck .cd-hero-bar__price {
+    font-size: 20px;
+  }
+
+  .cd-hero-bar.is-stuck .cd-hero-bar__chg,
+  .cd-hero-bar.is-stuck #hero-chg {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .cd-hero-bar.is-stuck .cd-hero-bar__change-tag.tk-tag {
+    height: 24px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  .cd-hero-bar.is-stuck .cd-hero-bar__period {
+    height: 24px;
+    font-size: 11px;
+    padding: 0 8px;
   }
 
   #hero-book,
@@ -718,33 +795,34 @@
   .cd-hero-bar__thumb {
     height: 92px;
   }
+
+  .cd-hero-bar.is-stuck .cd-hero-bar__period {
+    display: none;
+  }
 }
 
 /* ── Sidebar tabs (Details / PSA Population) ────────────────────────────── */
 
 .collection-detail-page .cd-sidebar-tabs__panel {
   padding: 0;
+  height: auto;
 }
 
+.collection-detail-page .cd-sidebar-tabs,
 .collection-detail-page .cd-sidebar-tabs__body {
-  grid-template-columns: 1fr;
+  height: auto;
   min-width: 0;
-}
-
-.collection-detail-page .cd-sidebar-tabs__body > .cd-sidebar-tabs__panel {
-  grid-area: 1 / 1;
-  min-width: 0;
-}
-
-.collection-detail-page .cd-sidebar-tabs__panel--inactive {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .collection-detail-page .cd-sidebar-details {
   background: #191919;
   border-radius: 16px;
   overflow: hidden;
+  flex: none;
+  height: auto;
+  max-height: none;
+  align-self: start;
+  width: 100%;
 }
 
 .collection-detail-page .cd-sidebar-orderbook {
@@ -1214,25 +1292,28 @@
 
 .cd-details-kv__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 13px 16px;
 }
 
 .cd-details-kv__label {
-  font-family: var(--font-sans);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
   font-size: 13px;
+  font-weight: 400;
   color: var(--t2);
 }
 
 .cd-details-kv__value {
   font-family: var(--font-mono);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   color: #fff;
   text-align: right;
   overflow-wrap: anywhere;
+  min-width: 0;
   margin: 0;
 }
 
@@ -1348,14 +1429,21 @@
 }
 
 .cd-mobile-trade-bar__bid.tk-btn,
-.cd-mobile-trade-bar__bid,
-.cd-mobile-trade-bar__buy.tk-btn,
-.cd-mobile-trade-bar__buy {
-  flex: 1 1 0;
+.cd-mobile-trade-bar__bid {
+  flex: 1;
   min-width: 0;
   height: 48px !important;
   font-size: 14px !important;
   font-weight: 700 !important;
+}
+
+.cd-mobile-trade-bar__buy.tk-btn,
+.cd-mobile-trade-bar__buy {
+  flex: 1.4;
+  min-width: 0;
+  height: 48px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
 }
 
 .cd-mobile-trade-bar__bid.tk-btn,
@@ -1561,9 +1649,11 @@
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
-  height: 300px;
-  max-height: 300px;
+  /* Card.html `#trades-scroll` — internal scroll so the pinned rail stays compact */
+  height: auto;
+  max-height: min(300px, 32vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
@@ -1775,12 +1865,17 @@
 }
 
 @media (min-width: 1024px) {
-  .collection-detail-page .cd-sidebar-orderbook,
-  .collection-detail-page .cd-sidebar-details {
+  .collection-detail-page .cd-sidebar-orderbook {
     background: #191919;
     border-radius: 16px;
     border: 0 !important;
     overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Card.html `.detail-rail > .notch { flex: none }` — natural height, rail scrolls */
+  .collection-detail-page .cd-sidebar-orderbook .cd-ob-panel {
+    flex: none;
   }
 
   /* Card.html — sidebar is order book + details only (no trade dock) */
@@ -1789,6 +1884,13 @@
   }
 
   .collection-detail-page .cd-sidebar-details {
+    background: #191919;
+    border-radius: 16px;
+    border: 0 !important;
+    overflow: hidden;
+    flex: none;
+    height: auto;
+    max-height: none;
     padding-top: 0 !important;
   }
 }

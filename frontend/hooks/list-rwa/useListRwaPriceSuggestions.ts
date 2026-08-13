@@ -185,6 +185,12 @@ export function useListRwaPriceSuggestions(input: {
     tradesPack?.trades,
   ]);
 
+  const lowestAskUsd = useMemo(() => {
+    const floor = collectionSnapshot?.marketStats?.floor;
+    if (floor != null && Number.isFinite(floor) && floor > 0) return floor;
+    return null;
+  }, [collectionSnapshot?.marketStats?.floor]);
+
   const lastTokenableTradeUsd = useMemo(() => {
     const v = collectionSnapshot?.lastTokenableTradeUsdc;
     if (v != null && Number.isFinite(v) && v > 0) return v;
@@ -212,6 +218,7 @@ export function useListRwaPriceSuggestions(input: {
 
   const hasAnyReference =
     marketPriceUsd != null ||
+    lowestAskUsd != null ||
     lastTokenableTradeUsd != null ||
     recentTrades.length > 0;
 
@@ -219,6 +226,7 @@ export function useListRwaPriceSuggestions(input: {
     collectionKey: persistedCollectionKey ?? candidateCollectionKey,
     gradeLabel,
     marketPriceUsd,
+    lowestAskUsd,
     lastTokenableTradeUsd,
     recentTrades,
     loading,

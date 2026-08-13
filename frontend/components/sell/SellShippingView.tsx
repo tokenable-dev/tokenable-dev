@@ -78,7 +78,7 @@ export function SellShippingView() {
           </nav>
 
           <div className="sell-ship-header">
-            <div className="sell-flow-eyebrow">Step 2 of 2</div>
+            <div className="sell-flow-eyebrow">Ship to PSA</div>
             <h1 className="sell-flow-h1">Ship to PSA</h1>
             <p className="sell-flow-sub">
               Send your cards to PSA. Once they arrive and pass intake, they&rsquo;ll be stored at
