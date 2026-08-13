@@ -1234,10 +1234,24 @@
   color: #fff;
   text-align: right;
   overflow-wrap: anywhere;
+  margin: 0;
 }
 
 .cd-details-kv__value--link {
   color: var(--azure);
+}
+
+@media (max-width: 768px) {
+  .cd-details-kv__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .cd-details-kv__label,
+  .cd-details-kv__value {
+    min-width: 0;
+  }
 }
 
 /* ── Listings section ───────────────────────────────────────────────────── */
@@ -1468,7 +1482,28 @@
 }
 
 .collection-detail-page .cd-ob-book__scroll {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  min-height: 0;
+  overflow: hidden;
   overscroll-behavior: contain;
+}
+
+.collection-detail-page .cd-ob-book-asks,
+.collection-detail-page .cd-ob-book-bids {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.collection-detail-page .cd-ob-book-asks {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.collection-detail-page .cd-ob-book-center {
+  flex: none;
 }
 
 .collection-detail-page .cd-ob-tabs {

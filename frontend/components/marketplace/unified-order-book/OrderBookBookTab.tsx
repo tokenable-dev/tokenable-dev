@@ -109,92 +109,66 @@ function OrderBookFooterCounts({
 
 function AskLevelsList({
   levels,
-  emptyLabel,
   selectedLevelKey,
   onSelectLevel,
   flush,
   wrapperClass,
-  emptyClassName,
   collectionDetail,
 }: {
   levels: OrderBookDepthLevel[];
-  emptyLabel: string;
   selectedLevelKey?: string | null;
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   wrapperClass: string;
-  emptyClassName?: string;
   collectionDetail?: boolean;
 }) {
   return (
     <div className={wrapperClass}>
-      {levels.length === 0 ? (
-        <div className={emptyClassName ?? emptyLevelsClass(flush)}>
-          {emptyLabel}
-        </div>
-      ) : (
-        levels.map((level) => (
-          <OrderBookDepthLevelRow
-            key={level.key}
-            side="ask"
-            level={level}
-            selectedLevelKey={selectedLevelKey}
-            onSelectLevel={onSelectLevel}
-            flush={flush}
-            collectionDetail={collectionDetail}
-          />
-        ))
-      )}
+      {levels.map((level) => (
+        <OrderBookDepthLevelRow
+          key={level.key}
+          side="ask"
+          level={level}
+          selectedLevelKey={selectedLevelKey}
+          onSelectLevel={onSelectLevel}
+          flush={flush}
+          collectionDetail={collectionDetail}
+        />
+      ))}
     </div>
   );
 }
 
 function BidLevelsList({
   levels,
-  emptyLabel,
   selectedLevelKey,
   onSelectLevel,
   flush,
   wrapperClass,
-  emptyClassName,
   collectionDetail,
 }: {
   levels: OrderBookDepthLevel[];
-  emptyLabel: string;
   selectedLevelKey?: string | null;
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   wrapperClass: string;
-  emptyClassName?: string;
   collectionDetail?: boolean;
 }) {
   return (
     <div className={wrapperClass}>
-      {levels.length === 0 ? (
-        <div className={emptyClassName ?? emptyLevelsClass(flush)}>
-          {emptyLabel}
-        </div>
-      ) : (
-        levels.map((level) => (
-          <OrderBookDepthLevelRow
-            key={level.key}
-            side="bid"
-            level={level}
-            selectedLevelKey={selectedLevelKey}
-            onSelectLevel={onSelectLevel}
-            flush={flush}
-            collectionDetail={collectionDetail}
-          />
-        ))
-      )}
+      {levels.map((level) => (
+        <OrderBookDepthLevelRow
+          key={level.key}
+          side="bid"
+          level={level}
+          selectedLevelKey={selectedLevelKey}
+          onSelectLevel={onSelectLevel}
+          flush={flush}
+          collectionDetail={collectionDetail}
+        />
+      ))}
     </div>
   );
-}
-
-function emptyLevelsClass(flush?: boolean) {
-  return flush
-    ? `py-1 text-center ${orderBookColumnHeaderCls}`
-    : `py-3 text-center ${orderBookColumnHeaderCls}`;
 }
 
 function scrollPaneClass(
@@ -305,25 +279,23 @@ export function OrderBookBookTab({
         <div
           className={
             collectionDetail
-              ? "cd-ob-book__scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+              ? "cd-ob-book__scroll min-h-0 flex-1"
               : "contents"
           }
         >
           <div
             className={
               collectionDetail
-                ? "cd-ob-book-asks min-h-0 shrink-0 overflow-hidden"
+                ? "cd-ob-book-asks min-h-0"
                 : scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)
             }
           >
             <AskLevelsList
               levels={askLevels}
-              emptyLabel="No sell orders"
               selectedLevelKey={selectedLevelKey}
               onSelectLevel={onSelectLevel}
               flush
               collectionDetail={collectionDetail}
-              emptyClassName={emptyLevelsClass(true)}
               wrapperClass={
                 collectionDetail
                   ? "cd-ob-book-asks__list"
@@ -343,18 +315,16 @@ export function OrderBookBookTab({
           <div
             className={
               collectionDetail
-                ? "cd-ob-book-bids min-h-0 shrink-0 overflow-hidden"
+                ? "cd-ob-book-bids min-h-0"
                 : scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)
             }
           >
             <BidLevelsList
               levels={bidLevels}
-              emptyLabel="No buy orders"
               selectedLevelKey={selectedLevelKey}
               onSelectLevel={onSelectLevel}
               flush
               collectionDetail={collectionDetail}
-              emptyClassName={emptyLevelsClass(true)}
               wrapperClass={
                 collectionDetail
                   ? "cd-ob-book-bids__list"
@@ -378,7 +348,6 @@ export function OrderBookBookTab({
       <OrderBookColumnHeader />
       <AskLevelsList
         levels={askLevels}
-        emptyLabel="No sell orders"
         selectedLevelKey={selectedLevelKey}
         onSelectLevel={onSelectLevel}
         wrapperClass={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 ${
@@ -392,7 +361,6 @@ export function OrderBookBookTab({
       </div>
       <BidLevelsList
         levels={bidLevels}
-        emptyLabel="No buy orders"
         selectedLevelKey={selectedLevelKey}
         onSelectLevel={onSelectLevel}
         wrapperClass={`flex flex-col gap-px px-1 pb-1.5 ${
