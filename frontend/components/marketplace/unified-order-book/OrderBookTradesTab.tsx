@@ -96,18 +96,26 @@ export function OrderBookTradesTab({
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
   const rowValueCls = orderBookTradesContentValueCls;
   const rootClass = flush
-    ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+    ? `relative flex h-full min-h-0 flex-1 flex-col overflow-hidden`
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
 
-  const showHeader = Boolean(flush) || (!tapeLoading && tapeFills.length > 0);
+  const hasRows = tapeFills.length > 0;
+  const showHeader = collectionDetail
+    ? hasRows
+    : Boolean(flush) || (!tapeLoading && hasRows);
   const bodyClass = collectionDetail
     ? "cd-ob-trades-scroll flex min-h-0 flex-1 flex-col"
     : "flex min-h-0 flex-1 flex-col";
+  const emptyClass = collectionDetail
+    ? "cd-ob-trades-empty"
+    : flush
+      ? `${bodyClass} items-center justify-center overflow-hidden`
+      : "flex min-h-[12rem] flex-1 items-center justify-center";
 
   if (tapeError) {
     return (
       <div className={rootClass}>
-        {flush ? (
+        {flush && !collectionDetail ? (
           <TradesColumnHeader
             flush
             gridClass={gridClass}
@@ -116,11 +124,11 @@ export function OrderBookTradesTab({
         ) : null}
         <div
           className={
-            flush
-              ? `flex min-h-[8rem] flex-1 flex-col items-center justify-center px-4 text-center${
-                  collectionDetail ? " cd-ob-trades-empty" : ""
-                }`
-              : "flex min-h-[12rem] flex-1 items-center justify-center px-4 text-center"
+            collectionDetail
+              ? emptyClass
+              : flush
+                ? `flex min-h-[8rem] flex-1 flex-col items-center justify-center px-4 text-center`
+                : "flex min-h-[12rem] flex-1 items-center justify-center px-4 text-center"
           }
         >
           <span className={`${rowValueCls} text-rose-400/90`}>
@@ -141,24 +149,12 @@ export function OrderBookTradesTab({
         />
       ) : null}
 
-      {tapeLoading && tapeFills.length === 0 ? (
-        <div
-          className={`${bodyClass} items-center justify-center px-3 ${rowValueCls} text-zinc-500${
-            collectionDetail ? " cd-ob-trades-empty" : ""
-          }`}
-        >
-          Loading trades…
+      {tapeLoading && !hasRows ? (
+        <div className={`${emptyClass} px-3`}>
+          <span className={`${rowValueCls} text-zinc-500`}>Loading trades…</span>
         </div>
-      ) : tapeFills.length === 0 ? (
-        <div
-          className={
-            flush
-              ? `${bodyClass} items-center justify-center overflow-hidden${
-                  collectionDetail ? " cd-ob-trades-empty" : ""
-                }`
-              : "flex min-h-[12rem] flex-1 items-center justify-center"
-          }
-        >
+      ) : !hasRows ? (
+        <div className={emptyClass}>
           <span className={`${rowValueCls} text-zinc-500`}>{emptyLabel}</span>
         </div>
       ) : (

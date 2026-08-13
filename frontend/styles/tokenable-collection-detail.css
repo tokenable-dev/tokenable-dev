@@ -1631,10 +1631,12 @@
 }
 
 .collection-detail-page .cd-ob-trades-empty {
-  height: 300px;
-  max-height: 300px;
-  box-sizing: border-box;
-  padding: 12px 0;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .collection-detail-page .cd-ob-trades-empty span {
@@ -1758,6 +1760,12 @@
 }
 
 .collection-detail-page .cd-ob-book-empty {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
   padding: 12px 0;
 }
 

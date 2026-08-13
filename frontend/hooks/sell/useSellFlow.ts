@@ -17,7 +17,10 @@ import { fetchKycStatus } from "@/lib/kyc/api";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import type { KycStatus } from "@/lib/auth";
 import { isKycComplete } from "@/lib/auth/accountAccess";
-import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
+import {
+  formatPsaAnalyzeError,
+  isPsaRateLimitError,
+} from "@/lib/psa/psaApiErrors";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
@@ -506,7 +509,7 @@ export function useSellFlow() {
         const cert = r.psa.certNumber?.trim() ?? "";
         if (!cert) {
           setCertError(
-            "Couldn’t read a cert number from that image. Try Look up with the number on the slab.",
+            "Please upload an image of a graded card (PSA, BGS, or CGC slab with the cert label visible).",
           );
           return;
         }
@@ -525,9 +528,7 @@ export function useSellFlow() {
             "PSA rate limit reached. Please wait and try again later.",
           );
         } else {
-          setCertError(
-            e instanceof Error ? e.message : "Slab scan failed. Try again.",
-          );
+          setCertError(formatPsaAnalyzeError(e));
         }
       } finally {
         lookupLockRef.current = false;

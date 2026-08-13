@@ -30,6 +30,12 @@ After a fixed image is pushed to ECR, redeploy without the override file.
 
 ---
 
+## PSA `/api/psa/analyze` returns 400 (ungraded / raw card)
+
+Cert OCR reads the PSA/BGS/CGC **slab label**, not a raw card. Cardhedger then returns 400/404/422; analyze surfaces **400** with *Please upload an image of a graded card…*. Pass `certNumber` if the cert is known. A 500 with Nest `Http Exception` and no `Card Hedge HTTP 5xx — retrying` log is usually this 4xx path (the real body is on `HttpException.getResponse()`).
+
+---
+
 ## PSA `/api/psa/analyze` returns 500 on deployed server
 
 1. Check backend logs for `PSA analyze failed:`:

@@ -1,3 +1,4 @@
+import { HttpException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import { PsaPublicApiService } from './psa-public-api.service';
@@ -134,6 +135,40 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
         '/v1/cards/details-by-cert-ocr',
         expect.any(Object),
       );
+    });
+
+    it('returns empty certs when Cardhedger cert OCR returns 422', async () => {
+      const forwardJson = jest.fn(async () => {
+        throw new HttpException(
+          { detail: 'Could not extract certificate' },
+          422,
+        );
+      });
+      const svc = serviceWithMocks(forwardJson, true);
+      const result = await (
+        svc as unknown as {
+          tryResolveByCardhedgerCertOcr: (b: Buffer) => Promise<{
+            certCandidates: string[];
+          }>;
+        }
+      ).tryResolveByCardhedgerCertOcr(tinyPng);
+
+      expect(forwardJson).toHaveBeenCalledTimes(2);
+      expect(result.certCandidates).toEqual([]);
+    });
+
+    it('throws when Cardhedger cert OCR returns 5xx', async () => {
+      const forwardJson = jest.fn(async () => {
+        throw new HttpException({ detail: 'upstream' }, 502);
+      });
+      const svc = serviceWithMocks(forwardJson, false);
+      await expect(
+        (
+          svc as unknown as {
+            tryResolveByCardhedgerCertOcr: (b: Buffer) => Promise<unknown>;
+          }
+        ).tryResolveByCardhedgerCertOcr(tinyPng),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
     });
   });
 });

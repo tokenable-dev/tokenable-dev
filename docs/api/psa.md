@@ -89,9 +89,11 @@ Runs the full pipeline:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `slabFront` | file | Yes | Slab front image (JPEG/PNG/WebP, max 15 MB) |
+| `slabFront` | file | Yes | Graded slab front (JPEG/PNG/WebP, max 15 MB). Cert OCR reads the PSA/BGS/CGC label — not a raw card. |
 | `slabBack` | file | No | Slab back image |
 | `certNumber` | string | No | Manual cert hint when OCR finds no cert |
+
+**400:** Cardhedger could not extract a cert (typical for a raw/ungraded photo) and no `certNumber` hint was sent. Message: *Please upload an image of a graded card (PSA, BGS, or CGC slab with the cert label visible).*
 
 **Response:** `PsaAnalyzeResult` (see Swagger).
 
@@ -161,7 +163,8 @@ See logs with `perf: psa` and `[PsaPublicApiService]`.
 
 ## Troubleshooting
 
-- **500 on `/psa/analyze`:** Check logs for `PSA analyze failed:` — `sharp`, OOM, outbound HTTPS, upload > 15 MB.  
+- **400 on `/psa/analyze`:** Cert OCR could not read a PSA/BGS/CGC label. Upload a graded slab (label visible) or pass `certNumber`. Logs: `Cardhedger OCR failed: HTTP 400|404|422` plus the upstream JSON (`detail`, not Nest’s default `Http Exception`).  
+- **500 on `/psa/analyze`:** Check logs for `PSA analyze failed:` or Cardhedger **5xx**/network — `sharp`, OOM, outbound HTTPS, upload > 15 MB. Do not treat this as a bad photo.  
 - **429 on `/psa/analyze-by-cert` or `/psa/public/cert/...`:** PSA upstream rate limit — check WARN `PSA upstream 429`. Not a Tokenable local block.  
 - **Wrong card / empty grade:** Prefer `analyze-by-cert` for a known cert; slab OCR can pick the wrong cert first.  
 - **429:** Wait for PSA daily reset / Retry-After, add tokens to `PSA_PUBLIC_API_TOKENS`, or request higher quota from PSA.  

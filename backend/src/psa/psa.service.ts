@@ -187,6 +187,13 @@ export class PsaService {
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
 
+  /**
+   * Cert OCR reads the PSA/BGS/CGC label on a graded slab. Raw cards have no
+   * cert sticker, so Cardhedger returns 4xx and we surface this to the client.
+   */
+  static readonly GRADED_SLAB_IMAGE_REQUIRED =
+    'Please upload an image of a graded card (PSA, BGS, or CGC slab with the cert label visible).';
+
   /** Max distinct cert numbers tried against PSA Public API per OCR analyze. */
   private maxOcrCertAttempts(): number {
     return parsePositiveIntEnv(
@@ -534,6 +541,36 @@ export class PsaService {
     return mapped.certCandidates.length > 0 || Boolean(mapped.cardId);
   }
 
+  /** Cardhedger could not read a cert from the image (not an upstream outage). */
+  private static isUnusableCertOcrHttpStatus(status: number): boolean {
+    return status === 400 || status === 404 || status === 422;
+  }
+
+  private static describeCaughtError(e: unknown): {
+    status: number | null;
+    detail: string;
+  } {
+    if (e instanceof HttpException) {
+      const res = e.getResponse();
+      let detail: string;
+      if (typeof res === 'string') {
+        detail = res;
+      } else {
+        try {
+          detail = JSON.stringify(res);
+        } catch {
+          detail = String(res);
+        }
+      }
+      if (detail.length > 500) detail = `${detail.slice(0, 500)}…`;
+      return { status: e.getStatus(), detail };
+    }
+    return {
+      status: null,
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+
   private async tryResolveByCardhedgerCertOcr(
     image: Buffer,
   ): Promise<CardhedgerCertOcrResolveResult> {
@@ -564,9 +601,9 @@ export class PsaService {
             'Cardhedger prices-by-cert-ocr returned no cert/card — falling back to details-by-cert-ocr',
           );
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const { status, detail } = PsaService.describeCaughtError(e);
           this.logger.warn(
-            `Cardhedger prices-by-cert-ocr failed (${msg}) — falling back to details-by-cert-ocr`,
+            `Cardhedger prices-by-cert-ocr failed (HTTP ${status ?? 'n/a'}: ${detail}) — falling back to details-by-cert-ocr`,
           );
         }
       }
@@ -583,8 +620,19 @@ export class PsaService {
         normalized: PsaService.emptyCardhedgerOcrNormalized(),
       };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`Cardhedger OCR failed: ${msg}`);
+      const { status, detail } = PsaService.describeCaughtError(e);
+      this.logger.warn(
+        `Cardhedger OCR failed: HTTP ${status ?? 'n/a'} ${detail}`,
+      );
+      if (
+        status != null &&
+        PsaService.isUnusableCertOcrHttpStatus(status)
+      ) {
+        return {
+          certCandidates: [],
+          normalized: PsaService.emptyCardhedgerOcrNormalized(),
+        };
+      }
       throw new InternalServerErrorException(
         'CardHedger OCR 처리에 실패했습니다. CARDHEDGER_API_KEY 설정 및 업스트림 상태를 확인하세요.',
       );
@@ -1136,9 +1184,7 @@ export class PsaService {
         );
       }
     } else if (ocrCertCandidates.length === 0) {
-      throw new BadRequestException(
-        'CertNumber OCR에 실패했습니다. Cert Number를 직접 입력한 뒤 다시 시도해 주세요.',
-      );
+      throw new BadRequestException(PsaService.GRADED_SLAB_IMAGE_REQUIRED);
     } else {
       psaParsed = { ...psaParsed, certNumber: ocrCertCandidates[0] };
     }
@@ -1250,9 +1296,7 @@ export class PsaService {
           .filter((v, i, a) => a.indexOf(v) === i)
           .slice(0, explicitHint ? 1 : this.maxOcrCertAttempts()));
     if (candidateList.length === 0) {
-      throw new BadRequestException(
-        'CertNumber OCR에 실패했습니다. Cert Number를 직접 입력한 뒤 다시 시도해 주세요.',
-      );
+      throw new BadRequestException(PsaService.GRADED_SLAB_IMAGE_REQUIRED);
     }
 
     let apiLookupSuccess: Extract<
