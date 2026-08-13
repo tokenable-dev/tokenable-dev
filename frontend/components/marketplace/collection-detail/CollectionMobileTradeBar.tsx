@@ -8,8 +8,8 @@ function formatUsd(n: number | null | undefined): string {
 }
 
 /**
- * Card.html `#ob-bottom-bar` — fixed Buy / Bid strip on phones so trade actions
- * stay reachable while scrolling the order book.
+ * Card.html `#ob-bottom-bar` — fixed Buy / Bid strip on the mobile column
+ * so trade actions stay reachable while scrolling.
  */
 export function CollectionMobileTradeBar({
   lowestAskUsd,
@@ -30,7 +30,7 @@ export function CollectionMobileTradeBar({
   const hasBid = highestBidUsd != null && highestBidUsd > 0;
 
   return (
-    <div className="cd-mobile-trade-bar md:hidden" role="region" aria-label="Trade actions">
+    <div className="cd-mobile-trade-bar lg:hidden" role="region" aria-label="Trade actions">
       <div className="cd-mobile-trade-bar__meta tkl-mono">
         <span>
           Highest bid{" "}
@@ -63,7 +63,7 @@ export function CollectionMobileTradeBar({
             disabled={buyDisabled || !hasAsk}
             onClick={onBuy}
           >
-            {hasAsk ? `Buy now · ${formatUsd(lowestAskUsd)}` : "Buy now"}
+            Buy now
           </TkButton>
         ) : null}
       </div>

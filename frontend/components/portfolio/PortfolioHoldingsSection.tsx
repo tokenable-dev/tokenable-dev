@@ -23,7 +23,7 @@ import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
-import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 import { RedeemSelectModeBar } from "./redeem/RedeemSelectModeBar";
 
 type HoldingsSortKey = "name" | "grade" | "cost" | "value" | "pl";
@@ -223,7 +223,6 @@ export function PortfolioHoldingsSection({
                 });
                 onSetPrice(row.tokenId);
               }}
-              vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
             />
           );
         })}
@@ -287,7 +286,7 @@ export function PortfolioHoldingsSection({
               align="right"
               onSort={(k) => toggleSort(k as HoldingsSortKey)}
             />
-            <th className="pf-col-action-head">Action</th>
+            <PortfolioStaticTh label="Action" align="right" muted />
           </tr>
         </thead>
         <tbody>

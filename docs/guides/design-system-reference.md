@@ -30,7 +30,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 | **Hybrid** | Some pages still use bridge aliases (`--azure`, `--ink`) or page-local CSS — acceptable; converge when touching that file |
 | **Not yet** | Full semantic-token coverage on every surface; designer may hand off additional tokens (e.g. background hover/selected/active) **later** — add to `fig-tokens.css`, do not hardcode one-off hex values |
 
-Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: **`Tokenable-with design system-5/`** `_ds` bundle → `frontend/design-system/tokens/` + `components/components.css` (merged intentionally; `tk-btn--primary-inv` is an app-only extension).
+Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500`, from `index.html` `--azure`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: **`Tokenable-with design system-5/`** `_ds` bundle → `frontend/design-system/tokens/` + `components/components.css` (merged intentionally; `tk-btn--primary-inv` is an app-only extension).
 
 ---
 
@@ -91,6 +91,8 @@ We use **semantic CSS variables** from Figma, e.g.:
 | Elevated surface | `--background-default-secondary` | `--gray-100` |
 | Brand CTA fill | `--background-brand-default` → `--brand-500` | `--brand-600` |
 | Neutral chip / hover | `--background-neutral-hover` | varies |
+| Secondary text | `--text-default-secondary` `rgba(255,255,255,0.7)` | `rgba(17,17,17,0.78)` |
+| Tertiary text | `--text-default-tertiary` `rgba(255,255,255,0.52)` | `rgba(17,17,17,0.62)` |
 
 **Primitives:** `--brand-100` … `--brand-500` … `--brand-1000`, `--gray-*`, `--slate-*`, etc.
 
@@ -100,9 +102,9 @@ App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 
 | Alias | Maps to | Use in new code |
 |-------|---------|-----------------|
-| `--azure` | `rgb(26, 111, 255)` | Prefer `--brand-500` |
+| `--azure` | `#1A6FFF` (`--accent-azure` / `--brand-500`) | Accent text, eyebrows, and primary CTA fill (`index.html`) |
 | `--ink` | `#0e0e0e` | Prefer `--background-default-default` where possible |
-| `--t1`, `--t2`, `--t3` | text opacity steps | Prefer `--text-default-*` from fig-tokens |
+| `--t1`, `--t2`, `--t3` | `--text-default-default` / `secondary` / `tertiary` | Prefer `--text-default-*`. Dark `--t2` `rgba(255,255,255,0.7)`, `--t3` `rgba(255,255,255,0.52)`; light `--t2` `rgba(17,17,17,0.78)`, `--t3` `rgba(17,17,17,0.62)` |
 
 ### Adding tokens from designer handoff
 

@@ -167,7 +167,7 @@
 
 .po-help {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--t3);
   margin-top: 18px;
   line-height: 1.6;
 }
@@ -217,7 +217,7 @@
 
 .po-banner__d {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .po-save-error {

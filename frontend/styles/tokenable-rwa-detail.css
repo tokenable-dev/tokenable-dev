@@ -178,7 +178,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--t3);
 }
 
 .rd-list-sheet__ref,
@@ -203,7 +203,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--t3);
 }
 
 .rd-list-sheet__ref-val {
@@ -284,7 +284,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--t3);
 }
 
 .rd-list-sheet__fee-amt {

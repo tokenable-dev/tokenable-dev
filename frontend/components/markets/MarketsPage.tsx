@@ -296,17 +296,6 @@ export default function MarketsPage() {
           </div>
         ) : (
           <>
-            <div className="markets-results-meta">
-              <span className="markets-results-count">
-                <b>{filteredSorted.length.toLocaleString()}</b>
-                {hasNextPage ? "+" : ""} results
-                {hasNextPage ? (
-                  <span className="markets-results-more"> · scroll for more</span>
-                ) : null}
-              </span>
-              <span className="markets-results-live">Live feed</span>
-            </div>
-
             <MarketsCollectionGrid
               collections={filteredSorted}
               snapshotByKey={snapshotByKey}

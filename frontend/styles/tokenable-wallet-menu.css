@@ -117,7 +117,7 @@
   background: rgba(255, 255, 255, 0.07);
   border: 0;
   border-radius: 7px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
   cursor: pointer;
   transition: color 0.12s, background 0.12s;
 }
@@ -216,7 +216,7 @@
 .tk-wd-sub {
   padding-left: 32px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .tk-wd-sub:hover:not(:disabled) {
@@ -294,7 +294,7 @@
 .tk-mw-link--sub {
   padding-left: 16px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .tk-mw-link--sub:hover:not(:disabled) {

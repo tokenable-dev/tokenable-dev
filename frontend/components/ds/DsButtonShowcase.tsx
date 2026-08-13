@@ -22,7 +22,7 @@ export function DsButtonShowcase() {
           fontSize: 11,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color: "rgba(255,255,255,0.45)",
+          color: "var(--t3)",
           marginBottom: 12,
         }}
       >

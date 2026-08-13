@@ -1,14 +1,12 @@
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
-import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 
 export function CollectionDetailLoadingShell() {
   return (
     <div className="collection-detail-page min-h-screen min-w-0 overflow-x-clip text-white">
       <div
-        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} sm:pb-20 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)]`}
+        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS}`}
       >
-        <CollectionDetailMobileNav />
-        <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
+        <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6 max-lg:hidden" />
         <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
           <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
             <div className="h-10 w-48 rounded-md bg-gray-800/50" />

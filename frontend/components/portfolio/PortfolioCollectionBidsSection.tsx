@@ -8,7 +8,7 @@ import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portf
 import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
-import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 
 type BidsSortKey = "name" | "bid" | "ask";
 
@@ -106,7 +106,14 @@ export function PortfolioCollectionBidsSection({
         onChange={applyMobileSort}
       />
 
-      <TkTable wrapClassName="pf-table-wrap">
+      <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids">
+        <colgroup>
+          <col className="pf-col-card" />
+          <col className="pf-col-bid" />
+          <col className="pf-col-ask" />
+          <col className="pf-col-status" />
+          <col className="pf-col-action" />
+        </colgroup>
         <thead>
           <tr>
             <PortfolioSortableTh
@@ -132,8 +139,8 @@ export function PortfolioCollectionBidsSection({
               align="right"
               onSort={(k) => toggleSort(k as BidsSortKey)}
             />
-            <th style={{ textAlign: "right" }}>Status</th>
-            <th style={{ textAlign: "right" }}>Action</th>
+            <PortfolioStaticTh label="Status" align="right" />
+            <PortfolioStaticTh label="Action" align="right" muted />
           </tr>
         </thead>
         <tbody>

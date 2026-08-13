@@ -310,7 +310,7 @@ Deferred (feature, not polish): claim API, cancel redeem, Markets unsupported fa
 
 | Legacy (current app) | New DS |
 |----------------------|--------|
-| `--mint` `#10d333` | `--brand-500` `#0033FF` |
+| `--mint` `#10d333` | `--brand-500` `#1A6FFF` |
 | `bg-gray-950` | `--background-default-default` |
 | Geist sans/mono | Inter / JetBrains Mono |
 | Rounded Tailwind buttons | `tk-btn` pixel clip-path |

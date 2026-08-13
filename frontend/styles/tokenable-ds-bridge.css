@@ -13,8 +13,8 @@
   --surf: #141414;
   --surf-2: #111111;
   --line: rgba(255, 255, 255, 0.08);
-  /* Accent alias — DS-4 Bold Blue (same as --brand-500) */
-  --azure: rgb(0, 51, 255);
+  /* Accent text / eyebrows — DS `--accent-azure` (#5B9AFF), not primary `--brand-500` */
+  --azure: var(--accent-azure);
   --pos: rgb(0, 200, 100);
   --neg: rgb(228, 55, 74);
   --amber: #f59e0b;
@@ -22,8 +22,8 @@
   --amber-border: rgba(245, 158, 11, 0.25);
   --warn: rgb(234, 130, 0);
   --t1: rgba(255, 255, 255, 0.95);
-  --t2: rgba(255, 255, 255, 0.6);
-  --t3: rgba(255, 255, 255, 0.38);
+  --t2: var(--text-default-secondary);
+  --t3: var(--text-default-tertiary);
 }
 
 .mono,

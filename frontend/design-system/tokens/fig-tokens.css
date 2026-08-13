@@ -2,7 +2,7 @@
    FLOAT tokens are unitless — multiply by 1px in calc() where a length is needed. */
 
 :root {
-  --accent-azure: rgb(0,51,255); /* @kind color */
+  --accent-azure: rgb(26, 111, 255); /* @kind color */ /* #1A6FFF Accent */
   --background-brand-default: var(--brand-500); /* @kind color */
   --background-brand-hover: var(--brand-400); /* @kind color */
   --background-brand-secondary-hover: rgba(26,111,255,0.24); /* @kind color */
@@ -115,7 +115,7 @@
   --brand-200: rgb(221,231,255); /* @kind color */
   --brand-300: rgb(234,237,248); /* @kind color */ /* #EAEDF8 Accent */
   --brand-400: rgb(153,125,255); /* @kind color */ /* #977DFF Secondary */
-  --brand-500: rgb(0,51,255); /* @kind color */ /* #0033FF Primary */
+  --brand-500: rgb(26, 111, 255); /* @kind color */ /* #1A6FFF Primary */
   --brand-600: rgb(0,40,221); /* @kind color */
   --brand-700: rgb(0,30,180); /* @kind color */
   --brand-800: rgb(7,55,161); /* @kind color */
@@ -364,8 +364,8 @@
   --text-danger-secondary: rgba(255,107,122,0.75); /* @kind color */
   --text-danger-tertiary: rgba(255,107,122,0.5); /* @kind color */
   --text-default-default: rgba(255,255,255,0.95); /* @kind color */
-  --text-default-secondary: rgba(255,255,255,0.6); /* @kind color */
-  --text-default-tertiary: rgba(255,255,255,0.38); /* @kind color */
+  --text-default-secondary: rgba(255,255,255,0.7); /* @kind color */
+  --text-default-tertiary: rgba(255,255,255,0.52); /* @kind color */
   --text-disabled-default: rgba(255,255,255,0.28); /* @kind color */
   --text-disabled-on-disabled: rgba(255,255,255,0.22); /* @kind color */
   --text-negative-default: rgb(255,107,122); /* @kind color */
@@ -374,8 +374,8 @@
   --text-neutral-on-neutral-secondary: rgba(255,255,255,0.7); /* @kind color */
   --text-neutral-on-neutral-tertiary: rgba(255,255,255,0.5); /* @kind color */
   --text-neutral-on-neutral: rgba(255,255,255,0.95); /* @kind color */
-  --text-neutral-secondary: rgba(255,255,255,0.6); /* @kind color */
-  --text-neutral-tertiary: rgba(255,255,255,0.38); /* @kind color */
+  --text-neutral-secondary: rgba(255,255,255,0.7); /* @kind color */
+  --text-neutral-tertiary: rgba(255,255,255,0.52); /* @kind color */
   --text-on-negative: rgb(255,255,255); /* @kind color */
   --text-positive-default: rgb(0,200,100); /* @kind color */
   --text-positive-on-positive-secondary: rgba(16,16,30,0.75); /* @kind color */
@@ -619,8 +619,8 @@
   --text-danger-secondary: var(--red-600); /* @kind color */
   --text-danger-tertiary: var(--red-500); /* @kind color */
   --text-default-default: var(--gray-900); /* @kind color */
-  --text-default-secondary: var(--gray-500); /* @kind color */
-  --text-default-tertiary: var(--gray-500); /* @kind color */
+  --text-default-secondary: rgba(17,17,17,0.78); /* @kind color */
+  --text-default-tertiary: rgba(17,17,17,0.62); /* @kind color */
   --text-disabled-default: var(--gray-400); /* @kind color */
   --text-disabled-on-disabled: var(--gray-400); /* @kind color */
   --text-negative-default: var(--red-700); /* @kind color */

@@ -341,11 +341,13 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .pf-redeem-crumb {
     display: none !important;
   }
+}
 
+@media (max-width: 768px) {
   .pf-redeem-page {
     padding-top: 24px;
   }
@@ -536,7 +538,7 @@
   align-items: center;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
   margin-bottom: 0;
   user-select: none;
 }
@@ -1302,7 +1304,7 @@
   align-items: flex-start;
   padding: 8px 0;
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
   line-height: 1.5;
 }
 
@@ -1341,7 +1343,7 @@
   margin: 0;
   font-size: 13.5px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .pf-redeem-banner--azure {
@@ -1573,7 +1575,7 @@
   margin: 0 0 4px;
   font-size: 13.5px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .pf-redeem-gate__sub {
@@ -1810,7 +1812,7 @@
   margin: 0;
   font-size: 13.5px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .pf-redeem-return__link {

@@ -8,8 +8,6 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.05);
   --t1: rgba(255, 255, 255, 0.95);
-  --t2: rgba(255, 255, 255, 0.6);
-  --t3: rgba(255, 255, 255, 0.38);
   background: #0e0e0e;
   color: var(--t1);
   /* Do NOT use overflow-x:clip here — it forces a scroll containment and
@@ -40,6 +38,7 @@
   max-width: none;
   font-family: var(--font-sans);
   font-weight: 700;
+  /* Card.html `#hero-title` — same clamp on mobile and desktop. */
   font-size: clamp(22px, 2.4vw, 32px);
   line-height: 1.2;
   letter-spacing: -0.025em;
@@ -133,19 +132,14 @@
 
 @media (max-width: 1023px) {
   .collection-detail-page .collection-detail-page__shell {
-    padding-top: 6px;
-    padding-left: clamp(16px, 4vw, 40px);
-    padding-right: clamp(16px, 4vw, 40px);
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    padding-top: 24px;
+    /* Card.html `body { padding-bottom: 112px }` — clear the fixed trade bar. */
+    padding-bottom: max(112px, env(safe-area-inset-bottom, 0px) + 96px);
   }
 
   .collection-detail-page .cd-page-headline {
     display: block;
     margin-bottom: 20px;
-  }
-
-  .collection-detail-page .cd-page-headline__title {
-    font-size: clamp(24px, 5.5vw, 32px);
   }
 
   .collection-detail-page .cd-overview-board > div:last-child {
@@ -348,8 +342,8 @@
   transition: padding 0.16s ease;
 }
 
-/* Keep thumb / price / stats / Buy·Bid on one row (Card.html desktop). */
-@media (min-width: 901px) {
+/* Keep thumb / price / stats / Buy·Bid on one row (Card.html desktop ≥1024). */
+@media (min-width: 1024px) {
   .cd-hero-bar {
     flex-wrap: nowrap;
     align-items: center;
@@ -673,8 +667,8 @@
   }
 }
 
-/* ≤900px — Card.html mobile: book → bottom bar; card + price stay side by side */
-@media (max-width: 900px) {
+/* ≤1023 — mobile column: book → bottom bar; card + price stay side by side */
+@media (max-width: 1023px) {
   .cd-hero-bar {
     position: static !important;
     flex-direction: row;
@@ -1341,24 +1335,24 @@
 }
 
 .cd-mobile-trade-bar__bid.tk-btn,
-.cd-mobile-trade-bar__bid {
-  flex: 1;
+.cd-mobile-trade-bar__bid,
+.cd-mobile-trade-bar__buy.tk-btn,
+.cd-mobile-trade-bar__buy {
+  flex: 1 1 0;
+  min-width: 0;
   height: 48px !important;
   font-size: 14px !important;
   font-weight: 700 !important;
+}
+
+.cd-mobile-trade-bar__bid.tk-btn,
+.cd-mobile-trade-bar__bid {
   background: #fff !important;
   color: #1a6fff !important;
 }
 
-.cd-mobile-trade-bar__buy {
-  flex: 1.4;
-  height: 48px !important;
-  font-size: 15px !important;
-  font-weight: 600 !important;
-}
-
-/* Card.html #ob-bottom-bar — phones only (≤768) */
-@media (min-width: 769px) {
+/* Card.html #ob-bottom-bar — hide on desktop cluster (≥1024) */
+@media (min-width: 1024px) {
   .cd-mobile-trade-bar {
     display: none !important;
   }
@@ -1757,21 +1751,7 @@
   }
 }
 
-/* Headline title — Card.html h1 scale */
-@media (min-width: 1024px) {
-  .collection-detail-page .cd-page-headline__title {
-    font-size: clamp(22px, 2.4vw, 32px) !important;
-    line-height: 1.2 !important;
-    letter-spacing: -0.025em !important;
-  }
-}
-
 @media (max-width: 768px) {
-  .collection-detail-page .collection-detail-page__shell {
-    /* tkl-wrap already sets horizontal gutters — don't re-pad */
-    padding-top: 24px;
-  }
-
   .cd-breadcrumb {
     display: none !important;
   }
@@ -1782,10 +1762,6 @@
 
   .cd-hero-bar__thumb {
     height: 112px;
-  }
-
-  .cd-hero-bar__price {
-    font-size: clamp(26px, 6vw, 32px);
   }
 
   .cd-listings-header__title {

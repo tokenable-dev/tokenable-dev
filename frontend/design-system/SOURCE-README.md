@@ -17,7 +17,7 @@ This project was generated from the **"Tokenable Design System.fig"** Figma file
 
 ## Brand at a glance
 - **Name / wordmark:** TOKENABLE, geometric all-caps; pixel-style "T" symbol.
-- **Primary color:** Azure `#0033FF` (`--brand-500`), applied as a **solid** fill with a hard offset shadow on primary actions (pixel system — no gradient/glow on UI chrome). The Figma variables retain a gradient ramp for reference.
+- **Primary color:** Azure `#1A6FFF` (`--brand-500`), applied as a **solid** fill with a hard offset shadow on primary actions (pixel system — no gradient/glow on UI chrome). The Figma variables retain a gradient ramp for reference.
 - **Surface:** dark-first — near-black blue-tinted `rgb(16,16,30)` base, layered secondary/tertiary surfaces.
 - **Type:** Inter (sans), Roboto Mono (mono/numeric), Noto Serif (rare serif) — *provisional defaults, not confirmed from the file; see Caveats.*
 - **Mood:** premium, financial, confident — with an **on-chain pixel identity**. The chosen web3 aesthetic is **Pixel**: hard 2px edges, crisp offset shadows (no blur), notched (chamfer) corners, mono uppercase chrome, and solid azure (no gradients/glow on UI chrome). It extends the pixel "T" logo. See `explorations/web3-aesthetic.html` (Glass · Pixel · Hybrid study) and the **Pixel System** card.
@@ -64,7 +64,7 @@ Built in (don't undo these):
 
 Manual considerations (verify per use):
 - **Touch targets:** `md` controls are 44–46px (AA). The `sm` variants (Button 38, IconButton 36, page 38) are below 44px — fine for dense desktop toolbars, but prefer `md` on touch surfaces.
-- **Tertiary text** (`--text-default-tertiary`, ~38%) is for non-essential meta only (timestamps, hints) — never body copy or anything load-bearing; use `--text-default-secondary` (~60%) for readable secondary text.
+- **Tertiary text** (`--text-default-tertiary`, dark 52% / light 62%) is for non-essential meta only (timestamps, hints) — never body copy or anything load-bearing; use `--text-default-secondary` (dark 70% / light 78%) for readable secondary text.
 - **Dialog focus trap:** `Dialog` sets the right roles but does not trap/restore focus — add focus management when wiring it into a real flow.
 - **Accordion:** triggers expose `aria-expanded`; add `aria-controls` linking to the panel id if you need full APG compliance.
 

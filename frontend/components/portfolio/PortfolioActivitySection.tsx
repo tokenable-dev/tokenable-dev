@@ -10,12 +10,13 @@ import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
 import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
 
-type HistorySortKey = "date" | "type" | "card" | "amount";
+type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
 
 const HISTORY_SORT_OPTIONS = [
   { key: "date", label: "Date" },
   { key: "type", label: "Type" },
   { key: "card", label: "Card" },
+  { key: "status", label: "Status" },
   { key: "amount", label: "Amount" },
 ] as const;
 
@@ -38,6 +39,8 @@ export function PortfolioActivitySection({
           return compareSortText(a.type, b.type, sortDir);
         case "card":
           return compareSortText(a.asset, b.asset, sortDir);
+        case "status":
+          return compareSortText(a.status ?? "settled", b.status ?? "settled", sortDir);
         case "amount":
           return compareSortNum(a.price, b.price, sortDir);
         default:
@@ -69,7 +72,14 @@ export function PortfolioActivitySection({
         onChange={applyMobileSort}
       />
 
-      <TkTable wrapClassName="pf-table-wrap">
+      <TkTable wrapClassName="pf-table-wrap" className="pf-table--history">
+        <colgroup>
+          <col className="pf-col-date" />
+          <col className="pf-col-type" />
+          <col className="pf-col-card" />
+          <col className="pf-col-status" />
+          <col className="pf-col-amount" />
+        </colgroup>
         <thead>
           <tr>
             <PortfolioSortableTh
@@ -93,7 +103,14 @@ export function PortfolioActivitySection({
               sortDir={sortDir}
               onSort={(k) => toggleSort(k as HistorySortKey)}
             />
-            <th style={{ textAlign: "right" }}>Status</th>
+            <PortfolioSortableTh
+              label="Status"
+              sortKey="status"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              align="right"
+              onSort={(k) => toggleSort(k as HistorySortKey)}
+            />
             <PortfolioSortableTh
               label="Amount"
               sortKey="amount"

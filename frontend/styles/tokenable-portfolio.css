@@ -286,16 +286,108 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
 }
 
-.pf-mobile-sort .tk-select-wrap {
+.pf-mobile-sort__wrap {
+  position: relative;
   flex: 1;
   max-width: 220px;
+  min-width: 0;
 }
 
-.pf-mobile-sort__select {
+.pf-mobile-sort__trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: block;
+  width: 100%;
+  background: #191919;
+  color: #fff;
+  border: 0;
+  border-radius: 0;
   font-family: var(--font-mono);
   font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  padding: 10px 36px 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pf-mobile-sort__trigger:hover,
+.pf-mobile-sort__trigger:focus,
+.pf-mobile-sort__trigger[aria-expanded="true"] {
+  background: #191919;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  outline: none;
+}
+
+.pf-mobile-sort__trigger svg {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.pf-mobile-sort__trigger[aria-expanded="true"] svg {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.pf-mobile-sort__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #191919;
+  padding: 6px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pf-mobile-sort__option {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pf-mobile-sort__option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.pf-mobile-sort__option--sel {
+  color: #fff;
+  background: rgba(64, 91, 255, 0.12);
+}
+
+.pf-mobile-sort__option--sel:hover {
+  background: rgba(64, 91, 255, 0.18);
+  color: #eaedf8;
 }
 
 /* ── Tables (Portfolio.html tk-table) ───────────────────────────────────── */
@@ -305,6 +397,7 @@
   border-radius: 16px;
   background: #191919;
   width: 100%;
+  box-shadow: none;
 }
 
 .portfolio-page .pf-table-wrap .tk-table {
@@ -313,21 +406,23 @@
   border-spacing: 0;
 }
 
-/* My Assets — fixed column widths (Portfolio.html tk-table) */
-.portfolio-page .pf-table--holdings {
+/* Fixed column areas — keep thead labels over the same slot as body cells */
+.portfolio-page .pf-table--holdings,
+.portfolio-page .pf-table--bids,
+.portfolio-page .pf-table--history {
   table-layout: fixed;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-card {
-  width: 22%;
+  width: 26%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-grade {
-  width: 8%;
+  width: 10%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-cost {
-  width: 11%;
+  width: 12%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-value {
@@ -335,7 +430,7 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-profit {
-  width: 12%;
+  width: 11%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-return {
@@ -343,11 +438,47 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action {
-  width: auto;
+  width: 19%;
 }
 
-.portfolio-page .pf-table--holdings .pf-col-action-head {
-  text-align: right;
+.portfolio-page .pf-table--bids .pf-col-card {
+  width: 38%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-bid {
+  width: 14%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-ask {
+  width: 14%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-status {
+  width: 18%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-action {
+  width: 16%;
+}
+
+.portfolio-page .pf-table--history .pf-col-date {
+  width: 14%;
+}
+
+.portfolio-page .pf-table--history .pf-col-type {
+  width: 10%;
+}
+
+.portfolio-page .pf-table--history .pf-col-card {
+  width: 36%;
+}
+
+.portfolio-page .pf-table--history .pf-col-status {
+  width: 24%;
+}
+
+.portfolio-page .pf-table--history .pf-col-amount {
+  width: 16%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-num-cell {
@@ -400,7 +531,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.portfolio-page .pf-table-wrap thead th {
+.portfolio-page .pf-table-wrap thead th,
+.portfolio-page .pf-table-wrap thead .pf-th {
   text-align: left;
   padding: 10px;
   font-family: var(--font-mono);
@@ -411,6 +543,19 @@
   font-weight: 600;
   border-bottom: none;
   background: transparent;
+  vertical-align: middle;
+}
+
+.portfolio-page .pf-table-wrap thead .pf-th--right {
+  text-align: right;
+}
+
+.portfolio-page .pf-table-wrap thead .pf-th--center {
+  text-align: center;
+}
+
+.portfolio-page .pf-table-wrap thead .pf-th--muted {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .portfolio-page .pf-th-sort {
@@ -425,14 +570,17 @@
   text-transform: inherit;
   cursor: pointer;
   padding: 0;
+  max-width: 100%;
 }
 
 .portfolio-page .pf-th-sort--right {
-  margin-left: auto;
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .portfolio-page .pf-th-sort--center {
-  margin: 0 auto;
+  width: 100%;
+  justify-content: center;
 }
 
 .portfolio-page .pf-sort-arrow {
@@ -1122,7 +1270,7 @@
 
 .pf-mobile-asset-card__label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.4);
@@ -1183,6 +1331,31 @@
   width: 100%;
   min-height: 44px;
   font-size: 14px;
+}
+
+.pf-mobile-asset-card__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.pf-mobile-asset-card__note {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
+}
+
+.pf-mobile-asset-card__note--azure {
+  color: #8ec2ff;
+}
+
+.pf-mobile-asset-card__possession {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* ── Mobile / tablet (align with GNB ≤1024) ─────────────────────────────── */
@@ -1267,8 +1440,39 @@
 
 /* Phone — Portfolio.html @max-width 768: equal tabs + table→cards */
 @media (max-width: 768px) {
+  .portfolio-page .portfolio-page__shell.tkl-wrap {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .pf-stat-card__label {
+    font-size: 9px;
+  }
+
+  .pf-period {
+    font-size: 10px;
+    padding: 0 10px;
+  }
+
   .pf-mobile-sort {
     display: flex;
+  }
+
+  /* HTML: 3 tabs (My Assets / Bids / History) + Ship from vault */
+  .portfolio-page__tabs.tk-tabs {
+    padding: 8px 12px;
+    margin-left: calc(-1 * max(12px, env(safe-area-inset-left, 0px)));
+    margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px)));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-bottom: none;
+  }
+
+  .portfolio-page__tabs #portfolio-tab-redeem {
+    display: none;
+  }
+
+  .portfolio-page__tabs #portfolio-tab-redeem.tk-tab--active {
+    display: inline-flex;
   }
 
   .portfolio-page__tabs .tk-tab {
@@ -1279,6 +1483,29 @@
     gap: 5px;
   }
 
+  .portfolio-page--partner .portfolio-page__tabs .tk-tab {
+    flex: 0 0 auto;
+    padding: 10px 10px;
+  }
+
+  .portfolio-page__tabs .tk-tab svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .portfolio-page__tabs .pf-tab-n {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+
+  .portfolio-page__tabs .pf-redeem-toolbar-btn {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+    margin-left: 8px;
+    gap: 6px;
+  }
+
   .portfolio-page .pf-holdings-table-wrap {
     display: none;
   }
@@ -1287,16 +1514,38 @@
     display: flex;
   }
 
+  /* Bids / History: stacked cards (Portfolio.html). Force the whole table
+     to block layout — `td { display:flex }` is ignored while the table
+     is still `display:table` (Safari / table-layout:fixed + col widths). */
   .portfolio-page .pf-table-wrap {
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     border-radius: 16px;
     background: transparent;
-    max-width: 100%;
+    box-shadow: none;
+  }
+
+  .portfolio-page .pf-table--bids,
+  .portfolio-page .pf-table--history,
+  .portfolio-page .pf-table-wrap .tk-table,
+  .portfolio-page .pf-table-wrap .tk-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .portfolio-page .pf-table-wrap .tk-table colgroup,
+  .portfolio-page .pf-table-wrap .tk-table col {
+    display: none;
   }
 
   #portfolio-panel-bids .pf-table-btn,
   #portfolio-panel-history .pf-table-btn {
     width: 100%;
-    min-height: 44px;
+    min-height: 38px;
     font-size: 14px;
   }
 
@@ -1304,8 +1553,13 @@
     display: none;
   }
 
-  .portfolio-page .pf-table-wrap tbody tr {
+  .portfolio-page .pf-table-wrap tbody tr,
+  .portfolio-page .pf-table-wrap tbody tr.pf-table-row--zebra,
+  .portfolio-page .pf-history-row {
     display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
     padding: 16px;
     margin-bottom: 12px;
     background: rgba(255, 255, 255, 0.04);
@@ -1322,10 +1576,14 @@
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
+    box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
+    padding: 6px 0;
     font-size: 14px;
+    line-height: 1.4;
     border: none;
+    text-align: left;
   }
 
   .portfolio-page .pf-table-wrap tbody td::before {
@@ -1337,38 +1595,96 @@
     color: rgba(255, 255, 255, 0.45);
     font-weight: 600;
     flex-shrink: 0;
+    text-align: left;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:not(:first-child) > span,
+  .portfolio-page .pf-table-wrap tbody td:not(:first-child) > div,
+  .portfolio-page .pf-table-wrap tbody td:not(:first-child) .tk-tag,
+  .portfolio-page .pf-table-wrap tbody td:not(:first-child) .pf-hbadge {
+    margin-left: auto;
+    text-align: right;
+    flex-shrink: 0;
   }
 
   .portfolio-page .pf-table-wrap tbody td:first-child {
-    font-size: 17px;
+    font-size: 14px;
     font-weight: 700;
     margin-bottom: 4px;
     justify-content: flex-start;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-cell {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-name {
-    font-size: 17px;
-    line-height: 1.3;
+    flex-wrap: nowrap;
+    gap: 12px;
   }
 
   .portfolio-page .pf-table-wrap tbody td:first-child::before {
     display: none;
   }
 
-  .portfolio-page .pf-table-wrap tbody td:first-child img {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-thumb {
+    flex-shrink: 0;
+    width: 52px;
+    height: 70px;
+    padding: 4px;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-name {
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .portfolio-page .pf-table--history tbody td[data-label="Card"] .pf-table-card-name {
+    margin-left: auto;
+    flex: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    font-weight: 600;
+    text-align: right;
+    white-space: normal;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .portfolio-page .pf-table--history tbody td[data-label="Amount"] .pf-table-amount {
+    margin-left: auto;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .portfolio-page .pf-hbadge {
+    min-width: 0;
   }
 
   .portfolio-page .pf-table-wrap tbody td:last-child {
-    margin-top: 8px;
-    padding-top: 12px;
+    margin-top: 4px;
+    padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
 
@@ -1378,7 +1694,9 @@
 
   .portfolio-page .pf-table-wrap tbody td:last-child .pf-table-actions {
     width: 100%;
+    margin-left: 0;
     flex-direction: column;
+    align-items: stretch;
     gap: 8px;
   }
 

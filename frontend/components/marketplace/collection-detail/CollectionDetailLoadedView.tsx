@@ -21,7 +21,6 @@ import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
 import { CollectionDetailListingsGrid } from "./CollectionDetailListingsGrid";
 import { CollectionDetailListingsSection } from "./CollectionDetailListingsSection";
-import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 import { useCollectionListingModal } from "@/hooks/collection-detail/useCollectionListingModal";
 import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
 import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
@@ -213,9 +212,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   return (
     <div className="collection-detail-page min-h-screen min-w-0 text-white max-lg:min-h-0">
       <div
-        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-md:overflow-visible max-md:pb-[120px] md:overflow-visible md:pb-0`}
+        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-lg:overflow-visible lg:overflow-visible`}
       >
-        <CollectionDetailMobileNav />
         <CollectionDetailBreadcrumb
           categoryLabel={headline.collectionCategoryBadge}
           trailLabel={headline.headlineSetLine ?? headline.subtitle ?? headline.collectionHeadlineDisplayTitle}

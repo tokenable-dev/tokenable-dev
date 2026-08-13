@@ -201,7 +201,7 @@
   width: 100%;
   justify-content: center;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-page--submit .vault-submit-cta--mobile.tk-btn {
@@ -595,7 +595,7 @@
 
 .vault-badge--user {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-badge--system {
@@ -1325,7 +1325,7 @@
 }
 
 .vault-lookup-card__remove:hover {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-add-another-wrap {
@@ -1528,7 +1528,7 @@
   width: 100% !important;
   justify-content: center;
   font-size: 14px !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: var(--t2) !important;
 }
 
 /* ── Submit flow (legacy aliases) ─────────────────────────────────────────── */
@@ -1601,7 +1601,7 @@
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-section-card {
@@ -1831,7 +1831,7 @@
   margin-bottom: 12px;
   font-size: 14px;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-ship-addr__id {
@@ -4142,6 +4142,10 @@
     gap: 24px;
   }
 
+  .vault-breadcrumb {
+    display: none !important;
+  }
+
   .vault-ship-grid {
     grid-template-columns: 1fr;
   }
@@ -4280,11 +4284,6 @@
   .vault-submit-layout {
     grid-template-columns: 1fr;
     gap: 24px;
-  }
-
-  .vault-page--submit .vault-breadcrumb,
-  .vault-page--list .vault-breadcrumb {
-    display: none;
   }
 
   .vault-stepper {
@@ -4735,7 +4734,7 @@
   padding: 2px 8px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-card-row__cert {
@@ -5222,7 +5221,7 @@
   height: 42px;
   padding: 0 24px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-detail-package {
@@ -5624,7 +5623,7 @@
 
 .vault-lm-row.rejected .vault-lm-row__name,
 .vault-lm-row.failed .vault-lm-row__name {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--t2);
 }
 
 .vault-lm-row__name {

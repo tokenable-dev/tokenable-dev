@@ -61,6 +61,17 @@
   min-width: 8px;
 }
 
+.markets-slim-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.markets-slim-bar__end .markets-fw--sort {
+  flex: none;
+}
+
 /* Universal search + typeahead (Markets.html `.mk-usearch` / `.mk-ta`) */
 .markets-usearch {
   position: relative;
@@ -208,6 +219,8 @@
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 500;
+  line-height: 1;
+  box-sizing: border-box;
   cursor: pointer;
   white-space: nowrap;
   transition: background 120ms steps(2);
@@ -228,18 +241,24 @@
   color: #fff;
 }
 
+.markets-ddchip__text {
+  display: inline;
+}
+
 .markets-ddchip__label {
   font-weight: 500;
 }
 
 .markets-ddchip__val {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: inherit;
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #fff;
   max-width: 9.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 .markets-ddchip__count {
@@ -551,25 +570,36 @@
 
 .markets-fd-chips {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .markets-fd-option {
-  padding: 14px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
   font-family: var(--font-mono);
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  box-sizing: border-box;
+  color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   border: 0;
 }
 
-.markets-fd-option:hover,
-.markets-fd-option--sel {
+.markets-fd-option:hover {
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
-  background: var(--azure);
+}
+
+.markets-fd-option--sel {
+  background: rgba(26, 111, 255, 0.2);
+  color: #5b9aff;
 }
 
 .markets-filter-drawer__footer {
@@ -642,8 +672,8 @@
     min-width: 0;
   }
 
-  .markets-fw--sort {
-    margin-left: auto;
+  .markets-slim-bar__end {
+    display: contents;
   }
 
   .markets-ddchip__val {
@@ -654,12 +684,6 @@
 @media (max-width: 640px) {
   .markets-slim-bar {
     min-height: 0;
-  }
-
-  .markets-ddchip {
-    height: 36px;
-    padding: 0 12px;
-    font-size: 13px;
   }
 
   /* Icon + count only — label stays for a11y via aria-label on the button */
@@ -682,40 +706,6 @@
 }
 
 /* ── Results grid ─────────────────────────────────────────────────────────── */
-
-.markets-results-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 22px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.markets-results-count {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t2);
-}
-
-.markets-results-count b {
-  color: #fff;
-}
-
-.markets-results-more {
-  text-transform: none;
-  letter-spacing: 0.02em;
-  color: var(--t3, var(--t2));
-  opacity: 0.85;
-}
-
-.markets-results-live {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--t2);
-}
 
 /* Fixed column counts per breakpoint rather than auto-fill, so the card art
    stays large enough to read. Shared spec with .watchlist-grid. */

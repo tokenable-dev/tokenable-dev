@@ -281,10 +281,6 @@
 }
 
 @media (max-width: 768px) {
-  .card__img {
-    aspect-ratio: 0.85;
-  }
-
   .card__body {
     padding: 10px 10px 12px;
     gap: 8px;

@@ -117,8 +117,15 @@ function DdChip({
       aria-expanded={Boolean(open)}
       onClick={onClick}
     >
-      <span className="markets-ddchip__label">{label}</span>
-      {value ? <span className="markets-ddchip__val">{value}</span> : null}
+      <span className="markets-ddchip__text">
+        {label}
+        {value ? (
+          <>
+            {" "}
+            <span className="markets-ddchip__val">{value}</span>
+          </>
+        ) : null}
+      </span>
       {count != null && count > 0 ? (
         <i className="markets-ddchip__count">{count}</i>
       ) : null}
@@ -594,6 +601,7 @@ export function MarketsFilterBar({
 
         <div className="markets-slim-bar__sp" aria-hidden />
 
+        <div className="markets-slim-bar__end">
         {searchEnabled ? (
           <div ref={searchRef} className="markets-usearch">
             <div className="markets-usearch__box">
@@ -703,7 +711,7 @@ export function MarketsFilterBar({
 
         <div ref={sortRef} className="markets-fw markets-fw--sort">
           <DdChip
-            label="Sort"
+            label="Sort:"
             value={SORT_LABELS[sortId]}
             open={openPop === "sort"}
             onClick={() => setOpenPop((p) => (p === "sort" ? null : "sort"))}
@@ -748,6 +756,7 @@ export function MarketsFilterBar({
               onDone={() => setOpenPop(null)}
             />
           </div>
+        </div>
         </div>
       </div>
 

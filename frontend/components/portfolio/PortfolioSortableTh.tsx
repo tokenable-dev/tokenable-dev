@@ -33,6 +33,7 @@ function SortArrow({ dir }: { dir: PortfolioSortDir | null }) {
   );
 }
 
+/** Portfolio.html thead th — sortable label + dual chevron. */
 export function PortfolioSortableTh({
   label,
   sortKey,
@@ -50,7 +51,7 @@ export function PortfolioSortableTh({
 }) {
   const active = activeKey === sortKey;
   return (
-    <th style={{ textAlign: align }}>
+    <th className={`pf-th pf-th--${align}`}>
       <button
         type="button"
         className={`pf-th-sort pf-th-sort--${align}`}
@@ -59,6 +60,26 @@ export function PortfolioSortableTh({
         <span>{label}</span>
         <SortArrow dir={active ? sortDir : null} />
       </button>
+    </th>
+  );
+}
+
+/** Non-sortable thead cell (Status / Action) — same padding/align as Portfolio.html. */
+export function PortfolioStaticTh({
+  label,
+  align = "left",
+  muted = false,
+}: {
+  label: string;
+  align?: "left" | "right" | "center";
+  /** Action column uses rgba(255,255,255,0.5) in Portfolio.html. */
+  muted?: boolean;
+}) {
+  return (
+    <th
+      className={`pf-th pf-th--${align}${muted ? " pf-th--muted" : ""}`}
+    >
+      {label}
     </th>
   );
 }

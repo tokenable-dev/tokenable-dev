@@ -58,12 +58,13 @@
   --space-24: 96px;
 
   /* Brand palette */
-  --brand-primary: #0033FF;
+  --brand-primary: #1A6FFF;
   --brand-secondary: #977DFF;
   --brand-accent-text: #EAEDF8;
+  --azure: var(--accent-azure);
 
-  --color-signal-violet: linear-gradient(179deg, #0033FF 1.06%, #977DFF 123.42%);
-  --color-voltage-blue: #0033FF;
+  --color-signal-violet: linear-gradient(179deg, #1A6FFF 1.06%, #977DFF 123.42%);
+  --color-voltage-blue: #1A6FFF;
   --color-accent-text: #EAEDF8;
   --color-midnight-ink: #0e0e0e;
   --color-carbon: #191919;

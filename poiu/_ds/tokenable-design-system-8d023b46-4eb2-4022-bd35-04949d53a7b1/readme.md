@@ -60,7 +60,7 @@ Built in:
 
 Manual considerations:
 - `sm` controls (36–38px) below 44px touch target — prefer `md` on touch.
-- `--text-default-tertiary` (~38%) for non-essential meta only.
+- `--text-default-tertiary` (dark 52% / light 62%) for non-essential meta only.
 - Dialog doesn't trap focus — add management in real flows.
 
 ---

@@ -10,7 +10,7 @@ import {
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 
-/** Mobile My Assets card — Portfolio.html `mobile-asset-card` (status only in actions). */
+/** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
 export function PortfolioMobileAssetCard({
   row,
   grade,
@@ -30,7 +30,6 @@ export function PortfolioMobileAssetCard({
   onOpen,
   onSaveCostBasis,
   onSetPrice,
-  vaultLabel = "PSA Vault",
 }: {
   row: AssetRow;
   grade: string | null;
@@ -50,7 +49,6 @@ export function PortfolioMobileAssetCard({
   onOpen: () => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
   onSetPrice: () => void;
-  vaultLabel?: string;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
@@ -122,57 +120,84 @@ export function PortfolioMobileAssetCard({
             {row.name}
           </div>
           {grade ? (
-            <span className="pf-grade-vault pf-grade-vault--mobile">
-              <TkTag tone="neutral" appearance="soft" className="pf-mobile-asset-card__grade">
-                {grade}
-              </TkTag>
-              <span className="pf-vault-chip">{vaultLabel}</span>
-            </span>
+            <TkTag tone="neutral" appearance="soft" className="pf-mobile-asset-card__grade">
+              {grade}
+            </TkTag>
           ) : null}
         </div>
 
-        <div
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {costEditable && onSaveCostBasis ? (
-            <PortfolioCostBasisInlineEdit
-              layout="mobile"
-              assetName={row.name}
-              valueUsd={cost}
-              editable
-              saving={savingCostBasis}
-              onSave={onSaveCostBasis}
-            />
-          ) : (
-            <div className="pf-mobile-asset-card__row">
-              <span className="pf-mobile-asset-card__label">Cost</span>
-              <span className="pf-mobile-asset-card__val tkl-mono">{formatPortfolioUsd(cost)}</span>
-            </div>
-          )}
-        </div>
-        <div className="pf-mobile-asset-card__row">
-          <span className="pf-mobile-asset-card__label">Mkt Price</span>
-          <span className="pf-mobile-asset-card__val tkl-mono">
-            {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
-          </span>
-        </div>
-        <div className="pf-mobile-asset-card__row">
-          <span className="pf-mobile-asset-card__label">Profit</span>
-          <span className={`pf-mobile-asset-card__val tkl-mono pf-table-pl ${plClass}`}>
-            {pnl ? pnl.profit : "—"}
-          </span>
-        </div>
-        <div className="pf-mobile-asset-card__row">
-          <span className="pf-mobile-asset-card__label">Return</span>
-          <span
-            className={`pf-mobile-asset-card__val pf-mobile-asset-card__return tkl-mono pf-table-pl ${plClass}`}
-          >
-            {pnl ? pnl.returnPct : "—"}
-          </span>
-        </div>
+        {redeemStatus?.kind === "possession" ? (
+          <div className="pf-mobile-asset-card__possession tkl-mono">In your possession</div>
+        ) : null}
 
-        {!selectMode ? (
+        {redeemStatus && redeemStatus.kind !== "possession" ? (
+          <div className="pf-mobile-asset-card__status">
+            <span className={`pf-redeem-badge pf-redeem-badge--${redeemStatus.tone}`}>
+              {redeemStatus.label}
+            </span>
+            {redeemStatus.kind === "transit" ? (
+              <div className="pf-mobile-asset-card__note">
+                This card is on its way — it can&apos;t be listed.
+              </div>
+            ) : redeemStatus.kind === "preparing" ||
+              redeemStatus.kind === "custody_pending" ? (
+              <div className="pf-mobile-asset-card__note pf-mobile-asset-card__note--azure">
+                {redeemStatus.kind === "custody_pending"
+                  ? "Paid — finish transferring NFTs into custody."
+                  : "Paid — your cards are being prepared."}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {redeemStatus?.kind !== "transit" && redeemStatus?.kind !== "possession" ? (
+          <>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {costEditable && onSaveCostBasis ? (
+                <PortfolioCostBasisInlineEdit
+                  layout="mobile"
+                  assetName={row.name}
+                  valueUsd={cost}
+                  editable
+                  saving={savingCostBasis}
+                  onSave={onSaveCostBasis}
+                />
+              ) : (
+                <div className="pf-mobile-asset-card__row">
+                  <span className="pf-mobile-asset-card__label">Cost</span>
+                  <span className="pf-mobile-asset-card__val tkl-mono">
+                    {formatPortfolioUsd(cost)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="pf-mobile-asset-card__row">
+              <span className="pf-mobile-asset-card__label">Mkt Price</span>
+              <span className="pf-mobile-asset-card__val tkl-mono">
+                {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+              </span>
+            </div>
+            <div className="pf-mobile-asset-card__row">
+              <span className="pf-mobile-asset-card__label">Profit</span>
+              <span className={`pf-mobile-asset-card__val tkl-mono pf-table-pl ${plClass}`}>
+                {pnl ? pnl.profit : "—"}
+              </span>
+            </div>
+            <div className="pf-mobile-asset-card__row">
+              <span className="pf-mobile-asset-card__label">Return</span>
+              <span
+                className={`pf-mobile-asset-card__val pf-mobile-asset-card__return tkl-mono pf-table-pl ${plClass}`}
+              >
+                {pnl ? pnl.returnPct : "—"}
+              </span>
+            </div>
+          </>
+        ) : null}
+
+        {!selectMode && redeemStatus?.kind !== "possession" ? (
           <div
             className="pf-mobile-asset-card__actions"
             onClick={(e) => e.stopPropagation()}

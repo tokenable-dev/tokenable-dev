@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { HomeCardGrid } from "@/components/home/HomeCardGrid";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 export function HomeJustVaulted() {
-  const { justVaulted, snapshotByKey, isPending } = useHomeMarketplaceGrids();
+  const { justVaulted, snapshotByKey, isPending, snapshotsPending } =
+    useHomeMarketplaceGrids();
   const navigate = useHeaderNavGate();
 
   return (
@@ -29,6 +29,7 @@ export function HomeJustVaulted() {
           collections={justVaulted}
           snapshotByKey={snapshotByKey}
           subMode="vaulted"
+          changeLoading={snapshotsPending}
         />
       )}
     </section>
