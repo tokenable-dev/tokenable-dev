@@ -38,9 +38,9 @@
 .pf-sec-title {
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: clamp(26px, 3.2vw, 38px);
+  font-size: 22px;
   letter-spacing: -0.025em;
-  line-height: 1.05;
+  line-height: 1.2;
   margin: 10px 0 0;
   color: #fff;
 }

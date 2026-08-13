@@ -380,9 +380,9 @@
   margin: 10px 0 6px;
   font-family: var(--font-sans, system-ui, sans-serif);
   font-weight: 700;
-  font-size: clamp(24px, 4vw, 34px);
+  font-size: 22px;
   letter-spacing: -0.025em;
-  line-height: 1.1;
+  line-height: 1.2;
   color: #fff;
 }
 

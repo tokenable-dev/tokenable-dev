@@ -815,9 +815,10 @@
 
 .vault-dash-header h1 {
   margin: 0 0 4px;
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   color: #fff;
 }
 
@@ -2429,8 +2430,9 @@
 .vault-detail-page-title {
   margin: 0 0 22px;
   font-weight: 700;
-  font-size: 28px;
+  font-size: 22px;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   color: #fff;
 }
 
@@ -3341,9 +3343,9 @@
 .vault-hub-header__title {
   margin: 10px 0 0;
   font-weight: 700;
-  font-size: clamp(26px, 3.2vw, 38px);
+  font-size: 22px;
   letter-spacing: -0.025em;
-  line-height: 1.05;
+  line-height: 1.2;
   color: #fff;
 }
 
@@ -6125,7 +6127,7 @@
   }
 
   .vault-page--detail .vault-detail-page-title {
-    font-size: clamp(22px, 5vw, 28px);
+    font-size: 22px;
   }
 }
 
