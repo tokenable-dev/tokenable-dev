@@ -56,12 +56,15 @@
   display: flex;
   align-items: stretch;
   width: max-content;
-  /* Longer strip (~48 mock items) — keep scroll pace readable */
-  animation: tk-marquee 160s linear infinite;
+  /* Pace for the live strip (~8 names, duplicated). 160s was for a 48-item mock. */
+  animation: tk-marquee 48s linear infinite;
+  will-change: transform;
 }
 
-.home-ticker:hover .ticker-row {
-  animation-play-state: paused;
+@media (hover: hover) and (pointer: fine) {
+  .home-ticker:hover .ticker-row {
+    animation-play-state: paused;
+  }
 }
 
 @keyframes tk-marquee {

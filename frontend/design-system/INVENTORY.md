@@ -77,7 +77,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-markets.css` (grid 6/5/3/3/2 — do not regress)
 
-**Facets wired (client-side):** category, price, grade (PSA 10 / PSA 9 only), sort. Year / vault / BGS / category tree deferred until backend supports them.
+**Facets wired (client-side):** category, price, grade (PSA 10 / 9, BGS Pristine / 10 / 9.5), sort. Year / vault / category tree deferred until backend supports them.
 
 ---
 

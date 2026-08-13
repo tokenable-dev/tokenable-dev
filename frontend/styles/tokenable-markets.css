@@ -883,6 +883,33 @@
   padding-bottom: 56px;
 }
 
+.markets-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 22px;
+}
+
+.markets-results-bar__count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.markets-results-bar__count b {
+  color: #fff;
+}
+
+.markets-results-bar__label {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--t2);
+}
+
 .markets-load-more {
   display: flex;
   justify-content: center;

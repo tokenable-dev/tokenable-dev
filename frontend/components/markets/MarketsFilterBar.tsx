@@ -486,7 +486,7 @@ export function MarketsFilterBar({
             )}
             role="menu"
           >
-            <div className="markets-pop__label">Grade (PSA)</div>
+            <div className="markets-pop__label">Grade</div>
             {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => {
               const selected = gradeFilters.has(grade);
               return (
@@ -856,7 +856,7 @@ export function MarketsFilterBar({
           </div>
 
           <div className="markets-fd-section">
-            <span className="markets-fd-label">Grade (PSA)</span>
+            <span className="markets-fd-label">Grade</span>
             <div className="markets-fd-chips">
               {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => (
                 <button

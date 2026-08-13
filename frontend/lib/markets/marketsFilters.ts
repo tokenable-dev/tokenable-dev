@@ -11,7 +11,12 @@ export type MarketsPriceFilterId =
   | "10k_50k"
   | "50k_plus";
 
-export type MarketsGradeFilterId = "PSA 10" | "PSA 9";
+export type MarketsGradeFilterId =
+  | "PSA 10"
+  | "PSA 9"
+  | "BGS Pristine"
+  | "BGS 10"
+  | "BGS 9.5";
 
 export const MARKETS_DEFAULT_PRICE_FILTER: MarketsPriceFilterId = "any";
 
@@ -30,6 +35,9 @@ export const MARKETS_PRICE_FILTER_OPTIONS: {
 export const MARKETS_GRADE_FILTER_OPTIONS: MarketsGradeFilterId[] = [
   "PSA 10",
   "PSA 9",
+  "BGS Pristine",
+  "BGS 10",
+  "BGS 9.5",
 ];
 
 export function formatCollectionGradeLabel(collection: MarketplaceCollectionSummary): string | null {

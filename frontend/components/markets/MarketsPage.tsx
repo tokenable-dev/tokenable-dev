@@ -287,15 +287,23 @@ export default function MarketsPage() {
               <GatedSellLink className="text-[var(--azure)] hover:underline">Vault</GatedSellLink>.
             </p>
           </div>
-        ) : filteredSorted.length === 0 && sortedForRank.length > 0 ? (
-          <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
-            <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
-            <p className="mt-2 text-sm text-[var(--t3)]">
-              Try All, a different category, price range, or grade.
-            </p>
-          </div>
         ) : (
           <>
+            <div className="markets-results-bar">
+              <span className="markets-results-bar__count">
+                <b>{filteredSorted.length.toLocaleString("en-US")}</b> results
+              </span>
+              <span className="markets-results-bar__label">Live feed</span>
+            </div>
+            {filteredSorted.length === 0 ? (
+              <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
+                <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
+                <p className="mt-2 text-sm text-[var(--t3)]">
+                  Try All, a different category, price range, or grade.
+                </p>
+              </div>
+            ) : (
+              <>
             <MarketsCollectionGrid
               collections={filteredSorted}
               snapshotByKey={snapshotByKey}
@@ -355,6 +363,8 @@ export default function MarketsPage() {
                 </p>
               </Link>
             ) : null}
+              </>
+            )}
           </>
         )}
       </div>
