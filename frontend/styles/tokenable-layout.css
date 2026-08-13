@@ -19,7 +19,7 @@
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -30,7 +30,7 @@
   content: "";
   width: 18px;
   height: 2px;
-  background: var(--azure);
+  background: var(--eyebrow);
 }
 
 .tkl-sec-title {

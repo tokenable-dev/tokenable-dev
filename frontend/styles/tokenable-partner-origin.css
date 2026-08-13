@@ -30,7 +30,7 @@
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--azure, #1a6fff);
+  color: var(--eyebrow);
 }
 
 .po-title {

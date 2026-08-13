@@ -387,7 +387,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
   margin-bottom: 8px;
 }
 
@@ -1787,7 +1787,7 @@
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
 }
 
 .vault-shipping-header__title {
@@ -3038,7 +3038,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
 }
 
 .vault-list-title {
@@ -3335,7 +3335,7 @@
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
 }
 
 .vault-hub-header__title {

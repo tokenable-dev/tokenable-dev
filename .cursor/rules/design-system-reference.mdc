@@ -17,8 +17,8 @@ For **UI, layout, styling, or new visual design** on the Tokenable frontend:
 
 ## Quick rules
 
-- **Source of truth:** `frontend/design-system/` — not `Tokenable-with design system/` (prototype is reference only; manual merge).
-- Dark-first azure pixel aesthetic; prefer `--brand-500` over `--azure` in new code.
+- **Source of truth:** `frontend/design-system/` + `tokenable-ds-bridge.css` — not prototype HTML `:root` colors (those drift). Map HTML to locked tokens in `docs/guides/design-system-reference.md`.
+- Dark-first azure pixel aesthetic. Primary/CTA = `--brand-500` / `--azure` (`#1A6FFF`). Page eyebrows = `--eyebrow` (`#5B9AFF`). Neutral buttons = `--brand-400` (`#977DFF`). Do not copy hex from HTML `:root`.
 - Center modal = `TkDialog`; portfolio trade sheets = `TkActionSheet`.
 - No prototype HTML paste, no `dangerouslySetInnerHTML`, no `support.js`.
 - DS CSS/token PRs: one-line `DS: …` changelog; check `/dev/design-system`.

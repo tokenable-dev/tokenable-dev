@@ -297,7 +297,7 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow);
   margin-bottom: 14px;
 }
 
@@ -2574,7 +2574,10 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b;
 }
 
-.sell-flow-page .sell-flow-eyebrow,
+.sell-flow-page .sell-flow-eyebrow {
+  color: var(--eyebrow);
+}
+
 .sell-flow-page .sell-flow-sub,
 .sell-flow-page .sell-flow-consent-muted,
 .sell-flow-page .sell-flow-consent-note,

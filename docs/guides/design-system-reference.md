@@ -30,7 +30,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 | **Hybrid** | Some pages still use bridge aliases (`--azure`, `--ink`) or page-local CSS — acceptable; converge when touching that file |
 | **Not yet** | Full semantic-token coverage on every surface; designer may hand off additional tokens (e.g. background hover/selected/active) **later** — add to `fig-tokens.css`, do not hardcode one-off hex values |
 
-Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500`, from `index.html` `--azure`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: **`Tokenable-with design system-5/`** `_ds` bundle → `frontend/design-system/tokens/` + `components/components.css` (merged intentionally; `tk-btn--primary-inv` is an app-only extension).
+Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azure`), **eyebrow** (`#5B9AFF` / `--eyebrow`), **Light Violet secondary** (`#977DFF` Neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). HTML prototypes are layout/copy reference only — **do not copy page `:root` colors**. Production color lives in `fig-tokens.css` + `tokenable-ds-bridge.css`.
 
 ---
 
@@ -102,7 +102,8 @@ App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 
 | Alias | Maps to | Use in new code |
 |-------|---------|-----------------|
-| `--azure` | `#1A6FFF` (`--accent-azure` / `--brand-500`) | Accent text, eyebrows, and primary CTA fill (`index.html`) |
+| `--azure` | `#1A6FFF` (`--accent-azure` / `--brand-500`) | Accent text, links, and primary CTA fill |
+| `--eyebrow` | `#5B9AFF` | **Page eyebrows only** (mono uppercase kicker above titles). Not Neutral buttons. |
 | `--ink` | `#0e0e0e` | Prefer `--background-default-default` where possible |
 | `--t1`, `--t2`, `--t3` | `--text-default-default` / `secondary` / `tertiary` | Prefer `--text-default-*`. Dark `--t2` `rgba(255,255,255,0.7)`, `--t3` `rgba(255,255,255,0.52)`; light `--t2` `rgba(17,17,17,0.78)`, `--t3` `rgba(17,17,17,0.62)` |
 
@@ -114,6 +115,24 @@ App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 4. Document the role in this file (table above or new subsection).
 
 Designer specs may use names like `$background`, `$background-hover` — **map to our semantic names** when implementing; do not introduce a second parallel naming system in code.
+
+**HTML `:root` color dumps are not source of truth.** Claude/designer HTML will drift (`--t2` 0.55 vs 0.6, `--brand-400` as `#5B9AFF` vs `#977DFF`). Map the screen to the locked palette below. Change tokens only when the designer explicitly asks to change that **role** (e.g. “make secondary text lighter”), in `fig-tokens.css` / `tokenable-ds-bridge.css` — never by copying a page-local `:root`.
+
+### Locked platform palette
+
+| Role | Token | Dark | Light (sell-flow canvas) |
+|------|-------|------|--------------------------|
+| Page background | `--ink` | `#0e0e0e` | `#F5F5F7` |
+| Card / panel | `--surf` | `#141414` | `#FFFFFF` |
+| Primary text | `--t1` | `rgba(255,255,255,0.95)` | `rgba(17,17,17,0.95)` |
+| Secondary text | `--t2` | `rgba(255,255,255,0.7)` | `rgba(17,17,17,0.78)` |
+| Tertiary text | `--t3` | `rgba(255,255,255,0.52)` | `rgba(17,17,17,0.62)` |
+| Primary / links / CTA | `--azure` / `--brand-500` | `#1A6FFF` | same |
+| Page eyebrow | `--eyebrow` | `#5B9AFF` | same |
+| Neutral button | `--brand-400` | `#977DFF` | same |
+| Up / down / warn | `--pos` / `--neg` / `--warn` | existing | same |
+
+Do not use `#5B9AFF` for Neutral buttons. Do not use `--brand-400` / `#977DFF` for page eyebrows.
 
 ---
 

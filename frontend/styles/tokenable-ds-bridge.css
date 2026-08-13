@@ -13,8 +13,10 @@
   --surf: #141414;
   --surf-2: #111111;
   --line: rgba(255, 255, 255, 0.08);
-  /* Accent text / eyebrows — DS `--accent-azure` (#5B9AFF), not primary `--brand-500` */
+  /* Primary accent / CTA / links — `#1A6FFF`. Eyebrows use `--eyebrow`, not this. */
   --azure: var(--accent-azure);
+  /* Page eyebrows only — not Neutral buttons (`--brand-400` / `#977DFF`). */
+  --eyebrow: #5b9aff;
   --pos: rgb(0, 200, 100);
   --neg: rgb(228, 55, 74);
   --amber: #f59e0b;
