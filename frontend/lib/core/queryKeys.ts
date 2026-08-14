@@ -266,7 +266,7 @@ export const rq = {
 
   /** Daily portfolio value snapshots for a wallet (per active app chain). */
   portfolioDailySnapshots: (addr: string, chainId: number) =>
-    ["portfolio-daily-snapshots", addr, chainId] as const,
+    ["portfolio-daily-snapshots", addr.trim().toLowerCase(), chainId] as const,
   /**
    * Market stats + series batch for portfolio holdings.
    * Collection keys are spread individually (not nested array) so React Query's

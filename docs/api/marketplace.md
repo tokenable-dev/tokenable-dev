@@ -430,7 +430,7 @@ Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** —
 
 ### `GET /api/marketplace/portfolio/daily/:wallet`
 
-Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing rows). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row.
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing rows, including a recapture that finishes while the GET backfill is still pricing). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row. Snapshot totals skip tokens with no Cardhedger mark — a newly minted card can appear in My Assets before it adds to Portfolio value.
 
 Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 

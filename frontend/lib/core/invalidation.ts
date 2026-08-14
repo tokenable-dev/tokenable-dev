@@ -52,7 +52,7 @@ async function _invalidatePortfolioDailySnapshots(
 ): Promise<void> {
   if (address?.trim()) {
     await qc.invalidateQueries({
-      queryKey: ["portfolio-daily-snapshots", address],
+      queryKey: ["portfolio-daily-snapshots", address.trim().toLowerCase()],
     });
     return;
   }

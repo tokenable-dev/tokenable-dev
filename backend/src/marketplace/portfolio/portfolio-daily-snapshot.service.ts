@@ -188,7 +188,9 @@ export class PortfolioDailySnapshotService {
     if (nowMs - last < PortfolioDailySnapshotService.FALLBACK_GUARD_MS) return;
     this.fallbackGuardMsByWalletChain.set(guardKey, nowMs);
 
-    await this.captureDailySnapshot(wallet, reference, resolved);
+    await this.captureDailySnapshot(wallet, reference, resolved, {
+      overwrite: false,
+    });
   }
 
   /** Non-blocking read-path fallback (see {@link ensureCurrentSlotSnapshot}). */
@@ -285,12 +287,24 @@ export class PortfolioDailySnapshotService {
     walletAddress: string,
     capturedAt = new Date(),
     chainId?: SupportedChainId,
+    opts?: { overwrite?: boolean },
   ): Promise<PortfolioDailySnapshot | null> {
     const wallet = walletAddress.trim().toLowerCase();
     if (!wallet) return null;
     const resolved = this.resolveChain(chainId);
     const totals = await this.computeWalletTotals(wallet, resolved);
     const slot = resolveKstDailySnapshotSlot(capturedAt);
+    if (opts?.overwrite === false) {
+      const existing = await this.snapshotRepo.findOne({
+        where: {
+          walletAddress: wallet,
+          snapshotDateKst: slot.snapshotDateKst,
+          chainId: resolved,
+        },
+        select: ['walletAddress', 'snapshotDateKst', 'chainId'],
+      });
+      if (existing) return existing;
+    }
     await this.upsertSlotTotals(wallet, resolved, slot, totals);
     return this.snapshotRepo.findOne({
       where: {
