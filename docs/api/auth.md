@@ -97,7 +97,7 @@ Upload a custom profile avatar (Settings → Profile). Uses the same S3 bucket /
 
 ### Shipping addresses (`/api/user/shipping-addresses`)
 
-Saved ship-to book for vault redeem / physical withdrawal. Controller: `user-shipping-addresses.controller.ts` (registered on `AuthModule`).
+Saved ship-to book for vault redeem / physical withdrawal, and the **default** used to prefill PSA vault return address on `/sell/shipping`. Controller: `user-shipping-addresses.controller.ts` (registered on `AuthModule`).
 
 | Method | Path | Notes |
 |--------|------|--------|
@@ -107,7 +107,7 @@ Saved ship-to book for vault redeem / physical withdrawal. Controller: `user-shi
 | `POST` | `/api/user/shipping-addresses/:id/default` | Set default |
 | `DELETE` | `/api/user/shipping-addresses/:id` | Delete; promotes another default if needed |
 
-All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`. Redeem’s “Save this address…” checkbox upserts the **default** address here (same fields / form UI as Settings).
+All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`. Redeem’s “Save this address…” checkbox upserts the **default** address here (same fields / form UI as Settings). PSA shipping (`useSellShipping`) prefills Return Address from `isDefault` (else first saved row), then Partner Origin if the address book is empty.
 
 ---
 

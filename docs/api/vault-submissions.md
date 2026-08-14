@@ -34,7 +34,7 @@ Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** c
 |-------|------|
 | `localStorage` (`tk_sell_flow_draft`) | Card list (cert, confirm flags) |
 | `localStorage` (`tk_sell_flow_progress`) | Step (`register` / `vault` / `cards` / `shipping-pack` / `shipping-track`), packing slip downloaded flag, tracking form |
-| Account API on `/sell/shipping` mount | **First durable write** — upsert confirmed cards → `awaiting_shipment` (retry UI if fail). Tracking confirm upserts again then `POST …/tracking` → `in_transit`. Return address is **manual entry** (no Maps) and stored in local progress for the next submission (not yet sent to PSA intake APIs). |
+| Account API on `/sell/shipping` mount | **First durable write** — upsert confirmed cards → `awaiting_shipment` (retry UI if fail). Tracking confirm upserts again then `POST …/tracking` → `in_transit`. Return address prefills from Settings **default** (`GET /user/shipping-addresses`, `isDefault` else first), else Partner **Origin** (`GET /marketplace/partners/me` `companyAddress`). User can edit for this shipment. If neither exists, local progress is the fallback (not yet sent to PSA intake APIs). |
 | Change Tracking | Vault Detail / success UI → `/sell/shipping?submission=<publicId>`. Loads the `in_transit` package, prefills carrier + number, and calls `POST …/tracking` only (no draft upsert). |
 
 **Register / seller consents:** `/sell/flow` always opens on the register screen. Consents are session-only and must be re-accepted each visit. Draft cards may still resume after Continue. Optional `?vault=self` (Partner Add Cards) prefills Partner vault so Continue skips Choose vault.

@@ -29,6 +29,7 @@ import {
   validateTracking,
 } from "@/lib/sell/sellFlowDraft";
 import {
+  getPartnerMe,
   getVaultSubmission,
   listVaultSubmissions,
   markVaultPackingSlipDownloaded,
@@ -56,29 +57,63 @@ function asShipDate(value: string | null | undefined): string {
   return todayIsoDate();
 }
 
+/** Map Partner Origin ISO-2 onto the PSA return-address country select. */
+function returnCountryFromOrigin(raw: string | null | undefined): string {
+  const c = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (c === "us" || c === "usa") return "us";
+  if (c === "ca" || c === "can") return "ca";
+  if (c === "gb" || c === "uk") return "gb";
+  if (c === "de") return "de";
+  if (c === "jp") return "jp";
+  if (c === "kr") return "kr";
+  if (!c) return "us";
+  return "intl";
+}
+
 async function loadPreferredReturnAddress(
   fallback: SellReturnAddressDraft,
 ): Promise<SellReturnAddressDraft> {
-  const blank =
-    !fallback.name.trim() && !fallback.line1.trim() && !fallback.city.trim();
-  if (!blank) return fallback;
   try {
     const rows = await listShippingAddresses();
     const preferred = rows.find((r) => r.isDefault) ?? rows[0] ?? null;
-    if (!preferred) return fallback;
-    return {
-      name: preferred.name || "",
-      line1: preferred.line1 || "",
-      line2: preferred.line2 || "",
-      city: preferred.city || "",
-      region: preferred.region || "",
-      postal: preferred.postal || "",
-      country: preferred.country || "us",
-      phone: preferred.phone || "",
-    };
+    if (preferred) {
+      return {
+        name: preferred.name || "",
+        line1: preferred.line1 || "",
+        line2: preferred.line2 || "",
+        city: preferred.city || "",
+        region: preferred.region || "",
+        postal: preferred.postal || "",
+        country: preferred.country || "us",
+        phone: preferred.phone || "",
+      };
+    }
   } catch {
-    return fallback;
+    /* fall through to Origin */
   }
+
+  try {
+    const me = await getPartnerMe();
+    const origin = me.companyAddress;
+    if (me.isPartner && origin) {
+      return {
+        name: origin.contactName.trim() || origin.companyName.trim(),
+        line1: origin.line1 || "",
+        line2: origin.line2 || "",
+        city: origin.city || "",
+        region: origin.region || "",
+        postal: origin.postal || "",
+        country: returnCountryFromOrigin(origin.country),
+        phone: origin.phone || "",
+      };
+    }
+  } catch {
+    /* keep local draft */
+  }
+
+  return fallback;
 }
 
 function syncErrorMessage(err: unknown): string {
@@ -603,7 +638,7 @@ export function useSellShipping() {
         publicId = shipped.publicId;
         writeSellSubmissionPublicId(publicId);
         clearSellFlowDraftLocal();
-        // Preserve return address for the next PSA submission (manual entry; no Maps).
+        // Keep last return as fallback when Settings has no default address.
         writeSellFlowProgress({
           returnAddress,
           vaultChoice: "psa",

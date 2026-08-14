@@ -284,8 +284,9 @@ export function SellShippingView() {
                 <span className="sell-ship-label">Return Address</span>
                 <div className="sell-ship-box">
                   <p className="sell-ship-return__copy">
-                    Where PSA sends the card back if it fails intake. Enter it once — we&rsquo;ll
-                    keep it for your next submission.
+                    Where PSA sends the card back if it fails intake. Prefills from your
+                    default address, or Partner Origin if you have none — change it if
+                    this shipment should go somewhere else.
                   </p>
 
                   {!ship.returnEditing && ship.returnComplete ? (
