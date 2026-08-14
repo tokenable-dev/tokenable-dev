@@ -182,11 +182,11 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 ### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
 
 Returns `{ tokenId, settlementPolicy, vaultLabel }` where `settlementPolicy` is `standard` or `self_vault_hold`.  
-`vaultLabel` is `PSA Vault` for standard custody, or `{partner displayName} vault` for Self vault. Used by list-ask builders and portfolio chips.
+`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `{partner displayName} vault` for Self vault. **Not** inferred from whether the owner is a marketplace partner. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
 
 ### `POST /api/marketplace/rwa-tokens/vault-info/batch`
 
-Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, settlementPolicy, vaultLabel }] }`.
+Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, settlementPolicy, vaultLabel }] }`. Chain-scoped via `x-tokenable-chain-id`. Same custody rule as settlement-policy (PSA vs partner vault per token, not per seller).
 
 ### `GET /api/marketplace/partners/self-vault-eligibility?wallet=`
 
@@ -283,6 +283,8 @@ Batch fetches list-row snapshots from **materialized** `collection_market_snapsh
 ### `GET /api/marketplace/collections/:key`
 
 Returns collection detail + active listings + collection bids + representative image URL.
+
+Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `{name} vault`, otherwise `PSA Vault`). A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
 
 When no `marketplace_collections` row exists yet, `collection: null` is returned (no 404) to support client prefetch.
 

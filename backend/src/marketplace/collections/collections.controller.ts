@@ -53,6 +53,8 @@ import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
+import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
+import { VaultService } from '../../vault/vault.service';
 import {
   CHAIN_ID_HEADER,
   ChainConfigService,
@@ -78,6 +80,7 @@ export class CollectionsController {
     private readonly mintEventListener: MintEventListenerService,
     private readonly chainConfig: ChainConfigService,
     private readonly partners: MarketplacePartnersService,
+    private readonly vault: VaultService,
     private readonly catalogCoverS3: CatalogCoverS3Service,
   ) {}
 
@@ -601,12 +604,19 @@ export class CollectionsController {
     const sellerNames = await this.partners.resolveDisplayNamesByWallets(
       listingsRaw.map((o) => o.offerer),
     );
-    const listings = listingsRaw.map((o) =>
-      Object.assign(o, {
+    const vaultByTokenId = await this.vault.getVaultDisplayByTokenIds(
+      this.chainConfig.getRwaAddress(chainId),
+      listingsRaw.map((o) => String(o.tokenId)),
+    );
+    const listings = listingsRaw.map((o) => {
+      const vault = vaultByTokenId.get(String(o.tokenId));
+      return Object.assign(o, {
         sellerDisplayName:
           sellerNames.get(String(o.offerer).toLowerCase()) ?? null,
-      }),
-    );
+        settlementPolicy: vault?.settlementPolicy ?? 'standard',
+        vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
+      });
+    });
 
     const representativeImageUrl = col
       ? pickCollectionDisplayImageUrl(col.coverImageUrl)

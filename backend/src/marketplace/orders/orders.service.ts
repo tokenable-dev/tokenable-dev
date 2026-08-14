@@ -38,6 +38,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { VaultService } from '../../vault/vault.service';
 import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
+import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
 import {
   backfillAskTokenIdFromParameters,
   isCriteriaCollectionBidOrder,
@@ -84,28 +85,78 @@ export class OrdersService {
     private readonly selfVaultSettlements: SelfVaultSettlementService,
   ) {}
 
-  private async withSellerDisplayNames(
+  private async withListingDisplay(
     items: OrderListItem[],
+    tokenContract: string,
   ): Promise<OrderListItem[]> {
     if (!items.length) return items;
     const names = await this.partners.resolveDisplayNamesByWallets(
       items.map((i) => i.offerer),
     );
-    return items.map((i) => ({
-      ...i,
-      sellerDisplayName: names.get(i.offerer.toLowerCase()) ?? null,
-    }));
+    const askIds = items
+      .filter((i) => i.side !== OrderSide.BID)
+      .map((i) => i.tokenId);
+    const vaultByTokenId =
+      askIds.length > 0
+        ? await this.vault.getVaultDisplayByTokenIds(tokenContract, askIds)
+        : new Map();
+    return items.map((i) => {
+      const sellerDisplayName = names.get(i.offerer.toLowerCase()) ?? null;
+      if (i.side === OrderSide.BID) {
+        return {
+          ...i,
+          sellerDisplayName,
+          settlementPolicy: null,
+          vaultLabel: null,
+        };
+      }
+      const vault = vaultByTokenId.get(i.tokenId);
+      return {
+        ...i,
+        sellerDisplayName,
+        settlementPolicy: vault?.settlementPolicy ?? 'standard',
+        vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
+      };
+    });
   }
 
-  private async attachSellerDisplayName<T extends { offerer: string }>(
+  private async attachListingDisplay<
+    T extends {
+      offerer: string;
+      tokenId: string;
+      tokenContract: string;
+      side?: OrderSide | string;
+    },
+  >(
     order: T,
-  ): Promise<T & { sellerDisplayName: string | null }> {
+  ): Promise<
+    T & {
+      sellerDisplayName: string | null;
+      settlementPolicy: 'standard' | 'self_vault_hold' | null;
+      vaultLabel: string | null;
+    }
+  > {
     const names = await this.partners.resolveDisplayNamesByWallets([
       order.offerer,
     ]);
+    const sellerDisplayName =
+      names.get(String(order.offerer).toLowerCase()) ?? null;
+    if (order.side === OrderSide.BID || order.side === 'bid') {
+      return Object.assign(order, {
+        sellerDisplayName,
+        settlementPolicy: null,
+        vaultLabel: null,
+      });
+    }
+    const vault = (
+      await this.vault.getVaultDisplayByTokenIds(order.tokenContract, [
+        String(order.tokenId),
+      ])
+    ).get(String(order.tokenId));
     return Object.assign(order, {
-      sellerDisplayName:
-        names.get(String(order.offerer).toLowerCase()) ?? null,
+      sellerDisplayName,
+      settlementPolicy: vault?.settlementPolicy ?? 'standard',
+      vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
     });
   }
 
@@ -231,13 +282,13 @@ export class OrdersService {
       const reviewStatus = await this.collectionService.getReviewStatus(
         saved.collectionKey,
       );
-      return this.attachSellerDisplayName(
+      return this.attachListingDisplay(
         Object.assign(saved, {
           reviewStatus: reviewStatus ?? 'active',
         }),
       );
     }
-    return this.attachSellerDisplayName(saved);
+    return this.attachListingDisplay(saved);
   }
 
   /**
@@ -806,7 +857,11 @@ export class OrdersService {
     chainId?: SupportedChainId,
   ): Promise<OrderListItem[]> {
     const rows = await this.findActiveOrders(limit, chainId);
-    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
   }
 
   /** Active ask listing for an ERC-721 token (including mint id `0`). */
@@ -832,7 +887,7 @@ export class OrdersService {
       .orderBy('o.created_at', 'DESC')
       .getOne();
     if (!order) return null;
-    return this.attachSellerDisplayName(order);
+    return this.attachListingDisplay(order);
   }
 
   /**
@@ -858,7 +913,10 @@ export class OrdersService {
       .orderBy('o.updated_at', 'DESC')
       .take(cap)
       .getMany();
-    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
   }
 
   /**
@@ -890,7 +948,10 @@ export class OrdersService {
       .take(cap)
       .getMany();
 
-    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
   }
 
   async findOrdersBatchByTokenIds(
@@ -925,12 +986,24 @@ export class OrdersService {
     const names = await this.partners.resolveDisplayNamesByWallets(
       rows.map((o) => o.offerer),
     );
+    const vaultByTokenId = await this.vault.getVaultDisplayByTokenIds(
+      this.chainConfig.getRwaAddress(id),
+      rows
+        .filter((o) => o.side !== OrderSide.BID)
+        .map((o) => String(o.tokenId)),
+    );
 
     for (const o of rows) {
-      const item = orderToListItem(
-        o,
-        names.get(o.offerer.toLowerCase()) ?? null,
-      );
+      const vault = vaultByTokenId.get(String(o.tokenId));
+      const isBid = o.side === OrderSide.BID;
+      const item: OrderListItem = {
+        ...orderToListItem(
+          o,
+          names.get(o.offerer.toLowerCase()) ?? null,
+        ),
+        settlementPolicy: isBid ? null : vault?.settlementPolicy ?? 'standard',
+        vaultLabel: isBid ? null : vault?.vaultLabel ?? PSA_VAULT_LABEL,
+      };
       const nk = normalizeDecimalTokenId(String(o.tokenId));
       for (const n of requested) {
         if (normalizeDecimalTokenId(String(n)) === nk) {
@@ -968,7 +1041,7 @@ export class OrdersService {
   ): Promise<Order & { sellerDisplayName: string | null }> {
     const order = await this.orderRepo.findOne({ where: { orderHash } });
     if (!order) throw new NotFoundException(`Order not found: ${orderHash}`);
-    return this.attachSellerDisplayName(order);
+    return this.attachListingDisplay(order);
   }
 
   async cancelOrder(orderHash: string, callerAddress: string): Promise<Order> {

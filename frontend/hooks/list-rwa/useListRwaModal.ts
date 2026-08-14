@@ -426,6 +426,7 @@ export function useListRwaModal({
     setSelectedBidHash,
     topCollectionBid,
     settlementPolicy,
+    vaultLabel: settlementPolicyData?.vaultLabel ?? "PSA Vault",
     isProcessing,
     handleList,
     dismissSuccess,

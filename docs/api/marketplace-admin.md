@@ -212,7 +212,7 @@ New collections start as `pending_review` on first ask **or** admin `create-from
 - Admin: `backend/src/marketplace/partners/partners-admin.controller.ts` — `/api/marketplace/admin/partners`
 - Public: `backend/src/marketplace/partners/partners-public.controller.ts` — `/api/marketplace/partners`
 
-Register company wallets for **Self vault** eligibility and optional partner bulk mint/list. Private keys are optional at create (Self vault only). When present they are AES-256-GCM encrypted with `PARTNER_WALLET_ENCRYPTION_KEY` and **never** returned. Portfolio/listing chips show `{displayName} vault` for `self_vault_hold` tokens (via `rwa_tokens.vault_partner_id`).
+Register company wallets for **Self vault** eligibility and optional partner bulk mint/list. Private keys are optional at create (Self vault only). When present they are AES-256-GCM encrypted with `PARTNER_WALLET_ENCRYPTION_KEY` and **never** returned. Portfolio/listing chips show `{displayName} vault` only for `self_vault_hold` tokens (via `rwa_tokens.vault_partner_id`). PSA-vaulted tokens (`settlement_policy = standard`) show **PSA Vault** even when the owner is a partner.
 
 Ops can also approve a user as partner from **Users → detail → 파트너 승인** (same `POST` create; wallet must be unique). Revoke uses `PATCH isActive: false`.
 

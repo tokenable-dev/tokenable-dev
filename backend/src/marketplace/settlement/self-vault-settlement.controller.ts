@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -25,11 +26,7 @@ import {
   SelfVaultSettlement,
   type SelfVaultSettlementStatus,
 } from '../entities/self-vault-settlement.entity';
-import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
-import {
-  formatPartnerVaultLabel,
-  PSA_VAULT_LABEL,
-} from '../partners/partner-vault-label.util';
+import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
 import { SelfVaultSettlementService } from './self-vault-settlement.service';
 
 class RecordPayoutDto {
@@ -54,57 +51,51 @@ export class SelfVaultSettlementController {
     private readonly vault: VaultService,
     private readonly chainConfig: ChainConfigService,
     private readonly admin: MarketplaceAdminService,
-    private readonly partners: MarketplacePartnersService,
   ) {}
 
   @Get('rwa-tokens/:tokenId/settlement-policy')
-  async getSettlementPolicy(@Param('tokenId') tokenId: string) {
+  async getSettlementPolicy(
+    @Param('tokenId') tokenId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const tid = String(tokenId ?? '').trim();
     if (!/^\d+$/.test(tid)) {
       throw new BadRequestException('tokenId must be a non-negative integer');
     }
-    const tokenContract = this.chainConfig.getRwaAddress(
-      this.chainConfig.getDefaultChainId(),
-    );
-    const rows = await this.vault.getVaultCustodyRows(tokenContract, [tid]);
-    const row = rows[0];
-    const settlementPolicy = row?.settlementPolicy ?? 'standard';
-    let vaultLabel = PSA_VAULT_LABEL;
-    if (settlementPolicy === 'self_vault_hold') {
-      const names = await this.partners.getDisplayNamesByIds(
-        row?.vaultPartnerId ? [row.vaultPartnerId] : [],
-      );
-      vaultLabel = formatPartnerVaultLabel(
-        row?.vaultPartnerId ? names.get(row.vaultPartnerId) : null,
-      );
-    }
-    return { tokenId: tid, settlementPolicy, vaultLabel };
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const tokenContract = this.chainConfig.getRwaAddress(chainId);
+    const display = await this.vault.getVaultDisplayByTokenIds(tokenContract, [
+      tid,
+    ]);
+    const row = display.get(tid);
+    return {
+      tokenId: tid,
+      settlementPolicy: row?.settlementPolicy ?? 'standard',
+      vaultLabel: row?.vaultLabel ?? PSA_VAULT_LABEL,
+    };
   }
 
   @Post('rwa-tokens/vault-info/batch')
-  async batchVaultInfo(@Body() body: VaultInfoBatchDto) {
-    const tokenContract = this.chainConfig.getRwaAddress(
-      this.chainConfig.getDefaultChainId(),
-    );
-    const rows = await this.vault.getVaultCustodyRows(
+  async batchVaultInfo(
+    @Body() body: VaultInfoBatchDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const tokenContract = this.chainConfig.getRwaAddress(chainId);
+    const display = await this.vault.getVaultDisplayByTokenIds(
       tokenContract,
       body.tokenIds ?? [],
     );
-    const partnerIds = rows
-      .map((r) => r.vaultPartnerId)
-      .filter((id): id is string => Boolean(id));
-    const names = await this.partners.getDisplayNamesByIds(partnerIds);
+    const ids = [...new Set((body.tokenIds ?? []).map((t) => String(t).trim()))];
     return {
-      items: rows.map((r) => ({
-        tokenId: r.tokenId,
-        settlementPolicy: r.settlementPolicy,
-        vaultLabel:
-          r.settlementPolicy === 'self_vault_hold'
-            ? formatPartnerVaultLabel(
-                r.vaultPartnerId ? names.get(r.vaultPartnerId) : null,
-              )
-            : PSA_VAULT_LABEL,
-      })),
+      items: ids.map((tokenId) => {
+        const row = display.get(tokenId);
+        return {
+          tokenId,
+          settlementPolicy: row?.settlementPolicy ?? 'standard',
+          vaultLabel: row?.vaultLabel ?? PSA_VAULT_LABEL,
+        };
+      }),
     };
   }
 

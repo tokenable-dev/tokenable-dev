@@ -13,6 +13,9 @@ import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { MarketplacePartner } from '../marketplace/entities/marketplace-partner.entity';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import {
+  vaultLabelForCustody,
+} from '../marketplace/partners/partner-vault-label.util';
+import {
   ChainConfigService,
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
@@ -977,6 +980,51 @@ export class VaultService {
             : null,
       };
     });
+  }
+
+  /** Portfolio / listing chips: keyed by requested tokenId string. */
+  async getVaultDisplayByTokenIds(
+    tokenContract: string,
+    tokenIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        settlementPolicy: 'standard' | 'self_vault_hold';
+        vaultLabel: string;
+      }
+    >
+  > {
+    const rows = await this.getVaultCustodyRows(tokenContract, tokenIds);
+    const partnerIds = rows
+      .map((r) => r.vaultPartnerId)
+      .filter((id): id is string => Boolean(id));
+    const names = new Map<string, string>();
+    if (partnerIds.length > 0) {
+      const partners = await this.marketplacePartners.find({
+        where: { id: In(partnerIds) },
+        select: ['id', 'displayName'],
+      });
+      for (const p of partners) names.set(p.id, p.displayName);
+    }
+    const out = new Map<
+      string,
+      {
+        settlementPolicy: 'standard' | 'self_vault_hold';
+        vaultLabel: string;
+      }
+    >();
+    for (const row of rows) {
+      const vaultLabel = vaultLabelForCustody(
+        row.settlementPolicy,
+        row.vaultPartnerId ? names.get(row.vaultPartnerId) : null,
+      );
+      out.set(row.tokenId, {
+        settlementPolicy: row.settlementPolicy,
+        vaultLabel,
+      });
+    }
+    return out;
   }
 
   async listOpenRedemptionsForUser(

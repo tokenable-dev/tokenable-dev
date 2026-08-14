@@ -31,6 +31,7 @@ export function ListRwaModalFormView({
   onClose,
   copyVariant = "default",
   settlementPolicy = "standard",
+  vaultLabel,
   step,
   errorMsg,
   isProcessing,
@@ -53,6 +54,7 @@ export function ListRwaModalFormView({
   onClose?: () => void;
   copyVariant?: "default" | "set-price";
   settlementPolicy?: AskSettlementPolicy;
+  vaultLabel?: string;
   step: ListRwaModalStep;
   errorMsg: string;
   isProcessing: boolean;
@@ -118,6 +120,9 @@ export function ListRwaModalFormView({
             >
               {listModalAssetLabel(tokenId, assetTitle)}
             </h2>
+            {vaultLabel ? (
+              <p className="text-[11px] font-medium text-white/45">{vaultLabel}</p>
+            ) : null}
           </div>
           {!isSheet ? <div className="w-7 shrink-0 sm:w-8" aria-hidden /> : null}
         </header>

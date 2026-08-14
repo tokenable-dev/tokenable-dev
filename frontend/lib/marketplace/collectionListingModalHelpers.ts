@@ -61,10 +61,25 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
 
 /** Vault badge for listing cards / orderbook — Card.html `PSA vault` / `{Partner} vault`. */
 export function listingVaultBadge(
-  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+  listing: {
+    sellerDisplayName?: string | null;
+    vaultLabel?: string | null;
+    settlementPolicy?: "standard" | "self_vault_hold" | null;
+    offerer?: string;
+    parameters?: { offerer?: string };
+  } | null,
 ): { label: string; tone: "psa" | "partner"; title?: string } {
   if (!listing) return { label: "—", tone: "psa" };
   const addr = listing.offerer || listing.parameters?.offerer;
+  const tokenLabel = listing.vaultLabel?.trim();
+  if (tokenLabel) {
+    const tone =
+      listing.settlementPolicy === "self_vault_hold" ? "partner" : "psa";
+    return { label: tokenLabel, tone, title: addr };
+  }
+  if (listing.settlementPolicy === "standard") {
+    return { label: "PSA vault", tone: "psa", title: addr };
+  }
   const name = listing.sellerDisplayName?.trim();
   if (name) {
     const label = /vault$/i.test(name) ? name : `${name} vault`;
@@ -75,7 +90,13 @@ export function listingVaultBadge(
 
 /** Desktop listing / prov sticky — Card.html vault badge. */
 export function listingSellerVerifiedLabel(
-  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+  listing: {
+    sellerDisplayName?: string | null;
+    vaultLabel?: string | null;
+    settlementPolicy?: "standard" | "self_vault_hold" | null;
+    offerer?: string;
+    parameters?: { offerer?: string };
+  } | null,
 ): { label: string; title?: string; tone: "psa" | "partner" } {
   const badge = listingVaultBadge(listing);
   return { label: badge.label, title: badge.title, tone: badge.tone };
@@ -83,7 +104,13 @@ export function listingSellerVerifiedLabel(
 
 /** Mobile orderbook row — Card.html vault badge. */
 export function listingVerifiedCollectorLabel(
-  listing: { sellerDisplayName?: string | null; offerer?: string; parameters?: { offerer?: string } } | null,
+  listing: {
+    sellerDisplayName?: string | null;
+    vaultLabel?: string | null;
+    settlementPolicy?: "standard" | "self_vault_hold" | null;
+    offerer?: string;
+    parameters?: { offerer?: string };
+  } | null,
 ): { label: string; title?: string; tone: "psa" | "partner" } {
   return listingVaultBadge(listing);
 }

@@ -24,6 +24,10 @@ export type OrderListItem = {
   matchedOrderHash?: string | null;
   /** Active consignment partner display name when offerer matches. */
   sellerDisplayName?: string | null;
+  /** Token custody — `self_vault_hold` vs PSA. Null on bids. */
+  settlementPolicy?: 'standard' | 'self_vault_hold' | null;
+  /** "PSA Vault" or "{partner} vault" from token custody, not seller identity. */
+  vaultLabel?: string | null;
   /** Distinct `consideration[].recipient` for analytics (e.g. unique traders) */
   considerationRecipients: string[];
 };

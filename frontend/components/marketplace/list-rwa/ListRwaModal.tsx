@@ -76,6 +76,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
       onClose={onClose}
       copyVariant={copyVariant}
       settlementPolicy={modal.settlementPolicy}
+      vaultLabel={modal.vaultLabel}
       step={modal.step}
       errorMsg={modal.errorMsg}
       isProcessing={modal.isProcessing}

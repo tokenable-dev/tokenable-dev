@@ -55,12 +55,21 @@ export const MARKETS_VAULT_FILTER_OPTIONS: {
 
 export function vaultKindFromAsk(order: {
   sellerDisplayName?: string | null;
+  settlementPolicy?: string | null;
+  vaultLabel?: string | null;
 }): MarketsVaultFilterId {
+  if (order.settlementPolicy === "self_vault_hold") return "partner";
+  if (order.settlementPolicy === "standard") return "psa";
+  const label = order.vaultLabel?.trim();
+  if (label) return /^psa vault$/i.test(label) ? "psa" : "partner";
   return order.sellerDisplayName?.trim() ? "partner" : "psa";
 }
 
 export function collectionVaultKindsFromAsks(
-  orders: readonly Pick<Order, "side" | "collectionKey" | "sellerDisplayName">[],
+  orders: readonly Pick<
+    Order,
+    "side" | "collectionKey" | "sellerDisplayName" | "settlementPolicy" | "vaultLabel"
+  >[],
 ): Map<string, Set<MarketsVaultFilterId>> {
   const m = new Map<string, Set<MarketsVaultFilterId>>();
   for (const o of orders) {
