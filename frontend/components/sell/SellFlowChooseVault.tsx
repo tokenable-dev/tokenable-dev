@@ -299,8 +299,8 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
         ) : selfVaultPartnerOnly ? (
           <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
             {PARTNER_SELF_VAULT_HINT}
-            <a className="sell-flow-link" href="mailto:dev@tokenable.com">
-              dev@tokenable.com
+            <a className="sell-flow-link" href="mailto:dev@tokenable.io">
+              dev@tokenable.io
             </a>
             .
           </p>
