@@ -49,14 +49,37 @@ function primaryCardNumber(num: string): string {
   return t.split("/")[0].trim();
 }
 
-/** Mirrors backend `marketParallelKeyFromPsaVariety` (language-only → base). */
-function marketParallelKeyFromPsaVariety(psaVariety: string | null | undefined): string {
+/** Mirrors backend `marketParallelKeyFromPsaVariety`. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function psaVarietyIsBrandOrSetDuplicate(
+  psaVariety: string,
+  brandOrSet: string | null | undefined,
+): boolean {
+  const v = psaVariety.trim().replace(/\s+/g, " ").toLowerCase();
+  const b = String(brandOrSet ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (!v || !b) return false;
+  if (v === b) return true;
+  if (!v.includes(" ") && v.length < 5) return false;
+  return new RegExp(`(?:^|\\s)${escapeRegExp(v)}(?:\\s|$)`).test(b);
+}
+
+function marketParallelKeyFromPsaVariety(
+  psaVariety: string | null | undefined,
+  brandOrSet?: string | null,
+): string {
   const raw = String(psaVariety ?? "")
     .trim()
     .replace(/\s+/g, " ");
   if (!raw) return "base";
   if (/^english$/i.test(raw) || /^japanese$/i.test(raw)) return "base";
   if (/^base(\s+cards?)?$/i.test(raw)) return "base";
+  if (psaVarietyIsBrandOrSetDuplicate(raw, brandOrSet)) return "base";
   return (
     raw
       .toLowerCase()
@@ -129,7 +152,13 @@ export function extractBucketComponentsFromMetadata(
   if (!gradingCompany || !cardName || !gradeScore) return null;
 
   const psaVarietyRaw = String(psa?.variety ?? psa?.Variety ?? "").trim();
-  const marketParallelKey = marketParallelKeyFromPsaVariety(psaVarietyRaw);
+  const brandOrSet = String(
+    psa?.brand ?? psa?.Brand ?? psa?.setHint ?? rawSetMerged,
+  ).trim();
+  const marketParallelKey = marketParallelKeyFromPsaVariety(
+    psaVarietyRaw,
+    brandOrSet,
+  );
 
   const out: MarketBucketComponents = {
     gradingCompany,

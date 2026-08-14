@@ -14,4 +14,5 @@ alwaysApply: false
 - 민팅 JSON `properties.graded.psa`에는 반드시 **`Variety`**(또는 `varietyHint` 미러)를 넣는다 — 분석 API의 `varietyHint`를 `Variety`로 저장하는 패턴을 따른다.
 - IPFS에 Variety가 없으면 백엔드가 **cert + PSA Public API**로 보강할 수 있다 → `PSA_PUBLIC_API_TOKENS`(콤마 구분 토큰 풀) 필요.
 - **SIR**뿐 아니라 PSA **`ILLUSTRATION RARE`(IR)** 도 Cardhedger가 **`variant: Base`** 로 두는 경우가 있어, `psa-variety-catalog.util` / `parallelRowFailsExpectation` 에서 SIR과 유사하게 처리한다 (SIR 문구는 IR과 별도 분기).
+- PSA Variety가 Brand/세트 이름을 그대로 복제하면 (예: `VSTAR UNIVERSE`) **병행이 아니다** — `marketParallelKey` 는 `base`. 같은 spec의 슬랩이 볼트만 달라도 한 컬렉션이어야 한다.
 - 수정·리뷰 시 `docs/guides/cardhedger-psa-variety.md` 를 확인한다.

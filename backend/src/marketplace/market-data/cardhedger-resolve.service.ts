@@ -173,22 +173,6 @@ export class CardhedgerResolveService {
       typeof psaVarietyRaw === 'string' ? psaVarietyRaw : null,
       typeof mintVariantRaw === 'string' ? mintVariantRaw : null,
     ) || null;
-    const parallelRaw = comp['marketParallelKey'];
-    const storedParallelKey =
-      typeof parallelRaw === 'string' && parallelRaw.trim()
-        ? parallelRaw.trim().toLowerCase()
-        : null;
-    // Always re-derive when psaVariety is a packaging descriptor (e.g. "OBSIDIAN FLAMES ETB",
-    // "CELEBRATIONS COLLECTION") — the stored key may have been computed before this rule existed
-    // and would be stuck as a non-base slug, causing all CardHedger rows to be rejected.
-    const computedParallelKey = marketParallelKeyFromPsaVariety(psaVariety);
-    const marketParallelKey =
-      storedParallelKey &&
-      storedParallelKey !== 'base' &&
-      psaVariety &&
-      psaVarietyIndicatesGenericBaseLine(psaVariety)
-        ? 'base' // override stale stored key for packaging descriptors
-        : storedParallelKey ?? computedParallelKey;
     const psaSubjectRaw = comp['psaSubject'];
     const psaSubject =
       typeof psaSubjectRaw === 'string' && psaSubjectRaw.trim()
@@ -199,6 +183,25 @@ export class CardhedgerResolveService {
       typeof psaBrandRaw === 'string' && psaBrandRaw.trim()
         ? psaBrandRaw.trim()
         : null;
+    const brandOrSet = psaBrand || cardSet || null;
+    const parallelRaw = comp['marketParallelKey'];
+    const storedParallelKey =
+      typeof parallelRaw === 'string' && parallelRaw.trim()
+        ? parallelRaw.trim().toLowerCase()
+        : null;
+    // Re-derive when Variety is packaging / set-name duplicate — stored key may
+    // predate those rules and would reject Cardhedger Base rows.
+    const computedParallelKey = marketParallelKeyFromPsaVariety(
+      psaVariety,
+      brandOrSet,
+    );
+    const marketParallelKey =
+      storedParallelKey &&
+      storedParallelKey !== 'base' &&
+      psaVariety &&
+      psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet)
+        ? 'base'
+        : storedParallelKey ?? computedParallelKey;
     const psaYearRaw = comp['psaYear'];
     const psaYear =
       typeof psaYearRaw === 'string' && psaYearRaw.trim()
@@ -475,12 +478,17 @@ export class CardhedgerResolveService {
   private parallelRowFailsExpectation(
     psaVariety: string | null,
     row: CardhedgerCardRow,
-    opts?: { trustStoredCardhedgerCatalogId?: boolean },
+    opts?: {
+      trustStoredCardhedgerCatalogId?: boolean;
+      brandOrSet?: string | null;
+    },
   ): boolean {
     /** Mint/catalog `cardhedgerCardId` is authoritative — PSA Variety vs Cardhedger `variant` often diverge. */
     if (opts?.trustStoredCardhedgerCatalogId) return false;
     const pv = psaVariety?.trim() ?? '';
-    if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
+    if (!psaVarietyRequiresNonBaseCardhedgerRow(pv, opts?.brandOrSet)) {
+      return false;
+    }
     /**
      * Pokémon SIR — Cardhedger often keeps `variant: "Base"` and omits "Special Illustration"
      * wording from the row blob; literal chunk match would reject every row. Allow Base.
@@ -591,7 +599,12 @@ export class CardhedgerResolveService {
     );
     const numberMatched = numberExact || numberInsertBridge;
 
-    if (this.parallelRowFailsExpectation(hints.psaVariety ?? null, row, parallelOpts)) {
+    if (
+      this.parallelRowFailsExpectation(hints.psaVariety ?? null, row, {
+        ...parallelOpts,
+        brandOrSet: hints.psaBrand || hints.cardSet || null,
+      })
+    ) {
       return { score: 0, verified: false, numberMatched: false };
     }
 
@@ -658,7 +671,13 @@ export class CardhedgerResolveService {
     if (nameMatched) score += 50;
 
     const pv = hints.psaVariety?.trim() ?? '';
-    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) {
+    if (
+      pv &&
+      psaVarietyRequiresNonBaseCardhedgerRow(
+        pv,
+        hints.psaBrand || hints.cardSet || null,
+      )
+    ) {
       if (cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
         score += 40;
         const pvLower = pv.toLowerCase();
@@ -718,7 +737,9 @@ export class CardhedgerResolveService {
     cardhedgerSearchQuery: string | null;
   }): boolean {
     const pv = q.psaVariety?.trim() ?? '';
-    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) return true;
+    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv, q.cardSet || null)) {
+      return true;
+    }
     const blob = [
       q.listingDisplayTitle,
       q.cardSet,
@@ -826,9 +847,12 @@ export class CardhedgerResolveService {
       verified: boolean;
     }>,
     psaVariety: string | null,
+    brandOrSet?: string | null,
   ): { row: CardhedgerCardRow; confidence: 'verified' | 'approximate' } | null {
     const pv = psaVariety?.trim() ?? '';
-    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) return null;
+    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv, brandOrSet)) {
+      return null;
+    }
     const bases = numberOnly.filter(
       (x) => String(x.r.variant ?? '').trim().toLowerCase() === 'base',
     );
@@ -895,7 +919,7 @@ export class CardhedgerResolveService {
           const dc = colorHitsInRow(b.r) - colorHitsInRow(a.r);
           if (dc !== 0) return dc;
         }
-        if (pvLower && psaVarietyRequiresNonBaseCardhedgerRow(pvLower)) {
+        if (pvLower && psaVarietyRequiresNonBaseCardhedgerRow(pvLower, q.psaBrand || q.cardSet)) {
           const d =
             Number(varietyInRowBlob(b.r)) - Number(varietyInRowBlob(a.r));
           if (d !== 0) return d;
@@ -969,6 +993,7 @@ export class CardhedgerResolveService {
         const baseWhenNoParallel = this.pickBaseWhenPsaOmitsParallel(
           numberOnly,
           q.psaVariety,
+          q.psaBrand || q.cardSet,
         );
         if (baseWhenNoParallel) return baseWhenNoParallel;
       }

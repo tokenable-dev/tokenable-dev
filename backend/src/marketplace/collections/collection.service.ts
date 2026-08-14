@@ -470,6 +470,7 @@ export class CollectionService {
 
     const parallelKey = marketParallelKeyFromPsaVariety(
       String(compRecord.psaVariety ?? ''),
+      String(compRecord.psaBrand ?? compRecord.cardSet ?? ''),
     );
     compRecord.marketParallelKey = parallelKey;
 
@@ -540,6 +541,11 @@ export class CollectionService {
         collectionKey,
         chainId: opts.chainId,
       });
+      await this.syncTokenActiveAskCollectionKey(
+        String(opts.tokenId),
+        collectionKey,
+        opts.chainId,
+      );
     }
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
@@ -550,6 +556,28 @@ export class CollectionService {
       displayLabel,
       coverImageUrl,
     };
+  }
+
+  /** Keep this token's live ask on the same bucket as the mint metadata. */
+  private async syncTokenActiveAskCollectionKey(
+    tokenId: string,
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const where: {
+      tokenId: string;
+      side: OrderSide;
+      status: OrderStatus;
+      tokenContract?: string;
+    } = {
+      tokenId,
+      side: OrderSide.ASK,
+      status: OrderStatus.ACTIVE,
+    };
+    if (chainId != null) {
+      where.tokenContract = this.chainConfig.getRwaAddress(chainId);
+    }
+    await this.orderRepo.update(where, { collectionKey });
   }
 
   async resolveCollectionKeyFromTokenMetadata(

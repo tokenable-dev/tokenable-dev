@@ -68,6 +68,18 @@ describe('buildVaultAdminMintUploadFromAnalyze', () => {
     expect(graded.psa.certNumber).toBe('83179580');
   });
 
+  it('copies analyze varietyHint onto graded.psa.Variety', () => {
+    const { dto } = buildVaultAdminMintUploadFromAnalyze({
+      certNumber: '83179580',
+      analyze: {
+        ...analyze,
+        psa: { ...analyze.psa, varietyHint: 'VSTAR UNIVERSE' },
+      },
+    });
+    const graded = JSON.parse(dto.gradedMetadata!).graded;
+    expect(graded.psa.Variety).toBe('VSTAR UNIVERSE');
+  });
+
   it('flags placeholder when no remote image is available', () => {
     const { dto, imageUrl, usePlaceholderImage } =
       buildVaultAdminMintUploadFromAnalyze({

@@ -113,8 +113,33 @@ export function psaVarietyIsPackagingDescriptor(
   return false;
 }
 
+/**
+ * PSA often copies the expansion / Brand into Variety (e.g. `VSTAR UNIVERSE` on
+ * `POKEMON JAPANESE SWORD & SHIELD VSTAR UNIVERSE`). That is not a parallel.
+ */
+export function psaVarietyIsBrandOrSetDuplicate(
+  psaVariety: string | null | undefined,
+  brandOrSet: string | null | undefined,
+): boolean {
+  const v = String(psaVariety ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  const b = String(brandOrSet ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+  if (!v || !b) return false;
+  if (v === b) return true;
+  // Single short tokens are real parallels (RED, GOLD) or noise, not set names.
+  if (!v.includes(' ') && v.length < 5) return false;
+  const phrase = new RegExp(`(?:^|\\s)${escapeRegExp(v)}(?:\\s|$)`);
+  return phrase.test(b);
+}
+
 export function psaVarietyIndicatesGenericBaseLine(
   psaVariety: string | null | undefined,
+  brandOrSet?: string | null,
 ): boolean {
   if (psaVariety == null) return true;
   const v = psaVariety.trim();
@@ -123,6 +148,7 @@ export function psaVarietyIndicatesGenericBaseLine(
   if (psaVarietyIsLanguageOnlyLabel(v)) return true;
   if (psaVarietyIsPackagingDescriptor(v)) return true;
   if (psaVarietyIsPokemonRarityLabel(v)) return true;
+  if (psaVarietyIsBrandOrSetDuplicate(v, brandOrSet)) return true;
   const t = v.toLowerCase();
   if (/\bbase\b/.test(t)) return true;
   if (
@@ -139,9 +165,10 @@ export function psaVarietyIndicatesGenericBaseLine(
  */
 export function psaVarietyRequiresNonBaseCardhedgerRow(
   psaVariety: string | null | undefined,
+  brandOrSet?: string | null,
 ): boolean {
   if (psaVariety == null || !String(psaVariety).trim()) return false;
-  return !psaVarietyIndicatesGenericBaseLine(psaVariety);
+  return !psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet);
 }
 
 /**

@@ -44,9 +44,13 @@
 
 PSA는 **SIR**을 Variety에 적지만, Cardhedger는 해당 프린트를 **`variant: "Base"`** 로 두는 경우가 많고 설명에 “Special Illustration”을 반복하지 않습니다. 이 경우 문자열 청크 매칭만 하면 **모든 행이 탈락**할 수 있어, SIR 라벨일 때 **`Base` variant 행은 병행 불일치로 보지 않는다** (그 외 명·세트·번호 스코어는 기존과 동일).
 
-### Pokémon `ILLUSTRATION RARE` (IR, SIR 아님)
+### Pokémon set name in PSA `Variety` (e.g. `VSTAR UNIVERSE`)
 
-PSA **Variety**가 **ILLUSTRATION RARE**일 때(일러스트 레어, SIR과 구분)도 Cardhedger가 **`variant: "Base"`** 로 두는 경우가 있어, SIR과 같은 방식으로 **`Base` 행은 병행 불일치로 보지 않는다**. (`SPECIAL ILLUSTRATION RARE`는 위 SIR 규칙이 우선한다.)
+PSA often prints the **expansion / Brand** again in Variety (slab label line), not a parallel. Example: certs of Japanese VSTAR Universe FA/Mew VMAX `#054` — one mint has `Variety: "VSTAR UNIVERSE"`, another has Variety empty; both are `s12a 054/172 RRR` GEM MT 10.
+
+If Variety is treated as a parallel slug (`vstar_universe`), **the same PSA 10 spec splits into two collections**. Classification treats Variety as generic **base** when it equals or is a phrase inside Brand/set (same class of rule as language / SIR / ETB). Bucket hash field set is unchanged. Holofoil photography color is **not** a collection boundary.
+
+**수정:** `psaVarietyIsBrandOrSetDuplicate` in `psa-variety-catalog.util.ts`; `marketParallelKeyFromPsaVariety(variety, brandOrSet)` feeds bucket v2. PSA vault admin mint also writes `graded.psa.Variety` (same as self-vault) so sports inserts still keep their parallel.
 
 ### Cardhedger 검색 (여러 줄 → `card-search`)
 
@@ -80,7 +84,8 @@ PSA Public API **Variety**는 **`BASKETBALL REFRACTOR`** 만 올 수 있지만, 
 
 ### 관련 코드 (참고)
 
-- `frontend/components/vault/MintForm.tsx` — 민팅 시 `graded.psa.Variety` 저장.
+- `frontend/components/vault/MintForm.tsx` / `frontend/lib/vault/buildMintMetadata.ts` — 민팅 시 `graded.psa.Variety` 저장.
+- `backend/src/rwa/admin/vault-admin-mint-metadata.util.ts` — PSA 볼트 어드민 민트도 동일하게 `Variety` 기록.
 - `backend/src/marketplace/collections/cardhedger-market-data.service.ts` — `psaMirrorFromGradedBlock`, `enrichPsaMirrorFromCertLookup`, parallel/검색, 일반 **스포츠+REFRACTOR** 검색 동점 시 `variant` 구체성, 카탈로그 대 comps 완화.
 - `backend/src/psa/psa-variety-catalog.util.ts` — 베이스 vs non-base 판별.
 - `backend/src/marketplace/utils/cardhedger-psa-variety.util.ts` — PSA Variety ↔ Cardhedger `variant` (병행 토큰 충돌, 예: Wave).

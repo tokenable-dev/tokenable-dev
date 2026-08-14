@@ -133,7 +133,10 @@ export class CollectionComponentsService {
       comp.psaVariety = merged;
       dirty = true;
     }
-    const nextParallel = marketParallelKeyFromPsaVariety(merged);
+    const nextParallel = marketParallelKeyFromPsaVariety(
+      merged,
+      String(comp.psaBrand ?? comp.cardSet ?? ''),
+    );
     if (String(comp.marketParallelKey ?? '').toLowerCase() !== nextParallel) {
       comp.marketParallelKey = nextParallel;
       dirty = true;
@@ -534,6 +537,7 @@ export class CollectionComponentsService {
     }
     const nextParallel = marketParallelKeyFromPsaVariety(
       String(comp.psaVariety ?? ''),
+      String(comp.psaBrand ?? comp.cardSet ?? ''),
     );
     if (String(comp.marketParallelKey ?? '').toLowerCase() !== nextParallel) {
       comp.marketParallelKey = nextParallel;

@@ -253,6 +253,8 @@ Seller **take-offer** flows (Edit price primary; Accept offer secondary) are spe
 
 ## Collections
 
+`collection_key` (v2) is SHA-256 of grader + name + set + grade + card # + `marketParallelKey`. Vault type is not in the hash. PSA `Variety` becomes a parallel slug only when it names an insert (Refractor, Silver Prizm, …). Variety that repeats Brand/set (e.g. `VSTAR UNIVERSE`) is `base` — same spec, one order book. See [Cardhedger + PSA Variety](../guides/cardhedger-psa-variety.md).
+
 ### `GET /api/marketplace/collections`
 
 Returns a cursor-paginated list of collection summaries, or a **text search** when `q` is set.

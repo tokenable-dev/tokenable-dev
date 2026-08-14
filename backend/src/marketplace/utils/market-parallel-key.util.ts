@@ -18,12 +18,13 @@ function slugifyParallelKey(raw: string): string {
  */
 export function marketParallelKeyFromPsaVariety(
   psaVariety: string | null | undefined,
+  brandOrSet?: string | null,
 ): string {
   const raw = String(psaVariety ?? '')
     .trim()
     .replace(/\s+/g, ' ');
   if (!raw) return 'base';
-  if (!psaVarietyRequiresNonBaseCardhedgerRow(raw)) return 'base';
+  if (!psaVarietyRequiresNonBaseCardhedgerRow(raw, brandOrSet)) return 'base';
   return slugifyParallelKey(raw);
 }
 

@@ -106,6 +106,9 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
         certVerifyUrl:
           psa.certVerifyUrl?.trim() ||
           `https://www.psacard.com/cert/${cert}`,
+        ...(psa.varietyHint?.trim()
+          ? { Variety: psa.varietyHint.trim() }
+          : {}),
       },
       card: {
         name: psa.cardNameHint?.trim() || name,
