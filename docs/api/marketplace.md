@@ -430,7 +430,7 @@ Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** —
 
 ### `GET /api/marketplace/portfolio/daily/:wallet`
 
-Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing cron rows).
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing rows). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row.
 
 Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 
@@ -476,7 +476,7 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 **Marketplace buy seed:** after ask fulfill (`PATCH …/fulfill?buyerAddress=`) or matched-pair fulfill, the backend seeds `marketplace_buy` from the ask USDC price for the buyer wallet. Manual rows are skipped.
 
-**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark.
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark.
 
 ---
 

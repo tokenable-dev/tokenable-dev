@@ -139,8 +139,8 @@ function VaultOption({
   badgeTone: "pos" | "muted";
   icon: ReactNode;
   title: string;
-  description: string;
-  features: { text: string; tone?: "pos" | "warn" }[];
+  description: ReactNode;
+  features?: { text: string; tone?: "pos" | "warn" }[];
   gated?: boolean;
 }) {
   return (
@@ -167,14 +167,16 @@ function VaultOption({
         <div className="sell-flow-vault-opt__title">{title}</div>
         <div className="sell-flow-vault-opt__desc">{description}</div>
       </div>
-      <div className="sell-flow-vault-opt__feats">
-        {features.map((f) => (
-          <span key={f.text} className="sell-flow-vault-feat">
-            <CheckFeat tone={f.tone ?? "pos"} />
-            {f.text}
-          </span>
-        ))}
-      </div>
+      {features && features.length > 0 ? (
+        <div className="sell-flow-vault-opt__feats">
+          {features.map((f) => (
+            <span key={f.text} className="sell-flow-vault-feat">
+              <CheckFeat tone={f.tone ?? "pos"} />
+              {f.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -242,20 +244,20 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
                 <path d="M7 4v16M17 4v16" />
               </svg>
             }
-            title="Partner vault"
-            description="Cards you already hold. List them right away — no shipping, no review."
-            features={[
-              { text: "Listed within minutes" },
-              { text: "Stays in your own vault" },
-              { text: "You attest to authenticity and condition", tone: "warn" },
-              { text: "You ship on redeem", tone: "warn" },
-            ]}
+            title="Approved Partner Vaults"
+            description={
+              <>
+                You vault the cards and sell right away.
+                <br />
+                Ship only when sold and delivery is requested.
+              </>
+            }
           />
           <VaultOption
             id="psa"
             selected={vaultChoice === "psa"}
             onSelect={() => selectVault("psa")}
-            badge="14–16 BUSINESS DAYS AFTER ARRIVAL"
+            badge="Delivery time + 15 days intake"
             badgeTone="muted"
             icon={
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -263,13 +265,14 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
                 <polyline points="9 12 11 14 15 10" />
               </svg>
             }
-            title="PSA vault"
-            description="Send them to PSA. Once verified, your listing goes live."
-            features={[
-              { text: "Verified by PSA before it goes live" },
-              { text: "Insured while stored at PSA Vault" },
-              { text: "Requires shipping and intake review", tone: "warn" },
-            ]}
+            title="PSA Vaults"
+            description={
+              <>
+                Ship to our PSA vault account.
+                <br />
+                All cards verified, secured, and insured by PSA.
+              </>
+            }
           />
         </div>
 
@@ -318,7 +321,7 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
           </div>
           <div className="sell-flow-vault-faq sell-flow-vault-faq--terms">
             <details>
-              <summary>Terms &amp; conditions</summary>
+              <summary>Terms and conditions</summary>
               <p>
                 Vault storage, listing and redemption are covered by our{" "}
                 <a href="/terms" className="sell-flow-link">

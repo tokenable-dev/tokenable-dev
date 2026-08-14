@@ -8,7 +8,21 @@ import {
   ticksFromScale,
 } from "@/lib/marketplace/collection-dual-price-chart";
 
-/** Keep value callout inside chart viewBox (last point sits on the right edge). */
+function formatPortfolioAxisUsd(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  if (value < 0) return `-${formatYAxisLabelCompact(-value)}`;
+  return formatYAxisLabelCompact(value);
+}
+
+/** Symmetric ±range so $0 sits on the chart midline (day-1 / flat series). */
+function zeroCenteredUsdScale(value: number): { min: number; max: number; interval: number } {
+  const raw = Math.max(Math.abs(value) * 1.5, 10);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / pow;
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  const half = nice * pow;
+  return { min: -half, max: half, interval: half / 2 };
+}
 function chartValueCalloutBox(
   anchorX: number,
   label: string,
@@ -124,6 +138,15 @@ export function PortfolioValueChart({
       </div>
     );
 
+  /* Day-1 (single snapshot): draw a flat value line, not a centered dot. */
+  const values = points.length === 1 ? [points[0]!, points[0]!] : points;
+  const axisSource =
+    xLabels && xLabels.length === points.length
+      ? points.length === 1
+        ? [xLabels[0]!, xLabels[0]!]
+        : xLabels
+      : values.map((_, i) => String(i + 1));
+
   const W = isPortfolioHtml ? PORTFOLIO_HTML_CHART.W : compact ? 400 : 800;
   const H = isPortfolioHtml ? PORTFOLIO_HTML_CHART.H : compact ? 228 : size === "large" ? 296 : 260;
   const LEFT = isPortfolioHtml ? PORTFOLIO_HTML_CHART.LEFT : compact ? 44 : sz.leftPad;
@@ -134,46 +157,40 @@ export function PortfolioValueChart({
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
 
-  const dataMin = Math.min(...points);
-  const dataMax = Math.max(...points);
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const isFlatSeries = dataMax - dataMin < 1e-6;
   const pad = (dataMax - dataMin) * 0.1 || Math.max(dataMax * 0.05, 1);
-  const {
-    min: yMin,
-    max: yMax,
-    interval: yInterval,
-  } = niceScale(Math.max(0, dataMin - pad), dataMax + pad, 12);
+  const scaled =
+    isPortfolioHtml && isFlatSeries
+      ? zeroCenteredUsdScale(dataMax)
+      : niceScale(Math.max(0, dataMin - pad), dataMax + pad, 12);
+  const yMin = scaled.min;
+  const yMax = scaled.max;
+  const yInterval = scaled.interval;
   const ticks = ticksFromScale(yMin, yMax, yInterval);
-  const timeLabels =
-    xLabels && xLabels.length === points.length
-      ? xLabels
-      : points.map((_, i) => String(i + 1));
+  const timeLabels = axisSource;
 
   const xOf = (i: number) => {
-    if (points.length <= 1) return LEFT + chartW / 2;
-    return LEFT + (i / (points.length - 1)) * chartW;
+    if (values.length <= 1) return LEFT + chartW / 2;
+    return LEFT + (i / (values.length - 1)) * chartW;
   };
   const yOf = (v: number) => TOP + (1 - (v - yMin) / (yMax - yMin || 1)) * chartH;
 
-  const linePath =
-    points.length >= 2
-      ? points
-          .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
-          .join(" ")
-      : "";
-  const areaPath =
-    points.length >= 2
-      ? `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`
-      : "";
+  const linePath = values
+    .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
+    .join(" ");
+  const areaPath = `${linePath} L${xOf(values.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`;
 
   const barH = 20;
   const barY = TOP + chartH + 2;
-  const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
+  const barW = Math.max(2, chartW / Math.max(values.length, 1) - 1);
 
   const labelStep = Math.max(
     1,
-    Math.floor(points.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)),
+    Math.floor(values.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)),
   );
-  const axisFmt = formatYAxisLabelCompact;
+  const axisFmt = yMin < 0 ? formatPortfolioAxisUsd : formatYAxisLabelCompact;
   const axisFill = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFill : sz.axisFill;
   const axisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.axisFont;
   const xAxisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.xAxisFont;
@@ -181,12 +198,12 @@ export function PortfolioValueChart({
 
   /** Thin x labels so neighboring dates do not collide (esp. dense daily series). */
   const xLabelIndices = (() => {
-    if (points.length === 0) return [] as number[];
+    if (values.length === 0) return [] as number[];
     const idxs: number[] = [];
     const minGap = isPortfolioHtml ? PORTFOLIO_HTML_CHART.xLabelMinGap : chartW / 7;
     let lastX = -Infinity;
-    for (let i = 0; i < points.length; i++) {
-      const isLast = i === points.length - 1;
+    for (let i = 0; i < values.length; i++) {
+      const isLast = i === values.length - 1;
       if (!isLast && i % labelStep !== 0) continue;
       const x = xOf(i);
       if (!isLast && x - lastX < minGap) continue;
@@ -204,20 +221,20 @@ export function PortfolioValueChart({
     const rect = svg.getBoundingClientRect();
     const mx = ((e.clientX - rect.left) / rect.width) * W;
     const idx =
-      points.length <= 1
+      values.length <= 1
         ? 0
-        : Math.round(((mx - LEFT) / chartW) * (points.length - 1));
-    if (idx < 0 || idx >= points.length) {
+        : Math.round(((mx - LEFT) / chartW) * (values.length - 1));
+    if (idx < 0 || idx >= values.length) {
       setHover(null);
       return;
     }
-    setHover({ idx, x: xOf(idx), y: yOf(points[idx]) });
+    setHover({ idx, x: xOf(idx), y: yOf(values[idx]) });
   }
 
-  const lastIdx = points.length - 1;
+  const lastIdx = values.length - 1;
   const lastX = xOf(lastIdx);
-  const lastY = yOf(points[lastIdx]);
-  const displayValue = points[lastIdx];
+  const lastY = yOf(values[lastIdx]);
+  const displayValue = values[lastIdx];
   const lastTooltipClearance = size === "large" ? 44 : 38;
   const lastTooltipBelow = lastY < TOP + lastTooltipClearance;
   const lastTooltipRectY = lastTooltipBelow
@@ -308,7 +325,7 @@ export function PortfolioValueChart({
                   : H - (size === "large" ? 8 : 4)
               }
               textAnchor={
-                i === points.length - 1 && isPortfolioHtml
+                i === values.length - 1 && isPortfolioHtml
                   ? "end"
                   : i === 0 && isPortfolioHtml
                     ? "start"
@@ -342,22 +359,18 @@ export function PortfolioValueChart({
             />
           ))}
 
-        {points.length >= 2 && (
-          <>
-            <path
-              d={areaPath}
-              fill={isPortfolioHtml ? `url(#${PORTFOLIO_HTML_CHART.areaGradId})` : "url(#portfolio-value-area-grad)"}
-            />
-            <path
-              d={linePath}
-              fill="none"
-              stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.lineColor : "#87FF48"}
-              strokeWidth={lineStroke}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          </>
-        )}
+        <path
+          d={areaPath}
+          fill={isPortfolioHtml ? `url(#${PORTFOLIO_HTML_CHART.areaGradId})` : "url(#portfolio-value-area-grad)"}
+        />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.lineColor : "#87FF48"}
+          strokeWidth={lineStroke}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {/* Hover crosshair — Portfolio.html white dashed line */}
         {hover && (
@@ -408,12 +421,12 @@ export function PortfolioValueChart({
                   fontWeight="700"
                   fontFamily="var(--font-mono)"
                 >
-                  {formatUsdCompact(points[hover.idx])}
+                  {formatUsdCompact(values[hover.idx])}
                 </text>
               </g>
             ) : (
               (() => {
-                const hoverLabel = formatUsdCompact(points[hover.idx]);
+                const hoverLabel = formatUsdCompact(values[hover.idx]);
                 const hoverTip = chartValueCalloutBox(
                   hover.x,
                   hoverLabel,
@@ -453,17 +466,6 @@ export function PortfolioValueChart({
               })()
             )}
           </>
-        )}
-
-        {points.length === 1 && isPortfolioHtml && (
-          <circle
-            cx={lastX}
-            cy={lastY}
-            r={PORTFOLIO_HTML_CHART.dotR}
-            fill={PORTFOLIO_HTML_CHART.dotFill}
-            stroke={PORTFOLIO_HTML_CHART.dotStroke}
-            strokeWidth={PORTFOLIO_HTML_CHART.dotStrokeWidth}
-          />
         )}
 
         {/* Markets variant — persistent last-value callout when not hovering */}

@@ -120,7 +120,7 @@ export function SellShippingView() {
 
           {ship.panel === "pack" ? (
             <div className="sell-ship-panel">
-              <div className="sell-ship-panel__eyebrow">Step 2a · Pack &amp; prepare</div>
+              <div className="sell-ship-panel__eyebrow">Step 2a · Pack and prepare</div>
 
               <div className="sell-ship-danger-banner" role="note">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

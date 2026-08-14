@@ -61,8 +61,6 @@ export default function MarketsPage() {
   const [priceFilter, setPriceFilter] = useState<MarketsPriceFilterId>(MARKETS_DEFAULT_PRICE_FILTER);
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
   const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [setFilter, setSetFilter] = useState<string | null>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleGradeFilter = useCallback((grade: MarketsGradeFilterId) => {
@@ -163,8 +161,6 @@ export default function MarketsPage() {
       gradeFilters,
       vaultFilters,
       vaultKindsByKey,
-      q: setFilter ? undefined : searchQuery,
-      setLabel: setFilter ?? undefined,
     });
   }, [
     sortedForRank,
@@ -174,8 +170,6 @@ export default function MarketsPage() {
     gradeFilters,
     vaultFilters,
     vaultKindsByKey,
-    searchQuery,
-    setFilter,
   ]);
 
   useMarketsInfiniteScroll({
@@ -265,12 +259,6 @@ export default function MarketsPage() {
           onVaultToggle={toggleVaultFilter}
           onVaultFiltersChange={setVaultFilters}
           filters={MARKETS_CATEGORY_FILTERS}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          setFilter={setFilter}
-          onSetFilterChange={setSetFilter}
-          collections={collectionSummaries}
-          snapshotByKey={snapshotByKey}
         />
       ) : null}
 

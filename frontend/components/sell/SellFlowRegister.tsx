@@ -126,7 +126,7 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
         </div>
 
         <div className="sell-flow-glass sell-flow-glass--consent">
-          <div className="sell-flow-consent-title">Seller agreement &amp; consents</div>
+          <div className="sell-flow-consent-title">Seller agreement and consents</div>
           <button
             type="button"
             className="sell-flow-consent-row sell-flow-consent-row--master"
@@ -157,15 +157,17 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
             >
               <ConsentCheck on={consents.authenticity} />
               <span>
-                I&rsquo;m responsible for the authenticity of the cards I list. PSA verifies cert
-                numbers; Tokenable doesn&rsquo;t authenticate cards.{" "}
+                I&rsquo;m responsible for the authenticity of the cards I list. Tokenable
+                doesn&rsquo;t authenticate cards; PSA verifies cert numbers, and for Partner vault
+                cards, the partner is also responsible for confirming authenticity before listing.{" "}
                 <span className="sell-flow-req">*</span>
               </span>
             </button>
             <button type="button" className="sell-flow-consent-row" onClick={() => updateConsent("storage")}>
               <ConsentCheck on={consents.storage} />
               <span>
-                My cards are stored at PSA Vault. I agree to the{" "}
+                My cards are held in the vault I choose — PSA Vault or a Partner vault. I agree to
+                the{" "}
                 <a href="/terms" className="sell-flow-link" onClick={(e) => e.stopPropagation()}>
                   storage and shipping terms
                 </a>

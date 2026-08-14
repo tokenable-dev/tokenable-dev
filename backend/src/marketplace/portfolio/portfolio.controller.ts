@@ -112,6 +112,11 @@ export class PortfolioController {
       body.tokenId,
       chainId,
     );
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+      body.walletAddress,
+      chainId,
+      0,
+    );
     return { ok: true };
   }
 
@@ -129,6 +134,11 @@ export class PortfolioController {
       body.walletAddress,
       body.tokenId,
       chainId,
+    );
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+      body.walletAddress,
+      chainId,
+      0,
     );
     return { ok: true };
   }

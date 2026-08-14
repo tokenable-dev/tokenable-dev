@@ -229,7 +229,7 @@ pending_deposit
 | `(wallet_address, snapshot_date_kst, chain_id)` | Unique — one mark-to-market row per wallet per KST day **per chain** |
 | `chain_id` | EIP-155 id of the RWA contract marked in the row (`CHECK > 0`) |
 | `snapshot_at` | Usually 09:00 Asia/Seoul for that `snapshot_date_kst` |
-| `total_value_usd` / `card_count` | Wallet totals on that chain (hidden holdings excluded) |
+| `total_value_usd` / `card_count` | Wallet totals on that chain (hidden holdings excluded). Cron writes 09:00 KST; mint/fill/deliver/hide/burn overwrite today's slot |
 
 Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA address), not a separate `chain_id` column. Snapshots store `chain_id` explicitly because they aggregate across many token ids.
 

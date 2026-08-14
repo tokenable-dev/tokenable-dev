@@ -178,7 +178,7 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 2. Metadata (+ collection keys / market pricing) loads in **pages of 20** (newest `tokenId` first) via `useInfiniteQuery`
 3. **Load more** on `PortfolioHoldingsSection` fetches the next metadata page only
 
-Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row.
+Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row. After mint, buy, or hide, React Query invalidates `portfolio-daily-snapshots` so the open Portfolio page refetches the recaptured slot.
 
 ## Multi-chain support
 

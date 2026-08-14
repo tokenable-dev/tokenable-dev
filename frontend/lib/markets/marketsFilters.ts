@@ -6,7 +6,6 @@ import type {
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
-import { collectionMatchesMarketsSearch } from "@/lib/markets/marketsTypeahead";
 
 export type MarketsPriceFilterId =
   | "any"
@@ -146,8 +145,6 @@ export function applyMarketsListingFilters(
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
     vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
     vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
-    q?: string;
-    setLabel?: string;
   },
 ): MarketplaceCollectionSummary[] {
   return collections.filter((c) => {
@@ -158,14 +155,6 @@ export function applyMarketsListingFilters(
       opts.vaultFilters &&
       opts.vaultKindsByKey &&
       !collectionMatchesVaultFilters(c, opts.vaultKindsByKey, opts.vaultFilters)
-    ) {
-      return false;
-    }
-    if (
-      !collectionMatchesMarketsSearch(c, snap, {
-        q: opts.q,
-        setLabel: opts.setLabel,
-      })
     ) {
       return false;
     }

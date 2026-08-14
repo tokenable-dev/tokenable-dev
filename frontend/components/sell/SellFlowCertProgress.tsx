@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
  */
 const STAGES: ReadonlyArray<{ to: number; text: string }> = [
   { to: 38, text: "Contacting PSA…" },
-  { to: 74, text: "Reading grade & population…" },
+  { to: 74, text: "Reading grade and population…" },
   { to: 96, text: "Matching to market data…" },
 ];
 

@@ -58,7 +58,7 @@ export function SettingsLegalSection({ user }: { user: AuthUser }) {
 
   return (
     <section className="tk-settings__sec tk-settings__sec--legal">
-      <h1 className="tk-settings__sec-h">Legal &amp; consents</h1>
+      <h1 className="tk-settings__sec-h">Legal and consents</h1>
       <p className="tk-settings__sec-sub">
         Manage your agreements and communication preferences.
       </p>

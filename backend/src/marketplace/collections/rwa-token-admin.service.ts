@@ -546,6 +546,12 @@ export class RwaTokenAdminService {
       );
     }
 
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+      deliverTo,
+      chainId,
+      1500,
+    );
+
     return { txHash: result.txHash, recipientAddress: deliverTo };
   }
 
@@ -629,6 +635,14 @@ export class RwaTokenAdminService {
       burnTxHash: result.txHash,
       burnedByWalletAddress: expectedOwner,
     });
+
+    if (expectedOwner) {
+      await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+        expectedOwner,
+        chainId,
+        1500,
+      );
+    }
 
     return { ...result, cancelledOrderHashes };
   }

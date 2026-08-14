@@ -45,6 +45,20 @@ async function _invalidatePortfolioMarketBatch(qc: QueryClient): Promise<void> {
   await qc.invalidateQueries({ queryKey: ["portfolio-market-batch"] });
 }
 
+/** Portfolio value chart (`GET …/portfolio/daily/:wallet`). Prefix when address unknown. */
+async function _invalidatePortfolioDailySnapshots(
+  qc: QueryClient,
+  address?: string | null,
+): Promise<void> {
+  if (address?.trim()) {
+    await qc.invalidateQueries({
+      queryKey: ["portfolio-daily-snapshots", address],
+    });
+    return;
+  }
+  await qc.invalidateQueries({ queryKey: ["portfolio-daily-snapshots"] });
+}
+
 /**
  * ALL `marketplace-collection` entries (1-element prefix — covers every collection).
  * Use only when the exact collection key is unknown or when all collections must refresh.
@@ -157,6 +171,7 @@ export async function invalidateAfterRwaMintTx(
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
   await _invalidatePortfolioMarketBatch(qc);
+  await _invalidatePortfolioDailySnapshots(qc, input.address);
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
 
   if (input.address?.trim()) {
@@ -210,6 +225,7 @@ export async function invalidateAfterRwaDetail(
   await _invalidateRwaMetadataBatch(qc);
   // Prefix — refreshes all cached collection entries (detail + market)
   await _invalidateAllCollections(qc);
+  await _invalidatePortfolioDailySnapshots(qc);
 
   if (collectionKeyForMatch) {
     await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKeyForMatch] });
@@ -240,6 +256,7 @@ export async function invalidateAfterListing(
   await _invalidateMintPreviews(qc);
   await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
   await _invalidateCollectionSnapshots(qc);
+  await _invalidatePortfolioDailySnapshots(qc, opts.address);
   // Broad prefix — all collection details (new listing changes market depth)
   await _invalidateAllCollections(qc);
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
@@ -360,9 +377,7 @@ export async function invalidateAfterBurn(
   await _invalidateOrdersAll(qc);
   await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
-  await qc.invalidateQueries({
-    queryKey: ["portfolio-daily-snapshots", address],
-  });
+  await _invalidatePortfolioDailySnapshots(qc, address);
 }
 
 /**

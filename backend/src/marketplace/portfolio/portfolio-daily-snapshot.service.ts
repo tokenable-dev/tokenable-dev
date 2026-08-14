@@ -206,6 +206,61 @@ export class PortfolioDailySnapshotService {
     );
   }
 
+  /**
+   * Overwrite today's KST slot after holdings change (mint / buy / deliver / hide).
+   * Optional delay lets RPC `ownerOf` catch up after the transfer.
+   * Does not throw — holdings mutations must not fail because of chart recapture.
+   */
+  async refreshCurrentSlotSnapshot(
+    walletAddress: string,
+    chainId?: SupportedChainId,
+    waitForRpcMs = 0,
+  ): Promise<void> {
+    const wallets = [walletAddress];
+    await this.refreshCurrentSlotSnapshots(wallets, chainId, waitForRpcMs);
+  }
+
+  async refreshCurrentSlotSnapshots(
+    walletAddresses: string[],
+    chainId?: SupportedChainId,
+    waitForRpcMs = 0,
+  ): Promise<void> {
+    const wallets = [
+      ...new Set(
+        walletAddresses
+          .map((w) => w.trim().toLowerCase())
+          .filter((w) => w.length > 0),
+      ),
+    ];
+    if (!wallets.length) return;
+    if (waitForRpcMs > 0) {
+      await new Promise((r) => setTimeout(r, waitForRpcMs));
+    }
+    try {
+      await Promise.all(
+        wallets.map((wallet) =>
+          this.captureDailySnapshot(wallet, new Date(), chainId),
+        ),
+      );
+    } catch (e) {
+      this.logger.warn(
+        `refreshCurrentSlotSnapshots failed wallets=${wallets.join(',')} chain=${chainId ?? 'default'}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  scheduleRefreshCurrentSlotSnapshot(
+    walletAddress: string,
+    chainId?: SupportedChainId,
+    waitForRpcMs = 1500,
+  ): void {
+    void this.refreshCurrentSlotSnapshot(
+      walletAddress,
+      chainId,
+      waitForRpcMs,
+    );
+  }
+
   async latest24h(
     walletAddress: string,
     chainId?: SupportedChainId,

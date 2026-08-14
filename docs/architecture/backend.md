@@ -178,6 +178,7 @@ GET …/collections, POST …/market-snapshots
 
 GET …/portfolio/daily/:wallet
          → list snapshots; fallback capture only if today's row missing
+         (holdings-change recapture is write-path: mint / fill / deliver / hide / burn)
 ```
 
 ---

@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
-import type {
-  CollectionListMarketSnapshot,
-  MarketplaceCollectionSummary,
-} from "@/lib/core";
 import {
   MARKETS_SORT_OPTIONS,
   MARKETS_SORT_UI_IDS,
@@ -21,10 +16,6 @@ import {
   type MarketsPriceFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
-import {
-  buildMarketsTypeaheadGroups,
-  type MarketsTypeaheadRow,
-} from "@/lib/markets/marketsTypeahead";
 import {
   MARKETS_CATEGORY_FILTERS,
   type CategoryFilterOption,
@@ -178,12 +169,6 @@ export function MarketsFilterBar({
   onVaultToggle,
   onVaultFiltersChange,
   filters = MARKETS_CATEGORY_FILTERS,
-  searchQuery = "",
-  onSearchQueryChange,
-  setFilter = null,
-  onSetFilterChange,
-  collections = [],
-  snapshotByKey,
 }: {
   categoryFilter: CollectionCategoryFilterId;
   onCategoryChange: (id: CollectionCategoryFilterId) => void;
@@ -198,14 +183,7 @@ export function MarketsFilterBar({
   onVaultToggle?: (id: MarketsVaultFilterId) => void;
   onVaultFiltersChange?: (vaults: Set<MarketsVaultFilterId>) => void;
   filters?: CategoryFilterOption[];
-  searchQuery?: string;
-  onSearchQueryChange?: (q: string) => void;
-  setFilter?: string | null;
-  onSetFilterChange?: (setLabel: string | null) => void;
-  collections?: MarketplaceCollectionSummary[];
-  snapshotByKey?: Map<string, CollectionListMarketSnapshot>;
 }) {
-  const router = useRouter();
   const [openPop, setOpenPop] = useState<PopId>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftCategory, setDraftCategory] = useState(categoryFilter);
@@ -217,56 +195,16 @@ export function MarketsFilterBar({
   const [draftVaults, setDraftVaults] = useState<Set<MarketsVaultFilterId>>(
     () => new Set(vaultFilters ?? []),
   );
-  const [draftSearch, setDraftSearch] = useState(searchQuery);
-  const [taOpen, setTaOpen] = useState(false);
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const catRef = useRef<HTMLDivElement>(null);
   const gradeRef = useRef<HTMLDivElement>(null);
   const priceRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   useDropdownDismiss(openPop === "category", () => setOpenPop(null), catRef);
   useDropdownDismiss(openPop === "grade", () => setOpenPop(null), gradeRef);
   useDropdownDismiss(openPop === "price", () => setOpenPop(null), priceRef);
   useDropdownDismiss(openPop === "sort", () => setOpenPop(null), sortRef);
-  useDropdownDismiss(taOpen && !searchModalOpen, () => setTaOpen(false), searchRef);
-
-  useEffect(() => {
-    setDraftSearch(searchQuery);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    if (!searchModalOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setSearchModalOpen(false);
-    }
-    function onResize() {
-      if (window.innerWidth > 820) setSearchModalOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", onResize);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", onResize);
-      document.body.style.overflow = prev;
-    };
-  }, [searchModalOpen]);
-
-  const typeaheadGroups = useMemo(
-    () =>
-      buildMarketsTypeaheadGroups(
-        draftSearch,
-        collections,
-        snapshotByKey ?? new Map(),
-      ),
-    [draftSearch, collections, snapshotByKey],
-  );
-
-  const searchEnabled = Boolean(onSearchQueryChange);
 
   const activeFilter = filters.find((f) => f.id === categoryFilter);
   const categoryLabel = activeFilter ? categoryChipLabel(activeFilter) : "All";
@@ -351,53 +289,10 @@ export function MarketsFilterBar({
     onPriceFilterChange(MARKETS_DEFAULT_PRICE_FILTER);
     onGradeFiltersChange(new Set());
     onVaultFiltersChange?.(new Set());
-    onSearchQueryChange?.("");
-    onSetFilterChange?.(null);
-    setDraftSearch("");
     setDraftCategory("all");
     setDraftPrice(MARKETS_DEFAULT_PRICE_FILTER);
     setDraftGrades(new Set());
     setDraftVaults(new Set());
-  }
-
-  function applySearchText(q: string) {
-    const next = q.trim();
-    onSearchQueryChange?.(next);
-    onSetFilterChange?.(null);
-    setTaOpen(false);
-    setSearchModalOpen(false);
-    trackEvent("filter_applied", {
-      filter_type: "search",
-      filter_value: next || "cleared",
-    });
-  }
-
-  function onTypeaheadSelect(row: MarketsTypeaheadRow) {
-    if (row.kind === "category") {
-      onCategoryChange(row.id);
-      onSearchQueryChange?.("");
-      onSetFilterChange?.(null);
-      setDraftSearch("");
-      trackEvent("filter_applied", {
-        filter_type: "category",
-        filter_value: row.id,
-      });
-    } else if (row.kind === "set") {
-      onSetFilterChange?.(row.label);
-      onSearchQueryChange?.("");
-      setDraftSearch(row.label);
-      trackEvent("filter_applied", {
-        filter_type: "set",
-        filter_value: row.label,
-      });
-    } else {
-      router.push(
-        `/marketplace/collections/${encodeURIComponent(row.collectionKey)}`,
-      );
-    }
-    setTaOpen(false);
-    setSearchModalOpen(false);
-    setOpenPop(null);
   }
 
   function toggleDraftGrade(grade: MarketsGradeFilterId) {
@@ -450,25 +345,6 @@ export function MarketsFilterBar({
         onClear: () => onVaultToggle?.(opt.id),
       });
     }
-  }
-  if (setFilter) {
-    activeChips.push({
-      key: "set",
-      label: setFilter,
-      onClear: () => {
-        onSetFilterChange?.(null);
-        setDraftSearch("");
-      },
-    });
-  } else if (searchQuery.trim()) {
-    activeChips.push({
-      key: "q",
-      label: `“${searchQuery.trim()}”`,
-      onClear: () => {
-        onSearchQueryChange?.("");
-        setDraftSearch("");
-      },
-    });
   }
 
   return (
@@ -657,141 +533,9 @@ export function MarketsFilterBar({
           ) : null}
         </button>
 
-        {searchEnabled ? (
-          <button
-            type="button"
-            className="markets-ddchip markets-search-icon-btn"
-            aria-label="Search"
-            onClick={() => {
-              setOpenPop(null);
-              setSearchModalOpen(true);
-            }}
-          >
-            <svg
-              width={16}
-              height={16}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden
-            >
-              <circle cx={11} cy={11} r={7} />
-              <line x1={16.5} y1={16.5} x2={21} y2={21} />
-            </svg>
-          </button>
-        ) : null}
-
         <div className="markets-slim-bar__sp" aria-hidden />
 
         <div className="markets-slim-bar__end">
-        {searchEnabled ? (
-          <div ref={searchRef} className="markets-usearch markets-usearch--bar">
-            <div className="markets-usearch__box">
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden
-              >
-                <circle cx={11} cy={11} r={7} />
-                <line x1={16.5} y1={16.5} x2={21} y2={21} />
-              </svg>
-              <input
-                type="search"
-                value={draftSearch}
-                autoComplete="off"
-                placeholder="Search cards, sets, players…"
-                aria-label="Search cards, sets, players"
-                aria-expanded={taOpen && draftSearch.trim().length > 0}
-                aria-controls="markets-typeahead"
-                onFocus={() => {
-                  setOpenPop(null);
-                  if (draftSearch.trim()) setTaOpen(true);
-                }}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDraftSearch(v);
-                  setTaOpen(v.trim().length > 0);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    applySearchText(draftSearch);
-                  } else if (e.key === "Escape") {
-                    setTaOpen(false);
-                  }
-                }}
-              />
-            </div>
-            {taOpen && draftSearch.trim() ? (
-              <div
-                id="markets-typeahead"
-                className="markets-ta markets-ta--open"
-                role="listbox"
-              >
-                {typeaheadGroups.length === 0 ? (
-                  <div className="markets-ta__none">
-                    No matches for “{draftSearch.trim()}”
-                  </div>
-                ) : (
-                  typeaheadGroups.map((g) => (
-                    <div key={g.key} className="markets-ta__group">
-                      <div className="markets-ta__head">
-                        {g.label}{" "}
-                        <span>{g.total.toLocaleString("en-US")}</span>
-                      </div>
-                      {g.rows.map((row) => (
-                        <button
-                          key={
-                            row.kind === "card"
-                              ? row.collectionKey
-                              : `${row.kind}-${row.label}`
-                          }
-                          type="button"
-                          role="option"
-                          className="markets-ta__row"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => onTypeaheadSelect(row)}
-                        >
-                          <span className="markets-ta__label">{row.label}</span>
-                          {row.count != null ? (
-                            <span className="markets-ta__count">
-                              {row.count.toLocaleString("en-US")}
-                            </span>
-                          ) : null}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        className="markets-ta__all"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          if (g.key === "sets" && g.rows[0]?.kind === "set") {
-                            onTypeaheadSelect(g.rows[0]);
-                          } else if (
-                            g.key === "categories" &&
-                            g.rows[0]?.kind === "category"
-                          ) {
-                            onTypeaheadSelect(g.rows[0]);
-                          } else {
-                            applySearchText(draftSearch);
-                          }
-                        }}
-                      >
-                        See all {g.label.toLowerCase()}
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         <div ref={sortRef} className="markets-fw markets-fw--sort">
           <DdChip
             label="Sort:"
@@ -842,133 +586,6 @@ export function MarketsFilterBar({
         </div>
         </div>
       </div>
-
-      {searchEnabled && searchModalOpen ? (
-        <div
-          className="markets-search-modal open"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Search"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSearchModalOpen(false);
-          }}
-        >
-          <div className="markets-search-modal-head">
-            <button
-              type="button"
-              className="markets-search-modal-close"
-              aria-label="Close search"
-              onClick={() => setSearchModalOpen(false)}
-            >
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.2}
-                aria-hidden
-              >
-                <line x1={18} y1={6} x2={6} y2={18} />
-                <line x1={6} y1={6} x2={18} y2={18} />
-              </svg>
-            </button>
-          </div>
-          <div className="markets-usearch">
-            <div className="markets-usearch__box">
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden
-              >
-                <circle cx={11} cy={11} r={7} />
-                <line x1={16.5} y1={16.5} x2={21} y2={21} />
-              </svg>
-              <input
-                type="search"
-                value={draftSearch}
-                autoComplete="off"
-                autoFocus
-                placeholder="Search cards, sets, players…"
-                aria-label="Search cards, sets, players"
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDraftSearch(v);
-                  setTaOpen(v.trim().length > 0);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    applySearchText(draftSearch);
-                  }
-                }}
-              />
-            </div>
-            {taOpen && draftSearch.trim() ? (
-              <div className="markets-ta markets-ta--open" role="listbox">
-                {typeaheadGroups.length === 0 ? (
-                  <div className="markets-ta__none">
-                    No matches for “{draftSearch.trim()}”
-                  </div>
-                ) : (
-                  typeaheadGroups.map((g) => (
-                    <div key={g.key} className="markets-ta__group">
-                      <div className="markets-ta__head">
-                        {g.label}{" "}
-                        <span>{g.total.toLocaleString("en-US")}</span>
-                      </div>
-                      {g.rows.map((row) => (
-                        <button
-                          key={
-                            row.kind === "card"
-                              ? row.collectionKey
-                              : `${row.kind}-${row.label}`
-                          }
-                          type="button"
-                          role="option"
-                          className="markets-ta__row"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => onTypeaheadSelect(row)}
-                        >
-                          <span className="markets-ta__label">{row.label}</span>
-                          {row.count != null ? (
-                            <span className="markets-ta__count">
-                              {row.count.toLocaleString("en-US")}
-                            </span>
-                          ) : null}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        className="markets-ta__all"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          if (g.key === "sets" && g.rows[0]?.kind === "set") {
-                            onTypeaheadSelect(g.rows[0]);
-                          } else if (
-                            g.key === "categories" &&
-                            g.rows[0]?.kind === "category"
-                          ) {
-                            onTypeaheadSelect(g.rows[0]);
-                          } else {
-                            applySearchText(draftSearch);
-                          }
-                        }}
-                      >
-                        See all {g.label.toLowerCase()}
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       {activeChips.length > 0 ? (
         <div className="tkl-wrap markets-achips">

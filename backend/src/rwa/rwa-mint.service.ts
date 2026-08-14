@@ -163,6 +163,11 @@ export class RwaMintService {
 
     if (deliveryMode === 'direct') {
       await this.seedDirectMintCostBasis(recipient, tokenId, chainId);
+      await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+        recipient,
+        chainId,
+        1500,
+      );
     }
 
     return {
@@ -201,6 +206,11 @@ export class RwaMintService {
         chainId,
       );
     await this.seedDirectMintCostBasis(recipient, mint.tokenId, chainId);
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+      recipient,
+      chainId,
+      1500,
+    );
     return {
       ...mint,
       mintedTo: recipient,
@@ -279,6 +289,11 @@ export class RwaMintService {
     }
 
     await this.vaultSubmissions.markItemCompletedForCycle(params.cycleId);
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+      recipient,
+      chainId,
+      alreadyWithUser ? 0 : 1500,
+    );
 
     return {
       tokenId: params.tokenId,

@@ -44,6 +44,7 @@ describe('RwaMintService', () => {
     resolveMarkUsdByTokenIds: jest
       .fn()
       .mockResolvedValue(new Map([[9, 1200]])),
+    refreshCurrentSlotSnapshot: jest.fn().mockResolvedValue(undefined),
   };
 
   const partners = {
@@ -154,6 +155,7 @@ describe('RwaMintService', () => {
     expect(result.mintedTo).toBe('0xcustody');
     expect(result.intendedRecipient).toBe('0xuserwallet');
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).not.toHaveBeenCalled();
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({ settlementPolicy: 'standard' }),
     );
@@ -184,6 +186,11 @@ describe('RwaMintService', () => {
       1200,
       expect.any(Date),
       chainId,
+    );
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
+      '0xuserwallet',
+      chainId,
+      1500,
     );
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -294,6 +301,11 @@ describe('RwaMintService', () => {
     expect(result.deliverTxHash).toBe('0xdeliver');
     expect(result.mintedTo).toBe('0xuserwallet');
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).toHaveBeenCalled();
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
+      '0xuserwallet',
+      chainId,
+      1500,
+    );
   });
 
   it('adoptExistingMintedAndDeliverForUser delivers from custody without reminting', async () => {
@@ -328,6 +340,11 @@ describe('RwaMintService', () => {
     expect(result.adoptedExisting).toBe(true);
     expect(result.alreadyWithUser).toBe(false);
     expect(result.deliverTxHash).toBe('0xdeliver');
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
+      '0xuserwallet',
+      chainId,
+      1500,
+    );
   });
 
   it('adoptExistingMintedAndDeliverForUser skips transfer when user already holds NFT', async () => {
@@ -348,5 +365,10 @@ describe('RwaMintService', () => {
     expect(chainWriter.safeTransferFromCustody).not.toHaveBeenCalled();
     expect(result.alreadyWithUser).toBe(true);
     expect(result.deliverTxHash).toBeNull();
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
+      '0xuserwallet',
+      chainId,
+      0,
+    );
   });
 });

@@ -32,6 +32,7 @@ import { P2pListing } from '../entities/p2p-listing.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
+import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VaultService } from '../../vault/vault.service';
@@ -76,6 +77,7 @@ export class OrdersService {
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
     private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly partners: MarketplacePartnersService,
     private readonly notifications: NotificationsService,
     private readonly vault: VaultService,
@@ -1170,6 +1172,10 @@ export class OrdersService {
           buyerAddress,
           chainId,
         );
+        await this.refreshChartsAfterHoldingsMove(
+          [buyerAddress, saved.offerer],
+          chainId,
+        );
         void this.notifications
           .notifyTradeSettled({
             ask: saved,
@@ -1225,6 +1231,10 @@ export class OrdersService {
             },
           } as Order,
           saved.updatedAt ?? new Date(),
+          chainId,
+        );
+        await this.refreshChartsAfterHoldingsMove(
+          [buyerAddress, saved.offerer],
           chainId,
         );
       }
@@ -1354,6 +1364,10 @@ export class OrdersService {
     );
 
     await this.maybeCreateSelfVaultSettlement(ask, bid.offerer, chainId);
+    await this.refreshChartsAfterHoldingsMove(
+      [bid.offerer, ask.offerer],
+      chainId,
+    );
 
     void this.notifications
       .notifyTradeSettled({
@@ -1369,6 +1383,26 @@ export class OrdersService {
       });
 
     return { ask, bid };
+  }
+
+  /** Recapture today's chart slot for buyer + seller after NFT moved. */
+  private async refreshChartsAfterHoldingsMove(
+    wallets: Array<string | null | undefined>,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const unique = [
+      ...new Set(
+        wallets
+          .map((w) => w?.trim().toLowerCase())
+          .filter((w): w is string => Boolean(w)),
+      ),
+    ];
+    if (!unique.length) return;
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshots(
+      unique,
+      chainId,
+      0,
+    );
   }
 
   private async maybeCreateSelfVaultSettlement(
