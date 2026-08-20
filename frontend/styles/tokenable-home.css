@@ -422,10 +422,11 @@
 @media (max-width: 768px) {
   .home-hero {
     min-height: 90vh;
+    align-items: flex-start;
   }
 
   .home-hero__content {
-    padding: 118px clamp(18px, 5vw, 40px) 76px;
+    padding: 56px clamp(18px, 5vw, 40px) 64px;
     text-align: center;
   }
 
