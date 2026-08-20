@@ -1,14 +1,14 @@
 /**
- * Home hero 3D ring face textures — static curated cards in `public/assets/home/`.
+ * Home hero 3D ring face textures — `public/assets/home/newcards/`.
  * Not marketplace/S3 covers.
  */
 export const HERO_LANDING_IMAGE_URLS = [
-  "/assets/home/landing_1.jpg",
-  "/assets/home/landing_2.jpg",
-  "/assets/home/landing_3.jpg",
-  "/assets/home/landing_4.jpg",
-  "/assets/home/landing_5.jpg",
-  "/assets/home/landing_6.jpg",
+  "/assets/home/newcards/c01.jpg",
+  "/assets/home/newcards/c02.jpg",
+  "/assets/home/newcards/c03.jpg",
+  "/assets/home/newcards/c04.jpg",
+  "/assets/home/newcards/c05.jpg",
+  "/assets/home/newcards/c06.jpg",
 ] as const;
 
 export const HERO_SLAB_CAROUSEL_SLOT_COUNT = 10;

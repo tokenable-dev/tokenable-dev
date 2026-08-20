@@ -71,7 +71,7 @@ export function useCollectionListingModal(input: {
     [],
   );
 
-  /** Set-level Place a Bid — uses lowest ask (or first listing token) as criteria seed. */
+  /** Set-level Place a Bid — floor listing if any; otherwise checkout resolves a collection token. */
   const openSetLevelBid = useCallback(() => {
     const asks = [...askMap.values()].filter((o) => o.status === "active");
     asks.sort((a, b) => {
@@ -88,6 +88,8 @@ export function useCollectionListingModal(input: {
         return;
       }
     }
+    setSelectedTokenId(null);
+    setCheckout("bid");
   }, [askMap]);
 
   const buyFlow = useRwaDetailBuyFlow({

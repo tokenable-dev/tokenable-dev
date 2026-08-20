@@ -1,4 +1,4 @@
-import type { RwaMetadata } from "@/lib/core";
+import type { Order, RwaMetadata } from "@/lib/core";
 import {
   formatPsaGradedByDisplay,
   psaGradePolicyInputFromGraded,
@@ -12,6 +12,42 @@ import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
 } from "@/lib/marketplace/rwa-detail/rwaDetailMetadata";
+
+/** Placeholder ask so Place Bid can run without an active listing (RWA + collection). */
+export function stubListingForOffer(tokenId: number, collectionKey: string): Order {
+  return {
+    id: 0,
+    orderHash: "0x",
+    offerer: "0x0000000000000000000000000000000000000000",
+    side: "ask",
+    collectionKey,
+    tokenContract: "0x0000000000000000000000000000000000000000",
+    tokenId: String(tokenId),
+    considerationToken: "0x0000000000000000000000000000000000000000",
+    considerationAmount: "0",
+    parameters: {
+      offerer: "0x0000000000000000000000000000000000000000",
+      zone: "0x0000000000000000000000000000000000000000",
+      zoneHash:
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      startTime: "0",
+      endTime: "0",
+      orderType: 0,
+      offer: [],
+      consideration: [],
+      totalOriginalConsiderationItems: 0,
+      salt: "0",
+      conduitKey:
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      counter: "0",
+    },
+    signature: "0x",
+    status: "active",
+    startTime: new Date(0).toISOString(),
+    endTime: new Date(0).toISOString(),
+    createdAt: new Date(0).toISOString(),
+  };
+}
 
 export function formatListingUsdc(amount: string): string {
   try {

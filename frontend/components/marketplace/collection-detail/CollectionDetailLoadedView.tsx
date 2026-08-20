@@ -135,7 +135,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     () => bestAskFromRows(asks),
     [asks],
   );
-  const canPlaceSetBid = asks.length > 0;
 
   const openBuyFloor = () => {
     const active = [...listings.askMap.values()].filter((o) => o.status === "active");
@@ -198,7 +197,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     highestBidUsd,
     lowestAskUsd,
     onPlaceBid: listingModal.openSetLevelBid,
-    placeBidDisabled: !canPlaceSetBid,
+    placeBidDisabled: false,
     onBuyLowestAsk: openBuyFloor,
     buyDisabled: asks.length === 0,
   });
@@ -287,7 +286,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         onBuy={asks.length > 0 ? openBuyFloor : undefined}
         onBid={listingModal.openSetLevelBid}
         buyDisabled={asks.length === 0}
-        bidDisabled={!canPlaceSetBid}
+        bidDisabled={false}
       />
 
       <TradeCelebrationModal
@@ -315,14 +314,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       />
 
       <CollectionListingCheckoutModal
-        open={listingModal.checkout != null && listingModal.selectedTokenId != null}
+        open={
+          listingModal.checkout === "bid" ||
+          (listingModal.checkout === "buy" && listingModal.selectedTokenId != null)
+        }
         mode={listingModal.checkout ?? "buy"}
         tokenId={listingModal.selectedTokenId}
         listing={listingModal.selectedListing}
         metadata={listingModal.selectedPrefetch?.metadata ?? null}
-        imageUrl={listingModal.selectedPrefetch?.imageUrl ?? null}
+        imageUrl={listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl}
+        collectionTitle={headline.collectionHeadlineDisplayTitle}
         collectionKey={collectionKey}
-        collectionAsks={asks}
         collectionBids={collectionBids}
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}

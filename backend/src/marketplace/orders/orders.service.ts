@@ -29,6 +29,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { P2pListing } from '../entities/p2p-listing.entity';
+import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
@@ -47,6 +48,12 @@ import {
   isValidDecimalTokenId,
   resolveFulfilledAskTokenId,
 } from '../utils/platform-tape.util';
+import {
+  isUnlistedTokenBidBelowMarketFloor,
+  minUnlistedTokenBidUsdc,
+  snapshotMarketUsdForTokenBid,
+} from '../utils/token-bid-market-floor.util';
+import { tokenBidWindowIsValid } from '../utils/token-bid-duration.util';
 
 /** Seaport v1.5 — same canonical address used by the frontend. */
 const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
@@ -74,6 +81,8 @@ export class OrdersService {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(P2pListing)
     private readonly p2pListings: Repository<P2pListing>,
+    @InjectRepository(CollectionMarketSnapshot)
+    private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
@@ -189,6 +198,7 @@ export class OrdersService {
           bidCollectionKey,
           chainId,
         );
+        await this.assertUnlistedTokenBidMarketFloor(dto, bidCollectionKey);
       } else if (itemType === 4) {
         throw new BadRequestException(
           'Collection criteria bids are no longer supported. Place a bid on a specific card instead.',
@@ -460,6 +470,7 @@ export class OrdersService {
     if (!newCollectionKey) {
       throw new BadRequestException('collectionKey is required for token bids');
     }
+    await this.assertUnlistedTokenBidMarketFloor(dto, newCollectionKey);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -696,6 +707,61 @@ export class OrdersService {
         'Bid consideration identifierOrCriteria must match tokenId',
       );
     }
+    const window = tokenBidWindowIsValid({
+      startTimeSec: Number(p.startTime),
+      endTimeSec: Number(p.endTime),
+      nowSec: Date.now() / 1000,
+    });
+    if (!window.ok) {
+      throw new BadRequestException(window.reason);
+    }
+  }
+
+  /**
+   * Unlisted token offers (no active ask on that token) must be ≥ 70% of
+   * the collection market price. No max vs market. Skip when market is unknown.
+   */
+  private async assertUnlistedTokenBidMarketFloor(
+    dto: CreateOrderDto,
+    collectionKey: string,
+  ): Promise<void> {
+    const tid = normalizeDecimalTokenId(String(dto.tokenId ?? ''));
+    if (!tid) return;
+
+    const rwa = dto.tokenContract.toLowerCase();
+    const rawTid = String(dto.tokenId ?? '').trim();
+    const activeAsk = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.token_contract) = :rwa', { rwa })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('(o.token_id = :tid OR o.token_id = :rawTid)', { tid, rawTid })
+      .getOne();
+    if (activeAsk) return;
+
+    const key = collectionKey.trim().toLowerCase();
+    const snap = key
+      ? await this.snapshotRepo.findOne({ where: { collectionKey: key } })
+      : null;
+    const marketUsd = snapshotMarketUsdForTokenBid(snap ?? {});
+    if (marketUsd == null) return;
+
+    const offerAmt = dto.parameters.offer?.[0]?.startAmount;
+    let bidMicros: bigint;
+    try {
+      bidMicros = BigInt(String(offerAmt ?? dto.considerationAmount ?? '0'));
+    } catch {
+      throw new BadRequestException('Bid amount is invalid');
+    }
+    if (!isUnlistedTokenBidBelowMarketFloor(bidMicros, marketUsd)) return;
+
+    const minUsdc = minUnlistedTokenBidUsdc(marketUsd).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    throw new BadRequestException(
+      `Bid must be at least $${minUsdc} (70% of market).`,
+    );
   }
 
   /**

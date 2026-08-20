@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Order, RwaMetadata } from "@/lib/core";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getMerkleEligibleTokenIds,
+  marketplaceRqPolicy,
+  rq,
+  type Order,
+  type RwaMetadata,
+} from "@/lib/core";
 import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useAccount } from "wagmi";
 import {
   formatListingUsdc,
   listingAssetTitle,
+  listingVerificationTiles,
+  stubListingForOffer,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { CollectionListingBidCheckout } from "./CollectionListingBidCheckout";
 
@@ -19,8 +28,8 @@ export function CollectionListingCheckoutModal({
   listing,
   metadata,
   imageUrl,
+  collectionTitle,
   collectionKey,
-  collectionAsks,
   collectionBids = [],
   connectedAddress,
   buyBusy,
@@ -36,8 +45,8 @@ export function CollectionListingCheckoutModal({
   listing: Order | null;
   metadata: RwaMetadata | null;
   imageUrl: string | null;
+  collectionTitle?: string | null;
   collectionKey: string;
-  collectionAsks: Order[];
   collectionBids?: Order[];
   connectedAddress?: string;
   buyBusy: boolean;
@@ -51,7 +60,29 @@ export function CollectionListingCheckoutModal({
     `/marketplace/collections/${encodeURIComponent(collectionKey)}`,
   );
   const { isConnected } = useAccount();
-  const [bidHeaderTitle, setBidHeaderTitle] = useState("Place a Bid");
+  const [bidHeaderTitle, setBidHeaderTitle] = useState("Place a bid");
+
+  const needsCollectionToken = open && mode === "bid" && listing == null;
+  const merkleQuery = useQuery({
+    queryKey: rq.merkleSet(collectionKey),
+    queryFn: () => getMerkleEligibleTokenIds(collectionKey),
+    enabled: needsCollectionToken,
+    staleTime: marketplaceRqPolicy.merkleSetStaleMs,
+  });
+
+  const resolvedTokenId = useMemo(() => {
+    if (tokenId != null && Number.isFinite(tokenId) && tokenId >= 0) return tokenId;
+    const ids = merkleQuery.data?.tokenIds ?? [];
+    const sorted = [...ids].map(Number).filter((n) => Number.isFinite(n));
+    sorted.sort((a, b) => a - b);
+    return sorted[0] ?? null;
+  }, [tokenId, merkleQuery.data]);
+
+  const resolvedListing = useMemo(() => {
+    if (listing) return listing;
+    if (resolvedTokenId == null) return null;
+    return stubListingForOffer(resolvedTokenId, collectionKey);
+  }, [listing, resolvedTokenId, collectionKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,15 +99,28 @@ export function CollectionListingCheckoutModal({
   }, [open, onClose]);
 
   useEffect(() => {
-    if (open && mode === "bid") setBidHeaderTitle("Place a Bid");
+    if (open && mode === "bid") setBidHeaderTitle("Place a bid");
   }, [open, mode]);
 
-  if (!open || tokenId == null || !listing || typeof document === "undefined") {
-    return null;
-  }
+  const buyReady = mode === "buy" && tokenId != null && listing != null;
+  if (!open || typeof document === "undefined") return null;
+  if (mode === "buy" && !buyReady) return null;
 
-  const price = formatListingUsdc(listing.considerationAmount);
-  const title = listingAssetTitle(metadata, tokenId);
+  const hasLiveAsk = listing != null && Number(listing.considerationAmount) > 0;
+  const tiles = listingVerificationTiles(metadata);
+  const itemSub = hasLiveAsk
+    ? [tiles.gradedBy, tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null, "Vaulted"]
+        .filter(Boolean)
+        .join(" · ")
+    : [tiles.gradedBy !== "—" ? tiles.gradedBy : null, "No active listing"]
+        .filter(Boolean)
+        .join(" · ");
+  const price = listing ? formatListingUsdc(listing.considerationAmount) : "—";
+  const title =
+    collectionTitle?.trim() ||
+    (resolvedTokenId != null
+      ? listingAssetTitle(metadata, resolvedTokenId)
+      : "Collection");
   const priceLabel = (() => {
     const n = Number(price.replace(/,/g, ""));
     if (!Number.isFinite(n)) return price;
@@ -89,6 +133,10 @@ export function CollectionListingCheckoutModal({
   const handlePay = () => {
     runTradeAccessGate(() => onFulfillBuy());
   };
+
+  const merklePending = needsCollectionToken && merkleQuery.isLoading;
+  const merkleEmpty =
+    needsCollectionToken && !merkleQuery.isLoading && resolvedTokenId == null;
 
   return createPortal(
     <div
@@ -125,12 +173,12 @@ export function CollectionListingCheckoutModal({
           <div className="cd-listing-checkout__item-meta">
             <div className="cd-listing-checkout__item-title">{title}</div>
             <div className="cd-listing-checkout__item-sub tkl-mono">
-              Listed ${priceLabel} · Vaulted
+              {itemSub}
             </div>
           </div>
         </div>
 
-        {mode === "buy" ? (
+        {mode === "buy" && listing ? (
           <>
             <div className="cd-listing-checkout__rows">
               <div className="cd-listing-checkout__row">
@@ -165,20 +213,27 @@ export function CollectionListingCheckoutModal({
               separately in the chain&apos;s native token.
             </p>
           </>
-        ) : (
+        ) : merklePending ? (
+          <p className="cd-listing-checkout__fine tkl-mono">Loading collection…</p>
+        ) : merkleEmpty ? (
+          <p className="cd-listing-checkout__error" role="alert">
+            There are no vaulted cards in this collection yet, so a bid can&apos;t be
+            placed.
+          </p>
+        ) : resolvedTokenId != null && resolvedListing ? (
           <CollectionListingBidCheckout
             collectionKey={collectionKey}
-            tokenId={tokenId}
-            listing={listing}
+            tokenId={resolvedTokenId}
+            listing={resolvedListing}
             collectionBids={collectionBids}
-            listedPriceLabel={priceLabel}
+            listedPriceLabel={hasLiveAsk ? priceLabel : null}
             connectedAddress={connectedAddress}
             onHeaderTitleChange={setBidHeaderTitle}
             onPlaced={() => onBidPlaced?.()}
             onPurchaseFilled={() => onPurchaseFilled?.()}
             onDone={onClose}
           />
-        )}
+        ) : null}
       </div>
     </div>,
     document.body,

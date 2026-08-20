@@ -20,12 +20,27 @@ import type { useWriteContract } from "wagmi";
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
 const ZERO_ADDRESS = zeroAddress;
-/**
- * Seaport `endTime` window for card-level offers (place bid).
- */
-export const TOKEN_BID_ORDER_DURATION_SECONDS = 7 * 24 * 60 * 60;
 const ITEM_ERC20 = 1;
 const ITEM_ERC721 = 2;
+const SECONDS_PER_DAY = 24 * 60 * 60;
+
+export const TOKEN_BID_DURATION_DAYS = [1, 3, 7, 14, 30, 60, 90, 180] as const;
+export type TokenBidDurationDays = (typeof TOKEN_BID_DURATION_DAYS)[number];
+export const TOKEN_BID_DEFAULT_DURATION_DAYS: TokenBidDurationDays = 7;
+
+export function isTokenBidDurationDays(
+  days: number,
+): days is TokenBidDurationDays {
+  return (TOKEN_BID_DURATION_DAYS as readonly number[]).includes(days);
+}
+
+export function tokenBidDurationSeconds(days: TokenBidDurationDays): number {
+  return days * SECONDS_PER_DAY;
+}
+
+export function tokenBidDurationOptionLabel(days: TokenBidDurationDays): string {
+  return days === 1 ? "1 day" : `${days} days`;
+}
 
 export type TokenBidSubmitResult = {
   order: Order;
@@ -46,6 +61,7 @@ export async function submitTokenBid(input: {
   counter: bigint;
   usdcAllowanceRaw: bigint | undefined;
   chainId: SupportedChainId;
+  durationDays?: TokenBidDurationDays;
   mode?: "create" | "replace";
   oldOrderHash?: string;
 }): Promise<TokenBidSubmitResult> {
@@ -59,6 +75,7 @@ export async function submitTokenBid(input: {
     counter,
     usdcAllowanceRaw,
     chainId,
+    durationDays = TOKEN_BID_DEFAULT_DURATION_DAYS,
     mode = "create",
     oldOrderHash,
   } = input;
@@ -71,8 +88,11 @@ export async function submitTokenBid(input: {
     throw new Error("oldOrderHash required for replace");
   }
 
+  const days = isTokenBidDurationDays(durationDays)
+    ? durationDays
+    : TOKEN_BID_DEFAULT_DURATION_DAYS;
   const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(TOKEN_BID_ORDER_DURATION_SECONDS);
+  const endTime = now + BigInt(tokenBidDurationSeconds(days));
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
   let allowancePre = usdcAllowanceRaw;

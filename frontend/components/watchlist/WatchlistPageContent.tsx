@@ -22,9 +22,7 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import {
   applyMarketsListingFilters,
-  MARKETS_DEFAULT_PRICE_FILTER,
   type MarketsGradeFilterId,
-  type MarketsPriceFilterId,
 } from "@/lib/markets/marketsFilters";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { WatchlistCollectionGrid } from "./WatchlistCollectionGrid";
@@ -75,7 +73,8 @@ export function WatchlistPageContent({
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
   const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
-  const [priceFilter, setPriceFilter] = useState<MarketsPriceFilterId>(MARKETS_DEFAULT_PRICE_FILTER);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
 
   const { items, isLoading, isError, snapshotByKey } = useWatchlistMarketSnapshots();
@@ -103,10 +102,11 @@ export function WatchlistPageContent({
       ),
     );
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
-      priceFilter,
+      priceMin,
+      priceMax,
       gradeFilters,
     });
-  }, [sortedItems, snapshotByKey, categoryFilter, priceFilter, gradeFilters]);
+  }, [sortedItems, snapshotByKey, categoryFilter, priceMin, priceMax, gradeFilters]);
 
   if (!user) {
     return (
@@ -182,8 +182,12 @@ export function WatchlistPageContent({
           onCategoryChange={setCategoryFilter}
           sortId={sortId}
           onSortChange={setSortId}
-          priceFilter={priceFilter}
-          onPriceFilterChange={setPriceFilter}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceRangeChange={(min, max) => {
+            setPriceMin(min);
+            setPriceMax(max);
+          }}
           gradeFilters={gradeFilters}
           onGradeToggle={(grade) => {
             setGradeFilters((prev) => {

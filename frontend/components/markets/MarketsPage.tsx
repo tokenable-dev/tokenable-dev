@@ -29,9 +29,7 @@ import {
 import {
   applyMarketsListingFilters,
   collectionVaultKindsFromAsks,
-  MARKETS_DEFAULT_PRICE_FILTER,
   type MarketsGradeFilterId,
-  type MarketsPriceFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import { MarketsFilterBar } from "./MarketsFilterBar";
@@ -58,7 +56,8 @@ export default function MarketsPage() {
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
   const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
-  const [priceFilter, setPriceFilter] = useState<MarketsPriceFilterId>(MARKETS_DEFAULT_PRICE_FILTER);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
   const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(new Set());
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
@@ -157,7 +156,8 @@ export default function MarketsPage() {
       ),
     );
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
-      priceFilter,
+      priceMin,
+      priceMax,
       gradeFilters,
       vaultFilters,
       vaultKindsByKey,
@@ -166,7 +166,8 @@ export default function MarketsPage() {
     sortedForRank,
     snapshotByKey,
     categoryFilter,
-    priceFilter,
+    priceMin,
+    priceMax,
     gradeFilters,
     vaultFilters,
     vaultKindsByKey,
@@ -250,8 +251,12 @@ export default function MarketsPage() {
           onCategoryChange={setCategoryFilter}
           sortId={sortId}
           onSortChange={setSortId}
-          priceFilter={priceFilter}
-          onPriceFilterChange={setPriceFilter}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceRangeChange={(min, max) => {
+            setPriceMin(min);
+            setPriceMax(max);
+          }}
           gradeFilters={gradeFilters}
           onGradeToggle={toggleGradeFilter}
           onGradeFiltersChange={setGradeFilters}

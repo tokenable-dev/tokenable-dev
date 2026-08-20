@@ -21,8 +21,9 @@ import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsT
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-/** poiu/index.html — desktop + mobile use the same placeholder */
-const SEARCH_PLACEHOLDER = "Search cards, sets, players…";
+/** Desktop GNB matches HTML (`Search cards…`). Mobile overlay has room for the longer hint. */
+const SEARCH_PLACEHOLDER_DESKTOP = "Search cards…";
+const SEARCH_PLACEHOLDER_MOBILE = "Search cards, sets, players…";
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
   return (
@@ -341,7 +342,7 @@ export function TkHeaderSearch({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={SEARCH_PLACEHOLDER}
+                  placeholder={SEARCH_PLACEHOLDER_MOBILE}
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -403,6 +404,7 @@ export function TkHeaderSearch({
             <TkInput
               ref={desktopInputRef}
               type="search"
+              size={1}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -410,7 +412,7 @@ export function TkHeaderSearch({
               }}
               onFocus={() => setDesktopOpen(true)}
               onKeyDown={handleKeyDown}
-              placeholder={SEARCH_PLACEHOLDER}
+              placeholder={SEARCH_PLACEHOLDER_DESKTOP}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}

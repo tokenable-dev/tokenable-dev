@@ -21,12 +21,6 @@
 
 .watchlist-page__title {
   margin: 16px 0 0;
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 22px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
-  color: #fff;
 }
 
 .watchlist-page__subtitle {

@@ -8,12 +8,12 @@ import {
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
 import {
-  MARKETS_DEFAULT_PRICE_FILTER,
+  groupGradeFilterOptions,
   MARKETS_GRADE_FILTER_OPTIONS,
-  MARKETS_PRICE_FILTER_OPTIONS,
+  MARKETS_PRICE_PRESET_CHIPS,
   MARKETS_VAULT_FILTER_OPTIONS,
+  marketsPriceChipLabel,
   type MarketsGradeFilterId,
-  type MarketsPriceFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
@@ -160,8 +160,9 @@ export function MarketsFilterBar({
   onCategoryChange,
   sortId,
   onSortChange,
-  priceFilter,
-  onPriceFilterChange,
+  priceMin,
+  priceMax,
+  onPriceRangeChange,
   gradeFilters,
   onGradeToggle,
   onGradeFiltersChange,
@@ -174,8 +175,9 @@ export function MarketsFilterBar({
   onCategoryChange: (id: CollectionCategoryFilterId) => void;
   sortId: MarketsSortId;
   onSortChange: (id: MarketsSortId) => void;
-  priceFilter: MarketsPriceFilterId;
-  onPriceFilterChange: (id: MarketsPriceFilterId) => void;
+  priceMin: string;
+  priceMax: string;
+  onPriceRangeChange: (min: string, max: string) => void;
   gradeFilters: ReadonlySet<MarketsGradeFilterId>;
   onGradeToggle: (id: MarketsGradeFilterId) => void;
   onGradeFiltersChange: (grades: Set<MarketsGradeFilterId>) => void;
@@ -188,7 +190,8 @@ export function MarketsFilterBar({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftCategory, setDraftCategory] = useState(categoryFilter);
   const [draftSort, setDraftSort] = useState(sortId);
-  const [draftPrice, setDraftPrice] = useState(priceFilter);
+  const [draftPriceMin, setDraftPriceMin] = useState(priceMin);
+  const [draftPriceMax, setDraftPriceMax] = useState(priceMax);
   const [draftGrades, setDraftGrades] = useState<Set<MarketsGradeFilterId>>(
     () => new Set(gradeFilters),
   );
@@ -210,10 +213,8 @@ export function MarketsFilterBar({
   const categoryLabel = activeFilter ? categoryChipLabel(activeFilter) : "All";
   const categoryActive = categoryFilter !== "all";
 
-  const priceOpt =
-    MARKETS_PRICE_FILTER_OPTIONS.find((o) => o.id === priceFilter) ??
-    MARKETS_PRICE_FILTER_OPTIONS[0]!;
-  const priceActive = priceFilter !== MARKETS_DEFAULT_PRICE_FILTER;
+  const priceLabel = marketsPriceChipLabel(priceMin, priceMax);
+  const priceActive = Boolean(priceMin.trim() || priceMax.trim());
 
   const gradeActive = gradeFilters.size > 0;
   const gradeValue =
@@ -238,7 +239,8 @@ export function MarketsFilterBar({
     if (!drawerOpen) return;
     setDraftCategory(categoryFilter);
     setDraftSort(sortId);
-    setDraftPrice(priceFilter);
+    setDraftPriceMin(priceMin);
+    setDraftPriceMax(priceMax);
     setDraftGrades(new Set(gradeFilters));
     setDraftVaults(new Set(vaultFilters ?? []));
     const prev = document.body.style.overflow;
@@ -246,7 +248,7 @@ export function MarketsFilterBar({
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [drawerOpen, categoryFilter, sortId, priceFilter, gradeFilters, vaultFilters]);
+  }, [drawerOpen, categoryFilter, sortId, priceMin, priceMax, gradeFilters, vaultFilters]);
 
   function applyDrawer() {
     if (draftCategory !== categoryFilter) {
@@ -261,10 +263,10 @@ export function MarketsFilterBar({
         filter_value: draftSort,
       });
     }
-    if (draftPrice !== priceFilter) {
+    if (draftPriceMin !== priceMin || draftPriceMax !== priceMax) {
       trackEvent("filter_applied", {
         filter_type: "price",
-        filter_value: draftPrice,
+        filter_value: marketsPriceChipLabel(draftPriceMin, draftPriceMax) || "any",
       });
     }
     const gradesChanged =
@@ -278,7 +280,7 @@ export function MarketsFilterBar({
     }
     onCategoryChange(draftCategory);
     onSortChange(draftSort);
-    onPriceFilterChange(draftPrice);
+    onPriceRangeChange(draftPriceMin, draftPriceMax);
     onGradeFiltersChange(new Set(draftGrades));
     onVaultFiltersChange?.(new Set(draftVaults));
     setDrawerOpen(false);
@@ -286,11 +288,12 @@ export function MarketsFilterBar({
 
   function clearAllFilters() {
     onCategoryChange("all");
-    onPriceFilterChange(MARKETS_DEFAULT_PRICE_FILTER);
+    onPriceRangeChange("", "");
     onGradeFiltersChange(new Set());
     onVaultFiltersChange?.(new Set());
     setDraftCategory("all");
-    setDraftPrice(MARKETS_DEFAULT_PRICE_FILTER);
+    setDraftPriceMin("");
+    setDraftPriceMax("");
     setDraftGrades(new Set());
     setDraftVaults(new Set());
   }
@@ -324,8 +327,8 @@ export function MarketsFilterBar({
   if (priceActive) {
     activeChips.push({
       key: "price",
-      label: priceOpt.chipLabel,
-      onClear: () => onPriceFilterChange(MARKETS_DEFAULT_PRICE_FILTER),
+      label: priceLabel ?? "Price",
+      onClear: () => onPriceRangeChange("", ""),
     });
   }
   for (const g of MARKETS_GRADE_FILTER_OPTIONS) {
@@ -367,7 +370,6 @@ export function MarketsFilterBar({
             )}
             role="menu"
           >
-            <div className="markets-pop__label">Category</div>
             {filters.map((f) => {
               const selected = categoryFilter === f.id;
               return (
@@ -420,34 +422,34 @@ export function MarketsFilterBar({
             )}
             role="menu"
           >
-            <div className="markets-pop__label">Grade</div>
-            {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => {
-              const selected = gradeFilters.has(grade);
-              return (
-                <button
-                  key={grade}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={selected}
-                  className={cn(
-                    "markets-pop__item",
-                    "markets-pop__item--togg",
-                    selected && "markets-pop__item--sel",
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    trackEvent("filter_applied", {
-                      filter_type: "grade",
-                      filter_value: grade,
-                    });
-                    onGradeToggle(grade);
-                  }}
-                >
-                  <span className="markets-pop__chk" aria-hidden />
-                  {grade}
-                </button>
-              );
-            })}
+            {groupGradeFilterOptions(MARKETS_GRADE_FILTER_OPTIONS).map((group) => (
+              <div key={group.label} className="markets-fgroup">
+                <div className="markets-fgroup-lbl">{group.label}</div>
+                <div className="markets-fchips">
+                  {group.items.map((grade) => {
+                    const selected = gradeFilters.has(grade);
+                    return (
+                      <button
+                        key={grade}
+                        type="button"
+                        className={cn("markets-fchip", selected && "markets-fchip--on")}
+                        aria-pressed={selected}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          trackEvent("filter_applied", {
+                            filter_type: "grade",
+                            filter_value: grade,
+                          });
+                          onGradeToggle(grade);
+                        }}
+                      >
+                        {grade}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
             <PopFooter
               clearDisabled={!gradeActive}
               onClear={() => {
@@ -462,7 +464,7 @@ export function MarketsFilterBar({
         <div ref={priceRef} className="markets-fw">
           <DdChip
             label="Price"
-            value={priceActive ? priceOpt.chipLabel : undefined}
+            value={priceActive ? priceLabel : undefined}
             active={priceActive}
             open={openPop === "price"}
             onClick={() => setOpenPop((p) => (p === "price" ? null : "price"))}
@@ -472,38 +474,55 @@ export function MarketsFilterBar({
               "markets-pop",
               openPop === "price" && "markets-pop--open",
             )}
-            role="menu"
+            role="dialog"
+            aria-label="Price"
           >
-            <div className="markets-pop__label">Price range</div>
-            {MARKETS_PRICE_FILTER_OPTIONS.map((opt) => {
-              const selected = priceFilter === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={selected}
-                  className={cn(
-                    "markets-pop__item",
-                    selected && "markets-pop__item--sel",
-                  )}
-                  onClick={() => {
-                    trackEvent("filter_applied", {
-                      filter_type: "price",
-                      filter_value: opt.id,
-                    });
-                    onPriceFilterChange(opt.id);
-                    setOpenPop(null);
-                  }}
-                >
-                  {opt.menuLabel}
-                </button>
-              );
-            })}
+            <div className="markets-frange">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Min $"
+                value={priceMin}
+                onChange={(e) => onPriceRangeChange(e.target.value, priceMax)}
+              />
+              <span>–</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Max $"
+                value={priceMax}
+                onChange={(e) => onPriceRangeChange(priceMin, e.target.value)}
+              />
+            </div>
+            <div className="markets-fchips">
+              {MARKETS_PRICE_PRESET_CHIPS.map((preset) => {
+                const selected = priceMin === preset.min && priceMax === preset.max;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={cn("markets-fchip", selected && "markets-fchip--on")}
+                    aria-pressed={selected}
+                    onClick={() => {
+                      const next = selected
+                        ? { min: "", max: "" }
+                        : { min: preset.min, max: preset.max };
+                      trackEvent("filter_applied", {
+                        filter_type: "price",
+                        filter_value: next.min || next.max ? preset.id : "any",
+                      });
+                      onPriceRangeChange(next.min, next.max);
+                    }}
+                  >
+                    {preset.chipLabel}
+                  </button>
+                );
+              })}
+            </div>
             <PopFooter
               clearDisabled={!priceActive}
               onClear={() => {
-                onPriceFilterChange(MARKETS_DEFAULT_PRICE_FILTER);
+                onPriceRangeChange("", "");
                 setOpenPop(null);
               }}
               onDone={() => setOpenPop(null)}
@@ -665,20 +684,49 @@ export function MarketsFilterBar({
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Price range</span>
+            <div className="markets-frange">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Min $"
+                value={draftPriceMin}
+                onChange={(e) => setDraftPriceMin(e.target.value)}
+              />
+              <span>–</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Max $"
+                value={draftPriceMax}
+                onChange={(e) => setDraftPriceMax(e.target.value)}
+              />
+            </div>
             <div className="markets-fd-chips">
-              {MARKETS_PRICE_FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={cn(
-                    "markets-fd-option",
-                    draftPrice === opt.id && "markets-fd-option--sel",
-                  )}
-                  onClick={() => setDraftPrice(opt.id)}
-                >
-                  {opt.chipLabel}
-                </button>
-              ))}
+              {MARKETS_PRICE_PRESET_CHIPS.map((preset) => {
+                const selected =
+                  draftPriceMin === preset.min && draftPriceMax === preset.max;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={cn(
+                      "markets-fd-option",
+                      selected && "markets-fd-option--sel",
+                    )}
+                    onClick={() => {
+                      if (selected) {
+                        setDraftPriceMin("");
+                        setDraftPriceMax("");
+                      } else {
+                        setDraftPriceMin(preset.min);
+                        setDraftPriceMax(preset.max);
+                      }
+                    }}
+                  >
+                    {preset.chipLabel}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

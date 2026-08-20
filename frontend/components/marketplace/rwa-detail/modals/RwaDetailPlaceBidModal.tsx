@@ -1,42 +1,14 @@
 "use client";
 
-import { TkActionSheet } from "@/components/ds";
-import type { Order } from "@/lib/core";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import type { Order, RwaMetadata } from "@/lib/core";
 import { CollectionListingBidCheckout } from "@/components/marketplace/collection-detail/CollectionListingBidCheckout";
-import { formatListingUsdc } from "@/lib/marketplace/collectionListingModalHelpers";
-
-function stubListingForOffer(tokenId: number, collectionKey: string): Order {
-  return {
-    id: 0,
-    orderHash: "0x",
-    offerer: "0x0000000000000000000000000000000000000000",
-    side: "ask",
-    collectionKey,
-    tokenContract: "0x0000000000000000000000000000000000000000",
-    tokenId: String(tokenId),
-    considerationToken: "0x0000000000000000000000000000000000000000",
-    considerationAmount: "0",
-    parameters: {
-      offerer: "0x0000000000000000000000000000000000000000",
-      zone: "0x0000000000000000000000000000000000000000",
-      zoneHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-      startTime: "0",
-      endTime: "0",
-      orderType: 0,
-      offer: [],
-      consideration: [],
-      totalOriginalConsiderationItems: 0,
-      salt: "0",
-      conduitKey: "0x0000000000000000000000000000000000000000000000000000000000000000",
-      counter: "0",
-    },
-    signature: "0x",
-    status: "active",
-    startTime: new Date(0).toISOString(),
-    endTime: new Date(0).toISOString(),
-    createdAt: new Date(0).toISOString(),
-  };
-}
+import {
+  formatListingUsdc,
+  listingVerificationTiles,
+  stubListingForOffer,
+} from "@/lib/marketplace/collectionListingModalHelpers";
 
 export function RwaDetailPlaceBidModal({
   open,
@@ -46,6 +18,8 @@ export function RwaDetailPlaceBidModal({
   listing,
   collectionBids,
   connectedAddress,
+  imageUrl,
+  metadata,
   onClose,
   onPlaced,
   onPurchaseFilled,
@@ -57,34 +31,91 @@ export function RwaDetailPlaceBidModal({
   listing: Order | null;
   collectionBids: Order[];
   connectedAddress?: string;
+  imageUrl?: string | null;
+  metadata?: RwaMetadata | null;
   onClose: () => void;
   onPlaced?: () => void;
   onPurchaseFilled?: () => void;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
   const floorListing = listing ?? stubListingForOffer(tokenId, collectionKey);
-  const listedLabel =
-    listing != null ? `${formatListingUsdc(listing.considerationAmount)}.00` : "—";
+  const listedPriceLabel =
+    listing != null ? `${formatListingUsdc(listing.considerationAmount)}.00` : null;
+  const tiles = listingVerificationTiles(metadata ?? null);
+  const itemSub = [
+    tiles.gradedBy !== "—" ? tiles.gradedBy : null,
+    tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
+    listing ? "Vaulted" : "No active listing",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-  return (
-    <TkActionSheet open={open} onClose={onClose} aria-label="Place a Bid">
-      <header className="rd-bid-sheet__header">
-        <h2 id="rwa-place-bid-title" className="rd-bid-sheet__title">
-          Place a Bid
-        </h2>
-        <p className="rd-bid-sheet__subtitle line-clamp-2">{assetTitle}</p>
-      </header>
+  return createPortal(
+    <div
+      className="cd-listing-checkout"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rwa-place-bid-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="cd-listing-checkout__panel cd-notch">
+        <div className="cd-listing-checkout__head">
+          <h2 id="rwa-place-bid-title" className="cd-listing-checkout__title">
+            Place a bid
+          </h2>
+          <button
+            type="button"
+            className="cd-listing-checkout__close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
 
-      <CollectionListingBidCheckout
-        collectionKey={collectionKey}
-        tokenId={tokenId}
-        listing={floorListing}
-        collectionBids={collectionBids}
-        listedPriceLabel={listedLabel}
-        connectedAddress={connectedAddress}
-        onPlaced={() => onPlaced?.()}
-        onPurchaseFilled={() => onPurchaseFilled?.()}
-        onDone={onClose}
-      />
-    </TkActionSheet>
+        <div className="cd-listing-checkout__item">
+          <div className="cd-listing-checkout__item-thumb">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="" />
+            ) : null}
+          </div>
+          <div className="cd-listing-checkout__item-meta">
+            <div className="cd-listing-checkout__item-title">{assetTitle}</div>
+            <div className="cd-listing-checkout__item-sub tkl-mono">{itemSub}</div>
+          </div>
+        </div>
+
+        <CollectionListingBidCheckout
+          collectionKey={collectionKey}
+          tokenId={tokenId}
+          listing={floorListing}
+          collectionBids={collectionBids}
+          listedPriceLabel={listedPriceLabel}
+          connectedAddress={connectedAddress}
+          onPlaced={() => onPlaced?.()}
+          onPurchaseFilled={() => onPurchaseFilled?.()}
+          onDone={onClose}
+        />
+      </div>
+    </div>,
+    document.body,
   );
 }

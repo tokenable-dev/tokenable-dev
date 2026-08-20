@@ -95,8 +95,9 @@ Bids are **token offers** on a specific card (`tokenId`), not collection-wide cr
 
 - Collection **Offers** order book includes active token offers (and any legacy criteria bids still on the book)
 - Max **1 active offer** per wallet per `collectionKey` (same collection, any tokenId)
-- Offers expire after **7 days** (Seaport `endTime`)
-- Soft UX floor: warn below 90% of listed ask (override allowed)
+- Offers expire after a buyer-chosen window of **1, 3, 7, 14, 30, 60, 90, or 180 days** (Seaport `endTime`). Default is **7 days**.
+- Collection **Place a Bid** works with or without an active ask. Floor listing → that `tokenId`; otherwise a minted token in the collection. If the collection has no vaulted tokens yet, bid is unavailable.
+- Unlisted token bids (no active ask on that card) must be at least **70% of the collection market price** (Cardhedger snapshot). Example: $100 market → min $70. There is **no maximum** vs market (a $150 bid on a $100 market is allowed). If market price is unknown, the floor is not applied.
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
 

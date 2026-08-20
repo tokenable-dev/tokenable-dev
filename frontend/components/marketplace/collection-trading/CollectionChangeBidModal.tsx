@@ -4,7 +4,10 @@ import type { Order } from "@/lib/core";
 import { bidMaxUsdcFromOrder } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { CollectionListingBidCheckout } from "@/components/marketplace/collection-detail/CollectionListingBidCheckout";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
-import { formatListingUsdc } from "@/lib/marketplace/collectionListingModalHelpers";
+import {
+  formatListingUsdc,
+  stubListingForOffer,
+} from "@/lib/marketplace/collectionListingModalHelpers";
 
 export function CollectionChangeBidModal({
   open,
@@ -28,22 +31,23 @@ export function CollectionChangeBidModal({
   if (!open || bid == null) return null;
 
   const tokenId = normalizeDecimalTokenId(bid.tokenId);
+  const tokenIdNum = Number(tokenId);
   const listing =
     activeAsks.find(
       (a) =>
         a.status === "active" &&
         String(a.side ?? "ask").toLowerCase() !== "bid" &&
         normalizeDecimalTokenId(a.tokenId) === tokenId,
-    ) ?? {
-      ...bid,
-      side: "ask" as const,
-      considerationAmount: bid.considerationAmount,
-    };
+    ) ??
+    stubListingForOffer(
+      Number.isFinite(tokenIdNum) ? tokenIdNum : 0,
+      collectionKey,
+    );
 
   const listedLabel =
-    listing.orderHash !== bid.orderHash
+    listing.id !== 0
       ? `${formatListingUsdc(listing.considerationAmount)}.00`
-      : `${formatListingUsdc(bid.considerationAmount)}.00`;
+      : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">

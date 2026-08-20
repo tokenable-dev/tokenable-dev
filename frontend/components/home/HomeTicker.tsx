@@ -56,7 +56,10 @@ export function HomeTicker() {
                   item.up ? "home-ticker__item-pct--up" : "home-ticker__item-pct--down"
                 }`}
               >
-                {item.up ? "▲" : "▼"} {item.pct}
+                <span className="home-ticker__item-glyph" aria-hidden>
+                  {item.up ? "▲" : "▼"}
+                </span>
+                {item.pct}
               </span>
             </Link>
           ))}

@@ -193,6 +193,8 @@ export function RwaDetailLoadedView({
           listing={activeAskListing}
           collectionBids={market.collectionBids}
           connectedAddress={address}
+          imageUrl={imageUrl}
+          metadata={metadata}
           onClose={() => setBidModalOpen(false)}
           onPlaced={handleBidPlaced}
           onPurchaseFilled={handleBidPurchaseFilled}

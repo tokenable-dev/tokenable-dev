@@ -48,12 +48,12 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Home — `index.html` (Phase 3 — done; sync from design system-5)
+## Home — `index.html` (Phase 3 — hero sync from index2-standalone)
 
 | Section | Prototype class / id | React target | File |
 |---------|----------------------|--------------|------|
-| Hero + CTA | hero block, `.btn--primary` | `HomeHero` | `components/home/HomeHero.tsx` |
-| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — faces from static `public/assets/home/landing_*.jpg` via `useHeroCarouselImageSources` |
+| Hero + CTA | `.hero-section` (index2-standalone) | `HomeHero` | `components/home/HomeHero.tsx` — photo bg `assets/home/hero-bg.jpg` + 3D slab ring; tags + “The card market, finally liquid.” Below-hero sections still from ds-5 until confirmed. |
+| 3D spinning slab | `#heroSlabCanvas` / `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts` — faces from `public/assets/home/newcards/c01.jpg`…`c06.jpg` |
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |

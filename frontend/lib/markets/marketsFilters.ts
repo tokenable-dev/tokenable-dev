@@ -35,6 +35,19 @@ export const MARKETS_PRICE_FILTER_OPTIONS: {
   { id: "50k_plus", menuLabel: "$50,000+", chipLabel: "$50k+" },
 ];
 
+/** Slim-bar Price pop — Markets.html `rangeHTML('price')` presets. */
+export const MARKETS_PRICE_PRESET_CHIPS: {
+  id: Exclude<MarketsPriceFilterId, "any">;
+  chipLabel: string;
+  min: string;
+  max: string;
+}[] = [
+  { id: "under_1k", chipLabel: "Under $1k", min: "", max: "1000" },
+  { id: "1k_10k", chipLabel: "$1k–$10k", min: "1000", max: "10000" },
+  { id: "10k_50k", chipLabel: "$10k–$50k", min: "10000", max: "50000" },
+  { id: "50k_plus", chipLabel: "$50k+", min: "50000", max: "" },
+];
+
 export const MARKETS_GRADE_FILTER_OPTIONS: MarketsGradeFilterId[] = [
   "PSA 10",
   "PSA 9",
@@ -42,6 +55,34 @@ export const MARKETS_GRADE_FILTER_OPTIONS: MarketsGradeFilterId[] = [
   "BGS 10",
   "BGS 9.5",
 ];
+
+/** PSA / BGS grouped chips — markets-nav.js `gradeChipsHTML`. */
+export function groupGradeFilterOptions(
+  grades: readonly MarketsGradeFilterId[],
+): { label: string; items: MarketsGradeFilterId[] }[] {
+  const order: string[] = [];
+  const groups = new Map<string, MarketsGradeFilterId[]>();
+  for (const grade of grades) {
+    const label = grade.split(" ")[0] ?? grade;
+    if (!groups.has(label)) {
+      order.push(label);
+      groups.set(label, []);
+    }
+    groups.get(label)!.push(grade);
+  }
+  return order.map((label) => ({ label, items: groups.get(label) ?? [] }));
+}
+
+export function marketsPriceChipLabel(min: string, max: string): string | undefined {
+  const a = min.trim();
+  const b = max.trim();
+  if (!a && !b) return undefined;
+  const preset = MARKETS_PRICE_PRESET_CHIPS.find((p) => p.min === a && p.max === b);
+  if (preset) return preset.chipLabel;
+  if (a && b) return `$${a}–$${b}`;
+  if (a) return `$${a}+`;
+  return `Under $${b}`;
+}
 
 export type MarketsVaultFilterId = "psa" | "partner";
 
@@ -136,6 +177,31 @@ export function collectionMatchesPriceFilter(
   }
 }
 
+/** Preset chips keep existing bucket logic; typed min/max use inclusive bounds. */
+export function collectionMatchesPriceRange(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+  minStr: string,
+  maxStr: string,
+): boolean {
+  const a = minStr.trim();
+  const b = maxStr.trim();
+  if (!a && !b) return true;
+  const preset = MARKETS_PRICE_PRESET_CHIPS.find((p) => p.min === a && p.max === b);
+  if (preset) return collectionMatchesPriceFilter(collection, snapshot, preset.id);
+  const usd = resolveMarketsListingMarketUsd(collection, snapshot);
+  if (usd == null || !Number.isFinite(usd)) return false;
+  if (a) {
+    const min = Number(a);
+    if (Number.isFinite(min) && usd < min) return false;
+  }
+  if (b) {
+    const max = Number(b);
+    if (Number.isFinite(max) && usd > max) return false;
+  }
+  return true;
+}
+
 export function collectionMatchesGradeFilters(
   collection: MarketplaceCollectionSummary,
   selectedGrades: ReadonlySet<MarketsGradeFilterId>,
@@ -150,7 +216,9 @@ export function applyMarketsListingFilters(
   collections: MarketplaceCollectionSummary[],
   snapshotByKey: Map<string, CollectionListMarketSnapshot>,
   opts: {
-    priceFilter: MarketsPriceFilterId;
+    priceFilter?: MarketsPriceFilterId;
+    priceMin?: string;
+    priceMax?: string;
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
     vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
     vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
@@ -158,7 +226,11 @@ export function applyMarketsListingFilters(
 ): MarketplaceCollectionSummary[] {
   return collections.filter((c) => {
     const snap = snapshotByKey.get(collectionKeyLower(c));
-    if (!collectionMatchesPriceFilter(c, snap, opts.priceFilter)) return false;
+    const priceOk =
+      opts.priceMin != null || opts.priceMax != null
+        ? collectionMatchesPriceRange(c, snap, opts.priceMin ?? "", opts.priceMax ?? "")
+        : collectionMatchesPriceFilter(c, snap, opts.priceFilter ?? MARKETS_DEFAULT_PRICE_FILTER);
+    if (!priceOk) return false;
     if (!collectionMatchesGradeFilters(c, opts.gradeFilters)) return false;
     if (
       opts.vaultFilters &&

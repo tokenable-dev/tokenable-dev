@@ -26,7 +26,7 @@ export function PartnerPortfolioHeader({ toShipCount }: { toShipCount: number })
       <div className="partner-portfolio-header__row">
         <div className="partner-portfolio-header__copy">
           <span className="pf-hero__eyebrow">Partner portfolio</span>
-          <h1 className="pf-sec-title">Your trading history</h1>
+          <h1 className="pf-sec-title tkl-page-title">Your trading history</h1>
         </div>
         <Link
           href="/partner/shipments"

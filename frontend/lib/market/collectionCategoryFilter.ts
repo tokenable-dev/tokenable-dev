@@ -6,47 +6,40 @@ import type {
 
 export type CollectionCategoryFilterId =
   | "all"
-  | "pokemon"
-  | "mlb"
-  | "nba"
-  | "nfl"
+  | "basketball"
+  | "baseball"
+  | "football"
   | "soccer"
-  | "others";
+  | "pokemon"
+  | "onepiece";
 
 export type CategoryFilterOption = {
   id: CollectionCategoryFilterId;
   label: string;
 };
 
-/** Full set (e.g. landing carousel). */
-export const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = [
-  { id: "all", label: "ALL" },
-  { id: "pokemon", label: "Pokemon" },
-  { id: "mlb", label: "MLB" },
-  { id: "nba", label: "NBA" },
-  { id: "nfl", label: "NFL" },
+/** Markets Category pop — six top-level buckets. No Sports / TCG parents. */
+export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
+  { id: "all", label: "All" },
+  { id: "basketball", label: "Basketball" },
+  { id: "baseball", label: "Baseball" },
+  { id: "football", label: "Football" },
   { id: "soccer", label: "Soccer" },
-  { id: "others", label: "Others" },
+  { id: "pokemon", label: "Pokemon" },
+  { id: "onepiece", label: "One Piece" },
 ];
 
-/** Markets / All Collections — All default; plus Pokemon, NBA, MLB, Others. */
-export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
-  { id: "all", label: "ALL" },
-  { id: "pokemon", label: "Pokemon" },
-  { id: "nba", label: "NBA" },
-  { id: "mlb", label: "MLB" },
-  { id: "others", label: "Others" },
-];
+export const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = MARKETS_CATEGORY_FILTERS;
 
 export const MARKETS_DEFAULT_CATEGORY_FILTER: CollectionCategoryFilterId = "all";
 
-/** Rough bucket from listing metadata text (best-effort). */
 export type CollectionSportBucket =
-  | "pokemon"
-  | "mlb"
-  | "nba"
-  | "nfl"
+  | "basketball"
+  | "baseball"
+  | "football"
   | "soccer"
+  | "pokemon"
+  | "onepiece"
   | "other";
 
 function buildHaystack(
@@ -108,8 +101,8 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
     return "pokemon";
   }
 
-  if (/\b(tcg\s*cards?|tcgcard|pok[eé]mon\s*cards?)\b/i.test(hay)) {
-    return "pokemon";
+  if (/\bone[\s-]?piece\b|onepiece|ワンピース|\bopcg\b|\bop-0\d\b/i.test(hay)) {
+    return "onepiece";
   }
 
   if (
@@ -125,22 +118,22 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
       hay,
     )
   ) {
-    return "nba";
+    return "basketball";
   }
 
-  if (/\bnfl\b|panini nfl|super bowl/i.test(hay)) {
-    return "nfl";
+  if (/\bnfl\b|panini nfl|super bowl|american football/i.test(hay)) {
+    return "football";
   }
 
   if (
     /\bmlb\b|baseball|topps baseball|bowman|leaf baseball|\btopps chrome\b.*\b(baseball|mlb)\b/i.test(hay)
   ) {
-    return "mlb";
+    return "baseball";
   }
 
   if (/\bfootball\b/i.test(hay) && !/\bsoccer\b/i.test(hay)) {
     if (/\bnfl\b|panini nfl|prizm|donruss|score\b/i.test(hay)) {
-      return "nfl";
+      return "football";
     }
   }
 
@@ -167,8 +160,5 @@ export function collectionMatchesCategoryFilter(
 ): boolean {
   if (filter === "all") return true;
   const bucket = inferCollectionSportBucket(collection, snapshot);
-  if (filter === "others") {
-    return bucket === "other" || bucket === "nfl" || bucket === "soccer";
-  }
   return bucket === filter;
 }

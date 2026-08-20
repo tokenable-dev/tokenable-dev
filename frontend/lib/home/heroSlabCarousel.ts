@@ -21,7 +21,9 @@ import {
   PMREMGenerator,
   PerspectiveCamera as PerspCam,
   PointLight as PtLight,
+  Raycaster,
   Scene as ThreeScene,
+  Vector2,
   Shape,
   SRGBColorSpace,
   TextureLoader,
@@ -61,8 +63,12 @@ export type HeroSlabCarouselController = {
   resume: () => void;
 };
 
-/** Matches prototype `document.querySelector('.wrap')` — first 1240px page shell. */
-const PAGE_SHELL_ALIGN_SELECTOR = ".tkl-wrap";
+/**
+ * index2-standalone `calcGroupX`: first `.wrap` is the hero copy shell
+ * (`width:100%`, not the 1240px page column). Ring center sits on that
+ * wrap's right edge — the right half of the hero.
+ */
+const HERO_WRAP_ALIGN_SELECTOR = ".home-hero__content";
 
 function sharpenCardTexture(tex: import("three").Texture): void {
   tex.minFilter = LinearFilter;
@@ -250,7 +256,7 @@ export function createHeroSlabCarousel(
   renderer.setSize(W, H);
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.25;
   host.insertBefore(renderer.domElement, host.firstChild);
 
   const scene = new ThreeScene();
@@ -264,22 +270,16 @@ export function createHeroSlabCarousel(
   cam.position.set(0, 0, camZForAspect(W / H));
 
   const calcGroupX = () => {
-    if (W < 768) return 0;
-    const wrap = document.querySelector(PAGE_SHELL_ALIGN_SELECTOR);
-    if (!wrap) {
-      const shellW = Math.min(1240, W);
-      const offsetPx = (W - shellW) / 2 + shellW - W / 2;
-      const visW = 2 * Math.tan((21 * Math.PI) / 180) * camZForAspect(W / H);
-      return (offsetPx / W) * visW;
-    }
+    const wrap = heroSection.querySelector(HERO_WRAP_ALIGN_SELECTOR);
+    if (!wrap || W < 768) return 0;
     const rect = wrap.getBoundingClientRect();
     const offsetPx = rect.right - W / 2;
     const visW = 2 * Math.tan((21 * Math.PI) / 180) * camZForAspect(W / H);
     return (offsetPx / W) * visW;
   };
 
-  scene.add(new AmbientLight(0xffffff, 0.4));
-  const d1 = new DirLight(0xffffff, 1.1);
+  scene.add(new AmbientLight(0xffffff, 0.62));
+  const d1 = new DirLight(0xffffff, 1.25);
   d1.position.set(3, 5, 6);
   scene.add(d1);
   const p1 = new PtLight(AZURE, 0.8, 40);
@@ -327,12 +327,13 @@ export function createHeroSlabCarousel(
     const src = imageSources[i]!;
 
     const face = new PhysMat({
+      color: 0xffffff,
       metalness: 0.0,
-      roughness: 0.34,
+      roughness: 0.28,
       clearcoat: 1.0,
       clearcoatRoughness: 0.05,
       envMapIntensity: faceEnvIntensity,
-      transparent: true,
+      transparent: false,
     });
     const back = new PhysMat({
       map: backTex,
@@ -342,10 +343,10 @@ export function createHeroSlabCarousel(
       clearcoat: 0.7,
       clearcoatRoughness: 0.18,
       envMapIntensity: backEnvIntensity,
-      transparent: true,
+      transparent: false,
     });
     const side = sideMat.clone() as MeshStandardMaterial;
-    side.transparent = true;
+    side.transparent = false;
 
     const tex = loader.load(src);
     tex.colorSpace = SRGBColorSpace;
@@ -374,42 +375,70 @@ export function createHeroSlabCarousel(
     card.position.set(Math.sin(a) * ORBIT_RADIUS, 0, Math.cos(a) * ORBIT_RADIUS);
     card.rotation.y = a;
     (card.userData as CardUserData).baseAngle = a;
-    (card.userData as CardUserData).fade = [
-      [face, 1],
-      [back, 1],
-      [side, 1],
-      [rimMat, 0.4],
-    ];
+    (card.userData as CardUserData).fade = [[rimMat, 0.4]];
     group.add(card);
   }
 
   const drag = { active: false, lastX: 0, vel: 0, angle: 0 };
-  const px = (e: MouseEvent | TouchEvent) =>
-    "touches" in e ? (e.touches[0]?.clientX ?? 0) : e.clientX;
+  const raycaster = new Raycaster();
+  const ndc = new Vector2();
+
+  const eventClientX = (e: MouseEvent | TouchEvent) => {
+    if ("touches" in e) {
+      return e.touches[0]?.clientX ?? e.changedTouches[0]?.clientX ?? 0;
+    }
+    return e.clientX;
+  };
+
+  const eventClientY = (e: MouseEvent | TouchEvent) => {
+    if ("touches" in e) {
+      return e.touches[0]?.clientY ?? e.changedTouches[0]?.clientY ?? 0;
+    }
+    return e.clientY;
+  };
+
+  const hitsCardRing = (e: MouseEvent | TouchEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return false;
+    ndc.x = ((eventClientX(e) - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((eventClientY(e) - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, cam);
+    return raycaster.intersectObjects(group.children, true).length > 0;
+  };
 
   const onDown = (e: MouseEvent | TouchEvent) => {
+    if ("button" in e && e.button !== 0) return;
+    if (!hitsCardRing(e)) return;
     drag.active = true;
-    drag.lastX = px(e);
+    drag.lastX = eventClientX(e);
     drag.vel = 0;
     host.style.cursor = "grabbing";
   };
   const onMove = (e: MouseEvent | TouchEvent) => {
     if (!drag.active) return;
-    const x = px(e);
+    const x = eventClientX(e);
     const dx = x - drag.lastX;
     drag.lastX = x;
     drag.angle += dx * 0.006;
     drag.vel = dx * 0.006;
     if ("cancelable" in e && e.cancelable) e.preventDefault();
   };
+  const onHover = (e: MouseEvent) => {
+    if (drag.active) return;
+    host.style.cursor = hitsCardRing(e) ? "grab" : "";
+  };
+  const onLeave = () => {
+    if (!drag.active) host.style.cursor = "";
+  };
   const onUp = () => {
     drag.active = false;
-    host.style.cursor = "grab";
+    host.style.cursor = "";
   };
 
-  host.style.cursor = "grab";
   host.style.touchAction = "pan-y";
   host.addEventListener("mousedown", onDown);
+  host.addEventListener("mousemove", onHover);
+  host.addEventListener("mouseleave", onLeave);
   window.addEventListener("mousemove", onMove);
   window.addEventListener("mouseup", onUp);
   host.addEventListener("touchstart", onDown, { passive: true });
@@ -444,7 +473,7 @@ export function createHeroSlabCarousel(
       f = f < 0 ? 0 : f > 1 ? 1 : f;
       card.visible = f > 0.01;
       for (const [mat, base] of ud.fade) {
-        mat.opacity = base * f;
+        mat.opacity = base;
       }
     });
     renderer.render(scene, cam);
@@ -487,6 +516,8 @@ export function createHeroSlabCarousel(
     dispose: () => {
       cancelAnimationFrame(raf);
       host.removeEventListener("mousedown", onDown);
+      host.removeEventListener("mousemove", onHover);
+      host.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       host.removeEventListener("touchstart", onDown);
