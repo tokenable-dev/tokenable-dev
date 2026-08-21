@@ -6,7 +6,7 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
   COLLECTION_DETAILS_BORDER_T,
 } from "@/components/marketplace/collectionOverviewChrome";
-import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 
 export type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
@@ -137,7 +137,7 @@ export function CollectionMetadataExpandable({
         {displayLabel ? (
           <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Label</dt>
-            <dd className="mt-0.5 text-zinc-100 break-words">{toCardDisplayUppercase(displayLabel)}</dd>
+            <dd className="mt-0.5 text-zinc-100 break-words">{toCardDisplayCase(displayLabel)}</dd>
           </div>
         ) : null}
         {createdAt ? (
@@ -154,7 +154,7 @@ export function CollectionMetadataExpandable({
               Match query
             </dt>
             <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">
-              {toCardDisplayUppercase(queryUsed)}
+              {toCardDisplayCase(queryUsed)}
             </dd>
           </div>
         ) : null}

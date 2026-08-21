@@ -13,22 +13,75 @@ export function leadingYearFromSetLine(setLineRaw: string): number | null {
 
 /** Title-style card name for the hero (e.g. `PIKACHU/GREY FELT HAT` → `Pikachu Grey Felt Hat`). */
 export function formatCardNameForHeadline(raw: string): string {
-  return raw
+  return toCardDisplayCase(raw);
+}
+
+/**
+ * User-facing card copy — prefer title case over ALL CAPS.
+ * Mixed-case input is preserved; ALL-CAPS / slug input is title-cased with common TCG acronyms kept.
+ */
+export function toCardDisplayCase(value: string | null | undefined): string {
+  if (value == null) return "";
+  const t = String(value).trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  if (/[a-z]/.test(t)) return t;
+
+  const acronyms = new Set([
+    "psa",
+    "dna",
+    "bgs",
+    "sgc",
+    "cgc",
+    "tag",
+    "ex",
+    "gx",
+    "v",
+    "vmax",
+    "vstar",
+    "en",
+    "jp",
+    "kr",
+    "sir",
+    "sar",
+    "ur",
+    "hr",
+    "bsp",
+  ]);
+
+  return t
     .replace(/\/+/g, " ")
     .replace(/[_]+/g, " ")
-    .trim()
     .split(/\s+/)
     .filter(Boolean)
     .map((w) => {
       const lower = w.toLowerCase();
-      if (lower === "psa" || lower === "dna") return lower.toUpperCase();
+      if (acronyms.has(lower)) {
+        if (lower === "v") return "V";
+        if (lower === "vmax") return "VMAX";
+        if (lower === "vstar") return "VSTAR";
+        return lower.toUpperCase();
+      }
+      if (/^#\d/.test(w)) return w;
+      // Keep hyphenated tokens like EN-151 readable
+      if (w.includes("-")) {
+        return w
+          .split("-")
+          .map((part) => {
+            const pl = part.toLowerCase();
+            if (acronyms.has(pl)) return pl.toUpperCase();
+            if (!part) return part;
+            return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+          })
+          .join("-");
+      }
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     })
     .join(" ");
 }
 
 /**
- * Collapse whitespace and uppercase — unified card copy on collection list + collection hero/details.
+ * @deprecated Prefer {@link toCardDisplayCase} for user-facing titles.
+ * Kept for admin / legacy call sites that still want ALL CAPS.
  */
 export function toCardDisplayUppercase(value: string | null | undefined): string {
   if (value == null) return "";

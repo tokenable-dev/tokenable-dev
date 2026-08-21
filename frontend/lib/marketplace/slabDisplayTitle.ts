@@ -1,7 +1,7 @@
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   formatCollectionHeroCardTitle,
-  toCardDisplayUppercase,
+  toCardDisplayCase,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { bucketCardNameForDisplay } from "@/lib/marketplace/bucketKey";
@@ -29,26 +29,26 @@ export function resolveCollectionSlabCardTitle(
 ): string {
   const psaSubject =
     typeof comp.psaSubject === "string" ? comp.psaSubject.trim() : "";
-  if (psaSubject.length > 0) return toCardDisplayUppercase(psaSubject);
+  if (psaSubject.length > 0) return toCardDisplayCase(psaSubject);
 
   const listingTitle = stripListingTitlePsaGradeSuffix(listingDisplayTitleFromComp(comp));
-  if (listingTitle.length > 0) return toCardDisplayUppercase(listingTitle);
+  if (listingTitle.length > 0) return toCardDisplayCase(listingTitle);
 
   const bucketName = bucketCardNameForDisplay(comp).trim();
   if (bucketName.length > 0) {
-    return toCardDisplayUppercase(formatCollectionHeroCardTitle(comp));
+    return toCardDisplayCase(formatCollectionHeroCardTitle(comp));
   }
 
   const dl =
     typeof fallback?.displayLabel === "string" ? fallback.displayLabel.trim() : "";
-  if (dl.length > 0) return toCardDisplayUppercase(dl);
+  if (dl.length > 0) return toCardDisplayCase(dl);
 
   const key = fallback?.collectionKey ?? "";
   if (key.length > 0) {
-    return toCardDisplayUppercase(key.slice(0, 18) + (key.length > 18 ? "…" : ""));
+    return toCardDisplayCase(key.slice(0, 18) + (key.length > 18 ? "…" : ""));
   }
 
-  return toCardDisplayUppercase("Collection");
+  return toCardDisplayCase("Collection");
 }
 
 /** Set line from PSA Brand + Year when the slab mirror is available. */
@@ -70,5 +70,5 @@ export function resolveCollectionSlabSetLine(comp: CollectionComponents): string
   }
 
   const line = year && !/^\s*\d{4}\b/.test(brand) ? `${year} ${brand}` : brand;
-  return toCardDisplayUppercase(line);
+  return toCardDisplayCase(line);
 }

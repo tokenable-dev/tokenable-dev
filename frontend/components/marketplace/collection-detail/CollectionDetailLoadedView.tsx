@@ -9,7 +9,6 @@ import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
 import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
@@ -150,17 +149,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     listingModal.openListing(tid, "buy");
   };
 
-  const collectionListingsGrid = (
-    <CollectionDetailListingsGrid
-      collectionKey={collectionKey}
-      tokenIds={listings.tokenIds}
-      askMap={listings.askMap}
-      batchMetadata={listingsBatchMetadata}
-      address={address as Address | undefined}
-      gradeLabel={headline.headlineGradeBadge ?? market.gradeAwareTierLabel}
-      onOpenListing={listingModal.openListing}
-    />
-  );
+  const listingsGridProps = {
+    collectionKey,
+    tokenIds: listings.tokenIds,
+    askMap: listings.askMap,
+    batchMetadata: listingsBatchMetadata,
+    address: address as Address | undefined,
+    gradeLabel: headline.headlineGradeBadge ?? market.gradeAwareTierLabel,
+    onOpenListing: listingModal.openListing,
+    onPlaceBid: listingModal.openSetLevelBid,
+    emptyMode: "card-html" as const,
+  };
 
   const renderHeroDetailsTabs = () => (
     <CollectionHeroDetailsTabs
@@ -191,11 +190,15 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     market,
     collectionOrderBookProps,
     coverImageUrl: collectionCoverUrl,
-    mobileListingsBody: collectionListingsGrid,
+    headlineTitle: headline.collectionHeadlineDisplayTitle,
+    headlineParts: headline.collectionHeadlineParts,
+    headlineMeta: headline.collectionHeadlineMetaStrip,
+    mobileListingsBody: <CollectionDetailListingsGrid {...listingsGridProps} />,
     mobileListingCount: asks.length,
     detailsPanel: renderHeroDetailsTabs(),
     highestBidUsd,
     lowestAskUsd,
+    bidCount: collectionBids.length,
     onPlaceBid: listingModal.openSetLevelBid,
     placeBidDisabled: false,
     onBuyLowestAsk: openBuyFloor,
@@ -203,8 +206,12 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   });
 
   const collectionListingsBody = (
-    <CollectionDetailListingsSection listingCount={asks.length}>
-      {collectionListingsGrid}
+    <CollectionDetailListingsSection
+      listingCount={asks.length}
+      highestBidUsd={highestBidUsd}
+      bidCount={collectionBids.length}
+    >
+      <CollectionDetailListingsGrid {...listingsGridProps} />
     </CollectionDetailListingsSection>
   );
 
@@ -226,24 +233,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
             {collection.reviewStatus === "pending_review"
               ? "This collection is under review and is not yet listed on Markets."
               : "This collection was not approved for Markets."}
-          </div>
-        ) : null}
-        {headline.collectionHeadlineDisplayTitle ? (
-          <div className="cd-page-headline">
-            {headline.collectionHeadlineParts ? (
-              <AssetDetailHeadlineTitle
-                as="h1"
-                parts={headline.collectionHeadlineParts}
-                className="cd-page-headline__title"
-              />
-            ) : (
-              <h1
-                className="cd-page-headline__title"
-                title={headline.collectionHeadlineDisplayTitle}
-              >
-                {headline.collectionHeadlineDisplayTitle}
-              </h1>
-            )}
           </div>
         ) : null}
           <CollectionOverviewBoard

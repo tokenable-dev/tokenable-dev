@@ -37,10 +37,18 @@ export function OrderBookCenterStrip({
 
   const hasCaption = model.caption.trim().length > 0;
 
-  if (collectionDetail && isNaPlaceholder) {
+  /* Card.html mid-book strip: Last $X · Spread $Y */
+  if (collectionDetail) {
+    const lastLabel = isNaPlaceholder
+      ? "Last —"
+      : `Last $${model.primary.replace(/^\$/, "")}`;
+    const spreadLabel = model.secondary?.trim() || null;
     return (
-      <div className="cd-ob-book-center__na" title={model.title}>
-        N/A
+      <div className="cd-ob-book-center__strip" title={model.title}>
+        <span className="cd-ob-book-center__last mono">{lastLabel}</span>
+        {spreadLabel ? (
+          <span className="cd-ob-book-center__spread mono">{spreadLabel}</span>
+        ) : null}
       </div>
     );
   }
@@ -49,7 +57,7 @@ export function OrderBookCenterStrip({
     <div
       className={`relative flex shrink-0 flex-col items-center justify-center ${
         isNaPlaceholder ? "gap-0 px-2 py-0" : "gap-0.5 px-2 py-1"
-      } ${collectionDetail ? "cd-ob-book-center__strip" : COLLECTION_DETAILS_BG_CLASS} ${
+      } ${COLLECTION_DETAILS_BG_CLASS} ${
         hasCaption
           ? "min-h-[1.875rem]"
           : isNaPlaceholder
@@ -97,17 +105,13 @@ export function OrderBookCenterStrip({
           </span>
         </div>
         {model.secondary != null ? (
-          <span
-            className={`max-w-[min(100%,220px)] truncate tabular-nums text-zinc-500 sm:max-w-none ${orderBookRowValueCls}`}
-          >
-            {model.secondary}
-          </span>
+          <span className={`${orderBookRowValueCls} text-zinc-400`}>{model.secondary}</span>
         ) : null}
       </div>
       {hasCaption ? (
-        <p className="line-clamp-2 flex h-[2.5rem] w-full items-center justify-center px-1 text-center text-[9px] leading-snug text-zinc-600">
+        <span className={`${orderBookRowValueCls} text-center text-[11px] text-zinc-500`}>
           {model.caption}
-        </p>
+        </span>
       ) : null}
     </div>
   );

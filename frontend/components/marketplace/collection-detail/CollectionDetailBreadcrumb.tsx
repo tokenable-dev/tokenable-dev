@@ -18,7 +18,7 @@ export function CollectionDetailBreadcrumb({
       {category ? (
         <>
           <span className="cd-breadcrumb__sep">/</span>
-          <span>{category}</span>
+          <span className="cd-breadcrumb__mid">{category}</span>
         </>
       ) : null}
       {trail ? (

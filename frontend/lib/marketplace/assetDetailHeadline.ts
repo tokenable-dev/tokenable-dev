@@ -1,12 +1,17 @@
 import {
   formatHeadlineCardNumber,
   leadingYearFromSetLine,
+  toCardDisplayCase,
   toCardDisplayUppercase,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
-/** PSA slab label order: Year · Brand · # · Subject · Variety */
+/**
+ * Structured fields for card display names (planner rule).
+ * Display name = Character · Variant
+ * Meta = Year · Set · # · Grade
+ */
 export type AssetDetailHeadlineParts = {
   year: string | null;
   setName: string | null;
@@ -39,7 +44,7 @@ function normalizeYear(year: number | string | null | undefined): number | null 
 function applyHeadlineCasing(value: string, uppercase: boolean): string {
   const t = value.trim();
   if (!t) return "";
-  return uppercase ? toCardDisplayUppercase(t) : t;
+  return uppercase ? toCardDisplayUppercase(t) : toCardDisplayCase(t);
 }
 
 function extractYearFromText(lineRaw: string | null | undefined): number | null {
@@ -52,7 +57,8 @@ function extractYearFromText(lineRaw: string | null | undefined): number | null 
 }
 
 /**
- * Collection / card detail hero — PSA order: Year → Brand → # → Subject → Variety.
+ * Build structured headline parts from collection / slab fields.
+ * Default casing is title case (not ALL CAPS).
  */
 export function buildAssetDetailHeadlineParts(input: {
   setLine?: string | null;
@@ -60,6 +66,7 @@ export function buildAssetDetailHeadlineParts(input: {
   cardName?: string | null;
   cardNumber?: string | null;
   variety?: string | null;
+  /** @deprecated Prefer title case — only for rare ALL CAPS call sites. */
   uppercase?: boolean;
 }): AssetDetailHeadlineParts {
   const uppercase = input.uppercase ?? false;
@@ -96,12 +103,55 @@ export function buildAssetDetailHeadlineParts(input: {
   };
 }
 
-/** Space-separated PSA slab line (Year Brand # Subject Variety). */
+/** Display name: `{Character} · {Variant}` (or Character alone). */
+export function formatCardDisplayName(parts: AssetDetailHeadlineParts): string {
+  const name = parts.cardName?.trim() || "";
+  const variety = parts.variety?.trim() || "";
+  if (name && variety) return `${name} · ${variety}`;
+  return name || variety;
+}
+
+/** Meta line: `{Year} · {Set} · #{Number} · {Grade}`. */
+export function formatCardDisplayMeta(
+  parts: AssetDetailHeadlineParts,
+  opts?: {
+    grade?: string | null;
+    omitSet?: boolean;
+    omitNumber?: boolean;
+  },
+): string {
+  const chunks: string[] = [];
+  const year = parts.year?.trim();
+  if (year) chunks.push(year);
+  if (!opts?.omitSet) {
+    const set = parts.setName?.trim();
+    if (set) chunks.push(set);
+  }
+  if (!opts?.omitNumber) {
+    const num = parts.cardNumber?.trim();
+    if (num) chunks.push(num);
+  }
+  const grade = opts?.grade?.trim();
+  if (grade) chunks.push(grade);
+  return chunks.join(" · ");
+}
+
+/** Hover / search / document title — Display + Meta, never raw mint full string alone. */
+export function formatCardDisplayHoverTitle(
+  parts: AssetDetailHeadlineParts,
+  opts?: { grade?: string | null },
+): string {
+  const display = formatCardDisplayName(parts);
+  const meta = formatCardDisplayMeta(parts, opts);
+  return [display, meta].filter(Boolean).join(" · ");
+}
+
+/**
+ * User-facing title = Display name (Character · Variant).
+ * Prefer this alias at call sites migrating from the old PSA slab one-liner.
+ */
 export function formatAssetDetailHeadlineText(parts: AssetDetailHeadlineParts): string {
-  return [parts.year, parts.setName, parts.cardNumber, parts.cardName, parts.variety]
-    .map((s) => s?.trim())
-    .filter((s): s is string => Boolean(s))
-    .join(" ");
+  return formatCardDisplayName(parts);
 }
 
 export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): boolean {
@@ -114,18 +164,18 @@ export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): 
   );
 }
 
-/** Document title / woven string — PSA line, then optional meta / Pop. */
+/** Document / woven string — Display name, then Meta / optional Pop. */
 export function computeAssetDetailWovenTitle(
   parts: AssetDetailHeadlineParts,
   metaStrip: string | null,
   populationBadge: string | null,
 ): string {
   const chunks: string[] = [];
-  const base = formatAssetDetailHeadlineText(parts);
-  if (base) chunks.push(base);
+  const display = formatCardDisplayName(parts);
+  if (display) chunks.push(display);
   const m = (metaStrip ?? "").trim();
   if (m) {
-    const hay = base.toLowerCase();
+    const hay = display.toLowerCase();
     if (!hay.includes(m.toLowerCase())) chunks.push(m);
   }
   const pop = (populationBadge ?? "").trim();
@@ -152,7 +202,7 @@ export function buildRwaAssetDetailHeadlineParts(
       year: null,
       setName: null,
       cardNumber: null,
-      cardName: fallback || null,
+      cardName: fallback ? toCardDisplayCase(fallback) : null,
       variety: null,
     };
   }
@@ -200,9 +250,25 @@ export function buildRwaAssetDetailHeadlineParts(
 
   return {
     year: yearOut,
-    setName: setOut,
+    setName: setOut ? toCardDisplayCase(setOut) : null,
     cardNumber: formatHeadlineCardNumber(numRaw),
-    cardName: cardNameRaw,
-    variety,
+    cardName: cardNameRaw ? toCardDisplayCase(cardNameRaw) : null,
+    variety: variety ? toCardDisplayCase(variety) : null,
   };
+}
+
+/** Grade label from graded NFT metadata when present (e.g. PSA 10). */
+export function resolveRwaHeadlineGrade(
+  meta: RwaHeadlineMetadata | null | undefined,
+): string | null {
+  if (!meta) return null;
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded =
+    (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const company = pickString(psa?.gradingCompany, psa?.grader, graded?.grader) ?? "PSA";
+  const score = pickString(psa?.grade, psa?.Grade, graded?.grade);
+  if (score) return toCardDisplayCase(`${company} ${score}`);
+  const label = pickString(psa?.gradeLabel, graded?.gradeLabel);
+  return label ? toCardDisplayCase(label) : null;
 }

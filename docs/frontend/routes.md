@@ -17,7 +17,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/markets` | `app/markets/page.tsx` | **Markets** — collection list, batch snapshots, category filter, trending |
 | `/markets/top100` | *(section on Markets page or linked)* | Top 100 sales rank strip (feature-flagged) |
 | `/markets/top100/card/[cardId]` | `app/markets/top100/card/[cardId]/page.tsx` | Top 100 card detail |
-| `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / in-progress shipment |
+| `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / **active status table** (tabs: All · Partner vault · In progress · Added to portfolio · Rejected) |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
 | `/sell/flow` | `app/sell/flow/page.tsx` | Seller verification → choose vault → add cards (PSA → ship, or self → custody mint) |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack & tracking (PSA Shipping) |

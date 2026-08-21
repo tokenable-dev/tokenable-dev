@@ -6,7 +6,8 @@ import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTyp
 import {
   buildAssetDetailHeadlineParts,
   computeAssetDetailWovenTitle,
-  formatAssetDetailHeadlineText,
+  formatCardDisplayMeta,
+  formatCardDisplayName,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
@@ -19,7 +20,7 @@ import {
 import {
   buildCollectionHeadlineMetaStrip,
   leadingYearFromSetLine,
-  toCardDisplayUppercase,
+  toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import {
@@ -64,7 +65,7 @@ export function useCollectionDetailHeadline(params: {
       (x): x is string => typeof x === "string" && x.trim().length > 0,
     );
     if (!parts.length) return null;
-    return toCardDisplayUppercase(parts.join(" · "));
+    return toCardDisplayCase(parts.join(" · "));
   }, [comp]);
 
   const headlineSetLine = useMemo(() => {
@@ -83,7 +84,7 @@ export function useCollectionDetailHeadline(params: {
     const y = yFromSet ?? yComp;
     const line =
       y != null && !/^\s*\d{4}\b/.test(setMerged) ? `${y} ${setMerged}` : setMerged;
-    return toCardDisplayUppercase(line);
+    return toCardDisplayCase(line);
   }, [marketPreview?.card?.setName, comp]);
 
   const collectionCategoryBadge = useMemo(() => {
@@ -98,15 +99,15 @@ export function useCollectionDetailHeadline(params: {
       isPokemonTcgCategoryLabel(previewCat) ||
       isPokemonTcgCategoryLabel(psaCat)
     ) {
-      return toCardDisplayUppercase("Pokemon");
+      return toCardDisplayCase("Pokemon");
     }
     if (previewCat) {
-      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(previewCat));
+      return toCardDisplayCase(formatSportCategoryDisplayLabel(previewCat));
     }
     if (psaCat) {
-      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(psaCat));
+      return toCardDisplayCase(formatSportCategoryDisplayLabel(psaCat));
     }
-    return toCardDisplayUppercase("Trading cards");
+    return toCardDisplayCase("Trading cards");
   }, [
     marketPreview?.card?.category,
     marketPreview?.card?.setName,
@@ -158,7 +159,6 @@ export function useCollectionDetailHeadline(params: {
       cardName: collectionHeadlineCardName,
       cardNumber: headlineCardNumberToken,
       variety: headlineVarietyLabel,
-      uppercase: true,
     });
   }, [
     headlineSetLine,
@@ -170,40 +170,54 @@ export function useCollectionDetailHeadline(params: {
   ]);
 
   const collectionHeadlineDisplayTitle = useMemo(
-    () => formatAssetDetailHeadlineText(collectionHeadlineParts),
+    () => formatCardDisplayName(collectionHeadlineParts),
     [collectionHeadlineParts],
   );
 
+  const headlineGradeBadge = useMemo(() => {
+    const label = activeGradeLabel?.trim() || pokeTierLabel;
+    return label ? toCardDisplayCase(label) : null;
+  }, [activeGradeLabel, pokeTierLabel]);
+
   const collectionHeadlineMetaStrip = useMemo(() => {
-    const raw = buildCollectionHeadlineMetaStrip({
+    const catalog = formatCardDisplayMeta(collectionHeadlineParts, {
+      grade: headlineGradeBadge,
+    });
+    const collab = buildCollectionHeadlineMetaStrip({
       setLine: headlineSetLine,
       comp,
       marketPreview,
       displayLabel: typeof displayLabel === "string" ? displayLabel.trim() : null,
     });
-    if (raw == null || !String(raw).trim()) return null;
-    return toCardDisplayUppercase(raw);
-  }, [headlineSetLine, comp, marketPreview, displayLabel]);
-
-  const headlineGradeBadge = useMemo(() => {
-    const label = activeGradeLabel?.trim() || pokeTierLabel;
-    return label ? toCardDisplayUppercase(label) : null;
-  }, [activeGradeLabel, pokeTierLabel]);
+    const collabCased = collab?.trim() ? toCardDisplayCase(collab) : null;
+    if (catalog && collabCased) {
+      const hay = catalog.toLowerCase();
+      if (!hay.includes(collabCased.toLowerCase())) {
+        return `${catalog} · ${collabCased}`;
+      }
+    }
+    return catalog || collabCased || null;
+  }, [
+    collectionHeadlineParts,
+    headlineGradeBadge,
+    headlineSetLine,
+    comp,
+    marketPreview,
+    displayLabel,
+  ]);
 
   const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;
     if (popRaw == null || !Number.isFinite(popRaw) || popRaw <= 0) return null;
-    return toCardDisplayUppercase(`Pop · ${Number(popRaw).toLocaleString("en-US")}`);
+    return `Pop · ${Number(popRaw).toLocaleString("en-US")}`;
   }, [comp.psaTotalPopulation]);
 
   const collectionWovenTitle = useMemo(
     () =>
-      toCardDisplayUppercase(
-        computeAssetDetailWovenTitle(
-          collectionHeadlineParts,
-          collectionHeadlineMetaStrip,
-          null,
-        ),
+      computeAssetDetailWovenTitle(
+        collectionHeadlineParts,
+        collectionHeadlineMetaStrip,
+        null,
       ),
     [collectionHeadlineParts, collectionHeadlineMetaStrip],
   );
@@ -220,8 +234,8 @@ export function useCollectionDetailHeadline(params: {
     if (!raw) return null;
     return raw.map((t) => ({
       ...t,
-      text: toCardDisplayUppercase(t.text),
-      title: t.title ? toCardDisplayUppercase(t.title) : undefined,
+      text: toCardDisplayCase(t.text),
+      title: t.title ? toCardDisplayCase(t.title) : undefined,
     }));
   }, [
     headlineSetLine,
@@ -281,16 +295,15 @@ export function useCollectionDetailHeadline(params: {
       "category",
       "grade",
       "grader",
-      "cert",
       "language",
     ] as const;
     const byId = new Map(collectionMarketDetailCards.map((c) => [c.id, c]));
     const out: CollectionDetailCard[] = [];
     if (player) {
       out.push({
-        id: "player",
-        label: "Player",
-        value: toCardDisplayUppercase(player),
+        id: "character",
+        label: "Character",
+        value: toCardDisplayCase(player),
       });
     }
     for (const id of priority) {
@@ -298,6 +311,7 @@ export function useCollectionDetailHeadline(params: {
       if (row) out.push(row);
     }
     for (const row of collectionMarketDetailCards) {
+      if (row.id === "cert") continue;
       if (!out.some((r) => r.id === row.id)) {
         out.push(row);
       }

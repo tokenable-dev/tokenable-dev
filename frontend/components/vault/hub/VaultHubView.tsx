@@ -5,9 +5,9 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { VaultEmptyDashboardView } from "@/components/vault/hub/VaultEmptyDashboardView";
 import { VaultHubHeader } from "@/components/vault/hub/VaultHubHeader";
 import {
-  useHasSellShipment,
-  VaultHubInProgressFromShipment,
-} from "@/components/vault/hub/VaultHubInProgressFromShipment";
+  useHasVaultHubActivity,
+  VaultActiveDashboardView,
+} from "@/components/vault/hub/VaultActiveDashboardView";
 import { VaultLandingView } from "@/components/vault/hub/VaultLandingViews";
 
 export function VaultHubView() {
@@ -15,7 +15,7 @@ export function VaultHubView() {
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
-  const hasShipment = useHasSellShipment();
+  const hasActivity = useHasVaultHubActivity();
 
   if (!initialized || loading) {
     return (
@@ -35,7 +35,7 @@ export function VaultHubView() {
   return (
     <>
       <VaultHubHeader />
-      {hasShipment ? <VaultHubInProgressFromShipment /> : <VaultEmptyDashboardView />}
+      {hasActivity ? <VaultActiveDashboardView /> : <VaultEmptyDashboardView />}
     </>
   );
 }

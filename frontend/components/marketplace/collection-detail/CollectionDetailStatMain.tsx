@@ -14,6 +14,8 @@ import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePeriod";
 import { formatReferenceChangePeriodShort } from "@/lib/market/priceChangePeriod";
 import { RwaImageLightbox } from "@/components/common";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 
 function formatChangeTag(pct: number): { arrow: string; label: string } {
   const tone = referenceChangeTone(pct);
@@ -26,23 +28,57 @@ function formatChangeTag(pct: number): { arrow: string; label: string } {
 function periodChipLabel(
   period: ReferencePercentChangeResult | null | undefined,
 ): string {
-  const short = formatReferenceChangePeriodShort(
-    period ?? null,
-    period?.marketChangeWindow ?? null,
-  );
-  return `${short.toUpperCase()} Chg.`;
+  if (!period) return "1 YR Chg.";
+  return `${formatReferenceChangePeriodShort(period)} Chg.`;
 }
 
 function formatBookUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return formatUsdCompact(n);
+}
+
+function HeroMeta({
+  meta,
+  gradeLabel,
+}: {
+  meta: string | null;
+  gradeLabel: string;
+}) {
+  if (!meta) return null;
+  const grade = gradeLabel.trim();
+  if (grade && meta.toLowerCase().endsWith(grade.toLowerCase())) {
+    const prefix = meta
+      .slice(0, meta.length - grade.length)
+      .replace(/\s*·\s*$/, "")
+      .trim();
+    return (
+      <div className="cd-hero-bar__meta mono" id="hero-meta">
+        {prefix ? (
+          <>
+            {prefix} ·{" "}
+          </>
+        ) : null}
+        <strong className="cd-hero-bar__meta-grade">{grade}</strong>
+      </div>
+    );
+  }
+  return (
+    <div className="cd-hero-bar__meta mono" id="hero-meta">
+      {meta}
+    </div>
+  );
 }
 
 /**
- * Card.html `#hero-bar` — sticky on desktop and mobile, binary `is-stuck`
- * when `top <= 70`, with CSS `transition` on padding / image height.
+ * Card.html `#hero-bar` (2026 redesign):
+ * image | mid(title+meta · last price + stats + Buy/Bid buttons).
+ * Mobile: book hidden → `#ob-bottom-bar`; sticky condense on scroll.
  */
 export function CollectionDetailStatMain({
+  stuckTitle,
+  headlineTitle,
+  headlineParts,
+  headlineMeta,
   imageUrl,
   priceUsd,
   priceLoading,
@@ -63,6 +99,10 @@ export function CollectionDetailStatMain({
   buyDisabled,
   bidDisabled,
 }: {
+  stuckTitle?: string | null;
+  headlineTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineMeta?: string | null;
   imageUrl?: string | null;
   priceUsd: number | null;
   priceLoading: boolean;
@@ -85,7 +125,11 @@ export function CollectionDetailStatMain({
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
+  const midRef = useRef<HTMLDivElement>(null);
   const coverSrc = imageUrl?.trim() || null;
+  const stuckLabel = stuckTitle?.trim() || null;
+  const title = headlineTitle?.trim() || null;
+  const meta = headlineMeta?.trim() || null;
 
   useEffect(() => {
     const bar = barRef.current;
@@ -98,14 +142,6 @@ export function CollectionDetailStatMain({
     let lastBarH = -1;
 
     const publishBarH = () => {
-      /* `--bar-h` offsets the desktop sidebar under the sticky hero. */
-      if (window.innerWidth <= 1023) {
-        if (lastBarH !== -1) {
-          document.documentElement.style.removeProperty("--bar-h");
-          lastBarH = -1;
-        }
-        return;
-      }
       const next = Math.round(bar.getBoundingClientRect().height);
       if (next <= 0 || next === lastBarH) return;
       lastBarH = next;
@@ -114,76 +150,31 @@ export function CollectionDetailStatMain({
 
     const publishBarHAfterTransition = () => {
       if (barHSettle != null) window.clearTimeout(barHSettle);
-      /* Match .cd-hero-bar height/padding transition (0.16s). */
       barHSettle = window.setTimeout(() => {
         barHSettle = undefined;
         publishBarH();
       }, 180);
     };
 
-    /**
-     * Card.html `syncHeroWidth` — size `#hero-book` to the sidebar rail, but
-     * never force a width that wraps the book onto a second row under the price.
-     */
-    const syncHeroWidth = () => {
-      const book = bar.querySelector<HTMLElement>("#hero-book");
-      const rail =
-        document.querySelector<HTMLElement>(".cd-sidebar-sticky") ||
-        document.querySelector<HTMLElement>(".cd-detail-grid__sidebar");
-      const stats = bar.querySelector<HTMLElement>(":scope > .hero-secondary");
-      if (!book) return;
-      if (window.innerWidth < 901) {
-        book.style.width = "";
-        book.style.flex = "";
-        book.style.marginRight = "";
-        book.style.marginLeft = "";
-        if (stats) {
-          stats.style.width = "";
-          stats.style.flex = "";
-          stats.style.minWidth = "";
-        }
+    /** Card.html `syncCardImg` — match thumb height to `#hero-mid` on desktop. */
+    const syncCardImg = () => {
+      const img = bar.querySelector<HTMLElement>("#hero-img");
+      const mid = midRef.current;
+      if (!img || !mid) return;
+      if (window.innerWidth < 1024 || bar.classList.contains("is-stuck")) {
+        img.style.height = "";
         return;
       }
-      if (!rail) return;
-
-      const railW = Math.round(rail.getBoundingClientRect().width);
-      if (railW <= 0) return;
-
-      /* Measure left cluster first with book unconstrained. */
-      book.style.width = "auto";
-      book.style.flex = "0 0 auto";
-      book.style.marginRight = "0px";
-      book.style.marginLeft = "auto";
-
-      const main = document.querySelector<HTMLElement>(
-        ".cd-detail-grid__chart, .cd-detail-grid__left",
-      );
-      if (stats && main) {
-        stats.style.flex = "0 1 auto";
-        stats.style.minWidth = "0px";
-        stats.style.width = "auto";
-        const right = main.getBoundingClientRect().right;
-        const left = stats.getBoundingClientRect().left;
-        const statsW = Math.round(right - left);
-        if (statsW >= 160) stats.style.width = `${statsW}px`;
-      }
-
-      const barRect = bar.getBoundingClientRect();
-      const leftCluster = stats ?? bar.querySelector("#hero-priceblock");
-      const leftRight = leftCluster
-        ? leftCluster.getBoundingClientRect().right
-        : barRect.left;
-      const avail = Math.floor(barRect.right - leftRight - 20);
-      const target = Math.max(180, Math.min(railW, avail > 0 ? avail : railW));
-      book.style.width = `${target}px`;
-      book.style.flex = `0 0 ${target}px`;
+      const h = Math.round(mid.getBoundingClientRect().height);
+      if (h > 40) img.style.height = `${h}px`;
     };
 
-    /** Card.html `onScroll` — stuck iff sticky bar has reached its top offset. */
     const onScroll = () => {
       raf = 0;
       const r = bar.getBoundingClientRect();
-      const stuck = r.top <= 70;
+      /* Card.html: stuck when sticky top reaches ~70px (desktop header). */
+      const stuckTop = window.innerWidth <= 1023 ? 56 : 70;
+      const stuck = r.top <= stuckTop;
       const wasStuck = bar.classList.contains("is-stuck");
       bar.classList.toggle("is-stuck", stuck);
       if (stuck !== wasStuck) {
@@ -191,13 +182,14 @@ export function CollectionDetailStatMain({
       } else {
         publishBarH();
       }
+      syncCardImg();
     };
 
     const onScrollOrResize = () => {
       if (raf) return;
       raf = window.requestAnimationFrame(() => {
         onScroll();
-        syncHeroWidth();
+        syncCardImg();
       });
     };
 
@@ -215,7 +207,7 @@ export function CollectionDetailStatMain({
     }
 
     onScroll();
-    syncHeroWidth();
+    syncCardImg();
     for (const t of scrollTargets) {
       t.addEventListener("scroll", onScrollOrResize, { passive: true });
     }
@@ -223,7 +215,7 @@ export function CollectionDetailStatMain({
     bar.addEventListener("transitionend", publishBarH);
     poll = window.setInterval(() => {
       onScroll();
-      syncHeroWidth();
+      syncCardImg();
     }, 400);
     stopPoll = window.setTimeout(() => {
       if (poll != null) window.clearInterval(poll);
@@ -249,12 +241,14 @@ export function CollectionDetailStatMain({
     totalPsaPop: totalPopulation ?? null,
     psa10Pop: null,
   };
+  const popLabel = `${(popMetrics.gradeLabel || gradeLabel).replace(/\s+/g, " ")} Pop.`;
   const popValue =
     popMetrics.gradePop != null
       ? formatPsaPopulationCount(popMetrics.gradePop)
       : totalPopulation != null
         ? formatPsaPopulationCount(totalPopulation)
         : "—";
+
   const changeTone =
     changePct != null && Number.isFinite(changePct)
       ? referenceChangeTone(changePct)
@@ -263,9 +257,6 @@ export function CollectionDetailStatMain({
     changePct != null && Number.isFinite(changePct)
       ? formatChangeTag(changePct)
       : null;
-  const hasAsk = lowestAskUsd != null && lowestAskUsd > 0;
-  const hasBid = highestBidUsd != null && highestBidUsd > 0;
-  const showTradeBook = onBuyLowestAsk != null || onPlaceBid != null;
   const changeTagTone =
     changeTone === "down"
       ? "danger"
@@ -273,108 +264,160 @@ export function CollectionDetailStatMain({
         ? "positive"
         : "neutral";
 
+  const hasAsk =
+    lowestAskUsd != null && Number.isFinite(lowestAskUsd) && lowestAskUsd > 0;
+  const hasBid =
+    highestBidUsd != null &&
+    Number.isFinite(highestBidUsd) &&
+    highestBidUsd > 0;
+  const showTradeBook = Boolean(onBuyLowestAsk || onPlaceBid);
+
   return (
-    <div ref={barRef} id="hero-bar" className="cd-hero-bar">
-      {coverSrc ? (
-        <button
-          type="button"
-          className="cd-hero-bar__thumb-btn"
-          onClick={() => setLightboxOpen(true)}
-          aria-label="View enlarged collection cover"
-          title="Tap to enlarge"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={coverSrc}
-            alt=""
-            className="cd-hero-bar__thumb"
-            id="hero-img"
-          />
-        </button>
-      ) : (
-        <div
-          className="cd-hero-bar__thumb cd-hero-bar__thumb--empty"
-          id="hero-img"
-          aria-hidden
-        />
-      )}
-
-      <div className="cd-hero-bar__priceblock" id="hero-priceblock">
-        <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
-          Last price
-        </div>
-        {priceLoading && priceUsd == null ? (
-          <div className="cd-hero-bar__price cd-hero-bar__skeleton" aria-hidden />
-        ) : priceUsd != null && Number.isFinite(priceUsd) ? (
-          <div className="cd-hero-bar__price">{formatUsdCompact(priceUsd)}</div>
-        ) : (
-          <div className="cd-hero-bar__price cd-hero-bar__price--muted">
-            {NO_EXTERNAL_PRICE}
+    <div className="cd-stat-main">
+      <div
+        className="cd-hero-bar"
+        id="hero-bar"
+        ref={barRef}
+        data-testid="collection-detail-hero-bar"
+      >
+        {stuckLabel ? (
+          <div className="cd-hero-bar__stuck-title" id="hero-title-stuck">
+            {stuckLabel}
           </div>
-        )}
-        <div className="cd-hero-bar__chg" id="hero-chg">
-          {changeLoading && changePct == null ? (
-            <span
-              className="cd-hero-bar__skeleton cd-hero-bar__skeleton--tag"
-              aria-hidden
+        ) : null}
+
+        {coverSrc ? (
+          <button
+            type="button"
+            className="cd-hero-bar__thumb-btn"
+            onClick={() => setLightboxOpen(true)}
+            aria-label="View card image"
+          >
+            <img
+              src={coverSrc}
+              alt=""
+              className="cd-hero-bar__thumb"
+              id="hero-img"
             />
-          ) : changeTag ? (
-            <TkTag
-              tone={changeTagTone}
-              className="cd-hero-bar__change-tag"
-            >
-              <span aria-hidden>{changeTag.arrow}</span> {changeTag.label}
-            </TkTag>
-          ) : (
-            <TkTag tone="neutral" className="cd-hero-bar__change-tag">
-              {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
-            </TkTag>
-          )}
-          <span className="cd-hero-bar__period mono">
-            {periodChipLabel(changePeriod)}
-          </span>
-        </div>
-      </div>
+          </button>
+        ) : (
+          <div
+            className="cd-hero-bar__thumb cd-hero-bar__thumb--empty"
+            id="hero-img"
+            aria-hidden
+          />
+        )}
 
-      <div className="cd-hero-bar__secondary hero-secondary">
-        <div className="cd-hero-bar__sec-row">
-          <span className="cd-hero-bar__sec-lbl mono">MKT CAP</span>
-          <span className="cd-hero-bar__sec-val mono">
-            {formatMarketCap(marketCapUsd)}
-          </span>
-        </div>
-        <div className="cd-hero-bar__sec-row">
-          <span className="cd-hero-bar__sec-lbl mono">Vol. 30D</span>
-          <span className="cd-hero-bar__sec-val mono">
-            {tradeVolumeLoading && tradeVolumeUsdc == null
-              ? "—"
-              : formatUsdCompact(
-                  tradeVolumeUsdc != null && Number.isFinite(tradeVolumeUsdc)
-                    ? tradeVolumeUsdc
-                    : 0,
+        <div className="cd-hero-bar__mid" id="hero-mid" ref={midRef}>
+          {title ? (
+            <div className="cd-hero-bar__head" id="hero-head">
+              {headlineParts ? (
+                <AssetDetailHeadlineTitle
+                  as="h1"
+                  parts={headlineParts}
+                  className="cd-hero-bar__title"
+                  grade={gradeLabel}
+                />
+              ) : (
+                <h1
+                  className="cd-hero-bar__title"
+                  id="hero-title"
+                  title={title}
+                >
+                  {title}
+                </h1>
+              )}
+              <HeroMeta meta={meta} gradeLabel={gradeLabel} />
+            </div>
+          ) : null}
+
+          <div className="cd-hero-bar__metrics">
+            <div className="cd-hero-bar__priceblock" id="hero-priceblock">
+              <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
+                Last price
+              </div>
+              {priceLoading && priceUsd == null ? (
+                <div
+                  className="cd-hero-bar__price cd-hero-bar__skeleton"
+                  aria-hidden
+                />
+              ) : priceUsd != null && Number.isFinite(priceUsd) ? (
+                <div className="cd-hero-bar__price">
+                  {formatUsdCompact(priceUsd)}
+                </div>
+              ) : (
+                <div className="cd-hero-bar__price cd-hero-bar__price--muted">
+                  {NO_EXTERNAL_PRICE}
+                </div>
+              )}
+              <div className="cd-hero-bar__chg" id="hero-chg">
+                {changeLoading && changePct == null ? (
+                  <span
+                    className="cd-hero-bar__skeleton cd-hero-bar__skeleton--tag"
+                    aria-hidden
+                  />
+                ) : changeTag ? (
+                  <TkTag
+                    tone={changeTagTone}
+                    className="cd-hero-bar__change-tag"
+                  >
+                    <span aria-hidden>{changeTag.arrow}</span>{" "}
+                    {changeTag.label}
+                  </TkTag>
+                ) : (
+                  <TkTag tone="neutral" className="cd-hero-bar__change-tag">
+                    {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
+                  </TkTag>
                 )}
-          </span>
-        </div>
-        <div className="cd-hero-bar__sec-row">
-          <span className="cd-hero-bar__sec-lbl mono">
-            {(popMetrics.gradeLabel || gradeLabel).replace(/\s+/g, " ")}{" "}
-            <span className="cd-hero-bar__sec-pipe">|</span> POP
-          </span>
-          <span className="cd-hero-bar__sec-val mono">{popValue}</span>
-        </div>
-      </div>
+                <span className="cd-hero-bar__period mono">
+                  {periodChipLabel(changePeriod)}
+                </span>
+              </div>
+            </div>
 
-      {showTradeBook ? (
-        <div className="cd-hero-bar__book" id="hero-book">
-          <div className="cd-hero-bar__actions" id="hero-actions">
-            <div className="cd-hero-bar__book-row">
-              <div className="cd-hero-bar__book-col">
-                <div className="cd-hero-bar__ob-stat ob-stat mono">
-                  Lowest ask
-                </div>
-                <div className="cd-hero-bar__ob-price ob-stat mono" id="ob-ask">
+            <div className="cd-hero-bar__secondary hero-secondary">
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">Market cap</span>
+                <span className="cd-hero-bar__sec-val mono">
+                  {formatMarketCap(marketCapUsd)}
+                </span>
+              </div>
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">Volume 30D</span>
+                <span className="cd-hero-bar__sec-val mono">
+                  {tradeVolumeLoading && tradeVolumeUsdc == null
+                    ? "—"
+                    : formatUsdCompact(
+                        tradeVolumeUsdc != null &&
+                          Number.isFinite(tradeVolumeUsdc)
+                          ? tradeVolumeUsdc
+                          : 0,
+                      )}
+                </span>
+              </div>
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">{popLabel}</span>
+                <span className="cd-hero-bar__sec-val mono">{popValue}</span>
+              </div>
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">Lowest ask</span>
+                <span className="cd-hero-bar__sec-val mono" id="ob-ask">
                   {formatBookUsd(lowestAskUsd)}
-                </div>
+                </span>
+              </div>
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">Highest bid</span>
+                <span
+                  className={`cd-hero-bar__sec-val mono${hasBid ? " cd-hero-bar__sec-val--bid" : ""}`}
+                  id="ob-bid"
+                >
+                  {formatBookUsd(highestBidUsd)}
+                </span>
+              </div>
+            </div>
+
+            {showTradeBook ? (
+              <div className="cd-hero-bar__book" id="hero-book">
                 {onBuyLowestAsk ? (
                   <TkButton
                     type="button"
@@ -383,20 +426,9 @@ export function CollectionDetailStatMain({
                     disabled={buyDisabled || !hasAsk}
                     onClick={onBuyLowestAsk}
                   >
-                    Buy lowest ask
+                    Buy now
                   </TkButton>
                 ) : null}
-              </div>
-              <div className="cd-hero-bar__book-col">
-                <div className="cd-hero-bar__ob-stat ob-stat mono">
-                  Highest bid
-                </div>
-                <div
-                  className={`cd-hero-bar__ob-price ob-stat mono${hasBid ? " cd-hero-bar__ob-price--bid" : ""}`}
-                  id="ob-bid"
-                >
-                  {formatBookUsd(highestBidUsd)}
-                </div>
                 {onPlaceBid ? (
                   <TkButton
                     type="button"
@@ -405,17 +437,14 @@ export function CollectionDetailStatMain({
                     disabled={bidDisabled}
                     onClick={onPlaceBid}
                   >
-                    Place a bid
+                    Bid
                   </TkButton>
                 ) : null}
               </div>
-            </div>
-            <p className="cd-hero-bar__helper hero-secondary">
-              A bid fills when any seller&rsquo;s ask meets your price.
-            </p>
+            ) : null}
           </div>
         </div>
-      ) : null}
+      </div>
 
       <RwaImageLightbox
         open={lightboxOpen}

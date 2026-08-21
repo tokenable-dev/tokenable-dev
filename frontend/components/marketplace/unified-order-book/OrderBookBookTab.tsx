@@ -27,8 +27,8 @@ function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; c
     return (
       <div className="cd-ob-book-hdr shrink-0">
         <span>Price</span>
-        <span>Size</span>
-        <span>Total</span>
+        <span>Qty</span>
+        <span>Side</span>
       </div>
     );
   }
@@ -70,14 +70,9 @@ function OrderBookFooterCounts({
 }) {
   if (collectionDetail) {
     return (
-      <div className="cd-ob-book-footer shrink-0">
-        <span>
-          Bids <span className="cd-ob-book-footer__bids">{bidCount}</span>
-        </span>
-        <span>
-          Asks <span className="cd-ob-book-footer__asks">{askCount}</span>
-        </span>
-      </div>
+      <p className="cd-ob-book-hint">
+        Asks fill top-down, bids bottom-up — highest bid matches first.
+      </p>
     );
   }
 
@@ -133,6 +128,7 @@ function AskLevelsList({
           onSelectLevel={onSelectLevel}
           flush={flush}
           collectionDetail={collectionDetail}
+          sideTag={collectionDetail ? "ask" : undefined}
         />
       ))}
     </div>
@@ -156,7 +152,7 @@ function BidLevelsList({
 }) {
   return (
     <div className={wrapperClass}>
-      {levels.map((level) => (
+      {levels.map((level, i) => (
         <OrderBookDepthLevelRow
           key={level.key}
           side="bid"
@@ -165,6 +161,9 @@ function BidLevelsList({
           onSelectLevel={onSelectLevel}
           flush={flush}
           collectionDetail={collectionDetail}
+          sideTag={
+            collectionDetail ? (i === 0 ? "highest" : "bid") : undefined
+          }
         />
       ))}
     </div>

@@ -1,19 +1,25 @@
 /**
- * Hub “In Progress” row shape — live sell shipment maps into this.
+ * Sell hub row — Vault-Dashboard-Active.html `data-vstate` + ip-card.
  */
+
+export type VaultHubVState = "self" | "progress" | "done" | "rejected";
 
 export type VaultIpStatusKind =
   | "token-sent"
   | "in-transit"
   | "reviewing"
   | "minting"
-  | "action-needed";
+  | "action-needed"
+  | "registered"
+  | "rejected";
 
-export type VaultInProgressItem = {
+export type VaultHubRow = {
   id: string;
+  vstate: VaultHubVState;
   /** First-registered card title (package representative). */
   name: string;
   grade: string;
+  gradeRejected?: boolean;
   /** First-registered card image. */
   imageUrl: string;
   /** Total cards in the package (≥ 1). */
@@ -26,3 +32,6 @@ export type VaultInProgressItem = {
   actionNeeded?: boolean;
   cta: { label: string; href: string; primary?: boolean };
 };
+
+/** @deprecated Prefer VaultHubRow — kept for older imports. */
+export type VaultInProgressItem = VaultHubRow;

@@ -14,7 +14,7 @@ import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListing
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
   leadingYearFromSetLine,
-  toCardDisplayUppercase,
+  toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 
@@ -176,6 +176,6 @@ export function buildCollectionMarketDetailCards(params: {
 
   return rows.map((row) => ({
     ...row,
-    value: row.id === "cert" ? row.value : toCardDisplayUppercase(row.value),
+    value: row.id === "cert" ? row.value : toCardDisplayCase(row.value),
   }));
 }

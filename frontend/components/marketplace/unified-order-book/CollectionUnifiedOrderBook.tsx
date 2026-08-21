@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
@@ -10,6 +11,7 @@ import {
   ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS,
 } from "@/lib/marketplace/unified-order-book";
 import { useUnifiedOrderBook } from "@/hooks/unified-order-book";
+import { CollectionDetailViewAllDrawer } from "@/components/marketplace/collection-detail/CollectionDetailViewAllDrawer";
 import { OrderBookBookTab } from "./OrderBookBookTab";
 import { OrderBookTabHeader } from "./OrderBookTabHeader";
 import { OrderBookTradesTab } from "./OrderBookTradesTab";
@@ -31,6 +33,7 @@ export function CollectionUnifiedOrderBook({
   tapeErrorMessage = null,
   defaultTab = "book",
 }: CollectionUnifiedOrderBookProps) {
+  const [tradesDrawerOpen, setTradesDrawerOpen] = useState(false);
   const book = useUnifiedOrderBook({
     asks,
     collectionBids,
@@ -98,12 +101,53 @@ export function CollectionUnifiedOrderBook({
         collectionDetail={collectionDetail}
       />
 
-      {flush && !embedInMobileTab ? (
-        <div
-          className={`relative overflow-hidden ${
-            collectionDetail ? "cd-ob-body" : "min-h-0 flex-1"
-          }`}
-        >
+      {flush && !embedInMobileTab && collectionDetail ? (
+        <>
+          <div
+            className={book.tab === "book" ? "cd-ob-body" : "hidden"}
+            aria-hidden={book.tab !== "book"}
+          >
+            <OrderBookBookTab {...bookTabProps} flush />
+          </div>
+          <div
+            className={book.tab === "trades" ? "cd-ob-body" : "hidden"}
+            aria-hidden={book.tab !== "trades"}
+          >
+            <OrderBookTradesTab
+              tapeFills={tapeFills}
+              tapeLoading={tapeLoading}
+              tapeError={tapeError}
+              tapeErrorMessage={tapeErrorMessage}
+              flush
+              collectionDetail
+            />
+          </div>
+          {book.tab === "trades" && tapeFills.length > 7 ? (
+            <button
+              type="button"
+              className="viewall-btn cd-viewall-btn cd-ob-viewall-trades"
+              onClick={() => setTradesDrawerOpen(true)}
+            >
+              View all trades
+            </button>
+          ) : null}
+          <CollectionDetailViewAllDrawer
+            open={tradesDrawerOpen}
+            title={`All trades (${tapeFills.length})`}
+            onClose={() => setTradesDrawerOpen(false)}
+          >
+            <OrderBookTradesTab
+              tapeFills={tapeFills}
+              tapeLoading={false}
+              tapeError={false}
+              flush
+              collectionDetail
+              showAllRows
+            />
+          </CollectionDetailViewAllDrawer>
+        </>
+      ) : flush && !embedInMobileTab ? (
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <div
             className={`absolute inset-0 flex flex-col overflow-hidden ${
               book.tab === "book" ? "" : "pointer-events-none invisible"
@@ -124,7 +168,6 @@ export function CollectionUnifiedOrderBook({
               tapeError={tapeError}
               tapeErrorMessage={tapeErrorMessage}
               flush
-              collectionDetail={collectionDetail}
             />
           </div>
         </div>

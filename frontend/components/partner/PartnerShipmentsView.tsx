@@ -358,7 +358,15 @@ function ShipmentRow({
   );
   const shipName = first.shipTo.name;
   const shipCity = partnerShipToCity(group);
-  const canTrack = group.tab === "to_ship" || group.tab === "shipped";
+  const showTrackingMeta =
+    (group.tab === "shipped" || group.tab === "delivered") &&
+    Boolean(group.trackingNumber?.trim());
+  const showRowMenu =
+    group.tab === "to_ship" ||
+    group.tab === "shipped" ||
+    group.tab === "delivered";
+  // Partner-Shipments.html: Edit tracking only while still shipped (not delivered).
+  const canEditTracking = group.tab === "shipped";
 
   return (
     <>
@@ -442,32 +450,36 @@ function ShipmentRow({
                   }
                 />
               </>
-            ) : group.trackingNumber ? (
+            ) : showTrackingMeta || showRowMenu ? (
               <>
-                <span className="partner-ship__track-meta">
-                  <span className="partner-ship__v">
-                    {group.trackingCarrier || "Carrier"}
+                {showTrackingMeta && group.trackingNumber ? (
+                  <span className="partner-ship__track-meta">
+                    <span className="partner-ship__v">
+                      {group.trackingCarrier || "Carrier"}
+                    </span>
+                    <span className="partner-ship__vs">
+                      <a
+                        className="tkl-mono"
+                        href={partnerTrackingUrl(
+                          group.trackingCarrier,
+                          group.trackingNumber,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {group.trackingNumber}
+                      </a>
+                    </span>
                   </span>
-                  <span className="partner-ship__vs">
-                    <a
-                      className="tkl-mono"
-                      href={partnerTrackingUrl(
-                        group.trackingCarrier,
-                        group.trackingNumber,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {group.trackingNumber}
-                    </a>
-                  </span>
-                </span>
-                {canTrack ? (
+                ) : null}
+                {showRowMenu ? (
                   <RowMenu
                     open={menuOpen}
                     onToggle={onToggleMenu}
                     onViewAddress={onToggleExpand}
-                    onEditTracking={onEnterTracking}
+                    onEditTracking={
+                      canEditTracking ? onEnterTracking : undefined
+                    }
                   />
                 ) : null}
               </>
@@ -652,8 +664,7 @@ export function PartnerShipmentsView() {
         <div className="partner-redeem-page__head-copy">
           <h1 className="partner-redeem-page__title">Redeem requests</h1>
           <p className="partner-redeem-page__sub">
-            Buyers redeeming cards you hold. Ship each one and add tracking within 5
-            days.
+            Buyers redeeming cards you hold. Ship each one and add tracking within 5 days.
           </p>
         </div>
         <div className="partner-redeem-page__pills" aria-label="Shipment summary">

@@ -18,7 +18,7 @@ export function HomeJustVaulted() {
             Newly authenticated and listed — first to market.
           </p>
         </div>
-        <button type="button" className="tkl-view-all" onClick={() => navigate("/markets", 0)}>
+        <button type="button" className="tkl-view-all" onClick={() => navigate("/vault", 0)}>
           Browse the vault ↗
         </button>
       </div>

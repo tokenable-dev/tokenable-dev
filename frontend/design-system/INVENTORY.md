@@ -198,7 +198,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | `/sell` | `SellRouterView` — loader then → `/vault` (partner branch Phase 8) |
 | `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → choose vault → add cards via PSA cert lookup) |
 | `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (progress: Submit → Ship → PSA → Live; pack checklist → tracking) |
-| `/vault` | `VaultHubView` (Selling hub / landing / empty dashboard) |
+| `/vault` | `VaultHubView` — landing / empty / **active status tabs** (`VaultActiveDashboardView`, mirrors Vault-Dashboard-Active.html) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
 | `/vault/submit/mint` | `MintForm` (personal/internal mint entry) |
 | `/vault/submit/shipping` | redirect → `/vault/submit` |
@@ -216,7 +216,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 **Removed:** list/shipping/submit DesignViews, `VaultDashboardView`, `VaultDemoToggle`, `VaultBadge`, `vaultMockData` inventory/FAQ. Detail remains as `VaultDetailDesignView` (A~H; add `?demo=1` for scenario switcher).
 
-**Lib:** `lib/sell/sellFlowDraft.ts` (draft + PSA ship address + packing checklist); `lib/vault/vaultDetailScenarios.ts`; `lib/vault/vaultHubTypes.ts`; `lib/core/api/vault-submissions.ts`
+**Lib:** `lib/sell/sellFlowDraft.ts` (draft + PSA ship address + packing checklist); `lib/vault/vaultDetailScenarios.ts`; `lib/vault/vaultHubTypes.ts`; `lib/vault/buildVaultHubRows.ts`; `lib/vault/buildPartnerVaultHubRows.ts`; `lib/core/api/vault-submissions.ts`
 
 ---
 

@@ -4,15 +4,6 @@ import { COLLECTION_ORDER_BOOK_FLUSH_INSET } from "@/components/marketplace/coll
 import { orderBookTabLabelCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 
-const TABS: {
-  id: OrderBookTab;
-  label: string;
-  title?: string;
-}[] = [
-  { id: "trades", label: "Trades" },
-  { id: "book", label: "Offers" },
-];
-
 export function OrderBookTabHeader({
   tab,
   setTab,
@@ -24,6 +15,13 @@ export function OrderBookTabHeader({
   flush?: boolean;
   collectionDetail?: boolean;
 }) {
+  const tabs = [
+    { id: "trades" as const, label: "Trades" },
+    {
+      id: "book" as const,
+      label: collectionDetail ? "Order book" : "Offers",
+    },
+  ];
   const tabBase = collectionDetail
     ? "cd-ob-tab shrink-0 px-4 py-4 text-[15px] transition-colors duration-200"
     : flush
@@ -52,13 +50,13 @@ export function OrderBookTabHeader({
         className={`flex shrink-0 ${collectionDetail ? "justify-start gap-0" : "min-w-0 w-full gap-3 sm:gap-4"}`}
         role="tablist"
       >
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             role="tab"
             onClick={() => setTab(t.id)}
-            title={t.title ?? t.label}
+            title={t.label}
             aria-selected={tab === t.id}
             className={`${tabBase} ${tab === t.id ? tabActive : tabInactive}`}
           >

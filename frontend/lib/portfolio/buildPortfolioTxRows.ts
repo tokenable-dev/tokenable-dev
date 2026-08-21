@@ -1,7 +1,8 @@
 import type { OrderListItem, RwaMetadata } from "@/lib/core";
 import {
   buildRwaAssetDetailHeadlineParts,
-  formatAssetDetailHeadlineText,
+  formatCardDisplayName,
+  resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { extractCategory } from "@/lib/portfolio/portfolioAssetMeta";
@@ -16,16 +17,17 @@ function usdcFromMicros(raw: string | undefined): number {
   }
 }
 
-/** Same headline rule as My Assets: year · set · # · name · variety. */
+/** Same headline rule as My Assets: Display name (+ Grade when present). */
 export function portfolioTxAssetDisplayName(
   metadata: RwaMetadata | null | undefined,
   tokenId: number,
 ): string {
   const fallback = `RWA #${tokenId}`;
-  const psaTitle = formatAssetDetailHeadlineText(
-    buildRwaAssetDetailHeadlineParts(metadata ?? null, fallback),
-  );
-  return psaTitle || displayAssetNameFromMetadata(metadata ?? null, fallback);
+  const parts = buildRwaAssetDetailHeadlineParts(metadata ?? null, fallback);
+  const display = formatCardDisplayName(parts);
+  const grade = resolveRwaHeadlineGrade(metadata ?? null);
+  if (display && grade) return `${display} · ${grade}`;
+  return display || displayAssetNameFromMetadata(metadata ?? null, fallback);
 }
 
 /**

@@ -17,7 +17,7 @@ import { useMarketplaceCollectionSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
-import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
@@ -79,7 +79,7 @@ function formatSearchMeta(c: MarketplaceCollectionSummary): string {
   const grade = score ? `${company} ${score}` : company;
   const set =
     (comp.cardSetDisplay || comp.psaBrand || comp.cardSet || "").trim() ||
-    (c.queryUsed ? toCardDisplayUppercase(c.queryUsed) : "");
+    (c.queryUsed ? toCardDisplayCase(c.queryUsed) : "");
   if (grade && set) return `${grade} · ${set}`;
   if (grade) return grade;
   if (set) return set;

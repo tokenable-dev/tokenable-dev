@@ -18,6 +18,7 @@ export function OrderBookDepthLevelRow({
   onSelectLevel,
   flush,
   collectionDetail,
+  sideTag,
 }: {
   side: "ask" | "bid";
   level: OrderBookDepthLevel;
@@ -25,6 +26,8 @@ export function OrderBookDepthLevelRow({
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   collectionDetail?: boolean;
+  /** Card.html third column: ask | bid | highest */
+  sideTag?: string;
 }) {
   const isAsk = side === "ask";
   const selected = selectedLevelKey === level.key;
@@ -58,8 +61,8 @@ export function OrderBookDepthLevelRow({
         className={`cd-ob-book-row__depth cd-ob-book-row__depth--${side}`}
         style={{
           background: isAsk
-            ? `linear-gradient(270deg, rgba(214, 68, 68, 0.3) ${depthPct}, transparent ${depthPct})`
-            : `linear-gradient(90deg, rgba(31, 138, 91, 0.32) ${depthPct}, transparent ${depthPct})`,
+            ? `linear-gradient(270deg, rgba(228, 55, 74, 0.12) ${depthPct}, transparent ${depthPct})`
+            : `linear-gradient(90deg, rgba(0, 195, 80, 0.12) ${depthPct}, transparent ${depthPct})`,
         }}
       />
       <div className="cd-ob-book-row__grid">
@@ -68,7 +71,7 @@ export function OrderBookDepthLevelRow({
         </span>
         <span className="cd-ob-book-row__size">{level.count}</span>
         <span className="cd-ob-book-row__total">
-          {formatOrderBookPriceUsdc(totalUsdc)}
+          {sideTag ?? (isAsk ? "ask" : "bid")}
         </span>
       </div>
     </>

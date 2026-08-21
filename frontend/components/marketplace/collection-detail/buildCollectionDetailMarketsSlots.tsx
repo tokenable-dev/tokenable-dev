@@ -9,6 +9,7 @@ import type { CollectionDualPriceChartProps } from "@/components/marketplace/col
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
 export type CollectionDetailMarketSlice = Pick<
   ReturnType<typeof useCollectionDetailMarketData>,
@@ -48,11 +49,15 @@ export function buildCollectionDetailMarketsSlots(input: {
   market: CollectionDetailMarketSlice;
   collectionOrderBookProps: CollectionUnifiedOrderBookProps;
   coverImageUrl?: string | null;
+  headlineTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineMeta?: string | null;
   mobileListingsBody: ReactNode;
   mobileListingCount?: number;
   detailsPanel?: ReactNode;
   highestBidUsd?: number | null;
   lowestAskUsd?: number | null;
+  bidCount?: number;
   onPlaceBid?: () => void;
   placeBidDisabled?: boolean;
   onBuyLowestAsk?: () => void;
@@ -69,11 +74,15 @@ export function buildCollectionDetailMarketsSlots(input: {
     market,
     collectionOrderBookProps,
     coverImageUrl,
+    headlineTitle,
+    headlineParts,
+    headlineMeta,
     mobileListingsBody,
     mobileListingCount,
     detailsPanel,
     highestBidUsd,
     lowestAskUsd,
+    bidCount,
     onPlaceBid,
     placeBidDisabled,
     onBuyLowestAsk,
@@ -84,6 +93,9 @@ export function buildCollectionDetailMarketsSlots(input: {
   const renderMetricsStrip = () => (
     <CollectionDetailMetricsStrip
       {...metricsProps}
+      headlineTitle={headlineTitle}
+      headlineParts={headlineParts}
+      headlineMeta={headlineMeta}
       lowestAskUsd={lowestAskUsd}
       highestBidUsd={highestBidUsd}
       onBuyLowestAsk={onBuyLowestAsk}
@@ -105,7 +117,6 @@ export function buildCollectionDetailMarketsSlots(input: {
     <CollectionUnifiedOrderBook
       {...collectionOrderBookProps}
       defaultTab="trades"
-      embedInMobileTab
     />
   );
 
@@ -124,7 +135,11 @@ export function buildCollectionDetailMarketsSlots(input: {
         statBlock={renderMetricsStrip()}
         chartPanel={collectionDualPriceChartMobile}
         listingsPanel={
-          <CollectionDetailMobileListingsSection listingCount={mobileListingCount}>
+          <CollectionDetailMobileListingsSection
+            listingCount={mobileListingCount}
+            highestBidUsd={highestBidUsd}
+            bidCount={bidCount}
+          >
             {mobileListingsBody}
           </CollectionDetailMobileListingsSection>
         }

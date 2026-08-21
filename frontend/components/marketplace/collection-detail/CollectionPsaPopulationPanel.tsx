@@ -3,13 +3,17 @@
 import type { PsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { formatPsaPopulationCount } from "@/lib/market";
 
-const GRADE_ROWS: { score: keyof PsaPopulationByGrade; label: string; muted?: boolean }[] = [
+const GRADE_ROWS: {
+  score: keyof PsaPopulationByGrade;
+  label: string;
+  tone?: "muted" | "dim";
+}[] = [
   { score: "10", label: "GEM MT 10" },
   { score: "9", label: "MINT 9" },
   { score: "8", label: "NM-MT 8" },
-  { score: "7", label: "NM 7", muted: true },
-  { score: "6", label: "EX-MT 6", muted: true },
-  { score: "5", label: "≤ 5", muted: true },
+  { score: "7", label: "NM 7", tone: "muted" },
+  { score: "6", label: "EX-MT 6", tone: "muted" },
+  { score: "5", label: "≤ 5", tone: "dim" },
 ];
 
 function sumLowerGrades(map: PsaPopulationByGrade): number {
@@ -71,7 +75,13 @@ export function CollectionPsaPopulationPanel({
         return (
           <div key={row.label} className="cd-psa-panel__row">
             <span
-              className={`cd-psa-panel__grade${isHighlight ? " cd-psa-panel__grade--active" : ""}${row.muted ? " cd-psa-panel__grade--muted" : ""}`}
+              className={`cd-psa-panel__grade${isHighlight ? " cd-psa-panel__grade--active" : ""}${
+                row.tone === "muted"
+                  ? " cd-psa-panel__grade--muted"
+                  : row.tone === "dim"
+                    ? " cd-psa-panel__grade--dim"
+                    : ""
+              }`}
             >
               {row.label}
             </span>

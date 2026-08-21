@@ -9,7 +9,7 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildMarketsCollectionMeta, buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
@@ -131,6 +131,11 @@ export function CollectibleCard({
     collection,
     comp: collection.components,
   });
+  const titleMeta = buildMarketsCollectionMeta({
+    collection,
+    comp: collection.components,
+  });
+  const titleHover = [title, titleMeta].filter(Boolean).join(" · ");
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct =
     marketChangePctOverride !== undefined
@@ -194,7 +199,9 @@ export function CollectibleCard({
         </div>
       </div>
       <div className="card__body">
-        <div className="card__title">{title}</div>
+        <div className="card__title" title={titleHover || title}>
+          {title}
+        </div>
         <div className="card__meta">
           {grade ? <span className="card__grade">{grade}</span> : null}
           {pop != null ? (

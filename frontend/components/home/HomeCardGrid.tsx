@@ -29,7 +29,17 @@ function ScrollArrow({
       onClick={onClick}
       aria-label={direction === "left" ? "Scroll left" : "Scroll right"}
     >
-      <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2.5}>
+      <svg
+        viewBox="0 0 24 24"
+        width={20}
+        height={20}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
         {direction === "left" ? (
           <>
             <line x1={19} y1={12} x2={5} y2={12} />

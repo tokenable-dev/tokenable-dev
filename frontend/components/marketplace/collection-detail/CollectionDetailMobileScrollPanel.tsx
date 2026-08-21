@@ -3,12 +3,8 @@
 import type { ReactNode } from "react";
 
 /**
- * Collection detail mobile — Card.html single column:
- * stat block → chart → listings → order book → Details / PSA Population.
- *
- * `cd-hero-sticky-scope` is the tall parent for `#hero-bar` (same as desktop).
- * Short wrappers around the hero are `display: contents` so sticky can pin
- * while the user scrolls the rest of the column.
+ * Collection detail mobile — Card.html `@media (max-width:768px)` column order:
+ * hero → chart → rail (Trades / Order book + Details) → listings last (`order:99`).
  */
 export function CollectionDetailMobileScrollPanel({
   statBlock,
@@ -34,13 +30,6 @@ export function CollectionDetailMobileScrollPanel({
       </section>
 
       <section
-        className="cd-mobile-scroll__listings w-full min-w-0"
-        aria-labelledby="collection-listings-heading"
-      >
-        {listingsPanel}
-      </section>
-
-      <section
         className="cd-mobile-scroll__book cd-notch w-full min-w-0 overflow-hidden"
         aria-label="Order book"
       >
@@ -55,6 +44,14 @@ export function CollectionDetailMobileScrollPanel({
           {detailsPanel}
         </section>
       ) : null}
+
+      <section
+        className="cd-mobile-scroll__listings w-full min-w-0"
+        id="listings-section"
+        aria-labelledby="collection-listings-heading"
+      >
+        {listingsPanel}
+      </section>
     </div>
   );
 }

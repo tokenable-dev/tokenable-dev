@@ -39,7 +39,7 @@ Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** c
 
 **Register / seller consents:** `/sell/flow` always opens on the register screen. Consents are session-only and must be re-accepted each visit. Draft cards may still resume after Continue. Optional `?vault=self` (Partner Add Cards) prefills Partner vault so Continue skips Choose vault.
 
-Vault hub lists `awaiting_shipment`+ (Add tracking / Track / View). Pre-ship drafts do not appear on the hub — resume Add cards via `/sell/flow` from this device. After tracking confirm, local draft keys are cleared (shipment record kept).
+Vault hub (`/vault`) active view mirrors `Vault-Dashboard-Active.html`: status **tabs** + ip-card rows for in-progress packages (`awaiting_shipment` / `in_transit` / `psa_reviewing`), completed items (**Added to portfolio**), rejected items, and (partners) self-vault holdings + P2P “ship to buyer”. Pre-ship drafts do not appear on the hub — resume Add cards via `/sell/flow` from this device. After tracking confirm, local draft keys are cleared (shipment record kept).
 
 **Legacy cleanup:** `backend/sql/maintenance/cancel_legacy_vault_submission_drafts.sql` sets orphan `status=draft` packages (no tracking) to `cancelled`.
 

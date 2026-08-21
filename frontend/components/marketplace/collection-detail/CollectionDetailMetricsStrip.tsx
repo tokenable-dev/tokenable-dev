@@ -3,9 +3,16 @@
 import { formatMarketCapUsd } from "@/lib/market";
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePeriod";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import { CollectionDetailStatMain } from "./CollectionDetailStatMain";
 
+/**
+ * Card.html hero — title/meta live inside `#hero-bar` via StatMain.
+ */
 export function CollectionDetailMetricsStrip({
+  headlineTitle,
+  headlineParts,
+  headlineMeta,
   coverImageUrl,
   priceUsd,
   priceLoading,
@@ -25,6 +32,9 @@ export function CollectionDetailMetricsStrip({
   buyDisabled,
   bidDisabled,
 }: {
+  headlineTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineMeta?: string | null;
   coverImageUrl?: string | null;
   priceUsd: number | null;
   priceLoading: boolean;
@@ -47,6 +57,10 @@ export function CollectionDetailMetricsStrip({
   return (
     <div className="cd-metrics-strip">
       <CollectionDetailStatMain
+        stuckTitle={headlineTitle?.trim() || null}
+        headlineTitle={headlineTitle}
+        headlineParts={headlineParts}
+        headlineMeta={headlineMeta}
         imageUrl={coverImageUrl}
         priceUsd={priceUsd}
         priceLoading={priceLoading}

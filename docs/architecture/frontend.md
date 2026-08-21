@@ -137,7 +137,10 @@ Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 
 When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
 
-PSA display titles (Year → Brand → # → Subject → Variety) are built client-side in `lib/marketplace/assetDetailHeadline.ts` and related helpers — not always stored verbatim in DB.
+PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts`:
+**Display name** = `Character · Variant`; **Meta** = `Year · Set · # · Grade`. Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
+
+Collection detail layout mirrors `Tokenable-with design system-17/Card.html`: sticky `#hero-bar` with title/meta inside (`#hero-mid`), tall thumb, Market cap / Volume / Pop / Lowest ask / Highest bid rows, Buy now + Bid buttons; `1.35fr / 1fr` grid (chart + ask table left; Trades/Order book + Details/PSA rail right); ask table with 7-row cap + View-all drawer. Mobile (`≤1023`): static hero grid then sticky condense on scroll; book hidden → fixed `#ob-bottom-bar`; column order chart → rail → listings last.
 
 ## Design system buttons (`TkButton`)
 

@@ -5,11 +5,11 @@ import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 const PARTNER_LOGOS = [
-  { src: ASSETS.ds.partners.psa, alt: "PSA", height: 25 },
-  { src: ASSETS.ds.partners.beckett, alt: "Beckett", height: 34 },
-  { src: ASSETS.ds.partners.cgc, alt: "CGC", height: 29 },
-  { src: ASSETS.ds.partners.sgc, alt: "SGC", height: 36 },
-  { src: ASSETS.ds.partners.tag, alt: "TAG", height: 34 },
+  { src: ASSETS.ds.partners.psa, alt: "PSA", height: 38 },
+  { src: ASSETS.ds.partners.beckett, alt: "Beckett", height: 50 },
+  { src: ASSETS.ds.partners.cgc, alt: "CGC", height: 44 },
+  { src: ASSETS.ds.partners.sgc, alt: "SGC", height: 52 },
+  { src: ASSETS.ds.partners.tag, alt: "TAG", height: 50 },
 ] as const;
 
 export function HomePartners() {

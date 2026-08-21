@@ -55,7 +55,10 @@ export function groupPartnerRedeems(items: PartnerRedeemRow[]): PartnerShipmentG
     const first = rows[0]!;
     const paymentBatchId = first.paymentBatchId?.trim() ?? "";
     const activeRows = rows.filter(isActiveShipmentRow);
-    const tracked = activeRows.find((r) => r.trackingNumber?.trim());
+    // Delivered/cancelled rows are not "active" but still carry carrier + tracking.
+    const tracked =
+      activeRows.find((r) => r.trackingNumber?.trim()) ??
+      rows.find((r) => r.trackingNumber?.trim());
     const tabVotes = activeRows.length > 0 ? activeRows.map(rowTab) : rows.map(rowTab);
     const tab: Exclude<PartnerShipmentTab, "all"> = tabVotes.every(
       (t) => t === "cancelled",

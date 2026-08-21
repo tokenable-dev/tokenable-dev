@@ -3352,6 +3352,28 @@
   max-width: 42rem;
 }
 
+@media (max-width: 768px) {
+  .vault-hub-header__eyebrow,
+  .vault-hub-header__sub {
+    display: none !important;
+  }
+}
+
+.vault-hub-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vault-hub-header__shipments {
+  height: 48px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .vault-hub-header__cta {
   display: inline-flex;
   align-items: center;
@@ -3689,6 +3711,143 @@
   color: var(--pos);
 }
 
+.vault-hub-grade-badge--rejected {
+  background: rgba(228, 55, 74, 0.2);
+  color: #ff6b7a;
+}
+
+/* Status tabs — Vault-Dashboard-Active.html `.vtabs` / `.vtab` */
+.vault-hub-active {
+  margin-bottom: 24px;
+}
+
+.vault-vtabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  background: #191919;
+  border-radius: 12px 12px 0 0;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 0;
+}
+
+.vault-vtab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.12s;
+}
+
+.vault-vtab:hover {
+  color: #fff;
+}
+
+.vault-vtab--on {
+  color: #fff;
+  border-bottom-color: var(--azure);
+}
+
+.vault-vtab__n {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+.vault-vtab--on .vault-vtab__n {
+  color: #fff;
+  background: rgba(26, 111, 255, 0.28);
+}
+
+.vault-hub-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  background: #191919;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vault-hub-block__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.vault-hub-block__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.52);
+  margin-left: 6px;
+}
+
+.vault-hub-block__sub {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.vault-hub-block .vault-ip-grid {
+  border-radius: 0;
+}
+
+.vault-hub-block:last-of-type .vault-ip-grid {
+  border-radius: 0 0 12px 12px;
+}
+
+.vault-hub-empty-filter {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.52);
+  background: #191919;
+  border-radius: 0 0 12px 12px;
+}
+
+.vault-hub-active--loading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #191919;
+  border-radius: 12px;
+}
+
+.vault-hub-active__skel {
+  height: 72px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.11),
+    rgba(255, 255, 255, 0.05)
+  );
+  background-size: 200% 100%;
+  animation: vault-hub-skel 1.1s linear infinite;
+}
+
+@keyframes vault-hub-skel {
+  to {
+    background-position: -200% 0;
+  }
+}
+
 .vault-hub-cta-link {
   text-decoration: none;
   white-space: nowrap;
@@ -3928,6 +4087,10 @@
   color: var(--amber);
 }
 
+.vault-ip-card__status-label--neg {
+  color: #ff6b7a;
+}
+
 .vault-ip-card__detail {
   margin-left: 6px;
   font-family: var(--font-mono);
@@ -3984,7 +4147,15 @@
 }
 
 .vault-status-dot--amber {
-  background: var(--amber);
+  background: var(--amber, #f59e0b);
+}
+
+.vault-status-dot--pos {
+  background: var(--pos);
+}
+
+.vault-status-dot--neg {
+  background: var(--neg, #e4374a);
 }
 
 .vault-status-dot--pulse {
@@ -4123,9 +4294,31 @@
     align-items: flex-start;
   }
 
-  .vault-hub-header__cta {
+  .vault-hub-header__actions {
     width: 100%;
+  }
+
+  .vault-hub-header__cta,
+  .vault-hub-header__shipments {
+    flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .vault-vtabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .vault-vtabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .vault-vtab {
+    white-space: nowrap;
+    padding: 10px 12px;
+    font-size: 13.5px;
   }
 
   .vault-ip-grid .vault-ip-card {

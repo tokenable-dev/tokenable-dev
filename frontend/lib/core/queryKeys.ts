@@ -62,6 +62,7 @@ export const rq = {
     ["self-vault-partner-eligibility", chainId, wallet.toLowerCase()] as const,
   partnerMe: () => ["partner-me"] as const,
   partnerRedeems: () => ["partner-me", "redeems"] as const,
+  vaultSubmissions: () => ["vault-submissions"] as const,
   rwaVaultInfoBatch: (
     address: string | undefined,
     tokenIds: readonly number[],

@@ -12,6 +12,8 @@ import {
   assetDetailHeadlineHasContent,
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
+  formatCardDisplayMeta,
+  resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 
 export function useRwaDetailHeadline(
@@ -31,6 +33,12 @@ export function useRwaDetailHeadline(
     [detailHeadlineParts],
   );
 
+  const detailMeta = useMemo(() => {
+    const grade = resolveRwaHeadlineGrade(metadata);
+    const line = formatCardDisplayMeta(detailHeadlineParts, { grade });
+    return line || null;
+  }, [detailHeadlineParts, metadata]);
+
   const detailTitlePulse =
     Boolean(metaLoading) &&
     !metadata?.name?.trim() &&
@@ -45,6 +53,7 @@ export function useRwaDetailHeadline(
   return {
     detailHeadlineParts,
     detailTitle,
+    detailMeta,
     detailTitlePulse,
     rwaDetailStatRows,
   };

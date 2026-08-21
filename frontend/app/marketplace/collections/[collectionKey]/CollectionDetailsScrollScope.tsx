@@ -7,7 +7,7 @@ const MOBILE_LOCK_CLASS = "collection-details-mobile-lock";
 
 /**
  * 컬렉션 상세: html에 클래스를 붙여 scrollbar-gutter만 적용 (스타일링 없음).
- * Mobile: page scroll so the hero can stick and condense (`is-stuck`).
+ * Sticky `#hero-bar` condenses on scroll (desktop + mobile per Card.html).
  */
 export function CollectionDetailsScrollScope() {
   useEffect(() => {

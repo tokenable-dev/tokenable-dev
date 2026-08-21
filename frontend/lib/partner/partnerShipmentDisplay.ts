@@ -65,8 +65,11 @@ export function partnerShipmentStatusKey(
 export function partnerShipToCity(group: PartnerShipmentGroup): string {
   const ship = group.items[0]?.shipTo;
   if (!ship) return "";
-  const parts = [ship.city, ship.region].filter(Boolean);
-  return parts.join(", ");
+  if (ship.region?.trim()) {
+    return [ship.city, ship.region].filter(Boolean).join(", ");
+  }
+  // Partner-Shipments.html city line uses "City, Country" when region is absent.
+  return [ship.city, ship.country].filter(Boolean).join(", ");
 }
 
 export function partnerShipToAddressLines(

@@ -5,7 +5,9 @@ import {
 } from "@/lib/market/psaGradePolicy";
 import {
   buildRwaAssetDetailHeadlineParts,
-  formatAssetDetailHeadlineText,
+  formatCardDisplayMeta,
+  formatCardDisplayName,
+  resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { uriNeedsBackendResolve } from "@/lib/marketplace/mediaUriResolve";
 import {
@@ -70,7 +72,11 @@ export function listingAssetTitle(
   tokenId: number,
 ): string {
   const parts = buildRwaAssetDetailHeadlineParts(metadata, `#${tokenId}`);
-  return formatAssetDetailHeadlineText(parts) || `Token #${tokenId}`;
+  const display = formatCardDisplayName(parts);
+  const grade = resolveRwaHeadlineGrade(metadata);
+  const meta = formatCardDisplayMeta(parts, { grade });
+  const combined = [display, meta].filter(Boolean).join(" · ");
+  return combined || `Token #${tokenId}`;
 }
 
 export function listingVerificationTiles(metadata: RwaMetadata | null): {
@@ -114,14 +120,14 @@ export function listingVaultBadge(
     return { label: tokenLabel, tone, title: addr };
   }
   if (listing.settlementPolicy === "standard") {
-    return { label: "PSA vault", tone: "psa", title: addr };
+    return { label: "PSA Vault", tone: "psa", title: addr };
   }
   const name = listing.sellerDisplayName?.trim();
   if (name) {
-    const label = /vault$/i.test(name) ? name : `${name} vault`;
+    const label = /vault$/i.test(name) ? name : `${name} Vault`;
     return { label, tone: "partner", title: addr };
   }
-  return { label: "PSA vault", tone: "psa", title: addr };
+  return { label: "PSA Vault", tone: "psa", title: addr };
 }
 
 /** Desktop listing / prov sticky — Card.html vault badge. */

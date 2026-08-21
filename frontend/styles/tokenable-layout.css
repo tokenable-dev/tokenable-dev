@@ -411,7 +411,7 @@
   /* Wider than the input; pin left so the panel opens to the right. */
   left: 0;
   right: auto;
-  width: min(440px, calc(100vw - 48px));
+  width: min(390px, calc(100vw - 48px));
   box-sizing: border-box;
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -419,7 +419,7 @@
   padding: 8px 16px 16px;
   z-index: 140;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  max-height: min(440px, calc(100vh - 88px));
+  max-height: min(390px, calc(100vh - 88px));
   overflow-y: auto;
 }
 

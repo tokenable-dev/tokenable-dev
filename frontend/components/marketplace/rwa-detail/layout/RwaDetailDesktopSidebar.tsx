@@ -4,13 +4,16 @@ import { useMemo, type ReactNode } from "react";
 import {
   RwaDetailHeaderBadges,
 } from "@/components/marketplace/rwa-detail-asset-panel";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import {
   buildRwaDetailMobileTrustView,
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
 import {
   assetDetailHeadlineHasContent,
-  formatAssetDetailHeadlineText,
+  formatCardDisplayHoverTitle,
+  formatCardDisplayMeta,
+  resolveRwaHeadlineGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
@@ -81,13 +84,15 @@ export function RwaDetailDesktopSidebar({
     const trust = buildRwaDetailMobileTrustView(metadata);
     return trust.certNumber?.trim() ?? "";
   }, [metadata]);
-  const titleText = useMemo(() => {
-    if (assetDetailHeadlineHasContent(detailHeadlineParts)) {
-      return formatAssetDetailHeadlineText(detailHeadlineParts);
-    }
-    return detailTitle;
-  }, [detailHeadlineParts, detailTitle]);
-  const titleTooltip = certNumber ? `${titleText} ${certNumber}` : titleText;
+  const grade = useMemo(() => resolveRwaHeadlineGrade(metadata), [metadata]);
+  const metaText = useMemo(
+    () => formatCardDisplayMeta(detailHeadlineParts, { grade }) || null,
+    [detailHeadlineParts, grade],
+  );
+  const titleTooltip = useMemo(() => {
+    const base = formatCardDisplayHoverTitle(detailHeadlineParts, { grade });
+    return certNumber ? `${base} · ${certNumber}` : base || detailTitle;
+  }, [detailHeadlineParts, grade, certNumber, detailTitle]);
 
   return (
     <div
@@ -99,20 +104,36 @@ export function RwaDetailDesktopSidebar({
             className="h-7 w-[min(100%,20rem)] max-w-full animate-pulse rounded bg-gray-800/85"
             aria-hidden
           />
+        ) : assetDetailHeadlineHasContent(detailHeadlineParts) ? (
+          <div className="min-w-0 space-y-1">
+            <AssetDetailHeadlineTitle
+              as="h1"
+              parts={detailHeadlineParts}
+              grade={grade}
+              className={`${rwaDetailRightFont.className} ${RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS}`}
+            />
+            {metaText ? (
+              <p className="m-0 text-[13px] tracking-[0.02em] text-white/55" title={titleTooltip}>
+                {metaText}
+                {certNumber ? (
+                  <>
+                    {" "}
+                    <span className={RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS}>
+                      · {certNumber}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            ) : certNumber ? (
+              <p className={`m-0 ${RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS}`}>{certNumber}</p>
+            ) : null}
+          </div>
         ) : (
           <h1
             className={`${rwaDetailRightFont.className} ${RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS}`}
             title={titleTooltip}
           >
-            {titleText}
-            {certNumber ? (
-              <>
-                {" "}
-                <span className={RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS}>
-                  {certNumber}
-                </span>
-              </>
-            ) : null}
+            {detailTitle}
           </h1>
         )}
         <RwaDetailHeaderBadges metadata={metadata} loading={detailTitlePulse} />
