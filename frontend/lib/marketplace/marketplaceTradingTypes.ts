@@ -35,6 +35,12 @@ export type CollectionUnifiedOrderBookProps = {
   defaultTab?: OrderBookTab;
   connectedAddress?: string | null;
   onInvalidate?: () => void;
+  /** Collection detail empty states — Card.html order book policy. */
+  onPlaceBid?: () => void;
+  onListYours?: () => void;
+  listingAlertActive?: boolean;
+  listingAlertPending?: boolean;
+  onToggleListingAlert?: () => void;
 };
 
 /** Post-trade celebration modal (buy vs sell). */

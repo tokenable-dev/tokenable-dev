@@ -24,3 +24,22 @@ export function isMarketplaceCollectionDetailPath(
   const m = pathname.match(/^\/marketplace\/collections\/([^/]+)/);
   return !!m?.[1];
 }
+
+/**
+ * Paths that use their own chrome (admin console, site gate, etc.).
+ * Skip GNB/footer and background inbox polling — those hit Next `/api` proxy
+ * and keep `next dev` compiling under load.
+ */
+export function shouldHideAppChrome(
+  pathname: string | null | undefined,
+): boolean {
+  if (!pathname) return false;
+  if (pathname === "/site-access" || pathname.startsWith("/site-access/")) {
+    return true;
+  }
+  if (pathname === "/sell") return true;
+  if (pathname.startsWith("/marketplace/admin")) return true;
+  if (pathname.startsWith("/dev/design-system")) return true;
+  if (pathname.startsWith("/dev/admin-ui")) return true;
+  return false;
+}

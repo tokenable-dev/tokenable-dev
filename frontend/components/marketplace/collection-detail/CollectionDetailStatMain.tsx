@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { TkButton, TkTag } from "@/components/ds";
 import {
+  computeGemRatePct,
+  formatGemRatePercent,
   formatReferencePercentChange,
   formatUsdCompact,
   formatPsaPopulationCount,
+  formatVelocityPercent,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
@@ -37,34 +40,41 @@ function formatBookUsd(n: number | null | undefined): string {
   return formatUsdCompact(n);
 }
 
+/** Strip grade/number already shown in `#hero-title` (Card.html: meta is Year · Set · … only). */
+function stripHeroTitleDupesFromMeta(
+  meta: string,
+  gradeLabel: string,
+  cardNumber?: string | null,
+): string {
+  let text = meta.trim();
+  const stripTrailingSegment = (segment: string) => {
+    const s = segment.trim();
+    if (!s) return;
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text
+      .replace(new RegExp(`(?:\\s*·\\s*|\\s+)${escaped}\\s*$`, "i"), "")
+      .trim();
+  };
+  stripTrailingSegment(gradeLabel);
+  stripTrailingSegment(cardNumber ?? "");
+  return text;
+}
+
 function HeroMeta({
   meta,
   gradeLabel,
+  cardNumber,
 }: {
   meta: string | null;
   gradeLabel: string;
+  cardNumber?: string | null;
 }) {
   if (!meta) return null;
-  const grade = gradeLabel.trim();
-  if (grade && meta.toLowerCase().endsWith(grade.toLowerCase())) {
-    const prefix = meta
-      .slice(0, meta.length - grade.length)
-      .replace(/\s*·\s*$/, "")
-      .trim();
-    return (
-      <div className="cd-hero-bar__meta mono" id="hero-meta">
-        {prefix ? (
-          <>
-            {prefix} ·{" "}
-          </>
-        ) : null}
-        <strong className="cd-hero-bar__meta-grade">{grade}</strong>
-      </div>
-    );
-  }
+  const text = stripHeroTitleDupesFromMeta(meta, gradeLabel, cardNumber);
+  if (!text) return null;
   return (
     <div className="cd-hero-bar__meta mono" id="hero-meta">
-      {meta}
+      {text}
     </div>
   );
 }
@@ -92,8 +102,10 @@ export function CollectionDetailStatMain({
   formatMarketCap,
   psaPopulationMetrics,
   totalPopulation,
+  median30dUsd,
   lowestAskUsd,
   highestBidUsd,
+  velocityPct,
   onBuyLowestAsk,
   onPlaceBid,
   buyDisabled,
@@ -110,6 +122,7 @@ export function CollectionDetailStatMain({
   changeLoading: boolean;
   changePeriod?: ReferencePercentChangeResult | null;
   gradeLabel?: string;
+  median30dUsd?: number | null;
   tradeVolumeUsdc: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
@@ -118,6 +131,7 @@ export function CollectionDetailStatMain({
   totalPopulation?: number | null;
   lowestAskUsd?: number | null;
   highestBidUsd?: number | null;
+  velocityPct?: number | null;
   onBuyLowestAsk?: () => void;
   onPlaceBid?: () => void;
   buyDisabled?: boolean;
@@ -156,24 +170,19 @@ export function CollectionDetailStatMain({
       }, 180);
     };
 
-    /** Card.html `syncCardImg` — match thumb height to `#hero-mid` on desktop. */
+    /** Fixed Markets-style frame (aspect 0.72 + object-fill) — no mid-height sync. */
     const syncCardImg = () => {
       const img = bar.querySelector<HTMLElement>("#hero-img");
-      const mid = midRef.current;
-      if (!img || !mid) return;
-      if (window.innerWidth < 1024 || bar.classList.contains("is-stuck")) {
-        img.style.height = "";
-        return;
-      }
-      const h = Math.round(mid.getBoundingClientRect().height);
-      if (h > 40) img.style.height = `${h}px`;
+      if (!img) return;
+      img.style.height = "";
+      img.style.width = "";
     };
 
     const onScroll = () => {
       raf = 0;
       const r = bar.getBoundingClientRect();
-      /* Card.html: stuck when sticky top reaches ~70px (desktop header). */
-      const stuckTop = window.innerWidth <= 1023 ? 56 : 70;
+      /* Card.html: stuck when sticky top reaches header offset (64px GNB). */
+      const stuckTop = window.innerWidth <= 1023 ? 64 : 70;
       const stuck = r.top <= stuckTop;
       const wasStuck = bar.classList.contains("is-stuck");
       bar.classList.toggle("is-stuck", stuck);
@@ -248,6 +257,13 @@ export function CollectionDetailStatMain({
       : totalPopulation != null
         ? formatPsaPopulationCount(totalPopulation)
         : "—";
+  /** Gem rate = PSA Pop (PSA 10) ÷ Total Pop. */
+  const gemRateLabel = formatGemRatePercent(
+    computeGemRatePct(
+      popMetrics.psa10Pop,
+      popMetrics.totalPsaPop ?? totalPopulation,
+    ),
+  );
 
   const changeTone =
     changePct != null && Number.isFinite(changePct)
@@ -271,6 +287,8 @@ export function CollectionDetailStatMain({
     Number.isFinite(highestBidUsd) &&
     highestBidUsd > 0;
   const showTradeBook = Boolean(onBuyLowestAsk || onPlaceBid);
+  const volumeLabel = "Volume 1Y";
+  const velocityLabel = "Velocity 1Y";
 
   return (
     <div className="cd-stat-main">
@@ -302,7 +320,7 @@ export function CollectionDetailStatMain({
           </button>
         ) : (
           <div
-            className="cd-hero-bar__thumb cd-hero-bar__thumb--empty"
+            className="cd-hero-bar__thumb--empty"
             id="hero-img"
             aria-hidden
           />
@@ -316,6 +334,7 @@ export function CollectionDetailStatMain({
                   as="h1"
                   parts={headlineParts}
                   className="cd-hero-bar__title"
+                  id="hero-title"
                   grade={gradeLabel}
                 />
               ) : (
@@ -327,11 +346,15 @@ export function CollectionDetailStatMain({
                   {title}
                 </h1>
               )}
-              <HeroMeta meta={meta} gradeLabel={gradeLabel} />
+              <HeroMeta
+                meta={meta}
+                gradeLabel={gradeLabel}
+                cardNumber={headlineParts?.cardNumber}
+              />
             </div>
           ) : null}
 
-          <div className="cd-hero-bar__metrics">
+          <div className="cd-hero-bar__metrics hero-actionsrow">
             <div className="cd-hero-bar__priceblock" id="hero-priceblock">
               <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
                 Last price
@@ -375,7 +398,29 @@ export function CollectionDetailStatMain({
               </div>
             </div>
 
-            <div className="cd-hero-bar__secondary hero-secondary">
+      {/* Card.html: two `.hero-secondary` columns (Ask/Bid + market · Pop + gem) */}
+            <div className="cd-hero-bar__secondary hero-secondary cd-hero-bar__secondary--wide">
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">Ask / Bid</span>
+                <span className="cd-hero-bar__sec-val mono cd-hero-bar__askbid">
+                  <span id="ob-ask">{formatBookUsd(lowestAskUsd)}</span>
+                  {" / "}
+                  <span
+                    id="ob-bid"
+                    className={hasBid ? "cd-hero-bar__sec-val--bid" : undefined}
+                  >
+                    {formatBookUsd(highestBidUsd)}
+                  </span>
+                </span>
+              </div>
+              <div className="cd-hero-bar__sec-row">
+                <span className="cd-hero-bar__sec-lbl mono">30D Median</span>
+                <span className="cd-hero-bar__sec-val mono">
+                  {tradeVolumeLoading && median30dUsd == null
+                    ? "—"
+                    : formatUsdCompact(median30dUsd)}
+                </span>
+              </div>
               <div className="cd-hero-bar__sec-row">
                 <span className="cd-hero-bar__sec-lbl mono">Market cap</span>
                 <span className="cd-hero-bar__sec-val mono">
@@ -383,35 +428,36 @@ export function CollectionDetailStatMain({
                 </span>
               </div>
               <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Volume 30D</span>
+                <span className="cd-hero-bar__sec-lbl mono">{volumeLabel}</span>
                 <span className="cd-hero-bar__sec-val mono">
                   {tradeVolumeLoading && tradeVolumeUsdc == null
                     ? "—"
-                    : formatUsdCompact(
-                        tradeVolumeUsdc != null &&
-                          Number.isFinite(tradeVolumeUsdc)
-                          ? tradeVolumeUsdc
-                          : 0,
-                      )}
+                    : tradeVolumeUsdc == null
+                      ? "—"
+                      : formatUsdCompact(tradeVolumeUsdc)}
                 </span>
               </div>
+            </div>
+
+            <div className="cd-hero-bar__secondary hero-secondary">
               <div className="cd-hero-bar__sec-row">
                 <span className="cd-hero-bar__sec-lbl mono">{popLabel}</span>
                 <span className="cd-hero-bar__sec-val mono">{popValue}</span>
               </div>
               <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Lowest ask</span>
-                <span className="cd-hero-bar__sec-val mono" id="ob-ask">
-                  {formatBookUsd(lowestAskUsd)}
+                <span className="cd-hero-bar__sec-lbl mono">Gem rate</span>
+                <span className="cd-hero-bar__sec-val mono">
+                  {gemRateLabel}
                 </span>
               </div>
               <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Highest bid</span>
-                <span
-                  className={`cd-hero-bar__sec-val mono${hasBid ? " cd-hero-bar__sec-val--bid" : ""}`}
-                  id="ob-bid"
-                >
-                  {formatBookUsd(highestBidUsd)}
+                <span className="cd-hero-bar__sec-lbl mono">{velocityLabel}</span>
+                <span className="cd-hero-bar__sec-val mono">
+                  {tradeVolumeLoading &&
+                  velocityPct == null &&
+                  marketCapUsd == null
+                    ? "—"
+                    : formatVelocityPercent(velocityPct)}
                 </span>
               </div>
             </div>

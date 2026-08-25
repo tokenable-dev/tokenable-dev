@@ -128,13 +128,17 @@ PLATFORM_FEE_PRIVATE_KEY=0x...   # self-vault seller payouts + redeem USDC refun
 # SELF_VAULT_AUTO_PAYOUT_CRON=1              # set 0 to disable
 # SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300   # fulfill → auto pay (default 5 min)
 
-# Partner FedEx Rates (optional; stub PARTNER_VAULT_SHIPPING_* when disabled)
+# Partner FedEx Rates + Track (sandbox Test keys; Production keys later)
 # FEDEX_RATE_ENABLED=true
 # FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
 # FEDEX_CLIENT_ID=
 # FEDEX_CLIENT_SECRET=
+# FEDEX_TRACK_CLIENT_ID=
+# FEDEX_TRACK_CLIENT_SECRET=
 # FEDEX_ACCOUNT_NUMBER=
 # FEDEX_RATE_QUOTE_TTL_MINUTES=15
+# FEDEX_TRACK_ENABLED=true
+# REDEEM_AUTO_RECEIPT_GRACE_DAYS=3
 # PARTNER_VAULT_SHIPPING_US_USD=12.99
 # PARTNER_VAULT_SHIPPING_CA_USD=28.99
 # PARTNER_VAULT_SHIPPING_INTL_USD=39.99

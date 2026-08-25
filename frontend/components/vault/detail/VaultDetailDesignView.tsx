@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { TkButton, TkInput, TkSelect, TkTag } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
+import { useModalScrollLock } from "@/hooks/ui/useModalScrollLock";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VaultThumb } from "@/components/vault/VaultThumb";
@@ -16,11 +18,21 @@ import {
 } from "@/lib/vault/vaultDetailScenarios";
 import { cn } from "@/lib/ds/cn";
 
+function formatSubmitDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function DetailHero({ hero }: { hero: VaultDetailScenario["hero"] }) {
   return (
     <div className={heroToneClass(hero.tone)}>
       <div className="vault-detail-hero__head">
-        <HeroIcon icon={hero.icon} />
+        <span className="vault-detail-hero__icon-wrap">
+          <HeroIcon icon={hero.icon} />
+        </span>
         <div className="vault-detail-hero__title">{hero.title}</div>
       </div>
       {hero.sub ? <p className="vault-detail-hero__sub">{hero.sub}</p> : null}
@@ -47,7 +59,14 @@ function EmptyPanelState() {
 }
 
 function HeroIcon({ icon }: { icon: VaultDetailScenario["hero"]["icon"] }) {
-  if (icon === "spin") return <span className="vault-spin vault-detail-hero__icon" />;
+  if (icon === "spin") {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="2" aria-hidden>
+        <circle cx="12" cy="12" r="9" />
+        <polyline points="12 7 12 12 15.5 14" />
+      </svg>
+    );
+  }
   if (icon === "check") {
     return (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" strokeWidth="2.5" aria-hidden>
@@ -88,17 +107,19 @@ function LayoutAContent({
   packageCards,
   tracking,
   submissionId,
+  submittedAt,
 }: {
   scenario: VaultDetailScenario;
   packageCards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
   tracking: { label: string; url: string } | null;
   submissionId: string;
+  submittedAt?: string | null;
 }) {
   return (
     <div className="vault-detail-layout-a">
       <DetailHero hero={scenario.hero} />
       <VaultStepper rich steps={scenario.steps} />
-      <PackageInfoCard cards={packageCards} />
+      <PackageInfoCard cards={packageCards} submittedAt={submittedAt} />
       {scenario.ship ? (
         <TrackingCard ship={scenario.ship} tracking={tracking} submissionId={submissionId} />
       ) : null}
@@ -110,16 +131,23 @@ function LayoutAContent({
 
 function PackageInfoCard({
   cards,
+  submittedAt,
 }: {
   cards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  submittedAt?: string | null;
 }) {
   const count = cards.length;
   return (
     <div className="vault-card-box vault-detail-package">
       <div className="vault-detail-package__head">
         <span className="vault-detail-package__meta">
-          {count} {count === 1 ? "card" : "cards"}
+          {count} {count === 1 ? "CARD" : "CARDS"}
         </span>
+        {submittedAt ? (
+          <span className="vault-detail-package__date">
+            Submitted {formatSubmitDate(submittedAt)}
+          </span>
+        ) : null}
       </div>
       {count === 0 ? (
         <p className="px-1 py-3 text-sm text-white/40">No cards in this submission.</p>
@@ -224,7 +252,7 @@ function NotifBanner({ msg }: { msg: string }) {
         🔔
       </span>
       <span className="vault-detail-notif__text">{msg}</span>
-      <Link href="/account" className="vault-detail-notif__link">
+      <Link href="/settings?section=notifications" className="vault-detail-notif__link">
         Manage Notifications →
       </Link>
     </div>
@@ -263,10 +291,7 @@ function cardStatusRight(card: VaultPackageCard) {
       return <span className="mono vault-lm-row__status vault-lm-row__status--pos">Approved</span>;
     case "reviewing":
       return (
-        <span className="mono vault-lm-row__status vault-lm-row__status--azure">
-          <span className="vault-spin vault-lm-row__spin" />
-          Reviewing
-        </span>
+        <span className="mono vault-lm-row__status vault-lm-row__status--azure">Reviewing</span>
       );
     case "failed":
       return <span className="vault-lm-row__status vault-lm-row__status--neg">Failed</span>;
@@ -331,7 +356,6 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       {card.status === "reviewing" ? (
         <div className="vault-lb-panel__pending">
           <span className="vault-detail-section-label vault-detail-section-label--muted">Vault Review</span>
-          <span className="vault-spin vault-lb-panel__pending-spin" />
           <div>PSA inspection in progress…</div>
         </div>
       ) : null}
@@ -397,16 +421,37 @@ function DetailBottomSheet({
 }) {
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const overlayRef = useRef<HTMLButtonElement>(null);
   const startYRef = useRef(0);
   const dragYRef = useRef(0);
 
+  useModalScrollLock(open);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const html = document.documentElement;
+    html.classList.add("vault-lb-sheet-open");
+    document.body.classList.add("vault-lb-sheet-open");
     return () => {
-      document.body.style.overflow = prev;
+      html.classList.remove("vault-lb-sheet-open");
+      document.body.classList.remove("vault-lb-sheet-open");
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const blockWheel = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+    overlay.addEventListener("wheel", blockWheel, { passive: false });
+    return () => overlay.removeEventListener("wheel", blockWheel);
   }, [open]);
 
   useEffect(() => {
@@ -416,11 +461,17 @@ function DetailBottomSheet({
     }
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <>
-      <button type="button" className="vault-lb-sheet-overlay open" aria-label="Close" onClick={onClose} />
+      <button
+        ref={overlayRef}
+        type="button"
+        className="vault-lb-sheet-overlay open"
+        aria-label="Close"
+        onClick={onClose}
+      />
       <div
         className={cn("vault-lb-sheet", open && "open", dragging && "vault-lb-sheet--dragging")}
         role="dialog"
@@ -450,7 +501,8 @@ function DetailBottomSheet({
         />
         <div className="vault-lb-sheet__content">{children}</div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -653,12 +705,14 @@ export function VaultDetailDesignView({
   submissionId,
   livePackageCards = [],
   tracking = null,
+  submittedAt = null,
 }: {
   initialScenario?: VaultDetailScenarioKey;
   submissionId: string;
   /** Real submission items from the API — no demo fallback. */
   livePackageCards?: VaultPackageCard[];
   tracking?: { label: string; url: string } | null;
+  submittedAt?: string | null;
 }) {
   const scenarioKey: Exclude<VaultDetailScenarioKey, "early"> =
     initialScenario === "early" ? "C" : (initialScenario as Exclude<VaultDetailScenarioKey, "early">);
@@ -669,8 +723,10 @@ export function VaultDetailDesignView({
 
   const base = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.C;
   const scenario = withLiveHero(base, submissionId, livePackageCards.length);
-  const shellClass =
-    scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b";
+  const shellClass = cn(
+    scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b",
+    `vault-detail-page--${scenarioKey.toLowerCase()}`,
+  );
 
   const layoutACards = livePackageCards.map((c) => ({
     id: c.id,
@@ -695,6 +751,7 @@ export function VaultDetailDesignView({
           packageCards={layoutACards}
           tracking={tracking}
           submissionId={submissionId}
+          submittedAt={submittedAt}
         />
       ) : (
         <>

@@ -255,6 +255,40 @@ Requires `FEDEX_RATE_ENABLED=true` and `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET`
 
 ---
 
+## FedEx Track probe (admin / Swagger)
+
+**Controller:** `backend/src/rwa/admin/fedex-track-admin.controller.ts`  
+**OpenAPI reference:** `backend/openapi/fedex-track-v1.openapi.json`  
+**Base:** `/api/marketplace/admin/fedex/track`
+
+Passthrough probes for all FedEx Track v1 endpoints. Returns OAuth status, the request body, raw FedEx HTTP status + JSON. Does **not** return client secret.
+
+Requires `FEDEX_TRACK_ENABLED=true` and `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` (+ optional `FEDEX_API_BASE_URL`). Falls back to shared `FEDEX_CLIENT_ID` / `SECRET` when track-specific vars are unset. Account number is **not** required for Track (Rate only).
+
+| Method | Path | FedEx endpoint |
+|--------|------|----------------|
+| POST | `/poll-redeems` | **Internal** — run `RedeemDeliveryTrackService.pollOnce()` (stamp `carrier_delivered_at` + grace auto-receipt). Not a FedEx passthrough. |
+| POST | `/trackingnumbers-probe` | `POST /track/v1/trackingnumbers` |
+| POST | `/associatedshipments-probe` | `POST /track/v1/associatedshipments` |
+| POST | `/notifications-probe` | `POST /track/v1/notifications` |
+| POST | `/referencenumbers-probe` | `POST /track/v1/referencenumbers` |
+| POST | `/tcn-probe` | `POST /track/v1/tcn` |
+| POST | `/trackingdocuments-probe` | `POST /track/v1/trackingdocuments` |
+
+Swagger tag: `marketplace-admin-fedex`. Production redeem delivery polling uses **trackingnumbers** only (`RedeemDeliveryTrackService`).
+
+### Local QA — sandbox Track (Test keys)
+
+Sandbox Test keys do **not** return live shipment status. Real 12–15 digit tracking waits for **Production keys**. Until then:
+
+1. Admin Redeems → set a 12-digit tracking number, carrier FedEx on the In-transit batch  
+2. User tap **I've received my cards** to close the redeem (does not need Track Delivered)  
+3. Optional: `POST /api/marketplace/admin/fedex/track/poll-redeems` — only stamps `carrier_delivered_at` if sandbox Track reports Delivered  
+
+`trackingnumbers-probe` only shows the FedEx JSON — it does **not** update the DB.
+
+---
+
 ## Partner bulk mint & list
 
 **Controller:** `backend/src/rwa/admin/bulk-mint-admin.controller.ts`  
@@ -386,13 +420,13 @@ User-facing JWT API: [vault-submissions.md](./vault-submissions.md).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/self-vault-settlements` | Ledger rows (`?status=pending_confirm\|confirmed\|paid\|rejected`) |
+| GET | `/self-vault-settlements` | Ledger rows (`?status=open\|pending_confirm\|confirmed\|paid\|rejected`). `open` = Needs action (`pending_confirm` + `confirmed`) |
 | POST | `/self-vault-settlements/:id/confirm` | Ops confirm (skip buyer) → `confirmed` |
 | POST | `/self-vault-settlements/:id/reject` | Reject |
 | POST | `/self-vault-settlements/:id/execute-payout` | Send `seller_payout_usdc` from `PLATFORM_FEE_PRIVATE_KEY` wallet (auto-confirms if pending) → mark `paid`. Cron also auto-pays ~5 min after fulfill. |
 | POST | `/self-vault-settlements/backfill-missing` | Create ledger rows for fulfilled self-vault asks missing a settlement (repair) |
 
-Created when a `self_vault_hold` ask is fulfilled. Seller net ≈ gross × (1 − `PLATFORM_FEE_BPS`/10000). Auto payout cron: `SELF_VAULT_AUTO_PAYOUT_CRON` / `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` (default 300). See [self-vault-hold-settlement.md](../architecture/self-vault-hold-settlement.md).
+Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; same token can have multiple open payouts after resale). Seller net ≈ gross × (1 − `PLATFORM_FEE_BPS`/10000). Auto payout cron: `SELF_VAULT_AUTO_PAYOUT_CRON` / `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` (default 300). See [self-vault-hold-settlement.md](../architecture/self-vault-hold-settlement.md).
 
 ---
 
@@ -400,9 +434,11 @@ Created when a `self_vault_hold` ask is fulfilled. Seller net ≈ gross × (1 �
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries (mints/orders/GMV/holdings scoped by `x-tokenable-chain-id`) |
+| GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries (mints/orders/GMV/holdings scoped by `x-tokenable-chain-id`). Server caches 60s per chain+period; admin UI does not auto-poll. |
 | GET | `/analytics/ga4` | GA4 traffic (when configured) |
 | GET | `/data-inventory` | Accumulated PostgreSQL stores — row counts, date ranges, per-table metadata |
+
+Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only while the browser tab is visible (paused when hidden).
 
 ---
 

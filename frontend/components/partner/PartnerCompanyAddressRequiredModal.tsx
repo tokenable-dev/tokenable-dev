@@ -3,13 +3,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { TkButton } from "@/components/ds";
+import { shouldHideAppChrome } from "@/constants/layout";
 import {
   getPartnerMe,
   putPartnerCompanyAddress,
 } from "@/lib/core/api/marketplace-partner-me";
 import { rq } from "@/lib/core/queryKeys";
 import { useAuthStore } from "@/store/authStore";
+import "@/styles/tokenable-partner-origin.css";
 
 /** Designer country labels → ISO 3166-1 alpha-2 for FedEx / backend. */
 const COUNTRY_OPTIONS: { label: string; code: string }[] = [
@@ -107,6 +110,8 @@ function Field({
  * Remind me later → sticky banner; Self vault stays locked until address is saved.
  */
 export function PartnerCompanyAddressRequiredModal() {
+  const pathname = usePathname();
+  const skipOnChromeLess = shouldHideAppChrome(pathname);
   const user = useAuthStore((s) => s.user);
   const authReady = useAuthStore((s) => s.initialized);
   const qc = useQueryClient();
@@ -114,7 +119,7 @@ export function PartnerCompanyAddressRequiredModal() {
   const meQuery = useQuery({
     queryKey: rq.partnerMe(),
     queryFn: getPartnerMe,
-    enabled: Boolean(authReady && user),
+    enabled: Boolean(authReady && user) && !skipOnChromeLess,
     staleTime: 30_000,
   });
 

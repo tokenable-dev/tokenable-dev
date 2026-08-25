@@ -9,6 +9,12 @@ export function formatUsdCompact(n: number | null | undefined): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Hero velocity — one decimal, trailing % */
+export function formatVelocityPercent(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return "—";
+  return `${pct.toFixed(1)}%`;
+}
+
 /**
  * On-platform listing depth (same collectionKey). Not a catalog price; optional UI hint only.
  */

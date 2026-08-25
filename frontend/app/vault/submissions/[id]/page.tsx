@@ -85,6 +85,7 @@ function VaultSubmissionDetailBody() {
       submissionId={apiSub.publicId}
       livePackageCards={livePackageCards}
       tracking={tracking}
+      submittedAt={apiSub.createdAt}
     />
   );
 }

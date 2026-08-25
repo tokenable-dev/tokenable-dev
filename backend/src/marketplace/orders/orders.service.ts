@@ -36,6 +36,7 @@ import { MarketplacePartnersService } from '../partners/marketplace-partners.ser
 import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { BuyerListingAlertService } from '../buyer-listing-alert/buyer-listing-alert.service';
 import { VaultService } from '../../vault/vault.service';
 import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
@@ -90,6 +91,7 @@ export class OrdersService {
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly partners: MarketplacePartnersService,
     private readonly notifications: NotificationsService,
+    private readonly buyerListingAlerts: BuyerListingAlertService,
     private readonly vault: VaultService,
     private readonly selfVaultSettlements: SelfVaultSettlementService,
   ) {}
@@ -285,6 +287,11 @@ export class OrdersService {
       void this.notifications.notifySellerListingLive(saved).catch((e) => {
         this.logger.warn(
           `notifySellerListingLive failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      void this.buyerListingAlerts.onFirstAskListed(saved).catch((e) => {
+        this.logger.warn(
+          `onFirstAskListed failed: ${e instanceof Error ? e.message : String(e)}`,
         );
       });
     }
@@ -525,7 +532,7 @@ export class OrdersService {
   private async materializeOrderFromDto(dto: CreateOrderDto): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
-    const params = parameters as unknown as Record<string, unknown>;
+    let params = parameters as unknown as Record<string, unknown>;
     const chainId =
       this.chainConfig.resolveChainIdFromRwaAddress(dto.tokenContract) ??
       this.chainConfig.getDefaultChainId();
@@ -577,10 +584,18 @@ export class OrdersService {
       }
     }
 
-    const tokenIdForRow =
-      side === OrderSide.BID
-        ? normalizeDecimalTokenId(String(dto.tokenId))
-        : dto.tokenId;
+    const tokenIdForRow = normalizeDecimalTokenId(String(dto.tokenId));
+
+    if (side === OrderSide.ASK) {
+      const policy = await this.vault.getSettlementPolicy(
+        dto.tokenContract,
+        tokenIdForRow,
+      );
+      params = {
+        ...params,
+        _settlementPolicy: policy,
+      };
+    }
 
     return this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
@@ -1300,15 +1315,16 @@ export class OrdersService {
       }
 
       if (buyerAddress?.trim()) {
+        // Ledger first — each fulfilled self-vault ask (incl. resales) gets its own row.
+        await this.maybeCreateSelfVaultSettlement(
+          saved,
+          buyerAddress,
+          chainId,
+        );
         await this.seedMarketplaceBuyFromAskFill(
           buyerAddress,
           saved,
           saved.updatedAt ?? new Date(),
-          chainId,
-        );
-        await this.maybeCreateSelfVaultSettlement(
-          saved,
-          buyerAddress,
           chainId,
         );
         await this.refreshChartsAfterHoldingsMove(
@@ -1492,6 +1508,7 @@ export class OrdersService {
       );
     }
 
+    await this.maybeCreateSelfVaultSettlement(ask, bid.offerer, chainId);
     await this.seedMarketplaceBuyFromAskFill(
       bid.offerer,
       {
@@ -1502,7 +1519,6 @@ export class OrdersService {
       chainId,
     );
 
-    await this.maybeCreateSelfVaultSettlement(ask, bid.offerer, chainId);
     await this.refreshChartsAfterHoldingsMove(
       [bid.offerer, ask.offerer],
       chainId,
@@ -1550,19 +1566,38 @@ export class OrdersService {
     chainId?: SupportedChainId,
   ): Promise<void> {
     try {
-      const policy = await this.vault.getSettlementPolicy(
-        ask.tokenContract,
-        String(ask.tokenId),
-      );
+      const stamped = String(
+        (ask.parameters as { _settlementPolicy?: string } | undefined)
+          ?._settlementPolicy ?? '',
+      ).trim();
+      let policy = isSelfVaultHoldPolicy(stamped)
+        ? ('self_vault_hold' as const)
+        : await this.vault.getSettlementPolicy(
+            ask.tokenContract,
+            normalizeDecimalTokenId(String(ask.tokenId)),
+          );
+      // Resales of the same token must each get a ledger row (keyed by order_hash).
+      // If policy lookup misses, still create when the ask is full-platform-take.
+      if (
+        !isSelfVaultHoldPolicy(policy) &&
+        this.selfVaultSettlements.isFullPlatformTakeAsk(ask)
+      ) {
+        policy = 'self_vault_hold';
+      }
       if (!isSelfVaultHoldPolicy(policy)) return;
       const resolved = chainId ?? this.chainConfig.getDefaultChainId();
-      await this.selfVaultSettlements.createFromFulfilledAsk({
+      const row = await this.selfVaultSettlements.createFromFulfilledAsk({
         ask,
         buyerWallet,
         chainId: resolved,
       });
+      if (!row) {
+        this.logger.error(
+          `self_vault_settlement create returned null for ask ${ask.orderHash?.slice(0, 10)}… token #${ask.tokenId}`,
+        );
+      }
     } catch (e) {
-      this.logger.warn(
+      this.logger.error(
         `self_vault_settlement create failed: ${
           e instanceof Error ? e.message : String(e)
         }`,

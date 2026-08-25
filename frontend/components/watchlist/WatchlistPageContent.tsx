@@ -11,9 +11,8 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { useAuthStore } from "@/store/authStore";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import {
-  collectionMatchesCategoryFilter,
-  MARKETS_DEFAULT_CATEGORY_FILTER,
-  type CollectionCategoryFilterId,
+  collectionMatchesCategoryFilters,
+  type CollectionCategoryId,
 } from "@/lib/market";
 import {
   compareMarketsCollections,
@@ -69,8 +68,8 @@ export function WatchlistPageContent({
   const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
   const authReturnTo = returnTo ?? (embedded ? "/watchlist" : "/watchlist");
 
-  const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
-    MARKETS_DEFAULT_CATEGORY_FILTER,
+  const [categoryFilters, setCategoryFilters] = useState<Set<CollectionCategoryId>>(
+    new Set(),
   );
   const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
   const [priceMin, setPriceMin] = useState("");
@@ -95,8 +94,8 @@ export function WatchlistPageContent({
 
   const filteredItems = useMemo(() => {
     const categoryFiltered = sortedItems.filter((c) =>
-      collectionMatchesCategoryFilter(
-        categoryFilter,
+      collectionMatchesCategoryFilters(
+        categoryFilters,
         c,
         snapshotByKey.get(c.collectionKey.trim().toLowerCase()),
       ),
@@ -106,7 +105,7 @@ export function WatchlistPageContent({
       priceMax,
       gradeFilters,
     });
-  }, [sortedItems, snapshotByKey, categoryFilter, priceMin, priceMax, gradeFilters]);
+  }, [sortedItems, snapshotByKey, categoryFilters, priceMin, priceMax, gradeFilters]);
 
   if (!user) {
     return (
@@ -178,8 +177,16 @@ export function WatchlistPageContent({
     <>
       {!embedded ? (
         <MarketsFilterBar
-          categoryFilter={categoryFilter}
-          onCategoryChange={setCategoryFilter}
+          categoryFilters={categoryFilters}
+          onCategoryToggle={(id) => {
+            setCategoryFilters((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            });
+          }}
+          onCategoryFiltersChange={setCategoryFilters}
           sortId={sortId}
           onSortChange={setSortId}
           priceMin={priceMin}

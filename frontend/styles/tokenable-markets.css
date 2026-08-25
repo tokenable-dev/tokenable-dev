@@ -29,6 +29,56 @@
   max-width: 600px;
 }
 
+/* Detail deep-link facets (character / set / year from collection Details) */
+.markets-detail-facets {
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
+
+.markets-detail-facets__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.markets-detail-facets__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(26, 111, 255, 0.14);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.markets-detail-facets__chip:hover {
+  background: rgba(26, 111, 255, 0.22);
+}
+
+.markets-detail-facets__clear {
+  border: 0;
+  background: transparent;
+  color: var(--t2);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.markets-detail-facets__clear:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
 /* ── Sticky filter bar (ds-13 slim Category / Grade / Price) ─────────────── */
 
 .markets-filter-sticky {
@@ -148,13 +198,15 @@
   left: 0;
   z-index: 60;
   width: 300px;
-  max-width: min(300px, calc(100vw - 32px));
+  max-width: min(300px, calc(100vw - 24px));
   background: #141414;
   border-radius: 12px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
   padding: 14px;
-  max-height: 60vh;
+  max-height: min(60vh, 420px);
+  overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .markets-pop--open {
@@ -164,6 +216,88 @@
 .markets-pop--right {
   left: auto;
   right: 0;
+}
+
+.markets-pop--wide {
+  width: min(360px, calc(100vw - 32px));
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.markets-pop__hint {
+  margin: 0;
+  padding: 4px 2px 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--t3);
+}
+
+.markets-fsearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.markets-fsearch input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+.markets-fsearch input::placeholder {
+  color: var(--t3);
+}
+
+.markets-fsearch__apply {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(26, 111, 255, 0.22);
+  color: #5b9aff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.markets-fsearch__apply:hover {
+  background: rgba(26, 111, 255, 0.32);
+}
+
+.markets-fsearch--drawer {
+  margin-bottom: 0;
+}
+
+.markets-fresults {
+  margin-top: 6px;
+  max-height: 196px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.markets-fresults--drawer {
+  max-height: 220px;
+}
+
+.markets-fchips--scroll,
+.markets-fd-chips--scroll {
+  max-height: 160px;
+  overflow-y: auto;
+  flex-wrap: wrap;
 }
 
 .markets-pop__label {
@@ -180,23 +314,30 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 9px 11px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--t2, rgba(255, 255, 255, 0.72));
   font-family: var(--font-sans);
   font-size: 13.5px;
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
 }
 
-.markets-pop__item:hover {
+.markets-pop__item:hover:not(.markets-pop__item--sel) {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
 }
 
 .markets-pop__item--sel {
+  color: #fff;
+  background: transparent;
+}
+
+.markets-pop__item--sel:hover {
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
 }
 
@@ -209,8 +350,8 @@
 }
 
 .markets-pop__item--sel .markets-pop__chk {
-  background: var(--azure);
-  box-shadow: inset 0 0 0 2px var(--azure);
+  background: var(--azure, #1a6fff);
+  box-shadow: inset 0 0 0 2px var(--azure, #1a6fff);
 }
 
 .markets-pop__foot {
@@ -517,6 +658,66 @@
   flex-wrap: wrap;
 }
 
+.markets-fd-chips--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+
+/* Markets.html `.mk-frow` / `.mk-fbox` — checkbox rows in More filters / set picker */
+.markets-frow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t2, rgba(255, 255, 255, 0.72));
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.markets-frow:hover:not(.markets-frow--on) {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.markets-fbox {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.25);
+}
+
+.markets-frow--on {
+  color: #fff;
+  background: transparent;
+}
+
+.markets-frow--on:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.markets-frow--on .markets-fbox {
+  background: var(--azure, #1a6fff);
+  box-shadow: inset 0 0 0 1.5px var(--azure, #1a6fff);
+}
+
+.markets-fname {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .markets-fd-option {
   display: inline-flex;
   align-items: center;
@@ -535,12 +736,13 @@
   border: 0;
 }
 
-.markets-fd-option:hover {
+.markets-fd-option:hover:not(.markets-fd-option--sel) {
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
 }
 
-.markets-fd-option--sel {
+.markets-fd-option--sel,
+.markets-fd-option--sel:hover {
   background: rgba(26, 111, 255, 0.2);
   color: #5b9aff;
 }
@@ -630,6 +832,18 @@
   .markets-ddchip__val {
     max-width: 6.5rem;
   }
+
+  /*
+   * Sort chip sits mid/left on small screens (after More filters), but the menu
+   * used desktop `right: 0` alignment and opened off the left edge. Prefer
+   * left-align under the chip; JS clamp still keeps it in the viewport.
+   */
+  .markets-fw--sort .markets-pop--right {
+    left: 0;
+    right: auto;
+    width: min(280px, calc(100vw - 24px));
+    max-width: min(280px, calc(100vw - 24px));
+  }
 }
 
 @media (max-width: 640px) {
@@ -643,7 +857,12 @@
   }
 
   .markets-pop {
-    width: min(300px, calc(100vw - 40px));
+    width: min(280px, calc(100vw - 24px));
+    max-width: min(280px, calc(100vw - 24px));
+  }
+
+  .markets-pop__item {
+    white-space: normal;
   }
 
   .markets-filter-drawer__footer {
@@ -837,7 +1056,6 @@
 .markets-results-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
   margin: 0 0 22px;
@@ -853,12 +1071,6 @@
 
 .markets-results-bar__count b {
   color: #fff;
-}
-
-.markets-results-bar__label {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--t2);
 }
 
 .markets-load-more {

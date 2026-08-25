@@ -8,6 +8,13 @@ import {
 import type { VaultHubRow } from "@/lib/vault/vaultHubTypes";
 
 const OPEN_PACKAGE = new Set(["awaiting_shipment", "in_transit", "psa_reviewing"]);
+const TERMINAL_ITEM = new Set(["rejected", "failed", "completed"]);
+/** Sell-process failures / admin rejects / mint issues → Rejected tab. */
+const ISSUE_ITEM = new Set(["rejected", "failed"]);
+
+function itemStatus(item: VaultSubmissionApiItem): string {
+  return (item.status ?? "").trim().toLowerCase();
+}
 
 function formatGrade(grade: string | null | undefined): string {
   const g = grade?.trim();
@@ -33,6 +40,20 @@ function itemMeta(item: VaultSubmissionApiItem) {
     imageUrl: item.imageUrl ?? "",
     cardCount: 1,
   };
+}
+
+function isOpenItem(item: VaultSubmissionApiItem): boolean {
+  return !TERMINAL_ITEM.has(itemStatus(item));
+}
+
+function isIssueItem(item: VaultSubmissionApiItem): boolean {
+  const status = itemStatus(item);
+  if (ISSUE_ITEM.has(status)) return true;
+  // Rejection reason without a successful completion → treat as issue.
+  if (item.rejectionReason?.trim() && status !== "completed" && status !== "approved" && status !== "minting") {
+    return true;
+  }
+  return false;
 }
 
 function progressRow(s: VaultSubmissionApi): VaultHubRow {
@@ -75,11 +96,9 @@ function progressRow(s: VaultSubmissionApi): VaultHubRow {
 
   // psa_reviewing — HTML splits Verifying vs PSA Review; prefer Verifying while
   // every open item is still "reviewing", else PSA Review.
-  const openItems = s.items.filter(
-    (i) => i.status !== "rejected" && i.status !== "failed" && i.status !== "completed",
-  );
+  const openItems = s.items.filter(isOpenItem);
   const allReviewing =
-    openItems.length > 0 && openItems.every((i) => i.status === "reviewing");
+    openItems.length > 0 && openItems.every((i) => itemStatus(i) === "reviewing");
   if (allReviewing) {
     return {
       id: s.publicId,
@@ -116,14 +135,20 @@ function doneRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubR
 }
 
 function rejectedRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubRow {
+  const status = itemStatus(item);
+  const failed = status === "failed";
   return {
     id: `${s.publicId}:rej:${item.id}`,
     vstate: "rejected",
     ...itemMeta(item),
     gradeRejected: true,
     statusKind: "rejected",
-    statusLabel: "Rejected",
-    detail: item.rejectionReason?.trim() || "Grade not eligible (PSA 9/10 only)",
+    statusLabel: failed ? "Failed" : "Rejected",
+    detail:
+      item.rejectionReason?.trim() ||
+      (failed
+        ? "Couldn’t be listed — contact support if this persists"
+        : "Grade not eligible (PSA 9/10 only)"),
     cta: {
       label: "View",
       href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
@@ -131,6 +156,43 @@ function rejectedRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): Vault
     },
   };
 }
+
+/** Package-level issue when scenario says F/H but items lack rejected/failed flags. */
+function packageIssueRow(s: VaultSubmissionApi): VaultHubRow {
+  const meta = packageMeta(s.items);
+  const allRejected = s.scenario === "F";
+  return {
+    id: `${s.publicId}:issue`,
+    vstate: "rejected",
+    ...meta,
+    gradeRejected: true,
+    statusKind: "rejected",
+    statusLabel: allRejected ? "Rejected" : "Failed",
+    detail: allRejected
+      ? "Did not meet vault requirements"
+      : "Something went wrong listing one or more cards",
+    cta: {
+      label: "View",
+      href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
+      primary: false,
+    },
+  };
+}
+
+function shouldShowProgressPackage(s: VaultSubmissionApi): boolean {
+  if (s.status === "awaiting_shipment" || s.status === "in_transit") return true;
+  if (s.status !== "psa_reviewing") return false;
+  // All cards terminal (e.g. all rejected) — show per-card rows only, not a phantom package.
+  if (s.items.length > 0 && s.items.every((i) => !isOpenItem(i))) return false;
+  return true;
+}
+
+const VSTATE_ORDER: Record<VaultHubRow["vstate"], number> = {
+  self: 0,
+  progress: 1,
+  done: 2,
+  rejected: 3,
+};
 
 /** Map vault submissions → Sell hub rows (progress / done / rejected). */
 export function buildVaultHubRowsFromSubmissions(
@@ -141,24 +203,39 @@ export function buildVaultHubRowsFromSubmissions(
   for (const s of submissions) {
     if (s.status === "cancelled" || s.status === "draft") continue;
 
+    let issueCount = 0;
     for (const item of s.items) {
-      if (item.status === "rejected") rows.push(rejectedRow(s, item));
-      if (item.status === "completed") rows.push(doneRow(s, item));
+      if (isIssueItem(item)) {
+        rows.push(rejectedRow(s, item));
+        issueCount += 1;
+      }
+      if (itemStatus(item) === "completed") rows.push(doneRow(s, item));
     }
 
-    if (OPEN_PACKAGE.has(s.status)) {
+    // Scenario F (all rejected) / H (partial mint failure) without per-item flags.
+    if (issueCount === 0 && (s.scenario === "F" || s.scenario === "H")) {
+      rows.push(packageIssueRow(s));
+    }
+
+    if (shouldShowProgressPackage(s) && OPEN_PACKAGE.has(s.status)) {
       rows.push(progressRow(s));
     } else if (
       s.status === "completed" &&
-      !s.items.some((i) => i.status === "completed")
+      !s.items.some((i) => itemStatus(i) === "completed") &&
+      issueCount === 0 &&
+      s.scenario !== "F" &&
+      s.scenario !== "H"
     ) {
-      // Package completed without per-item completed flags — still show one done row.
+      // Package completed without per-item flags — still show one done row.
       const first = s.items[0];
       if (first) rows.push(doneRow(s, first));
     }
   }
 
-  return rows;
+  // Match Vault-Dashboard-Active.html list order within the PSA block.
+  return rows.sort(
+    (a, b) => VSTATE_ORDER[a.vstate] - VSTATE_ORDER[b.vstate] || a.name.localeCompare(b.name),
+  );
 }
 
 export function countVaultHubByState(rows: VaultHubRow[]) {

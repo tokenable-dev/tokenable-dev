@@ -3,19 +3,19 @@
 import type { ReactNode } from "react";
 
 /**
- * Collection detail mobile — Card.html `@media (max-width:768px)` column order:
- * hero → chart → rail (Trades / Order book + Details) → listings last (`order:99`).
+ * Collection detail mobile — Card.html column order:
+ * hero → chart → rail (book + details) → similar (listings removed).
  */
 export function CollectionDetailMobileScrollPanel({
   statBlock,
   chartPanel,
-  listingsPanel,
+  similarPanel,
   orderBookStack,
   detailsPanel,
 }: {
   statBlock: ReactNode;
   chartPanel: ReactNode;
-  listingsPanel: ReactNode;
+  similarPanel?: ReactNode;
   orderBookStack: ReactNode;
   detailsPanel?: ReactNode;
 }) {
@@ -45,13 +45,14 @@ export function CollectionDetailMobileScrollPanel({
         </section>
       ) : null}
 
-      <section
-        className="cd-mobile-scroll__listings w-full min-w-0"
-        id="listings-section"
-        aria-labelledby="collection-listings-heading"
-      >
-        {listingsPanel}
-      </section>
+      {similarPanel != null ? (
+        <section
+          className="cd-mobile-scroll__similar w-full min-w-0"
+          aria-label="Similar items"
+        >
+          {similarPanel}
+        </section>
+      ) : null}
     </div>
   );
 }

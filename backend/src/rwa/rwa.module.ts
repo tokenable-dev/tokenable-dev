@@ -14,6 +14,7 @@ import { VaultModule } from '../vault/vault.module';
 import { BulkMintAdminController } from './admin/bulk-mint-admin.controller';
 import { RwaSlabAdminController } from './admin/rwa-slab-admin.controller';
 import { FedexRateAdminController } from './admin/fedex-rate-admin.controller';
+import { FedexTrackAdminController } from './admin/fedex-track-admin.controller';
 import { VaultSubmissionAdminMintController } from './admin/vault-submission-admin-mint.controller';
 import { VaultSubmissionAdminMintService } from './admin/vault-submission-admin-mint.service';
 import { PsaVaultedMailService } from '../vault/psa-vaulted-mail.service';
@@ -24,13 +25,16 @@ import { BulkMintJob } from './entities/bulk-mint-job.entity';
 import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
 import { KycModule } from '../kyc/kyc.module';
 import { VaultSubmissionItem } from '../vault/entities/vault-submission-item.entity';
+import { VaultRedemption } from '../vault/entities/vault-redemption.entity';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { PinataService } from './pinata/pinata.service';
 import { RwaController } from './rwa.controller';
 import { RwaMintService } from './rwa-mint.service';
 import { RwaRedeemService } from './rwa-redeem.service';
+import { RedeemDeliveryTrackService } from './redeem-delivery-track.service';
 import { RedeemShippingFeeCalculator } from './redeem-shipping-fee.calculator';
 import { FedExRateClient } from './shipping/fedex-rate.client';
+import { FedExTrackClient } from './shipping/fedex-track.client';
 import { RwaService } from './rwa.service';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
 import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
@@ -42,6 +46,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
       BulkMintJobItem,
       Order,
       VaultSubmissionItem,
+      VaultRedemption,
       RwaToken,
     ]),
     BlockchainModule,
@@ -63,6 +68,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     RwaSlabAdminController,
     VaultSubmissionAdminMintController,
     FedexRateAdminController,
+    FedexTrackAdminController,
   ],
   providers: [
     PinataService,
@@ -71,8 +77,10 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     RwaSlabBackfillService,
     RwaMintService,
     RwaRedeemService,
+    RedeemDeliveryTrackService,
     RedeemShippingFeeCalculator,
     FedExRateClient,
+    FedExTrackClient,
     BulkMintJobService,
     PartnerSeaportAskService,
     VaultSubmissionAdminMintService,

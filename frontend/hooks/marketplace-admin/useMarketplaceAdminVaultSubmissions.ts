@@ -21,12 +21,22 @@ import {
   rq,
 } from "@/lib/core";
 
+/** Pause admin polling while the tab is hidden (saves local Nest/DB CPU). */
+function adminPollMs(ms: number): () => number | false {
+  return () =>
+    typeof document !== "undefined" && document.visibilityState === "hidden"
+      ? false
+      : ms;
+}
+
 export function useAdminVaultSubmissionCounts() {
   return useQuery({
     queryKey: rq.adminVaultSubmissionCounts(),
     queryFn: () => getAdminVaultSubmissionCounts(),
-    staleTime: 10_000,
-    refetchInterval: 20_000,
+    staleTime: 30_000,
+    refetchInterval: adminPollMs(60_000),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -36,8 +46,10 @@ export function useAdminPsaArrivalReviews(
   return useQuery({
     queryKey: rq.adminPsaArrivalReviews(status),
     queryFn: () => listAdminPsaArrivalReviews(status),
-    staleTime: 8_000,
-    refetchInterval: 15_000,
+    staleTime: 20_000,
+    refetchInterval: adminPollMs(45_000),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -47,8 +59,10 @@ export function useAdminPsaVaultedReviews(
   return useQuery({
     queryKey: rq.adminPsaVaultedReviews(status),
     queryFn: () => listAdminPsaVaultedReviews(status),
-    staleTime: 8_000,
-    refetchInterval: 15_000,
+    staleTime: 20_000,
+    refetchInterval: adminPollMs(45_000),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -56,8 +70,10 @@ export function useAdminVaultMintQueue(q: string) {
   return useQuery({
     queryKey: rq.adminVaultMintQueue(q),
     queryFn: () => listAdminVaultMintQueue({ q: q.trim() || undefined }),
-    staleTime: 8_000,
-    refetchInterval: 15_000,
+    staleTime: 20_000,
+    refetchInterval: adminPollMs(45_000),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -69,8 +85,10 @@ export function useAdminVaultSubmissions(status: string, q: string) {
         status: status === "all" ? undefined : status,
         q: q.trim() || undefined,
       }),
-    staleTime: 8_000,
-    refetchInterval: 15_000,
+    staleTime: 20_000,
+    refetchInterval: adminPollMs(45_000),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 }
 

@@ -67,6 +67,7 @@ function VaultStepDot({
   isRejected?: boolean;
   rich?: boolean;
 }) {
+  const hideSpin = useIsMobileViewport(768);
   const { state, spin } = step;
 
   if (isRejected) {
@@ -105,7 +106,7 @@ function VaultStepDot({
   if (state === "active") {
     return (
       <div className="vault-stepper__dot vault-stepper__dot--active">
-        {spin || rich ? <StepSpinner /> : index + 1}
+        {spin && !hideSpin ? <StepSpinner /> : index + 1}
       </div>
     );
   }

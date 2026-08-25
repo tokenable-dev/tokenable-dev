@@ -10,6 +10,7 @@ export type NotificationItem = {
   title: string;
   desc: string;
   time: string;
+  createdAt: string;
   imageUrl?: string;
   href?: string | null;
   unread?: boolean;

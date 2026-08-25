@@ -120,26 +120,26 @@ export function PortfolioCostBasisInlineEdit({
     return (
       <>
         <div className="pf-mobile-asset-card__row">
-          <span className="pf-mobile-asset-card__label">
-            Cost
-            {editable && !editing ? (
-              <span className="pf-mobile-asset-card__cost-hint">
-                Value at listing
+          <span className="pf-mobile-asset-card__label">Cost</span>
+          {editing ? (
+            input
+          ) : (
+            <span className="pf-mobile-asset-card__val-wrap">
+              <span className="pf-mobile-asset-card__val tkl-mono">
+                {formatPortfolioUsd(valueUsd)}
+              </span>
+              {editable ? (
                 <PortfolioCostBasisPencilButton
                   label={`Edit cost basis for ${assetName}`}
                   onClick={startEdit}
                 />
-              </span>
-            ) : null}
-          </span>
-          {editing ? (
-            input
-          ) : (
-            <span className="pf-mobile-asset-card__val tkl-mono">
-              {formatPortfolioUsd(valueUsd)}
+              ) : null}
             </span>
           )}
         </div>
+        {editable && !editing ? (
+          <div className="pf-mobile-asset-card__cost-hint-line">Value at listing</div>
+        ) : null}
         {editing ? (
           <span className="pf-cost-edit-note pf-cost-edit-note--mobile">Default: minting price</span>
         ) : null}

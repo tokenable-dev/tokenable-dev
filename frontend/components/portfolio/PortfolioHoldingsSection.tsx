@@ -54,6 +54,7 @@ export function PortfolioHoldingsSection({
   redeemLimitError = null,
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
+  redeemCarrierDeliveredByTokenId,
   onExitRedeemSelect,
   onToggleRedeemToken,
   onContinueRedeem,
@@ -83,6 +84,7 @@ export function PortfolioHoldingsSection({
   redeemLimitError?: string | null;
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
+  redeemCarrierDeliveredByTokenId?: Map<number, string>;
   hasMoreAssets?: boolean;
   isLoadingMoreAssets?: boolean;
   onLoadMoreAssets?: () => void;
@@ -179,6 +181,7 @@ export function PortfolioHoldingsSection({
           const badge = redeemSurfaceBadge(
             redeemStatus,
             redeemTrackingByTokenId?.get(row.tokenId),
+            redeemCarrierDeliveredByTokenId?.get(row.tokenId),
           );
           const tradeBlocked = isRedeemInFlight(redeemStatus);
           const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
@@ -300,6 +303,7 @@ export function PortfolioHoldingsSection({
             const badge = redeemSurfaceBadge(
               redeemStatus,
               redeemTrackingByTokenId?.get(row.tokenId),
+              redeemCarrierDeliveredByTokenId?.get(row.tokenId),
             );
             const tradeBlocked = isRedeemInFlight(redeemStatus);
             const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;

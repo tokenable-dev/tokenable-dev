@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
-import type { Address } from "viem";
+import { useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { catalogCoverSearchFromCollection } from "@/lib/marketplace/catalogCoverSearch";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
 import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
+import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
+import { useBuyerListingAlert } from "@/hooks/collection-detail/useBuyerListingAlert";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
@@ -18,18 +21,19 @@ import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailCom
 import { resolveCollectionPsaPopulationPanelData } from "@/lib/market/psaPopulationByGrade";
 import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
-import { CollectionDetailListingsGrid } from "./CollectionDetailListingsGrid";
-import { CollectionDetailListingsSection } from "./CollectionDetailListingsSection";
 import { useCollectionListingModal } from "@/hooks/collection-detail/useCollectionListingModal";
 import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
 import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
 import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
+import { CollectionSimilarItemsSection } from "./CollectionSimilarItemsSection";
 import {
   buildCollectionDetailMarketsSlots,
 } from "./buildCollectionDetailMarketsSlots";
 import {
   bestAskFromRows,
   bestBidFromRows,
+  priceLevelKey,
+  priceUsdcFromOrder,
 } from "@/lib/marketplace/unified-order-book";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
@@ -126,6 +130,53 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     onPurchaseCelebration: (kind) => setTradeCelebration(kind),
   });
 
+  const pathname = usePathname();
+  const { runTradeAccessGate } = useTradeAccessGate(pathname || `/marketplace/collections/${collectionKey}`);
+  const {
+    active: listingAlertActive,
+    pending: listingAlertPending,
+    canToggle: canToggleListingAlert,
+    toggle: toggleListingAlert,
+  } = useBuyerListingAlert(collectionKey);
+
+  const handleToggleListingAlert = useCallback(() => {
+    if (!canToggleListingAlert) {
+      runTradeAccessGate();
+      return;
+    }
+    trackEvent("buyer_listing_alert_toggled", {
+      collection_id: collectionKey,
+      active: !listingAlertActive,
+      source: "orderbook_notify",
+    });
+    toggleListingAlert();
+  }, [
+    canToggleListingAlert,
+    collectionKey,
+    listingAlertActive,
+    runTradeAccessGate,
+    toggleListingAlert,
+  ]);
+
+  const orderBookPropsWithActions = useMemo(
+    () => ({
+      ...collectionOrderBookProps,
+      onPlaceBid: listingModal.openSetLevelBid,
+      onListYours: () => router.push("/sell"),
+      listingAlertActive,
+      listingAlertPending,
+      onToggleListingAlert: handleToggleListingAlert,
+    }),
+    [
+      collectionOrderBookProps,
+      listingModal.openSetLevelBid,
+      router,
+      listingAlertActive,
+      listingAlertPending,
+      handleToggleListingAlert,
+    ],
+  );
+
   const highestBidUsd = useMemo(
     () => bestBidFromRows(collectionBids),
     [collectionBids],
@@ -137,29 +188,51 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const openBuyFloor = () => {
     const active = [...listings.askMap.values()].filter((o) => o.status === "active");
+    if (active.length === 0) return;
     active.sort((a, b) => {
-      const pa = Number(a.considerationAmount) || 0;
-      const pb = Number(b.considerationAmount) || 0;
-      return pa - pb;
+      try {
+        const pa = BigInt(a.considerationAmount);
+        const pb = BigInt(b.considerationAmount);
+        if (pa === pb) return Number(a.tokenId) - Number(b.tokenId);
+        return pa < pb ? -1 : 1;
+      } catch {
+        return 0;
+      }
     });
-    const floor = active[0];
+    let floorAmt: bigint;
+    try {
+      floorAmt = BigInt(active[0]!.considerationAmount);
+    } catch {
+      return;
+    }
+    const floorOrders = active.filter((o) => {
+      try {
+        return BigInt(o.considerationAmount) === floorAmt;
+      } catch {
+        return false;
+      }
+    });
+    // Same floor price on multiple cards → pick which copy (Order book ask picker UX).
+    if (floorOrders.length > 1) {
+      const price = priceUsdcFromOrder(floorOrders[0]!);
+      setOrderBookAskPicker({
+        side: "ask",
+        levelKey: `ask-${priceLevelKey(price)}`,
+        price,
+        orders: floorOrders,
+      });
+      return;
+    }
+    const floor = floorOrders[0];
     if (floor?.tokenId == null) return;
     const tid = Number(floor.tokenId);
     if (!Number.isFinite(tid)) return;
     listingModal.openListing(tid, "buy");
   };
 
-  const listingsGridProps = {
-    collectionKey,
-    tokenIds: listings.tokenIds,
-    askMap: listings.askMap,
-    batchMetadata: listingsBatchMetadata,
-    address: address as Address | undefined,
-    gradeLabel: headline.headlineGradeBadge ?? market.gradeAwareTierLabel,
-    onOpenListing: listingModal.openListing,
-    onPlaceBid: listingModal.openSetLevelBid,
-    emptyMode: "card-html" as const,
-  };
+  const similarPanel = (
+    <CollectionSimilarItemsSection collectionKey={collectionKey} />
+  );
 
   const renderHeroDetailsTabs = () => (
     <CollectionHeroDetailsTabs
@@ -188,32 +261,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     mobileScrollPanel,
   } = buildCollectionDetailMarketsSlots({
     market,
-    collectionOrderBookProps,
+    collectionOrderBookProps: orderBookPropsWithActions,
     coverImageUrl: collectionCoverUrl,
     headlineTitle: headline.collectionHeadlineDisplayTitle,
     headlineParts: headline.collectionHeadlineParts,
     headlineMeta: headline.collectionHeadlineMetaStrip,
-    mobileListingsBody: <CollectionDetailListingsGrid {...listingsGridProps} />,
-    mobileListingCount: asks.length,
+    similarPanel,
     detailsPanel: renderHeroDetailsTabs(),
     highestBidUsd,
     lowestAskUsd,
-    bidCount: collectionBids.length,
     onPlaceBid: listingModal.openSetLevelBid,
     placeBidDisabled: false,
     onBuyLowestAsk: openBuyFloor,
     buyDisabled: asks.length === 0,
   });
-
-  const collectionListingsBody = (
-    <CollectionDetailListingsSection
-      listingCount={asks.length}
-      highestBidUsd={highestBidUsd}
-      bidCount={collectionBids.length}
-    >
-      <CollectionDetailListingsGrid {...listingsGridProps} />
-    </CollectionDetailListingsSection>
-  );
 
   return (
     <div className="collection-detail-page min-h-screen min-w-0 text-white max-lg:min-h-0">
@@ -265,14 +326,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           showListingSummary={false}
           priceChart={collectionDualPriceChart}
           orderBookNextToChart={collectionOrderBook}
-          marketsBelowChart={collectionListingsBody}
+          marketsBelowChart={similarPanel}
         />
       </div>
 
       <CollectionMobileTradeBar
         lowestAskUsd={lowestAskUsd}
-        highestBidUsd={highestBidUsd}
-        onBuy={asks.length > 0 ? openBuyFloor : undefined}
+        onBuy={openBuyFloor}
         onBid={listingModal.openSetLevelBid}
         buyDisabled={asks.length === 0}
         bidDisabled={false}

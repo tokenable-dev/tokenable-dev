@@ -21,14 +21,15 @@ import {
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import { OrderBookCenterStrip } from "./OrderBookCenterStrip";
 import { OrderBookDepthLevelRow } from "./OrderBookDepthLevelRow";
+import { OrderBookEmptyPanel } from "./OrderBookEmptyPanel";
 
 function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; collectionDetail?: boolean }) {
   if (collectionDetail) {
     return (
       <div className="cd-ob-book-hdr shrink-0">
         <span>Price</span>
-        <span>Qty</span>
-        <span>Side</span>
+        <span className="cd-ob-book-hdr__r">Qty</span>
+        <span className="cd-ob-book-hdr__r">Total</span>
       </div>
     );
   }
@@ -61,19 +62,37 @@ function OrderBookFooterCounts({
   flush,
   showSellHint,
   collectionDetail,
+  asksEmptyBidsLive,
+  bidsEmptyAsksLive,
 }: {
   bidCount: number;
   askCount: number;
   flush?: boolean;
   showSellHint?: boolean;
   collectionDetail?: boolean;
+  asksEmptyBidsLive?: boolean;
+  bidsEmptyAsksLive?: boolean;
 }) {
   if (collectionDetail) {
-    return (
-      <p className="cd-ob-book-hint">
-        Asks fill top-down, bids bottom-up — highest bid matches first.
-      </p>
-    );
+    if (asksEmptyBidsLive) {
+      return (
+        <>
+          <p className="cd-ob-book-hint">
+            Bids are still live — sellers can accept any of these now.
+          </p>
+          <p className="cd-ob-book-hint cd-ob-book-hint--notify-note">
+            Notify me = alert when this card is first listed for sale. One-time, then
+            auto-off.
+          </p>
+        </>
+      );
+    }
+    let hint = "Asks fill top-down, bids bottom-up — highest bid matches first.";
+    if (bidsEmptyAsksLive) {
+      hint =
+        "Asks are still live — buy at any ask price above, or place a bid and wait.";
+    }
+    return <p className="cd-ob-book-hint">{hint}</p>;
   }
 
   return (
@@ -128,7 +147,6 @@ function AskLevelsList({
           onSelectLevel={onSelectLevel}
           flush={flush}
           collectionDetail={collectionDetail}
-          sideTag={collectionDetail ? "ask" : undefined}
         />
       ))}
     </div>
@@ -152,7 +170,7 @@ function BidLevelsList({
 }) {
   return (
     <div className={wrapperClass}>
-      {levels.map((level, i) => (
+      {levels.map((level) => (
         <OrderBookDepthLevelRow
           key={level.key}
           side="bid"
@@ -161,9 +179,6 @@ function BidLevelsList({
           onSelectLevel={onSelectLevel}
           flush={flush}
           collectionDetail={collectionDetail}
-          sideTag={
-            collectionDetail ? (i === 0 ? "highest" : "bid") : undefined
-          }
         />
       ))}
     </div>
@@ -184,16 +199,11 @@ function scrollPaneClass(
     : "shrink-0 overflow-hidden";
 }
 
-function isOrderBookFullyEmpty(
+function hasNoMarket(
   askLevels: OrderBookDepthLevel[],
   bidLevels: OrderBookDepthLevel[],
-  bookCenterModel: BookCenterModel,
 ): boolean {
-  return (
-    askLevels.length === 0 &&
-    bidLevels.length === 0 &&
-    bookCenterModel.primary === "N/A"
-  );
+  return askLevels.length === 0 && bidLevels.length === 0;
 }
 
 function OrderBookEmptyNaOnly({
@@ -234,6 +244,11 @@ export function OrderBookBookTab({
   selectedLevelKey,
   onSelectLevel,
   collectionDetail,
+  onPlaceBid,
+  onListYours,
+  listingAlertActive,
+  listingAlertPending,
+  onToggleListingAlert,
 }: {
   flush?: boolean;
   compact?: boolean;
@@ -248,12 +263,36 @@ export function OrderBookBookTab({
   selectedLevelKey?: string | null;
   onSelectLevel?: (selection: BookRowSelection) => void;
   collectionDetail?: boolean;
+  onPlaceBid?: () => void;
+  onListYours?: () => void;
+  listingAlertActive?: boolean;
+  listingAlertPending?: boolean;
+  onToggleListingAlert?: () => void;
 }) {
   const askScrollable = askLevels.length > 0;
   const bidScrollable = bidLevels.length > 0;
-  const fullyEmpty = isOrderBookFullyEmpty(askLevels, bidLevels, bookCenterModel);
+  const noMarket = hasNoMarket(askLevels, bidLevels);
+  const asksEmptyBidsLive =
+    collectionDetail && askLevels.length === 0 && bidLevels.length > 0;
+  const bidsEmptyAsksLive =
+    collectionDetail && bidLevels.length === 0 && askLevels.length > 0;
 
-  if (fullyEmpty) {
+  if (noMarket && collectionDetail) {
+    return (
+      <div className="cd-ob-book cd-ob-book--empty-market">
+        <OrderBookEmptyPanel
+          variant="no_market"
+          onPlaceBid={onPlaceBid}
+          onListYours={onListYours}
+        />
+        <p className="cd-ob-book-hint cd-ob-book-hint--market-empty">
+          Once a card is vaulted, it can be listed here instantly — no shipping needed.
+        </p>
+      </div>
+    );
+  }
+
+  if (noMarket && !collectionDetail) {
     return (
       <OrderBookEmptyNaOnly
         flush={flush}
@@ -268,75 +307,107 @@ export function OrderBookBookTab({
       <div
         className={`flex min-h-0 flex-col overflow-hidden ${
           collectionDetail
-            ? "cd-ob-book h-full"
+            ? "cd-ob-book"
             : mobileEmbed
               ? "h-full"
               : "h-full flex-1"
         }`}
       >
         <OrderBookColumnHeader flush collectionDetail={collectionDetail} />
-        <div
-          className={
-            collectionDetail
-              ? "cd-ob-book__scroll min-h-0 flex-1"
-              : "contents"
-          }
-        >
-          <div
-            className={
-              collectionDetail
-                ? "cd-ob-book-asks min-h-0"
-                : scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)
-            }
-          >
-            <AskLevelsList
-              levels={askLevels}
-              selectedLevelKey={selectedLevelKey}
-              onSelectLevel={onSelectLevel}
-              flush
-              collectionDetail={collectionDetail}
-              wrapperClass={
+        {collectionDetail ? (
+          <div className="cd-ob-book-stack">
+            <div className="cd-ob-book-asks">
+              {asksEmptyBidsLive ? (
+                <OrderBookEmptyPanel
+                  variant="no_asks"
+                  onPlaceBid={onPlaceBid}
+                  listingAlertActive={listingAlertActive}
+                  listingAlertPending={listingAlertPending}
+                  onToggleListingAlert={onToggleListingAlert}
+                />
+              ) : (
+                <AskLevelsList
+                  levels={askLevels}
+                  selectedLevelKey={selectedLevelKey}
+                  onSelectLevel={onSelectLevel}
+                  flush
+                  collectionDetail
+                  wrapperClass="cd-ob-book-asks__list"
+                />
+              )}
+            </div>
+            <div className="cd-ob-book-center shrink-0">
+              <OrderBookCenterStrip
+                model={bookCenterModel}
                 collectionDetail
-                  ? "cd-ob-book-asks__list"
-                  : askScrollable
+                asksEmptyBidsLive={asksEmptyBidsLive}
+                bidsEmptyAsksLive={bidsEmptyAsksLive}
+                bestBidUsdc={bidLevels[0]?.price ?? null}
+                bestAskUsdc={
+                  askLevels.length > 0
+                    ? Math.min(...askLevels.map((l) => l.price))
+                    : null
+                }
+              />
+            </div>
+            <div className="cd-ob-book-bids">
+              {bidsEmptyAsksLive ? (
+                <OrderBookEmptyPanel
+                  variant="no_bids"
+                  onPlaceBid={onPlaceBid}
+                />
+              ) : (
+                <BidLevelsList
+                  levels={bidLevels}
+                  selectedLevelKey={selectedLevelKey}
+                  onSelectLevel={onSelectLevel}
+                  flush
+                  collectionDetail
+                  wrapperClass="cd-ob-book-bids__list"
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              className={scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)}
+            >
+              <AskLevelsList
+                levels={askLevels}
+                selectedLevelKey={selectedLevelKey}
+                onSelectLevel={onSelectLevel}
+                flush
+                wrapperClass={
+                  askScrollable
                     ? `flex min-h-full flex-col justify-end gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
                     : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
-              }
-            />
-          </div>
-          <div
-            className={
-              collectionDetail ? "cd-ob-book-center shrink-0" : "relative mx-0.5 shrink-0"
-            }
-          >
-            <OrderBookCenterStrip model={bookCenterModel} collectionDetail={collectionDetail} />
-          </div>
-          <div
-            className={
-              collectionDetail
-                ? "cd-ob-book-bids min-h-0"
-                : scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)
-            }
-          >
-            <BidLevelsList
-              levels={bidLevels}
-              selectedLevelKey={selectedLevelKey}
-              onSelectLevel={onSelectLevel}
-              flush
-              collectionDetail={collectionDetail}
-              wrapperClass={
-                collectionDetail
-                  ? "cd-ob-book-bids__list"
-                  : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
-              }
-            />
-          </div>
-        </div>
+                }
+              />
+            </div>
+            <div className="relative mx-0.5 shrink-0">
+              <OrderBookCenterStrip model={bookCenterModel} />
+            </div>
+            <div
+              className={scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)}
+            >
+              <BidLevelsList
+                levels={bidLevels}
+                selectedLevelKey={selectedLevelKey}
+                onSelectLevel={onSelectLevel}
+                flush
+                wrapperClass={`flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`}
+              />
+            </div>
+          </>
+        )}
         <OrderBookFooterCounts
           bidCount={bidCount}
           askCount={askCount}
           flush
           collectionDetail={collectionDetail}
+          asksEmptyBidsLive={asksEmptyBidsLive}
+          bidsEmptyAsksLive={bidsEmptyAsksLive}
         />
       </div>
     );

@@ -130,7 +130,7 @@ For self vault (`deliveryMode: "direct"`), `mintedTo` equals `intendedRecipient`
 
 Pay-first multi-card redeem. Client transfers USDC to `PLATFORM_FEE_RECIPIENT`, then posts the tx hash with `tokenIds` + `shipTo`. Backend verifies the ERC-20 `Transfer` amount ≥ estimate, stores the **exact** receipted amount as `payment_received_usdc_micros` (canonical refund amount — never recompute from fees), and creates one `vault_redemptions` row per token (`status=ownership_verified`) with fee snapshots.
 
-**Quote pinning:** the server recomputes the estimate at verification time, but carrier rates can drift between the buyer's quote and this recompute. Payment is accepted against the **cheaper** of the fresh total and any unexpired recently issued estimate for the same token set + destination (in-memory, TTL = quote validity) — a completed USDC transfer is never rejected by re-quote drift.
+**Quote pinning:** the server recomputes the estimate at verification time, but carrier rates can drift between Calculate and Pay (FedEx sandbox especially). Payment is accepted against the **cheaper** of the fresh total and any unexpired recently issued estimate for the same token set + destination (in-memory, TTL = quote validity) — a completed USDC transfer is never rejected by re-quote drift. **Fee snapshots** (`fee_shipping_usd` per card: shipment total on the first card of each vault, `0` on siblings) are taken from the quote whose total matches the **on-chain USDC**, not from a later more expensive re-quote.
 
 **Missing vault cycle self-heal:** if an `rwa_tokens` row has no `vault_cycle_id` (e.g. row created by the chain registry sync after a DB reset) but has a PSA cert on file, batch creation backfills the `vault_assets` / `vault_cycles` records (status `minted`, unknown `deposited_at` → treated as early withdrawal) instead of stranding a paid redeem. Tokens with no registry row or no cert fail the **estimate** with a clear message before any payment.
 
@@ -173,7 +173,21 @@ The backend never pulls NFTs from the buyer. PSA Vault and Partner Self Vault sh
 
 **Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-User tap **I've received my cards**. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at`. Idempotent if already completed.
+User tap **I've received my cards**. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via=user`. Idempotent if already completed.
+
+**FedEx Track auto-receipt (server cron):** when `FEDEX_TRACK_ENABLED=true`, Nest polls `POST /track/v1/trackingnumbers` for open redeem rows with FedEx (or empty) `tracking_carrier`. On Delivered (`ACTUAL_DELIVERY` / status `DL`) it sets `carrier_delivered_at` and emits `RD_RECEIVED_REMINDER`. After `REDEEM_AUTO_RECEIPT_GRACE_DAYS` (default **3**) from the latest delivery in the batch, cron auto-confirms receipt (`receipt_confirmed_via=auto` → `completed`) so settlement can proceed without the user returning to tap the button. Non-FedEx carriers (UPS/DHL) still require the user tap. Apply `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql` on existing DBs.
+
+**Local sandbox (Test keys):** Track lookup works; **live Delivered is not available** until Production keys + `https://apis.fedex.com`. Real FedEx numbers (12–15 digits) will be used then. Until then, close a redeem with **I've received my cards**. `POST /api/marketplace/admin/fedex/track/poll-redeems` only stamps `carrier_delivered_at` if sandbox Track reports Delivered — do not rely on `trackingnumbers-probe` (probe does not write DB).
+
+| Env | Purpose |
+|-----|---------|
+| `FEDEX_TRACK_ENABLED` | `true` to poll FedEx Track for redeem deliveries |
+| `FEDEX_API_BASE_URL` | Sandbox or prod base URL (shared) |
+| `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` | Basic Integrated Visibility project (Track). FedEx does not allow Track + Rate in one project — use separate keys. Falls back to `FEDEX_CLIENT_ID` / `SECRET` if unset. |
+| `REDEEM_FEDEX_TRACK_CRON` | Default `*/30 * * * *` |
+| `REDEEM_AUTO_RECEIPT_ENABLED` | Default on when Track is on; set `0` to only stamp delivery + remind |
+| `REDEEM_AUTO_RECEIPT_GRACE_DAYS` | Days after delivery before auto confirm (default `3`; ignored when `GRACE_SECONDS` is set) |
+| `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` | Optional override for dev/test (e.g. `300` = 5 minutes) |
 
 ## `POST /api/rwa/redeem-request`
 
@@ -189,7 +203,10 @@ Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(va
 
 **Query:** `tokenIds` (optional CSV of numeric token IDs)
 
-**Response:** array of `{ redemptionId, tokenId, tokenContract, status, vaultCycleStatus, requestedAt, vaultReleasedAt, paymentBatchId, paymentTxHash, custody…, feeRetrievalUsd, feeEarlyWithdrawalUsd, feeShippingUsd, feeTotalUsd, paymentReceivedUsdcMicros, earlyWithdrawal }` — fee columns are **per-card snapshots**; `paymentReceivedUsdcMicros` is **batch-total** (identical on sibling rows — do not SUM).
+**Response:** array of `{ redemptionId, tokenId, tokenContract, status, vaultCycleStatus, requestedAt, vaultReleasedAt, paymentBatchId, paymentTxHash, custody…, trackingNumber, trackingCarrier, carrierDeliveredAt, autoReceiptEligibleAt, feeRetrievalUsd, feeEarlyWithdrawalUsd, feeShippingUsd, feeTotalUsd, paymentReceivedUsdcMicros, earlyWithdrawal }` — fee columns are **per-card snapshots**; `paymentReceivedUsdcMicros` is **batch-total** (identical on sibling rows — do not SUM).
+
+- `carrierDeliveredAt` — set when FedEx Track reports Delivered (null while In transit).
+- `autoReceiptEligibleAt` — `carrierDeliveredAt` + grace (`REDEEM_AUTO_RECEIPT_GRACE_SECONDS` or `_DAYS`); null if not delivered or already `completed`. Portfolio transit UI shows delivered time + “Auto-confirm in ~N min”.
 
 ---
 
@@ -233,10 +250,12 @@ Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RA
 | `PSA_VAULT_*` | PSA fee schedule |
 | `FEDEX_RATE_ENABLED` | `true` to call FedEx Rate (sandbox or prod base URL) |
 | `FEDEX_API_BASE_URL` | Default `https://apis-sandbox.fedex.com` |
-| `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET` / `FEDEX_ACCOUNT_NUMBER` | Project credentials |
+| `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET` / `FEDEX_ACCOUNT_NUMBER` | Ship, Rate & other APIs project |
+| `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` | Basic Integrated Visibility (Track) project — separate from Rate |
 | `FEDEX_RATE_BASE_WEIGHT_LB` / `FEDEX_RATE_WEIGHT_PER_CARD_LB` | Package weight for Rate |
 | `FEDEX_RATE_QUOTE_TTL_MINUTES` | Quote validity window (default `15`) |
 | `FEDEX_RATE_FALLBACK_STUB` | Optional: stub on *any* Rate failure. **KR→KR is never stubbed** — estimate fails with a clear message instead. |
+| `FEDEX_TRACK_ENABLED` | `true` to poll Track for redeem delivery → auto receipt (see confirm-received) |
 | `PARTNER_VAULT_SHIPPING_US/CA/INTL_USD` | Stub when Rate disabled |
 | `PLATFORM_FEE_RECIPIENT` | USDC pay destination |
 

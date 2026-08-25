@@ -1,8 +1,0 @@
-/* Tokenable Design System — global CSS entry point.
-   Consumers link this one file. Keep it a list of @import lines only. */
-
-@import './tokens/fonts.css';
-@import './tokens/fig-tokens.css';
-@import './tokens/fig-typography.css';
-@import './tokens/base.css';
-@import './components/components.css';

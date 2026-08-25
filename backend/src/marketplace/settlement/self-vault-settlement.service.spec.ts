@@ -179,3 +179,107 @@ describe('SelfVaultSettlementService.autoPayoutCron', () => {
     expect(pay).toHaveBeenCalledWith('due-1');
   });
 });
+
+describe('SelfVaultSettlementService.createFromFulfilledAsk (resale)', () => {
+  const FEE = '0x1111111111111111111111111111111111111111';
+  const SELLER_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const SELLER_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const BUYER_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const BUYER_C = '0xcccccccccccccccccccccccccccccccccccccccc';
+
+  function askShape(orderHash: string, offerer: string, tokenId: string) {
+    return {
+      orderHash,
+      tokenContract: '0xcccccccccccccccccccccccccccccccccccccccc',
+      tokenId,
+      offerer,
+      considerationAmount: '1000000',
+      parameters: {
+        consideration: [
+          {
+            itemType: 1,
+            recipient: FEE,
+            startAmount: '1000000',
+          },
+        ],
+      },
+    };
+  }
+
+  it('creates a separate ledger row per fulfilled ask (same token resale)', async () => {
+    const saved: Array<{ orderHash: string; sellerWallet: string }> = [];
+    const repo = {
+      findOne: jest.fn(async ({ where }: { where: { orderHash: string } }) =>
+        saved.find((r) => r.orderHash === where.orderHash) ?? null,
+      ),
+      create: jest.fn((partial: Record<string, unknown>) => partial),
+      save: jest.fn(async (row: { orderHash: string; sellerWallet: string }) => {
+        const out = { ...row, id: `id-${saved.length + 1}` };
+        saved.push(out);
+        return out;
+      }),
+    };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        get: (k: string) =>
+          k === 'PLATFORM_FEE_RECIPIENT'
+            ? FEE
+            : k === 'PLATFORM_FEE_BPS'
+              ? '500'
+              : undefined,
+      } as never,
+      {} as never,
+      { isConfigured: () => false } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
+    );
+
+    const first = await svc.createFromFulfilledAsk({
+      ask: askShape('0xask1', SELLER_A, '42') as never,
+      buyerWallet: BUYER_B,
+      chainId: 11155111,
+    });
+    const second = await svc.createFromFulfilledAsk({
+      ask: askShape('0xask2', SELLER_B, '42') as never,
+      buyerWallet: BUYER_C,
+      chainId: 11155111,
+    });
+
+    expect(first?.orderHash).toBe('0xask1');
+    expect(second?.orderHash).toBe('0xask2');
+    expect(first?.id).not.toBe(second?.id);
+    expect(saved).toHaveLength(2);
+    expect(svc.isFullPlatformTakeAsk(askShape('0xask1', SELLER_A, '42') as never)).toBe(
+      true,
+    );
+  });
+
+  it('listByStatus open queries pending_confirm and confirmed only', async () => {
+    const repo = {
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const svc = new SelfVaultSettlementService(
+      repo as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { get: () => undefined } as never,
+      {} as never,
+      { isConfigured: () => false } as never,
+      { notifySellerPayoutDone: jest.fn() } as never,
+    );
+
+    await svc.listByStatus('open', 11155111);
+    expect(repo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [
+          { chainId: 11155111, status: 'pending_confirm' },
+          { chainId: 11155111, status: 'confirmed' },
+        ],
+      }),
+    );
+  });
+});

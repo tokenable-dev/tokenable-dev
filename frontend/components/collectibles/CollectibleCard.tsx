@@ -9,7 +9,7 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import { buildMarketsCollectionMeta, buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
@@ -131,11 +131,10 @@ export function CollectibleCard({
     collection,
     comp: collection.components,
   });
-  const titleMeta = buildMarketsCollectionMeta({
-    collection,
-    comp: collection.components,
-  });
-  const titleHover = [title, titleMeta].filter(Boolean).join(" · ");
+  const grade = formatGradeLabel(collection);
+  const titleHover = grade && !title.toLowerCase().includes(grade.toLowerCase())
+    ? `${title} · ${grade}`
+    : title;
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct =
     marketChangePctOverride !== undefined
@@ -143,7 +142,6 @@ export function CollectibleCard({
       : resolveMarketsListingMarketChangePct(snapshot);
   const changePeriod =
     marketChangePeriodLabel?.trim() || formatCardChangePeriod(snapshot);
-  const grade = formatGradeLabel(collection);
   const comp = parseCollectionComponents(collection.components);
   const pop =
     typeof comp.psaTotalPopulation === "number" && comp.psaTotalPopulation >= 0

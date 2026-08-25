@@ -2,7 +2,6 @@ import type { MarketplaceCollectionSummary } from "@/lib/core";
 import {
   buildAssetDetailHeadlineParts,
   formatCardDisplayMeta,
-  formatCardDisplayName,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
@@ -48,7 +47,16 @@ export function buildMarketsCollectionHeadlineParts(params: {
   });
   const cardNumber = formatHeadlineCardNumber(comp.cardNumber);
   const variety = resolveCollectionComponentVariant(comp);
-  const year = yearFromComponents(comp);
+  let year: number | string | null = yearFromComponents(comp);
+  if (year == null && dl) {
+    const m = /(\d{4})/.exec(dl);
+    if (m) {
+      const yNum = Number(m[1]);
+      if (Number.isFinite(yNum) && yNum >= 1880 && yNum <= 2100) {
+        year = yNum;
+      }
+    }
+  }
 
   return buildAssetDetailHeadlineParts({
     setLine: setLine || null,
@@ -59,14 +67,39 @@ export function buildMarketsCollectionHeadlineParts(params: {
   });
 }
 
-/** Markets / home / search tile title — Display name (Character · Variant). */
+/**
+ * Markets grid / search / ticker catalog line — Card.html card__title order:
+ * `{Year} {Set} #{Number} {CardName} [{Variant}]`
+ */
+export function formatMarketsCollectionTileTitle(
+  parts: AssetDetailHeadlineParts,
+): string {
+  const card = parts.cardName?.trim() ?? "";
+  const variety = parts.variety?.trim() ?? "";
+  const nameChunks: string[] = [];
+  if (card) nameChunks.push(card);
+  if (
+    variety &&
+    !card.toLowerCase().includes(variety.toLowerCase()) &&
+    !nameChunks.some((c) => c.toLowerCase().includes(variety.toLowerCase()))
+  ) {
+    nameChunks.push(variety);
+  }
+
+  return [parts.year, parts.setName, parts.cardNumber, ...nameChunks]
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s): s is string => Boolean(s))
+    .join(" ");
+}
+
+/** Markets / home / search tile title — full catalog line (not hero Display name). */
 export function buildMarketsCollectionTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
 }): string {
   const { collection } = params;
   const parts = buildMarketsCollectionHeadlineParts(params);
-  const out = formatCardDisplayName(parts);
+  const out = formatMarketsCollectionTileTitle(parts);
   if (out) return out;
   const dl =
     typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";

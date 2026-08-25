@@ -7,7 +7,8 @@ export function useMarketplaceAdminDataInventory() {
   return useQuery({
     queryKey: rq.adminDataInventory(),
     queryFn: getAdminDataInventory,
-    staleTime: 60_000,
-    refetchInterval: 120_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 }

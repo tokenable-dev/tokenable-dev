@@ -63,7 +63,7 @@ export function CollectionHeroDetailsTabs({
           {showPsa ? (
             <SidebarTabButton
               id="psa"
-              label="PSA Population"
+              label="Pop."
               active={tab === "psa"}
               onSelect={setTab}
             />

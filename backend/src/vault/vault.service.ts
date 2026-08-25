@@ -871,11 +871,19 @@ export class VaultService {
     tokenContract: string,
     tokenId: string,
   ): Promise<'standard' | 'self_vault_hold'> {
+    const raw = String(tokenId ?? '').trim();
+    let normalized = raw;
+    if (/^\d+$/.test(raw)) {
+      let i = 0;
+      while (i < raw.length - 1 && raw[i] === '0') i++;
+      normalized = raw.slice(i);
+    }
+    const candidates = [...new Set([raw, normalized].filter(Boolean))];
     const token = await this.rwaTokens.findOne({
-      where: {
+      where: candidates.map((tid) => ({
         tokenContract: tokenContract.toLowerCase(),
-        tokenId: String(tokenId).trim(),
-      },
+        tokenId: tid,
+      })),
     });
     return token?.settlementPolicy === 'self_vault_hold'
       ? 'self_vault_hold'
@@ -1046,6 +1054,8 @@ export class VaultService {
       paymentTxHash: string | null;
       trackingNumber: string | null;
       trackingCarrier: string | null;
+      /** FedEx Track Delivered stamp (null until carrier reports delivery). */
+      carrierDeliveredAt: string | null;
       refundStatus: string;
       settlementPolicy: 'standard' | 'self_vault_hold' | null;
       vaultPartnerId: string | null;
@@ -1081,6 +1091,7 @@ export class VaultService {
         'r.payment_tx_hash AS "paymentTxHash"',
         'r.tracking_number AS "trackingNumber"',
         'r.tracking_carrier AS "trackingCarrier"',
+        'r.carrier_delivered_at AS "carrierDeliveredAt"',
         'r.refund_status AS "refundStatus"',
         't.settlement_policy AS "settlementPolicy"',
         't.vault_partner_id AS "vaultPartnerId"',
@@ -1110,6 +1121,7 @@ export class VaultService {
       paymentTxHash: string | null;
       trackingNumber: string | null;
       trackingCarrier: string | null;
+      carrierDeliveredAt: Date | null;
       refundStatus: string | null;
       settlementPolicy: 'standard' | 'self_vault_hold' | null;
       vaultPartnerId: string | null;
@@ -1148,6 +1160,12 @@ export class VaultService {
       paymentTxHash: row.paymentTxHash ?? null,
       trackingNumber: row.trackingNumber ?? null,
       trackingCarrier: row.trackingCarrier ?? null,
+      carrierDeliveredAt:
+        row.carrierDeliveredAt instanceof Date
+          ? row.carrierDeliveredAt.toISOString()
+          : row.carrierDeliveredAt
+            ? String(row.carrierDeliveredAt)
+            : null,
       refundStatus: row.refundStatus ?? 'none',
       settlementPolicy:
         row.settlementPolicy === 'self_vault_hold' ||
@@ -1205,19 +1223,25 @@ export class VaultService {
   }
 
   /**
-   * User "I've received my cards" — mark rows completed (v1 pay-first UI).
+   * User "I've received my cards" — or auto after FedEx delivery + grace.
    * Caller must enforce ownership + all tracked. Idempotent for already-completed.
    */
-  async markUserReceiptConfirmed(rows: VaultRedemption[]): Promise<VaultRedemption[]> {
+  async markUserReceiptConfirmed(
+    rows: VaultRedemption[],
+    opts?: { via?: 'user' | 'auto' },
+  ): Promise<VaultRedemption[]> {
     if (rows.length === 0) return [];
+    const via = opts?.via ?? 'user';
     const at = new Date();
     for (const row of rows) {
       if (row.status === 'completed') {
         if (!row.vaultReleasedAt) row.vaultReleasedAt = at;
+        if (!row.receiptConfirmedVia) row.receiptConfirmedVia = via;
         continue;
       }
       row.status = 'completed';
       row.vaultReleasedAt = at;
+      row.receiptConfirmedVia = via;
     }
     return this.redemptions.save(rows);
   }

@@ -37,6 +37,10 @@ export type MyRedemptionRow = {
   paymentTxHash?: string | null;
   trackingNumber?: string | null;
   trackingCarrier?: string | null;
+  /** ISO when FedEx Track reported Delivered (null while still In transit). */
+  carrierDeliveredAt?: string | null;
+  /** ISO when auto confirm-received becomes eligible (delivered + grace). */
+  autoReceiptEligibleAt?: string | null;
   refundStatus?: string;
   settlementPolicy?: "standard" | "self_vault_hold" | null;
   vaultPartnerId?: string | null;
@@ -380,6 +384,8 @@ function parseUsdField(raw: string | null | undefined): number {
 
 /**
  * Build a RedeemEstimate-shaped Paid breakdown from stored per-card fee snapshots.
+ * Shipping is once per vault shipment (first card holds the amount; siblings are 0).
+ * Sum those rows — two vaults → two shipping amounts in one USDC payment.
  * `paymentReceivedUsdcMicros` is batch-total (do not sum sibling rows).
  */
 export function paidEstimateFromMyRedemptions(
@@ -400,8 +406,15 @@ export function paidEstimateFromMyRedemptions(
     if (r.earlyWithdrawal === true || early > 0) earlyWithdrawalCardCount += 1;
     feeTotalSum += parseUsdField(r.feeTotalUsd);
   }
+  shippingUsd = roundPaidUsd(shippingUsd);
+  retrievalFeeTotalUsd = roundPaidUsd(retrievalFeeTotalUsd);
+  earlyWithdrawalFeeTotalUsd = roundPaidUsd(earlyWithdrawalFeeTotalUsd);
 
-  let totalUsd = feeTotalSum;
+  let totalUsd = roundPaidUsd(
+    feeTotalSum > 0
+      ? feeTotalSum
+      : shippingUsd + retrievalFeeTotalUsd + earlyWithdrawalFeeTotalUsd,
+  );
   const micros = rows.find((r) => r.paymentReceivedUsdcMicros?.trim())
     ?.paymentReceivedUsdcMicros;
   if (micros) {
@@ -411,8 +424,6 @@ export function paidEstimateFromMyRedemptions(
     } catch {
       /* keep fee sum */
     }
-  } else if (totalUsd <= 0) {
-    totalUsd = shippingUsd + retrievalFeeTotalUsd + earlyWithdrawalFeeTotalUsd;
   }
 
   const retrievalFeePerCardUsd =
@@ -450,4 +461,8 @@ export function paidEstimateFromMyRedemptions(
     source: "payment_snapshot",
     ageBasis: "deposited_at",
   };
+}
+
+function roundPaidUsd(n: number): number {
+  return Math.round(n * 100) / 100;
 }

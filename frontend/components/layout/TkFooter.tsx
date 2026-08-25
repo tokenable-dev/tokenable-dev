@@ -3,23 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ASSETS } from "@/constants/assets";
-import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
+import {
+  isMarketplaceCollectionDetailPath,
+  shouldHideAppChrome,
+} from "@/constants/layout";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
-
-function shouldHideChrome(pathname: string | null | undefined): boolean {
-  if (!pathname) return false;
-  if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
-  if (pathname === "/sell") return true;
-  if (pathname.startsWith("/marketplace/admin")) return true;
-  if (pathname.startsWith("/dev/design-system")) return true;
-  if (pathname.startsWith("/dev/admin-ui")) return true;
-  return false;
-}
 
 export function TkFooter() {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
-  if (shouldHideChrome(pathname)) return null;
+  if (shouldHideAppChrome(pathname)) return null;
 
   const hideOnMobile = isMarketplaceCollectionDetailPath(pathname);
 

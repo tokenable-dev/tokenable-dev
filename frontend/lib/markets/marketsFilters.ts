@@ -3,7 +3,19 @@ import type {
   MarketplaceCollectionSummary,
   Order,
 } from "@/lib/core";
-import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import {
+  parseCollectionComponents,
+  type CollectionComponents,
+} from "@/lib/marketplace/collectionDetailComponents";
+import {
+  leadingYearFromSetLine,
+  resolveCollectionSetFacetLabelFromLine,
+  stripLeadingYearFromSetLine,
+  toCardDisplayCase,
+  yearFromComponents,
+} from "@/lib/marketplace/collectionFullDetailsTitle";
+import { bucketCardNameForDisplay, bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
+import { resolveCollectionSlabSetLine } from "@/lib/marketplace/slabDisplayTitle";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
 
@@ -212,6 +224,136 @@ export function collectionMatchesGradeFilters(
   return selectedGrades.has(grade as MarketsGradeFilterId);
 }
 
+function normalizeFacetToken(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Canonical set label for Details KV + Markets `set=` facet — year stripped (Year is its own row).
+ */
+export function resolveCollectionSetFacetLabel(
+  comp: CollectionComponents,
+  opts?: { setLineHint?: string | null; marketSetName?: string | null },
+): string {
+  const raw =
+    opts?.setLineHint?.trim() ||
+    resolveCollectionSlabSetLine(comp)?.trim() ||
+    bucketCardSetForDisplay(comp).trim() ||
+    opts?.marketSetName?.trim() ||
+    "";
+  return resolveCollectionSetFacetLabelFromLine(raw);
+}
+
+/** Unique set facet labels from loaded collections (same strings Details links use). */
+export function collectMarketsSetFacetOptions(
+  collections: readonly MarketplaceCollectionSummary[],
+  limit = 48,
+): string[] {
+  const seen = new Map<string, string>();
+  for (const c of collections) {
+    const comp = parseCollectionComponents(c.components);
+    const label = resolveCollectionSetFacetLabel(comp);
+    if (!label) continue;
+    const key = normalizeFacetToken(label);
+    if (!key || seen.has(key)) continue;
+    seen.set(key, toCardDisplayCase(label));
+    if (seen.size >= limit) break;
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+
+function collectionYear(
+  collection: MarketplaceCollectionSummary,
+): number | null {
+  const comp = parseCollectionComponents(collection.components);
+  const fromComp = yearFromComponents(comp);
+  if (fromComp != null) return fromComp;
+  const setLine =
+    bucketCardSetForDisplay(comp).trim() ||
+    collection.displayLabel?.trim() ||
+    "";
+  return setLine ? leadingYearFromSetLine(setLine) : null;
+}
+
+export function collectionMatchesYearRange(
+  collection: MarketplaceCollectionSummary,
+  yearMinStr: string,
+  yearMaxStr: string,
+): boolean {
+  const a = yearMinStr.trim();
+  const b = yearMaxStr.trim();
+  if (!a && !b) return true;
+  const year = collectionYear(collection);
+  if (year == null) return false;
+  if (a) {
+    const min = Number(a);
+    if (Number.isFinite(min) && year < min) return false;
+  }
+  if (b) {
+    const max = Number(b);
+    if (Number.isFinite(max) && year > max) return false;
+  }
+  return true;
+}
+
+export function collectionMatchesCharacterFilters(
+  collection: MarketplaceCollectionSummary,
+  selected: readonly string[],
+): boolean {
+  if (selected.length === 0) return true;
+  const comp = parseCollectionComponents(collection.components);
+  const hay = normalizeFacetToken(
+    [
+      bucketCardNameForDisplay(comp),
+      comp.cardNameDisplay,
+      comp.cardName,
+      collection.displayLabel,
+      collection.queryUsed,
+    ]
+      .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      .join(" "),
+  );
+  if (!hay) return false;
+  return selected.some((needle) => {
+    const n = normalizeFacetToken(needle);
+    return n.length > 0 && hay.includes(n);
+  });
+}
+
+export function collectionMatchesSetFilters(
+  collection: MarketplaceCollectionSummary,
+  selected: readonly string[],
+): boolean {
+  if (selected.length === 0) return true;
+  const comp = parseCollectionComponents(collection.components);
+  const facetLabel = resolveCollectionSetFacetLabel(comp);
+  const hay = normalizeFacetToken(
+    [
+      facetLabel,
+      stripLeadingYearFromSetLine(bucketCardSetForDisplay(comp)),
+      resolveCollectionSlabSetLine(comp),
+      bucketCardSetForDisplay(comp),
+      comp.cardSetDisplay,
+      comp.cardSet,
+      comp.psaBrand,
+      collection.displayLabel,
+      collection.queryUsed,
+    ]
+      .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      .join(" "),
+  );
+  if (!hay) return false;
+  return selected.some((needle) => {
+    const n = normalizeFacetToken(stripLeadingYearFromSetLine(needle));
+    return n.length > 0 && hay.includes(n);
+  });
+}
+
 export function applyMarketsListingFilters(
   collections: MarketplaceCollectionSummary[],
   snapshotByKey: Map<string, CollectionListMarketSnapshot>,
@@ -222,6 +364,10 @@ export function applyMarketsListingFilters(
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
     vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
     vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
+    characters?: readonly string[];
+    sets?: readonly string[];
+    yearMin?: string;
+    yearMax?: string;
   },
 ): MarketplaceCollectionSummary[] {
   return collections.filter((c) => {
@@ -237,6 +383,11 @@ export function applyMarketsListingFilters(
       opts.vaultKindsByKey &&
       !collectionMatchesVaultFilters(c, opts.vaultKindsByKey, opts.vaultFilters)
     ) {
+      return false;
+    }
+    if (!collectionMatchesCharacterFilters(c, opts.characters ?? [])) return false;
+    if (!collectionMatchesSetFilters(c, opts.sets ?? [])) return false;
+    if (!collectionMatchesYearRange(c, opts.yearMin ?? "", opts.yearMax ?? "")) {
       return false;
     }
     return true;

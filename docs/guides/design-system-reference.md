@@ -45,20 +45,41 @@ Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azu
 
 ---
 
-## CSS bundle (`app/globals.css` import order)
+## CSS bundle
+
+### Core (`app/globals.css` — keep small for Turbopack)
 
 | File | Scope |
 |------|--------|
 | `tokenable-ds-entry.css` | DS tokens + `tk-*` primitives |
 | `tokenable-ds-bridge.css` | Font bridge, ink/azure aliases |
 | `tokenable-layout.css` | GNB, footer, `tkl-wrap`, app shell |
-| `tokenable-collectible-card.css` | `.card`, `.card__*`, `.fav-btn` — **shared** across home / markets / watchlist |
-| `tokenable-home.css` | `.home-*`, `.grid4` carousel (home only) |
-| `tokenable-markets.css` | `.markets-*`, `.markets-grid` card overrides |
-| `tokenable-watchlist.css` | `.watchlist-*`, `.watchlist-grid` card overrides |
-| Other `tokenable-*.css` | One file per route domain (portfolio, vault, admin chrome, …) |
+| `tokenable-collectible-card.css` | `.card`, `.card__*` — **shared** across home / markets / watchlist |
+| `tokenable-page-states.css` | Empty / error / gate states |
+| `tokenable-secondary.css` | Auth / site-access / secondary shells |
 
-New pages: reuse `CollectibleCard` + `tkl-wrap`; add page CSS only for layout unique to that screen.
+Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `globals.css`. That ~25k-line graph made Turbopack HMR hang on `pnpm dev`.
+
+### Route / feature CSS (import from the owning layout or component)
+
+| File | Import from |
+|------|-------------|
+| `tokenable-home.css` | `HomePageContent` + `HomeTicker` (ticker also used on Portfolio / Markets / Watchlist) |
+| `tokenable-markets.css` | `app/markets/layout.tsx` |
+| `tokenable-watchlist.css` | `app/watchlist/layout.tsx` |
+| `tokenable-collection-detail.css` | `app/marketplace/collections/[collectionKey]/layout.tsx` |
+| `tokenable-rwa-detail.css` | `app/marketplace/[tokenId]/layout.tsx` (+ Portfolio Set/Edit price sheet: `PortfolioPageView` / `app/portfolio/layout.tsx`) |
+| `tokenable-portfolio.css` + `tokenable-portfolio-redeem.css` | `PortfolioPageView` (+ `app/portfolio/layout.tsx` for redeem routes) |
+| `tokenable-vault.css` | `app/vault/layout.tsx` |
+| `tokenable-sell-flow.css` | `app/sell/layout.tsx` |
+| `tokenable-admin.css` | `app/marketplace/admin/layout.tsx` (+ `app/dev/layout.tsx`) |
+| `tokenable-settings.css` | `app/settings/layout.tsx` |
+| `tokenable-partner.css` | `app/partner/layout.tsx` |
+| `tokenable-partner-origin.css` | `PartnerCompanyAddressRequiredModal` |
+| `tokenable-action-complete.css` | `ActionCompleteModal` |
+| `tokenable-wallet-menu.css` / `tokenable-notifications.css` | `TkHeader` |
+
+New pages: reuse `CollectibleCard` + `tkl-wrap`; add page CSS only for layout unique to that screen, and import it from that route’s layout — **not** from `globals.css`.
 
 ---
 
@@ -103,7 +124,7 @@ App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 | Alias | Maps to | Use in new code |
 |-------|---------|-----------------|
 | `--azure` | `#1A6FFF` (`--accent-azure` / `--brand-500`) | Accent text, links, and primary CTA fill |
-| `--eyebrow` | `#5B9AFF` | **Page eyebrows only** (mono uppercase kicker above titles). Not Neutral buttons. |
+| `--eyebrow` | `#5B9AFF` | **Page eyebrows only** (mono uppercase kicker above titles). Not Neutral buttons. Hidden at `max-width: 1024px` (see `.tkl-eyebrow` in `tokenable-layout.css`). |
 | `--ink` | `#0e0e0e` | Prefer `--background-default-default` where possible |
 | `--t1`, `--t2`, `--t3` | `--text-default-default` / `secondary` / `tertiary` | Prefer `--text-default-*`. Dark `--t2` `rgba(255,255,255,0.7)`, `--t3` `rgba(255,255,255,0.52)`; light `--t2` `rgba(17,17,17,0.78)`, `--t3` `rgba(17,17,17,0.62)` |
 
@@ -228,7 +249,7 @@ Import from `@/components/ds`:
 ## Page CSS conventions
 
 - **Shell width:** `tkl-wrap` + `APP_MAIN_SHELL_CLASS` from `frontend/constants/layout.ts`
-- **New route:** add `frontend/styles/tokenable-{domain}.css` only for layout unique to that screen; import in `globals.css`
+- **New route:** add `frontend/styles/tokenable-{domain}.css` only for layout unique to that screen; import it from that route’s `layout.tsx` / page — **never** re-add heavy sheets to `globals.css` (Turbopack HMR)
 - **Reuse** `CollectibleCard`, `TkHeader`, `TkFooter` before inventing new chrome
 - **Tailwind:** allowed alongside DS; prefer DS tokens via `var(--brand-500)` or mapped `@theme` colors for brand surfaces
 

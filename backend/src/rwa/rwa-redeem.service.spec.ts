@@ -45,6 +45,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         {} as never,
         { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
         { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
+        config,
       ),
       vault,
       partners,
@@ -283,7 +284,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     });
 
     type PinApi = {
-      pinQuote(key: string, micros: bigint, iso?: string | null): void;
+      pinQuote(key: string, estimate: { totalUsdcMicros: string }, iso?: string | null): void;
       pinnedQuoteMicros(key: string): bigint | null;
     };
     const pins = svc as unknown as PinApi;
@@ -292,16 +293,40 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(12_970_000));
 
     // A later, more expensive quote must not evict the cheaper one.
-    pins.pinQuote(key, BigInt(20_000_000));
+    pins.pinQuote(key, { totalUsdcMicros: '20000000' });
     expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(12_970_000));
 
     // A cheaper re-quote wins.
-    pins.pinQuote(key, BigInt(10_000_000));
+    pins.pinQuote(key, { totalUsdcMicros: '10000000' });
     expect(pins.pinnedQuoteMicros(key)).toBe(BigInt(10_000_000));
 
     // Expired pins are ignored.
-    pins.pinQuote('8|us|', BigInt(1), new Date(Date.now() - 1000).toISOString());
+    pins.pinQuote(
+      '8|us|',
+      { totalUsdcMicros: '1' },
+      new Date(Date.now() - 1000).toISOString(),
+    );
     expect(pins.pinnedQuoteMicros('8|us|')).toBeNull();
+  });
+
+  it('picks the quote that matches the USDC actually paid', () => {
+    const { svc } = makeService();
+    type MatchApi = {
+      estimateMatchingPayment(
+        fresh: { totalUsdcMicros: string; shippingUsd: number },
+        pinned: { totalUsdcMicros: string; shippingUsd: number } | null,
+        paid: bigint,
+      ): { totalUsdcMicros: string; shippingUsd: number };
+    };
+    const api = svc as unknown as MatchApi;
+    const cheap = { totalUsdcMicros: '60960000', shippingUsd: 53.98 };
+    const expensive = { totalUsdcMicros: '70770000', shippingUsd: 63.79 };
+    expect(
+      api.estimateMatchingPayment(expensive, cheap, BigInt(60_960_000)).shippingUsd,
+    ).toBe(53.98);
+    expect(
+      api.estimateMatchingPayment(expensive, cheap, BigInt(70_770_000)).shippingUsd,
+    ).toBe(63.79);
   });
 });
 
@@ -320,6 +345,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
       {} as never,
       { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
       { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: () => undefined } as never,
     );
   }
 
@@ -387,7 +413,9 @@ describe('RwaRedeemService.confirmReceipt', () => {
     );
     expect(result.status).toBe('completed');
     expect(result.alreadyCompleted).toBe(false);
-    expect(vault.markUserReceiptConfirmed).toHaveBeenCalledWith(rows);
+    expect(vault.markUserReceiptConfirmed).toHaveBeenCalledWith(rows, {
+      via: 'user',
+    });
   });
 });
 

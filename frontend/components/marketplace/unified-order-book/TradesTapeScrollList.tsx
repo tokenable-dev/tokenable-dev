@@ -82,6 +82,10 @@ export function TradesTapeScrollList({
             ? "cd-ob-trades-price cd-ob-trades-price--down"
             : "cd-ob-trades-price cd-ob-trades-price--up"
           : tradesTapePriceClassName(priceTone);
+        /** Card.html Side column uses title case (Offer / Auction), not ALL CAPS. */
+        const sideLabel = collectionDetail
+          ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
+          : side.label;
 
         return (
           <div
@@ -113,7 +117,7 @@ export function TradesTapeScrollList({
                   }
                   title={side.title}
                 >
-                  {side.label}
+                  {sideLabel}
                 </span>
                 {collectionDetail ? (
                   <TradesSourceCell

@@ -11,8 +11,9 @@ export function useMarketplaceAdminGa4Analytics(days: AdminAnalyticsPeriod = 30)
   return useQuery({
     queryKey: rq.adminGa4Analytics(days),
     queryFn: () => getAdminGa4Analytics(days),
-    staleTime: 120_000,
-    refetchInterval: 180_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 }

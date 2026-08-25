@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
@@ -9,9 +9,9 @@ import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketpl
 import {
   ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS,
   ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS,
+  applyOrderBookNotionalDepth,
 } from "@/lib/marketplace/unified-order-book";
 import { useUnifiedOrderBook } from "@/hooks/unified-order-book";
-import { CollectionDetailViewAllDrawer } from "@/components/marketplace/collection-detail/CollectionDetailViewAllDrawer";
 import { OrderBookBookTab } from "./OrderBookBookTab";
 import { OrderBookTabHeader } from "./OrderBookTabHeader";
 import { OrderBookTradesTab } from "./OrderBookTradesTab";
@@ -32,8 +32,14 @@ export function CollectionUnifiedOrderBook({
   tapeError = false,
   tapeErrorMessage = null,
   defaultTab = "book",
+  onPlaceBid,
+  onListYours,
+  listingAlertActive,
+  listingAlertPending,
+  onToggleListingAlert,
 }: CollectionUnifiedOrderBookProps) {
-  const [tradesDrawerOpen, setTradesDrawerOpen] = useState(false);
+  /** Card.html `.tk-expanded` — inline expand, not a right drawer. */
+  const [tradesExpanded, setTradesExpanded] = useState(false);
   const book = useUnifiedOrderBook({
     asks,
     collectionBids,
@@ -58,27 +64,41 @@ export function CollectionUnifiedOrderBook({
   const mobileEmbed = embedInMobileTab && flush;
   const collectionDetail = flush && compact;
 
+  const collectionDetailLevels = useMemo(() => {
+    if (!collectionDetail) {
+      return { askLevels: displayAskLevels, bidLevels: displayBidLevels };
+    }
+    return applyOrderBookNotionalDepth(displayAskLevels, displayBidLevels);
+  }, [collectionDetail, displayAskLevels, displayBidLevels]);
+
   const bookTabProps = {
     flush,
     compact,
     depthMax: book.depthMax,
     flushDepthRows: mobileFlushDepth,
     mobileEmbed,
-    askLevels: displayAskLevels,
-    bidLevels: displayBidLevels,
+    askLevels: collectionDetailLevels.askLevels,
+    bidLevels: collectionDetailLevels.bidLevels,
     bookCenterModel: book.bookCenterModel,
     bidCount: book.bidRows.length,
     askCount: book.askRows.length,
     selectedLevelKey,
     onSelectLevel,
     collectionDetail,
+    onPlaceBid,
+    onListYours,
+    listingAlertActive,
+    listingAlertPending,
+    onToggleListingAlert,
   };
 
   const shell = flush
     ? embedInMobileTab
       ? "@container/orderbook relative flex min-h-0 w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
       : collectionDetail
-        ? "@container/orderbook cd-ob-panel relative flex w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+        ? `@container/orderbook cd-ob-panel relative flex w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none${
+            tradesExpanded ? " tk-expanded" : ""
+          }`
         : "@container/orderbook relative flex h-full max-h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
     : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
@@ -120,31 +140,18 @@ export function CollectionUnifiedOrderBook({
               tapeErrorMessage={tapeErrorMessage}
               flush
               collectionDetail
+              showAllRows={tradesExpanded}
             />
           </div>
           {book.tab === "trades" && tapeFills.length > 7 ? (
             <button
               type="button"
               className="viewall-btn cd-viewall-btn cd-ob-viewall-trades"
-              onClick={() => setTradesDrawerOpen(true)}
+              onClick={() => setTradesExpanded((v) => !v)}
             >
-              View all trades
+              {tradesExpanded ? "Show less" : "View all trades"}
             </button>
           ) : null}
-          <CollectionDetailViewAllDrawer
-            open={tradesDrawerOpen}
-            title={`All trades (${tapeFills.length})`}
-            onClose={() => setTradesDrawerOpen(false)}
-          >
-            <OrderBookTradesTab
-              tapeFills={tapeFills}
-              tapeLoading={false}
-              tapeError={false}
-              flush
-              collectionDetail
-              showAllRows
-            />
-          </CollectionDetailViewAllDrawer>
         </>
       ) : flush && !embedInMobileTab ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">

@@ -109,6 +109,8 @@ export const rq = {
     ["portfolio-activity", address, chainId] as const,
   userWatchlist: (userId: string, chainId: number) =>
     ["user-watchlist", userId, chainId] as const,
+  buyerListingAlert: (userId: string, collectionKey: string) =>
+    ["buyer-listing-alert", userId, collectionKey.trim().toLowerCase()] as const,
   marketplaceNotifications: (userId: string, chainId: number) =>
     ["marketplace-notifications", userId, chainId] as const,
 

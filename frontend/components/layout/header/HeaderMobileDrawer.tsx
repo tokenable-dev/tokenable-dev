@@ -9,6 +9,7 @@ import {
   navItemActive,
 } from "@/components/layout/header/HeaderNav";
 import {
+  MobileDrawerChevronIcon,
   MobileDrawerKycCheckIcon,
   MobileDrawerMarketsIcon,
   MobileDrawerNotificationsIcon,
@@ -140,6 +141,7 @@ export function HeaderMobileDrawer({
   const portfolioHref = usePortfolioNavHref();
   const portfolioBase = portfolioBaseForPath(pathname);
   const [signingOut, setSigningOut] = useState(false);
+  const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false);
 
   const sessionPending =
     !canShowAuthUi || (!authenticated && (!initialized || loading) && !privyUnavailable);
@@ -152,6 +154,21 @@ export function HeaderMobileDrawer({
     if (!open || !isLoggedIn) return;
     void refetchBalance();
   }, [open, isLoggedIn, refetchBalance]);
+
+  useEffect(() => {
+    if (!open) {
+      setPortfolioMenuOpen(false);
+      return;
+    }
+    if (!showProfile) {
+      setPortfolioMenuOpen(false);
+      return;
+    }
+    const onPortfolio = isPortfolioRoute(pathname);
+    const onBids = isPortfolioSubActive(pathname, searchParams, "bids");
+    const onHistory = isPortfolioSubActive(pathname, searchParams, "history");
+    if (onPortfolio || onBids || onHistory) setPortfolioMenuOpen(true);
+  }, [open, showProfile, pathname, searchParams]);
 
   const go = useCallback(
     (href: string, minLevel: 0 | 1 | 2 = 0) => {
@@ -242,6 +259,74 @@ export function HeaderMobileDrawer({
               ? isPortfolioMainActive(pathname, searchParams)
               : navItemActive(pathname, itemHref);
 
+            if (isPortfolio && showProfile) {
+              return (
+                <div key={label} className="tkm-portfolio">
+                  <button
+                    type="button"
+                    className={cn(
+                      "tkm-item tkm-item--portfolio",
+                      (itemActive ||
+                        isPortfolioSubActive(pathname, searchParams, "bids") ||
+                        isPortfolioSubActive(pathname, searchParams, "history")) &&
+                        "active",
+                    )}
+                    aria-expanded={portfolioMenuOpen}
+                    onClick={() => setPortfolioMenuOpen((v) => !v)}
+                  >
+                    <Icon aria-hidden />
+                    <span className="tkm-item__label">{label}</span>
+                    <span
+                      className={cn(
+                        "tkm-item__chevron",
+                        portfolioMenuOpen && "tkm-item__chevron--open",
+                      )}
+                      aria-hidden
+                    >
+                      <MobileDrawerChevronIcon />
+                    </span>
+                  </button>
+                  {portfolioMenuOpen ? (
+                    <div className="tkm-portfolio__subs" role="group" aria-label="Portfolio">
+                      <button
+                        type="button"
+                        className={cn(
+                          "tkm-item tkm-item--sub",
+                          isPortfolioMainActive(pathname, searchParams) && "active",
+                        )}
+                        onClick={() => go(itemHref, minLevel)}
+                      >
+                        <MobileDrawerPortfolioIcon width={16} height={16} aria-hidden />
+                        My Assets
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          "tkm-item tkm-item--sub",
+                          isPortfolioSubActive(pathname, searchParams, "bids") && "active",
+                        )}
+                        onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
+                      >
+                        <WalletBidsIcon width={16} height={16} aria-hidden />
+                        Active Bids
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          "tkm-item tkm-item--sub",
+                          isPortfolioSubActive(pathname, searchParams, "history") && "active",
+                        )}
+                        onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
+                      >
+                        <WalletHistoryIcon width={16} height={16} aria-hidden />
+                        Transaction History
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
+
             return (
               <div key={label}>
                 <button
@@ -252,32 +337,6 @@ export function HeaderMobileDrawer({
                   <Icon aria-hidden />
                   {label}
                 </button>
-                {isPortfolio && showProfile ? (
-                  <>
-                    <button
-                      type="button"
-                      className={cn(
-                        "tkm-item tkm-item--sub",
-                        isPortfolioSubActive(pathname, searchParams, "bids") && "active",
-                      )}
-                      onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
-                    >
-                      <WalletBidsIcon width={16} height={16} aria-hidden />
-                      Active Bids
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(
-                        "tkm-item tkm-item--sub",
-                        isPortfolioSubActive(pathname, searchParams, "history") && "active",
-                      )}
-                      onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
-                    >
-                      <WalletHistoryIcon width={16} height={16} aria-hidden />
-                      Transaction History
-                    </button>
-                  </>
-                ) : null}
               </div>
             );
           })}

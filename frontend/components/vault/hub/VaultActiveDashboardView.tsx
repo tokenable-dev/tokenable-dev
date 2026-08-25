@@ -190,7 +190,7 @@ export function VaultActiveDashboardView() {
   const visibleTabs = useMemo(
     () =>
       TABS.filter((t) => {
-        if (t.id === "all") return true;
+        if (t.id === "all" || t.id === "rejected") return true;
         if (t.id === "self" && !isActivePartner) return false;
         return counts[t.id] > 0;
       }),

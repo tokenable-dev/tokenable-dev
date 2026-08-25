@@ -193,7 +193,13 @@
 }
 
 .rd-list-sheet__listed {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(26, 111, 255, 0.1);
+  margin-bottom: 0;
 }
 
 .rd-list-sheet__ref-label {

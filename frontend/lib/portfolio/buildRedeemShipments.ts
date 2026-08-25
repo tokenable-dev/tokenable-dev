@@ -13,6 +13,10 @@ export type RedeemShipmentView = {
   cards: RedeemDraftCard[];
   trackingNumber: string | null;
   trackingCarrier: string | null;
+  /** FedEx Track Delivered stamp for this shipment (ISO). */
+  carrierDeliveredAt: string | null;
+  /** When auto "I've received my cards" becomes eligible (ISO). */
+  autoReceiptEligibleAt: string | null;
   /** preparing = custody, no tracking yet; on_the_way = tracking set. */
   state: "preparing" | "on_the_way";
 };
@@ -58,6 +62,11 @@ export function buildRedeemShipments(input: {
   return order.map((key, i) => {
     const acc = map.get(key)!;
     const tracked = acc.rows.find((r) => r.trackingNumber?.trim());
+    const deliveredRow = acc.rows
+      .filter((r) => r.carrierDeliveredAt)
+      .sort((a, b) =>
+        String(b.carrierDeliveredAt).localeCompare(String(a.carrierDeliveredAt)),
+      )[0];
     const cards = acc.rows.map((r) => {
       const tid = Number(r.tokenId);
       return (
@@ -79,6 +88,8 @@ export function buildRedeemShipments(input: {
       cards,
       trackingNumber: tracked?.trackingNumber?.trim() || null,
       trackingCarrier: tracked?.trackingCarrier?.trim() || null,
+      carrierDeliveredAt: deliveredRow?.carrierDeliveredAt ?? null,
+      autoReceiptEligibleAt: deliveredRow?.autoReceiptEligibleAt ?? null,
       state: tracked?.trackingNumber?.trim() ? "on_the_way" : "preparing",
     };
   });

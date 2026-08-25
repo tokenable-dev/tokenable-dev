@@ -215,6 +215,17 @@ export class VaultRedemption {
   @Column({ name: 'tracking_set_at', type: 'timestamptz', nullable: true })
   trackingSetAt: Date | null;
 
+  /**
+   * Carrier Track API reported Delivered (FedEx ACTUAL_DELIVERY / DL).
+   * Starts the auto-receipt grace window (`REDEEM_AUTO_RECEIPT_GRACE_DAYS`).
+   */
+  @Column({ name: 'carrier_delivered_at', type: 'timestamptz', nullable: true })
+  carrierDeliveredAt: Date | null;
+
+  /** `user` = confirm-received tap; `auto` = grace cron after carrier delivery. */
+  @Column({ name: 'receipt_confirmed_via', type: 'varchar', length: 16, nullable: true })
+  receiptConfirmedVia: 'user' | 'auto' | null;
+
   @Column({ name: 'admin_memo', type: 'text', nullable: true })
   adminMemo: string | null;
 

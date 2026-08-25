@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "@/styles/tokenable-rwa-detail.css";
 
 /** Token detail is always dynamic (per-wallet / per-metadata); skip static shell + build-time hints for `/marketplace/*`. */
 export const dynamic = "force-dynamic";

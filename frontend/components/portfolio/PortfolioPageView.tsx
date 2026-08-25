@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import "@/styles/tokenable-portfolio.css";
+import "@/styles/tokenable-portfolio-redeem.css";
+/* Set price / Edit price sheet (ListRwaModal + tk-price) — shared with RWA detail */
+import "@/styles/tokenable-rwa-detail.css";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
@@ -408,7 +412,7 @@ export function PortfolioPageView({
     [assetRows, hiddenSet],
   );
 
-  const { redeemStatusByTokenId, redeemTrackingByTokenId, inFlightRows, completedRows, query: myRedemptionsQuery } =
+  const { redeemStatusByTokenId, redeemTrackingByTokenId, redeemCarrierDeliveredByTokenId, inFlightRows, completedRows, query: myRedemptionsQuery } =
     useMyRedemptions(portfolioDataEnabled);
 
   const ownedTokenIdSet = useMemo(() => new Set(tokenIds), [tokenIds]);
@@ -798,6 +802,7 @@ export function PortfolioPageView({
               redeemLimitError={redeemSelection.limitError}
               redeemStatusByTokenId={redeemStatusByTokenId}
               redeemTrackingByTokenId={redeemTrackingByTokenId}
+              redeemCarrierDeliveredByTokenId={redeemCarrierDeliveredByTokenId}
               onExitRedeemSelect={redeemSelection.exitSelectMode}
               onToggleRedeemToken={redeemSelection.toggleToken}
               onContinueRedeem={redeemSelection.goToRedeem}

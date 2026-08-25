@@ -68,6 +68,12 @@ export function formatOrderBookPriceUsdc(n: number): string {
   });
 }
 
+/** Card.html order-book Price column — `$9,000` (whole dollars). */
+export function formatCollectionDetailBookPriceUsdc(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
 /** Trades tape — whole dollars only (no cents). */
 export function formatTradesTapePriceUsdc(n: number): string {
   return n.toLocaleString("en-US", {
@@ -117,10 +123,59 @@ export function formatTapeTimeFull(tSec: number): string {
 export type OrderBookDepthLevel = {
   price: number;
   orders: Order[];
+  /** Qty at this price level. */
   count: number;
+  /** Notional USDC at this level = price × qty. */
+  total: number;
   key: string;
+  /** Depth bar = level total ÷ side max total (notional). */
   depth: number;
+  /** @deprecated Collection detail no longer shows Vault; kept for callers. */
+  vaultLabel?: string | null;
 };
+
+/**
+ * Total = price × qty; depth bar = that notional ÷ side max notional.
+ * Ask levels high→low; bid levels high→low (best first for bids).
+ */
+export function applyOrderBookNotionalDepth(
+  askLevels: OrderBookDepthLevel[],
+  bidLevels: OrderBookDepthLevel[],
+): { askLevels: OrderBookDepthLevel[]; bidLevels: OrderBookDepthLevel[] } {
+  const withNotional = (levels: OrderBookDepthLevel[]) => {
+    const next = levels.map((l) => ({
+      ...l,
+      total: l.price * l.count,
+    }));
+    const max = Math.max(1, ...next.map((l) => l.total), 0);
+    return next.map((l) => ({ ...l, depth: l.total / max }));
+  };
+  return {
+    askLevels: withNotional(askLevels),
+    bidLevels: withNotional(bidLevels),
+  };
+}
+
+/** @deprecated Use {@link applyOrderBookNotionalDepth}. */
+export const applyOrderBookCumulativeDepth = applyOrderBookNotionalDepth;
+/** @deprecated Use {@link applyOrderBookNotionalDepth}. */
+export const applyOrderBookQuantityDepth = applyOrderBookNotionalDepth;
+
+/** Order-book Total column — `$999` or `$1.2k` / `$3.4m` / `$1.1b`. */
+export function formatOrderBookTotalUsdc(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  const abs = Math.abs(n);
+  if (abs < 1000) {
+    return `$${Math.round(abs).toLocaleString("en-US")}`;
+  }
+  const trim = (v: number) => {
+    const s = v >= 100 ? v.toFixed(0) : v.toFixed(1);
+    return s.replace(/\.0$/, "");
+  };
+  if (abs >= 1_000_000_000) return `$${trim(abs / 1_000_000_000)}b`;
+  if (abs >= 1_000_000) return `$${trim(abs / 1_000_000)}m`;
+  return `$${trim(abs / 1000)}k`;
+}
 
 export function buildAskDepthLevels(askRows: Order[]): OrderBookDepthLevel[] {
   const byKey = new Map<number, Order[]>();
@@ -131,25 +186,26 @@ export function buildAskDepthLevels(askRows: Order[]): OrderBookDepthLevel[] {
     byKey.get(k)!.push(o);
   }
   const keysAsc = [...byKey.keys()].sort((a, b) => a - b);
-  const raw = keysAsc.map((k) => {
+  const bestFirst = keysAsc.map((k) => {
     const orders = byKey.get(k)!;
     const price = priceUsdcFromOrder(orders[0]!);
-    const levelNotional = price * orders.length;
-    return { price, orders, count: orders.length, key: `ask-${k}`, levelNotional };
+    const count = orders.length;
+    return {
+      price,
+      orders,
+      count,
+      total: price * count,
+      key: `ask-${k}`,
+    };
   });
-  const rev = [...raw].reverse();
-  const maxN = Math.max(...rev.map((L) => L.levelNotional), 1e-9);
-  return rev.map((L) => ({
-    price: L.price,
-    orders: L.orders,
-    count: L.count,
-    key: L.key,
-    depth: Math.min(1, L.levelNotional / maxN),
+  const askMax = Math.max(1, ...bestFirst.map((l) => l.total), 0);
+  return [...bestFirst].reverse().map((L) => ({
+    ...L,
+    depth: L.total / askMax,
   }));
 }
 
 export function buildBidDepthLevels(bidRows: Order[]): OrderBookDepthLevel[] {
-  const maxCum = bidRows.reduce((acc, b) => acc + priceUsdcFromOrder(b), 0) || 1;
   const byKey = new Map<number, Order[]>();
   const sorted = [...bidRows].sort((a, b) => {
     const pa = priceUsdcFromOrder(a);
@@ -163,20 +219,23 @@ export function buildBidDepthLevels(bidRows: Order[]): OrderBookDepthLevel[] {
     byKey.get(k)!.push(b);
   }
   const keysDesc = [...byKey.keys()].sort((a, b) => b - a);
-  let cum = 0;
-  return keysDesc.map((k) => {
+  const levels = keysDesc.map((k) => {
     const orders = byKey.get(k)!;
     const price = priceUsdcFromOrder(orders[0]!);
-    const levelSum = price * orders.length;
-    cum += levelSum;
+    const count = orders.length;
     return {
       price,
       orders,
-      count: orders.length,
-      depth: cum / maxCum,
+      count,
+      total: price * count,
       key: `bid-${k}-${orders.map((o) => o.orderHash).join("|")}`,
     };
   });
+  const bidMax = Math.max(1, ...levels.map((l) => l.total), 0);
+  return levels.map((l) => ({
+    ...l,
+    depth: l.total / bidMax,
+  }));
 }
 
 export function bestAskFromRows(askRows: Order[]): number | null {
@@ -203,17 +262,29 @@ export function bestBidFromRows(bidRows: Order[]): number | null {
 export function buildOrderBookCenterModel(input: {
   lastTradePriceUsdc: number | null | undefined;
   lastTradeSide: "buy" | "sell" | null | undefined;
+  bestAskUsdc?: number | null;
+  bestBidUsdc?: number | null;
 }): BookCenterModel {
-  const { lastTradePriceUsdc, lastTradeSide } = input;
-  const fmt = (n: number) =>
-    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const { lastTradePriceUsdc, lastTradeSide, bestAskUsdc, bestBidUsdc } = input;
+  const fmtWhole = (n: number) => Math.round(n).toLocaleString("en-US");
+
+  const spreadSecondary =
+    bestAskUsdc != null &&
+    bestBidUsdc != null &&
+    Number.isFinite(bestAskUsdc) &&
+    Number.isFinite(bestBidUsdc) &&
+    bestAskUsdc > bestBidUsdc
+      ? `Spread $${fmtWhole(bestAskUsdc - bestBidUsdc)}`
+      : bestAskUsdc != null || bestBidUsdc != null
+        ? "No live spread"
+        : null;
 
   if (lastTradePriceUsdc != null && Number.isFinite(lastTradePriceUsdc) && lastTradePriceUsdc > 0) {
     return {
-      primary: fmt(lastTradePriceUsdc),
+      primary: fmtWhole(lastTradePriceUsdc),
       tone: "last",
       lastSide: lastTradeSide ?? null,
-      secondary: null,
+      secondary: spreadSecondary,
       caption: "",
       title: "Most recent on-platform purchase price (USDC).",
     };
@@ -223,7 +294,7 @@ export function buildOrderBookCenterModel(input: {
     primary: "N/A",
     tone: "none",
     lastSide: null,
-    secondary: null,
+    secondary: spreadSecondary,
     caption: "",
     title: "No on-platform sale recorded yet. Last traded price appears here after a match or purchase.",
   };

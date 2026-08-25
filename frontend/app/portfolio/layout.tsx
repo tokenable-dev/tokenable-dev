@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import "@/styles/tokenable-portfolio.css";
+import "@/styles/tokenable-portfolio-redeem.css";
+/* Set price / Edit price sheet (ListRwaModal + tk-price) — shared with RWA detail */
+import "@/styles/tokenable-rwa-detail.css";
 
 export const metadata: Metadata = {
   title: "Portfolio",

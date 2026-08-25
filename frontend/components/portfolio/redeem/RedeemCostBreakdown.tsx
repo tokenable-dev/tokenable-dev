@@ -116,8 +116,8 @@ export function RedeemCostBreakdown({
         <div className="pf-redeem-cost__line">
           <span className="pf-redeem-cost__label">
             Redemption fee
-            {est
-              ? ` (${cardCount} × ${formatRedeemUsd(est.retrievalFeePerCardUsd)})`
+            {est && cardCount > 0
+              ? ` (${cardCount} × ${formatRedeemUsd(est.retrievalFeeTotalUsd / cardCount)})`
               : ` × ${cardCount}`}
           </span>
           <span className="tkl-mono">

@@ -134,7 +134,14 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
               disabled={busy}
               onClick={() => void lookupCert()}
             >
-              {lookupBusy ? "Looking up" : "Look up"}
+              {lookupBusy ? (
+                <>
+                  <span className="sell-flow-spinner" aria-hidden />
+                  Looking up
+                </>
+              ) : (
+                "Look up"
+              )}
             </TkButton>
           </div>
           {/* Sell-Flow.html: progress under the cert row, error below that */}
@@ -173,7 +180,10 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
             disabled={!canContinueShipping || mintBusy}
             onClick={() => continueToShipping()}
           >
-            Continue to shipping <ArrowIcon />
+            Continue to shipping{" "}
+            <span className="sell-flow-ship-btn__icon" aria-hidden>
+              <ArrowIcon />
+            </span>
           </TkButton>
         </div>
       </div>

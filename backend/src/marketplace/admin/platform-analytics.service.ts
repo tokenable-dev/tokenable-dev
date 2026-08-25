@@ -144,6 +144,12 @@ export type PlatformAnalyticsDashboard = {
 @Injectable()
 export class PlatformAnalyticsService {
   private readonly logger = new Logger(PlatformAnalyticsService.name);
+  /** Short TTL — Overview remounts / period toggles should not re-hammer Postgres. */
+  private readonly dashboardCache = new Map<
+    string,
+    { at: number; data: PlatformAnalyticsDashboard }
+  >();
+  private static readonly DASHBOARD_CACHE_MS = 60_000;
 
   constructor(
     @InjectRepository(User)
@@ -172,8 +178,19 @@ export class PlatformAnalyticsService {
     days = 30,
     chainId?: SupportedChainId,
   ): Promise<PlatformAnalyticsDashboard> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const cacheKey = `${resolved}:${days}`;
+    const hit = this.dashboardCache.get(cacheKey);
+    if (
+      hit &&
+      Date.now() - hit.at < PlatformAnalyticsService.DASHBOARD_CACHE_MS
+    ) {
+      return hit.data;
+    }
     try {
-      return await this.buildDashboard(days, chainId);
+      const data = await this.buildDashboard(days, chainId);
+      this.dashboardCache.set(cacheKey, { at: Date.now(), data });
+      return data;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Platform analytics failed: ${message}`, err instanceof Error ? err.stack : undefined);

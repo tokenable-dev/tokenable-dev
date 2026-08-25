@@ -19,7 +19,8 @@ import {
   percentChangeReferenceBestWindow,
   parseGradeScoreNumber,
   resolveExternalMarketUsd,
-  computeTradeVolume30dUsdc,
+  computeHeroTapeActivityStats,
+  computeMedianSaleUsd30d,
   countableTapeFills,
   prependSessionFillToTape,
   resolvePsaPopulationMetrics,
@@ -230,15 +231,6 @@ export function useCollectionDetailMarketData(params: {
     );
   }, [platformTradesData?.trades, sessionFillPoint]);
 
-  const tradeVolumeUsdc = useMemo(() => {
-    if (platformTradesData == null && sessionFillPoint == null) return null;
-    return computeTradeVolume30dUsdc(
-      platformTradesData?.trades ?? [],
-      sessionFillPoint,
-      COLLECTION_SESSION_FILL_DEDUP_SEC,
-    );
-  }, [platformTradesData, sessionFillPoint]);
-
   const psaPopulationMetrics = useMemo(
     () => resolvePsaPopulationMetrics(comp, gradeChart.activeGrade),
     [comp, gradeChart.activeGrade],
@@ -310,6 +302,37 @@ export function useCollectionDetailMarketData(params: {
     ],
   );
 
+  const heroTapeStats = useMemo(() => {
+    if (platformTradesData == null && sessionFillPoint == null) {
+      return {
+        median30dUsd: null as number | null,
+        periodLabel: null as string | null,
+        periodVolumeUsdc: null as number | null,
+        volume1yUsdc: null as number | null,
+        velocityPct: null as number | null,
+      };
+    }
+    const trades = platformTradesData?.trades ?? [];
+    const median30dUsd = computeMedianSaleUsd30d(
+      trades,
+      sessionFillPoint,
+      COLLECTION_SESSION_FILL_DEDUP_SEC,
+    );
+    const activity = computeHeroTapeActivityStats(
+      trades,
+      sessionFillPoint,
+      COLLECTION_SESSION_FILL_DEDUP_SEC,
+      marketCapComputation?.usd ?? null,
+    );
+    return {
+      median30dUsd,
+      periodLabel: activity.periodLabel,
+      periodVolumeUsdc: activity.periodVolumeUsdc,
+      volume1yUsdc: activity.volume1yUsdc,
+      velocityPct: activity.velocityPct,
+    };
+  }, [platformTradesData, sessionFillPoint, marketCapComputation?.usd]);
+
   const lastPlatformSaleUsdc = useMemo(() => {
     if (!platformPtsBase.length) return null;
     const last = platformPtsBase[platformPtsBase.length - 1];
@@ -352,7 +375,8 @@ export function useCollectionDetailMarketData(params: {
     gradeAwarePriceLoading,
     gradeAwareChangeLoading,
     marketCapComputation,
-    tradeVolumeUsdc,
+    heroTapeStats,
+    heroTapeLoading: platformTradesLoading,
     totalPopulation,
     psaPopulationMetrics,
     orderBookTapeFills,

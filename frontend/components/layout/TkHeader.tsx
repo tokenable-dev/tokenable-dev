@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { ASSETS } from "@/constants/assets";
-import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
+import { isMarketplaceCollectionDetailPath, shouldHideAppChrome } from "@/constants/layout";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
@@ -22,27 +22,19 @@ import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useAuthStore } from "@/store/authStore";
 
-function shouldHideChrome(pathname: string | null | undefined): boolean {
-  if (!pathname) return false;
-  if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
-  if (pathname === "/sell") return true;
-  if (pathname.startsWith("/marketplace/admin")) return true;
-  if (pathname.startsWith("/dev/design-system")) return true;
-  if (pathname.startsWith("/dev/admin-ui")) return true;
-  return false;
-}
-
 export function TkHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const userId = useAuthStore((s) => s.user?.id ?? "");
+  const hideChrome = shouldHideAppChrome(pathname);
   const { unreadCount } = useMarketplaceNotifications({
-    enabled: Boolean(userId),
+    // Admin / site-access hide GNB but this hook still ran and polled /api every 15s,
+    // which kept `next dev` compiling the proxy route (main local fan culprit).
+    enabled: Boolean(userId) && !hideChrome,
   });
 
-  const hideChrome = shouldHideChrome(pathname);
   const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -79,7 +71,7 @@ export function TkHeader() {
   }, [drawerOpen]);
 
   if (hideChrome) {
-    return <HeaderAuthModals />;
+    return null;
   }
 
   return (

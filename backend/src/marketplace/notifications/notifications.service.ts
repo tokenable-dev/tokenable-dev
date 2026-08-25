@@ -412,6 +412,56 @@ export class NotificationsService {
     });
   }
 
+  /** BUYER_LISTING_ALERT — first ask on a watched collection (one-time per subscription). */
+  async notifyBuyerListingAlerts(params: {
+    ask: Order;
+    collectionKey: string;
+    userIds: string[];
+  }): Promise<void> {
+    const { ask, collectionKey, userIds } = params;
+    const key = collectionKey.trim().toLowerCase();
+    if (!key || userIds.length === 0) return;
+
+    const collection = await this.collections.findOne({
+      where: { collectionKey: key },
+    });
+    const cardLabel =
+      collection?.displayLabel?.trim() || key.slice(0, 48) || 'This card';
+    const imageUrl = collection?.coverImageUrl?.trim() || null;
+    const askUsdc = microsToUsdc(String(ask.considerationAmount ?? '0'));
+    const priceLabel = formatUsdLabel(askUsdc);
+    const chainId = this.chainIdForOrder(ask);
+    const href = `/marketplace/collections/${encodeURIComponent(key)}`;
+    const tid = String(ask.tokenId ?? '').trim();
+    const tidNorm = isValidDecimalTokenId(tid)
+      ? normalizeDecimalTokenId(tid)
+      : null;
+
+    for (const userId of userIds) {
+      const wallet = await this.primaryWalletForUser(userId);
+      if (!wallet) continue;
+      await this.emitInbox({
+        recipientWallet: wallet,
+        chainId,
+        type: 'price',
+        eventKey: 'BUYER_LISTING_ALERT',
+        title: `${cardLabel} is now for sale`,
+        body: `Lowest ask ${priceLabel} — buy or place a bid.`,
+        dedupeKey: `buyer_listing_alert:${userId}:${key}:${ask.orderHash}`,
+        payload: {
+          collectionKey: key,
+          askOrderHash: ask.orderHash,
+          tokenId: tidNorm,
+          lowestAskUsdc: askUsdc,
+          cardLabel,
+          imageUrl,
+          ctaLabel: 'View listing',
+          href,
+        },
+      });
+    }
+  }
+
   /**
    * After a vault sale settles: SELLER_SOLD + BUYER_BID_FILLED (if bid) +
    * BUYER_VAULT_PURCHASED.
@@ -997,27 +1047,30 @@ export class NotificationsService {
     });
   }
 
-  /** User confirmed physical receipt (post-confirm ack; not in v2 table). */
+  /** Physical receipt confirmed (user tap or auto after FedEx delivery + grace). */
   async notifyRedeemCompleted(params: {
     ownerWallet: string;
     paymentBatchId: string;
     chainId?: SupportedChainId;
+    via?: 'user' | 'auto';
   }): Promise<void> {
     const recipient = normalizeWallet(params.ownerWallet);
     if (!recipient) return;
 
+    const auto = params.via === 'auto';
     await this.emitInbox({
       recipientWallet: recipient,
       chainId: params.chainId ?? this.chainConfig.getDefaultChainId(),
       type: 'vault',
       eventKey: 'REDEEM_COMPLETED',
       title: 'Redeem complete',
-      body: 'You confirmed receipt. Your cards are now in your possession.',
+      body: auto
+        ? 'Delivery was confirmed after the receipt window. Your cards are marked in your possession.'
+        : 'You confirmed receipt. Your cards are now in your possession.',
       dedupeKey: `redeem_completed:batch:${params.paymentBatchId}`,
       payload: {
         ctaLabel: 'View',
-        href: '/portfolio/redeem?view=done',
-        paymentBatchId: params.paymentBatchId,
+        href: '/portfolio/redeem?view=done',        paymentBatchId: params.paymentBatchId,
       },
     });
   }
@@ -1481,6 +1534,11 @@ export class NotificationsService {
         return {
           href: marketplaceHref ?? '/portfolio?tab=assets',
           ctaLabel: 'View listing',
+        };
+      case 'BUYER_LISTING_ALERT':
+        return {
+          href: payloadHref ?? marketplaceHref,
+          ctaLabel: payloadCta ?? 'View listing',
         };
       case 'SELLER_VERIFY_DONE_SET_PRICE':
       case 'SELLER_PRICE_PENDING_REMINDER':

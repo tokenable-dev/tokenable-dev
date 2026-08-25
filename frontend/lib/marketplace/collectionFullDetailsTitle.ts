@@ -11,6 +11,25 @@ export function leadingYearFromSetLine(setLineRaw: string): number | null {
   return y >= 1880 && y <= 2100 ? y : null;
 }
 
+/** Set label for Details KV — year is its own row, so drop a leading catalog year prefix. */
+export function stripLeadingYearFromSetLine(setLineRaw: string): string {
+  const trimmed = setLineRaw.trim();
+  if (!trimmed) return "";
+  const y = leadingYearFromSetLine(trimmed);
+  if (y == null) return trimmed;
+  const stripped = trimmed.replace(new RegExp(`^\\s*${y}\\b\\s*`), "").trim();
+  return stripped || trimmed;
+}
+
+/** Canonical set facet label from a resolved set line (Details + Markets `set=`). */
+export function resolveCollectionSetFacetLabelFromLine(
+  setLineRaw: string | null | undefined,
+): string {
+  const raw = setLineRaw?.trim() ?? "";
+  if (!raw) return "";
+  return stripLeadingYearFromSetLine(raw);
+}
+
 /** Title-style card name for the hero (e.g. `PIKACHU/GREY FELT HAT` → `Pikachu Grey Felt Hat`). */
 export function formatCardNameForHeadline(raw: string): string {
   return toCardDisplayCase(raw);

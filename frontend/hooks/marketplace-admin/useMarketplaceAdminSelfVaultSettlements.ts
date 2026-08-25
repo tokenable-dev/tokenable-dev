@@ -13,7 +13,7 @@ import {
 import { useAppChain } from "@/providers/AppChainProvider";
 
 export function useMarketplaceAdminSelfVaultSettlements(
-  status?: SelfVaultSettlementStatus,
+  status?: SelfVaultSettlementStatus | "open",
 ) {
   const { chainId } = useAppChain();
   return useQuery({

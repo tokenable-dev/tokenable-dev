@@ -5,6 +5,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Interface, id as ethersId, getAddress } from 'ethers';
 import { randomUUID } from 'crypto';
 import { User } from '../user/entities/user.entity';
@@ -27,6 +28,7 @@ import {
 import type { RedeemCountry, RedeemEstimate } from './redeem-fee.types';
 import { RedeemShippingFeeCalculator } from './redeem-shipping-fee.calculator';
 import { resolveShipToDestinationIso2 } from './shipping/destination-country';
+import { resolveRedeemAutoReceiptGraceMs } from './shipping/redeem-auto-receipt.util';
 
 const ERC20_TRANSFER_IFACE = new Interface([
   'event Transfer(address indexed from, address indexed to, uint256 value)',
@@ -48,14 +50,15 @@ const QUOTE_PIN_MAX_ENTRIES = 500;
 @Injectable()
 export class RwaRedeemService {
   /**
-   * Recently issued estimate totals, keyed by token set + destination.
+   * Recently issued estimates, keyed by token set + destination.
    * Payment verification accepts a payment matching any unexpired quote so a
    * FedEx re-quote between "user paid" and "server verified" never strands a
-   * completed USDC transfer.
+   * completed USDC transfer. Fee snapshots on the batch use the quote the
+   * on-chain amount actually matches (not a later, more expensive re-quote).
    */
   private readonly recentQuoteTotals = new Map<
     string,
-    { totalMicros: bigint; expiresAtMs: number }
+    { totalMicros: bigint; expiresAtMs: number; estimate: RedeemEstimate }
   >();
 
   constructor(
@@ -68,6 +71,7 @@ export class RwaRedeemService {
     private readonly chainWriter: RwaChainWriterService,
     private readonly kyc: KycService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   private static quotePinKey(
@@ -83,7 +87,11 @@ export class RwaRedeemService {
     return `${ids}|${country}|${postal}`;
   }
 
-  private pinQuote(key: string, totalMicros: bigint, expiresAtIso?: string | null): void {
+  private pinQuote(
+    key: string,
+    estimate: RedeemEstimate,
+    expiresAtIso?: string | null,
+  ): void {
     const now = Date.now();
     for (const [k, v] of this.recentQuoteTotals) {
       if (v.expiresAtMs <= now) this.recentQuoteTotals.delete(k);
@@ -96,6 +104,7 @@ export class RwaRedeemService {
     const expiresAtMs = Number.isFinite(parsed)
       ? parsed
       : now + QUOTE_PIN_TTL_MS;
+    const totalMicros = BigInt(estimate.totalUsdcMicros);
     const existing = this.recentQuoteTotals.get(key);
     /* Keep the cheapest unexpired quote — the user may have paid the lower one. */
     if (
@@ -105,13 +114,42 @@ export class RwaRedeemService {
     ) {
       return;
     }
-    this.recentQuoteTotals.set(key, { totalMicros, expiresAtMs });
+    this.recentQuoteTotals.set(key, { totalMicros, expiresAtMs, estimate });
+  }
+
+  private pinnedQuote(key: string): {
+    totalMicros: bigint;
+    estimate: RedeemEstimate;
+  } | null {
+    const pin = this.recentQuoteTotals.get(key);
+    if (!pin || pin.expiresAtMs <= Date.now()) return null;
+    return { totalMicros: pin.totalMicros, estimate: pin.estimate };
   }
 
   private pinnedQuoteMicros(key: string): bigint | null {
-    const pin = this.recentQuoteTotals.get(key);
-    if (!pin || pin.expiresAtMs <= Date.now()) return null;
-    return pin.totalMicros;
+    return this.pinnedQuote(key)?.totalMicros ?? null;
+  }
+
+  /**
+   * Persist the quote the user actually paid. Verification accepts
+   * min(pinned, fresh) so a rate increase never rejects USDC already sent;
+   * snapshots must follow the on-chain amount, not the later re-quote.
+   */
+  private estimateMatchingPayment(
+    fresh: RedeemEstimate,
+    pinned: RedeemEstimate | null,
+    paidMicros: bigint,
+  ): RedeemEstimate {
+    const candidates = pinned ? [pinned, fresh] : [fresh];
+    const exact = candidates.find((e) => BigInt(e.totalUsdcMicros) === paidMicros);
+    if (exact) return exact;
+    const affordable = candidates
+      .filter((e) => BigInt(e.totalUsdcMicros) <= paidMicros)
+      .sort(
+        (a, b) =>
+          Number(BigInt(b.totalUsdcMicros) - BigInt(a.totalUsdcMicros)),
+      );
+    return affordable[0] ?? fresh;
   }
 
   async estimateRedeemCost(params: {
@@ -146,7 +184,7 @@ export class RwaRedeemService {
           countryCode: params.shipTo?.countryCode,
           postal: params.shipTo?.postal,
         }),
-        BigInt(estimate.totalUsdcMicros),
+        estimate,
         estimate.shippingQuoteExpiresAt,
       );
     }
@@ -197,7 +235,7 @@ export class RwaRedeemService {
       tokenIds.map(String),
     );
 
-    const estimate = await this.feeCalculator.estimate({
+    const freshEstimate = await this.feeCalculator.estimate({
       country: shipTo.country,
       tokenIds,
       chainId,
@@ -212,7 +250,7 @@ export class RwaRedeemService {
         countryCode: shipTo.countryCode ?? destinationCountryIso,
       },
     });
-    if (estimate.cardCount !== tokenIds.length) {
+    if (freshEstimate.cardCount !== tokenIds.length) {
       throw new BadRequestException('Could not resolve fees for all tokens');
     }
 
@@ -234,17 +272,16 @@ export class RwaRedeemService {
      * fresh total and any unexpired pinned quote for the same token set +
      * destination, so a completed payment is never rejected by re-quote drift.
      */
-    const freshMicros = BigInt(estimate.totalUsdcMicros);
-    const pinnedMicros = this.pinnedQuoteMicros(
-      RwaRedeemService.quotePinKey(tokenIds, {
-        country: shipTo.country,
-        countryCode: shipTo.countryCode ?? destinationCountryIso,
-        postal: shipTo.postal,
-      }),
-    );
+    const pinKey = RwaRedeemService.quotePinKey(tokenIds, {
+      country: shipTo.country,
+      countryCode: shipTo.countryCode ?? destinationCountryIso,
+      postal: shipTo.postal,
+    });
+    const pinned = this.pinnedQuote(pinKey);
+    const freshMicros = BigInt(freshEstimate.totalUsdcMicros);
     const expectedMicros =
-      pinnedMicros != null && pinnedMicros < freshMicros
-        ? pinnedMicros
+      pinned != null && pinned.totalMicros < freshMicros
+        ? pinned.totalMicros
         : freshMicros;
 
     const payerCandidates = wallets.map((w) =>
@@ -256,6 +293,11 @@ export class RwaRedeemService {
       expectedMicros,
       chainId,
     });
+    const estimate = this.estimateMatchingPayment(
+      freshEstimate,
+      pinned?.estimate ?? null,
+      paidMicros,
+    );
 
     const contract = this.chainConfig.getRwaAddress(chainId);
     const batchId = randomUUID();
@@ -666,13 +708,15 @@ export class RwaRedeemService {
       );
     }
 
-    const saved = await this.vault.markUserReceiptConfirmed(rows);
-    if (!rows.every((r) => r.status === 'completed')) {
+    const needsNotify = rows.some((r) => r.status !== 'completed');
+    const saved = await this.vault.markUserReceiptConfirmed(rows, { via: 'user' });
+    if (needsNotify) {
       void this.notifications
         .notifyRedeemCompleted({
           ownerWallet: rows[0].ownerWalletAddress,
           paymentBatchId: batchId,
           chainId,
+          via: 'user',
         })
         .catch(() => undefined);
     }
@@ -688,13 +732,37 @@ export class RwaRedeemService {
     };
   }
 
-  listMyRedemptions(user: User, chainId: SupportedChainId, tokenIdsCsv?: string) {
+  async listMyRedemptions(
+    user: User,
+    chainId: SupportedChainId,
+    tokenIdsCsv?: string,
+  ) {
     const tokenIds = tokenIdsCsv
       ? tokenIdsCsv
           .split(',')
           .map((s) => s.trim())
           .filter((s) => /^\d+$/.test(s))
       : undefined;
-    return this.vault.listOpenRedemptionsForUser(user.id, chainId, tokenIds);
+    const rows = await this.vault.listOpenRedemptionsForUser(
+      user.id,
+      chainId,
+      tokenIds,
+    );
+    const graceMs = resolveRedeemAutoReceiptGraceMs({
+      graceSecondsRaw: this.config.get<string>('REDEEM_AUTO_RECEIPT_GRACE_SECONDS'),
+      graceDaysRaw: this.config.get<string>('REDEEM_AUTO_RECEIPT_GRACE_DAYS'),
+    });
+    return rows.map((row) => {
+      const deliveredAt = row.carrierDeliveredAt;
+      const deliveredMs = deliveredAt ? Date.parse(deliveredAt) : NaN;
+      const autoReceiptEligibleAt =
+        Number.isFinite(deliveredMs) && row.status !== 'completed'
+          ? new Date(deliveredMs + graceMs).toISOString()
+          : null;
+      return {
+        ...row,
+        autoReceiptEligibleAt,
+      };
+    });
   }
 }

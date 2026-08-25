@@ -36,6 +36,7 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
     title: row.title,
     desc: row.body,
     time: formatNotificationTime(row.createdAt),
+    createdAt: row.createdAt,
     imageUrl: row.imageUrl ?? row.payload.imageUrl ?? undefined,
     href: row.href,
     unread: row.readAt == null,
@@ -58,6 +59,7 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     enabled,
     staleTime: 15_000,
     refetchInterval: enabled ? 15_000 : false,
+    refetchIntervalInBackground: false,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,
   });
@@ -83,6 +85,7 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     items,
     unreadCount,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     refetch: query.refetch,
     markRead: (id: string) => {

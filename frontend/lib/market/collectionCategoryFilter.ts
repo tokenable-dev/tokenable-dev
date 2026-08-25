@@ -13,8 +13,16 @@ export type CollectionCategoryFilterId =
   | "pokemon"
   | "onepiece";
 
+/** Selectable Markets category (excludes synthetic "all"). */
+export type CollectionCategoryId = Exclude<CollectionCategoryFilterId, "all">;
+
 export type CategoryFilterOption = {
   id: CollectionCategoryFilterId;
+  label: string;
+};
+
+export type CategorySelectOption = {
+  id: CollectionCategoryId;
   label: string;
 };
 
@@ -29,9 +37,28 @@ export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
   { id: "onepiece", label: "One Piece" },
 ];
 
+/** Multi-select Category options (no "All" — empty selection means all). */
+export const MARKETS_CATEGORY_SELECT_OPTIONS: CategorySelectOption[] =
+  MARKETS_CATEGORY_FILTERS.filter((f) => f.id !== "all").map((f) => ({
+    id: f.id as CollectionCategoryId,
+    label: f.label,
+  }));
+
 export const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = MARKETS_CATEGORY_FILTERS;
 
 export const MARKETS_DEFAULT_CATEGORY_FILTER: CollectionCategoryFilterId = "all";
+
+export const MARKETS_CATEGORY_IDS: readonly CollectionCategoryId[] =
+  MARKETS_CATEGORY_SELECT_OPTIONS.map((o) => o.id);
+
+export function isCollectionCategoryId(
+  raw: string | null | undefined,
+): raw is CollectionCategoryId {
+  return (
+    typeof raw === "string" &&
+    (MARKETS_CATEGORY_IDS as readonly string[]).includes(raw)
+  );
+}
 
 export type CollectionSportBucket =
   | "basketball"
@@ -159,6 +186,24 @@ export function collectionMatchesCategoryFilter(
   snapshot: CollectionListMarketSnapshot | undefined,
 ): boolean {
   if (filter === "all") return true;
+  return collectionMatchesCategoryFilters(
+    new Set([filter]),
+    collection,
+    snapshot,
+  );
+}
+
+/** Empty selection = all categories. Otherwise OR across selected buckets. */
+export function collectionMatchesCategoryFilters(
+  selected: ReadonlySet<CollectionCategoryId> | readonly CollectionCategoryId[],
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): boolean {
+  const set =
+    selected instanceof Set
+      ? selected
+      : new Set<CollectionCategoryId>(selected);
+  if (set.size === 0) return true;
   const bucket = inferCollectionSportBucket(collection, snapshot);
-  return bucket === filter;
+  return isCollectionCategoryId(bucket) && set.has(bucket);
 }

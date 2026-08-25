@@ -26,6 +26,7 @@ export * from "./marketplace-admin-psa";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
 export * from "./watchlist";
+export * from "./buyerListingAlert";
 export * from "./notifications";
 export * from "./cardladder-indexes";
 export * from "./cardhedger";

@@ -121,7 +121,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "active", sub: "REVIEWING", subColor: AZ, spin: true },
+      { label: "PSA", state: "active", sub: "REVIEWING", subColor: AZ },
       { label: "Live", state: P },
     ],
     notif: "We'll notify you by email as each card is verified.",

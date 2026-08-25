@@ -216,6 +216,7 @@ export type RedeemSurfaceBadge = {
 export function redeemSurfaceBadge(
   status?: string | null,
   trackingNumber?: string | null,
+  carrierDeliveredAt?: string | null,
 ): RedeemSurfaceBadge | null {
   if (!status) return null;
   if (status === "completed") {
@@ -227,13 +228,14 @@ export function redeemSurfaceBadge(
     };
   }
   const tracked = Boolean(trackingNumber?.trim());
+  const delivered = Boolean(carrierDeliveredAt);
   if (
     status === "burned" ||
     status === "vault_release_pending" ||
     (status === "in_custody" && tracked)
   ) {
     return {
-      label: "In transit",
+      label: delivered ? "Delivered — confirm receipt" : "In transit",
       tone: "transit",
       kind: "transit",
       statusHref: "/portfolio/redeem?view=transit",

@@ -24,7 +24,7 @@
   gap: 9px;
   padding: 0 22px;
   height: 40px;
-  background: transparent;
+  background: var(--ink-2);
   flex: none;
   z-index: 2;
   box-shadow: inset -2px 0 0 0 var(--line-2, rgba(255, 255, 255, 0.05));
@@ -50,29 +50,74 @@
   overflow: hidden;
   flex: 1;
   min-width: 0;
+  /* Touch: allow swipe when CSS marquee is unavailable (reduced motion). */
+  -webkit-overflow-scrolling: touch;
 }
 
 .ticker-row {
   display: flex;
   align-items: stretch;
   width: max-content;
-  /* Pace for the live strip (~8 names, duplicated). 160s was for a 48-item mock. */
+  /* Pace for the live strip (~8 names, duplicated). */
   animation: tk-marquee 48s linear infinite;
-  will-change: transform;
+  /* Avoid will-change — iOS Safari often freezes transform animations after async content fill. */
+  backface-visibility: hidden;
+}
+
+.ticker-row--skeleton {
+  animation: none;
+}
+
+.home-ticker__skel-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px;
+  height: 40px;
+  box-shadow: inset -2px 0 0 0 var(--line-2, rgba(255, 255, 255, 0.05));
+}
+
+.home-ticker__skel-name,
+.home-ticker__skel-pct {
+  display: block;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.06)
+  );
+  background-size: 200% 100%;
+  animation: tk-ticker-skel 1.1s linear infinite;
+}
+
+.home-ticker__skel-name {
+  width: 96px;
+}
+
+.home-ticker__skel-pct {
+  width: 40px;
+}
+
+@keyframes tk-ticker-skel {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-ticker:hover .ticker-row {
+  .home-ticker:hover .ticker-row:not(.ticker-row--skeleton) {
     animation-play-state: paused;
   }
 }
 
 @keyframes tk-marquee {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -136,6 +181,15 @@
 
 .home-ticker__item-pct--down {
   color: rgb(228, 55, 74);
+}
+
+@media (max-width: 1024px) {
+  .home-ticker {
+    /* Sit just under the fixed 64px GNB so the strip stays on-screen while scrolling. */
+    position: sticky;
+    top: 64px;
+    z-index: 40;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1108,6 +1162,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ticker-row {
+    animation: none !important;
+  }
+
+  .home-ticker__viewport {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .home-ticker__dot,
+  .home-ticker__skel-name,
+  .home-ticker__skel-pct {
     animation: none !important;
   }
 

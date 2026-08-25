@@ -7,7 +7,11 @@ import {
   orderBookColStartCls,
   orderBookRowValueCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
-import { formatOrderBookPriceUsdc } from "@/lib/marketplace/unified-order-book";
+import {
+  formatCollectionDetailBookPriceUsdc,
+  formatOrderBookPriceUsdc,
+  formatOrderBookTotalUsdc,
+} from "@/lib/marketplace/unified-order-book";
 import type { OrderBookDepthLevel } from "@/lib/marketplace/unified-order-book";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 
@@ -18,7 +22,6 @@ export function OrderBookDepthLevelRow({
   onSelectLevel,
   flush,
   collectionDetail,
-  sideTag,
 }: {
   side: "ask" | "bid";
   level: OrderBookDepthLevel;
@@ -26,8 +29,6 @@ export function OrderBookDepthLevelRow({
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   collectionDetail?: boolean;
-  /** Card.html third column: ask | bid | highest */
-  sideTag?: string;
 }) {
   const isAsk = side === "ask";
   const selected = selectedLevelKey === level.key;
@@ -50,45 +51,57 @@ export function OrderBookDepthLevelRow({
           interactive ? "transition-colors cursor-pointer focus:outline-none" : "cursor-default"
         } ${selected && interactive ? `ring-1 ${selectedRing} bg-white/[0.06]` : ""}`;
 
-  const totalUsdc = level.price * level.count;
+  const totalUsdc =
+    level.total > 0 && Number.isFinite(level.total)
+      ? level.total
+      : level.price * level.count;
+  const totalLabel = formatOrderBookTotalUsdc(totalUsdc);
   const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center py-0.5 leading-none ${orderBookRowValueCls}`;
   const legacyGridClass = `relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 items-center leading-none pointer-events-none ${orderBookRowValueCls}`;
+  const priceLabel = formatCollectionDetailBookPriceUsdc(level.price);
+  const depthPct = `${Math.min(100, Math.max(0, level.depth * 100))}%`;
 
-  const depthPct = `${Math.min(100, level.depth * 100)}%`;
   const rowBody = collectionDetail ? (
     <>
       <div
         className={`cd-ob-book-row__depth cd-ob-book-row__depth--${side}`}
-        style={{
-          background: isAsk
-            ? `linear-gradient(270deg, rgba(228, 55, 74, 0.12) ${depthPct}, transparent ${depthPct})`
-            : `linear-gradient(90deg, rgba(0, 195, 80, 0.12) ${depthPct}, transparent ${depthPct})`,
-        }}
+        style={{ width: depthPct }}
+        aria-hidden
       />
       <div className="cd-ob-book-row__grid">
         <span className={`cd-ob-book-row__price cd-ob-book-row__price--${side}`}>
-          {formatOrderBookPriceUsdc(level.price)}
+          {priceLabel}
         </span>
         <span className="cd-ob-book-row__size">{level.count}</span>
-        <span className="cd-ob-book-row__total">
-          {sideTag ?? (isAsk ? "ask" : "bid")}
+        <span
+          className="cd-ob-book-row__total"
+          title={`$${Math.round(totalUsdc).toLocaleString("en-US")}`}
+        >
+          <span className="cd-ob-book-row__total-val">{totalLabel}</span>
+          {isAsk ? (
+            <span className="cd-ob-book-row__buyhint" aria-hidden>
+              Buy ›
+            </span>
+          ) : null}
         </span>
       </div>
     </>
   ) : (
     <>
-      <div
-        className={depthGradient}
-        style={{ width: depthPct }}
-      />
+      <div className={depthGradient} style={{ width: depthPct }} />
       <div className={flush ? flushGridClass : legacyGridClass}>
         <span className={`${priceClass} ${orderBookColStartCls}`}>
           {formatOrderBookPriceUsdc(level.price)}
         </span>
-        <span className={`text-zinc-200/90 ${orderBookBookSizeColCls}`}>{level.count}</span>
+        <span className={`text-zinc-200/90 ${orderBookBookSizeColCls}`}>
+          {level.count}
+        </span>
         {flush ? (
-          <span className={`text-zinc-200/90 ${orderBookColEndCls}`}>
-            {formatOrderBookPriceUsdc(totalUsdc)}
+          <span
+            className={`text-zinc-200/90 ${orderBookColEndCls}`}
+            title={`$${Math.round(totalUsdc).toLocaleString("en-US")}`}
+          >
+            {totalLabel}
           </span>
         ) : null}
       </div>
@@ -107,6 +120,7 @@ export function OrderBookDepthLevelRow({
     <button
       key={level.key}
       type="button"
+      title={collectionDetail ? `Buy at ${priceLabel}` : undefined}
       onClick={() =>
         onSelectLevel?.({
           side,

@@ -17,7 +17,7 @@ function adminErrorMessage(body: unknown, fallback: string): string {
 }
 
 export async function listAdminSelfVaultSettlements(
-  status?: SelfVaultSettlementStatus,
+  status?: SelfVaultSettlementStatus | "open",
 ): Promise<{ items: SelfVaultSettlement[]; chainId: number }> {
   const sp = new URLSearchParams();
   if (status) sp.set("status", status);

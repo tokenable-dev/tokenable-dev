@@ -85,8 +85,8 @@ Self-vault minted tokens (`settlement_policy = self_vault_hold`) settle differen
 
 1. **Ask consideration** — single USDC item to the platform fee wallet (full listing price)
 2. **On fulfill** — NFT → buyer; USDC → company; seller gets **$0 on-chain**
-3. **Ledger** — `self_vault_settlements` row (`pending_confirm`) with `seller_payout_usdc` = gross × (1 − PLATFORM_FEE_BPS/10000)
-4. **Seller payout** — admin `execute-payout` any time (auto-confirms if needed), **or** cron auto confirm+payout ~**5 minutes** after fulfill (`SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS`, default 300). Reject skips payout.
+3. **Ledger** — one `self_vault_settlements` row per fulfilled ask (`pending_confirm`), keyed by `order_hash`. Resale of the same token before payout creates an additional row (pay each seller separately).
+4. **Seller payout** — admin `execute-payout` any time (auto-confirms if needed), **or** cron auto confirm+payout ~**5 minutes** after that sale’s fulfill (`SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS`, default 300). Reject skips payout.
 5. **Bid-only fulfill** (`fulfill_bid` when offer is below ask) is **blocked** for these tokens — match against a full-platform-take ask instead
 
 ### BR-8a: Card-Level Offers (Bids)

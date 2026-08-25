@@ -38,10 +38,9 @@ export function CollectionOverviewMarketsClusterDesktop({
           {hasMetrics ? chartMetricsRow : null}
 
           <div className="cd-detail-grid min-w-0">
-            <div className="cd-detail-grid__left cd-detail-grid__chart min-h-0 min-w-0 overflow-hidden">
-              <div className="flex h-full min-h-0 w-full flex-col [&>*]:min-h-0 [&>*]:flex-1">
-                {priceChart}
-              </div>
+            <div className="cd-detail-grid__left cd-detail-grid__chart min-w-0">
+              {/* Card.html `#chart-card` owns height (376px) — do not flex-collapse children. */}
+              <div className="w-full min-w-0">{priceChart}</div>
             </div>
 
             {marketsBelowChart != null ? (

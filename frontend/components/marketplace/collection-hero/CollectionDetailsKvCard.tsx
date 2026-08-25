@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import Link from "next/link";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 
 /** Card.html sidebar Details rows — same on mobile and desktop. */
@@ -26,26 +27,40 @@ function DetailsBody({
       ) : null}
 
       {rows.length > 0 ? (
-        <dl className={`cd-details-kv${catalogLine?.trim() ? " cd-details-kv--with-catalog" : ""}`}>
-          {rows.map((row) => (
-            <div key={row.id} className="cd-details-kv__row">
-              <dt className="cd-details-kv__label">{row.label}</dt>
-              <dd
-                className={`cd-details-kv__value${
-                  row.id === "token" || row.label.toLowerCase().includes("token")
-                    ? " cd-details-kv__value--link"
-                    : ""
-                }`}
-              >
-                {row.value}
-              </dd>
-            </div>
-          ))}
+        <dl
+          className={`cd-details-kv${catalogLine?.trim() ? " cd-details-kv--with-catalog" : ""}`}
+        >
+          {rows.map((row) => {
+            const href = row.href?.trim() || null;
+            return (
+              <div key={row.id} className="cd-details-kv__row">
+                <dt className="cd-details-kv__label">{row.label}</dt>
+                <dd className="cd-details-kv__value">
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="cd-details-kv__attr-link"
+                      title={`Browse Markets for ${row.value}`}
+                    >
+                      {row.value}
+                      <span className="cd-details-kv__attr-arrow" aria-hidden>
+                        ↗
+                      </span>
+                    </Link>
+                  ) : (
+                    row.value
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       ) : null}
 
       {footer ? (
-        <div className={rows.length > 0 ? "mt-2 px-4 pb-3 pt-2" : "px-4 py-3"}>{footer}</div>
+        <div className={rows.length > 0 ? "mt-2 px-4 pb-3 pt-2" : "px-4 py-3"}>
+          {footer}
+        </div>
       ) : null}
     </article>
   );

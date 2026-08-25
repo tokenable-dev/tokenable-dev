@@ -16,7 +16,7 @@ export const ASSETS = {
   /** 메인 로고 (Tokenable / Tokenable_RWA) */
   logo: {
     tokenable: `${ASSETS_BASE}/logo/tokenable.png`,
-    /** DS GNB — full wordmark */
+    /** DS GNB — full wordmark (also used in Privy login modal) */
     tokenableDs: `${ASSETS_BASE}/ds/logo-tokenable.svg`,
     /** DS GNB — symbol (mobile) */
     tokenableSymbol: `${ASSETS_BASE}/ds/symbol-white.svg`,

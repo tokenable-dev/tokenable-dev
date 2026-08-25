@@ -35,6 +35,7 @@ import { UserWallet } from './user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
+import { UserBuyerListingAlert } from './marketplace/entities/user-buyer-listing-alert.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
 import { CardhedgerPriceDeltaCheckpoint } from './cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
@@ -131,6 +132,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           PortfolioDailySnapshot,
           PortfolioHolding,
           UserWatchlist,
+          UserBuyerListingAlert,
           CardTop100DailySnapshot,
           CardhedgerPriceSubscription,
           CardhedgerPriceDeltaCheckpoint,

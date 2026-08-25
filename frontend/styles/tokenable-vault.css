@@ -545,7 +545,7 @@
 }
 
 .vault-breadcrumb__sep {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-breadcrumb__current {
@@ -563,7 +563,7 @@
 }
 
 .vault-breadcrumb--flow .vault-breadcrumb__sep {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-breadcrumb--flow .vault-breadcrumb__current {
@@ -5334,6 +5334,13 @@
   gap: 12px;
 }
 
+.vault-detail-hero__icon-wrap {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
 .vault-detail-hero--info {
   background: rgba(26, 111, 255, 0.06);
   border: 1px solid rgba(26, 111, 255, 0.15);
@@ -5670,7 +5677,7 @@
   flex-direction: row;
   gap: 24px;
   align-items: flex-start;
-  min-height: 100vh;
+  min-height: 0;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -5691,7 +5698,8 @@
   min-width: 0;
   position: sticky;
   top: 80px;
-  height: calc(100vh - 100px);
+  height: 480px;
+  max-height: 480px;
   overflow-x: hidden;
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.03);
@@ -6023,6 +6031,88 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* Vault detail — no loading spinners (Vault-Detail.html) */
+.vault-page--detail .vault-stepper__spin,
+.vault-page--detail .vault-lm-row__spin,
+.vault-page--detail .vault-lb-panel__pending-spin {
+  display: none !important;
+}
+
+/* Layout B desktop — shorter scrollable list, taller detail panel */
+@media (min-width: 1025px) {
+  .vault-page--detail .vault-detail-layout-b {
+    --vault-lm-list-height: 320px;
+    --vault-lb-panel-height: 640px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b .vault-lm-list {
+    height: var(--vault-lm-list-height);
+    max-height: var(--vault-lm-list-height);
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right {
+    height: var(--vault-lb-panel-height);
+    max-height: var(--vault-lb-panel-height);
+  }
+
+  /* Selected detail — fit within panel without scrollbar (reviewing / approved / live) */
+  .vault-page--detail .vault-detail-layout-b__right.selected {
+    overflow-y: hidden;
+    padding: 20px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected:has(.vault-lb-panel__rejected-box),
+  .vault-page--detail .vault-detail-layout-b__right.selected:has(.vault-lb-panel__failed-box) {
+    overflow-y: auto;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__hero {
+    margin-bottom: 14px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__img {
+    width: 120px;
+    height: 168px;
+    margin-bottom: 10px;
+    padding: 4px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__name {
+    font-size: 13px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-detail-section-label--box {
+    margin-bottom: 8px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-detail-row {
+    padding: 7px 0;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__pending,
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__approved {
+    margin-top: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__pending-spin {
+    width: 18px;
+    height: 18px;
+    margin-bottom: 6px;
+  }
+
+  .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__pending .vault-detail-section-label {
+    margin-bottom: 8px;
+  }
+}
+
 @media (max-width: 1024px) {
   .vault-add-methods {
     flex-direction: column;
@@ -6046,6 +6136,57 @@
 
   .vault-lm-pills--2 {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .vault-page--detail .vault-detail-hero__icon-wrap {
+    display: none;
+  }
+
+  .vault-page--detail .vault-detail-hero__sub {
+    padding-left: 0;
+  }
+
+  .vault-page--detail .vault-detail-package__head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .vault-page--detail .vault-detail-package__meta {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.52);
+  }
+
+  .vault-page--detail .vault-detail-package__date {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.52);
+    flex-shrink: 0;
+  }
+
+  .vault-page--detail .vault-detail-page--d .vault-lm-pills {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .vault-page--detail .vault-detail-page--d .vault-stepper__item:nth-child(7) .vault-stepper__dot--upcoming,
+  .vault-page--detail .vault-detail-page--d .vault-stepper__item:nth-child(7) .vault-stepper__dot--pending {
+    border: 2px solid rgba(0, 200, 100, 0.45);
+    background: rgba(0, 200, 100, 0.08);
+    color: var(--pos);
+  }
+
+  .vault-page--detail .vault-detail-main-actions {
+    margin-top: 20px;
+  }
+
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--primary,
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--subtle {
+    height: 48px;
+    width: 100%;
+    justify-content: center;
+    font-size: 14px;
   }
 }
 
@@ -6126,8 +6267,8 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1100;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 1200;
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -6145,7 +6286,7 @@
   height: 70vh;
   background: #141414;
   border-radius: 20px 20px 0 0;
-  z-index: 1101;
+  z-index: 1201;
   transform: translateY(100%);
   transition: transform 0.25s ease;
   display: flex;
@@ -6182,6 +6323,18 @@
 
 .vault-lb-sheet__content .vault-lb-panel {
   width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .vault-page--detail .vault-lb-sheet.open {
+    height: min(80vh, calc(100dvh - 40px));
+    max-height: min(80vh, calc(100dvh - 40px));
+  }
+
+  .vault-page--detail .vault-lb-sheet .vault-lb-sheet__content {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
 }
 
 /* ── Stepper mobile compact (Vault-Step-Indicator.html) ───────────────────── */
@@ -6410,4 +6563,3 @@
     transform: scale(1);
   }
 }
-

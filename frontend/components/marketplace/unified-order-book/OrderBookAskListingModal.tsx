@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, type WheelEvent } from "react";
+import { useEffect, useMemo, type WheelEvent } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Order } from "@/lib/core";
+import { TkButton } from "@/components/ds";
 import { formatOrderUsdc6 } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { formatOrderBookPriceUsdc } from "@/lib/marketplace/unified-order-book";
 import {
@@ -16,21 +18,21 @@ import { useIsMobileViewport } from "@/hooks/ui";
 const LISTING_IMAGE_STAGE =
   "bg-[radial-gradient(ellipse_85%_72%_at_50%_100%,rgba(58,62,74,0.5)_0%,rgba(22,24,30,0.92)_52%,#0a0b0e_100%)]";
 
-const MAX_LAYOUT_CARDS_DESKTOP = 4;
-const MAX_LAYOUT_CARDS_MOBILE = 2;
+/** Desktop shell ≈3 cards wide; mobile shell ≈2. Cards scroll when count exceeds shell slots. */
+const MODAL_SHELL_SLOTS_DESKTOP = 3;
+const MODAL_SHELL_SLOTS_MOBILE = 2;
 const CARD_GAP_REM = 0.625;
-const CARD_SLOT_REM = 13.25;
-const MODAL_HORIZONTAL_PAD_REM = 2.5;
+const CARD_SLOT_DESKTOP_REM = 13.25;
+const CARD_SLOT_MOBILE_REM = 11.5;
+const MODAL_HORIZONTAL_PAD_DESKTOP_REM = 2.5;
+const MODAL_HORIZONTAL_PAD_MOBILE_REM = 1.5;
 
-function cardSlotBasis(layoutCount: number): string {
-  const gapTotal = (layoutCount - 1) * CARD_GAP_REM;
-  return `calc((100% - ${gapTotal}rem) / ${layoutCount})`;
-}
-
-function modalShellMaxWidth(layoutCount: number): string {
-  const gaps = Math.max(0, layoutCount - 1) * CARD_GAP_REM;
-  const cards = layoutCount * CARD_SLOT_REM;
-  return `min(100%, calc(${MODAL_HORIZONTAL_PAD_REM}rem + ${cards}rem + ${gaps}rem))`;
+function modalShellMaxWidth(shellSlots: number, mobile: boolean): string {
+  const pad = mobile ? MODAL_HORIZONTAL_PAD_MOBILE_REM : MODAL_HORIZONTAL_PAD_DESKTOP_REM;
+  const slot = mobile ? CARD_SLOT_MOBILE_REM : CARD_SLOT_DESKTOP_REM;
+  const gaps = Math.max(0, shellSlots - 1) * CARD_GAP_REM;
+  const cards = shellSlots * slot;
+  return `min(calc(100vw - 2rem), calc(${pad}rem + ${cards}rem + ${gaps}rem))`;
 }
 
 function scrollRowOnWheel(e: WheelEvent<HTMLUListElement>) {
@@ -76,11 +78,11 @@ function ListingMetaLine({
 
 function OrderBookAskListingCard({
   order,
-  slotBasis,
+  cardWidthRem,
   onBuy,
 }: {
   order: Order;
-  slotBasis: string;
+  cardWidthRem: number;
   onBuy: () => void;
 }) {
   const tokenId = Number(order.tokenId);
@@ -95,8 +97,12 @@ function OrderBookAskListingCard({
 
   return (
     <li
-      className="flex min-w-0 shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-zinc-800/80 bg-black/25"
-      style={{ flexBasis: slotBasis }}
+      className="flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-zinc-800/80 bg-black/25"
+      style={{
+        width: `${cardWidthRem}rem`,
+        flex: `0 0 ${cardWidthRem}rem`,
+        maxWidth: "100%",
+      }}
     >
       <div
         className={`relative flex aspect-[2/3] w-full shrink-0 items-center justify-center overflow-hidden border-b border-zinc-800/60 ${LISTING_IMAGE_STAGE}`}
@@ -134,13 +140,15 @@ function OrderBookAskListingCard({
             ${priceLabel}
             <span className="ml-1 text-[9px] font-semibold text-zinc-500">USDC</span>
           </p>
-          <button
+          <TkButton
             type="button"
+            variant="primary"
+            size="sm"
+            className="w-full"
             onClick={onBuy}
-            className="w-full rounded-lg border border-mint/35 bg-mint/[0.08] px-2 py-1.5 text-[10px] font-semibold text-mint transition-colors hover:bg-mint/[0.14] sm:text-xs"
           >
             Buy
-          </button>
+          </TkButton>
         </div>
       </div>
     </li>
@@ -161,20 +169,37 @@ export function OrderBookAskListingModal({
   orders: Order[];
 }) {
   const router = useRouter();
-  const isMobileViewport = useIsMobileViewport();
+  /* Match collection-detail mobile column (≤1023), not just Tailwind `sm`. */
+  const isMobileViewport = useIsMobileViewport(1023);
 
   const sortedOrders = useMemo(
     () => [...orders].sort((a, b) => Number(a.tokenId) - Number(b.tokenId)),
     [orders],
   );
 
-  const visibleSlots = isMobileViewport ? MAX_LAYOUT_CARDS_MOBILE : MAX_LAYOUT_CARDS_DESKTOP;
-  const scrollable = sortedOrders.length > visibleSlots;
-  const slotBasis = cardSlotBasis(visibleSlots);
-  const modalMaxWidth = modalShellMaxWidth(MAX_LAYOUT_CARDS_DESKTOP);
-  const centerCards = !scrollable && sortedOrders.length < visibleSlots;
+  const shellSlots = isMobileViewport
+    ? MODAL_SHELL_SLOTS_MOBILE
+    : MODAL_SHELL_SLOTS_DESKTOP;
+  const cardWidthRem = isMobileViewport ? CARD_SLOT_MOBILE_REM : CARD_SLOT_DESKTOP_REM;
+  const scrollable = sortedOrders.length > shellSlots;
+  const modalMaxWidth = modalShellMaxWidth(shellSlots, isMobileViewport);
+  const centerCards = !scrollable && sortedOrders.length < shellSlots;
 
-  if (!open || sortedOrders.length === 0) return null;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open || sortedOrders.length === 0 || typeof document === "undefined") return null;
 
   const listingLabel =
     sortedOrders.length === 1 ? "Listed card" : `${sortedOrders.length} listed cards`;
@@ -186,8 +211,8 @@ export function OrderBookAskListingModal({
     );
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[210] flex items-center justify-center px-4 py-6">
       <div
         className="absolute inset-0 bg-black/75 backdrop-blur-sm"
         onClick={onClose}
@@ -197,10 +222,10 @@ export function OrderBookAskListingModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="orderbook-ask-listing-title"
-        className="relative mx-auto flex w-full max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/50 sm:max-w-none"
-        style={isMobileViewport ? undefined : { maxWidth: modalMaxWidth }}
+        className="relative mx-auto flex max-h-[min(90dvh,920px)] w-auto max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/50"
+        style={{ width: modalMaxWidth, maxWidth: modalMaxWidth }}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800/90 px-4 py-3.5 sm:px-5 sm:py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800/90 px-3 py-3 sm:px-5 sm:py-4">
           <div className="min-w-0 pr-9">
             <h2
               id="orderbook-ask-listing-title"
@@ -215,17 +240,19 @@ export function OrderBookAskListingModal({
               </span>
             </p>
           </div>
-          <button
+          <TkButton
             type="button"
+            variant="ghost"
+            size="sm"
             aria-label="Close"
             onClick={onClose}
-            className="absolute right-3 top-3 rounded-lg p-2 text-base text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 sm:right-4 sm:top-3.5"
+            className="absolute right-3 top-3 !min-w-0 px-2 sm:right-4 sm:top-3.5"
           >
             ✕
-          </button>
+          </TkButton>
         </div>
 
-        <div className="min-w-0 px-3 py-3 sm:px-5 sm:py-4">
+        <div className="min-h-0 min-w-0 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           <ul
             className={`flex min-w-0 gap-2.5 [-webkit-overflow-scrolling:touch] ${
               scrollable
@@ -238,13 +265,14 @@ export function OrderBookAskListingModal({
               <OrderBookAskListingCard
                 key={order.orderHash}
                 order={order}
-                slotBasis={slotBasis}
+                cardWidthRem={cardWidthRem}
                 onBuy={() => navigateToBuy(Number(order.tokenId))}
               />
             ))}
           </ul>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

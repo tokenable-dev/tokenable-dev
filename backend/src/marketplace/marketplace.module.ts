@@ -5,6 +5,7 @@ import { MarketplaceMarketDataModule } from './market-data/marketplace-market-da
 import { MarketplaceOrdersModule } from './orders/marketplace-orders.module';
 import { MarketplacePartnersModule } from './partners/marketplace-partners.module';
 import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.module';
+import { MarketplaceBuyerListingAlertModule } from './buyer-listing-alert/marketplace-buyer-listing-alert.module';
 import { MarketplaceWatchlistModule } from './watchlist/marketplace-watchlist.module';
 import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
 import { MarketplaceP2pModule } from './p2p/marketplace-p2p.module';
@@ -22,6 +23,7 @@ import { SelfVaultSettlementModule } from './settlement/self-vault-settlement.mo
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
     MarketplaceWatchlistModule,
+    MarketplaceBuyerListingAlertModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
     MarketplaceP2pModule,
@@ -35,6 +37,7 @@ import { SelfVaultSettlementModule } from './settlement/self-vault-settlement.mo
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
     MarketplaceWatchlistModule,
+    MarketplaceBuyerListingAlertModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
     MarketplaceP2pModule,

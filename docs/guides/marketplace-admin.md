@@ -20,7 +20,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
-| `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | Ledger for self-vault sales — pay early (~95% USDC) or wait for auto (~5 min); reject to skip |
+| `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | One row per sale (`order_hash`); resales before auto-pay show as Sale N of M. Pay early (~95% USDC) or wait ~5 min; reject to skip |
 | `/marketplace/admin/partners` | **Partners** | Company display name + wallet for Self vault; optional encrypted PK for consignment mint & list |
 | `/marketplace/admin/bulk-mint` | **Partner bulk mint** | Excel cert+price → PSA prepare → mint to company wallet + Seaport list (Listed/Sold). Any admin session for now |
 | `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
@@ -261,7 +261,7 @@ See also [materialized-market-snapshots.md](../architecture/materialized-market-
 | Recent platform sales | Latest fulfilled trades |
 | Price sync snippet | Cardhedger mode, subscriptions, cron (from price infra API) |
 
-Period selector: **7 / 30 / 90 days** — refetches `GET /marketplace/admin/analytics`.
+Period selector: **7 / 30 / 90 days** — refetches `GET /marketplace/admin/analytics`. Client caches ~5 minutes (no background poll); Refresh button forces a refetch. Backend keeps a 60s in-memory TTL per `chainId`+`days`.
 
 ---
 

@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { CollectionDetailMetricsStrip } from "./CollectionDetailMetricsStrip";
 import { CollectionDetailPriceChart } from "./CollectionDetailPriceChart";
 import { CollectionDetailMobileScrollPanel } from "./CollectionDetailMobileScrollPanel";
-import { CollectionDetailMobileListingsSection } from "./CollectionDetailMobileListingsSection";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
@@ -19,8 +18,8 @@ export type CollectionDetailMarketSlice = Pick<
   | "gradeAwareChange1MoPct"
   | "gradeAwareChangeResult"
   | "gradeAwareChangeLoading"
-  | "tradeVolumeUsdc"
-  | "platformTradesLoading"
+  | "heroTapeStats"
+  | "heroTapeLoading"
   | "totalPopulation"
   | "psaPopulationMetrics"
   | "marketCapComputation"
@@ -37,8 +36,10 @@ function metricsStripProps(market: CollectionDetailMarketSlice, coverImageUrl?: 
     changeLoading: market.gradeAwareChangeLoading,
     changePeriod: market.gradeAwareChangeResult,
     gradeLabel: market.gradeAwareTierLabel,
-    tradeVolumeUsdc: market.tradeVolumeUsdc,
-    tradeVolumeLoading: market.platformTradesLoading,
+    tradeVolumeUsdc: market.heroTapeStats.volume1yUsdc,
+    median30dUsd: market.heroTapeStats.median30dUsd,
+    velocityPct: market.heroTapeStats.velocityPct,
+    tradeVolumeLoading: market.heroTapeLoading,
     marketCapUsd: market.marketCapComputation?.usd ?? null,
     psaPopulationMetrics: market.psaPopulationMetrics,
     totalPopulation: market.totalPopulation,
@@ -52,12 +53,10 @@ export function buildCollectionDetailMarketsSlots(input: {
   headlineTitle?: string | null;
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineMeta?: string | null;
-  mobileListingsBody: ReactNode;
-  mobileListingCount?: number;
+  similarPanel?: ReactNode;
   detailsPanel?: ReactNode;
   highestBidUsd?: number | null;
   lowestAskUsd?: number | null;
-  bidCount?: number;
   onPlaceBid?: () => void;
   placeBidDisabled?: boolean;
   onBuyLowestAsk?: () => void;
@@ -77,12 +76,10 @@ export function buildCollectionDetailMarketsSlots(input: {
     headlineTitle,
     headlineParts,
     headlineMeta,
-    mobileListingsBody,
-    mobileListingCount,
+    similarPanel,
     detailsPanel,
     highestBidUsd,
     lowestAskUsd,
-    bidCount,
     onPlaceBid,
     placeBidDisabled,
     onBuyLowestAsk,
@@ -134,15 +131,7 @@ export function buildCollectionDetailMarketsSlots(input: {
       <CollectionDetailMobileScrollPanel
         statBlock={renderMetricsStrip()}
         chartPanel={collectionDualPriceChartMobile}
-        listingsPanel={
-          <CollectionDetailMobileListingsSection
-            listingCount={mobileListingCount}
-            highestBidUsd={highestBidUsd}
-            bidCount={bidCount}
-          >
-            {mobileListingsBody}
-          </CollectionDetailMobileListingsSection>
-        }
+        similarPanel={similarPanel}
         orderBookStack={collectionOrderBookMobile}
         detailsPanel={detailsPanel}
       />

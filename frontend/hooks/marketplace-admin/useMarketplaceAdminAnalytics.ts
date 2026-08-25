@@ -8,12 +8,15 @@ import {
 } from "@/lib/core";
 import { useAppChain } from "@/providers/AppChainProvider";
 
+/** Heavy SQL aggregates — cache longer; refresh via period selector / Refresh. */
 export function useMarketplaceAdminAnalytics(days: AdminAnalyticsPeriod = 30) {
   const { chainId } = useAppChain();
   return useQuery({
     queryKey: rq.adminAnalytics(days, chainId),
     queryFn: () => getAdminAnalyticsDashboard(days),
-    staleTime: 60_000,
-    refetchInterval: 120_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }

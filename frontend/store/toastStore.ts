@@ -25,7 +25,10 @@ type ToastStore = {
 };
 
 const DEFAULT_DURATION_MS = 6_000;
+const MAX_QUEUE = 8;
 const timers = new Map<string, number>();
+/** Waiting toasts — only one is visible at a time. */
+let pending: AppToast[] = [];
 
 function clearTimer(id: string) {
   const t = timers.get(id);
@@ -33,6 +36,22 @@ function clearTimer(id: string) {
     window.clearTimeout(t);
     timers.delete(id);
   }
+}
+
+function armTimer(get: () => ToastStore, toast: AppToast) {
+  if (typeof window === "undefined" || toast.durationMs <= 0) return;
+  clearTimer(toast.id);
+  timers.set(
+    toast.id,
+    window.setTimeout(() => {
+      timers.delete(toast.id);
+      get().dismiss(toast.id);
+    }, toast.durationMs),
+  );
+}
+
+function upsertPending(toast: AppToast) {
+  pending = [...pending.filter((t) => t.id !== toast.id), toast].slice(-MAX_QUEUE);
 }
 
 export const useToastStore = create<ToastStore>((set, get) => ({
@@ -52,27 +71,31 @@ export const useToastStore = create<ToastStore>((set, get) => ({
       addFunds: input.addFunds,
       durationMs: input.durationMs ?? DEFAULT_DURATION_MS,
     };
-    clearTimer(id);
-    set((s) => ({
-      toasts: [...s.toasts.filter((t) => t.id !== id), toast].slice(-4),
-    }));
-    if (typeof window !== "undefined" && toast.durationMs > 0) {
-      timers.set(
-        id,
-        window.setTimeout(() => {
-          timers.delete(id);
-          get().dismiss(id);
-        }, toast.durationMs),
-      );
+    const current = get().toasts[0];
+    if (current && current.id !== id) {
+      upsertPending(toast);
+      return id;
     }
+    pending = pending.filter((t) => t.id !== id);
+    clearTimer(id);
+    set({ toasts: [toast] });
+    armTimer(get, toast);
     return id;
   },
   dismiss: (id) => {
     clearTimer(id);
-    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    const current = get().toasts[0];
+    if (current?.id !== id) {
+      pending = pending.filter((t) => t.id !== id);
+      return;
+    }
+    const next = pending.shift() ?? null;
+    set({ toasts: next ? [next] : [] });
+    if (next) armTimer(get, next);
   },
   clear: () => {
-    for (const id of timers.keys()) clearTimer(id);
+    for (const timerId of timers.keys()) clearTimer(timerId);
+    pending = [];
     set({ toasts: [] });
   },
 }));

@@ -120,6 +120,8 @@ RootLayout
 
 `PrivyAppProviders` is a no-op (returns children directly) when `NEXT_PUBLIC_PRIVY_APP_ID` is unset.
 
+**Login modal look:** auth stays Privy SDK. Visual tokens are aligned with `Tokenable-with design system-17/Login.html` via `buildPrivyClientConfig().appearance` (`theme` `#141414`, accent `#1A6FFF`, empty header/message, GNB wordmark) and `--privy-*` CSS variables on `body` in `app/globals.css`. Unofficial CSS also enlarges the modal logo, adds Login.html’s orbiting edge highlight, and centers Privy’s default mobile bottom-sheet as a floating card (≤440px). Layout/steps remain Privy’s (not a custom Login.html clone).
+
 ---
 
 ## API client pattern
@@ -137,10 +139,16 @@ Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 
 When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
 
-PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts`:
-**Display name** = `Character · Variant`; **Meta** = `Year · Set · # · Grade`. Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
+PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts` and Card.html `#hero-title` / `#hero-meta`:
+**Hero title** = `Character[ · Variant] · # · Grade`; **Hero meta** = `Year · Set · …` (no `#` / grade — those stay on the title line only). Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
 
-Collection detail layout mirrors `Tokenable-with design system-17/Card.html`: sticky `#hero-bar` with title/meta inside (`#hero-mid`), tall thumb, Market cap / Volume / Pop / Lowest ask / Highest bid rows, Buy now + Bid buttons; `1.35fr / 1fr` grid (chart + ask table left; Trades/Order book + Details/PSA rail right); ask table with 7-row cap + View-all drawer. Mobile (`≤1023`): static hero grid then sticky condense on scroll; book hidden → fixed `#ob-bottom-bar`; column order chart → rail → listings last.
+Collection detail layout mirrors `Tokenable-with design system-18/Card.html`: sticky `#hero-bar` with title/meta inside (`#hero-mid`), Ask/Bid + market metrics columns, Buy now + Bid; `1.35fr / 1fr` grid (Price history + **Similar items** left; Trades/Order book + Details/Pop. rail right). Trades **View all** expands the panel inline (`.tk-expanded` / Show less) — no right drawer. Left ask listings table is not rendered (asks live in Order book). Mobile (`≤1023`): Card.html hero grid — title full-width, then image | last-price (+chg), then secondary metric rows; Buy/Bid in fixed `#ob-bottom-bar`; sticky condense on scroll (title · price, no thumb). Column order: chart → rail → similar.
+
+**Hero population metrics:** Gem rate = PSA 10 Pop ÷ Total PSA Pop. **Volume 1Y** and **Velocity 1Y** are always shown in the UI (never `Volume 6M` etc.). Internally the longest coverable window among **1M / 3M / 6M / 12M** (priority 12M→6M→3M→1M; Cardhedger comps ~100) is selected; raw period volume is annualized (×1 / ×2 / ×4 / ×12). UI Volume = normalized 1Y notional. Velocity = normalized 1Y volume ÷ market cap × 100. Market cap never scaled. No “Est.” Under 30d coverage both **—**.
+
+**Markets grid titles** (`buildMarketsCollectionTitle` in `lib/markets/marketsCollectionTitle.ts`) use the catalog one-liner — `Year Set #Number CardName [Variant]` — matching Card.html `card__title` / search results. Collection detail hero keeps Display name + meta strip separately (`AssetDetailHeadlineTitle`); do not reuse the tile formatter on the detail page.
+
+**Collection detail order book** (Price / Qty / Total policy): depth-only two-sided book — columns **Price / Qty / Total** where Total = price × qty (notional USDC; compact `$1.2k` / `$3.4m` / `$1.1b` when large); depth bar width = level Total ÷ side max Total; integer qty and whole-dollar prices; ask row click opens buy at that price (hover **Buy ›**); **LAST** + **Spread** center strip; empty states for no asks (bids live), no bids (asks live), and no market with CTAs (Place a bid, Notify me, List yours).
 
 ## Design system buttons (`TkButton`)
 
@@ -211,3 +219,24 @@ Output is JSON via `console.log`, parseable in DevTools or piped to a CLI.
 ## Feature flags (UI)
 
 Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin previews live under `/marketplace/admin/markets` (tabbed).
+
+### Markets URL filters (Details → Markets)
+
+Collection Details KV values deep-link to `/markets` using the Card.html / `markets-nav.js` query contract (`lib/markets/marketsUrlFilters.ts`):
+
+| Param | Meaning |
+|-------|---------|
+| `cat` | Category path(s); pipe-joined multi = OR (e.g. `sports/baseball` and `tcg/pokemon`) |
+| `character` | Card name facet (pipe-joined multi) |
+| `set` | Set facet |
+| `year_min` / `year_max` | Year range |
+| `grade` | e.g. `PSA 10` (pipe-joined) |
+| `price_min` / `price_max`, `sort` | Existing UI filters synced to URL |
+
+Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card number / Variant / Language stay plain text (no Markets facet yet). Series is not linked — no `series` field in collection components.
+
+**Set facet sync:** Details **Set** values and Markets `set=` use the same canonical label (`resolveCollectionSetFacetLabel` — year prefix stripped). Markets slim bar **Set** filter searches that label against loaded collections; chosen sets and `sort` both persist in the URL so deep-links from Details and in-page filtering stay aligned.
+
+**Admin + local `next dev` CPU:** `/marketplace/admin/*` hides GNB/footer via `shouldHideAppChrome`, and also **disables** marketplace notification polling / partner-me queries on those routes. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy (fan spin with frontend alone).
+
+**CSS + Turbopack:** `app/globals.css` only pulls DS + layout + shared card/secondary sheets. Heavy route CSS (`tokenable-vault`, `sell-flow`, `collection-detail`, …) is imported from the owning route layout so admin / home compiles do not reprocess ~25k lines of unrelated CSS. See [design-system-reference.md](../guides/design-system-reference.md) § CSS bundle.

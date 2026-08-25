@@ -59,13 +59,13 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
           <nav className="sell-flow-partner-crumb" aria-label="Breadcrumb">
             <Link href="/vault">Sell</Link>
             <span className="sell-flow-partner-crumb__sep" aria-hidden>
-              /
+              ›
             </span>
             <button type="button" className="sell-flow-partner-crumb__link" onClick={goBackToVaultChoice}>
               Choose a vault
             </button>
             <span className="sell-flow-partner-crumb__sep" aria-hidden>
-              /
+              ›
             </span>
             <span className="sell-flow-partner-crumb__current">Partner vault</span>
           </nav>
@@ -135,7 +135,14 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
                 disabled={busy}
                 onClick={() => void lookupCert()}
               >
-                {lookupBusy ? "Looking up" : "Look up"}
+                {lookupBusy ? (
+                  <>
+                    <span className="sell-flow-spinner" aria-hidden />
+                    Looking up
+                  </>
+                ) : (
+                  "Look up"
+                )}
               </TkButton>
             </div>
             <SellFlowCertProgress active={lookupBusy} tone="light" />

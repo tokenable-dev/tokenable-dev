@@ -14,6 +14,7 @@ import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListing
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
   leadingYearFromSetLine,
+  resolveCollectionSetFacetLabelFromLine,
   toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
@@ -101,8 +102,9 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  const setName =
+  const setLineRaw =
     headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
+  const setName = resolveCollectionSetFacetLabelFromLine(setLineRaw);
   if (setName) {
     rows.push({
       id: "set",

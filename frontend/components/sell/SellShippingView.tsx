@@ -2,11 +2,105 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
+import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useSellShipping } from "@/hooks/sell/useSellShipping";
 import { PSA_SHIP_TO, type SellCarrier } from "@/lib/sell/sellFlowDraft";
+import { cn } from "@/lib/ds/cn";
 import { SellFlowProgressSteps } from "./SellFlowProgressSteps";
+
+const CARRIER_OPTIONS: { value: SellCarrier; label: string }[] = [
+  { value: "fedex", label: "FedEx International Priority — recommended" },
+  { value: "dhl", label: "DHL Express — recommended" },
+  { value: "ups", label: "UPS Worldwide" },
+];
+
+function SellCarrierField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: SellCarrier;
+  onChange: (next: SellCarrier) => void;
+  disabled?: boolean;
+}) {
+  const isMobile = useIsMobileViewport(768);
+  const [open, setOpen] = useState(false);
+  const label = CARRIER_OPTIONS.find((o) => o.value === value)?.label ?? value;
+
+  if (!isMobile) {
+    return (
+      <TkField label="Carrier" htmlFor="sell-ship-carrier">
+        <TkSelect
+          id="sell-ship-carrier"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value as SellCarrier)}
+        >
+          {CARRIER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </TkSelect>
+      </TkField>
+    );
+  }
+
+  return (
+    <>
+      <TkField label="Carrier" htmlFor="sell-ship-carrier-trigger">
+        <button
+          id="sell-ship-carrier-trigger"
+          type="button"
+          className="sell-ship-carrier-trigger"
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
+        >
+          <span>{label}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </TkField>
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="sell-ship-sheet-overlay open"
+            aria-label="Close carrier picker"
+            onClick={() => setOpen(false)}
+          />
+          <div className="sell-ship-carrier-sheet open" role="listbox" aria-label="Carrier">
+            <div className="sell-ship-carrier-sheet__handle" aria-hidden />
+            {CARRIER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                aria-selected={opt.value === value}
+                className={cn(
+                  "sell-ship-carrier-sheet__row",
+                  opt.value === value && "sell-ship-carrier-sheet__row--on",
+                )}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
 
 function CheckIcon({ size = 14 }: { size?: number }) {
   return (
@@ -113,7 +207,14 @@ export function SellShippingView() {
                 disabled={ship.packageSyncing}
                 onClick={ship.retryPackageSync}
               >
-                {ship.packageSyncing ? "Saving…" : "Retry save"}
+                {ship.packageSyncing ? (
+                  <>
+                    <span className="sell-flow-spinner" aria-hidden />
+                    Saving…
+                  </>
+                ) : (
+                  "Retry save"
+                )}
               </TkButton>
             </div>
           ) : null}
@@ -254,10 +355,15 @@ export function SellShippingView() {
                 Register tracking number <ArrowRightIcon />
               </TkButton>
               {!ship.canContinuePack ? (
-                <p className="sell-ship-gate-hint">
-                  {ship.packageSyncError
-                    ? "Save your package (retry above) before continuing."
-                    : "Saving your package…"}
+                <p className="sell-ship-gate-hint sell-ship-gate-hint--busy">
+                  {ship.packageSyncError ? (
+                    "Save your package (retry above) before continuing."
+                  ) : (
+                    <>
+                      <span className="sell-flow-spinner" aria-hidden />
+                      Saving your package…
+                    </>
+                  )}
                 </p>
               ) : null}
             </div>
@@ -518,18 +624,11 @@ export function SellShippingView() {
                 </div>
 
                 <div className="sell-ship-track-grid">
-                  <TkField label="Carrier" htmlFor="sell-ship-carrier">
-                    <TkSelect
-                      id="sell-ship-carrier"
-                      value={ship.carrier}
-                      disabled={ship.confirmed}
-                      onChange={(e) => ship.setCarrier(e.target.value as SellCarrier)}
-                    >
-                      <option value="fedex">FedEx International Priority — recommended</option>
-                      <option value="dhl">DHL Express — recommended</option>
-                      <option value="ups">UPS Worldwide</option>
-                    </TkSelect>
-                  </TkField>
+                  <SellCarrierField
+                    value={ship.carrier}
+                    disabled={ship.confirmed}
+                    onChange={ship.setCarrier}
+                  />
                   <TkField label="Shipping date" htmlFor="sell-ship-date">
                     <TkInput
                       id="sell-ship-date"
@@ -649,15 +748,14 @@ export function SellShippingView() {
                 </div>
               ) : null}
 
-              <TkButton
+              <button
                 type="button"
-                variant="subtle"
                 className="sell-ship-back-cards"
                 onClick={ship.backToCards}
                 disabled={ship.confirmed}
               >
                 {ship.isTrackingEdit ? "Back to package" : "Back to Card Details"}
-              </TkButton>
+              </button>
             </div>
           )}
         </section>

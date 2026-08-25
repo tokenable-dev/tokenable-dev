@@ -91,6 +91,46 @@ export class SelfVaultSettlementService {
     return String(gross - fee);
   }
 
+  /**
+   * True when the ask consideration is the self-vault shape (single USDC line
+   * to PLATFORM_FEE_RECIPIENT). Used when `rwa_tokens` policy lookup misses.
+   */
+  isFullPlatformTakeAsk(ask: Pick<Order, 'parameters'>): boolean {
+    const feeRecipient = (
+      this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!feeRecipient) return false;
+    const cons = (
+      ask.parameters as {
+        consideration?: Array<{
+          itemType?: number | string;
+          recipient?: string;
+        }>;
+      }
+    )?.consideration;
+    if (!Array.isArray(cons) || cons.length !== 1) return false;
+    const only = cons[0];
+    if (Number(only?.itemType) !== 1) return false;
+    return String(only?.recipient ?? '')
+      .trim()
+      .toLowerCase() === feeRecipient;
+  }
+
+  private resolveGrossMicros(ask: Order): string {
+    const fromTape = String(ask.parameters?._settlementAmount ?? '').trim();
+    if (/^\d+$/.test(fromTape) && BigInt(fromTape) > BigInt(0)) return fromTape;
+    const fromRow = String(ask.considerationAmount ?? '').trim();
+    if (/^\d+$/.test(fromRow) && BigInt(fromRow) > BigInt(0)) return fromRow;
+    const cons0 = (
+      ask.parameters as { consideration?: Array<{ startAmount?: string }> }
+    )?.consideration?.[0];
+    const fromCons = String(cons0?.startAmount ?? '').trim();
+    if (/^\d+$/.test(fromCons) && BigInt(fromCons) > BigInt(0)) return fromCons;
+    return '0';
+  }
+
   async createFromFulfilledAsk(params: {
     ask: Order;
     buyerWallet: string;
@@ -103,11 +143,15 @@ export class SelfVaultSettlementService {
     const existing = await this.repo.findOne({ where: { orderHash } });
     if (existing) return existing;
 
-    const gross = String(
-      params.ask.parameters?._settlementAmount ??
-        params.ask.considerationAmount ??
-        '0',
-    ).trim();
+    const buyer = params.buyerWallet.trim().toLowerCase();
+    if (!/^0x[a-f0-9]{40}$/.test(buyer)) {
+      this.logger.warn(
+        `self_vault_settlement skip: invalid buyer for ${orderHash}`,
+      );
+      return null;
+    }
+
+    const gross = this.resolveGrossMicros(params.ask);
     if (!/^\d+$/.test(gross) || BigInt(gross) <= BigInt(0)) {
       this.logger.warn(
         `self_vault_settlement skip: invalid gross for ${orderHash}`,
@@ -115,12 +159,13 @@ export class SelfVaultSettlementService {
       return null;
     }
 
+    const tokenId = String(params.ask.tokenId ?? '').trim();
     const row = this.repo.create({
       orderHash,
       tokenContract: params.ask.tokenContract.toLowerCase(),
-      tokenId: String(params.ask.tokenId),
+      tokenId,
       sellerWallet: params.ask.offerer.toLowerCase(),
-      buyerWallet: params.buyerWallet.trim().toLowerCase(),
+      buyerWallet: buyer,
       grossUsdc: gross,
       sellerPayoutUsdc: this.computeSellerPayoutMicros(gross),
       chainId: params.chainId,
@@ -132,7 +177,11 @@ export class SelfVaultSettlementService {
     });
 
     try {
-      return await this.repo.save(row);
+      const saved = await this.repo.save(row);
+      this.logger.log(
+        `self_vault_settlement created ${saved.id} token #${tokenId} ask ${orderHash.slice(0, 10)}… seller ${saved.sellerWallet.slice(0, 10)}…`,
+      );
+      return saved;
     } catch (e) {
       const again = await this.repo.findOne({ where: { orderHash } });
       if (again) return again;
@@ -149,14 +198,29 @@ export class SelfVaultSettlementService {
     });
   }
 
+  /**
+   * @param status - single status, or `open` = pending_confirm | confirmed
+   *   (Needs action). Omit for all statuses.
+   */
   async listByStatus(
-    status?: SelfVaultSettlementStatus,
+    status?: SelfVaultSettlementStatus | 'open',
     chainId?: SupportedChainId,
   ): Promise<SelfVaultSettlement[]> {
+    const whereBase = chainId != null ? { chainId } : {};
+    if (status === 'open') {
+      return this.repo.find({
+        where: [
+          { ...whereBase, status: 'pending_confirm' },
+          { ...whereBase, status: 'confirmed' },
+        ],
+        order: { createdAt: 'DESC' },
+        take: 200,
+      });
+    }
     return this.repo.find({
       where: {
+        ...whereBase,
         ...(status ? { status } : {}),
-        ...(chainId != null ? { chainId } : {}),
       },
       order: { createdAt: 'DESC' },
       take: 200,
@@ -373,7 +437,10 @@ export class SelfVaultSettlementService {
           tokenId: String(ask.tokenId),
         },
       });
-      if (!isSelfVaultHoldPolicy(token?.settlementPolicy)) {
+      const isSelfVault =
+        isSelfVaultHoldPolicy(token?.settlementPolicy) ||
+        this.isFullPlatformTakeAsk(ask);
+      if (!isSelfVault) {
         skipped += 1;
         continue;
       }
@@ -387,22 +454,30 @@ export class SelfVaultSettlementService {
         continue;
       }
 
-      const tid = Math.floor(Number(ask.tokenId));
-      let buyerWallet = '';
-      if (Number.isFinite(tid) && tid >= 0) {
-        const holding = await this.holdings.findOne({
-          where: {
-            tokenContract: ask.tokenContract.toLowerCase(),
-            tokenId: tid,
-            costBasisSource: PortfolioCostBasisSource.MARKETPLACE_BUY,
-          },
-          order: { acquiredAt: 'DESC', updatedAt: 'DESC' },
-        });
-        buyerWallet = holding?.walletAddress?.trim().toLowerCase() ?? '';
+      const fromAsk = String(
+        (ask.parameters as { _filledByBuyer?: string } | undefined)
+          ?._filledByBuyer ?? '',
+      )
+        .trim()
+        .toLowerCase();
+      let buyerWallet = /^0x[a-f0-9]{40}$/.test(fromAsk) ? fromAsk : '';
+      if (!buyerWallet) {
+        const tid = Math.floor(Number(ask.tokenId));
+        if (Number.isFinite(tid) && tid >= 0) {
+          const holding = await this.holdings.findOne({
+            where: {
+              tokenContract: ask.tokenContract.toLowerCase(),
+              tokenId: tid,
+              costBasisSource: PortfolioCostBasisSource.MARKETPLACE_BUY,
+            },
+            order: { acquiredAt: 'DESC', updatedAt: 'DESC' },
+          });
+          buyerWallet = holding?.walletAddress?.trim().toLowerCase() ?? '';
+        }
       }
       if (!buyerWallet) {
         this.logger.warn(
-          `backfill skip ask ${ask.orderHash.slice(0, 10)}… token #${ask.tokenId}: no marketplace_buy holding for buyer`,
+          `backfill skip ask ${ask.orderHash.slice(0, 10)}… token #${ask.tokenId}: no _filledByBuyer or marketplace_buy holding`,
         );
         skipped += 1;
         continue;

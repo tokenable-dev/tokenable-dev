@@ -559,6 +559,19 @@ export class CollectionsController {
     );
   }
 
+  /** Same card name OR same set — Card.html Similar items */
+  @ApiOperation({ summary: '유사 컬렉션 (동일 카드명 또는 동일 세트)' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @Get('collections/:key/similar')
+  getSimilarCollections(
+    @Param('key') key: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.collectionService.findSimilarByNameAndSet(this.normalizeKey(key), {
+      chainId: this.chainConfig.resolveChainId(chainHeader),
+    });
+  }
+
   /** 컬렉션 상세 + 호가 (listings·collection bids) */
   @ApiOperation({ summary: '컬렉션 상세·오더북' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })

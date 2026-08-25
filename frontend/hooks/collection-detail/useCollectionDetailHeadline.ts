@@ -16,6 +16,7 @@ import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListing
 import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
+  bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
   buildCollectionHeadlineMetaStrip,
@@ -37,6 +38,7 @@ import {
   formatSportCategoryDisplayLabel,
   isPokemonTcgCategoryLabel,
 } from "@/lib/market";
+import { marketsHrefForDetailRow } from "@/lib/markets/marketsUrlFilters";
 
 export function useCollectionDetailHeadline(params: {
   key: string;
@@ -180,8 +182,9 @@ export function useCollectionDetailHeadline(params: {
   }, [activeGradeLabel, pokeTierLabel]);
 
   const collectionHeadlineMetaStrip = useMemo(() => {
+    // Card.html `#hero-meta`: Year · Set · … — number + grade live on `#hero-title` only.
     const catalog = formatCardDisplayMeta(collectionHeadlineParts, {
-      grade: headlineGradeBadge,
+      omitNumber: true,
     });
     const collab = buildCollectionHeadlineMetaStrip({
       setLine: headlineSetLine,
@@ -199,7 +202,6 @@ export function useCollectionDetailHeadline(params: {
     return catalog || collabCased || null;
   }, [
     collectionHeadlineParts,
-    headlineGradeBadge,
     headlineSetLine,
     comp,
     marketPreview,
@@ -302,7 +304,7 @@ export function useCollectionDetailHeadline(params: {
     if (player) {
       out.push({
         id: "character",
-        label: "Character",
+        label: "Card name",
         value: toCardDisplayCase(player),
       });
     }
@@ -316,8 +318,29 @@ export function useCollectionDetailHeadline(params: {
         out.push(row);
       }
     }
-    return out;
-  }, [collectionMarketDetailCards, collectionHeadlineCardName]);
+
+    const grader =
+      byId.get("grader")?.value?.trim() ||
+      bucketGradingCompanyForDisplay(comp).trim() ||
+      null;
+    const gradeScore =
+      byId.get("grade")?.value?.trim() ||
+      (typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : null);
+
+    return out.map((row) => {
+      const href = marketsHrefForDetailRow(row.id, row.value, {
+        categoryBadge: collectionCategoryBadge,
+        gradeScore,
+        grader,
+      });
+      return href ? { ...row, href } : row;
+    });
+  }, [
+    collectionMarketDetailCards,
+    collectionHeadlineCardName,
+    collectionCategoryBadge,
+    comp,
+  ]);
 
   return {
     metadataRows,

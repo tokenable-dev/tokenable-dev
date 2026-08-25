@@ -20,7 +20,7 @@ export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boole
     <div className="vault-hub-header">
       <div className="vault-hub-header__copy">
         <span className="vault-hub-header__eyebrow">Selling</span>
-        <h1 className="vault-hub-header__title tkl-page-title">Track what you&rsquo;re selling</h1>
+        <h1 className="vault-hub-header__title tkl-sec-title">Track what you&rsquo;re selling</h1>
         <p className="vault-hub-header__sub">
           Get your cards verified and listed. Once live, manage them in your Portfolio.
         </p>

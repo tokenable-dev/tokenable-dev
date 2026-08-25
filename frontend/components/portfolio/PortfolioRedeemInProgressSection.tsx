@@ -43,7 +43,11 @@ function groupOrders(
     const cards = rows.map((r) => {
       const tokenId = Number(r.tokenId);
       const asset = assetRowsByTokenId.get(tokenId);
-      const badge = redeemSurfaceBadge(r.status, r.trackingNumber);
+      const badge = redeemSurfaceBadge(
+        r.status,
+        r.trackingNumber,
+        r.carrierDeliveredAt,
+      );
       return {
         tokenId,
         name: asset?.name ?? `RWA #${r.tokenId}`,

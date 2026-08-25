@@ -16,6 +16,23 @@ const REPORT_OPTIONS: { kind: ReportKind; label: string }[] = [
   { kind: "wrong", label: "This is not the card I expected" },
 ];
 
+function formatRedeemClock(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  return new Date(t).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function minutesUntil(iso: string, nowMs = Date.now()): number | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.ceil((t - nowMs) / 60_000));
+}
+
 /** "PSA 10 ×3 · BGS 9.5 ×1" — grades are full labels, so never assume PSA. */
 function gradeSummary(cards: RedeemDraftCard[]): string {
   const counts = new Map<string, number>();
@@ -241,17 +258,33 @@ function ShipmentBox({
   onMarkReceived: () => void;
 }) {
   const onWay = shipment.state === "on_the_way" || Boolean(shipment.trackingNumber);
+  const delivered = Boolean(shipment.carrierDeliveredAt);
   const trackUrl = buildCarrierTrackingUrl(
     shipment.trackingCarrier ?? undefined,
     shipment.trackingNumber ?? undefined,
   );
   const trackingLabel = shipment.trackingNumber?.trim() || "Pending";
+  const minsLeft = shipment.autoReceiptEligibleAt
+    ? minutesUntil(shipment.autoReceiptEligibleAt)
+    : null;
+  const deliveryMeta = delivered
+    ? `Delivered ${formatRedeemClock(shipment.carrierDeliveredAt!)}`
+    : onWay
+      ? "Pending carrier update"
+      : "—";
+  const autoMeta =
+    delivered && shipment.autoReceiptEligibleAt
+      ? minsLeft != null && minsLeft > 0
+        ? `Auto-confirm in ~${minsLeft} min`
+        : "Auto-confirm pending (next check)"
+      : null;
 
   return (
     <div
       className={cn(
         "pf-redeem-shipment",
         locallyReceived && "pf-redeem-shipment--received",
+        delivered && !locallyReceived && "pf-redeem-shipment--delivered",
       )}
       data-shipment={shipment.shipmentKey}
     >
@@ -264,10 +297,18 @@ function ShipmentBox({
           className={`pf-redeem-status-pill tkl-mono ${
             locallyReceived
               ? "pf-redeem-status-pill--pos"
-              : "pf-redeem-status-pill--warn"
+              : delivered
+                ? "pf-redeem-status-pill--pos"
+                : "pf-redeem-status-pill--warn"
           }`}
         >
-          {locallyReceived ? "Received" : onWay ? "On the way" : "Preparing"}
+          {locallyReceived
+            ? "Received"
+            : delivered
+              ? "Delivered"
+              : onWay
+                ? "On the way"
+                : "Preparing"}
         </span>
       </div>
       <div className="pf-redeem-shipment__meta tkl-mono">
@@ -293,9 +334,19 @@ function ShipmentBox({
           )}
         </div>
         <div>
-          <span className="pf-redeem-shipment__k">Est. delivery</span>
-          <span>Pending</span>
+          <span className="pf-redeem-shipment__k">
+            {delivered ? "Delivered" : "Est. delivery"}
+          </span>
+          <span className={delivered ? "pf-redeem-shipment__delivered" : undefined}>
+            {deliveryMeta}
+          </span>
         </div>
+        {autoMeta ? (
+          <div>
+            <span className="pf-redeem-shipment__k">Auto receipt</span>
+            <span className="pf-redeem-shipment__auto">{autoMeta}</span>
+          </div>
+        ) : null}
         {shipment.cards.length > 0 ? (
           <div>
             <span className="pf-redeem-shipment__k">Grades</span>
@@ -315,9 +366,11 @@ function ShipmentBox({
       <p className="pf-redeem-shipment__copy">
         {locallyReceived
           ? "Marked received on this device. Confirm below once every shipment has arrived."
-          : onWay
-            ? "This vault has shipped. Other vaults in the same order may still be preparing."
-            : "Waiting for the vault to share a tracking number."}
+          : delivered
+            ? "Carrier marked this shipment delivered. Confirm below, or wait for automatic receipt confirmation."
+            : onWay
+              ? "This vault has shipped. Other vaults in the same order may still be preparing."
+              : "Waiting for the vault to share a tracking number."}
       </p>
 
       {onWay && shipment.trackingNumber?.trim() && !locallyReceived ? (
@@ -363,6 +416,8 @@ export function RedeemTransitPanel({
               cards,
               trackingNumber: null,
               trackingCarrier: null,
+              carrierDeliveredAt: null,
+              autoReceiptEligibleAt: null,
               state: "on_the_way" as const,
             },
           ]

@@ -44,7 +44,7 @@ export function CollectionListingsSectionHeader({
         </h2>
         <p className="cd-listings-header__sub">
           Pick a specific copy to buy — vault and cert shown. Buy now takes the
-          lowest ask.
+          lowest ask; if several share that price, you choose which card.
         </p>
         {bidLine ? (
           <div className="cd-listings-header__interest mono">

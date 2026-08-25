@@ -40,6 +40,17 @@ export function CollectionDualPriceChart({
   const marketsLayout = variant === "markets";
   const isMobileChart = useCollectionDetailMobile();
   const compactTab = embedInMobileTab && marketsLayout;
+  const cardHtmlDetail = colorTheme === "collection-detail";
+  /** Card.html chart card needs a real drawable height — markets tab used 72px (looks flat). */
+  const chartMinHeight = cardHtmlDetail
+    ? isMobileChart
+      ? 220
+      : 280
+    : compactTab
+      ? 72
+      : marketsLayout
+        ? 72
+        : 200;
   const useIntegratedRange =
     !isMobileChart &&
     rangeOptions != null &&
@@ -77,13 +88,15 @@ export function CollectionDualPriceChart({
     return (
       <div
         className={
-          marketsLayout
-            ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
-                compactTab
-                  ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
-              }`
-            : `${chartShellDefault} flex min-h-[260px] flex-col overflow-hidden`
+          cardHtmlDetail
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : marketsLayout
+              ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
+                  compactTab
+                    ? "h-full min-h-0"
+                    : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                }`
+              : `${chartShellDefault} flex min-h-[260px] flex-col overflow-hidden`
         }
         role="status"
         aria-live="polite"
@@ -109,13 +122,15 @@ export function CollectionDualPriceChart({
     return (
       <div
         className={
-          marketsLayout
-            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center px-4 py-4 text-center text-sm text-rose-200/90 ${
-                compactTab
-                  ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
-              }`
-            : "rounded-2xl border border-rose-500/20 bg-black px-4 py-6 text-center text-sm text-rose-200/90"
+          cardHtmlDetail
+            ? "flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-4 text-center text-sm text-rose-200/90"
+            : marketsLayout
+              ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center px-4 py-4 text-center text-sm text-rose-200/90 ${
+                  compactTab
+                    ? "h-full min-h-0"
+                    : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                }`
+              : "rounded-2xl border border-rose-500/20 bg-black px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
         {errorMessage}
@@ -127,13 +142,15 @@ export function CollectionDualPriceChart({
     return (
       <div
         className={
-          marketsLayout
-            ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
-                compactTab
-                  ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
-              }`
-            : `${chartShellDefault} flex min-h-[110px] flex-col overflow-hidden`
+          cardHtmlDetail
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : marketsLayout
+              ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
+                  compactTab
+                    ? "h-full min-h-0"
+                    : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                }`
+              : `${chartShellDefault} flex min-h-[110px] flex-col overflow-hidden`
         }
       >
         {chartToolbar ? (
@@ -152,11 +169,13 @@ export function CollectionDualPriceChart({
   return (
     <div
       className={
-        marketsLayout
-          ? `${marketsChrome} flex h-full min-h-0 flex-col overflow-hidden text-white ${
-              compactTab ? "min-h-0" : "max-lg:min-h-0 lg:h-full lg:min-h-0"
-            }`
-          : `${chartShellDefault} text-white`
+        cardHtmlDetail
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden text-white"
+          : marketsLayout
+            ? `${marketsChrome} flex h-full min-h-0 flex-col overflow-hidden text-white ${
+                compactTab ? "min-h-0" : "max-lg:min-h-0 lg:h-full lg:min-h-0"
+              }`
+            : `${chartShellDefault} text-white`
       }
     >
       {chartToolbar || rangeToolbar || (controls && !useIntegratedRange) ? (
@@ -169,21 +188,25 @@ export function CollectionDualPriceChart({
 
       <div
         className={
-          marketsLayout
-            ? "relative flex min-h-0 flex-1 flex-col px-1 pb-1 pt-0 max-lg:min-h-0 sm:px-2 sm:pb-1.5"
-            : "relative min-h-[200px] px-2 pb-3 pt-0 sm:px-4"
+          cardHtmlDetail
+            ? "relative flex min-h-0 flex-1 flex-col"
+            : marketsLayout
+              ? "relative flex min-h-0 flex-1 flex-col px-1 pb-1 pt-0 max-lg:min-h-0 sm:px-2 sm:pb-1.5"
+              : "relative min-h-[200px] px-2 pb-3 pt-0 sm:px-4"
         }
       >
         <EChartsSized
           chartKey={merged.fixedWindowDays ?? "auto"}
           option={chartOption}
-          minHeight={compactTab ? 72 : marketsLayout ? 72 : 200}
+          minHeight={chartMinHeight}
           className={
-            marketsLayout
-              ? compactTab
-                ? "h-full min-h-0 w-full"
-                : "h-full min-h-0 w-full max-lg:min-h-0"
-              : "min-h-[200px] w-full"
+            cardHtmlDetail
+              ? "cd-chart-echarts h-full min-h-0 w-full"
+              : marketsLayout
+                ? compactTab
+                  ? "h-full min-h-0 w-full"
+                  : "h-full min-h-0 w-full max-lg:min-h-0"
+                : "min-h-[200px] w-full"
           }
         />
       </div>

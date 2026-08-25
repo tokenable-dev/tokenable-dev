@@ -1032,42 +1032,37 @@ export class CollectionMarketService {
       });
     }
 
-    const statsLog = JSON.stringify({
-      msg: 'collection_market_stats',
-      collectionKey: key,
-      marketplaceCollectionRow: Boolean(col),
-      referenceCardhedgerCardIdPresent: Boolean(chid),
-      usdcAddressExpectedLower: expectedUsdc,
-      activeAskRowsDb: asks.length,
-      poolFromActiveAsks,
-      activeAskSkippedNonUsdc: askNonUsdc,
-      activeAskSkippedInvalidAmount: askInvalidAmount,
-      fulfilledAskRowsDb: fulfilled.length,
-      poolFromFulfilledAsks,
-      fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
-      fulfilledSkippedNonUsdc: fulfilledNonUsdc,
-      fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
-      usdcObservationCount: rawPoolN,
-      sampleSize: stats.sampleSize,
-      isReliable: stats.isReliable,
-      unreliableReason,
-      ...(diagOn && rawPoolN === 0
-        ? {
-            globalActiveAskTotal,
-            globalActiveAskRowsWithNullCollectionKey:
-              globalActiveAskNullKeyCount,
-          }
-        : {}),
-    });
-    const shouldDebugOnly =
-      !diagOn &&
-      (unreliableReason === 'no_order_rows_for_collection_key' ||
-        unreliableReason === 'no_usdc_prices_after_filter' ||
-        unreliableReason === 'sample_below_min_reliable(5)');
-    if (shouldDebugOnly) {
-      this.logger.debug(statsLog);
-    } else {
-      this.logger.log(statsLog);
+    // Hot path: skip per-collection stats noise unless MARKETPLACE_PIPELINE_DIAG=1.
+    if (diagOn) {
+      this.logger.log(
+        JSON.stringify({
+          msg: 'collection_market_stats',
+          collectionKey: key,
+          marketplaceCollectionRow: Boolean(col),
+          referenceCardhedgerCardIdPresent: Boolean(chid),
+          usdcAddressExpectedLower: expectedUsdc,
+          activeAskRowsDb: asks.length,
+          poolFromActiveAsks,
+          activeAskSkippedNonUsdc: askNonUsdc,
+          activeAskSkippedInvalidAmount: askInvalidAmount,
+          fulfilledAskRowsDb: fulfilled.length,
+          poolFromFulfilledAsks,
+          fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
+          fulfilledSkippedNonUsdc: fulfilledNonUsdc,
+          fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
+          usdcObservationCount: rawPoolN,
+          sampleSize: stats.sampleSize,
+          isReliable: stats.isReliable,
+          unreliableReason,
+          ...(rawPoolN === 0
+            ? {
+                globalActiveAskTotal,
+                globalActiveAskRowsWithNullCollectionKey:
+                  globalActiveAskNullKeyCount,
+              }
+            : {}),
+        }),
+      );
     }
 
     return {

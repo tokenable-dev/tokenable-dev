@@ -25,6 +25,22 @@
   white-space: nowrap;
 }
 
+/* Card.html / Markets.html — hide page eyebrows on tablet + mobile */
+@media (max-width: 1024px) {
+  .tkl-eyebrow,
+  .pf-hero__eyebrow,
+  .pf-redeem-eyebrow,
+  .vault-hub-header__eyebrow,
+  .vault-submit-header__eyebrow,
+  .vault-shipping-header__eyebrow,
+  .vault-list-eyebrow,
+  .sell-flow-eyebrow,
+  .sell-ship-panel__eyebrow,
+  .po-eyebrow {
+    display: none !important;
+  }
+}
+
 .tkl-sec-title {
   font-family: var(--font-sans);
   font-weight: 700;
@@ -42,6 +58,16 @@
   font-size: clamp(34px, 4.4vw, 52px);
   line-height: 1.02;
   letter-spacing: -0.03em;
+  color: #fff;
+}
+
+/* Hub / dashboard H1 — Portfolio.html / Vault-Dashboard-Active.html `.sec-title` */
+.tkl-sec-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(26px, 3.2vw, 38px);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
   color: #fff;
 }
 
@@ -962,6 +988,42 @@
   opacity: 0.8;
 }
 
+.tkm-item--portfolio {
+  gap: 16px;
+}
+
+.tkm-item__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.tkm-item__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.tkm-item__chevron svg {
+  opacity: 0.45;
+}
+
+.tkm-item__chevron--open {
+  transform: rotate(180deg);
+}
+
+.tkm-item.active .tkm-item__chevron svg {
+  opacity: 0.75;
+}
+
+.tkm-portfolio__subs {
+  display: flex;
+  flex-direction: column;
+}
+
 .tkm-item--sub {
   height: 48px;
   padding-left: 52px;
@@ -976,6 +1038,10 @@
 
 .tkm-item--sub:hover:not(:disabled) {
   color: var(--t2);
+}
+
+.tkm-item--sub.active {
+  color: #fff;
 }
 
 .tkm-divider {
@@ -1255,6 +1321,23 @@ body.gnb-drawer-open .tk-shell-scroll {
 
 body.gnb-drawer-open .mobile-page-root {
   overflow: hidden !important;
+}
+
+/* Vault detail card sheet — lock page scroll, hide site footer (sibling of tk-shell-scroll) */
+html.vault-lb-sheet-open,
+body.vault-lb-sheet-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+body.vault-lb-sheet-open .tk-shell-scroll,
+body.vault-lb-sheet-open .mobile-page-root {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
+  display: none !important;
 }
 
 /* ── Footer (Phase 2) ─────────────────────────────────────────────────── */

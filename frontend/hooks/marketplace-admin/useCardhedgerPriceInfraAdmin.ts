@@ -14,6 +14,8 @@ export function useCardhedgerPriceInfraAdmin() {
   const statusQuery = useQuery({
     queryKey: statusKey,
     queryFn: getCardhedgerPriceInfraStatus,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const deltaMutation = useMutation({

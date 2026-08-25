@@ -40,7 +40,7 @@
 |-------|---------|--------|
 | `vault_assets` | Permanent physical card identity (PSA cert → vaultRef = keccak256) | `vault/entities/vault-asset.entity.ts` |
 | `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
-| `vault_redemptions` | Per-card redeem state machine + denormalized fee/payment/custody/refund/tracking fields | `vault/entities/vault-redemption.entity.ts` |
+| `vault_redemptions` | Per-card redeem state machine + denormalized fee/payment/custody/refund/tracking fields (`carrier_delivered_at`, `receipt_confirmed_via` for FedEx Track auto-receipt) | `vault/entities/vault-redemption.entity.ts` |
 | `vault_redeem_payment_claims` | Ledger: unique `payment_tx_hash` → one `payment_batch_id` (batch total micros). Referenced by paid `vault_redemptions.payment_tx_hash` | `vault/entities/vault-redeem-payment-claim.entity.ts` |
 | `vault_submissions` | Sell-flow shipping package (awaiting_shipment → PSA; add-cards is local) | `vault/entities/vault-submission.entity.ts` |
 | `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
@@ -65,6 +65,7 @@
 | `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per chain** (`chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
+| `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
 
 ### Admin & Cardhedger infra
 
@@ -249,7 +250,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
 | 045 | `045_p2p.sql` | P2P listings/orders |
 | 046 | `046_self_vault_settlements.sql` | Self-vault hold settlement ledger |
-| 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |
+| 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist`, `user_buyer_listing_alert` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
 | 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
@@ -276,6 +277,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |
 | `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
+| `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
 
 **Seeds (dev only):**
 

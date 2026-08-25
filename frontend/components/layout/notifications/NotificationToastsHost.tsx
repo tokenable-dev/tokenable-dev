@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TkNote } from "@/components/ds/Note";
+import { shouldHideAppChrome } from "@/constants/layout";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
@@ -49,15 +50,29 @@ function ToastIcon({ icon }: { icon: NotificationIcon }) {
 }
 
 /**
- * Ephemeral toasts for new inbox notifications — same title/body/href as the
- * notifications drawer (Feedback-States Notification / .tk-note).
+ * Ephemeral toasts for inbox events that happen while this tab is in front.
+ * Catch-up (login, tab focus, hidden tab) only updates the drawer — no toast.
  */
+const TOAST_FRESH_MS = 90_000;
+
+function absorbSeenIds(items: { id: string }[], seen: Set<string>) {
+  for (const item of items) seen.add(item.id);
+}
+
+function isLiveToastCandidate(createdAt: string, now = Date.now()): boolean {
+  const t = Date.parse(createdAt);
+  if (!Number.isFinite(t)) return false;
+  return now - t <= TOAST_FRESH_MS;
+}
+
 export function NotificationToastsHost() {
   const mounted = useClientMounted();
   const router = useRouter();
+  const pathname = usePathname();
   const userId = useAuthStore((s) => s.user?.id ?? "");
-  const { items, markRead, isLoading } = useMarketplaceNotifications({
-    enabled: Boolean(userId),
+  const inboxEnabled = Boolean(userId) && !shouldHideAppChrome(pathname);
+  const { items, markRead, isLoading, isFetching } = useMarketplaceNotifications({
+    enabled: inboxEnabled,
   });
   const toasts = useToastStore((s) => s.toasts);
   const push = useToastStore((s) => s.push);
@@ -69,23 +84,46 @@ export function NotificationToastsHost() {
   });
 
   const seededRef = useRef(false);
+  const catchupRef = useRef(true);
   const seenIdsRef = useRef(new Set<string>());
   const userIdRef = useRef(userId);
+  const [visEpoch, setVisEpoch] = useState(0);
 
   useEffect(() => {
     if (userIdRef.current === userId) return;
     userIdRef.current = userId;
     seededRef.current = false;
+    catchupRef.current = true;
     seenIdsRef.current = new Set();
     clear();
   }, [userId, clear]);
 
   useEffect(() => {
-    if (!userId || isLoading) return;
+    const onVis = () => {
+      catchupRef.current = true;
+      absorbSeenIds(items, seenIdsRef.current);
+      setVisEpoch((n) => n + 1);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [items]);
 
-    if (!seededRef.current) {
-      for (const item of items) seenIdsRef.current.add(item.id);
+  useEffect(() => {
+    if (!inboxEnabled || !userId || isLoading) return;
+
+    const tabHidden =
+      typeof document !== "undefined" && document.visibilityState !== "visible";
+    if (tabHidden) {
+      catchupRef.current = true;
+      absorbSeenIds(items, seenIdsRef.current);
       seededRef.current = true;
+      return;
+    }
+
+    if (!seededRef.current || catchupRef.current) {
+      absorbSeenIds(items, seenIdsRef.current);
+      seededRef.current = true;
+      if (!isFetching) catchupRef.current = false;
       return;
     }
 
@@ -93,6 +131,7 @@ export function NotificationToastsHost() {
       if (seenIdsRef.current.has(item.id)) continue;
       seenIdsRef.current.add(item.id);
       if (!item.unread) continue;
+      if (!isLiveToastCandidate(item.createdAt)) continue;
       push({
         id: `notif-${item.id}`,
         tone: notificationToastTone(item),
@@ -104,9 +143,9 @@ export function NotificationToastsHost() {
         addFunds: isAddFundsNotification(item),
       });
     }
-  }, [items, isLoading, userId, push]);
+  }, [inboxEnabled, items, isLoading, isFetching, userId, push, visEpoch]);
 
-  if (!mounted || toasts.length === 0) return null;
+  if (!inboxEnabled || !mounted || toasts.length === 0) return null;
 
   return createPortal(
     <div className="tk-toast-host" aria-live="polite">

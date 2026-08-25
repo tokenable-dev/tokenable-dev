@@ -963,7 +963,7 @@
   display: flex;
   gap: 14px;
   margin-top: 32px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .sell-flow-draft-btn {
@@ -975,9 +975,19 @@
 
 .sell-flow-ship-btn {
   height: 52px !important;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 20px !important;
   font-size: 15px !important;
   justify-content: center;
+  gap: 8px;
+  line-height: 1.25;
+}
+
+.sell-flow-ship-btn__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 .sell-flow-ship-btn:disabled {
@@ -1027,7 +1037,7 @@
 
 .sell-flow-partner-crumb__sep {
   margin: 0 8px;
-  color: rgba(17, 17, 17, 0.2);
+  color: rgba(17, 17, 17, 0.35);
 }
 
 .sell-flow-partner-crumb__current {
@@ -1333,6 +1343,7 @@
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
+  text-align: center;
   padding: 0 clamp(16px, 4vw, 40px);
 }
 
@@ -1341,6 +1352,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
+  text-align: center;
   color: #18181b;
 }
 
@@ -1366,10 +1378,11 @@
   padding: 40px clamp(16px, 4vw, 40px) 80px;
 }
 
+/* PSA-Shipping.html — light canvas; dark seps (white seps disappear on #f5f5f7) */
 .sell-ship-crumb {
   margin-bottom: 24px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(17, 17, 17, 0.62);
 }
 
 .sell-ship-crumb a {
@@ -1381,11 +1394,11 @@
 
 .sell-ship-crumb__sep {
   margin: 0 8px;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(17, 17, 17, 0.35);
 }
 
 .sell-ship-crumb__here {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(17, 17, 17, 0.5);
 }
 
 .sell-ship-header {
@@ -1579,7 +1592,9 @@ button.sell-ship-step--btn:focus-visible {
 .sell-ship-connector {
   flex: 1;
   height: 2px;
-  margin-top: 16px;
+  margin-top: 15px;
+  min-width: 8px;
+  align-self: flex-start;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -2451,6 +2466,9 @@ button.sell-ship-step--btn:focus-visible {
   .sell-flow-ship-btn {
     order: 1;
     width: 100%;
+    flex: none;
+    height: 52px !important;
+    font-size: 15px !important;
   }
 
   .sell-ship-track-grid {
@@ -2470,14 +2488,17 @@ button.sell-ship-step--btn:focus-visible {
     display: none;
   }
 
-  .sell-ship-banner__inner {
-    justify-content: flex-start;
-    text-align: left;
+  /* PSA-Shipping.html `.status-banner .inner` — centered on mobile too */
+  .sell-ship-banner__inner,
+  .sell-flow-page .sell-ship-banner__inner {
+    justify-content: center;
+    text-align: center;
   }
 
   .sell-ship-banner__title,
   .sell-ship-banner__card {
     line-height: 1.35;
+    text-align: center;
   }
 
   .sell-flow-vault-cta {
@@ -2495,11 +2516,11 @@ button.sell-ship-step--btn:focus-visible {
     margin-bottom: 28px;
   }
 
+  /* Keep 32px columns so connectors meet the circles (PSA-Shipping.html .step-col) */
   .sell-ship-step {
-    width: auto;
-    flex: 1 1 0;
-    min-width: 0;
-    max-width: none;
+    width: 32px;
+    flex: 0 0 32px;
+    overflow: visible;
   }
 
   .sell-ship-step__label {
@@ -2548,11 +2569,11 @@ button.sell-ship-step--btn:focus-visible {
   --ink-2: #ffffff;
   --surf: #ffffff;
   --surf-2: #ffffff;
-  --t1: rgba(17, 17, 17, 0.95);
-  --text-default-secondary: rgba(17, 17, 17, 0.78);
-  --text-default-tertiary: rgba(17, 17, 17, 0.62);
-  --t2: var(--text-default-secondary);
-  --t3: var(--text-default-tertiary);
+  --t1: #18181b;
+  --text-default-secondary: #18181b;
+  --text-default-tertiary: #18181b;
+  --t2: #18181b;
+  --t3: #18181b;
   --amber: #f59e0b;
   color: #18181b;
   background: #f5f5f7;
@@ -2576,6 +2597,130 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b;
 }
 
+/* Light canvas typography — reduce heavy weights (body copy 400, labels 500) */
+.sell-flow-page .sell-flow-h1 {
+  font-weight: 600;
+}
+
+.sell-flow-page .sell-flow-id-title,
+.sell-flow-page .sell-flow-consent-title,
+.sell-flow-page .sell-flow-cards-title,
+.sell-flow-page .sell-flow-vault-opt__title,
+.sell-flow-page .sell-flow-vault-sec-h,
+.sell-flow-page .sell-ship-addr-name,
+.sell-flow-page .sell-ship-howto__title,
+.sell-flow-page .sell-flow-consent-strong,
+.sell-flow-page .sell-flow-cardrow__name,
+.sell-flow-page .sell-ship-package-row__name {
+  font-weight: 600;
+}
+
+.sell-flow-page .sell-flow-sub,
+.sell-flow-page .sell-flow-id-copy,
+.sell-flow-page .sell-flow-id-failed-copy,
+.sell-flow-page .sell-flow-consent-row > span:last-child,
+.sell-flow-page .sell-flow-consent-note,
+.sell-flow-page .sell-flow-gate-hint,
+.sell-flow-page .sell-flow-cards-empty,
+.sell-flow-page .sell-flow-cards-count,
+.sell-flow-page .sell-flow-cardrow__cert,
+.sell-flow-page .sell-flow-vault-opt__desc,
+.sell-flow-page .sell-flow-vault-feat,
+.sell-flow-page .sell-flow-vault-sec-p,
+.sell-flow-page .sell-flow-vault-faq p,
+.sell-flow-page .sell-flow-vault-hint,
+.sell-flow-page .sell-flow-partner-footnote,
+.sell-flow-page .sell-ship-header .sell-flow-sub,
+.sell-flow-page .sell-ship-return__copy,
+.sell-flow-page .sell-ship-gate-hint,
+.sell-flow-page .sell-ship-info,
+.sell-flow-page .sell-ship-package-sync__copy,
+.sell-flow-page .sell-ship-check__text,
+.sell-flow-page .sell-ship-package-row__meta,
+.sell-flow-page .sell-ship-success__copy,
+.sell-flow-page .sell-ship-success__summary,
+.sell-flow-page .sell-ship-howto__sub,
+.sell-flow-page .sell-ship-howto__copy,
+.sell-flow-page .sell-ship-howto__list,
+.sell-flow-page .sell-ship-proc,
+.sell-flow-page .sell-ship-proc strong,
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__hint {
+  font-weight: 400;
+}
+
+.sell-flow-page .sell-flow-cert-label,
+.sell-flow-page .sell-flow-partner-cert-label,
+.sell-flow-page .sell-flow-or__label,
+.sell-flow-page .sell-flow-btn-back,
+.sell-flow-page .sell-flow-select-all,
+.sell-flow-page .sell-flow-scan-btn:not(.tk-btn),
+.sell-flow-page .sell-flow-vault-faq summary,
+.sell-flow-page .sell-ship-label,
+.sell-flow-page .sell-ship-step__label,
+.sell-flow-page .sell-ship-step__label--on,
+.sell-flow-page .sell-ship-crumb,
+.sell-flow-page .sell-ship-crumb__here,
+.sell-flow-page .sell-flow-partner-crumb,
+.sell-flow-page .sell-flow-partner-crumb__link,
+.sell-flow-page .sell-ship-banner__title,
+.sell-flow-page .sell-ship-package-sync__title,
+.sell-flow-page .sell-ship-return__fields .tk-field__label,
+.sell-flow-page .sell-ship-track-box .tk-field__label,
+.sell-flow-page .sell-ship-back-cards,
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__label {
+  font-weight: 500;
+}
+
+.sell-flow-page .sell-flow-grade {
+  font-weight: 600;
+}
+
+.sell-flow-page .tk-btn {
+  font-weight: 500;
+}
+
+.sell-flow-page .tk-btn--primary,
+.sell-flow-page .sell-flow-ship-btn {
+  font-weight: 600;
+}
+
+/* Light canvas — spinners were styled for dark glass (white ring = invisible here) */
+.sell-flow-page .sell-flow-spinner {
+  border-color: rgba(17, 17, 17, 0.12);
+  border-top-color: var(--azure, #1a6fff);
+  flex-shrink: 0;
+}
+
+.sell-flow-page .tk-btn--primary .sell-flow-spinner,
+.sell-flow-page .sell-ship-confirm .sell-flow-spinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__track {
+  background: rgba(17, 17, 17, 0.12);
+}
+
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__fill {
+  background: var(--azure, #1a6fff);
+}
+
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__pct {
+  color: var(--azure, #1a6fff);
+}
+
+.sell-flow-page .sell-ship-gate-hint--busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sell-flow-page .sell-flow-status-chip,
+.sell-flow-page .sell-flow-vault-pill,
+.sell-flow-page .sell-flow-eyebrow {
+  font-weight: 500;
+}
+
 .sell-flow-page .sell-flow-eyebrow {
   color: var(--eyebrow);
 }
@@ -2584,42 +2729,85 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-consent-muted,
 .sell-flow-page .sell-flow-consent-note,
 .sell-flow-page .sell-flow-id-copy,
+.sell-flow-page .sell-flow-id-failed-copy,
 .sell-flow-page .sell-flow-cardrow__meta,
 .sell-flow-page .sell-flow-cardrow__cert,
 .sell-flow-page .sell-flow-cards-count,
 .sell-flow-page .sell-flow-cards-empty,
 .sell-flow-page .sell-flow-gate-hint,
-.sell-flow-page .sell-ship-crumb,
+.sell-flow-page .sell-flow-cert-label,
+.sell-flow-page .sell-flow-partner-cert-label,
+.sell-flow-page .sell-flow-or__label,
+.sell-flow-page .sell-flow-vault-opt__desc,
+.sell-flow-page .sell-flow-vault-feat,
+.sell-flow-page .sell-flow-vault-sec-p,
+.sell-flow-page .sell-flow-vault-faq p,
+.sell-flow-page .sell-flow-vault-hint,
+.sell-flow-page .sell-flow-partner-footnote,
+.sell-flow-page .sell-flow-partner-crumb,
+.sell-flow-page .sell-flow-partner-crumb__link,
+.sell-flow-page .sell-flow-partner-crumb__sep,
 .sell-flow-page .sell-ship-info,
 .sell-flow-page .sell-ship-package-row__meta,
 .sell-flow-page .sell-ship-package-sync__copy,
 .sell-flow-page .sell-ship-check__text,
-.sell-flow-page .sell-ship-step__label,
-.sell-flow-page .sell-ship-step__sub,
 .sell-flow-page .sell-ship-return__copy,
-.sell-flow-page .sell-ship-gate-hint {
-  color: rgba(17, 17, 17, 0.55);
+.sell-flow-page .sell-ship-gate-hint,
+.sell-flow-page .sell-ship-header .sell-flow-sub,
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__label,
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__hint {
+  color: #18181b;
+}
+
+/* PSA-Shipping.html step labels: done=pos, active=#18181B, idle=t3 */
+.sell-flow-page .sell-ship-step__label {
+  color: rgba(17, 17, 17, 0.62);
+}
+
+.sell-flow-page .sell-ship-step__label--on {
+  color: #18181b;
+}
+
+.sell-flow-page .sell-ship-step__label--pos {
+  color: var(--pos);
+}
+
+.sell-flow-page .sell-ship-step__sub {
+  color: var(--azure);
+}
+
+.sell-flow-page .sell-ship-step__sub--muted {
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.sell-flow-page .sell-ship-crumb,
+.sell-flow-page .sell-ship-crumb__here {
+  color: #18181b;
+}
+
+.sell-flow-page .sell-ship-crumb__sep {
+  color: rgba(17, 17, 17, 0.35);
 }
 
 /* PSA-Shipping.html — section labels, return fields, tracking fields */
 .sell-flow-page .sell-ship-label {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.5);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-panel__eyebrow,
 .sell-flow-page .sell-ship-panel__eyebrow--inline {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.4);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-track-head {
-  color: var(--t2);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-track-note {
   font-size: 11px;
-  color: rgba(17, 17, 17, 0.35);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-return__fields .tk-field,
@@ -2632,8 +2820,8 @@ button.sell-ship-step--btn:focus-visible {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.5);
-  font-weight: 600;
+  color: #18181b;
+  font-weight: 500;
   margin-bottom: 8px;
   display: block;
 }
@@ -2644,7 +2832,7 @@ button.sell-ship-step--btn:focus-visible {
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
-  color: rgba(17, 17, 17, 0.35);
+  color: #18181b;
   margin-bottom: 4px;
   display: block;
 }
@@ -2692,8 +2880,11 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-return__fields .tk-input::placeholder,
-.sell-flow-page .sell-ship-track-box .tk-input::placeholder {
-  color: rgba(17, 17, 17, 0.35) !important;
+.sell-flow-page .sell-ship-track-box .tk-input::placeholder,
+.sell-flow-page input::placeholder,
+.sell-flow-page textarea::placeholder,
+.sell-flow-page .sell-flow-cert-input::placeholder {
+  color: rgba(17, 17, 17, 0.45) !important;
 }
 
 .sell-flow-page .sell-ship-return__fields .tk-field__hint--error,
@@ -2705,7 +2896,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-return__fields .tk-select-wrap svg,
 .sell-flow-page .sell-ship-track-box .tk-select-wrap svg {
-  color: rgba(17, 17, 17, 0.4);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-return__saved {
@@ -2722,16 +2913,16 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-proc {
   background: rgba(17, 17, 17, 0.03);
-  color: rgba(17, 17, 17, 0.5);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-proc strong {
-  color: rgba(17, 17, 17, 0.75);
+  color: #18181b;
 }
 
 /* PSA-Shipping.html #tracking-success — dark copy on light green, not white */
 .sell-flow-page .sell-ship-success__copy {
-  color: rgba(17, 17, 17, 0.55);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-success__copy strong {
@@ -2739,7 +2930,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-success__summary {
-  color: rgba(17, 17, 17, 0.7);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-success__title {
@@ -2814,7 +3005,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-flow-vault-pill--muted {
   background: rgba(17, 17, 17, 0.06);
-  color: rgba(17, 17, 17, 0.55);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-flow-vault-opt__feats {
@@ -2836,7 +3027,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-flow-vault-opt--gated {
   background: rgba(17, 17, 17, 0.03) !important;
-  color: rgba(17, 17, 17, 0.55);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-flow-vault-opt--gated:hover {
@@ -2852,7 +3043,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-flow-vault-opt--gated .sell-flow-vault-opt__title {
-  color: rgba(17, 17, 17, 0.72);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-flow-cardrow,
@@ -2872,7 +3063,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-flow-consent-row > span:last-child {
-  color: rgba(17, 17, 17, 0.95);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-flow-chk--on,
@@ -2972,21 +3163,25 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-flow-cert-label,
 .sell-flow-page .sell-flow-partner-cert-label {
-  color: var(--t2);
+  color: #18181b;
 }
 
 .sell-flow-page input::placeholder,
 .sell-flow-page textarea::placeholder {
-  color: var(--t3) !important;
+  color: rgba(17, 17, 17, 0.45) !important;
 }
 
 .sell-flow-page .sell-ship-circle--inactive {
   background: rgba(17, 17, 17, 0.08);
-  color: rgba(17, 17, 17, 0.45);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-connector {
-  background: rgba(17, 17, 17, 0.12);
+  background: rgba(17, 17, 17, 0.06);
+}
+
+.sell-flow-page .sell-ship-connector--pos {
+  background: var(--pos);
 }
 
 .sell-flow-page .sell-flow-or__line,
@@ -3012,7 +3207,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-banner__card {
-  color: rgba(17, 17, 17, 0.85);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-addr-name {
@@ -3045,7 +3240,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-slip-hint {
-  color: rgba(17, 17, 17, 0.5);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-howto__title {
@@ -3053,7 +3248,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-howto__sub {
-  color: rgba(17, 17, 17, 0.55);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-ship-howto__card {
@@ -3070,7 +3265,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-howto__copy,
 .sell-flow-page .sell-ship-howto__list {
-  color: rgba(17, 17, 17, 0.68);
+  color: #18181b;
 }
 
 .sell-flow-page .sell-flow-mint-error,
@@ -3100,6 +3295,35 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px !important;
 }
 
+/* Sell-Flow.html light canvas — flat rounded CTAs (no pixel clip on flex rows) */
+.sell-flow-page .sell-flow-ship-btn,
+.sell-flow-page .sell-flow-draft-btn,
+.sell-flow-page .sell-flow-continue,
+.sell-flow-page .sell-flow-vault-continue,
+.sell-flow-page .sell-flow-lookup-btn,
+.sell-flow-page .sell-flow-id-cta {
+  clip-path: none !important;
+  border-radius: 12px !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.sell-flow-page .sell-flow-ship-btn {
+  background: var(--brand-500, #1a6fff) !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+
+.sell-flow-page .sell-flow-ship-btn:hover:not(:disabled) {
+  background: #2e80ff !important;
+  transform: none !important;
+}
+
+.sell-flow-page .sell-flow-ship-btn:active:not(:disabled) {
+  background: #1a6fff !important;
+  transform: none !important;
+}
+
 @media (max-width: 640px) {
   .sell-flow-page {
     margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
@@ -3113,4 +3337,221 @@ button.sell-ship-step--btn:focus-visible {
     margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
     margin-right: calc(-1 * max(14px, env(safe-area-inset-right, 0px)));
   }
+}
+
+/* ── Sell flow mobile (designer: Sell-Flow / PSA-Shipping @768px) ─────────── */
+
+@media (max-width: 768px) {
+  .sell-flow-page .sell-flow-eyebrow,
+  .sell-flow-page .sell-ship-panel__eyebrow {
+    display: none !important;
+  }
+
+  .sell-flow-page .sell-flow-h1 {
+    font-size: clamp(24px, 6vw, 32px);
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+  }
+
+  .sell-flow-screen {
+    padding-top: 32px;
+    padding-bottom: 72px;
+  }
+
+  .sell-flow-page .sell-flow-glass {
+    padding: 20px;
+    margin-top: 24px;
+  }
+
+  .sell-flow-page .sell-flow-glass--identity {
+    margin-top: 24px;
+  }
+
+  .sell-flow-page .sell-flow-glass--consent {
+    margin-top: 16px;
+  }
+
+  .sell-flow-page .sell-flow-consent-title {
+    font-size: 17px;
+  }
+
+  .sell-flow-page .sell-flow-consent-row > span:last-child {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .sell-flow-page .sell-flow-reg-cta {
+    margin-top: 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .sell-flow-page .sell-flow-btn-back {
+    margin-bottom: 12px;
+  }
+
+  .sell-flow-ship-btn {
+    height: 52px !important;
+    font-size: 15px !important;
+  }
+
+  .sell-flow-page .sell-ship-header {
+    margin-bottom: 24px;
+  }
+
+  .sell-flow-page .sell-ship-header .sell-flow-h1 {
+    margin-top: 0;
+  }
+
+  .sell-flow-page .sell-ship-steps {
+    margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
+    margin-right: calc(-1 * max(14px, env(safe-area-inset-right, 0px)));
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    width: calc(
+      100% + 2 * max(14px, env(safe-area-inset-left, 0px))
+    );
+    margin-bottom: 28px;
+  }
+
+  .sell-flow-page .sell-ship-return__saved,
+  .sell-flow-page .sell-ship-return__fields,
+  .sell-flow-page .sell-ship-return__saved .tk-btn {
+    width: 100%;
+  }
+
+  .sell-flow-page .sell-ship-return__saved {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sell-flow-page .sell-ship-return__fields .tk-input,
+  .sell-flow-page .sell-ship-track-box .tk-input,
+  .sell-flow-page .sell-ship-carrier-trigger {
+    border-width: 1.5px !important;
+  }
+
+  .sell-flow-page .sell-ship-return__fields .tk-input:focus,
+  .sell-flow-page .sell-ship-return__fields .tk-input:focus-visible,
+  .sell-flow-page .sell-ship-track-box .tk-input:focus,
+  .sell-flow-page .sell-ship-track-box .tk-input:focus-visible,
+  .sell-flow-page .sell-ship-carrier-trigger:focus-visible {
+    border-color: var(--azure, #1a6fff) !important;
+    box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.18) !important;
+    outline: none;
+  }
+
+  .sell-flow-page .sell-ship-back-cards {
+    appearance: none;
+    border: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    height: auto !important;
+    width: auto !important;
+    min-height: 0;
+    padding: 12px 0 !important;
+    justify-content: flex-start !important;
+    color: var(--azure, #1a6fff) !important;
+    font-size: 14px !important;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .sell-flow-page .sell-ship-back-cards:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.sell-ship-carrier-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 12px;
+  color: #18181b;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sell-ship-carrier-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sell-ship-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.sell-ship-sheet-overlay.open {
+  display: block;
+}
+
+.sell-ship-carrier-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1201;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+.sell-ship-carrier-sheet.open {
+  transform: translateY(0);
+}
+
+.sell-ship-carrier-sheet__handle {
+  width: 40px;
+  height: 4px;
+  margin: 12px auto 8px;
+  border-radius: 2px;
+  background: rgba(17, 17, 17, 0.15);
+}
+
+.sell-ship-carrier-sheet__row {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 16px 20px;
+  text-align: left;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 15px;
+  color: #18181b;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.06);
+}
+
+.sell-ship-carrier-sheet__row:last-child {
+  border-bottom: 0;
+}
+
+.sell-ship-carrier-sheet__row--on {
+  color: var(--azure, #1a6fff);
+  font-weight: 600;
+}
+
+.sell-ship-carrier-sheet__row:active {
+  background: rgba(17, 17, 17, 0.04);
 }

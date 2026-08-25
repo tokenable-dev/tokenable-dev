@@ -6,6 +6,7 @@
 - `marketplace/snapshots/collection-market-snapshot.controller.ts` — `GET …/cardhedger`, `GET …/cardhedger/price-history`
 - `marketplace/portfolio/portfolio.controller.ts` — daily snapshots + hidden holdings
 - `marketplace/watchlist/watchlist.controller.ts` — saved collections (JWT)
+- `marketplace/buyer-listing-alert/buyer-listing-alert.controller.ts` — first-listing alert (JWT)
 - `marketplace/collections/rwa-token-admin.controller.ts` — `/api/marketplace/admin/rwa-tokens`
 - `marketplace/admin/marketplace-admin-auth.controller.ts` — admin console session
 - `marketplace/admin/platform-analytics.controller.ts` — platform KPI dashboard
@@ -155,7 +156,7 @@ In-app events (Notifications spec **v2 2026-08** — Email/Telegram/Web push del
 | `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
 | `RD_PAID_PREPARING` | vault | Ship-from-vault prepaid confirmed / preparing (`href=/portfolio/redeem?view=…`) |
 | `RD_SHIPPED` | vault | Tracking set (`href=/portfolio/redeem?view=transit`, CTA Track) |
-| `RD_RECEIVED_REMINDER` | vault | Ask to confirm receipt (emit helper ready; cron TBD) |
+| `RD_RECEIVED_REMINDER` | vault | Ask to confirm receipt (emitted when FedEx Track sets `carrier_delivered_at`) |
 | `RD_AUTO_CANCELLED_REFUND` | vault | Cancelled + refunded (admin refund today; auto SLA later) |
 | `PARTNER_SHIPMENT_REQUEST` | vault | Self-vault partner must ship (`href=/partner/shipments`) |
 | `FUNDS_WITHDRAW_SUBMITTED` / `SENT` / `FAILED` | vault | Bank cash-out helpers ready; domain not wired yet |
@@ -165,7 +166,7 @@ In-app events (Notifications spec **v2 2026-08** — Email/Telegram/Web push del
 
 **Not yet emitted (domain missing):** `SELLER_STRIKE` / `SELLER_SUSPENDED`, `PARTNER_SLA_WARN` / `PARTNER_SLA_BREACH`, admin ops inbox (`ADMIN_*`).
 
-**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel`. New unread items (after the first fetch seed) surface as toasts; click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
+**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel`. The signed-in app chrome polls `GET /marketplace/notifications` about every **15s** while the tab is active (`refetchIntervalInBackground: false`). Toasts fire only for unread items that arrive **while this tab is visible** and are **fresh** (~90s). Login, tab-focus catch-up, and background-tab backlog stay in the inbox (badge/drawer) — they are not toasted. Click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
 
 ---
 
@@ -222,12 +223,12 @@ Set tracking for this partner’s shipment within a payment batch. Body: `{ ship
 |--------|------|------|-------|
 | GET | `/self-vault-settlements/mine` | JWT | Buyer/seller wallet settlements |
 | POST | `/self-vault-settlements/:id/confirm` | JWT | Buyer confirms → `confirmed` |
-| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=`; scoped to `x-tokenable-chain-id`. UI: `/marketplace/admin/self-vault-payouts` |
+| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=open\|pending_confirm\|…`; scoped to `x-tokenable-chain-id`. UI: `/marketplace/admin/self-vault-payouts` |
 | POST | `/admin/self-vault-settlements/:id/confirm` | Admin | Ops confirm |
 | POST | `/admin/self-vault-settlements/:id/reject` | Admin | Reject |
 | POST | `/admin/self-vault-settlements/:id/execute-payout` | Admin | Platform fee wallet → seller USDC → `paid` (early; also auto after ~5 min) |
 
-Created automatically when a `self_vault_hold` ask is fulfilled (or matched). Admin can pay early; otherwise cron auto confirm+payout after ~5 minutes. See BR-8c.
+Created automatically when a `self_vault_hold` ask is fulfilled (or matched) — **one ledger row per ask `order_hash`** (resales of the same token before payout add another row). Admin can pay early; otherwise cron auto confirm+payout after ~5 minutes per sale. See BR-8c.
 
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 
@@ -358,6 +359,16 @@ Returns pool statistics:
 
 ---
 
+### `GET /api/marketplace/collections/:key/similar`
+
+Returns active collections for Card.html **Similar items** that match **either**:
+- same card name (`cardNameDisplay` / `cardName` / `psaSubject`), **or**
+- same set (`cardSetDisplay` / `cardSet` / `psaBrand`)
+
+Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 12 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`.
+
+---
+
 ### `GET /api/marketplace/collections/:key/merkle-set`
 
 Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this collection, not just active asks).
@@ -449,6 +460,33 @@ Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 **Response:** `{ chainId, items: [{ walletAddress, chainId, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
 
 Cron captures **all on-chain RWA holders on each configured chain** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
+
+---
+
+## Buyer listing alert (Notify me)
+
+Collection order book **Notify me** — not the same as watchlist. One-time in-app notification when a collection gets its **first active ask** (`BUYER_LISTING_ALERT`). After fire, the subscription is marked off; the user can subscribe again.
+
+**Controller:** `marketplace/buyer-listing-alert/buyer-listing-alert.controller.ts`  
+**Base path:** `/api/marketplace/buyer-listing-alerts` (JWT)
+
+### `GET /api/marketplace/buyer-listing-alerts/status`
+
+| Query | Description |
+|-------|-------------|
+| `collectionKey` | Marketplace collection key |
+
+**Response:** `{ active: boolean }` — `true` when subscribed and not yet fired.
+
+### `POST /api/marketplace/buyer-listing-alerts`
+
+**Body:** `{ collectionKey }` — subscribe (idempotent upsert; clears prior `fired_at`).
+
+### `DELETE /api/marketplace/buyer-listing-alerts`
+
+**Body:** `{ collectionKey }` — turn off before first listing.
+
+**Trigger:** `orders.service` calls `BuyerListingAlertService.onFirstAskListed()` when active ask count for the collection becomes **1**. Notification copy: title `[card] is now for sale`, body `Lowest ask $X — buy or place a bid.`, CTA **View listing**.
 
 ---
 

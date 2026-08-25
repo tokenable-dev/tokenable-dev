@@ -17,9 +17,7 @@ dist
 build
 
 # Designer handoff scratch (keep HTML prototypes; ignore bulky refs)
-Tokenable-with design system/uploads/
-Tokenable-with design system/screenshots/
-
+/Tokenable-with design system-*/
 # 기타
 .DS_Store
 *.log

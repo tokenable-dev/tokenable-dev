@@ -32,6 +32,7 @@ export type EventName =
   | "asset_detail_viewed"       // RWA token detail page fully loaded and visible
   | "watchlist_added"           // card added to watchlist
   | "watchlist_removed"         // card removed from watchlist
+  | "buyer_listing_alert_toggled" // order book Notify me on/off (BUYER_LISTING_ALERT)
 
   // ── Buy / Purchase ─────────────────────────────────────────────────────
   | "buy_now_clicked"           // Buy Now CTA clicked

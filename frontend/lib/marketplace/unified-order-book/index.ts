@@ -9,16 +9,22 @@ export {
   orderBookMobileEmbedTabBodyHeightPx,
   buildAskDepthLevels,
   buildBidDepthLevels,
+  applyOrderBookNotionalDepth,
+  applyOrderBookCumulativeDepth,
+  applyOrderBookQuantityDepth,
   buildOrderBookCenterModel,
   bestAskFromRows,
   bestBidFromRows,
   cmpAskByPriceThenToken,
   cmpBidByPriceDesc,
   formatOrderBookPriceUsdc,
+  formatCollectionDetailBookPriceUsdc,
+  formatOrderBookTotalUsdc,
   formatTradesTapePriceUsdc,
   formatTapeDate,
   formatTapeTimeFull,
   priceUsdcFromOrder,
+  priceLevelKey,
 } from "./orderBookMath";
 export {
   externalTapeSideDisplay,
@@ -41,4 +47,8 @@ export {
   TRADES_TAPE_TARGET_VISIBLE_ROWS,
   tradesTapeScrollHeightPx,
 } from "./tradesTapeTableChrome";
+export {
+  attachOrderBookVaultLabels,
+  formatOrderBookVaultColumn,
+} from "./orderBookVaultColumn";
 export type { BookCenterModel, BookCenterTone, OrderBookTab, OrderBookDepthLevel } from "./types";

@@ -120,6 +120,15 @@ export function RedeemPreparingPanel({
         <p className="pf-redeem-cost__copy">
           Charged when you confirmed — no markup. Amounts are from your recorded
           payment (not re-quoted).
+          {est &&
+          Math.abs(
+            est.shippingUsd +
+              est.retrievalFeeTotalUsd +
+              est.earlyWithdrawalFeeTotalUsd -
+              est.totalUsd,
+          ) > 0.05
+            ? " Line items are the quote stored at confirmation; Total paid is the USDC that actually moved (FedEx sandbox rates can change between Calculate and Pay)."
+            : ""}
         </p>
       </div>
 

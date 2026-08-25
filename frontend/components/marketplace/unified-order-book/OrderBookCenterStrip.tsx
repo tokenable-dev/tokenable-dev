@@ -4,12 +4,27 @@ import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collection
 import { orderBookRowValueCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { BookCenterModel } from "@/lib/marketplace/unified-order-book";
 
+function formatMidUsd(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
 export function OrderBookCenterStrip({
   model,
   collectionDetail,
+  asksEmptyBidsLive,
+  bidsEmptyAsksLive,
+  bestBidUsdc,
+  bestAskUsdc,
 }: {
   model: BookCenterModel;
   collectionDetail?: boolean;
+  /** Order book2 HTML empty · ask 없음 — `$bestBid` | No live spread */
+  asksEmptyBidsLive?: boolean;
+  /** Order book2 HTML empty · bid 없음 — `$bestAsk` | No live spread */
+  bidsEmptyAsksLive?: boolean;
+  bestBidUsdc?: number | null;
+  bestAskUsdc?: number | null;
 }) {
   const isSpreadPrimary = model.primary.includes("Spread value:");
   const isNaPlaceholder = model.primary === "N/A";
@@ -37,18 +52,49 @@ export function OrderBookCenterStrip({
 
   const hasCaption = model.caption.trim().length > 0;
 
+  /* Order book2 HTML: one-sided book — price | No live spread */
+  if (collectionDetail && asksEmptyBidsLive) {
+    return (
+      <div
+        className="cd-ob-book-center__strip cd-ob-book-center__strip--no-asks"
+        title="Bids are live; no ask side for a spread."
+      >
+        <span className="cd-ob-book-center__mid-price mono">
+          {formatMidUsd(bestBidUsdc)}
+        </span>
+        <span className="cd-ob-book-center__spread mono">No live spread</span>
+      </div>
+    );
+  }
+
+  if (collectionDetail && bidsEmptyAsksLive) {
+    return (
+      <div
+        className="cd-ob-book-center__strip cd-ob-book-center__strip--no-bids"
+        title="Asks are live; no bid side for a spread."
+      >
+        <span className="cd-ob-book-center__mid-price mono">
+          {formatMidUsd(bestAskUsdc)}
+        </span>
+        <span className="cd-ob-book-center__spread mono">No live spread</span>
+      </div>
+    );
+  }
+
   /* Card.html mid-book strip: Last $X · Spread $Y */
   if (collectionDetail) {
-    const lastLabel = isNaPlaceholder
-      ? "Last —"
-      : `Last $${model.primary.replace(/^\$/, "")}`;
+    const lastLabel = isNaPlaceholder ? "Last —" : `Last $${model.primary.replace(/^\$/, "")}`;
     const spreadLabel = model.secondary?.trim() || null;
     return (
       <div className="cd-ob-book-center__strip" title={model.title}>
         <span className="cd-ob-book-center__last mono">{lastLabel}</span>
         {spreadLabel ? (
           <span className="cd-ob-book-center__spread mono">{spreadLabel}</span>
-        ) : null}
+        ) : (
+          <span className="cd-ob-book-center__spread mono cd-ob-book-center__spread--muted">
+            Spread —
+          </span>
+        )}
       </div>
     );
   }

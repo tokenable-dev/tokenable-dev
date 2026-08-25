@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/ds/cn";
 import {
   MARKETS_SORT_OPTIONS,
@@ -17,9 +17,9 @@ import {
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
-  MARKETS_CATEGORY_FILTERS,
-  type CategoryFilterOption,
-  type CollectionCategoryFilterId,
+  MARKETS_CATEGORY_SELECT_OPTIONS,
+  type CategorySelectOption,
+  type CollectionCategoryId,
 } from "@/lib/market";
 import { TkButton } from "@/components/ds";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -33,10 +33,9 @@ const SORT_DRAWER_LABELS: Partial<Record<MarketsSortId, string>> = {
   population_low: "Population",
 };
 
-type PopId = "category" | "grade" | "price" | "sort" | null;
+type PopId = "category" | "set" | "grade" | "price" | "sort" | null;
 
-function categoryChipLabel(f: CategoryFilterOption): string {
-  if (f.id === "all") return "All";
+function categoryOptionLabel(f: CategorySelectOption): string {
   return f.label;
 }
 
@@ -54,6 +53,58 @@ function FilterIcon({ size = 14 }: { size?: number }) {
       <rect x={3} y={5} width={6} height={2} />
       <rect x={5} y={8} width={2} height={2} />
     </svg>
+  );
+}
+
+/** Markets.html `.ddi` + `.chk` — sort / category popover rows. */
+function PopCheckItem({
+  selected,
+  onClick,
+  children,
+  role = "menuitemradio",
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  role?: "menuitemradio" | "menuitemcheckbox";
+}) {
+  return (
+    <button
+      type="button"
+      role={role}
+      aria-checked={selected}
+      className={cn("markets-pop__item", selected && "markets-pop__item--sel")}
+      onClick={onClick}
+    >
+      <span className="markets-pop__chk" aria-hidden />
+      {children}
+    </button>
+  );
+}
+
+/** Markets.html `.mk-frow` + `.mk-fbox` — More filters / set picker rows. */
+function FilterCheckRow({
+  selected,
+  onClick,
+  children,
+  role = "checkbox",
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  role?: "checkbox" | "radio";
+}) {
+  return (
+    <button
+      type="button"
+      role={role}
+      aria-checked={selected}
+      className={cn("markets-frow", selected && "markets-frow--on")}
+      onClick={onClick}
+    >
+      <span className="markets-fbox" aria-hidden />
+      <span className="markets-fname">{children}</span>
+    </button>
   );
 }
 
@@ -79,6 +130,44 @@ function useDropdownDismiss(
       document.removeEventListener("mousedown", onMouse);
     };
   }, [open, onClose, rootRef]);
+}
+
+/**
+ * Keep an absolutely-positioned `.markets-pop` inside the viewport.
+ * Mobile sort sits mid/left in the bar but uses `--right` alignment, which
+ * otherwise opens off-screen (and gets clipped by `.markets-page { overflow-x: clip }`).
+ */
+function useClampPopToViewport(
+  open: boolean,
+  rootRef: React.RefObject<HTMLElement | null>,
+) {
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!open || !root) return;
+    const pop = root.querySelector<HTMLElement>(".markets-pop--open");
+    if (!pop) return;
+
+    const margin = 12;
+    const apply = () => {
+      pop.style.transform = "";
+      const rect = pop.getBoundingClientRect();
+      let dx = 0;
+      if (rect.right > window.innerWidth - margin) {
+        dx = window.innerWidth - margin - rect.right;
+      }
+      if (rect.left + dx < margin) {
+        dx = margin - rect.left;
+      }
+      pop.style.transform = dx ? `translateX(${dx}px)` : "";
+    };
+
+    apply();
+    window.addEventListener("resize", apply);
+    return () => {
+      window.removeEventListener("resize", apply);
+      pop.style.transform = "";
+    };
+  }, [open, rootRef]);
 }
 
 function DdChip({
@@ -156,8 +245,9 @@ function PopFooter({
 }
 
 export function MarketsFilterBar({
-  categoryFilter,
-  onCategoryChange,
+  categoryFilters,
+  onCategoryToggle,
+  onCategoryFiltersChange,
   sortId,
   onSortChange,
   priceMin,
@@ -169,10 +259,15 @@ export function MarketsFilterBar({
   vaultFilters,
   onVaultToggle,
   onVaultFiltersChange,
-  filters = MARKETS_CATEGORY_FILTERS,
+  sets = [],
+  onSetsChange,
+  onSetToggle,
+  setFacetOptions = [],
+  filters = MARKETS_CATEGORY_SELECT_OPTIONS,
 }: {
-  categoryFilter: CollectionCategoryFilterId;
-  onCategoryChange: (id: CollectionCategoryFilterId) => void;
+  categoryFilters: ReadonlySet<CollectionCategoryId>;
+  onCategoryToggle: (id: CollectionCategoryId) => void;
+  onCategoryFiltersChange: (categories: Set<CollectionCategoryId>) => void;
   sortId: MarketsSortId;
   onSortChange: (id: MarketsSortId) => void;
   priceMin: string;
@@ -184,11 +279,19 @@ export function MarketsFilterBar({
   vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
   onVaultToggle?: (id: MarketsVaultFilterId) => void;
   onVaultFiltersChange?: (vaults: Set<MarketsVaultFilterId>) => void;
-  filters?: CategoryFilterOption[];
+  sets?: readonly string[];
+  onSetsChange?: (sets: string[]) => void;
+  onSetToggle?: (setName: string) => void;
+  setFacetOptions?: readonly string[];
+  filters?: readonly CategorySelectOption[];
 }) {
   const [openPop, setOpenPop] = useState<PopId>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [draftCategory, setDraftCategory] = useState(categoryFilter);
+  const [setQuery, setSetQuery] = useState("");
+  const [draftSetQuery, setDraftSetQuery] = useState("");
+  const [draftCategories, setDraftCategories] = useState<Set<CollectionCategoryId>>(
+    () => new Set(categoryFilters),
+  );
   const [draftSort, setDraftSort] = useState(sortId);
   const [draftPriceMin, setDraftPriceMin] = useState(priceMin);
   const [draftPriceMax, setDraftPriceMax] = useState(priceMax);
@@ -198,20 +301,34 @@ export function MarketsFilterBar({
   const [draftVaults, setDraftVaults] = useState<Set<MarketsVaultFilterId>>(
     () => new Set(vaultFilters ?? []),
   );
+  const [draftSets, setDraftSets] = useState<string[]>(() => [...sets]);
 
   const catRef = useRef<HTMLDivElement>(null);
+  const setRef = useRef<HTMLDivElement>(null);
   const gradeRef = useRef<HTMLDivElement>(null);
   const priceRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
   useDropdownDismiss(openPop === "category", () => setOpenPop(null), catRef);
+  useDropdownDismiss(openPop === "set", () => setOpenPop(null), setRef);
   useDropdownDismiss(openPop === "grade", () => setOpenPop(null), gradeRef);
   useDropdownDismiss(openPop === "price", () => setOpenPop(null), priceRef);
   useDropdownDismiss(openPop === "sort", () => setOpenPop(null), sortRef);
 
-  const activeFilter = filters.find((f) => f.id === categoryFilter);
-  const categoryLabel = activeFilter ? categoryChipLabel(activeFilter) : "All";
-  const categoryActive = categoryFilter !== "all";
+  useClampPopToViewport(openPop === "category", catRef);
+  useClampPopToViewport(openPop === "set", setRef);
+  useClampPopToViewport(openPop === "grade", gradeRef);
+  useClampPopToViewport(openPop === "price", priceRef);
+  useClampPopToViewport(openPop === "sort", sortRef);
+
+  const categoryActive = categoryFilters.size > 0;
+  const categoryValue =
+    categoryFilters.size === 0
+      ? undefined
+      : categoryFilters.size === 1
+        ? filters.find((f) => f.id === [...categoryFilters][0])?.label ??
+          [...categoryFilters][0]
+        : `${categoryFilters.size}`;
 
   const priceLabel = marketsPriceChipLabel(priceMin, priceMax);
   const priceActive = Boolean(priceMin.trim() || priceMax.trim());
@@ -224,37 +341,79 @@ export function MarketsFilterBar({
         ? [...gradeFilters][0]
         : `${gradeFilters.size}`;
 
+  const setActive = sets.length > 0;
+  const setValue =
+    sets.length === 0 ? undefined : sets.length === 1 ? sets[0] : `${sets.length}`;
+
   const vaultActive = (vaultFilters?.size ?? 0) > 0;
+
+  const filteredSetOptions = useMemo(() => {
+    const q = setQuery.trim().toLowerCase();
+    if (!q) return setFacetOptions;
+    return setFacetOptions.filter((name) => name.toLowerCase().includes(q));
+  }, [setFacetOptions, setQuery]);
+
+  const filteredDraftSetOptions = useMemo(() => {
+    const q = draftSetQuery.trim().toLowerCase();
+    if (!q) return setFacetOptions;
+    return setFacetOptions.filter((name) => name.toLowerCase().includes(q));
+  }, [setFacetOptions, draftSetQuery]);
 
   const moreCount = useMemo(() => {
     let n = 0;
     if (categoryActive) n += 1;
+    if (setActive) n += 1;
     if (priceActive) n += 1;
     if (gradeActive) n += 1;
     if (vaultActive) n += 1;
     return n;
-  }, [categoryActive, priceActive, gradeActive, vaultActive]);
+  }, [categoryActive, setActive, priceActive, gradeActive, vaultActive]);
 
   useEffect(() => {
     if (!drawerOpen) return;
-    setDraftCategory(categoryFilter);
+    setDraftCategories(new Set(categoryFilters));
     setDraftSort(sortId);
     setDraftPriceMin(priceMin);
     setDraftPriceMax(priceMax);
     setDraftGrades(new Set(gradeFilters));
     setDraftVaults(new Set(vaultFilters ?? []));
+    setDraftSets([...sets]);
+    setDraftSetQuery("");
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [drawerOpen, categoryFilter, sortId, priceMin, priceMax, gradeFilters, vaultFilters]);
+  }, [drawerOpen, categoryFilters, sortId, priceMin, priceMax, gradeFilters, vaultFilters, sets]);
+
+  function applySetQuery(raw: string, mode: "live" | "draft") {
+    const trimmed = raw.trim();
+    if (!trimmed || !onSetToggle) return;
+    trackEvent("filter_applied", {
+      filter_type: "set",
+      filter_value: trimmed,
+    });
+    onSetToggle(trimmed);
+    if (mode === "live") setSetQuery("");
+    else setDraftSetQuery("");
+  }
+
+  function toggleDraftSet(setName: string) {
+    setDraftSets((prev) => {
+      const i = prev.findIndex((s) => s.toLowerCase() === setName.toLowerCase());
+      if (i >= 0) return prev.filter((_, idx) => idx !== i);
+      return [...prev, setName];
+    });
+  }
 
   function applyDrawer() {
-    if (draftCategory !== categoryFilter) {
+    const catsChanged =
+      draftCategories.size !== categoryFilters.size ||
+      [...draftCategories].some((c) => !categoryFilters.has(c));
+    if (catsChanged) {
       trackEvent("filter_applied", {
         filter_type: "category",
-        filter_value: draftCategory,
+        filter_value: [...draftCategories].join(",") || "all",
       });
     }
     if (draftSort !== sortId) {
@@ -278,24 +437,38 @@ export function MarketsFilterBar({
         filter_value: [...draftGrades].join(",") || "none",
       });
     }
-    onCategoryChange(draftCategory);
+    onCategoryFiltersChange(new Set(draftCategories));
     onSortChange(draftSort);
     onPriceRangeChange(draftPriceMin, draftPriceMax);
     onGradeFiltersChange(new Set(draftGrades));
     onVaultFiltersChange?.(new Set(draftVaults));
+    onSetsChange?.([...draftSets]);
     setDrawerOpen(false);
   }
 
   function clearAllFilters() {
-    onCategoryChange("all");
+    onCategoryFiltersChange(new Set());
     onPriceRangeChange("", "");
     onGradeFiltersChange(new Set());
     onVaultFiltersChange?.(new Set());
-    setDraftCategory("all");
+    onSetsChange?.([]);
+    setDraftCategories(new Set());
     setDraftPriceMin("");
     setDraftPriceMax("");
     setDraftGrades(new Set());
     setDraftVaults(new Set());
+    setDraftSets([]);
+    setSetQuery("");
+    setDraftSetQuery("");
+  }
+
+  function toggleDraftCategory(id: CollectionCategoryId) {
+    setDraftCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function toggleDraftGrade(grade: MarketsGradeFilterId) {
@@ -317,11 +490,20 @@ export function MarketsFilterBar({
   }
 
   const activeChips: { key: string; label: string; onClear: () => void }[] = [];
-  if (categoryActive) {
+  for (const opt of filters) {
+    if (categoryFilters.has(opt.id)) {
+      activeChips.push({
+        key: `cat-${opt.id}`,
+        label: categoryOptionLabel(opt),
+        onClear: () => onCategoryToggle(opt.id),
+      });
+    }
+  }
+  for (const [i, setName] of sets.entries()) {
     activeChips.push({
-      key: "cat",
-      label: categoryLabel,
-      onClear: () => onCategoryChange("all"),
+      key: `set-${setName}`,
+      label: setName,
+      onClear: () => onSetsChange?.(sets.filter((_, idx) => idx !== i)),
     });
   }
   if (priceActive) {
@@ -356,9 +538,10 @@ export function MarketsFilterBar({
         <div ref={catRef} className="markets-fw">
           <DdChip
             label="Category"
-            value={categoryActive ? categoryLabel : undefined}
+            value={categoryActive ? categoryValue : undefined}
             active={categoryActive}
             open={openPop === "category"}
+            count={categoryFilters.size > 1 ? categoryFilters.size : undefined}
             onClick={() =>
               setOpenPop((p) => (p === "category" ? null : "category"))
             }
@@ -371,40 +554,121 @@ export function MarketsFilterBar({
             role="menu"
           >
             {filters.map((f) => {
-              const selected = categoryFilter === f.id;
+              const selected = categoryFilters.has(f.id);
               return (
-                <button
+                <PopCheckItem
                   key={f.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={selected}
-                  className={cn(
-                    "markets-pop__item",
-                    selected && "markets-pop__item--sel",
-                  )}
+                  selected={selected}
+                  role="menuitemcheckbox"
                   onClick={() => {
                     trackEvent("filter_applied", {
                       filter_type: "category",
                       filter_value: f.id,
                     });
-                    onCategoryChange(f.id);
-                    setOpenPop(null);
+                    onCategoryToggle(f.id);
                   }}
                 >
-                  {categoryChipLabel(f)}
-                </button>
+                  {categoryOptionLabel(f)}
+                </PopCheckItem>
               );
             })}
             <PopFooter
               clearDisabled={!categoryActive}
               onClear={() => {
-                onCategoryChange("all");
+                onCategoryFiltersChange(new Set());
                 setOpenPop(null);
               }}
               onDone={() => setOpenPop(null)}
             />
           </div>
         </div>
+
+        {onSetToggle ? (
+          <div ref={setRef} className="markets-fw">
+            <DdChip
+              label="Set"
+              value={setActive ? setValue : undefined}
+              active={setActive}
+              open={openPop === "set"}
+              count={sets.length > 1 ? sets.length : undefined}
+              onClick={() => setOpenPop((p) => (p === "set" ? null : "set"))}
+            />
+            <div
+              className={cn(
+                "markets-pop",
+                "markets-pop--wide",
+                openPop === "set" && "markets-pop--open",
+              )}
+              role="dialog"
+              aria-label="Set"
+            >
+              <div className="markets-pop__label">Search set</div>
+              <div className="markets-fsearch">
+                <input
+                  type="search"
+                  placeholder="Set name…"
+                  value={setQuery}
+                  onChange={(e) => setSetQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applySetQuery(setQuery, "live");
+                    }
+                  }}
+                />
+                {setQuery.trim() ? (
+                  <button
+                    type="button"
+                    className="markets-fsearch__apply"
+                    onClick={() => applySetQuery(setQuery, "live")}
+                  >
+                    Apply
+                  </button>
+                ) : null}
+              </div>
+              {filteredSetOptions.length > 0 ? (
+                <div className="markets-fresults">
+                  {filteredSetOptions.map((setName) => {
+                    const selected = sets.some(
+                      (s) => s.toLowerCase() === setName.toLowerCase(),
+                    );
+                    return (
+                      <FilterCheckRow
+                        key={setName}
+                        selected={selected}
+                        role="checkbox"
+                        onClick={() => {
+                          trackEvent("filter_applied", {
+                            filter_type: "set",
+                            filter_value: setName,
+                          });
+                          onSetToggle(setName);
+                        }}
+                      >
+                        {setName}
+                      </FilterCheckRow>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="markets-pop__hint">
+                  {setFacetOptions.length === 0
+                    ? "Load collections to browse sets, or type a name and press Enter."
+                    : "No matching sets in the current list."}
+                </p>
+              )}
+              <PopFooter
+                clearDisabled={!setActive}
+                onClear={() => {
+                  onSetsChange?.([]);
+                  setSetQuery("");
+                  setOpenPop(null);
+                }}
+                onDone={() => setOpenPop(null)}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div ref={gradeRef} className="markets-fw">
           <DdChip
@@ -574,15 +838,9 @@ export function MarketsFilterBar({
             {MARKETS_SORT_UI_IDS.map((id) => {
               const selected = sortId === id;
               return (
-                <button
+                <PopCheckItem
                   key={id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={selected}
-                  className={cn(
-                    "markets-pop__item",
-                    selected && "markets-pop__item--sel",
-                  )}
+                  selected={selected}
                   onClick={() => {
                     trackEvent("filter_applied", {
                       filter_type: "sort",
@@ -593,7 +851,7 @@ export function MarketsFilterBar({
                   }}
                 >
                   {SORT_LABELS[id]}
-                </button>
+                </PopCheckItem>
               );
             })}
             <PopFooter
@@ -665,22 +923,55 @@ export function MarketsFilterBar({
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Category</span>
-            <div className="markets-fd-chips">
+            <div className="markets-fd-chips markets-fd-chips--stack">
               {filters.map((f) => (
-                <button
+                <FilterCheckRow
                   key={f.id}
-                  type="button"
-                  className={cn(
-                    "markets-fd-option",
-                    draftCategory === f.id && "markets-fd-option--sel",
-                  )}
-                  onClick={() => setDraftCategory(f.id)}
+                  selected={draftCategories.has(f.id)}
+                  onClick={() => toggleDraftCategory(f.id)}
                 >
-                  {categoryChipLabel(f)}
-                </button>
+                  {categoryOptionLabel(f)}
+                </FilterCheckRow>
               ))}
             </div>
           </div>
+
+          {onSetsChange ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Set</span>
+              <div className="markets-fsearch markets-fsearch--drawer">
+                <input
+                  type="search"
+                  placeholder="Set name…"
+                  value={draftSetQuery}
+                  onChange={(e) => setDraftSetQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const trimmed = draftSetQuery.trim();
+                      if (trimmed) toggleDraftSet(trimmed);
+                      setDraftSetQuery("");
+                    }
+                  }}
+                />
+              </div>
+              {filteredDraftSetOptions.length > 0 ? (
+                <div className="markets-fresults markets-fresults--drawer">
+                  {filteredDraftSetOptions.map((setName) => (
+                    <FilterCheckRow
+                      key={setName}
+                      selected={draftSets.some(
+                        (s) => s.toLowerCase() === setName.toLowerCase(),
+                      )}
+                      onClick={() => toggleDraftSet(setName)}
+                    >
+                      {setName}
+                    </FilterCheckRow>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Price range</span>
@@ -732,19 +1023,15 @@ export function MarketsFilterBar({
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Grade</span>
-            <div className="markets-fd-chips">
+            <div className="markets-fd-chips markets-fd-chips--stack">
               {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => (
-                <button
+                <FilterCheckRow
                   key={grade}
-                  type="button"
-                  className={cn(
-                    "markets-fd-option",
-                    draftGrades.has(grade) && "markets-fd-option--sel",
-                  )}
+                  selected={draftGrades.has(grade)}
                   onClick={() => toggleDraftGrade(grade)}
                 >
                   {grade}
-                </button>
+                </FilterCheckRow>
               ))}
             </div>
           </div>
@@ -752,19 +1039,15 @@ export function MarketsFilterBar({
           {onVaultFiltersChange ? (
             <div className="markets-fd-section">
               <span className="markets-fd-label">Vault</span>
-              <div className="markets-fd-chips">
+              <div className="markets-fd-chips markets-fd-chips--stack">
                 {MARKETS_VAULT_FILTER_OPTIONS.map((opt) => (
-                  <button
+                  <FilterCheckRow
                     key={opt.id}
-                    type="button"
-                    className={cn(
-                      "markets-fd-option",
-                      draftVaults.has(opt.id) && "markets-fd-option--sel",
-                    )}
+                    selected={draftVaults.has(opt.id)}
                     onClick={() => toggleDraftVault(opt.id)}
                   >
                     {opt.chipLabel}
-                  </button>
+                  </FilterCheckRow>
                 ))}
               </div>
             </div>
@@ -772,19 +1055,16 @@ export function MarketsFilterBar({
 
           <div className="markets-fd-section">
             <span className="markets-fd-label">Sort by</span>
-            <div className="markets-fd-chips">
+            <div className="markets-fd-chips markets-fd-chips--stack">
               {MARKETS_SORT_UI_IDS.map((id) => (
-                <button
+                <FilterCheckRow
                   key={id}
-                  type="button"
-                  className={cn(
-                    "markets-fd-option",
-                    draftSort === id && "markets-fd-option--sel",
-                  )}
+                  selected={draftSort === id}
+                  role="radio"
                   onClick={() => setDraftSort(id)}
                 >
                   {SORT_DRAWER_LABELS[id] ?? SORT_LABELS[id]}
-                </button>
+                </FilterCheckRow>
               ))}
             </div>
           </div>

@@ -2,6 +2,7 @@ import { addRpcUrlOverrideToChain } from "@privy-io/chains";
 import { createConfig } from "@privy-io/wagmi";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
 import { http } from "wagmi";
+import { ASSETS } from "@/constants/assets";
 import {
   DEFAULT_CHAIN_ID,
   getChainDefinition,
@@ -94,6 +95,13 @@ const wagmiChains: [typeof defaultChain, ...typeof supportedChains] =
 /** @deprecated Use getChainDefinition from `@/lib/chains`. */
 export const privyDefaultChain = defaultChain;
 
+/** Logo for Privy login modal — same wordmark as GNB top-left.
+ * Use a stable same-origin path (no `window` / env branching) so SSR and client match.
+ */
+function privyModalLogoUrl(): string {
+  return ASSETS.logo.tokenableDs;
+}
+
 /** Passed to `<PrivyProvider config={…} />`. Rebuild when MoonPay sandbox mode changes. */
 export function buildPrivyClientConfig(options?: {
   useSandbox?: boolean;
@@ -104,8 +112,13 @@ export function buildPrivyClientConfig(options?: {
     // Privy accepts loginMethods OR loginMethodsAndOrder — not both.
     loginMethodsAndOrder: resolvePrivyLoginMethodsOrder(),
     appearance: {
-      theme: "dark",
-      accentColor: "#6366F1",
+      // Match Tokenable-with design system-17/Login.html card surface (#141414).
+      theme: "#141414",
+      accentColor: "#1A6FFF",
+      landingHeader: "",
+      loginMessage: "",
+      // Tokenable wordmark at top of the login / connect modal (same as GNB).
+      logo: privyModalLogoUrl(),
       // Link/connect modals (linkWallet, UserPill) — separate from loginMethods.
       walletList: isPrivyEnabled() ? [...PRIVY_EXTERNAL_WALLET_LIST] : [],
       showWalletLoginFirst: false,

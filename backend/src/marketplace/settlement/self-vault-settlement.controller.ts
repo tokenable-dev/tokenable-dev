@@ -144,10 +144,11 @@ export class SelfVaultSettlementController {
   @Get('admin/self-vault-settlements')
   async adminList(
     @Req() req: Request,
-    @Query('status') status?: SelfVaultSettlementStatus,
+    @Query('status') status?: SelfVaultSettlementStatus | 'open',
   ) {
     this.admin.assertAdminSession(req);
-    const allowed: SelfVaultSettlementStatus[] = [
+    const allowed: Array<SelfVaultSettlementStatus | 'open'> = [
+      'open',
       'pending_confirm',
       'confirmed',
       'paid',

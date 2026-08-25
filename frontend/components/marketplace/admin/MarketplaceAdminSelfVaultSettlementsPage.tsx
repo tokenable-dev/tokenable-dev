@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { SelfVaultSettlementStatus } from "@/lib/core";
+import { useMemo, useState } from "react";
+import type { SelfVaultSettlement, SelfVaultSettlementStatus } from "@/lib/core";
 import {
   useAdminSelfVaultSettlementActions,
   useMarketplaceAdminSelfVaultSettlements,
@@ -14,6 +14,7 @@ import {
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
   ADMIN_TEXT_ERROR,
+  ADMIN_TEXT_MUTED,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 import { MarketplaceAdminSelfVaultSettlementRow } from "./MarketplaceAdminSelfVaultSettlementRow";
@@ -28,23 +29,40 @@ const FILTERS: { id: FilterId; label: string }[] = [
   { id: "rejected", label: "Rejected" },
 ];
 
+/** Same token can have multiple open payouts (A→B then B→C before auto-pay). */
+function openSaleIndexById(
+  items: SelfVaultSettlement[],
+): Map<string, { index: number; total: number }> {
+  const byToken = new Map<string, SelfVaultSettlement[]>();
+  for (const row of items) {
+    const key = `${row.tokenContract}:${row.tokenId}`;
+    const list = byToken.get(key) ?? [];
+    list.push(row);
+    byToken.set(key, list);
+  }
+  const out = new Map<string, { index: number; total: number }>();
+  for (const list of byToken.values()) {
+    const chronological = [...list].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    chronological.forEach((row, i) => {
+      out.set(row.id, { index: i + 1, total: chronological.length });
+    });
+  }
+  return out;
+}
+
 export function MarketplaceAdminSelfVaultSettlementsPage() {
   const { chain } = useAppChain();
   const [filter, setFilter] = useState<FilterId>("open");
-  const apiStatus =
-    filter === "open" ? undefined : (filter as SelfVaultSettlementStatus);
-  const query = useMarketplaceAdminSelfVaultSettlements(apiStatus);
+  const query = useMarketplaceAdminSelfVaultSettlements(filter);
   const actions = useAdminSelfVaultSettlementActions();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
 
-  const rawItems = query.data?.items ?? [];
-  const items =
-    filter === "open"
-      ? rawItems.filter(
-          (r) => r.status === "pending_confirm" || r.status === "confirmed",
-        )
-      : rawItems;
+  const items = query.data?.items ?? [];
+  const saleIndex = useMemo(() => openSaleIndexById(items), [items]);
 
   async function run(id: string, fn: () => Promise<unknown>) {
     setActionError("");
@@ -62,7 +80,7 @@ export function MarketplaceAdminSelfVaultSettlementsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Self-vault payouts"
-        subtitle={`After a self-vault sale, USDC lands in the platform fee wallet (100% on-chain). Ops can Pay seller early (~95% USDC), or the backend auto-confirms and pays ~5 minutes after the sale. Reject to skip payout. Active network: ${chain.label}.`}
+        subtitle={`Each self-vault sale creates its own payout row (keyed by ask). Resales before auto-pay show as separate rows for the same token. Ops can Pay seller early (~95% USDC), or the backend auto-pays ~5 minutes after each sale. Reject skips that sale’s payout. Active network: ${chain.label}.`}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
@@ -89,7 +107,7 @@ export function MarketplaceAdminSelfVaultSettlementsPage() {
                 const result = await actions.backfill.mutateAsync();
                 if (result.created === 0) {
                   setActionError(
-                    `No new rows (skipped ${result.skipped}). Confirm the sale was a self-vault ask and buyer holding was seeded.`,
+                    `No new rows (skipped ${result.skipped}). Confirm the sale was a self-vault ask and buyer was recorded on fulfill.`,
                   );
                 }
               } catch (e) {
@@ -127,10 +145,17 @@ export function MarketplaceAdminSelfVaultSettlementsPage() {
           <p className={ADMIN_COUNT}>
             {items.length} settlement{items.length === 1 ? "" : "s"}
           </p>
+          {filter === "open" ? (
+            <p className={`-mt-1 mb-1 text-sm ${ADMIN_TEXT_MUTED}`}>
+              Same token with multiple rows = unpaid prior sale + later resale.
+              Pay each seller separately.
+            </p>
+          ) : null}
           {items.map((row) => (
             <MarketplaceAdminSelfVaultSettlementRow
               key={row.id}
               row={row}
+              saleIndex={saleIndex.get(row.id)}
               busy={busyId === row.id}
               onConfirm={() =>
                 void run(row.id, () => actions.confirm.mutateAsync(row.id))

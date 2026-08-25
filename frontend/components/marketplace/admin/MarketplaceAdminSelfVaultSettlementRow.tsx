@@ -58,14 +58,34 @@ function statusClass(status: SelfVaultSettlement["status"]): string {
   }
 }
 
+const AUTO_PAY_DELAY_MS = 5 * 60 * 1000;
+
+function autoPayHint(row: SelfVaultSettlement): string | null {
+  if (row.status !== "pending_confirm" && row.status !== "confirmed") {
+    return null;
+  }
+  const created = new Date(row.createdAt).getTime();
+  if (!Number.isFinite(created)) return null;
+  const dueAt = created + AUTO_PAY_DELAY_MS;
+  const remainingMs = dueAt - Date.now();
+  if (remainingMs <= 0) {
+    return "Auto-pay due (cron runs each minute)";
+  }
+  const mins = Math.ceil(remainingMs / 60_000);
+  return `Auto-pay in ~${mins} min`;
+}
+
 export function MarketplaceAdminSelfVaultSettlementRow({
   row,
+  saleIndex,
   busy,
   onConfirm,
   onReject,
   onExecutePayout,
 }: {
   row: SelfVaultSettlement;
+  /** When the same token has multiple open payouts (resale before settle). */
+  saleIndex?: { index: number; total: number };
   busy: boolean;
   onConfirm: () => void;
   onReject: () => void;
@@ -78,6 +98,8 @@ export function MarketplaceAdminSelfVaultSettlementRow({
   const canReject =
     row.status === "pending_confirm" || row.status === "confirmed";
   const payoutLabel = formatUsdcMicros(row.sellerPayoutUsdc);
+  const autoHint = autoPayHint(row);
+  const multiSale = saleIndex != null && saleIndex.total > 1;
 
   return (
     <article className={ADMIN_ARTICLE}>
@@ -92,12 +114,23 @@ export function MarketplaceAdminSelfVaultSettlementRow({
             >
               {statusLabel(row.status)}
             </span>
+            {multiSale ? (
+              <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-inset ring-violet-200">
+                Sale {saleIndex.index} of {saleIndex.total}
+              </span>
+            ) : null}
           </div>
           <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
             Gross ${formatUsdcMicros(row.grossUsdc)} → seller payout{" "}
             <span className="font-semibold text-zinc-900">
               ${formatUsdcMicros(row.sellerPayoutUsdc)}
             </span>
+            {autoHint ? (
+              <>
+                {" "}
+                · <span className="text-zinc-700">{autoHint}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <p className={`text-xs ${ADMIN_TEXT_META}`}>
@@ -152,7 +185,7 @@ export function MarketplaceAdminSelfVaultSettlementRow({
               </button>
               <p className={`text-xs ${ADMIN_TEXT_MUTED}`}>
                 Sends from PLATFORM_FEE wallet now (confirms if still pending).
-                Otherwise auto-pays ~5 minutes after the sale.
+                Otherwise auto-pays ~5 minutes after this sale.
               </p>
             </div>
           ) : null}

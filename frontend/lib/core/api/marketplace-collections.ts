@@ -52,6 +52,18 @@ export async function getMarketplaceCollectionsPage(opts?: {
   }>;
 }
 
+/** Card.html Similar items — same card name OR same set (excludes `collectionKey`). */
+export async function getMarketplaceCollectionSimilar(
+  collectionKey: string,
+): Promise<{ items: MarketplaceCollectionSummary[] }> {
+  const key = encodeURIComponent(collectionKey.trim());
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${key}/similar`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch similar collections");
+  return res.json() as Promise<{ items: MarketplaceCollectionSummary[] }>;
+}
+
 export async function getAdminCollectionReviewCounts(): Promise<
   Record<CollectionReviewStatus, number>
 > {

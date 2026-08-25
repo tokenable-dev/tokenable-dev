@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { TkButton, TkDialog } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
+import "@/styles/tokenable-action-complete.css";
 
 export type ActionCompleteKind =
   | "purchase"

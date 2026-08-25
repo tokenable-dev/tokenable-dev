@@ -207,11 +207,12 @@ export function resolvePsaPopulationMetrics(
       ? psaPopForGradeScore(components, score)
       : psaPopForChartGradeLabel(components, gradeLabel);
   const totalPsaPop = finitePositivePop(components.psaSpecTotalPopulation);
+  const psa10Pop = psaPopForGradeScore(components, 10);
   return {
     gradeLabel,
     gradePop,
     totalPsaPop,
-    psa10Pop: gradePop,
+    psa10Pop,
   };
 }
 
@@ -220,6 +221,26 @@ export { formatPsaGradePopPairTitle, formatPsaGradePopTileLabel };
 export function formatPsaPopulationCount(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
   return n.toLocaleString("en-US");
+}
+
+/**
+ * Gem rate = PSA Pop ÷ Total Pop (as percent).
+ * “PSA Pop” is the gem / PSA 10 population when available.
+ */
+export function computeGemRatePct(
+  psaPop: number | null | undefined,
+  totalPop: number | null | undefined,
+): number | null {
+  if (psaPop == null || totalPop == null) return null;
+  if (!Number.isFinite(psaPop) || !Number.isFinite(totalPop)) return null;
+  if (totalPop <= 0 || psaPop < 0) return null;
+  return (psaPop / totalPop) * 100;
+}
+
+/** Format gem rate for hero metrics (`27.6%`). */
+export function formatGemRatePercent(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return "—";
+  return `${pct.toFixed(1)}%`;
 }
 
 /** Grade pop / total pop for metric tiles (e.g. `48.4k / 111.1k`). */

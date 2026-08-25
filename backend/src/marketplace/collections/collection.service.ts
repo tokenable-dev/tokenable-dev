@@ -798,6 +798,120 @@ export class CollectionService {
     return { items, nextCursor: null };
   }
 
+  /**
+   * Similar collections for Card.html `#similar-items`:
+   * same card name OR same set name (active only), excluding the current key.
+   * When both facets exist, rows matching both are ranked above single-facet hits.
+   */
+  async findSimilarByNameAndSet(
+    collectionKey: string,
+    opts?: { limit?: number; chainId?: SupportedChainId },
+  ): Promise<{ items: CollectionSummary[] }> {
+    const key = decodeURIComponent(collectionKey).trim().toLowerCase();
+    const limit = Math.min(Math.max(opts?.limit ?? 12, 1), 24);
+    const empty = { items: [] as CollectionSummary[] };
+    if (!key) return empty;
+
+    const col = await this.findOne(key);
+    if (!col) return empty;
+
+    const components = (col.components ?? {}) as Record<string, unknown>;
+    const cardName = [
+      components.cardNameDisplay,
+      components.cardName,
+      components.psaSubject,
+    ]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .find((v) => v.length > 0);
+    const cardSet = [
+      components.cardSetDisplay,
+      components.cardSet,
+      components.psaBrand,
+    ]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .find((v) => v.length > 0);
+
+    if (!cardName && !cardSet) return empty;
+
+    const chainId = opts?.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const nameSql = `COALESCE(NULLIF(c.components->>'cardNameDisplay', ''), NULLIF(c.components->>'cardName', ''), NULLIF(c.components->>'psaSubject', ''), '')`;
+    const setSql = `COALESCE(NULLIF(c.components->>'cardSetDisplay', ''), NULLIF(c.components->>'cardSet', ''), NULLIF(c.components->>'psaBrand', ''), '')`;
+
+    const qb = this.collectionRepo
+      .createQueryBuilder('c')
+      .where(`${chainFilter} AND c.review_status = :reviewStatus`, {
+        rwaContract,
+        reviewStatus: 'active',
+      })
+      .andWhere('c.collection_key != :key', { key });
+
+    if (cardName && cardSet) {
+      qb.andWhere(
+        `(LOWER(TRIM(${nameSql})) = LOWER(TRIM(:cardName)) OR LOWER(TRIM(${setSql})) = LOWER(TRIM(:cardSet)))`,
+        { cardName, cardSet },
+      );
+    } else if (cardName) {
+      qb.andWhere(`LOWER(TRIM(${nameSql})) = LOWER(TRIM(:cardName))`, {
+        cardName,
+      });
+    } else {
+      qb.andWhere(`LOWER(TRIM(${setSql})) = LOWER(TRIM(:cardSet))`, {
+        cardSet,
+      });
+    }
+
+    const rows = await qb
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(limit * 3)
+      .getMany();
+
+    if (rows.length === 0) return empty;
+
+    const nameNorm = cardName?.toLowerCase() ?? '';
+    const setNorm = cardSet?.toLowerCase() ?? '';
+    const facetMatchScore = (compsRaw: Record<string, unknown> | null): number => {
+      const comps = compsRaw ?? {};
+      const n = [
+        comps.cardNameDisplay,
+        comps.cardName,
+        comps.psaSubject,
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''))
+        .find((v) => v.length > 0);
+      const s = [
+        comps.cardSetDisplay,
+        comps.cardSet,
+        comps.psaBrand,
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''))
+        .find((v) => v.length > 0);
+      const nameHit = Boolean(nameNorm && n === nameNorm);
+      const setHit = Boolean(setNorm && s === setNorm);
+      if (nameHit && setHit) return 2;
+      if (nameHit || setHit) return 1;
+      return 0;
+    };
+
+    const keys = rows.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const ranked = rows.map((c) => ({
+      summary: this.toCollectionSummary(c, countMap),
+      score: facetMatchScore((c.components ?? {}) as Record<string, unknown>),
+    }));
+    ranked.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.summary.activeListingCount !== a.summary.activeListingCount) {
+        return b.summary.activeListingCount - a.summary.activeListingCount;
+      }
+      return b.summary.createdAt.getTime() - a.summary.createdAt.getTime();
+    });
+
+    return { items: ranked.slice(0, limit).map((r) => r.summary) };
+  }
+
   /** Escape `%`, `_`, and `\` for PostgreSQL ILIKE … ESCAPE '\\'. */
   static escapeIlike(raw: string): string {
     return raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
