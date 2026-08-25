@@ -270,22 +270,7 @@ export function useCollectionDetailHeadline(params: {
     ],
   );
 
-  const detailsCatalogLine = useMemo(() => {
-    const fromTags = headlineInfoTags?.find((t) => t.id === "cardno")?.text?.trim();
-    if (fromTags) {
-      const titleHasCardNo = collectionHeadlineDisplayTitle
-        .toLowerCase()
-        .includes(fromTags.toLowerCase());
-      return titleHasCardNo ? null : fromTags;
-    }
-    const raw = headlineCardNumberToken?.trim();
-    if (!raw) return null;
-    const normalized = raw.startsWith("#") ? raw : `#${raw}`;
-    const titleHasCardNo = collectionHeadlineDisplayTitle
-      .toLowerCase()
-      .includes(normalized.toLowerCase());
-    return titleHasCardNo ? null : normalized;
-  }, [headlineInfoTags, headlineCardNumberToken, collectionHeadlineDisplayTitle]);
+  const detailsCatalogLine = null;
 
   const heroDetailsKvRows = useMemo((): CollectionDetailCard[] => {
     const player = collectionHeadlineCardName?.trim();

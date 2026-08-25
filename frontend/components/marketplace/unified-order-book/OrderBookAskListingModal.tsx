@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import type { Order } from "@/lib/core";
 import { TkButton } from "@/components/ds";
 import { formatOrderUsdc6 } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
@@ -158,17 +157,20 @@ function OrderBookAskListingCard({
 export function OrderBookAskListingModal({
   open,
   onClose,
-  collectionKey,
+  collectionKey: _collectionKey,
   price,
   orders,
+  onBuyToken,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Kept for callers / analytics context; buy no longer navigates by URL. */
   collectionKey: string;
   price: number;
   orders: Order[];
+  /** Direct buy — no Confirm-purchase checkout sheet. */
+  onBuyToken: (tokenId: number) => void;
 }) {
-  const router = useRouter();
   /* Match collection-detail mobile column (≤1023), not just Tailwind `sm`. */
   const isMobileViewport = useIsMobileViewport(1023);
 
@@ -204,11 +206,9 @@ export function OrderBookAskListingModal({
   const listingLabel =
     sortedOrders.length === 1 ? "Listed card" : `${sortedOrders.length} listed cards`;
 
-  const navigateToBuy = (tokenId: number) => {
+  const handleBuy = (tokenId: number) => {
     onClose();
-    router.push(
-      `/marketplace/collections/${encodeURIComponent(collectionKey)}?listing=${tokenId}&checkout=buy`,
-    );
+    onBuyToken(tokenId);
   };
 
   return createPortal(
@@ -266,7 +266,7 @@ export function OrderBookAskListingModal({
                 key={order.orderHash}
                 order={order}
                 cardWidthRem={cardWidthRem}
-                onBuy={() => navigateToBuy(Number(order.tokenId))}
+                onBuy={() => handleBuy(Number(order.tokenId))}
               />
             ))}
           </ul>

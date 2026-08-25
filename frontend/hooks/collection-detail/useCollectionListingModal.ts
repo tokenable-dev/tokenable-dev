@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
@@ -25,6 +25,8 @@ export function useCollectionListingModal(input: {
   const { collectionKey, askMap, batchMetadata, address, onInvalidate, onPurchaseCelebration } =
     input;
 
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { chainId } = useAppChain();
@@ -41,10 +43,23 @@ export function useCollectionListingModal(input: {
     const n = listingParam ? Number(listingParam) : NaN;
     if (!Number.isFinite(n) || n < 0) return;
     setSelectedTokenId(n);
-    if (checkoutParam === "buy" || checkoutParam === "bid") {
-      setCheckout(checkoutParam);
+    // Buy no longer uses the Confirm-purchase checkout sheet — only bid does.
+    if (checkoutParam === "bid") {
+      setCheckout("bid");
     }
   }, [listingParam, checkoutParam]);
+
+  // Strip legacy `?checkout=buy` so Cancel / reload can't reopen Confirm purchase.
+  useEffect(() => {
+    if (checkoutParam !== "buy") return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("checkout");
+    const q = params.toString();
+    const base =
+      pathname ||
+      `/marketplace/collections/${encodeURIComponent(collectionKey)}`;
+    router.replace(q ? `${base}?${q}` : base, { scroll: false });
+  }, [checkoutParam, searchParams, pathname, collectionKey, router]);
 
   const selectedListing = useMemo(
     () => (selectedTokenId != null ? askMap.get(selectedTokenId) ?? null : null),
@@ -64,8 +79,8 @@ export function useCollectionListingModal(input: {
   const openListing = useCallback(
     (tokenId: number, action: "view" | "buy" | "bid" = "view") => {
       setSelectedTokenId(tokenId);
-      if (action === "buy") setCheckout("buy");
-      else if (action === "bid") setCheckout("bid");
+      // `buy` opens listing detail only — purchase runs via direct fulfill (no checkout sheet).
+      if (action === "bid") setCheckout("bid");
       else setCheckout(null);
     },
     [],

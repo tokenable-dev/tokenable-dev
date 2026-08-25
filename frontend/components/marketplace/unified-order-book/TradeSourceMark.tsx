@@ -9,7 +9,7 @@ const SOURCE_TEXT_CLASS =
 const SOURCE_TEXT_CLASS_COMPACT =
   "min-w-0 max-w-full truncate text-center text-xs font-normal leading-snug tracking-tight text-zinc-400";
 
-/** Full-width grid cell — Source label centered under the column header. */
+/** Full-width grid cell — Source under the column header. */
 export function TradesSourceCell({
   source,
   compact = false,
@@ -48,9 +48,9 @@ export function TradeSourceMark({
     : compact
       ? SOURCE_TEXT_CLASS_COMPACT
       : SOURCE_TEXT_CLASS;
-  const sharedCls = `inline-flex min-w-0 max-w-full items-center justify-center${
-    className ? ` ${className}` : ""
-  }`;
+  const sharedCls = `inline-flex min-w-0 max-w-full items-center ${
+    collectionDetail ? "justify-start text-left" : "justify-center"
+  }${className ? ` ${className}` : ""}`;
 
   if (source.href) {
     return (

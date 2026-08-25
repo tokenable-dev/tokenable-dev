@@ -139,6 +139,8 @@ export function CollectionDetailStatMain({
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const midRef = useRef<HTMLDivElement>(null);
   const coverSrc = imageUrl?.trim() || null;
   const stuckLabel = stuckTitle?.trim() || null;
@@ -147,13 +149,17 @@ export function CollectionDetailStatMain({
 
   useEffect(() => {
     const bar = barRef.current;
-    if (!bar) return;
+    const spacer = spacerRef.current;
+    const sentinel = sentinelRef.current;
+    if (!bar || !spacer || !sentinel) return;
+
+    const STUCK_BAR_H = 68;
+    /** Small edge band only — a large slack trapped condensed state at page top. */
+    const UNPIN_SLACK_PX = 12;
 
     let raf = 0;
-    let poll: number | undefined;
-    let stopPoll: number | undefined;
-    let barHSettle: number | undefined;
     let lastBarH = -1;
+    let stuckSpacerH = 0;
 
     const publishBarH = () => {
       const next = Math.round(bar.getBoundingClientRect().height);
@@ -162,84 +168,68 @@ export function CollectionDetailStatMain({
       document.documentElement.style.setProperty("--bar-h", `${next}px`);
     };
 
-    const publishBarHAfterTransition = () => {
-      if (barHSettle != null) window.clearTimeout(barHSettle);
-      barHSettle = window.setTimeout(() => {
-        barHSettle = undefined;
-        publishBarH();
-      }, 180);
+    const marginBottom = () =>
+      parseFloat(getComputedStyle(bar).marginBottom) || 0;
+
+    const clearMobilePin = () => {
+      spacer.style.height = "";
+      stuckSpacerH = 0;
+      bar.classList.remove("is-stuck");
     };
 
-    /** Fixed Markets-style frame (aspect 0.72 + object-fill) — no mid-height sync. */
-    const syncCardImg = () => {
-      const img = bar.querySelector<HTMLElement>("#hero-img");
-      if (!img) return;
-      img.style.height = "";
-      img.style.width = "";
+    const pinMobile = () => {
+      bar.classList.add("is-stuck");
+      stuckSpacerH = STUCK_BAR_H + marginBottom();
+      spacer.style.height = `${stuckSpacerH}px`;
     };
 
     const onScroll = () => {
       raf = 0;
-      const r = bar.getBoundingClientRect();
-      /* Card.html: stuck when sticky top reaches header offset (64px GNB). */
-      const stuckTop = window.innerWidth <= 1023 ? 64 : 70;
-      const stuck = r.top <= stuckTop;
+      const mobile = window.innerWidth <= 1023;
+      const stuckTop = mobile ? 64 : 70;
       const wasStuck = bar.classList.contains("is-stuck");
-      bar.classList.toggle("is-stuck", stuck);
-      if (stuck !== wasStuck) {
-        publishBarHAfterTransition();
+
+      if (mobile) {
+        /*
+         * Pin from a zero-height sentinel that never changes size — not from the
+         * bar/spacer. Near page top always expand so scrolling back restores hero.
+         */
+        const scrollY =
+          window.scrollY || document.documentElement.scrollTop || 0;
+        const sentinelTop = sentinel.getBoundingClientRect().top;
+        const shouldStuck = wasStuck
+          ? scrollY > 2 && sentinelTop <= stuckTop + UNPIN_SLACK_PX
+          : sentinelTop <= stuckTop;
+
+        if (shouldStuck) {
+          if (!wasStuck) pinMobile();
+        } else if (wasStuck) {
+          clearMobilePin();
+        }
       } else {
-        publishBarH();
+        if (wasStuck && spacer.style.height) clearMobilePin();
+        bar.classList.toggle(
+          "is-stuck",
+          bar.getBoundingClientRect().top <= stuckTop,
+        );
       }
-      syncCardImg();
+      publishBarH();
     };
 
     const onScrollOrResize = () => {
       if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        onScroll();
-        syncCardImg();
-      });
+      raf = window.requestAnimationFrame(onScroll);
     };
 
-    const scrollTargets: EventTarget[] = [window, document];
-    let node: HTMLElement | null = bar.parentElement;
-    while (node && node !== document.documentElement) {
-      const { overflowY, overflow } = getComputedStyle(node);
-      if (
-        /(auto|scroll|overlay)/.test(overflowY) ||
-        /(auto|scroll|overlay)/.test(overflow)
-      ) {
-        scrollTargets.push(node);
-      }
-      node = node.parentElement;
-    }
-
     onScroll();
-    syncCardImg();
-    for (const t of scrollTargets) {
-      t.addEventListener("scroll", onScrollOrResize, { passive: true });
-    }
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize);
-    bar.addEventListener("transitionend", publishBarH);
-    poll = window.setInterval(() => {
-      onScroll();
-      syncCardImg();
-    }, 400);
-    stopPoll = window.setTimeout(() => {
-      if (poll != null) window.clearInterval(poll);
-    }, 6000);
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
-      for (const t of scrollTargets) {
-        t.removeEventListener("scroll", onScrollOrResize);
-      }
+      window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
-      bar.removeEventListener("transitionend", publishBarH);
-      if (poll != null) window.clearInterval(poll);
-      if (stopPoll != null) window.clearTimeout(stopPoll);
-      if (barHSettle != null) window.clearTimeout(barHSettle);
+      clearMobilePin();
       document.documentElement.style.removeProperty("--bar-h");
     };
   }, []);
@@ -292,6 +282,10 @@ export function CollectionDetailStatMain({
 
   return (
     <div className="cd-stat-main">
+      {/* Stable pin probe — height never changes, so shrink/expand can't thrash. */}
+      <div className="cd-hero-sentinel" ref={sentinelRef} aria-hidden />
+      {/* Condensed in-flow slot while the bar is position:fixed. */}
+      <div className="cd-hero-bar-spacer" ref={spacerRef} aria-hidden />
       <div
         className="cd-hero-bar"
         id="hero-bar"

@@ -186,6 +186,28 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [asks],
   );
 
+  const fulfillBuyForToken = useCallback(
+    (tokenId: number) => {
+      const listing = listings.askMap.get(tokenId);
+      if (!listing || listing.status !== "active") return;
+      const priceUsdc = priceUsdcFromOrder(listing);
+      trackEvent("buy_now_clicked", {
+        card_id: String(tokenId),
+        price: priceUsdc > 0 ? priceUsdc : undefined,
+        collection_id: collectionKey,
+      });
+      runTradeAccessGate(() => {
+        void listingModal.buyFlow.handleFulfillAsk(listing);
+      });
+    },
+    [
+      listings.askMap,
+      collectionKey,
+      runTradeAccessGate,
+      listingModal.buyFlow.handleFulfillAsk,
+    ],
+  );
+
   const openBuyFloor = () => {
     const active = [...listings.askMap.values()].filter((o) => o.status === "active");
     if (active.length === 0) return;
@@ -227,7 +249,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     if (floor?.tokenId == null) return;
     const tid = Number(floor.tokenId);
     if (!Number.isFinite(tid)) return;
-    listingModal.openListing(tid, "buy");
+    fulfillBuyForToken(tid);
   };
 
   const similarPanel = (
@@ -350,6 +372,10 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         collectionKey={collection.collectionKey}
         price={orderBookAskPicker?.price ?? 0}
         orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
+        onBuyToken={(tokenId) => {
+          setOrderBookAskPicker(null);
+          fulfillBuyForToken(tokenId);
+        }}
       />
 
       <CollectionListingDetailModal
@@ -359,15 +385,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         prefetchedMetadata={listingModal.selectedPrefetch?.metadata}
         prefetchedImageUrl={listingModal.selectedPrefetch?.imageUrl}
         onClose={listingModal.closeDetail}
-        onBuy={() => listingModal.setCheckout("buy")}
+        onBuy={() => {
+          const tid = listingModal.selectedTokenId;
+          if (tid == null) return;
+          listingModal.closeDetail();
+          fulfillBuyForToken(tid);
+        }}
       />
 
       <CollectionListingCheckoutModal
-        open={
-          listingModal.checkout === "bid" ||
-          (listingModal.checkout === "buy" && listingModal.selectedTokenId != null)
-        }
-        mode={listingModal.checkout ?? "buy"}
+        open={listingModal.checkout === "bid"}
+        mode="bid"
         tokenId={listingModal.selectedTokenId}
         listing={listingModal.selectedListing}
         metadata={listingModal.selectedPrefetch?.metadata ?? null}
@@ -378,13 +406,12 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}
         buyErr={listingModal.buyFlow.buyErr}
-        onClose={() => listingModal.setCheckout(null)}
+        onClose={listingModal.closeDetail}
         onFulfillBuy={() => void listingModal.buyFlow.handleFulfillAsk()}
         onBidPlaced={() => {
           invalidateCollection();
         }}
         onPurchaseFilled={() => {
-          listingModal.setCheckout(null);
           listingModal.closeDetail();
           setTradeCelebration("purchase");
           invalidateCollection();

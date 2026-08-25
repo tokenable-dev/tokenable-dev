@@ -54,6 +54,18 @@ function TabCount({ value }: { value: number }) {
   return <span className="pf-tab-n tkl-mono">{value}</span>;
 }
 
+/** Full label on desktop; shorter label on phone so count badges don't collide. */
+function TabLabel({ full, short }: { full: string; short?: string }) {
+  return (
+    <span className="pf-tab-label">
+      <span className="pf-tab-label__full">{full}</span>
+      <span className="pf-tab-label__short" aria-hidden>
+        {short ?? full}
+      </span>
+    </span>
+  );
+}
+
 export function PortfolioMainSection({
   activeTab,
   onTabChange,
@@ -79,6 +91,22 @@ export function PortfolioMainSection({
 }) {
   const isPartner = variant === "partner";
 
+  function renderShipFromVaultBtn() {
+    if (!showRedeemButton || !onEnterRedeemSelect) return null;
+    return (
+      <TkButton
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="pf-redeem-toolbar-btn"
+        onClick={onEnterRedeemSelect}
+      >
+        <RedeemTabIcon />
+        Ship from vault
+      </TkButton>
+    );
+  }
+
   return (
     <section className="pf-main-section" aria-label="Portfolio holdings">
       <TkTabs
@@ -89,10 +117,11 @@ export function PortfolioMainSection({
           id="portfolio-tab-collectibles"
           active={activeTab === "collectibles"}
           aria-controls="portfolio-panel-collectibles"
+          aria-label="My Assets"
           onClick={() => onTabChange("collectibles")}
         >
           <CollectiblesTabIcon />
-          My Assets
+          <TabLabel full="My Assets" />
           <TabCount value={counts.assets} />
         </TkTab>
         {!isPartner ? (
@@ -100,10 +129,11 @@ export function PortfolioMainSection({
             id="portfolio-tab-redeem"
             active={activeTab === "redeem"}
             aria-controls="portfolio-panel-redeem"
+            aria-label="Redeem"
             onClick={() => onTabChange("redeem")}
           >
             <RedeemTabIcon />
-            Redeem
+            <TabLabel full="Redeem" />
             <TabCount value={counts.redeem} />
           </TkTab>
         ) : null}
@@ -111,36 +141,32 @@ export function PortfolioMainSection({
           id="portfolio-tab-bids"
           active={activeTab === "bids"}
           aria-controls="portfolio-panel-bids"
+          aria-label="Active Bids"
           onClick={() => onTabChange("bids")}
         >
           <BidsTabIcon />
-          Active Bids
+          <TabLabel full="Active Bids" short="Bids" />
           <TabCount value={counts.bids} />
         </TkTab>
         <TkTab
           id="portfolio-tab-history"
           active={activeTab === "history"}
           aria-controls="portfolio-panel-history"
+          aria-label="Transaction History"
           onClick={() => onTabChange("history")}
         >
           <HistoryTabIcon />
-          Transaction History
+          <TabLabel full="Transaction History" short="History" />
           <TabCount value={counts.history} />
         </TkTab>
 
-        {showRedeemButton && onEnterRedeemSelect ? (
-          <TkButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="pf-redeem-toolbar-btn"
-            onClick={onEnterRedeemSelect}
-          >
-            <RedeemTabIcon />
-            Ship from vault
-          </TkButton>
-        ) : null}
+        {renderShipFromVaultBtn()}
       </TkTabs>
+
+      {/* HTML: Ship from vault leaves the tab row on phone so counts don't collide. */}
+      {showRedeemButton && onEnterRedeemSelect ? (
+        <div className="pf-redeem-toolbar-mobile">{renderShipFromVaultBtn()}</div>
+      ) : null}
 
       {activeTab === "collectibles" ? (
         <div

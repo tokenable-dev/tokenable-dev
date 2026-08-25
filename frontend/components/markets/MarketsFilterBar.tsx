@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/ds/cn";
 import {
   MARKETS_SORT_OPTIONS,
@@ -287,6 +288,7 @@ export function MarketsFilterBar({
 }) {
   const [openPop, setOpenPop] = useState<PopId>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
   const [setQuery, setSetQuery] = useState("");
   const [draftSetQuery, setDraftSetQuery] = useState("");
   const [draftCategories, setDraftCategories] = useState<Set<CollectionCategoryId>>(
@@ -368,6 +370,10 @@ export function MarketsFilterBar({
     if (vaultActive) n += 1;
     return n;
   }, [categoryActive, setActive, priceActive, gradeActive, vaultActive]);
+
+  useEffect(() => {
+    setDrawerMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -533,9 +539,10 @@ export function MarketsFilterBar({
   }
 
   return (
+    <>
     <div className="markets-filter-sticky">
       <div className="tkl-wrap markets-slim-bar">
-        <div ref={catRef} className="markets-fw">
+        <div ref={catRef} className="markets-fw markets-fw--chip">
           <DdChip
             label="Category"
             value={categoryActive ? categoryValue : undefined}
@@ -584,7 +591,7 @@ export function MarketsFilterBar({
         </div>
 
         {onSetToggle ? (
-          <div ref={setRef} className="markets-fw">
+          <div ref={setRef} className="markets-fw markets-fw--chip">
             <DdChip
               label="Set"
               value={setActive ? setValue : undefined}
@@ -670,7 +677,7 @@ export function MarketsFilterBar({
           </div>
         ) : null}
 
-        <div ref={gradeRef} className="markets-fw">
+        <div ref={gradeRef} className="markets-fw markets-fw--chip">
           <DdChip
             label="Grade"
             value={gradeValue}
@@ -725,7 +732,7 @@ export function MarketsFilterBar({
           </div>
         </div>
 
-        <div ref={priceRef} className="markets-fw">
+        <div ref={priceRef} className="markets-fw markets-fw--chip">
           <DdChip
             label="Price"
             value={priceActive ? priceLabel : undefined}
@@ -801,7 +808,7 @@ export function MarketsFilterBar({
             "markets-ddchip--more",
             moreCount > 0 && "markets-ddchip--on",
           )}
-          aria-label="More filters"
+          aria-label="Filters"
           aria-haspopup="dialog"
           aria-expanded={drawerOpen}
           onClick={() => {
@@ -810,7 +817,12 @@ export function MarketsFilterBar({
           }}
         >
           <FilterIcon size={13} />
-          <span className="markets-ddchip__label">More filters</span>
+          <span className="markets-ddchip__label markets-ddchip__label--desktop">
+            More filters
+          </span>
+          <span className="markets-ddchip__label markets-ddchip__label--mobile">
+            Filters
+          </span>
           {moreCount > 0 ? (
             <i className="markets-ddchip__count">{moreCount}</i>
           ) : null}
@@ -886,13 +898,16 @@ export function MarketsFilterBar({
           </button>
         </div>
       ) : null}
+    </div>
 
-      <div
-        className={cn("markets-filter-drawer", drawerOpen && "open")}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setDrawerOpen(false);
-        }}
-      >
+      {drawerMounted
+        ? createPortal(
+            <div
+              className={cn("markets-filter-drawer", drawerOpen && "open")}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setDrawerOpen(false);
+              }}
+            >
         <div
           className="markets-filter-drawer__panel"
           role="dialog"
@@ -1092,7 +1107,10 @@ export function MarketsFilterBar({
             </TkButton>
           </div>
         </div>
-      </div>
-    </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

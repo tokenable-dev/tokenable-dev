@@ -43,6 +43,12 @@ export function TkHeader() {
     setDrawerOpen(false);
     setNotificationsOpen(true);
   }, []);
+  const openMobileSearch = useCallback(() => {
+    // Drawer sits at z-8001; leave it open and the burger/header peek above search.
+    setDrawerOpen(false);
+    setNotificationsOpen(false);
+    setMobileSearchOpen(true);
+  }, []);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -77,7 +83,13 @@ export function TkHeader() {
   return (
     <>
       <HeaderAuthModals />
-      <header className={cn("tk-header", drawerOpen && "tk-header--drawer-open")}>
+      <header
+        className={cn(
+          "tk-header",
+          drawerOpen && "tk-header--drawer-open",
+          mobileSearchOpen && "tk-header--search-open",
+        )}
+      >
         <div className="tk-header__bar">
           <Link href="/" className="flex shrink-0 items-center" aria-label="Tokenable home">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -103,7 +115,7 @@ export function TkHeader() {
           <div className="tk-header__spacer" aria-hidden />
 
           <div className="tk-header__mobile-actions">
-            <TkHeaderSearchMobileButton onClick={() => setMobileSearchOpen(true)} />
+            <TkHeaderSearchMobileButton onClick={openMobileSearch} />
 
             <button
               type="button"

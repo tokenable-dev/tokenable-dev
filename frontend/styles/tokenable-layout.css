@@ -757,6 +757,12 @@
   z-index: 140;
 }
 
+/* Search overlay covers the GNB; hide chrome that would otherwise peek through. */
+.tk-header--search-open .tk-header__mobile-actions {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Mobile nav drawer — tk-mobile-nav.js (tkm-drawer).
    Sits below the fixed header so the burger stays reachable as the close control. */
 .tkm-overlay {
@@ -1090,7 +1096,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 145;
+  /* Above sticky header (135–140) and mobile drawer (8000–8001). */
+  z-index: 8100;
   background: var(--ink-2);
 }
 

@@ -96,8 +96,53 @@
   }
 }
 
+/* Grid cards — layout tweaks shared with .markets-grid (see tokenable-markets.css) */
+.watchlist-grid .card {
+  height: 100%;
+  min-width: 0;
+}
+
+.watchlist-grid .card__img .fav .fav-btn,
+.watchlist-grid .card__img .fav button {
+  width: 32px;
+  height: 32px;
+}
+
+.watchlist-grid .card__img .fav .fav-btn svg,
+.watchlist-grid .card__img .fav button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.watchlist-grid .card__title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 2.4em;
+  max-height: 2.4em;
+  height: 2.4em;
+  -webkit-line-clamp: 2;
+}
+
+.watchlist-grid .card__stat,
+.watchlist-grid .card__kv {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+@media (max-width: 768px) {
+  /* Override global .card__body mobile padding from tokenable-collectible-card.css */
+  .watchlist-grid .card__body {
+    padding: 0 0 4px;
+    gap: 8px;
+  }
+}
+
 /* Watchlist.html card — set line, gray grade chip, INSURED, split change/period, in-card CTAs */
 .watchlist-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   text-decoration: none;
   color: inherit;
 }
@@ -265,12 +310,14 @@
     right: 6px;
   }
 
-  .watchlist-grid .card__img .fav-btn {
-    width: 40px;
-    height: 40px;
+  .watchlist-grid .card__img .fav-btn,
+  .watchlist-grid .card__img .fav button {
+    width: 28px;
+    height: 28px;
   }
 
-  .watchlist-grid .card__img .fav-btn svg {
+  .watchlist-grid .card__img .fav-btn svg,
+  .watchlist-grid .card__img .fav button svg {
     width: 13px;
     height: 13px;
   }

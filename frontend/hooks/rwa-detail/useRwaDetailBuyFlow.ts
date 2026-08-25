@@ -44,48 +44,54 @@ export function useRwaDetailBuyFlow(input: {
     });
   }, [queryClient, tokenId, collectionKeyForMatch]);
 
-  const handleFulfillAsk = useCallback(async () => {
-    if (!activeAskListing || !address || !publicClient) return;
-    setBuyErr(null);
-    setBuyBusy(true);
-    try {
-      await fulfillAskListingOrder({
-        ask: activeAskListing,
-        address: address as Address,
-        publicClient,
-        writeContractAsync: writeContractAsync as Parameters<
-          typeof fulfillAskListingOrder
-        >[0]["writeContractAsync"],
-        chainId,
-      });
-      await invalidateMarketplaceQueries();
-      const priceUsdc = Number(activeAskListing.considerationAmount) / 1_000_000;
-      const fee = Math.round(priceUsdc * 0.05 * 100) / 100;
-      trackEvent("purchase_completed", {
-        card_id: String(tokenId),
-        price: priceUsdc,
-        fee,
-        net_amount: Math.round(priceUsdc * 0.95 * 100) / 100,
-      });
-      onPurchaseSuccess();
-    } catch (e: unknown) {
+  const handleFulfillAsk = useCallback(
+    async (overrideAsk?: Order | null) => {
+      const ask = overrideAsk ?? activeAskListing;
+      if (!ask || !address || !publicClient) return;
+      setBuyErr(null);
+      setBuyBusy(true);
       try {
-        setBuyErr(mapWalletError(e).message);
-      } catch {
-        setBuyErr("Purchase failed. Please try again.");
+        await fulfillAskListingOrder({
+          ask,
+          address: address as Address,
+          publicClient,
+          writeContractAsync: writeContractAsync as Parameters<
+            typeof fulfillAskListingOrder
+          >[0]["writeContractAsync"],
+          chainId,
+        });
+        await invalidateMarketplaceQueries();
+        const priceUsdc = Number(ask.considerationAmount) / 1_000_000;
+        const fee = Math.round(priceUsdc * 0.05 * 100) / 100;
+        const tid = Number(ask.tokenId);
+        trackEvent("purchase_completed", {
+          card_id: String(Number.isFinite(tid) ? tid : tokenId),
+          price: priceUsdc,
+          fee,
+          net_amount: Math.round(priceUsdc * 0.95 * 100) / 100,
+        });
+        onPurchaseSuccess();
+      } catch (e: unknown) {
+        try {
+          setBuyErr(mapWalletError(e).message);
+        } catch {
+          setBuyErr("Purchase failed. Please try again.");
+        }
+      } finally {
+        setBuyBusy(false);
       }
-    } finally {
-      setBuyBusy(false);
-    }
-  }, [
-    activeAskListing,
-    address,
-    publicClient,
-    writeContractAsync,
-    chainId,
-    invalidateMarketplaceQueries,
-    onPurchaseSuccess,
-  ]);
+    },
+    [
+      activeAskListing,
+      address,
+      publicClient,
+      writeContractAsync,
+      chainId,
+      invalidateMarketplaceQueries,
+      onPurchaseSuccess,
+      tokenId,
+    ],
+  );
 
   useEffect(() => {
     setBuyErr(null);

@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { TkButton } from "@/components/ds";
 
 /**
- * Card.html `#ob-bottom-bar` — fixed Buy / Bid strip on the mobile column
- * so trade actions stay reachable while scrolling.
- * Buy now stays visible when there is no ask — disabled instead of hidden.
+ * Card.html `#ob-bottom-bar` — viewport-fixed Buy / Bid strip (ported to body
+ * so `isolation` on `.mobile-page-root` cannot offset `position: fixed`).
  */
 export function CollectionMobileTradeBar({
   lowestAskUsd,
@@ -20,9 +21,15 @@ export function CollectionMobileTradeBar({
   buyDisabled?: boolean;
   bidDisabled?: boolean;
 }) {
-  const hasAsk = lowestAskUsd != null && lowestAskUsd > 0;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  const hasAsk = lowestAskUsd != null && lowestAskUsd > 0;
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="cd-mobile-trade-bar lg:hidden" role="region" aria-label="Trade actions">
       <div className="cd-mobile-trade-bar__actions">
         <TkButton
@@ -44,6 +51,7 @@ export function CollectionMobileTradeBar({
           Bid
         </TkButton>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

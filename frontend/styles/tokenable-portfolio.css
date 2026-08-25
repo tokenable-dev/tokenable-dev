@@ -220,6 +220,16 @@
   box-shadow: none;
 }
 
+.portfolio-page__tabs .pf-tab-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.portfolio-page__tabs .pf-tab-label__short {
+  display: none;
+}
+
 .portfolio-page__tabs .pf-tab-n {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 11.5px;
@@ -230,6 +240,11 @@
   padding: 2px 6px;
   margin-left: 2px;
   line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.pf-redeem-toolbar-mobile {
+  display: none;
 }
 
 .portfolio-page__tabs .pf-redeem-toolbar-btn {
@@ -1679,13 +1694,20 @@
     padding: 0 10px;
   }
 
-  /* HTML: 3 tabs (My Assets / Bids / History) + Ship from vault */
+  /*
+   * Phone tabs: equal columns with short labels (Bids / History).
+   * Ship from vault moves below the row (HTML) so My Assets count
+   * no longer collides with the next tab icon.
+   */
   .portfolio-page__tabs.tk-tabs {
-    padding: 8px 12px;
+    padding: 8px 8px;
     margin-left: calc(-1 * max(12px, env(safe-area-inset-left, 0px)));
     margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px)));
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
     border-bottom: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
   }
 
   .portfolio-page__tabs #portfolio-tab-redeem {
@@ -1697,34 +1719,58 @@
   }
 
   .portfolio-page__tabs .tk-tab {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
     font-size: 12px;
-    padding: 10px 0;
-    gap: 5px;
-  }
-
-  .portfolio-page--partner .portfolio-page__tabs .tk-tab {
-    flex: 0 0 auto;
-    padding: 10px 10px;
+    padding: 10px 4px;
+    gap: 4px;
   }
 
   .portfolio-page__tabs .tk-tab svg {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .portfolio-page__tabs .pf-tab-label__full {
+    display: none;
+  }
+
+  .portfolio-page__tabs .pf-tab-label__short {
+    display: inline;
   }
 
   .portfolio-page__tabs .pf-tab-n {
     font-size: 10px;
-    padding: 1px 4px;
+    padding: 1px 5px;
+    margin-left: 0;
   }
 
+  /* Keep tab-row Ship hidden on phone; show full-width clone below. */
   .portfolio-page__tabs .pf-redeem-toolbar-btn {
-    height: 32px;
-    padding: 0 10px;
-    font-size: 12px;
-    margin-left: 8px;
-    gap: 6px;
+    display: none;
+  }
+
+  .pf-redeem-toolbar-mobile {
+    display: block;
+    margin: 12px 0 0;
+  }
+
+  .pf-redeem-toolbar-mobile .pf-redeem-toolbar-btn {
+    display: inline-flex;
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    padding: 0 14px;
+    font-size: 13px;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .portfolio-page--partner .portfolio-page__tabs .tk-tab {
+    flex: 1 1 0;
+    padding: 10px 4px;
   }
 
   .pf-mobile-asset-card {

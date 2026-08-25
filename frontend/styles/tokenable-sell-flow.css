@@ -2511,9 +2511,13 @@ button.sell-ship-step--btn:focus-visible {
     max-width: none;
   }
 
-  /* Step rail: keep circles readable; wrap/hide crowded labels. */
+  /* Step rail: keep circles readable; leave side inset so first/last labels aren't clipped. */
   .sell-ship-steps {
     margin-bottom: 28px;
+    padding-left: 22px;
+    padding-right: 22px;
+    box-sizing: border-box;
+    overflow: visible;
   }
 
   /* Keep 32px columns so connectors meet the circles (PSA-Shipping.html .step-col) */
@@ -2525,9 +2529,10 @@ button.sell-ship-step--btn:focus-visible {
 
   .sell-ship-step__label {
     font-size: 11px;
-    white-space: normal;
-    line-height: 1.2;
-    max-width: 4.75rem;
+    white-space: nowrap;
+    line-height: 1.25;
+    max-width: none;
+    overflow: visible;
   }
 
   .sell-ship-step__sub {
@@ -2541,9 +2546,14 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 @media (max-width: 400px) {
+  .sell-ship-steps {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
   .sell-ship-step__label {
     font-size: 10px;
-    max-width: 3.5rem;
+    letter-spacing: 0.01em;
   }
 }
 
@@ -3402,15 +3412,27 @@ button.sell-ship-step--btn:focus-visible {
     margin-top: 0;
   }
 
+  /* Keep step rail inside the page gutter — edge-bleed clipped Submit/Live labels. */
   .sell-flow-page .sell-ship-steps {
-    margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
-    margin-right: calc(-1 * max(14px, env(safe-area-inset-right, 0px)));
-    padding-left: max(14px, env(safe-area-inset-left, 0px));
-    padding-right: max(14px, env(safe-area-inset-right, 0px));
-    width: calc(
-      100% + 2 * max(14px, env(safe-area-inset-left, 0px))
-    );
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
     margin-bottom: 28px;
+    overflow: visible;
+  }
+
+  .sell-flow-page .sell-ship-step,
+  .sell-flow-page .sell-ship-step--btn {
+    overflow: visible;
+  }
+
+  .sell-flow-page .sell-ship-step__label {
+    white-space: nowrap;
+    max-width: none;
   }
 
   .sell-flow-page .sell-ship-return__saved,

@@ -1137,17 +1137,6 @@
 }
 
 @media (max-width: 560px) {
-  .watchlist-grid .card {
-    display: block;
-    gap: 0;
-  }
-
-  .markets-grid .card__img,
-  .watchlist-grid .card__img {
-    padding: 0;
-    align-items: center;
-  }
-
   .home-partners__label {
     text-align: center;
     width: 100%;

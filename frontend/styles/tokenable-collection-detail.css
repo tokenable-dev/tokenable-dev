@@ -336,6 +336,27 @@
   display: contents;
 }
 
+/* Pin probe for mobile condensed hero — must stay 0-height forever. */
+.cd-hero-sentinel {
+  display: block;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  overflow-anchor: none;
+}
+
+/* Mobile condensed-hero placeholder — while the bar is `position: fixed`,
+   height matches the condensed row (+ margin), not the expanded hero. */
+.cd-hero-bar-spacer {
+  display: block;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  overflow-anchor: none;
+}
+
 .collection-detail-page .cd-detail-grid__chart {
   grid-row: 1;
   min-height: 376px;
@@ -959,10 +980,15 @@
     display: none !important;
   }
 
-  /* Condensed sticky row — Card.html mobile `.is-stuck` */
+  /* Condensed sticky row — Card.html mobile `.is-stuck`
+     Fixed + short spacer; pin decision uses `.cd-hero-sentinel` (not the bar). */
   .cd-hero-bar.is-stuck {
-    position: sticky !important;
+    position: fixed !important;
     top: 64px !important;
+    left: max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
+    right: max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px));
+    width: auto !important;
+    max-width: none !important;
     z-index: 40 !important;
     display: flex !important;
     flex-direction: row !important;
@@ -974,8 +1000,10 @@
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4) !important;
     border-radius: 12px;
     height: 68px !important;
+    margin-bottom: 0 !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
+    overflow-anchor: none;
   }
 
   .cd-hero-bar.is-stuck .cd-hero-bar__stuck-title,
@@ -2257,14 +2285,21 @@
   }
 }
 
-/* Card.html #ob-bottom-bar — fixed trade strip on phones */
+/* Card.html #ob-bottom-bar — flush to the viewport bottom on phones */
 .cd-mobile-trade-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  margin: 0;
   z-index: 60;
-  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px env(safe-area-inset-bottom, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   background: rgba(14, 14, 14, 0.96);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -2594,8 +2629,25 @@
   color: #fff;
 }
 
+/* Nudge Side + Source slightly left (header + cells stay aligned). */
+.collection-detail-page .cd-ob-trades-hdr span:nth-child(2),
+.collection-detail-page .cd-ob-trades-side {
+  margin-left: -8px;
+}
+
+/* Card.html: Source header + cells share left padding and left align */
+.collection-detail-page .cd-ob-trades-hdr span:nth-child(3),
 .collection-detail-page .cd-ob-trades-source {
+  margin-left: -8px;
   padding-left: 16px;
+  text-align: left;
+  justify-self: start;
+  justify-content: flex-start;
+}
+
+.collection-detail-page .cd-ob-trades-source__label {
+  text-align: left;
+  justify-content: flex-start;
 }
 
 .collection-detail-page .cd-ob-trades-time {

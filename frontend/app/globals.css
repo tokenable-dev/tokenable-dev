@@ -331,6 +331,8 @@ body {
  * - Sticky header + in-header menus: z-135–z-140
  * - Privy UserPill popovers (Floating UI portal): z-150 — see below
  * - App modals (auth, trade, lightbox): z-200+
+ * - Mobile nav drawer (.tkm-drawer): z-8000–8001
+ * - Mobile search overlay (.gnb-search-overlay): z-8100
  * - Privy login modal (#privy-dialog): z-999999 (Privy SDK)
  *
  * Privy UserPill menus portal via @floating-ui/react. The portal root is a static
