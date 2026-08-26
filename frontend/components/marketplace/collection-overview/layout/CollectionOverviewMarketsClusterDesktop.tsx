@@ -4,13 +4,15 @@ import type { ReactNode } from "react";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
- * Collection detail desktop — Card.html 2×2 grid:
+ * Collection detail desktop — two independent columns:
  *
  *   [ Chart ]              [ Trades + Order book ]
  *   [ Similar items ]      [ Details + Pop ]
  *
- * Sticky `#hero-bar` must sit in a tall parent that also includes this grid
- * (sticky cannot escape a short wrapper).
+ * Columns stack separately so “View all trades” only pushes Details down —
+ * Similar stays under the chart.
+ *
+ * Sticky `#hero-bar` must sit in a tall parent that also includes this grid.
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,
@@ -38,45 +40,49 @@ export function CollectionOverviewMarketsClusterDesktop({
           {hasMetrics ? chartMetricsRow : null}
 
           <div className="cd-detail-grid min-w-0">
-            <div className="cd-detail-grid__chart min-w-0">
-              <div className="h-full w-full min-w-0">{priceChart}</div>
+            <div className="cd-detail-grid__col cd-detail-grid__col--left min-w-0">
+              <div className="cd-detail-grid__chart min-w-0">
+                <div className="h-full w-full min-w-0">{priceChart}</div>
+              </div>
+
+              {marketsBelowChart != null ? (
+                <div
+                  className="cd-detail-grid__listings min-w-0"
+                  id="collection-listings"
+                  aria-label="Individual listings"
+                >
+                  {marketsBelowChart}
+                </div>
+              ) : null}
             </div>
 
-            <div className="cd-detail-grid__orderbook rail-slot min-w-0">
-              <div className="cd-sidebar-orderbook flex h-full min-h-0 w-full flex-col overflow-hidden">
-                <div className="flex h-full min-h-0 w-full flex-col">
-                  {withFlushProp(orderBookNextToChart)}
+            <div className="cd-detail-grid__col cd-detail-grid__col--right rail-slot min-w-0">
+              <div className="cd-detail-grid__orderbook min-w-0">
+                <div className="cd-sidebar-orderbook flex h-full min-h-0 w-full flex-col overflow-hidden">
+                  <div className="flex h-full min-h-0 w-full flex-col">
+                    {withFlushProp(orderBookNextToChart)}
+                  </div>
                 </div>
               </div>
+
+              {belowCover != null || marketsDockTradePanel ? (
+                <div
+                  className="cd-detail-grid__details min-w-0"
+                  aria-label="Collection details"
+                >
+                  {belowCover != null ? (
+                    <div className="cd-sidebar-details flex min-w-0 flex-col">
+                      {belowCover}
+                    </div>
+                  ) : null}
+                  {marketsDockTradePanel ? (
+                    <div className="cd-sidebar-trade min-w-0 shrink-0">
+                      {withFlushProp(tradePanel)}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-
-            {marketsBelowChart != null ? (
-              <div
-                className="cd-detail-grid__listings min-w-0"
-                id="collection-listings"
-                aria-label="Individual listings"
-              >
-                {marketsBelowChart}
-              </div>
-            ) : null}
-
-            {belowCover != null || marketsDockTradePanel ? (
-              <div
-                className="cd-detail-grid__details min-w-0"
-                aria-label="Collection details"
-              >
-                {belowCover != null ? (
-                  <div className="cd-sidebar-details flex min-w-0 flex-col">
-                    {belowCover}
-                  </div>
-                ) : null}
-                {marketsDockTradePanel ? (
-                  <div className="cd-sidebar-trade min-w-0 shrink-0">
-                    {withFlushProp(tradePanel)}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

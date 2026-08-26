@@ -107,10 +107,10 @@ export function OrderBookTradesTab({
     ? hasRows
     : Boolean(flush) || (!tapeLoading && hasRows);
   const bodyClass = collectionDetail
-    ? "cd-ob-trades-scroll flex min-h-0 flex-1 flex-col"
+    ? "flex min-h-0 flex-1 flex-col"
     : "flex min-h-0 flex-1 flex-col";
   const emptyClass = collectionDetail
-    ? "cd-ob-trades-empty"
+    ? "cd-ob-trades-empty flex min-h-0 flex-1 items-center justify-center"
     : flush
       ? `${bodyClass} items-center justify-center overflow-hidden`
       : "flex min-h-[12rem] flex-1 items-center justify-center";

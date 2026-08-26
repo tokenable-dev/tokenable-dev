@@ -58,13 +58,13 @@ export function TradesTapeScrollList({
   return (
     <div
       className={[
-        "min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto",
         collectionDetail
           ? showAllRows
-            ? "cd-ob-trades-scroll cd-ob-trades-scroll--all"
-            : "cd-ob-trades-scroll"
-          : insetXClass,
-        scrollClass,
+            ? "cd-ob-trades-scroll cd-ob-trades-scroll--all min-h-0"
+            : "cd-ob-trades-scroll min-h-0 flex-1"
+          : "min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto",
+        collectionDetail ? "" : insetXClass,
+        collectionDetail ? "" : scrollClass,
         !collectionDetail ? scrollHeightClass : "",
       ]
         .filter(Boolean)

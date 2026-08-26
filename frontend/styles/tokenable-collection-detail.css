@@ -313,20 +313,27 @@
   overflow: visible;
 }
 
-/* ── Card.html grid (desktop) — strict 2×2 ─────────────────────────────────
+/* ── Card.html grid (desktop) — two independent columns ────────────────────
  *
- *   [ Chart ]           [ Trades + Order book ]
- *   [ Similar items ]   [ Details + Pop ]
+ *   [ Chart ]              [ Trades + Order book ]
+ *   [ Similar items ]      [ Details + Pop ]
  *
- * Same row gap for both columns so bottoms/tops line up. No spanning sidebar.
+ * Same gap in each column so tops line up when Trades is collapsed.
+ * “View all trades” only lengthens the right column — Similar stays put.
  */
 
 .collection-detail-page .cd-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  grid-template-rows: 376px auto;
   gap: clamp(20px, 3vw, 40px);
-  align-items: stretch;
+  align-items: start;
+}
+
+.collection-detail-page .cd-detail-grid__col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 40px);
+  min-width: 0;
 }
 
 .collection-detail-page .cd-detail-grid__left {
@@ -367,12 +374,13 @@
 }
 
 .collection-detail-page .cd-detail-grid__chart {
-  grid-column: 1;
-  grid-row: 1;
-  min-height: 0;
+  height: 376px;
+  min-height: 376px;
+  max-height: 376px;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
 }
 
 .collection-detail-page .cd-detail-grid__chart > * {
@@ -381,26 +389,31 @@
 }
 
 .collection-detail-page .cd-detail-grid__orderbook {
-  grid-column: 2;
-  grid-row: 1;
-  min-height: 0;
+  height: 376px;
+  max-height: 376px;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+/* View all trades — grow only the right column (Details moves; Similar does not). */
+.collection-detail-page .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded) {
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .collection-detail-page .cd-detail-grid__listings {
-  grid-column: 1;
-  grid-row: 2;
   margin-top: 0;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .collection-detail-page .cd-detail-grid__details {
-  grid-column: 2;
-  grid-row: 2;
   min-width: 0;
-  align-self: start;
+  flex: 0 0 auto;
   position: sticky;
   top: calc(64px + var(--bar-h, 182px) + 12px);
   z-index: 2;
@@ -3201,19 +3214,109 @@
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* Fill the shared row-1 height next to the chart (376px). */
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-panel {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
+    /* Tab header + body + View all; body scrolls when capped at 376px. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-body {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+  }
+
+  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-viewall-trades {
+    flex: 0 0 auto;
+  }
+
+  /*
+   * Collapsed trades: show every row inside the 376px panel and scroll.
+   * (Global CSS hides rows 8+; View all still expands the panel instead.)
+   */
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-trades-scroll:not(.cd-ob-trades-scroll--all)
+    > .cd-ob-trades-row:nth-child(n + 8) {
+    display: grid !important;
+  }
+
+  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Offers / book tab — scroll the whole body when depth exceeds the panel. */
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-book-stack),
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-book__scroll) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-book-stack)::-webkit-scrollbar,
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-book__scroll)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* View all trades — grow the panel; no inner clip. */
+  .collection-detail-page
+    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
+    .cd-sidebar-orderbook,
+  .collection-detail-page
+    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
+    .cd-ob-panel {
+    height: auto;
+    overflow: visible;
+  }
+
+  .collection-detail-page
+    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
+    .cd-ob-body {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .collection-detail-page
+    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
+    .cd-ob-trades-scroll {
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   .collection-detail-page .cd-detail-grid__chart .cd-chart-panel.cd-notch:not(.cd-chart-panel--embed) {
