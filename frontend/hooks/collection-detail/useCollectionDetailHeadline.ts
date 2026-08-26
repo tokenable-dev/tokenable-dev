@@ -171,21 +171,22 @@ export function useCollectionDetailHeadline(params: {
     displayLabel,
   ]);
 
-  const collectionHeadlineDisplayTitle = useMemo(
-    () => formatCardDisplayName(collectionHeadlineParts),
-    [collectionHeadlineParts],
-  );
-
   const headlineGradeBadge = useMemo(() => {
     const label = activeGradeLabel?.trim() || pokeTierLabel;
     return label ? toCardDisplayCase(label) : null;
   }, [activeGradeLabel, pokeTierLabel]);
 
+  const collectionHeadlineDisplayTitle = useMemo(
+    () =>
+      formatCardDisplayName(collectionHeadlineParts, {
+        grade: headlineGradeBadge,
+      }),
+    [collectionHeadlineParts, headlineGradeBadge],
+  );
+
   const collectionHeadlineMetaStrip = useMemo(() => {
-    // Card.html `#hero-meta`: Year · Set · … — number + grade live on `#hero-title` only.
-    const catalog = formatCardDisplayMeta(collectionHeadlineParts, {
-      omitNumber: true,
-    });
+    // Card.html `#hero-meta`: Year · Set · Variant — number + grade live on `#hero-title`.
+    const catalog = formatCardDisplayMeta(collectionHeadlineParts);
     const collab = buildCollectionHeadlineMetaStrip({
       setLine: headlineSetLine,
       comp,
@@ -220,8 +221,9 @@ export function useCollectionDetailHeadline(params: {
         collectionHeadlineParts,
         collectionHeadlineMetaStrip,
         null,
+        { grade: headlineGradeBadge },
       ),
-    [collectionHeadlineParts, collectionHeadlineMetaStrip],
+    [collectionHeadlineParts, collectionHeadlineMetaStrip, headlineGradeBadge],
   );
 
   const headlineInfoTags = useMemo((): CollectionHeadlineInfoTag[] | null => {

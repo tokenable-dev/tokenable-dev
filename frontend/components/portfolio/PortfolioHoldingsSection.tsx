@@ -46,7 +46,6 @@ export function PortfolioHoldingsSection({
   canEditCostBasis,
   onSaveCostBasis,
   savingCostBasisTokenId,
-  onOpenToken,
   onSetPrice,
   redeemSelectMode = false,
   redeemSelected,
@@ -76,7 +75,6 @@ export function PortfolioHoldingsSection({
   canEditCostBasis?: boolean;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   savingCostBasisTokenId?: number | null;
-  onOpenToken: (tokenId: number) => void;
   onSetPrice: (tokenId: number) => void;
   redeemSelectMode?: boolean;
   redeemSelected?: Set<number>;
@@ -209,7 +207,6 @@ export function PortfolioHoldingsSection({
               onToggleSelect={(checked) =>
                 onToggleRedeemToken?.(row.tokenId, checked)
               }
-              onOpen={() => onOpenToken(row.tokenId)}
               onSaveCostBasis={
                 onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
               }
@@ -225,7 +222,10 @@ export function PortfolioHoldingsSection({
         })}
       </div>
 
-      <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
+      <TkTable
+        wrapClassName={`pf-table-wrap pf-holdings-table-wrap${redeemSelectMode ? " pf-holdings-table-wrap--select" : ""}`}
+        className="pf-table--holdings"
+      >
         <colgroup>
           <col className="pf-col-card" />
           <col className="pf-col-grade" />
@@ -323,25 +323,25 @@ export function PortfolioHoldingsSection({
                 ]
                   .filter(Boolean)
                   .join(" ") || undefined}
-                onClick={() => {
-                  if (redeemSelectMode) {
-                    if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
-                    return;
-                  }
-                  onOpenToken(row.tokenId);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (redeemSelectMode) {
-                      if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
-                      return;
-                    }
-                    onOpenToken(row.tokenId);
-                  }
-                }}
-                tabIndex={0}
-                role="link"
+                onClick={
+                  redeemSelectMode
+                    ? () => {
+                        if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  redeemSelectMode
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={redeemSelectMode ? 0 : undefined}
+                role={redeemSelectMode ? "button" : undefined}
               >
                 <td data-label="Card">
                   <div className="pf-table-card-cell">

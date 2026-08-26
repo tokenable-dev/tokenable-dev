@@ -606,6 +606,14 @@
   transition: background 0.15s;
 }
 
+.portfolio-page .pf-holdings-table-wrap tbody tr {
+  cursor: default;
+}
+
+.portfolio-page .pf-holdings-table-wrap--select tbody tr {
+  cursor: pointer;
+}
+
 .portfolio-page .pf-table-wrap tbody tr:hover {
   background: rgba(26, 111, 255, 0.06);
 }
@@ -1218,6 +1226,9 @@
   background: #191919;
   border-radius: 12px;
   padding: 16px;
+}
+
+.pf-mobile-asset-card--select {
   cursor: pointer;
 }
 

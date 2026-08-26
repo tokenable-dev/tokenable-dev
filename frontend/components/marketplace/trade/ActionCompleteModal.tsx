@@ -113,7 +113,7 @@ export function actionCompleteConfig(
 
 /**
  * Shared complete content — Feedback-States Dialog (title / body / Done).
- * Embedded variant for sheets (bid checkout) keeps the same copy hierarchy.
+ * Embedded: parent sheet owns the title (e.g. "Bid placed") — omit panel h2.
  */
 export function ActionCompletePanel({
   kind,
@@ -158,9 +158,11 @@ export function ActionCompletePanel({
         className,
       )}
     >
-      <h2 className="tk-ac-title" id="tk-ac-title">
-        {resolvedTitle}
-      </h2>
+      {!embedded ? (
+        <h2 className="tk-ac-title" id="tk-ac-title">
+          {resolvedTitle}
+        </h2>
+      ) : null}
       {resolvedSub ? <p className="tk-ac-sub">{resolvedSub}</p> : null}
       {statusOn && cfg.statusLabel ? (
         <div className="tk-ac-status">

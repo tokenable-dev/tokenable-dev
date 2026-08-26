@@ -188,6 +188,7 @@ export function RwaDetailLoadedView({
         <RwaDetailPlaceBidModal
           open={bidModalOpen}
           assetTitle={headline.detailTitle}
+          assetMeta={headline.detailMeta}
           tokenId={tokenId}
           collectionKey={collectionKey}
           listing={activeAskListing}

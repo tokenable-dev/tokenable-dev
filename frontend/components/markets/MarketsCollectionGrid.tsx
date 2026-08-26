@@ -68,6 +68,8 @@ export function MarketsCollectionGrid({
               }
               position={index}
               onBeforeNavigate={onBeforeNavigate}
+              showSetLine={false}
+              omitGradeInTitle
             />
           </div>
         );

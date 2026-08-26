@@ -86,8 +86,8 @@ export function RwaDetailDesktopSidebar({
   }, [metadata]);
   const grade = useMemo(() => resolveRwaHeadlineGrade(metadata), [metadata]);
   const metaText = useMemo(
-    () => formatCardDisplayMeta(detailHeadlineParts, { grade }) || null,
-    [detailHeadlineParts, grade],
+    () => formatCardDisplayMeta(detailHeadlineParts) || null,
+    [detailHeadlineParts],
   );
   const titleTooltip = useMemo(() => {
     const base = formatCardDisplayHoverTitle(detailHeadlineParts, { grade });

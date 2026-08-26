@@ -17,16 +17,15 @@ function usdcFromMicros(raw: string | undefined): number {
   }
 }
 
-/** Same headline rule as My Assets: Display name (+ Grade when present). */
+/** Same headline rule as My Assets: Name · Number · Grade. */
 export function portfolioTxAssetDisplayName(
   metadata: RwaMetadata | null | undefined,
   tokenId: number,
 ): string {
   const fallback = `RWA #${tokenId}`;
   const parts = buildRwaAssetDetailHeadlineParts(metadata ?? null, fallback);
-  const display = formatCardDisplayName(parts);
   const grade = resolveRwaHeadlineGrade(metadata ?? null);
-  if (display && grade) return `${display} · ${grade}`;
+  const display = formatCardDisplayName(parts, { grade });
   return display || displayAssetNameFromMetadata(metadata ?? null, fallback);
 }
 

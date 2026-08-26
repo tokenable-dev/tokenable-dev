@@ -8,8 +8,8 @@ import {
 } from "@/lib/marketplace/assetDetailHeadline";
 
 /**
- * Collection / RWA hero title — Card.html `#hero-title`:
- * `{Name}[ · Variant] · {Number} · {Grade}` with muted mid + strong grade.
+ * Hero title line — `{Name} · {Number} · {Grade}`.
+ * Variant lives on the meta line (`Year · Set · Variant`), not here.
  */
 export function AssetDetailHeadlineTitle({
   parts,
@@ -23,38 +23,29 @@ export function AssetDetailHeadlineTitle({
   className?: string;
   style?: React.CSSProperties;
   as?: "h1" | "h2" | "p" | "span";
-  /** Optional grade for hover tooltip meta (Year · Set · # · Grade). */
   grade?: string | null;
   id?: string;
+  /** @deprecated Variant is always on the meta line now. */
+  omitVariety?: boolean;
 }) {
   if (!assetDetailHeadlineHasContent(parts)) return null;
 
-  const displayName = formatCardDisplayName(parts);
+  const displayName = formatCardDisplayName(parts, { grade });
   if (!displayName) return null;
 
   const hover = formatCardDisplayHoverTitle(parts, { grade });
   const name = parts.cardName?.trim() || "";
-  const variety = parts.variety?.trim() || "";
   const cardNumber = parts.cardNumber?.trim() || "";
   const gradeText = grade?.trim() || "";
 
   return (
     <Tag className={className} style={style} title={hover || displayName} id={id}>
       <span className="block min-w-0 whitespace-normal [overflow-wrap:anywhere]">
-        {name ? (
-          <>
-            {name}
-            {variety ? (
-              <span className="cd-display-name__variant"> · {variety}</span>
-            ) : null}
-          </>
-        ) : (
-          displayName
-        )}
+        {name || displayName}
         {cardNumber || gradeText ? (
           <span className="cd-display-name__meta">
             {" · "}
-            {cardNumber ? `${cardNumber} · ` : null}
+            {cardNumber ? `${cardNumber}${gradeText ? " · " : ""}` : null}
           </span>
         ) : null}
         {gradeText ? (

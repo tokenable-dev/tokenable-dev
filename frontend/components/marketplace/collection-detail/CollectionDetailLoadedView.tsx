@@ -401,6 +401,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         metadata={listingModal.selectedPrefetch?.metadata ?? null}
         imageUrl={listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl}
         collectionTitle={headline.collectionHeadlineDisplayTitle}
+        collectionMeta={headline.collectionHeadlineMetaStrip}
         collectionKey={collectionKey}
         collectionBids={collectionBids}
         connectedAddress={address}

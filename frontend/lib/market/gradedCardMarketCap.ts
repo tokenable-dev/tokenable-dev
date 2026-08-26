@@ -405,10 +405,8 @@ export function computeCollectionMarketCapUsd(params: {
   };
 }
 
+/** Collection-detail hero Market cap — full dollars, no K/M/B abbreviation. */
 export function formatMarketCapUsd(usd: number | null): string {
   if (usd == null || !Number.isFinite(usd)) return "—";
-  if (usd >= 1_000_000_000) return `$${(usd / 1_000_000_000).toFixed(2)}B`;
-  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
-  if (usd >= 10_000) return `$${(usd / 1_000).toFixed(1)}K`;
   return `$${usd.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }

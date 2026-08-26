@@ -40,7 +40,7 @@ function formatBookUsd(n: number | null | undefined): string {
   return formatUsdCompact(n);
 }
 
-/** Strip grade/number already shown in `#hero-title` (Card.html: meta is Year · Set · … only). */
+/** Strip grade/number already shown in `#hero-title` (meta is Year · Set · Variant). */
 function stripHeroTitleDupesFromMeta(
   meta: string,
   gradeLabel: string,
@@ -154,12 +154,20 @@ export function CollectionDetailStatMain({
     if (!bar || !spacer || !sentinel) return;
 
     const STUCK_BAR_H = 68;
-    /** Small edge band only — a large slack trapped condensed state at page top. */
-    const UNPIN_SLACK_PX = 12;
+    /**
+     * Pin once the hero top has just passed under the GNB — not after the
+     * full expanded height scrolls away (that covered the chart while sticky).
+     */
+    const PIN_PAST_PX = 12;
+    /** Extra scroll (px) required to unpin after a pin — avoids thrash. */
+    const UNPIN_HYSTERESIS_PX = 48;
 
     let raf = 0;
     let lastBarH = -1;
-    let stuckSpacerH = 0;
+    /** Last measured expanded (non-stuck) bar height. */
+    let expandedH = 0;
+    /** scrollY at which we last pinned — unpin only after scrolling back past this. */
+    let pinnedAtScrollY: number | null = null;
 
     const publishBarH = () => {
       const next = Math.round(bar.getBoundingClientRect().height);
@@ -171,16 +179,26 @@ export function CollectionDetailStatMain({
     const marginBottom = () =>
       parseFloat(getComputedStyle(bar).marginBottom) || 0;
 
-    const clearMobilePin = () => {
-      spacer.style.height = "";
-      stuckSpacerH = 0;
-      bar.classList.remove("is-stuck");
+    const measureExpandedH = () => {
+      if (bar.classList.contains("is-stuck")) return;
+      const h = Math.round(bar.getBoundingClientRect().height);
+      if (h > STUCK_BAR_H) expandedH = h;
     };
 
-    const pinMobile = () => {
+    const clearMobilePin = () => {
+      spacer.style.height = "";
+      bar.classList.remove("is-stuck");
+      pinnedAtScrollY = null;
+    };
+
+    const pinMobile = (scrollY: number) => {
+      // Capture margin before `.is-stuck` zeros it.
+      const mb = marginBottom();
+      const flowH = expandedH > STUCK_BAR_H ? expandedH : STUCK_BAR_H;
       bar.classList.add("is-stuck");
-      stuckSpacerH = STUCK_BAR_H + marginBottom();
-      spacer.style.height = `${stuckSpacerH}px`;
+      // Keep in-flow height ≈ expanded hero so pin/unpin does not jump the page.
+      spacer.style.height = `${flowH + mb}px`;
+      pinnedAtScrollY = scrollY;
     };
 
     const onScroll = () => {
@@ -190,19 +208,28 @@ export function CollectionDetailStatMain({
       const wasStuck = bar.classList.contains("is-stuck");
 
       if (mobile) {
-        /*
-         * Pin from a zero-height sentinel that never changes size — not from the
-         * bar/spacer. Near page top always expand so scrolling back restores hero.
-         */
+        measureExpandedH();
         const scrollY =
           window.scrollY || document.documentElement.scrollTop || 0;
         const sentinelTop = sentinel.getBoundingClientRect().top;
-        const shouldStuck = wasStuck
-          ? scrollY > 2 && sentinelTop <= stuckTop + UNPIN_SLACK_PX
-          : sentinelTop <= stuckTop;
+        // Document Y of hero top is stable even while stuck (spacer holds height).
+        const heroTopDoc = scrollY + sentinelTop;
+        // Condense as soon as the hero top slips a little under the GNB.
+        const pinAtScrollY = heroTopDoc - stuckTop + PIN_PAST_PX;
+
+        let shouldStuck: boolean;
+        if (scrollY <= 2) {
+          shouldStuck = false;
+        } else if (wasStuck && pinnedAtScrollY != null) {
+          shouldStuck = scrollY >= pinnedAtScrollY - UNPIN_HYSTERESIS_PX;
+        } else if (wasStuck) {
+          shouldStuck = scrollY >= pinAtScrollY - UNPIN_HYSTERESIS_PX;
+        } else {
+          shouldStuck = scrollY >= pinAtScrollY;
+        }
 
         if (shouldStuck) {
-          if (!wasStuck) pinMobile();
+          if (!wasStuck) pinMobile(Math.max(scrollY, pinAtScrollY));
         } else if (wasStuck) {
           clearMobilePin();
         }
@@ -282,7 +309,7 @@ export function CollectionDetailStatMain({
 
   return (
     <div className="cd-stat-main">
-      {/* Stable pin probe — height never changes, so shrink/expand can't thrash. */}
+      {/* Stable pin probe — pin once hero top slips under the GNB. */}
       <div className="cd-hero-sentinel" ref={sentinelRef} aria-hidden />
       {/* Condensed in-flow slot while the bar is position:fixed. */}
       <div className="cd-hero-bar-spacer" ref={spacerRef} aria-hidden />

@@ -10,18 +10,17 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
-import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
-import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
-import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
-  resolveCollectionSlabCardTitle,
-  resolveCollectionSlabSetLine,
-} from "@/lib/marketplace/slabDisplayTitle";
+  buildMarketsCollectionMeta,
+  buildMarketsCollectionTitle,
+} from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
 } from "@/lib/markets/marketsListingMarketPrice";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 function formatBadgeCount(n: number): string {
   const abs = Math.abs(n);
@@ -108,12 +107,8 @@ export function WatchlistCollectibleCard({
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
-  const title = resolveCollectionSlabCardTitle(comp, {
-    displayLabel: collection.displayLabel,
-    collectionKey: collection.collectionKey,
-  });
-  const setLine =
-    (resolveCollectionSlabSetLine(comp) ?? bucketCardSetForDisplay(comp).trim()) || null;
+  const title = buildMarketsCollectionTitle({ collection, comp });
+  const setLine = buildMarketsCollectionMeta({ collection, comp }) || null;
   const grade = formatGradeLabel(collection);
   const pop =
     typeof comp.psaTotalPopulation === "number" && comp.psaTotalPopulation >= 0

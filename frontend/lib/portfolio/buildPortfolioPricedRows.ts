@@ -7,6 +7,7 @@ import { formatLiquidityDepthLabel, resolveExternalMarketUsd } from "@/lib/marke
 import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
+  resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import {
@@ -74,9 +75,9 @@ export function buildPortfolioPricedRows(input: {
       : null;
 
     const fallbackName = `RWA #${a.tokenId}`;
-    const psaTitle = formatAssetDetailHeadlineText(
-      buildRwaAssetDetailHeadlineParts(a.metadata, fallbackName),
-    );
+    const parts = buildRwaAssetDetailHeadlineParts(a.metadata, fallbackName);
+    const grade = resolveRwaHeadlineGrade(a.metadata);
+    const psaTitle = formatAssetDetailHeadlineText(parts, { grade });
     const displayName =
       psaTitle || displayAssetNameFromMetadata(a.metadata, fallbackName);
     return {

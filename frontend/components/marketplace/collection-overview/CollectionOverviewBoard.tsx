@@ -117,6 +117,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         headlineTitle={headlineTitle}
         headlineStructuredTitle={headlineStructuredTitle}
         headlineSubtitleLine={layout.headlineSubtitleLine}
+        headlineMetaStrip={headlineMetaStrip ?? null}
         useStructuredHeadline={layout.useStructuredHeadline}
         headlineTitleLayout={headlineTitleLayout}
         categoryBadge={categoryBadge}

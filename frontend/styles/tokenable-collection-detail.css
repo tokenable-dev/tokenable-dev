@@ -39,7 +39,7 @@
   width: 100%;
 }
 
-/* ── Collection title variant (inside hero `#hero-title`) ─────────────────── */
+/* ── Collection title variant (inline in `#hero-title` when not on meta) ──── */
 
 .cd-display-name__variant {
   color: var(--t3);
@@ -136,8 +136,8 @@
 @media (max-width: 1023px) {
   .collection-detail-page .collection-detail-page__shell {
     padding-top: 24px;
-    /* Card.html `body { padding-bottom: 112px }` — clear the fixed trade bar. */
-    padding-bottom: max(112px, env(safe-area-inset-bottom, 0px) + 96px);
+    /* Clear fixed trade bar (Buy / Bid row ~72px + safe area). */
+    padding-bottom: max(80px, env(safe-area-inset-bottom, 0px) + 64px);
   }
 
   /* Title lives inside #hero-bar now — no separate page headline */
@@ -313,13 +313,20 @@
   overflow: visible;
 }
 
-/* ── Card.html grid (desktop) ─────────────────────────────────────────────── */
+/* ── Card.html grid (desktop) — strict 2×2 ─────────────────────────────────
+ *
+ *   [ Chart ]           [ Trades + Order book ]
+ *   [ Similar items ]   [ Details + Pop ]
+ *
+ * Same row gap for both columns so bottoms/tops line up. No spanning sidebar.
+ */
 
 .collection-detail-page .cd-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-rows: 376px auto;
   gap: clamp(20px, 3vw, 40px);
-  align-items: start;
+  align-items: stretch;
 }
 
 .collection-detail-page .cd-detail-grid__left {
@@ -336,7 +343,8 @@
   display: contents;
 }
 
-/* Pin probe for mobile condensed hero — must stay 0-height forever. */
+/* Pin probe for mobile condensed hero — must stay 0-height forever.
+   JS pins only after the expanded hero would scroll fully under the GNB. */
 .cd-hero-sentinel {
   display: block;
   width: 100%;
@@ -347,7 +355,8 @@
 }
 
 /* Mobile condensed-hero placeholder — while the bar is `position: fixed`,
-   height matches the condensed row (+ margin), not the expanded hero. */
+   height matches the *expanded* hero so pin/unpin does not jump document
+   height (short spacers caused mobile expand/collapse thrashing). */
 .cd-hero-bar-spacer {
   display: block;
   width: 100%;
@@ -358,15 +367,46 @@
 }
 
 .collection-detail-page .cd-detail-grid__chart {
+  grid-column: 1;
   grid-row: 1;
-  min-height: 376px;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.collection-detail-page .cd-detail-grid__chart > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.collection-detail-page .cd-detail-grid__orderbook {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .collection-detail-page .cd-detail-grid__listings {
+  grid-column: 1;
   grid-row: 2;
-  margin-top: 30px;
+  margin-top: 0;
+  min-width: 0;
 }
 
+.collection-detail-page .cd-detail-grid__details {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  align-self: start;
+  position: sticky;
+  top: calc(64px + var(--bar-h, 182px) + 12px);
+  z-index: 2;
+}
+
+/* Legacy spanning sidebar (mobile / older clusters) */
 .collection-detail-page .cd-detail-grid__sidebar {
   grid-column: 2;
   grid-row: 1 / span 2;
@@ -374,7 +414,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 16px;
+  gap: clamp(20px, 3vw, 40px);
   height: auto;
 }
 
@@ -826,6 +866,9 @@
   flex-direction: row !important;
   align-items: center !important;
   gap: 10px !important;
+  /* Equal Buy / Bid width — avoid content-sized "Buy now" vs short "Bid". */
+  width: min(280px, 42vw) !important;
+  max-width: 100%;
 }
 
 .cd-hero-bar.is-stuck .cd-hero-bar__buy-btn.tk-btn,
@@ -833,9 +876,11 @@
 .cd-hero-bar.is-stuck .cd-hero-bar__bid-btn.tk-btn,
 .cd-hero-bar.is-stuck .cd-hero-bar__bid-btn,
 .cd-hero-bar.is-stuck .cd-hero-bar .bid-btn {
+  flex: 1 1 0 !important;
   width: auto !important;
+  min-width: 0 !important;
   height: 44px !important;
-  padding: 0 20px !important;
+  padding: 0 12px !important;
 }
 
 @media (max-width: 1180px) {
@@ -843,13 +888,25 @@
   .cd-hero-bar__book {
     justify-content: flex-start !important;
     margin-left: 0;
+    align-items: stretch;
+    width: min(202px, 100%);
+  }
+
+  .cd-hero-bar__buy-btn.tk-btn,
+  .cd-hero-bar__buy-btn,
+  .cd-hero-bar__bid-btn.tk-btn,
+  .cd-hero-bar__bid-btn,
+  .cd-hero-bar .bid-btn {
+    width: 100% !important;
   }
 }
 
 /* Mobile hero — Card.html ≤1024 (`display: contents` grid) */
 @media (max-width: 1023px) {
   .cd-hero-bar {
-    position: static;
+    /* Must beat base `position: sticky !important` — otherwise the expanded
+       hero sticks under the GNB and covers the chart until JS pins late. */
+    position: static !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 18px;
@@ -981,7 +1038,7 @@
   }
 
   /* Condensed sticky row — Card.html mobile `.is-stuck`
-     Fixed + short spacer; pin decision uses `.cd-hero-sentinel` (not the bar). */
+     Fixed bar; spacer keeps expanded height to avoid scroll thrash. */
   .cd-hero-bar.is-stuck {
     position: fixed !important;
     top: 64px !important;
@@ -1119,20 +1176,28 @@
   .cd-hero-bar__thumb--empty {
     width: 100% !important;
     max-width: 122px !important;
+    /* Markets `.card__img`: fixed 0.72 frame — never use intrinsic image height. */
     height: auto !important;
+    aspect-ratio: 0.72 !important;
+    position: relative !important;
+    overflow: hidden !important;
     justify-self: center !important;
     align-self: center !important;
   }
 
   #hero-img,
   .cd-hero-bar__thumb {
+    position: absolute !important;
+    inset: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
+    max-width: none !important;
+    height: 100% !important;
+    object-fit: fill !important;
+    object-position: center;
   }
 
   .cd-hero-bar__thumb--empty {
-    aspect-ratio: 0.72;
+    aspect-ratio: 0.72 !important;
     height: auto !important;
   }
 
@@ -1680,8 +1745,8 @@
   min-height: 280px;
 }
 
-/* Card.html `#chart-card` desktop fixed height */
-@media (min-width: 1025px) {
+/* Card.html `#chart-card` desktop fixed height — match `.cd-detail-grid` row 1 */
+@media (min-width: 1024px) {
   .collection-detail-page .cd-chart-panel.cd-notch:not(.cd-chart-panel--embed) {
     height: 376px;
   }
@@ -1717,11 +1782,18 @@
 /* ── Similar items (Card.html `#similar-items`) ───────────────────────────── */
 
 .cd-similar-items {
-  margin-top: 20px;
+  margin-top: 0;
   background: #191919;
   border-radius: 16px;
   padding: 20px 18px;
   overflow: hidden;
+}
+
+/* Mobile stack still needs breathing room above Similar. */
+@media (max-width: 1023px) {
+  .cd-similar-items {
+    margin-top: 20px;
+  }
 }
 
 .cd-similar-items__head {
@@ -2308,22 +2380,18 @@
 
 .cd-mobile-trade-bar__actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   gap: 10px;
+  width: 100%;
 }
 
 .cd-mobile-trade-bar__bid.tk-btn,
-.cd-mobile-trade-bar__bid {
-  width: 100%;
-  min-width: 0;
-  height: 48px !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-}
-
+.cd-mobile-trade-bar__bid,
 .cd-mobile-trade-bar__buy.tk-btn,
 .cd-mobile-trade-bar__buy {
-  width: 100%;
+  flex: 1 1 0;
+  width: auto !important;
   min-width: 0;
   height: 48px !important;
   font-size: 15px !important;
@@ -3130,12 +3198,26 @@
     border-radius: 16px;
     border: 0 !important;
     overflow: hidden;
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
   }
 
-  /* Card.html `.detail-rail > .notch { flex: none }` — natural height, rail scrolls */
-  .collection-detail-page .cd-sidebar-orderbook .cd-ob-panel {
-    flex: none;
+  /* Fill the shared row-1 height next to the chart (376px). */
+  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .collection-detail-page .cd-detail-grid__chart .cd-chart-panel.cd-notch:not(.cd-chart-panel--embed) {
+    height: 100%;
   }
 
   /* Card.html — sidebar is order book + details only (no trade dock) */
@@ -3364,33 +3446,6 @@ button.cd-listing-orderbook__thumb-link {
   }
 }
 
-.cd-listing-prov__thumbs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.cd-listing-prov__thumb {
-  width: 56px;
-  height: 72px;
-  flex-shrink: 0;
-  padding: 4px;
-  border: 0;
-  background: linear-gradient(180deg, #101018, #08080e);
-  cursor: pointer;
-  box-shadow: inset 0 0 0 2px var(--line);
-}
-
-.cd-listing-prov__thumb--active {
-  box-shadow: inset 0 0 0 2px var(--azure);
-}
-
-.cd-listing-prov__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 .cd-listing-prov__section-label {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -3495,87 +3550,7 @@ button.cd-listing-orderbook__thumb-link {
   margin-top: 2px;
 }
 
-/* What you'll get + Buyer protection — Card.html */
-.cd-listing-prov__wyg {
-  background: var(--ink-2);
-  border-radius: 12px;
-  padding: 16px 18px;
-  margin-top: 8px;
-}
-
-.cd-listing-prov__wyg-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--eyebrow);
-  margin-bottom: 8px;
-}
-
-.cd-listing-prov__wyg-body {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--t2);
-}
-
-.cd-listing-prov__protect {
-  background: var(--ink-2);
-  border-radius: 12px;
-  padding: 0;
-  margin-top: 10px;
-  margin-bottom: 8px;
-}
-
-.cd-listing-prov__protect-summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.cd-listing-prov__protect-summary::-webkit-details-marker {
-  display: none;
-}
-
-.cd-listing-prov__protect-view {
-  color: var(--brand-400);
-  font-size: 12px;
-  flex: none;
-}
-
-.cd-listing-prov__protect-body {
-  padding: 0 18px 16px;
-}
-
-.cd-listing-prov__protect-lead {
-  margin: 0 0 12px;
-  font-size: 12.5px;
-  color: var(--t2);
-  line-height: 1.55;
-}
-
-.cd-listing-prov__protect-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 7px 0;
-  font-size: 12.5px;
-  color: var(--t2);
-  line-height: 1.5;
-}
-
-.cd-listing-prov__protect-check {
-  color: var(--pos);
-  flex: none;
-}
+/* Sticky buy footer */
 
 .cd-listing-prov__foot {
   position: sticky;

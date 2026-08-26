@@ -92,7 +92,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` (Buy-only) | `components/marketplace/collection-detail/*` |
 | Set-level bid | Sticky hero + mobile trade bar | `CollectionDetailStatMain` / `CollectionMobileTradeBar` | `CollectionDetailStatMain.tsx` |
 | Mobile trade bar | `#ob-bottom-bar` | `CollectionMobileTradeBar` (Buy now / Place bid) | `CollectionMobileTradeBar.tsx` |
-| Listing detail | `#tk-prov` | `CollectionListingDetailModal` + `CollectionListingBuyerEducation` | `CollectionListingDetailModal.tsx` |
+| Listing detail | `#tk-prov` | `CollectionListingDetailModal` | `CollectionListingDetailModal.tsx` |
 | Trades / order book | sidebar `.notch` | `CollectionUnifiedOrderBook` | `components/marketplace/unified-order-book/*` |
 | Details / PSA tabs | tab row | `CollectionHeroDetailsTabs` | `components/marketplace/collection-hero/*` |
 | Overview layout | `card-detail-grid` | `CollectionOverviewBoard` | `components/marketplace/collection-overview/*` |

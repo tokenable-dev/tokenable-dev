@@ -785,16 +785,6 @@ export function PortfolioPageView({
               canEditCostBasis={Boolean(signerAddress)}
               onSaveCostBasis={saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
-              onOpenToken={(tokenId) => {
-                const ck = tokenToCollectionKey[tokenId];
-                if (ck) {
-                  router.push(
-                    `/marketplace/collections/${encodeURIComponent(ck)}?listing=${tokenId}`,
-                  );
-                } else {
-                  router.push(`/marketplace/${tokenId}`);
-                }
-              }}
               onSetPrice={openPortfolioSetPriceModal}
               redeemSelectMode={redeemSelection.selectMode}
               redeemSelected={redeemSelection.selected}

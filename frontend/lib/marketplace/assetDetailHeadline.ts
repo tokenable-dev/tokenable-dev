@@ -8,9 +8,9 @@ import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle"
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 /**
- * Structured fields for card display names (planner rule).
- * Display name = Character · Variant
- * Meta = Year · Set · # · Grade
+ * Structured fields for card display names.
+ * Title = Character · Number · Grade
+ * Meta  = Year · Set · Variant
  */
 export type AssetDetailHeadlineParts = {
   year: string | null;
@@ -103,20 +103,31 @@ export function buildAssetDetailHeadlineParts(input: {
   };
 }
 
-/** Display name: `{Character} · {Variant}` (or Character alone). */
-export function formatCardDisplayName(parts: AssetDetailHeadlineParts): string {
+/** Title line: `{Character} · {Number} · {Grade}` (grade optional). */
+export function formatCardDisplayName(
+  parts: AssetDetailHeadlineParts,
+  opts?: { grade?: string | null },
+): string {
+  const chunks: string[] = [];
   const name = parts.cardName?.trim() || "";
-  const variety = parts.variety?.trim() || "";
-  if (name && variety) return `${name} · ${variety}`;
-  return name || variety;
+  if (name) chunks.push(name);
+  const num = parts.cardNumber?.trim() || "";
+  if (num) chunks.push(num);
+  const grade = opts?.grade?.trim() || "";
+  if (grade) chunks.push(grade);
+  if (chunks.length > 0) return chunks.join(" · ");
+  // Fallback when name/number missing — prefer variety alone over empty.
+  return parts.variety?.trim() || "";
 }
 
-/** Meta line: `{Year} · {Set} · #{Number} · {Grade}`. */
+/** Meta line: `{Year} · {Set} · {Variant}`. */
 export function formatCardDisplayMeta(
   parts: AssetDetailHeadlineParts,
   opts?: {
+    /** @deprecated Grade belongs on the title line — ignored. */
     grade?: string | null;
     omitSet?: boolean;
+    /** @deprecated Number belongs on the title line — ignored. */
     omitNumber?: boolean;
   },
 ): string {
@@ -127,31 +138,30 @@ export function formatCardDisplayMeta(
     const set = parts.setName?.trim();
     if (set) chunks.push(set);
   }
-  if (!opts?.omitNumber) {
-    const num = parts.cardNumber?.trim();
-    if (num) chunks.push(num);
-  }
-  const grade = opts?.grade?.trim();
-  if (grade) chunks.push(grade);
+  const variety = parts.variety?.trim();
+  if (variety) chunks.push(variety);
   return chunks.join(" · ");
 }
 
-/** Hover / search / document title — Display + Meta, never raw mint full string alone. */
+/** Hover / search / document title — Title + Meta. */
 export function formatCardDisplayHoverTitle(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null },
 ): string {
-  const display = formatCardDisplayName(parts);
-  const meta = formatCardDisplayMeta(parts, opts);
+  const display = formatCardDisplayName(parts, opts);
+  const meta = formatCardDisplayMeta(parts);
   return [display, meta].filter(Boolean).join(" · ");
 }
 
 /**
- * User-facing title = Display name (Character · Variant).
+ * User-facing title = Character · Number · Grade.
  * Prefer this alias at call sites migrating from the old PSA slab one-liner.
  */
-export function formatAssetDetailHeadlineText(parts: AssetDetailHeadlineParts): string {
-  return formatCardDisplayName(parts);
+export function formatAssetDetailHeadlineText(
+  parts: AssetDetailHeadlineParts,
+  opts?: { grade?: string | null },
+): string {
+  return formatCardDisplayName(parts, opts);
 }
 
 export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): boolean {
@@ -164,16 +174,17 @@ export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): 
   );
 }
 
-/** Document / woven string — Display name, then Meta / optional Pop. */
+/** Document / woven string — Title, then Meta / optional Pop. */
 export function computeAssetDetailWovenTitle(
   parts: AssetDetailHeadlineParts,
   metaStrip: string | null,
   populationBadge: string | null,
+  opts?: { grade?: string | null },
 ): string {
   const chunks: string[] = [];
-  const display = formatCardDisplayName(parts);
+  const display = formatCardDisplayName(parts, opts);
   if (display) chunks.push(display);
-  const m = (metaStrip ?? "").trim();
+  const m = (metaStrip ?? "").trim() || formatCardDisplayMeta(parts);
   if (m) {
     const hay = display.toLowerCase();
     if (!hay.includes(m.toLowerCase())) chunks.push(m);

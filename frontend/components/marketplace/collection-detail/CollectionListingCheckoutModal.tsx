@@ -29,6 +29,7 @@ export function CollectionListingCheckoutModal({
   metadata,
   imageUrl,
   collectionTitle,
+  collectionMeta,
   collectionKey,
   collectionBids = [],
   connectedAddress,
@@ -46,6 +47,8 @@ export function CollectionListingCheckoutModal({
   metadata: RwaMetadata | null;
   imageUrl: string | null;
   collectionTitle?: string | null;
+  /** Year · Set · Variant — shown under the title on Place a bid / Checkout. */
+  collectionMeta?: string | null;
   collectionKey: string;
   collectionBids?: Order[];
   connectedAddress?: string;
@@ -108,13 +111,22 @@ export function CollectionListingCheckoutModal({
 
   const hasLiveAsk = listing != null && Number(listing.considerationAmount) > 0;
   const tiles = listingVerificationTiles(metadata);
-  const itemSub = hasLiveAsk
-    ? [tiles.gradedBy, tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null, "Vaulted"]
-        .filter(Boolean)
-        .join(" · ")
-    : [tiles.gradedBy !== "—" ? tiles.gradedBy : null, "No active listing"]
-        .filter(Boolean)
-        .join(" · ");
+  const catalogMeta = collectionMeta?.trim() || null;
+  const itemSub = [
+    catalogMeta,
+    ...(hasLiveAsk
+      ? [
+          tiles.gradedBy !== "—" ? tiles.gradedBy : null,
+          tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
+          "Vaulted",
+        ]
+      : [
+          tiles.gradedBy !== "—" ? tiles.gradedBy : null,
+          "No active listing",
+        ]),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const price = listing ? formatListingUsdc(listing.considerationAmount) : "—";
   const title =
     collectionTitle?.trim() ||

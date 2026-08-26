@@ -26,7 +26,6 @@ export function PortfolioMobileAssetCard({
   actionsDisabled = false,
   actionsDisabledTitle,
   onToggleSelect,
-  onOpen,
   onSaveCostBasis,
   onSetPrice,
 }: {
@@ -44,7 +43,6 @@ export function PortfolioMobileAssetCard({
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
   onToggleSelect?: (checked: boolean) => void;
-  onOpen: () => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
   onSetPrice: () => void;
 }) {
@@ -61,25 +59,25 @@ export function PortfolioMobileAssetCard({
   return (
     <div
       className={`pf-mobile-asset-card${selectMode && selected ? " pf-mobile-asset-card--selected" : ""}${selectMode ? " pf-mobile-asset-card--select" : ""}${dimClass}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => {
-        if (selectMode) {
-          if (selectable) onToggleSelect?.(!selected);
-          return;
-        }
-        onOpen();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (selectMode) {
-            if (selectable) onToggleSelect?.(!selected);
-            return;
-          }
-          onOpen();
-        }
-      }}
+      role={selectMode ? "button" : undefined}
+      tabIndex={selectMode ? 0 : undefined}
+      onClick={
+        selectMode
+          ? () => {
+              if (selectable) onToggleSelect?.(!selected);
+            }
+          : undefined
+      }
+      onKeyDown={
+        selectMode
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                if (selectable) onToggleSelect?.(!selected);
+              }
+            }
+          : undefined
+      }
     >
       {selectMode ? (
         <div

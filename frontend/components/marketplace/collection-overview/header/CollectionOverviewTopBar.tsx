@@ -23,6 +23,7 @@ export function CollectionOverviewTopBar({
   headlineTitle,
   headlineStructuredTitle,
   headlineSubtitleLine,
+  headlineMetaStrip,
   useStructuredHeadline,
   headlineTitleLayout,
   categoryBadge,
@@ -43,6 +44,7 @@ export function CollectionOverviewTopBar({
   headlineTitle?: string | null;
   headlineStructuredTitle?: AssetDetailHeadlineParts | null;
   headlineSubtitleLine: string | null;
+  headlineMetaStrip?: string | null;
   useStructuredHeadline: boolean;
   headlineTitleLayout: boolean;
   categoryBadge?: string | null;
@@ -106,11 +108,21 @@ export function CollectionOverviewTopBar({
                   <div className={`${collectionHeroFont.className} min-w-0`}>
                     <div className="flex min-w-0 flex-col gap-y-2 max-lg:items-center lg:items-start">
                       {useStructuredHeadline && headlineStructuredTitle ? (
-                        <AssetDetailHeadlineTitle
-                          as="h1"
-                          parts={headlineStructuredTitle}
-                          className={COLLECTION_HEADLINE_TITLE_CLASS}
-                        />
+                        <>
+                          <AssetDetailHeadlineTitle
+                            as="h1"
+                            parts={headlineStructuredTitle}
+                            grade={gradeBadge}
+                            className={COLLECTION_HEADLINE_TITLE_CLASS}
+                          />
+                          {headlineMetaStrip ? (
+                            <p
+                              className={`m-0 max-w-full text-[13px] tracking-[0.02em] text-white/55 max-lg:text-center lg:text-left`}
+                            >
+                              {headlineMetaStrip}
+                            </p>
+                          ) : null}
+                        </>
                       ) : (
                         <h1
                           className={COLLECTION_HEADLINE_TITLE_CLASS}

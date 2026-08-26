@@ -28,16 +28,15 @@ export function useRwaDetailHeadline(
     [metadata, detailHeadlineFallback],
   );
 
-  const detailTitle = useMemo(
-    () => formatAssetDetailHeadlineText(detailHeadlineParts),
-    [detailHeadlineParts],
-  );
+  const detailTitle = useMemo(() => {
+    const grade = resolveRwaHeadlineGrade(metadata);
+    return formatAssetDetailHeadlineText(detailHeadlineParts, { grade });
+  }, [detailHeadlineParts, metadata]);
 
   const detailMeta = useMemo(() => {
-    const grade = resolveRwaHeadlineGrade(metadata);
-    const line = formatCardDisplayMeta(detailHeadlineParts, { grade });
+    const line = formatCardDisplayMeta(detailHeadlineParts);
     return line || null;
-  }, [detailHeadlineParts, metadata]);
+  }, [detailHeadlineParts]);
 
   const detailTitlePulse =
     Boolean(metaLoading) &&

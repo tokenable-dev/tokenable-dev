@@ -5,8 +5,7 @@ import {
 } from "@/lib/market/psaGradePolicy";
 import {
   buildRwaAssetDetailHeadlineParts,
-  formatCardDisplayMeta,
-  formatCardDisplayName,
+  formatCardDisplayHoverTitle,
   resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { uriNeedsBackendResolve } from "@/lib/marketplace/mediaUriResolve";
@@ -72,11 +71,10 @@ export function listingAssetTitle(
   tokenId: number,
 ): string {
   const parts = buildRwaAssetDetailHeadlineParts(metadata, `#${tokenId}`);
-  const display = formatCardDisplayName(parts);
   const grade = resolveRwaHeadlineGrade(metadata);
-  const meta = formatCardDisplayMeta(parts, { grade });
-  const combined = [display, meta].filter(Boolean).join(" · ");
-  return combined || `Token #${tokenId}`;
+  return (
+    formatCardDisplayHoverTitle(parts, { grade }) || `Token #${tokenId}`
+  );
 }
 
 export function listingVerificationTiles(metadata: RwaMetadata | null): {

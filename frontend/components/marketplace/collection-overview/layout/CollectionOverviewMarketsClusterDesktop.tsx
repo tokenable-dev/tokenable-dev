@@ -4,12 +4,13 @@ import type { ReactNode } from "react";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
- * Collection detail desktop — Card.html layout:
+ * Collection detail desktop — Card.html 2×2 grid:
  *
- * Sticky `#hero-bar` must be a descendant of a TALL container that also
- * includes the chart/listings grid. Short wrappers around the bar alone
- * prevent `position:sticky` from pinning (sticky cannot escape its parent).
- * Card.html puts `#hero-bar` as a direct child of `.wrap` above the grid.
+ *   [ Chart ]              [ Trades + Order book ]
+ *   [ Similar items ]      [ Details + Pop ]
+ *
+ * Sticky `#hero-bar` must sit in a tall parent that also includes this grid
+ * (sticky cannot escape a short wrapper).
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,
@@ -33,19 +34,25 @@ export function CollectionOverviewMarketsClusterDesktop({
   return (
     <div className="relative hidden w-full min-w-0 max-w-full overflow-visible lg:block cd-markets-cluster">
       <div className="cd-markets-cluster__inner w-full min-w-0 overflow-visible">
-        {/* Tall sticky scope: hero + grid share one parent (Card.html `.wrap`) */}
         <div className="cd-markets-cluster__mat cd-hero-sticky-scope w-full min-w-0 overflow-visible">
           {hasMetrics ? chartMetricsRow : null}
 
           <div className="cd-detail-grid min-w-0">
-            <div className="cd-detail-grid__left cd-detail-grid__chart min-w-0">
-              {/* Card.html `#chart-card` owns height (376px) — do not flex-collapse children. */}
-              <div className="w-full min-w-0">{priceChart}</div>
+            <div className="cd-detail-grid__chart min-w-0">
+              <div className="h-full w-full min-w-0">{priceChart}</div>
+            </div>
+
+            <div className="cd-detail-grid__orderbook rail-slot min-w-0">
+              <div className="cd-sidebar-orderbook flex h-full min-h-0 w-full flex-col overflow-hidden">
+                <div className="flex h-full min-h-0 w-full flex-col">
+                  {withFlushProp(orderBookNextToChart)}
+                </div>
+              </div>
             </div>
 
             {marketsBelowChart != null ? (
               <div
-                className="cd-detail-grid__left cd-detail-grid__listings min-w-0"
+                className="cd-detail-grid__listings min-w-0"
                 id="collection-listings"
                 aria-label="Individual listings"
               >
@@ -53,31 +60,23 @@ export function CollectionOverviewMarketsClusterDesktop({
               </div>
             ) : null}
 
-            <div className="cd-detail-grid__sidebar rail-slot">
-              {/* Card.html `.detail-rail` — Trades/Offers + Details pin together. */}
-              <div className="cd-sidebar-sticky detail-rail flex flex-col gap-4">
-                <div className="cd-sidebar-orderbook flex shrink-0 flex-col overflow-hidden">
-                  <div className="flex w-full shrink-0 flex-col">
-                    {withFlushProp(orderBookNextToChart)}
-                  </div>
-                </div>
-
+            {belowCover != null || marketsDockTradePanel ? (
+              <div
+                className="cd-detail-grid__details min-w-0"
+                aria-label="Collection details"
+              >
                 {belowCover != null ? (
-                  <div
-                    className="cd-sidebar-details flex min-w-0 shrink-0 flex-col"
-                    aria-label="Collection details"
-                  >
+                  <div className="cd-sidebar-details flex min-w-0 flex-col">
                     {belowCover}
                   </div>
                 ) : null}
-
                 {marketsDockTradePanel ? (
                   <div className="cd-sidebar-trade min-w-0 shrink-0">
                     {withFlushProp(tradePanel)}
                   </div>
                 ) : null}
               </div>
-            </div>
+            ) : null}
           </div>
         </div>
       </div>

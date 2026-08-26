@@ -17,7 +17,7 @@ import {
   resolveCollectionSlabSetLine,
 } from "@/lib/marketplace/slabDisplayTitle";
 
-function gradeLabelFromComp(comp: CollectionComponents): string | null {
+export function gradeLabelFromComp(comp: CollectionComponents): string | null {
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
   if (company && score) return toCardDisplayCase(`${company} ${score}`);
@@ -68,49 +68,61 @@ export function buildMarketsCollectionHeadlineParts(params: {
 }
 
 /**
- * Markets grid / search / ticker catalog line — Card.html card__title order:
- * `{Year} {Set} #{Number} {CardName} [{Variant}]`
+ * Tile / search title line — `{Name} {Number}[ · {Grade}]`.
+ * Name and number are space-separated (no middle dot); grade keeps ` · `.
+ * Prefer `buildMarketsCollectionTitle` + `buildMarketsCollectionMeta` for two-line UI.
  */
 export function formatMarketsCollectionTileTitle(
   parts: AssetDetailHeadlineParts,
+  grade?: string | null,
 ): string {
-  const card = parts.cardName?.trim() ?? "";
-  const variety = parts.variety?.trim() ?? "";
-  const nameChunks: string[] = [];
-  if (card) nameChunks.push(card);
-  if (
-    variety &&
-    !card.toLowerCase().includes(variety.toLowerCase()) &&
-    !nameChunks.some((c) => c.toLowerCase().includes(variety.toLowerCase()))
-  ) {
-    nameChunks.push(variety);
-  }
-
-  return [parts.year, parts.setName, parts.cardNumber, ...nameChunks]
-    .map((s) => (typeof s === "string" ? s.trim() : ""))
-    .filter((s): s is string => Boolean(s))
-    .join(" ");
+  const name = parts.cardName?.trim() || "";
+  const num = parts.cardNumber?.trim() || "";
+  const nameNum = [name, num].filter(Boolean).join(" ");
+  const chunks: string[] = [];
+  if (nameNum) chunks.push(nameNum);
+  const g = grade?.trim() || "";
+  if (g) chunks.push(g);
+  if (chunks.length > 0) return chunks.join(" · ");
+  return parts.variety?.trim() || "";
 }
 
-/** Markets / home / search tile title — full catalog line (not hero Display name). */
+/** Markets / home / search primary title — `{Name} {Number}[ · {Grade}]`. */
 export function buildMarketsCollectionTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
+  /** Markets grid: grade is shown as a badge — omit from title. */
+  omitGrade?: boolean;
 }): string {
   const { collection } = params;
   const parts = buildMarketsCollectionHeadlineParts(params);
-  const out = formatMarketsCollectionTileTitle(parts);
+  const grade = params.omitGrade ? null : gradeLabelFromComp(params.comp);
+  const out = formatMarketsCollectionTileTitle(parts, grade);
   if (out) return out;
   const dl =
     typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
   return dl ? toCardDisplayCase(dl) : "";
 }
 
-/** Optional meta under tile titles — Year · Set · # · Grade. */
+/** Meta under tile titles — `{Year} · {Set} · {Variant}`. */
 export function buildMarketsCollectionMeta(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
-  return formatCardDisplayMeta(parts, { grade: gradeLabelFromComp(params.comp) });
+  return formatCardDisplayMeta(parts);
+}
+
+/** Single-line hover / search / ticker — Title · Meta. */
+export function buildMarketsCollectionHoverTitle(params: {
+  collection: MarketplaceCollectionSummary;
+  comp: CollectionComponents;
+}): string {
+  const parts = buildMarketsCollectionHeadlineParts(params);
+  const grade = gradeLabelFromComp(params.comp);
+  const title = formatMarketsCollectionTileTitle(parts, grade);
+  const meta = formatCardDisplayMeta(parts);
+  const hover = [title, meta].filter(Boolean).join(" · ");
+  if (hover) return hover;
+  return buildMarketsCollectionTitle(params);
 }

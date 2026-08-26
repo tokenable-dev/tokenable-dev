@@ -4,7 +4,10 @@ import {
   psaGradePolicyInputFromGraded,
 } from "@/lib/market/psaGradePolicy";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
-import { formatAssetDetailHeadlineText } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  formatCardDisplayMeta,
+  formatCardDisplayName,
+} from "@/lib/marketplace/assetDetailHeadline";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type RwaDetailMetadata = {
@@ -133,26 +136,18 @@ function formatRwaMobileSlabCertLabel(certNumber: string | null | undefined): st
   return cert ? `CERT. ${cert}` : "";
 }
 
+/**
+ * Mobile RWA — slab copy below the card:
+ * title = Name · Number · Year · Set · Variant;
+ * meta row = grade + CERT (styled separately in UI).
+ */
 function formatRwaMobileSlabTitleBlock(parts: AssetDetailHeadlineParts): string {
-  const variety = parts.variety?.trim() ?? "";
-  const withoutVariety =
-    joinSlabTextParts(
-      parts.year,
-      parts.setName,
-      parts.cardName,
-      parts.cardNumber,
-    ) || "";
-  const title =
-    variety && variety !== withoutVariety
-      ? joinSlabTextParts(withoutVariety || null, variety)
-      : withoutVariety;
-
-  return title || "—";
+  const title = formatCardDisplayName(parts);
+  const meta = formatCardDisplayMeta(parts);
+  return [title, meta].filter(Boolean).join(" · ") || "—";
 }
 
-/**
- * Mobile RWA — full slab copy as one line (e.g. screen readers).
- */
+/** Mobile RWA — full slab copy as one line (e.g. screen readers). */
 export function formatRwaMobileSlabLabelLine(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
@@ -170,11 +165,6 @@ export function formatRwaMobileSlabLabelLine(
   );
 }
 
-/**
- * Mobile RWA — slab copy below the card:
- * title = year · set · subject · # · variety (wraps naturally);
- * meta row = grade + CERT. number (styled separately in UI).
- */
 export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,

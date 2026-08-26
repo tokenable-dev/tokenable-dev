@@ -9,7 +9,7 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildMarketsCollectionMeta, buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
@@ -109,6 +109,10 @@ export function CollectibleCard({
   onBeforeNavigate,
   shell = "wrap",
   position,
+  /** Markets grid: hide Year · Set · Variant under the title. */
+  showSetLine = true,
+  /** Markets grid: grade lives in the badge row — omit from title. */
+  omitGradeInTitle = false,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
@@ -124,17 +128,24 @@ export function CollectibleCard({
   shell?: "wrap" | "none";
   /** Zero-based position in the grid — forwarded to `card_clicked` analytics. */
   position?: number;
+  showSetLine?: boolean;
+  omitGradeInTitle?: boolean;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const title = buildMarketsCollectionTitle({
     collection,
     comp: collection.components,
+    omitGrade: omitGradeInTitle,
   });
+  const setLine = showSetLine
+    ? buildMarketsCollectionMeta({
+        collection,
+        comp: collection.components,
+      })
+    : "";
   const grade = formatGradeLabel(collection);
-  const titleHover = grade && !title.toLowerCase().includes(grade.toLowerCase())
-    ? `${title} · ${grade}`
-    : title;
+  const titleHover = [title, setLine].filter(Boolean).join(" · ");
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct =
     marketChangePctOverride !== undefined
@@ -200,6 +211,7 @@ export function CollectibleCard({
         <div className="card__title" title={titleHover || title}>
           {title}
         </div>
+        {setLine ? <div className="card__set">{setLine}</div> : null}
         <div className="card__meta">
           {grade ? <span className="card__grade">{grade}</span> : null}
           {pop != null ? (

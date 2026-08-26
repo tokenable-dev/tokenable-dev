@@ -13,6 +13,7 @@ import {
 export function RwaDetailPlaceBidModal({
   open,
   assetTitle,
+  assetMeta,
   tokenId,
   collectionKey,
   listing,
@@ -26,6 +27,8 @@ export function RwaDetailPlaceBidModal({
 }: {
   open: boolean;
   assetTitle: string;
+  /** Year · Set · Variant under the title. */
+  assetMeta?: string | null;
   tokenId: number;
   collectionKey: string;
   listing: Order | null;
@@ -57,7 +60,9 @@ export function RwaDetailPlaceBidModal({
   const listedPriceLabel =
     listing != null ? `${formatListingUsdc(listing.considerationAmount)}.00` : null;
   const tiles = listingVerificationTiles(metadata ?? null);
+  const catalogMeta = assetMeta?.trim() || null;
   const itemSub = [
+    catalogMeta,
     tiles.gradedBy !== "—" ? tiles.gradedBy : null,
     tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
     listing ? "Vaulted" : "No active listing",

@@ -15,7 +15,6 @@ import {
   listingVaultBadge,
   listingVerificationTiles,
 } from "@/lib/marketplace/collectionListingModalHelpers";
-import { CollectionListingBuyerEducation } from "./CollectionListingBuyerEducation";
 
 const LISTING_IMAGE_ZOOM = 2.5;
 
@@ -98,13 +97,11 @@ export function CollectionListingDetailModal({
       .filter((item): item is { id: string; label: string; src: string } => item != null);
   }, [rawGallery, resolvedMedia?.items]);
 
-  const faces = useMemo(() => {
-    const front = thumbs.find((t) => t.label.startsWith("Front"))?.src ?? thumbs[0]?.src ?? null;
-    const back = thumbs.find((t) => t.label.startsWith("Back"))?.src ?? null;
-    return { front, back };
+  const mainSrc = useMemo(() => {
+    const front = thumbs.find((t) => t.label.startsWith("Front"))?.src;
+    return front ?? thumbs[0]?.src ?? null;
   }, [thumbs]);
 
-  const [activeThumb, setActiveThumb] = useState(0);
   const [fullScreen, setFullScreen] = useState(false);
   const imgAreaRef = useRef<HTMLDivElement>(null);
   const mainImgRef = useRef<HTMLImageElement>(null);
@@ -138,7 +135,6 @@ export function CollectionListingDetailModal({
     resetImgZoom();
   }, [resetImgZoom]);
 
-  const mainSrc = thumbs[activeThumb]?.src ?? faces.front;
   const title = listingAssetTitle(metadata, tid);
   const tiles = listingVerificationTiles(metadata);
   const price =
@@ -169,18 +165,13 @@ export function CollectionListingDetailModal({
 
   useEffect(() => {
     if (open) {
-      setActiveThumb(0);
       resetImgZoom();
     }
   }, [open, tokenId, resetImgZoom]);
 
   useEffect(() => {
-    if (activeThumb >= thumbs.length) setActiveThumb(0);
-  }, [activeThumb, thumbs.length]);
-
-  useEffect(() => {
     resetImgZoom();
-  }, [activeThumb, mainSrc, resetImgZoom]);
+  }, [mainSrc, resetImgZoom]);
 
   if (!open || tokenId == null || typeof document === "undefined") return null;
 
@@ -244,24 +235,6 @@ export function CollectionListingDetailModal({
             <span className="cd-listing-prov__tap-hint md:hidden">Tap to enlarge</span>
           </div>
 
-          {thumbs.length > 0 ? (
-            <div className="cd-listing-prov__thumbs" id="prov-thumbs">
-              {thumbs.map((t, i) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`cd-listing-prov__thumb prov-thumb${i === activeThumb ? " cd-listing-prov__thumb--active active" : ""}`}
-                  onClick={() => setActiveThumb(i)}
-                  aria-label={`Show ${t.label}`}
-                  title={t.label}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={t.src} alt={t.label} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-
           <div className="cd-listing-prov__section-label">Verification</div>
           <div className="cd-listing-prov__verify-grid cd-listing-prov__verify-grid--3">
             <div className="cd-listing-prov__verify-cell">
@@ -299,8 +272,6 @@ export function CollectionListingDetailModal({
               </div>
             </div>
           </div>
-
-          <CollectionListingBuyerEducation />
 
           <div className="cd-listing-prov__foot">
             <div className="cd-listing-prov__foot-top">
