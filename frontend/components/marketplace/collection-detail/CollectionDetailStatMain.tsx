@@ -155,13 +155,13 @@ export function CollectionDetailStatMain({
     const STUCK_BAR_H = 68;
     /**
      * After the expanded hero has fully cleared the GNB, require this much
-     * additional scroll before condensing. Tuned high so a small flick does
-     * not collapse the hero into a large empty spacer.
+     * additional scroll before condensing. Enough to avoid flick collapse,
+     * but not so high that the full hero stays on screen too long.
      */
     const condenseExtraPx = () =>
-      Math.max(420, Math.round(window.innerHeight * 0.55));
+      Math.max(240, Math.round(window.innerHeight * 0.3));
     /** Extra scroll (px) required to unpin after a pin — avoids thrash. */
-    const UNPIN_HYSTERESIS_PX = 100;
+    const UNPIN_HYSTERESIS_PX = 80;
 
     let raf = 0;
     let lastBarH = -1;
@@ -236,7 +236,7 @@ export function CollectionDetailStatMain({
         } else {
           const rect = bar.getBoundingClientRect();
           const extra = condenseExtraPx();
-          // Hero must fully clear the GNB, then scroll ~half a viewport more.
+          // Hero must fully clear the GNB, then scroll ~0.3 viewport more.
           shouldStuck = rect.bottom <= stuckTop - extra;
         }
 

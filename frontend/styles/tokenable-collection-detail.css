@@ -188,17 +188,75 @@
     border-radius: 16px;
     margin-top: 16px;
     padding-top: 0;
+    /* Match desktop orderbook: fixed panel, tape scrolls inside. */
+    height: 376px;
+    max-height: 376px;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-panel {
+    flex: 1 1 auto;
     min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-trades-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-trades-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Offers tab — same fixed height; depth scrolls inside the body. */
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-body:has(.cd-ob-book-stack),
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-body:has(.cd-ob-book__scroll) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .collection-detail-page
+    .cd-mobile-scroll__book
+    .cd-ob-body:has(.cd-ob-book-stack)::-webkit-scrollbar,
+  .collection-detail-page
+    .cd-mobile-scroll__book
+    .cd-ob-body:has(.cd-ob-book__scroll)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs {
     padding-left: 16px !important;
     padding-right: 16px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
   }
 
   /* Card.html — Details / PSA directly under trades rail */
