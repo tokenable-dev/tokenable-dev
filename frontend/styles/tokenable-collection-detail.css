@@ -201,10 +201,6 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .collection-detail-page .cd-mobile-scroll__book .cd-ob-viewall-trades {
-    margin: 14px 0 0;
-  }
-
   /* Card.html — Details / PSA directly under trades rail */
   .collection-detail-page .cd-mobile-scroll__details.cd-sidebar-details {
     background: #191919;
@@ -318,8 +314,7 @@
  *   [ Chart ]              [ Trades + Order book ]
  *   [ Similar items ]      [ Details + Pop ]
  *
- * Same gap in each column so tops line up when Trades is collapsed.
- * “View all trades” only lengthens the right column — Similar stays put.
+ * Same gap in each column so tops line up.
  */
 
 .collection-detail-page .cd-detail-grid {
@@ -396,13 +391,6 @@
   flex-direction: column;
   overflow: hidden;
   flex: 0 0 auto;
-}
-
-/* View all trades — grow only the right column (Details moves; Similar does not). */
-.collection-detail-page .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded) {
-  height: auto;
-  max-height: none;
-  overflow: visible;
 }
 
 .collection-detail-page .cd-detail-grid__listings {
@@ -561,8 +549,12 @@
 .cd-hero-bar__meta,
 #hero-meta {
   margin: 0;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  /* Match title — Inter / --font-sans (not mono). */
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(15px, 1.5vw, 18px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--t2);
 }
 
@@ -1832,6 +1824,12 @@
   gap: 20px;
 }
 
+@media (min-width: 1024px) {
+  .collection-detail-page .cd-similar-items__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .cd-similar-items__empty {
   margin: 8px 0 0;
   font-size: 13px;
@@ -2540,7 +2538,7 @@
   height: auto;
 }
 
-/* Drawer / View all — show every trade row */
+/* Drawer / listings View all — show every trade row if tape is embedded */
 .cd-viewall-drawer .cd-ob-trades-scroll > .cd-ob-trades-row:nth-child(n + 8) {
   display: grid;
 }
@@ -2582,11 +2580,6 @@
   flex: none;
 }
 
-.cd-ob-viewall-trades {
-  margin-top: 0;
-  width: 100%;
-}
-
 /* Tabs padding — Card.html `padding:0 16px` on tab bar */
 .collection-detail-page .cd-ob-tabs {
   padding-left: 16px !important;
@@ -2617,12 +2610,6 @@
   font-weight: 700;
   color: #fff;
   border-bottom-color: var(--brand-500);
-}
-
-/* Card.html `.tk-expanded` — reveal capped trade rows inline */
-.collection-detail-page .cd-ob-panel.tk-expanded .cd-ob-trades-scroll > .cd-ob-trades-row:nth-child(n + 8),
-.collection-detail-page .cd-ob-trades-scroll--all > .cd-ob-trades-row:nth-child(n + 8) {
-  display: grid !important;
 }
 
 .collection-detail-page .cd-ob-tab:not(.cd-ob-tab--active) {
@@ -2656,7 +2643,7 @@
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
-  /* Card.html: hide scrollbar; cap visible rows via nth-child */
+  /* All rows visible; panel height clips + scrolls on desktop. */
   height: auto;
   max-height: none;
   overflow: visible;
@@ -2665,16 +2652,6 @@
 
 .collection-detail-page .cd-ob-trades-scroll::-webkit-scrollbar {
   display: none;
-}
-
-/* Card.html `#trades-scroll > div:nth-child(n+8){display:none}` */
-.collection-detail-page .cd-ob-trades-scroll > .cd-ob-trades-row:nth-child(n + 8) {
-  display: none;
-}
-
-.collection-detail-page .cd-ob-trades-scroll--all > .cd-ob-trades-row:nth-child(n + 8),
-.cd-viewall-drawer .cd-ob-trades-scroll > .cd-ob-trades-row:nth-child(n + 8) {
-  display: grid !important;
 }
 
 .collection-detail-page .cd-ob-trades-row {
@@ -3222,7 +3199,7 @@
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
-    /* Tab header + body + View all; body scrolls when capped at 376px. */
+    /* Tab header + body; body scrolls when capped at 376px. */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3234,21 +3211,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }
-
-  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-viewall-trades {
-    flex: 0 0 auto;
-  }
-
-  /*
-   * Collapsed trades: show every row inside the 376px panel and scroll.
-   * (Global CSS hides rows 8+; View all still expands the panel instead.)
-   */
-  .collection-detail-page
-    .cd-detail-grid__orderbook
-    .cd-ob-trades-scroll:not(.cd-ob-trades-scroll--all)
-    > .cd-ob-trades-row:nth-child(n + 8) {
-    display: grid !important;
   }
 
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll {
@@ -3292,31 +3254,6 @@
     display: none;
     width: 0;
     height: 0;
-  }
-
-  /* View all trades — grow the panel; no inner clip. */
-  .collection-detail-page
-    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
-    .cd-sidebar-orderbook,
-  .collection-detail-page
-    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
-    .cd-ob-panel {
-    height: auto;
-    overflow: visible;
-  }
-
-  .collection-detail-page
-    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
-    .cd-ob-body {
-    flex: 0 0 auto;
-    overflow: visible;
-  }
-
-  .collection-detail-page
-    .cd-detail-grid__orderbook:has(.cd-ob-panel.tk-expanded)
-    .cd-ob-trades-scroll {
-    flex: 0 0 auto;
-    overflow: visible;
   }
 
   .collection-detail-page .cd-detail-grid__chart .cd-chart-panel.cd-notch:not(.cd-chart-panel--embed) {
@@ -3772,8 +3709,11 @@ button.cd-listing-orderbook__thumb-link {
 }
 
 .cd-listing-checkout__item-sub {
+  /* Match item title — Inter / --font-sans (not mono). */
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-size: 11px;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.02em;
   color: var(--t3);
   margin-top: 3px;
 }

@@ -1,10 +1,5 @@
-import { IBM_Plex_Sans } from "next/font/google";
-
-export const collectionHeroFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  display: "swap",
-});
+/** Collection overview headline — Inter / --font-sans (same as collection-detail hero). */
+export const collectionHeroFont = { className: "font-sans" } as const;
 
 export const HEADLINE_OUTLINE_TAG =
   "inline-flex h-[26px] min-h-[26px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-[10px] py-1 text-sm font-normal leading-none text-white";

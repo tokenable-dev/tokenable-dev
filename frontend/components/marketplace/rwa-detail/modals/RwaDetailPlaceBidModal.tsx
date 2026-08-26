@@ -104,7 +104,7 @@ export function RwaDetailPlaceBidModal({
           </div>
           <div className="cd-listing-checkout__item-meta">
             <div className="cd-listing-checkout__item-title">{assetTitle}</div>
-            <div className="cd-listing-checkout__item-sub tkl-mono">{itemSub}</div>
+            <div className="cd-listing-checkout__item-sub">{itemSub}</div>
           </div>
         </div>
 

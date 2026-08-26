@@ -184,9 +184,7 @@ export function CollectionListingCheckoutModal({
           </div>
           <div className="cd-listing-checkout__item-meta">
             <div className="cd-listing-checkout__item-title">{title}</div>
-            <div className="cd-listing-checkout__item-sub tkl-mono">
-              {itemSub}
-            </div>
+            <div className="cd-listing-checkout__item-sub">{itemSub}</div>
           </div>
         </div>
 

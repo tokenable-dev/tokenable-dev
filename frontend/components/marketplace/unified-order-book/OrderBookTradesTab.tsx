@@ -83,7 +83,6 @@ export function OrderBookTradesTab({
   mobileEmbed,
   collectionDetail,
   emptyLabel = "N/A",
-  showAllRows = false,
 }: {
   tapeFills: CollectionPlatformTapeFill[];
   tapeLoading?: boolean;
@@ -93,8 +92,6 @@ export function OrderBookTradesTab({
   mobileEmbed?: boolean;
   collectionDetail?: boolean;
   emptyLabel?: string;
-  /** Skip 7-row CSS cap (View all drawer). */
-  showAllRows?: boolean;
 }) {
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
   const rowValueCls = orderBookTradesContentValueCls;
@@ -165,7 +162,6 @@ export function OrderBookTradesTab({
           tapeFills={tapeFills}
           flush={Boolean(flush)}
           collectionDetail={collectionDetail}
-          showAllRows={showAllRows}
           insetXClass={
             flush && !collectionDetail ? COLLECTION_ORDER_BOOK_FLUSH_INSET_X : ""
           }

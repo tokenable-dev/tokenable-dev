@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
@@ -38,8 +38,6 @@ export function CollectionUnifiedOrderBook({
   listingAlertPending,
   onToggleListingAlert,
 }: CollectionUnifiedOrderBookProps) {
-  /** Card.html `.tk-expanded` — inline expand, not a right drawer. */
-  const [tradesExpanded, setTradesExpanded] = useState(false);
   const book = useUnifiedOrderBook({
     asks,
     collectionBids,
@@ -96,9 +94,7 @@ export function CollectionUnifiedOrderBook({
     ? embedInMobileTab
       ? "@container/orderbook relative flex min-h-0 w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
       : collectionDetail
-        ? `@container/orderbook cd-ob-panel relative flex w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none${
-            tradesExpanded ? " tk-expanded" : ""
-          }`
+        ? "@container/orderbook cd-ob-panel relative flex w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
         : "@container/orderbook relative flex h-full max-h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
     : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
@@ -140,18 +136,8 @@ export function CollectionUnifiedOrderBook({
               tapeErrorMessage={tapeErrorMessage}
               flush
               collectionDetail
-              showAllRows={tradesExpanded}
             />
           </div>
-          {book.tab === "trades" && tapeFills.length > 7 ? (
-            <button
-              type="button"
-              className="viewall-btn cd-viewall-btn cd-ob-viewall-trades"
-              onClick={() => setTradesExpanded((v) => !v)}
-            >
-              {tradesExpanded ? "Show less" : "View all trades"}
-            </button>
-          ) : null}
         </>
       ) : flush && !embedInMobileTab ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">

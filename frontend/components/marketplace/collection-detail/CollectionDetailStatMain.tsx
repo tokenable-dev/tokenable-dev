@@ -73,7 +73,7 @@ function HeroMeta({
   const text = stripHeroTitleDupesFromMeta(meta, gradeLabel, cardNumber);
   if (!text) return null;
   return (
-    <div className="cd-hero-bar__meta mono" id="hero-meta">
+    <div className="cd-hero-bar__meta" id="hero-meta">
       {text}
     </div>
   );
@@ -150,17 +150,18 @@ export function CollectionDetailStatMain({
   useEffect(() => {
     const bar = barRef.current;
     const spacer = spacerRef.current;
-    const sentinel = sentinelRef.current;
-    if (!bar || !spacer || !sentinel) return;
+    if (!bar || !spacer) return;
 
     const STUCK_BAR_H = 68;
     /**
-     * Pin once the hero top has just passed under the GNB — not after the
-     * full expanded height scrolls away (that covered the chart while sticky).
+     * After the expanded hero has fully cleared the GNB, require this much
+     * additional scroll before condensing. Tuned high so a small flick does
+     * not collapse the hero into a large empty spacer.
      */
-    const PIN_PAST_PX = 12;
+    const condenseExtraPx = () =>
+      Math.max(420, Math.round(window.innerHeight * 0.55));
     /** Extra scroll (px) required to unpin after a pin — avoids thrash. */
-    const UNPIN_HYSTERESIS_PX = 48;
+    const UNPIN_HYSTERESIS_PX = 100;
 
     let raf = 0;
     let lastBarH = -1;
@@ -185,6 +186,12 @@ export function CollectionDetailStatMain({
       if (h > STUCK_BAR_H) expandedH = h;
     };
 
+    /** Skip the twin instance that is `display:none` (desktop vs mobile mount). */
+    const barIsVisible = () => {
+      const r = bar.getBoundingClientRect();
+      return r.width >= 8 && r.height >= 8;
+    };
+
     const clearMobilePin = () => {
       spacer.style.height = "";
       bar.classList.remove("is-stuck");
@@ -194,6 +201,7 @@ export function CollectionDetailStatMain({
     const pinMobile = (scrollY: number) => {
       // Capture margin before `.is-stuck` zeros it.
       const mb = marginBottom();
+      measureExpandedH();
       const flowH = expandedH > STUCK_BAR_H ? expandedH : STUCK_BAR_H;
       bar.classList.add("is-stuck");
       // Keep in-flow height ≈ expanded hero so pin/unpin does not jump the page.
@@ -207,38 +215,46 @@ export function CollectionDetailStatMain({
       const stuckTop = mobile ? 64 : 70;
       const wasStuck = bar.classList.contains("is-stuck");
 
+      // Hidden twin (desktop cluster on mobile / mobile panel on desktop).
+      if (!wasStuck && !barIsVisible()) {
+        publishBarH();
+        return;
+      }
+
       if (mobile) {
         measureExpandedH();
         const scrollY =
           window.scrollY || document.documentElement.scrollTop || 0;
-        const sentinelTop = sentinel.getBoundingClientRect().top;
-        // Document Y of hero top is stable even while stuck (spacer holds height).
-        const heroTopDoc = scrollY + sentinelTop;
-        // Condense as soon as the hero top slips a little under the GNB.
-        const pinAtScrollY = heroTopDoc - stuckTop + PIN_PAST_PX;
 
         let shouldStuck: boolean;
-        if (scrollY <= 2) {
+        if (scrollY <= 8) {
           shouldStuck = false;
         } else if (wasStuck && pinnedAtScrollY != null) {
           shouldStuck = scrollY >= pinnedAtScrollY - UNPIN_HYSTERESIS_PX;
         } else if (wasStuck) {
-          shouldStuck = scrollY >= pinAtScrollY - UNPIN_HYSTERESIS_PX;
+          shouldStuck = true;
         } else {
-          shouldStuck = scrollY >= pinAtScrollY;
+          const rect = bar.getBoundingClientRect();
+          const extra = condenseExtraPx();
+          // Hero must fully clear the GNB, then scroll ~half a viewport more.
+          shouldStuck = rect.bottom <= stuckTop - extra;
         }
 
         if (shouldStuck) {
-          if (!wasStuck) pinMobile(Math.max(scrollY, pinAtScrollY));
+          if (!wasStuck) pinMobile(scrollY);
         } else if (wasStuck) {
           clearMobilePin();
         }
       } else {
         if (wasStuck && spacer.style.height) clearMobilePin();
-        bar.classList.toggle(
-          "is-stuck",
-          bar.getBoundingClientRect().top <= stuckTop,
-        );
+        // Desktop sticky: only condense after a meaningful scroll.
+        const rect = bar.getBoundingClientRect();
+        const scrollY =
+          window.scrollY || document.documentElement.scrollTop || 0;
+        const nearTop = rect.top <= stuckTop + 1;
+        const scrolledEnough =
+          scrollY >= Math.max(160, Math.round(window.innerHeight * 0.2));
+        bar.classList.toggle("is-stuck", nearTop && scrolledEnough);
       }
       publishBarH();
     };
@@ -248,12 +264,19 @@ export function CollectionDetailStatMain({
       raf = window.requestAnimationFrame(onScroll);
     };
 
+    measureExpandedH();
     onScroll();
+    const settle = window.requestAnimationFrame(() => {
+      measureExpandedH();
+      onScroll();
+    });
+
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize);
 
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
+      window.cancelAnimationFrame(settle);
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
       clearMobilePin();
@@ -309,7 +332,7 @@ export function CollectionDetailStatMain({
 
   return (
     <div className="cd-stat-main">
-      {/* Stable pin probe — pin once hero top slips under the GNB. */}
+      {/* Pin probe kept for layout; condense uses live bar geometry. */}
       <div className="cd-hero-sentinel" ref={sentinelRef} aria-hidden />
       {/* Condensed in-flow slot while the bar is position:fixed. */}
       <div className="cd-hero-bar-spacer" ref={spacerRef} aria-hidden />

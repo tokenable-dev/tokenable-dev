@@ -9,8 +9,8 @@ import { withFlushProp } from "../utils/withFlushProp";
  *   [ Chart ]              [ Trades + Order book ]
  *   [ Similar items ]      [ Details + Pop ]
  *
- * Columns stack separately so “View all trades” only pushes Details down —
- * Similar stays under the chart.
+ * Columns stack separately so the right column (Trades → Details) does not
+ * reflow the left column (Chart → Similar).
  *
  * Sticky `#hero-bar` must sit in a tall parent that also includes this grid.
  */

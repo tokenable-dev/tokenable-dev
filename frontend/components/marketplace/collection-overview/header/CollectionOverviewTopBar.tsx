@@ -117,7 +117,7 @@ export function CollectionOverviewTopBar({
                           />
                           {headlineMetaStrip ? (
                             <p
-                              className={`m-0 max-w-full text-[13px] tracking-[0.02em] text-white/55 max-lg:text-center lg:text-left`}
+                              className={`m-0 max-w-full text-[13px] font-bold tracking-tight text-white/55 max-lg:text-center lg:text-left`}
                             >
                               {headlineMetaStrip}
                             </p>

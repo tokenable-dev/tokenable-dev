@@ -33,7 +33,6 @@ export function TradesTapeScrollList({
   tapeFills,
   flush,
   collectionDetail,
-  showAllRows = false,
   insetXClass = "",
   scrollClass = "",
   maxHeightClass,
@@ -41,7 +40,6 @@ export function TradesTapeScrollList({
   tapeFills: CollectionPlatformTapeFill[];
   flush: boolean;
   collectionDetail?: boolean;
-  showAllRows?: boolean;
   insetXClass?: string;
   scrollClass?: string;
   maxHeightClass?: string;
@@ -59,9 +57,7 @@ export function TradesTapeScrollList({
     <div
       className={[
         collectionDetail
-          ? showAllRows
-            ? "cd-ob-trades-scroll cd-ob-trades-scroll--all min-h-0"
-            : "cd-ob-trades-scroll min-h-0 flex-1"
+          ? "cd-ob-trades-scroll min-h-0 flex-1"
           : "min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto",
         collectionDetail ? "" : insetXClass,
         collectionDetail ? "" : scrollClass,

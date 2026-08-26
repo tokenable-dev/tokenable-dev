@@ -56,7 +56,7 @@ export function RwaDetailAssetPanelHeader({
             className="text-xl font-medium leading-snug tracking-normal text-white sm:text-[1.375rem]"
           />
           {metaText ? (
-            <p className="m-0 text-[13px] tracking-[0.02em] text-white/55">{metaText}</p>
+            <p className="m-0 text-[13px] font-medium tracking-tight text-white/55">{metaText}</p>
           ) : null}
         </div>
       ) : null}

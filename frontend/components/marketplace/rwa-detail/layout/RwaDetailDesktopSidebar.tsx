@@ -113,7 +113,10 @@ export function RwaDetailDesktopSidebar({
               className={`${rwaDetailRightFont.className} ${RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS}`}
             />
             {metaText ? (
-              <p className="m-0 text-[13px] tracking-[0.02em] text-white/55" title={titleTooltip}>
+              <p
+                className={`${rwaDetailRightFont.className} m-0 text-[13px] font-medium tracking-tight text-white/55`}
+                title={titleTooltip}
+              >
                 {metaText}
                 {certNumber ? (
                   <>
