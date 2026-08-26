@@ -445,7 +445,7 @@
   min-width: 0;
   flex: 0 0 auto;
   position: sticky;
-  top: calc(64px + var(--bar-h, 182px) + 12px);
+  top: calc(64px + var(--bar-h, 0px) + 12px);
   z-index: 2;
 }
 
@@ -467,12 +467,11 @@
   width: 100%;
   z-index: 2;
   /*
-   * Sit under sticky hero. Fallback ~expanded bar (150px thumb + padding),
-   * not condensed 72px — wrong fallback briefly opens max-height too wide and
-   * flashes sidebar content below the Trades panel on refresh.
+   * Sit under GNB, then under the condensed hero once it pins (`--bar-h`).
+   * Expanded hero is in-flow (not sticky) so do not reserve ~182px here.
    */
-  top: calc(64px + var(--bar-h, 182px) + 12px);
-  max-height: calc(100vh - 64px - var(--bar-h, 182px) - 24px);
+  top: calc(64px + var(--bar-h, 0px) + 12px);
+  max-height: calc(100vh - 64px - var(--bar-h, 0px) - 24px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -481,8 +480,8 @@
 /* ── Sticky hero bar — Card.html 2026 redesign (`#hero-bar` + `#hero-mid`) ── */
 
 .cd-hero-bar {
-  position: sticky !important;
-  top: 64px;
+  position: relative;
+  top: auto;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -971,8 +970,7 @@
 /* Mobile hero — Card.html ≤1024 (`display: contents` grid) */
 @media (max-width: 1023px) {
   .cd-hero-bar {
-    /* Must beat base `position: sticky !important` — otherwise the expanded
-       hero sticks under the GNB and covers the chart until JS pins late. */
+    /* Expanded hero scrolls with the page; only `.is-stuck` is fixed. */
     position: static !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

@@ -732,6 +732,7 @@
 
 .grid4 {
   display: flex;
+  align-items: stretch;
   gap: 22px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -749,9 +750,13 @@
 .grid4 > .card-wrap,
 .grid4 > .card,
 .grid4 > a.card {
-  flex: 0 0 calc(25% - 17px);
-  min-width: 220px;
+  box-sizing: border-box;
+  flex: 0 0 max(220px, calc(25% - 17px));
+  width: max(220px, calc(25% - 17px));
+  min-width: 0;
+  max-width: max(220px, calc(25% - 17px));
   scroll-snap-align: start;
+  overflow: hidden;
 }
 
 .grid4 > .card-wrap > .card {
@@ -759,10 +764,70 @@
   height: 100%;
 }
 
-/* index.html grid4 cards use inline display:block — spacing comes from .card__body padding only */
-.grid4 .card {
-  display: block;
+/* Same shell for every listing — image frame + text rows do not grow with content. */
+.home-page .grid4 .card {
+  display: flex;
+  flex-direction: column;
   gap: 0;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.home-page .grid4 .card__img {
+  aspect-ratio: 0.72;
+  width: 100%;
+  flex: 0 0 auto;
+  background: #111113;
+  overflow: hidden;
+}
+
+.home-page .grid4 .card__img > * {
+  height: 100%;
+  width: 100%;
+}
+
+.home-page .grid4 .card__img img {
+  object-fit: fill !important;
+  object-position: center;
+}
+
+.home-page .grid4 .card__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.home-page .grid4 .card__title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 1.3em;
+  min-height: 1.3em;
+  max-height: 1.3em;
+}
+
+.home-page .grid4 .card__meta {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-height: 22px;
+  max-height: 22px;
+}
+
+.home-page .grid4 .card__price-row,
+.home-page .grid4 .card__foot {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.home-page .grid4 .card__img .fav .fav-btn,
+.home-page .grid4 .card__img .fav button {
+  width: 32px;
+  height: 32px;
 }
 
 .grid4-arrow {
@@ -840,13 +905,18 @@
   .home-page .grid4 > .card-wrap,
   .home-page .grid4 > .card,
   .home-page .grid4 > a.card {
-    flex: 0 0 55vw;
-    max-width: 220px;
-    min-width: unset;
+    flex: 0 0 min(55vw, 220px);
+    width: min(55vw, 220px);
+    min-width: min(55vw, 220px);
+    max-width: min(55vw, 220px);
+  }
+
+  .home-page .grid4 .card {
+    padding: 6px;
   }
 
   .home-page .grid4 .card__img {
-    aspect-ratio: 0.85;
+    aspect-ratio: 0.72;
   }
 
   .home-page .grid4 .card__body {
@@ -857,10 +927,6 @@
   .home-page .grid4 .card__title {
     font-size: 13px;
     line-height: 1.3;
-    min-height: unset;
-    max-height: none;
-    height: auto;
-    -webkit-line-clamp: 1;
   }
 
   .home-page .grid4 .card__price-row,
@@ -929,10 +995,6 @@
   .home-page .grid4 .card__title {
     font-size: 13px;
     line-height: 1.3;
-    min-height: unset;
-    max-height: none;
-    height: auto;
-    -webkit-line-clamp: 1;
   }
 
   .home-page .grid4 .card__meta {

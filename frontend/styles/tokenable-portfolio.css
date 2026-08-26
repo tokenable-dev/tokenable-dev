@@ -2330,9 +2330,17 @@
     box-shadow: none;
     border-radius: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    overflow-x: hidden;
-    overscroll-behavior: none;
-    touch-action: pan-y;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: none;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .portfolio-page__tabs.tk-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .portfolio-page__tabs .tk-tab {
@@ -2612,7 +2620,7 @@
   }
 
   /*
-   * Phone tabs: same full labels as desktop. Do not pan the sticky tab bar.
+   * Phone: keep the bar sticky vertically, but allow horizontal pan to reach Redeem.
    */
   .portfolio-page__tabs.tk-tabs {
     padding: 8px 8px;
@@ -2620,10 +2628,19 @@
     margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px)));
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
     border-bottom: none;
-    overflow-x: hidden;
-    overscroll-behavior: none;
-    touch-action: pan-y;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: none;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 0;
+    flex-wrap: nowrap;
+  }
+
+  .portfolio-page__tabs.tk-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .portfolio-page__tabs #portfolio-tab-redeem {
@@ -2635,11 +2652,11 @@
   }
 
   .portfolio-page__tabs .tk-tab {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-width: 0;
     justify-content: center;
     font-size: 12px;
-    padding: 10px 4px;
+    padding: 10px 8px;
     gap: 4px;
     white-space: nowrap;
   }
@@ -2672,8 +2689,8 @@
   }
 
   .portfolio-page--partner .portfolio-page__tabs .tk-tab {
-    flex: 1 1 0;
-    padding: 10px 4px;
+    flex: 0 0 auto;
+    padding: 10px 8px;
   }
 
   .pf-value-hero {

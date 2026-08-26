@@ -99,7 +99,7 @@ function HeroMeta({
 /**
  * Card.html `#hero-bar` (2026 redesign):
  * image | mid(title+meta · last price + stats + Buy/Bid buttons).
- * Mobile: book hidden → `#ob-bottom-bar`; sticky condense on scroll.
+ * Expanded bar stays in flow. Condensed bar pins after the hero scrolls away.
  */
 export function CollectionDetailStatMain({
   stuckTitle,
@@ -170,26 +170,21 @@ export function CollectionDetailStatMain({
     if (!bar || !spacer) return;
 
     const STUCK_BAR_H = 68;
-    /**
-     * After the expanded hero has fully cleared the GNB, require this much
-     * additional scroll before condensing. Enough to avoid flick collapse,
-     * but not so high that the full hero stays on screen too long.
-     */
-    const condenseExtraPx = () =>
-      Math.max(240, Math.round(window.innerHeight * 0.3));
-    /** Extra scroll (px) required to unpin after a pin — avoids thrash. */
-    const UNPIN_HYSTERESIS_PX = 80;
+    const GNB_H = 64;
+    /** Pin only after the expanded hero has fully scrolled under the GNB. */
+    const PIN_SLOP_PX = 8;
+    /** Extra px before unpinning — avoids flicker at the threshold. */
+    const UNPIN_SLOP_PX = 28;
 
     let raf = 0;
     let lastBarH = -1;
     /** Last measured expanded (non-stuck) bar height. */
     let expandedH = 0;
-    /** scrollY at which we last pinned — unpin only after scrolling back past this. */
-    let pinnedAtScrollY: number | null = null;
 
     const publishBarH = () => {
-      const next = Math.round(bar.getBoundingClientRect().height);
-      if (next <= 0 || next === lastBarH) return;
+      const stuck = bar.classList.contains("is-stuck");
+      const next = stuck ? Math.round(bar.getBoundingClientRect().height) : 0;
+      if (next === lastBarH) return;
       lastBarH = next;
       document.documentElement.style.setProperty("--bar-h", `${next}px`);
     };
@@ -214,33 +209,27 @@ export function CollectionDetailStatMain({
       bar.classList.remove("is-stuck");
       bar.style.left = "";
       bar.style.width = "";
-      pinnedAtScrollY = null;
     };
 
     /**
      * Pin condensed hero as `position:fixed` and reserve the *expanded*
-     * in-flow height on the spacer. Shrinking a sticky bar in-place (or
-     * inserting a delta spacer above it) invalidates sticky geometry and
-     * can slam scrollY back to 0 — same model on desktop and mobile.
+     * in-flow height on the spacer (off-screen once we pin after scroll-past).
      */
-    const pinBar = (scrollY: number) => {
+    const pinBar = () => {
       const mb = marginBottom();
       measureExpandedH();
       const flowH = expandedH > STUCK_BAR_H ? expandedH : STUCK_BAR_H;
       if (window.innerWidth > 1023) {
-        // Desktop: lock content-box left/width before leaving flow.
         const sr = spacer.getBoundingClientRect();
         const box = sr.width >= 8 ? sr : bar.getBoundingClientRect();
         bar.style.left = `${Math.round(box.left)}px`;
         bar.style.width = `${Math.round(box.width)}px`;
       } else {
-        // Mobile CSS owns left/right gutters — clear any desktop inline box.
         bar.style.left = "";
         bar.style.width = "";
       }
       bar.classList.add("is-stuck");
       spacer.style.height = `${flowH + mb}px`;
-      pinnedAtScrollY = scrollY;
     };
 
     const syncFixedGeometry = () => {
@@ -256,13 +245,15 @@ export function CollectionDetailStatMain({
       bar.style.width = `${Math.round(sr.width)}px`;
     };
 
+    const slotBottom = (wasStuck: boolean) =>
+      wasStuck
+        ? spacer.getBoundingClientRect().bottom
+        : bar.getBoundingClientRect().bottom;
+
     const onScroll = () => {
       raf = 0;
-      const mobile = window.innerWidth <= 1023;
-      const stuckTop = mobile ? 64 : 64;
       const wasStuck = bar.classList.contains("is-stuck");
 
-      // Hidden twin (desktop cluster on mobile / mobile panel on desktop).
       if (!wasStuck && !barIsVisible()) {
         publishBarH();
         return;
@@ -271,32 +262,19 @@ export function CollectionDetailStatMain({
       measureExpandedH();
       const scrollY =
         window.scrollY || document.documentElement.scrollTop || 0;
-      const rect = bar.getBoundingClientRect();
-      const nearTop = rect.top <= stuckTop + 1;
+      const bottom = slotBottom(wasStuck);
 
       let shouldStuck: boolean;
       if (scrollY <= 8) {
         shouldStuck = false;
-      } else if (wasStuck && pinnedAtScrollY != null) {
-        // Once fixed, only scrollY decides unpin — do not use nearTop
-        // (fixed bar is always near the GNB).
-        shouldStuck = scrollY >= pinnedAtScrollY - UNPIN_HYSTERESIS_PX;
       } else if (wasStuck) {
-        shouldStuck = true;
-      } else if (mobile) {
-        const extra = condenseExtraPx();
-        shouldStuck = rect.bottom <= stuckTop - extra;
+        shouldStuck = bottom <= GNB_H + UNPIN_SLOP_PX;
       } else {
-        // Desktop: sticky must have engaged, then scroll a bit further.
-        const pinThreshold = Math.max(
-          120,
-          Math.round(window.innerHeight * 0.15),
-        );
-        shouldStuck = nearTop && scrollY >= pinThreshold;
+        shouldStuck = bottom <= GNB_H - PIN_SLOP_PX;
       }
 
       if (shouldStuck) {
-        if (!wasStuck) pinBar(scrollY);
+        if (!wasStuck) pinBar();
         else syncFixedGeometry();
       } else if (wasStuck) {
         clearPin();
