@@ -353,12 +353,13 @@ export function MarketsFilterBar({
 
   const moreCount = useMemo(() => {
     let n = 0;
+    if (categoryActive) n += 1;
     if (setActive) n += 1;
     if (priceActive) n += 1;
     if (gradeActive) n += 1;
     if (vaultActive) n += 1;
     return n;
-  }, [setActive, priceActive, gradeActive, vaultActive]);
+  }, [categoryActive, setActive, priceActive, gradeActive, vaultActive]);
 
   useEffect(() => {
     setDrawerMounted(true);

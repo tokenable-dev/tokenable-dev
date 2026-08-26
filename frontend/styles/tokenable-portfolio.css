@@ -223,10 +223,6 @@
   min-width: 0;
 }
 
-.portfolio-page__tabs .pf-tab-label__short {
-  display: none;
-}
-
 .portfolio-page__tabs .pf-tab-n {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 11.5px;
@@ -1142,6 +1138,44 @@
 
 .pf-cost-edit-wrap--mobile {
   margin-left: auto;
+}
+
+.pf-cost-edit-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+  flex: 1;
+}
+
+.pf-cost-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pf-cost-edit-action {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: var(--azure);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pf-cost-edit-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pf-cost-edit-action--ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .portfolio-page .pf-table-strong {
@@ -2296,8 +2330,9 @@
     box-shadow: none;
     border-radius: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-y;
   }
 
   .portfolio-page__tabs .tk-tab {
@@ -2316,6 +2351,25 @@
 
   .portfolio-page__tabs .pf-redeem-toolbar-btn {
     margin-left: 12px;
+  }
+
+  /* iOS Safari zooms focused inputs under 16px — keep cost-basis editor at 16px. */
+  .portfolio-page .pf-cost-edit-input,
+  .pf-gtile .pf-cost-hover .pf-cost-edit-input {
+    font-size: 16px !important;
+    min-height: 40px;
+    height: 40px;
+    padding: 6px 8px 6px 22px !important;
+  }
+
+  .pf-gtile .pf-cost-hover .pf-cost-edit-wrap {
+    height: 40px;
+    min-width: 80px;
+  }
+
+  .portfolio-page .pf-cost-edit-prefix,
+  .pf-gtile .pf-cost-hover .pf-cost-edit-prefix {
+    font-size: 16px !important;
   }
 
   .portfolio-page__tab-panel {
@@ -2558,8 +2612,7 @@
   }
 
   /*
-   * Phone tabs: equal columns with short labels (Bids / History).
-   * Redeem stays in the tab row (scrolls if needed).
+   * Phone tabs: same full labels as desktop. Do not pan the sticky tab bar.
    */
   .portfolio-page__tabs.tk-tabs {
     padding: 8px 8px;
@@ -2567,8 +2620,9 @@
     margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px)));
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
     border-bottom: none;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-y;
     gap: 0;
   }
 
@@ -2587,20 +2641,13 @@
     font-size: 12px;
     padding: 10px 4px;
     gap: 4px;
+    white-space: nowrap;
   }
 
   .portfolio-page__tabs .tk-tab svg {
     width: 14px;
     height: 14px;
     flex-shrink: 0;
-  }
-
-  .portfolio-page__tabs .pf-tab-label__full {
-    display: none;
-  }
-
-  .portfolio-page__tabs .pf-tab-label__short {
-    display: inline;
   }
 
   .portfolio-page__tabs .pf-tab-n {
@@ -2702,14 +2749,26 @@
     font-weight: 700;
   }
 
+  .pf-mobile-asset-card__row:has(.pf-cost-edit-form) {
+    align-items: flex-start;
+  }
+
   .pf-mobile-asset-card .pf-cost-edit-wrap {
-    margin-left: auto;
-    width: min(112px, 52%);
+    margin-left: 0;
+    width: min(160px, 100%);
   }
 
   .pf-mobile-asset-card .pf-cost-edit-input {
     width: 100%;
     box-sizing: border-box;
+    /* iOS zooms the page if focused inputs are under 16px. */
+    font-size: 16px;
+    height: 40px;
+    padding: 6px 8px 6px 22px;
+  }
+
+  .pf-mobile-asset-card .pf-cost-edit-prefix {
+    font-size: 16px;
   }
 
   .pf-mobile-asset-card__actions {

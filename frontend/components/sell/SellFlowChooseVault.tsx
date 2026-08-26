@@ -10,7 +10,7 @@ type Flow = ReturnType<typeof useSellFlow>;
 const PARTNER_SELF_VAULT_HINT =
   "Partner vault is a partner service for companies under contract with Tokenable. To apply, contact ";
 
-/** Choose-Vault.html #hero-partner — partner vault first, PSA second, no pre-selection. */
+/** Choose-Vault.html #hero-partner — PSA first, Tokenable Vault second. */
 const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
   {
     q: "What is a vault?",
@@ -106,10 +106,15 @@ const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
 function CheckFeat({ tone = "pos" }: { tone?: "pos" | "warn" }) {
   if (tone === "warn") {
     return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2.2" aria-hidden>
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="13" />
-        <line x1="12" y1="16.5" x2="12" y2="16.5" />
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#f59e0b" />
+        <path
+          d="M12 7.2v6.2M12 16.6v.2"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -231,6 +236,25 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
 
         <div className="sell-flow-vault-grid">
           <VaultOption
+            id="psa"
+            selected={vaultChoice === "psa"}
+            onSelect={() => selectVault("psa")}
+            badge="14—16 BUSINESS DAYS AFTER ARRIVAL"
+            badgeTone="muted"
+            icon={
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <polyline points="9 12 11 14 15 10" />
+              </svg>
+            }
+            title="PSA vault"
+            description="Send them to PSA. Once verified, your listing goes live."
+            features={[
+              { text: "Verified by PSA before it goes live" },
+              { text: "Requires shipping and intake review", tone: "warn" },
+            ]}
+          />
+          <VaultOption
             id="self"
             selected={vaultChoice === "self"}
             onSelect={() => selectVault("self")}
@@ -244,35 +268,13 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
                 <path d="M7 4v16M17 4v16" />
               </svg>
             }
-            title="Approved Partner Vaults"
-            description={
-              <>
-                You vault the cards and sell right away.
-                <br />
-                Ship only when sold and delivery is requested.
-              </>
-            }
-          />
-          <VaultOption
-            id="psa"
-            selected={vaultChoice === "psa"}
-            onSelect={() => selectVault("psa")}
-            badge="Delivery time + 15 days intake"
-            badgeTone="muted"
-            icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <polyline points="9 12 11 14 15 10" />
-              </svg>
-            }
-            title="PSA Vaults"
-            description={
-              <>
-                Ship to our PSA vault account.
-                <br />
-                All cards verified, secured, and insured by PSA.
-              </>
-            }
+            title="Tokenable Vault"
+            description="Cards you already hold. List them right away — no shipping, no review."
+            features={[
+              { text: "Listed within minutes" },
+              { text: "Stays in your own vault" },
+              { text: "You attest to authenticity and condition", tone: "warn" },
+            ]}
           />
         </div>
 

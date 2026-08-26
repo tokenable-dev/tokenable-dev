@@ -54,16 +54,9 @@ function TabCount({ value }: { value: number }) {
   return <span className="pf-tab-n tkl-mono">{value}</span>;
 }
 
-/** Full label on desktop; shorter label on phone so count badges don't collide. */
-function TabLabel({ full, short }: { full: string; short?: string }) {
-  return (
-    <span className="pf-tab-label">
-      <span className="pf-tab-label__full">{full}</span>
-      <span className="pf-tab-label__short" aria-hidden>
-        {short ?? full}
-      </span>
-    </span>
-  );
+/** Full tab names (desktop and phone). */
+function TabLabel({ full }: { full: string }) {
+  return <span className="pf-tab-label">{full}</span>;
 }
 
 export function PortfolioMainSection({
@@ -132,7 +125,7 @@ export function PortfolioMainSection({
           onClick={() => onTabChange("bids")}
         >
           <BidsTabIcon />
-          <TabLabel full="Active Bids" short="Bids" />
+          <TabLabel full="Active Bids" />
           <TabCount value={counts.bids} />
         </TkTab>
         <TkTab
@@ -143,7 +136,7 @@ export function PortfolioMainSection({
           onClick={() => onTabChange("history")}
         >
           <HistoryTabIcon />
-          <TabLabel full="TX History" short="History" />
+          <TabLabel full="TX History" />
           <TabCount value={counts.history} />
         </TkTab>
 

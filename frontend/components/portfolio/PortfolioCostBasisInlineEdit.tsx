@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 import { PortfolioCostBasisPencilButton } from "./PortfolioCostBasisPencil";
 
@@ -17,7 +17,7 @@ function parseCostInput(raw: string, fallback: number | null | undefined): numbe
   return null;
 }
 
-/** Portfolio.html inline cost basis edit — pencil → input; Enter saves, Escape/blur cancels. */
+/** Pencil → input. Desktop: Enter saves, Escape/blur cancels. Mobile: Apply / keyboard Done. */
 export function PortfolioCostBasisInlineEdit({
   assetName,
   valueUsd,
@@ -95,7 +95,19 @@ export function PortfolioCostBasisInlineEdit({
 
   const handleBlur = () => {
     if (skipBlurRef.current) return;
+    // Mobile: keep editing until Apply / Cancel (blur would fire before the tap).
+    if (layout === "mobile") return;
     cancel();
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void commit();
+  };
+
+  const retainFocusOnPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
   };
 
   const input = (
@@ -108,6 +120,7 @@ export function PortfolioCostBasisInlineEdit({
         className="tk-input pf-cost-edit-input"
         type="text"
         inputMode="decimal"
+        enterKeyHint="done"
         value={draft}
         disabled={saving}
         aria-label={`Edit cost basis for ${assetName}`}
@@ -125,7 +138,28 @@ export function PortfolioCostBasisInlineEdit({
         <div className="pf-mobile-asset-card__row">
           <span className="pf-mobile-asset-card__label">Cost</span>
           {editing ? (
-            input
+            <form className="pf-cost-edit-form" onSubmit={handleSubmit}>
+              {input}
+              <div className="pf-cost-edit-actions">
+                <button
+                  type="button"
+                  className="pf-cost-edit-action pf-cost-edit-action--ghost"
+                  disabled={saving}
+                  onPointerDown={retainFocusOnPointerDown}
+                  onClick={cancel}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="pf-cost-edit-action"
+                  disabled={saving}
+                  onPointerDown={retainFocusOnPointerDown}
+                >
+                  Apply
+                </button>
+              </div>
+            </form>
           ) : (
             <span className="pf-mobile-asset-card__val-wrap">
               <span className="pf-mobile-asset-card__val tkl-mono">
