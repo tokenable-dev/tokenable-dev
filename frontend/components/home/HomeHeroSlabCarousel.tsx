@@ -15,7 +15,7 @@ type HomeHeroSlabCarouselProps = {
   mobileSlotRef: React.RefObject<HTMLElement | null>;
 };
 
-const MOBILE_MQ = "(max-width: 767px)";
+const MOBILE_MQ = "(max-width: 768px)";
 const INIT_TIMEOUT_MS = 10_000;
 const MOBILE_SLOT_WAIT_MS = 2_000;
 

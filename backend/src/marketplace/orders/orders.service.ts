@@ -1327,10 +1327,17 @@ export class OrdersService {
           saved.updatedAt ?? new Date(),
           chainId,
         );
-        await this.refreshChartsAfterHoldingsMove(
+        // Don't block the fulfill HTTP response on chart RPC — client has a fetch timeout.
+        void this.refreshChartsAfterHoldingsMove(
           [buyerAddress, saved.offerer],
           chainId,
-        );
+        ).catch((e) => {
+          this.logger.warn(
+            `refreshChartsAfterHoldingsMove (fulfillOrder ask) failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
         void this.notifications
           .notifyTradeSettled({
             ask: saved,
@@ -1388,10 +1395,16 @@ export class OrdersService {
           saved.updatedAt ?? new Date(),
           chainId,
         );
-        await this.refreshChartsAfterHoldingsMove(
+        void this.refreshChartsAfterHoldingsMove(
           [buyerAddress, saved.offerer],
           chainId,
-        );
+        ).catch((e) => {
+          this.logger.warn(
+            `refreshChartsAfterHoldingsMove (fulfillOrder bid) failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
       }
     }
 
@@ -1519,10 +1532,16 @@ export class OrdersService {
       chainId,
     );
 
-    await this.refreshChartsAfterHoldingsMove(
+    void this.refreshChartsAfterHoldingsMove(
       [bid.offerer, ask.offerer],
       chainId,
-    );
+    ).catch((e) => {
+      this.logger.warn(
+        `refreshChartsAfterHoldingsMove (fulfillMatchedPair) failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    });
 
     void this.notifications
       .notifyTradeSettled({

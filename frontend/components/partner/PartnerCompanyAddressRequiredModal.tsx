@@ -129,11 +129,12 @@ export function PartnerCompanyAddressRequiredModal() {
     meQuery.data?.hasCompanyAddress === false;
 
   const partnerId = meQuery.data?.partnerId ?? null;
-  const vaultLabel =
+  const vaultLabelRaw =
     meQuery.data?.vaultLabel ??
     (meQuery.data?.displayName
-      ? `${meQuery.data.displayName} vault`
-      : "Partner vault");
+      ? `${meQuery.data.displayName} Vault`
+      : "Partner Vault");
+  const vaultLabel = vaultLabelRaw.replace(/\bvault\b/gi, "Vault");
 
   const [deferred, setDeferred] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);

@@ -140,6 +140,53 @@ export function formatPortfolioGradeLabel(meta: RwaMetadata | null): string | nu
   return null;
 }
 
+const PSA_SCORE_QUALIFIER: Record<string, string> = {
+  "10": "Gem Mint",
+  "9": "Mint",
+  "8": "NM-MT",
+  "7": "NM",
+  "6": "EX-MT",
+  "5": "EX",
+  "4": "VG-EX",
+  "3": "VG",
+  "2": "GOOD",
+  "1": "PR",
+  auth: "Authentic",
+};
+
+function prettyGradeQualifier(raw: string): string | null {
+  const t = raw.replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  if (/gem\s*m(?:in)?t/i.test(t)) return "Gem Mint";
+  if (/\bmint\b/i.test(t) && !/gem/i.test(t)) return "Mint";
+  if (/nm\s*-?\s*mt/i.test(t)) return "NM-MT";
+  if (/\bnm\b/i.test(t)) return "NM";
+  return null;
+}
+
+/** Table subtitle under the card title — `PSA 10 · Gem Mint`. */
+export function formatPortfolioGradeSubtitle(meta: RwaMetadata | null): string | null {
+  const chip = formatPortfolioGradeLabel(meta);
+  if (!chip) return null;
+
+  const graded = getGraded(meta);
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const grade = graded?.grade as Record<string, unknown> | undefined;
+  const fromMeta = prettyGradeQualifier(
+    pickMetaString(psa?.gradeDescription, psa?.gradeLabel, grade?.label) ?? "",
+  );
+  const attrs = gradeTraitsFromAttributes(meta);
+  const score = meta
+    ? resolvePortfolioGradeScoreString(meta, graded, attrs)
+    : undefined;
+  const fromScore = score ? PSA_SCORE_QUALIFIER[score] ?? null : null;
+  const qualifier = fromMeta || fromScore;
+  if (qualifier && !chip.toLowerCase().includes(qualifier.toLowerCase())) {
+    return `${chip} · ${qualifier}`;
+  }
+  return chip;
+}
+
 /** Bucket components for {@link resolveExternalMarketUsd} — matches collection detail `comp`. */
 export function marketTierComponentsFromMetadata(
   meta: RwaMetadata | null,

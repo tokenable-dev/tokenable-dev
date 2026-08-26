@@ -34,6 +34,7 @@ function orderToPortfolioBidRow(o: OrderListItem): PortfolioBidRow | null {
     priceLabel: formatOrderUsdc6(o.price),
     status: o.status,
     createdAt: o.createdAt,
+    endTime: o.endTime,
     updatedAt: o.updatedAt,
   };
 }

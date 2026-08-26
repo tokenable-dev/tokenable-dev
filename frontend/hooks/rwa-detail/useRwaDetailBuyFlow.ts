@@ -10,6 +10,7 @@ import { mapWalletError } from "@/lib/network";
 import { invalidateAfterRwaDetail } from "@/lib/core/invalidation";
 import type { useWriteContract } from "wagmi";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export function useRwaDetailBuyFlow(input: {
   tokenId: number;
@@ -33,6 +34,7 @@ export function useRwaDetailBuyFlow(input: {
   } = input;
 
   const { chainId } = useAppChain();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
 
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyErr, setBuyErr] = useState<string | null>(null);
@@ -47,13 +49,15 @@ export function useRwaDetailBuyFlow(input: {
   const handleFulfillAsk = useCallback(
     async (overrideAsk?: Order | null) => {
       const ask = overrideAsk ?? activeAskListing;
-      if (!ask || !address || !publicClient) return;
+      if (!ask || !publicClient) return;
       setBuyErr(null);
       setBuyBusy(true);
       try {
+        // Force Privy account wallet (not a lingering MetaMask connector).
+        const signerAddress = await ensureAccountWalletReady();
         await fulfillAskListingOrder({
           ask,
-          address: address as Address,
+          address: signerAddress as Address,
           publicClient,
           writeContractAsync: writeContractAsync as Parameters<
             typeof fulfillAskListingOrder
@@ -83,10 +87,10 @@ export function useRwaDetailBuyFlow(input: {
     },
     [
       activeAskListing,
-      address,
       publicClient,
       writeContractAsync,
       chainId,
+      ensureAccountWalletReady,
       invalidateMarketplaceQueries,
       onPurchaseSuccess,
       tokenId,

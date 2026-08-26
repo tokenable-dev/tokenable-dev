@@ -136,7 +136,7 @@ export function AdminHomePreviewPanel() {
         <p className="mt-2 leading-relaxed">
           Mirrors the public home page: <strong>Top movers</strong> ranks every
           marketplace collection by <strong>90-day</strong> Cardhedger reference
-          gain (max 20, positive only). <strong>Just vaulted</strong> lists the 20
+          gain (max 8 for a 4×2 wrap grid, positive only). <strong>Just vaulted</strong> lists the 20
           most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
         </p>
         <p className="mt-2">
@@ -166,12 +166,12 @@ export function AdminHomePreviewPanel() {
 
       <div className={ADMIN_EMBEDDED_DARK}>
         <p className={`px-1 pb-3 text-xs ${ADMIN_TEXT_META}`}>
-          Dark carousel below matches the on-site card UI (read-only preview).
+          Dark preview below matches the on-site card UI (read-only).
         </p>
         <div className="rounded-xl border border-zinc-700/50 bg-[#0a0a0f] p-4">
           <p className="mb-3 text-sm font-semibold text-white">Top movers cards</p>
           <p className={`text-xs ${ADMIN_TEXT_META}`}>
-            {topMovers.length} collections — open home for full carousel UX.
+            {topMovers.length} collections — open home for the 4×2 wrap grid.
           </p>
         </div>
       </div>

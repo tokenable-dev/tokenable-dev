@@ -7,7 +7,7 @@ import { HERO_LANDING_IMAGE_URLS } from "@/lib/home/heroCarouselAssets";
  */
 export function useHeroCarouselImageSources() {
   return {
-    data: [...HERO_LANDING_IMAGE_URLS],
+    data: HERO_LANDING_IMAGE_URLS,
     isPending: false,
   };
 }

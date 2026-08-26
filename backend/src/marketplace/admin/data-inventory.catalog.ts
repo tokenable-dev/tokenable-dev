@@ -23,19 +23,19 @@ export const DATA_INVENTORY_DOMAINS: {
 }[] = [
   {
     id: 'catalog',
-    label: 'Catalog & mint',
+    label: 'Catalog and mint',
     summary:
       'Collections, RWA tokens, partner bulk mint — one row per vaulted card or mint job.',
   },
   {
     id: 'markets',
-    label: 'Markets & Cardhedger',
+    label: 'Markets and Cardhedger',
     summary:
       'Materialized prices, Top 100 ranks, nightly delta imports — refreshed by workers, never overwritten in place for history tables.',
   },
   {
     id: 'portfolio',
-    label: 'Portfolio & watchlist',
+    label: 'Portfolio and watchlist',
     summary:
       'Daily wallet totals (09:00 KST cron), per-holding cost basis, saved collections.',
   },
@@ -46,7 +46,7 @@ export const DATA_INVENTORY_DOMAINS: {
   },
   {
     id: 'people',
-    label: 'People & audit',
+    label: 'People and audit',
     summary: 'Privy accounts, linked wallets, append-only KYC transitions.',
   },
   {
@@ -106,7 +106,7 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     table: 'marketplace_partners',
     domain: 'catalog',
     label: 'Consignment partners',
-    description: 'Company display name + entrusted hot wallet for partner mint & list flows.',
+    description: 'Company display name + entrusted hot wallet for partner mint and list flows.',
     howAccumulated: 'Admin CRUD on Partners page.',
     adminPagePath: '/marketplace/admin/partners',
   },

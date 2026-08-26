@@ -98,7 +98,7 @@ export function MarketplaceAdminPartnersPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Partners"
-        subtitle="Register company wallets for Partner vault and optional partner mint & list. Private keys are optional for Partner vault eligibility; bulk mint requires a key encrypted at rest."
+        subtitle="Register company wallets for Partner vault and optional partner mint and list. Private keys are optional for Partner vault eligibility; bulk mint requires a key encrypted at rest."
       />
 
       <p className={`mb-6 text-sm ${ADMIN_TEXT_SECONDARY}`}>

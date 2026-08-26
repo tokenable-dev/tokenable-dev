@@ -59,7 +59,7 @@ export function PortfolioMobileAssetCard({
   return (
     <div
       className={`pf-mobile-asset-card${selectMode && selected ? " pf-mobile-asset-card--selected" : ""}${selectMode ? " pf-mobile-asset-card--select" : ""}${dimClass}`}
-      role={selectMode ? "button" : undefined}
+      role={selectMode ? "button" : "listitem"}
       tabIndex={selectMode ? 0 : undefined}
       onClick={
         selectMode
@@ -177,13 +177,13 @@ export function PortfolioMobileAssetCard({
               </span>
             </div>
             <div className="pf-mobile-asset-card__row">
-              <span className="pf-mobile-asset-card__label">Profit</span>
+              <span className="pf-mobile-asset-card__label">$ Chg.</span>
               <span className={`pf-mobile-asset-card__val tkl-mono pf-table-pl ${plClass}`}>
                 {pnl ? pnl.profit : "—"}
               </span>
             </div>
             <div className="pf-mobile-asset-card__row">
-              <span className="pf-mobile-asset-card__label">Return</span>
+              <span className="pf-mobile-asset-card__label">% Chg.</span>
               <span
                 className={`pf-mobile-asset-card__val pf-mobile-asset-card__return tkl-mono pf-table-pl ${plClass}`}
               >

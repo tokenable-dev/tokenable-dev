@@ -16,6 +16,8 @@ export type OrderListItem = {
   side: 'ask' | 'bid';
   status: OrderStatus;
   createdAt: string;
+  /** Unix ISO timestamp for order expiry (Seaport endTime). */
+  endTime?: string;
   updatedAt?: string;
   offerer: string;
   /** Buyer wallet recorded on ask fill (`parameters._filledByBuyer`). */
@@ -91,6 +93,12 @@ export function orderToListItem(
       o.createdAt instanceof Date
         ? o.createdAt.toISOString()
         : String(o.createdAt),
+    endTime:
+      o.endTime instanceof Date
+        ? o.endTime.toISOString()
+        : o.endTime != null
+          ? String(o.endTime)
+          : undefined,
     updatedAt:
       o.updatedAt instanceof Date
         ? o.updatedAt.toISOString()

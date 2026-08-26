@@ -24,7 +24,6 @@ import {
   useRedeemSelection,
 } from "@/hooks/portfolio";
 import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
-import { useIsMobileViewport } from "@/hooks/ui";
 import {
   PORTFOLIO_USDC_DECIMALS,
   buildPortfolioPricedRows,
@@ -33,7 +32,6 @@ import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import {
   getPortfolioActivityOrders,
-  listPartnerRedeems,
   marketplaceRqPolicy,
   postRwaMetadataBatchBatched,
   postRwaVaultInfoBatch,
@@ -60,7 +58,6 @@ import {
   PortfolioRedeemInProgressSection,
   PortfolioMainSection,
   type PortfolioMainTab,
-  PortfolioSummaryBar,
   PortfolioValuePanel,
 } from "@/components/portfolio";
 import { PartnerPortfolioHeader } from "@/components/portfolio/PartnerPortfolioHeader";
@@ -69,13 +66,11 @@ import {
   PORTFOLIO_PATH,
   portfolioUrl,
 } from "@/lib/portfolio/portfolioPaths";
-import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/modals/RwaDetailListModalHost";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioTableHelpers";
-import { openToShipCount } from "@/lib/partner/partnerRedeemStats";
 import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 
 export type PortfolioPageVariant = "default" | "partner";
@@ -110,8 +105,6 @@ export function PortfolioPageView({
     Boolean(portfolioAddress) &&
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
-  /** Align with GNB / portfolio CSS mobile breakpoint (≤1024). */
-  const isMobileViewport = useIsMobileViewport(1024);
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
   const [savingCostBasisTokenId, setSavingCostBasisTokenId] = useState<number | null>(null);
   const [listModal, setListModal] = useState<{
@@ -133,16 +126,12 @@ export function PortfolioPageView({
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (isPartnerPortfolio && (tab === "redeem" || tab === "redemptions")) {
-      setPortfolioMainTab("collectibles");
-      return;
-    }
     if (tab === "bids") {
       setPortfolioMainTab("bids");
       return;
     }
     if (tab === "redeem" || tab === "redemptions") {
-      setPortfolioMainTab("redeem");
+      setPortfolioMainTab("collectibles");
       return;
     }
     if (tab === "history" || tab === "transaction-history" || tab === "watchlist") {
@@ -318,6 +307,17 @@ export function PortfolioPageView({
     return m;
   }, [metadataByTokenId, activityMetaQuery.data]);
 
+  const activityImageByTokenId = useMemo(() => {
+    const m = new Map<number, string | null>();
+    for (const a of assets) {
+      m.set(a.tokenId, a.imageUrl);
+    }
+    for (const item of activityMetaQuery.data?.items ?? []) {
+      m.set(item.tokenId, item.imageUrl ?? m.get(item.tokenId) ?? null);
+    }
+    return m;
+  }, [assets, activityMetaQuery.data]);
+
   const vaultInfoQuery = useQuery({
     queryKey: rq.rwaVaultInfoBatch(
       portfolioAddress,
@@ -341,7 +341,7 @@ export function PortfolioPageView({
     return m;
   }, [vaultInfoQuery.data]);
 
-  const { costBasisByTokenId, hiddenSet } = usePortfolioHoldings(
+  const { costBasisByTokenId, acquiredAtByTokenId, hiddenSet } = usePortfolioHoldings(
     portfolioAddress,
     tokenIds,
     portfolioDataEnabled,
@@ -393,10 +393,54 @@ export function PortfolioPageView({
   const myBids = usePortfolioMyBids(portfolioDataEnabled ? portfolioAddress : undefined);
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
+    bidsAddress: portfolioAddress,
     queryClient,
     refetchActiveOrders,
-    refetchPortfolioBids: () => myBids.refetchBids(),
   });
+
+  const topBidCollectionKeys = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of uniqueCollectionKeys) {
+      const key = raw?.trim();
+      if (!key) continue;
+      const lower = key.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      out.push(key);
+    }
+    for (const bid of myBids.activeBids) {
+      const key = bid.collectionKey?.trim();
+      if (!key) continue;
+      const lower = key.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      out.push(key);
+    }
+    return out;
+  }, [uniqueCollectionKeys, myBids.activeBids]);
+
+  const collectionTopBids = usePortfolioCollectionTopBids(
+    topBidCollectionKeys,
+    portfolioDataEnabled,
+  );
+
+  const highestBidByCollectionKey = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const [key, info] of collectionTopBids.byCollectionKey) {
+      map.set(key, info.highestBidUsd);
+      map.set(key.toLowerCase(), info.highestBidUsd);
+    }
+    return map;
+  }, [collectionTopBids.byCollectionKey]);
+
+  const bidsByCollectionKey = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    for (const [key, info] of collectionTopBids.byCollectionKey) {
+      map.set(key, info.bids);
+    }
+    return map;
+  }, [collectionTopBids.byCollectionKey]);
 
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
@@ -404,8 +448,14 @@ export function PortfolioPageView({
       fulfilledOrders,
       portfolioAddress,
       activityMetadataByTokenId,
+      activityImageByTokenId,
     );
-  }, [fulfilledOrders, portfolioAddress, activityMetadataByTokenId]);
+  }, [
+    fulfilledOrders,
+    portfolioAddress,
+    activityMetadataByTokenId,
+    activityImageByTokenId,
+  ]);
 
   const visibleAssetRows = useMemo(
     () => assetRows.filter((row) => !hiddenSet.has(row.tokenId)),
@@ -484,6 +534,7 @@ export function PortfolioPageView({
         activeListingOrderHash: null,
         setName: null,
         marketPreviewRaw: null,
+        sparkline1y: [],
       };
     });
   }, [phantomRedeemTokenIds, phantomMetaQuery.data]);
@@ -529,6 +580,7 @@ export function PortfolioPageView({
         activeListingOrderHash: null,
         setName: null,
         marketPreviewRaw: null,
+        sparkline1y: [],
       };
     });
   }, [
@@ -607,24 +659,11 @@ export function PortfolioPageView({
     ],
   );
 
-  const collectionTopBids = usePortfolioCollectionTopBids(
-    uniqueCollectionKeys,
-    portfolioDataEnabled,
-  );
-
-  const bidsByCollectionKey = useMemo(() => {
-    const map = new Map<string, Order[]>();
-    for (const [key, info] of collectionTopBids.byCollectionKey) {
-      map.set(key, info.bids);
-    }
-    return map;
-  }, [collectionTopBids.byCollectionKey]);
-
   const {
     dailySnapshotsLoading,
     portfolioValue,
-    dailyChartPoints,
-    dailyChartLabels,
+    dailyPnlUsd,
+    dailyPnlPct,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
   const assetsSectionLoading = idsLoading || assetsLoading;
@@ -684,15 +723,6 @@ export function PortfolioPageView({
     openPortfolioSetPriceModal,
   ]);
 
-  const partnerRedeemsQuery = useQuery({
-    queryKey: rq.partnerRedeems(),
-    queryFn: () => listPartnerRedeems({ limit: 100 }),
-    enabled: isPartnerPortfolio && portfolioDataEnabled,
-    staleTime: 15_000,
-  });
-
-  const partnerToShipCount = openToShipCount(partnerRedeemsQuery.data?.items ?? []);
-
   if (!authInitialized || authLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-black">
@@ -723,24 +753,13 @@ export function PortfolioPageView({
           </p>
         ) : null}
 
-        {isPartnerPortfolio ? (
-          <PartnerPortfolioHeader toShipCount={partnerToShipCount} />
-        ) : (
-          <PortfolioSummaryBar
-            holdingsCount={Math.max(
-              0,
-              tokenIds.filter((id) => !hiddenSet.has(id)).length,
-            )}
-            tradesCount={txRows.length}
-          />
-        )}
+        {isPartnerPortfolio ? <PartnerPortfolioHeader /> : null}
 
         <PortfolioValuePanel
-          chartTotalsPending={portfolioValuePending}
-          isMobileViewport={isMobileViewport}
-          dailyChartPoints={dailyChartPoints}
-          dailyChartLabels={dailyChartLabels}
+          totalsPending={portfolioValuePending}
           totalValue={portfolioValue ?? 0}
+          dailyPnlUsd={dailyPnlUsd}
+          dailyPnlPct={dailyPnlPct}
         />
 
         <PortfolioMainSection
@@ -766,9 +785,7 @@ export function PortfolioPageView({
                 ? "bids"
                 : tab === "history"
                   ? "history"
-                  : tab === "redeem"
-                    ? "redeem"
-                    : "assets";
+                  : "assets";
             const params = new URLSearchParams(searchParams.toString());
             params.set("tab", next);
             router.replace(portfolioUrl(portfolioBase, params), { scroll: false });
@@ -781,6 +798,7 @@ export function PortfolioPageView({
               tokenToCollectionKey={tokenToCollectionKey}
               bidsByCollectionKey={bidsByCollectionKey}
               costBasisByTokenId={costBasisByTokenId}
+              acquiredAtByTokenId={acquiredAtByTokenId}
               valuesPending={valuesPending}
               canEditCostBasis={Boolean(signerAddress)}
               onSaveCostBasis={saveCostBasis}
@@ -820,13 +838,14 @@ export function PortfolioPageView({
               activeBids={myBids.activeBids}
               collectionMetaByKey={myBids.collectionMetaByKey}
               statsByCollectionKey={statsByCollectionKey}
+              highestBidByCollectionKey={highestBidByCollectionKey}
               cancellingHash={bidActions.cancellingHash}
-              openingChangeHash={bidActions.openingChangeHash}
-              onCancel={(hash, key, label, price) => {
-                bidActions.requestCancel(hash, key, label, price);
+              clearingOutbid={bidActions.clearingOutbid}
+              onCancel={(hash, key, label, price, mode) => {
+                bidActions.requestCancel(hash, key, label, price, mode);
               }}
-              onChangePrice={(hash, key) => {
-                void bidActions.openChangeBid(hash, key);
+              onClearOutbid={(items) => {
+                bidActions.requestClearOutbid(items);
               }}
             />
           }
@@ -839,26 +858,15 @@ export function PortfolioPageView({
         />
       </div>
 
-      {bidActions.changeModal != null ? (
-        <CollectionChangeBidModal
-          open
-          bid={bidActions.changeModal.bid}
-          collectionKey={bidActions.changeModal.collectionKey}
-          activeAsks={bidActions.changeModal.activeAsks}
-          connectedAddress={signerAddress}
-          onClose={bidActions.closeChangeModal}
-          onUpdated={() =>
-            void bidActions.handleBidUpdated(bidActions.changeModal!.collectionKey)
-          }
-        />
-      ) : null}
-
       {bidActions.cancelConfirm != null ? (
         <PortfolioCancelBidConfirmModal
           open
-          collectionLabel={bidActions.cancelConfirm.collectionLabel}
-          priceLabel={bidActions.cancelConfirm.priceLabel}
-          pending={bidActions.cancellingHash === bidActions.cancelConfirm.orderHash}
+          confirm={bidActions.cancelConfirm}
+          pending={
+            bidActions.clearingOutbid ||
+            (bidActions.cancelConfirm.mode !== "clear_outbid" &&
+              bidActions.cancellingHash === bidActions.cancelConfirm.orderHash)
+          }
           onClose={bidActions.closeCancelConfirm}
           onConfirm={() => void bidActions.confirmCancel()}
         />

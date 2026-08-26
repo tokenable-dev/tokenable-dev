@@ -19,6 +19,8 @@ export interface PricedAssetRow {
   activeListingOrderHash: string | null;
   setName: string | null;
   marketPreviewRaw: CollectionMarketPreview | null;
+  /** Downsampled 1y external market USD for gallery sparkline. */
+  sparkline1y: number[];
 }
 
 export type AssetRow = PricedAssetRow;
@@ -31,9 +33,15 @@ export interface TxRow {
   amount: number;
   price: number;
   date: string;
+  /** Drawer date line — includes time when available (Portfolio.html hx-drawer). */
+  dateTimeLabel?: string;
   /** Epoch ms for chronological sort (display `date` is locale text). */
   dateMs: number;
   orderHash: string;
+  tokenId?: number;
+  imageUrl?: string | null;
+  gradeLabel?: string | null;
+  certNumber?: string | null;
 }
 
 export type AssetListFilter = "all" | "listed" | "unlisted" | "hidden";

@@ -1,5 +1,20 @@
 import { CHART_DAY_SEC } from "./constants";
 
+const MON = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
 /** Compact axis / tooltip date — e.g. `1.26 (Jan 2026)` for Jan 26, 2026. */
 export function formatTickShortMdYear(tSec: number): string {
   const d = new Date(tSec * 1000);
@@ -25,6 +40,79 @@ export function formatTickMonthYearNumeric(tSec: number): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/**
+ * Card.html price-history `lab(d)` — X-axis ticks.
+ * - window ≤ 45d (1M): `Jan 26`
+ * - longer (3M / 6M / 1Y): `Jan`, or `Jan '26` at month-start (day ≤ 7 and month rolled)
+ */
+export function formatCardHtmlAxisLabel(
+  tSec: number,
+  windowDays: number | null,
+): string {
+  const dt = new Date(tSec * 1000);
+  const win =
+    windowDays != null && Number.isFinite(windowDays) && windowDays > 0
+      ? windowDays
+      : 365;
+  if (win <= 45) {
+    return `${MON[dt.getMonth()]} ${dt.getDate()}`;
+  }
+  const weekAgo = new Date(dt.getTime() - 7 * 86400000);
+  if (dt.getDate() <= 7 && dt.getMonth() !== weekAgo.getMonth()) {
+    return `${MON[dt.getMonth()]} '${String(dt.getFullYear()).slice(2)}`;
+  }
+  return MON[dt.getMonth()];
+}
+
+/** Card.html tooltip date — `Jan 26, 2026`. */
+export function formatCardHtmlHoverWhen(tSec: number): string {
+  const dt = new Date(tSec * 1000);
+  return `${MON[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+}
+
+/** Tick density + formatter for Card.html collection Price history. */
+export function roughTickConfigCardHtml(windowDays: number | null): {
+  minIntervalMs: number;
+  splitNumber: number;
+  formatter: (tSec: number) => string;
+} {
+  const formatter = (tSec: number) => formatCardHtmlAxisLabel(tSec, windowDays);
+  // Card.html aims for ~8 labels (`every = ceil(slice.length / 8)`).
+  if (windowDays == null || !Number.isFinite(windowDays) || windowDays <= 0) {
+    return {
+      minIntervalMs: 30 * CHART_DAY_SEC * 1000,
+      splitNumber: 8,
+      formatter,
+    };
+  }
+  if (windowDays <= 45) {
+    return {
+      minIntervalMs: 4 * CHART_DAY_SEC * 1000,
+      splitNumber: 8,
+      formatter,
+    };
+  }
+  if (windowDays <= 90) {
+    return {
+      minIntervalMs: 12 * CHART_DAY_SEC * 1000,
+      splitNumber: 8,
+      formatter,
+    };
+  }
+  if (windowDays <= 180) {
+    return {
+      minIntervalMs: 21 * CHART_DAY_SEC * 1000,
+      splitNumber: 8,
+      formatter,
+    };
+  }
+  return {
+    minIntervalMs: 28 * CHART_DAY_SEC * 1000,
+    splitNumber: 12,
+    formatter,
+  };
 }
 
 export function roughTickConfigByWindowDays(windowDays: number | null): {
@@ -129,6 +217,12 @@ export function formatHoverWhen(tSec: number): string {
 export function formatTooltipUsd(v: number | null): string {
   if (v == null || !Number.isFinite(v)) return "—";
   return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
+}
+
+/** Card.html tooltip price — `$9,000` via locale grouping. */
+export function formatCardHtmlTooltipUsd(v: number | null): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return `$${Math.round(v).toLocaleString("en-US")}`;
 }
 
 /** Axis label with `$` — `$900`, `$1k`, `$2k`. */

@@ -99,7 +99,7 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
-/** Vault badge for listing cards / orderbook — Card.html `PSA vault` / `{Partner} vault`. */
+/** Vault badge for listing cards / orderbook — Card.html `PSA Vault` / `{Partner} Vault`. */
 export function listingVaultBadge(
   listing: {
     sellerDisplayName?: string | null;
@@ -115,17 +115,24 @@ export function listingVaultBadge(
   if (tokenLabel) {
     const tone =
       listing.settlementPolicy === "self_vault_hold" ? "partner" : "psa";
-    return { label: tokenLabel, tone, title: addr };
+    return { label: capitalizeVaultWord(tokenLabel), tone, title: addr };
   }
   if (listing.settlementPolicy === "standard") {
     return { label: "PSA Vault", tone: "psa", title: addr };
   }
   const name = listing.sellerDisplayName?.trim();
   if (name) {
-    const label = /vault$/i.test(name) ? name : `${name} Vault`;
+    const label = /vault$/i.test(name)
+      ? capitalizeVaultWord(name)
+      : `${name} Vault`;
     return { label, tone: "partner", title: addr };
   }
   return { label: "PSA Vault", tone: "psa", title: addr };
+}
+
+/** Normalize `… vault` → `… Vault` for display. */
+function capitalizeVaultWord(label: string): string {
+  return label.replace(/\bvault\b/gi, "Vault");
 }
 
 /** Desktop listing / prov sticky — Card.html vault badge. */

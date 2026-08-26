@@ -7,15 +7,15 @@ import { formatLiquidityDepthLabel, resolveExternalMarketUsd } from "@/lib/marke
 import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
-  resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
-import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
+import { displayAssetNameFromMetadata, stripGradeQualifierFromDisplayName } from "@/lib/marketplace/rwaDisplayTitle";
 import {
   extractCategory,
   gradeScoreFromMetadata,
   marketTierComponentsFromMetadata,
   pickPortfolioMarketPreview,
 } from "@/lib/portfolio/portfolioAssetMeta";
+import { extractSparklineValues1y } from "@/lib/portfolio/portfolioTableHelpers";
 import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes";
 
 const USDC_DECIMALS = 1_000_000;
@@ -76,10 +76,10 @@ export function buildPortfolioPricedRows(input: {
 
     const fallbackName = `RWA #${a.tokenId}`;
     const parts = buildRwaAssetDetailHeadlineParts(a.metadata, fallbackName);
-    const grade = resolveRwaHeadlineGrade(a.metadata);
-    const psaTitle = formatAssetDetailHeadlineText(parts, { grade });
-    const displayName =
-      psaTitle || displayAssetNameFromMetadata(a.metadata, fallbackName);
+    const psaTitle = formatAssetDetailHeadlineText(parts);
+    const displayName = stripGradeQualifierFromDisplayName(
+      psaTitle || displayAssetNameFromMetadata(a.metadata, fallbackName),
+    );
     return {
       tokenId: a.tokenId,
       name: displayName,
@@ -93,6 +93,7 @@ export function buildPortfolioPricedRows(input: {
       activeListingOrderHash,
       setName: null,
       marketPreviewRaw: preview,
+      sparkline1y: extractSparklineValues1y(series),
     };
   });
 }

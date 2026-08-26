@@ -77,12 +77,7 @@ export function OrderBookDepthLevelRow({
           className="cd-ob-book-row__total"
           title={`$${Math.round(totalUsdc).toLocaleString("en-US")}`}
         >
-          <span className="cd-ob-book-row__total-val">{totalLabel}</span>
-          {isAsk ? (
-            <span className="cd-ob-book-row__buyhint" aria-hidden>
-              Buy ›
-            </span>
-          ) : null}
+          {totalLabel}
         </span>
       </div>
     </>

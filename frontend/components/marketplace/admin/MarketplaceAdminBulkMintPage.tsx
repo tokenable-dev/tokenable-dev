@@ -139,7 +139,7 @@ function ItemTable({
                       onClick={() => {
                         if (
                           window.confirm(
-                            `Cancel listing for cert ${it.certNumber}? You can re-list via Approve mint & list.`,
+                            `Cancel listing for cert ${it.certNumber}? You can re-list via Approve mint and list.`,
                           )
                         ) {
                           onCancelListing(it.id);
@@ -450,7 +450,7 @@ export function MarketplaceAdminBulkMintPage() {
       job?.partnerDisplayName || selectedPartner?.displayName || "partner";
     if (
       !window.confirm(
-        `Mint & list for ${name}?\n` +
+        `Mint and list for ${name}?\n` +
           `Ready to mint: ${readyCount}\n` +
           `Retry list: ${listRetryCount}\n` +
           `On-chain mint TX ≈ ${Math.ceil(readyCount / 50) || 0} (chunks of 50).\n` +
@@ -475,7 +475,7 @@ export function MarketplaceAdminBulkMintPage() {
   return (
     <>
       <MarketplaceAdminPageHeader
-        title="Partner bulk mint & list"
+        title="Partner bulk mint and list"
         subtitle="Upload Excel/CSV with certNumber + price (or paste cert,price lines), prepare via PSA + IPFS, then approve once to mint into the company wallet and list Seaport asks."
       />
 
@@ -557,7 +557,7 @@ export function MarketplaceAdminBulkMintPage() {
           disabled={createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
-          {createMutation.isPending ? "Creating…" : "Create job & start prepare"}
+          {createMutation.isPending ? "Creating…" : "Create job and start prepare"}
         </button>
       </section>
 
@@ -617,7 +617,7 @@ export function MarketplaceAdminBulkMintPage() {
               >
                 {commitMutation.isPending
                   ? "Committing…"
-                  : `Approve mint & list (${readyCount}+${listRetryCount})`}
+                  : `Approve mint and list (${readyCount}+${listRetryCount})`}
               </button>
             </div>
           </div>

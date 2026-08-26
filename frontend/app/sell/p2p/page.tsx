@@ -108,7 +108,7 @@ export default function SellP2pPage() {
         />
         {error ? <p className="text-sm text-[var(--neg)]">{error}</p> : null}
         <TkButton type="submit" variant="primary" className="w-full min-h-11" disabled={busy}>
-          {busy ? "Minting & listing…" : "Mint & list"}
+          {busy ? "Minting and listing…" : "Mint and list"}
         </TkButton>
       </form>
     </div>

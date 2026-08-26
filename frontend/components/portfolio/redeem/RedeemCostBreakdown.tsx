@@ -45,7 +45,7 @@ export function RedeemCostBreakdown({
               </div>
               <div className="pf-redeem-cost__line">
                 <span className="pf-redeem-cost__label">
-                  Shipping &amp; handling
+                  Shipping and handling
                   {sh.shippingSource === "fedex_stub"
                     ? " (estimate)"
                     : sh.shippingSource === "fedex_rate"
@@ -108,7 +108,7 @@ export function RedeemCostBreakdown({
       {header}
       <div className="pf-redeem-cost__lines">
         <div className="pf-redeem-cost__line">
-          <span className="pf-redeem-cost__label">Shipping &amp; handling</span>
+          <span className="pf-redeem-cost__label">Shipping and handling</span>
           <span className="tkl-mono">
             {est ? formatRedeemUsd(est.shippingUsd) : dash}
           </span>

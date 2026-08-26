@@ -21,7 +21,7 @@ export const PHONE_DIAL_OPTIONS: readonly PhoneDialOption[] = [
   { value: "+375", label: "+375 Belarus", len: "9" },
   { value: "+32", label: "+32 Belgium", len: "9" },
   { value: "+591", label: "+591 Bolivia", len: "8,9" },
-  { value: "+387", label: "+387 Bosnia & Herzegovina", len: "8" },
+  { value: "+387", label: "+387 Bosnia and Herzegovina", len: "8" },
   { value: "+55", label: "+55 Brazil", len: "10,11" },
   { value: "+359", label: "+359 Bulgaria", len: "8,9" },
   { value: "+855", label: "+855 Cambodia", len: "8,9" },

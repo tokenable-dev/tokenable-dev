@@ -347,8 +347,8 @@ ${previewCert} - ${previewLabel}`}
             disabled={busy || !testCert.trim()}
           >
             {injectTestMail.isPending
-              ? "Sending & polling…"
-              : "Send test arrival mail & poll"}
+              ? "Sending and polling…"
+              : "Send test arrival mail and poll"}
           </button>
         </form>
       </div>
@@ -357,7 +357,7 @@ ${previewCert} - ${previewLabel}`}
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <AdminSectionTitle title="Send test Items Vaulted (secured) mail" />
           <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
-            Auto mint &amp; deliver · requires{" "}
+            Auto mint and deliver · requires{" "}
             <code className="text-xs">PSA_RECEIVED_MAIL_TEST_INJECT=1</code>{" "}
             (or{" "}
             <code className="text-xs">PSA_VAULTED_MAIL_TEST_INJECT=1</code>) ·
@@ -415,8 +415,8 @@ ${previewCert} - ${previewLabel}`}
             disabled={busy || !testCert.trim()}
           >
             {injectVaultedTestMail.isPending
-              ? "Sending, polling & minting…"
-              : "Send test vaulted mail & poll"}
+              ? "Sending, polling and minting…"
+              : "Send test vaulted mail and poll"}
           </button>
         </form>
       </div>

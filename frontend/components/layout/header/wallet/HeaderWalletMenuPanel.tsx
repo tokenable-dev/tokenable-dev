@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { useActivePartner } from "@/hooks/partner/useActivePartner";
 import {
   isPrivyFiatOnrampFeatureEnabled,
   usePrivyFiatOnramp,
@@ -22,6 +23,7 @@ import {
   WalletHistoryIcon,
   WalletNotificationsIcon,
   WalletPortfolioIcon,
+  WalletRedeemRequestsIcon,
   WalletSettingsIcon,
   WalletSignOutIcon,
   WalletUserIcon,
@@ -29,6 +31,7 @@ import {
   WalletWatchlistIcon,
 } from "./HeaderWalletMenuIcons";
 import { HeaderWalletCopyAddressButton } from "./HeaderWalletCopyAddressButton";
+import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 
 type MenuVariant = "dropdown" | "mobile";
 
@@ -65,6 +68,7 @@ export function HeaderWalletMenuPanel({
   const portfolioBase = stripPathQueryHash(portfolioHref);
   const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
   const showVerifyIdentity = !isKycComplete(user);
+  const { isActivePartner } = useActivePartner();
 
   const go = useCallback(
     (href: string, minLevel: 0 | 1 | 2 = 0) => {
@@ -114,6 +118,7 @@ export function HeaderWalletMenuPanel({
   return (
     <>
       {userInfo}
+      <NetworkSwitcher variant="menu" />
       {showAddFunds ? (
         <>
           <button
@@ -192,6 +197,16 @@ export function HeaderWalletMenuPanel({
         <span className="tk-notif-menu-label">Notifications</span>
         <NotificationUnreadBadge count={unreadCount} />
       </button>
+      {isActivePartner ? (
+        <button
+          type="button"
+          className={itemClass(variant)}
+          onClick={() => go("/partner/shipments", 1)}
+        >
+          <WalletRedeemRequestsIcon />
+          Redeem requests
+        </button>
+      ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/settings")}>
         <WalletSettingsIcon />
         Settings

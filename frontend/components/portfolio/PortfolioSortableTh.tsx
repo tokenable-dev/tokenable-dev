@@ -69,17 +69,25 @@ export function PortfolioStaticTh({
   label,
   align = "left",
   muted = false,
+  sortHint = false,
 }: {
   label: string;
   align?: "left" | "right" | "center";
   /** Action column uses rgba(255,255,255,0.5) in Portfolio.html. */
   muted?: boolean;
+  /** Idle dual-chevron like Portfolio.html `data-sort` columns. */
+  sortHint?: boolean;
 }) {
   return (
-    <th
-      className={`pf-th pf-th--${align}${muted ? " pf-th--muted" : ""}`}
-    >
-      {label}
+    <th className={`pf-th pf-th--${align}${muted ? " pf-th--muted" : ""}`}>
+      {sortHint ? (
+        <span className={`pf-th-sort pf-th-sort--${align} pf-th-sort--static`}>
+          <span>{label}</span>
+          <SortArrow dir={null} />
+        </span>
+      ) : (
+        label
+      )}
     </th>
   );
 }

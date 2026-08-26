@@ -66,7 +66,7 @@ export function AdminNetworkSwitcher() {
           className="admin-network-switcher__menu absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
         >
           <p className="border-b border-zinc-100 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Network · assets &amp; custody
+            Network · assets and custody
           </p>
           <ul className="py-1">
             {chains.map((c) => {

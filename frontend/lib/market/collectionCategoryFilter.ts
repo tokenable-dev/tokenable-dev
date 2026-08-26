@@ -6,12 +6,11 @@ import type {
 
 export type CollectionCategoryFilterId =
   | "all"
+  | "pokemon"
+  | "onepiece"
   | "basketball"
   | "baseball"
-  | "football"
-  | "soccer"
-  | "pokemon"
-  | "onepiece";
+  | "other";
 
 /** Selectable Markets category (excludes synthetic "all"). */
 export type CollectionCategoryId = Exclude<CollectionCategoryFilterId, "all">;
@@ -26,15 +25,14 @@ export type CategorySelectOption = {
   label: string;
 };
 
-/** Markets Category pop — six top-level buckets. No Sports / TCG parents. */
+/** Markets.html filter chips — Pokemon / One Piece / NBA / MLB / Others. */
 export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
   { id: "all", label: "All" },
-  { id: "basketball", label: "Basketball" },
-  { id: "baseball", label: "Baseball" },
-  { id: "football", label: "Football" },
-  { id: "soccer", label: "Soccer" },
   { id: "pokemon", label: "Pokemon" },
   { id: "onepiece", label: "One Piece" },
+  { id: "basketball", label: "NBA" },
+  { id: "baseball", label: "MLB" },
+  { id: "other", label: "Others" },
 ];
 
 /** Multi-select Category options (no "All" — empty selection means all). */
@@ -61,12 +59,10 @@ export function isCollectionCategoryId(
 }
 
 export type CollectionSportBucket =
-  | "basketball"
-  | "baseball"
-  | "football"
-  | "soccer"
   | "pokemon"
   | "onepiece"
+  | "basketball"
+  | "baseball"
   | "other";
 
 function buildHaystack(
@@ -137,7 +133,7 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
       hay,
     )
   ) {
-    return "soccer";
+    return "other";
   }
 
   if (
@@ -149,19 +145,15 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
   }
 
   if (/\bnfl\b|panini nfl|super bowl|american football/i.test(hay)) {
-    return "football";
+    return "other";
   }
 
   if (
-    /\bmlb\b|baseball|topps baseball|bowman|leaf baseball|\btopps chrome\b.*\b(baseball|mlb)\b/i.test(hay)
+    /\bmlb\b|baseball|topps baseball|bowman|leaf baseball|\btopps chrome\b.*\b(baseball|mlb)\b/i.test(
+      hay,
+    )
   ) {
     return "baseball";
-  }
-
-  if (/\bfootball\b/i.test(hay) && !/\bsoccer\b/i.test(hay)) {
-    if (/\bnfl\b|panini nfl|prizm|donruss|score\b/i.test(hay)) {
-      return "football";
-    }
   }
 
   return "other";

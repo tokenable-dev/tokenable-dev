@@ -21,6 +21,11 @@ import {
   CRITERIA_BID_ZERO_BYTES32,
 } from "./collectionCriteriaBidConstants";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import {
+  resolveTokenBidDurationDays,
+  tokenBidDurationSeconds,
+  type TokenBidDurationDays,
+} from "@/lib/seaport/orders/submitTokenBid";
 
 export type CollectionCriteriaBidSubmitResult = {
   order: Order;
@@ -41,6 +46,8 @@ export async function submitCollectionCriteriaBid(input: {
   usdcAllowanceRaw: bigint | undefined;
   activeAsks: Order[];
   chainId: SupportedChainId;
+  /** Same Valid-for windows as token bids (default 30d for legacy callers). */
+  durationDays?: TokenBidDurationDays;
   mode?: "create" | "replace";
   oldOrderHash?: string;
 }): Promise<CollectionCriteriaBidSubmitResult> {
@@ -56,6 +63,7 @@ export async function submitCollectionCriteriaBid(input: {
     usdcAllowanceRaw,
     activeAsks,
     chainId,
+    durationDays,
     mode = "create",
     oldOrderHash,
   } = input;
@@ -67,7 +75,11 @@ export async function submitCollectionCriteriaBid(input: {
   }
 
   const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(CRITERIA_BID_ORDER_DURATION_SECONDS);
+  const durationSec =
+    durationDays != null
+      ? tokenBidDurationSeconds(resolveTokenBidDurationDays(durationDays))
+      : CRITERIA_BID_ORDER_DURATION_SECONDS;
+  const endTime = now + BigInt(durationSec);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
   const tokenIds = merkleLeafTokenIds.map((x) => BigInt(x));

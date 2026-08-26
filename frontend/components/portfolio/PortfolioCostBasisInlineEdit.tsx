@@ -25,6 +25,7 @@ export function PortfolioCostBasisInlineEdit({
   saving = false,
   showMintPriceNote = false,
   layout,
+  currentPriceUsd,
   onSave,
 }: {
   assetName: string;
@@ -32,7 +33,9 @@ export function PortfolioCostBasisInlineEdit({
   editable: boolean;
   saving?: boolean;
   showMintPriceNote?: boolean;
-  layout: "desktop" | "mobile";
+  layout: "desktop" | "mobile" | "gallery";
+  /** Gallery hover: `cost → mkt` (Portfolio.html pf-cost-hover). */
+  currentPriceUsd?: number | null;
   onSave: (costBasisUsd: number) => void | Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -137,13 +140,42 @@ export function PortfolioCostBasisInlineEdit({
             </span>
           )}
         </div>
-        {editable && !editing ? (
-          <div className="pf-mobile-asset-card__cost-hint-line">Value at listing</div>
-        ) : null}
         {editing ? (
           <span className="pf-cost-edit-note pf-cost-edit-note--mobile">Default: minting price</span>
         ) : null}
       </>
+    );
+  }
+
+  if (layout === "gallery") {
+    const mkt =
+      currentPriceUsd != null && Number.isFinite(currentPriceUsd)
+        ? formatPortfolioUsd(currentPriceUsd)
+        : null;
+    return (
+      <div className="pf-cost-hover-line tkl-mono">
+        {editing ? (
+          input
+        ) : (
+          <span className="pf-cost-hover-line__cost">
+            <span>{formatPortfolioUsd(valueUsd)}</span>
+            {editable ? (
+              <PortfolioCostBasisPencilButton
+                label={`Edit cost basis for ${assetName}`}
+                onClick={startEdit}
+              />
+            ) : null}
+          </span>
+        )}
+        {mkt ? (
+          <>
+            <span className="pf-cost-hover-line__arrow" aria-hidden>
+              →
+            </span>
+            <span className="pf-cost-hover-line__mkt">{mkt}</span>
+          </>
+        ) : null}
+      </div>
     );
   }
 

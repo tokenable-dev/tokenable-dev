@@ -1,4 +1,4 @@
-import type { Address, Hash, PublicClient } from "viem";
+import type { Address, Hash, PublicClient, TransactionReceipt } from "viem";
 import { fulfillOrderApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
@@ -37,6 +37,32 @@ type ApproveWrite = (args: {
   chainId: number;
   gas?: bigint;
 }) => Promise<Hash>;
+
+function isTimeoutError(e: unknown): boolean {
+  if (e instanceof DOMException && e.name === "AbortError") return true;
+  if (e instanceof Error && e.name === "TimeoutError") return true;
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  return /timed out|timeout|time out|deadline/i.test(msg);
+}
+
+/** Wait for receipt; if polling times out, one last getTransactionReceipt (tx may already be mined). */
+async function waitForBuyReceipt(
+  publicClient: PublicClient,
+  hash: Hash,
+): Promise<TransactionReceipt> {
+  try {
+    return await publicClient.waitForTransactionReceipt({
+      hash,
+      timeout: 120_000,
+    });
+  } catch (e: unknown) {
+    const receipt = await publicClient
+      .getTransactionReceipt({ hash })
+      .catch(() => null);
+    if (receipt) return receipt;
+    throw e;
+  }
+}
 
 /**
  * Fulfill an active ask listing (buy the listed RWA at the listing price).
@@ -93,7 +119,10 @@ export async function fulfillAskListingOrder(params: {
       chainId,
       gas: gasApprove,
     });
-    await publicClient.waitForTransactionReceipt({ hash: approveTx });
+    const approveReceipt = await waitForBuyReceipt(publicClient, approveTx);
+    if (approveReceipt.status === "reverted") {
+      throw new Error("USDC approval was reverted on-chain. Try again.");
+    }
   }
 
   const gasFulfill = await gasFulfillPromise;
@@ -105,10 +134,23 @@ export async function fulfillAskListingOrder(params: {
     chainId,
     gas: gasFulfill,
   });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
+  const receipt = await waitForBuyReceipt(publicClient, fulfillTx);
   if (receipt.status === "reverted") {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
   }
 
-  await fulfillOrderApi(ask.orderHash, address);
+  // On-chain buy already succeeded. Don't fail the UX if the indexer/API stalls
+  // (same pattern as runCriteriaMatch after matchAdvancedOrders).
+  try {
+    await fulfillOrderApi(ask.orderHash, address);
+  } catch (e: unknown) {
+    if (isTimeoutError(e)) {
+      console.warn(
+        "[fulfillAskListing] fulfillOrderApi timed out after on-chain success — refresh Portfolio / collection.",
+        ask.orderHash,
+      );
+      return;
+    }
+    throw e;
+  }
 }

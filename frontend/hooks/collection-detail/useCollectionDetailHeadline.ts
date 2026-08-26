@@ -194,13 +194,22 @@ export function useCollectionDetailHeadline(params: {
       displayLabel: typeof displayLabel === "string" ? displayLabel.trim() : null,
     });
     const collabCased = collab?.trim() ? toCardDisplayCase(collab) : null;
-    if (catalog && collabCased) {
-      const hay = catalog.toLowerCase();
-      if (!hay.includes(collabCased.toLowerCase())) {
-        return `${catalog} · ${collabCased}`;
-      }
-    }
-    return catalog || collabCased || null;
+    if (!catalog) return collabCased;
+    if (!collabCased) return catalog;
+
+    // Avoid "Year · Set · Variant · Set" when collab echoes a catalog segment.
+    const catalogSegs = new Set(
+      catalog
+        .split(/\s*·\s*/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const collabExtra = collabCased
+      .split(/\s*·\s*/)
+      .map((s) => s.trim())
+      .filter((s) => s && !catalogSegs.has(s.toLowerCase()));
+    if (collabExtra.length === 0) return catalog;
+    return `${catalog} · ${collabExtra.join(" · ")}`;
   }, [
     collectionHeadlineParts,
     headlineSetLine,

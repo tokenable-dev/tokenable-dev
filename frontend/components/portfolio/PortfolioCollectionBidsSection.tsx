@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { CollectionMarketStats } from "@/lib/core";
 import type { PortfolioBidCollectionMeta, PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import type { PortfolioBidCancelTarget } from "@/hooks/portfolio/usePortfolioBidActions";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
+import { PortfolioPanelSearch } from "./PortfolioPanelSearch";
 import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 
 type BidsSortKey = "name" | "bid" | "ask";
@@ -22,37 +24,76 @@ function collectionHref(collectionKey: string) {
   return `/marketplace/collections/${encodeURIComponent(collectionKey)}`;
 }
 
+function isOutbidByBook(
+  bidPriceUsdc: number,
+  highestBidUsd: number | null | undefined,
+): boolean {
+  return (
+    highestBidUsd != null &&
+    Number.isFinite(highestBidUsd) &&
+    highestBidUsd > 0 &&
+    bidPriceUsdc + 1e-9 < highestBidUsd
+  );
+}
+
+function formatExpiresIn(endTimeIso?: string | null): string | null {
+  if (!endTimeIso) return null;
+  const endMs = Date.parse(endTimeIso);
+  if (!Number.isFinite(endMs)) return null;
+  const ms = endMs - Date.now();
+  if (ms <= 0) return "0h";
+
+  const hours = Math.max(0, Math.floor(ms / 3_600_000));
+  if (hours >= 48) {
+    const days = Math.max(1, Math.floor(hours / 24));
+    return `${days}d`;
+  }
+  return `${Math.max(1, hours)}h`;
+}
+
 export function PortfolioCollectionBidsSection({
   loading,
   metaLoading,
   activeBids,
   collectionMetaByKey,
   statsByCollectionKey,
+  highestBidByCollectionKey,
   cancellingHash,
-  openingChangeHash,
+  clearingOutbid,
   onCancel,
-  onChangePrice,
+  onClearOutbid,
 }: {
   loading: boolean;
   metaLoading: boolean;
   activeBids: PortfolioBidRow[];
   collectionMetaByKey: Map<string, PortfolioBidCollectionMeta>;
   statsByCollectionKey: Map<string, CollectionMarketStats>;
+  /** Best live bid on the collection (any bidder). */
+  highestBidByCollectionKey?: Map<string, number | null>;
   cancellingHash: string | null;
-  openingChangeHash: string | null;
+  clearingOutbid?: boolean;
   onCancel: (
     orderHash: string,
     collectionKey: string,
     collectionLabel: string,
     priceLabel: string,
+    mode: "cancel" | "remove_outbid",
   ) => void;
-  onChangePrice: (orderHash: string, collectionKey: string) => void;
+  onClearOutbid?: (items: PortfolioBidCancelTarget[]) => void;
 }) {
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<BidsSortKey>("name");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sortedBids = useMemo(() => {
-    const rows = [...activeBids];
+    const q = searchQuery.trim().toLowerCase();
+    const rows = activeBids.filter((bid) => {
+      if (!q) return true;
+      const label =
+        collectionMetaByKey.get(bid.collectionKey)?.displayLabel ??
+        bid.collectionKey.replace(/^ch:/, "");
+      return label.toLowerCase().includes(q) || bid.collectionKey.toLowerCase().includes(q);
+    });
     rows.sort((a, b) => {
       const labelA =
         collectionMetaByKey.get(a.collectionKey)?.displayLabel ??
@@ -72,7 +113,30 @@ export function PortfolioCollectionBidsSection({
       }
     });
     return rows;
-  }, [activeBids, sortKey, sortDir, collectionMetaByKey, statsByCollectionKey]);
+  }, [
+    activeBids,
+    searchQuery,
+    sortKey,
+    sortDir,
+    collectionMetaByKey,
+    statsByCollectionKey,
+  ]);
+
+  const outbidItems = useMemo((): PortfolioBidCancelTarget[] => {
+    return activeBids
+      .filter((bid) =>
+        isOutbidByBook(
+          bid.priceUsdc,
+          highestBidByCollectionKey?.get(bid.collectionKey.toLowerCase()) ??
+            highestBidByCollectionKey?.get(bid.collectionKey),
+        ),
+      )
+      .map((bid) => ({
+        orderHash: bid.orderHash,
+        collectionKey: bid.collectionKey,
+        priceLabel: bid.priceLabel,
+      }));
+  }, [activeBids, highestBidByCollectionKey]);
 
   if (loading) {
     return (
@@ -100,12 +164,42 @@ export function PortfolioCollectionBidsSection({
 
   return (
     <>
-      <PortfolioMobileSort
-        options={[...BIDS_SORT_OPTIONS]}
-        value={mobileSortValue}
-        onChange={applyMobileSort}
-      />
+      {outbidItems.length > 0 && onClearOutbid ? (
+        <div className="pf-bids-outbid-bar">
+          <p className="pf-bids-outbid-bar__copy">
+            {outbidItems.length} offer{outbidItems.length === 1 ? "" : "s"}{" "}
+            outbid — still live until you remove {outbidItems.length === 1 ? "it" : "them"}.
+          </p>
+          <TkButton
+            type="button"
+            variant="subtle"
+            size="sm"
+            className="pf-table-btn"
+            disabled={clearingOutbid || cancellingHash != null}
+            onClick={() => onClearOutbid(outbidItems)}
+          >
+            {clearingOutbid ? "Clearing…" : "Clear all outbid"}
+          </TkButton>
+        </div>
+      ) : null}
 
+      <div className="pf-panel-toolbar">
+        <PortfolioPanelSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search bids — collection name"
+          ariaLabel="Search active bids"
+        />
+        <PortfolioMobileSort
+          options={[...BIDS_SORT_OPTIONS]}
+          value={mobileSortValue}
+          onChange={applyMobileSort}
+        />
+      </div>
+
+      {sortedBids.length === 0 ? (
+        <p className="pf-empty pf-empty--panel">No bids match your search.</p>
+      ) : (
       <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids">
         <colgroup>
           <col className="pf-col-card" />
@@ -149,10 +243,13 @@ export function PortfolioCollectionBidsSection({
             const label =
               meta?.displayLabel ?? bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
             const ask = statsByCollectionKey.get(bid.collectionKey)?.floor ?? null;
+            const highest =
+              highestBidByCollectionKey?.get(bid.collectionKey.toLowerCase()) ??
+              highestBidByCollectionKey?.get(bid.collectionKey) ??
+              null;
             const busy =
-              cancellingHash === bid.orderHash || openingChangeHash === bid.orderHash;
-            const canRaise = ask != null && ask > bid.priceUsdc;
-            const isHighest = ask == null || bid.priceUsdc >= ask;
+              clearingOutbid || cancellingHash === bid.orderHash;
+            const outbid = isOutbidByBook(bid.priceUsdc, highest);
             const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
 
             return (
@@ -186,48 +283,72 @@ export function PortfolioCollectionBidsSection({
                   </span>
                 </td>
                 <td data-label="Status" style={{ textAlign: "right" }}>
-                  {isHighest ? (
-                    <TkTag tone="positive" appearance="soft" className="pf-bid-status-tag">
-                      HIGHEST
-                    </TkTag>
-                  ) : (
-                    <TkTag tone="warning" appearance="soft" className="pf-bid-status-tag">
-                      OUTBID
-                    </TkTag>
-                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 3,
+                      alignItems: "flex-end",
+                    }}
+                  >
+                    {outbid ? (
+                      <TkTag
+                        tone="warning"
+                        appearance="soft"
+                        className="pf-bid-status-tag"
+                      >
+                        OUTBID
+                      </TkTag>
+                    ) : (
+                      <TkTag
+                        tone="positive"
+                        appearance="soft"
+                        className="pf-bid-status-tag"
+                      >
+                        HIGHEST
+                      </TkTag>
+                    )}
+                    {(() => {
+                      const expires = formatExpiresIn(bid.endTime);
+                      if (!expires) return null;
+                      return (
+                        <span
+                          className="tkl-mono"
+                          style={{
+                            fontSize: 10,
+                            color: outbid
+                              ? "rgba(255,255,255,0.52)"
+                              : "var(--warn)",
+                          }}
+                        >
+                          Expires in {expires}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </td>
                 <td data-label="Action" style={{ textAlign: "right" }}>
                   <div className="pf-table-actions">
-                    {canRaise ? (
-                      <TkButton
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        className="pf-table-btn"
-                        disabled={busy}
-                        onClick={() => onChangePrice(bid.orderHash, bid.collectionKey)}
-                      >
-                        {openingChangeHash === bid.orderHash ? "…" : "Raise"}
-                      </TkButton>
-                    ) : (
-                      <TkButton
-                        type="button"
-                        variant="subtle"
-                        size="sm"
-                        className="pf-table-btn"
-                        disabled={busy}
-                        onClick={() =>
-                          onCancel(
-                            bid.orderHash,
-                            bid.collectionKey,
-                            label,
-                            bid.priceLabel,
-                          )
-                        }
-                      >
-                        {cancellingHash === bid.orderHash ? "…" : "Cancel"}
-                      </TkButton>
-                    )}
+                    <TkButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="pf-table-btn"
+                      disabled={busy}
+                      onClick={() =>
+                        onCancel(
+                          bid.orderHash,
+                          bid.collectionKey,
+                          label,
+                          bid.priceLabel,
+                          outbid ? "remove_outbid" : "cancel",
+                        )
+                      }
+                    >
+                      {cancellingHash === bid.orderHash
+                        ? "Cancelling…"
+                        : "Cancel"}
+                    </TkButton>
                   </div>
                 </td>
               </tr>
@@ -235,6 +356,7 @@ export function PortfolioCollectionBidsSection({
           })}
         </tbody>
       </TkTable>
+      )}
     </>
   );
 }

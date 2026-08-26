@@ -14,7 +14,9 @@ import type { SupportedChainId } from "@/lib/chains";
 
 const IS_DEV = process.env.NODE_ENV === "development";
 
-/** Compact labels for the network picker (header + mobile drawer). */
+type NetworkSwitcherVariant = "chip" | "drawer" | "menu";
+
+/** Compact labels for the network picker (header menu + mobile drawer). */
 function networkPickerLabel(chainId: SupportedChainId): string {
   switch (chainId) {
     case 11155111:
@@ -34,15 +36,25 @@ function ChainDot({ chainId }: { chainId: SupportedChainId }) {
   return <span className={`h-2 w-2 shrink-0 rounded-full ${color}`} aria-hidden />;
 }
 
-/** Header network picker — internal dev only (Sepolia · Ethereum · Polygon). */
-export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
+/** Internal-dev chain picker (Sepolia · Ethereum · Polygon). */
+export function NetworkSwitcher({
+  variant = "chip",
+  inDrawer = false,
+  onPicked,
+}: {
+  variant?: NetworkSwitcherVariant;
+  /** @deprecated use variant="drawer" */
+  inDrawer?: boolean;
+  onPicked?: () => void;
+}) {
+  const resolved: NetworkSwitcherVariant = inDrawer ? "drawer" : variant;
   const user = useAuthStore((s) => s.user);
-  const { chain, configuredChains, setChainId, chainId } = useAppChain();
+  const { configuredChains, setChainId, chainId } = useAppChain();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || resolved === "menu") return;
     const onDoc = (e: Event) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -52,7 +64,7 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("touchstart", onDoc);
     };
-  }, [open]);
+  }, [open, resolved]);
 
   const internalDev = canUseAppChainSwitcher(user);
   if (!isPrivyEnabled() || !internalDev) return null;
@@ -63,10 +75,50 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
 
   const currentLabel = networkPickerLabel(chainId);
 
+  const pick = (id: SupportedChainId, configured: boolean) => {
+    if (!configured) return;
+    setChainId(id);
+    setOpen(false);
+    onPicked?.();
+  };
+
+  if (resolved === "menu") {
+    return (
+      <div className="tk-wd-network" role="listbox" aria-label="Select network">
+        <div className="tk-wd-network__label">Network</div>
+        {displayChains.map((c) => {
+          const active = c.id === chainId;
+          const configured = isChainConfigured(c.id);
+          const label = networkPickerLabel(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="option"
+              aria-selected={active}
+              disabled={!configured}
+              title={configured ? label : `${label} (not configured)`}
+              onClick={() => pick(c.id, configured)}
+              className={`tk-wd-item tk-wd-sub tk-wd-network__opt${active ? " is-active" : ""}`}
+            >
+              <ChainDot chainId={c.id} />
+              <span className="flex-1 truncate">{label}</span>
+              {active ? (
+                <span className="tk-wd-network__check" aria-hidden>
+                  ✓
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (displayChains.length <= 1 && !IS_DEV) {
     return (
       <div
-        className={`gnb-network-chip${inDrawer ? " gnb-network-chip--drawer" : ""}`}
+        className={`gnb-network-chip${resolved === "drawer" ? " gnb-network-chip--drawer" : ""}`}
         title={currentLabel}
       >
         <ChainDot chainId={chainId} />
@@ -76,11 +128,11 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
   }
 
   return (
-    <div ref={rootRef} className={inDrawer ? "relative w-full" : "relative"}>
+    <div ref={rootRef} className={resolved === "drawer" ? "relative w-full" : "relative"}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`gnb-network-chip${inDrawer ? " gnb-network-chip--drawer" : ""}`}
+        className={`gnb-network-chip${resolved === "drawer" ? " gnb-network-chip--drawer" : ""}`}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Network: ${currentLabel}`}
@@ -96,7 +148,7 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
         <div
           role="listbox"
           aria-label="Select network"
-          className={`gnb-network-chip__menu${inDrawer ? " gnb-network-chip__menu--drawer" : ""}`}
+          className={`gnb-network-chip__menu${resolved === "drawer" ? " gnb-network-chip__menu--drawer" : ""}`}
         >
           <ul className="py-1">
             {displayChains.map((c) => {
@@ -111,11 +163,7 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
                     aria-selected={active}
                     disabled={!configured}
                     title={configured ? label : `${label} (not configured)`}
-                    onClick={() => {
-                      if (!configured) return;
-                      setChainId(c.id);
-                      setOpen(false);
-                    }}
+                    onClick={() => pick(c.id, configured)}
                     className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition ${
                       active
                         ? "bg-[rgba(0, 51, 255,0.12)] font-semibold text-white"

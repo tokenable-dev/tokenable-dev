@@ -1,9 +1,11 @@
-/** UI label for partner self-vault custody (e.g. "Courtyard vault"). */
+/** UI label for partner self-vault custody (e.g. "Courtyard Vault"). */
 export function formatPartnerVaultLabel(displayName: string | null | undefined): string {
   const n = String(displayName ?? '').trim();
-  if (!n) return 'Self vault';
-  if (/vault$/i.test(n)) return n;
-  return `${n} vault`;
+  if (!n) return 'Self Vault';
+  if (/vault$/i.test(n)) {
+    return n.replace(/vault$/i, 'Vault');
+  }
+  return `${n} Vault`;
 }
 
 export const PSA_VAULT_LABEL = 'PSA Vault';

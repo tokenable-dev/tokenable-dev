@@ -16,11 +16,11 @@
 // ---------------------------------------------------------------------------
 
 export type EventName =
-  // ── Page & Navigation ──────────────────────────────────────────────────
+  // ── Page and Navigation ──────────────────────────────────────────────────
   | "page_viewed"               // page landed on (supplement to auto page_view)
   | "tab_clicked"               // tab switch inside a page (e.g. Markets tabs)
 
-  // ── Search & Filter ────────────────────────────────────────────────────
+  // ── Search and Filter ────────────────────────────────────────────────────
   | "search_performed"          // search query submitted
   | "filter_applied"            // filter option selected
   | "sort_changed"              // sort order changed
@@ -42,7 +42,7 @@ export type EventName =
   // ── Bid ────────────────────────────────────────────────────────────────
   | "bid_panel_opened"          // bid form opened
   | "bid_clicked"               // Bid button clicked (bid modal open intent)
-  | "bid_placed"                // bid order signed & submitted
+  | "bid_placed"                // bid order signed and submitted
   | "bid_submitted"             // bid order on-chain confirmed
   | "bid_changed"               // existing bid updated
   | "bid_cancelled"             // bid order cancelled
@@ -52,8 +52,8 @@ export type EventName =
   | "list_clicked"              // List / Set price button clicked (open listing flow)
   | "set_price_clicked"         // Portfolio Set price CTA
   | "edit_price_clicked"        // Portfolio Edit price CTA
-  | "listing_created"           // sell listing signed & submitted (legacy name)
-  | "listing_submitted"         // listing successfully created & live in orderbook
+  | "listing_created"           // sell listing signed and submitted (legacy name)
+  | "listing_submitted"         // listing successfully created and live in orderbook
   | "listing_cancelled"         // listing cancelled
   | "sell_now_clicked"          // Sell Now (instant sell) CTA clicked
   | "sell_now_completed"        // on-chain instant sell tx confirmed

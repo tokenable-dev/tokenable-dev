@@ -25,10 +25,11 @@
   white-space: nowrap;
 }
 
-/* Card.html / Markets.html — hide page eyebrows on tablet + mobile */
+/* Page eyebrows — hide on tablet + mobile (Portfolio.html / Card.html / Markets.html) */
 @media (max-width: 1024px) {
   .tkl-eyebrow,
   .pf-hero__eyebrow,
+  .pf-value-hero__eyebrow,
   .pf-redeem-eyebrow,
   .vault-hub-header__eyebrow,
   .vault-submit-header__eyebrow,
@@ -226,8 +227,23 @@
   box-sizing: border-box;
 }
 
-.tk-header__spacer {
-  flex: 1;
+/* index.html / tk-nav.js — logo+nav | centered search | actions */
+.tk-header__left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.tk-header__center,
+.gnb-search-center {
+  display: none;
+}
+
+.tk-header__right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
   min-width: 0;
 }
 
@@ -235,7 +251,6 @@
   display: none;
   align-items: center;
   flex-shrink: 0;
-  margin-left: auto;
   gap: 8px;
 }
 
@@ -312,56 +327,50 @@
 }
 
 /*
- * GNB search — input height 36px (44px slot aligns with Connect Wallet).
- * Desktop placeholder is short so the bar can stay narrow; native `size`
- * defaults to 20ch and otherwise keeps the field visually long.
+ * GNB search — tk-nav.js `.gnb-search-center` (440px / max 40vw, height 44px).
  */
 .gnb-search-anchor {
-  --gnb-search-width: 248px;
   position: relative;
-  flex: 0 0 var(--gnb-search-width);
-  width: var(--gnb-search-width);
-  max-width: var(--gnb-search-width);
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   height: 44px;
   display: flex;
   align-items: center;
 }
 
-.gnb-search-anchor:has(.tk-search--compact) {
-  --gnb-search-width: 188px;
-}
-
-.gnb-right .tk-search {
+.gnb-search-center .tk-search,
+.tk-header__center .tk-search {
   position: relative;
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  height: 36px;
+  height: 44px;
   flex: 1 1 auto;
-  clip-path: var(--pixel-notch-md);
+  clip-path: var(--pixel-notch-lg);
   overflow: hidden;
   display: flex;
   align-items: center;
 }
 
-.gnb-right .tk-search .tk-input {
-  background: rgba(255, 255, 255, 0.85) !important;
+.gnb-search-center .tk-search .tk-input,
+.tk-header__center .tk-search .tk-input {
+  background: #fff !important;
   color: #111 !important;
   border: none !important;
-  box-shadow: none !important;
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 20, 0.06) !important;
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
-  padding: 0 14px 0 38px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  padding: 0 16px 0 40px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  line-height: 36px !important;
-  font-size: 14px !important;
+  line-height: 44px !important;
+  font-size: 14.5px !important;
   clip-path: none !important;
   text-overflow: ellipsis !important;
   overflow: hidden !important;
@@ -370,45 +379,59 @@
   appearance: none;
 }
 
-.gnb-right .tk-search--has-clear .tk-input {
-  padding-right: 36px !important;
+.gnb-search-center .tk-search--has-clear .tk-input,
+.tk-header__center .tk-search--has-clear .tk-input {
+  padding-right: 40px !important;
 }
 
-.gnb-right .tk-search .tk-input::-webkit-search-decoration,
-.gnb-right .tk-search .tk-input::-webkit-search-cancel-button,
-.gnb-right .tk-search .tk-input::-webkit-search-results-button,
-.gnb-right .tk-search .tk-input::-webkit-search-results-decoration {
+.gnb-search-center .tk-search .tk-input::-webkit-search-decoration,
+.gnb-search-center .tk-search .tk-input::-webkit-search-cancel-button,
+.gnb-search-center .tk-search .tk-input::-webkit-search-results-button,
+.gnb-search-center .tk-search .tk-input::-webkit-search-results-decoration,
+.tk-header__center .tk-search .tk-input::-webkit-search-decoration,
+.tk-header__center .tk-search .tk-input::-webkit-search-cancel-button,
+.tk-header__center .tk-search .tk-input::-webkit-search-results-button,
+.tk-header__center .tk-search .tk-input::-webkit-search-results-decoration {
   -webkit-appearance: none;
   appearance: none;
   display: none;
 }
 
-.gnb-right .tk-search .tk-input:hover,
-.gnb-right .tk-search .tk-input:focus {
-  box-shadow: none !important;
+.gnb-search-center .tk-search .tk-input:hover,
+.tk-header__center .tk-search .tk-input:hover {
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 20, 0.06) !important;
 }
 
-.gnb-right .tk-search .tk-input::placeholder {
+.gnb-search-center .tk-search .tk-input:focus,
+.tk-header__center .tk-search .tk-input:focus {
+  box-shadow: inset 0 0 0 4px rgba(26, 111, 255, 0.5) !important;
+}
+
+.gnb-search-center .tk-search .tk-input::placeholder,
+.tk-header__center .tk-search .tk-input::placeholder {
   color: rgba(0, 0, 0, 0.4) !important;
 }
 
-.gnb-right .tk-search__icon {
+.gnb-search-center .tk-search__icon,
+.tk-header__center .tk-search__icon {
   position: absolute;
-  color: rgba(0, 0, 0, 0.35) !important;
+  color: rgba(0, 0, 0, 0.4) !important;
   display: flex !important;
   z-index: 2;
   left: 14px !important;
   pointer-events: none;
 }
 
-.gnb-right .tk-search__icon svg {
-  width: 18px;
-  height: 18px;
+.gnb-search-center .tk-search__icon svg,
+.tk-header__center .tk-search__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
-.gnb-right .tk-search__clear {
+.gnb-search-center .tk-search__clear,
+.tk-header__center .tk-search__clear {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
@@ -426,7 +449,8 @@
   flex-shrink: 0;
 }
 
-.gnb-right .tk-search__clear:hover {
+.gnb-search-center .tk-search__clear:hover,
+.tk-header__center .tk-search__clear:hover {
   background: rgba(0, 0, 0, 0.5);
 }
 
@@ -434,10 +458,9 @@
   display: none;
   position: absolute;
   top: 100%;
-  /* Wider than the input; pin left so the panel opens to the right. */
   left: 0;
-  right: auto;
-  width: min(390px, calc(100vw - 48px));
+  right: 0;
+  width: auto;
   box-sizing: border-box;
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -445,12 +468,34 @@
   padding: 8px 16px 16px;
   z-index: 140;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  max-height: min(390px, calc(100vh - 88px));
+  max-height: min(400px, calc(100vh - 88px));
   overflow-y: auto;
+  margin-top: 4px;
 }
 
 .gnb-search-dropdown.open {
   display: block;
+}
+
+.gnb-search-view-all {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-top: 8px;
+  padding: 8px 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--brand-400, #5b9aff);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.gnb-search-view-all:hover {
+  color: #fff;
 }
 
 .gnb-search-dropdown__heading {
@@ -1242,15 +1287,11 @@
   margin-bottom: 8px;
 }
 
-/* Portfolio.html: ≤1100 desktop GNB — search 180px, tighter nav */
+/* Desktop: tighten nav when viewport is mid-width (search uses max-width:40vw). */
 @media (max-width: 1100px) and (min-width: 1025px) {
   .gnb-nav {
     gap: 24px;
     margin-left: 32px;
-  }
-
-  .gnb-search-anchor {
-    --gnb-search-width: 140px;
   }
 }
 
@@ -1270,6 +1311,11 @@
   }
 
   .gnb-nav {
+    display: none !important;
+  }
+
+  .tk-header__center,
+  .gnb-search-center {
     display: none !important;
   }
 
@@ -1305,6 +1351,37 @@
 }
 
 @media (min-width: 1025px) {
+  /* tk-nav.js: .gnb-inner { display:grid; grid-template-columns:1fr auto 1fr } */
+  .tk-header__bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .tk-header__left {
+    justify-self: start;
+  }
+
+  .tk-header__center,
+  .gnb-search-center {
+    display: block;
+    position: relative;
+    width: 440px;
+    max-width: 40vw;
+    justify-self: center;
+  }
+
+  .tk-header__right {
+    justify-self: end;
+    margin-left: 0;
+  }
+
+  .gnb-right {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
   .tkm-overlay,
   .tkm-drawer {
     display: none !important;

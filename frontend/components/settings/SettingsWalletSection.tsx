@@ -86,7 +86,7 @@ export function SettingsWalletSection({ user }: { user: AuthUser }) {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Wallet &amp; balance</h1>
+      <h1 className="tk-settings__sec-h">Wallet and balance</h1>
       <p className="tk-settings__sec-sub">
         Your balance funds bids and purchases, and receives your sale proceeds.
       </p>

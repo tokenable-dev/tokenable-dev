@@ -5,17 +5,18 @@ import {
 } from './partner-vault-label.util';
 
 describe('formatPartnerVaultLabel', () => {
-  it('appends vault when missing', () => {
-    expect(formatPartnerVaultLabel('Courtyard')).toBe('Courtyard vault');
+  it('appends Vault when missing', () => {
+    expect(formatPartnerVaultLabel('Courtyard')).toBe('Courtyard Vault');
   });
 
-  it('does not double vault suffix', () => {
+  it('does not double vault suffix and capitalizes V', () => {
     expect(formatPartnerVaultLabel('Acme Vault')).toBe('Acme Vault');
+    expect(formatPartnerVaultLabel('Acme vault')).toBe('Acme Vault');
   });
 
   it('falls back when empty', () => {
-    expect(formatPartnerVaultLabel('')).toBe('Self vault');
-    expect(formatPartnerVaultLabel(null)).toBe('Self vault');
+    expect(formatPartnerVaultLabel('')).toBe('Self Vault');
+    expect(formatPartnerVaultLabel(null)).toBe('Self Vault');
   });
 
   it('exports PSA default label', () => {
@@ -28,7 +29,7 @@ describe('vaultLabelForCustody', () => {
     expect(vaultLabelForCustody('standard', 'Acme')).toBe('PSA Vault');
   });
 
-  it('uses partner vault for self_vault_hold', () => {
-    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('Acme vault');
+  it('uses partner Vault for self_vault_hold', () => {
+    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('Acme Vault');
   });
 });

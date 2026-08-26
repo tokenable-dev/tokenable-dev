@@ -40,37 +40,54 @@ function formatBookUsd(n: number | null | undefined): string {
   return formatUsdCompact(n);
 }
 
-/** Strip grade/number already shown in `#hero-title` (meta is Year · Set · Variant). */
+/** Strip segments already shown in `#hero-title` (name / number / grade). */
 function stripHeroTitleDupesFromMeta(
   meta: string,
   gradeLabel: string,
   cardNumber?: string | null,
+  cardName?: string | null,
 ): string {
-  let text = meta.trim();
-  const stripTrailingSegment = (segment: string) => {
-    const s = segment.trim();
-    if (!s) return;
-    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    text = text
-      .replace(new RegExp(`(?:\\s*·\\s*|\\s+)${escaped}\\s*$`, "i"), "")
-      .trim();
-  };
-  stripTrailingSegment(gradeLabel);
-  stripTrailingSegment(cardNumber ?? "");
-  return text;
+  const segments = meta
+    .split(/\s*·\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return "";
+
+  const skip = new Set(
+    [gradeLabel, cardNumber, cardName]
+      .map((s) => (s ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  const kept: string[] = [];
+  for (const seg of segments) {
+    const key = seg.toLowerCase();
+    if (skip.has(key)) continue;
+    // Drop consecutive identical segments ("Holofoil · Holofoil").
+    if (kept.length > 0 && kept[kept.length - 1].toLowerCase() === key) continue;
+    kept.push(seg);
+  }
+  return kept.join(" · ");
 }
 
 function HeroMeta({
   meta,
   gradeLabel,
   cardNumber,
+  cardName,
 }: {
   meta: string | null;
   gradeLabel: string;
   cardNumber?: string | null;
+  cardName?: string | null;
 }) {
   if (!meta) return null;
-  const text = stripHeroTitleDupesFromMeta(meta, gradeLabel, cardNumber);
+  const text = stripHeroTitleDupesFromMeta(
+    meta,
+    gradeLabel,
+    cardNumber,
+    cardName,
+  );
   if (!text) return null;
   return (
     <div className="cd-hero-bar__meta" id="hero-meta">
@@ -192,27 +209,57 @@ export function CollectionDetailStatMain({
       return r.width >= 8 && r.height >= 8;
     };
 
-    const clearMobilePin = () => {
+    const clearPin = () => {
       spacer.style.height = "";
       bar.classList.remove("is-stuck");
+      bar.style.left = "";
+      bar.style.width = "";
       pinnedAtScrollY = null;
     };
 
-    const pinMobile = (scrollY: number) => {
-      // Capture margin before `.is-stuck` zeros it.
+    /**
+     * Pin condensed hero as `position:fixed` and reserve the *expanded*
+     * in-flow height on the spacer. Shrinking a sticky bar in-place (or
+     * inserting a delta spacer above it) invalidates sticky geometry and
+     * can slam scrollY back to 0 — same model on desktop and mobile.
+     */
+    const pinBar = (scrollY: number) => {
       const mb = marginBottom();
       measureExpandedH();
       const flowH = expandedH > STUCK_BAR_H ? expandedH : STUCK_BAR_H;
+      if (window.innerWidth > 1023) {
+        // Desktop: lock content-box left/width before leaving flow.
+        const sr = spacer.getBoundingClientRect();
+        const box = sr.width >= 8 ? sr : bar.getBoundingClientRect();
+        bar.style.left = `${Math.round(box.left)}px`;
+        bar.style.width = `${Math.round(box.width)}px`;
+      } else {
+        // Mobile CSS owns left/right gutters — clear any desktop inline box.
+        bar.style.left = "";
+        bar.style.width = "";
+      }
       bar.classList.add("is-stuck");
-      // Keep in-flow height ≈ expanded hero so pin/unpin does not jump the page.
       spacer.style.height = `${flowH + mb}px`;
       pinnedAtScrollY = scrollY;
+    };
+
+    const syncFixedGeometry = () => {
+      if (!bar.classList.contains("is-stuck")) return;
+      if (window.innerWidth <= 1023) {
+        bar.style.left = "";
+        bar.style.width = "";
+        return;
+      }
+      const sr = spacer.getBoundingClientRect();
+      if (sr.width < 8) return;
+      bar.style.left = `${Math.round(sr.left)}px`;
+      bar.style.width = `${Math.round(sr.width)}px`;
     };
 
     const onScroll = () => {
       raf = 0;
       const mobile = window.innerWidth <= 1023;
-      const stuckTop = mobile ? 64 : 70;
+      const stuckTop = mobile ? 64 : 64;
       const wasStuck = bar.classList.contains("is-stuck");
 
       // Hidden twin (desktop cluster on mobile / mobile panel on desktop).
@@ -221,40 +268,38 @@ export function CollectionDetailStatMain({
         return;
       }
 
-      if (mobile) {
-        measureExpandedH();
-        const scrollY =
-          window.scrollY || document.documentElement.scrollTop || 0;
+      measureExpandedH();
+      const scrollY =
+        window.scrollY || document.documentElement.scrollTop || 0;
+      const rect = bar.getBoundingClientRect();
+      const nearTop = rect.top <= stuckTop + 1;
 
-        let shouldStuck: boolean;
-        if (scrollY <= 8) {
-          shouldStuck = false;
-        } else if (wasStuck && pinnedAtScrollY != null) {
-          shouldStuck = scrollY >= pinnedAtScrollY - UNPIN_HYSTERESIS_PX;
-        } else if (wasStuck) {
-          shouldStuck = true;
-        } else {
-          const rect = bar.getBoundingClientRect();
-          const extra = condenseExtraPx();
-          // Hero must fully clear the GNB, then scroll ~0.3 viewport more.
-          shouldStuck = rect.bottom <= stuckTop - extra;
-        }
-
-        if (shouldStuck) {
-          if (!wasStuck) pinMobile(scrollY);
-        } else if (wasStuck) {
-          clearMobilePin();
-        }
+      let shouldStuck: boolean;
+      if (scrollY <= 8) {
+        shouldStuck = false;
+      } else if (wasStuck && pinnedAtScrollY != null) {
+        // Once fixed, only scrollY decides unpin — do not use nearTop
+        // (fixed bar is always near the GNB).
+        shouldStuck = scrollY >= pinnedAtScrollY - UNPIN_HYSTERESIS_PX;
+      } else if (wasStuck) {
+        shouldStuck = true;
+      } else if (mobile) {
+        const extra = condenseExtraPx();
+        shouldStuck = rect.bottom <= stuckTop - extra;
       } else {
-        if (wasStuck && spacer.style.height) clearMobilePin();
-        // Desktop sticky: only condense after a meaningful scroll.
-        const rect = bar.getBoundingClientRect();
-        const scrollY =
-          window.scrollY || document.documentElement.scrollTop || 0;
-        const nearTop = rect.top <= stuckTop + 1;
-        const scrolledEnough =
-          scrollY >= Math.max(160, Math.round(window.innerHeight * 0.2));
-        bar.classList.toggle("is-stuck", nearTop && scrolledEnough);
+        // Desktop: sticky must have engaged, then scroll a bit further.
+        const pinThreshold = Math.max(
+          120,
+          Math.round(window.innerHeight * 0.15),
+        );
+        shouldStuck = nearTop && scrollY >= pinThreshold;
+      }
+
+      if (shouldStuck) {
+        if (!wasStuck) pinBar(scrollY);
+        else syncFixedGeometry();
+      } else if (wasStuck) {
+        clearPin();
       }
       publishBarH();
     };
@@ -279,7 +324,7 @@ export function CollectionDetailStatMain({
       window.cancelAnimationFrame(settle);
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
-      clearMobilePin();
+      clearPin();
       document.documentElement.style.removeProperty("--bar-h");
     };
   }, []);
@@ -394,6 +439,7 @@ export function CollectionDetailStatMain({
                 meta={meta}
                 gradeLabel={gradeLabel}
                 cardNumber={headlineParts?.cardNumber}
+                cardName={headlineParts?.cardName}
               />
             </div>
           ) : null}

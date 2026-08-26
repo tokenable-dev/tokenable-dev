@@ -25,6 +25,28 @@
   margin: 16px 0 0;
 }
 
+.markets-page__search-sub {
+  margin: 14px 0 0;
+  max-width: 600px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.markets-page__search-sub b,
+.markets-page__search-q {
+  color: #fff;
+  font-weight: 700;
+}
+
+.markets-page__search-dot {
+  color: var(--t3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .markets-page__subtitle {
   max-width: 600px;
 }
@@ -118,6 +140,45 @@
 
 .markets-fw {
   position: relative;
+}
+
+.markets-catchiprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.markets-catchip {
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  box-sizing: border-box;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.markets-catchip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.markets-catchip--on {
+  background: #1a6fff;
+  color: #fff;
+}
+
+.markets-catchip:focus-visible {
+  outline: 2px solid var(--brand-400, #5b9aff);
+  outline-offset: 2px;
 }
 
 .markets-ddchip {
@@ -810,6 +871,26 @@
   .markets-slim-bar {
     flex-wrap: nowrap;
     gap: 8px;
+  }
+
+  .markets-catchiprow {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    order: 0;
+  }
+
+  .markets-catchiprow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .markets-catchip {
+    flex: 0 0 auto;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   .markets-fw--chip {

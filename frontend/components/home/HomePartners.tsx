@@ -18,7 +18,7 @@ export function HomePartners() {
   return (
     <section className="tkl-wrap home-partners-section">
       <div className="home-partners__row">
-        <span className="home-partners__label">Vaults &amp; grading partners</span>
+        <span className="home-partners__label">Vaults and grading partners</span>
         <div className="home-partners__logos">
           {PARTNER_LOGOS.map((logo) => (
             /* eslint-disable-next-line @next/next/no-img-element */

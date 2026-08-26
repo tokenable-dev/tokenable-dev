@@ -14,7 +14,7 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
-import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
+import { CollectionChooseCopyModal } from "./CollectionChooseCopyModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -23,7 +23,6 @@ import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
 import { useCollectionListingModal } from "@/hooks/collection-detail/useCollectionListingModal";
 import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
-import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
 import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
 import { CollectionSimilarItemsSection } from "./CollectionSimilarItemsSection";
 import {
@@ -35,6 +34,8 @@ import {
   priceLevelKey,
   priceUsdcFromOrder,
 } from "@/lib/marketplace/unified-order-book";
+import { formatCardDisplayName } from "@/lib/marketplace/assetDetailHeadline";
+import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
   const {
@@ -158,9 +159,47 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     toggleListingAlert,
   ]);
 
+  const openBuyCheckoutForToken = useCallback(
+    (tokenId: number) => {
+      const listing = listings.askMap.get(tokenId);
+      if (!listing || listing.status !== "active") return;
+      const priceUsdc = priceUsdcFromOrder(listing);
+      trackEvent("buy_now_clicked", {
+        card_id: String(tokenId),
+        price: priceUsdc > 0 ? priceUsdc : undefined,
+        collection_id: collectionKey,
+      });
+      listingModal.openListing(tokenId, "buy");
+    },
+    [listings.askMap, collectionKey, listingModal.openListing],
+  );
+
+  const handleOrderBookSelectLevel = useCallback(
+    (sel: BookRowSelection) => {
+      if (sel.side === "ask") {
+        if (sel.orders.length > 1) {
+          setOrderBookAskPicker(sel);
+          return;
+        }
+        const tid = Number(sel.orders[0]?.tokenId);
+        if (Number.isFinite(tid)) {
+          openBuyCheckoutForToken(tid);
+          return;
+        }
+      }
+      collectionOrderBookProps?.onSelectLevel?.(sel);
+    },
+    [
+      collectionOrderBookProps,
+      setOrderBookAskPicker,
+      openBuyCheckoutForToken,
+    ],
+  );
+
   const orderBookPropsWithActions = useMemo(
     () => ({
       ...collectionOrderBookProps,
+      onSelectLevel: handleOrderBookSelectLevel,
       onPlaceBid: listingModal.openSetLevelBid,
       onListYours: () => router.push("/sell"),
       listingAlertActive,
@@ -169,6 +208,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     }),
     [
       collectionOrderBookProps,
+      handleOrderBookSelectLevel,
       listingModal.openSetLevelBid,
       router,
       listingAlertActive,
@@ -184,28 +224,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const lowestAskUsd = useMemo(
     () => bestAskFromRows(asks),
     [asks],
-  );
-
-  const fulfillBuyForToken = useCallback(
-    (tokenId: number) => {
-      const listing = listings.askMap.get(tokenId);
-      if (!listing || listing.status !== "active") return;
-      const priceUsdc = priceUsdcFromOrder(listing);
-      trackEvent("buy_now_clicked", {
-        card_id: String(tokenId),
-        price: priceUsdc > 0 ? priceUsdc : undefined,
-        collection_id: collectionKey,
-      });
-      runTradeAccessGate(() => {
-        void listingModal.buyFlow.handleFulfillAsk(listing);
-      });
-    },
-    [
-      listings.askMap,
-      collectionKey,
-      runTradeAccessGate,
-      listingModal.buyFlow.handleFulfillAsk,
-    ],
   );
 
   const openBuyFloor = () => {
@@ -234,7 +252,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         return false;
       }
     });
-    // Same floor price on multiple cards → pick which copy (Order book ask picker UX).
+    // Same floor price on multiple cards → pick which copy (Card.html #tk-choose).
     if (floorOrders.length > 1) {
       const price = priceUsdcFromOrder(floorOrders[0]!);
       setOrderBookAskPicker({
@@ -249,8 +267,22 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     if (floor?.tokenId == null) return;
     const tid = Number(floor.tokenId);
     if (!Number.isFinite(tid)) return;
-    fulfillBuyForToken(tid);
+    openBuyCheckoutForToken(tid);
   };
+
+  /** Card.html #tk-choose: title without grade; sub = `PSA 10 · Gem Mint`. */
+  const chooseCopyTitle = useMemo(
+    () =>
+      formatCardDisplayName(headline.collectionHeadlineParts) ||
+      headline.collectionHeadlineDisplayTitle,
+    [headline.collectionHeadlineParts, headline.collectionHeadlineDisplayTitle],
+  );
+  const chooseCopyGradeLine = useMemo(() => {
+    const grade = comp.gradeScore?.trim();
+    if (!grade) return null;
+    const label = /^\d/.test(grade) ? `PSA ${grade}` : grade;
+    return `${label} · Gem Mint`;
+  }, [comp.gradeScore]);
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -366,30 +398,46 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         onClose={() => setTradeCelebration(null)}
       />
 
-      <OrderBookAskListingModal
+      <CollectionChooseCopyModal
         open={orderBookAskPicker?.side === "ask"}
         onClose={() => setOrderBookAskPicker(null)}
-        collectionKey={collection.collectionKey}
+        collectionTitle={chooseCopyTitle}
+        collectionGradeLine={chooseCopyGradeLine}
+        coverImageUrl={collectionCoverUrl}
         price={orderBookAskPicker?.price ?? 0}
         orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
-        onBuyToken={(tokenId) => {
+        batchMetadata={listingsBatchMetadata}
+        onConfirm={(tokenId) => {
           setOrderBookAskPicker(null);
-          fulfillBuyForToken(tokenId);
+          openBuyCheckoutForToken(tokenId);
         }}
       />
 
-      <CollectionListingDetailModal
-        open={listingModal.selectedTokenId != null && listingModal.checkout == null}
+      <CollectionListingCheckoutModal
+        open={listingModal.checkout === "buy"}
+        mode="buy"
         tokenId={listingModal.selectedTokenId}
         listing={listingModal.selectedListing}
-        prefetchedMetadata={listingModal.selectedPrefetch?.metadata}
-        prefetchedImageUrl={listingModal.selectedPrefetch?.imageUrl}
+        metadata={listingModal.selectedPrefetch?.metadata ?? null}
+        imageUrl={
+          listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl
+        }
+        collectionTitle={chooseCopyTitle}
+        collectionMeta={headline.collectionHeadlineMetaStrip}
+        collectionKey={collectionKey}
+        connectedAddress={address}
+        buyBusy={listingModal.buyFlow.buyBusy}
+        buyErr={listingModal.buyFlow.buyErr}
         onClose={listingModal.closeDetail}
-        onBuy={() => {
-          const tid = listingModal.selectedTokenId;
-          if (tid == null) return;
+        onFulfillBuy={() => {
+          runTradeAccessGate(() => {
+            void listingModal.buyFlow.handleFulfillAsk();
+          });
+        }}
+        onPurchaseFilled={() => {
           listingModal.closeDetail();
-          fulfillBuyForToken(tid);
+          setTradeCelebration("purchase");
+          invalidateCollection();
         }}
       />
 
@@ -400,10 +448,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         listing={listingModal.selectedListing}
         metadata={listingModal.selectedPrefetch?.metadata ?? null}
         imageUrl={listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl}
-        collectionTitle={headline.collectionHeadlineDisplayTitle}
+        collectionTitle={chooseCopyTitle}
         collectionMeta={headline.collectionHeadlineMetaStrip}
+        collectionGradeLine={chooseCopyGradeLine}
         collectionKey={collectionKey}
         collectionBids={collectionBids}
+        askUsd={lowestAskUsd}
+        highestBidUsd={highestBidUsd}
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}
         buyErr={listingModal.buyFlow.buyErr}

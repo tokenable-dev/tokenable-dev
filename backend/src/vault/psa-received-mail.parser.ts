@@ -1,6 +1,6 @@
 /**
  * Pure parser for PSA Vault “Items Received” (intake/arrival) emails.
- * Shipping-instruction mails (print & include…) must return matched: false.
+ * Shipping-instruction mails (print and include…) must return matched: false.
  * Vault-confirmation (“now secured…”) mails are handled by psa-vaulted-mail.
  */
 

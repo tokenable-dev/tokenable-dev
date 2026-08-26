@@ -239,7 +239,7 @@ function TrackingModal({
               ? "Saving…"
               : isEdit
                 ? "Save tracking"
-                : "Add tracking & mark shipped"}
+                : "Add tracking and mark shipped"}
           </TkButton>
         </div>
       </div>

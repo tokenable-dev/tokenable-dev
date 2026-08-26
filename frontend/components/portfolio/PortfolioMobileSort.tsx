@@ -57,7 +57,7 @@ export function PortfolioMobileSort({
         <button
           type="button"
           className="pf-mobile-sort__trigger"
-          aria-label="Sort table"
+          aria-label="Sort assets"
           aria-haspopup="listbox"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}

@@ -7,6 +7,7 @@ export type PortfolioSortDir = "asc" | "desc";
 export function usePortfolioTableSort<T extends string>(
   defaultKey: T,
   defaultDir: PortfolioSortDir = "asc",
+  opts?: { dirWhenSelecting?: (key: T) => PortfolioSortDir },
 ) {
   const [sortKey, setSortKey] = useState<T>(defaultKey);
   const [sortDir, setSortDir] = useState<PortfolioSortDir>(defaultDir);
@@ -17,7 +18,7 @@ export function usePortfolioTableSort<T extends string>(
       return;
     }
     setSortKey(key);
-    setSortDir("asc");
+    setSortDir(opts?.dirWhenSelecting?.(key) ?? "asc");
   }
 
   function applyMobileSort(value: string) {

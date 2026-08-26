@@ -70,7 +70,7 @@ export function CollectionDetailListingsGrid({
             </TkButton>
           ) : null}
           <div className="cd-asks-empty__hint mono">
-            Backed by your USDC balance · expires in 7 days
+            Backed by your USDC balance · pick how long your bid stays open
           </div>
         </div>
       );

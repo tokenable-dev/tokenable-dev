@@ -14,6 +14,7 @@ import {
 import { TkField, TkInput, TkSelect } from "@/components/ds";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
   formatTradeTicketUsdcPrice,
@@ -33,6 +34,7 @@ export function CollectionTradeTicketBuy({
   const { usdcAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
 
   const { data: usdcBalRaw } = useReadContract({
     address: usdcAddress,
@@ -75,7 +77,7 @@ export function CollectionTradeTicketBuy({
 
   async function handleBuyListing() {
     setBuyErr(null);
-    if (!address || !publicClient || !selectedAsk) {
+    if (!publicClient || !selectedAsk) {
       setBuyErr("Select a red (ask) row in the book or connect your wallet.");
       return;
     }
@@ -86,9 +88,10 @@ export function CollectionTradeTicketBuy({
     }
     setBuyBusy(true);
     try {
+      const signerAddress = await ensureAccountWalletReady();
       await fulfillAskListingOrder({
         ask: selectedAsk,
-        address,
+        address: signerAddress as Address,
         publicClient,
         writeContractAsync: writeContractAsync as Parameters<
           typeof fulfillAskListingOrder

@@ -84,12 +84,10 @@ export function useUserAssets(
   const tokenIds = useMemo(() => {
     const raw = tokenIdsQuery.data ?? EMPTY_TOKEN_IDS;
     const unique = [...new Set(raw)];
-    if (paged) {
-      // Newest mints first so the first page is the most relevant.
-      unique.sort((a, b) => b - a);
-    }
+    // Newest mints first (token id grows with mint); portfolio UI defaults to recent-first.
+    unique.sort((a, b) => b - a);
     return unique;
-  }, [tokenIdsQuery.data, paged]);
+  }, [tokenIdsQuery.data]);
 
   const pagedMetadataQuery = useInfiniteQuery({
     queryKey: [

@@ -80,6 +80,8 @@ export interface OrderListItem {
   side: "ask" | "bid";
   status: OrderStatus;
   createdAt: string;
+  /** ISO timestamp for Seaport endTime. */
+  endTime?: string;
   updatedAt?: string;
   offerer: string;
   filledByBuyer?: string | null;
@@ -240,6 +242,8 @@ export async function getOrderByHash(
 /** 판매 주문 등록 */
 /** First listing may create a collection row (RPC + IPFS); allow extra headroom vs default 25s. */
 const CREATE_ORDER_FETCH_TIMEOUT_MS = 45_000;
+/** After on-chain fulfill, backend seeds holdings + may refresh charts — needs headroom. */
+const FULFILL_ORDER_FETCH_TIMEOUT_MS = 60_000;
 
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`, {
@@ -371,6 +375,8 @@ export async function fulfillOrderApi(
     `${getApiUrl()}/marketplace/orders/${orderHash}/fulfill?${sp.toString()}`,
     {
       method: "PATCH",
+      // Chart/holdings side work can exceed the default 25s; on-chain buy already finished.
+      timeoutMs: FULFILL_ORDER_FETCH_TIMEOUT_MS,
     },
   );
   if (!res.ok) {

@@ -24,6 +24,7 @@ import {
   submitTokenBid,
   TOKEN_BID_DEFAULT_DURATION_DAYS,
   isTokenBidDurationDays,
+  resolveTokenBidDurationDays,
   tokenBidDurationSeconds,
   type TokenBidDurationDays,
 } from "@/lib/seaport/orders/submitTokenBid";
@@ -41,9 +42,25 @@ import {
   minUnlistedTokenBidUsdc,
 } from "@/lib/marketplace/tokenBidMarketFloor";
 
+/** Digits + optional one decimal place (e.g. `3.5`). Strips commas / extra dots. */
+export function sanitizeTokenBidPriceInput(raw: string): string {
+  const cleaned = raw.replace(/,/g, "").replace(/[^0-9.]/g, "");
+  const dot = cleaned.indexOf(".");
+  if (dot < 0) return cleaned;
+  const intPart = cleaned.slice(0, dot).replace(/\./g, "");
+  const frac = cleaned
+    .slice(dot + 1)
+    .replace(/\./g, "")
+    .replace(/[^0-9]/g, "")
+    .slice(0, 1);
+  if (cleaned.endsWith(".") && frac === "") return `${intPart}.`;
+  return frac ? `${intPart}.${frac}` : intPart;
+}
+
 export const MAX_ACTIVE_BIDS_PER_COLLECTION = 1;
 export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
-const MARKET_FLOOR_RATIO = 0.9;
+/** Soft floor vs live ask — Card.html `tkbMin` uses 70% of market. */
+const MARKET_FLOOR_RATIO = 0.7;
 
 function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
@@ -109,6 +126,8 @@ export function useTokenOffer(input: {
   const [durationDays, setDurationDays] = useState<TokenBidDurationDays>(
     TOKEN_BID_DEFAULT_DURATION_DAYS,
   );
+  const durationDaysRef = useRef(durationDays);
+  durationDaysRef.current = durationDays;
   const priceTouchedRef = useRef(false);
   const [softOverride, setSoftOverride] = useState(false);
   const [step, setStep] = useState<TokenOfferStep>("idle");
@@ -225,11 +244,14 @@ export function useTokenOffer(input: {
   const priceInUnits = useMemo(() => {
     if (!priceOk) return null;
     try {
-      return parseUnits(String(priceUsdc), 6);
+      // Prefer the sanitized input string so one-decimal amounts stay exact in micros.
+      const normalized = sanitizeTokenBidPriceInput(price).replace(/\.$/, "");
+      if (!normalized) return null;
+      return parseUnits(normalized, 6);
     } catch {
       return null;
     }
-  }, [priceOk, priceUsdc]);
+  }, [priceOk, price]);
 
   const crossesAsk =
     hasListedAsk && priceOk && priceInUnits != null && priceInUnits >= askMicros;
@@ -292,7 +314,7 @@ export function useTokenOffer(input: {
     }
     if (belowSoftFloor) {
       return {
-        text: `Bid is below the $${formatUsdc2(askSoftFloorUsdc)} minimum (90% of market). Continue anyway?`,
+        text: `Bid is below the $${formatUsdc2(askSoftFloorUsdc)} minimum (70% of market). Continue anyway?`,
         tone: "warn" as const,
       };
     }
@@ -310,7 +332,7 @@ export function useTokenOffer(input: {
       };
     }
     return {
-      text: `Min bid $${formatUsdc2(askSoftFloorUsdc)} (90% of market) · No bid fee, 5% on sale only`,
+      text: `Min bid $${formatUsdc2(askSoftFloorUsdc)} (70% of market) · No bid fee, 5% on sale only`,
       tone: "muted" as const,
     };
   }, [
@@ -350,14 +372,15 @@ export function useTokenOffer(input: {
     setHintError(null);
     setErrorMsg("");
     setDurationDays(days);
+    durationDaysRef.current = days;
   };
 
-  const setPriceDigits = (digits: string) => {
+  const setPriceDigits = (raw: string) => {
     priceTouchedRef.current = true;
     setSoftOverride(false);
     setHintError(null);
     setErrorMsg("");
-    setPrice(digits);
+    setPrice(sanitizeTokenBidPriceInput(raw));
   };
 
   const handleAdjustBid = () => {
@@ -458,6 +481,10 @@ export function useTokenOffer(input: {
     try {
       await ensureAccountWalletReady();
       setStep(isReplaceBid ? "submitting" : "signing");
+      // Re-read after wallet prompts so Valid-for selection is never stale.
+      const selectedDurationDays = resolveTokenBidDurationDays(
+        durationDaysRef.current,
+      );
       const result = await submitTokenBid({
         collectionKey,
         tokenId: tokenIdNorm,
@@ -469,7 +496,7 @@ export function useTokenOffer(input: {
         counter: counter as bigint,
         usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
         chainId,
-        durationDays,
+        durationDays: selectedDurationDays,
         mode: isReplaceBid ? "replace" : "create",
         oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
       });

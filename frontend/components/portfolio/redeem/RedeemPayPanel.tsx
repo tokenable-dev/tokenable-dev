@@ -37,7 +37,7 @@ function busyLabel(phase: RedeemPayPhase): string {
 }
 
 /**
- * Step 2 — review & pay USDC, or finish NFT→custody if payment already recorded.
+ * Step 2 — review and pay USDC, or finish NFT→custody if payment already recorded.
  */
 export function RedeemPayPanel({
   cards,
@@ -110,9 +110,9 @@ export function RedeemPayPanel({
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-eyebrow">Ship from vault · Step 2 of 2</div>
+      <div className="pf-redeem-eyebrow">Redeem · Step 2 of 2</div>
       <h1 className="pf-redeem-h1">
-        {custodyPending ? "Finish NFT transfer" : "Review & pay"}
+        {custodyPending ? "Finish NFT transfer" : "Review and pay"}
       </h1>
       <p className="pf-redeem-sub">
         {custodyPending
@@ -256,7 +256,7 @@ export function RedeemPayPanel({
             {busy
               ? busyLabel(payPhase)
               : est
-                ? `Pay ${formatRedeemUsd(est.totalUsd)} USDC & ship`
+                ? `Pay ${formatRedeemUsd(est.totalUsd)} USDC and ship`
                 : "Pay and ship"}
           </TkButton>
           <p className="pf-redeem-hint-below">

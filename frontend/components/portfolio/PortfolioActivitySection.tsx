@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { TxRow } from "@/lib/portfolio/portfolioTypes";
-import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import {
+  compareSortNum,
+  compareSortText,
+  formatPortfolioUsd,
+} from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
+import { PortfolioPanelSearch } from "./PortfolioPanelSearch";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
 import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
 
@@ -20,6 +26,16 @@ const HISTORY_SORT_OPTIONS = [
   { key: "amount", label: "Amount" },
 ] as const;
 
+function typeLabel(tx: TxRow): string {
+  if (tx.status === "vaulted") return "Vault";
+  return tx.type === "BUY" ? "Buy" : "Sell";
+}
+
+function typeClass(tx: TxRow): string {
+  if (tx.status === "vaulted") return "pf-table-type--vault";
+  return tx.type === "BUY" ? "pf-table-type--buy" : "pf-table-type--sell";
+}
+
 export function PortfolioActivitySection({
   loading,
   txRows,
@@ -28,15 +44,21 @@ export function PortfolioActivitySection({
   txRows: TxRow[];
 }) {
   const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<HistorySortKey>("date", "desc");
 
   const sortedRows = useMemo(() => {
-    const rows = [...txRows];
+    const q = searchQuery.trim().toLowerCase();
+    const rows = txRows.filter((tx) => {
+      if (!q) return true;
+      const hay = `${tx.asset} ${typeLabel(tx)} ${tx.certNumber ?? ""} ${tx.gradeLabel ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
     rows.sort((a, b) => {
       switch (sortKey) {
         case "type":
-          return compareSortText(a.type, b.type, sortDir);
+          return compareSortText(typeLabel(a), typeLabel(b), sortDir);
         case "card":
           return compareSortText(a.asset, b.asset, sortDir);
         case "status":
@@ -48,7 +70,7 @@ export function PortfolioActivitySection({
       }
     });
     return rows;
-  }, [txRows, sortKey, sortDir]);
+  }, [txRows, searchQuery, sortKey, sortDir]);
 
   if (loading) {
     return (
@@ -61,17 +83,38 @@ export function PortfolioActivitySection({
   }
 
   if (txRows.length === 0) {
-    return <p className="pf-empty">No transactions yet</p>;
+    return (
+      <div className="pf-empty pf-empty--panel">
+        <p>No transactions yet</p>
+        <p className="pf-empty__sub">
+          Buys, sells, and vault mints will show up here once they settle.
+        </p>
+        <Link href="/markets" className="pf-empty__cta">
+          Browse collections
+        </Link>
+      </div>
+    );
   }
 
   return (
     <>
-      <PortfolioMobileSort
-        options={[...HISTORY_SORT_OPTIONS]}
-        value={mobileSortValue}
-        onChange={applyMobileSort}
-      />
+      <div className="pf-panel-toolbar">
+        <PortfolioPanelSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search history — card, type, cert"
+          ariaLabel="Search transaction history"
+        />
+        <PortfolioMobileSort
+          options={[...HISTORY_SORT_OPTIONS]}
+          value={mobileSortValue}
+          onChange={applyMobileSort}
+        />
+      </div>
 
+      {sortedRows.length === 0 ? (
+        <p className="pf-empty pf-empty--panel">No transactions match your search.</p>
+      ) : (
       <TkTable wrapClassName="pf-table-wrap" className="pf-table--history">
         <colgroup>
           <col className="pf-col-date" />
@@ -122,53 +165,52 @@ export function PortfolioActivitySection({
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((tx) => (
-            <tr
-              key={tx.orderHash}
-              className="pf-history-row"
-              onClick={() => setSelectedTx(tx)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setSelectedTx(tx);
-                }
-              }}
-              tabIndex={0}
-              role="button"
-            >
-              <td data-label="Date">
-                <span className="tkl-mono pf-table-muted">{tx.date}</span>
-              </td>
-              <td data-label="Type">
-                <span
-                  className={`tkl-mono pf-table-type ${
-                    tx.status === "vaulted"
-                      ? "pf-table-type--vault"
-                      : tx.type === "BUY"
-                        ? "pf-table-type--buy"
-                        : "pf-table-type--sell"
-                  }`}
-                >
-                  {tx.status === "vaulted" ? "Vault" : tx.type === "BUY" ? "Buy" : "Sell"}
-                </span>
-              </td>
-              <td data-label="Card">
-                <span className="pf-table-card-name">{tx.asset}</span>
-              </td>
-              <td data-label="Status" style={{ textAlign: "right" }}>
-                <PortfolioHistoryStatusBadge status={tx.status ?? "settled"} />
-              </td>
-              <td data-label="Amount" style={{ textAlign: "right" }}>
-                <span className="tkl-mono pf-table-amount">
-                  {tx.status === "vaulted" || tx.price === 0
-                    ? "—"
-                    : formatPortfolioUsd(tx.price)}
-                </span>
-              </td>
-            </tr>
-          ))}
+          {sortedRows.map((tx, index) => {
+            const zeroAmount = tx.status === "vaulted" || tx.price === 0;
+            const zebra = index % 2 === 1 ? " pf-table-row--zebra" : "";
+            return (
+              <tr
+                key={tx.orderHash}
+                className={`pf-history-row${zebra}`}
+                onClick={() => setSelectedTx(tx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedTx(tx);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+              >
+                <td data-label="Date">
+                  <span className="tkl-mono pf-table-muted">{tx.date}</span>
+                </td>
+                <td data-label="Type">
+                  <span className={`tkl-mono pf-table-type ${typeClass(tx)}`}>
+                    {typeLabel(tx)}
+                  </span>
+                </td>
+                <td data-label="Card">
+                  <span className="pf-table-card-name">{tx.asset}</span>
+                </td>
+                <td data-label="Status" style={{ textAlign: "right" }}>
+                  <PortfolioHistoryStatusBadge status={tx.status ?? "settled"} />
+                </td>
+                <td data-label="Amount" style={{ textAlign: "right" }}>
+                  <span
+                    className={`tkl-mono ${
+                      zeroAmount ? "pf-table-amount--dash" : "pf-table-amount"
+                    }`}
+                  >
+                    {zeroAmount ? "—" : formatPortfolioUsd(tx.price)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </TkTable>
+      )}
 
       <PortfolioTxDetailDrawer tx={selectedTx} onClose={() => setSelectedTx(null)} />
     </>

@@ -1,5 +1,5 @@
 /**
- * P3.13 — Deterministic replay & chaos validation suite.
+ * P3.13 — Deterministic replay and chaos validation suite.
  */
 
 import {

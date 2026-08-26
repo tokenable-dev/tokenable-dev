@@ -167,7 +167,7 @@ export async function searchCardhedgerCards(req: {
   return { cards: Array.isArray(body.cards) ? body.cards : [] };
 }
 
-// ─── Card detail & price history (live CardHedger proxy) ─────────────────────
+// ─── Card detail and price history (live CardHedger proxy) ─────────────────────
 
 export type CardHedgerPricePoint = {
   closing_date: string;

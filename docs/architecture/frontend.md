@@ -237,6 +237,8 @@ Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card numbe
 
 **Set facet sync:** Details **Set** values and Markets `set=` use the same canonical label (`resolveCollectionSetFacetLabel` — year prefix stripped). Markets slim bar **Set** filter searches that label against loaded collections; chosen sets and `sort` both persist in the URL so deep-links from Details and in-page filtering stay aligned.
 
+**Collection search:** Home hero and GNB search submit to `/search?q=` (`buildCollectionSearchHref`). The page reuses `MarketsPage` with `GET /marketplace/collections?q=` (same text match as the header typeahead). Enter on a typeahead row still opens that collection.
+
 **Admin + local `next dev` CPU:** `/marketplace/admin/*` hides GNB/footer via `shouldHideAppChrome`, and also **disables** marketplace notification polling / partner-me queries on those routes. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy (fan spin with frontend alone).
 
 **CSS + Turbopack:** `app/globals.css` only pulls DS + layout + shared card/secondary sheets. Heavy route CSS (`tokenable-vault`, `sell-flow`, `collection-detail`, …) is imported from the owning route layout so admin / home compiles do not reprocess ~25k lines of unrelated CSS. See [design-system-reference.md](../guides/design-system-reference.md) § CSS bundle.

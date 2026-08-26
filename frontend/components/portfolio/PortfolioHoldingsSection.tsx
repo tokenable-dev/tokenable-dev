@@ -1,39 +1,36 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Order, RwaMetadata } from "@/lib/core";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import {
+  certNumberFromMetadata,
   isRedeemInFlight,
   redeemSurfaceBadge,
 } from "@/lib/portfolio/redeemDraft";
-import { GatedSellLink } from "@/components/auth/GatedSellLink";
-import { TkButton, TkTable, TkTag } from "@/components/ds";
-import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import {
+  holdingsLifecycleSeg,
+  matchesAssetsSegment,
+  type AssetsSegment,
+} from "@/lib/portfolio/portfolioAssetsSegment";
 import {
   compareSortNum,
   compareSortText,
   formatPortfolioGradeLabel,
-  formatPortfolioProfitReturn,
-  formatPortfolioUsd,
 } from "@/lib/portfolio/portfolioTableHelpers";
-import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
-import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
+import { GatedSellLink } from "@/components/auth/GatedSellLink";
+import { TkButton } from "@/components/ds";
+import {
+  PortfolioAssetsToolbar,
+  type AssetsToolbarSort,
+  type AssetsViewMode,
+} from "./PortfolioAssetsToolbar";
+import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
+import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
+import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
-import { PortfolioMobileSort } from "./PortfolioMobileSort";
-import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 import { RedeemSelectModeBar } from "./redeem/RedeemSelectModeBar";
-
-type HoldingsSortKey = "name" | "grade" | "cost" | "value" | "pl";
-
-const HOLDINGS_SORT_OPTIONS = [
-  { key: "name", label: "Name" },
-  { key: "grade", label: "Grade" },
-  { key: "cost", label: "Cost basis" },
-  { key: "value", label: "Mkt Price" },
-  { key: "pl", label: "P/L" },
-] as const;
 
 export function PortfolioHoldingsSection({
   assetsSectionLoading,
@@ -42,6 +39,7 @@ export function PortfolioHoldingsSection({
   tokenToCollectionKey: _tokenToCollectionKey,
   bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
+  acquiredAtByTokenId: _acquiredAtByTokenId,
   valuesPending,
   canEditCostBasis,
   onSaveCostBasis,
@@ -71,6 +69,7 @@ export function PortfolioHoldingsSection({
   tokenToCollectionKey: Record<number, string>;
   bidsByCollectionKey: Map<string, Order[]>;
   costBasisByTokenId: Map<number, number>;
+  acquiredAtByTokenId?: Map<number, string>;
   valuesPending: boolean;
   canEditCostBasis?: boolean;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
@@ -92,48 +91,120 @@ export function PortfolioHoldingsSection({
   onToggleRedeemToken?: (tokenId: number, checked: boolean) => void;
   onContinueRedeem?: () => void;
   redeemMaxBatch?: number;
-  /** tokenId → "PSA Vault" | "{partner} vault" */
   vaultLabelByTokenId?: Map<number, string>;
 }) {
-  const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
-    usePortfolioTableSort<HoldingsSortKey>("name");
+  const [segment, setSegment] = useState<AssetsSegment>("tradeable");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<AssetsToolbarSort>("value");
+  /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
+  const [view, setView] = useState<AssetsViewMode>("table");
+  const isMobile = useIsMobileViewport(768);
 
-  const sortedRows = useMemo(() => {
-    const rows = [...assetRows];
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 769px)").matches) setView("gallery");
+  }, []);
+
+  function getBadge(tokenId: number) {
+    return redeemSurfaceBadge(
+      redeemStatusByTokenId?.get(tokenId),
+      redeemTrackingByTokenId?.get(tokenId),
+      redeemCarrierDeliveredByTokenId?.get(tokenId),
+    );
+  }
+
+  const filteredSortedRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const rows = assetRows.filter((row) => {
+      const isListed =
+        row.listPriceUsd != null && row.activeListingOrderHash != null;
+      const badge = getBadge(row.tokenId);
+      const seg = holdingsLifecycleSeg(isListed, badge);
+      if (!matchesAssetsSegment(seg, segment)) return false;
+      if (!q) return true;
+      const meta = metadataByTokenId.get(row.tokenId) ?? null;
+      const cert = certNumberFromMetadata(meta)?.toLowerCase() ?? "";
+      const grade = formatPortfolioGradeLabel(meta)?.toLowerCase() ?? "";
+      const set = (row.setName ?? "").toLowerCase();
+      const hay = `${row.name} ${cert} ${grade} ${set}`.toLowerCase();
+      return hay.includes(q);
+    });
+
     rows.sort((a, b) => {
-      const metaA = metadataByTokenId.get(a.tokenId) ?? null;
-      const metaB = metadataByTokenId.get(b.tokenId) ?? null;
-      const gradeA = formatPortfolioGradeLabel(metaA) ?? "";
-      const gradeB = formatPortfolioGradeLabel(metaB) ?? "";
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
-
-      switch (sortKey) {
-        case "grade":
-          return compareSortText(gradeA, gradeB, sortDir);
-        case "cost":
-          return compareSortNum(costA, costB, sortDir);
-        case "value":
-          return compareSortNum(a.currentPrice, b.currentPrice, sortDir);
+      switch (sort) {
+        case "name":
+          return compareSortText(a.name, b.name, "asc");
         case "pl": {
-          const deltaA =
+          const dA =
             costA != null && a.currentPrice != null ? a.currentPrice - costA : null;
-          const deltaB =
+          const dB =
             costB != null && b.currentPrice != null ? b.currentPrice - costB : null;
-          return compareSortNum(deltaA, deltaB, sortDir);
+          return compareSortNum(dA, dB, "desc");
         }
+        case "ret": {
+          const rA =
+            costA != null && costA > 0 && a.currentPrice != null
+              ? (a.currentPrice - costA) / costA
+              : null;
+          const rB =
+            costB != null && costB > 0 && b.currentPrice != null
+              ? (b.currentPrice - costB) / costB
+              : null;
+          return compareSortNum(rA, rB, "desc");
+        }
+        case "value":
         default:
-          return compareSortText(a.name, b.name, sortDir);
+          return compareSortNum(a.currentPrice, b.currentPrice, "desc");
       }
     });
     return rows;
-  }, [assetRows, sortKey, sortDir, metadataByTokenId, costBasisByTokenId]);
+    // getBadge reads redeem maps; include those deps explicitly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- badge maps listed below
+  }, [
+    assetRows,
+    segment,
+    searchQuery,
+    sort,
+    metadataByTokenId,
+    costBasisByTokenId,
+    redeemStatusByTokenId,
+    redeemTrackingByTokenId,
+    redeemCarrierDeliveredByTokenId,
+  ]);
 
   if (assetsSectionLoading) {
+    if (view === "gallery" && !isMobile) {
+      return (
+        <div className="pf-gallery pf-gallery--skeleton" aria-hidden>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="pf-gallery__item">
+              <div className="pf-gtile pf-gtile--skeleton">
+                <div className="pf-gtile__media animate-pulse" />
+                <div className="pf-gtile__body">
+                  <div className="h-3 w-[80%] animate-pulse rounded bg-white/5" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-white/5" />
+                  <div className="h-6 w-2/3 animate-pulse rounded bg-white/5" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
-      <div className="space-y-3">
+      <div className="pf-mobile-asset-cards" aria-hidden>
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
+          <div key={i} className="pf-mobile-asset-card pf-mobile-asset-card--skeleton">
+            <div className="pf-mobile-asset-card__img animate-pulse" />
+            <div className="pf-mobile-asset-card__info">
+              <div className="h-4 w-[85%] animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -149,6 +220,7 @@ export function PortfolioHoldingsSection({
   }
 
   const selectedCount = redeemSelected?.size ?? 0;
+  const emptyFiltered = filteredSortedRows.length === 0;
 
   return (
     <>
@@ -162,303 +234,159 @@ export function PortfolioHoldingsSection({
         </div>
       ) : null}
 
-      <PortfolioMobileSort
-        options={[...HOLDINGS_SORT_OPTIONS]}
-        value={mobileSortValue}
-        onChange={applyMobileSort}
+      <PortfolioAssetsToolbar
+        segment={segment}
+        onSegmentChange={setSegment}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        sort={sort}
+        onSortChange={setSort}
+        view={view}
+        onViewChange={setView}
       />
 
-      <div className="pf-mobile-asset-cards">
-        {sortedRows.map((row) => {
-          const meta = metadataByTokenId.get(row.tokenId) ?? null;
-          const grade = formatPortfolioGradeLabel(meta);
-          const cost = costBasisByTokenId.get(row.tokenId);
-          const isListed =
-            row.listPriceUsd != null && row.activeListingOrderHash != null;
-          const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
-          const badge = redeemSurfaceBadge(
-            redeemStatus,
-            redeemTrackingByTokenId?.get(row.tokenId),
-            redeemCarrierDeliveredByTokenId?.get(row.tokenId),
-          );
-          const tradeBlocked = isRedeemInFlight(redeemStatus);
-          const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
-
-          return (
-            <PortfolioMobileAssetCard
-              key={row.tokenId}
-              row={row}
-              grade={grade}
-              cost={cost}
-              valuesPending={valuesPending}
-              canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
-              savingCostBasis={savingCostBasisTokenId === row.tokenId}
-              isListed={isListed}
-              selectMode={redeemSelectMode}
-              selected={redeemSelected?.has(row.tokenId) ?? false}
-              selectable={selectable}
-              redeemStatus={badge}
-              actionsDisabled={tradeBlocked || redeemSelectMode}
-              actionsDisabledTitle={
-                tradeBlocked
-                  ? "Redemption in progress — listing unavailable"
-                  : undefined
-              }
-              onToggleSelect={(checked) =>
-                onToggleRedeemToken?.(row.tokenId, checked)
-              }
-              onSaveCostBasis={
-                onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
-              }
-              onSetPrice={() => {
-                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                  card_id: String(row.tokenId),
-                  current_price: row.currentPrice ?? undefined,
-                });
-                onSetPrice(row.tokenId);
-              }}
-            />
-          );
-        })}
-      </div>
-
-      <TkTable
-        wrapClassName={`pf-table-wrap pf-holdings-table-wrap${redeemSelectMode ? " pf-holdings-table-wrap--select" : ""}`}
-        className="pf-table--holdings"
-      >
-        <colgroup>
-          <col className="pf-col-card" />
-          <col className="pf-col-grade" />
-          <col className="pf-col-cost" />
-          <col className="pf-col-value" />
-          <col className="pf-col-profit" />
-          <col className="pf-col-return" />
-          <col className="pf-col-action" />
-        </colgroup>
-        <thead>
-          <tr>
-            <PortfolioSortableTh
-              label="Card"
-              sortKey="name"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Grade"
-              sortKey="grade"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Cost basis"
-              sortKey="cost"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              align="right"
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Mkt Price"
-              sortKey="value"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              align="right"
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Profit"
-              sortKey="pl"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              align="right"
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Return"
-              sortKey="pl"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              align="right"
-              onSort={(k) => toggleSort(k as HoldingsSortKey)}
-            />
-            <PortfolioStaticTh label="Action" align="right" muted />
-          </tr>
-        </thead>
-        <tbody>
-          {sortedRows.map((row) => {
+      {emptyFiltered ? (
+        <p className="pf-empty pf-empty--panel">Nothing in this segment.</p>
+      ) : view === "gallery" ? (
+        <div className="pf-gallery" role="list">
+          {filteredSortedRows.map((row) => {
             const meta = metadataByTokenId.get(row.tokenId) ?? null;
             const grade = formatPortfolioGradeLabel(meta);
             const cost = costBasisByTokenId.get(row.tokenId);
-            const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
-            const plClass = pnl
-              ? pnl.positive
-                ? "pf-table-pl--pos"
-                : "pf-table-pl--neg"
-              : "";
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
-            const badge = redeemSurfaceBadge(
-              redeemStatus,
-              redeemTrackingByTokenId?.get(row.tokenId),
-              redeemCarrierDeliveredByTokenId?.get(row.tokenId),
-            );
+            const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
             const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
-            const selected = redeemSelected?.has(row.tokenId) ?? false;
-            const costEditable =
-              Boolean(canEditCostBasis && onSaveCostBasis) &&
-              !redeemSelectMode &&
-              !tradeBlocked;
 
             return (
-              <tr
-                key={row.tokenId}
-                className={[
-                  redeemSelectMode && selected ? "pf-holdings-row--selected" : null,
-                  badge?.kind === "transit" ? "pf-holdings-row--transit" : null,
-                  badge?.kind === "possession" ? "pf-holdings-row--possession" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" ") || undefined}
-                onClick={
-                  redeemSelectMode
-                    ? () => {
-                        if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
-                      }
-                    : undefined
-                }
-                onKeyDown={
-                  redeemSelectMode
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          if (selectable) onToggleRedeemToken?.(row.tokenId, !selected);
-                        }
-                      }
-                    : undefined
-                }
-                tabIndex={redeemSelectMode ? 0 : undefined}
-                role={redeemSelectMode ? "button" : undefined}
-              >
-                <td data-label="Card">
-                  <div className="pf-table-card-cell">
-                    {redeemSelectMode ? (
-                      <span
-                        className="pf-redeem-chk-cell"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          className="pf-redeem-chk"
-                          checked={selected}
-                          disabled={!selectable}
-                          title={
-                            selectable
-                              ? "Select for redeem"
-                              : isListed
-                                ? "Cancel listing before redeeming"
-                                : tradeBlocked
-                                  ? "Already in a redemption"
-                                  : "Not eligible for redeem"
-                          }
-                          onChange={(e) =>
-                            onToggleRedeemToken?.(row.tokenId, e.target.checked)
-                          }
-                          aria-label={`Select ${row.name} for redeem`}
-                        />
-                      </span>
-                    ) : null}
-                    <div className="pf-table-thumb">
-                      {row.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.imageUrl} alt="" />
-                      ) : null}
-                    </div>
-                    <span className="pf-table-card-name" title={row.name}>
-                      {row.name}
-                    </span>
-                  </div>
-                </td>
-                <td data-label="Grade" className="pf-col-grade-cell">
-                  {grade ? (
-                    <span className="pf-grade-vault">
-                      <TkTag tone="neutral" appearance="soft">
-                        {grade}
-                      </TkTag>
-                      <span className="pf-vault-chip">
-                        {vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
-                      </span>
-                    </span>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td data-label="Cost basis" className="pf-col-num-cell">
-                  <div
-                    className="pf-cost-basis-cell-wrap"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    <PortfolioCostBasisInlineEdit
-                      layout="desktop"
-                      assetName={row.name}
-                      valueUsd={cost}
-                      editable={costEditable}
-                      saving={savingCostBasisTokenId === row.tokenId}
-                      showMintPriceNote={Boolean(costEditable && cost != null)}
-                      onSave={(usd) => void onSaveCostBasis?.(row.tokenId, usd)}
-                    />
-                  </div>
-                </td>
-                <td data-label="Mkt Price" className="pf-col-num-cell">
-                  <span className="tkl-mono pf-table-strong">
-                    {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
-                  </span>
-                </td>
-                <td data-label="Profit" className="pf-col-num-cell">
-                  {pnl ? (
-                    <span className={`tkl-mono pf-table-pl ${plClass}`}>{pnl.profit}</span>
-                  ) : (
-                    <span className="tkl-mono pf-table-muted">—</span>
-                  )}
-                </td>
-                <td data-label="Return" className="pf-col-return-cell">
-                  {pnl ? (
-                    <span className={`tkl-mono pf-table-pl pf-table-return ${plClass}`}>
-                      {pnl.returnPct}
-                    </span>
-                  ) : (
-                    <span className="tkl-mono pf-table-muted">—</span>
-                  )}
-                </td>
-                <td data-label="Action" className="pf-col-action-cell">
-                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    {redeemSelectMode && !badge ? (
-                      <span className="tkl-mono pf-table-muted">—</span>
-                    ) : (
-                      <PortfolioHoldingsRowActions
-                        isListed={isListed}
-                        redeemStatus={badge}
-                        onSetPrice={() => {
-                          trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                            card_id: String(row.tokenId),
-                            current_price: row.currentPrice ?? undefined,
-                          });
-                          onSetPrice(row.tokenId);
-                        }}
-                      />
-                    )}
-                  </div>
-                </td>
-              </tr>
+              <div key={row.tokenId} className="pf-gallery__item" role="listitem">
+                <PortfolioHoldingsGalleryTile
+                  row={row}
+                  grade={grade}
+                  cost={cost}
+                  vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
+                  valuesPending={valuesPending}
+                  canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                  savingCostBasis={savingCostBasisTokenId === row.tokenId}
+                  isListed={isListed}
+                  selectMode={redeemSelectMode}
+                  selected={redeemSelected?.has(row.tokenId) ?? false}
+                  selectable={selectable}
+                  redeemStatus={badge}
+                  actionsDisabled={tradeBlocked || redeemSelectMode}
+                  actionsDisabledTitle={
+                    tradeBlocked
+                      ? "Redemption in progress — listing unavailable"
+                      : undefined
+                  }
+                  onToggleSelect={(checked) =>
+                    onToggleRedeemToken?.(row.tokenId, checked)
+                  }
+                  onSaveCostBasis={
+                    onSaveCostBasis
+                      ? (usd) => onSaveCostBasis(row.tokenId, usd)
+                      : undefined
+                  }
+                  onSetPrice={() => {
+                    trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                      card_id: String(row.tokenId),
+                      current_price: row.currentPrice ?? undefined,
+                    });
+                    onSetPrice(row.tokenId);
+                  }}
+                />
+              </div>
             );
           })}
-        </tbody>
-      </TkTable>
+        </div>
+      ) : isMobile ? (
+        <div className="pf-mobile-asset-cards" role="list">
+          {filteredSortedRows.map((row) => {
+            const meta = metadataByTokenId.get(row.tokenId) ?? null;
+            const grade = formatPortfolioGradeLabel(meta);
+            const cost = costBasisByTokenId.get(row.tokenId);
+            const isListed =
+              row.listPriceUsd != null && row.activeListingOrderHash != null;
+            const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+            const badge = getBadge(row.tokenId);
+            const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
+
+            return (
+              <PortfolioMobileAssetCard
+                key={row.tokenId}
+                row={row}
+                grade={grade}
+                cost={cost}
+                valuesPending={valuesPending}
+                canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                savingCostBasis={savingCostBasisTokenId === row.tokenId}
+                isListed={isListed}
+                selectMode={redeemSelectMode}
+                selected={redeemSelected?.has(row.tokenId) ?? false}
+                selectable={selectable}
+                redeemStatus={badge}
+                actionsDisabled={tradeBlocked || redeemSelectMode}
+                actionsDisabledTitle={
+                  tradeBlocked
+                    ? "Redemption in progress — listing unavailable"
+                    : undefined
+                }
+                onToggleSelect={(checked) =>
+                  onToggleRedeemToken?.(row.tokenId, checked)
+                }
+                onSaveCostBasis={
+                  onSaveCostBasis
+                    ? (usd) => onSaveCostBasis(row.tokenId, usd)
+                    : undefined
+                }
+                onSetPrice={() => {
+                  trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                    card_id: String(row.tokenId),
+                    current_price: row.currentPrice ?? undefined,
+                  });
+                  onSetPrice(row.tokenId);
+                }}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <PortfolioHoldingsTableView
+          rows={filteredSortedRows}
+          metadataByTokenId={metadataByTokenId}
+          costBasisByTokenId={costBasisByTokenId}
+          vaultLabelByTokenId={vaultLabelByTokenId}
+          valuesPending={valuesPending}
+          canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+          savingCostBasisTokenId={savingCostBasisTokenId}
+          redeemSelectMode={redeemSelectMode}
+          redeemSelected={redeemSelected}
+          redeemEligibleIds={redeemEligibleIds}
+          onToggleRedeemToken={onToggleRedeemToken}
+          onSaveCostBasis={onSaveCostBasis}
+          onSetPrice={(tokenId) => {
+            const row = filteredSortedRows.find((r) => r.tokenId === tokenId);
+            const isListed =
+              row != null &&
+              row.listPriceUsd != null &&
+              row.activeListingOrderHash != null;
+            trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+              card_id: String(tokenId),
+              current_price: row?.currentPrice ?? undefined,
+            });
+            onSetPrice(tokenId);
+          }}
+          getBadge={getBadge}
+          isTradeBlocked={(tokenId) =>
+            isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))
+          }
+        />
+      )}
 
       {hasMoreAssets && onLoadMoreAssets && !redeemSelectMode ? (
         <div className="pf-load-more">

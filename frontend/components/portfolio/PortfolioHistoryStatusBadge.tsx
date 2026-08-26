@@ -8,7 +8,7 @@ export function PortfolioHistoryStatusBadge({
     return (
       <span className="pf-hbadge pf-hbadge--pending">
         <span className="pf-hbadge__dot" aria-hidden />
-        Pending
+        Processing
       </span>
     );
   }

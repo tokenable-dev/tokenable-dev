@@ -5,7 +5,7 @@ const FEATURES = [
   {
     iconTone: "pos" as const,
     title: "Authentication",
-    text: "Only PSA 9 & PSA 10 graded cards accepted. Each cert is verified against PSA's database.",
+    text: "Only PSA 9 and PSA 10 graded cards accepted. Each cert is verified against PSA's database.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M9 12l2 2 4-4" />

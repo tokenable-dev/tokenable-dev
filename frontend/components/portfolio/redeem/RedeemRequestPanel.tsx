@@ -103,7 +103,7 @@ const QUOTE_BADGE: Record<
 function RedeemRequestHeader() {
   return (
     <>
-      <div className="pf-redeem-eyebrow">Ship from vault · Step 1 of 2</div>
+      <div className="pf-redeem-eyebrow">Redeem · Step 1 of 2</div>
       <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
       <p className="pf-redeem-sub">
         We&rsquo;ll ship your physical cards from the vault to the address below.

@@ -72,7 +72,7 @@ export class CardTop100Controller {
   @Post('top100/refresh-all')
   @HttpCode(200)
   @ApiOperation({
-    summary: '[Admin] Discover categories & refresh all',
+    summary: '[Admin] Discover categories and refresh all',
     description:
       'Calls CardHedger without a category filter to discover all active categories, ' +
       'then refreshes top-100 for each one sequentially.',

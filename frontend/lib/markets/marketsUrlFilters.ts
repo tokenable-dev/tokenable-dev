@@ -16,8 +16,7 @@ const CAT_PATH_BY_FILTER: Record<CollectionCategoryId, string> = {
   onepiece: "tcg/onepiece",
   basketball: "sports/basketball",
   baseball: "sports/baseball",
-  football: "sports/football",
-  soccer: "sports/soccer",
+  other: "others",
 };
 
 const FILTER_BY_CAT_PATH: Record<string, CollectionCategoryId> = {
@@ -25,14 +24,20 @@ const FILTER_BY_CAT_PATH: Record<string, CollectionCategoryId> = {
   "tcg/onepiece": "onepiece",
   "sports/basketball": "basketball",
   "sports/baseball": "baseball",
-  "sports/football": "football",
-  "sports/soccer": "soccer",
+  other: "other",
+  others: "other",
   pokemon: "pokemon",
   onepiece: "onepiece",
   basketball: "basketball",
   baseball: "baseball",
-  football: "football",
-  soccer: "soccer",
+  nba: "basketball",
+  mlb: "baseball",
+  // Legacy Markets URLs
+  "sports/football": "other",
+  "sports/soccer": "other",
+  football: "other",
+  soccer: "other",
+  nfl: "other",
 };
 
 export type MarketsUrlFilters = {
@@ -158,8 +163,16 @@ export function categoryBadgeToFilterId(
   if (t.includes("one piece") || t.includes("onepiece")) return "onepiece";
   if (t.includes("basketball") || t === "nba") return "basketball";
   if (t.includes("baseball") || t === "mlb") return "baseball";
-  if (t.includes("football") || t === "nfl") return "football";
-  if (t.includes("soccer") || t === "fifa") return "soccer";
+  if (
+    t.includes("football") ||
+    t === "nfl" ||
+    t.includes("soccer") ||
+    t === "fifa" ||
+    t === "other" ||
+    t === "others"
+  ) {
+    return "other";
+  }
   return "all";
 }
 
@@ -349,4 +362,11 @@ export function marketsUrlFiltersEqual(
   b: MarketsUrlFilters,
 ): boolean {
   return serializeMarketsUrlFilters(a).toString() === serializeMarketsUrlFilters(b).toString();
+}
+
+/** Search.html / hero / GNB — collection text search landing. */
+export function buildCollectionSearchHref(q: string): string {
+  const t = q.trim();
+  if (!t) return "/search";
+  return `/search?q=${encodeURIComponent(t)}`;
 }

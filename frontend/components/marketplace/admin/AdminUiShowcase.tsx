@@ -112,7 +112,7 @@ export function AdminUiShowcase() {
             </div>
           </Section>
 
-          <Section title="Segments & stat card">
+          <Section title="Segments and stat card">
             <div className={ADMIN_SEGMENT}>
               <button type="button" className={ADMIN_SEGMENT_BTN_ACTIVE}>
                 Active

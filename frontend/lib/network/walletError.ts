@@ -267,14 +267,15 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "TIMEOUT",
       message:
-        "The server took too long to register your listing. It may still have been saved — refresh Portfolio before trying again.",
+        "The server took too long to respond. Your on-chain action may still have succeeded — refresh Portfolio before trying again.",
     };
   }
 
   if (/timeout|timed out|time out|deadline/i.test(lower)) {
     return {
       code: "TIMEOUT",
-      message: "Transaction timed out. Try again.",
+      message:
+        "Confirmation timed out. Your purchase may still have gone through — check Portfolio or the explorer before trying again.",
     };
   }
 

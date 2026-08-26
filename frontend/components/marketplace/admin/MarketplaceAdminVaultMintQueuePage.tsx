@@ -110,7 +110,7 @@ export function MarketplaceAdminVaultMintQueuePage() {
     <>
       <MarketplaceAdminPageHeader
         title="Mint queue"
-        subtitle="Ready cards at PSA. Gmail “now secured in your PSA Vault” auto mint & deliver — Processed tab keeps the audit trail."
+        subtitle="Ready cards at PSA. Gmail “now secured in your PSA Vault” auto mint and deliver — Processed tab keeps the audit trail."
       />
 
       <div className={`${ADMIN_ARTICLE} mb-6`}>
@@ -221,7 +221,7 @@ export function MarketplaceAdminVaultMintQueuePage() {
                     >
                       {busyItemId === row.itemId
                         ? "Minting…"
-                        : "Mint & deliver"}
+                        : "Mint and deliver"}
                     </button>
                   </div>
                 </li>
@@ -369,7 +369,7 @@ export function MarketplaceAdminVaultMintQueuePage() {
                           void run(() => mintVaultedReview.mutateAsync(rev.id))
                         }
                       >
-                        Mint &amp; deliver
+                        Mint and deliver
                       </button>
                       <button
                         type="button"

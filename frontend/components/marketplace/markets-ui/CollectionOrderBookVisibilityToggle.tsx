@@ -52,7 +52,7 @@ export function CollectionOrderBookVisibilityToggle({
               Offers
             </span>
             <span className="mt-0.5 block text-[10px] leading-snug text-zinc-500">
-              {checked ? "Bids & asks — tap a level to trade" : "Show live depth beside the chart"}
+              {checked ? "Bids and asks — tap a level to trade" : "Show live depth beside the chart"}
             </span>
           </span>
         </span>

@@ -6,10 +6,11 @@ import { OrderBookNotifyToggle } from "./OrderBookNotifyToggle";
 export type OrderBookEmptyVariant = "no_asks" | "no_bids" | "no_market";
 
 /**
- * Order book2 HTML empty states:
- * - no_asks: asks empty, bids live — Place a bid + Notify me toggle
+ * Order book split-scroll empty states (design HTML `.emptyPane`):
+ * compact horizontal row — colored side dot + title + actions.
+ * - no_asks: asks empty, bids live — Place a bid + Notify me
  * - no_bids: bids empty, asks live — Place a bid
- * - no_market: both empty — List yours + Place a bid
+ * - no_market: both empty — List yours + Place a bid (tall, centered)
  */
 export function OrderBookEmptyPanel({
   variant,
@@ -29,14 +30,8 @@ export function OrderBookEmptyPanel({
   if (variant === "no_asks") {
     return (
       <div className="cd-ob-empty cd-ob-empty--asks">
-        <div className="cd-ob-empty__icon mono" aria-hidden>
-          ◫
-        </div>
-        <h3 className="cd-ob-empty__title">No cards listed for sale yet</h3>
-        <p className="cd-ob-empty__sub">
-          No one is selling this card right now. Place a bid and we&apos;ll match you the
-          moment a seller lists.
-        </p>
+        <span className="cd-ob-empty__dot" aria-hidden />
+        <div className="cd-ob-empty__title">No cards for sale yet</div>
         <div className="cd-ob-empty__btns">
           {onPlaceBid ? (
             <TkButton
@@ -64,14 +59,8 @@ export function OrderBookEmptyPanel({
   if (variant === "no_bids") {
     return (
       <div className="cd-ob-empty cd-ob-empty--bids">
-        <div className="cd-ob-empty__icon mono" aria-hidden>
-          ◵
-        </div>
-        <h3 className="cd-ob-empty__title">No bids yet</h3>
-        <p className="cd-ob-empty__sub">
-          No one has made an offer on this card. Place a bid to set the market — sellers
-          can accept it directly.
-        </p>
+        <span className="cd-ob-empty__dot" aria-hidden />
+        <div className="cd-ob-empty__title">No bids yet</div>
         <div className="cd-ob-empty__btns">
           {onPlaceBid ? (
             <TkButton
@@ -91,14 +80,8 @@ export function OrderBookEmptyPanel({
 
   return (
     <div className="cd-ob-empty cd-ob-empty--market">
-      <div className="cd-ob-empty__icon mono" aria-hidden>
-        ⬡
-      </div>
-      <h3 className="cd-ob-empty__title">No market yet for this card</h3>
-      <p className="cd-ob-empty__sub">
-        No asks or bids so far. Be the first to list yours, or place a bid to set the
-        market.
-      </p>
+      <span className="cd-ob-empty__dot" aria-hidden />
+      <div className="cd-ob-empty__title">No market yet</div>
       <div className="cd-ob-empty__btns">
         {onListYours ? (
           <TkButton

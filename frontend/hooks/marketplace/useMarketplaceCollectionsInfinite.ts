@@ -15,20 +15,32 @@ import { activeRqChainId } from "@/lib/chains";
  */
 export const MARKETS_COLLECTIONS_PAGE_SIZE = 20;
 
-export function useMarketplaceCollectionsInfinite(opts?: { enabled?: boolean }) {
+/** Matches backend `searchSummaries` cap. */
+const SEARCH_PAGE_SIZE = 40;
+
+export function useMarketplaceCollectionsInfinite(opts?: {
+  enabled?: boolean;
+  /** Server-side collection text search (`GET …/collections?q=`). */
+  q?: string | null;
+}) {
   const chainId = activeRqChainId();
+  const q = (opts?.q ?? "").trim();
+  const isSearch = q.length > 0;
+
   return useInfiniteQuery({
-    queryKey: [...rq.collectionsMarketplace(chainId), MARKETS_COLLECTIONS_PAGE_SIZE],
+    queryKey: isSearch
+      ? rq.collectionsSearch(chainId, q)
+      : [...rq.collectionsMarketplace(chainId), MARKETS_COLLECTIONS_PAGE_SIZE],
     queryFn: ({ pageParam }) =>
       getMarketplaceCollectionsPage({
-        cursor: pageParam as string | null,
-        limit: MARKETS_COLLECTIONS_PAGE_SIZE,
+        q: isSearch ? q : undefined,
+        cursor: isSearch ? undefined : (pageParam as string | null),
+        limit: isSearch ? SEARCH_PAGE_SIZE : MARKETS_COLLECTIONS_PAGE_SIZE,
       }),
     initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.nextCursor,
+    getNextPageParam: (last) => (isSearch ? null : last.nextCursor),
     enabled: opts?.enabled ?? true,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
-    // Catalog data is stable; skip the background refetch on tab-focus/reconnect.
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: marketplaceRqPolicy.apiQueryRetry,

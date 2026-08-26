@@ -12,7 +12,9 @@ import { activeRqChainId } from "@/lib/chains";
 import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
 import { resolveMarketsListingMarketChangePct, resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 
+/** Horizontal carousel — same as Just vaulted. */
 export const HOME_TOP_MOVERS_LIMIT = 20;
+/** Horizontal carousel (index.html `#grid-vaulted`), including mobile. */
 export const HOME_JUST_VAULTED_LIMIT = 20;
 
 function sortByCreatedAtDesc(

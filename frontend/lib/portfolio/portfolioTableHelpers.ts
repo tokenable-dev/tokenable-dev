@@ -1,6 +1,7 @@
-import type { CollectionMarketSeries } from "@/lib/core";
+import type { CollectionMarketSeries, CollectionUsdPoint } from "@/lib/core";
+import { filterMergedChartPointsForWindow } from "@/lib/market/collectionChartHistory";
 
-export { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
+export { formatPortfolioGradeLabel, formatPortfolioGradeSubtitle } from "@/lib/portfolio/portfolioAssetMeta";
 
 export function formatPortfolioUsd(
   value: number | null | undefined,
@@ -44,22 +45,40 @@ export function formatPortfolioProfitReturn(
   };
 }
 
-export function extractSparklineValues(
-  series: CollectionMarketSeries | null | undefined,
-  maxPoints = 14,
-): number[] {
-  const raw = series?.externalUsd ?? [];
-  const values = raw
-    .map((p) => p.v)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+function downsampleSparklineValues(values: number[], maxPoints: number): number[] {
   if (values.length < 2) return [];
   if (values.length <= maxPoints) return values;
   const step = (values.length - 1) / (maxPoints - 1);
   const out: number[] = [];
   for (let i = 0; i < maxPoints; i++) {
-    out.push(values[Math.round(i * step)]);
+    out.push(values[Math.round(i * step)]!);
   }
   return out;
+}
+
+export function extractSparklineValues(
+  series: CollectionMarketSeries | null | undefined,
+  maxPoints = 14,
+): number[] {
+  const values = (series?.externalUsd ?? [])
+    .map((p) => p.v)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  return downsampleSparklineValues(values, maxPoints);
+}
+
+/** Portfolio gallery spark — last ~365d of comps-merged external USD. */
+export function extractSparklineValues1y(
+  series: CollectionMarketSeries | null | undefined,
+  maxPoints = 14,
+): number[] {
+  const windowed: CollectionUsdPoint[] = filterMergedChartPointsForWindow(
+    series?.externalUsd,
+    "365d",
+  );
+  const values = windowed
+    .map((p) => p.v)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);
+  return downsampleSparklineValues(values, maxPoints);
 }
 
 export function compareSortText(a: string, b: string, dir: "asc" | "desc"): number {

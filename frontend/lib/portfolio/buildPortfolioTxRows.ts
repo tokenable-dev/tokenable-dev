@@ -5,7 +5,11 @@ import {
   resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
-import { extractCategory } from "@/lib/portfolio/portfolioAssetMeta";
+import {
+  extractCategory,
+  formatPortfolioGradeLabel,
+} from "@/lib/portfolio/portfolioAssetMeta";
+import { certNumberFromMetadata } from "@/lib/portfolio/redeemDraft";
 import type { TxRow } from "@/lib/portfolio/portfolioTypes";
 import { PORTFOLIO_USDC_DECIMALS } from "@/lib/portfolio/buildPortfolioPricedRows";
 
@@ -15,6 +19,21 @@ function usdcFromMicros(raw: string | undefined): number {
   } catch {
     return 0;
   }
+}
+
+/** Portfolio.html hx-drawer date: `Aug 6, 2026 16:40` */
+function formatTxDateTime(when: Date): string {
+  const date = when.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = when.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} ${time}`;
 }
 
 /** Same headline rule as My Assets: Name · Number · Grade. */
@@ -38,6 +57,7 @@ export function buildPortfolioTxRows(
   fulfilledOrders: OrderListItem[],
   address: string,
   metadataByTokenId: Map<number, RwaMetadata | null>,
+  imageByTokenId?: Map<number, string | null>,
 ): TxRow[] {
   const w = address.trim().toLowerCase();
   if (!w) return [];
@@ -86,6 +106,8 @@ export function buildPortfolioTxRows(
     if (!type || seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
 
+    const when = new Date(o.updatedAt ?? o.createdAt);
+    const dateMs = when.getTime();
     rows.push({
       type,
       status: "settled",
@@ -93,13 +115,20 @@ export function buildPortfolioTxRows(
       category: extractCategory(metadata),
       amount: 1,
       price,
-      date: new Date(o.updatedAt ?? o.createdAt).toLocaleDateString("en-US", {
+      date: when.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       }),
-      dateMs: new Date(o.updatedAt ?? o.createdAt).getTime(),
+      dateTimeLabel: formatTxDateTime(when),
+      dateMs,
       orderHash: o.orderHash,
+      tokenId: Number.isFinite(tokenId) ? tokenId : undefined,
+      imageUrl: Number.isFinite(tokenId)
+        ? imageByTokenId?.get(tokenId) ?? null
+        : null,
+      gradeLabel: formatPortfolioGradeLabel(metadata),
+      certNumber: certNumberFromMetadata(metadata),
     });
   }
 

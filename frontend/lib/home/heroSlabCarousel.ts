@@ -64,11 +64,10 @@ export type HeroSlabCarouselController = {
 };
 
 /**
- * index2-standalone `calcGroupX`: first `.wrap` is the hero copy shell
- * (`width:100%`, not the 1240px page column). Ring center sits on that
- * wrap's right edge — the right half of the hero.
+ * index.html `calcGroupX`: align to `.wrap` (max-width 1240px, centered).
+ * Hero uses `.home-hero__ring-align` with the same geometry.
  */
-const HERO_WRAP_ALIGN_SELECTOR = ".home-hero__content";
+const HERO_WRAP_ALIGN_SELECTOR = ".home-hero__ring-align";
 
 function sharpenCardTexture(tex: import("three").Texture): void {
   tex.minFilter = LinearFilter;
@@ -233,7 +232,7 @@ export function createHeroSlabCarousel(
   const useLightEnv = tier === "reduced";
 
   let wasMobile: boolean | null = null;
-  const isMobileViewport = () => window.innerWidth < 768;
+  const isMobileViewport = () => window.matchMedia("(max-width: 768px)").matches;
 
   placeCarouselHost(host, heroSection, mobileSlot, isMobileViewport());
   wasMobile = isMobileViewport();

@@ -1,6 +1,12 @@
 "use client";
 
 import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
   COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
   COLLECTION_ORDER_BOOK_SCROLL_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
@@ -28,7 +34,7 @@ function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; c
     return (
       <div className="cd-ob-book-hdr shrink-0">
         <span>Price</span>
-        <span className="cd-ob-book-hdr__r">Qty</span>
+        <span className="cd-ob-book-hdr__c">Qty</span>
         <span className="cd-ob-book-hdr__r">Total</span>
       </div>
     );
@@ -62,38 +68,15 @@ function OrderBookFooterCounts({
   flush,
   showSellHint,
   collectionDetail,
-  asksEmptyBidsLive,
-  bidsEmptyAsksLive,
 }: {
   bidCount: number;
   askCount: number;
   flush?: boolean;
   showSellHint?: boolean;
   collectionDetail?: boolean;
-  asksEmptyBidsLive?: boolean;
-  bidsEmptyAsksLive?: boolean;
 }) {
-  if (collectionDetail) {
-    if (asksEmptyBidsLive) {
-      return (
-        <>
-          <p className="cd-ob-book-hint">
-            Bids are still live — sellers can accept any of these now.
-          </p>
-          <p className="cd-ob-book-hint cd-ob-book-hint--notify-note">
-            Notify me = alert when this card is first listed for sale. One-time, then
-            auto-off.
-          </p>
-        </>
-      );
-    }
-    let hint = "Asks fill top-down, bids bottom-up — highest bid matches first.";
-    if (bidsEmptyAsksLive) {
-      hint =
-        "Asks are still live — buy at any ask price above, or place a bid and wait.";
-    }
-    return <p className="cd-ob-book-hint">{hint}</p>;
-  }
+  /* Design HTML: no footer under the book (empty tips live on the mid strip). */
+  if (collectionDetail) return null;
 
   return (
     <div
@@ -230,6 +213,70 @@ function OrderBookEmptyNaOnly({
   );
 }
 
+/**
+ * Design HTML split-scroll pane: fixed visual height, independent scroll,
+ * top/bottom fades, optional pin-to-bottom (asks near spread).
+ */
+function OrderBookSplitScrollPane({
+  pinToBottom,
+  scrollKey,
+  children,
+}: {
+  pinToBottom?: boolean;
+  /** Remount/reset scroll when depth identity changes. */
+  scrollKey: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fadeTop, setFadeTop] = useState(false);
+  const [fadeBot, setFadeBot] = useState(false);
+
+  const updateFades = () => {
+    const el = ref.current;
+    if (!el) return;
+    const atTop = el.scrollTop <= 2;
+    const atBot = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+    const canScroll = el.scrollHeight > el.clientHeight + 2;
+    setFadeTop(canScroll && !atTop);
+    setFadeBot(canScroll && !atBot);
+  };
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (pinToBottom) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTop = 0;
+    }
+    updateFades();
+  }, [scrollKey, pinToBottom]);
+
+  return (
+    <div className="cd-ob-book-pane">
+      <div
+        ref={ref}
+        className="cd-ob-book-pane__scroll"
+        onScroll={updateFades}
+      >
+        {children}
+      </div>
+      <div
+        className={`cd-ob-book-pane__fade cd-ob-book-pane__fade--top${
+          fadeTop ? "" : " is-hidden"
+        }`}
+        aria-hidden
+      />
+      <div
+        className={`cd-ob-book-pane__fade cd-ob-book-pane__fade--bot${
+          fadeBot ? "" : " is-hidden"
+        }`}
+        aria-hidden
+      />
+    </div>
+  );
+}
+
 export function OrderBookBookTab({
   flush,
   compact,
@@ -280,11 +327,13 @@ export function OrderBookBookTab({
   if (noMarket && collectionDetail) {
     return (
       <div className="cd-ob-book cd-ob-book--empty-market">
-        <OrderBookEmptyPanel
-          variant="no_market"
-          onPlaceBid={onPlaceBid}
-          onListYours={onListYours}
-        />
+        <div className="cd-ob-book-pane cd-ob-book-pane--tall">
+          <OrderBookEmptyPanel
+            variant="no_market"
+            onPlaceBid={onPlaceBid}
+            onListYours={onListYours}
+          />
+        </div>
         <p className="cd-ob-book-hint cd-ob-book-hint--market-empty">
           Once a card is vaulted, it can be listed here instantly — no shipping needed.
         </p>
@@ -303,21 +352,24 @@ export function OrderBookBookTab({
   }
 
   if (flush) {
+    const oneSidedEmpty = asksEmptyBidsLive || bidsEmptyAsksLive;
     return (
       <div
-        className={`flex min-h-0 flex-col overflow-hidden ${
+        className={
           collectionDetail
-            ? "cd-ob-book"
-            : mobileEmbed
-              ? "h-full"
-              : "h-full flex-1"
-        }`}
+            ? `cd-ob-book flex h-full min-h-0 flex-col overflow-hidden${
+                oneSidedEmpty ? " cd-ob-book--one-sided-empty" : ""
+              }${askScrollable && bidScrollable ? " cd-ob-book--both-sides" : ""}`
+            : `flex min-h-0 flex-col overflow-hidden ${
+                mobileEmbed ? "h-full" : "h-full flex-1"
+              }`
+        }
       >
         <OrderBookColumnHeader flush collectionDetail={collectionDetail} />
         {collectionDetail ? (
           <div className="cd-ob-book-stack">
-            <div className="cd-ob-book-asks">
-              {asksEmptyBidsLive ? (
+            {asksEmptyBidsLive ? (
+              <div className="cd-ob-book-pane cd-ob-book-pane--empty">
                 <OrderBookEmptyPanel
                   variant="no_asks"
                   onPlaceBid={onPlaceBid}
@@ -325,7 +377,12 @@ export function OrderBookBookTab({
                   listingAlertPending={listingAlertPending}
                   onToggleListingAlert={onToggleListingAlert}
                 />
-              ) : (
+              </div>
+            ) : (
+              <OrderBookSplitScrollPane
+                pinToBottom
+                scrollKey={`asks:${askLevels.map((l) => l.key).join(",")}`}
+              >
                 <AskLevelsList
                   levels={askLevels}
                   selectedLevelKey={selectedLevelKey}
@@ -334,8 +391,8 @@ export function OrderBookBookTab({
                   collectionDetail
                   wrapperClass="cd-ob-book-asks__list"
                 />
-              )}
-            </div>
+              </OrderBookSplitScrollPane>
+            )}
             <div className="cd-ob-book-center shrink-0">
               <OrderBookCenterStrip
                 model={bookCenterModel}
@@ -350,13 +407,17 @@ export function OrderBookBookTab({
                 }
               />
             </div>
-            <div className="cd-ob-book-bids">
-              {bidsEmptyAsksLive ? (
+            {bidsEmptyAsksLive ? (
+              <div className="cd-ob-book-pane cd-ob-book-pane--empty">
                 <OrderBookEmptyPanel
                   variant="no_bids"
                   onPlaceBid={onPlaceBid}
                 />
-              ) : (
+              </div>
+            ) : (
+              <OrderBookSplitScrollPane
+                scrollKey={`bids:${bidLevels.map((l) => l.key).join(",")}`}
+              >
                 <BidLevelsList
                   levels={bidLevels}
                   selectedLevelKey={selectedLevelKey}
@@ -365,8 +426,8 @@ export function OrderBookBookTab({
                   collectionDetail
                   wrapperClass="cd-ob-book-bids__list"
                 />
-              )}
-            </div>
+              </OrderBookSplitScrollPane>
+            )}
           </div>
         ) : (
           <>
@@ -406,8 +467,6 @@ export function OrderBookBookTab({
           askCount={askCount}
           flush
           collectionDetail={collectionDetail}
-          asksEmptyBidsLive={asksEmptyBidsLive}
-          bidsEmptyAsksLive={bidsEmptyAsksLive}
         />
       </div>
     );

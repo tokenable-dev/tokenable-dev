@@ -34,7 +34,7 @@ const SORT_DRAWER_LABELS: Partial<Record<MarketsSortId, string>> = {
   population_low: "Population",
 };
 
-type PopId = "category" | "set" | "grade" | "price" | "sort" | null;
+type PopId = "set" | "grade" | "price" | "sort" | null;
 
 function categoryOptionLabel(f: CategorySelectOption): string {
   return f.label;
@@ -305,32 +305,22 @@ export function MarketsFilterBar({
   );
   const [draftSets, setDraftSets] = useState<string[]>(() => [...sets]);
 
-  const catRef = useRef<HTMLDivElement>(null);
   const setRef = useRef<HTMLDivElement>(null);
   const gradeRef = useRef<HTMLDivElement>(null);
   const priceRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
-  useDropdownDismiss(openPop === "category", () => setOpenPop(null), catRef);
   useDropdownDismiss(openPop === "set", () => setOpenPop(null), setRef);
   useDropdownDismiss(openPop === "grade", () => setOpenPop(null), gradeRef);
   useDropdownDismiss(openPop === "price", () => setOpenPop(null), priceRef);
   useDropdownDismiss(openPop === "sort", () => setOpenPop(null), sortRef);
 
-  useClampPopToViewport(openPop === "category", catRef);
   useClampPopToViewport(openPop === "set", setRef);
   useClampPopToViewport(openPop === "grade", gradeRef);
   useClampPopToViewport(openPop === "price", priceRef);
   useClampPopToViewport(openPop === "sort", sortRef);
 
   const categoryActive = categoryFilters.size > 0;
-  const categoryValue =
-    categoryFilters.size === 0
-      ? undefined
-      : categoryFilters.size === 1
-        ? filters.find((f) => f.id === [...categoryFilters][0])?.label ??
-          [...categoryFilters][0]
-        : `${categoryFilters.size}`;
 
   const priceLabel = marketsPriceChipLabel(priceMin, priceMax);
   const priceActive = Boolean(priceMin.trim() || priceMax.trim());
@@ -363,13 +353,12 @@ export function MarketsFilterBar({
 
   const moreCount = useMemo(() => {
     let n = 0;
-    if (categoryActive) n += 1;
     if (setActive) n += 1;
     if (priceActive) n += 1;
     if (gradeActive) n += 1;
     if (vaultActive) n += 1;
     return n;
-  }, [categoryActive, setActive, priceActive, gradeActive, vaultActive]);
+  }, [setActive, priceActive, gradeActive, vaultActive]);
 
   useEffect(() => {
     setDrawerMounted(true);
@@ -496,15 +485,6 @@ export function MarketsFilterBar({
   }
 
   const activeChips: { key: string; label: string; onClear: () => void }[] = [];
-  for (const opt of filters) {
-    if (categoryFilters.has(opt.id)) {
-      activeChips.push({
-        key: `cat-${opt.id}`,
-        label: categoryOptionLabel(opt),
-        onClear: () => onCategoryToggle(opt.id),
-      });
-    }
-  }
   for (const [i, setName] of sets.entries()) {
     activeChips.push({
       key: `set-${setName}`,
@@ -542,52 +522,30 @@ export function MarketsFilterBar({
     <>
     <div className="markets-filter-sticky">
       <div className="tkl-wrap markets-slim-bar">
-        <div ref={catRef} className="markets-fw markets-fw--chip">
-          <DdChip
-            label="Category"
-            value={categoryActive ? categoryValue : undefined}
-            active={categoryActive}
-            open={openPop === "category"}
-            count={categoryFilters.size > 1 ? categoryFilters.size : undefined}
-            onClick={() =>
-              setOpenPop((p) => (p === "category" ? null : "category"))
-            }
-          />
-          <div
-            className={cn(
-              "markets-pop",
-              openPop === "category" && "markets-pop--open",
-            )}
-            role="menu"
-          >
-            {filters.map((f) => {
-              const selected = categoryFilters.has(f.id);
-              return (
-                <PopCheckItem
-                  key={f.id}
-                  selected={selected}
-                  role="menuitemcheckbox"
-                  onClick={() => {
-                    trackEvent("filter_applied", {
-                      filter_type: "category",
-                      filter_value: f.id,
-                    });
-                    onCategoryToggle(f.id);
-                  }}
-                >
-                  {categoryOptionLabel(f)}
-                </PopCheckItem>
-              );
-            })}
-            <PopFooter
-              clearDisabled={!categoryActive}
-              onClear={() => {
-                onCategoryFiltersChange(new Set());
-                setOpenPop(null);
-              }}
-              onDone={() => setOpenPop(null)}
-            />
-          </div>
+        <div className="markets-catchiprow" role="group" aria-label="Category">
+          {filters.map((f) => {
+            const selected = categoryFilters.has(f.id);
+            return (
+              <button
+                key={f.id}
+                type="button"
+                className={cn(
+                  "markets-catchip",
+                  selected && "markets-catchip--on",
+                )}
+                aria-pressed={selected}
+                onClick={() => {
+                  trackEvent("filter_applied", {
+                    filter_type: "category",
+                    filter_value: f.id,
+                  });
+                  onCategoryToggle(f.id);
+                }}
+              >
+                {categoryOptionLabel(f)}
+              </button>
+            );
+          })}
         </div>
 
         {onSetToggle ? (

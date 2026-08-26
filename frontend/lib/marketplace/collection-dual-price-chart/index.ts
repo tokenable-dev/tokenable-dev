@@ -15,6 +15,8 @@ export {
   yearViewPriceScale,
 } from "./chartScale";
 export {
+  formatCardHtmlAxisLabel,
+  formatCardHtmlHoverWhen,
   formatHoverWhen,
   formatTickDate,
   formatTickShortMdYear,
@@ -22,6 +24,7 @@ export {
   formatYAxisLabelCompact,
   formatYAxisLabelPlain,
   roughTickConfigByWindowDays,
+  roughTickConfigCardHtml,
 } from "./chartTimeTicks";
 export { mergeExternalChartSeries } from "./mergeExternalChartSeries";
 export {

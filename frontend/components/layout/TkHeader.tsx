@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { ASSETS } from "@/constants/assets";
-import { isMarketplaceCollectionDetailPath, shouldHideAppChrome } from "@/constants/layout";
+import { shouldHideAppChrome } from "@/constants/layout";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
@@ -18,7 +18,6 @@ import {
 } from "@/components/layout/header/TkHeaderSearch";
 import { NotificationsDrawer } from "@/components/layout/notifications/NotificationsDrawer";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
-import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useAuthStore } from "@/store/authStore";
 
@@ -34,8 +33,6 @@ export function TkHeader() {
     // which kept `next dev` compiling the proxy route (main local fan culprit).
     enabled: Boolean(userId) && !hideChrome,
   });
-
-  const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
@@ -91,63 +88,66 @@ export function TkHeader() {
         )}
       >
         <div className="tk-header__bar">
-          <Link href="/" className="flex shrink-0 items-center" aria-label="Tokenable home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ASSETS.logo.tokenableDs}
-              alt="Tokenable"
-              className="tk-header__logo-full"
-              width={184}
-              height={24}
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ASSETS.logo.tokenableSymbol}
-              alt="Tokenable"
-              className="tk-header__logo-symbol"
-              width={26}
-              height={26}
-            />
-          </Link>
+          <div className="tk-header__left">
+            <Link href="/" className="flex shrink-0 items-center" aria-label="Tokenable home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ASSETS.logo.tokenableDs}
+                alt="Tokenable"
+                className="tk-header__logo-full"
+                width={184}
+                height={24}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ASSETS.logo.tokenableSymbol}
+                alt="Tokenable"
+                className="tk-header__logo-symbol"
+                width={26}
+                height={26}
+              />
+            </Link>
 
-          <HeaderDesktopNav />
-
-          <div className="tk-header__spacer" aria-hidden />
-
-          <div className="tk-header__mobile-actions">
-            <TkHeaderSearchMobileButton onClick={openMobileSearch} />
-
-            <button
-              type="button"
-              className={cn("gnb-burger", drawerOpen && "is-open")}
-              aria-label={
-                drawerOpen
-                  ? "Close menu"
-                  : unreadCount > 0
-                    ? `Open menu, ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-                    : "Open menu"
-              }
-              aria-expanded={drawerOpen}
-              onClick={() => setDrawerOpen((o) => !o)}
-            >
-              <span className="burger-lines">
-                <span />
-                <span />
-              </span>
-              {!drawerOpen ? (
-                <NotificationUnreadBadge count={unreadCount} floating />
-              ) : null}
-            </button>
+            <HeaderDesktopNav />
           </div>
 
-          <div className="gnb-right">
+          <div className="tk-header__center gnb-search-center">
             <TkHeaderSearch
-              compact={isCollectionDetailHeader}
               mobileOpen={mobileSearchOpen}
               onMobileOpenChange={setMobileSearchOpen}
             />
-            <NetworkSwitcher />
-            <HeaderAuthControls onOpenNotifications={openNotifications} />
+          </div>
+
+          <div className="tk-header__right">
+            <div className="tk-header__mobile-actions">
+              <TkHeaderSearchMobileButton onClick={openMobileSearch} />
+
+              <button
+                type="button"
+                className={cn("gnb-burger", drawerOpen && "is-open")}
+                aria-label={
+                  drawerOpen
+                    ? "Close menu"
+                    : unreadCount > 0
+                      ? `Open menu, ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+                      : "Open menu"
+                }
+                aria-expanded={drawerOpen}
+                onClick={() => setDrawerOpen((o) => !o)}
+              >
+                <span className="burger-lines">
+                  <span />
+                  <span />
+                </span>
+                {!drawerOpen ? (
+                  <NotificationUnreadBadge count={unreadCount} floating />
+                ) : null}
+              </button>
+            </div>
+
+            <div className="gnb-right">
+              <HeaderAuthControls onOpenNotifications={openNotifications} />
+            </div>
           </div>
         </div>
       </header>

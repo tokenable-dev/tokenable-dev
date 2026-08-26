@@ -9,6 +9,7 @@ import {
   registerPrivySignOut,
   syncPrivySession,
 } from "@/lib/privy/session";
+import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -60,6 +61,7 @@ export function PrivySessionBridge() {
     if (!ready) return;
     if (wasAuthenticated.current && !authenticated && !isSignOutInProgress()) {
       void useAuthStore.getState().logout();
+      void disconnectAllWagmiWallets();
     }
     if (!wasAuthenticated.current && authenticated) {
       catchupAttempt.current = 0;

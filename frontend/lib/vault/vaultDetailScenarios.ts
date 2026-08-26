@@ -135,7 +135,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Cards approved & stored",
+      title: "Cards approved and stored",
       sub: "Verified and insured",
     },
     steps: [

@@ -14,6 +14,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Mobile burger | `.gnb-drawer` | drawer in `TkHeader` | `components/layout/TkHeader.tsx` |
 | Mobile search overlay | `.gnb-search-overlay` | `TkHeaderSearch` | `components/layout/header/TkHeaderSearch.tsx` |
 | Wallet connect | `tk-wallet.js` | `HeaderWalletMenu`, `HeaderWalletMenuPanel` | `components/layout/header/wallet/` |
+| Dev network switch | `NetworkSwitcher` | Account dropdown (desktop) + mobile drawer | `components/network/NetworkSwitcher.tsx` |
 | Notifications | `tk-notifications.js` | bell + panel | (Phase 10) |
 | Footer | `tk-footer.js` | `TkFooter` | `components/layout/TkFooter.tsx` |
 | Page container | `.wrap` | `tkl-wrap` | `constants/layout.ts` (`APP_MAIN_SHELL_CLASS`) |
@@ -71,13 +72,23 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 |---------|--------------|------|
 | Page header | eyebrow + title | `components/markets/MarketsPageHeader.tsx` |
 | Ticker | `HomeTicker` | `components/home/HomeTicker.tsx` |
-| Filter / sort bar | Slim Category / Grade / Price chips + More filters drawer + Sort | `components/markets/MarketsFilterBar.tsx` |
+| Filter / sort bar | Pokemon / One Piece / NBA / MLB / Others chips + Grade / Price + More filters + Sort | `components/markets/MarketsFilterBar.tsx` |
 | Card grid | `MarketsCollectionGrid` + `CollectibleCard` | `components/markets/MarketsCollectionGrid.tsx`, `components/collectibles/CollectibleCard.tsx` |
 | Page compose | `MarketsPage` | `components/markets/MarketsPage.tsx` |
 
 **CSS:** `frontend/styles/tokenable-markets.css` (grid 6/5/3/3/2 — do not regress)
 
-**Facets wired (client-side):** category, price, grade (PSA 10 / 9, BGS Pristine / 10 / 9.5), sort. Year / vault / category tree deferred until backend supports them.
+**Facets wired (client-side):** category (Pokemon / One Piece / NBA / MLB / Others), price, grade (PSA 10 / 9, BGS Pristine / 10 / 9.5), sort. Year / vault / category tree deferred until backend supports them.
+
+---
+
+## Search — `Search.html`
+
+| Section | React target | File |
+|---------|--------------|------|
+| Route `/search?q=` | Markets grid + filters | `app/search/page.tsx` → `MarketsPage` |
+| Hero search | 62×560 field → `/search` | `components/home/HomeHero.tsx` |
+| Header search | Typeahead; Enter / View all → `/search` | `components/layout/header/TkHeaderSearch.tsx` |
 
 ---
 
@@ -114,7 +125,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Stat grid | `.pf-stat-grid`, `.notch` | `PortfolioStatGrid` | `components/portfolio/PortfolioStatGrid.tsx` |
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
 | Tabs | `.tk-tabs` | `PortfolioMainSection` | `components/portfolio/PortfolioMainSection.tsx` |
-| Holdings | table + mobile cards | `PortfolioHoldingsSection` + `PortfolioHoldingsRowActions` (Set price / Edit price + bid meta) | `components/portfolio/*` |
+| Holdings | gallery cards | `PortfolioHoldingsSection` + `PortfolioHoldingsGalleryTile` (Set price / Edit price) | `components/portfolio/*` |
 | Redeem select | toolbar + checkboxes + batch bar | `RedeemSelectModeBar`, `useRedeemSelection` | `components/portfolio/redeem/*`, `hooks/portfolio/useRedeemSelection.ts` |
 | Bids | bid rows | `PortfolioCollectionBidsSection` | `components/portfolio/PortfolioCollectionBidsSection.tsx` |
 | Watchlist tab | — | `PortfolioWatchlistSection` | `components/portfolio/PortfolioWatchlistSection.tsx` |
@@ -131,7 +142,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ## Portfolio Redeem — `Ship-From-Vault.html` / design system-13 (pay-first)
 
-Product copy uses **Redeem** / **Ship from vault**. Canonical prototype: `Tokenable-with design system-13/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged).
+Product copy uses **Redeem**. Canonical prototype: `Tokenable-with design system-13/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged).
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|
@@ -271,7 +282,7 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 
 | HTML | Route | React |
 |------|-------|-------|
-| `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — `PartnerPortfolioHeader` (eyebrow + Redeem requests CTA); tabs: My Assets / Active Bids / Transaction History only + **Ship from vault** toolbar btn; GNB adds **Redeem requests** for active partners; `/portfolio` redirects here |
+| `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — `PartnerPortfolioHeader` (eyebrow + `tkl-view-all` to `/partner/shipments`); tabs: My Assets / Active Bids / Transaction History only + **Redeem** toolbar btn; GNB is Markets / Portfolio / Sell only; redeem queue also in account menu / mobile drawer for active partners; `/portfolio` redirects here |
 | `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/sell/flow` with `vaultChoice=self` |
 | `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — breadcrumb, summary pills, 24h urgency banner, tabs; tracking via `PATCH …/redeems/batches/:id/tracking` with `redemptionIds` (scoped by `trackingGroupKey` = batch + ship-to) → same `vault_redemptions` rows as admin redeem page |
 | `Partner-Shipping-Origin.html` | Settings `#partner-origin` | existing Origin modal + Settings section |

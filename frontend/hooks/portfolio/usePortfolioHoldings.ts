@@ -49,6 +49,15 @@ export function usePortfolioHoldings(
     return m;
   }, [data]);
 
+  const acquiredAtByTokenId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const item of data?.items ?? []) {
+      const iso = item.acquiredAt?.trim();
+      if (iso) m.set(item.tokenId, iso);
+    }
+    return m;
+  }, [data]);
+
   const hiddenTokenIds = useMemo(() => {
     const ids: number[] = [];
     for (const item of data?.items ?? []) {
@@ -62,6 +71,7 @@ export function usePortfolioHoldings(
   return {
     holdingsByTokenId,
     costBasisByTokenId,
+    acquiredAtByTokenId,
     hiddenTokenIds,
     hiddenSet,
     loading: isLoading || isFetching,

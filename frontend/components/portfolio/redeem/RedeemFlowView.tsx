@@ -28,7 +28,7 @@ export function RedeemFlowView() {
           <span className="pf-redeem-crumb__sep" aria-hidden>
             ›
           </span>
-          <span className="pf-redeem-crumb__current">Ship from vault</span>
+          <span className="pf-redeem-crumb__current">Redeem</span>
         </nav>
         <p className="sell-flow-sub">
           No open request to finish.{" "}
@@ -45,7 +45,7 @@ export function RedeemFlowView() {
         <span className="pf-redeem-crumb__sep" aria-hidden>
           ›
         </span>
-        <span className="pf-redeem-crumb__current">Ship from vault</span>
+        <span className="pf-redeem-crumb__current">Redeem</span>
       </nav>
 
       {flow.step === "request" ? (

@@ -31,7 +31,9 @@ function bidAmountUsd(b: Order): number | null {
 
 function topBidUsd(bids: Order[]): number | null {
   const active = bids.filter(
-    (b) => b.status === "active" && isCriteriaCollectionBid(b),
+    (b) =>
+      b.status === "active" &&
+      (isCriteriaCollectionBid(b) || isTokenBidOrder(b)),
   );
   if (!active.length) return null;
   let best = BigInt(0);

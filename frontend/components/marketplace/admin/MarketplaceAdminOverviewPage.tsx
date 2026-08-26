@@ -139,7 +139,7 @@ export function MarketplaceAdminOverviewPage() {
 
             <div className={ADMIN_ARTICLE}>
               <AdminSectionTitle
-                title="Engagement & vault"
+                title="Engagement and vault"
                 subtitle="Watchlists and portfolio tracking"
                 action={
                   <Link
@@ -237,7 +237,7 @@ export function MarketplaceAdminOverviewPage() {
             </div>
 
             <div className={ADMIN_ARTICLE}>
-              <AdminSectionTitle title="Orders & liquidity" />
+              <AdminSectionTitle title="Orders and liquidity" />
               <div className="grid grid-cols-2 gap-4">
                 <AdminStatTile label="Active asks" value={o.orders.activeAsks} />
                 <AdminStatTile label="Active bids" value={o.orders.activeBids} />

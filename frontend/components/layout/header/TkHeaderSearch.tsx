@@ -17,6 +17,7 @@ import { useMarketplaceCollectionSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
 import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -179,12 +180,14 @@ function SearchResultsList({
   );
 }
 
+function isImeKeyEvent(e: KeyboardEvent<HTMLInputElement>): boolean {
+  return e.nativeEvent.isComposing || e.key === "Process" || e.keyCode === 229;
+}
+
 export function TkHeaderSearch({
-  compact = false,
   mobileOpen,
   onMobileOpenChange,
 }: {
-  compact?: boolean;
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }) {
@@ -281,18 +284,44 @@ export function TkHeaderSearch({
     return () => document.removeEventListener("mousedown", handler);
   }, [desktopOpen, gnbMobile]);
 
+  function liveQuery(): string {
+    const el = gnbMobile ? mobileInputRef.current : desktopInputRef.current;
+    return el?.value ?? query;
+  }
+
+  function goToSearchPage() {
+    const q = liveQuery();
+    const href = buildCollectionSearchHref(q);
+    trackEvent("search_performed", {
+      query: q.trim(),
+      results_count: filtered.length,
+    });
+    router.push(href);
+    closeAll();
+  }
+
   function navigate(c: MarketplaceCollectionSummary) {
-    trackEvent("search_performed", { query, results_count: filtered.length });
+    trackEvent("search_performed", {
+      query: liveQuery(),
+      results_count: filtered.length,
+    });
     router.push(`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`);
     closeAll();
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
       closeAll();
       return;
     }
-    if (!filtered.length) return;
+    if (!filtered.length) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        goToSearchPage();
+      }
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlightIdx((p) => (p + 1) % filtered.length);
@@ -303,6 +332,8 @@ export function TkHeaderSearch({
       e.preventDefault();
       if (highlightIdx >= 0 && highlightIdx < filtered.length) {
         navigate(filtered[highlightIdx]);
+      } else {
+        goToSearchPage();
       }
     }
   }
@@ -341,6 +372,7 @@ export function TkHeaderSearch({
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={SEARCH_PLACEHOLDER_MOBILE}
                   autoComplete="off"
@@ -370,6 +402,7 @@ export function TkHeaderSearch({
                   <p>Search by card name, set, player, or cert.</p>
                 </div>
               ) : (
+                <>
                 <SearchResultsList
                   filtered={filtered}
                   highlightIdx={highlightIdx}
@@ -380,6 +413,14 @@ export function TkHeaderSearch({
                   coverUrlMap={coverUrlMap}
                   heading="Results"
                 />
+                <button
+                  type="button"
+                  className="gnb-search-view-all"
+                  onClick={goToSearchPage}
+                >
+                  View all results
+                </button>
+                </>
               )}
             </div>
           </div>,
@@ -394,7 +435,6 @@ export function TkHeaderSearch({
           <div
             className={cn(
               "tk-search",
-              compact && "tk-search--compact",
               query.length > 0 && "tk-search--has-clear",
             )}
           >
@@ -410,6 +450,7 @@ export function TkHeaderSearch({
                 setQuery(e.target.value);
                 if (!desktopOpen) setDesktopOpen(true);
               }}
+              onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
               onFocus={() => setDesktopOpen(true)}
               onKeyDown={handleKeyDown}
               placeholder={SEARCH_PLACEHOLDER_DESKTOP}
@@ -432,6 +473,13 @@ export function TkHeaderSearch({
               coverUrlMap={coverUrlMap}
               heading="Results"
             />
+            <button
+              type="button"
+              className="gnb-search-view-all"
+              onClick={goToSearchPage}
+            >
+              View all results
+            </button>
           </div>
         </div>
       ) : null}

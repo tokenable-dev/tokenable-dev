@@ -62,6 +62,7 @@ export function HomeCardGrid({
   subMode = "change",
   changeLoading = false,
   use90dChange = false,
+  layout = "scroll",
 }: {
   collections: MarketplaceCollectionSummary[];
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
@@ -69,7 +70,9 @@ export function HomeCardGrid({
   changeLoading?: boolean;
   /** Home Top movers — fixed 90-day reference % change. */
   use90dChange?: boolean;
+  layout?: "scroll" | "wrap";
 }) {
+  const isWrap = layout === "wrap";
   const scrollerRef = useRef<HTMLDivElement>(null);
   const leftArrowRef = useRef<HTMLButtonElement>(null);
   const rightArrowRef = useRef<HTMLButtonElement>(null);
@@ -80,6 +83,7 @@ export function HomeCardGrid({
   });
 
   const updateArrows = useCallback(() => {
+    if (isWrap) return;
     const el = scrollerRef.current;
     if (!el) return;
     const { scrollLeft, scrollWidth, clientWidth } = el;
@@ -115,9 +119,10 @@ export function HomeCardGrid({
 
     positionBtn(leftArrowRef.current, "left", canScroll && !atStart);
     positionBtn(rightArrowRef.current, "right", canScroll && !atEnd);
-  }, []);
+  }, [isWrap]);
 
   useEffect(() => {
+    if (isWrap) return;
     updateArrows();
     const el = scrollerRef.current;
     if (!el) return;
@@ -135,7 +140,7 @@ export function HomeCardGrid({
       window.clearTimeout(t2);
       window.clearTimeout(t3);
     };
-  }, [collections.length, updateArrows]);
+  }, [collections.length, isWrap, updateArrows]);
 
   function scrollByDir(dir: "left" | "right") {
     const el = scrollerRef.current;
@@ -157,7 +162,11 @@ export function HomeCardGrid({
 
   return (
     <div className="grid4-wrap">
-      <div ref={scrollerRef} className="grid4">
+      <div
+        ref={scrollerRef}
+        className="grid4"
+        id={subMode === "vaulted" ? "grid-vaulted" : "grid-movers"}
+      >
         {collections.map((collection) => {
           const key = collection.collectionKey.toLowerCase();
           const snapshot = snapshotByKey.get(key);
@@ -179,20 +188,25 @@ export function HomeCardGrid({
               marketChangePctOverride={changePct90d}
               marketChangePeriodLabel={periodLabel}
               shell="none"
+              showSetLine={false}
             />
           );
         })}
       </div>
-      <ScrollArrow
-        direction="left"
-        onClick={() => scrollByDir("left")}
-        buttonRef={leftArrowRef}
-      />
-      <ScrollArrow
-        direction="right"
-        onClick={() => scrollByDir("right")}
-        buttonRef={rightArrowRef}
-      />
+      {!isWrap ? (
+        <>
+          <ScrollArrow
+            direction="left"
+            onClick={() => scrollByDir("left")}
+            buttonRef={leftArrowRef}
+          />
+          <ScrollArrow
+            direction="right"
+            onClick={() => scrollByDir("right")}
+            buttonRef={rightArrowRef}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

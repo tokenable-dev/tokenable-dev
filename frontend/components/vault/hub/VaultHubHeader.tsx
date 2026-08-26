@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useActivePartner } from "@/hooks/partner/useActivePartner";
 
 function ArrowIcon() {
   return (
@@ -14,8 +13,6 @@ function ArrowIcon() {
 
 /** Sell hub header — Vault-Dashboard-Active.html page-header. */
 export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boolean }) {
-  const { isActivePartner } = useActivePartner();
-
   return (
     <div className="vault-hub-header">
       <div className="vault-hub-header__copy">
@@ -26,15 +23,6 @@ export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boole
         </p>
       </div>
       <div className="vault-hub-header__actions">
-        {isActivePartner ? (
-          <Link
-            id="partner-shipments-link"
-            href="/partner/shipments"
-            className="vault-hub-header__shipments tk-btn tk-btn--subtle"
-          >
-            Redeem requests
-          </Link>
-        ) : null}
         {showSubmitCta ? (
           <Link href="/sell/flow" className="vault-hub-header__cta tk-btn tk-btn--primary">
             + Sell a Card <ArrowIcon />

@@ -1,5 +1,5 @@
 /**
- * PSA / mint set abbreviations → extra Cardhedger search tokens & set-matching aliases.
+ * PSA / mint set abbreviations → extra Cardhedger search tokens and set-matching aliases.
  * Applies to all collections (not per-card hacks).
  */
 

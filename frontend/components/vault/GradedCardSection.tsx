@@ -51,9 +51,9 @@ interface GradedCardSectionProps {
   certLookupBusy?: boolean;
   /** Cert mode: a PSA lookup already succeeded (soften Look up vs Mint). */
   certLookupHasResult?: boolean;
-  /** Render between slab/cert hero and the collapsible card & PSA fields (e.g. mint preview + Mint CTA) */
+  /** Render between slab/cert hero and the collapsible card and PSA fields (e.g. mint preview + Mint CTA) */
   slotAfterHero?: ReactNode;
-  /** When false, hides the Card & PSA details accordion (form state still updates from PSA). */
+  /** When false, hides the Card and PSA details accordion (form state still updates from PSA). */
   showCardPsaDetailsPanel?: boolean;
 }
 
@@ -179,7 +179,7 @@ function PsaCertLookupHero({
             title="Clear PSA result so you can change the cert # or URL, then press Look up."
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 px-3 text-xs font-medium text-zinc-500 transition hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-zinc-300 disabled:opacity-40"
           >
-            Clear & edit cert
+            Clear and edit cert
           </button>
         ) : (
           <TkButton
@@ -277,7 +277,7 @@ export function GradedCardSection({
         className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
-          <span>Card &amp; PSA details</span>
+          <span>Card and PSA details</span>
           <svg
             className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
             fill="none"
@@ -411,7 +411,7 @@ export function GradedCardSection({
         </TkField>
       </div>
 
-      {/* PSA-specific extra fields (inside Card & PSA panel) */}
+      {/* PSA-specific extra fields (inside Card and PSA panel) */}
       {hasCompany && (
         <CompanySpecificBlock
           company="PSA"
@@ -448,7 +448,7 @@ function CompanySpecificBlock({
   return (
     <div className="rounded-lg border border-gray-700/35 bg-gray-900/25 p-3 sm:p-4">
       <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-        {company} — population &amp; extras
+        {company} — population and extras
       </p>
 
       {company === "PSA" && (

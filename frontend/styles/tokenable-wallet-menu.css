@@ -223,6 +223,31 @@
   color: #fff;
 }
 
+.tk-wd-network {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-wd-network__label {
+  padding: 8px 16px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.tk-wd-network__opt.is-active {
+  color: #fff;
+  font-weight: 600;
+}
+
+.tk-wd-network__check {
+  font-size: 12px;
+  color: var(--azure, #1a6fff);
+}
+
 .tk-wd-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);

@@ -2,7 +2,7 @@
 
 export type HeroCarouselTier = "full" | "reduced" | "fallback";
 
-const MOBILE_MQ = "(max-width: 767px)";
+const MOBILE_MQ = "(max-width: 768px)";
 
 export function isMobileHeroViewport(): boolean {
   if (typeof window === "undefined") return false;

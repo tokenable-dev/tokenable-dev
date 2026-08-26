@@ -14,6 +14,7 @@ import {
   MobileDrawerMarketsIcon,
   MobileDrawerNotificationsIcon,
   MobileDrawerPortfolioIcon,
+  MobileDrawerRedeemRequestsIcon,
   MobileDrawerSettingsIcon,
   MobileDrawerSignOutIcon,
   MobileDrawerUserIcon,
@@ -28,6 +29,7 @@ import { NotificationUnreadBadge } from "@/components/layout/notifications/Notif
 import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { useActivePartner } from "@/hooks/partner/useActivePartner";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { completeSignOut } from "@/lib/auth/signOut";
@@ -138,6 +140,7 @@ export function HeaderMobileDrawer({
   const loading = useAuthStore((s) => s.loading);
   const logout = useAuthStore((s) => s.logout);
   const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
+  const { isActivePartner } = useActivePartner();
   const portfolioHref = usePortfolioNavHref();
   const portfolioBase = portfolioBaseForPath(pathname);
   const [signingOut, setSigningOut] = useState(false);
@@ -365,6 +368,19 @@ export function HeaderMobileDrawer({
             <span className="tk-notif-menu-label">Notifications</span>
             <NotificationUnreadBadge count={unreadCount} />
           </button>
+          {isActivePartner ? (
+            <button
+              type="button"
+              className={cn(
+                "tkm-item",
+                isSecondaryNavActive(pathname, "/partner/shipments") && "active",
+              )}
+              onClick={() => go("/partner/shipments", 1)}
+            >
+              <MobileDrawerRedeemRequestsIcon aria-hidden />
+              Redeem requests
+            </button>
+          ) : null}
           <button
             type="button"
             className={cn("tkm-item", isSecondaryNavActive(pathname, "/settings") && "active")}

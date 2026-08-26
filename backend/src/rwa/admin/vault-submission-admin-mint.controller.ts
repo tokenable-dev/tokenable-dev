@@ -49,7 +49,7 @@ export class VaultSubmissionAdminMintController {
 
   @Post('vaulted-reviews/:reviewId/mint')
   @ApiOperation({
-    summary: 'Manually mint & deliver all matched items for a vaulted review',
+    summary: 'Manually mint and deliver all matched items for a vaulted review',
   })
   mintVaultedReview(
     @Req() req: Request,

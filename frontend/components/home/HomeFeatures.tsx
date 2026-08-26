@@ -49,7 +49,7 @@ export function HomeFeatures() {
                 </div>
                 <span className="feat__num">01</span>
               </div>
-              <h3>Authentication &amp; grading</h3>
+              <h3>Authentication and grading</h3>
               <p>
                 Only cards graded by trusted authorities are accepted onto the platform —
                 no raw, no self-reported condition.

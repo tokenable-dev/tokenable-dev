@@ -9,6 +9,8 @@ export type PortfolioBidRow = {
   priceLabel: string;
   status: OrderStatus;
   createdAt: string;
+  /** ISO timestamp for order expiry (Seaport endTime). */
+  endTime?: string;
   updatedAt?: string;
 };
 

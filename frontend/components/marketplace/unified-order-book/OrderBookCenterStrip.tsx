@@ -19,9 +19,9 @@ export function OrderBookCenterStrip({
 }: {
   model: BookCenterModel;
   collectionDetail?: boolean;
-  /** Order book2 HTML empty · ask 없음 — `$bestBid` | No live spread */
+  /** Order book HTML — asks empty, bids live: `$bestBid` | No live spread */
   asksEmptyBidsLive?: boolean;
-  /** Order book2 HTML empty · bid 없음 — `$bestAsk` | No live spread */
+  /** Order book HTML — bids empty, asks live: `$bestAsk ↓` | No live spread */
   bidsEmptyAsksLive?: boolean;
   bestBidUsdc?: number | null;
   bestAskUsdc?: number | null;
@@ -52,21 +52,30 @@ export function OrderBookCenterStrip({
 
   const hasCaption = model.caption.trim().length > 0;
 
-  /* Order book2 HTML: one-sided book — price | No live spread */
+  /* Design HTML empty · ask 없음 — `$bestBid` | No live spread + info tip */
   if (collectionDetail && asksEmptyBidsLive) {
     return (
-      <div
-        className="cd-ob-book-center__strip cd-ob-book-center__strip--no-asks"
-        title="Bids are live; no ask side for a spread."
-      >
+      <div className="cd-ob-book-center__strip cd-ob-book-center__strip--no-asks">
         <span className="cd-ob-book-center__mid-price mono">
           {formatMidUsd(bestBidUsdc)}
         </span>
-        <span className="cd-ob-book-center__spread mono">No live spread</span>
+        <span className="cd-ob-book-center__spread mono">
+          No live spread
+          <span
+            className="cd-ob-book-center__info"
+            data-tip="Bids are still live — sellers can accept any of these now."
+            tabIndex={0}
+            role="img"
+            aria-label="Bids are still live — sellers can accept any of these now."
+          >
+            i
+          </span>
+        </span>
       </div>
     );
   }
 
+  /* Design HTML empty · bid 없음 — `$bestAsk ↓` | No live spread */
   if (collectionDetail && bidsEmptyAsksLive) {
     return (
       <div
@@ -75,26 +84,52 @@ export function OrderBookCenterStrip({
       >
         <span className="cd-ob-book-center__mid-price mono">
           {formatMidUsd(bestAskUsdc)}
+          <span className="cd-ob-book-center__arrow" aria-hidden>
+            {" "}
+            ↓
+          </span>
         </span>
         <span className="cd-ob-book-center__spread mono">No live spread</span>
       </div>
     );
   }
 
-  /* Card.html mid-book strip: Last $X · Spread $Y */
+  /* Design HTML both sides — `$price ↓` | Spread $X */
   if (collectionDetail) {
-    const lastLabel = isNaPlaceholder ? "Last —" : `Last $${model.primary.replace(/^\$/, "")}`;
-    const spreadLabel = model.secondary?.trim() || null;
+    const priceLabel = isNaPlaceholder
+      ? formatMidUsd(bestAskUsdc ?? bestBidUsdc)
+      : `$${model.primary.replace(/^\$/, "")}`;
+    const spreadLabel = model.secondary?.trim() || "Spread —";
+    const arrowDown =
+      model.lastSide === "sell" ||
+      (isNaPlaceholder && bestAskUsdc != null) ||
+      (!isNaPlaceholder && model.lastSide == null);
+    const arrowUp = model.lastSide === "buy";
+
     return (
       <div className="cd-ob-book-center__strip" title={model.title}>
-        <span className="cd-ob-book-center__last mono">{lastLabel}</span>
-        {spreadLabel ? (
-          <span className="cd-ob-book-center__spread mono">{spreadLabel}</span>
-        ) : (
-          <span className="cd-ob-book-center__spread mono cd-ob-book-center__spread--muted">
-            Spread —
-          </span>
-        )}
+        <span className="cd-ob-book-center__mid-price mono">
+          {priceLabel}
+          {arrowDown ? (
+            <span className="cd-ob-book-center__arrow" aria-hidden>
+              {" "}
+              ↓
+            </span>
+          ) : null}
+          {arrowUp ? (
+            <span className="cd-ob-book-center__arrow cd-ob-book-center__arrow--up" aria-hidden>
+              {" "}
+              ↑
+            </span>
+          ) : null}
+        </span>
+        <span
+          className={`cd-ob-book-center__spread mono${
+            !model.secondary?.trim() ? " cd-ob-book-center__spread--muted" : ""
+          }`}
+        >
+          {spreadLabel}
+        </span>
       </div>
     );
   }

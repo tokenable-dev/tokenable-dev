@@ -1,8 +1,16 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   useMarketplaceCollectionsInfinite,
   MARKETS_COLLECTIONS_PAGE_SIZE,
@@ -79,11 +87,12 @@ function filtersFromState(input: {
 }
 
 export default function MarketsPage() {
-  usePageViewedEvent("markets");
-  const mounted = useClientMounted();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchQ = (searchParams.get("q") ?? "").trim();
+  const isSearchMode = pathname === "/search" || pathname.startsWith("/search/");
+  usePageViewedEvent(isSearchMode ? "search" : "markets");
+  const mounted = useClientMounted();
 
   const urlFilters = useMemo(
     () => parseMarketsUrlFilters(searchParams),
@@ -108,6 +117,17 @@ export default function MarketsPage() {
   const [yearMax, setYearMax] = useState(urlFilters.yearMax);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const skipNextUrlWrite = useRef(false);
+
+  const deferredCategoryFilters = useDeferredValue(categoryFilters);
+  const deferredSortId = useDeferredValue(sortId);
+  const deferredPriceMin = useDeferredValue(priceMin);
+  const deferredPriceMax = useDeferredValue(priceMax);
+  const deferredGradeFilters = useDeferredValue(gradeFilters);
+  const deferredVaultFilters = useDeferredValue(vaultFilters);
+  const deferredCharacters = useDeferredValue(characters);
+  const deferredSets = useDeferredValue(sets);
+  const deferredYearMin = useDeferredValue(yearMin);
+  const deferredYearMax = useDeferredValue(yearMax);
 
   // Sync local state when URL changes (Details deep-links, back/forward).
   useEffect(() => {
@@ -140,9 +160,16 @@ export default function MarketsPage() {
       yearMin,
       yearMax,
     });
-    if (marketsUrlFiltersEqual(next, urlFilters)) return;
+    const fromLocation = parseMarketsUrlFilters(
+      new URLSearchParams(window.location.search),
+    );
+    if (marketsUrlFiltersEqual(next, fromLocation)) return;
     const qs = serializeMarketsUrlFilters(next).toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const hrefParams = new URLSearchParams(qs);
+    if (searchQ) hrefParams.set("q", searchQ);
+    const hrefQs = hrefParams.toString();
+    const href = hrefQs ? `${pathname}?${hrefQs}` : pathname;
+    window.history.replaceState(window.history.state, "", href);
   }, [
     categoryFilters,
     sortId,
@@ -154,8 +181,7 @@ export default function MarketsPage() {
     yearMin,
     yearMax,
     pathname,
-    router,
-    urlFilters,
+    searchQ,
   ]);
 
   const toggleCategoryFilter = useCallback((id: CollectionCategoryId) => {
@@ -205,7 +231,9 @@ export default function MarketsPage() {
   const ordersQuery = useMarketsOrders();
   const orders = ordersQuery.orders;
 
-  const colInfinite = useMarketplaceCollectionsInfinite();
+  const colInfinite = useMarketplaceCollectionsInfinite({
+    q: isSearchMode ? searchQ : undefined,
+  });
   const {
     data: colPages,
     isPending: colInitialPending,
@@ -256,7 +284,7 @@ export default function MarketsPage() {
   const sortedForRank = useMarketsStableSortedCollections(
     collectionSummaries,
     snapshotByKey,
-    sortId,
+    deferredSortId,
     snapshotsFetching,
   );
 
@@ -271,50 +299,50 @@ export default function MarketsPage() {
 
   const setFacetOptions = useMemo(() => {
     const pool =
-      categoryFilters.size === 0
+      deferredCategoryFilters.size === 0
         ? collectionSummaries
         : collectionSummaries.filter((c) =>
             collectionMatchesCategoryFilters(
-              categoryFilters,
+              deferredCategoryFilters,
               c,
               snapshotByKey.get(collectionKeyLower(c)),
             ),
           );
     return collectMarketsSetFacetOptions(pool);
-  }, [collectionSummaries, categoryFilters, snapshotByKey]);
+  }, [collectionSummaries, deferredCategoryFilters, snapshotByKey]);
 
   const filteredSorted = useMemo(() => {
     const categoryFiltered = sortedForRank.filter((c) =>
       collectionMatchesCategoryFilters(
-        categoryFilters,
+        deferredCategoryFilters,
         c,
         snapshotByKey.get(collectionKeyLower(c)),
       ),
     );
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
-      priceMin,
-      priceMax,
-      gradeFilters,
-      vaultFilters,
+      priceMin: deferredPriceMin,
+      priceMax: deferredPriceMax,
+      gradeFilters: deferredGradeFilters,
+      vaultFilters: deferredVaultFilters,
       vaultKindsByKey,
-      characters,
-      sets,
-      yearMin,
-      yearMax,
+      characters: deferredCharacters,
+      sets: deferredSets,
+      yearMin: deferredYearMin,
+      yearMax: deferredYearMax,
     });
   }, [
     sortedForRank,
     snapshotByKey,
-    categoryFilters,
-    priceMin,
-    priceMax,
-    gradeFilters,
-    vaultFilters,
+    deferredCategoryFilters,
+    deferredPriceMin,
+    deferredPriceMax,
+    deferredGradeFilters,
+    deferredVaultFilters,
     vaultKindsByKey,
-    characters,
-    sets,
-    yearMin,
-    yearMax,
+    deferredCharacters,
+    deferredSets,
+    deferredYearMin,
+    deferredYearMax,
   ]);
 
   const detailFacetChips = useMemo(() => {
@@ -382,10 +410,17 @@ export default function MarketsPage() {
   return (
     <div className="markets-page">
       <HomeTicker />
-      <MarketsPageHeader />
-      <MarketsP2pSection />
+      <MarketsPageHeader
+        searchQuery={isSearchMode ? searchQ : undefined}
+        resultCount={
+          isSearchMode && !showLoadingShell ? filteredSorted.length : undefined
+        }
+      />
+      {isSearchMode ? null : <MarketsP2pSection />}
 
-      {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) && !showLoadingShell ? (
+      {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) &&
+      !showLoadingShell &&
+      !isSearchMode ? (
         <div className="tkl-wrap markets-preview-sections">
           <div
             className={
@@ -496,6 +531,21 @@ export default function MarketsPage() {
               ))}
             </div>
           </div>
+        ) : isSearchMode && sortedForRank.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="mb-2 text-base text-[var(--t2)]">
+              {searchQ
+                ? `No collections match “${searchQ}”.`
+                : "Type a card name, set, or player to search."}
+            </p>
+            <p className="text-sm text-[var(--t3)]">
+              Try a different spelling, or{" "}
+              <Link href="/markets" className="text-[var(--azure)] hover:underline">
+                browse all markets
+              </Link>
+              .
+            </p>
+          </div>
         ) : sortedForRank.length === 0 && orphanAsks.length === 0 ? (
           <div className="py-16 text-center">
             <p className="mb-2 text-base text-[var(--t2)]">No assets listed for sale yet.</p>
@@ -506,11 +556,13 @@ export default function MarketsPage() {
           </div>
         ) : (
           <>
+            {isSearchMode ? null : (
             <div className="markets-results-bar">
               <span className="markets-results-bar__count">
                 <b>{filteredSorted.length.toLocaleString("en-US")}</b> results
               </span>
             </div>
+            )}
             {filteredSorted.length === 0 ? (
               <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
                 <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
@@ -580,7 +632,7 @@ export default function MarketsPage() {
                   </>
                 ) : null}
 
-                {categoryFilters.size === 0 && orphanAsks.length > 0 ? (
+                {!isSearchMode && categoryFilters.size === 0 && orphanAsks.length > 0 ? (
                   <Link href="/marketplace/other-listings" className="markets-orphan-card">
                     <div>
                       <h3 className="text-lg font-bold text-white">Other Listings</h3>

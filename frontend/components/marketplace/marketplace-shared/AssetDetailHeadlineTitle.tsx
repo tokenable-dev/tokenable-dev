@@ -10,6 +10,10 @@ import {
 /**
  * Hero title line — `{Name} · {Number} · {Grade}`.
  * Variant lives on the meta line (`Year · Set · Variant`), not here.
+ *
+ * Important: never fall back to the full `formatCardDisplayName` string for the
+ * name slot — that string already includes number/grade, and appending them
+ * again produced "PSA 10 · PSA 10" / "6 · PSA 10 · 6 · PSA 10" on mobile.
  */
 export function AssetDetailHeadlineTitle({
   parts,
@@ -30,26 +34,32 @@ export function AssetDetailHeadlineTitle({
 }) {
   if (!assetDetailHeadlineHasContent(parts)) return null;
 
-  const displayName = formatCardDisplayName(parts, { grade });
-  if (!displayName) return null;
-
-  const hover = formatCardDisplayHoverTitle(parts, { grade });
   const name = parts.cardName?.trim() || "";
   const cardNumber = parts.cardNumber?.trim() || "";
   const gradeText = grade?.trim() || "";
+  // Variety belongs on the meta line — do not promote it into the title.
+  if (!name && !cardNumber && !gradeText) return null;
+
+  const displayName = formatCardDisplayName(parts, { grade });
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
 
   return (
     <Tag className={className} style={style} title={hover || displayName} id={id}>
-      <span className="block min-w-0 whitespace-normal [overflow-wrap:anywhere]">
-        {name || displayName}
-        {cardNumber || gradeText ? (
+      <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+        {name ? <span className="cd-display-name__name">{name}</span> : null}
+        {cardNumber ? (
           <span className="cd-display-name__meta">
-            {" · "}
-            {cardNumber ? `${cardNumber}${gradeText ? " · " : ""}` : null}
+            {name ? " · " : ""}
+            {cardNumber}
           </span>
         ) : null}
         {gradeText ? (
-          <strong className="cd-display-name__grade">{gradeText}</strong>
+          <>
+            {name || cardNumber ? (
+              <span className="cd-display-name__meta">{" · "}</span>
+            ) : null}
+            <strong className="cd-display-name__grade">{gradeText}</strong>
+          </>
         ) : null}
       </span>
     </Tag>

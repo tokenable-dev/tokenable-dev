@@ -15,7 +15,7 @@ export type VaultPsaVaultedReviewStatus =
   | 'dismissed';
 
 /**
- * PSA “Items Vaulted / now secured” mail → mint & deliver (PSA → Live).
+ * PSA “Items Vaulted / now secured” mail → mint and deliver (PSA → Live).
  */
 @Entity('vault_psa_vaulted_reviews')
 @Unique('vault_psa_vaulted_reviews_gmail_message_unique', ['gmailMessageId'])

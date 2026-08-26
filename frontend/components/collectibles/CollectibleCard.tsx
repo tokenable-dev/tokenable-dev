@@ -219,7 +219,7 @@ export function CollectibleCard({
               POP<span className="card__stat-val">{formatBadgeCount(pop)}</span>
             </span>
           ) : null}
-          <span className="card__stat">
+          <span className="card__stat card-listed">
             LISTED<span className="card__stat-val">{formatBadgeCount(listed)}</span>
           </span>
         </div>
