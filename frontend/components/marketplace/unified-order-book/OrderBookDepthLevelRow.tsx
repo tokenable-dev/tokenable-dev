@@ -75,7 +75,7 @@ export function OrderBookDepthLevelRow({
         <span className="cd-ob-book-row__size">{level.count}</span>
         <span
           className="cd-ob-book-row__total"
-          title={`$${Math.round(totalUsdc).toLocaleString("en-US")}`}
+          title={formatCollectionDetailBookPriceUsdc(totalUsdc)}
         >
           {totalLabel}
         </span>
@@ -94,7 +94,7 @@ export function OrderBookDepthLevelRow({
         {flush ? (
           <span
             className={`text-zinc-200/90 ${orderBookColEndCls}`}
-            title={`$${Math.round(totalUsdc).toLocaleString("en-US")}`}
+            title={formatCollectionDetailBookPriceUsdc(totalUsdc)}
           >
             {totalLabel}
           </span>

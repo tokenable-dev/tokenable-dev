@@ -10,26 +10,33 @@ interface AuthState {
   initialized: boolean;
   setUser: (u: AuthUser | null) => void;
   refresh: (options?: { showLoading?: boolean }) => Promise<void>;
+  /** Apply a session user and reconcile KYC from Sumsub (Privy sync path). */
+  hydrateFromSession: (sessionUser: AuthUser) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
 /** Prefer keeping linked wallets when a stale session response arrives without them. */
 function mergeAuthUser(prev: AuthUser | null, next: AuthUser | null): AuthUser | null {
   if (!next) return null;
-  if (
-    prev &&
-    prev.id === next.id &&
-    userHasLinkedWallet(prev) &&
-    !userHasLinkedWallet(next)
-  ) {
-    return {
-      ...next,
+  if (!prev || prev.id !== next.id) return next;
+  let merged = next;
+  if (userHasLinkedWallet(prev) && !userHasLinkedWallet(next)) {
+    merged = {
+      ...merged,
       wallets: prev.wallets,
       walletAddress: prev.walletAddress,
       walletLinkedAt: prev.walletLinkedAt,
     };
   }
-  return next;
+  if (prev.kycStatus != null && next.kycStatus == null) {
+    merged = {
+      ...merged,
+      kycStatus: prev.kycStatus,
+      kycVerifiedAt: prev.kycVerifiedAt,
+      kycProvider: prev.kycProvider,
+    };
+  }
+  return merged;
 }
 
 async function syncKycFromSumsub(user: AuthUser): Promise<AuthUser> {
@@ -52,6 +59,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
   setUser: (user) =>
     set({ user: mergeAuthUser(get().user, user), initialized: true, loading: false }),
+  hydrateFromSession: async (sessionUser) => {
+    const withKyc = await syncKycFromSumsub(sessionUser);
+    const user = mergeAuthUser(get().user, withKyc);
+    set({ user, initialized: true, loading: false });
+    return user ?? withKyc;
+  },
   refresh: async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading !== false;
     if (showLoading) set({ loading: true });

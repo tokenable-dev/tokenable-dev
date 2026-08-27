@@ -9,7 +9,10 @@ function formatUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
     if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    return n.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
   } catch {
     return "—";
   }

@@ -48,7 +48,7 @@ export function CollectionOverviewLeftColumn({
 
   const coverOverlaySlot =
     coverOverlay != null ? (
-      <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 sm:right-2 sm:top-2">
+      <div className="pointer-events-none absolute left-1.5 top-1.5 z-20 sm:left-2 sm:top-2">
         <div className="pointer-events-auto">{coverOverlay}</div>
       </div>
     ) : null;

@@ -7,6 +7,7 @@ import {
   useCallback,
   useMemo,
   type KeyboardEvent,
+  type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -201,7 +202,7 @@ export function TkHeaderSearch({
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const desktopInputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
-  const desktopWrapperRef = useRef<HTMLDivElement>(null);
+  const desktopWrapperRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
   const searchActive = gnbMobile ? mobileOverlayOpen : desktopOpen;
@@ -309,32 +310,29 @@ export function TkHeaderSearch({
     closeAll();
   }
 
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (highlightIdx >= 0 && highlightIdx < filtered.length) {
+      navigate(filtered[highlightIdx]);
+      return;
+    }
+    goToSearchPage();
+  }
+
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (isImeKeyEvent(e)) return;
     if (e.key === "Escape") {
+      e.preventDefault();
       closeAll();
       return;
     }
-    if (!filtered.length) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        goToSearchPage();
-      }
-      return;
-    }
+    if (!filtered.length) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlightIdx((p) => (p + 1) % filtered.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightIdx((p) => (p <= 0 ? filtered.length - 1 : p - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (highlightIdx >= 0 && highlightIdx < filtered.length) {
-        navigate(filtered[highlightIdx]);
-      } else {
-        goToSearchPage();
-      }
     }
   }
 
@@ -362,7 +360,7 @@ export function TkHeaderSearch({
               <span className="gnb-search-overlay__bar-icon" aria-hidden>
                 <SearchIcon muted />
               </span>
-              <div className="gnb-search-overlay__field">
+              <form className="gnb-search-overlay__field" onSubmit={handleSubmit}>
                 <input
                   ref={mobileInputRef}
                   className={cn(
@@ -370,6 +368,7 @@ export function TkHeaderSearch({
                     query.length > 0 && "has-clear",
                   )}
                   type="search"
+                  name="q"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
@@ -386,7 +385,7 @@ export function TkHeaderSearch({
                     onClick={clearQuery}
                   />
                 ) : null}
-              </div>
+              </form>
               <button
                 type="button"
                 className="gnb-search-overlay__cancel"
@@ -431,7 +430,12 @@ export function TkHeaderSearch({
   return (
     <>
       {!gnbMobile ? (
-        <div ref={desktopWrapperRef} className="gnb-search-anchor">
+        <form
+          ref={desktopWrapperRef}
+          className="gnb-search-anchor"
+          onSubmit={handleSubmit}
+          role="search"
+        >
           <div
             className={cn(
               "tk-search",
@@ -444,6 +448,7 @@ export function TkHeaderSearch({
             <TkInput
               ref={desktopInputRef}
               type="search"
+              name="q"
               size={1}
               value={query}
               onChange={(e) => {
@@ -481,7 +486,7 @@ export function TkHeaderSearch({
               View all results
             </button>
           </div>
-        </div>
+        </form>
       ) : null}
       {mobileOverlay}
     </>

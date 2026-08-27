@@ -41,7 +41,7 @@ export function PrivySessionBridge() {
     },
   });
   const { wallets } = useWallets();
-  const setUser = useAuthStore((s) => s.setUser);
+  const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const syncInFlight = useRef(false);
   const syncPending = useRef(false);
   const returnToHandled = useRef(false);
@@ -102,7 +102,7 @@ export function PrivySessionBridge() {
           if (!token) break;
 
           const user = await syncPrivySession(token);
-          setUser(user);
+          await hydrateFromSession(user);
 
           if (userHasLinkedWallet(user)) {
             catchupAttempt.current = 0;
@@ -147,7 +147,7 @@ export function PrivySessionBridge() {
     return () => {
       cancelled = true;
     };
-  }, [ready, authenticated, getAccessToken, setUser, router, walletAddresses, privyWalletHint, privyUser, loginSyncNonce]);
+  }, [ready, authenticated, getAccessToken, hydrateFromSession, router, walletAddresses, privyWalletHint, privyUser, loginSyncNonce]);
 
   return null;
 }

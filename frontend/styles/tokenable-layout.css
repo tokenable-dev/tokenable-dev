@@ -213,6 +213,7 @@
   background: var(--ink-2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
+  overflow: visible;
 }
 
 .tk-header__bar {
@@ -225,6 +226,7 @@
   padding-left: max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
   padding-right: max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px));
   box-sizing: border-box;
+  overflow: visible;
 }
 
 /* index.html / tk-nav.js — logo+nav | centered search | actions */
@@ -337,6 +339,8 @@
   height: 44px;
   display: flex;
   align-items: center;
+  overflow: visible;
+  margin: 0;
 }
 
 .gnb-search-center .tk-search,
@@ -1369,6 +1373,8 @@
     width: 440px;
     max-width: 40vw;
     justify-self: center;
+    overflow: visible;
+    z-index: 141;
   }
 
   .tk-header__right {

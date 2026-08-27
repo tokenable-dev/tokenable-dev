@@ -68,10 +68,19 @@ export function formatOrderBookPriceUsdc(n: number): string {
   });
 }
 
-/** Card.html order-book Price column — `$9,000` (whole dollars). */
+/** USDC book prices — keep cents (7.1 stays 7.1, not 7). */
+export function formatOrderBookUsdAmount(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+/** Card.html order-book Price column. */
 export function formatCollectionDetailBookPriceUsdc(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return `$${formatOrderBookUsdAmount(n)}`;
 }
 
 /** Trades tape — whole dollars only (no cents). */
@@ -166,7 +175,7 @@ export function formatOrderBookTotalUsdc(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—";
   const abs = Math.abs(n);
   if (abs < 1000) {
-    return `$${Math.round(abs).toLocaleString("en-US")}`;
+    return `$${formatOrderBookUsdAmount(abs)}`;
   }
   const trim = (v: number) => {
     const s = v >= 100 ? v.toFixed(0) : v.toFixed(1);
@@ -266,7 +275,7 @@ export function buildOrderBookCenterModel(input: {
   bestBidUsdc?: number | null;
 }): BookCenterModel {
   const { lastTradePriceUsdc, lastTradeSide, bestAskUsdc, bestBidUsdc } = input;
-  const fmtWhole = (n: number) => Math.round(n).toLocaleString("en-US");
+  const fmtUsd = (n: number) => formatOrderBookUsdAmount(n);
 
   const spreadSecondary =
     bestAskUsdc != null &&
@@ -274,14 +283,14 @@ export function buildOrderBookCenterModel(input: {
     Number.isFinite(bestAskUsdc) &&
     Number.isFinite(bestBidUsdc) &&
     bestAskUsdc > bestBidUsdc
-      ? `Spread $${fmtWhole(bestAskUsdc - bestBidUsdc)}`
+      ? `Spread $${fmtUsd(bestAskUsdc - bestBidUsdc)}`
       : bestAskUsdc != null || bestBidUsdc != null
         ? "No live spread"
         : null;
 
   if (lastTradePriceUsdc != null && Number.isFinite(lastTradePriceUsdc) && lastTradePriceUsdc > 0) {
     return {
-      primary: fmtWhole(lastTradePriceUsdc),
+      primary: fmtUsd(lastTradePriceUsdc),
       tone: "last",
       lastSide: lastTradeSide ?? null,
       secondary: spreadSecondary,

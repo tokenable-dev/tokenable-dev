@@ -23,7 +23,7 @@ import { useAuthUiStore } from "@/store/authUiStore";
 export function useHeaderNavGate() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
   const openWalletMismatch = useAuthUiStore((s) => s.openWalletMismatch);
@@ -71,9 +71,11 @@ export function useHeaderNavGate() {
       // Privy session active but Tokenable user missing / wallet not yet linked — resync.
       if (authenticated && (!user || !userHasLinkedWallet(user))) {
         void refreshPrivyAuthSession(getAccessToken)
-          .then((synced) => {
-            if (synced) setUser(synced);
-            applyGate(synced ?? user ?? null);
+          .then(async (synced) => {
+            const subject = synced
+              ? await hydrateFromSession(synced)
+              : user ?? null;
+            applyGate(subject);
           })
           .catch(() => applyGate(user ?? null));
         return;
@@ -85,7 +87,7 @@ export function useHeaderNavGate() {
       user,
       authenticated,
       getAccessToken,
-      setUser,
+      hydrateFromSession,
       router,
       openSignIn,
       openConnectWallet,

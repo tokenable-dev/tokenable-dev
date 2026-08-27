@@ -2,11 +2,14 @@
 
 import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import { orderBookRowValueCls } from "@/components/marketplace/price-metrics-strip/theme";
-import type { BookCenterModel } from "@/lib/marketplace/unified-order-book";
+import {
+  formatCollectionDetailBookPriceUsdc,
+  type BookCenterModel,
+} from "@/lib/marketplace/unified-order-book";
 
 function formatMidUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatCollectionDetailBookPriceUsdc(n);
 }
 
 export function OrderBookCenterStrip({

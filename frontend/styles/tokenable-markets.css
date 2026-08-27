@@ -1063,7 +1063,8 @@
 .markets-grid .card__img .fav {
   pointer-events: auto;
   top: 8px;
-  right: 8px;
+  left: 8px;
+  right: auto;
 }
 
 /* Markets.html `.fav` is 32×32 (not the shared 40px fav-btn) */
@@ -1360,7 +1361,8 @@
 
   .markets-grid .card__img .fav {
     top: 6px;
-    right: 6px;
+    left: 6px;
+    right: auto;
   }
 
   .markets-grid .card__img .fav button,

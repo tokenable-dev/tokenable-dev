@@ -309,7 +309,8 @@
 
   .watchlist-grid .card__img .fav {
     top: 6px;
-    right: 6px;
+    left: 6px;
+    right: auto;
   }
 
   .watchlist-grid .card__img .fav-btn,

@@ -36,7 +36,7 @@ export function PrivyWalletLauncher() {
   const closeConnectWallet = useAuthUiStore((s) => s.closeConnectWallet);
   const consumeReturnTo = useAuthUiStore((s) => s.consumeReturnTo);
   const user = useAuthStore((s) => s.user);
-  const setUser = useAuthStore((s) => s.setUser);
+  const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const { ready, authenticated, getAccessToken, linkWallet } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
@@ -61,7 +61,7 @@ export function PrivyWalletLauncher() {
         if (!primaryLinked && walletsRef.current.length > 0) {
           const synced = await refreshPrivyAuthSession(getAccessToken);
           if (synced) {
-            setUser(synced);
+            await hydrateFromSession(synced);
             primaryLinked = getPrimaryWalletAddress(synced);
           }
         }
@@ -83,7 +83,7 @@ export function PrivyWalletLauncher() {
 
         await linkWallet();
         const syncedAfterLink = await refreshPrivyAuthSession(getAccessToken);
-        if (syncedAfterLink) setUser(syncedAfterLink);
+        if (syncedAfterLink) await hydrateFromSession(syncedAfterLink);
         const linkedAfter = getPrimaryWalletAddress(syncedAfterLink) ?? primaryLinked;
         const activeWallet = resolveActivePrivyWallet(
           walletsRef.current,
@@ -108,7 +108,7 @@ export function PrivyWalletLauncher() {
     getAccessToken,
     linkWallet,
     user,
-    setUser,
+    hydrateFromSession,
     setActiveWallet,
     closeConnectWallet,
     consumeReturnTo,

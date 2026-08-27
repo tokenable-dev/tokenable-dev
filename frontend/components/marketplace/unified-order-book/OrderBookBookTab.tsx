@@ -244,12 +244,29 @@ function OrderBookSplitScrollPane({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (pinToBottom) {
-      el.scrollTop = el.scrollHeight;
-    } else {
-      el.scrollTop = 0;
-    }
-    updateFades();
+
+    const pin = () => {
+      if (pinToBottom) {
+        el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      } else {
+        el.scrollTop = 0;
+      }
+      updateFades();
+    };
+
+    pin();
+    const ro = new ResizeObserver(pin);
+    ro.observe(el);
+    const child = el.firstElementChild;
+    if (child) ro.observe(child);
+    const raf = window.requestAnimationFrame(() => {
+      pin();
+      window.requestAnimationFrame(pin);
+    });
+    return () => {
+      ro.disconnect();
+      window.cancelAnimationFrame(raf);
+    };
   }, [scrollKey, pinToBottom]);
 
   return (
