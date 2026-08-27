@@ -747,12 +747,6 @@ export function PortfolioPageView({
     >
       <HomeTicker />
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
-        {!isConnected ? (
-          <p className="mb-4 rounded-xl border border-white/10 bg-white/4 px-4 py-3 text-xs text-[var(--t2)]">
-            Connect your Privy wallet to manage listings and bids.
-          </p>
-        ) : null}
-
         {isPartnerPortfolio ? <PartnerPortfolioHeader /> : null}
 
         <PortfolioValuePanel
