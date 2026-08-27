@@ -142,3 +142,13 @@ export function isFedExTrackableCarrier(carrier: string | null | undefined): boo
   const c = (carrier ?? '').trim().toLowerCase();
   return c === '' || c === 'fedex';
 }
+
+/**
+ * Dev/sandbox dummy numbers (e.g. 111111111). FedEx Track does not return
+ * Delivered for these — sandbox poll may treat them as delivered so auto-receipt
+ * can run without a live shipment.
+ */
+export function isSandboxOnesTrackingNumber(trackingNumber: string): boolean {
+  const key = trackingNumber.replace(/\s+/g, '');
+  return /^1{6,15}$/.test(key);
+}

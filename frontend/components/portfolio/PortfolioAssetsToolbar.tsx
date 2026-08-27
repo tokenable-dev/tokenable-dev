@@ -7,9 +7,10 @@ import {
 } from "@/lib/portfolio/portfolioAssetsSegment";
 
 export type AssetsViewMode = "gallery" | "table";
-export type AssetsToolbarSort = "value" | "pl" | "ret" | "name";
+export type AssetsToolbarSort = "newest" | "value" | "pl" | "ret" | "name";
 
 const SORT_OPTIONS: { value: AssetsToolbarSort; label: string }[] = [
+  { value: "newest", label: "Newest" },
   { value: "value", label: "Value" },
   { value: "pl", label: "Gain $" },
   { value: "ret", label: "Return %" },

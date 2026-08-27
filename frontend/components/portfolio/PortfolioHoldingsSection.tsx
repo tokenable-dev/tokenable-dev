@@ -39,7 +39,7 @@ export function PortfolioHoldingsSection({
   tokenToCollectionKey: _tokenToCollectionKey,
   bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
-  acquiredAtByTokenId: _acquiredAtByTokenId,
+  acquiredAtByTokenId,
   valuesPending,
   canEditCostBasis,
   onSaveCostBasis,
@@ -135,6 +135,12 @@ export function PortfolioHoldingsSection({
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {
+        case "newest": {
+          const tA = Date.parse(acquiredAtByTokenId?.get(a.tokenId) ?? "") || 0;
+          const tB = Date.parse(acquiredAtByTokenId?.get(b.tokenId) ?? "") || 0;
+          if (tA !== tB) return tB - tA;
+          return b.tokenId - a.tokenId;
+        }
         case "name":
           return compareSortText(a.name, b.name, "asc");
         case "pl": {
@@ -170,6 +176,7 @@ export function PortfolioHoldingsSection({
     sort,
     metadataByTokenId,
     costBasisByTokenId,
+    acquiredAtByTokenId,
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,

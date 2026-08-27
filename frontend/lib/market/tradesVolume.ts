@@ -273,8 +273,9 @@ export function computeTradeVolume1yUsdc(
 }
 
 /**
- * Card.html 30D Median — median comp/print USD in the last 30 days.
- * Prefer Cardhedger comps; fall back to platform fills when comps are sparse.
+ * Card.html 30D Median — median sale USD, preferring the last 30 days.
+ * If that window is empty (sparse comps, or tape shorter than 30d), expand
+ * 60d → 90d → 180d → 365d → all tape so a single nearby sale still fills the metric.
  */
 export function computeMedianSaleUsd30d(
   trades: CollectionPlatformTapeFill[],
@@ -282,27 +283,39 @@ export function computeMedianSaleUsd30d(
   dedupSec: number,
   nowSec = Math.floor(Date.now() / 1000),
 ): number | null {
-  const cardhedger = medianUsd(
-    tapePricesInWindow(
-      trades,
-      TRADE_VOLUME_30D_SEC,
-      sessionFillPoint,
-      dedupSec,
-      ["cardhedger"],
-      nowSec,
-    ),
-  );
-  if (cardhedger != null) return cardhedger;
-  return medianUsd(
-    tapePricesInWindow(
-      trades,
-      TRADE_VOLUME_30D_SEC,
-      sessionFillPoint,
-      dedupSec,
-      undefined,
-      nowSec,
-    ),
-  );
+  const windows = [
+    TRADE_VOLUME_30D_SEC,
+    TRADE_VOLUME_30D_SEC * 2,
+    TRADE_VOLUME_90D_SEC,
+    TRADE_VOLUME_180D_SEC,
+    TRADE_VOLUME_365D_SEC,
+    Number.MAX_SAFE_INTEGER,
+  ];
+  for (const windowSec of windows) {
+    const cardhedger = medianUsd(
+      tapePricesInWindow(
+        trades,
+        windowSec,
+        sessionFillPoint,
+        dedupSec,
+        ["cardhedger"],
+        nowSec,
+      ),
+    );
+    if (cardhedger != null) return cardhedger;
+    const all = medianUsd(
+      tapePricesInWindow(
+        trades,
+        windowSec,
+        sessionFillPoint,
+        dedupSec,
+        undefined,
+        nowSec,
+      ),
+    );
+    if (all != null) return all;
+  }
+  return null;
 }
 
 export function heroVelocityWindowForSec(

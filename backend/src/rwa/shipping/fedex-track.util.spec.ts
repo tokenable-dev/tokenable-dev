@@ -1,5 +1,6 @@
 import {
   isFedExTrackableCarrier,
+  isSandboxOnesTrackingNumber,
   parseFedExTrackResponse,
   parseFedExTrackResult,
 } from './fedex-track.util';
@@ -15,6 +16,18 @@ describe('isFedExTrackableCarrier', () => {
   it('rejects other carriers', () => {
     expect(isFedExTrackableCarrier('ups')).toBe(false);
     expect(isFedExTrackableCarrier('dhl')).toBe(false);
+  });
+});
+
+describe('isSandboxOnesTrackingNumber', () => {
+  it('accepts 9–12 ones used in local/admin tests', () => {
+    expect(isSandboxOnesTrackingNumber('111111111')).toBe(true);
+    expect(isSandboxOnesTrackingNumber('111111111111')).toBe(true);
+  });
+
+  it('rejects real-looking numbers', () => {
+    expect(isSandboxOnesTrackingNumber('128667043726')).toBe(false);
+    expect(isSandboxOnesTrackingNumber('111111112')).toBe(false);
   });
 });
 

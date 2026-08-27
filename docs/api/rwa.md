@@ -177,11 +177,12 @@ User tap **I've received my cards**. Batch must belong to the active chain. Requ
 
 **FedEx Track auto-receipt (server cron):** when `FEDEX_TRACK_ENABLED=true`, Nest polls `POST /track/v1/trackingnumbers` for open redeem rows with FedEx (or empty) `tracking_carrier`. On Delivered (`ACTUAL_DELIVERY` / status `DL`) it sets `carrier_delivered_at` and emits `RD_RECEIVED_REMINDER`. After `REDEEM_AUTO_RECEIPT_GRACE_DAYS` (default **3**) from the latest delivery in the batch, cron auto-confirms receipt (`receipt_confirmed_via=auto` → `completed`) so settlement can proceed without the user returning to tap the button. Non-FedEx carriers (UPS/DHL) still require the user tap. Apply `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql` on existing DBs.
 
-**Local sandbox (Test keys):** Track lookup works; **live Delivered is not available** until Production keys + `https://apis.fedex.com`. Real FedEx numbers (12–15 digits) will be used then. Until then, close a redeem with **I've received my cards**. `POST /api/marketplace/admin/fedex/track/poll-redeems` only stamps `carrier_delivered_at` if sandbox Track reports Delivered — do not rely on `trackingnumbers-probe` (probe does not write DB).
+**Local sandbox (Test keys):** Track lookup runs, but dummy numbers like `111111111` never come back Delivered from FedEx. On `apis-sandbox.fedex.com` the poll **treats all-1s tracking (6–15 digits) as delivered** so grace → auto-receipt can be tested (`FEDEX_TRACK_SANDBOX_ONES_DELIVERED=0` to disable). Production (`https://apis.fedex.com`) only stamps from a real Track Delivered. `POST /api/marketplace/admin/fedex/track/poll-redeems` runs the same path. `trackingnumbers-probe` does not write DB.
 
 | Env | Purpose |
 |-----|---------|
 | `FEDEX_TRACK_ENABLED` | `true` to poll FedEx Track for redeem deliveries |
+| `FEDEX_TRACK_SANDBOX_ONES_DELIVERED` | Default on when API host is sandbox; treat `111111111`-style numbers as delivered |
 | `FEDEX_API_BASE_URL` | Sandbox or prod base URL (shared) |
 | `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` | Basic Integrated Visibility project (Track). FedEx does not allow Track + Rate in one project — use separate keys. Falls back to `FEDEX_CLIENT_ID` / `SECRET` if unset. |
 | `REDEEM_FEDEX_TRACK_CRON` | Default `*/30 * * * *` |

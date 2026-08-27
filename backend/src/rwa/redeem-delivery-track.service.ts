@@ -10,8 +10,12 @@ import {
   type VaultRedemptionStatus,
 } from '../vault/entities/vault-redemption.entity';
 import { VaultService } from '../vault/vault.service';
+import { fedExBaseUrl, fedExTruthy } from './shipping/fedex-api.util';
 import { FedExTrackClient } from './shipping/fedex-track.client';
-import { isFedExTrackableCarrier } from './shipping/fedex-track.util';
+import {
+  isFedExTrackableCarrier,
+  isSandboxOnesTrackingNumber,
+} from './shipping/fedex-track.util';
 import {
   batchReadyForAutoReceipt,
   resolveRedeemAutoReceiptGraceMs,
@@ -169,51 +173,108 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
       return { tracked: 0, markedDelivered: 0 };
     }
 
-    const results = await this.track.trackByNumbers(numbers);
+    let results: Awaited<ReturnType<FedExTrackClient['trackByNumbers']>> = [];
+    try {
+      results = await this.track.trackByNumbers(numbers);
+    } catch (e) {
+      this.logger.warn(
+        `FedEx Track request failed (will still apply sandbox dummy numbers if enabled): ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+
     let markedDelivered = 0;
     const remindedBatches = new Set<string>();
 
     for (const result of results) {
       if (!result.delivered || !result.deliveredAt) continue;
       const key = result.trackingNumber.replace(/\s+/g, '').toUpperCase();
-      const matches = byNumber.get(key);
-      if (!matches?.length) continue;
-
-      for (const row of matches) {
-        if (row.carrierDeliveredAt) continue;
-        row.carrierDeliveredAt = result.deliveredAt;
-        markedDelivered += 1;
-      }
-      await this.redemptions.save(matches);
-
-      for (const row of matches) {
-        const batchId = row.paymentBatchId;
-        if (!batchId || remindedBatches.has(batchId)) continue;
-        remindedBatches.add(batchId);
-        const chainId = (row.chainId ?? undefined) as
-          | SupportedChainId
-          | undefined;
-        void this.notifications
-          .notifyRedeemReceivedReminder({
-            ownerWallet: row.ownerWalletAddress,
-            paymentBatchId: batchId,
-            chainId,
-          })
-          .catch((e) => {
-            this.logger.warn(
-              `notifyRedeemReceivedReminder failed batch=${batchId}: ${
-                e instanceof Error ? e.message : String(e)
-              }`,
-            );
-          });
-      }
-
-      this.logger.log(
-        `Redeem carrier delivered tracking=${key} at=${result.deliveredAt.toISOString()} rows=${matches.length}`,
+      markedDelivered += await this.stampCarrierDelivered(
+        key,
+        result.deliveredAt,
+        byNumber,
+        remindedBatches,
       );
     }
 
+    if (this.sandboxOnesAsDelivered()) {
+      const now = new Date();
+      for (const key of numbers) {
+        if (!isSandboxOnesTrackingNumber(key)) continue;
+        const n = await this.stampCarrierDelivered(
+          key,
+          now,
+          byNumber,
+          remindedBatches,
+        );
+        if (n > 0) {
+          this.logger.log(
+            `Redeem sandbox dummy tracking=${key} treated as delivered (FedEx Track has no live status for all-1s numbers)`,
+          );
+        }
+        markedDelivered += n;
+      }
+    }
+
     return { tracked: numbers.length, markedDelivered };
+  }
+
+  /**
+   * Sandbox Test keys never report Delivered for dummy numbers like 111111111.
+   * Default on when FEDEX_API_BASE_URL is sandbox; override with
+   * FEDEX_TRACK_SANDBOX_ONES_DELIVERED=0. Never on production Track host.
+   */
+  private sandboxOnesAsDelivered(): boolean {
+    const raw = this.config.get<string>('FEDEX_TRACK_SANDBOX_ONES_DELIVERED');
+    if (raw != null && raw.trim() !== '') {
+      return fedExTruthy(this.config, 'FEDEX_TRACK_SANDBOX_ONES_DELIVERED');
+    }
+    return /sandbox/i.test(fedExBaseUrl(this.config));
+  }
+
+  private async stampCarrierDelivered(
+    key: string,
+    deliveredAt: Date,
+    byNumber: Map<string, VaultRedemption[]>,
+    remindedBatches: Set<string>,
+  ): Promise<number> {
+    const matches = byNumber.get(key);
+    if (!matches?.length) return 0;
+    const pending = matches.filter((r) => !r.carrierDeliveredAt);
+    if (pending.length === 0) return 0;
+
+    for (const row of pending) {
+      row.carrierDeliveredAt = deliveredAt;
+    }
+    await this.redemptions.save(pending);
+
+    for (const row of pending) {
+      const batchId = row.paymentBatchId;
+      if (!batchId || remindedBatches.has(batchId)) continue;
+      remindedBatches.add(batchId);
+      const chainId = (row.chainId ?? undefined) as
+        | SupportedChainId
+        | undefined;
+      void this.notifications
+        .notifyRedeemReceivedReminder({
+          ownerWallet: row.ownerWalletAddress,
+          paymentBatchId: batchId,
+          chainId,
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `notifyRedeemReceivedReminder failed batch=${batchId}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
+    }
+
+    this.logger.log(
+      `Redeem carrier delivered tracking=${key} at=${deliveredAt.toISOString()} rows=${pending.length}`,
+    );
+    return pending.length;
   }
 
   /**
