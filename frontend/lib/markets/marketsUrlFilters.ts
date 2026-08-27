@@ -6,7 +6,7 @@ import {
 import type { MarketsGradeFilterId } from "@/lib/markets/marketsFilters";
 import {
   MARKETS_DEFAULT_SORT_ID,
-  MARKETS_SORT_OPTIONS,
+  resolveMarketsSortId,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
 
@@ -185,12 +185,7 @@ export function parseMarketsUrlFilters(
   const categories = catParamToCategoryIds(
     params.get("cat") ?? params.get("category"),
   );
-  const sortRaw = params.get("sort")?.trim();
-  const sortId =
-    sortRaw &&
-    MARKETS_SORT_OPTIONS.some((o) => o.id === sortRaw)
-      ? (sortRaw as MarketsSortId)
-      : MARKETS_DEFAULT_SORT_ID;
+  const sortId = resolveMarketsSortId(params.get("sort"));
 
   const grades = splitPipe(params.get("grade")).filter((g) =>
     /^(PSA|BGS)\b/i.test(g),

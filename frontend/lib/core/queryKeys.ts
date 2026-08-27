@@ -31,9 +31,12 @@ export const rq = {
     ] as const,
   collectionsMarketplace: (chainId: number) =>
     ["collections", "marketplace", chainId] as const,
-  /** Header / discovery text search (`GET /marketplace/collections?q=`). */
+  /** Search page infinite query (`GET /marketplace/collections?q=`). Do not share with typeahead. */
   collectionsSearch: (chainId: number, q: string) =>
     ["collections", "search", chainId, q] as const,
+  /** GNB / hero typeahead — same API, different cache shape than infinite `pages`. */
+  collectionsSearchTypeahead: (chainId: number, q: string) =>
+    ["collections", "search-typeahead", chainId, q] as const,
   /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
   homeAllCollections: (chainId: number) =>
     ["collections", "marketplace", "all", chainId] as const,

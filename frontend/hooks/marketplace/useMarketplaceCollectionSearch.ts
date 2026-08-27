@@ -31,7 +31,7 @@ export function useMarketplaceCollectionSearch(
     (opts?.enabled ?? true) && debouncedQ.length > 0;
 
   const result = useQuery({
-    queryKey: rq.collectionsSearch(chainId, debouncedQ),
+    queryKey: rq.collectionsSearchTypeahead(chainId, debouncedQ),
     queryFn: () =>
       getMarketplaceCollectionsPage({
         q: debouncedQ,

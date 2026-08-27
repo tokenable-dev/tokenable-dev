@@ -649,7 +649,8 @@ export class CollectionService {
     reviewStatus?: CollectionReviewStatusFilter;
     /**
      * Free-text search (header / discovery). When set, cursor is ignored and
-     * results are capped; matches label, queryUsed, components, cert, key.
+     * results are capped. Digit-only queries under 7 chars match card #, not
+     * cert substrings (PSA certs are 7–10 digits).
      */
     q?: string | null;
   }): Promise<{
@@ -731,8 +732,9 @@ export class CollectionService {
   }
 
   /**
-   * Catalog text search for the header / discovery. Matches display fields and
-   * common component facets; ranks by active listing count then recency.
+   * Catalog text search for the header / discovery. Excludes psaBrand (Pokemon
+   * vs "poke"). Ranks by name/set relevance, then listings, then recency.
+   * Short numeric queries do not substring-match PSA cert numbers.
    */
   private async searchSummaries(input: {
     q: string;
@@ -750,34 +752,19 @@ export class CollectionService {
     const reviewSql =
       reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
 
-    const pattern = `%${CollectionService.escapeIlike(input.q)}%`;
-    const matchKey = input.q.length >= 4;
-    const searchSql = `(
-      c.display_label ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.query_used, '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.psa_cert_number, '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'cardName', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'cardNameDisplay', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'cardSet', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'cardSetDisplay', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'psaSubject', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'psaBrand', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'variant', '') ILIKE :pat ESCAPE '\\'
-      OR COALESCE(c.components->>'psaVariety', '') ILIKE :pat ESCAPE '\\'
-      ${matchKey ? "OR c.collection_key ILIKE :pat ESCAPE '\\'" : ''}
-    )`;
+    const search = CollectionService.buildCollectionSearchSql(input.q);
+    const fetchCap = Math.min(80, Math.max(limit * 2, limit));
 
     const rows = await this.collectionRepo
       .createQueryBuilder('c')
-      .where(`${chainFilter} AND ${reviewSql} AND ${searchSql}`, {
+      .where(`${chainFilter} AND ${reviewSql} AND ${search.sql}`, {
         rwaContract,
-        pat: pattern,
+        ...search.params,
         ...reviewParams,
       })
       .orderBy('c.created_at', 'DESC')
       .addOrderBy('c.collection_key', 'ASC')
-      .take(limit)
+      .take(fetchCap)
       .getMany();
 
     if (rows.length === 0) {
@@ -786,14 +773,19 @@ export class CollectionService {
 
     const keys = rows.map((c) => c.collectionKey.toLowerCase());
     const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const q = input.q;
     const items = rows
       .map((c) => this.toCollectionSummary(c, countMap))
       .sort((a, b) => {
+        const sa = CollectionService.scoreCollectionSearchHit(q, a);
+        const sb = CollectionService.scoreCollectionSearchHit(q, b);
+        if (sa !== sb) return sb - sa;
         if (b.activeListingCount !== a.activeListingCount) {
           return b.activeListingCount - a.activeListingCount;
         }
         return b.createdAt.getTime() - a.createdAt.getTime();
-      });
+      })
+      .slice(0, limit);
 
     return { items, nextCursor: null };
   }
@@ -915,6 +907,113 @@ export class CollectionService {
   /** Escape `%`, `_`, and `\` for PostgreSQL ILIKE … ESCAPE '\\'. */
   static escapeIlike(raw: string): string {
     return raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  }
+
+  /**
+   * PSA certs are 7–10 digits. `%123%` on `psa_cert_number` matches most slabs.
+   * Digit-only queries under that length match card number / `#123` in titles.
+   */
+  static readonly CERT_SEARCH_MIN_DIGITS = 7;
+
+  static buildCollectionSearchSql(q: string): {
+    sql: string;
+    params: Record<string, string>;
+  } {
+    const escaped = CollectionService.escapeIlike(q);
+    const pat = `%${escaped}%`;
+    const digitOnly = /^\d+$/.test(q);
+    const nameSql = `
+      c.display_label ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.query_used, '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardName', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardNameDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSet', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSetDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaSubject', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'variant', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaVariety', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardNumber', '') ILIKE :pat ESCAPE '\\'
+    `;
+
+    if (digitOnly && q.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      return {
+        sql: `(
+          COALESCE(c.psa_cert_number, '') ILIKE :certPat ESCAPE '\\'
+          OR ${nameSql}
+        )`,
+        params: { pat, certPat: `${escaped}%` },
+      };
+    }
+
+    if (digitOnly) {
+      return {
+        sql: `(
+          COALESCE(c.components->>'cardNumber', '') ILIKE :cardNumPat ESCAPE '\\'
+          OR c.display_label ILIKE :hashPat ESCAPE '\\'
+          OR COALESCE(c.query_used, '') ILIKE :hashPat ESCAPE '\\'
+          OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :hashPat ESCAPE '\\'
+        )`,
+        params: {
+          cardNumPat: `${escaped}%`,
+          hashPat: `%#${escaped}%`,
+        },
+      };
+    }
+
+    const matchKey = q.length >= 4;
+    return {
+      sql: `(
+        ${nameSql}
+        ${matchKey ? "OR c.collection_key ILIKE :pat ESCAPE '\\'" : ''}
+      )`,
+      params: { pat },
+    };
+  }
+
+  static scoreCollectionSearchHit(
+    q: string,
+    hit: Pick<
+      CollectionSummary,
+      'displayLabel' | 'queryUsed' | 'components'
+    >,
+  ): number {
+    const nq = q.trim().toLowerCase();
+    if (!nq) return 0;
+    const comp = hit.components ?? {};
+    const str = (v: unknown) =>
+      typeof v === 'string' ? v.trim().toLowerCase() : '';
+    const name = str(comp.cardNameDisplay) || str(comp.cardName);
+    const set = str(comp.cardSetDisplay) || str(comp.cardSet);
+    const variant = str(comp.variant) || str(comp.psaVariety);
+    const subject = str(comp.psaSubject);
+    const title = str(hit.displayLabel);
+    const listing = str(comp.listingDisplayTitle);
+    const used = str(hit.queryUsed);
+    const num = str(comp.cardNumber);
+    const cert = str(comp.psaCertNumber).replace(/\D/g, '');
+
+    if (/^\d+$/.test(nq) && nq.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      if (cert === nq) return 200;
+      if (cert.startsWith(nq)) return 150;
+    }
+
+    if (name === nq) return 100;
+    if (name.startsWith(nq)) return 80;
+    if (name.includes(nq)) return 60;
+    if (set === nq) return 50;
+    if (set.includes(nq)) return 40;
+    if (variant.includes(nq)) return 30;
+    if (subject.includes(nq)) return 20;
+    if (
+      title.includes(nq) ||
+      listing.includes(nq) ||
+      used.includes(nq) ||
+      num.includes(nq)
+    ) {
+      return 10;
+    }
+    return 0;
   }
 
   private toCollectionSummary(

@@ -231,13 +231,13 @@ Collection Details KV values deep-link to `/markets` using the Card.html / `mark
 | `set` | Set facet |
 | `year_min` / `year_max` | Year range |
 | `grade` | e.g. `PSA 10` (pipe-joined) |
-| `price_min` / `price_max`, `sort` | Existing UI filters synced to URL |
+| `price_min` / `price_max`, `sort` | Sort ids: `pct_change_high` (alias `gainers` = Top gainers), `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Top movers → View all** → `/markets?sort=gainers`; **Just vaulted → View all** → `/markets?sort=newest`. |
 
 Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card number / Variant / Language stay plain text (no Markets facet yet). Series is not linked — no `series` field in collection components.
 
 **Set facet sync:** Details **Set** values and Markets `set=` use the same canonical label (`resolveCollectionSetFacetLabel` — year prefix stripped). Markets slim bar **Set** filter searches that label against loaded collections; chosen sets and `sort` both persist in the URL so deep-links from Details and in-page filtering stay aligned.
 
-**Collection search:** Home hero and GNB search submit to `/search?q=` (`buildCollectionSearchHref`). The page reuses `MarketsPage` with `GET /marketplace/collections?q=` (same text match as the header typeahead). Enter on a typeahead row still opens that collection.
+**Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCollectionSearch`. The landing **hero does not include a search field** (header search is on every page including `/`). The search page reuses `MarketsPage` with `GET /marketplace/collections?q=` (same text match as the header typeahead) and shows a result count only — no in-page refine search bar. Digit-only `q` under 7 characters matches card numbers / `#123`, not PSA cert substrings. Text search does **not** match `psaBrand` (avoids `poke` → all Pokemon). Hits rank by name/set relevance, then listings, then recency. Enter on a typeahead row still opens that collection.
 
 **Admin + local `next dev` CPU:** `/marketplace/admin/*` hides GNB/footer via `shouldHideAppChrome`, and also **disables** marketplace notification polling / partner-me queries on those routes. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy (fan spin with frontend alone).
 

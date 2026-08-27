@@ -23,9 +23,7 @@ import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle"
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-/** Desktop GNB matches HTML (`Search cards…`). Mobile overlay has room for the longer hint. */
-const SEARCH_PLACEHOLDER_DESKTOP = "Search cards…";
-const SEARCH_PLACEHOLDER_MOBILE = "Search cards, sets, players…";
+const SEARCH_PLACEHOLDER = "Find your card — name, cert #, set, player…";
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
   return (
@@ -95,7 +93,7 @@ function formatSearchPrice(c: MarketplaceCollectionSummary): string | null {
   return `$${Math.round(usd).toLocaleString("en-US")}`;
 }
 
-function SearchResultsList({
+export function SearchResultsList({
   filtered,
   highlightIdx,
   onHighlight,
@@ -181,7 +179,7 @@ function SearchResultsList({
   );
 }
 
-function isImeKeyEvent(e: KeyboardEvent<HTMLInputElement>): boolean {
+export function isImeKeyEvent(e: KeyboardEvent<HTMLInputElement>): boolean {
   return e.nativeEvent.isComposing || e.key === "Process" || e.keyCode === 229;
 }
 
@@ -388,7 +386,7 @@ export function TkHeaderSearch({
                   onChange={(e) => setQuery(e.target.value)}
                   onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={SEARCH_PLACEHOLDER_MOBILE}
+                  placeholder={SEARCH_PLACEHOLDER}
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -473,7 +471,7 @@ export function TkHeaderSearch({
               onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
               onFocus={() => setDesktopOpen(true)}
               onKeyDown={handleKeyDown}
-              placeholder={SEARCH_PLACEHOLDER_DESKTOP}
+              placeholder={SEARCH_PLACEHOLDER}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}

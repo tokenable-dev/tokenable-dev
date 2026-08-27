@@ -245,13 +245,13 @@ export default function MarketsPage() {
     isFetchingNextPage,
   } = colInfinite;
 
-  const collectionSummaries = useMemo(
-    () =>
-      colPages?.pages.flatMap((p) =>
-        Array.isArray(p?.items) ? p.items.filter(Boolean) : [],
-      ) ?? [],
-    [colPages],
-  );
+  const collectionSummaries = useMemo(() => {
+    const pages = colPages?.pages;
+    if (!Array.isArray(pages)) return [];
+    return pages.flatMap((p) =>
+      Array.isArray(p?.items) ? p.items.filter(Boolean) : [],
+    );
+  }, [colPages]);
 
   const coverRawUrls = useMemo(
     () => collectionSummaries.map((c) => pickCollectionSummaryDisplayImageUrl(c)),

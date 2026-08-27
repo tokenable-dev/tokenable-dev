@@ -22,6 +22,21 @@ export const MARKETS_SORT_OPTIONS = [
 
 export type MarketsSortId = (typeof MARKETS_SORT_OPTIONS)[number]["id"];
 
+/** Markets.html query aliases (`?sort=gainers` / `?sort=newest`). */
+export const MARKETS_SORT_URL_ALIASES: Record<string, MarketsSortId> = {
+  gainers: "pct_change_high",
+  newest: "recent_listed",
+};
+
+export function resolveMarketsSortId(raw: string | null | undefined): MarketsSortId {
+  const t = String(raw ?? "").trim();
+  if (!t) return MARKETS_DEFAULT_SORT_ID;
+  const aliased = MARKETS_SORT_URL_ALIASES[t] ?? t;
+  return MARKETS_SORT_OPTIONS.some((o) => o.id === aliased)
+    ? (aliased as MarketsSortId)
+    : MARKETS_DEFAULT_SORT_ID;
+}
+
 /** Markets.html Sort menu order (excludes watchlist-only `recent_sold`). */
 export const MARKETS_SORT_UI_IDS: readonly MarketsSortId[] = [
   "pct_change_high",
@@ -58,6 +73,19 @@ function compareMarketsByLabel(
   b: MarketplaceCollectionSummary,
 ): number {
   return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
+}
+
+/** Catalog recency — same order as landing Just vaulted. */
+export function compareCollectionsByCreatedAtDesc(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+): number {
+  const ta = Date.parse(a.createdAt);
+  const tb = Date.parse(b.createdAt);
+  const na = Number.isFinite(ta) ? ta : 0;
+  const nb = Number.isFinite(tb) ? tb : 0;
+  if (na !== nb) return nb - na;
+  return compareMarketsByLabel(a, b);
 }
 
 function compareMarketsByMarketPriceDesc(
@@ -109,27 +137,6 @@ function compareMarketsByRecentSold(
   return compareMarketsByLabel(a, b);
 }
 
-function marketsListMarketRecencyMs(
-  collection: MarketplaceCollectionSummary,
-  snapshot: CollectionListMarketSnapshot | undefined,
-): number {
-  const synced = snapshot?.syncedAt ? Date.parse(snapshot.syncedAt) : Number.NaN;
-  if (Number.isFinite(synced)) return synced;
-  const created = Date.parse(collection.createdAt);
-  return Number.isFinite(created) ? created : 0;
-}
-
-function compareMarketsByRecentListed(
-  a: MarketplaceCollectionSummary,
-  b: MarketplaceCollectionSummary,
-  snapByKey: Map<string, CollectionListMarketSnapshot>,
-): number {
-  const ta = marketsListMarketRecencyMs(a, snapByKey.get(collectionKeyLower(a)));
-  const tb = marketsListMarketRecencyMs(b, snapByKey.get(collectionKeyLower(b)));
-  if (ta !== tb) return tb - ta;
-  return compareMarketsByLabel(a, b);
-}
-
 function compareMarketsByPopulationAsc(
   a: MarketplaceCollectionSummary,
   b: MarketplaceCollectionSummary,
@@ -150,6 +157,10 @@ export function compareMarketsCollections(
   sortId: MarketsSortId,
   snapByKey: Map<string, CollectionListMarketSnapshot>,
 ): number {
+  if (sortId === "recent_listed") {
+    return compareCollectionsByCreatedAtDesc(a, b);
+  }
+
   const snapA = snapByKey.get(collectionKeyLower(a));
   const snapB = snapByKey.get(collectionKeyLower(b));
   const hasPriceA = marketsHasListMarketPrice(a, snapA);
@@ -159,8 +170,6 @@ export function compareMarketsCollections(
   }
 
   switch (sortId) {
-    case "recent_listed":
-      return compareMarketsByRecentListed(a, b, snapByKey);
     case "pct_change_high":
       return compareMarketsByMarketChangePct(a, b, snapByKey);
     case "low_price":

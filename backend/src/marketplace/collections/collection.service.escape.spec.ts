@@ -7,3 +7,56 @@ describe('CollectionService.escapeIlike', () => {
     );
   });
 });
+
+describe('CollectionService.buildCollectionSearchSql', () => {
+  it('does not substring-match PSA certs for short digit queries', () => {
+    const { sql, params } = CollectionService.buildCollectionSearchSql('123');
+    expect(sql).not.toContain('psa_cert_number');
+    expect(params.cardNumPat).toBe('123%');
+    expect(params.hashPat).toBe('%#123%');
+  });
+
+  it('prefix-matches certs when the query looks like a PSA cert', () => {
+    const { sql, params } =
+      CollectionService.buildCollectionSearchSql('159806544');
+    expect(sql).toContain('psa_cert_number');
+    expect(params.certPat).toBe('159806544%');
+  });
+
+  it('searches names without cert ILIKE for text queries', () => {
+    const { sql } = CollectionService.buildCollectionSearchSql('charizard');
+    expect(sql).toContain('cardName');
+    expect(sql).not.toContain('psa_cert_number');
+    expect(sql).not.toContain('psaBrand');
+  });
+});
+
+describe('CollectionService.scoreCollectionSearchHit', () => {
+  it('scores exact card name above set substring', () => {
+    const nameHit = CollectionService.scoreCollectionSearchHit('charizard', {
+      displayLabel: 'x',
+      queryUsed: null,
+      components: { cardName: 'Charizard' },
+    });
+    const setHit = CollectionService.scoreCollectionSearchHit('charizard', {
+      displayLabel: 'x',
+      queryUsed: null,
+      components: { cardSet: 'Charizard ex' },
+    });
+    expect(nameHit).toBeGreaterThan(setHit);
+  });
+
+  it('scores cert prefix highest for long digit queries', () => {
+    const cert = CollectionService.scoreCollectionSearchHit('159806544', {
+      displayLabel: 'x',
+      queryUsed: null,
+      components: { psaCertNumber: '159806544', cardName: 'Pikachu' },
+    });
+    const name = CollectionService.scoreCollectionSearchHit('159806544', {
+      displayLabel: 'x',
+      queryUsed: null,
+      components: { cardName: '159806544' },
+    });
+    expect(cert).toBeGreaterThan(name);
+  });
+});

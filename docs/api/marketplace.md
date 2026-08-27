@@ -266,7 +266,7 @@ Returns a cursor-paginated list of collection summaries, or a **text search** wh
 |-------|---------|-------------|
 | `limit` | `30` | Max `60` (browse) / max `40` (when `q` set) |
 | `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
-| `q` | — | Free-text search across label, queryUsed, card name/set, PSA subject/brand/variety, cert, and (length ≥ 4) collection key. Results ranked by active listing count then recency. `nextCursor` is always `null`. |
+| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. |
 
 ---
 

@@ -1,12 +1,9 @@
 "use client";
 
-import { useRef, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import { ASSETS } from "@/constants/assets";
-import { TkButton, TkTag } from "@/components/ds";
+import { TkTag } from "@/components/ds";
 import { HomeHeroSlabCarousel } from "@/components/home/HomeHeroSlabCarousel";
-import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
-import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 /** index.html hero Group 4 — static marketing figures for now. */
 const HERO_STATS = [
@@ -18,14 +15,6 @@ const HERO_STATS = [
 export function HomeHero() {
   const heroRef = useRef<HTMLElement>(null);
   const mobileSlotRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-
-  function onSearchSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const q = String(new FormData(e.currentTarget).get("q") ?? "");
-    trackEvent("search_performed", { query: q.trim(), results_count: 0 });
-    router.push(buildCollectionSearchHref(q));
-  }
 
   return (
     <section ref={heroRef} className="home-hero">
@@ -60,35 +49,6 @@ export function HomeHero() {
           <div ref={mobileSlotRef} className="home-hero__carousel-mobile" />
 
           <div className="home-hero__cta home-hero__reveal home-hero__reveal--2">
-            <form className="home-hero__search" onSubmit={onSearchSubmit} role="search">
-              <svg
-                className="home-hero__search-icon"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="rgba(0,0,0,0.4)"
-                strokeWidth="2"
-                aria-hidden
-              >
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.5" y1="16.5" x2="21" y2="21" />
-              </svg>
-              <input
-                className="home-hero__search-input"
-                type="search"
-                name="q"
-                placeholder="Find your card — name, cert #, set, player…"
-                autoComplete="off"
-                aria-label="Search cards"
-              />
-              <TkButton type="submit" variant="primary" className="home-hero__search-btn">
-                Search{" "}
-                <span className="home-hero__search-btn-arrow" aria-hidden>
-                  ↗
-                </span>
-              </TkButton>
-            </form>
             <a href="/markets" className="home-hero__browse-link">
               Browse all markets{" "}
               <span className="home-hero__browse-link-arrow" aria-hidden>

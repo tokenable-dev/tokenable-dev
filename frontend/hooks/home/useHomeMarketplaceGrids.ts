@@ -11,6 +11,7 @@ import {
 import { activeRqChainId } from "@/lib/chains";
 import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
 import { resolveMarketsListingMarketChangePct, resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
+import { compareCollectionsByCreatedAtDesc } from "@/lib/markets/marketsCollectionSort";
 
 /** Horizontal carousel — same as Just vaulted. */
 export const HOME_TOP_MOVERS_LIMIT = 20;
@@ -20,9 +21,7 @@ export const HOME_JUST_VAULTED_LIMIT = 20;
 function sortByCreatedAtDesc(
   collections: MarketplaceCollectionSummary[],
 ): MarketplaceCollectionSummary[] {
-  return [...collections].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  return [...collections].sort(compareCollectionsByCreatedAtDesc);
 }
 
 export function useHomeMarketplaceGrids() {

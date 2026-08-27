@@ -17,7 +17,7 @@ export function HomeTopMovers() {
             Steepest price gains across the market right now.
           </p>
         </div>
-        <Link href="/markets" className="tkl-view-all">
+        <Link href="/markets?sort=gainers" className="tkl-view-all">
           View all ↗
         </Link>
       </div>
