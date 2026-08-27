@@ -39,6 +39,8 @@ Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** c
 
 **Register / seller consents:** `/sell/flow` always opens on the register screen. Consents are session-only and must be re-accepted each visit. Draft cards may still resume after Continue. Optional `?vault=self` (Partner Add Cards) prefills Partner vault so Continue skips Choose vault.
 
+**Partner vault mint queue:** confirmed cards mint **one at a time**. A per-card failure (already minted cert, PSA shipment block, missing image, PSA lookup error, etc.) **skips that card and continues**. The result modal lists registered token IDs and skip reasons. Succeeded certs are removed from the local list; skipped certs stay for retry. Partner-eligibility errors (no company address / not a partner) stop the remaining queue.
+
 Vault hub (`/vault`) active view mirrors `Vault-Dashboard-Active.html`: status **tabs** + ip-card rows for in-progress packages (`awaiting_shipment` / `in_transit` / `psa_reviewing` with open cards), completed items (**Added to portfolio**), and (partners) self-vault holdings + P2P “ship to buyer”. The **Rejected** tab is always shown (count may be 0). It collects sell-process issues: item `rejected` / `failed`, items with a `rejectionReason`, and package scenarios `F` / `H` when per-item flags are missing. Packages whose cards are all terminal do not keep a phantom “In progress” package row. Pre-ship drafts do not appear on the hub — resume Add cards via `/sell/flow` from this device. After tracking confirm, local draft keys are cleared (shipment record kept).
 
 **Legacy cleanup:** `backend/sql/maintenance/cancel_legacy_vault_submission_drafts.sql` sets orphan `status=draft` packages (no tracking) to `cancelled`.

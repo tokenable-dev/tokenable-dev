@@ -46,10 +46,14 @@ export async function getMarketplaceCollectionsPage(opts?: {
     `${getApiUrl()}/marketplace/collections${q ? `?${q}` : ""}`,
   );
   if (!res.ok) throw new Error("Failed to fetch collections");
-  return res.json() as Promise<{
-    items: MarketplaceCollectionSummary[];
-    nextCursor: string | null;
-  }>;
+  const body = (await res.json().catch(() => null)) as {
+    items?: MarketplaceCollectionSummary[];
+    nextCursor?: string | null;
+  } | null;
+  return {
+    items: Array.isArray(body?.items) ? body.items.filter(Boolean) : [],
+    nextCursor: body?.nextCursor ?? null,
+  };
 }
 
 /** Card.html Similar items — same card name OR same set (excludes `collectionKey`). */

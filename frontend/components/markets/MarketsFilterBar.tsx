@@ -553,10 +553,8 @@ export function MarketsFilterBar({
           <div ref={setRef} className="markets-fw markets-fw--chip">
             <DdChip
               label="Set"
-              value={setActive ? setValue : undefined}
               active={setActive}
               open={openPop === "set"}
-              count={sets.length > 1 ? sets.length : undefined}
               onClick={() => setOpenPop((p) => (p === "set" ? null : "set"))}
             />
             <div
@@ -639,10 +637,8 @@ export function MarketsFilterBar({
         <div ref={gradeRef} className="markets-fw markets-fw--chip">
           <DdChip
             label="Grade"
-            value={gradeValue}
             active={gradeActive}
             open={openPop === "grade"}
-            count={gradeFilters.size > 1 ? gradeFilters.size : undefined}
             onClick={() => setOpenPop((p) => (p === "grade" ? null : "grade"))}
           />
           <div
@@ -694,7 +690,6 @@ export function MarketsFilterBar({
         <div ref={priceRef} className="markets-fw markets-fw--chip">
           <DdChip
             label="Price"
-            value={priceActive ? priceLabel : undefined}
             active={priceActive}
             open={openPop === "price"}
             onClick={() => setOpenPop((p) => (p === "price" ? null : "price"))}

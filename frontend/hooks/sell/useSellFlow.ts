@@ -35,7 +35,13 @@ import {
   type SellDraftCard,
   type SellVaultChoice,
 } from "@/lib/sell/sellFlowDraft";
-import { mintSellFlowCardByCert } from "@/lib/sell/mintSellFlowCard";
+import {
+  classifyPartnerMintSkip,
+  isPartnerMintBatchAbort,
+  mintSellFlowCardByCert,
+  type PartnerMintBatchResult,
+  type PartnerMintSucceeded,
+} from "@/lib/sell/mintSellFlowCard";
 import {
   findSelfVaultBlockedCert,
   selfVaultBlockedMessage,
@@ -171,7 +177,8 @@ export function useSellFlow() {
   const [mintBusy, setMintBusy] = useState(false);
   const [mintStatus, setMintStatus] = useState<string | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
-  const [partnerMintSuccess, setPartnerMintSuccess] = useState<number | null>(null);
+  const [partnerMintSuccess, setPartnerMintSuccess] =
+    useState<PartnerMintBatchResult | null>(null);
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
   const mintLockRef = useRef(false);
@@ -617,43 +624,92 @@ export function useSellFlow() {
     setMintError(null);
     setMintStatus(null);
 
+    const succeeded: PartnerMintSucceeded[] = [];
+    const skipped: PartnerMintBatchResult["skipped"] = [];
+
+    const pushSkip = (card: SellFlowCard, detail: string) => {
+      const { kind, title } = classifyPartnerMintSkip(detail);
+      skipped.push({
+        cert: card.cert,
+        name: card.name,
+        kind,
+        title,
+        detail,
+      });
+    };
+
     try {
       const rows = await listVaultSubmissions();
-      for (const card of confirmed) {
-        const blocked = findSelfVaultBlockedCert(rows, card.cert);
-        if (blocked) {
-          throw new Error(selfVaultBlockedMessage(blocked));
-        }
-      }
-
       const recipientAddress = await ensureAccountWalletReady();
-      const minted: { cert: string; tokenId: number }[] = [];
+
       for (let i = 0; i < confirmed.length; i++) {
         const card = confirmed[i]!;
         setMintStatus(
           `Minting ${i + 1}/${confirmed.length}: cert #${card.cert}…`,
         );
-        const result = await mintSellFlowCardByCert({
-          cert: card.cert,
-          recipientAddress,
-          chainId,
-        });
-        minted.push({ cert: result.cert, tokenId: result.tokenId });
-        await invalidateAfterRwaMintTx(queryClient, {
-          tokenId: result.tokenId,
-          address: recipientAddress,
-        });
+
+        const blocked = findSelfVaultBlockedCert(rows, card.cert);
+        if (blocked) {
+          pushSkip(card, selfVaultBlockedMessage(blocked));
+          continue;
+        }
+
+        try {
+          const result = await mintSellFlowCardByCert({
+            cert: card.cert,
+            recipientAddress,
+            chainId,
+          });
+          succeeded.push({
+            cert: result.cert,
+            name: card.name,
+            tokenId: result.tokenId,
+          });
+          await invalidateAfterRwaMintTx(queryClient, {
+            tokenId: result.tokenId,
+            address: recipientAddress,
+          });
+        } catch (e) {
+          const detail =
+            e instanceof Error ? e.message : "Partner vault mint failed";
+          if (isPartnerMintBatchAbort(detail)) {
+            pushSkip(card, detail);
+            for (let j = i + 1; j < confirmed.length; j++) {
+              pushSkip(confirmed[j]!, detail);
+            }
+            setMintError(detail);
+            break;
+          }
+          pushSkip(card, detail);
+        }
       }
-      writeSellFlowDraftCards([]);
-      clearSellSubmissionPublicId();
-      setCards([]);
+
+      setCards((prev) => {
+        const next = prev.filter((c) => !succeeded.some((s) => s.cert === c.cert));
+        writeSellFlowDraftCards(next);
+        return next;
+      });
+      if (succeeded.length > 0) {
+        clearSellSubmissionPublicId();
+      }
       writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
-      setPartnerMintSuccess(minted.length);
+      setPartnerMintSuccess({ succeeded, skipped });
+      setMintStatus(null);
     } catch (e) {
       setMintError(
         e instanceof Error ? e.message : "Partner vault mint failed",
       );
       setMintStatus(null);
+      if (succeeded.length > 0 || skipped.length > 0) {
+        setCards((prev) => {
+          const next = prev.filter(
+            (c) => !succeeded.some((s) => s.cert === c.cert),
+          );
+          writeSellFlowDraftCards(next);
+          return next;
+        });
+        setPartnerMintSuccess({ succeeded, skipped });
+      }
     } finally {
       mintLockRef.current = false;
       setMintBusy(false);
@@ -672,13 +728,10 @@ export function useSellFlow() {
 
   const resetPartnerAddCards = useCallback(() => {
     setPartnerMintSuccess(null);
-    setCards([]);
     setCertInput("");
     setCertError(null);
     setMintError(null);
     setMintStatus(null);
-    writeSellFlowDraftCards([]);
-    writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
     window.scrollTo(0, 0);
   }, []);
 

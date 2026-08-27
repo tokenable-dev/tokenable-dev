@@ -112,10 +112,12 @@ export function TkHeader() {
           </div>
 
           <div className="tk-header__center gnb-search-center">
-            <TkHeaderSearch
-              mobileOpen={mobileSearchOpen}
-              onMobileOpenChange={setMobileSearchOpen}
-            />
+            <Suspense fallback={<div className="gnb-search-skel" aria-hidden />}>
+              <TkHeaderSearch
+                mobileOpen={mobileSearchOpen}
+                onMobileOpenChange={setMobileSearchOpen}
+              />
+            </Suspense>
           </div>
 
           <div className="tk-header__right">

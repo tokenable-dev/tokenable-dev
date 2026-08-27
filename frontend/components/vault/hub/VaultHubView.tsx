@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { VaultEmptyDashboardView } from "@/components/vault/hub/VaultEmptyDashboardView";
@@ -16,8 +18,20 @@ export function VaultHubView() {
   const loading = useAuthStore((s) => s.loading);
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const hasActivity = useHasVaultHubActivity();
+  const { ready, authenticated } = usePrivy();
+  const [sessionWaitTimedOut, setSessionWaitTimedOut] = useState(false);
+  const sessionCatchingUp = ready && authenticated && !user && !sessionWaitTimedOut;
 
-  if (!initialized || loading) {
+  useEffect(() => {
+    if (!ready || !authenticated || user) {
+      setSessionWaitTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setSessionWaitTimedOut(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [ready, authenticated, user]);
+
+  if (!initialized || loading || sessionCatchingUp) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div

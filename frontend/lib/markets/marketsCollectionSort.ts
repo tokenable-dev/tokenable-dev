@@ -31,8 +31,10 @@ export const MARKETS_SORT_UI_IDS: readonly MarketsSortId[] = [
   "population_low",
 ];
 
-export function collectionKeyLower(c: MarketplaceCollectionSummary): string {
-  return c.collectionKey?.trim().toLowerCase() ?? "";
+export function collectionKeyLower(
+  c: MarketplaceCollectionSummary | null | undefined,
+): string {
+  return c?.collectionKey?.trim().toLowerCase() ?? "";
 }
 
 function marketsListMarketPriceUsd(

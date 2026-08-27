@@ -36,7 +36,7 @@ import {
 } from "@/lib/marketplace/collectionHeadlineTags";
 import {
   formatSportCategoryDisplayLabel,
-  isPokemonTcgCategoryLabel,
+  inferSportBucketFromHaystack,
 } from "@/lib/market";
 import { marketsHrefForDetailRow } from "@/lib/markets/marketsUrlFilters";
 
@@ -94,15 +94,13 @@ export function useCollectionDetailHeadline(params: {
     const setN = bucketCardSetForDisplay(comp);
     const listingTitle = listingDisplayTitleFromComp(comp);
     const psaCat = typeof comp.psaCategory === "string" ? comp.psaCategory.trim() : "";
-    const corpus = `${listingTitle} ${name} ${setN} ${psaCat} ${marketPreview?.card?.setName ?? ""}`;
     const previewCat = marketPreview?.card?.category?.trim() ?? "";
-    if (
-      /\bpokemon\b/i.test(corpus) ||
-      isPokemonTcgCategoryLabel(previewCat) ||
-      isPokemonTcgCategoryLabel(psaCat)
-    ) {
-      return toCardDisplayCase("Pokemon");
-    }
+    const corpus = `${listingTitle} ${name} ${setN} ${psaCat} ${previewCat} ${marketPreview?.card?.setName ?? ""}`;
+    const bucket = inferSportBucketFromHaystack(corpus);
+    if (bucket === "onepiece") return toCardDisplayCase("One Piece");
+    if (bucket === "pokemon") return toCardDisplayCase("Pokemon");
+    if (bucket === "basketball") return "NBA";
+    if (bucket === "baseball") return "MLB";
     if (previewCat) {
       return toCardDisplayCase(formatSportCategoryDisplayLabel(previewCat));
     }

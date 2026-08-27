@@ -160,7 +160,10 @@ export function categoryBadgeToFilterId(
     .toLowerCase();
   if (!t) return "all";
   if (t.includes("pokemon") || t.includes("ポケ")) return "pokemon";
-  if (t.includes("one piece") || t.includes("onepiece")) return "onepiece";
+  if (t.includes("one piece") || t.includes("onepiece") || t.includes("ワンピース")) {
+    return "onepiece";
+  }
+  if (t === "tcg" || t.includes("trading card")) return "all";
   if (t.includes("basketball") || t === "nba") return "basketball";
   if (t.includes("baseball") || t === "mlb") return "baseball";
   if (

@@ -29,6 +29,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     lookupBusy,
     mintBusy,
     mintError,
+    mintStatus,
     slabInputRef,
     canContinueShipping,
     partnerMintSuccess,
@@ -163,6 +164,11 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             onRemove={removeCard}
           />
 
+          {mintStatus ? (
+            <p className="sell-flow-mint-status" role="status">
+              {mintStatus}
+            </p>
+          ) : null}
           {mintError ? (
             <p className="sell-flow-mint-error" role="alert">
               {mintError}
@@ -203,7 +209,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
 
       {partnerMintSuccess !== null ? (
         <SellFlowPartnerDoneModal
-          count={partnerMintSuccess}
+          result={partnerMintSuccess}
           onAddMore={resetPartnerAddCards}
         />
       ) : null}

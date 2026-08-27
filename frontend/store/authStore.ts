@@ -15,9 +15,14 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-/** Prefer keeping linked wallets when a stale session response arrives without them. */
+/**
+ * Prefer keeping linked wallets / KYC when a stale session payload is thinner.
+ * `next === null` must not wipe a user Privy already hydrated — GET /auth/session
+ * often races POST /auth/privy/session and returns `{ user: null }`. Logout uses
+ * `set({ user: null })` directly, not this merge.
+ */
 function mergeAuthUser(prev: AuthUser | null, next: AuthUser | null): AuthUser | null {
-  if (!next) return null;
+  if (!next) return prev;
   if (!prev || prev.id !== next.id) return next;
   let merged = next;
   if (userHasLinkedWallet(prev) && !userHasLinkedWallet(next)) {
@@ -70,11 +75,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (showLoading) set({ loading: true });
     try {
       const sessionUser = await fetchAuthMe();
-      const user = sessionUser ? await syncKycFromSumsub(sessionUser) : null;
-      // Stale GET /auth/session can finish after PrivySessionBridge already linked wallets.
+      if (!sessionUser) {
+        set({ initialized: true });
+        return;
+      }
+      const user = await syncKycFromSumsub(sessionUser);
       set({ user: mergeAuthUser(get().user, user), initialized: true });
     } catch {
-      set({ user: null, initialized: true });
+      set({ initialized: true });
     } finally {
       set({ loading: false });
     }

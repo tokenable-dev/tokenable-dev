@@ -19,10 +19,10 @@ export function useMarketplaceCollectionSearch(
   opts?: { enabled?: boolean },
 ) {
   const chainId = activeRqChainId();
-  const [debouncedQ, setDebouncedQ] = useState(() => query.trim());
+  const [debouncedQ, setDebouncedQ] = useState(() => String(query ?? "").trim());
 
   useEffect(() => {
-    const trimmed = query.trim();
+    const trimmed = String(query ?? "").trim();
     const t = window.setTimeout(() => setDebouncedQ(trimmed), DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [query]);
@@ -44,8 +44,8 @@ export function useMarketplaceCollectionSearch(
     retryDelay: marketplaceApiRetryDelay,
   });
 
-  const items = result.data?.items ?? [];
-  const isPendingQuery = query.trim() !== debouncedQ;
+  const items = Array.isArray(result.data?.items) ? result.data.items : [];
+  const isPendingQuery = String(query ?? "").trim() !== debouncedQ;
 
   return {
     items,

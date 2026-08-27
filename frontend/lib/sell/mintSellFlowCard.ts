@@ -131,3 +131,76 @@ export async function mintSellFlowCardByCert(input: {
     txHash: mintResult.txHash,
   };
 }
+
+export type PartnerMintSkipKind =
+  | "already_minted"
+  | "psa_shipment"
+  | "no_image"
+  | "rate_limit"
+  | "invalid_cert"
+  | "other";
+
+export type PartnerMintSkipped = {
+  cert: string;
+  name: string;
+  kind: PartnerMintSkipKind;
+  title: string;
+  detail: string;
+};
+
+export type PartnerMintSucceeded = {
+  cert: string;
+  name: string;
+  tokenId: number;
+};
+
+export type PartnerMintBatchResult = {
+  succeeded: PartnerMintSucceeded[];
+  skipped: PartnerMintSkipped[];
+};
+
+/** Partner eligibility errors apply to the whole batch — stop the queue. */
+export function isPartnerMintBatchAbort(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("company vault address") ||
+    m.includes("contracted tokenable partners")
+  );
+}
+
+export function classifyPartnerMintSkip(message: string): {
+  kind: PartnerMintSkipKind;
+  title: string;
+} {
+  const m = message.toLowerCase();
+  if (
+    m.includes("active vault cycle") ||
+    m.includes("vaultrefalreadyactive") ||
+    m.includes("already minted") ||
+    m.includes("redeem it before")
+  ) {
+    return {
+      kind: "already_minted",
+      title: "Already minted on this chain",
+    };
+  }
+  if (
+    m.includes("psa vault shipment") ||
+    m.includes("in transit or at psa")
+  ) {
+    return {
+      kind: "psa_shipment",
+      title: "Already in a PSA vault shipment",
+    };
+  }
+  if (m.includes("no mint image")) {
+    return { kind: "no_image", title: "No slab or catalog image" };
+  }
+  if (m.includes("rate limit")) {
+    return { kind: "rate_limit", title: "PSA rate limit" };
+  }
+  if (m.includes("invalid cert")) {
+    return { kind: "invalid_cert", title: "Invalid cert number" };
+  }
+  return { kind: "other", title: "Mint failed" };
+}

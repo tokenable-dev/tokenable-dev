@@ -10,7 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TkInput } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
@@ -204,6 +204,18 @@ export function TkHeaderSearch({
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopWrapperRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlSearchQ =
+    pathname === "/search" || pathname.startsWith("/search/")
+      ? String(searchParams.get("q") ?? "")
+      : "";
+
+  useEffect(() => {
+    if (pathname === "/search" || pathname.startsWith("/search/")) {
+      setQuery(urlSearchQ);
+    }
+  }, [pathname, urlSearchQ]);
 
   const searchActive = gnbMobile ? mobileOverlayOpen : desktopOpen;
   const showResultsPanel =
@@ -233,13 +245,16 @@ export function TkHeaderSearch({
   const clearQuery = useCallback(() => {
     setQuery("");
     setHighlightIdx(-1);
+    if (pathname === "/search" || pathname.startsWith("/search/")) {
+      router.push("/search");
+    }
     if (gnbMobile) {
       mobileInputRef.current?.focus();
     } else {
       desktopInputRef.current?.focus();
       setDesktopOpen(true);
     }
-  }, [gnbMobile]);
+  }, [gnbMobile, pathname, router]);
 
   useEffect(() => {
     if (!mobileOverlayOpen) return;

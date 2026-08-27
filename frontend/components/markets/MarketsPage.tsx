@@ -89,7 +89,7 @@ function filtersFromState(input: {
 export default function MarketsPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const searchQ = (searchParams.get("q") ?? "").trim();
+  const searchQ = String(searchParams.get("q") ?? "").trim();
   const isSearchMode = pathname === "/search" || pathname.startsWith("/search/");
   usePageViewedEvent(isSearchMode ? "search" : "markets");
   const mounted = useClientMounted();
@@ -246,7 +246,10 @@ export default function MarketsPage() {
   } = colInfinite;
 
   const collectionSummaries = useMemo(
-    () => colPages?.pages.flatMap((p) => p.items) ?? [],
+    () =>
+      colPages?.pages.flatMap((p) =>
+        Array.isArray(p?.items) ? p.items.filter(Boolean) : [],
+      ) ?? [],
     [colPages],
   );
 

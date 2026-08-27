@@ -367,6 +367,7 @@ export class CatalogCoverS3Service {
    */
   async downloadRemoteImage(
     sourceUrl: string,
+    maxBytes = CATALOG_COVER_MAX_BYTES,
   ): Promise<{ body: Buffer; contentType: string; width: number; height: number }> {
     const url = sourceUrl.trim().startsWith('//')
       ? `https:${sourceUrl.trim()}`
@@ -383,7 +384,9 @@ export class CatalogCoverS3Service {
           Accept: 'image/*,*/*',
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(
+          maxBytes > CATALOG_COVER_MAX_BYTES ? 45_000 : 20_000,
+        ),
       });
     } catch (e) {
       this.logger.warn(
@@ -402,7 +405,7 @@ export class CatalogCoverS3Service {
     if (!body.length) {
       throw new Error('CATALOG_COVER_FILE_EMPTY');
     }
-    if (body.length > CATALOG_COVER_MAX_BYTES) {
+    if (body.length > maxBytes) {
       throw new Error('CATALOG_COVER_FILE_TOO_LARGE');
     }
     const contentType = resolveCatalogCoverMime(

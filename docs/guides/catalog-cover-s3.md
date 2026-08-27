@@ -59,6 +59,7 @@ Example: `dev/covers/rwa-slabs/84532/84089328/slab`
 - `displayImageUrl` in upload response + optional `POST /api/rwa/mint` field → `rwa_tokens.display_image_url`.
 - Partner **bulk mint** stores `slab_display_image_url` on `bulk_mint_job_items` at prepare and writes to `rwa_tokens` at commit.
 - S3 ingest is **best-effort** — upload/mint succeed even when S3 is down, misconfigured, or the image source is missing (bulk prepare still requires a PSA slab URL for IPFS).
+- PSA slab photos may exceed the **8MB catalog-cover cap**. Slab ingest downloads up to **24MB**, then downscales to a **2000px** JPEG before PutObject so `displayImageUrl` still lands. Collection covers stay at 8MB.
 - Optional env override: `RWA_SLAB_S3_PREFIX` (default: `rwa-slabs/` nested under `CATALOG_COVER_S3_PREFIX`).
 
 **Maintenance migration** (existing DBs):
