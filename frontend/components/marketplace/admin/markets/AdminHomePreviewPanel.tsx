@@ -136,8 +136,8 @@ export function AdminHomePreviewPanel() {
         <p className="mt-2 leading-relaxed">
           Mirrors the public home page: <strong>Top movers</strong> ranks every
           marketplace collection by <strong>90-day</strong> Cardhedger reference
-          gain (max 8 for a 4×2 wrap grid, positive only). <strong>Just vaulted</strong> lists the 20
-          most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
+          gain (max 10 on desktop 5-col, 8 on tablet/mobile, positive only). <strong>Just vaulted</strong> lists the same count
+          of most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
         </p>
         <p className="mt-2">
           <Link href="/" className={ADMIN_LINK} target="_blank" rel="noreferrer">
@@ -157,7 +157,7 @@ export function AdminHomePreviewPanel() {
 
       <AdminHomePreviewTable
         title="Just vaulted"
-        subtitle="Newest minted collections — same order as home Just vaulted carousel."
+        subtitle="Newest minted collections — same order as home Just vaulted."
         rows={justVaulted}
         snapshotByKey={snapshotByKey}
         showChange={false}
@@ -171,7 +171,7 @@ export function AdminHomePreviewPanel() {
         <div className="rounded-xl border border-zinc-700/50 bg-[#0a0a0f] p-4">
           <p className="mb-3 text-sm font-semibold text-white">Top movers cards</p>
           <p className={`text-xs ${ADMIN_TEXT_META}`}>
-            {topMovers.length} collections — open home for the 4×2 wrap grid.
+            {topMovers.length} collections — open home for the wrap grid.
           </p>
         </div>
       </div>

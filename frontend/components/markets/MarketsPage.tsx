@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   useMarketplaceCollectionsInfinite,
+  useMarketplaceCatalogSearch,
   MARKETS_COLLECTIONS_PAGE_SIZE,
 } from "@/hooks/marketplace";
 import {
@@ -49,6 +50,7 @@ import { MarketsFilterBar } from "./MarketsFilterBar";
 import { MarketsPageHeader } from "./MarketsPageHeader";
 import { MarketsP2pSection } from "./MarketsP2pSection";
 import { MarketsCollectionGrid } from "./MarketsCollectionGrid";
+import { SearchCertMatches } from "@/components/search/SearchCertMatches";
 import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import {
@@ -234,6 +236,12 @@ export default function MarketsPage() {
   const colInfinite = useMarketplaceCollectionsInfinite({
     q: isSearchMode ? searchQ : undefined,
   });
+  const searchCardsQuery = useMarketplaceCatalogSearch(searchQ, {
+    enabled: isSearchMode && searchQ.length > 0,
+    cardLimit: 20,
+    collectionLimit: 0,
+  });
+  const searchCards = isSearchMode ? searchCardsQuery.cards : [];
   const {
     data: colPages,
     isPending: colInitialPending,
@@ -408,7 +416,9 @@ export default function MarketsPage() {
   }
 
   const showMainChrome =
-    mounted && !showLoadingShell && sortedForRank.length > 0;
+    mounted &&
+    !showLoadingShell &&
+    (sortedForRank.length > 0 || searchCards.length > 0);
 
   return (
     <div className="markets-page">
@@ -416,7 +426,9 @@ export default function MarketsPage() {
       <MarketsPageHeader
         searchQuery={isSearchMode ? searchQ : undefined}
         resultCount={
-          isSearchMode && !showLoadingShell ? filteredSorted.length : undefined
+          isSearchMode && !showLoadingShell
+            ? filteredSorted.length + searchCards.length
+            : undefined
         }
       />
       {isSearchMode ? null : <MarketsP2pSection />}
@@ -534,22 +546,26 @@ export default function MarketsPage() {
               ))}
             </div>
           </div>
-        ) : isSearchMode && sortedForRank.length === 0 ? (
+        ) : isSearchMode &&
+          sortedForRank.length === 0 &&
+          searchCards.length === 0 &&
+          !searchCardsQuery.isSearching ? (
           <div className="py-16 text-center">
-            <p className="mb-2 text-base text-[var(--t2)]">
+            <p className="mb-2 text-base font-semibold text-white">
               {searchQ
-                ? `No collections match “${searchQ}”.`
-                : "Type a card name, set, or player to search."}
+                ? `No cards found for “${searchQ}”`
+                : "Type a card name, set, player, or cert #."}
             </p>
             <p className="text-sm text-[var(--t3)]">
-              Try a different spelling, or{" "}
+              Check the spelling, or try a name, set, player, or cert #.
+            </p>
+            <p className="mt-5">
               <Link href="/markets" className="text-[var(--azure)] hover:underline">
-                browse all markets
+                Browse all markets →
               </Link>
-              .
             </p>
           </div>
-        ) : sortedForRank.length === 0 && orphanAsks.length === 0 ? (
+        ) : sortedForRank.length === 0 && orphanAsks.length === 0 && searchCards.length === 0 ? (
           <div className="py-16 text-center">
             <p className="mb-2 text-base text-[var(--t2)]">No assets listed for sale yet.</p>
             <p className="text-sm text-[var(--t3)]">
@@ -559,6 +575,7 @@ export default function MarketsPage() {
           </div>
         ) : (
           <>
+            {isSearchMode ? <SearchCertMatches cards={searchCards} /> : null}
             {isSearchMode ? null : (
             <div className="markets-results-bar">
               <span className="markets-results-bar__count">
@@ -567,6 +584,7 @@ export default function MarketsPage() {
             </div>
             )}
             {filteredSorted.length === 0 ? (
+              sortedForRank.length > 0 ? (
               <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
                 <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
                 <p className="mt-2 text-sm text-[var(--t3)]">
@@ -582,8 +600,12 @@ export default function MarketsPage() {
                   </button>
                 ) : null}
               </div>
+              ) : null
             ) : (
               <>
+                {isSearchMode ? (
+                  <h2 className="srch-sec-title">Collections</h2>
+                ) : null}
                 <MarketsCollectionGrid
                   collections={filteredSorted}
                   snapshotByKey={snapshotByKey}

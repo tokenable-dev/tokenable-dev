@@ -13,10 +13,9 @@ import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
 import { resolveMarketsListingMarketChangePct, resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 import { compareCollectionsByCreatedAtDesc } from "@/lib/markets/marketsCollectionSort";
 
-/** Horizontal carousel — same as Just vaulted. */
-export const HOME_TOP_MOVERS_LIMIT = 20;
-/** Horizontal carousel (index.html `#grid-vaulted`), including mobile. */
-export const HOME_JUST_VAULTED_LIMIT = 20;
+/** ds-23 wrap grid: 10 on 5-col desktop, 8 from tablet/mobile down (CSS hides 9–10). */
+export const HOME_TOP_MOVERS_LIMIT = 10;
+export const HOME_JUST_VAULTED_LIMIT = 10;
 
 function sortByCreatedAtDesc(
   collections: MarketplaceCollectionSummary[],

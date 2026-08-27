@@ -24,6 +24,50 @@ export interface MarketplaceCollectionSummary {
   reviewStatus?: CollectionReviewStatus;
 }
 
+export interface MarketplaceSearchCardHit {
+  tokenId: string;
+  certNumber: string | null;
+  collectionKey: string | null;
+  title: string;
+  setLine: string | null;
+  gradeLabel: string | null;
+  vaultLabel: string;
+  listedUsd: number | null;
+  imageUrl: string | null;
+}
+
+export async function getMarketplaceSearch(opts: {
+  q: string;
+  cardLimit?: number;
+  collectionLimit?: number;
+}): Promise<{
+  cards: MarketplaceSearchCardHit[];
+  collections: MarketplaceCollectionSummary[];
+}> {
+  const sp = new URLSearchParams();
+  const q = opts.q.trim();
+  if (!q) return { cards: [], collections: [] };
+  sp.set("q", q);
+  if (opts.cardLimit != null) sp.set("cardLimit", String(opts.cardLimit));
+  if (opts.collectionLimit != null) {
+    sp.set("collectionLimit", String(opts.collectionLimit));
+  }
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/search?${sp.toString()}`,
+  );
+  if (!res.ok) throw new Error("Failed to search catalog");
+  const body = (await res.json().catch(() => null)) as {
+    cards?: MarketplaceSearchCardHit[];
+    collections?: MarketplaceCollectionSummary[];
+  } | null;
+  return {
+    cards: Array.isArray(body?.cards) ? body.cards.filter(Boolean) : [],
+    collections: Array.isArray(body?.collections)
+      ? body.collections.filter(Boolean)
+      : [],
+  };
+}
+
 /** Graded metadata-based collection summaries (cursor pagination or `q` search). */
 export async function getMarketplaceCollectionsPage(opts?: {
   cursor?: string | null;

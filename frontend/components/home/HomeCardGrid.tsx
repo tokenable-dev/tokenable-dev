@@ -164,7 +164,7 @@ export function HomeCardGrid({
     <div className="grid4-wrap">
       <div
         ref={scrollerRef}
-        className="grid4"
+        className={cn("grid4", isWrap && "grid4--wrap")}
         id={subMode === "vaulted" ? "grid-vaulted" : "grid-movers"}
       >
         {collections.map((collection) => {

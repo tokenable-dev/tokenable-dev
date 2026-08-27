@@ -13,14 +13,15 @@ import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TkInput } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
-import type { MarketplaceCollectionSummary } from "@/lib/core";
-import { useMarketplaceCollectionSearch } from "@/hooks/marketplace";
+import type { MarketplaceCollectionSummary, MarketplaceSearchCardHit } from "@/lib/core";
+import { useMarketplaceCatalogSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
 import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const SEARCH_PLACEHOLDER = "Find your card — name, cert #, set, player…";
@@ -87,92 +88,155 @@ function formatSearchMeta(c: MarketplaceCollectionSummary): string {
   return `${n} listing${n !== 1 ? "s" : ""}`;
 }
 
+type SearchHit =
+  | { kind: "card"; card: MarketplaceSearchCardHit }
+  | { kind: "collection"; collection: MarketplaceCollectionSummary };
+
+function formatCardMeta(card: MarketplaceSearchCardHit): string {
+  return [
+    card.gradeLabel,
+    card.certNumber ? `Cert #${card.certNumber}` : null,
+    card.vaultLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function formatSearchPrice(c: MarketplaceCollectionSummary): string | null {
   const usd = c.components.psaEstimateUsd;
   if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
   return `$${Math.round(usd).toLocaleString("en-US")}`;
 }
 
+function Thumb({ src }: { src: string | null }) {
+  if (src) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src={src} alt="" loading="lazy" />
+    );
+  }
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity={0.4}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.5}
+        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+      />
+    </svg>
+  );
+}
+
 export function SearchResultsList({
-  filtered,
+  hits,
   highlightIdx,
   onHighlight,
   onSelect,
   searchTruncated,
   isSearching,
   coverUrlMap,
-  heading,
 }: {
-  filtered: MarketplaceCollectionSummary[];
+  hits: SearchHit[];
   highlightIdx: number;
   onHighlight: (idx: number) => void;
-  onSelect: (c: MarketplaceCollectionSummary) => void;
+  onSelect: (hit: SearchHit) => void;
   searchTruncated: boolean;
   isSearching: boolean;
   coverUrlMap: Map<string, string>;
-  heading?: string | null;
 }) {
-  if (filtered.length === 0) {
+  if (hits.length === 0) {
     return (
       <div className="gnb-search-overlay__empty">
-        <p>{isSearching ? "Searching…" : "No collections found"}</p>
+        <p>{isSearching ? "Searching…" : "No cards or collections found"}</p>
       </div>
     );
   }
 
+  const cardCount = hits.filter((h) => h.kind === "card").length;
+
   return (
     <div role="listbox">
-      {heading ? <h4 className="gnb-search-dropdown__heading">{heading}</h4> : null}
       {searchTruncated ? (
         <p className="gnb-search-truncated">
           Showing top matches — type more to narrow.
         </p>
       ) : null}
-      {filtered.map((c, i) => {
-        const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
+      {hits.map((hit, i) => {
         const selected = i === highlightIdx;
+        if (hit.kind === "card") {
+          const card = hit.card;
+          const src = card.imageUrl
+            ? (coverUrlMap.get(card.imageUrl) ?? card.imageUrl)
+            : null;
+          const price =
+            card.listedUsd != null ? formatUsdCompact(card.listedUsd) : null;
+          return (
+            <div key={`card-${card.tokenId}`}>
+              {i === 0 ? (
+                <h4 className="gnb-search-dropdown__heading">Cards</h4>
+              ) : null}
+              <button
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => onHighlight(i)}
+                onClick={() => onSelect(hit)}
+                className="gnb-search-item"
+              >
+                <div className="gnb-search-item__thumb">
+                  <Thumb src={src} />
+                </div>
+                <div className="gnb-search-item__info">
+                  <div className="gnb-search-item__name">{card.title}</div>
+                  <div className="gnb-search-item__meta">{formatCardMeta(card)}</div>
+                </div>
+                {price ? (
+                  <div className="gnb-search-item__price">
+                    <div className="gnb-search-item__price-val">{price}</div>
+                  </div>
+                ) : null}
+              </button>
+            </div>
+          );
+        }
+        const c = hit.collection;
+        const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
         const price = formatSearchPrice(c);
         return (
-          <button
-            key={c.collectionKey}
-            type="button"
-            role="option"
-            aria-selected={selected}
-            onMouseEnter={() => onHighlight(i)}
-            onClick={() => onSelect(c)}
-            className="gnb-search-item"
-          >
-            <div className="gnb-search-item__thumb">
-              {displayImageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={coverUrlMap.get(displayImageUrl) ?? displayImageUrl}
-                  alt=""
-                  loading="lazy"
-                />
-              ) : (
-                <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity={0.4}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
-                  />
-                </svg>
-              )}
-            </div>
-            <div className="gnb-search-item__info">
-              <div className="gnb-search-item__name">
-                {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
-              </div>
-              <div className="gnb-search-item__meta">{formatSearchMeta(c)}</div>
-            </div>
-            {price ? (
-              <div className="gnb-search-item__price">
-                <div className="gnb-search-item__price-val">{price}</div>
-              </div>
+          <div key={`col-${c.collectionKey}`}>
+            {i === cardCount ? (
+              <h4 className="gnb-search-dropdown__heading">Collections</h4>
             ) : null}
-          </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected={selected}
+              onMouseEnter={() => onHighlight(i)}
+              onClick={() => onSelect(hit)}
+              className="gnb-search-item"
+            >
+              <div className="gnb-search-item__thumb">
+                <Thumb
+                  src={
+                    displayImageUrl
+                      ? (coverUrlMap.get(displayImageUrl) ?? displayImageUrl)
+                      : null
+                  }
+                />
+              </div>
+              <div className="gnb-search-item__info">
+                <div className="gnb-search-item__name">
+                  {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
+                </div>
+                <div className="gnb-search-item__meta">{formatSearchMeta(c)}</div>
+              </div>
+              {price ? (
+                <div className="gnb-search-item__price">
+                  <div className="gnb-search-item__price-val">{price}</div>
+                </div>
+              ) : null}
+            </button>
+          </div>
         );
       })}
     </div>
@@ -220,12 +284,23 @@ export function TkHeaderSearch({
     searchActive && query.trim().length > 0;
 
   const {
-    items: filtered,
+    cards,
+    collections: filtered,
     isSearching,
     truncated: searchTruncated,
-  } = useMarketplaceCollectionSearch(query, {
+  } = useMarketplaceCatalogSearch(query, {
     enabled: showResultsPanel,
+    cardLimit: 8,
+    collectionLimit: 8,
   });
+
+  const hits: SearchHit[] = useMemo(
+    () => [
+      ...cards.map((card) => ({ kind: "card" as const, card })),
+      ...filtered.map((collection) => ({ kind: "collection" as const, collection })),
+    ],
+    [cards, filtered],
+  );
 
   useEffect(() => {
     setHighlightIdx(-1);
@@ -308,25 +383,31 @@ export function TkHeaderSearch({
     const href = buildCollectionSearchHref(q);
     trackEvent("search_performed", {
       query: q.trim(),
-      results_count: filtered.length,
+      results_count: hits.length,
     });
     router.push(href);
     closeAll();
   }
 
-  function navigate(c: MarketplaceCollectionSummary) {
+  function navigateHit(hit: SearchHit) {
     trackEvent("search_performed", {
       query: liveQuery(),
-      results_count: filtered.length,
+      results_count: hits.length,
     });
-    router.push(`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`);
+    if (hit.kind === "card") {
+      router.push(`/marketplace/${encodeURIComponent(hit.card.tokenId)}`);
+    } else {
+      router.push(
+        `/marketplace/collections/${encodeURIComponent(hit.collection.collectionKey)}`,
+      );
+    }
     closeAll();
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (highlightIdx >= 0 && highlightIdx < filtered.length) {
-      navigate(filtered[highlightIdx]);
+    if (highlightIdx >= 0 && highlightIdx < hits.length) {
+      navigateHit(hits[highlightIdx]);
       return;
     }
     goToSearchPage();
@@ -339,13 +420,13 @@ export function TkHeaderSearch({
       closeAll();
       return;
     }
-    if (!filtered.length) return;
+    if (!hits.length) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIdx((p) => (p + 1) % filtered.length);
+      setHighlightIdx((p) => (p + 1) % hits.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIdx((p) => (p <= 0 ? filtered.length - 1 : p - 1));
+      setHighlightIdx((p) => (p <= 0 ? hits.length - 1 : p - 1));
     }
   }
 
@@ -353,11 +434,14 @@ export function TkHeaderSearch({
   const showMobileResults = mobileOverlayOpen && query.trim().length > 0;
 
   const coverSources = useMemo(
-    () => filtered.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
-    [filtered],
+    () => [
+      ...cards.map((c) => c.imageUrl),
+      ...filtered.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
+    ],
+    [cards, filtered],
   );
   const { map: coverUrlMap } = useResolvedMediaUrlMap(coverSources, {
-    enabled: (showDesktopDropdown || showMobileResults) && filtered.length > 0,
+    enabled: (showDesktopDropdown || showMobileResults) && hits.length > 0,
   });
 
   const mobileOverlay =
@@ -416,14 +500,13 @@ export function TkHeaderSearch({
               ) : (
                 <>
                 <SearchResultsList
-                  filtered={filtered}
+                  hits={hits}
                   highlightIdx={highlightIdx}
                   onHighlight={setHighlightIdx}
-                  onSelect={navigate}
+                  onSelect={navigateHit}
                   searchTruncated={searchTruncated}
                   isSearching={isSearching}
                   coverUrlMap={coverUrlMap}
-                  heading="Results"
                 />
                 <button
                   type="button"
@@ -482,14 +565,13 @@ export function TkHeaderSearch({
           </div>
           <div className={cn("gnb-search-dropdown", showDesktopDropdown && "open")}>
             <SearchResultsList
-              filtered={filtered}
+              hits={hits}
               highlightIdx={highlightIdx}
               onHighlight={setHighlightIdx}
-              onSelect={navigate}
+              onSelect={navigateHit}
               searchTruncated={searchTruncated}
               isSearching={isSearching}
               coverUrlMap={coverUrlMap}
-              heading="Results"
             />
             <button
               type="button"

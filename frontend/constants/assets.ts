@@ -30,6 +30,18 @@ export const ASSETS = {
       cgc: `${ASSETS_BASE}/ds/logo-cgc.png`,
       sgc: `${ASSETS_BASE}/ds/logo-sgc.png`,
       tag: `${ASSETS_BASE}/ds/logo-tag.png`,
+      ebay: `${ASSETS_BASE}/ds/logo-ebay.svg`,
+      cardladder: `${ASSETS_BASE}/ds/logo-cardladder.png`,
+      gemrate: `${ASSETS_BASE}/ds/logo-gemrate.png`,
+      pricecharting: `${ASSETS_BASE}/ds/logo-pricecharting.png`,
+    },
+    pay: {
+      visa: `${ASSETS_BASE}/ds/logo-visa.png`,
+      amex: `${ASSETS_BASE}/ds/logo-amex.png`,
+      discover: `${ASSETS_BASE}/ds/logo-discover.png`,
+      gpay: `${ASSETS_BASE}/ds/logo-gpay.png`,
+      paypal: `${ASSETS_BASE}/ds/logo-paypal.png`,
+      stripe: `${ASSETS_BASE}/ds/logo-stripe.png`,
     },
     cards: {
       charizard: `${ASSETS_BASE}/ds/card-charizard.png`,

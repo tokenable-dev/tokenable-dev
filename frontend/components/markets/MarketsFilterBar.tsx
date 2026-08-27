@@ -36,6 +36,8 @@ const SORT_DRAWER_LABELS: Partial<Record<MarketsSortId, string>> = {
 
 type PopId = "set" | "grade" | "price" | "sort" | null;
 
+const EMPTY_STRINGS: string[] = [];
+
 function categoryOptionLabel(f: CategorySelectOption): string {
   return f.label;
 }
@@ -114,14 +116,16 @@ function useDropdownDismiss(
   onClose: () => void,
   rootRef: React.RefObject<HTMLElement | null>,
 ) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     }
     function onMouse(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        onClose();
+        onCloseRef.current();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -130,7 +134,7 @@ function useDropdownDismiss(
       window.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onMouse);
     };
-  }, [open, onClose, rootRef]);
+  }, [open, rootRef]);
 }
 
 /**
@@ -260,10 +264,10 @@ export function MarketsFilterBar({
   vaultFilters,
   onVaultToggle,
   onVaultFiltersChange,
-  sets = [],
+  sets = EMPTY_STRINGS,
   onSetsChange,
   onSetToggle,
-  setFacetOptions = [],
+  setFacetOptions = EMPTY_STRINGS,
   filters = MARKETS_CATEGORY_SELECT_OPTIONS,
 }: {
   categoryFilters: ReadonlySet<CollectionCategoryId>;
@@ -365,6 +369,8 @@ export function MarketsFilterBar({
     setDrawerMounted(true);
   }, []);
 
+  // Snapshot filter values when the drawer opens. Do not depend on `sets`:
+  // the default `[]` is a new array every render and would loop setState.
   useEffect(() => {
     if (!drawerOpen) return;
     setDraftCategories(new Set(categoryFilters));
@@ -380,7 +386,8 @@ export function MarketsFilterBar({
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [drawerOpen, categoryFilters, sortId, priceMin, priceMax, gradeFilters, vaultFilters, sets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerOpen]);
 
   function applySetQuery(raw: string, mode: "live" | "draft") {
     const trimmed = raw.trim();

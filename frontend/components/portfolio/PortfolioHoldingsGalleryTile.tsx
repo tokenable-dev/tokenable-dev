@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { TkTag } from "@/components/ds";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
@@ -47,6 +48,7 @@ function galleryStatusSeg(
 /** My Assets gallery tile — Portfolio.html `pf-gtile`. */
 export function PortfolioHoldingsGalleryTile({
   row,
+  href,
   grade,
   cost,
   vaultLabel,
@@ -54,17 +56,14 @@ export function PortfolioHoldingsGalleryTile({
   canEditCostBasis,
   savingCostBasis,
   isListed,
-  selectMode = false,
-  selected = false,
-  selectable = false,
   redeemStatus = null,
   actionsDisabled = false,
   actionsDisabledTitle,
-  onToggleSelect,
   onSaveCostBasis,
   onSetPrice,
 }: {
   row: AssetRow;
+  href?: string;
   grade: string | null;
   cost: number | undefined;
   vaultLabel: string;
@@ -72,13 +71,9 @@ export function PortfolioHoldingsGalleryTile({
   canEditCostBasis: boolean;
   savingCostBasis?: boolean;
   isListed: boolean;
-  selectMode?: boolean;
-  selected?: boolean;
-  selectable?: boolean;
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onToggleSelect?: (checked: boolean) => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
   onSetPrice: () => void;
 }) {
@@ -86,15 +81,13 @@ export function PortfolioHoldingsGalleryTile({
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
-  const costEditable = canEditCostBasis && !selectMode && !redeemStatus;
+  const costEditable = canEditCostBasis && !redeemStatus;
   const retLabel = pnl
     ? `${pnl.positive ? "↗" : "↘"} ${pnl.returnPct.replace("+", "").replace("-", "")}`
     : null;
 
   const tileClass = [
     "pf-gtile",
-    selectMode && selected ? "pf-gtile--sel-on" : null,
-    selectMode && !selectable ? "pf-gtile--sel-dim" : null,
     redeemStatus?.kind === "transit" ? "pf-gtile--transit" : null,
     redeemStatus?.kind === "possession" ? "pf-gtile--possession" : null,
   ]
@@ -102,30 +95,18 @@ export function PortfolioHoldingsGalleryTile({
     .join(" ");
 
   return (
-    <div
-      className={tileClass}
-      role={selectMode ? "button" : undefined}
-      tabIndex={selectMode ? 0 : undefined}
-      onClick={
-        selectMode
-          ? () => {
-              if (selectable) onToggleSelect?.(!selected);
-            }
-          : undefined
-      }
-      onKeyDown={
-        selectMode
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                if (selectable) onToggleSelect?.(!selected);
-              }
-            }
-          : undefined
-      }
-    >
+    <div className={tileClass}>
       <div className="pf-gtile__media">
-        {row.imageUrl ? (
+        {href ? (
+          <Link href={href} className="pf-gtile__media-link" aria-label={row.name}>
+            {row.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={row.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
+            )}
+          </Link>
+        ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
         ) : (
@@ -134,36 +115,17 @@ export function PortfolioHoldingsGalleryTile({
         <div className="pf-gtile__badge-wrap">
           <span className={`pf-gbadge tkl-mono ${badge.className}`}>{badge.label}</span>
         </div>
-        {selectMode ? (
-          <span
-            className={`pf-selchk${selected ? " pf-selchk--on" : ""}`}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <input
-              type="checkbox"
-              className="pf-redeem-chk pf-redeem-chk--gallery"
-              checked={selected}
-              disabled={!selectable}
-              title={
-                selectable
-                  ? "Select for redeem"
-                  : isListed
-                    ? "Cancel listing before redeeming"
-                    : redeemStatus
-                      ? "Already in a redemption"
-                      : "Not eligible for redeem"
-              }
-              onChange={(e) => onToggleSelect?.(e.target.checked)}
-              aria-label={`Select ${row.name} for redeem`}
-            />
-          </span>
-        ) : null}
       </div>
 
       <div className="pf-gtile__body">
         <div className="pf-gtile__title" title={row.name}>
-          {row.name}
+          {href ? (
+            <Link href={href} className="pf-gtile__title-link">
+              {row.name}
+            </Link>
+          ) : (
+            row.name
+          )}
         </div>
         <div className="pf-gtile__meta">
           {grade ? (
@@ -206,11 +168,7 @@ export function PortfolioHoldingsGalleryTile({
         </div>
 
         {/* Always mount cost slot so hover/touch height stays uniform. */}
-        <div
-          className="pf-cost-hover"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <div className="pf-cost-hover">
           {costEditable && onSaveCostBasis ? (
             <PortfolioCostBasisInlineEdit
               layout="gallery"
@@ -244,22 +202,16 @@ export function PortfolioHoldingsGalleryTile({
           )}
         </div>
 
-        {!selectMode ? (
-          <div
-            className="pf-gtile__act"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <PortfolioHoldingsRowActions
-              isListed={isListed}
-              fullWidth
-              disabled={actionsDisabled}
-              disabledTitle={actionsDisabledTitle}
-              redeemStatus={redeemStatus}
-              onSetPrice={onSetPrice}
-            />
-          </div>
-        ) : null}
+        <div className="pf-gtile__act">
+          <PortfolioHoldingsRowActions
+            isListed={isListed}
+            fullWidth
+            disabled={actionsDisabled}
+            disabledTitle={actionsDisabledTitle}
+            redeemStatus={redeemStatus}
+            onSetPrice={onSetPrice}
+          />
+        </div>
       </div>
     </div>
   );

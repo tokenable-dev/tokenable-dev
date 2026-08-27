@@ -7,9 +7,10 @@ import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 const PARTNER_LOGOS = [
   { src: ASSETS.ds.partners.psa, alt: "PSA", height: 38 },
   { src: ASSETS.ds.partners.beckett, alt: "Beckett", height: 50 },
-  { src: ASSETS.ds.partners.cgc, alt: "CGC", height: 44 },
-  { src: ASSETS.ds.partners.sgc, alt: "SGC", height: 52 },
-  { src: ASSETS.ds.partners.tag, alt: "TAG", height: 50 },
+  { src: ASSETS.ds.partners.ebay, alt: "eBay", height: 30 },
+  { src: ASSETS.ds.partners.cardladder, alt: "Card Ladder", height: 30 },
+  { src: ASSETS.ds.partners.gemrate, alt: "GemRate", height: 30 },
+  { src: ASSETS.ds.partners.pricecharting, alt: "PriceCharting", height: 30 },
 ] as const;
 
 export function HomePartners() {
@@ -18,7 +19,7 @@ export function HomePartners() {
   return (
     <section className="tkl-wrap home-partners-section">
       <div className="home-partners__row">
-        <span className="home-partners__label">Vaults and grading partners</span>
+        <span className="home-partners__label">Trusted data &amp; grading partners</span>
         <div className="home-partners__logos">
           {PARTNER_LOGOS.map((logo) => (
             /* eslint-disable-next-line @next/next/no-img-element */

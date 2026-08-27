@@ -64,7 +64,7 @@
 
 @media (min-width: 1600px) {
   .watchlist-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -100,6 +100,7 @@
 .watchlist-grid .card {
   height: 100%;
   min-width: 0;
+  gap: 16px;
 }
 
 .watchlist-grid .card__img .fav .fav-btn,
@@ -118,10 +119,10 @@
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
-  min-height: 2.4em;
-  max-height: 2.4em;
-  height: 2.4em;
-  -webkit-line-clamp: 2;
+  min-height: 1.2em;
+  max-height: 1.2em;
+  height: 1.2em;
+  -webkit-line-clamp: 1;
 }
 
 .watchlist-grid .card__stat,
@@ -133,12 +134,12 @@
 @media (max-width: 768px) {
   /* Override global .card__body mobile padding from tokenable-collectible-card.css */
   .watchlist-grid .card__body {
-    padding: 0 0 4px;
+    padding: 4px 0 4px;
     gap: 8px;
   }
 }
 
-/* Watchlist.html card — set line, gray grade chip, INSURED, split change/period, in-card CTAs */
+/* Watchlist.html card — gray grade chip, POP, split change/period, in-card CTAs */
 .watchlist-card {
   display: flex;
   flex-direction: column;
@@ -148,18 +149,9 @@
 }
 
 .watchlist-card .card__body {
-  padding: 0 0 4px;
+  padding: 4px 0 4px;
   gap: 8px;
   flex: 1;
-}
-
-.watchlist-card .card__set {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.4);
-  margin-top: -2px;
 }
 
 .watchlist-card__meta {
@@ -171,7 +163,7 @@
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.8);
   padding: 4px 8px;
@@ -249,7 +241,7 @@
   .watchlist-grid .watchlist-card {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 12px;
     padding: 8px;
   }
 
@@ -258,21 +250,17 @@
   }
 
   .watchlist-grid .card__body {
-    padding: 0 0 4px;
+    padding: 4px 0 4px;
     gap: 6px;
   }
 
   .watchlist-grid .card__title {
     font-size: 13px;
     line-height: 1.3;
-    min-height: 2.6em;
-    max-height: 2.6em;
-    height: 2.6em;
-    -webkit-line-clamp: 2;
-  }
-
-  .watchlist-grid .card__set {
-    font-size: 12px;
+    min-height: 1.3em;
+    max-height: 1.3em;
+    height: 1.3em;
+    -webkit-line-clamp: 1;
   }
 
   .watchlist-grid .watchlist-card__meta {
@@ -335,3 +323,4 @@
     font-size: 12px !important;
   }
 }
+

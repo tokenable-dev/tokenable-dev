@@ -98,6 +98,7 @@ describe('CollectionService.createCatalogCollectionFromPsaCert', () => {
       collectionRepo as never,
       {} as never,
       {} as never,
+      {} as never,
       { getDefaultChainId: () => 11155111 } as never,
       { get: () => undefined } as never,
       {} as never,

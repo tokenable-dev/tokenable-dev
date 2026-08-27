@@ -197,6 +197,40 @@ export class CollectionsController {
     }
   }
 
+  @ApiOperation({
+    summary: 'Catalog search — individual cards + collections',
+  })
+  @ApiQuery({ name: 'q', required: true, example: '123' })
+  @ApiQuery({ name: 'cardLimit', required: false, example: 12 })
+  @ApiQuery({ name: 'collectionLimit', required: false, example: 40 })
+  @Get('search')
+  searchCatalog(
+    @Query('q') qRaw?: string,
+    @Query('cardLimit') cardLimitRaw?: string,
+    @Query('collectionLimit') collectionLimitRaw?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const parseLim = (
+      raw: string | undefined,
+      fallback: number,
+      max: number,
+      min = 0,
+    ) => {
+      const n =
+        raw != null && String(raw).trim() !== ''
+          ? parseInt(String(raw), 10)
+          : fallback;
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(Math.max(n, min), max);
+    };
+    return this.collectionService.searchCatalog({
+      q: (qRaw ?? '').trim(),
+      cardLimit: parseLim(cardLimitRaw, 12, 24),
+      collectionLimit: parseLim(collectionLimitRaw, 40, 40),
+      chainId: this.chainConfig.resolveChainId(chainHeader),
+    });
+  }
+
   /** 컬렉션 목록 (커서 페이지). Public: active only. Admin cookie + reviewStatus filter for moderation. */
   @ApiOperation({ summary: '컬렉션 목록' })
   @ApiQuery({ name: 'limit', required: false, example: 30, description: '페이지당 건수' })

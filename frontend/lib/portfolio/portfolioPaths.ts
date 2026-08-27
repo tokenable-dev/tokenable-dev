@@ -43,6 +43,12 @@ export function portfolioHrefForPartner(isPartner: boolean): string {
     : `${PORTFOLIO_PATH}?tab=assets`;
 }
 
+/** Certificate of Ownership — PortfolioAsset.html */
+export function portfolioAssetHref(base: string, tokenId: number): string {
+  const id = Math.floor(Number(tokenId));
+  return `${base}/assets/${id}`;
+}
+
 export function portfolioUrl(
   base: string,
   params?: URLSearchParams | string,

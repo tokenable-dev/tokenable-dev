@@ -17,7 +17,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/markets` | `app/markets/page.tsx` | **Markets** — collection list, batch snapshots, category filter, trending |
 | `/markets/top100` | *(section on Markets page or linked)* | Top 100 sales rank strip (feature-flagged) |
 | `/markets/top100/card/[cardId]` | `app/markets/top100/card/[cardId]/page.tsx` | Top 100 card detail |
-| `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / **active status table** (tabs: All · Partner vault · In progress · Added to portfolio · Rejected) |
+| `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / **vaulting list** (tabs: All · In transit · Verifying · Vaulted · Rejected; ds-22 `Vault-Dashboard-Active.html`) |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
 | `/sell/flow` | `app/sell/flow/page.tsx` | Seller verification → choose vault → add cards (PSA → ship, or self → custody mint) |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack & tracking (PSA Shipping) |
@@ -25,6 +25,9 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Mint entry alias |
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
+| `/portfolio/assets/[tokenId]` | `app/portfolio/assets/[tokenId]/page.tsx` | Certificate of Ownership (`PortfolioAsset.html`) |
+| `/partner/portfolio` | `app/partner/portfolio/page.tsx` | Partner portfolio (same holdings UI) |
+| `/partner/portfolio/assets/[tokenId]` | `app/partner/portfolio/assets/[tokenId]/page.tsx` | Partner certificate of ownership |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
 | `/settings` | `app/settings/page.tsx` | Account settings — Profile, Notifications, Wallet, Addresses, Identity, Legal, Security (`?section=`) |
 | `/profile` | `app/profile/page.tsx` | Redirects to `/settings` |
@@ -74,7 +77,7 @@ Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=�
 | `/markets` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
 | `/markets/top100/*` | `GET /api/cardhedger/top100/*` |
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload`, `POST /api/marketplace/collections/on-mint` |
-| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, batch metadata, `POST …/portfolio-market-batch`, `GET …/portfolio/daily/:wallet`, `GET …/portfolio/hidden/:wallet`, orders |
+| `/portfolio` | holdings + daily snapshots + collection market batch; asset cert: RWA asset, vault-info, holdings batch, trades |
 | `/watchlist` | `GET/POST/DELETE /api/marketplace/watchlist` |
 | `/login`, `/signup` | Privy SDK (client-side modal) → `POST /api/auth/privy/session` |
 | `/settings` | Session user + prefs (`PATCH /api/auth/profile`); address book (`/api/user/shipping-addresses`); USDC + Add funds (MoonPay); KYC via `/kyc`; delete via `POST /api/auth/delete-account` |

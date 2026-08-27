@@ -1512,3 +1512,120 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Search result group heading — DS Heading 24/600 */
+.srch-sec-title {
+  margin: 0 0 12px;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #fff;
+}
+
+/* Search.html #cert-match */
+.srch-cert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.srch-cert-list__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.srch-cert-list__badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pos);
+  background: rgba(0, 200, 100, 0.12);
+  padding: 4px 9px;
+  border-radius: 5px;
+}
+
+.srch-cert-list__hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.srch-cert-match {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--surf);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0, 200, 100, 0.28);
+  text-decoration: none;
+  color: inherit;
+}
+
+.srch-cert-match:hover {
+  background: #1a1a1a;
+}
+
+.srch-cert-match img,
+.srch-cert-match__thumb-empty {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+  background: #0e0e0e;
+}
+
+.srch-cert-match__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.srch-cert-match__title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.srch-cert-match__meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 3px;
+}
+
+.srch-cert-match__cta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--brand-400, #5b9aff);
+  margin-top: 6px;
+}
+
+.srch-cert-match__price {
+  text-align: right;
+  flex: none;
+}
+
+.srch-cert-match__usd {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.srch-cert-match__listed {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--t3);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

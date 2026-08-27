@@ -21,7 +21,6 @@ import {
   useUserAssets,
   PORTFOLIO_ASSETS_PAGE_SIZE,
   useMyRedemptions,
-  useRedeemSelection,
 } from "@/hooks/portfolio";
 import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import {
@@ -590,13 +589,6 @@ export function PortfolioPageView({
     phantomMetaQuery.data,
   ]);
 
-  const redeemSelection = useRedeemSelection({
-    assetRows: visibleAssetRows,
-    metadataByTokenId,
-    redeemStatusByTokenId,
-    vaultLabelByTokenId,
-  });
-
   const holdingsDisplayRows = useMemo(() => {
     if (redeemPhantomAssetRows.length === 0) return visibleAssetRows;
     /* Redeeming (custody) cards first so Preparing status stays visible. */
@@ -743,7 +735,7 @@ export function PortfolioPageView({
     <div
       className={`portfolio-page min-h-screen min-w-0 overflow-x-clip text-white${
         isPartnerPortfolio ? " portfolio-page--partner" : ""
-      }${redeemSelection.selectMode ? " portfolio-page--redeem-select" : ""}`}
+      }`}
     >
       <HomeTicker />
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
@@ -765,14 +757,7 @@ export function PortfolioPageView({
             bids: myBids.activeBids.length,
             history: txRows.length,
           }}
-          showRedeemButton={
-            portfolioMainTab === "collectibles" && !redeemSelection.selectMode
-          }
-          onEnterRedeemSelect={redeemSelection.enterSelectMode}
           onTabChange={(tab) => {
-            if (tab !== "collectibles" && redeemSelection.selectMode) {
-              redeemSelection.exitSelectMode();
-            }
             setPortfolioMainTab(tab);
             const next =
               tab === "bids"
@@ -798,17 +783,9 @@ export function PortfolioPageView({
               onSaveCostBasis={saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
               onSetPrice={openPortfolioSetPriceModal}
-              redeemSelectMode={redeemSelection.selectMode}
-              redeemSelected={redeemSelection.selected}
-              redeemEligibleIds={redeemSelection.eligibleIds}
-              redeemLimitError={redeemSelection.limitError}
               redeemStatusByTokenId={redeemStatusByTokenId}
               redeemTrackingByTokenId={redeemTrackingByTokenId}
               redeemCarrierDeliveredByTokenId={redeemCarrierDeliveredByTokenId}
-              onExitRedeemSelect={redeemSelection.exitSelectMode}
-              onToggleRedeemToken={redeemSelection.toggleToken}
-              onContinueRedeem={redeemSelection.goToRedeem}
-              redeemMaxBatch={redeemSelection.maxBatch}
               hasMoreAssets={hasMoreAssets}
               isLoadingMoreAssets={isLoadingMoreAssets}
               onLoadMoreAssets={loadMoreAssets}

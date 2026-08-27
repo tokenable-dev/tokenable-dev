@@ -60,3 +60,17 @@ describe('CollectionService.scoreCollectionSearchHit', () => {
     expect(cert).toBeGreaterThan(name);
   });
 });
+
+describe('CollectionService.buildTokenSearchSql', () => {
+  it('prefix-matches token certs for digit queries including short ones', () => {
+    const { sql, params } = CollectionService.buildTokenSearchSql('123');
+    expect(sql).toContain('certNumber');
+    expect(params.certPat).toBe('123%');
+  });
+
+  it('matches token display names for text queries', () => {
+    const { sql, params } = CollectionService.buildTokenSearchSql('charizard');
+    expect(sql).toContain('displayName');
+    expect(params.pat).toBe('%charizard%');
+  });
+});

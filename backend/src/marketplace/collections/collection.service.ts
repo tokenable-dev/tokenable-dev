@@ -57,6 +57,7 @@ import { CollectionComponentsService } from './collection-components.service';
 import { CollectionCoverService } from './collection-cover.service';
 import { CollectionIdentityService } from './collection-identity.service';
 import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
+import { vaultLabelForCustody } from '../partners/partner-vault-label.util';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
@@ -85,6 +86,18 @@ export interface CollectionSummary {
   reviewStatus: CollectionReviewStatus;
 }
 
+export type SearchCardHit = {
+  tokenId: string;
+  certNumber: string | null;
+  collectionKey: string | null;
+  title: string;
+  setLine: string | null;
+  gradeLabel: string | null;
+  vaultLabel: string;
+  listedUsd: number | null;
+  imageUrl: string | null;
+};
+
 export type CollectionReviewStatusFilter =
   | CollectionReviewStatus
   | 'all';
@@ -102,6 +115,8 @@ export class CollectionService {
     private readonly collectionRepo: Repository<MarketplaceCollection>,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    @InjectRepository(RwaToken)
+    private readonly rwaTokenRepo: Repository<RwaToken>,
     private readonly blockchain: BlockchainService,
     private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
@@ -788,6 +803,178 @@ export class CollectionService {
       .slice(0, limit);
 
     return { items, nextCursor: null };
+  }
+
+  /**
+   * Unified header / search-page lookup: minted cards (cert or display name)
+   * plus catalog collections (name / set / card #).
+   */
+  async searchCatalog(input: {
+    q: string;
+    cardLimit?: number;
+    collectionLimit?: number;
+    chainId?: SupportedChainId;
+  }): Promise<{ cards: SearchCardHit[]; collections: CollectionSummary[] }> {
+    const q = input.q.trim().slice(0, 80);
+    if (!q) return { cards: [], collections: [] };
+    const cardLimit = Math.min(Math.max(input.cardLimit ?? 12, 0), 24);
+    const collectionLimit = Math.min(Math.max(input.collectionLimit ?? 40, 0), 40);
+    const [collections, cards] = await Promise.all([
+      collectionLimit > 0
+        ? this.searchSummaries({
+            q,
+            limit: collectionLimit,
+            chainId: input.chainId,
+            reviewStatus: 'active',
+          })
+        : Promise.resolve({ items: [] as CollectionSummary[], nextCursor: null }),
+      cardLimit > 0
+        ? this.searchTokenHits({ q, limit: cardLimit, chainId: input.chainId })
+        : Promise.resolve([] as SearchCardHit[]),
+    ]);
+    return { cards, collections: collections.items };
+  }
+
+  static buildTokenSearchSql(q: string): {
+    sql: string;
+    params: Record<string, string>;
+  } {
+    const escaped = CollectionService.escapeIlike(q);
+    const digitOnly = /^\d+$/.test(q);
+    if (digitOnly) {
+      return {
+        sql: `COALESCE(t.certNumber, '') ILIKE :certPat ESCAPE '\\'`,
+        params: { certPat: `${escaped}%` },
+      };
+    }
+    return {
+      sql: `COALESCE(t.displayName, '') ILIKE :pat ESCAPE '\\'`,
+      params: { pat: `%${escaped}%` },
+    };
+  }
+
+  private static gradeLabelFromComponents(
+    comp: Record<string, unknown> | null | undefined,
+  ): string | null {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const company = str(comp?.gradingCompanyDisplay) || str(comp?.gradingCompany);
+    const score = str(comp?.gradeScore);
+    if (company && score) return `${company} ${score}`;
+    const label = str(comp?.psaGradeLabel);
+    if (label) return label;
+    if (score) return `PSA ${score}`;
+    return null;
+  }
+
+  private static setLineFromComponents(
+    comp: Record<string, unknown> | null | undefined,
+  ): string | null {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    return (
+      str(comp?.cardSetDisplay) ||
+      str(comp?.cardSet) ||
+      str(comp?.psaBrand) ||
+      null
+    );
+  }
+
+  private async searchTokenHits(input: {
+    q: string;
+    limit: number;
+    chainId?: SupportedChainId;
+  }): Promise<SearchCardHit[]> {
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const search = CollectionService.buildTokenSearchSql(input.q);
+    const tokens = await this.rwaTokenRepo
+      .createQueryBuilder('t')
+      .where('LOWER(t.tokenContract) = :rwa', { rwa: rwaContract })
+      .andWhere('t.burnedAt IS NULL')
+      .andWhere(search.sql, search.params)
+      .orderBy('t.createdAt', 'DESC')
+      .take(input.limit)
+      .getMany();
+
+    if (tokens.length === 0) return [];
+
+    const tokenIds = tokens.map((t) => t.tokenId);
+    const colKeys = [
+      ...new Set(
+        tokens
+          .map((t) => t.collectionKey?.trim().toLowerCase())
+          .filter((k): k is string => Boolean(k)),
+      ),
+    ];
+
+    const [asks, collections] = await Promise.all([
+      this.orderRepo.find({
+        where: {
+          tokenId: In(tokenIds),
+          side: OrderSide.ASK,
+          status: OrderStatus.ACTIVE,
+        },
+      }),
+      colKeys.length > 0
+        ? this.collectionRepo.find({
+            where: { collectionKey: In(colKeys) },
+          })
+        : Promise.resolve([] as MarketplaceCollection[]),
+    ]);
+
+    const askByToken = new Map<string, number>();
+    for (const o of asks) {
+      if (o.tokenContract.trim().toLowerCase() !== rwaContract) continue;
+      const usd = Number(o.considerationAmount) / 1_000_000;
+      if (!Number.isFinite(usd) || usd <= 0) continue;
+      const prev = askByToken.get(o.tokenId);
+      if (prev == null || usd < prev) askByToken.set(o.tokenId, usd);
+    }
+
+    const colByKey = new Map(
+      collections.map((c) => [c.collectionKey.toLowerCase(), c]),
+    );
+
+    const digitOnly = /^\d+$/.test(input.q);
+    const ranked = [...tokens].sort((a, b) => {
+      if (digitOnly) {
+        const qa = (a.certNumber ?? '').replace(/\D/g, '');
+        const qb = (b.certNumber ?? '').replace(/\D/g, '');
+        const exactA = qa === input.q ? 0 : qa.startsWith(input.q) ? 1 : 2;
+        const exactB = qb === input.q ? 0 : qb.startsWith(input.q) ? 1 : 2;
+        if (exactA !== exactB) return exactA - exactB;
+      }
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    return ranked.map((t) => {
+      const col = t.collectionKey
+        ? colByKey.get(t.collectionKey.toLowerCase())
+        : undefined;
+      const comp = (col?.components ?? {}) as Record<string, unknown>;
+      const title =
+        (t.displayName ?? '').trim() ||
+        (col?.displayLabel ?? '').trim() ||
+        (t.certNumber ? `Cert #${t.certNumber}` : `Token #${t.tokenId}`);
+      const imageUrl =
+        pickCollectionDisplayImageUrl(t.displayImageUrl) ??
+        pickCollectionDisplayImageUrl(col?.coverImageUrl ?? null);
+      return {
+        tokenId: t.tokenId,
+        certNumber: t.certNumber,
+        collectionKey: t.collectionKey,
+        title,
+        setLine: CollectionService.setLineFromComponents(comp),
+        gradeLabel: CollectionService.gradeLabelFromComponents(comp),
+        vaultLabel: vaultLabelForCustody(
+          t.settlementPolicy === 'self_vault_hold'
+            ? 'self_vault_hold'
+            : 'standard',
+          null,
+        ),
+        listedUsd: askByToken.get(t.tokenId) ?? null,
+        imageUrl,
+      };
+    });
   }
 
   /**

@@ -27,11 +27,14 @@ import {
   type AssetsViewMode,
 } from "./PortfolioAssetsToolbar";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
+import { usePathname } from "next/navigation";
+import {
+  portfolioAssetHref,
+  portfolioBasePath,
+} from "@/lib/portfolio/portfolioPaths";
 import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
 import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
-import { RedeemSelectModeBar } from "./redeem/RedeemSelectModeBar";
-
 export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
@@ -45,17 +48,9 @@ export function PortfolioHoldingsSection({
   onSaveCostBasis,
   savingCostBasisTokenId,
   onSetPrice,
-  redeemSelectMode = false,
-  redeemSelected,
-  redeemEligibleIds,
-  redeemLimitError = null,
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
   redeemCarrierDeliveredByTokenId,
-  onExitRedeemSelect,
-  onToggleRedeemToken,
-  onContinueRedeem,
-  redeemMaxBatch = 50,
   hasMoreAssets = false,
   isLoadingMoreAssets = false,
   onLoadMoreAssets,
@@ -75,10 +70,6 @@ export function PortfolioHoldingsSection({
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   savingCostBasisTokenId?: number | null;
   onSetPrice: (tokenId: number) => void;
-  redeemSelectMode?: boolean;
-  redeemSelected?: Set<number>;
-  redeemEligibleIds?: Set<number>;
-  redeemLimitError?: string | null;
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
   redeemCarrierDeliveredByTokenId?: Map<number, string>;
@@ -87,10 +78,6 @@ export function PortfolioHoldingsSection({
   onLoadMoreAssets?: () => void;
   loadedAssetCount?: number;
   totalAssetCount?: number;
-  onExitRedeemSelect?: () => void;
-  onToggleRedeemToken?: (tokenId: number, checked: boolean) => void;
-  onContinueRedeem?: () => void;
-  redeemMaxBatch?: number;
   vaultLabelByTokenId?: Map<number, string>;
 }) {
   const [segment, setSegment] = useState<AssetsSegment>("tradeable");
@@ -100,6 +87,8 @@ export function PortfolioHoldingsSection({
   /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
   const [view, setView] = useState<AssetsViewMode>("table");
   const isMobile = useIsMobileViewport(768);
+  const pathname = usePathname();
+  const assetsBase = portfolioBasePath(pathname);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -226,21 +215,10 @@ export function PortfolioHoldingsSection({
     );
   }
 
-  const selectedCount = redeemSelected?.size ?? 0;
   const emptyFiltered = filteredSortedRows.length === 0;
 
   return (
     <>
-      {redeemSelectMode ? (
-        <div
-          className={`pf-redeem-hint${redeemLimitError ? " pf-redeem-hint--err" : ""}`}
-          role="status"
-        >
-          {redeemLimitError ??
-            `Select up to ${redeemMaxBatch} cards to redeem together. One shipping fee covers the whole batch.`}
-        </div>
-      ) : null}
-
       <PortfolioAssetsToolbar
         segment={segment}
         onSegmentChange={setSegment}
@@ -267,12 +245,12 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
-            const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
 
             return (
               <div key={row.tokenId} className="pf-gallery__item" role="listitem">
                 <PortfolioHoldingsGalleryTile
                   row={row}
+                  href={portfolioAssetHref(assetsBase, row.tokenId)}
                   grade={grade}
                   cost={cost}
                   vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
@@ -280,18 +258,12 @@ export function PortfolioHoldingsSection({
                   canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
                   savingCostBasis={savingCostBasisTokenId === row.tokenId}
                   isListed={isListed}
-                  selectMode={redeemSelectMode}
-                  selected={redeemSelected?.has(row.tokenId) ?? false}
-                  selectable={selectable}
                   redeemStatus={badge}
-                  actionsDisabled={tradeBlocked || redeemSelectMode}
+                  actionsDisabled={tradeBlocked}
                   actionsDisabledTitle={
                     tradeBlocked
                       ? "Redemption in progress — listing unavailable"
                       : undefined
-                  }
-                  onToggleSelect={(checked) =>
-                    onToggleRedeemToken?.(row.tokenId, checked)
                   }
                   onSaveCostBasis={
                     onSaveCostBasis
@@ -321,30 +293,24 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
-            const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
 
             return (
               <PortfolioMobileAssetCard
                 key={row.tokenId}
                 row={row}
+                href={portfolioAssetHref(assetsBase, row.tokenId)}
                 grade={grade}
                 cost={cost}
                 valuesPending={valuesPending}
                 canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
                 savingCostBasis={savingCostBasisTokenId === row.tokenId}
                 isListed={isListed}
-                selectMode={redeemSelectMode}
-                selected={redeemSelected?.has(row.tokenId) ?? false}
-                selectable={selectable}
                 redeemStatus={badge}
-                actionsDisabled={tradeBlocked || redeemSelectMode}
+                actionsDisabled={tradeBlocked}
                 actionsDisabledTitle={
                   tradeBlocked
                     ? "Redemption in progress — listing unavailable"
                     : undefined
-                }
-                onToggleSelect={(checked) =>
-                  onToggleRedeemToken?.(row.tokenId, checked)
                 }
                 onSaveCostBasis={
                   onSaveCostBasis
@@ -365,16 +331,13 @@ export function PortfolioHoldingsSection({
       ) : (
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
+          assetHrefBase={assetsBase}
           metadataByTokenId={metadataByTokenId}
           costBasisByTokenId={costBasisByTokenId}
           vaultLabelByTokenId={vaultLabelByTokenId}
           valuesPending={valuesPending}
           canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
           savingCostBasisTokenId={savingCostBasisTokenId}
-          redeemSelectMode={redeemSelectMode}
-          redeemSelected={redeemSelected}
-          redeemEligibleIds={redeemEligibleIds}
-          onToggleRedeemToken={onToggleRedeemToken}
           onSaveCostBasis={onSaveCostBasis}
           onSetPrice={(tokenId) => {
             const row = filteredSortedRows.find((r) => r.tokenId === tokenId);
@@ -395,7 +358,7 @@ export function PortfolioHoldingsSection({
         />
       )}
 
-      {hasMoreAssets && onLoadMoreAssets && !redeemSelectMode ? (
+      {hasMoreAssets && onLoadMoreAssets ? (
         <div className="pf-load-more">
           {typeof loadedAssetCount === "number" &&
           typeof totalAssetCount === "number" &&
@@ -415,16 +378,6 @@ export function PortfolioHoldingsSection({
             {isLoadingMoreAssets ? "Loading…" : "Load more"}
           </TkButton>
         </div>
-      ) : null}
-
-      {redeemSelectMode && onExitRedeemSelect && onContinueRedeem ? (
-        <RedeemSelectModeBar
-          selectedCount={selectedCount}
-          maxBatch={redeemMaxBatch}
-          limitError={redeemLimitError}
-          onCancel={onExitRedeemSelect}
-          onContinue={onContinueRedeem}
-        />
       ) : null}
     </>
   );

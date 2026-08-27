@@ -56,10 +56,11 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Hero + CTA | `.hero-section` (index2-standalone) | `HomeHero` | `components/home/HomeHero.tsx` — photo bg `assets/home/hero-bg.jpg` + 3D slab ring; tags + “The card market, finally liquid.” Below-hero sections still from ds-5 until confirmed. |
 | 3D spinning slab | `#heroSlabCanvas` / `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts` — faces from `public/assets/home/newcards/c01.jpg`…`c06.jpg` |
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
-| Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
-| Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |
+| Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | wrap grid, 10 desktop / 8 mobile (ds-23) |
+| Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | wrap grid, 10 desktop / 8 mobile (ds-23) |
 | Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` — ds-5: Instant settlement; Three guarantees, every token. |
-| Partners + CTA | partners row | `HomePartners` | `components/home/HomePartners.tsx` |
+| Every payment | `.pay-sec` | `HomePaySection` | `components/home/HomePaySection.tsx` — ds-23 conveyor + checkout phone |
+| Partners + CTA | partners row | `HomePartners` | `components/home/HomePartners.tsx` — PSA, Beckett, eBay, Card Ladder, GemRate, PriceCharting (grayscale) |
 | Page compose | — | `HomePageContent` | `components/home/HomePageContent.tsx` |
 
 **Data:** `hooks/home/useHomeMarketplaceGrids.ts` (collections + snapshots)
@@ -86,9 +87,10 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 | Section | React target | File |
 |---------|--------------|------|
-| Route `/search?q=` | Markets grid + filters | `app/search/page.tsx` → `MarketsPage` |
+| Route `/search?q=` | Cert-match rows + Markets grid | `app/search/page.tsx` → `MarketsPage` + `SearchCertMatches` |
+| Result group headings | **Cards** (under the Cert match line) and **Collections** (above the grid), DS Heading 24/600 via `.srch-sec-title` | `SearchCertMatches`, `MarketsPage`, `styles/tokenable-markets.css` |
 | Hero search | 62×560 field → `/search` | `components/home/HomeHero.tsx` |
-| Header search | Typeahead; Enter / View all → `/search` | `components/layout/header/TkHeaderSearch.tsx` |
+| Header search | Typeahead cards then collections; Enter / View all → `/search` | `TkHeaderSearch` + `GET /marketplace/search` |
 
 ---
 
@@ -125,8 +127,9 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Stat grid | `.pf-stat-grid`, `.notch` | `PortfolioStatGrid` | `components/portfolio/PortfolioStatGrid.tsx` |
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
 | Tabs | `.tk-tabs` | `PortfolioMainSection` | `components/portfolio/PortfolioMainSection.tsx` |
-| Holdings | gallery cards | `PortfolioHoldingsSection` + `PortfolioHoldingsGalleryTile` (Set price / Edit price) | `components/portfolio/*` |
-| Redeem select | toolbar + checkboxes + batch bar | `RedeemSelectModeBar`, `useRedeemSelection` | `components/portfolio/redeem/*`, `hooks/portfolio/useRedeemSelection.ts` |
+| Holdings | gallery cards | `PortfolioHoldingsSection` + `PortfolioHoldingsGalleryTile` → `/portfolio/assets/[tokenId]` | `components/portfolio/*` |
+| Certificate | `PortfolioAsset.html` | `PortfolioCertificateView` | `components/portfolio/PortfolioCertificateView.tsx` |
+| Redeem entry | Certificate footer action | `PortfolioCertificatePage` writes a single-card redeem draft → `/portfolio/redeem` | `components/portfolio/PortfolioCertificatePage.tsx` |
 | Bids | bid rows | `PortfolioCollectionBidsSection` | `components/portfolio/PortfolioCollectionBidsSection.tsx` |
 | Watchlist tab | — | `PortfolioWatchlistSection` | `components/portfolio/PortfolioWatchlistSection.tsx` |
 | Transaction history | `.tk-table` | `PortfolioActivitySection` | `components/portfolio/PortfolioActivitySection.tsx` |
@@ -146,7 +149,7 @@ Product copy uses **Redeem**. Canonical prototype: `Tokenable-with design system
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|
-| Select mode | Portfolio holdings | Holdings toolbar + checkboxes + batch bar | `PortfolioHoldingsSection`, `RedeemSelectModeBar` |
+| Entry | Certificate of Ownership footer | Single-card **Redeem** → draft in sessionStorage | `PortfolioCertificateView`, `PortfolioCertificatePage` |
 | Address | `#wd-request` | Ship-to + **Calculate shipping cost** (idle/loading/quoted/stale) → **Review and pay** | `RedeemRequestPanel`, `shipToValidation.ts` |
 | Review & pay | `#wd-pay` | Cost + ship-to + USDC pay → redeem-batch | `RedeemPayPanel` |
 | Preparing | `#wd-preparing` | Payment-received banner + progress | `RedeemPreparingPanel`; `?view=preparing` |
@@ -189,10 +192,10 @@ Product copy uses **Redeem**. Canonical prototype: `Tokenable-with design system
 | Page shell + ticker | `.wrap`, ticker | `watchlist-page`, `HomeTicker` | `components/watchlist/WatchlistPage.tsx` |
 | Header | eyebrow + title | `WatchlistPageHeader` | `components/watchlist/WatchlistPageHeader.tsx` |
 | Filter / sort bar | `markets-filter-*` | `MarketsFilterBar` | `components/markets/MarketsFilterBar.tsx` |
-| Card grid | `.grid4`, `.card` | `WatchlistCollectionGrid` + `WatchlistCollectibleCard` | `components/watchlist/*` |
+| Card grid | `.grid4`, `.card` | `WatchlistCollectionGrid` + `WatchlistCollectibleCard` | set 1-line ellipsis; no INSURED |
 | Portfolio tab embed | — | `WatchlistPageContent` | `components/watchlist/WatchlistPageContent.tsx` |
 
-**Watchlist card:** `WatchlistCollectibleCard` — set line, gray grade chip, POP + INSURED, split `card__per`, in-card Buy/Bid (HTML parity). Markets/home still use shared `CollectibleCard`.
+**Watchlist card:** `WatchlistCollectibleCard` — set line (1-line ellipsis), gray grade chip, POP, split `card__per`, in-card Buy/Bid. Markets/home still use shared `CollectibleCard`.
 
 **CSS:** `frontend/styles/tokenable-watchlist.css`
 
@@ -209,7 +212,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | `/sell` | `SellRouterView` — loader then → `/vault` (partner branch Phase 8) |
 | `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → choose vault → add cards via PSA cert lookup) |
 | `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (progress: Submit → Ship → PSA → Live; pack checklist → tracking) |
-| `/vault` | `VaultHubView` — landing / empty / **active status tabs** (`VaultActiveDashboardView`, mirrors Vault-Dashboard-Active.html) |
+| `/vault` | `VaultHubView` — landing / empty / **vaulting cards** (`VaultActiveDashboardView`, ds-22 Vault-Dashboard-Active.html) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
 | `/vault/submit/mint` | `MintForm` (personal/internal mint entry) |
 | `/vault/submit/shipping` | redirect → `/vault/submit` |

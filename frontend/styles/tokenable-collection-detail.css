@@ -2686,39 +2686,53 @@
   flex-direction: column;
 }
 
+/* Card.html `.ob-fade` — gradient + CSS chevron (not ▲/▼ glyphs). */
 .collection-detail-page .cd-ob-book-pane__fade {
   position: absolute;
   left: 0;
   right: 0;
-  height: 26px;
+  height: 30px;
   pointer-events: none;
   transition: opacity 0.2s ease;
   z-index: 2;
   display: flex;
   justify-content: center;
-  color: var(--t3);
+  color: var(--t2);
   font-size: 11px;
   line-height: 1;
+}
+
+.collection-detail-page .cd-ob-book-pane__fade::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  box-sizing: border-box;
 }
 
 .collection-detail-page .cd-ob-book-pane__fade--top {
   top: 0;
   align-items: flex-start;
+  padding-top: 4px;
   background: linear-gradient(180deg, #191919, transparent);
 }
 
 .collection-detail-page .cd-ob-book-pane__fade--top::after {
-  content: "▴";
+  transform: rotate(-135deg);
+  margin-top: 2px;
 }
 
 .collection-detail-page .cd-ob-book-pane__fade--bot {
   bottom: 0;
   align-items: flex-end;
+  padding-bottom: 4px;
   background: linear-gradient(0deg, #191919, transparent);
 }
 
 .collection-detail-page .cd-ob-book-pane__fade--bot::after {
-  content: "▾";
+  transform: rotate(45deg);
+  margin-bottom: 4px;
 }
 
 .collection-detail-page .cd-ob-book-pane__fade.is-hidden {

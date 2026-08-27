@@ -122,7 +122,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/marketplace/collections` | Collection list (cursor pagination) |
+| GET | `/api/marketplace/search` | Unified search: individual cards (cert / name) + collections |
 | POST | `/api/marketplace/collections/market-snapshots` | Batch list-row snapshots (DB-first) |
 | POST | `/api/marketplace/collections/portfolio-market-batch` | Portfolio batch stats + series |
 | POST | `/api/marketplace/collections/on-mint` | Mint webhook — bootstrap collection |

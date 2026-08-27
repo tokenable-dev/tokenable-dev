@@ -11,6 +11,7 @@ import {
   formatPortfolioUsd,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
+import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioStaticTh } from "./PortfolioSortableTh";
@@ -24,14 +25,11 @@ export function PortfolioHoldingsTableView({
   valuesPending,
   canEditCostBasis,
   savingCostBasisTokenId,
-  redeemSelectMode,
-  redeemSelected,
-  redeemEligibleIds,
-  onToggleRedeemToken,
   onSaveCostBasis,
   onSetPrice,
   getBadge,
   isTradeBlocked,
+  assetHrefBase,
 }: {
   rows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
@@ -40,14 +38,11 @@ export function PortfolioHoldingsTableView({
   valuesPending: boolean;
   canEditCostBasis: boolean;
   savingCostBasisTokenId?: number | null;
-  redeemSelectMode: boolean;
-  redeemSelected?: Set<number>;
-  redeemEligibleIds?: Set<number>;
-  onToggleRedeemToken?: (tokenId: number, checked: boolean) => void;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   onSetPrice: (tokenId: number) => void;
   getBadge: (tokenId: number) => RedeemSurfaceBadge | null;
   isTradeBlocked: (tokenId: number) => boolean;
+  assetHrefBase: string;
 }) {
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
@@ -87,28 +82,14 @@ export function PortfolioHoldingsTableView({
             badge?.kind === "transit" || badge?.kind === "possession"
               ? " pf-holdings-row--dim"
               : "";
-          const selectable = redeemEligibleIds?.has(row.tokenId) ?? false;
-          const selected = redeemSelected?.has(row.tokenId) ?? false;
           const vault = vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault";
 
           return (
             <tr key={row.tokenId} className={`pf-holdings-row${zebra}${dim}`}>
               <td data-label="Card">
                 <div className="pf-table-card-cell pf-table-card-cell--holdings">
-                  {redeemSelectMode ? (
-                    <input
-                      type="checkbox"
-                      className="pf-redeem-chk"
-                      checked={selected}
-                      disabled={!selectable}
-                      onChange={(e) =>
-                        onToggleRedeemToken?.(row.tokenId, e.target.checked)
-                      }
-                      aria-label={`Select ${row.name} for redeem`}
-                    />
-                  ) : null}
                   <Link
-                    href={`/marketplace/${encodeURIComponent(row.tokenId)}`}
+                    href={portfolioAssetHref(assetHrefBase, row.tokenId)}
                     className="pf-table-card-cell"
                   >
                     <div className="pf-table-thumb">
@@ -134,7 +115,7 @@ export function PortfolioHoldingsTableView({
                 <span className="pf-vault-chip">{vault}</span>
               </td>
               <td data-label="Cost basis" className="pf-col-num-cell">
-                {canEditCostBasis && onSaveCostBasis && !redeemSelectMode && !badge ? (
+                {canEditCostBasis && onSaveCostBasis && !badge ? (
                   <PortfolioCostBasisInlineEdit
                     layout="desktop"
                     assetName={row.name}
@@ -181,19 +162,17 @@ export function PortfolioHoldingsTableView({
                 </span>
               </td>
               <td data-label="Action" className="pf-col-action-cell">
-                {!redeemSelectMode ? (
-                  <PortfolioHoldingsRowActions
-                    isListed={isListed}
-                    disabled={tradeBlocked}
-                    disabledTitle={
-                      tradeBlocked
-                        ? "Redemption in progress — listing unavailable"
-                        : undefined
-                    }
-                    redeemStatus={badge}
-                    onSetPrice={() => onSetPrice(row.tokenId)}
-                  />
-                ) : null}
+                <PortfolioHoldingsRowActions
+                  isListed={isListed}
+                  disabled={tradeBlocked}
+                  disabledTitle={
+                    tradeBlocked
+                      ? "Redemption in progress — listing unavailable"
+                      : undefined
+                  }
+                  redeemStatus={badge}
+                  onSetPrice={() => onSetPrice(row.tokenId)}
+                />
               </td>
             </tr>
           );

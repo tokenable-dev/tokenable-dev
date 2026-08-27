@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { TkTag } from "@/components/ds";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
@@ -13,42 +14,36 @@ import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 /** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
 export function PortfolioMobileAssetCard({
   row,
+  href,
   grade,
   cost,
   valuesPending,
   canEditCostBasis,
   savingCostBasis,
   isListed,
-  selectMode = false,
-  selected = false,
-  selectable = false,
   redeemStatus = null,
   actionsDisabled = false,
   actionsDisabledTitle,
-  onToggleSelect,
   onSaveCostBasis,
   onSetPrice,
 }: {
   row: AssetRow;
+  href?: string;
   grade: string | null;
   cost: number | undefined;
   valuesPending: boolean;
   canEditCostBasis: boolean;
   savingCostBasis?: boolean;
   isListed: boolean;
-  selectMode?: boolean;
-  selected?: boolean;
-  selectable?: boolean;
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onToggleSelect?: (checked: boolean) => void;
   onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
   onSetPrice: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
-  const costEditable = canEditCostBasis && !selectMode && !redeemStatus;
+  const costEditable = canEditCostBasis && !redeemStatus;
   const dimClass =
     redeemStatus?.kind === "transit"
       ? " pf-mobile-asset-card--transit"
@@ -57,55 +52,16 @@ export function PortfolioMobileAssetCard({
         : "";
 
   return (
-    <div
-      className={`pf-mobile-asset-card${selectMode && selected ? " pf-mobile-asset-card--selected" : ""}${selectMode ? " pf-mobile-asset-card--select" : ""}${dimClass}`}
-      role={selectMode ? "button" : "listitem"}
-      tabIndex={selectMode ? 0 : undefined}
-      onClick={
-        selectMode
-          ? () => {
-              if (selectable) onToggleSelect?.(!selected);
-            }
-          : undefined
-      }
-      onKeyDown={
-        selectMode
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                if (selectable) onToggleSelect?.(!selected);
-              }
-            }
-          : undefined
-      }
-    >
-      {selectMode ? (
-        <div
-          className="pf-redeem-chk-cell pf-redeem-chk-cell--mobile"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <input
-            type="checkbox"
-            className="pf-redeem-chk"
-            checked={selected}
-            disabled={!selectable}
-            title={
-              selectable
-                ? "Select for redeem"
-                : isListed
-                  ? "Cancel listing before redeeming"
-                  : redeemStatus
-                    ? "Already in a redemption"
-                    : "Not eligible for redeem"
-            }
-            onChange={(e) => onToggleSelect?.(e.target.checked)}
-            aria-label={`Select ${row.name} for redeem`}
-          />
-        </div>
-      ) : null}
+    <div className={`pf-mobile-asset-card${dimClass}`} role="listitem">
       <div className="pf-mobile-asset-card__img">
-        {row.imageUrl ? (
+        {href ? (
+          <Link href={href} aria-label={row.name}>
+            {row.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={row.imageUrl} alt="" />
+            ) : null}
+          </Link>
+        ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.imageUrl} alt="" />
         ) : null}
@@ -113,7 +69,7 @@ export function PortfolioMobileAssetCard({
       <div className="pf-mobile-asset-card__info">
         <div className="pf-mobile-asset-card__head">
           <div className="pf-mobile-asset-card__title" title={row.name}>
-            {row.name}
+            {href ? <Link href={href}>{row.name}</Link> : row.name}
           </div>
           {grade ? (
             <TkTag tone="neutral" appearance="soft" className="pf-mobile-asset-card__grade">
@@ -148,28 +104,23 @@ export function PortfolioMobileAssetCard({
 
         {redeemStatus?.kind !== "transit" && redeemStatus?.kind !== "possession" ? (
           <>
-            <div
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            >
-              {costEditable && onSaveCostBasis ? (
-                <PortfolioCostBasisInlineEdit
-                  layout="mobile"
-                  assetName={row.name}
-                  valueUsd={cost}
-                  editable
-                  saving={savingCostBasis}
-                  onSave={onSaveCostBasis}
-                />
-              ) : (
-                <div className="pf-mobile-asset-card__row">
-                  <span className="pf-mobile-asset-card__label">Cost</span>
-                  <span className="pf-mobile-asset-card__val tkl-mono">
-                    {formatPortfolioUsd(cost)}
-                  </span>
-                </div>
-              )}
-            </div>
+            {costEditable && onSaveCostBasis ? (
+              <PortfolioCostBasisInlineEdit
+                layout="mobile"
+                assetName={row.name}
+                valueUsd={cost}
+                editable
+                saving={savingCostBasis}
+                onSave={onSaveCostBasis}
+              />
+            ) : (
+              <div className="pf-mobile-asset-card__row">
+                <span className="pf-mobile-asset-card__label">Cost</span>
+                <span className="pf-mobile-asset-card__val tkl-mono">
+                  {formatPortfolioUsd(cost)}
+                </span>
+              </div>
+            )}
             <div className="pf-mobile-asset-card__row">
               <span className="pf-mobile-asset-card__label">Mkt Price</span>
               <span className="pf-mobile-asset-card__val tkl-mono">
@@ -193,12 +144,8 @@ export function PortfolioMobileAssetCard({
           </>
         ) : null}
 
-        {!selectMode && redeemStatus?.kind !== "possession" ? (
-          <div
-            className="pf-mobile-asset-card__actions"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
+        {redeemStatus?.kind !== "possession" ? (
+          <div className="pf-mobile-asset-card__actions">
             <PortfolioHoldingsRowActions
               isListed={isListed}
               fullWidth

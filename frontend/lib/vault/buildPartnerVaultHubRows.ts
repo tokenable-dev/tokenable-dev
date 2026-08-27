@@ -52,7 +52,10 @@ function askPriceByToken(
   return out;
 }
 
-/** Partner-vault owned tokens (+ optional P2P “ship to buyer” action rows). */
+/**
+ * Partner-vault holdings / P2P ship-to-buyer.
+ * Hub (ds-22) does not list these — they go to Portfolio. Kept for reuse.
+ */
 export function buildPartnerVaultHubRows(input: {
   assets: OwnedAssetLike[];
   vaultInfo: RwaVaultInfo[];
@@ -83,20 +86,13 @@ export function buildPartnerVaultHubRows(input: {
       : `Token #${order.tokenId}`;
     rows.push({
       id: `p2p-sold:${order.id}`,
-      vstate: "self",
+      vstate: "transit",
       name,
       grade: gradeFromMetadata(asset?.metadata ?? null),
+      cert: String(order.tokenId),
       imageUrl: asset?.imageUrl ?? "",
-      cardCount: 1,
-      statusKind: "action-needed",
-      statusLabel: "Sold — ship to buyer",
-      detail: "Ship within 3 business days",
-      actionNeeded: true,
-      cta: {
-        label: "Ship to buyer",
-        href: `/p2p/orders/${encodeURIComponent(order.id)}`,
-        primary: true,
-      },
+      eta: "Ship within 3 business days",
+      addTrackingHref: `/p2p/orders/${encodeURIComponent(order.id)}`,
     });
   }
 
@@ -107,24 +103,15 @@ export function buildPartnerVaultHubRows(input: {
     const listed = askByToken.get(asset.tokenId);
     rows.push({
       id: `self:${asset.tokenId}`,
-      vstate: "self",
+      vstate: "vaulted",
       name: displayAssetNameFromMetadata(
         asset.metadata,
         `Token #${asset.tokenId}`,
       ),
       grade: gradeFromMetadata(asset.metadata),
+      cert: String(asset.tokenId),
       imageUrl: asset.imageUrl ?? "",
-      cardCount: 1,
-      statusKind: "registered",
-      statusLabel: "Registered in your vault",
-      detail: listed
-        ? `Listed at ${listed}`
-        : "Set a price in your portfolio to go live",
-      cta: {
-        label: "View in portfolio",
-        href: "/portfolio",
-        primary: false,
-      },
+      eta: listed ? `Listed at ${listed}` : "Set a price in your portfolio to go live",
     });
   }
 

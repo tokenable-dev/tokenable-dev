@@ -5,12 +5,39 @@ import {
   sellSubmissionResumeHref,
   type SellCarrier,
 } from "@/lib/sell/sellFlowDraft";
-import type { VaultHubRow } from "@/lib/vault/vaultHubTypes";
+import type { VaultHubReject, VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
 
 const OPEN_PACKAGE = new Set(["awaiting_shipment", "in_transit", "psa_reviewing"]);
 const TERMINAL_ITEM = new Set(["rejected", "failed", "completed"]);
-/** Sell-process failures / admin rejects / mint issues → Rejected tab. */
 const ISSUE_ITEM = new Set(["rejected", "failed"]);
+
+const REJECT_COPY: Record<string, Omit<VaultHubReject, "actionHref">> = {
+  "cert-mismatch": {
+    label: "Cert mismatch",
+    exp: "The cert number didn’t match the PSA record for this slab.",
+    actionLabel: "Arrange return",
+  },
+  "psa-declined": {
+    label: "PSA declined",
+    exp: "PSA didn’t accept it — ineligible, not a valid PSA slab, or suspected altered.",
+    actionLabel: "Arrange return",
+  },
+  "grade-ineligible": {
+    label: "Grade ineligible",
+    exp: "The grade is below what we accept. PSA 9–10 only.",
+    actionLabel: "Arrange return",
+  },
+  damaged: {
+    label: "Damaged in transit",
+    exp: "The slab arrived damaged during shipping.",
+    actionLabel: "File a claim",
+  },
+  "not-received": {
+    label: "Not received",
+    exp: "It didn’t arrive by the expected deadline.",
+    actionLabel: "Track shipment",
+  },
+};
 
 function itemStatus(item: VaultSubmissionApiItem): string {
   return (item.status ?? "").trim().toLowerCase();
@@ -23,23 +50,11 @@ function formatGrade(grade: string | null | undefined): string {
   return `PSA ${g}`;
 }
 
-function packageMeta(items: VaultSubmissionApi["items"]) {
-  const card = items[0];
-  return {
-    name: card?.name?.trim() || card?.cert || "Submission",
-    grade: formatGrade(card?.grade),
-    imageUrl: card?.imageUrl ?? "",
-    cardCount: items.length,
-  };
-}
-
-function itemMeta(item: VaultSubmissionApiItem) {
-  return {
-    name: item.name?.trim() || item.cert || "Card",
-    grade: formatGrade(item.grade),
-    imageUrl: item.imageUrl ?? "",
-    cardCount: 1,
-  };
+function formatDay(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function isOpenItem(item: VaultSubmissionApiItem): boolean {
@@ -49,132 +64,156 @@ function isOpenItem(item: VaultSubmissionApiItem): boolean {
 function isIssueItem(item: VaultSubmissionApiItem): boolean {
   const status = itemStatus(item);
   if (ISSUE_ITEM.has(status)) return true;
-  // Rejection reason without a successful completion → treat as issue.
-  if (item.rejectionReason?.trim() && status !== "completed" && status !== "approved" && status !== "minting") {
+  if (
+    item.rejectionReason?.trim() &&
+    status !== "completed" &&
+    status !== "approved" &&
+    status !== "minting"
+  ) {
     return true;
   }
   return false;
 }
 
-function progressRow(s: VaultSubmissionApi): VaultHubRow {
-  const meta = packageMeta(s.items);
-  const carrier = (s.carrier ?? "fedex") as SellCarrier;
-  const resumeHref = sellSubmissionResumeHref(s.status, s.publicId);
-  const detailHref = `/vault/submissions/${encodeURIComponent(s.publicId)}`;
+function itemMeta(item: VaultSubmissionApiItem) {
+  return {
+    name: item.name?.trim() || item.cert || "Card",
+    grade: formatGrade(item.grade),
+    cert: item.cert,
+    imageUrl: item.imageUrl ?? "",
+  };
+}
 
-  if (s.status === "awaiting_shipment") {
+function detailHref(publicId: string): string {
+  return `/vault/submissions/${encodeURIComponent(publicId)}`;
+}
+
+function trackingHref(s: VaultSubmissionApi): string | undefined {
+  if (!s.trackingNumber || !s.carrier) return undefined;
+  const carrier = s.carrier as SellCarrier;
+  const base = CARRIER_TRACK_URLS[carrier];
+  if (!base) return undefined;
+  return `${base}${encodeURIComponent(s.trackingNumber)}`;
+}
+
+function transitEta(s: VaultSubmissionApi): string {
+  const shipped = formatDay(s.shipDate) || formatDay(s.shippedAt);
+  const carrier = s.carrier
+    ? (CARRIER_LABELS[s.carrier as SellCarrier] ?? s.carrier)
+    : null;
+  const parts: string[] = [];
+  if (shipped) parts.push(`Shipped ${shipped}`);
+  if (carrier && s.trackingNumber) parts.push(`${carrier} · ${s.trackingNumber}`);
+  else if (s.trackingNumber) parts.push(s.trackingNumber);
+  if (parts.length) return parts.join(" · ");
+  if (s.status === "awaiting_shipment") return "Tracking number required";
+  return "In transit to the vault";
+}
+
+function verifyEta(s: VaultSubmissionApi): string {
+  const arrived = formatDay(s.updatedAt) || formatDay(s.shippedAt);
+  if (arrived) return `Arrived ${arrived} · ~14–16 business days`;
+  return "At PSA · ~14–16 business days";
+}
+
+function resolveReject(
+  raw: string | null | undefined,
+  failed: boolean,
+  s: VaultSubmissionApi,
+): VaultHubReject {
+  const href = detailHref(s.publicId);
+  const text = (raw ?? "").trim();
+  const key = text.toLowerCase().replace(/\s+/g, "-");
+  const fromCode = REJECT_COPY[key];
+  if (fromCode) {
+    const track = trackingHref(s);
     return {
-      id: s.publicId,
-      vstate: "progress",
-      ...meta,
-      statusKind: "action-needed",
-      statusLabel: "Shipping to vault",
-      detail: "Tracking number required",
-      actionNeeded: true,
-      cta: { label: "Add tracking", href: resumeHref, primary: true },
+      ...fromCode,
+      actionHref: key === "not-received" && track ? track : href,
     };
   }
 
-  if (s.status === "in_transit") {
-    return {
-      id: s.publicId,
-      vstate: "progress",
-      ...meta,
-      statusKind: "in-transit",
-      statusLabel: "Shipping to vault",
-      detail:
-        s.trackingNumber && s.carrier
-          ? `${CARRIER_LABELS[carrier] ?? s.carrier} · ${s.trackingNumber}`
-          : undefined,
-      trackingUrl:
-        s.trackingNumber && s.carrier
-          ? `${CARRIER_TRACK_URLS[carrier] ?? ""}${encodeURIComponent(s.trackingNumber)}`
-          : undefined,
-      cta: { label: "Track", href: detailHref, primary: false },
-    };
+  const lower = text.toLowerCase();
+  let code: keyof typeof REJECT_COPY | null = null;
+  if (lower.includes("cert") && lower.includes("mismatch")) code = "cert-mismatch";
+  else if (lower.includes("declined") || lower.includes("altered")) code = "psa-declined";
+  else if (lower.includes("grade") || lower.includes("ineligible")) code = "grade-ineligible";
+  else if (lower.includes("damag")) code = "damaged";
+  else if (lower.includes("not received") || lower.includes("didn’t arrive") || lower.includes("didn't arrive")) {
+    code = "not-received";
   }
-
-  // psa_reviewing — HTML splits Verifying vs PSA Review; prefer Verifying while
-  // every open item is still "reviewing", else PSA Review.
-  const openItems = s.items.filter(isOpenItem);
-  const allReviewing =
-    openItems.length > 0 && openItems.every((i) => itemStatus(i) === "reviewing");
-  if (allReviewing) {
-    return {
-      id: s.publicId,
-      vstate: "progress",
-      ...meta,
-      statusKind: "reviewing",
-      statusLabel: "Verifying",
-      detail: "Checking your card in",
-      cta: { label: "View", href: detailHref, primary: false },
-    };
+  if (code) {
+    const copy = REJECT_COPY[code];
+    return { ...copy, actionHref: trackingHref(s) && code === "not-received" ? trackingHref(s)! : href };
   }
 
   return {
-    id: s.publicId,
-    vstate: "progress",
-    ...meta,
-    statusKind: "reviewing",
-    statusLabel: "PSA Review",
-    detail: "PSA is authenticating",
-    cta: { label: "View", href: detailHref, primary: false },
+    label: failed ? "Failed" : "Rejected",
+    exp:
+      text ||
+      (failed
+        ? "Couldn’t be listed — contact support if this persists"
+        : "The grade is below what we accept. PSA 9–10 only."),
+    actionLabel: "View details",
+    actionHref: href,
   };
+}
+
+function progressRows(s: VaultSubmissionApi): VaultHubRow[] {
+  const open = s.items.filter((i) => isOpenItem(i) && !isIssueItem(i));
+  const cards = open.length > 0 ? open : s.items.length > 0 ? [s.items[0]] : [];
+  const resumeHref = sellSubmissionResumeHref(s.status, s.publicId);
+  const awaiting = s.status === "awaiting_shipment";
+  const inTransit = s.status === "in_transit";
+
+  return cards.map((item) => {
+    const vstate: VaultHubVState = awaiting || inTransit ? "transit" : "verify";
+    return {
+      id: `${s.publicId}:${vstate}:${item.id}`,
+      vstate,
+      ...itemMeta(item),
+      eta: vstate === "transit" ? transitEta(s) : verifyEta(s),
+      trackingUrl: vstate === "transit" ? trackingHref(s) : undefined,
+      addTrackingHref: awaiting ? resumeHref : undefined,
+    };
+  });
 }
 
 function doneRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubRow {
   return {
     id: `${s.publicId}:done:${item.id}`,
-    vstate: "done",
+    vstate: "vaulted",
     ...itemMeta(item),
-    statusKind: "token-sent",
-    statusLabel: "Added to portfolio",
-    detail: "Set a price in your portfolio to go live",
-    cta: { label: "View in portfolio", href: "/portfolio", primary: false },
   };
 }
 
 function rejectedRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubRow {
-  const status = itemStatus(item);
-  const failed = status === "failed";
+  const failed = itemStatus(item) === "failed";
   return {
     id: `${s.publicId}:rej:${item.id}`,
-    vstate: "rejected",
+    vstate: "reject",
     ...itemMeta(item),
-    gradeRejected: true,
-    statusKind: "rejected",
-    statusLabel: failed ? "Failed" : "Rejected",
-    detail:
-      item.rejectionReason?.trim() ||
-      (failed
-        ? "Couldn’t be listed — contact support if this persists"
-        : "Grade not eligible (PSA 9/10 only)"),
-    cta: {
-      label: "View",
-      href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
-      primary: false,
-    },
+    reject: resolveReject(item.rejectionReason, failed, s),
   };
 }
 
-/** Package-level issue when scenario says F/H but items lack rejected/failed flags. */
 function packageIssueRow(s: VaultSubmissionApi): VaultHubRow {
-  const meta = packageMeta(s.items);
+  const card = s.items[0];
   const allRejected = s.scenario === "F";
   return {
     id: `${s.publicId}:issue`,
-    vstate: "rejected",
-    ...meta,
-    gradeRejected: true,
-    statusKind: "rejected",
-    statusLabel: allRejected ? "Rejected" : "Failed",
-    detail: allRejected
-      ? "Did not meet vault requirements"
-      : "Something went wrong listing one or more cards",
-    cta: {
-      label: "View",
-      href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
-      primary: false,
+    vstate: "reject",
+    name: card?.name?.trim() || card?.cert || "Submission",
+    grade: formatGrade(card?.grade),
+    cert: card?.cert ?? "",
+    imageUrl: card?.imageUrl ?? "",
+    reject: {
+      label: allRejected ? "Rejected" : "Failed",
+      exp: allRejected
+        ? "Did not meet vault requirements"
+        : "Something went wrong listing one or more cards",
+      actionLabel: "View details",
+      actionHref: detailHref(s.publicId),
     },
   };
 }
@@ -182,19 +221,17 @@ function packageIssueRow(s: VaultSubmissionApi): VaultHubRow {
 function shouldShowProgressPackage(s: VaultSubmissionApi): boolean {
   if (s.status === "awaiting_shipment" || s.status === "in_transit") return true;
   if (s.status !== "psa_reviewing") return false;
-  // All cards terminal (e.g. all rejected) — show per-card rows only, not a phantom package.
   if (s.items.length > 0 && s.items.every((i) => !isOpenItem(i))) return false;
   return true;
 }
 
-const VSTATE_ORDER: Record<VaultHubRow["vstate"], number> = {
-  self: 0,
-  progress: 1,
-  done: 2,
-  rejected: 3,
+const VSTATE_ORDER: Record<VaultHubVState, number> = {
+  transit: 0,
+  verify: 1,
+  vaulted: 2,
+  reject: 3,
 };
 
-/** Map vault submissions → Sell hub rows (progress / done / rejected). */
 export function buildVaultHubRowsFromSubmissions(
   submissions: VaultSubmissionApi[],
 ): VaultHubRow[] {
@@ -212,13 +249,12 @@ export function buildVaultHubRowsFromSubmissions(
       if (itemStatus(item) === "completed") rows.push(doneRow(s, item));
     }
 
-    // Scenario F (all rejected) / H (partial mint failure) without per-item flags.
     if (issueCount === 0 && (s.scenario === "F" || s.scenario === "H")) {
       rows.push(packageIssueRow(s));
     }
 
     if (shouldShowProgressPackage(s) && OPEN_PACKAGE.has(s.status)) {
-      rows.push(progressRow(s));
+      rows.push(...progressRows(s));
     } else if (
       s.status === "completed" &&
       !s.items.some((i) => itemStatus(i) === "completed") &&
@@ -226,13 +262,11 @@ export function buildVaultHubRowsFromSubmissions(
       s.scenario !== "F" &&
       s.scenario !== "H"
     ) {
-      // Package completed without per-item flags — still show one done row.
       const first = s.items[0];
       if (first) rows.push(doneRow(s, first));
     }
   }
 
-  // Match Vault-Dashboard-Active.html list order within the PSA block.
   return rows.sort(
     (a, b) => VSTATE_ORDER[a.vstate] - VSTATE_ORDER[b.vstate] || a.name.localeCompare(b.name),
   );
@@ -241,10 +275,10 @@ export function buildVaultHubRowsFromSubmissions(
 export function countVaultHubByState(rows: VaultHubRow[]) {
   const counts = {
     all: rows.length,
-    self: 0,
-    progress: 0,
-    done: 0,
-    rejected: 0,
+    transit: 0,
+    verify: 0,
+    vaulted: 0,
+    reject: 0,
   };
   for (const r of rows) counts[r.vstate] += 1;
   return counts;

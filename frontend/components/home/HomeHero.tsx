@@ -8,7 +8,7 @@ import { HomeHeroSlabCarousel } from "@/components/home/HomeHeroSlabCarousel";
 /** index.html hero Group 4 — static marketing figures for now. */
 const HERO_STATS = [
   { value: "128,540", label: "Graded cards", tone: "default" as const },
-  { value: "61,420", label: "Cards secured", tone: "default" as const },
+  { value: "$284M", label: "Vaulted", tone: "default" as const },
   { value: "+18.4%", label: "Index · 1Y", tone: "pos" as const },
 ];
 

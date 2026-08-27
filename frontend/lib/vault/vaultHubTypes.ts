@@ -1,36 +1,28 @@
 /**
- * Sell hub row — Vault-Dashboard-Active.html `data-vstate` + ip-card.
+ * Sell hub row — Vault-Dashboard-Active.html (design system-22) per-card card.
  */
 
-export type VaultHubVState = "self" | "progress" | "done" | "rejected";
+export type VaultHubVState = "transit" | "verify" | "vaulted" | "reject";
 
-export type VaultIpStatusKind =
-  | "token-sent"
-  | "in-transit"
-  | "reviewing"
-  | "minting"
-  | "action-needed"
-  | "registered"
-  | "rejected";
+export type VaultHubReject = {
+  label: string;
+  exp: string;
+  actionLabel: string;
+  actionHref: string;
+};
 
 export type VaultHubRow = {
   id: string;
   vstate: VaultHubVState;
-  /** First-registered card title (package representative). */
   name: string;
   grade: string;
-  gradeRejected?: boolean;
-  /** First-registered card image. */
+  cert: string;
   imageUrl: string;
-  /** Total cards in the package (≥ 1). */
-  cardCount: number;
-  statusKind: VaultIpStatusKind;
-  statusLabel: string;
-  detail?: string;
+  eta?: string;
   trackingUrl?: string;
-  hint?: string;
-  actionNeeded?: boolean;
-  cta: { label: string; href: string; primary?: boolean };
+  /** Pre-ship: existing Add tracking flow. */
+  addTrackingHref?: string;
+  reject?: VaultHubReject;
 };
 
 /** @deprecated Prefer VaultHubRow — kept for older imports. */

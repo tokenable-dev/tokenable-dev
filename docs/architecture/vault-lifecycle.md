@@ -162,7 +162,7 @@ Any state  →  cancelled   (on-chain mint failure; compensating action)
 
 User-facing flow (product copy: **Redeem**, route `/portfolio/redeem`):
 
-1. Portfolio My Assets → **Redeem** → select up to 50 eligible cards (not listed, no open redemption)
+1. Portfolio My Assets → open a card → Certificate of Ownership (`/portfolio/assets/[tokenId]`) → **Redeem** (owner, not listed, no open redemption). One card per draft; the batch model still supports up to 50 if another entry point is added. When a redemption is already open the same button becomes **Redemption status** and deep-links to the matching `/portfolio/redeem?view=` screen.
 2. Draft in `sessionStorage` → `/portfolio/redeem` ship-to form; cost from `GET /api/rwa/redeem/estimate?tokenIds=` (retrieval + early if vaulted &lt;90d via `deposited_at` + shipping once)
 3. **Review and pay** → Review & pay screen
 4. **Pay and redeem** → KYC Level 2 → USDC `transfer` to `PLATFORM_FEE_RECIPIENT` → `POST /api/rwa/redeem-batch` (stores `payment_received_usdc_micros`) → buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALLET_ADDRESS` for every batch NFT → `POST /api/rwa/redeem-batch/:batchId/custody` → only when **all** are `in_custody` → **Preparing** (`?view=preparing`)

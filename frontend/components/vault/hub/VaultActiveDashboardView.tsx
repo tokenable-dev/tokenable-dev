@@ -4,20 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { VaultThumb } from "@/components/vault/VaultThumb";
-import { useActivePartner } from "@/hooks/partner/useActivePartner";
-import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
-import { useUserAssets } from "@/hooks/portfolio/useUserAssets";
 import { listVaultSubmissions } from "@/lib/core/api/vault-submissions";
-import { listMyP2pOrders } from "@/lib/core/api/p2p";
-import { postRwaVaultInfoBatch } from "@/lib/core/api/rwa-settlement";
 import { rq } from "@/lib/core";
-import { activeRqChainId } from "@/lib/chains";
 import { useAuthStore } from "@/store/authStore";
 import {
   buildVaultHubRowsFromSubmissions,
   countVaultHubByState,
 } from "@/lib/vault/buildVaultHubRows";
-import { buildPartnerVaultHubRows } from "@/lib/vault/buildPartnerVaultHubRows";
 import type { VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
 import { cn } from "@/lib/ds/cn";
 
@@ -25,108 +18,126 @@ type TabFilter = "all" | VaultHubVState;
 
 const TABS: { id: TabFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "self", label: "Partner vault" },
-  { id: "progress", label: "In progress" },
-  { id: "done", label: "Added to portfolio" },
-  { id: "rejected", label: "Rejected" },
+  { id: "transit", label: "In transit" },
+  { id: "verify", label: "Verifying" },
+  { id: "vaulted", label: "Vaulted" },
+  { id: "reject", label: "Rejected" },
 ];
 
-function statusDotClass(kind: VaultHubRow["statusKind"]): string {
-  if (kind === "action-needed") return "vault-status-dot--amber";
-  if (kind === "in-transit" || kind === "reviewing" || kind === "minting") {
-    return "vault-status-dot--azure";
-  }
-  if (kind === "rejected") return "vault-status-dot--neg";
-  return "vault-status-dot--pos";
-}
+const STEPS = ["In transit", "Verifying", "Vaulted"] as const;
+const STEP_IDX: Record<Exclude<VaultHubVState, "reject">, number> = {
+  transit: 0,
+  verify: 1,
+  vaulted: 2,
+};
 
-function statusLabelClass(kind: VaultHubRow["statusKind"]): string {
-  if (kind === "action-needed") return "vault-ip-card__status-label--amber";
-  if (kind === "in-transit" || kind === "reviewing" || kind === "minting") {
-    return "vault-ip-card__status-label--azure";
-  }
-  if (kind === "rejected") return "vault-ip-card__status-label--neg";
-  return "vault-ip-card__status-label--pos";
-}
-
-function HubIpCard({ item }: { item: VaultHubRow }) {
+function RejectChip() {
   return (
-    <div
-      className={cn(
-        "vault-ip-card",
-        item.actionNeeded && "vault-ip-card--action",
-      )}
-    >
-      <div className="vault-ip-card__top">
-        <div className="vault-ip-card__thumb">
-          <VaultThumb src={item.imageUrl} width={56} height={78} />
-          {item.cardCount > 1 ? (
-            <span className="vault-ip-card__thumb-count" aria-hidden>
-              {item.cardCount}
-            </span>
-          ) : null}
+    <span className="vault-v-chip vault-v-chip--reject">
+      <span className="vault-v-chip__dot" />
+      Rejected
+    </span>
+  );
+}
+
+function Steps({ status }: { status: VaultHubVState }) {
+  const cur = status === "reject" ? 1 : STEP_IDX[status];
+  return (
+    <div className="vault-v-steps">
+      {STEPS.map((label, i) => {
+        const cls = i < cur ? "done" : i === cur ? "current" : "";
+        const mark = i < cur ? "✓" : String(i + 1);
+        return (
+          <div key={label} className={cn("vault-v-step", cls && `vault-v-step--${cls}`)}>
+            <span className="vault-v-step__dot">{mark}</span>
+            <span className="vault-v-step__lbl">{label}</span>
+            {i < STEPS.length - 1 ? <span className="vault-v-step__bar" /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function HubCard({ item }: { item: VaultHubRow }) {
+  const reject = item.vstate === "reject" && item.reject;
+  return (
+    <div className={cn("vault-v-card", reject && "vault-v-card--reject")}>
+      <div className="vault-v-card__body">
+        <div className="vault-v-thumb">
+          <VaultThumb src={item.imageUrl} width={54} height={80} />
         </div>
-        <div className="vault-ip-card__info">
-          <div className="vault-ip-card__name-row">
-            <div className="vault-ip-card__name">{item.name}</div>
-            {item.cardCount > 1 ? (
-              <span className="vault-ip-card__more">+{item.cardCount - 1} more</span>
+        <div className="vault-v-info">
+          <div className="vault-v-name-row">
+            <div className="vault-v-name">{item.name}</div>
+            {reject ? <RejectChip /> : null}
+          </div>
+          <div className="vault-v-meta">
+            <span className="vault-v-grade">{item.grade}</span>
+            {item.cert ? (
+              <span className="vault-v-cert tkl-mono">Cert #{item.cert}</span>
             ) : null}
           </div>
-          <div className="vault-ip-card__status">
-            <span className={cn("vault-status-dot", statusDotClass(item.statusKind))} />
-            <span
-              className={cn(
-                "vault-ip-card__status-label",
-                statusLabelClass(item.statusKind),
+          {reject ? (
+            <div className="vault-v-reject-box">
+              <span className="vault-v-reason-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="13" />
+                  <line x1="12" y1="16.5" x2="12" y2="16.5" />
+                </svg>
+                Reason · {item.reject!.label}
+              </span>
+              <p className="vault-v-reason-exp">{item.reject!.exp}</p>
+              <div className="vault-v-actions">
+                <Link href={item.reject!.actionHref} className="tk-btn tk-btn--primary">
+                  {item.reject!.actionLabel}
+                </Link>
+                <a href="mailto:dev@tokenable.io" className="tk-btn tk-btn--subtle">
+                  Contact support
+                </a>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Steps status={item.vstate} />
+              {item.vstate === "vaulted" ? (
+                <div className="vault-v-note">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>
+                    Verified and moved to your{" "}
+                    <Link href="/portfolio">Portfolio</Link> — drops off this page shortly.
+                  </span>
+                </div>
+              ) : (
+                <div className="vault-v-eta">
+                  {item.trackingUrl && item.eta ? (
+                    <a href={item.trackingUrl} target="_blank" rel="noopener noreferrer">
+                      {item.eta}
+                    </a>
+                  ) : (
+                    item.eta
+                  )}
+                  {item.addTrackingHref ? (
+                    <>
+                      {" · "}
+                      <Link href={item.addTrackingHref}>Add tracking</Link>
+                    </>
+                  ) : null}
+                </div>
               )}
-            >
-              {item.statusLabel}
-            </span>
-            {item.detail && item.trackingUrl ? (
-              <a
-                href={item.trackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mono vault-ip-card__tracking-link"
-              >
-                {item.detail} →
-              </a>
-            ) : item.detail ? (
-              <span className="vault-ip-card__detail-text">{item.detail}</span>
-            ) : null}
-            <span
-              className={cn(
-                "vault-hub-grade-badge",
-                item.gradeRejected && "vault-hub-grade-badge--rejected",
-              )}
-            >
-              {item.grade}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="vault-ip-card__bottom">
-        <Link
-          href={item.cta.href}
-          className={cn(
-            "vault-hub-cta-link tk-btn tk-btn--sm",
-            item.cta.primary ? "tk-btn--primary" : "tk-btn--subtle",
+            </>
           )}
-        >
-          {item.cta.label} →
-        </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-/** Vault-Dashboard-Active.html `#view-active` — status tabs + ip-card list. */
+/** Vault-Dashboard-Active.html — status tabs + per-card list. */
 export function VaultActiveDashboardView() {
-  const { portfolioAddress } = useLinkedPortfolioWallet();
-  const wallet = portfolioAddress?.trim() || "";
-  const chainId = activeRqChainId();
-  const { isActivePartner } = useActivePartner();
   const [filter, setFilter] = useState<TabFilter>("all");
 
   const submissionsQ = useQuery({
@@ -135,92 +146,16 @@ export function VaultActiveDashboardView() {
     staleTime: 10_000,
   });
 
-  const assets = useUserAssets(wallet || undefined, {
-    enabled: Boolean(wallet) && isActivePartner,
-    includeOrderHistory: false,
-    includeMarketPreview: false,
-    loadMarketOrders: true,
-  });
-
-  const vaultInfoQ = useQuery({
-    queryKey: rq.rwaVaultInfoBatch(wallet, assets.loadedTokenIds, chainId),
-    queryFn: () => postRwaVaultInfoBatch(assets.loadedTokenIds),
-    enabled:
-      isActivePartner && Boolean(wallet) && assets.loadedTokenIds.length > 0,
-    staleTime: 60_000,
-  });
-
-  const p2pOrdersQ = useQuery({
-    queryKey: ["p2p", "me", "orders", "seller", chainId],
-    queryFn: () => listMyP2pOrders("seller"),
-    enabled: isActivePartner,
-    staleTime: 15_000,
-  });
-
-  const submissionRows = useMemo(
+  const allRows = useMemo(
     () => buildVaultHubRowsFromSubmissions(submissionsQ.data ?? []),
     [submissionsQ.data],
   );
 
-  const partnerRows = useMemo(() => {
-    if (!isActivePartner || !wallet) return [] as VaultHubRow[];
-    return buildPartnerVaultHubRows({
-      assets: assets.assets,
-      vaultInfo: vaultInfoQ.data?.items ?? [],
-      activeOrders: assets.activeOrders,
-      wallet,
-      p2pSellerOrders: p2pOrdersQ.data ?? [],
-    });
-  }, [
-    isActivePartner,
-    wallet,
-    assets.assets,
-    assets.activeOrders,
-    vaultInfoQ.data,
-    p2pOrdersQ.data,
-  ]);
-
-  const allRows = useMemo(
-    () => [...partnerRows, ...submissionRows],
-    [partnerRows, submissionRows],
-  );
-
   const counts = useMemo(() => countVaultHubByState(allRows), [allRows]);
 
-  const visibleTabs = useMemo(
-    () =>
-      TABS.filter((t) => {
-        if (t.id === "all" || t.id === "rejected") return true;
-        if (t.id === "self" && !isActivePartner) return false;
-        return counts[t.id] > 0;
-      }),
-    [counts, isActivePartner],
-  );
+  const visible = filter === "all" ? allRows : allRows.filter((r) => r.vstate === filter);
 
-  const effectiveFilter: TabFilter =
-    visibleTabs.some((t) => t.id === filter) ? filter : "all";
-
-  const selfVisible =
-    isActivePartner &&
-    partnerRows.length > 0 &&
-    (effectiveFilter === "all" || effectiveFilter === "self");
-
-  const psaRows = useMemo(() => {
-    const list = submissionRows.filter((r) => r.vstate !== "self");
-    if (effectiveFilter === "all") return list;
-    if (effectiveFilter === "self") return [];
-    return list.filter((r) => r.vstate === effectiveFilter);
-  }, [submissionRows, effectiveFilter]);
-
-  const selfFiltered =
-    effectiveFilter === "all" || effectiveFilter === "self"
-      ? partnerRows
-      : [];
-
-  const anyVisible = selfVisible || psaRows.length > 0;
-  const loading = submissionsQ.isLoading;
-
-  if (loading && allRows.length === 0) {
+  if (submissionsQ.isLoading && allRows.length === 0) {
     return (
       <div className="vault-hub-active vault-hub-active--loading" aria-busy>
         <div className="vault-hub-active__skel" />
@@ -231,9 +166,16 @@ export function VaultActiveDashboardView() {
 
   return (
     <div className="vault-hub-active">
-      <div className="vault-vtabs" role="tablist" aria-label="Sell status">
-        {visibleTabs.map((t) => {
-          const on = effectiveFilter === t.id;
+      <p className="vault-hub-legend">
+        Once <strong>vaulted</strong>, a card moves to your <strong>Portfolio</strong> and leaves
+        this page. <strong>Rejected</strong> cards stay here until you resolve them. Partner-vault
+        (instant) cards skip vaulting and go straight to Portfolio. Full record is always in your{" "}
+        <Link href="/portfolio">transaction history</Link>.
+      </p>
+
+      <div className="vault-vtabs" role="tablist" aria-label="Vaulting status">
+        {TABS.map((t) => {
+          const on = filter === t.id;
           return (
             <button
               key={t.id}
@@ -250,54 +192,22 @@ export function VaultActiveDashboardView() {
         })}
       </div>
 
-      {selfVisible ? (
-        <div className="vault-hub-block" data-vblock="self">
-          <div className="vault-hub-block__head">
-            <div className="vault-hub-block__title">
-              Partner vault{" "}
-              <span className="mono vault-hub-block__count">
-                {partnerRows.length}{" "}
-                {partnerRows.length === 1 ? "card" : "cards"}
-              </span>
-            </div>
-            <span className="vault-hub-block__sub">
-              Registered from your own vault — no shipping or review.
-            </span>
-          </div>
-          <div className="vault-ip-grid">
-            {selfFiltered.map((item) => (
-              <HubIpCard key={item.id} item={item} />
-            ))}
-          </div>
+      {visible.length > 0 ? (
+        <div className="vault-v-list">
+          {visible.map((item) => (
+            <HubCard key={item.id} item={item} />
+          ))}
         </div>
-      ) : null}
-
-      {psaRows.length > 0 ? (
-        <div className="vault-hub-block" data-vblock="psa">
-          <div className="vault-ip-grid">
-            {psaRows.map((item) => (
-              <HubIpCard key={item.id} item={item} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {!anyVisible ? (
-        <div className="vault-hub-empty-filter">
-          Nothing in this state right now.
-        </div>
-      ) : null}
+      ) : (
+        <div className="vault-v-empty">Nothing in this state right now.</div>
+      )}
     </div>
   );
 }
 
-/** True when the signed-in user has any Sell-hub activity (tabs + rows). */
+/** True when the signed-in user has any PSA vaulting activity on this hub. */
 export function useHasVaultHubActivity(): boolean {
   const user = useAuthStore((s) => s.user);
-  const { portfolioAddress } = useLinkedPortfolioWallet();
-  const wallet = portfolioAddress?.trim() || "";
-  const { isActivePartner } = useActivePartner();
-  const chainId = activeRqChainId();
 
   const submissionsQ = useQuery({
     queryKey: rq.vaultSubmissions(),
@@ -306,46 +216,8 @@ export function useHasVaultHubActivity(): boolean {
     enabled: Boolean(user),
   });
 
-  const assets = useUserAssets(wallet || undefined, {
-    enabled: Boolean(wallet) && isActivePartner,
-    includeOrderHistory: false,
-    includeMarketPreview: false,
-    loadMarketOrders: false,
-  });
-
-  const vaultInfoQ = useQuery({
-    queryKey: rq.rwaVaultInfoBatch(wallet, assets.loadedTokenIds, chainId),
-    queryFn: () => postRwaVaultInfoBatch(assets.loadedTokenIds),
-    enabled:
-      isActivePartner && Boolean(wallet) && assets.loadedTokenIds.length > 0,
-    staleTime: 60_000,
-  });
-
-  const p2pOrdersQ = useQuery({
-    queryKey: ["p2p", "me", "orders", "seller", chainId],
-    queryFn: () => listMyP2pOrders("seller"),
-    enabled: isActivePartner && Boolean(user),
-    staleTime: 15_000,
-  });
-
-  return useMemo(() => {
-    const fromSubs = buildVaultHubRowsFromSubmissions(submissionsQ.data ?? []);
-    if (fromSubs.length > 0) return true;
-    if (!isActivePartner || !wallet) return false;
-    const partner = buildPartnerVaultHubRows({
-      assets: assets.assets,
-      vaultInfo: vaultInfoQ.data?.items ?? [],
-      activeOrders: [],
-      wallet,
-      p2pSellerOrders: p2pOrdersQ.data ?? [],
-    });
-    return partner.length > 0;
-  }, [
-    submissionsQ.data,
-    isActivePartner,
-    wallet,
-    assets.assets,
-    vaultInfoQ.data,
-    p2pOrdersQ.data,
-  ]);
+  return useMemo(
+    () => buildVaultHubRowsFromSubmissions(submissionsQ.data ?? []).length > 0,
+    [submissionsQ.data],
+  );
 }

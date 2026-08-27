@@ -29,6 +29,7 @@ export function HomeJustVaulted() {
           snapshotByKey={snapshotByKey}
           subMode="vaulted"
           changeLoading={snapshotsPending}
+          layout="wrap"
         />
       )}
     </section>

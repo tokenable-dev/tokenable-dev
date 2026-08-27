@@ -6,7 +6,7 @@ Path: `Tokenable-with design system-5/` (repo root). **Preferred HTML reference*
 
 | HTML file | Title | Next.js route(s) | Phase |
 |-----------|-------|------------------|-------|
-| `index.html` | Home | `app/page.tsx` | 3 |
+| `index.html` | Home (ds-23: pay conveyor, partner PNGs, `$284M` Vaulted) | `app/page.tsx` | 3 |
 | `Markets.html` | Markets browse | `app/markets/page.tsx` | 4 |
 | `Card.html` | Collection / card detail | `app/marketplace/collections/[collectionKey]/page.tsx` | 5 |
 | `Portfolio.html` | Portfolio | `app/portfolio/page.tsx` | 6 |
@@ -17,7 +17,7 @@ Path: `Tokenable-with design system-5/` (repo root). **Preferred HTML reference*
 | `Choose-Vault.html` | Vault choice (standalone) | `SellFlowChooseVault` in `/sell/flow` | ds-v2 |
 | `PSA-Shipping.html` | Pack & tracking | `app/sell/shipping/page.tsx` | ds-v2 |
 | `Vault.html` | Vault landing | `app/vault/page.tsx` | 8 |
-| `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |
+| `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub (ds-22 active: per-card In transit / Verifying / Vaulted / Rejected) | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |
 | `Vault-Submit.html` | Personal mint submit | `app/vault/submit` + `MintForm` | 8 |
 | `Vault-Detail.html` | Submission detail A~H | `app/vault/submissions/[id]` | 8 / ds-v2 |
 | `Vault-Shipping.html` | (legacy) ship card | superseded by `PSA-Shipping.html` → `/sell/shipping` | — |

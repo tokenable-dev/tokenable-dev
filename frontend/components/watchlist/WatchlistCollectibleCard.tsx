@@ -10,10 +10,7 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import {
-  buildMarketsCollectionMeta,
-  buildMarketsCollectionTitle,
-} from "@/lib/markets/marketsCollectionTitle";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
@@ -93,6 +90,44 @@ function resolveChangeDisplay(
   };
 }
 
+export type WatchlistRowModel = {
+  href: string;
+  title: string;
+  grade: string | null;
+  popLabel: string | null;
+  priceLabel: string;
+  change: { pctLabel: string; period: string; tone: "up" | "down" | "muted" };
+  imageSrc: string | null;
+};
+
+export function buildWatchlistRowModel(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+  resolvedCoverUrl: string | undefined,
+  changeLoading: boolean,
+): WatchlistRowModel {
+  const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
+  const imageSrc = resolvedCoverUrl || displayImageUrl;
+  const comp = parseCollectionComponents(collection.components);
+  const title = buildMarketsCollectionTitle({ collection, comp, omitGrade: true });
+  const grade = formatGradeLabel(collection);
+  const pop =
+    typeof comp.psaTotalPopulation === "number" && comp.psaTotalPopulation >= 0
+      ? Math.floor(comp.psaTotalPopulation)
+      : null;
+  const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
+  const changePct = resolveMarketsListingMarketChangePct(snapshot);
+  return {
+    href: `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`,
+    title,
+    grade,
+    popLabel: pop != null ? formatBadgeCount(pop) : null,
+    priceLabel: formatUsdCompact(priceUsd),
+    change: resolveChangeDisplay(snapshot, changePct, changeLoading),
+    imageSrc,
+  };
+}
+
 export function WatchlistCollectibleCard({
   collection,
   snapshot,
@@ -104,24 +139,17 @@ export function WatchlistCollectibleCard({
   resolvedCoverUrl?: string;
   changeLoading?: boolean;
 }) {
-  const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
-  const imageSrc = resolvedCoverUrl || displayImageUrl;
-  const comp = parseCollectionComponents(collection.components);
-  const title = buildMarketsCollectionTitle({ collection, comp });
-  const setLine = buildMarketsCollectionMeta({ collection, comp }) || null;
-  const grade = formatGradeLabel(collection);
-  const pop =
-    typeof comp.psaTotalPopulation === "number" && comp.psaTotalPopulation >= 0
-      ? Math.floor(comp.psaTotalPopulation)
-      : null;
-  const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
-  const changePct = resolveMarketsListingMarketChangePct(snapshot);
-  const change = resolveChangeDisplay(snapshot, changePct, changeLoading);
-  const collectionHref = `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`;
+  const row = buildWatchlistRowModel(
+    collection,
+    snapshot,
+    resolvedCoverUrl,
+    changeLoading,
+  );
+  const { href, title, grade, popLabel, priceLabel, change, imageSrc } = row;
 
   return (
     <Link
-      href={collectionHref}
+      href={href}
       className="card watchlist-card"
       onClick={() =>
         rememberCollectionCoverImage(collection.collectionKey, imageSrc)
@@ -145,20 +173,16 @@ export function WatchlistCollectibleCard({
       </div>
       <div className="card__body">
         <div className="card__title">{title}</div>
-        {setLine ? <div className="card__set">{setLine}</div> : null}
         <div className="card__meta watchlist-card__meta">
           {grade ? <span className="watchlist-card__grade">{grade}</span> : null}
-          {pop != null ? (
+          {popLabel != null ? (
             <span className="card__stat">
-              POP<span className="card__stat-val">{formatBadgeCount(pop)}</span>
+              POP<span className="card__stat-val">{popLabel}</span>
             </span>
           ) : null}
-          <span className="card__stat">
-            INSURED<span className="card__stat-val">100%</span>
-          </span>
         </div>
         <div className="card__price-row">
-          <span className="card__price">{formatUsdCompact(priceUsd)}</span>
+          <span className="card__price">{priceLabel}</span>
           <span className={`card__sub card__sub--${change.tone}`}>
             {change.pctLabel}
             {change.period ? <span className="card__per"> {change.period}</span> : null}
@@ -168,7 +192,7 @@ export function WatchlistCollectibleCard({
           <TkButton variant="primary" size="sm" decorative className="watchlist-card-actions__btn">
             Buy
           </TkButton>
-          <TkButton variant="neutral" size="sm" decorative className="watchlist-card-actions__btn">
+          <TkButton variant="ghost" size="sm" decorative className="watchlist-card-actions__btn">
             Bid
           </TkButton>
         </div>

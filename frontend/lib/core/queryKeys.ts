@@ -37,6 +37,9 @@ export const rq = {
   /** GNB / hero typeahead — same API, different cache shape than infinite `pages`. */
   collectionsSearchTypeahead: (chainId: number, q: string) =>
     ["collections", "search-typeahead", chainId, q] as const,
+  /** GNB + search page cert/card hits (`GET /marketplace/search`). */
+  catalogSearch: (chainId: number, q: string) =>
+    ["catalog", "search", chainId, q] as const,
   /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
   homeAllCollections: (chainId: number) =>
     ["collections", "marketplace", "all", chainId] as const,

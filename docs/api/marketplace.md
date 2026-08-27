@@ -266,7 +266,21 @@ Returns a cursor-paginated list of collection summaries, or a **text search** wh
 |-------|---------|-------------|
 | `limit` | `30` | Max `60` (browse) / max `40` (when `q` set) |
 | `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
-| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. |
+| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match collection cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. Individual minted cards are searched via `GET /api/marketplace/search`. |
+
+---
+
+### `GET /api/marketplace/search`
+
+Unified catalog search for the header typeahead and `/search` page.
+
+| Query | Default | Description |
+|-------|---------|-------------|
+| `q` | required | Same collection text match as `GET /collections?q=`. Digit-only queries prefix-match **`rwa_tokens.cert_number`** at any length (e.g. `123`). Text queries match token `display_name`. |
+| `cardLimit` | `12` | Max minted-card hits (`0`–`24`). |
+| `collectionLimit` | `40` | Max collection hits (`0`–`40`). `0` skips collection search. |
+
+Response: `{ cards: SearchCardHit[], collections: CollectionSummary[] }`. Cards are listed first in the UI (cert row), then collections.
 
 ---
 

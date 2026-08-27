@@ -5,6 +5,7 @@ import { HomeTicker } from "@/components/home/HomeTicker";
 import { HomeTopMovers } from "@/components/home/HomeTopMovers";
 import { HomeFeatures } from "@/components/home/HomeFeatures";
 import { HomeJustVaulted } from "@/components/home/HomeJustVaulted";
+import { HomePaySection } from "@/components/home/HomePaySection";
 import { HomePartners } from "@/components/home/HomePartners";
 import "@/styles/tokenable-home.css";
 
@@ -16,6 +17,7 @@ export function HomePageContent() {
       <HomeTopMovers />
       <HomeFeatures />
       <HomeJustVaulted />
+      <HomePaySection />
       <HomePartners />
     </div>
   );
