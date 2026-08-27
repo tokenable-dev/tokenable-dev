@@ -32,12 +32,16 @@ export function SearchCertMatches({ cards }: { cards: MarketplaceSearchCardHit[]
         const href = `/marketplace/${encodeURIComponent(card.tokenId)}`;
         return (
           <Link key={card.tokenId} href={href} className="srch-cert-match">
-            {img ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={img} alt="" />
-            ) : (
-              <span className="srch-cert-match__thumb-empty" aria-hidden />
-            )}
+            <span className="srch-cert-match__thumb">
+              {img ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={img} alt="" loading="lazy" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="srch-cert-match__thumb-fallback" aria-hidden>
+                  #{card.tokenId}
+                </span>
+              )}
+            </span>
             <div className="srch-cert-match__copy">
               <div className="srch-cert-match__title">{card.title}</div>
               <div className="srch-cert-match__meta">{meta.join(" · ")}</div>

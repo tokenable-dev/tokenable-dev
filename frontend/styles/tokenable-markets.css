@@ -1573,14 +1573,32 @@
   background: #1a1a1a;
 }
 
-.srch-cert-match img,
-.srch-cert-match__thumb-empty {
-  width: 52px;
-  height: 52px;
-  border-radius: 8px;
-  object-fit: cover;
+/* Same treatment as `.markets-grid .card__img`: fixed 0.72 frame + object-fill,
+   so mixed slab crops all render at one size instead of some tall, some narrow. */
+.srch-cert-match__thumb {
   flex: none;
-  background: #0e0e0e;
+  width: 54px;
+  aspect-ratio: 0.72;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #111113;
+}
+
+.srch-cert-match__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
+  filter: saturate(1.05) contrast(1.04);
+}
+
+.srch-cert-match__thumb-fallback {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--t3);
 }
 
 .srch-cert-match__copy {
@@ -1628,4 +1646,37 @@
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+@media (max-width: 640px) {
+  .srch-sec-title {
+    font-size: 20px;
+  }
+
+  .srch-cert-match {
+    gap: 12px;
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .srch-cert-match__thumb {
+    width: 48px;
+  }
+
+  .srch-cert-match__title {
+    font-size: 14px;
+  }
+
+  .srch-cert-match__meta {
+    font-size: 10px;
+    word-break: break-word;
+  }
+
+  .srch-cert-match__price {
+    min-width: 64px;
+  }
+
+  .srch-cert-match__usd {
+    font-size: 15px;
+  }
 }
