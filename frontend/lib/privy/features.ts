@@ -37,7 +37,7 @@ const ALL_LOGIN_METHODS: LoginMethod[] = [
 
 /**
  * Default production login surface.
- * Primary row: Google + email. "More options" shows wallet connectors (MetaMask, etc.).
+ * Primary: MetaMask, then Google + email. Other wallets stay under "More options".
  */
 const DEFAULT_LOGIN_METHODS: LoginMethod[] = ["email", "google", "wallet"];
 
@@ -55,9 +55,8 @@ const FULL_LOGIN_OVERFLOW: LoginMethodOverflow = [
   "sms",
 ];
 
-/** Wallet options shown under "More options" in the default login surface. */
+/** Extra wallets under "More options" (MetaMask is on the primary row). */
 const DEFAULT_WALLET_OVERFLOW: LoginMethodOverflow = [
-  "metamask",
   "coinbase_wallet",
   "wallet_connect",
 ];
@@ -82,13 +81,12 @@ export function resolvePrivyLoginMethodsOrder(): NonNullable<
   }
   if (isPrivyFullLoginEnabled()) {
     return {
-      primary: ["google", "apple", "email"],
+      primary: ["metamask", "google", "apple", "email"],
       overflow: [...FULL_LOGIN_OVERFLOW, ...DEFAULT_WALLET_OVERFLOW],
     };
   }
-  // Default: Google + email in primary row; wallets (MetaMask, etc.) in "More options".
   return {
-    primary: ["google", "email"],
+    primary: ["metamask", "google", "email"],
     overflow: [...DEFAULT_WALLET_OVERFLOW],
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatUsdCompact } from "@/lib/market";
 
 function formatSignedUsd(usd: number): string {
@@ -18,11 +19,14 @@ export function PortfolioValuePanel({
   totalValue,
   dailyPnlUsd,
   dailyPnlPct,
+  partnerRedeemHref,
 }: {
   totalsPending: boolean;
   totalValue: number;
   dailyPnlUsd: number | null;
   dailyPnlPct: number | null;
+  /** Partner portfolio — Redeem requests lives in this value row. */
+  partnerRedeemHref?: string | null;
 }) {
   const showChange =
     dailyPnlUsd != null &&
@@ -32,6 +36,7 @@ export function PortfolioValuePanel({
     (dailyPnlUsd !== 0 || dailyPnlPct !== 0);
 
   const changePositive = (dailyPnlUsd ?? 0) >= 0;
+  const redeemHref = partnerRedeemHref?.trim() || "";
 
   return (
     <header className="pf-value-hero" aria-label="Portfolio value">
@@ -68,6 +73,11 @@ export function PortfolioValuePanel({
           )}
         </div>
       </div>
+      {redeemHref ? (
+        <Link href={redeemHref} className="tkl-view-all pf-value-hero__redeem">
+          Redeem requests →
+        </Link>
+      ) : null}
     </header>
   );
 }

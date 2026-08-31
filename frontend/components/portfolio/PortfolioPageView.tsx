@@ -59,7 +59,6 @@ import {
   type PortfolioMainTab,
   PortfolioValuePanel,
 } from "@/components/portfolio";
-import { PartnerPortfolioHeader } from "@/components/portfolio/PartnerPortfolioHeader";
 import {
   PARTNER_PORTFOLIO_PATH,
   PORTFOLIO_PATH,
@@ -739,13 +738,12 @@ export function PortfolioPageView({
     >
       <HomeTicker />
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
-        {isPartnerPortfolio ? <PartnerPortfolioHeader /> : null}
-
         <PortfolioValuePanel
           totalsPending={portfolioValuePending}
           totalValue={portfolioValue ?? 0}
           dailyPnlUsd={dailyPnlUsd}
           dailyPnlPct={dailyPnlPct}
+          partnerRedeemHref={isPartnerPortfolio ? "/partner/shipments" : null}
         />
 
         <PortfolioMainSection

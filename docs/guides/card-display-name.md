@@ -106,9 +106,9 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Number | `components.cardNumber`, preview `card.cardNumber` → `formatHeadlineCardNumber` |
 | Grade | `gradeScore` + grader, `psaGradeLabel`, RWA metadata → **`Raw` if missing** |
 | Year | `components.year`, set line prefix, displayLabel |
-| Set | `psaBrand`, bucket set, Cardhedger `setName` |
+| Set | PSA `psaBrand` as stored (never mutated). **Display:** if Cardhedger `setName` (RWA: `card.set`) is contained in Brand, show franchise + language from Brand + catalog expansion so era/series words (e.g. Sword & Shield) are not shown. Otherwise keep Brand. |
 | Language | `components.language`, preview `market`, corpus inference → **short code** |
-| Variant | `components.variant`, PSA variety, Cardhedger variant |
+| Variant | `components.variant`, PSA variety, Cardhedger variant. **Display:** omit on Line 2 when the variety phrase is already inside the displayed set (`isDisplayVariantDuplicateOfSet`). Stored `psaVariety` is unchanged. |
 
 ### Phase 1 scope (this change)
 

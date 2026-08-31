@@ -183,6 +183,7 @@ export function useCollectionDetailHeadline(params: {
       cardNumber: headlineCardNumberToken,
       variety: headlineVarietyLabel,
       language: headlineLanguageLabel,
+      catalogSetName: marketPreview?.card?.setName ?? null,
     });
   }, [
     headlineSetLine,
@@ -192,6 +193,7 @@ export function useCollectionDetailHeadline(params: {
     headlineVarietyLabel,
     headlineLanguageLabel,
     displayLabel,
+    marketPreview?.card?.setName,
   ]);
 
   const headlineGrade = useMemo(() => {

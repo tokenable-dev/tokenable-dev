@@ -156,6 +156,102 @@ export function formatCardDisplaySetLabel(raw: string | null | undefined): strin
     .replace(/\bop(?=\d)/gi, "OP");
 }
 
+function normalizeSetContainmentKey(raw: string): string {
+  return raw.toLowerCase().replace(/-/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Drop leading catalog codes (`s6a`, `sv3.5`) so expansion can match PSA Brand text. */
+function stripLeadingCatalogSetCode(raw: string): string {
+  const stripped = raw.replace(/^[a-z]{1,4}\d+[a-z]?(?:\.\d+)?\s+/i, "").trim();
+  return stripped || raw;
+}
+
+const TCG_LANGUAGE_PREFIX = /^(japanese|english|korean|chinese|jp|en|kr|cn)$/i;
+
+function takeTcgFranchiseLanguagePrefix(brandTokens: string[]): string[] | null {
+  if (brandTokens.length === 0) return null;
+  const prefix: string[] = [];
+  let i = 0;
+  if (
+    /^one$/i.test(brandTokens[0] ?? "") &&
+    /^piece$/i.test(brandTokens[1] ?? "")
+  ) {
+    prefix.push(brandTokens[0], brandTokens[1]);
+    i = 2;
+  } else if (/^pok[eé]mon$/i.test(brandTokens[0] ?? "")) {
+    prefix.push(brandTokens[0]);
+    i = 1;
+  } else {
+    return null;
+  }
+  if (brandTokens[i] && TCG_LANGUAGE_PREFIX.test(brandTokens[i])) {
+    prefix.push(brandTokens[i]);
+  }
+  return prefix;
+}
+
+/**
+ * Display-only: when a catalog expansion (Cardhedger `setName` / RWA `card.set`)
+ * is contained in PSA Brand, keep franchise + language from Brand and use the
+ * catalog expansion — era/series words in Brand (e.g. Sword & Shield) stay off UI.
+ * Does not mutate stored Brand. No hardcoded era replace. Sports / no match → Brand as-is.
+ */
+export function preferCatalogExpansionInBrandDisplay(
+  psaBrandDisplay: string | null | undefined,
+  catalogSetName: string | null | undefined,
+): string {
+  const brand = (psaBrandDisplay ?? "").trim();
+  const catalogRaw = (catalogSetName ?? "").trim();
+  if (!brand) return catalogRaw;
+  if (!catalogRaw) return brand;
+
+  const expansion = stripLeadingCatalogSetCode(catalogRaw);
+  const brandKey = normalizeSetContainmentKey(brand);
+  const candidates = [
+    normalizeSetContainmentKey(catalogRaw),
+    normalizeSetContainmentKey(expansion),
+  ].filter((k, idx, arr) => k.length >= 2 && arr.indexOf(k) === idx);
+
+  const contained = candidates.some(
+    (key) => brandKey.includes(key) && key.length < brandKey.length,
+  );
+  if (!contained) return brand;
+
+  const prefix = takeTcgFranchiseLanguagePrefix(brand.split(/\s+/).filter(Boolean));
+  if (!prefix) return brand;
+
+  return formatCardDisplaySetLabel([...prefix, expansion].join(" "));
+}
+
+/**
+ * Display-only: PSA Variety that repeats the expansion / set name (phrase inside set).
+ * Same meaning as backend `psaVarietyIsBrandOrSetDuplicate` — not imported from backend.
+ * Short single tokens (RED, GOLD) stay visible as parallels.
+ */
+export function isDisplayVariantDuplicateOfSet(
+  variant: string | null | undefined,
+  setName: string | null | undefined,
+): boolean {
+  const v = normalizeSetContainmentKey(variant ?? "");
+  const set = normalizeSetContainmentKey(setName ?? "");
+  if (!v || !set) return false;
+  if (v === set) return true;
+  if (!v.includes(" ") && v.length < 5) return false;
+  const phrase = new RegExp(`(?:^|\\s)${escapeRegExp(v)}(?:\\s|$)`);
+  return phrase.test(set);
+}
+
+/** Line 2 / meta only — does not mutate stored variety fields. */
+export function displayVariantIfNotSetDuplicate(
+  variant: string | null | undefined,
+  setName: string | null | undefined,
+): string | null {
+  const t = (variant ?? "").trim();
+  if (!t) return null;
+  if (isDisplayVariantDuplicateOfSet(t, setName)) return null;
+  return t;
+}
+
 function formatLine2SetLanguageChunk(
   setName: string | null | undefined,
   language: string | null | undefined,
@@ -221,7 +317,10 @@ export function formatCardDisplayLine2(
   const setChunk = opts?.omitSet
     ? ""
     : formatLine2SetLanguageChunk(parts.setName, parts.language);
-  const variant = parts.variant?.trim() || "";
+  const variant = displayVariantIfNotSetDuplicate(
+    parts.variant,
+    parts.setName,
+  );
   return joinCardDisplaySegments([year, setChunk, variant]);
 }
 

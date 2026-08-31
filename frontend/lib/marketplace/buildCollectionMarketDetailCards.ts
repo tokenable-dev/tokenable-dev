@@ -5,7 +5,11 @@ import {
   bucketCardSetForDisplay,
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
-import { formatCardDisplaySetLabel } from "@/lib/marketplace/cardDisplayName";
+import {
+  displayVariantIfNotSetDuplicate,
+  formatCardDisplaySetLabel,
+  preferCatalogExpansionInBrandDisplay,
+} from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -57,8 +61,22 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  const variantStr =
-    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant) ?? "";
+  const setLineRaw =
+    headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
+  const setName = resolveCollectionSetFacetLabelFromLine(setLineRaw);
+  const setDisplay = setName
+    ? formatCardDisplaySetLabel(
+        preferCatalogExpansionInBrandDisplay(
+          toCardDisplayCase(setName),
+          ch?.setName?.trim() ?? null,
+        ),
+      )
+    : "";
+
+  const variantStr = displayVariantIfNotSetDuplicate(
+    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant),
+    setDisplay,
+  );
   if (variantStr) {
     rows.push({
       id: "variant",
@@ -103,14 +121,11 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  const setLineRaw =
-    headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
-  const setName = resolveCollectionSetFacetLabelFromLine(setLineRaw);
-  if (setName) {
+  if (setDisplay) {
     rows.push({
       id: "set",
       label: "Set",
-      value: formatCardDisplaySetLabel(toCardDisplayCase(setName)),
+      value: setDisplay,
     });
   }
 

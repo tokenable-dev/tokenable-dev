@@ -285,7 +285,7 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 
 | HTML | Route | React |
 |------|-------|-------|
-| `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — `PartnerPortfolioHeader` (eyebrow + `tkl-view-all` to `/partner/shipments`); tabs: My Assets / Active Bids / Transaction History only + **Redeem** toolbar btn; GNB is Markets / Portfolio / Sell only; redeem queue also in account menu / mobile drawer for active partners; `/portfolio` redirects here |
+| `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — Redeem requests (`tkl-view-all`) in `PortfolioValuePanel`; tabs: My Assets / Active Bids / Transaction History only + **Redeem** toolbar btn; GNB is Markets / Portfolio / Sell only; redeem queue also in account menu / mobile drawer for active partners; `/portfolio` redirects here |
 | `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/sell/flow` with `vaultChoice=self` |
 | `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — breadcrumb, summary pills, 24h urgency banner, tabs; tracking via `PATCH …/redeems/batches/:id/tracking` with `redemptionIds` (scoped by `trackingGroupKey` = batch + ship-to) → same `vault_redemptions` rows as admin redeem page |
 | `Partner-Shipping-Origin.html` | Settings `#partner-origin` | existing Origin modal + Settings section |

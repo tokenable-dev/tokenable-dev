@@ -17,7 +17,7 @@
 .pf-value-hero {
   margin: 4px 0 22px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
@@ -74,6 +74,11 @@
 
 .pf-value-hero__chip--neg {
   color: var(--neg, #e4374a);
+}
+
+.pf-value-hero__redeem {
+  flex-shrink: 0;
+  padding-bottom: 4px;
 }
 
 .pf-value-hero__skeleton {

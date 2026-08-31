@@ -13,6 +13,7 @@ import {
   formatCardDisplayHoverTitle as formatCardDisplayHoverTitleCore,
   formatCardDisplaySetLabel,
   joinCardDisplaySegments,
+  preferCatalogExpansionInBrandDisplay,
   resolveCardDisplayGrade,
 } from "@/lib/marketplace/cardDisplayName";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
@@ -85,6 +86,8 @@ export function buildAssetDetailHeadlineParts(input: {
   cardNumber?: string | null;
   variety?: string | null;
   language?: string | null;
+  /** Cardhedger / catalog expansion — display only; never written back to Brand. */
+  catalogSetName?: string | null;
   /** @deprecated Prefer title case — only for rare ALL CAPS call sites. */
   uppercase?: boolean;
 }): AssetDetailHeadlineParts {
@@ -104,7 +107,10 @@ export function buildAssetDetailHeadlineParts(input: {
       y != null
         ? setRaw.replace(new RegExp(`\\b${String(y)}\\b`), "").trim()
         : setRaw;
-    setOut = withoutYear || setRaw;
+    setOut = preferCatalogExpansionInBrandDisplay(
+      withoutYear || setRaw,
+      input.catalogSetName,
+    );
   } else if (explicitYear != null) {
     yearOut = String(explicitYear);
   }
@@ -240,13 +246,13 @@ export function buildRwaAssetDetailHeadlineParts(
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const card = graded?.card as Record<string, unknown> | undefined;
 
-  const setRaw =
-    pickString(psa?.brand, card?.set, psa?.setHint) ?? "";
+  const catalogSet = pickString(card?.set);
   const yearRaw = pickString(psa?.Year, psa?.year, card?.year);
   const explicitYear = normalizeYear(yearRaw);
 
   let yearOut: string | null = explicitYear != null ? String(explicitYear) : null;
-  let setOut: string | null = setRaw || null;
+  let setOut: string | null =
+    pickString(psa?.brand, card?.set, psa?.setHint) || null;
   if (setOut) {
     const yFromSet = leadingYearFromSetLine(setOut);
     if (yFromSet != null) {
@@ -254,6 +260,7 @@ export function buildRwaAssetDetailHeadlineParts(
       const stripped = setOut.replace(/^\s*\d{4}\b\s*/, "").trim();
       setOut = stripped || setOut;
     }
+    setOut = preferCatalogExpansionInBrandDisplay(setOut, catalogSet);
   }
 
   const numRaw = pickString(card?.number, psa?.cardNumberHint);
@@ -308,8 +315,11 @@ export {
   formatCardDisplayName as formatCardDisplayNameStructured,
   formatDetailBreadcrumbTrail,
   joinCardDisplaySegments,
+  preferCatalogExpansionInBrandDisplay,
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
+  isDisplayVariantDuplicateOfSet,
+  displayVariantIfNotSetDuplicate,
 } from "@/lib/marketplace/cardDisplayName";
 export type {
   CardDisplayNameMode,

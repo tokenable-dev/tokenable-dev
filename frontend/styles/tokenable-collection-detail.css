@@ -880,18 +880,26 @@
 
 .cd-hero-bar.is-stuck .cd-hero-bar__title,
 .cd-hero-bar.is-stuck #hero-title {
+  display: block !important;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
   font-size: 16px !important;
   white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
   margin: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
-.cd-hero-bar.is-stuck .cd-hero-bar__title > span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cd-hero-bar.is-stuck .cd-hero-bar__title > span,
+.cd-hero-bar.is-stuck .cd-hero-bar__title > strong {
+  display: inline !important;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: inherit;
 }
 
 .cd-hero-bar.is-stuck .cd-hero-bar__meta,
@@ -1181,18 +1189,26 @@
 
   .cd-hero-bar.is-stuck .cd-hero-bar__title,
   .cd-hero-bar.is-stuck #hero-title {
+    display: block !important;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
     font-size: 14px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     margin: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    word-break: normal;
+    overflow-wrap: normal;
   }
 
-  .cd-hero-bar.is-stuck .cd-hero-bar__title > span {
-    display: block !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+  .cd-hero-bar.is-stuck .cd-hero-bar__title > span,
+  .cd-hero-bar.is-stuck .cd-hero-bar__title > strong {
+    display: inline !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: inherit !important;
   }
 
   .cd-hero-bar.is-stuck .cd-hero-bar__meta,
