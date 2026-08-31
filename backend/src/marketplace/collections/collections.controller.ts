@@ -340,7 +340,7 @@ export class CollectionsController {
     );
   }
 
-  /** 포트폴리오용 stats+차트 시리즈 배치 (키당 최대 60) */
+  /** 포트폴리오용 스냅샷 배치 (키당 최대 60, Cardhedger 미호출) */
   @ApiOperation({ summary: '포트폴리오 시장 데이터 배치' })
   @ApiBody(apiBodyDefault(PortfolioMarketBatchDto, SWAGGER_BODY_EXAMPLES.portfolioMarketBatch))
   @Post('collections/portfolio-market-batch')
@@ -375,7 +375,7 @@ export class CollectionsController {
     );
     const out: Record<number, string> = { ...cached };
     const missing = tokenIds.filter((id) => !out[id]);
-    const RESOLVE_CONCURRENCY = 4;
+    const RESOLVE_CONCURRENCY = 8;
     for (let i = 0; i < missing.length; i += RESOLVE_CONCURRENCY) {
       const chunk = missing.slice(i, i + RESOLVE_CONCURRENCY);
       await Promise.all(

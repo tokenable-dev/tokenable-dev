@@ -13,6 +13,8 @@ alwaysApply: false
 - 시세/매칭의 근거는 **PSA `PSACert.Variety`**(라벨의 Variety/Pedigree)다. `psaVariety`가 비어 있으면 베이스 행에 잠길 수 있다.
 - 민팅 JSON `properties.graded.psa`에는 반드시 **`Variety`**(또는 `varietyHint` 미러)를 넣는다 — 분석 API의 `varietyHint`를 `Variety`로 저장하는 패턴을 따른다.
 - IPFS에 Variety가 없으면 백엔드가 **cert + PSA Public API**로 보강할 수 있다 → `PSA_PUBLIC_API_TOKENS`(콤마 구분 토큰 풀) 필요.
-- **SIR**뿐 아니라 PSA **`ILLUSTRATION RARE`(IR)** 도 Cardhedger가 **`variant: Base`** 로 두는 경우가 있어, `psa-variety-catalog.util` / `parallelRowFailsExpectation` 에서 SIR과 유사하게 처리한다 (SIR 문구는 IR과 별도 분기).
+- **SIR**뿐 아니라 PSA **`ILLUSTRATION RARE`(IR)** 와 **`SPECIAL ART RARE`(SAR)** 도 Cardhedger가 **`variant: Base`** 로 두는 경우가 있어, `psa-variety-catalog.util` 에서 포켓몬 희귀도 라벨로 처리한다 (SIR / IR / SAR / Art Rare 문구는 별도 분기).
 - PSA Variety가 Brand/세트 이름을 그대로 복제하면 (예: `VSTAR UNIVERSE`) **병행이 아니다** — `marketParallelKey` 는 `base`. 같은 spec의 슬랩이 볼트만 달라도 한 컬렉션이어야 한다.
+- Cardhedger **cert lookup `card_id` is not automatically trusted**. If the catalog variant conflicts with PSA Variety (e.g. Master Ball slab → Reverse Foil id), resolve via `card-search` instead. Finish tokens (`reverse`/`holo`) need not appear on a named catalog variant.
+- **Mint preview, catalog attach, and trades-tape comps** must use that same Variety gate. Do not take `prices-by-cert` / stored `cardhedgerCardId` when the catalog variant fails PSA Variety.
 - 수정·리뷰 시 `docs/guides/cardhedger-psa-variety.md` 를 확인한다.

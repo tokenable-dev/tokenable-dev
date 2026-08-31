@@ -101,7 +101,9 @@ Requires `?adminWallet=` in `MARKETPLACE_ADMIN_WALLETS`:
 
 ## PSA Variety vs parallel pricing
 
-Same player/# can map to different Cardhedger rows (Base vs Silver, etc.). See **[Cardhedger + PSA Variety guide](../guides/cardhedger-psa-variety.md)**.
+Same player/# can map to different Cardhedger rows (Base vs Silver, Master Ball vs Reverse Foil, etc.). See **[Cardhedger + PSA Variety guide](../guides/cardhedger-psa-variety.md)**.
+
+Cert lookup `card_id` is used only when the catalog **variant** is compatible with PSA **Variety**. Otherwise resolve falls through to `card-search`. Stored catalog IDs are re-validated the same way. Mint preview, collection attach, and trades-tape comps use this gate — they do not take a cert batch price when the cert row is a sibling finish (e.g. Reverse Foil on a Master Ball slab).
 
 Card ID resolution uses **`CollectionIdentityService`** (cert lookup + search). The old `CARDHEDGER_PSA_SPECID_MAP` env override was removed.
 

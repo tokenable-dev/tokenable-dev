@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getActiveOrders,
+  getActiveOrderForToken,
   getRwaSettlementPolicy,
   getRwaTokenTrades,
   getRwaTokensByOwner,
@@ -12,6 +12,7 @@ import {
   postPortfolioHoldingsBatch,
   postResolveMediaUrls,
   postTokenCollectionKeysByTokenIds,
+  postBatchMintMarketPreviews,
   rq,
   type CollectionPlatformTapeFill,
   type RwaMetadata,
@@ -47,6 +48,7 @@ import {
   formatPortfolioGradeSubtitle,
   gradeScoreFromMetadata,
   marketTierComponentsFromMetadata,
+  pickPortfolioMarketPreview,
 } from "@/lib/portfolio/portfolioAssetMeta";
 import {
   certNumberFromMetadata,
@@ -146,29 +148,45 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   });
 
   const series = marketQuery.data?.items?.[0]?.series ?? null;
+  const snapshotMatched = Boolean(
+    series?.cardhedgerPreview?.matched && series.cardhedgerPreview.card,
+  );
+
+  const mintPreviewQuery = useQuery({
+    queryKey: rq.marketMintPreviews(wallet.portfolioAddress, [tokenId], chainId),
+    queryFn: () => postBatchMintMarketPreviews([tokenId]),
+    enabled:
+      tokenIdOk &&
+      keysQuery.isFetched &&
+      (!collectionKey || (marketQuery.isFetched && !snapshotMatched)),
+    staleTime: marketplaceRqPolicy.cardhedgerStaleMs,
+  });
+
+  const mintPreview = mintPreviewQuery.data?.[tokenId] ?? null;
 
   const ordersQuery = useQuery({
-    queryKey: rq.ordersActive(chainId),
-    queryFn: getActiveOrders,
+    queryKey: rq.orderByToken(tokenId),
+    queryFn: () => getActiveOrderForToken(tokenId),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 
   const listing = useMemo(() => {
     const addr = wallet.portfolioAddress?.toLowerCase() ?? "";
-    const found = (ordersQuery.data ?? []).find(
-      (o) =>
-        o.status === "active" &&
-        o.side === "ask" &&
-        Number(o.tokenId) === tokenId &&
-        (o.offerer?.trim().toLowerCase() ?? "") === addr,
-    );
-    if (!found) return null;
+    const found = ordersQuery.data;
+    if (
+      !found ||
+      found.status !== "active" ||
+      (found.side ?? "ask") !== "ask" ||
+      (found.offerer?.trim().toLowerCase() ?? "") !== addr
+    ) {
+      return null;
+    }
     return {
-      priceUsd: Number(found.price) / PORTFOLIO_USDC_DECIMALS,
+      priceUsd: Number(found.considerationAmount) / PORTFOLIO_USDC_DECIMALS,
       orderHash: found.orderHash,
     };
-  }, [ordersQuery.data, tokenId, wallet.portfolioAddress]);
+  }, [ordersQuery.data, wallet.portfolioAddress]);
 
   const gradeLabel = useMemo(() => {
     if (!metadata) return undefined;
@@ -253,18 +271,25 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     trust.certVerifyUrl ||
     (certNumber ? `https://www.psacard.com/cert/${encodeURIComponent(certNumber)}` : null);
 
+  const preview = pickPortfolioMarketPreview(series, mintPreview);
   const resolvedMkt = resolveExternalMarketUsd({
-    marketPreview: series?.cardhedgerPreview ?? null,
+    marketPreview: preview,
     gradePrices: series?.gradePrices ?? null,
     gradeScore: gradeScoreFromMetadata(metadata),
     components: marketTierComponentsFromMetadata(metadata),
-    spotPriceBasis: series?.spotPriceBasis ?? null,
+    spotPriceBasis: series?.spotPriceBasis ?? preview?.card?.spotPriceBasis ?? null,
   });
   const marketUsd =
     resolvedMkt.usd != null && Number.isFinite(resolvedMkt.usd) && resolvedMkt.usd > 0
       ? resolvedMkt.usd
       : null;
-  const marketChangePct = series?.marketChangePct ?? null;
+  const mintChange =
+    preview?.card?.gainPct30d ?? preview?.card?.gainPct7d ?? null;
+  const marketChangePct =
+    series?.marketChangePct ??
+    (typeof mintChange === "number" && Number.isFinite(mintChange)
+      ? mintChange
+      : null);
 
   const vaultLabel = vaultQuery.data?.vaultLabel ?? "PSA Vault";
   const listed = listing != null;

@@ -76,6 +76,14 @@ export function buildCollectionMarketDetailCards(params: {
   const variantStr = displayVariantIfNotSetDuplicate(
     resolveCollectionComponentVariant(comp, marketPreview?.card?.variant),
     setDisplay,
+    {
+      psaBrand: comp.psaBrand ?? bucketCardSetForDisplay(comp),
+      language: resolveCollectionDisplayLanguage({
+        comp,
+        marketPreview,
+        corpusLines: [headlineSetLine, ch?.setName, bucketCardSetForDisplay(comp)],
+      }),
+    },
   );
   if (variantStr) {
     rows.push({

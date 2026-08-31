@@ -334,6 +334,7 @@ export {
   stripCategoryPrefixFromSet,
   isDisplayVariantDuplicateOfSet,
   displayVariantIfNotSetDuplicate,
+  shouldHideDuplicateVariant,
 } from "@/lib/marketplace/cardDisplayName";
 export type {
   CardDisplayNameMode,

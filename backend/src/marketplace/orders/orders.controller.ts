@@ -122,23 +122,28 @@ export class OrdersController {
     );
   }
 
-  /** 지갑이 등록한 collection bid 주문 내역 (active·fulfilled·cancelled 등) */
-  @ApiOperation({ summary: '지갑별 collection bid 주문 내역' })
+  /** 지갑이 등록한 주문 — bid: collection bid 이력, ask: 활성 매도 리스팅 */
+  @ApiOperation({ summary: '지갑별 주문 (bid 이력 / 활성 ask)' })
   @ApiQuery({ name: 'offerer', example: SWAGGER_FIXTURES.wallet })
-  @ApiQuery({ name: 'side', example: 'bid', enum: ['bid'] })
+  @ApiQuery({ name: 'side', example: 'bid', enum: ['bid', 'ask'] })
   @ApiQuery({ name: 'limit', required: false, example: 100 })
   @Get('orders/by-offerer')
   findOrdersByOfferer(
     @Query() query: ListOrdersByOffererQueryDto,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ): Promise<OrderListItem[]> {
-    if (query.side !== 'bid') {
-      return Promise.resolve([]);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    if (query.side === 'ask') {
+      return this.ordersService.findActiveAsksByOfferer(
+        query.offerer,
+        query.limit,
+        chainId,
+      );
     }
     return this.ordersService.findCollectionBidsByOfferer(
       query.offerer,
       query.limit,
-      this.chainConfig.resolveChainId(chainHeader),
+      chainId,
     );
   }
 

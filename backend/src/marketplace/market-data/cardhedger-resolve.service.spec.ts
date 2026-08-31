@@ -6,13 +6,55 @@ import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
 import { CardhedgerResolveService } from './cardhedger-resolve.service';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 
+const ttlCache: TtlCacheProvider = {
+  get: () => undefined,
+  set: () => undefined,
+  delete: () => undefined,
+  clearNamespace: () => undefined,
+};
+
+function serviceWithMocks(
+  forwardJson: jest.Mock,
+  cardMatchFirst: boolean,
+  metrics?: CardhedgerMetricsService,
+): CardhedgerResolveService {
+  const cardhedger = {
+    assertConfigured: () => undefined,
+    forwardJson,
+  } as unknown as CardhedgerService;
+  const config = {
+    get: (key: string) => {
+      if (key === 'marketplace.cardhedgerFeatureFlags') {
+        return {
+          fmvBatchEnabled: false,
+          batchPricesByCertEnabled: false,
+          batchPriceEstimateEnabled: false,
+          pricesByCertOcrEnabled: false,
+          cardMatchFirst,
+          mintPreviewSkipComps: false,
+          certPricePilotCompare: false,
+        };
+      }
+      if (key === 'marketplace.cardhedgerResolveMatchFirstPilotLog') {
+        return false;
+      }
+      if (key === 'CARDHEDGER_MAX_SEARCH_CANDIDATES') return '4';
+      return undefined;
+    },
+  } as unknown as ConfigService;
+  const certLookup = {
+    getCardRowByCert: jest.fn(),
+  } as unknown as CardhedgerCertLookupService;
+  return new CardhedgerResolveService(
+    cardhedger,
+    config,
+    certLookup,
+    ttlCache,
+    metrics,
+  );
+}
+
 describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
-  const ttlCache: TtlCacheProvider = {
-    get: () => undefined,
-    set: () => undefined,
-    delete: () => undefined,
-    clearNamespace: () => undefined,
-  };
 
   const searchHeavyCol = {
     collectionKey: 'pikachu-base-58',
@@ -56,47 +98,6 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
       },
     ],
   };
-
-  function serviceWithMocks(
-    forwardJson: jest.Mock,
-    cardMatchFirst: boolean,
-    metrics?: CardhedgerMetricsService,
-  ): CardhedgerResolveService {
-    const cardhedger = {
-      assertConfigured: () => undefined,
-      forwardJson,
-    } as unknown as CardhedgerService;
-    const config = {
-      get: (key: string) => {
-        if (key === 'marketplace.cardhedgerFeatureFlags') {
-          return {
-            fmvBatchEnabled: false,
-            batchPricesByCertEnabled: false,
-            batchPriceEstimateEnabled: false,
-            pricesByCertOcrEnabled: false,
-            cardMatchFirst,
-            mintPreviewSkipComps: false,
-            certPricePilotCompare: false,
-          };
-        }
-        if (key === 'marketplace.cardhedgerResolveMatchFirstPilotLog') {
-          return false;
-        }
-        if (key === 'CARDHEDGER_MAX_SEARCH_CANDIDATES') return '4';
-        return undefined;
-      },
-    } as unknown as ConfigService;
-    const certLookup = {
-      getCardRowByCert: jest.fn(),
-    } as unknown as CardhedgerCertLookupService;
-    return new CardhedgerResolveService(
-      cardhedger,
-      config,
-      certLookup,
-      ttlCache,
-      metrics,
-    );
-  }
 
   it('tries card-match once before card-search when flag is on', async () => {
     const forwardJson = jest.fn(async (_method, path) => {
@@ -287,5 +288,164 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
 
     expect(result.row?.card_id).toBe('lonnie-rookie-sig-id');
     expect(result.confidence).toBe('verified');
+  });
+});
+
+describe('CardhedgerResolveService — PSA Variety vs Cardhedger catalog variant', () => {
+  const gengarSearchBody = {
+    cards: [
+      {
+        card_id: 'gengar-base-id',
+        description: 'Pokemon Japanese 151 Gengar 094',
+        name: 'Gengar',
+        set: 'Pokemon Japanese 151',
+        number: '094',
+        variant: 'Base',
+      },
+      {
+        card_id: '1694044201512x180824829158223720',
+        description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+        name: 'Gengar',
+        set: 'Pokemon Japanese 151',
+        number: '094',
+        variant: 'Reverse Foil',
+      },
+      {
+        card_id: '1694044347157x258677420840309300',
+        description: 'Pokemon Japanese 151 Gengar Master Ball 094',
+        name: 'Gengar',
+        set: 'Pokemon Japanese 151',
+        number: '094',
+        variant: 'Master Ball',
+      },
+    ],
+  };
+
+  function gengarCol(opts: {
+    psaVariety: string;
+    marketParallelKey: string;
+    cardhedgerCardId?: string;
+    psaCertNumber?: string | null;
+  }): MarketplaceCollection {
+    return {
+      collectionKey: 'gengar-jp-151-094',
+      displayLabel: 'GENGAR',
+      queryUsed: null,
+      components: {
+        cardName: 'Gengar',
+        cardSet: 'Pokemon Japanese 151',
+        cardNumber: '094',
+        psaSubject: 'GENGAR',
+        psaBrand: 'POKEMON JAPANESE SV2a-POKEMON CARD 151',
+        psaVariety: opts.psaVariety,
+        marketParallelKey: opts.marketParallelKey,
+        ...(opts.cardhedgerCardId
+          ? { cardhedgerCardId: opts.cardhedgerCardId }
+          : {}),
+      },
+      coverImageUrl: null,
+      psaCertNumber: opts.psaCertNumber ?? null,
+      marketParallelKey: opts.marketParallelKey,
+      bucketKeyVersion: 2,
+      reviewStatus: 'active',
+      createdAt: new Date(),
+    } satisfies MarketplaceCollection;
+  }
+
+  it('picks Reverse Foil for PSA REVERSE HOLO among Base / Reverse Foil / Master Ball', async () => {
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') return gengarSearchBody;
+      return {};
+    });
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService);
+
+    const result = await svc.resolveCardForCollection(
+      gengarCol({
+        psaVariety: 'REVERSE HOLO',
+        marketParallelKey: 'reverse_holo',
+      }),
+    );
+
+    expect(result.row?.card_id).toBe('1694044201512x180824829158223720');
+    expect(result.row?.variant).toBe('Reverse Foil');
+  });
+
+  it('picks Master Ball for PSA MASTER BALL REVERSE HOLO among Base / Reverse Foil / Master Ball', async () => {
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') return gengarSearchBody;
+      return {};
+    });
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService);
+
+    const result = await svc.resolveCardForCollection(
+      gengarCol({
+        psaVariety: 'MASTER BALL REVERSE HOLO',
+        marketParallelKey: 'master_ball_reverse_holo',
+      }),
+    );
+
+    expect(result.row?.card_id).toBe('1694044347157x258677420840309300');
+    expect(result.row?.variant).toBe('Master Ball');
+  });
+
+  it('rejects a stored Reverse Foil card_id and re-resolves via card-search to Master Ball', async () => {
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-details') {
+        return {
+          cards: [gengarSearchBody.cards[1]],
+        };
+      }
+      if (path === '/v1/cards/card-search') return gengarSearchBody;
+      return {};
+    });
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService);
+
+    const result = await svc.resolveCardForCollection(
+      gengarCol({
+        psaVariety: 'MASTER BALL REVERSE HOLO',
+        marketParallelKey: 'master_ball_reverse_holo',
+        cardhedgerCardId: '1694044201512x180824829158223720',
+      }),
+    );
+
+    expect(forwardJson.mock.calls.map((c) => c[1])).toEqual([
+      '/v1/cards/card-details',
+      '/v1/cards/card-search',
+    ]);
+    expect(result.row?.card_id).toBe('1694044347157x258677420840309300');
+    expect(result.row?.variant).toBe('Master Ball');
+  });
+
+  it('does not fall back to Reverse Foil when Master Ball is missing from search', async () => {
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') {
+        return {
+          cards: [gengarSearchBody.cards[0], gengarSearchBody.cards[1]],
+        };
+      }
+      return {};
+    });
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService);
+
+    const result = await svc.resolveCardForCollection(
+      gengarCol({
+        psaVariety: 'MASTER BALL REVERSE HOLO',
+        marketParallelKey: 'master_ball_reverse_holo',
+      }),
+    );
+
+    expect(result.row).toBeNull();
   });
 });

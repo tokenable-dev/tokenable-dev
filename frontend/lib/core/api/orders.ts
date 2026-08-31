@@ -110,17 +110,38 @@ export async function getCollectionBidsByOfferer(
   offerer: string,
   opts?: { limit?: number; signal?: AbortSignal },
 ): Promise<OrderListItem[]> {
+  return getOrdersByOfferer(offerer, "bid", opts);
+}
+
+/** Active asks listed by this wallet (portfolio listings — not the global book). */
+export async function getActiveAsksByOfferer(
+  offerer: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  return getOrdersByOfferer(offerer, "ask", { limit: opts?.limit ?? 500, signal: opts?.signal });
+}
+
+async function getOrdersByOfferer(
+  offerer: string,
+  side: "ask" | "bid",
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
   const sp = new URLSearchParams();
   sp.set("offerer", offerer);
-  sp.set("side", "bid");
+  sp.set("side", side);
   if (opts?.limit != null) sp.set("limit", String(opts.limit));
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/orders/by-offerer?${sp.toString()}`,
     { signal: opts?.signal },
   );
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Failed to fetch bids" }));
-    throw new Error((err as { message?: string }).message ?? "Failed to fetch bids");
+    const err = await res.json().catch(() => ({
+      message: side === "ask" ? "Failed to fetch listings" : "Failed to fetch bids",
+    }));
+    throw new Error(
+      (err as { message?: string }).message ??
+        (side === "ask" ? "Failed to fetch listings" : "Failed to fetch bids"),
+    );
   }
   const raw = (await res.json()) as OrderListItem[];
   return raw.map((o) => ({

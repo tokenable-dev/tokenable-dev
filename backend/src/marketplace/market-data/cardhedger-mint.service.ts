@@ -24,6 +24,7 @@ import {
   type BuildPreviewOptions,
 } from './cardhedger-pricing.service';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
+import { cardhedgerCertRowUsableForPsaVariety } from '../utils/cardhedger-psa-variety.util';
 
 /**
  * Handles mint/cert/IPFS preview logic: resolves a PSA cert number to a
@@ -110,6 +111,21 @@ export class CardhedgerMintService {
     );
   }
 
+  /**
+   * Cert / `prices-by-cert` rows are the Reverse Foil (or other sibling) catalog
+   * more often than PSA Variety. Do not use that price or `card_id` when it fails
+   * the same variety gate as collection resolve.
+   */
+  private certCatalogUsableForCollection(
+    row: CardhedgerCardRow | null | undefined,
+    col: MarketplaceCollection,
+  ): boolean {
+    return cardhedgerCertRowUsableForPsaVariety(
+      row as Record<string, unknown> | null | undefined,
+      String(col.components?.psaVariety ?? ''),
+    );
+  }
+
   private previewOptsForMint(
     syntheticCol: MarketplaceCollection,
     batchRow: CardhedgerCardRow | undefined,
@@ -123,8 +139,16 @@ export class CardhedgerMintService {
       batchRow?.card_id ?? syntheticCol.components?.cardhedgerCardId ?? '',
     ).trim();
 
+    const certPriceUsable =
+      certPrice != null &&
+      this.certCatalogUsableForCollection(
+        certPrice.card ?? batchRow,
+        syntheticCol,
+      );
+
     const useCertBatch =
       flags.batchPricesByCertEnabled &&
+      certPriceUsable &&
       certPrice != null &&
       certPrice.price != null &&
       certPrice.price > 0;
@@ -141,6 +165,7 @@ export class CardhedgerMintService {
 
     const sparseCertNeedsEstimate =
       flags.batchPricesByCertEnabled &&
+      certPriceUsable &&
       certPrice != null &&
       !(certPrice.price != null && certPrice.price > 0);
     if (sparseCertNeedsEstimate && flags.batchPriceEstimateEnabled && cardId) {
@@ -432,7 +457,7 @@ export class CardhedgerMintService {
         const certDigits = this.normalizeCertDigits(
           psaCertNumberFromGradedMeta(meta),
         );
-        const batchRow = certDigits
+        const certRow = certDigits
           ? certCardByDigits.get(certDigits)
           : undefined;
 
@@ -446,6 +471,15 @@ export class CardhedgerMintService {
           );
           if (certDigits) psaMirrorByCert.set(certDigits, psaMirror);
         }
+
+        const batchRow =
+          certRow &&
+          cardhedgerCertRowUsableForPsaVariety(
+            certRow as Record<string, unknown>,
+            String(psaMirror.psaVariety ?? ''),
+          )
+            ? certRow
+            : undefined;
 
         const syntheticCol = this.buildMintSyntheticCollection({
           tokenId: item.tokenId,
@@ -479,8 +513,14 @@ export class CardhedgerMintService {
       const fmvItems = workItems
         .filter((w) => {
           if (!flags.batchPricesByCertEnabled) return true;
-          const cp = w.certDigits ? certPriceByDigits.get(w.certDigits) : undefined;
-          return !(cp?.price != null && cp.price > 0);
+          const cp = w.certDigits
+            ? certPriceByDigits.get(w.certDigits)
+            : undefined;
+          return !(
+            this.certCatalogUsableForCollection(cp?.card, w.syntheticCol) &&
+            cp?.price != null &&
+            cp.price > 0
+          );
         })
         .map((w) => {
           const cardId = String(
@@ -511,9 +551,16 @@ export class CardhedgerMintService {
     ) {
       const sparseItems = workItems
         .map((w) => {
-          const cp = w.certDigits ? certPriceByDigits.get(w.certDigits) : undefined;
-          if (!cp?.card || (cp.price != null && cp.price > 0)) return null;
-          const cardId = String(cp.card.card_id ?? '').trim();
+          const cp = w.certDigits
+            ? certPriceByDigits.get(w.certDigits)
+            : undefined;
+          if (
+            !this.certCatalogUsableForCollection(cp?.card, w.syntheticCol) ||
+            (cp?.price != null && cp.price > 0)
+          ) {
+            return null;
+          }
+          const cardId = String(cp?.card?.card_id ?? '').trim();
           if (!cardId) return null;
           const tier = marketHistoryTierFromComponents(w.syntheticCol.components);
           return { card_id: cardId, grade: cardhedgerGradeFromHistoryTier(tier) };
@@ -648,6 +695,16 @@ export class CardhedgerMintService {
       ),
     );
 
+    if (
+      batchRow &&
+      !cardhedgerCertRowUsableForPsaVariety(
+        batchRow as Record<string, unknown>,
+        String(psaMirror.psaVariety ?? ''),
+      )
+    ) {
+      batchRow = undefined;
+    }
+
     const syntheticCol = this.buildMintSyntheticCollection({
       tokenId: id,
       meta,
@@ -677,16 +734,6 @@ export class CardhedgerMintService {
           catalogRow: batchRow,
         });
       }
-    }
-
-    const storedId = String(
-      syntheticCol.components?.cardhedgerCardId ?? '',
-    ).trim();
-    if (storedId) {
-      return this.pricing.getCompsSnapshotByCardIdDirect(storedId, {
-        ...compsOpts,
-        searchQuery: q,
-      });
     }
 
     return this.pricing.getCompsSnapshotForCollection(syntheticCol, compsOpts);

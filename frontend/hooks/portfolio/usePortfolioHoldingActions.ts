@@ -128,7 +128,7 @@ export function usePortfolioHoldingActions(input: {
     async (tokenId: number, orderHash: string, priceUsd?: number) => {
       if (!address) return;
       setCancellingListingTokenId(tokenId);
-      const qk = rq.ordersActive(chainId);
+      const qk = rq.ordersByOfferer(address, "ask", chainId);
       const prev = queryClient.getQueryData<OrderListItem[]>(qk);
       queryClient.setQueryData<OrderListItem[]>(qk, (old) =>
         (old ?? []).filter((o) => o.orderHash !== orderHash),

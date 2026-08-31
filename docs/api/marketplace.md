@@ -94,6 +94,20 @@ Sell-into-bid fills persist `_settlementAmount`, `_matchedBidOrderHash`, and `_f
 
 ---
 
+### `GET /api/marketplace/orders/by-offerer`
+
+Wallet-scoped orders (chain via `x-tokenable-chain-id`). Does **not** return the global book.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `offerer` | Yes | Wallet |
+| `side` | Yes | `bid` — collection bid history (active + historical). `ask` — **active** asks listed by this wallet (cap 500). |
+| `limit` | No | Max rows (bid default 100, ask default 500, cap 500) |
+
+Portfolio My Assets uses `side=ask` so listing badges do not depend on `GET /orders` (global active asks, capped ~20k).
+
+---
+
 ### `GET /api/marketplace/orders`
 
 Returns active asks as lightweight rows (no Seaport `parameters` or `signature`).
@@ -407,7 +421,11 @@ Max 32 token IDs per request.
 
 ### `POST /api/marketplace/collections/portfolio-market-batch`
 
-Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
+Batch **materialized snapshot** reads per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
+
+Does **not** call Cardhedger, listing-pool stats, or platform tape on the request. Missing or empty snapshot rows are enqueued for background refresh. `stats` is always `null` on this path — holdings USD comes from `series` (grade strip / Cardhedger preview on the snapshot).
+
+When a holding has **no collection row**, this endpoint cannot price it. The Portfolio UI falls back to `POST /marketplace/cardhedger/mint-previews` and `GET /marketplace/rwa/:tokenId/trades` for that token.
 
 **Body:** `PortfolioMarketBatchDto`
 
@@ -417,6 +435,8 @@ Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used
   "priceHistoryDuration": "365d"
 }
 ```
+
+Preferred window is `365d` (spot + 1y change). `"max"` still works but is a larger JSON payload.
 
 ---
 
@@ -455,7 +475,7 @@ Also fired by optional on-chain listener when `MINT_EVENT_LISTENER_ENABLED=1` (i
 
 Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** — does not create `marketplace_collections` rows (unlike listing flow).
 
-**Body:** `TokenCollectionKeysDto` — `tokenIds` array (max **80** per request).
+**Body:** `TokenCollectionKeysDto` — `tokenIds` array (max **120** per request).
 
 ---
 

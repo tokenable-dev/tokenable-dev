@@ -35,6 +35,19 @@ const PARALLEL_FLAVOR_MARKERS = [
   'relic',
 ] as const;
 
+/**
+ * Print-finish words. Named catalog variants (Master Ball, Silver Prizm, …) often omit these
+ * even when PSA Variety includes them (`MASTER BALL REVERSE HOLO` → `variant: "Master Ball"`).
+ * Not a list of collectible names — only treatment/finish tokens.
+ */
+const PRINT_FINISH_TOKENS = new Set([
+  'reverse',
+  'holo',
+  'foil',
+  'holofoil',
+  'holographic',
+]);
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -65,10 +78,15 @@ function cardhedgerRowParallelFlavorConflict(
   return false;
 }
 
+function synonymizeToken(t: string): string {
+  if (t === 'foil' || t === 'holofoil' || t === 'holographic') return 'holo';
+  return t;
+}
+
 function varietyMatchChunks(psaVariety: string): string[] {
   const v = psaVariety.trim().toLowerCase();
   if (psaVarietyIsGenericSportRefractorLine(v)) {
-    return ['refractor', ...chromeColorTokensIn(v)];
+    return ['refractor', ...chromeColorTokensIn(v)].map(synonymizeToken);
   }
   const parts = v
     .split(/[\s.\-/]+/)
@@ -95,7 +113,58 @@ function varietyMatchChunks(psaVariety: string): string[] {
     out.delete('prec');
   }
   if ([...out].some((p) => p.includes('champ'))) out.add('championship');
-  return [...out].filter((c) => c.length >= 2);
+  return [...out].filter((c) => c.length >= 2).map(synonymizeToken);
+}
+
+function namedIdentityTokens(tokens: string[]): string[] {
+  return tokens.filter((t) => t !== 'base' && !PRINT_FINISH_TOKENS.has(t));
+}
+
+function blobHasVarietyChunk(blob: string, chunk: string): boolean {
+  if (blob.includes(chunk)) return true;
+  if (chunk === 'holo') {
+    return blob.includes('foil') || blob.includes('holofoil');
+  }
+  return false;
+}
+
+function variantFieldTokens(row: Record<string, unknown>): string[] {
+  return varietyMatchChunks(String(row.variant ?? '')).filter((t) => t !== 'base');
+}
+
+/**
+ * How many collectible-defining (non-finish) tokens in Cardhedger `variant` are
+ * covered by PSA Variety. 0 when the row is incompatible or finish-only.
+ */
+export function cardhedgerCatalogVariantSpecificity(
+  row: Record<string, unknown>,
+  psaVariety: string | null | undefined,
+): number {
+  if (!cardhedgerRowMatchesPsaVariety(row, psaVariety)) return 0;
+  const psa = new Set(varietyMatchChunks(String(psaVariety ?? '')));
+  return namedIdentityTokens(variantFieldTokens(row)).filter((t) =>
+    psa.has(t),
+  ).length;
+}
+
+/**
+ * PSA Variety names a collectible identity beyond print finish
+ * (`MASTER BALL REVERSE HOLO` vs `REVERSE HOLO`).
+ */
+export function psaVarietyHasNamedCollectibleIdentity(
+  psaVariety: string | null | undefined,
+): boolean {
+  const pv = String(psaVariety ?? '').trim();
+  if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
+  return namedIdentityTokens(varietyMatchChunks(pv)).length > 0;
+}
+
+/** Catalog `variant` is only a print finish (Reverse Foil / Reverse Holo), not a named parallel. */
+export function cardhedgerRowIsPrintFinishOnly(
+  row: Record<string, unknown>,
+): boolean {
+  const vt = variantFieldTokens(row);
+  return vt.length > 0 && namedIdentityTokens(vt).length === 0;
 }
 
 /** Cardhedger catalog row compatible with PSA PSACert.Variety (PSA is authoritative). */
@@ -108,11 +177,50 @@ export function cardhedgerRowMatchesPsaVariety(
   if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return true;
 
   const blob = rowParallelBlob(row);
-  const v = pv.toLowerCase();
   if (cardhedgerRowParallelFlavorConflict(pv, blob)) return false;
-  if (blob.includes(v)) return true;
 
-  const chunks = varietyMatchChunks(v);
+  const psaTokens = new Set(varietyMatchChunks(pv));
+  const variantTokens = variantFieldTokens(row);
+  const rowIdentity = namedIdentityTokens(variantTokens);
+
+  /**
+   * Catalog `variant` may be more specific than PSA (Master Ball vs Reverse Holo).
+   * Extra named identity on the row is a mismatch even if the blob contains PSA's finish line.
+   */
+  for (const t of rowIdentity) {
+    if (!psaTokens.has(t)) return false;
+  }
+
+  if (blob.includes(pv.toLowerCase())) return true;
+
+  /**
+   * Named catalog variant is a phrase inside PSA Variety; leftover PSA tokens are only
+   * print finish (`REVERSE HOLO` on a Master Ball slab). Do not require those finish
+   * tokens to appear on the Cardhedger row.
+   */
+  if (
+    variantTokens.length > 0 &&
+    variantTokens.every((t) => psaTokens.has(t))
+  ) {
+    const leftoverIdentity = [...psaTokens].filter(
+      (t) => !variantTokens.includes(t) && !PRINT_FINISH_TOKENS.has(t),
+    );
+    if (leftoverIdentity.length === 0) return true;
+  }
+
+  const chunks = varietyMatchChunks(pv);
   if (chunks.length === 0) return true;
-  return chunks.every((c) => blob.includes(c));
+  return chunks.every((c) => blobHasVarietyChunk(blob, c));
+}
+
+/**
+ * Cert / `prices-by-cert` rows are usable only when they pass the same variety gate
+ * as catalog search. Empty row is only OK when PSA Variety has no named identity.
+ */
+export function cardhedgerCertRowUsableForPsaVariety(
+  row: Record<string, unknown> | null | undefined,
+  psaVariety: string | null | undefined,
+): boolean {
+  if (!row) return !psaVarietyHasNamedCollectibleIdentity(psaVariety);
+  return cardhedgerRowMatchesPsaVariety(row, psaVariety);
 }

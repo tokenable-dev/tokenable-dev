@@ -10,7 +10,7 @@ import {
   getRwaTokensByOwner,
   postRwaMetadataBatchBatched,
   postOrdersBatchByTokenBatched,
-  getActiveOrders,
+  getActiveAsksByOfferer,
   postBatchMintMarketPreviews,
   type CollectionMarketPreview,
   type OrderListItem,
@@ -51,7 +51,7 @@ export function useUserAssets(
     enabled?: boolean;
     includeOrderHistory?: boolean;
     includeMarketPreview?: boolean;
-    /** When false, skip `GET /marketplace/orders` (default true). */
+    /** When false, skip wallet listing lookup (default true). */
     loadMarketOrders?: boolean;
     /** Keep prior page data while the owner address changes (default true). */
     retainPreviousOwner?: boolean;
@@ -159,8 +159,8 @@ export function useUserAssets(
   }, [paged, fullMetadataQuery.data, pagedMetadataQuery.data?.pages]);
 
   const ordersQuery = useQuery({
-    queryKey: rq.ordersActive(chainId),
-    queryFn: getActiveOrders,
+    queryKey: rq.ordersByOfferer(address ?? "", "ask", chainId),
+    queryFn: () => getActiveAsksByOfferer(address!),
     enabled: enabled && (opts?.loadMarketOrders ?? true),
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
@@ -262,7 +262,7 @@ export function useUserAssets(
       void historyQuery.refetch();
       void marketPreviewQuery.refetch();
     },
-    /** Refetch only the global order book — use after listing/bid mutations to avoid refetching metadata/previews (reduces UI flicker). */
+    /** Refetch this wallet's active asks — use after listing/bid mutations to avoid refetching metadata/previews (reduces UI flicker). */
     refetchActiveOrders: () => ordersQuery.refetch(),
   };
 }

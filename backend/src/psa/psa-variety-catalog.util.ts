@@ -231,9 +231,26 @@ export function psaVarietyIsArtRareLabel(
 }
 
 /**
+ * Pokémon TCG **Special Art Rare** (SAR, Japanese secret-rare slot) — PSA lists
+ * **SPECIAL ART RARE** while Cardhedger catalogs the slot as `variant: "Base"`
+ * (same pattern as SIR / Art Rare; the card number is unique, e.g. Mega Dream `#240`).
+ */
+export function psaVarietyIsSpecialArtRareLabel(
+  psaVariety: string | null | undefined,
+): boolean {
+  const v = String(psaVariety ?? '').trim().toLowerCase();
+  if (!v) return false;
+  if (/special\s+art\s+rare/.test(v)) return true;
+  if (/^sar$/.test(v)) return true;
+  if (/\bsar\b/.test(v) && !/illustration/.test(v)) return true;
+  return false;
+}
+
+/**
  * Pokémon TCG rarity labels where PSA names the card's rarity slot while
- * Cardhedger still uses `variant: "Base"` (e.g. Art Rare, Illustration Rare,
- * Special Illustration Rare, Hyper Rare, Full Art, Amazing Rare, Ultra Rare).
+ * Cardhedger still uses `variant: "Base"` (e.g. Art Rare, Special Art Rare,
+ * Illustration Rare, Special Illustration Rare, Hyper Rare, Full Art,
+ * Amazing Rare, Ultra Rare).
  * These occupy unique card numbers in the secret-rare range — no parallel conflict.
  */
 export function psaVarietyIsPokemonRarityLabel(
@@ -243,6 +260,7 @@ export function psaVarietyIsPokemonRarityLabel(
   if (!v) return false;
   if (psaVarietyIsSpecialIllustrationRareLabel(psaVariety)) return true;
   if (psaVarietyIsIllustrationRareLabel(psaVariety)) return true;
+  if (psaVarietyIsSpecialArtRareLabel(psaVariety)) return true;
   if (psaVarietyIsArtRareLabel(psaVariety)) return true;
   if (/^hyper\s+rare$/.test(v)) return true;
   if (/^full\s+art$/.test(v)) return true;

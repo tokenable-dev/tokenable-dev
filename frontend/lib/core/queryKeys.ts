@@ -17,6 +17,12 @@ export const rq = {
   rwaTokens: (address: string, chainId: number) =>
     ["rwa-tokens", chainId, address] as const,
   ordersActive: (chainId: number) => ["orders", "active", chainId] as const,
+  ordersByOfferer: (
+    address: string,
+    side: "ask" | "bid",
+    chainId: number,
+  ) =>
+    ["orders", "by-offerer", chainId, address.trim().toLowerCase(), side] as const,
   ordersByTokenBatch: (
     address: string | undefined,
     tokenIds: readonly number[],
@@ -289,6 +295,13 @@ export const rq = {
       chainId,
       ...collectionKeys.map((k) => k.toLowerCase()).sort(),
     ] as const,
+  /** Token-level comps sparkline for holdings without a collection snapshot. */
+  portfolioTokenSparklines: (chainId: number, tokenIds: readonly number[]) =>
+    [
+      "portfolio-token-sparklines",
+      chainId,
+      ...[...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   /**
    * Collection-key-to-tokenId resolution for the portfolio page.
    * `sig` is a stable derived string summarising the current set of owned assets
@@ -419,5 +432,6 @@ export function configureMarketQueryDefaults(queryClient: QueryClient): void {
   const d = marketQueryDefaults;
   queryClient.setQueryDefaults(["cardhedger-mint-previews"], d);
   queryClient.setQueryDefaults(["portfolio-market-batch"], d);
+  queryClient.setQueryDefaults(["portfolio-token-sparklines"], d);
   queryClient.setQueryDefaults(["collection-market-series"], d);
 }

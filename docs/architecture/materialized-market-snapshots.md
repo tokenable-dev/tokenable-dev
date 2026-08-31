@@ -22,16 +22,18 @@ flowchart TD
     end
 
     subgraph api [Hot read path]
-        GET1["POST …/market-snapshots"]
-        GET2["GET …/cardhedger"]
-        GET3["GET …/price-history"]
-        GET4["GET …/market-series"]
-        GET1 --> READ[CollectionMarketSnapshotReadService]
-        GET2 --> READ
-        GET3 --> READ
-        GET4 --> READ
-        READ --> PG[("PostgreSQL")]
-        READ -->|stale?| Q
+    GET1["POST …/market-snapshots"]
+    GET2["GET …/cardhedger"]
+    GET3["GET …/price-history"]
+    GET4["GET …/market-series"]
+    GET5["POST …/portfolio-market-batch"]
+    GET1 --> READ[CollectionMarketSnapshotReadService]
+    GET2 --> READ
+    GET3 --> READ
+    GET4 --> READ
+    GET5 --> READ
+    READ --> PG[("PostgreSQL")]
+    READ -->|stale?| Q
     end
 ```
 
@@ -50,6 +52,10 @@ flowchart TD
 1. API returns last-known-good snapshot immediately.
 2. If `stale_after <= now()`, response includes `snapshotStale: true`.
 3. Scheduler enqueues async refresh — the HTTP request does not block on Cardhedger.
+
+**Portfolio holdings** (`POST …/portfolio-market-batch`) never overlay live Cardhedger and never scan the listing pool. Missing rows enqueue `cold_start` and return an empty series until the worker upserts.
+
+Holdings that have **no `marketplace_collections` row** cannot get a snapshot. The portfolio UI then uses token-level `POST /marketplace/cardhedger/mint-previews` (spot) and `GET /marketplace/rwa/:tokenId/trades` (comps sparkline). Daily wallet totals (`portfolio_daily_snapshots`) already apply the same mint-preview fallback.
 
 ## Cold start
 

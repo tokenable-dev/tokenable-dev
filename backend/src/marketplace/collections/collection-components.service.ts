@@ -24,6 +24,7 @@ import {
   CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
   catalogRowTrustedForMarketData,
 } from '../utils/card-match.util';
+import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
@@ -722,15 +723,63 @@ export class CollectionComponentsService {
       };
     }
     const comp = dbRow.components;
-    if (cardIdFromPsaCertLookup(comp)) {
-      return { checked: true, ok: true, cleared: false, failCodes: [] };
-    }
     const cardId =
       typeof comp.cardhedgerCardId === 'string'
         ? comp.cardhedgerCardId.trim()
         : '';
     if (!cardId)
       return { checked: false, ok: true, cleared: false, failCodes: [] };
+
+    /**
+     * Cert-sourced IDs skip name/set fuzzy audit (PSA set strings diverge), but
+     * still fail when the catalog variant conflicts with PSA Variety.
+     */
+    if (cardIdFromPsaCertLookup(comp)) {
+      const psaVariety = String(comp.psaVariety ?? '').trim();
+      if (!psaVariety) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      let certRaw: unknown;
+      try {
+        certRaw = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          { body: { card_id: cardId } },
+        );
+      } catch {
+        return {
+          checked: true,
+          ok: true,
+          cleared: false,
+          failCodes: ['upstream_fetch_failed'],
+        };
+      }
+      const certRow = this.extractCardhedgerCardDataRow(certRaw);
+      if (!certRow) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      if (cardhedgerRowMatchesPsaVariety(certRow, psaVariety)) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      if (options?.clearOnMismatch) {
+        const { cleared } = await this.identity.clearCardhedgerCardIdIfUnchanged(
+          k,
+          cardId,
+        );
+        return {
+          checked: true,
+          ok: false,
+          cleared,
+          failCodes: ['psa_variety_mismatch'],
+        };
+      }
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['psa_variety_mismatch'],
+      };
+    }
 
     const wantName = String(comp.cardName ?? '').trim();
     const wantSet = String(comp.cardSet ?? '').trim();
@@ -802,6 +851,36 @@ export class CollectionComponentsService {
       },
     );
     if (ex.ok) {
+      const psaVariety = String(comp.psaVariety ?? '').trim();
+      if (
+        psaVariety &&
+        !cardhedgerRowMatchesPsaVariety(row, psaVariety)
+      ) {
+        if (options?.clearOnMismatch) {
+          const { cleared } =
+            await this.identity.clearCardhedgerCardIdIfUnchanged(k, cardId);
+          const varietyFail = {
+            checked: true,
+            ok: false,
+            cleared,
+            failCodes: ['psa_variety_mismatch'],
+          };
+          if (this.identity.isEnabled()) {
+            this.identity.logAuditDecision(k, varietyFail);
+          }
+          return varietyFail;
+        }
+        const varietyFail = {
+          checked: true,
+          ok: false,
+          cleared: false,
+          failCodes: ['psa_variety_mismatch'],
+        };
+        if (this.identity.isEnabled()) {
+          this.identity.logAuditDecision(k, varietyFail);
+        }
+        return varietyFail;
+      }
       const successResult = { checked: true, ok: true, cleared: false, failCodes: [] };
       if (this.identity.isEnabled()) {
         this.identity.logAuditDecision(k, successResult);

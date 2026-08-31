@@ -8,9 +8,13 @@ export class ListOrdersByOffererQueryDto {
   @IsEthereumAddress()
   offerer: string;
 
-  @ApiProperty({ description: '주문 방향 (현재 bid만 지원)', enum: ['bid'], example: 'bid' })
-  @IsIn(['bid'])
-  side: 'bid';
+  @ApiProperty({
+    description: '주문 방향 — bid: collection bid 이력, ask: 활성 매도 리스팅',
+    enum: ['bid', 'ask'],
+    example: 'bid',
+  })
+  @IsIn(['bid', 'ask'])
+  side: 'bid' | 'ask';
 
   @ApiPropertyOptional({ example: 100, description: '최대 행 수 (서버 상한 500)' })
   @IsOptional()

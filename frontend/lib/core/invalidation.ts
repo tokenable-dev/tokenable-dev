@@ -33,6 +33,7 @@ async function _invalidateRwaMetadataBatch(qc: QueryClient): Promise<void> {
 /** All `cardhedger-mint-previews` cache entries. */
 async function _invalidateMintPreviews(qc: QueryClient): Promise<void> {
   await qc.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-token-sparklines"] });
 }
 
 /** All `collection-snapshots` cache entries (prefix). */

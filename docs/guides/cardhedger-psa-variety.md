@@ -82,11 +82,33 @@ PSA Public API **Variety**는 **`BASKETBALL REFRACTOR`** 만 올 수 있지만, 
 
 **수정:** `mergePsaVarietyWithMintVariant` 로 mint에만 있는 **색(orange, gold, …)** 을 보존하고, 스냅샷 refresh 시 `ensureMintParallelVarietyFromListings` 가 활성 ask 메타에서 `mintCardVariant` 를 다시 병합한다. Cardhedger 타깃 행 예: **`Orange Basketball Refractor`** (`card-search` 상위 후보).
 
+### Pokémon `SPECIAL ART RARE` (SAR)
+
+PSA **Variety** is often **`SPECIAL ART RARE`** (Japanese secret-rare slot, e.g. Mega Dream EX Mega Gengar EX `#240`, cert `165544810`) while Cardhedger catalogs that print as **`variant: "Base"`** with the unique card number. GemRate / `details-by-certs` usually attach the correct `card_id`.
+
+Tokenable used to treat SAR like a named parallel (Master Ball / Silver Prizm). The Variety gate then **rejected the Base catalog row**, so mint preview, collection attach, and comps all stayed unmatched even though Cardhedger had a hit.
+
+**수정:** `psaVarietyIsSpecialArtRareLabel` — SAR is a Pokémon rarity label (same class as SIR / Art Rare). `marketParallelKey` stays `base`. Do not require “special art” on the Cardhedger row.
+
+### Pokémon `MASTER BALL` vs `REVERSE HOLO` (Japanese 151, etc.)
+
+PSA **Variety** is often **`MASTER BALL REVERSE HOLO`** while Cardhedger catalogs that print as **`variant: "Master Ball"`** (no reverse/holo in the variant string). A sibling **`Reverse Foil`** row exists for **`REVERSE HOLO`** and is a **different `card_id` and price band** (Master Ball PSA 10 is typically several times Reverse Foil).
+
+Cardhedger **`details-by-certs` / `prices-by-cert` can attach the Master Ball cert to Reverse Foil** (`card_match` fallback). Tokenable does **not** trust that `card_id` when it fails the PSA Variety gate. Resolution then uses **`card-search`** and picks the catalog `variant` whose **named identity** is contained in PSA Variety (Master Ball ⊂ Master Ball Reverse Holo). Finish tokens (`reverse` / `holo` / `foil`) are not required on the named-variant row.
+
+If search has no Master Ball row, Tokenable **does not** fall back to Reverse Foil prices — the collection stays unmatched until a compatible catalog row exists.
+
+The same Variety gate applies to **mint preview**, **catalog attach** (`details-by-certs` → `components.cardhedgerCardId`), and **collection comps / trades tape**. Those paths used to take the cert `card_id` / `prices-by-cert` price even when resolve had already rejected it — so portfolio and comps could stay on Reverse Foil (~$337) while the collection hero showed Master Ball (~$1,025). Snapshot audit now **clears** a stored cert ID that fails Variety so the next refresh can persist the search match.
+
+Stored `components.cardhedgerCardId` is re-checked the same way (no DB migration). Wrong Reverse Foil IDs are ignored at resolve time; the next successful search is used for pricing.
+
+**수정:** `cardhedgerRowMatchesPsaVariety` leftover-identity matching; `CardhedgerResolveService` Path 0/1 and `card-match` variety gates; `tryResolveCardIdByCert` refuses a conflicting cert `card_id`; mint preview / attach / comps / cert-ID audit use `cardhedgerCertRowUsableForPsaVariety`.
+
 ### 관련 코드 (참고)
 
 - `frontend/components/vault/MintForm.tsx` / `frontend/lib/vault/buildMintMetadata.ts` — 민팅 시 `graded.psa.Variety` 저장.
 - `backend/src/rwa/admin/vault-admin-mint-metadata.util.ts` — PSA 볼트 어드민 민트도 동일하게 `Variety` 기록.
 - `backend/src/marketplace/collections/cardhedger-market-data.service.ts` — `psaMirrorFromGradedBlock`, `enrichPsaMirrorFromCertLookup`, parallel/검색, 일반 **스포츠+REFRACTOR** 검색 동점 시 `variant` 구체성, 카탈로그 대 comps 완화.
 - `backend/src/psa/psa-variety-catalog.util.ts` — 베이스 vs non-base 판별.
-- `backend/src/marketplace/utils/cardhedger-psa-variety.util.ts` — PSA Variety ↔ Cardhedger `variant` (병행 토큰 충돌, 예: Wave).
+- `backend/src/marketplace/utils/cardhedger-psa-variety.util.ts` — PSA Variety ↔ Cardhedger `variant` (named identity vs print finish, leftover tokens, Wave/flavor conflict).
 - `backend/src/marketplace/utils/market-parallel-key.util.ts` — `marketParallelKey` / bucket v2 병행 facet.

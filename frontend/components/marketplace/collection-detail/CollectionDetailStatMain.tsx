@@ -100,6 +100,7 @@ function HeroMeta({
  * Card.html `#hero-bar` (2026 redesign):
  * image | mid(title+meta · last price + stats + Buy/Bid buttons).
  * Expanded bar stays in flow. Condensed bar pins after the hero scrolls away.
+ * Buy/Bid stay on the right of the stats row (`.cd-hero-bar__actions`); they do not wrap.
  */
 export function CollectionDetailStatMain({
   stuckTitle,
@@ -422,7 +423,8 @@ export function CollectionDetailStatMain({
             </div>
           ) : null}
 
-          <div className="cd-hero-bar__metrics hero-actionsrow">
+          <div className="cd-hero-bar__actions">
+            <div className="cd-hero-bar__metrics hero-actionsrow">
             <div className="cd-hero-bar__priceblock" id="hero-priceblock">
               <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
                 Last price
@@ -529,6 +531,7 @@ export function CollectionDetailStatMain({
                 </span>
               </div>
             </div>
+          </div>
 
             {showTradeBook ? (
               <div className="cd-hero-bar__book" id="hero-book">

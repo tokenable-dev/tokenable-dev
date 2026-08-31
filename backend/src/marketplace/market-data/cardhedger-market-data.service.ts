@@ -27,6 +27,7 @@ import {
   catalogRowTrustedForMarketData,
   catalogTrustHintsFromComponents,
 } from '../utils/card-match.util';
+import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import { catalogFromAllPricesRows } from '../utils/cardhedger-grade-catalog.util';
 
 export type {
@@ -75,6 +76,13 @@ export class CardhedgerMarketDataService {
     return this.resolve.buildCollectionQuery(col);
   }
 
+  /** Facade: catalog ID resolution with PSA Variety validation. */
+  resolveCardForCollection(
+    col: MarketplaceCollection | null,
+  ): Promise<ResolvedCard> {
+    return this.resolve.resolveCardForCollection(col);
+  }
+
   /** Facade: delegates to CardhedgerMintService (all callers continue using this unchanged). */
   async getBatchMintPreviewsFromTokenIds(
     tokenIds: number[],
@@ -117,9 +125,33 @@ export class CardhedgerMarketDataService {
               : null) ??
           certDescription ??
           cert;
+        const psaVariety = opts?.collection
+          ? catalogTrustHintsFromComponents(opts.collection.components)
+              .psaVariety
+          : undefined;
+        if (
+          psaVariety &&
+          !cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, psaVariety)
+        ) {
+          this.logger.log(
+            JSON.stringify({
+              msg: 'cert_card_id_variety_mismatch',
+              cert,
+              collectionKey: opts?.collection?.collectionKey,
+              cardId,
+              psaVariety,
+              variant: String(row.variant ?? ''),
+            }),
+          );
+          if (certDescription) {
+            return { cardId: null, query: certDescription, certDescription };
+          }
+          return { cardId: null, query, certDescription };
+        }
         /**
-         * PSA `details-by-certs` is authoritative for the slab — same trust model as
-         * trades tape {@link getCompsSnapshotForTradesTape} (direct comps by card_id).
+         * PSA `details-by-certs` is usable only when the catalog variant fits PSA
+         * Variety. Trades tape and mint preview apply the same gate — a cert
+         * `card_id` that maps Master Ball to Reverse Foil is not authoritative.
          * PSA mirror `cardSet` strings often diverge from Cardhedger set names
          * (Japanese promos, DRI EN-DESTINED RIVALS, …); do not reject on set_mismatch.
          */
@@ -581,8 +613,8 @@ export class CardhedgerMarketDataService {
   }
 
   /**
-   * Comps for trades tape — uses stored `cardhedgerCardId` or cert batch row directly
-   * (mint preview parity). Full resolve/verification is fallback only.
+   * Comps for trades tape — same catalog ID as collection resolve (PSA Variety
+   * gate). Stored / cert `card_id` is not used when it fails that gate.
    */
   async getCompsSnapshotForTradesTape(
     col: MarketplaceCollection | null,
@@ -598,21 +630,22 @@ export class CardhedgerMarketDataService {
     const tier =
       String(options?.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
     const rawCount = options?.rawCount;
-    const searchQuery = col
-      ? this.resolve.buildCollectionQuery(col).query
-      : '';
 
+    if (col) {
+      return this.pricing.getCompsSnapshotForCollection(col, {
+        gradeLabel,
+        tier,
+        rawCount,
+      });
+    }
+
+    const searchQuery = '';
     let catalogRow = options?.catalogRow ?? null;
     let cardId = String(
       (catalogRow as { card_id?: unknown } | null)?.card_id ?? '',
     ).trim();
-    if (!cardId) {
-      cardId = String(col?.components?.cardhedgerCardId ?? '').trim();
-    }
 
-    const cert = String(
-      options?.certNumber ?? col?.psaCertNumber ?? '',
-    ).trim();
+    const cert = String(options?.certNumber ?? '').trim();
     if (!cardId && cert) {
       const { row } = await this.mint.getCardRowByCert(cert);
       if (row) {
@@ -631,10 +664,11 @@ export class CardhedgerMarketDataService {
       });
     }
 
-    return this.pricing.getCompsSnapshotForCollection(col, {
-      gradeLabel,
-      tier,
-      rawCount,
+    return this.pricing.emptyMarketCompsSnapshot({
+      enabled: this.isConfigured(),
+      searchQuery,
+      matched: false,
+      message: 'Collection not found',
     });
   }
 

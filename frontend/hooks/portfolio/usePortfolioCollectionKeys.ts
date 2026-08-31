@@ -83,26 +83,28 @@ export function usePortfolioCollectionKeys(input: {
       // prefetchedServerKeys is guaranteed to be defined when this queryFn runs
       // because `enabled` below requires it. No extra network call needed here.
       const backendResolved: Record<number, string> = prefetchedServerKeys ?? {};
-      for (const a of assets) {
-        const listingKey = listingCollectionKeyByToken.get(a.tokenId);
-        if (listingKey) {
-          o[a.tokenId] = listingKey.trim().toLowerCase();
-          continue;
-        }
-        const dbKey = backendResolved[a.tokenId];
-        if (typeof dbKey === "string" && dbKey.trim()) {
-          o[a.tokenId] = dbKey.trim().toLowerCase();
-          continue;
-        }
-        const comp = extractBucketComponentsFromMetadata(
-          (a.metadata ?? {}) as Record<string, unknown>,
-        );
-        if (!comp) continue;
-        const raw = await computeMarketBucketKey(comp);
-        if (typeof raw === "string" && raw.trim().length > 0) {
-          o[a.tokenId] = raw.trim().toLowerCase();
-        }
-      }
+      await Promise.all(
+        assets.map(async (a) => {
+          const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+          if (listingKey) {
+            o[a.tokenId] = listingKey.trim().toLowerCase();
+            return;
+          }
+          const dbKey = backendResolved[a.tokenId];
+          if (typeof dbKey === "string" && dbKey.trim()) {
+            o[a.tokenId] = dbKey.trim().toLowerCase();
+            return;
+          }
+          const comp = extractBucketComponentsFromMetadata(
+            (a.metadata ?? {}) as Record<string, unknown>,
+          );
+          if (!comp) return;
+          const raw = await computeMarketBucketKey(comp);
+          if (typeof raw === "string" && raw.trim().length > 0) {
+            o[a.tokenId] = raw.trim().toLowerCase();
+          }
+        }),
+      );
       return o;
     },
     // Wait until BOTH metadata (assets) and server keys are ready.

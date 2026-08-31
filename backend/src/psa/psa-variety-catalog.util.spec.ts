@@ -41,3 +41,21 @@ describe('psaVarietyIsBrandOrSetDuplicate', () => {
     );
   });
 });
+
+describe('psaVarietyIsPokemonRarityLabel — Special Art Rare (SAR)', () => {
+  it('treats SPECIAL ART RARE as a Base catalog slot, not a parallel', () => {
+    expect(psaVarietyIndicatesGenericBaseLine('SPECIAL ART RARE')).toBe(true);
+    expect(marketParallelKeyFromPsaVariety('SPECIAL ART RARE')).toBe('base');
+    expect(psaVarietyIndicatesGenericBaseLine('SAR')).toBe(true);
+    expect(marketParallelKeyFromPsaVariety('SAR')).toBe('base');
+  });
+
+  it('does not collapse named art parallels into SAR', () => {
+    expect(
+      psaVarietyIndicatesGenericBaseLine('RED MANGA ALTERNATE ART'),
+    ).toBe(false);
+    expect(
+      marketParallelKeyFromPsaVariety('RED MANGA ALTERNATE ART'),
+    ).toBe('red_manga_alternate_art');
+  });
+});

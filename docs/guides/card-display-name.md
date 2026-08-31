@@ -108,7 +108,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Year | `components.year`, set line prefix, displayLabel |
 | Set | PSA `psaBrand` as stored (never mutated). **Display:** catalog expansion prefer, then omit the TCG series slot (`Word & Word` after franchise/language when an expansion follows). Not a named-series list. |
 | Language | `components.language`, preview `market`, corpus inference → **short code** |
-| Variant | `components.variant`, PSA variety, Cardhedger variant. **Display:** omit on Line 2 when the variety phrase is already inside the displayed set (`isDisplayVariantDuplicateOfSet`). Stored `psaVariety` is unchanged. |
+| Variant | `components.variant`, PSA variety, Cardhedger variant. **Display:** omit on Line 2 only when Variety restates the expansion (`shouldHideDuplicateVariant`). Phrase-in-set is not enough if leftover expansion identity remains (e.g. Reverse Holo must stay on 151). Stored `psaVariety` is unchanged. |
 
 ### Phase 1 scope (this change)
 

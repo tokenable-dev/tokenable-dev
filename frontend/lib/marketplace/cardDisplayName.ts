@@ -278,32 +278,122 @@ export function resolveCardDisplaySetName(
   );
 }
 
+/** TCG set-code token (`sv2a`, `s6a`, `sv11w`) — not a pure number like `151`. */
+function isCatalogSetCodeToken(t: string): boolean {
+  return /^[a-z]{1,4}\d+[a-z]?(?:\.\d+)?$/i.test(t);
+}
+
 /**
- * Display-only: PSA Variety that repeats the expansion / set name (phrase inside set).
- * Same meaning as backend `psaVarietyIsBrandOrSetDuplicate` — not imported from backend.
- * Short single tokens (RED, GOLD) stay visible as parallels.
+ * Strip franchise, language, year, series slot, and catalog codes so only the
+ * expansion identity remains. Display-only — does not mutate stored Brand.
  */
+function stripSetIdentityNoise(raw: string): string {
+  const spaced = raw.replace(/\s*&\s*/g, " & ");
+  let tokens = spaced.split(/\s+/).filter(Boolean);
+  while (tokens[0] && /^\d{4}$/.test(tokens[0])) tokens = tokens.slice(1);
+  const prefix = takeTcgFranchiseLanguagePrefix(tokens);
+  if (prefix) tokens = tokens.slice(prefix.length);
+  else if (tokens[0] && TCG_LANGUAGE_PREFIX.test(tokens[0])) {
+    tokens = tokens.slice(1);
+  }
+  const dropped = dropLeadingAmpersandSeries(tokens);
+  if (dropped) tokens = dropped;
+  while (tokens[0] && isCatalogSetCodeToken(tokens[0])) tokens = tokens.slice(1);
+  while (
+    tokens.length > 0 &&
+    TCG_LANGUAGE_PREFIX.test(tokens[tokens.length - 1] ?? "")
+  ) {
+    tokens = tokens.slice(0, -1);
+  }
+  return tokens.join(" ").trim();
+}
+
+function removeCompletePhrase(haystack: string, needle: string): string | null {
+  if (!haystack || !needle) return null;
+  if (haystack === needle) return "";
+  const re = new RegExp(`(?:^|\\s)${escapeRegExp(needle)}(?:\\s|$)`);
+  if (!re.test(haystack)) return null;
+  return haystack.replace(re, " ").replace(/\s+/g, " ").trim();
+}
+
+function setIdentityIsOnlyVariantRepeat(setRaw: string, variantKey: string): boolean {
+  const set = normalizeSetContainmentKey(setRaw);
+  if (!set) return false;
+  if (variantKey === set) return true;
+  const expansion = stripSetIdentityNoise(set);
+  if (expansion && variantKey === expansion) return true;
+  const removed = removeCompletePhrase(set, variantKey);
+  if (removed == null) return false;
+  return !stripSetIdentityNoise(removed);
+}
+
+export type ShouldHideDuplicateVariantInput = {
+  variant: string | null | undefined;
+  displayedSetName?: string | null;
+  psaBrand?: string | null;
+  language?: string | null;
+};
+
+/**
+ * Display-only: hide PSA Variety only when it restates the set / expansion name.
+ * Real parallels (finish, treatment, insert, alternate art) stay visible even
+ * when they share a product word with the set (e.g. Silver Prizm / Panini Prizm).
+ *
+ * Same intent as backend `psaVarietyIsBrandOrSetDuplicate`, plus leftover-expansion
+ * so a catalog set line that appends a finish does not swallow Reverse Holo.
+ * Does not mutate stored `psaVariety`. No named-variant list.
+ */
+export function shouldHideDuplicateVariant(
+  input: ShouldHideDuplicateVariantInput,
+): boolean {
+  const v = normalizeSetContainmentKey(input.variant ?? "");
+  if (!v) return false;
+  if (!v.includes(" ") && v.length < 5) return false;
+
+  const lang = formatCardDisplayLanguageShort(input.language);
+  const candidates = [
+    input.displayedSetName,
+    input.psaBrand,
+    lang ? `${input.displayedSetName ?? ""} ${lang}` : null,
+  ];
+  for (const raw of candidates) {
+    if (setIdentityIsOnlyVariantRepeat(raw ?? "", v)) return true;
+  }
+  return false;
+}
+
+/** @see shouldHideDuplicateVariant — two-arg form used by Line 2 / Details KV. */
 export function isDisplayVariantDuplicateOfSet(
   variant: string | null | undefined,
   setName: string | null | undefined,
+  opts?: Omit<ShouldHideDuplicateVariantInput, "variant" | "displayedSetName">,
 ): boolean {
-  const v = normalizeSetContainmentKey(variant ?? "");
-  const set = normalizeSetContainmentKey(setName ?? "");
-  if (!v || !set) return false;
-  if (v === set) return true;
-  if (!v.includes(" ") && v.length < 5) return false;
-  const phrase = new RegExp(`(?:^|\\s)${escapeRegExp(v)}(?:\\s|$)`);
-  return phrase.test(set);
+  return shouldHideDuplicateVariant({
+    variant,
+    displayedSetName: setName,
+    psaBrand: opts?.psaBrand,
+    language: opts?.language,
+  });
 }
 
 /** Line 2 / meta only — does not mutate stored variety fields. */
 export function displayVariantIfNotSetDuplicate(
   variant: string | null | undefined,
   setName: string | null | undefined,
+  opts?: Omit<ShouldHideDuplicateVariantInput, "variant" | "displayedSetName">,
 ): string | null {
   const t = (variant ?? "").trim();
   if (!t) return null;
-  if (isDisplayVariantDuplicateOfSet(t, setName)) return null;
+  if (
+    shouldHideDuplicateVariant({
+      variant: t,
+      displayedSetName: setName,
+      psaBrand: opts?.psaBrand,
+      language: opts?.language,
+    })
+  ) {
+    return null;
+  }
   return t;
 }
 
@@ -377,6 +467,7 @@ export function formatCardDisplayLine2(
   const variant = displayVariantIfNotSetDuplicate(
     parts.variant,
     parts.setName,
+    { language: parts.language },
   );
   return joinCardDisplaySegments([year, setChunk, variant]);
 }

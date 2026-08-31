@@ -229,6 +229,8 @@ export class CollectionMarketService {
 
   /**
    * Materialized snapshot read — platform trades always from orders DB.
+   * Collection detail / Markets list overlays live Cardhedger when the row is thin.
+   * Portfolio holdings use {@link batchPortfolioMarketData} (snapshot-only, no overlay).
    */
   async getCollectionMarketBundle(
     collectionKey: string,
@@ -410,15 +412,16 @@ export class CollectionMarketService {
   }
 
   /**
-   * Direct Cardhedger reads by mint/catalog `cardhedgerCardId` — same path as detail grade
-   * chart, without re-running strict PSA Variety resolve on search picks.
+   * Direct Cardhedger reads by resolved catalog id (stored id is re-checked against
+   * PSA Variety — a cert-lookup Reverse Foil id must not overlay a Master Ball slab).
    */
   private async overlayFromStoredCatalogId(
     bundle: CollectionMarketBundle,
     col: MarketplaceCollection,
     window: PriceHistoryDuration,
   ): Promise<CollectionMarketBundle | null> {
-    const cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+    const resolved = await this.cardhedgerMarket.resolveCardForCollection(col);
+    const cardId = String(resolved.row?.card_id ?? '').trim();
     if (!cardId) return null;
 
     const historyTier = marketHistoryTierFromComponents(col.components);
@@ -1121,6 +1124,11 @@ export class CollectionMarketService {
     return { items };
   }
 
+  /**
+   * Portfolio holdings price read — snapshot table only.
+   * Does not call Cardhedger, order-pool stats, or platform tape on the request.
+   * Missing/stale keys are enqueued for background refresh.
+   */
   async batchPortfolioMarketData(
     collectionKeys: string[],
     opts: {
@@ -1144,8 +1152,7 @@ export class CollectionMarketService {
       'max',
     ].includes(windowRaw)
       ? windowRaw
-      : 'max';
-    const chainId = opts.chainId;
+      : '365d';
 
     const keys = [
       ...new Set(
@@ -1159,30 +1166,29 @@ export class CollectionMarketService {
       ),
     ].slice(0, 60);
 
-    const PORTFOLIO_BATCH_CONCURRENCY = 8;
-    const items: Array<{
-      collectionKey: string;
-      stats: CollectionMarketStatsResponse | null;
-      series: CollectionMarketBundle | null;
-    }> = [];
+    const rowMap = await this.snapshotService.findByKeys(keys);
+    const onDemand = this.snapshotService.onDemandEnabled();
 
-    for (let i = 0; i < keys.length; i += PORTFOLIO_BATCH_CONCURRENCY) {
-      const chunk = keys.slice(i, i + PORTFOLIO_BATCH_CONCURRENCY);
-      const chunkResults = await Promise.all(
-        chunk.map(async (key) => {
-          try {
-            const [stats, series] = await Promise.all([
-              this.getCollectionMarketStats(key, chainId).catch(() => null),
-              this.getCollectionMarketBundle(key, d, chainId).catch(() => null),
-            ]);
-            return { collectionKey: key, stats, series };
-          } catch {
-            return { collectionKey: key, stats: null, series: null };
-          }
-        }),
-      );
-      items.push(...chunkResults);
-    }
+    const items = keys.map((key) => {
+      const row = rowMap.get(key);
+      if (!row || !rowHasMaterializedListPrices(row)) {
+        if (onDemand) {
+          this.snapshotScheduler.enqueue(key, 'cold_start');
+        }
+        return {
+          collectionKey: key,
+          stats: null,
+          series: emptyMarketBundle(key, [], d),
+        };
+      }
+      const stale = this.snapshotService.isRowStale(row);
+      this.touchAndMaybeRefreshStale(key, stale);
+      return {
+        collectionKey: key,
+        stats: null,
+        series: this.snapshotRead.buildBundleFromRow(row, d, []).bundle,
+      };
+    });
     return { items };
   }
 }

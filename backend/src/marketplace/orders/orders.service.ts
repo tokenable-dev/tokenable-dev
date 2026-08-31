@@ -917,6 +917,32 @@ export class OrdersService {
   /**
    * Order history keyed by requested token id string (one batch query; no N+1).
    */
+  /** Active asks listed by a wallet (portfolio listings — not the global book). */
+  async findActiveAsksByOfferer(
+    offererAddress: string,
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const addr = offererAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 500), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
+  }
+
   /** Collection criteria bids placed by a wallet (active + historical). */
   async findCollectionBidsByOfferer(
     offererAddress: string,

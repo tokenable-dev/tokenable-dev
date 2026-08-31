@@ -8,6 +8,9 @@ import { MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS } from "./marketplace-market-
 /** Must match backend `TokenCollectionKeysDto` `@ArrayMaxSize(120)`. */
 export const TOKEN_COLLECTION_KEYS_BATCH_MAX = 120;
 
+/** Parallel HTTP chunks when a wallet has more keys/tokens than one request allows. */
+const PORTFOLIO_HTTP_CHUNK_PARALLEL = 3;
+
 /** Portfolio batch — same shapes as collection stats + market series. */
 export interface PortfolioMarketBatchItem {
   collectionKey: string;
@@ -26,7 +29,7 @@ export async function postPortfolioCollectionMarketBatch(body: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         collectionKeys: body.collectionKeys,
-        priceHistoryDuration: body.priceHistoryDuration ?? "max",
+        priceHistoryDuration: body.priceHistoryDuration ?? "365d",
       }),
     },
   );
@@ -74,11 +77,19 @@ export async function postTokenCollectionKeysByTokenIdsBatched(
   );
   if (ids.length === 0) return {};
 
-  const merged: Record<number, string> = {};
+  const chunks: number[][] = [];
   for (let i = 0; i < ids.length; i += TOKEN_COLLECTION_KEYS_BATCH_MAX) {
-    const chunk = ids.slice(i, i + TOKEN_COLLECTION_KEYS_BATCH_MAX);
-    const part = await postTokenCollectionKeysByTokenIds(chunk);
-    Object.assign(merged, part);
+    chunks.push(ids.slice(i, i + TOKEN_COLLECTION_KEYS_BATCH_MAX));
+  }
+
+  const merged: Record<number, string> = {};
+  for (let i = 0; i < chunks.length; i += PORTFOLIO_HTTP_CHUNK_PARALLEL) {
+    const parts = await Promise.all(
+      chunks
+        .slice(i, i + PORTFOLIO_HTTP_CHUNK_PARALLEL)
+        .map((chunk) => postTokenCollectionKeysByTokenIds(chunk)),
+    );
+    for (const part of parts) Object.assign(merged, part);
   }
   return merged;
 }
@@ -97,14 +108,22 @@ export async function postPortfolioCollectionMarketBatchBatched(body: {
   if (keys.length === 0) return { items: [] };
 
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
-  const items: PortfolioMarketBatchItem[] = [];
+  const chunks: string[][] = [];
   for (let i = 0; i < keys.length; i += max) {
-    const chunk = keys.slice(i, i + max);
-    const pack = await postPortfolioCollectionMarketBatch({
-      collectionKeys: chunk,
-      priceHistoryDuration: body.priceHistoryDuration,
-    });
-    items.push(...pack.items);
+    chunks.push(keys.slice(i, i + max));
+  }
+
+  const items: PortfolioMarketBatchItem[] = [];
+  for (let i = 0; i < chunks.length; i += PORTFOLIO_HTTP_CHUNK_PARALLEL) {
+    const packs = await Promise.all(
+      chunks.slice(i, i + PORTFOLIO_HTTP_CHUNK_PARALLEL).map((chunk) =>
+        postPortfolioCollectionMarketBatch({
+          collectionKeys: chunk,
+          priceHistoryDuration: body.priceHistoryDuration,
+        }),
+      ),
+    );
+    for (const pack of packs) items.push(...pack.items);
   }
   return { items };
 }

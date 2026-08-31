@@ -218,7 +218,8 @@ export function PortfolioPageView({
     portfolioAddress,
   );
 
-  const { tokenToCollectionKey, uniqueCollectionKeys } = usePortfolioCollectionKeys({
+  const { tokenToCollectionKey, uniqueCollectionKeys, bucketKeysFetching } =
+    usePortfolioCollectionKeys({
     address: portfolioAddress,
     isConnected: portfolioDataEnabled,
     assets,
@@ -231,7 +232,8 @@ export function PortfolioPageView({
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken,
-    valuesPending,
+    sparklineByToken,
+    valuesPending: marketValuesPending,
   } = usePortfolioMarketPricing({
     address: portfolioAddress,
     isConnected: portfolioDataEnabled,
@@ -239,6 +241,7 @@ export function PortfolioPageView({
     uniqueCollectionKeys,
     tokenToCollectionKey,
   });
+  const valuesPending = marketValuesPending || bucketKeysFetching;
 
   const myActiveListings = useMemo(
     () =>
@@ -354,6 +357,7 @@ export function PortfolioPageView({
         statsByCollectionKey,
         seriesByCollectionKey,
         mintPreviewByToken,
+        sparklineByToken,
       }).sort((a, b) => Number(b.tokenId) - Number(a.tokenId)),
     [
       assets,
@@ -362,6 +366,7 @@ export function PortfolioPageView({
       statsByCollectionKey,
       seriesByCollectionKey,
       mintPreviewByToken,
+      sparklineByToken,
     ],
   );
 

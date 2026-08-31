@@ -55,6 +55,135 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     );
   });
 
+  it('does not attach a Reverse Foil cert cardId when PSA Variety is Master Ball', async () => {
+    const forwardJson = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: [
+          {
+            cert_info: {
+              cert: '83297897',
+              description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+            },
+            card: {
+              card_id: 'ch_reverse_foil',
+              variant: 'Reverse Foil',
+              description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+              name: 'Gengar',
+              set: 'Pokemon Japanese 151',
+              number: '094',
+              image: 'https://cdn.example.com/reverse.jpg',
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        cards: [
+          {
+            card_id: 'ch_master_ball',
+            variant: 'Master Ball',
+            description: 'Pokemon Japanese 151 Gengar Master Ball 094',
+            name: 'Gengar',
+            number: '094',
+            image: 'https://cdn.example.com/master.jpg',
+          },
+          {
+            card_id: 'ch_reverse_foil',
+            variant: 'Reverse Foil',
+            description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+            name: 'Gengar',
+            number: '094',
+          },
+        ],
+      });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '83297897',
+            cardNameHint: 'Gengar',
+            cardNumberHint: '094',
+            Variety: 'MASTER BALL REVERSE HOLO',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '83297897');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBe('ch_master_ball');
+    expect(ch.imageUrl).toBe('https://cdn.example.com/master.jpg');
+    expect(forwardJson).toHaveBeenNthCalledWith(
+      2,
+      'POST',
+      '/v1/cards/card-search',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          search: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+        }),
+      }),
+    );
+  });
+
+  it('does not persist Reverse Foil when Master Ball is absent from search', async () => {
+    const forwardJson = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: [
+          {
+            cert_info: {
+              cert: '83297897',
+              description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+            },
+            card: {
+              card_id: 'ch_reverse_foil',
+              variant: 'Reverse Foil',
+              name: 'Gengar',
+              number: '094',
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        cards: [
+          {
+            card_id: 'ch_reverse_foil',
+            variant: 'Reverse Foil',
+            description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+            name: 'Gengar',
+            number: '094',
+          },
+        ],
+      });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '83297897',
+            cardNameHint: 'Gengar',
+            cardNumberHint: '094',
+            Variety: 'MASTER BALL REVERSE HOLO',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '83297897');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBeUndefined();
+    expect(ch.searchQuery).toBe(
+      'Pokemon Japanese 151 Gengar Reverse Foil 094',
+    );
+  });
+
   it('fetches card-details image when cert row has cardId but no image', async () => {
     const forwardJson = jest
       .fn()

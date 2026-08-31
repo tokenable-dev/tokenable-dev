@@ -108,7 +108,8 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | POST | `/api/marketplace/orders/replace-listing` | Cancel old ask + insert new |
 | POST | `/api/marketplace/orders/replace-bid` | Replace card-level bid |
 | POST | `/api/marketplace/orders/batch-by-token` | Batch order history |
-| GET | `/api/marketplace/orders/by-offerer` | Orders by wallet |
+| GET | `/api/marketplace/orders/by-offerer` | Wallet asks or collection bids |
+| GET | `/api/marketplace/orders` | Active asks (lightweight) |
 | GET | `/api/marketplace/orders` | Active asks (lightweight) |
 | GET | `/api/marketplace/orders/token/:tokenId` | Orders for token |
 | GET | `/api/marketplace/orders/:hash` | Single order by hash |
@@ -124,7 +125,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 |--------|------|-------------|
 | GET | `/api/marketplace/search` | Unified search: individual cards (cert / name) + collections |
 | POST | `/api/marketplace/collections/market-snapshots` | Batch list-row snapshots (DB-first) |
-| POST | `/api/marketplace/collections/portfolio-market-batch` | Portfolio batch stats + series |
+| POST | `/api/marketplace/collections/portfolio-market-batch` | Portfolio snapshot batch (no Cardhedger on request) |
 | POST | `/api/marketplace/collections/on-mint` | Mint webhook — bootstrap collection |
 | POST | `/api/marketplace/collections/token-collection-keys` | Batch tokenIds → collection_key |
 | POST | `/api/marketplace/cardhedger/mint-previews` | Batch mint previews (max 32) |

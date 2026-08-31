@@ -12,6 +12,7 @@ import {
   stripLeadingTcgSeriesFromSetDisplay,
   resolveCardDisplaySetName,
   isDisplayVariantDuplicateOfSet,
+  shouldHideDuplicateVariant,
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
 } from "@/lib/marketplace/cardDisplayName";
@@ -289,6 +290,88 @@ describe("cardDisplayName SSOT", () => {
         variant: "VSTAR Universe",
       }),
     ).toBe("2022 · Pokemon Japanese VSTAR Universe JP");
+  });
+
+  it("shouldHideDuplicateVariant hides only expansion-name repeats", () => {
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Eevee Heroes",
+        displayedSetName: "Pokemon Japanese Eevee Heroes",
+      }),
+    ).toBe(true);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "VSTAR Universe",
+        displayedSetName: "Pokemon Japanese VSTAR Universe",
+        psaBrand: "Pokemon Japanese Sword & Shield VSTAR Universe",
+      }),
+    ).toBe(true);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Reverse Holo",
+        displayedSetName: "Pokemon Japanese SV2a Pokemon Card 151",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Master Ball Reverse Holo",
+        displayedSetName: "Pokemon Japanese SV2a Pokemon Card 151",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Special Illustration Rare",
+        displayedSetName: "Pokemon Japanese 151",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Silver Prizm",
+        displayedSetName: "Panini Prizm",
+      }),
+    ).toBe(false);
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Red Manga Alternate Art",
+        displayedSetName: "OP13 Carrying On His Will",
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps finish variants when the catalog set line also names the finish", () => {
+    expect(
+      shouldHideDuplicateVariant({
+        variant: "Reverse Holo",
+        displayedSetName: "Pokemon Japanese SV2a Pokemon Card 151 Reverse Holo",
+        psaBrand: "POKEMON JAPANESE SV2a POKEMON CARD 151",
+      }),
+    ).toBe(false);
+    expect(
+      formatCardDisplayLine2({
+        cardName: null,
+        cardNumber: null,
+        grade: null,
+        year: "2023",
+        setName: "Pokemon Japanese SV2a Pokemon Card 151",
+        language: "JP",
+        variant: "Reverse Holo",
+      }),
+    ).toBe(
+      "2023 · Pokemon Japanese SV2a Pokemon Card 151 JP · Reverse Holo",
+    );
+    expect(
+      formatCardDisplayLine2({
+        cardName: null,
+        cardNumber: null,
+        grade: null,
+        year: "2023",
+        setName: "Pokemon Japanese SV2a Pokemon Card 151",
+        language: "JP",
+        variant: "Master Ball Reverse Holo",
+      }),
+    ).toBe(
+      "2023 · Pokemon Japanese SV2a Pokemon Card 151 JP · Master Ball Reverse Holo",
+    );
   });
 
   it("keeps real parallel and rarity variants on Line 2", () => {

@@ -5,6 +5,12 @@ import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
+import {
+  cardhedgerCertRowUsableForPsaVariety,
+  cardhedgerRowMatchesPsaVariety,
+  psaVarietyHasNamedCollectibleIdentity,
+} from '../utils/cardhedger-psa-variety.util';
 import {
   normalizeImageUrl,
   rankCollectionCoverUrls,
@@ -31,6 +37,22 @@ function pushCandidate(out: string[], url: string | null | undefined): void {
   const n = normalizeImageUrl(url);
   if (!isPersistableCoverUrl(n)) return;
   out.push(n);
+}
+
+function psaVarietyFromMintMeta(meta: Record<string, unknown>): string {
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
+  if (!graded || typeof graded !== 'object') return '';
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const varietyRaw = [psa?.Variety, psa?.variety, psa?.varietyHint].find(
+    (x): x is string => typeof x === 'string' && Boolean(x.trim()),
+  );
+  const card = graded.card as Record<string, unknown> | undefined;
+  const mintVariant =
+    typeof card?.variant === 'string' ? card.variant.trim() : '';
+  return mergePsaVarietyWithMintVariant(varietyRaw, mintVariant);
 }
 
 /**
@@ -80,6 +102,7 @@ export class CollectionCoverService {
     let cardId = '';
     let imageUrl = '';
     let searchQuery = '';
+    const psaVariety = psaVarietyFromMintMeta(meta);
 
     try {
       const body = await this.cardhedger.forwardJson(
@@ -107,12 +130,14 @@ export class CollectionCoverService {
         if (desc) searchQuery = desc;
         const card = row.card;
         if (card && typeof card === 'object') {
-          const id =
-            typeof card.card_id === 'string' ? card.card_id.trim() : '';
-          if (id) cardId = id;
-          const img =
-            typeof card.image === 'string' ? card.image.trim() : '';
-          if (img) imageUrl = img;
+          if (cardhedgerCertRowUsableForPsaVariety(card, psaVariety)) {
+            const id =
+              typeof card.card_id === 'string' ? card.card_id.trim() : '';
+            if (id) cardId = id;
+            const img =
+              typeof card.image === 'string' ? card.image.trim() : '';
+            if (img) imageUrl = img;
+          }
         }
         break;
       }
@@ -144,10 +169,13 @@ export class CollectionCoverService {
       }
     }
 
-    // details-by-certs often returns `card: null` — resolve card_id via text search
-    // so admin catalog create can persist components.cardhedgerCardId.
+    // details-by-certs often returns `card: null`, or a sibling finish (Reverse
+    // Foil on a Master Ball slab). Resolve via search with the same Variety gate.
     if (!cardId) {
-      const fromSearch = await this.resolveCardhedgerCardIdBySearch(meta, searchQuery);
+      const fromSearch = await this.resolveCardhedgerCardIdBySearch(
+        meta,
+        searchQuery,
+      );
       if (fromSearch) {
         cardId = fromSearch.cardId;
         if (!imageUrl && fromSearch.imageUrl) imageUrl = fromSearch.imageUrl;
@@ -490,23 +518,32 @@ export class CollectionCoverService {
           .replace(/[^a-z0-9]/g, '');
       const wantNum = norm(cardNumber).replace(/^#/, '');
       const wantNameWords = norm(cardName).match(/[a-z0-9]+/g) ?? [];
+      const psaVariety = psaVarietyFromMintMeta(meta);
+      const requireNamed =
+        psaVarietyHasNamedCollectibleIdentity(psaVariety);
 
-      let best: Record<string, unknown> | null = null;
+      let bestCompatible: Record<string, unknown> | null = null;
+      let bestNameNum: Record<string, unknown> | null = null;
+      let bestFirst: Record<string, unknown> | null = null;
       for (const row of cards as Record<string, unknown>[]) {
         const id = typeof row.card_id === 'string' ? row.card_id.trim() : '';
         if (!id) continue;
+        if (!bestFirst) bestFirst = row;
         const rowNum = norm(String(row.number ?? '')).replace(/^#/, '');
         const rowDesc = norm(String(row.description ?? row.name ?? ''));
         const numOk = !wantNum || rowNum === wantNum;
         const nameOk =
           wantNameWords.length === 0 ||
           wantNameWords.every((w) => rowDesc.includes(w));
-        if (numOk && nameOk) {
-          best = row;
+        if (!(numOk && nameOk)) continue;
+        if (!bestNameNum) bestNameNum = row;
+        if (cardhedgerRowMatchesPsaVariety(row, psaVariety)) {
+          bestCompatible = row;
           break;
         }
-        if (!best) best = row; // cert description search — first hit is usually right
       }
+      const best =
+        bestCompatible ?? (requireNamed ? null : (bestNameNum ?? bestFirst));
       if (!best) return null;
       const cardId = String(best.card_id ?? '').trim();
       if (!cardId) return null;

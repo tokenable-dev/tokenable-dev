@@ -31,7 +31,12 @@ import {
   cardhedgerRowMatchesMarketParallelKey,
   marketParallelKeyFromPsaVariety,
 } from '../utils/market-parallel-key.util';
-import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
+import {
+  cardhedgerCatalogVariantSpecificity,
+  cardhedgerRowIsPrintFinishOnly,
+  cardhedgerRowMatchesPsaVariety,
+  psaVarietyHasNamedCollectibleIdentity,
+} from '../utils/cardhedger-psa-variety.util';
 import {
   chromeColorTokensIn,
   mergePsaVarietyWithMintVariant,
@@ -348,6 +353,26 @@ export class CardhedgerResolveService {
 
     push(this.buildPsaForwardCardhedgerSearchQuery(q));
 
+    if (
+      q.psaVariety &&
+      psaVarietyRequiresNonBaseCardhedgerRow(
+        q.psaVariety,
+        q.psaBrand || q.cardSet,
+      )
+    ) {
+      push(
+        [
+          q.cardName || q.psaSubject,
+          q.cardNumber ? cardNumberTokenForCardhedgerSearch(q.cardNumber) : '',
+          q.psaVariety,
+          q.psaBrand || q.cardSet,
+        ]
+          .map((s) => String(s ?? '').trim())
+          .filter(Boolean)
+          .join(' '),
+      );
+    }
+
     const forwardNoVariety = [
       q.psaSubject,
       q.psaBrand,
@@ -483,7 +508,6 @@ export class CardhedgerResolveService {
       brandOrSet?: string | null;
     },
   ): boolean {
-    /** Mint/catalog `cardhedgerCardId` is authoritative — PSA Variety vs Cardhedger `variant` often diverge. */
     if (opts?.trustStoredCardhedgerCatalogId) return false;
     const pv = psaVariety?.trim() ?? '';
     if (!psaVarietyRequiresNonBaseCardhedgerRow(pv, opts?.brandOrSet)) {
@@ -680,6 +704,11 @@ export class CardhedgerResolveService {
     ) {
       if (cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
         score += 40;
+        const spec = cardhedgerCatalogVariantSpecificity(
+          row as Record<string, unknown>,
+          pv,
+        );
+        if (spec > 0) score += 25 + spec * 5;
         const pvLower = pv.toLowerCase();
         const parallelBlob = this.rowParallelBlob(row).toLowerCase();
         if (parallelBlob.includes(pvLower)) score += 30;
@@ -903,7 +932,7 @@ export class CardhedgerResolveService {
     };
     const specificity = (row: CardhedgerCardRow) =>
       String(row.variant ?? '').trim().length;
-    const scored = rows
+    const scoredAll = rows
       .map((r) => ({ r, ...this.scoreCard(r, q) }))
       .filter(
         (x) =>
@@ -920,6 +949,16 @@ export class CardhedgerResolveService {
           if (dc !== 0) return dc;
         }
         if (pvLower && psaVarietyRequiresNonBaseCardhedgerRow(pvLower, q.psaBrand || q.cardSet)) {
+          const dSpec =
+            cardhedgerCatalogVariantSpecificity(
+              b.r as Record<string, unknown>,
+              q.psaVariety,
+            ) -
+            cardhedgerCatalogVariantSpecificity(
+              a.r as Record<string, unknown>,
+              q.psaVariety,
+            );
+          if (dSpec !== 0) return dSpec;
           const d =
             Number(varietyInRowBlob(b.r)) - Number(varietyInRowBlob(a.r));
           if (d !== 0) return d;
@@ -935,6 +974,31 @@ export class CardhedgerResolveService {
         }
         return 0;
       });
+    /**
+     * PSA named a collectible identity (Master Ball, Silver Prizm, …). A finish-only
+     * catalog row (Reverse Foil) must not win. Insert lines cataloged as `variant: Base`
+     * (Rookie Signatures) stay eligible when no named-variant row exists.
+     */
+    let scored = scoredAll;
+    if (psaVarietyHasNamedCollectibleIdentity(q.psaVariety)) {
+      const identityHits = scoredAll.filter(
+        (x) =>
+          cardhedgerCatalogVariantSpecificity(
+            x.r as Record<string, unknown>,
+            q.psaVariety,
+          ) > 0,
+      );
+      if (identityHits.length > 0) {
+        scored = identityHits;
+      } else {
+        const notFinishOnly = scoredAll.filter(
+          (x) =>
+            !cardhedgerRowIsPrintFinishOnly(x.r as Record<string, unknown>),
+        );
+        if (notFinishOnly.length === 0) return null;
+        scored = notFinishOnly;
+      }
+    }
     if (scored[0]?.verified) {
       return { row: scored[0].r, confidence: 'verified' };
     }
@@ -1086,7 +1150,7 @@ export class CardhedgerResolveService {
       ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
     if (!query) return { query: '', row: null };
 
-    // ── Path 0: PSA cert → details-by-certs (authoritative when no stored id) ──
+    // ── Path 0: PSA cert → details-by-certs (only when the catalog variant fits PSA) ──
     if (!q.cardhedgerCardId && col) {
       const cert = psaCertNumberFromCollectionRow(col);
       if (cert) {
@@ -1094,17 +1158,34 @@ export class CardhedgerResolveService {
           const { row } = await this.certLookup.getCardRowByCert(cert);
           const certCardId = String(row?.card_id ?? '').trim();
           if (row && certCardId) {
-            this.metrics?.recordResolvePath('details_by_certs');
-            this.logger.log(
-              JSON.stringify({
-                msg: 'resolve_path',
-                path: 'details_by_certs',
-                key: collectionKey,
-                cardId: certCardId,
-                confidence: 'verified',
-              }),
+            const certVarietyFail = this.parallelRowFailsExpectation(
+              q.psaVariety,
+              row,
+              { brandOrSet: q.psaBrand || q.cardSet || null },
             );
-            return { query, row, confidence: 'verified' };
+            if (certVarietyFail) {
+              this.logger.log(
+                JSON.stringify({
+                  msg: 'cert_card_id_variety_mismatch',
+                  key: collectionKey,
+                  cardId: certCardId,
+                  psaVariety: q.psaVariety,
+                  variant: String(row.variant ?? ''),
+                }),
+              );
+            } else {
+              this.metrics?.recordResolvePath('details_by_certs');
+              this.logger.log(
+                JSON.stringify({
+                  msg: 'resolve_path',
+                  path: 'details_by_certs',
+                  key: collectionKey,
+                  cardId: certCardId,
+                  confidence: 'verified',
+                }),
+              );
+              return { query, row, confidence: 'verified' };
+            }
           }
         } catch (e) {
           this.logger.debug(
@@ -1114,7 +1195,7 @@ export class CardhedgerResolveService {
       }
     }
 
-    // ── Path 1: stored cardhedgerCardId → card-details direct lookup ──────
+    // ── Path 1: stored cardhedgerCardId → card-details, then PSA Variety gate ──
     if (q.cardhedgerCardId) {
       try {
         const body = await this.cardhedger.forwardJson(
@@ -1126,25 +1207,41 @@ export class CardhedgerResolveService {
         );
         const rows = this.parseCardRows(body);
         if (rows[0]) {
-          const storedIdOpts = { trustStoredCardhedgerCatalogId: true } as const;
-          const strict = this.scoreCard(rows[0], q, storedIdOpts);
-          const confidence =
-            strict.verified && this.rowTrustedForMarket(q, rows[0])
-              ? 'verified'
-              : 'approximate';
-          this.metrics?.recordResolvePath('card_details');
-          this.logger.log(
-            JSON.stringify({
-              msg: 'resolve_path',
-              path: 'card_details',
-              key: collectionKey,
-              cardId: q.cardhedgerCardId,
-              confidence,
-              score: strict.score,
-              numberMatched: strict.numberMatched,
-            }),
+          const storedVarietyFail = this.parallelRowFailsExpectation(
+            q.psaVariety,
+            rows[0],
+            { brandOrSet: q.psaBrand || q.cardSet || null },
           );
-          return { query, row: rows[0], confidence };
+          if (storedVarietyFail) {
+            this.logger.log(
+              JSON.stringify({
+                msg: 'stored_card_id_variety_mismatch',
+                key: collectionKey,
+                cardId: q.cardhedgerCardId,
+                psaVariety: q.psaVariety,
+                variant: String(rows[0].variant ?? ''),
+              }),
+            );
+          } else {
+            const strict = this.scoreCard(rows[0], q);
+            const confidence =
+              strict.verified && this.rowTrustedForMarket(q, rows[0])
+                ? 'verified'
+                : 'approximate';
+            this.metrics?.recordResolvePath('card_details');
+            this.logger.log(
+              JSON.stringify({
+                msg: 'resolve_path',
+                path: 'card_details',
+                key: collectionKey,
+                cardId: q.cardhedgerCardId,
+                confidence,
+                score: strict.score,
+                numberMatched: strict.numberMatched,
+              }),
+            );
+            return { query, row: rows[0], confidence };
+          }
         }
       } catch (e) {
         // Circuit open or network failure — fall through to next path
@@ -1418,6 +1515,24 @@ export class CardhedgerResolveService {
             msg: 'card_match_rejected',
             key: collectionKey,
             cardId: match.card_id ?? null,
+            aiConfidence,
+          }),
+        );
+        return null;
+      }
+
+      if (
+        this.parallelRowFailsExpectation(q.psaVariety ?? null, row, {
+          brandOrSet: q.psaBrand || q.cardSet || null,
+        })
+      ) {
+        this.logger.log(
+          JSON.stringify({
+            msg: 'card_match_variety_rejected',
+            key: collectionKey,
+            cardId: match.card_id ?? null,
+            psaVariety: q.psaVariety,
+            variant: String(row.variant ?? ''),
             aiConfidence,
           }),
         );
