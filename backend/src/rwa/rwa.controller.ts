@@ -81,6 +81,17 @@ export class RwaController {
       },
     }),
   )
+  uploadToIpfs(
+    @Body() dto: UploadRwaDto,
+    @UploadedFile() file?: Express.Multer.File,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ): Promise<UploadRwaResult> {
+    // requireChainId: vault availability is per-chain — silent DEFAULT_CHAIN_ID
+    // fallback would reject a Polygon mint because of a live Sepolia cycle.
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaService.uploadToIpfs(dto, chainId, file);
+  }
+
   @ApiBearerAuth()
   @ApiChainIdHeader()
   @ApiOperation({
@@ -95,17 +106,6 @@ export class RwaController {
   ) {
     const chainId = this.chainConfig.requireChainId(chainHeader);
     return this.rwaService.checkCertAvailability(certNumber, chainId);
-  }
-
-  uploadToIpfs(
-    @Body() dto: UploadRwaDto,
-    @UploadedFile() file?: Express.Multer.File,
-    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
-  ): Promise<UploadRwaResult> {
-    // requireChainId: vault availability is per-chain — silent DEFAULT_CHAIN_ID
-    // fallback would reject a Polygon mint because of a live Sepolia cycle.
-    const chainId = this.chainConfig.requireChainId(chainHeader);
-    return this.rwaService.uploadToIpfs(dto, chainId, file);
   }
 
   /** Mint RWA (owner-signed). Default custody + admin deliver; `deliveryMode=direct` for self vault. */
