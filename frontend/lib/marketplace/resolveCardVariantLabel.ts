@@ -1,4 +1,5 @@
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { shouldHideDuplicateVariant } from "@/lib/marketplace/cardDisplayName";
 
 /** Parallel / edition label — drives bucket split and market pricing. */
 export function resolveCardVariantLabel(sources: {
@@ -23,11 +24,30 @@ export function resolveCollectionComponentVariant(
   comp: CollectionComponents,
   marketVariant?: string | null,
 ): string | null {
-  return resolveCardVariantLabel({
-    variant: comp.variant,
-    psaVariety: comp.psaVariety,
-    marketVariant,
-  });
+  const set =
+    (typeof comp.cardSetDisplay === "string" && comp.cardSetDisplay.trim()) ||
+    (typeof comp.cardSet === "string" && comp.cardSet.trim()) ||
+    (typeof comp.psaBrand === "string" && comp.psaBrand.trim()) ||
+    null;
+  const brand =
+    typeof comp.psaBrand === "string" && comp.psaBrand.trim()
+      ? comp.psaBrand.trim()
+      : null;
+  for (const raw of [comp.variant, comp.psaVariety, marketVariant]) {
+    const t = typeof raw === "string" ? raw.trim() : "";
+    if (!t) continue;
+    if (
+      shouldHideDuplicateVariant({
+        variant: t,
+        displayedSetName: set,
+        psaBrand: brand,
+      })
+    ) {
+      continue;
+    }
+    return t;
+  }
+  return null;
 }
 
 /** `properties.graded` mirror on RWA metadata. */

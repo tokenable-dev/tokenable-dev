@@ -171,19 +171,31 @@ export class CollectionMarketSnapshotService {
         });
 
         // Cert-based card ID resolution: if cardhedgerCardId is still empty
-        // after the audit, try Cardhedger details-by-certs (not PSA Public API).
+        // after the audit, try listing mint metadata then details-by-certs.
         const colForCert = await this.collectionEnrichment.findOne(key);
         const certMissingId = !(
           (colForCert?.components as Record<string, unknown> | null)
             ?.cardhedgerCardId
         );
-        const certNumber = colForCert
-          ? psaCertNumberFromCollectionRow(colForCert)
+        if (certMissingId) {
+          await this.collectionEnrichment.ensureCardhedgerCardIdFromListings(
+            key,
+          );
+        }
+        const colAfterListings = certMissingId
+          ? await this.collectionEnrichment.findOne(key)
+          : colForCert;
+        const stillMissingId = !(
+          (colAfterListings?.components as Record<string, unknown> | null)
+            ?.cardhedgerCardId
+        );
+        const certNumber = colAfterListings
+          ? psaCertNumberFromCollectionRow(colAfterListings)
           : null;
-        if (certNumber && certMissingId) {
+        if (certNumber && stillMissingId) {
           const certResolved =
             await this.cardMarketData.tryResolveCardIdByCert(certNumber, {
-              collection: colForCert,
+              collection: colAfterListings,
             });
           if (certResolved?.cardId) {
             await this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
@@ -235,16 +247,17 @@ export class CollectionMarketSnapshotService {
         }),
       );
 
-      // When the snapshot resolved a card via search (no stored ID), persist it back
-      // to components so the next refresh uses the faster card-details direct path.
-      if (
-        preview.matched &&
-        preview.card?.id &&
-        !((col?.components as Record<string, unknown> | null)?.cardhedgerCardId)
-      ) {
-        void this.collectionEnrichment.writeCardhedgerIdFromResolvedSearch(
+      const persistId = String(
+        preview.card?.id ?? payload.cardhedgerCardId ?? '',
+      ).trim();
+      const storedId = String(
+        (col?.components as Record<string, unknown> | null)?.cardhedgerCardId ??
+          '',
+      ).trim();
+      if (preview.matched && persistId && !storedId) {
+        await this.collectionEnrichment.writeCardhedgerIdFromResolvedSearch(
           key,
-          preview.card.id,
+          persistId,
           preview.matchConfidence ?? 'approximate',
           preview.searchQuery ?? null,
         );

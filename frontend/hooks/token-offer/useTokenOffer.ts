@@ -49,7 +49,8 @@ export function sanitizeTokenBidPriceInput(raw: string): string {
   return frac ? `${intPart}.${frac}` : intPart;
 }
 
-export const MAX_ACTIVE_BIDS_PER_COLLECTION = 1;
+/** `0` = unlimited. Restore to `1` with the backend env cap. */
+export const MAX_ACTIVE_BIDS_PER_COLLECTION = 0;
 export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
 
 function formatUsdc2(n: number): string {
@@ -152,7 +153,9 @@ export function useTokenOffer(input: {
   }, [collectionBids, myBidsQuery.data, address, collectionKey]);
 
   const bidLimitReached =
-    !isReplaceBid && activeBidsOnCard >= MAX_ACTIVE_BIDS_PER_COLLECTION;
+    MAX_ACTIVE_BIDS_PER_COLLECTION > 0 &&
+    !isReplaceBid &&
+    activeBidsOnCard >= MAX_ACTIVE_BIDS_PER_COLLECTION;
 
   const { data: counter } = useReadContract({
     address: SEAPORT_ADDRESS,

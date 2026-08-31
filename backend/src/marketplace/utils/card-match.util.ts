@@ -1,4 +1,8 @@
 import { cardhedgerSetAliasTokens } from './cardhedger-search-alias.util';
+import {
+  psaVarietyIsPokemonRarityLabel,
+  psaVarietyLabelPhrases,
+} from '../../psa/psa-variety-catalog.util';
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
@@ -37,6 +41,56 @@ export function normalizeForExactCatalogMatch(s: string): string {
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * PSA Subject / mint names are often `FULL ART/UMBREON VMAX-HYPER` while Cardhedger
+ * is `Umbreon VMAX`. Matching must use the identity phrase, not the rarity prefix.
+ */
+export function catalogIdentityNameNeedles(
+  ...raws: Array<string | null | undefined>
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (s: string) => {
+    const t = s.replace(/\s+/g, ' ').trim();
+    if (t.length < 2) return;
+    const k = t.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(t);
+  };
+  for (const raw of raws) {
+    const t = String(raw ?? '').trim();
+    if (!t) continue;
+    push(t);
+    push(t.replace(/^(FA|GG|TG|CSR|SR|SAR|SIR|HR|UR|IR)\s*\/\s*/i, ''));
+    for (const phrase of psaVarietyLabelPhrases(t)) {
+      const rarityOnly =
+        psaVarietyIsPokemonRarityLabel(phrase) &&
+        phrase
+          .replace(
+            /\b(full|art|rare|special|illustration|mega|ultra|hyper|secret|amazing|mur|sar|sir|ir|hr|ur)\b/gi,
+            '',
+          )
+          .replace(/[\s/-]+/g, '').length < 3;
+      if (rarityOnly) continue;
+      push(phrase);
+      push(phrase.replace(/[\s-]+(hyper|ultra|secret)(\s+rare)?$/i, ''));
+      push(phrase.replace(/[\s-]+hyper$/i, ''));
+    }
+  }
+  return out;
+}
+
+function catalogNameMatchesRow(wantRaw: string, nameGotN: string): boolean {
+  for (const needle of catalogIdentityNameNeedles(wantRaw)) {
+    const w = normalizeForExactCatalogMatch(needle);
+    if (w && nameGotN && (nameGotN.includes(w) || w.includes(nameGotN))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function normalizeForExactCardNumberKey(s: string): string {
@@ -155,13 +209,13 @@ export function catalogInsertNumberCompatibleWithRow(
   const nameGot =
     typeof row.name === 'string' ? row.name : String(row.description ?? '');
   const nameGotN = normalizeForExactCatalogMatch(nameGot);
-  const nameOk = [hints.psaSubject, hints.cardName]
-    .map((s) => String(s ?? '').trim())
-    .filter(Boolean)
-    .some((want) => {
-      const w = normalizeForExactCatalogMatch(want);
-      return Boolean(w && nameGotN && (nameGotN.includes(w) || w.includes(nameGotN)));
-    });
+  const nameOk = catalogIdentityNameNeedles(
+    hints.psaSubject,
+    hints.cardName,
+  ).some((needle) => {
+    const w = normalizeForExactCatalogMatch(needle);
+    return Boolean(w && nameGotN && (nameGotN.includes(w) || w.includes(nameGotN)));
+  });
   if (!nameOk) return false;
 
   if (
@@ -274,13 +328,9 @@ export function relaxedCatalogMatchForAudit(
   if (!numberExact && !numberInsertBridge) failCodes.push('number_mismatch');
 
   const nameGotN = normalizeForExactCatalogMatch(nameGot);
-  const nameCandidates = [hints.psaSubject, hints.cardName]
-    .map((s) => String(s ?? '').trim())
-    .filter(Boolean);
-  const nameOk = nameCandidates.some((want) => {
-    const w = normalizeForExactCatalogMatch(want);
-    return Boolean(w && nameGotN && (nameGotN.includes(w) || w.includes(nameGotN)));
-  });
+  const nameOk = [hints.psaSubject, hints.cardName].some((want) =>
+    catalogNameMatchesRow(String(want ?? ''), nameGotN),
+  );
   if (!nameOk) failCodes.push('name_mismatch');
 
   const setGot = normalizeForExactCatalogMatch(setNameGot);
@@ -438,7 +488,9 @@ export function catalogTrustHintsFromComponents(
     psaVariety:
       typeof c.psaVariety === 'string' && c.psaVariety.trim()
         ? c.psaVariety.trim()
-        : undefined,
+        : typeof c.variant === 'string' && c.variant.trim()
+          ? c.variant.trim()
+          : undefined,
     psaYear:
       typeof c.psaYear === 'string' && c.psaYear.trim()
         ? c.psaYear.trim()

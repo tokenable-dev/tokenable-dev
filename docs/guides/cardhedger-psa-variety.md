@@ -110,7 +110,19 @@ If search has no Master Ball row, Tokenable **does not** fall back to Reverse Fo
 
 The same Variety gate applies to **mint preview**, **catalog attach** (`details-by-certs` → `components.cardhedgerCardId`), and **collection comps / trades tape**. Those paths used to take the cert `card_id` / `prices-by-cert` price even when resolve had already rejected it — so portfolio and comps could stay on Reverse Foil (~$337) while the collection hero showed Master Ball (~$1,025). Snapshot audit now **clears** a stored cert ID that fails Variety so the next refresh can persist the search match.
 
+### Comps resolve vs card display titles
+
+Trades-tape comps use `resolveCardForCollection` / mint-preview, **not** the UI Line 1/Line 2 formatter (`card-display-name.md`). After display-name SSOT, `metadata.name` / `listingDisplayTitle` look like `Sylveon VMAX · 093 · PSA 10`. Those strings are **not** Cardhedger catalog queries.
+
+**What broke:** (1) stored `cardhedgerCardId` skipped PSA `details-by-certs`, so a stale mint ID blocked GemRate; (2) `card-search` candidates included listing/display titles; (3) Pokémon rarity Variety like `FULL ART/SYLVEON VMAX-HYPER` (cert `73064683`) rejected Cardhedger `variant: Base` even though `prices-by-cert` already had sales.
+
+**수정:** Path 0 always tries cert lookup first when a cert exists (collection created or not). Search uses PSA/catalog fields only — never middot UI titles. Rarity-slot Variety still maps to Base (slash phrases). Master Ball vs Reverse Foil is unchanged.
+
+**PSA `FULL ART/…` Subject vs Cardhedger short names (cert `171849969` Umbreon VMAX #095):** Cardhedger has the cert and comps (`Umbreon VMAX` / Eevee Heroes / `variant: Base`). Tokenable used to require the **whole** PSA Subject/Brand string to be a substring of the catalog name/set (`FULL ART/UMBREON VMAX-HYPER` ⊄ `Umbreon VMAX`). After display-name work this showed up as unmatched comps. Identity needles split `RARITY/SUBJECT` and strip `-HYPER`; set aliases drop `pokemon japanese` / map Eevee Heroes. Search also tries `Umbreon VMAX #95` + set alias **before** the long PSA-forward query (still inside the search-candidate cap).
+
 Stored `components.cardhedgerCardId` is re-checked the same way (no DB migration). Wrong Reverse Foil IDs are ignored at resolve time; the next successful search is used for pricing.
+
+**Admin `Missing cardhedgerCardId`:** the checklist reads `marketplace_collections.components.cardhedgerCardId`, not whether the snapshot priced. Snapshot search used to persist that ID with `void` (race) and the next refresh **audited it away** when leftover Variety (`EEVEE HEROES-HYPER`) or `FA/UMBREON VMAX` failed the catalog gate. Refresh now: listing mint IDs → cert → search (await persist). Audit treats Hyper leftover / FA names as Base. Admin falls back to snapshot preview `card.id` if components are still empty.
 
 **수정:** `cardhedgerRowMatchesPsaVariety` leftover-identity matching; `CardhedgerResolveService` Path 0/1 and `card-match` variety gates; `tryResolveCardIdByCert` refuses a conflicting cert `card_id`; mint preview / attach / comps / cert-ID audit use `cardhedgerCertRowUsableForPsaVariety`.
 

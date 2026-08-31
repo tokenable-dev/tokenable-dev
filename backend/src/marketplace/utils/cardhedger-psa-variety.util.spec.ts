@@ -136,6 +136,12 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
     expect(
       cardhedgerCertRowUsableForPsaVariety(row, 'FULL ART/UMBREON VMAX-HYPER'),
     ).toBe(true);
+    expect(
+      cardhedgerRowMatchesPsaVariety(row, 'EEVEE HEROES-HYPER'),
+    ).toBe(true);
+    expect(cardhedgerCertRowUsableForPsaVariety(row, 'EEVEE HEROES-HYPER')).toBe(
+      true,
+    );
   });
 
   it('matches Mega Ultra Rare to Cardhedger Base, not a named parallel', () => {

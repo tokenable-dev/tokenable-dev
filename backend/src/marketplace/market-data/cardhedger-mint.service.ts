@@ -290,6 +290,7 @@ export class CardhedgerMintService {
       queryUsed: query,
       components: componentsPayload,
       coverImageUrl: null,
+      psaCertNumber: psaCertNumberFromGradedMeta(meta),
       createdAt: new Date(),
     } as MarketplaceCollection;
   }

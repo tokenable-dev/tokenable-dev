@@ -45,7 +45,7 @@ Register a Seaport order (ask or card-level bid/offer) off-chain.
 }
 ```
 
-For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Max **1 active bid per wallet per collection**. Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
 
 ---
 

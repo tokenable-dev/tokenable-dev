@@ -829,7 +829,9 @@ export class CollectionIdentityService {
   /**
    * **Path 3 — Cardhedger card search resolution.**
    *
-   * Lowest precedence. Only `'verified'` confidence is accepted.
+   * Lowest precedence. First write only (does not replace a stored id).
+   * `approximate` is allowed: snapshot already priced this row; Japanese PSA Brand
+   * vs Cardhedger set strings often never reach `verified`.
    */
   async writeFromResolvedSearch(
     collectionKey: string,
@@ -853,13 +855,8 @@ export class CollectionIdentityService {
           detail: `stored_id=${existing} confidence=${confidence}`,
         };
       }
-      if (confidence !== 'verified') {
-        return {
-          outcome: 'rejected',
-          detail: `confidence=${confidence}_below_verified_threshold`,
-        };
-      }
-
+      // First write: snapshot already priced this catalog row. Approximate is
+      // common when PSA Brand (SV2a) ≠ Cardhedger set (Scarlet & Violet 151).
       const extras: Record<string, unknown> = {};
       if (searchQuery?.trim()) extras.cardhedgerSearchQuery = searchQuery.trim();
 

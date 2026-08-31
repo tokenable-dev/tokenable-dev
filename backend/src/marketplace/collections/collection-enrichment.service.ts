@@ -68,6 +68,12 @@ export class CollectionEnrichmentService {
     return this.components.ensureMintParallelVarietyFromListings(collectionKey);
   }
 
+  async ensureCardhedgerCardIdFromListings(
+    collectionKey: string,
+  ): Promise<boolean> {
+    return this.components.ensureCardhedgerCardIdFromListings(collectionKey);
+  }
+
   async mergePsaCertFromLiveApiIntoComponents(
     col: MarketplaceCollection,
     opts?: { allowUpstream?: boolean },
@@ -97,8 +103,7 @@ export class CollectionEnrichmentService {
   }
 
   /**
-   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a verified match.
-   * Fire-and-forget: callers should `void` this call.
+   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a match.
    */
   async writeCardhedgerIdFromResolvedSearch(
     collectionKey: string,

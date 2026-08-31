@@ -316,6 +316,16 @@ function removeCompletePhrase(haystack: string, needle: string): string | null {
   return haystack.replace(re, " ").replace(/\s+/g, " ").trim();
 }
 
+function variantKeysForSetDuplicateCheck(variantKey: string): string[] {
+  const keys = [variantKey];
+  const stripped = variantKey
+    .replace(/[\s-]+vmax[\s-]*hyper$/i, "")
+    .replace(/[\s-]+hyper(\s+rare)?$/i, "")
+    .trim();
+  if (stripped && stripped !== variantKey) keys.push(stripped);
+  return keys;
+}
+
 function setIdentityIsOnlyVariantRepeat(setRaw: string, variantKey: string): boolean {
   const set = normalizeSetContainmentKey(setRaw);
   if (!set) return false;
@@ -357,7 +367,9 @@ export function shouldHideDuplicateVariant(
     lang ? `${input.displayedSetName ?? ""} ${lang}` : null,
   ];
   for (const raw of candidates) {
-    if (setIdentityIsOnlyVariantRepeat(raw ?? "", v)) return true;
+    for (const key of variantKeysForSetDuplicateCheck(v)) {
+      if (setIdentityIsOnlyVariantRepeat(raw ?? "", key)) return true;
+    }
   }
   return false;
 }

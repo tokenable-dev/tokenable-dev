@@ -31,10 +31,11 @@ export default registerAs('marketplace', () => {
     1,
     10_000,
   );
+  /** `0` = unlimited. Set `MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=1` to restore the cap. */
   const maxActiveCollectionBidsPerOfferer = clampInt(
     process.env.MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER,
-    1,
-    1,
+    0,
+    0,
     20,
   );
   const platformTradesFulfilledScanMax = clampInt(

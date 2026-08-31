@@ -128,9 +128,11 @@ export function MarketplaceAdminCollectionRow({
     .filter(Boolean)
     .join(" ");
   const cardhedgerId =
-    typeof row.components.cardhedgerCardId === "string"
+    (typeof row.components.cardhedgerCardId === "string"
       ? row.components.cardhedgerCardId.trim()
-      : "";
+      : "") ||
+    snapshot?.cardhedgerPreview?.card?.id?.trim() ||
+    "";
 
   async function saveUrl() {
     const trimmed = urlInput.trim();

@@ -9,7 +9,7 @@ import {
 } from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
+import { mergePsaVarietyWithMintVariant, psaVarietyIndicatesGenericBaseLine } from '../../psa/psa-variety-catalog.util';
 import { PsaSpecPopulationCaptureService } from '../../psa/psa-spec-population-capture.service';
 import {
   hasCompletePsaPopulationByGrade,
@@ -619,10 +619,10 @@ export class CollectionComponentsService {
   }
 
   /**
-   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a verified match.
-   * Only writes when `components.cardhedgerCardId` is currently empty (delegates to
-   * `CollectionIdentityService.writeFromResolvedSearch`, which is a no-op when an id is
-   * already stored or when confidence is below `verified`).
+   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a match.
+   * Writes when the field is empty. Identity-on path used to require `verified` only,
+   * so Japanese set-string approximate matches (SV2a vs Scarlet & Violet 151) never
+   * persisted — admin showed Missing cardhedgerCardId while the snapshot still priced.
    */
   async writeCardhedgerIdFromResolvedSearch(
     collectionKey: string,
@@ -630,11 +630,34 @@ export class CollectionComponentsService {
     confidence: 'verified' | 'approximate',
     searchQuery?: string | null,
   ): Promise<void> {
-    return this.identity.writeFromResolvedSearch(
-      collectionKey,
-      resolvedCardId,
-      confidence,
-      searchQuery,
+    const trimmedId = resolvedCardId.trim();
+    if (!trimmedId) return;
+    if (this.identity.isEnabled()) {
+      await this.identity.writeFromResolvedSearch(
+        collectionKey,
+        trimmedId,
+        confidence,
+        searchQuery,
+      );
+      return;
+    }
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return;
+    const comp = (row.components ?? {}) as Record<string, unknown>;
+    if (String(comp.cardhedgerCardId ?? '').trim()) return;
+    const next: Record<string, unknown> = {
+      ...comp,
+      cardhedgerCardId: trimmedId,
+    };
+    if (searchQuery?.trim()) {
+      next.cardhedgerSearchQuery = searchQuery.trim();
+    }
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
     );
   }
 
@@ -735,8 +758,9 @@ export class CollectionComponentsService {
      * still fail when the catalog variant conflicts with PSA Variety.
      */
     if (cardIdFromPsaCertLookup(comp)) {
-      const psaVariety = String(comp.psaVariety ?? '').trim();
-      if (!psaVariety) {
+      const psaVariety = String(comp.psaVariety ?? comp.variant ?? '').trim();
+      const brandOrSet = String(comp.psaBrand ?? comp.cardSet ?? '').trim();
+      if (!psaVariety || psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet || null)) {
         return { checked: true, ok: true, cleared: false, failCodes: [] };
       }
       let certRaw: unknown;
@@ -822,6 +846,9 @@ export class CollectionComponentsService {
       typeof comp.psaSubject === 'string' ? comp.psaSubject.trim() : '';
     const psaBrand =
       typeof comp.psaBrand === 'string' ? comp.psaBrand.trim() : '';
+    const psaVarietyHint = String(
+      comp.psaVariety ?? comp.variant ?? '',
+    ).trim();
     const ex = catalogRowTrustedForMarketData(
       {
         cardName: wantName,
@@ -829,6 +856,7 @@ export class CollectionComponentsService {
         cardSet: wantSet,
         psaSubject: psaSubject || undefined,
         psaBrand: psaBrand || undefined,
+        psaVariety: psaVarietyHint || undefined,
         psaYear:
           typeof comp.psaYear === 'string'
             ? comp.psaYear.trim()
@@ -851,9 +879,11 @@ export class CollectionComponentsService {
       },
     );
     if (ex.ok) {
-      const psaVariety = String(comp.psaVariety ?? '').trim();
+      const psaVariety = psaVarietyHint;
+      const brandOrSet = psaBrand || wantSet || null;
       if (
         psaVariety &&
+        !psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet) &&
         !cardhedgerRowMatchesPsaVariety(row, psaVariety)
       ) {
         if (options?.clearOnMismatch) {

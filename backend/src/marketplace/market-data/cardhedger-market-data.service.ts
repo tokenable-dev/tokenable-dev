@@ -27,7 +27,7 @@ import {
   catalogRowTrustedForMarketData,
   catalogTrustHintsFromComponents,
 } from '../utils/card-match.util';
-import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
+import { cardhedgerCertRowUsableForPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import { catalogFromAllPricesRows } from '../utils/cardhedger-grade-catalog.util';
 
 export type {
@@ -131,7 +131,10 @@ export class CardhedgerMarketDataService {
           : undefined;
         if (
           psaVariety &&
-          !cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, psaVariety)
+          !cardhedgerCertRowUsableForPsaVariety(
+            row as Record<string, unknown>,
+            psaVariety,
+          )
         ) {
           this.logger.log(
             JSON.stringify({

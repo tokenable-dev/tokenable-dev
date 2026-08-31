@@ -77,6 +77,16 @@ describe('psaVarietyIsPokemonRarityLabel — PSA rarity/subject compound lines',
     expect(psaVarietyIndicatesGenericBaseLine('FULL ART')).toBe(true);
   });
 
+  it('treats expansion-name + -HYPER leftover as Hyper Rare (Base), not a parallel', () => {
+    const brand = 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES';
+    expect(
+      psaVarietyIndicatesGenericBaseLine('EEVEE HEROES-HYPER', brand),
+    ).toBe(true);
+    expect(marketParallelKeyFromPsaVariety('EEVEE HEROES-HYPER', brand)).toBe(
+      'base',
+    );
+  });
+
   it('does not treat Master Ball or sports inserts as rarity slots', () => {
     expect(
       psaVarietyIndicatesGenericBaseLine('MASTER BALL REVERSE HOLO'),

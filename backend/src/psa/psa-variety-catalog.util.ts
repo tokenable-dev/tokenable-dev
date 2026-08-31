@@ -292,6 +292,10 @@ function phraseIsPokemonRaritySlot(phrase: string): boolean {
   if (psaVarietyIsSpecialArtRareLabel(v)) return true;
   if (psaVarietyIsArtRareLabel(v)) return true;
   if (/^full\s+art$/.test(v)) return true;
+  if (/vmax[\s-]*hyper/.test(v)) return true;
+  if (/^hyper$/.test(v)) return true;
+  // Set leftover + Hyper Rare suffix (`EEVEE HEROES-HYPER`) — not a named parallel.
+  if (/[\s-]hyper(\s+rare)?$/.test(v)) return true;
   if (/^(mega\s+)?(ultra|hyper|secret|amazing)\s+rare$/.test(v)) return true;
   if (
     /^(double|triple|character|rainbow|gold|shiny)\s+rare$/.test(v)

@@ -17,6 +17,7 @@ function serviceWithMocks(
   forwardJson: jest.Mock,
   cardMatchFirst: boolean,
   metrics?: CardhedgerMetricsService,
+  getCardRowByCert: jest.Mock = jest.fn().mockResolvedValue({ row: null }),
 ): CardhedgerResolveService {
   const cardhedger = {
     assertConfigured: () => undefined,
@@ -43,7 +44,7 @@ function serviceWithMocks(
     },
   } as unknown as ConfigService;
   const certLookup = {
-    getCardRowByCert: jest.fn(),
+    getCardRowByCert,
   } as unknown as CardhedgerCertLookupService;
   return new CardhedgerResolveService(
     cardhedger,
@@ -447,5 +448,51 @@ describe('CardhedgerResolveService — PSA Variety vs Cardhedger catalog variant
     );
 
     expect(result.row).toBeNull();
+  });
+});
+
+describe('CardhedgerResolveService — cert Path 0 vs stored id / UI titles', () => {
+  it('uses details-by-certs Base row for FULL ART/subject even when a stored card_id exists', async () => {
+    const certRow = {
+      card_id: 'cert-sylveon-fa',
+      description: 'Sylveon VMAX 2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+      name: 'Sylveon VMAX',
+      set: '2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+      number: '93',
+      variant: 'Base',
+    };
+    const forwardJson = jest.fn(async () => ({ cards: [] }));
+    const getCardRowByCert = jest.fn(async () => ({ row: certRow }));
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService, getCardRowByCert);
+
+    const result = await svc.resolveCardForCollection({
+      collectionKey: 'sylveon-eevee-heroes-093',
+      displayLabel: 'Sylveon VMAX · 093 · PSA 10',
+      queryUsed: null,
+      components: {
+        cardName: 'Sylveon VMAX',
+        cardSet: 'Pokemon Japanese Sword & Shield Eevee Heroes',
+        cardNumber: '093',
+        psaSubject: 'SYLVEON VMAX',
+        psaBrand: 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+        psaVariety: 'FULL ART/SYLVEON VMAX-HYPER',
+        marketParallelKey: 'full_art_sylveon_vmax_hyper',
+        listingDisplayTitle: 'Sylveon VMAX · 093 · PSA 10',
+        cardhedgerCardId: 'stale-wrong-id',
+      },
+      coverImageUrl: null,
+      psaCertNumber: '73064683',
+      marketParallelKey: 'full_art_sylveon_vmax_hyper',
+      bucketKeyVersion: 2,
+      reviewStatus: 'active',
+      createdAt: new Date(),
+    } satisfies MarketplaceCollection);
+
+    expect(getCardRowByCert).toHaveBeenCalled();
+    expect(result.row?.card_id).toBe('cert-sylveon-fa');
+    expect(forwardJson).not.toHaveBeenCalled();
   });
 });

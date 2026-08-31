@@ -124,30 +124,53 @@ describe('catalogRowTrustedForMarketData', () => {
     expect(r.ok).toBe(false);
     expect(r.failCodes).toContain('missing_card_number');
   });
-});
 
-describe('exactCatalogMatch', () => {
-  it('fails abbreviated mint vs full catalog (why audit used to clear valid ids)', () => {
-    const r = exactCatalogMatch(
+  it('matches FULL ART/UMBREON VMAX-HYPER to Cardhedger Umbreon VMAX Eevee Heroes', () => {
+    const r = catalogRowTrustedForMarketData(
       {
-        cardName: 'cooper flagg',
-        cardSet: 'topps chrome',
-        cardNumber: '251',
+        cardName: 'FULL ART/UMBREON VMAX-HYPER',
+        cardSet: 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+        cardNumber: '095',
+        psaSubject: 'FULL ART/UMBREON VMAX-HYPER',
+        psaBrand: 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+        psaVariety: 'FULL ART/UMBREON VMAX-HYPER',
+        psaYear: '2021',
       },
       {
-        name: 'Cooper Flagg 2025 Topps Chrome Basketball Refractor',
-        number: '251',
-        set: { name: '2025 Topps Chrome Basketball' },
+        name: 'Umbreon VMAX',
+        number: '95',
+        set: '2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+        variant: 'Base',
+        description:
+          'Umbreon VMAX 2021 Pokemon Japanese Sword & Shield Eevee Heroes',
       },
     );
-    expect(r.ok).toBe(false);
-    expect(r.failCodes).toEqual(
-      expect.arrayContaining(['name_mismatch', 'set_mismatch']),
-    );
+    expect(r.ok).toBe(true);
   });
-});
 
-describe('catalogRowTrustedForMarketData — Prizm Rookie Signatures', () => {
+  it('matches PSA FA/SUBJECT cardName to Cardhedger Umbreon VMAX', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'FA/UMBREON VMAX',
+        cardSet: 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+        cardNumber: '095',
+        psaSubject: 'FA/UMBREON VMAX',
+        psaBrand: 'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+        psaVariety: 'EEVEE HEROES-HYPER',
+        psaYear: '2021',
+      },
+      {
+        name: 'Umbreon VMAX',
+        number: '95',
+        set: '2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+        variant: 'Base',
+        description:
+          'Umbreon VMAX 2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+      },
+    );
+    expect(r.ok).toBe(true);
+  });
+
   it('trusts parent Prizm Basketball checklist # when PSA uses insert code RSLW4', () => {
     const r = catalogRowTrustedForMarketData(
       {
@@ -221,5 +244,26 @@ describe('catalogRowTrustedForMarketData — Prizm Rookie Signatures', () => {
       },
     );
     expect(r.ok).toBe(false);
+  });
+});
+
+describe('exactCatalogMatch', () => {
+  it('fails abbreviated mint vs full catalog (why audit used to clear valid ids)', () => {
+    const r = exactCatalogMatch(
+      {
+        cardName: 'cooper flagg',
+        cardSet: 'topps chrome',
+        cardNumber: '251',
+      },
+      {
+        name: 'Cooper Flagg 2025 Topps Chrome Basketball Refractor',
+        number: '251',
+        set: { name: '2025 Topps Chrome Basketball' },
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.failCodes).toEqual(
+      expect.arrayContaining(['name_mismatch', 'set_mismatch']),
+    );
   });
 });

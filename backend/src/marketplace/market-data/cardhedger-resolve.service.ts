@@ -12,6 +12,7 @@ import {
   cardNumberTokenForCardhedgerSearch,
   cardIdFromPsaCertLookup,
   catalogInsertNumberCompatibleWithRow,
+  catalogIdentityNameNeedles,
   catalogProductFamiliesCompatible,
   catalogRowTrustedForMarketData,
   type CatalogTrustHints,
@@ -41,10 +42,8 @@ import {
   chromeColorTokensIn,
   mergePsaVarietyWithMintVariant,
   psaVarietyIndicatesGenericBaseLine,
-  psaVarietyIsArtRareLabel,
   psaVarietyIsGenericSportRefractorLine,
-  psaVarietyIsIllustrationRareLabel,
-  psaVarietyIsSpecialIllustrationRareLabel,
+  psaVarietyIsPokemonRarityLabel,
   psaVarietyRequiresNonBaseCardhedgerRow,
 } from '../../psa/psa-variety-catalog.util';
 import { varietyHintsForSearch } from '../../psa/utils/psa-ocr.util';
@@ -174,9 +173,16 @@ export class CardhedgerResolveService {
         : null;
     const psaVarietyRaw = comp['psaVariety'];
     const mintVariantRaw = comp['mintCardVariant'];
+    const componentVariantRaw = comp['variant'];
+    const mintOrComponentVariant =
+      typeof mintVariantRaw === 'string' && mintVariantRaw.trim()
+        ? mintVariantRaw
+        : typeof componentVariantRaw === 'string'
+          ? componentVariantRaw
+          : null;
     const psaVariety = mergePsaVarietyWithMintVariant(
       typeof psaVarietyRaw === 'string' ? psaVarietyRaw : null,
-      typeof mintVariantRaw === 'string' ? mintVariantRaw : null,
+      mintOrComponentVariant,
     ) || null;
     const psaSubjectRaw = comp['psaSubject'];
     const psaSubject =
@@ -200,11 +206,16 @@ export class CardhedgerResolveService {
       psaVariety,
       brandOrSet,
     );
+    const varietyForStoredParallel =
+      psaVariety ||
+      (storedParallelKey && storedParallelKey !== 'base'
+        ? storedParallelKey.replace(/_/g, ' ')
+        : null);
     const marketParallelKey =
       storedParallelKey &&
       storedParallelKey !== 'base' &&
-      psaVariety &&
-      psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet)
+      varietyForStoredParallel &&
+      psaVarietyIndicatesGenericBaseLine(varietyForStoredParallel, brandOrSet)
         ? 'base'
         : storedParallelKey ?? computedParallelKey;
     const psaYearRaw = comp['psaYear'];
@@ -294,7 +305,7 @@ export class CardhedgerResolveService {
       psaBrand: string | null;
       psaYear: string | null;
     },
-    displayLabel: string,
+    _displayLabel: string,
   ): string[] {
     const ordered: string[] = [];
     const seen = new Set<string>();
@@ -342,6 +353,28 @@ export class CardhedgerResolveService {
       psaBrand: q.psaBrand,
       psaVariety: q.psaVariety,
     });
+
+    // PSA Subject is often `FULL ART/UMBREON VMAX-HYPER`; Cardhedger indexes `Umbreon VMAX`.
+    const identityNames = catalogIdentityNameNeedles(
+      q.cardName,
+      q.psaSubject,
+    ).filter(
+      (n) =>
+        !/[|/]/.test(n) &&
+        n.length >= 4 &&
+        !psaVarietyIsPokemonRarityLabel(n),
+    );
+    const identitySetHint =
+      cardhedgerSetAliasTokens(q.cardSet, q.psaBrand)[0] ||
+      q.psaBrand ||
+      q.cardSet;
+    const identityNum = q.cardNumber
+      ? cardNumberTokenForCardhedgerSearch(q.cardNumber)
+      : '';
+    for (const n of identityNames.slice(0, 2)) {
+      push([n, identityNum, identitySetHint].filter(Boolean).join(' ').trim());
+    }
+
     if (isKnownPromoType || isPrizmRookieSignatures) {
       for (const sq of cardhedgerExtraSearchQueries({
         ...extraQueryHints,
@@ -442,8 +475,9 @@ export class CardhedgerResolveService {
       );
     }
 
-    push(q.listingDisplayTitle);
-    push(displayLabel);
+    // Do not search Cardhedger with UI titles (`Name · Number · PSA 10`) or
+    // collection displayLabel — those changed with card-display-name SSOT and
+    // are not catalog strings.
     push(q.query);
     push([q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim());
     push(q.cardNumber);
@@ -514,20 +548,13 @@ export class CardhedgerResolveService {
       return false;
     }
     /**
-     * Pokémon SIR — Cardhedger often keeps `variant: "Base"` and omits "Special Illustration"
-     * wording from the row blob; literal chunk match would reject every row. Allow Base.
+     * Pokémon rarity slots (FA / SAR / SIR / MUR / `FULL ART/SUBJECT`) — Cardhedger
+     * keeps `variant: "Base"` and omits rarity wording. Allow Base; still reject
+     * Master Ball / Reverse Foil siblings.
      */
-    if (psaVarietyIsSpecialIllustrationRareLabel(pv)) {
+    if (psaVarietyIsPokemonRarityLabel(pv)) {
       const vr = String(row.variant ?? '').trim().toLowerCase();
-      if (vr === 'base') return false;
-    }
-    if (psaVarietyIsIllustrationRareLabel(pv)) {
-      const vr = String(row.variant ?? '').trim().toLowerCase();
-      if (vr === 'base') return false;
-    }
-    if (psaVarietyIsArtRareLabel(pv)) {
-      const vr = String(row.variant ?? '').trim().toLowerCase();
-      if (vr === 'base') return false;
+      if (vr === '' || vr === 'base') return false;
     }
     if (!cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
       return true;
@@ -598,9 +625,6 @@ export class CardhedgerResolveService {
     const rowSet = String(row.set ?? '');
     const rowNum = String(row.number ?? '');
 
-    // Normalized strings for the legacy substring compare.
-    const wantName = normalizeForExactCatalogMatch(hints.cardName);
-    const wantSet = normalizeForExactCatalogMatch(hints.cardSet);
     const wantNum = normalizeForExactCardNumberKey(
       primaryCardNumber(hints.cardNumber),
     );
@@ -646,16 +670,25 @@ export class CardhedgerResolveService {
     }
 
     // Substring path (tight, keeps legacy exact-match wins)
-    const nameSubstring = Boolean(
-      wantName &&
-      gotName &&
-      (gotName.includes(wantName) || wantName.includes(gotName)),
-    );
-    const setSubstring = Boolean(
-      wantSet &&
-      gotSet &&
-      (gotSet.includes(wantSet) || wantSet.includes(gotSet)),
-    );
+    const nameSubstring = catalogIdentityNameNeedles(
+      hints.cardName,
+      hints.psaSubject,
+    ).some((needle) => {
+      const w = normalizeForExactCatalogMatch(needle);
+      return Boolean(
+        w && gotName && (gotName.includes(w) || w.includes(gotName)),
+      );
+    });
+    const setSubstring = [
+      hints.cardSet,
+      hints.psaBrand ?? '',
+      ...cardhedgerSetAliasTokens(hints.cardSet, hints.psaBrand ?? null),
+    ].some((raw) => {
+      const w = normalizeForExactCatalogMatch(raw);
+      return Boolean(
+        w && gotSet && (gotSet.includes(w) || w.includes(gotSet)),
+      );
+    });
 
     // Token coverage path — used to tolerate inserted words and abbreviated set codes.
     // We pool cardName/cardSet with cardhedgerSearchQuery (curated long-form) when present,
@@ -664,6 +697,7 @@ export class CardhedgerResolveService {
       hints.cardName,
       hints.psaSubject ?? '',
       hints.cardhedgerSearchQuery ?? '',
+      ...catalogIdentityNameNeedles(hints.cardName, hints.psaSubject),
     ]
       .filter(Boolean)
       .join(' ');
@@ -1144,14 +1178,15 @@ export class CardhedgerResolveService {
     const query =
       [
         q.cardhedgerSearchQuery?.trim(),
-        q.listingDisplayTitle?.trim(),
-        displayLabel,
         q.query?.trim(),
       ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
     if (!query) return { query: '', row: null };
 
-    // ── Path 0: PSA cert → details-by-certs (only when the catalog variant fits PSA) ──
-    if (!q.cardhedgerCardId && col) {
+    // ── Path 0: PSA cert → details-by-certs (variety-compatible catalog row) ──
+    // Always try cert before a stored card_id. Mint/OCR IDs and UI-title search
+    // can disagree with GemRate; comps must follow the cert catalog row when it
+    // fits PSA Variety (including Pokémon rarity → Cardhedger Base).
+    if (col) {
       const cert = psaCertNumberFromCollectionRow(col);
       if (cert) {
         try {

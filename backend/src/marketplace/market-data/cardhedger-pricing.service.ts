@@ -1023,7 +1023,7 @@ export class CardhedgerPricingService {
     }
 
     const resolved = await this.resolve.resolveCardForCollection(col);
-    if (!resolved.row || !resolved.confidence) {
+    if (!resolved.row) {
       return this.emptyMarketCompsSnapshot({
         enabled: true,
         searchQuery: resolved.query,

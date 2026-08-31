@@ -46,6 +46,27 @@ export function cardhedgerSetAliasTokens(
     push('rookie signatures');
   }
 
+  // PSA Brand `POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES` vs Cardhedger
+  // `2021 Pokemon Japanese Sword & Shield Eevee Heroes`.
+  for (const src of [cardSet, psaBrand ?? '']) {
+    const lower = src.trim().toLowerCase();
+    if (!lower) continue;
+    const noJa = lower.replace(/pokemon\s+japanese\s+/g, '').trim();
+    if (noJa && noJa !== lower) push(noJa);
+    if (/^[a-z0-9]{2,6}-/.test(lower.replace(/\s+/g, ''))) {
+      const afterCode = lower.replace(/^[a-z0-9]{2,6}\s*-\s*/i, '').trim();
+      if (afterCode.length >= 3) push(afterCode);
+    }
+  }
+  if (/\beevee\s+heroes\b/.test(blob)) {
+    push('eevee heroes');
+    push('sword shield eevee heroes');
+  }
+  if (/\bsv2a\b/.test(blob) && /\b151\b/.test(blob)) {
+    push('pokemon japanese 151');
+    push('scarlet violet 151');
+  }
+
   return tokens;
 }
 

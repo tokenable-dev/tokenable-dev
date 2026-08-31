@@ -36,3 +36,18 @@ describe('cardhedger-search-alias — Prizm Rookie Signatures', () => {
     expect(tokens).toContain('rookie signatures');
   });
 });
+
+describe('cardhedger-search-alias — Japanese Sword & Shield expansions', () => {
+  it('aliases PSA EEVEE HEROES brand to Cardhedger set wording', () => {
+    const tokens = cardhedgerSetAliasTokens(
+      'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+      'POKEMON JAPANESE SWORD & SHIELD EEVEE HEROES',
+    );
+    expect(tokens).toEqual(
+      expect.arrayContaining([
+        'sword & shield eevee heroes',
+        'eevee heroes',
+      ]),
+    );
+  });
+});

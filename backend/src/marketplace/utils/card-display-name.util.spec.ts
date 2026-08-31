@@ -295,6 +295,12 @@ describe("cardDisplayName SSOT", () => {
   it("shouldHideDuplicateVariant hides only expansion-name repeats", () => {
     expect(
       shouldHideDuplicateVariant({
+        variant: "Eevee Heroes-Hyper",
+        displayedSetName: "Pokemon Japanese Eevee Heroes",
+      }),
+    ).toBe(true);
+    expect(
+      shouldHideDuplicateVariant({
         variant: "Eevee Heroes",
         displayedSetName: "Pokemon Japanese Eevee Heroes",
       }),

@@ -633,13 +633,13 @@ export class OrdersService {
   private maxActiveCollectionBidsPerOfferer(): number {
     return (
       this.config.get<number>('marketplace.maxActiveCollectionBidsPerOfferer') ??
-      1
+      0
     );
   }
 
   /**
-   * Per-wallet cap on simultaneous active token bids in one collection
-   * (`collection_key` + chain RWA). Default: 1.
+   * Per-wallet cap on simultaneous active token bids in one collection.
+   * `0` = unlimited (current default).
    */
   private async assertActiveTokenBidLimit(
     offererAddress: string,
@@ -647,6 +647,7 @@ export class OrdersService {
     chainId: SupportedChainId,
   ): Promise<void> {
     const max = this.maxActiveCollectionBidsPerOfferer();
+    if (max <= 0) return;
     const addr = String(offererAddress ?? '').trim().toLowerCase();
     const key = String(collectionKey ?? '').trim().toLowerCase();
     if (!addr || !key) return;
