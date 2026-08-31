@@ -47,6 +47,7 @@ function cardHtmlDecorateLine(
 
   const marks: NonNullable<LineSeriesOption["markPoint"]>["data"] = [
     {
+      name: "high",
       coord: hi,
       symbol: "circle",
       symbolSize: 7,
@@ -65,6 +66,7 @@ function cardHtmlDecorateLine(
   ];
   if (hi[0] !== lo[0] || hi[1] !== lo[1]) {
     marks.push({
+      name: "low",
       coord: lo,
       symbol: "circle",
       symbolSize: 7,
