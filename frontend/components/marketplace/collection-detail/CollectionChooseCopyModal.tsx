@@ -146,7 +146,9 @@ export function CollectionChooseCopyModal({
         <div className="cd-choose-copy__rows" role="radiogroup" aria-label="Listed copies">
           {sortedOrders.map((order, index) => {
             const tokenId = Number(order.tokenId);
-            const meta = batchMetadata?.get(tokenId)?.metadata ?? null;
+            const packed = batchMetadata?.get(tokenId);
+            const meta = packed?.metadata ?? null;
+            const slabUrl = packed?.imageUrl?.trim() || "";
             const vault = listingVaultBadge(order);
             const row = copyRowMeta(order, meta);
             const selectedRow = index === selectedIdx;
@@ -166,6 +168,12 @@ export function CollectionChooseCopyModal({
                 />
                 <span className="cd-choose-copy__radio" aria-hidden>
                   {selectedRow ? <span className="cd-choose-copy__radio-dot" /> : null}
+                </span>
+                <span className="cd-choose-copy__row-thumb" aria-hidden>
+                  {slabUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={slabUrl} alt="" />
+                  ) : null}
                 </span>
                 <span className="cd-choose-copy__row-body">
                   <span

@@ -9,11 +9,13 @@ import {
   formatCardDisplaySetLabel,
   joinCardDisplaySegments,
   preferCatalogExpansionInBrandDisplay,
+  stripLeadingTcgSeriesFromSetDisplay,
+  resolveCardDisplaySetName,
   isDisplayVariantDuplicateOfSet,
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
 } from "@/lib/marketplace/cardDisplayName";
-import { buildAssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import { buildAssetDetailHeadlineParts, resolveRwaHeadlineGrade } from "@/lib/marketplace/assetDetailHeadline";
 
 describe("cardDisplayName SSOT", () => {
   it("joinCardDisplaySegments skips empty segments", () => {
@@ -175,6 +177,45 @@ describe("cardDisplayName SSOT", () => {
     ).toBe("Pokemon Japanese Eevee Heroes");
   });
 
+  it("stripLeadingTcgSeriesFromSetDisplay drops Word & Word series when expansion remains", () => {
+    expect(
+      stripLeadingTcgSeriesFromSetDisplay(
+        "Pokemon Japanese Sword & Shield Eevee Heroes",
+      ),
+    ).toBe("Pokemon Japanese Eevee Heroes");
+    expect(
+      stripLeadingTcgSeriesFromSetDisplay(
+        "Pokemon Japanese Scarlet & Violet 151",
+      ),
+    ).toBe("Pokemon Japanese 151");
+    expect(
+      stripLeadingTcgSeriesFromSetDisplay(
+        "Japanese Sword & Shield Eevee Heroes",
+      ),
+    ).toBe("Japanese Eevee Heroes");
+    expect(
+      stripLeadingTcgSeriesFromSetDisplay("Pokemon HeartGold & SoulSilver"),
+    ).toBe("Pokemon HeartGold & SoulSilver");
+    expect(
+      stripLeadingTcgSeriesFromSetDisplay("OP13 Carrying On His Will"),
+    ).toBe("OP13 Carrying On His Will");
+  });
+
+  it("resolveCardDisplaySetName drops series even when catalog includes it", () => {
+    expect(
+      resolveCardDisplaySetName(
+        "Pokemon Japanese Sword & Shield Eevee Heroes",
+        "Sword & Shield Eevee Heroes",
+      ),
+    ).toBe("Pokemon Japanese Eevee Heroes");
+    expect(
+      resolveCardDisplaySetName(
+        "Pokemon Japanese Sword & Shield Eevee Heroes",
+        null,
+      ),
+    ).toBe("Pokemon Japanese Eevee Heroes");
+  });
+
   it("preferCatalogExpansionInBrandDisplay leaves Brand unchanged without a catalog match", () => {
     const brand = "Pokemon Japanese Sword & Shield Eevee Heroes";
     expect(preferCatalogExpansionInBrandDisplay(brand, null)).toBe(brand);
@@ -199,6 +240,24 @@ describe("cardDisplayName SSOT", () => {
     expect(formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts))).toBe(
       "2021 · Pokemon Japanese Eevee Heroes JP",
     );
+    const noCatalog = buildAssetDetailHeadlineParts({
+      setLine: "2021 Pokemon Japanese Sword & Shield Eevee Heroes",
+      year: 2021,
+      cardName: "Fa Umbreon Vmax",
+      cardNumber: "095",
+      variety: "Eevee Heroes",
+      language: "JP",
+    });
+    expect(formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(noCatalog))).toBe(
+      "2021 · Pokemon Japanese Eevee Heroes JP",
+    );
+    expect(
+      formatDetailBreadcrumbTrail({
+        setName: "Pokemon Japanese Sword & Shield Eevee Heroes",
+        categoryLabel: "Pokemon",
+        language: "JP",
+      }),
+    ).toBe("Japanese Eevee Heroes (JP)");
   });
 
   it("hides Line 2 variant when it is a set-name phrase", () => {
@@ -281,5 +340,28 @@ describe("cardDisplayName SSOT", () => {
     );
     expect(parts.variant).toBe("Holo");
     expect(parts.grade).toBe("PSA 9");
+  });
+
+  it("resolveRwaHeadlineGrade uses PSA score not GEM MT label", () => {
+    expect(
+      resolveRwaHeadlineGrade({
+        properties: {
+          graded: {
+            gradingCompany: "PSA",
+            psa: {
+              gradeLabel: "GEM MT 10",
+              gradeScore: 10,
+            },
+          },
+        },
+      }),
+    ).toBe("PSA 10");
+    expect(
+      resolveRwaHeadlineGrade({
+        graded: {
+          psa: { gradeLabel: "GEM MT 10" },
+        },
+      }),
+    ).toBe("PSA 10");
   });
 });

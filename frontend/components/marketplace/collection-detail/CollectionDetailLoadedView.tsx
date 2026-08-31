@@ -447,7 +447,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         tokenId={listingModal.selectedTokenId}
         listing={listingModal.selectedListing}
         metadata={listingModal.selectedPrefetch?.metadata ?? null}
-        imageUrl={listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl}
+        imageUrl={collectionCoverUrl}
         collectionTitle={chooseCopyTitle}
         collectionMeta={headline.collectionHeadlineMetaStrip}
         collectionGradeLine={chooseCopyGradeLine}

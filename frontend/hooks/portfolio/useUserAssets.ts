@@ -36,7 +36,7 @@ const EMPTY_METADATA_ROWS: {
 const EMPTY_MARKET_PREVIEW: Record<number, CollectionMarketPreview> = {};
 
 /** Default My Assets page size when portfolio enables progressive metadata. */
-export const PORTFOLIO_ASSETS_PAGE_SIZE = 20;
+export const PORTFOLIO_ASSETS_PAGE_SIZE = 50;
 
 export interface UserOwnedAsset {
   tokenId: number;

@@ -13,11 +13,12 @@ import {
   formatCardDisplayHoverTitle as formatCardDisplayHoverTitleCore,
   formatCardDisplaySetLabel,
   joinCardDisplaySegments,
-  preferCatalogExpansionInBrandDisplay,
+  resolveCardDisplaySetName,
   resolveCardDisplayGrade,
 } from "@/lib/marketplace/cardDisplayName";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
+import { bucketGradeScoreFromPsaGradeInput, psaGradePolicyInputFromGraded } from "@/lib/market/psaGradePolicy";
 
 /**
  * Structured fields for card display names.
@@ -107,7 +108,7 @@ export function buildAssetDetailHeadlineParts(input: {
       y != null
         ? setRaw.replace(new RegExp(`\\b${String(y)}\\b`), "").trim()
         : setRaw;
-    setOut = preferCatalogExpansionInBrandDisplay(
+    setOut = resolveCardDisplaySetName(
       withoutYear || setRaw,
       input.catalogSetName,
     );
@@ -260,7 +261,7 @@ export function buildRwaAssetDetailHeadlineParts(
       const stripped = setOut.replace(/^\s*\d{4}\b\s*/, "").trim();
       setOut = stripped || setOut;
     }
-    setOut = preferCatalogExpansionInBrandDisplay(setOut, catalogSet);
+    setOut = resolveCardDisplaySetName(setOut, catalogSet);
   }
 
   const numRaw = pickString(card?.number, psa?.cardNumberHint);
@@ -291,7 +292,7 @@ export function buildRwaAssetDetailHeadlineParts(
   };
 }
 
-/** Grade label from graded NFT metadata when present; otherwise `Raw`. */
+/** Grade for Line 1 — `{Company} {score}` (e.g. PSA 10). Not PSA qualifier copy like GEM MT 10. */
 export function resolveRwaHeadlineGrade(
   meta: RwaHeadlineMetadata | null | undefined,
 ): string {
@@ -299,12 +300,23 @@ export function resolveRwaHeadlineGrade(
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded =
     (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
-  const psa = graded?.psa as Record<string, unknown> | undefined;
-  const company = pickString(psa?.gradingCompany, psa?.grader, graded?.grader) ?? "PSA";
-  const score = pickString(psa?.grade, psa?.Grade, graded?.grade);
+  if (!graded || typeof graded !== "object") {
+    return resolveCardDisplayGrade(null);
+  }
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const company =
+    pickString(
+      psa?.gradingCompany,
+      psa?.grader,
+      graded.gradingCompany,
+      graded.grader,
+    ) ?? "PSA";
+  const score = bucketGradeScoreFromPsaGradeInput(
+    psaGradePolicyInputFromGraded(graded),
+  );
+  if (score === "auth") return toCardDisplayCase(`${company} AUTH`);
   if (score) return toCardDisplayCase(`${company} ${score}`);
-  const label = pickString(psa?.gradeLabel, graded?.gradeLabel);
-  return resolveCardDisplayGrade(label ? toCardDisplayCase(label) : null);
+  return resolveCardDisplayGrade(null);
 }
 
 export {
@@ -316,6 +328,8 @@ export {
   formatDetailBreadcrumbTrail,
   joinCardDisplaySegments,
   preferCatalogExpansionInBrandDisplay,
+  resolveCardDisplaySetName,
+  stripLeadingTcgSeriesFromSetDisplay,
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
   isDisplayVariantDuplicateOfSet,

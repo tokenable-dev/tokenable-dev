@@ -8,7 +8,7 @@ import {
 import {
   displayVariantIfNotSetDuplicate,
   formatCardDisplaySetLabel,
-  preferCatalogExpansionInBrandDisplay,
+  resolveCardDisplaySetName,
 } from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
@@ -66,7 +66,7 @@ export function buildCollectionMarketDetailCards(params: {
   const setName = resolveCollectionSetFacetLabelFromLine(setLineRaw);
   const setDisplay = setName
     ? formatCardDisplaySetLabel(
-        preferCatalogExpansionInBrandDisplay(
+        resolveCardDisplaySetName(
           toCardDisplayCase(setName),
           ch?.setName?.trim() ?? null,
         ),

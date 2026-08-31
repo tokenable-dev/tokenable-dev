@@ -134,7 +134,7 @@ export function formatDetailBreadcrumbTrail(params: {
   }
 
   if (!set) return "";
-  set = formatCardDisplaySetLabel(set);
+  set = formatCardDisplaySetLabel(stripLeadingTcgSeriesFromSetDisplay(set));
   if (lang && !new RegExp(`\\(${escapeRegExp(lang)}\\)\\s*$`, "i").test(set)) {
     return `${set} (${lang})`;
   }
@@ -223,6 +223,61 @@ export function preferCatalogExpansionInBrandDisplay(
   return formatCardDisplaySetLabel([...prefix, expansion].join(" "));
 }
 
+function isSeriesWordToken(t: string | undefined): boolean {
+  return Boolean(t && /^[A-Za-z][A-Za-z0-9']*$/.test(t));
+}
+
+/** `Word & Word …expansion` → drop the pair; empty leftover means the pair *is* the set. */
+function dropLeadingAmpersandSeries(tokens: string[]): string[] | null {
+  if (
+    tokens.length >= 4 &&
+    isSeriesWordToken(tokens[0]) &&
+    tokens[1] === "&" &&
+    isSeriesWordToken(tokens[2])
+  ) {
+    return tokens.slice(3);
+  }
+  return null;
+}
+
+/**
+ * Display-only: after franchise + language (or language alone on breadcrumb),
+ * a leading `Word & Word` with more tokens after it is the TCG series/era slot.
+ * Drop that slot only when an expansion remains. No named-series list.
+ */
+export function stripLeadingTcgSeriesFromSetDisplay(
+  setDisplay: string | null | undefined,
+): string {
+  const raw = (setDisplay ?? "").trim();
+  if (!raw) return "";
+  const tokens = raw.replace(/\s*&\s*/g, " & ").split(/\s+/).filter(Boolean);
+  const prefix = takeTcgFranchiseLanguagePrefix(tokens);
+  if (prefix) {
+    const dropped = dropLeadingAmpersandSeries(tokens.slice(prefix.length));
+    if (!dropped?.length) return formatCardDisplaySetLabel(raw);
+    return formatCardDisplaySetLabel([...prefix, ...dropped].join(" "));
+  }
+  let lang: string[] = [];
+  let rest = tokens;
+  if (tokens[0] && TCG_LANGUAGE_PREFIX.test(tokens[0])) {
+    lang = [tokens[0]];
+    rest = tokens.slice(1);
+  }
+  const dropped = dropLeadingAmpersandSeries(rest);
+  if (!dropped?.length) return formatCardDisplaySetLabel(raw);
+  return formatCardDisplaySetLabel([...lang, ...dropped].join(" "));
+}
+
+/** Catalog expansion prefer, then structural series omit — display only. */
+export function resolveCardDisplaySetName(
+  psaBrandDisplay: string | null | undefined,
+  catalogSetName?: string | null,
+): string {
+  return stripLeadingTcgSeriesFromSetDisplay(
+    preferCatalogExpansionInBrandDisplay(psaBrandDisplay, catalogSetName),
+  );
+}
+
 /**
  * Display-only: PSA Variety that repeats the expansion / set name (phrase inside set).
  * Same meaning as backend `psaVarietyIsBrandOrSetDuplicate` — not imported from backend.
@@ -256,7 +311,9 @@ function formatLine2SetLanguageChunk(
   setName: string | null | undefined,
   language: string | null | undefined,
 ): string {
-  const set = formatCardDisplaySetLabel(setName);
+  const set = formatCardDisplaySetLabel(
+    stripLeadingTcgSeriesFromSetDisplay(setName),
+  );
   const lang = formatCardDisplayLanguageShort(language) ?? language?.trim() ?? "";
   if (!set && !lang) return "";
   if (!lang) return set;

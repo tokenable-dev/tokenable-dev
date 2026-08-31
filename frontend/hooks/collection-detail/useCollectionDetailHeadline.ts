@@ -27,7 +27,6 @@ import {
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import {
   formatCardDisplayLanguageShort,
-  resolveCardDisplayGrade,
   formatDetailBreadcrumbTrail,
 } from "@/lib/marketplace/cardDisplayName";
 import {
@@ -35,6 +34,7 @@ import {
   resolveCollectionSlabSetLine,
 } from "@/lib/marketplace/slabDisplayTitle";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
+import { gradeLabelFromComp } from "@/lib/markets/marketsCollectionTitle";
 import {
   buildCollectionHeadlineInfoTags,
   resolveHeadlineFormattedCardNumber,
@@ -62,7 +62,6 @@ export function useCollectionDetailHeadline(params: {
     pokeTierLabel,
     displayLabel,
     hasCollection,
-    activeGradeLabel,
   } = params;
 
   const metadataRows = useMemo(() => [] as { label: string; value: string }[], [key]);
@@ -196,10 +195,10 @@ export function useCollectionDetailHeadline(params: {
     marketPreview?.card?.setName,
   ]);
 
-  const headlineGrade = useMemo(() => {
-    const label = activeGradeLabel?.trim() || pokeTierLabel?.trim();
-    return label ? toCardDisplayCase(label) : resolveCardDisplayGrade(null);
-  }, [activeGradeLabel, pokeTierLabel]);
+  const headlineGrade = useMemo(
+    () => gradeLabelFromComp(comp),
+    [comp],
+  );
 
   const collectionHeadlineDisplayTitle = useMemo(
     () =>

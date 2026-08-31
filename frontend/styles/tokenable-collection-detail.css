@@ -4622,7 +4622,7 @@ button.cd-listing-orderbook__thumb-link {
   gap: var(--cd-choose-copy-row-gap, 8px);
   /* Up to 7 rows visible; scroll for more (Card.html ask list cap pattern). */
   max-height: calc(
-    7 * var(--cd-choose-copy-row-slot, 56px) + 6 * var(--cd-choose-copy-row-gap, 8px)
+    7 * var(--cd-choose-copy-row-slot, 64px) + 6 * var(--cd-choose-copy-row-gap, 8px)
   );
   overflow-x: hidden;
   overflow-y: auto;
@@ -4639,10 +4639,10 @@ button.cd-listing-orderbook__thumb-link {
 
 .cd-choose-copy__row {
   display: grid;
-  grid-template-columns: 20px 1fr;
+  grid-template-columns: 20px 44px 1fr;
   align-items: center;
   gap: 12px;
-  min-height: var(--cd-choose-copy-row-slot, 56px);
+  min-height: var(--cd-choose-copy-row-slot, 64px);
   flex-shrink: 0;
   padding: 13px 14px;
   cursor: pointer;
@@ -4683,6 +4683,20 @@ button.cd-listing-orderbook__thumb-link {
   height: 8px;
   border-radius: 50%;
   background: var(--azure);
+}
+
+.cd-choose-copy__row-thumb {
+  flex: none;
+  width: 44px;
+  min-height: 56px;
+  background: linear-gradient(180deg, #0e0e0e, #08080e);
+  padding: 3px;
+  box-sizing: border-box;
+}
+
+.cd-choose-copy__row-thumb img {
+  width: 100%;
+  display: block;
 }
 
 .cd-choose-copy__row-body {
