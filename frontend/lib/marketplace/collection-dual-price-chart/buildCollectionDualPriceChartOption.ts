@@ -103,7 +103,6 @@ function cardHtmlDecorateLine(
         borderColor: COLLECTION_DETAIL_CHART_LINE,
         borderWidth: 2,
       },
-      symbolSize: 9,
     },
     markLine: {
       silent: true,
