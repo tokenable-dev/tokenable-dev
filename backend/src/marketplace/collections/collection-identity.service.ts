@@ -93,7 +93,8 @@ type IdentityCacheHint = string | null | undefined;
  * **Unified repair policy (P3.7–P3.12):**
  *   Decision ({@link IdentityCacheDecisionEngine}) → IO command →
  *   {@link IdentityCacheExecutionService.execute}. Execution layer has no drift/policy types.
- * When disabled every method is a no-op; existing write paths continue unchanged.
+ * `IDENTITY_SERVICE_ENABLED` gates cache hydrate, write-through, warmup, and
+ * reconciliation. DB first-writes always run (row lock + conditional UPDATE).
  *
  * Logging:
  *   - `[identity]       key=… source=… decision=…` — write decisions
@@ -103,7 +104,7 @@ type IdentityCacheHint = string | null | undefined;
 export class CollectionIdentityService {
   private readonly logger = new Logger(CollectionIdentityService.name);
 
-  /** Feature flag: true only when `IDENTITY_SERVICE_ENABLED=true|1` in env. */
+  /** Cache/hydrate/reconcile flag: true when `IDENTITY_SERVICE_ENABLED=true|1`. */
   private readonly enabled: boolean;
 
   /**
@@ -731,8 +732,6 @@ export class CollectionIdentityService {
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    if (!this.enabled) return;
-
     const key = collectionKey.toLowerCase();
     const ch = cardhedgerFromRwaMetadata(meta);
     if (!ch.cardId) {
@@ -770,8 +769,6 @@ export class CollectionIdentityService {
     certCardId: string,
     searchQuery?: string | null,
   ): Promise<void> {
-    if (!this.enabled) return;
-
     const trimmedId = certCardId.trim();
     if (!trimmedId) return;
 
@@ -805,7 +802,6 @@ export class CollectionIdentityService {
     collectionKey: string,
     description: string,
   ): Promise<void> {
-    if (!this.enabled) return;
     const trimmed = description.trim();
     if (!trimmed) return;
     const key = collectionKey.toLowerCase();
@@ -839,8 +835,6 @@ export class CollectionIdentityService {
     confidence: 'verified' | 'approximate',
     searchQuery?: string | null,
   ): Promise<void> {
-    if (!this.enabled) return;
-
     const trimmedId = resolvedCardId.trim();
     if (!trimmedId) return;
 

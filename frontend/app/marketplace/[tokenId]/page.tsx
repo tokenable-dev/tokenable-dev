@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { postTokenCollectionKeysByTokenIds } from "@/lib/core";
+import { postTokenCollectionKeysByTokenIds, rq } from "@/lib/core";
 
 /** Legacy `/marketplace/[tokenId]` — redirect into collection detail + listing modal. */
 export default function RwaDetailRedirectPage() {
@@ -19,7 +19,7 @@ export default function RwaDetailRedirectPage() {
   const wantsList = searchParams.has("list");
 
   const { data: serverCollectionKey, isLoading } = useQuery({
-    queryKey: ["token-collection-key-redirect", tokenId],
+    queryKey: rq.tokenCollectionKey(tokenId),
     queryFn: async () => {
       const map = await postTokenCollectionKeysByTokenIds([tokenId]);
       return map[tokenId]?.trim().toLowerCase() || null;

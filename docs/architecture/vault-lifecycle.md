@@ -64,7 +64,7 @@ Cycles are chain-scoped in both DB and API:
 
 - Partial unique index `uq_vault_cycles_one_open_per_asset_chain` on `(vault_asset_id, chain_id)` where status is open
 - `VaultService.assertAvailableForNewCycle(cert, chainId)` / `reserveCycleForDeposit({ chainId })` filter by `chain_id`
-- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-request`, bulk-mint, P2P listing create) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
+- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-batch`, bulk-mint, P2P listing create) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
 
 ```
 vault_cycles (uuid id PK)
@@ -153,7 +153,7 @@ Any state  →  cancelled   (on-chain mint failure; compensating action)
 |------|-----|------|
 | `deposit_verified` | Automated | PSA cert lookup passes; `reserveCycleForDeposit()` |
 | `minted` | Backend on-chain | After `mint()` tx confirmed; `recordMintResult()` |
-| `redemption_requested` | User API | `POST /rwa/redeem-request` |
+| `redemption_requested` | User API | `POST /rwa/redeem-batch` |
 | `redeemed` | Admin on-chain | After `adminBurn()` tx confirmed |
 | `completed` | Admin ops | After physical card shipped (`confirmVaultRelease`) |
 | `cancelled` | Backend (compensating) | On-chain mint failed; cycle released for retry |

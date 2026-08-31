@@ -21,7 +21,6 @@ import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
   cardIdFromPsaCertLookup,
-  CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
   catalogRowTrustedForMarketData,
 } from '../utils/card-match.util';
 import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
@@ -377,9 +376,8 @@ export class CollectionComponentsService {
   /**
    * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
    *
-   * When `IDENTITY_SERVICE_ENABLED=true`, the consensual ID from active listings is
-   * persisted through `CollectionIdentityService.writeFromMintMetadata` (mint precedence).
-   * Legacy direct-write path remains active when the flag is off.
+   * First-write goes through `writeFromMintMetadata`. When the identity cache
+   * flag is off, a unanimous listing ID may still overwrite a stored value.
    */
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
@@ -431,13 +429,12 @@ export class CollectionComponentsService {
     }
     if (ids.size === 0) return false;
 
-    // When identity service is enabled, delegate to the canonical write path.
-    if (this.identity.isEnabled() && lastMeta) {
+    if (lastMeta) {
       await this.identity.writeFromMintMetadata(k, lastMeta);
-      return true;
+      if (this.identity.isEnabled()) return true;
     }
 
-    // Legacy direct-write path (flag disabled).
+    // Flag off: listings may still overwrite a stored id when they agree on one value.
     const only = [...ids][0];
     const nextComp: Record<string, unknown> = { ...comp };
     let dirty = false;
@@ -575,14 +572,6 @@ export class CollectionComponentsService {
     return this.mergePsaSnapshotIntoComponents(col, snap);
   }
 
-  /** @deprecated Use {@link mergePsaCertFromLiveApiIntoComponents}. */
-  async mergePsaSnapshotIntoComponentsFromDb(
-    col: MarketplaceCollection,
-    opts?: { allowUpstream?: boolean },
-  ): Promise<MarketplaceCollection> {
-    return this.mergePsaCertFromLiveApiIntoComponents(col, opts);
-  }
-
   /**
    * Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit.
    * Default `allowUpstream: false` — mint-only PSA policy (no live Public API on read/snapshot).
@@ -632,32 +621,11 @@ export class CollectionComponentsService {
   ): Promise<void> {
     const trimmedId = resolvedCardId.trim();
     if (!trimmedId) return;
-    if (this.identity.isEnabled()) {
-      await this.identity.writeFromResolvedSearch(
-        collectionKey,
-        trimmedId,
-        confidence,
-        searchQuery,
-      );
-      return;
-    }
-    const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
-    });
-    if (!row) return;
-    const comp = (row.components ?? {}) as Record<string, unknown>;
-    if (String(comp.cardhedgerCardId ?? '').trim()) return;
-    const next: Record<string, unknown> = {
-      ...comp,
-      cardhedgerCardId: trimmedId,
-    };
-    if (searchQuery?.trim()) {
-      next.cardhedgerSearchQuery = searchQuery.trim();
-    }
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    await this.identity.writeFromResolvedSearch(
+      collectionKey,
+      trimmedId,
+      confidence,
+      searchQuery,
     );
   }
 
@@ -671,32 +639,10 @@ export class CollectionComponentsService {
     certCardId: string,
     searchQuery?: string | null,
   ): Promise<void> {
-    if (this.identity.isEnabled()) {
-      await this.identity.writeFromCertLookup(
-        collectionKey,
-        certCardId,
-        searchQuery,
-      );
-      return;
-    }
-    const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
-    });
-    if (!row) return;
-    const comp = (row.components ?? {}) as Record<string, unknown>;
-    if (String(comp.cardhedgerCardId ?? '').trim()) return;
-    const next: Record<string, unknown> = {
-      ...comp,
-      cardhedgerCardId: certCardId.trim(),
-      cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
-    };
-    if (searchQuery?.trim()) {
-      next.cardhedgerSearchQuery = searchQuery.trim();
-    }
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    await this.identity.writeFromCertLookup(
+      collectionKey,
+      certCardId,
+      searchQuery,
     );
   }
 
@@ -895,9 +841,7 @@ export class CollectionComponentsService {
             cleared,
             failCodes: ['psa_variety_mismatch'],
           };
-          if (this.identity.isEnabled()) {
-            this.identity.logAuditDecision(k, varietyFail);
-          }
+          this.identity.logAuditDecision(k, varietyFail);
           return varietyFail;
         }
         const varietyFail = {
@@ -906,15 +850,11 @@ export class CollectionComponentsService {
           cleared: false,
           failCodes: ['psa_variety_mismatch'],
         };
-        if (this.identity.isEnabled()) {
-          this.identity.logAuditDecision(k, varietyFail);
-        }
+        this.identity.logAuditDecision(k, varietyFail);
         return varietyFail;
       }
       const successResult = { checked: true, ok: true, cleared: false, failCodes: [] };
-      if (this.identity.isEnabled()) {
-        this.identity.logAuditDecision(k, successResult);
-      }
+      this.identity.logAuditDecision(k, successResult);
       return successResult;
     }
 
@@ -929,9 +869,7 @@ export class CollectionComponentsService {
         cleared,
         failCodes: ex.failCodes,
       };
-      if (this.identity.isEnabled()) {
-        this.identity.logAuditDecision(k, clearedResult);
-      }
+      this.identity.logAuditDecision(k, clearedResult);
       return clearedResult;
     }
     const result = {
@@ -940,10 +878,7 @@ export class CollectionComponentsService {
       cleared: false,
       failCodes: ex.failCodes,
     };
-    // Forward audit outcome to identity service for unified logging (no behaviour change).
-    if (this.identity.isEnabled()) {
-      this.identity.logAuditDecision(k, result);
-    }
+    this.identity.logAuditDecision(k, result);
     return result;
   }
 
@@ -984,62 +919,15 @@ export class CollectionComponentsService {
     );
   }
 
-  /** Backward-compatible alias now backed by Cardhedger exact verification. */
-  async auditCollectionCardIdExact(
-    collectionKey: string,
-    options?: { clearOnMismatch?: boolean },
-  ): Promise<{
-    checked: boolean;
-    ok: boolean;
-    cleared: boolean;
-    failCodes: string[];
-  }> {
-    return this.auditCardhedgerCardIdExact(collectionKey, options);
-  }
-
   /**
    * Duplicate-key race: fill `cardhedgerCardId` + `cardhedgerSearchQuery` when the
    * row was created by another listing and its metadata had these fields.
-   *
-   * When `IDENTITY_SERVICE_ENABLED=true`, delegates to
-   * `CollectionIdentityService.writeFromMintMetadata` (canonical write path).
-   * Legacy direct-write path remains active when the flag is off.
    */
   async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    if (this.identity.isEnabled()) {
-      await this.identity.writeFromMintMetadata(collectionKey, meta);
-      return;
-    }
-
-    // Legacy direct-write path (flag disabled).
-    const key = collectionKey.toLowerCase();
-    const dbRow = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
-    });
-    if (!dbRow) return;
-    const comp = dbRow.components;
-    if (
-      typeof comp.cardhedgerCardId === 'string' &&
-      comp.cardhedgerCardId.trim()
-    ) {
-      return;
-    }
-    const ch = cardhedgerFromRwaMetadata(meta);
-    if (!ch.cardId) return;
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: {
-          ...comp,
-          cardhedgerCardId: ch.cardId,
-          ...(ch.psaSpecId ? { psaSpecId: ch.psaSpecId } : {}),
-          ...(ch.searchQuery ? { cardhedgerSearchQuery: ch.searchQuery } : {}),
-        } as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.identity.writeFromMintMetadata(collectionKey, meta);
   }
 
   /** Duplicate-key race: fill `listingDisplayTitle` when the row was created by another listing first. */

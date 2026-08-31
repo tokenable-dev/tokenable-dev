@@ -239,7 +239,7 @@ describe("cardDisplayName SSOT", () => {
     expect(parts.cardNumber).toBe("085");
     expect(parts.variety).toBe("Eevee Heroes");
     expect(formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts))).toBe(
-      "2021 · Pokemon Japanese Eevee Heroes JP",
+      "2021 · Eevee Heroes JP",
     );
     const noCatalog = buildAssetDetailHeadlineParts({
       setLine: "2021 Pokemon Japanese Sword & Shield Eevee Heroes",
@@ -250,7 +250,7 @@ describe("cardDisplayName SSOT", () => {
       language: "JP",
     });
     expect(formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(noCatalog))).toBe(
-      "2021 · Pokemon Japanese Eevee Heroes JP",
+      "2021 · Eevee Heroes JP",
     );
     expect(
       formatDetailBreadcrumbTrail({
@@ -278,7 +278,7 @@ describe("cardDisplayName SSOT", () => {
         language: "JP",
         variant: "Eevee Heroes",
       }),
-    ).toBe("2021 · Pokemon Japanese Eevee Heroes JP");
+    ).toBe("2021 · Eevee Heroes JP");
     expect(
       formatCardDisplayLine2({
         cardName: null,
@@ -289,7 +289,7 @@ describe("cardDisplayName SSOT", () => {
         language: "JP",
         variant: "VSTAR Universe",
       }),
-    ).toBe("2022 · Pokemon Japanese VSTAR Universe JP");
+    ).toBe("2022 · VSTAR Universe JP");
   });
 
   it("shouldHideDuplicateVariant hides only expansion-name repeats", () => {
@@ -362,9 +362,7 @@ describe("cardDisplayName SSOT", () => {
         language: "JP",
         variant: "Reverse Holo",
       }),
-    ).toBe(
-      "2023 · Pokemon Japanese SV2a Pokemon Card 151 JP · Reverse Holo",
-    );
+    ).toBe("2023 · SV2a Pokemon Card 151 JP · Reverse Holo");
     expect(
       formatCardDisplayLine2({
         cardName: null,
@@ -375,9 +373,7 @@ describe("cardDisplayName SSOT", () => {
         language: "JP",
         variant: "Master Ball Reverse Holo",
       }),
-    ).toBe(
-      "2023 · Pokemon Japanese SV2a Pokemon Card 151 JP · Master Ball Reverse Holo",
-    );
+    ).toBe("2023 · SV2a Pokemon Card 151 JP · Master Ball Reverse Holo");
   });
 
   it("keeps real parallel and rarity variants on Line 2", () => {
@@ -391,7 +387,7 @@ describe("cardDisplayName SSOT", () => {
         language: "JP",
         variant: "Special Illustration Rare",
       }),
-    ).toBe("2023 · Pokemon Japanese 151 JP · Special Illustration Rare");
+    ).toBe("2023 · 151 JP · Special Illustration Rare");
     expect(
       formatCardDisplayLine2({
         cardName: null,
@@ -414,6 +410,28 @@ describe("cardDisplayName SSOT", () => {
         variant: "Red Manga Alternate Art",
       }),
     ).toBe("2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art");
+    expect(
+      formatCardDisplayLine2({
+        cardName: null,
+        cardNumber: null,
+        grade: null,
+        year: "2025",
+        setName: "One Piece OP13 Carrying On His Will",
+        language: "JP",
+        variant: "Red Manga Alternate Art",
+      }),
+    ).toBe("2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art");
+    expect(
+      formatCardDisplayLine2({
+        cardName: null,
+        cardNumber: null,
+        grade: null,
+        year: "2025",
+        setName: "2025 One Piece Carrying On His Will",
+        language: null,
+        variant: "Red Manga Alternate Art",
+      }),
+    ).toBe("2025 · Carrying On His Will · Red Manga Alternate Art");
     expect(
       isDisplayVariantDuplicateOfSet("RED", "Panini Prizm Red"),
     ).toBe(false);

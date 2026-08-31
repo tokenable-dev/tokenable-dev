@@ -40,9 +40,6 @@ export const ETHEREUM_FUNDING_CAIP2 = 'eip155:1';
 export const POLYGON_FUNDING_CAIP2 = 'eip155:137';
 export const TOKENABLE_FUNDING_ASSET = 'USDC';
 
-/** @deprecated Prefer {@link POLYGON_FUNDING_CAIP2}. */
-export const TOKENABLE_FUNDING_CAIP2 = POLYGON_FUNDING_CAIP2;
-
 export function resolveFundingTargetCaip2(): string {
   const fromEnv = process.env.PRIVY_FUNDING_TARGET_CAIP2?.trim();
   if (fromEnv?.startsWith('eip155:')) return fromEnv;

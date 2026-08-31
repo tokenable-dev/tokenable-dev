@@ -62,7 +62,44 @@ Data persisted in **`card_top100_daily_snapshots`** (one row per KST date × cat
 
 ---
 
-## Server-to-server (no public HTTP)
+## Official collection pricing pipeline
+
+Do **not** add a new `pipeline/` folder. NestJS already owns this as `marketplace/market-data/` + matching utils. Splitting further hides the path.
+
+```
+cert (mint / collection)
+        │
+        ▼
+CardhedgerCertLookupService     POST /v1/cards/details-by-certs
+  card + variety OK ──────────► card_id
+  card: null + GemRate description ─► search query
+        │
+        ▼
+CardhedgerResolveService        stored card_id → card-details
+                                then card-search (PSA / aliases)
+                                Variety gate on every row
+        │
+        ▼
+CardhedgerPricingService        POST /v1/cards/comps  (tape / last price)
+                                prices-by-card / all-prices / FMV
+        │
+        ▼
+collection_market_snapshots     hot reads (UI)
+```
+
+| File | Role |
+|---|---|
+| `marketplace/market-data/cardhedger-cert-lookup.service.ts` | Path 0 cert → catalog row / description |
+| `marketplace/market-data/cardhedger-resolve.service.ts` | Identity (`card_id`) |
+| `marketplace/utils/card-match.util.ts` + `cardhedger-psa-variety.util.ts` + `cardhedger-search-alias.util.ts` | Number / set / Variety gates + search aliases |
+| `marketplace/market-data/cardhedger-pricing.service.ts` | Comps + history keyed by `card_id` |
+| `marketplace/market-data/cardhedger-mint.service.ts` | Mint-preview batch (cert batch + FMV flags) |
+| `marketplace/market-data/cardhedger-market-data.service.ts` | Facade for collections / snapshots |
+| `cardhedger/cardhedger.service.ts` | HTTP + API key only |
+
+`POST /v1/cards/prices-by-cert` is **mint image / optional estimate**, not the collection comps tape. Comps always use `/v1/cards/comps` with the gated `card_id`. Empty comps on a correct overlay (no CardHedge sales) stay empty — do not substitute sibling Base rows.
+
+---
 
 `CardhedgerService.forwardJson` is also called internally from:
 
@@ -106,6 +143,25 @@ Same player/# can map to different Cardhedger rows (Base vs Silver, Master Ball 
 Cert lookup `card_id` is used only when the catalog **variant** is compatible with PSA **Variety**. Otherwise resolve falls through to `card-search`. Stored catalog IDs are re-validated the same way. Mint preview, collection attach, and trades-tape comps use this gate — they do not take a cert batch price when the cert row is a sibling finish (e.g. Reverse Foil on a Master Ball slab).
 
 Card ID resolution uses **`CollectionIdentityService`** (cert lookup + search). The old `CARDHEDGER_PSA_SPECID_MAP` env override was removed.
+
+---
+
+## Opt-in env flags (default off)
+
+These do **not** change the cert → resolve → `/comps` pipeline unless set. Leave them off unless you are rolling a specific optimisation.
+
+| Env | Effect |
+|---|---|
+| `CARDHEDGER_FMV_BATCH_ENABLED` | Mint-preview bulk FMV |
+| `CARDHEDGER_BATCH_PRICES_BY_CERT_ENABLED` | Mint-preview `batch-prices-by-cert` |
+| `CARDHEDGER_BATCH_PRICE_ESTIMATE_ENABLED` | Mint-preview `batch-price-estimate` |
+| `CARDHEDGER_PRICES_BY_CERT_OCR_ENABLED` | PSA analyze OCR via `prices-by-cert-ocr` |
+| `CARDHEDGER_CARD_MATCH_FIRST` | Resolve tries `card-match` before `card-search` (usually worse than our aliases) |
+| `CARDHEDGER_MINT_PREVIEW_SKIP_COMPS` | Mint-preview skips `/comps` |
+| `CARDHEDGER_CERT_PRICE_PILOT_COMPARE` | Extra `details-by-certs` only to log vs batch cert prices — **do not enable in production** |
+| `CARDHEDGER_PRICE_WEBHOOK_ENABLED` / `CARDHEDGER_PRICE_SUBSCRIBE_ENABLED` | Price webhook + subscribe |
+| `CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED` | Nightly `price-updates` import |
+| `CARDHEDGER_DAILY_EXPORT_CSV_ENABLED` | Daily CSV export (Elite/Enterprise) |
 
 ---
 

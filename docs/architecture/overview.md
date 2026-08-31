@@ -55,7 +55,7 @@ Local development omits Nginx; the frontend dev server proxies `/api` to the bac
 | `AuthModule` | **Privy JWT session only** — `POST /auth/privy/session`, `GET /session`, `POST /logout`, `POST /delete-account` |
 | `PrivyModule` | Privy feature catalog + Privy API proxy (users, funding, verify) |
 | `UserModule` | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events` |
-| `RwaModule` | IPFS upload (Pinata), platform-signed on-chain mint, redeem-request; PSA 10 gate |
+| `RwaModule` | IPFS upload (Pinata), platform-signed on-chain mint, pay-first redeem-batch; PSA 10 gate |
 | `VaultModule` | Physical card vault lifecycle DB orchestration (`VaultService`) — `vault_assets`, `vault_cycles`, `vault_redemptions` |
 | `BlockchainModule` | Multi-chain RPC reads + IPFS gateway resolver; `RwaChainWriterService` (minter + custody signing) |
 | `PsaModule` | Slab OCR, analyze-by-cert, PSA Public API 6-method proxy |
@@ -78,7 +78,7 @@ PSA cert lookup / slab OCR
   → Admin delivers NFT to user primary wallet (POST /admin/rwa-tokens/:id/deliver)
   → User lists for sale on Seaport (ask order)
   → Buyer fulfills order on-chain (fulfillOrder USDC)
-  → User initiates redemption (POST /rwa/redeem-request)
+  → User initiates redemption (POST /rwa/redeem-batch)
   → Admin burns NFT + releases physical card (POST /admin/rwa-tokens/:id/burn)
 ```
 

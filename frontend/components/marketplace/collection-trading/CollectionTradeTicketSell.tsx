@@ -49,7 +49,7 @@ export function CollectionTradeTicketSell({
           title={listTitle}
           className="w-full min-h-[40px] rounded-md bg-[#DC2626] px-3 py-2 text-xs font-bold text-white shadow-md shadow-black/25 transition hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40"
         >
-          List for sale
+          List
         </button>
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[9px] text-zinc-500">
           <Link href="/portfolio" className="hover:text-zinc-400" title="Manage RWAs in your wallet">

@@ -9,6 +9,7 @@ export type RwaMetadataBatchItem = {
   tokenURI: string | null;
   metadata: RwaMetadata | null;
   imageUrl: string | null;
+  imageBackUrl?: string | null;
 };
 
 export async function getRwaTokensByOwner(address: string): Promise<number[]> {
@@ -54,13 +55,14 @@ export type ResolvedRwaAsset = {
   tokenURI: string;
   metadata: RwaMetadata | null;
   imageUrl: string | null;
+  imageBackUrl?: string | null;
 };
 
 /** 단일 토큰: tokenURI → metadata → imageUrl 전부 서버 게이트웨이·캐시 */
 export async function getResolvedRwaAsset(tokenId: number): Promise<ResolvedRwaAsset> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/asset/${tokenId}`);
   if (res.status === 404) {
-    return { tokenId, tokenURI: "", metadata: null, imageUrl: null };
+    return { tokenId, tokenURI: "", metadata: null, imageUrl: null, imageBackUrl: null };
   }
   if (!res.ok) throw new Error("Failed to load resolved RWA asset");
   return res.json() as Promise<ResolvedRwaAsset>;

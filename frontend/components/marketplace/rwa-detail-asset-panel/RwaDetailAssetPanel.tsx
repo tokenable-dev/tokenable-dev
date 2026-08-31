@@ -11,6 +11,7 @@ import { RwaDetailSlabSection } from "./slab/RwaDetailSlabSection";
 export function RwaDetailAssetPanel({
   metadata,
   imageUrl,
+  imageBackUrl = null,
   tokenId,
   collectionLabel,
   metaLoading,
@@ -23,6 +24,7 @@ export function RwaDetailAssetPanel({
   const slab = useRwaDetailSlabPanel({
     metadata,
     imageUrl,
+    imageBackUrl,
     tokenId,
     collectionLabel,
     metaLoading,

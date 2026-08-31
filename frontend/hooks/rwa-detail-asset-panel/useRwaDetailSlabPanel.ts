@@ -23,12 +23,13 @@ import {
 export function useRwaDetailSlabPanel(input: {
   metadata: RwaDetailMetadata | null;
   imageUrl: string | null;
+  imageBackUrl?: string | null;
   tokenId: number;
   collectionLabel: string;
   metaLoading?: boolean;
   openSeaMobile?: boolean;
 }) {
-  const { metadata, imageUrl, tokenId, collectionLabel, metaLoading, openSeaMobile = false } =
+  const { metadata, imageUrl, imageBackUrl = null, tokenId, collectionLabel, metaLoading, openSeaMobile = false } =
     input;
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -47,7 +48,10 @@ export function useRwaDetailSlabPanel(input: {
     [metadata],
   );
 
-  const backCandidate = useMemo(() => extractGradedSlabBackCandidate(metadata), [metadata]);
+  const backCandidate = useMemo(
+    () => imageBackUrl?.trim() || extractGradedSlabBackCandidate(metadata),
+    [imageBackUrl, metadata],
+  );
   const backNeedsGateway = Boolean(
     backCandidate?.startsWith("ipfs://") || backCandidate?.startsWith("ipfs:/"),
   );

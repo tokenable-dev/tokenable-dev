@@ -147,9 +147,11 @@ export function SettingsPage({ user }: { user: AuthUser }) {
             aria-current={section === item.id ? "page" : undefined}
             onClick={() => selectSection(item.id)}
           >
-            {item.icon}
-            <span className="tk-settings__lbltxt--full">{item.label}</span>
-            <span className="tk-settings__lbltxt--short">{item.shortLabel}</span>
+            <span className="tk-settings__snav-label">
+              {item.icon}
+              <span className="tk-settings__lbltxt--full">{item.label}</span>
+              <span className="tk-settings__lbltxt--short">{item.shortLabel}</span>
+            </span>
           </button>
         ))}
       </nav>

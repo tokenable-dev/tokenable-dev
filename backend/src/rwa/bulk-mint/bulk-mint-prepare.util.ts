@@ -12,10 +12,17 @@ export function buildBulkMintMetadataFromPsaCert(params: {
   imageUrl: string;
   /** PSA slab photo URL stored for UI fallback (not pinned on-chain). */
   certImageSourceUrl?: string | null;
+  certImageBackUrl?: string | null;
   mintImageSource?: MintImageSource;
 }): { name: string; description: string; metadata: RwaMetadata } {
-  const { certNumber, psaCert, imageUrl, certImageSourceUrl, mintImageSource } =
-    params;
+  const {
+    certNumber,
+    psaCert,
+    imageUrl,
+    certImageSourceUrl,
+    certImageBackUrl,
+    mintImageSource,
+  } = params;
   const { label, score } = parseGradeFromPsaCertRecord(psaCert);
   const subject = String(psaCert.Subject ?? '').trim();
   const year = String(psaCert.Year ?? psaCert.YearIssued ?? '').trim();
@@ -68,6 +75,9 @@ export function buildBulkMintMetadataFromPsaCert(params: {
       certVerifyUrl: `https://www.psacard.com/cert/${certNumber}`,
       ...(certImageSourceUrl?.trim()
         ? { certImageSourceUrl: certImageSourceUrl.trim() }
+        : {}),
+      ...(certImageBackUrl?.trim()
+        ? { certImageBackUrl: certImageBackUrl.trim() }
         : {}),
       specId:
         typeof psaCert.SpecID === 'number' && Number.isFinite(psaCert.SpecID)

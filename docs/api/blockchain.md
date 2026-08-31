@@ -68,7 +68,8 @@ Server-side pipeline: reads `tokenURI`, fetches IPFS metadata, resolves image to
   "tokenId": 1,
   "tokenURI": "ipfs://Qm.../metadata.json",
   "metadata": { "name": "...", "description": "...", "attributes": [...] },
-  "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm..."
+  "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm...",
+  "imageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab-back"
 }
 ```
 
@@ -112,7 +113,7 @@ Resolves metadata and image URLs for a list of token IDs in parallel. Uses serve
 
 ```json
 [
-  { "tokenId": 1, "metadata": {...}, "imageUrl": "https://..." },
+  { "tokenId": 1, "metadata": {...}, "imageUrl": "https://...", "imageBackUrl": null },
   ...
 ]
 ```

@@ -484,17 +484,22 @@ export class BulkMintJobService {
       });
       if (gradeReject) throw new Error(gradeReject);
 
-      let certImageSourceUrl: string | null =
-        extractPsaCertImageUrlsFromApiBody(lookup.raw, item.certNumber).front ??
-        null;
-      if (!certImageSourceUrl) {
+      const fromLookup = extractPsaCertImageUrlsFromApiBody(
+        lookup.raw,
+        item.certNumber,
+      );
+      let certImageSourceUrl: string | null = fromLookup.front ?? null;
+      let certImageBackUrl: string | null = fromLookup.back ?? null;
+      if (!certImageSourceUrl || !certImageBackUrl) {
         const imgs = await this.psaPublicApi.getImagesByCertNumber(item.certNumber);
         if (imgs.status === 'success') {
-          certImageSourceUrl =
-            extractPsaCertImagesFromGetImagesBody(imgs.raw).front ??
-            extractPsaCertImagesFromGetImagesBody(imgs.raw).back ??
-            null;
+          const fromGet = extractPsaCertImagesFromGetImagesBody(imgs.raw);
+          certImageSourceUrl = certImageSourceUrl ?? fromGet.front ?? null;
+          certImageBackUrl = certImageBackUrl ?? fromGet.back ?? null;
         }
+      }
+      if (!certImageSourceUrl && certImageBackUrl) {
+        certImageSourceUrl = certImageBackUrl;
       }
 
       let fetched!: { buffer: Buffer; mimeType: string; extension: string };
@@ -557,6 +562,7 @@ export class BulkMintJobService {
         psaCert,
         imageUrl: '',
         certImageSourceUrl: certImageSourceUrl ?? undefined,
+        certImageBackUrl: certImageBackUrl ?? undefined,
         mintImageSource,
       });
 
@@ -573,6 +579,39 @@ export class BulkMintJobService {
         );
       }
       const slabDisplayImageUrl = await slabPromise;
+      let slabDisplayImageBackUrl: string | null = null;
+      const distinctBack =
+        certImageBackUrl &&
+        certImageBackUrl !== certImageSourceUrl;
+      if (distinctBack) {
+        slabDisplayImageBackUrl = await this.rwaSlabS3.ingestMintSlabBestEffort({
+          chainId,
+          certNumber: item.certNumber,
+          sourceUrl: certImageBackUrl ?? undefined,
+          face: 'back',
+        });
+      } else if (certImageBackUrl && !fromLookup.front) {
+        slabDisplayImageBackUrl = await this.rwaSlabS3.ingestMintSlabBestEffort({
+          chainId,
+          certNumber: item.certNumber,
+          buffer: fetched.buffer,
+          contentType: fetched.mimeType,
+          face: 'back',
+        });
+      }
+      if (slabDisplayImageBackUrl) {
+        const graded = metadata.properties?.graded as
+          | Record<string, unknown>
+          | undefined;
+        if (graded && typeof graded === 'object') {
+          const psa =
+            graded.psa && typeof graded.psa === 'object'
+              ? { ...(graded.psa as Record<string, unknown>) }
+              : {};
+          psa.certImageBackUrl = slabDisplayImageBackUrl;
+          graded.psa = psa;
+        }
+      }
       metadata.image = this.pinata.ipfsHttpsUrl(imageCid);
       const metadataCid = await this.pinata.uploadMetadata(metadata);
       const tokenUri = `ipfs://${metadataCid}`;
@@ -585,6 +624,7 @@ export class BulkMintJobService {
           tokenUri,
           vaultRef,
           slabDisplayImageUrl,
+          slabDisplayImageBackUrl,
           errorMessage: null,
         },
       );
@@ -804,6 +844,13 @@ export class BulkMintJobService {
             r.item.slabDisplayImageUrl,
             job.chainId,
             r.item.certNumber,
+            'front',
+          ),
+          displayImageBackUrl: this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+            r.item.slabDisplayImageBackUrl,
+            job.chainId,
+            r.item.certNumber,
+            'back',
           ),
           settlementPolicy: 'self_vault_hold',
           vaultPartnerId: job.partnerId,

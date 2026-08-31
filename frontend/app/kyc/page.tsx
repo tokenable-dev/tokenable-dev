@@ -266,9 +266,8 @@ export default function KycPage() {
           <header className="kyc-page__header">
             <h1 className="kyc-page__title">Verify your identity</h1>
             <p className="kyc-page__lead">
-              We need a quick identity check before you can ship cards to the vault or redeem a
-              physical card — ID (passport or driver’s license), a liveness selfie, usually 1–2
-              minutes.
+              Upload a clear photo of your government ID (passport, license, or national
+              ID). Take a quick selfie to match your ID.
             </p>
           </header>
         )}
@@ -284,7 +283,7 @@ export default function KycPage() {
             <p>
               {autoContinuing
                 ? "Identity verification is complete. Taking you back…"
-                : "Identity verification is complete. You can now ship cards to the vault or redeem a physical card."}
+                : "You can now submit and sell cards."}
             </p>
             <TkButton variant="primary" onClick={continueAfterApproval}>
               Continue
@@ -317,7 +316,7 @@ export default function KycPage() {
             <p>
               {pageError
                 ? "You can retry opening Sumsub below once the rate limit clears."
-                : "Your verification is under review, or you left mid-flow. Continue to reopen Sumsub."}
+                : "We'll email you when verification completes."}
             </p>
             <TkButton
               variant="neutral"

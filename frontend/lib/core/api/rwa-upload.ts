@@ -11,6 +11,7 @@ export interface UploadRwaResult {
   metadataCID: string;
   /** Platform S3 slab URL when configured at upload time; pass to mint. */
   displayImageUrl?: string | null;
+  displayImageBackUrl?: string | null;
 }
 
 export async function uploadRwaMetadata(

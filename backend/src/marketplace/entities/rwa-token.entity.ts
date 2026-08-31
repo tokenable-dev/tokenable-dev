@@ -36,6 +36,10 @@ export class RwaToken {
   @Column({ name: 'display_image_url', type: 'text', nullable: true })
   displayImageUrl: string | null;
 
+  /** Platform S3 (or override) URL for the PSA slab back photo. */
+  @Column({ name: 'display_image_back_url', type: 'text', nullable: true })
+  displayImageBackUrl: string | null;
+
   /** Last marketplace bucket from an ask listing (nullable if never listed). */
   @Index()
   @Column({

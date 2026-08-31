@@ -1,7 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
-
-export class AdminRwaTokenListQueryDto {}
 
 export class AdminUpdateRwaTokenDto {
   @ApiPropertyOptional({

@@ -1,6 +1,7 @@
 import {
   cardNumberTokenForCardhedgerSearch,
   catalogRowTrustedForMarketData,
+  catalogTcgPrefixedNumberCompatible,
   normalizeForExactCardNumberKey,
   relaxedCatalogMatchForAudit,
   exactCatalogMatch,
@@ -22,6 +23,18 @@ describe('normalizeForExactCardNumberKey', () => {
   it('treats PSA 085 and Cardhedger 85 as the same key', () => {
     expect(normalizeForExactCardNumberKey('085')).toBe('85');
     expect(normalizeForExactCardNumberKey('85')).toBe('85');
+  });
+});
+
+describe('catalogTcgPrefixedNumberCompatible', () => {
+  it('matches PSA 086 to Cardhedger OP05-086', () => {
+    expect(catalogTcgPrefixedNumberCompatible('086', 'OP05-086')).toBe(true);
+    expect(catalogTcgPrefixedNumberCompatible('OP05-086', '086')).toBe(true);
+  });
+
+  it('rejects a different checklist suffix', () => {
+    expect(catalogTcgPrefixedNumberCompatible('086', 'OP07-119')).toBe(false);
+    expect(catalogTcgPrefixedNumberCompatible('086', 'OP13-012')).toBe(false);
   });
 });
 
@@ -244,6 +257,55 @@ describe('catalogRowTrustedForMarketData', () => {
       },
     );
     expect(r.ok).toBe(false);
+  });
+
+  it('matches PSA One Piece promo 086 + Championship 2024-Top Prize to OP05-086 Championship 2024', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'NEFELTARI VIVI',
+        cardSet: 'ONE PIECE JAPANESE PROMOS',
+        cardNumber: '086',
+        psaSubject: 'NEFELTARI VIVI',
+        psaBrand: 'ONE PIECE JAPANESE PROMOS',
+        psaVariety: 'CHAMPIONSHIP 2024-TOP PRIZE',
+        psaYear: '2024',
+        cardhedgerSearchQuery:
+          '2024 One Piece Japanese Promos Nefeltari Vivi Championship 2024-Top Prize 086',
+      },
+      {
+        name: 'Nefeltari Vivi',
+        number: 'OP05-086',
+        set: '2023 One Piece Japanese Awakening of the New Era',
+        variant: 'Championship 2024',
+        description:
+          'Nefeltari Vivi 2023 One Piece Japanese Awakening of the New Era Championship 2024',
+      },
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it('rejects a different One Piece checklist number even when the name matches', () => {
+    const r = catalogRowTrustedForMarketData(
+      {
+        cardName: 'NEFELTARI VIVI',
+        cardSet: 'ONE PIECE JAPANESE PROMOS',
+        cardNumber: '086',
+        psaSubject: 'NEFELTARI VIVI',
+        psaBrand: 'ONE PIECE JAPANESE PROMOS',
+        psaVariety: 'CHAMPIONSHIP 2024-TOP PRIZE',
+        psaYear: '2024',
+      },
+      {
+        name: 'Portgas.D.Ace',
+        number: 'OP07-119',
+        set: '2024 One Piece Japanese 500 Years in the Future',
+        variant: 'Top Prize',
+        description:
+          'Portgas.D.Ace 2024 One Piece Japanese 500 Years in the Future Top Prize',
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.failCodes).toContain('number_mismatch');
   });
 });
 

@@ -1,6 +1,7 @@
 import {
   cardhedgerExtraSearchQueries,
   cardhedgerSetAliasTokens,
+  hintsLookLikeOnePieceChampionshipStamp,
   hintsLookLikePrizmRookieSignatures,
 } from './cardhedger-search-alias.util';
 
@@ -49,5 +50,35 @@ describe('cardhedger-search-alias — Japanese Sword & Shield expansions', () =>
         'eevee heroes',
       ]),
     );
+  });
+});
+
+describe('cardhedger-search-alias — One Piece championship promos', () => {
+  const viviHints = {
+    cardName: 'NEFELTARI VIVI',
+    cardNumber: '086',
+    cardSet: 'ONE PIECE JAPANESE PROMOS',
+    psaBrand: 'ONE PIECE JAPANESE PROMOS',
+    psaSubject: 'NEFELTARI VIVI',
+    psaVariety: 'CHAMPIONSHIP 2024-TOP PRIZE',
+    psaYear: '2024',
+  };
+
+  it('detects PSA One Piece championship promo stamps', () => {
+    expect(hintsLookLikeOnePieceChampionshipStamp(viviHints)).toBe(true);
+  });
+
+  it('searches Championship 2024 without a Top Prize token', () => {
+    const queries = cardhedgerExtraSearchQueries(viviHints);
+    expect(queries.some((q) => /Championship 2024/i.test(q))).toBe(true);
+    expect(queries.some((q) => /Top Prize/i.test(q))).toBe(false);
+  });
+
+  it('aliases Japanese Promos to One Piece Japanese parent sets', () => {
+    const tokens = cardhedgerSetAliasTokens(
+      viviHints.cardSet,
+      viviHints.psaBrand,
+    );
+    expect(tokens).toContain('one piece japanese');
   });
 });

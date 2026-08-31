@@ -5,6 +5,7 @@ export type AdminRwaCardRow = {
   certNumber: string | null;
   displayName: string | null;
   displayImageUrl: string | null;
+  displayImageBackUrl: string | null;
   catalogImageUrl: string | null;
   resolvedImageUrl: string | null;
   collectionKey: string | null;
@@ -17,9 +18,6 @@ export type AdminRwaCardRow = {
   /** Present when burn done and physical release not yet confirmed. */
   pendingReleaseRedemptionId: string | null;
 };
-
-/** @deprecated use AdminRwaCardRow */
-export type AdminListedRwaCardRow = AdminRwaCardRow;
 
 async function parseAdminError(res: Response, fallback: string): Promise<never> {
   const err = await res.json().catch(() => ({}));
@@ -35,19 +33,6 @@ export async function getAdminRwaCards(): Promise<{
   );
   if (!res.ok) {
     await parseAdminError(res, "Failed to load cards");
-  }
-  return res.json() as Promise<{ items: AdminRwaCardRow[] }>;
-}
-
-/** @deprecated use getAdminRwaCards */
-export async function getAdminListedRwaCards(): Promise<{
-  items: AdminRwaCardRow[];
-}> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/admin/rwa-tokens/listings`,
-  );
-  if (!res.ok) {
-    await parseAdminError(res, "Failed to load listed cards");
   }
   return res.json() as Promise<{ items: AdminRwaCardRow[] }>;
 }
@@ -80,7 +65,40 @@ export async function patchAdminRwaToken(
     tokenId: number;
     displayName: string | null;
     displayImageUrl: string | null;
+    displayImageBackUrl: string | null;
     collectionKey: string | null;
+  }>;
+}
+
+export async function postAdminRwaSlabImage(
+  tokenId: number,
+  face: "front" | "back",
+  file: File,
+): Promise<{
+  tokenId: number;
+  face: "front" | "back";
+  displayImageUrl: string | null;
+  displayImageBackUrl: string | null;
+}> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("face", face);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/rwa-slab/${tokenId}/image`,
+    {
+      method: "POST",
+      body,
+      timeoutMs: 120_000,
+    },
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to upload slab image");
+  }
+  return res.json() as Promise<{
+    tokenId: number;
+    face: "front" | "back";
+    displayImageUrl: string | null;
+    displayImageBackUrl: string | null;
   }>;
 }
 

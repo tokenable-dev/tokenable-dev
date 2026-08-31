@@ -396,9 +396,8 @@ export function RedeemRequestPanel({
                 title={null}
               />
               <p className="pf-redeem-cost__copy">
-                This is the final amount — no markup. Shipping is charged once
-                per shipment — the more cards you ship together, the less you
-                pay per card.
+                Ship up to 50 cards per shipment. Shipping is charged once per
+                shipment.
               </p>
               {form.country !== "us" ? (
                 <p className="pf-redeem-cost__duty" role="note">

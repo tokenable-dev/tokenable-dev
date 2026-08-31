@@ -105,7 +105,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const listingsBatchMetadata = useMemo(() => {
     const base = listings.batchMetadata;
-    if (!collectionCoverUrl || !base?.size) return base;
+    const overlayCover = existingCoverUrl || collectionCoverUrl;
+    if (!overlayCover || !base?.size) return base;
     let needsOverlay = false;
     for (const entry of base.values()) {
       if (!entry.imageUrl?.trim()) {
@@ -117,10 +118,10 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     const next = new Map(base);
     for (const [tokenId, entry] of base) {
       if (entry.imageUrl?.trim()) continue;
-      next.set(tokenId, { ...entry, imageUrl: collectionCoverUrl });
+      next.set(tokenId, { ...entry, imageUrl: overlayCover });
     }
     return next;
-  }, [listings.batchMetadata, collectionCoverUrl]);
+  }, [listings.batchMetadata, existingCoverUrl, collectionCoverUrl]);
 
   const listingModal = useCollectionListingModal({
     collectionKey,
@@ -128,7 +129,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     batchMetadata: listingsBatchMetadata,
     address,
     onInvalidate: invalidateCollection,
-    onPurchaseCelebration: (kind) => setTradeCelebration(kind),
   });
 
   const pathname = usePathname();
@@ -270,13 +270,10 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     openBuyCheckoutForToken(tid);
   };
 
-  /** Card.html #tk-choose: title without grade; sub = `PSA 10 · Gem Mint`. */
-  const chooseCopyTitle = useMemo(
-    () =>
-      formatCardDisplayName(headline.collectionHeadlineParts) ||
-      headline.collectionHeadlineDisplayTitle,
-    [headline.collectionHeadlineParts, headline.collectionHeadlineDisplayTitle],
-  );
+  /** Card.html #tk-choose: `Name · # · Grade`; sub built in the sheet. */
+  const chooseCopyTitle =
+    headline.collectionHeadlineDisplayTitle ||
+    formatCardDisplayName(headline.collectionHeadlineParts);
   const chooseCopyGradeLine = useMemo(() => {
     const grade = comp.gradeScore?.trim();
     if (!grade) return null;
@@ -402,7 +399,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         open={orderBookAskPicker?.side === "ask"}
         onClose={() => setOrderBookAskPicker(null)}
         collectionTitle={chooseCopyTitle}
-        collectionGradeLine={chooseCopyGradeLine}
+        itemSetLine={headline.headlineSetLine}
         coverImageUrl={collectionCoverUrl}
         price={orderBookAskPicker?.price ?? 0}
         orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
@@ -428,16 +425,12 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}
         buyErr={listingModal.buyFlow.buyErr}
+        buyComplete={listingModal.buyComplete}
         onClose={listingModal.closeDetail}
         onFulfillBuy={() => {
           runTradeAccessGate(() => {
             void listingModal.buyFlow.handleFulfillAsk();
           });
-        }}
-        onPurchaseFilled={() => {
-          listingModal.closeDetail();
-          setTradeCelebration("purchase");
-          invalidateCollection();
         }}
       />
 
@@ -464,8 +457,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           invalidateCollection();
         }}
         onPurchaseFilled={() => {
-          listingModal.closeDetail();
-          setTradeCelebration("purchase");
           invalidateCollection();
         }}
       />

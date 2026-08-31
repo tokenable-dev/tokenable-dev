@@ -29,6 +29,7 @@ export function MarketplaceAdminCardRow({
   onSave,
   onPreviewMetadata,
   onClearImageOverride,
+  onUploadSlab,
   onBurn,
   burningTokenId,
   onConfirmRelease,
@@ -44,6 +45,7 @@ export function MarketplaceAdminCardRow({
   }) => Promise<void>;
   onPreviewMetadata: () => Promise<string | null>;
   onClearImageOverride: () => Promise<void>;
+  onUploadSlab?: (face: "front" | "back", file: File) => Promise<void>;
   onBurn?: () => void;
   burningTokenId?: number | null;
   onConfirmRelease?: () => void;
@@ -54,9 +56,9 @@ export function MarketplaceAdminCardRow({
   const [imageUrlInput, setImageUrlInput] = useState(row.displayImageUrl ?? "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
-  const [rowBusy, setRowBusy] = useState<"save" | "preview" | "clear" | null>(
-    null,
-  );
+  const [rowBusy, setRowBusy] = useState<
+    "save" | "preview" | "clear" | "upload-front" | "upload-back" | null
+  >(null);
 
   useEffect(() => {
     setDisplayName(row.displayName ?? "");
@@ -69,6 +71,22 @@ export function MarketplaceAdminCardRow({
     previewUrl ?? (imageUrlInput.trim() || row.resolvedImageUrl);
   const { url: resolvedPreview, isLoading: previewLoading } =
     useResolvedMediaUrl(displayPreview);
+  const { url: resolvedBack } = useResolvedMediaUrl(
+    row.displayImageBackUrl ?? null,
+  );
+
+  async function handleUploadFace(face: "front" | "back", file: File | undefined) {
+    if (!file || !onUploadSlab) return;
+    setRowError(null);
+    setRowBusy(face === "back" ? "upload-back" : "upload-front");
+    try {
+      await onUploadSlab(face, file);
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setRowBusy(null);
+    }
+  }
 
   async function handleSave() {
     setRowError(null);
@@ -143,19 +161,79 @@ export function MarketplaceAdminCardRow({
   return (
     <article className={ADMIN_ARTICLE}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div className={ADMIN_COVER_BOX_CARD}>
-          {displayPreview && resolvedPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={resolvedPreview}
-              alt=""
-              className="max-h-full max-w-full object-contain p-2"
-            />
-          ) : previewLoading ? (
-            <span className={`text-sm ${ADMIN_TEXT_EMPTY}`}>Loading…</span>
-          ) : (
-            <span className={`text-sm ${ADMIN_TEXT_MUTED}`}>No image</span>
-          )}
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
+          <div>
+            <p className={`mb-1 text-xs font-medium ${ADMIN_TEXT_MUTED}`}>Front</p>
+            <div className={ADMIN_COVER_BOX_CARD}>
+              {displayPreview && resolvedPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolvedPreview}
+                  alt=""
+                  className="max-h-full max-w-full object-contain p-2"
+                />
+              ) : previewLoading ? (
+                <span className={`text-sm ${ADMIN_TEXT_EMPTY}`}>Loading…</span>
+              ) : (
+                <span className={`text-sm ${ADMIN_TEXT_MUTED}`}>No front</span>
+              )}
+            </div>
+            {!row.displayImageUrl && onUploadSlab ? (
+              <label className={`mt-2 block text-xs ${ADMIN_TEXT_SECONDARY}`}>
+                Register front
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-1 block w-full text-xs"
+                  disabled={disabled || !row.certNumber}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    void handleUploadFace("front", file);
+                  }}
+                />
+              </label>
+            ) : null}
+          </div>
+          <div>
+            <p className={`mb-1 text-xs font-medium ${ADMIN_TEXT_MUTED}`}>Back</p>
+            <div className={ADMIN_COVER_BOX_CARD}>
+              {resolvedBack ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolvedBack}
+                  alt=""
+                  className="max-h-full max-w-full object-contain p-2"
+                />
+              ) : (
+                <span className={`text-sm ${ADMIN_TEXT_MUTED}`}>No back</span>
+              )}
+            </div>
+            {!row.displayImageBackUrl && onUploadSlab ? (
+              <label className={`mt-2 block text-xs ${ADMIN_TEXT_SECONDARY}`}>
+                Register back
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-1 block w-full text-xs"
+                  disabled={disabled || !row.certNumber}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    void handleUploadFace("back", file);
+                  }}
+                />
+              </label>
+            ) : null}
+            {rowBusy === "upload-front" || rowBusy === "upload-back" ? (
+              <p className={`mt-1 text-xs ${ADMIN_TEXT_META}`}>Uploading to S3…</p>
+            ) : null}
+            {!row.certNumber ? (
+              <p className={`mt-1 text-xs ${ADMIN_TEXT_META}`}>
+                Cert number required to store slab images
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="min-w-0 flex-1 space-y-5">

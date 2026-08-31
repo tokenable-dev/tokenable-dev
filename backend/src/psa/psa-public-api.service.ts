@@ -292,11 +292,6 @@ export class PsaPublicApiService implements OnModuleInit {
     return compact.length > 0 ? compact : undefined;
   }
 
-  /** @deprecated Use getNextToken() for round-robin pool. Kept for backward compat checks. */
-  private getToken(): string | undefined {
-    return this.tokenPool[0];
-  }
-
   private getMaxRetries(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_MAX_RETRIES');
     const parsed = n ? parseInt(n, 10) : NaN;

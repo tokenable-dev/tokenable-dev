@@ -1,14 +1,5 @@
 "use client";
 
-function BellIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-    </svg>
-  );
-}
-
 function CheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden>
@@ -46,9 +37,11 @@ export function OrderBookNotifyToggle({
       disabled={disabled || pending}
       onClick={onToggle}
     >
-      <span className="cd-ob-empty__notify-ic" aria-hidden>
-        {active ? <CheckIcon /> : <BellIcon />}
-      </span>
+      {active ? (
+        <span className="cd-ob-empty__notify-ic" aria-hidden>
+          <CheckIcon />
+        </span>
+      ) : null}
       <span className="cd-ob-empty__notify-lbl">{active ? "Notifying" : "Notify me"}</span>
       <span className="cd-ob-empty__notify-turnoff" aria-hidden>
         <TurnOffIcon />

@@ -1,5 +1,6 @@
 import { backendFetch, getApiUrl } from "./client";
 import type { Order } from "./orders";
+import type { CollectionListMarketSnapshot } from "./marketplace-market-data";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export type CollectionReviewStatus =
@@ -201,6 +202,24 @@ export async function getAllMarketplaceCollections(): Promise<
   return items;
 }
 
+export interface HomeMarketplaceFeed {
+  topMovers: MarketplaceCollectionSummary[];
+  justVaulted: MarketplaceCollectionSummary[];
+  ticker: MarketplaceCollectionSummary[];
+  snapshots: CollectionListMarketSnapshot[];
+}
+
+export async function getHomeMarketplaceFeed(): Promise<HomeMarketplaceFeed> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/home-feed`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load home feed",
+    );
+  }
+  return res.json() as Promise<HomeMarketplaceFeed>;
+}
+
 export interface MarketplaceCollectionDetail {
   /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {
@@ -376,6 +395,24 @@ export async function getMerkleEligibleTokenIds(
     const err = await res.json().catch(() => ({}));
     throw new Error(
       (err as { message?: string }).message ?? "Failed to load merkle set"
+    );
+  }
+  return res.json() as Promise<{ tokenIds: string[] }>;
+}
+
+/** Minted / previously traded token ids — for card bids when there is no live ask. */
+export async function getCollectionBidAnchorTokenIds(
+  collectionKey: string,
+  opts?: { signal?: AbortSignal },
+): Promise<{ tokenIds: string[] }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/bid-anchor-tokens`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection tokens"
     );
   }
   return res.json() as Promise<{ tokenIds: string[] }>;

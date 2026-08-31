@@ -33,7 +33,7 @@ function StepSpinner() {
 }
 
 function labelColor(state: VaultStepState): string {
-  if (state === "done") return "var(--pos)";
+  if (state === "done") return "var(--progress-current)";
   if (state === "active") return "#fff";
   if (state === "action") return "var(--amber)";
   if (state === "failed") return "var(--neg)";
@@ -44,11 +44,11 @@ function connectorStyle(
   fromState: VaultStepState,
   rich: boolean,
 ): { background: string; gradient?: boolean } {
-  if (fromState === "done") return { background: "var(--pos)" };
+  if (fromState === "done") return { background: "var(--progress-done)" };
   if (fromState === "active") {
     // Detail (rich): gradient into next step. Submit/Ship (simple): muted line.
     if (rich) {
-      return { background: "linear-gradient(90deg, var(--pos), var(--azure))", gradient: true };
+      return { background: "linear-gradient(90deg, var(--progress-done), var(--progress-current))", gradient: true };
     }
     return { background: "rgba(255,255,255,0.06)" };
   }

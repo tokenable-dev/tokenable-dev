@@ -73,7 +73,7 @@ Simplify the duplicated USDC-approval logic in the buy and bid flows.
 **Documentation**
 ```
 Follow prompts/documentation.md.
-The redeem-request endpoint now accepts an optional note field.
+Follow prompts/documentation.md.
 ```
 
 **Release**

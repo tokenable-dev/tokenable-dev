@@ -93,7 +93,7 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
             {idState === "review" ? (
               <div className="sell-flow-status-chip sell-flow-status-chip--azure">
                 <span className="sell-flow-spinner" aria-hidden />
-                Under review — usually under a minute, up to 24 hours
+                Under review — most checks clear within a minute
               </div>
             ) : null}
             {idState === "verified" ? (

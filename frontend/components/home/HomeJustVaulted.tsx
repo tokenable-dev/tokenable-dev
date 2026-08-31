@@ -14,7 +14,7 @@ export function HomeJustVaulted() {
         <div>
           <h2 className="tkl-sec-title">Just vaulted</h2>
           <p className="tkl-sec-sub">
-            Newly authenticated and listed — first to market.
+            New to the vault. First to market.
           </p>
         </div>
         <Link href="/markets?sort=newest" className="tkl-view-all">

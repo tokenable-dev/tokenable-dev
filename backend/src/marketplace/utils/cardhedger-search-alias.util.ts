@@ -67,6 +67,13 @@ export function cardhedgerSetAliasTokens(
     push('scarlet violet 151');
   }
 
+  // PSA Brand `ONE PIECE JAPANESE PROMOS` + championship stamp vs Cardhedger
+  // parent expansion (`2023 One Piece Japanese Awakening of the New Era`).
+  if (/\bone\s*piece\b/.test(blob) && /\bpromo/.test(blob)) {
+    if (/\bjapanese\b/.test(blob)) push('one piece japanese');
+    else push('one piece');
+  }
+
   return tokens;
 }
 
@@ -168,6 +175,19 @@ export function cardhedgerExtraSearchQueries(q: {
     );
   }
 
+  if (hintsLookLikeOnePieceChampionshipStamp(q)) {
+    const champYear =
+      String(q.psaVariety ?? '').match(/\b(20\d{2})\b/)?.[1] ||
+      q.psaYear?.trim() ||
+      '';
+    push([name, 'Championship', champYear].filter(Boolean).join(' '));
+    push(
+      [name, numPart, 'Championship', champYear, 'One Piece Japanese']
+        .filter(Boolean)
+        .join(' '),
+    );
+  }
+
   return out;
 }
 
@@ -215,5 +235,25 @@ export function hintsLookLikeSvBlackStarPromo(hints: {
   return (
     /\b(svp|en-sv|scarlet)\b/.test(blob) &&
     /\b(black\s*star|promo)\b/.test(blob)
+  );
+}
+
+/** PSA `ONE PIECE JAPANESE PROMOS` + `Championship 2024-Top Prize`. */
+export function hintsLookLikeOnePieceChampionshipStamp(hints: {
+  cardSet: string;
+  psaBrand: string | null;
+  psaVariety?: string | null;
+  cardName?: string;
+}): boolean {
+  const blob = promoBlob([
+    hints.cardSet,
+    hints.psaBrand ?? '',
+    hints.psaVariety ?? '',
+    hints.cardName ?? '',
+  ]);
+  if (!/\bone\s*piece\b/.test(blob)) return false;
+  return (
+    /\bchampionship\b/.test(blob) ||
+    (/\bpromo/.test(blob) && /\btop\s+prize\b/.test(blob))
   );
 }

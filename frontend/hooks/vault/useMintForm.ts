@@ -250,6 +250,7 @@ export function useMintForm() {
           certNumber,
           chainId,
           displayImageUrl: uploadResult.displayImageUrl,
+          displayImageBackUrl: uploadResult.displayImageBackUrl,
         });
 
         setResult({

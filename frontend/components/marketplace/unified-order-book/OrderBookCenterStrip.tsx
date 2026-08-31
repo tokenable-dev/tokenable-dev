@@ -55,84 +55,31 @@ export function OrderBookCenterStrip({
 
   const hasCaption = model.caption.trim().length > 0;
 
-  /* Design HTML empty · ask 없음 — `$bestBid` | No live spread + info tip */
-  if (collectionDetail && asksEmptyBidsLive) {
-    return (
-      <div className="cd-ob-book-center__strip cd-ob-book-center__strip--no-asks">
-        <span className="cd-ob-book-center__mid-price mono">
-          {formatMidUsd(bestBidUsdc)}
-        </span>
-        <span className="cd-ob-book-center__spread mono">
-          No live spread
-          <span
-            className="cd-ob-book-center__info"
-            data-tip="Bids are still live — sellers can accept any of these now."
-            tabIndex={0}
-            role="img"
-            aria-label="Bids are still live — sellers can accept any of these now."
-          >
-            i
-          </span>
-        </span>
-      </div>
-    );
-  }
+  /* Card.html `.ob-spread` — left is best ask (or best bid if no asks) + ↓; right is spread. */
+  if (collectionDetail) {
+    const oneSided = Boolean(asksEmptyBidsLive || bidsEmptyAsksLive);
+    const leftUsd = asksEmptyBidsLive ? bestBidUsdc : bestAskUsdc;
+    const hasLiveSpread =
+      !oneSided &&
+      bestAskUsdc != null &&
+      bestBidUsdc != null &&
+      Number.isFinite(bestAskUsdc) &&
+      Number.isFinite(bestBidUsdc) &&
+      bestAskUsdc > bestBidUsdc;
+    const spreadLabel = hasLiveSpread
+      ? `Spread ${formatCollectionDetailBookPriceUsdc(bestAskUsdc - bestBidUsdc)}`
+      : "No live spread";
 
-  /* Design HTML empty · bid 없음 — `$bestAsk ↓` | No live spread */
-  if (collectionDetail && bidsEmptyAsksLive) {
     return (
-      <div
-        className="cd-ob-book-center__strip cd-ob-book-center__strip--no-bids"
-        title="Asks are live; no bid side for a spread."
-      >
-        <span className="cd-ob-book-center__mid-price mono">
-          {formatMidUsd(bestAskUsdc)}
+      <div className="cd-ob-book-center__strip">
+        <span className="cd-ob-book-center__mid-price">
+          {formatMidUsd(leftUsd)}
           <span className="cd-ob-book-center__arrow" aria-hidden>
             {" "}
             ↓
           </span>
         </span>
-        <span className="cd-ob-book-center__spread mono">No live spread</span>
-      </div>
-    );
-  }
-
-  /* Design HTML both sides — `$price ↓` | Spread $X */
-  if (collectionDetail) {
-    const priceLabel = isNaPlaceholder
-      ? formatMidUsd(bestAskUsdc ?? bestBidUsdc)
-      : `$${model.primary.replace(/^\$/, "")}`;
-    const spreadLabel = model.secondary?.trim() || "Spread —";
-    const arrowDown =
-      model.lastSide === "sell" ||
-      (isNaPlaceholder && bestAskUsdc != null) ||
-      (!isNaPlaceholder && model.lastSide == null);
-    const arrowUp = model.lastSide === "buy";
-
-    return (
-      <div className="cd-ob-book-center__strip" title={model.title}>
-        <span className="cd-ob-book-center__mid-price mono">
-          {priceLabel}
-          {arrowDown ? (
-            <span className="cd-ob-book-center__arrow" aria-hidden>
-              {" "}
-              ↓
-            </span>
-          ) : null}
-          {arrowUp ? (
-            <span className="cd-ob-book-center__arrow cd-ob-book-center__arrow--up" aria-hidden>
-              {" "}
-              ↑
-            </span>
-          ) : null}
-        </span>
-        <span
-          className={`cd-ob-book-center__spread mono${
-            !model.secondary?.trim() ? " cd-ob-book-center__spread--muted" : ""
-          }`}
-        >
-          {spreadLabel}
-        </span>
+        <span className="cd-ob-book-center__spread">{spreadLabel}</span>
       </div>
     );
   }

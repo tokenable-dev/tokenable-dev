@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
+import { isNextImageCatalogCoverUrl } from "@/lib/marketplace/catalogCoverPublicUrl";
 import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
 import { CollectionCoverLightbox } from "./CollectionCoverLightbox";
 import { CollectionCoverSwipeLightbox } from "./CollectionCoverSwipeLightbox";
@@ -74,15 +76,30 @@ export function CollectionCoverFrame({
       <div className={`relative h-full min-h-0 w-full ${className}`}>
         <div className="relative h-full min-h-0 w-full overflow-hidden">
           {resolved && !imgFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={resolved}
-              alt={alt}
-              className="absolute inset-0 h-full w-full object-fill object-center"
-              style={{ filter: "saturate(1.05) contrast(1.04)" }}
-              onError={handleImageError}
-              referrerPolicy="no-referrer"
-            />
+            isNextImageCatalogCoverUrl(resolved) ? (
+              <Image
+                src={resolved}
+                alt={alt}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+                className="object-fill object-center"
+                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                onError={handleImageError}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolved}
+                alt={alt}
+                className="absolute inset-0 h-full w-full object-fill object-center"
+                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                onError={handleImageError}
+                referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
+              />
+            )
           ) : imgFailed ? (
             <div
               className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
@@ -201,6 +218,8 @@ export function CollectionCoverFrame({
                 style={collectionCoverImageStyle(resolved)}
                 onError={handleImageError}
                 referrerPolicy="no-referrer"
+                loading={variant === "hero" ? "eager" : "lazy"}
+                decoding="async"
               />
               {heroInteractive ? (
                 <>

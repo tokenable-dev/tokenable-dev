@@ -1,4 +1,4 @@
-import { Injectable, Module } from '@nestjs/common';
+import { Injectable, Logger, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -101,7 +101,9 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      useFactory: (config: ConfigService) => {
+        const poolLog = new Logger('TypeOrmPool');
+        return {
         type: 'postgres',
         host: config.getOrThrow<string>('POSTGRES_HOST'),
         port: config.get<number>('POSTGRES_PORT', 5432),
@@ -109,15 +111,27 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
         password: config.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: config.getOrThrow<string>('POSTGRES_DB'),
         extra: {
-          /** Fail fast when Postgres is down instead of hanging API requests. */
+          /**
+           * pg-pool uses this both for a new TCP handshake and for waiting
+           * on a busy pool. Exceeding it surfaces as
+           * "timeout exceeded when trying to connect" even when Postgres is up
+           * (Docker Desktop dropped an idle socket, or all `max` clients are
+           * checked out). KeepAlive avoids the silent-idle-drop case.
+           */
           connectionTimeoutMillis: 8_000,
           /**
            * Bounded pool so a traffic spike queues inside the app instead of
            * exhausting Postgres max_connections (default 100, shared with
-           * psql/admin sessions). Waiting checkouts fail after 10s.
+           * psql/admin sessions).
            */
           max: Number(config.get<string>('DB_POOL_MAX') ?? '20'),
           idleTimeoutMillis: 30_000,
+          keepAlive: true,
+          keepAliveInitialDelayMillis: 10_000,
+          application_name: 'tokenable-api',
+        },
+        poolErrorHandler: (err: unknown) => {
+          poolLog.warn(err instanceof Error ? err.message : String(err));
         },
         entities: [
           Order,
@@ -170,7 +184,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           process.env.PERF_LOG === 'true' || process.env.PERF_LOG === '1'
             ? Number(process.env.PERF_THRESHOLD_DB_MS ?? '500')
             : undefined,
-      }),
+      };
+      },
     }),
 
     /** After TypeORM so SchemaAssertService can inject DataSource. */

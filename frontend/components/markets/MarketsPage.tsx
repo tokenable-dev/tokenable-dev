@@ -356,6 +356,18 @@ export default function MarketsPage() {
     deferredYearMax,
   ]);
 
+  const saveMarketsBrowseContext = useCallback(() => {
+    saveCollectionBrowseContext({
+      source: "markets-grid",
+      entries: buildBrowseEntriesFromSummaries(filteredSorted),
+      categoryFilter:
+        categoryFilters.size > 0
+          ? [...categoryFilters].join("|")
+          : undefined,
+      sortId,
+    });
+  }, [filteredSorted, categoryFilters, sortId]);
+
   const detailFacetChips = useMemo(() => {
     const chips: { key: string; label: string; onClear: () => void }[] = [];
     for (const [i, name] of characters.entries()) {
@@ -612,17 +624,7 @@ export default function MarketsPage() {
                   resolvedCoverMap={resolvedCoverMap}
                   changeLoading={showMarketSnapshotLoadingBar}
                   snapshotsFetching={snapshotsFetching}
-                  onBeforeNavigate={() =>
-                    saveCollectionBrowseContext({
-                      source: "markets-grid",
-                      entries: buildBrowseEntriesFromSummaries(filteredSorted),
-                      categoryFilter:
-                        categoryFilters.size > 0
-                          ? [...categoryFilters].join("|")
-                          : undefined,
-                      sortId,
-                    })
-                  }
+                  onBeforeNavigate={saveMarketsBrowseContext}
                 />
 
                 {isFetchingNextPage ? (

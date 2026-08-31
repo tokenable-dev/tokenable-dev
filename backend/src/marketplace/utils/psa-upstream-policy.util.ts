@@ -24,16 +24,6 @@ export function isPsaPublicApiMarketplaceUpstreamEnabled(): boolean {
   return false;
 }
 
-/**
- * @deprecated Background PSA is permanently disabled (mint-only policy).
- * Env `PSA_PUBLIC_API_BACKGROUND_UPSTREAM` is ignored.
- */
-export function isPsaPublicApiBackgroundUpstreamEnabled(
-  _config: ConfigService,
-): boolean {
-  return false;
-}
-
 /** Mint analyze / bulk-mint may call PSA when the master upstream switch is on. */
 export function isPsaPublicApiMintUpstreamEnabled(
   config: ConfigService,

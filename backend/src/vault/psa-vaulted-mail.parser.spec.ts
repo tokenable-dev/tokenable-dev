@@ -1,8 +1,8 @@
 import {
   decidePsaVaultedMailIngest,
   parsePsaVaultedMail,
-  PSA_VAULTED_SUBJECT,
 } from './psa-vaulted-mail.parser';
+import { PSA_ITEMS_RECEIVED_SUBJECT } from './psa-mail.shared';
 
 const VAULTED_BODY = `
 PSA
@@ -30,7 +30,7 @@ Your items have been received and securely stored in your vault.
 describe('parsePsaVaultedMail', () => {
   it('extracts certs from secured vault mail', () => {
     const r = parsePsaVaultedMail({
-      subject: PSA_VAULTED_SUBJECT,
+      subject: PSA_ITEMS_RECEIVED_SUBJECT,
       from: 'PSA Vault <noreply@collectors.com>',
       bodyText: VAULTED_BODY,
     });
@@ -40,7 +40,7 @@ describe('parsePsaVaultedMail', () => {
 
   it('rejects intake/arrival body', () => {
     const r = parsePsaVaultedMail({
-      subject: PSA_VAULTED_SUBJECT,
+      subject: PSA_ITEMS_RECEIVED_SUBJECT,
       from: 'noreply@collectors.com',
       bodyText: ARRIVAL_BODY,
     });
@@ -51,7 +51,7 @@ describe('parsePsaVaultedMail', () => {
 
   it('enqueues no_certs instead of silent drop', () => {
     const r = parsePsaVaultedMail({
-      subject: PSA_VAULTED_SUBJECT,
+      subject: PSA_ITEMS_RECEIVED_SUBJECT,
       from: 'noreply@collectors.com',
       bodyText:
         'The following items are now secured in your PSA Vault.\n\nNo cert lines.',
@@ -63,7 +63,7 @@ describe('parsePsaVaultedMail', () => {
 
   it('enqueues ambiguous body with both arrival and vaulted markers', () => {
     const r = parsePsaVaultedMail({
-      subject: PSA_VAULTED_SUBJECT,
+      subject: PSA_ITEMS_RECEIVED_SUBJECT,
       from: 'noreply@collectors.com',
       bodyText: `
 Your items have been received and securely stored in your vault.

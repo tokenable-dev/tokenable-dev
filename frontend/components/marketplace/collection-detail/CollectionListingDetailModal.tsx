@@ -78,15 +78,15 @@ export function CollectionListingDetailModal({
   onBid?: () => void;
 }) {
   const tid = tokenId ?? 0;
-  const { metadata, imageUrl } = useCollectionRwaCardData({
+  const { metadata, imageUrl, imageBackUrl } = useCollectionRwaCardData({
     tokenId: tid,
     prefetchedMetadata: prefetchedMetadata ?? null,
     prefetchedImageUrl: prefetchedImageUrl ?? null,
   });
 
   const rawGallery = useMemo(
-    () => listingGalleryImages(metadata, imageUrl ?? prefetchedImageUrl),
-    [metadata, imageUrl, prefetchedImageUrl],
+    () => listingGalleryImages(metadata, imageUrl ?? prefetchedImageUrl, imageBackUrl),
+    [metadata, imageUrl, prefetchedImageUrl, imageBackUrl],
   );
 
   const unresolvedUris = useMemo(
@@ -325,7 +325,7 @@ export function CollectionListingDetailModal({
           </div>
 
           <div className="cd-listing-prov__section-label">
-            Provenance · this copy&apos;s journey
+            Provenance
           </div>
           <div className="cd-listing-prov__timeline">
             <div className="cd-listing-prov__timeline-line" aria-hidden />
@@ -379,26 +379,19 @@ export function CollectionListingDetailModal({
             </summary>
             <div className="cd-listing-prov__protect-body">
               <p>
-                Every card is graded, vaulted, and insured while in storage:
+                Graded, vaulted, and insured in storage.
               </p>
               <div className="cd-listing-prov__protect-row">
                 <span aria-hidden>✓</span>
-                <span>
-                  Held in a PSA or partner vault — insured against loss or damage while
-                  stored
-                </span>
+                <span>Insured in a PSA or partner vault</span>
               </div>
               <div className="cd-listing-prov__protect-row">
                 <span aria-hidden>✓</span>
-                <span>
-                  Ownership transfers instantly — no shipping, nothing to arrange
-                </span>
+                <span>Ownership transfers instantly. No shipping.</span>
               </div>
               <div className="cd-listing-prov__protect-row">
                 <span aria-hidden>✓</span>
-                <span>
-                  Want the physical card? Redeem it anytime from your portfolio
-                </span>
+                <span>Redeem the physical card anytime</span>
               </div>
             </div>
           </details>

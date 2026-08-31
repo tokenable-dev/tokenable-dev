@@ -31,7 +31,7 @@ export function CollectionDetailMobileScrollPanel({
 
       <section
         className="cd-mobile-scroll__book cd-notch w-full min-w-0 overflow-hidden"
-        aria-label="Order book"
+        aria-label="Listings"
       >
         {orderBookStack}
       </section>

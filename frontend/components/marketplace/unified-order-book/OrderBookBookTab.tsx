@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -246,6 +247,7 @@ function OrderBookSplitScrollPane({
     if (!el) return;
 
     const pin = () => {
+      /* Card.html: `ael.scrollTop = ael.scrollHeight` so best ask sits on the spread. */
       if (pinToBottom) {
         el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
       } else {
@@ -333,6 +335,26 @@ export function OrderBookBookTab({
   listingAlertPending?: boolean;
   onToggleListingAlert?: () => void;
 }) {
+  const [coachOn, setCoachOn] = useState(false);
+
+  useEffect(() => {
+    if (!collectionDetail || askLevels.length === 0) return;
+    let seen = false;
+    try {
+      seen = window.localStorage.getItem("tk-ob-coach") === "1";
+    } catch {
+      seen = false;
+    }
+    if (seen) return;
+    setCoachOn(true);
+    try {
+      window.localStorage.setItem("tk-ob-coach", "1");
+    } catch {
+      /* ignore */
+    }
+    const t = window.setTimeout(() => setCoachOn(false), 3500);
+    return () => window.clearTimeout(t);
+  }, [collectionDetail, askLevels.length]);
   const askScrollable = askLevels.length > 0;
   const bidScrollable = bidLevels.length > 0;
   const noMarket = hasNoMarket(askLevels, bidLevels);
@@ -352,7 +374,7 @@ export function OrderBookBookTab({
           />
         </div>
         <p className="cd-ob-book-hint cd-ob-book-hint--market-empty">
-          Once a card is vaulted, it can be listed here instantly — no shipping needed.
+          Vaulted cards can be listed here.
         </p>
       </div>
     );
@@ -369,24 +391,30 @@ export function OrderBookBookTab({
   }
 
   if (flush) {
-    const oneSidedEmpty = asksEmptyBidsLive || bidsEmptyAsksLive;
     return (
       <div
         className={
           collectionDetail
             ? `cd-ob-book flex h-full min-h-0 flex-col overflow-hidden${
-                oneSidedEmpty ? " cd-ob-book--one-sided-empty" : ""
-              }${askScrollable && bidScrollable ? " cd-ob-book--both-sides" : ""}`
+                asksEmptyBidsLive ? " cd-ob-book--noasks" : ""
+              }${bidsEmptyAsksLive ? " cd-ob-book--nobids" : ""}${
+                askScrollable && bidScrollable ? " cd-ob-book--both-sides" : ""
+              }`
             : `flex min-h-0 flex-col overflow-hidden ${
                 mobileEmbed ? "h-full" : "h-full flex-1"
               }`
         }
       >
         <OrderBookColumnHeader flush collectionDetail={collectionDetail} />
+        {coachOn ? (
+          <div className="cd-ob-coach" role="status">
+            Tap an ask to buy
+          </div>
+        ) : null}
         {collectionDetail ? (
           <div className="cd-ob-book-stack">
             {asksEmptyBidsLive ? (
-              <div className="cd-ob-book-pane cd-ob-book-pane--empty">
+              <div className="cd-ob-book-pane cd-ob-book-pane--empty-side">
                 <OrderBookEmptyPanel
                   variant="no_asks"
                   onPlaceBid={onPlaceBid}
@@ -425,7 +453,7 @@ export function OrderBookBookTab({
               />
             </div>
             {bidsEmptyAsksLive ? (
-              <div className="cd-ob-book-pane cd-ob-book-pane--empty">
+              <div className="cd-ob-book-pane cd-ob-book-pane--empty-side">
                 <OrderBookEmptyPanel
                   variant="no_bids"
                   onPlaceBid={onPlaceBid}

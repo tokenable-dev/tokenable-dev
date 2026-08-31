@@ -1,6 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
@@ -47,7 +49,7 @@ function galleryStatusSeg(
 }
 
 /** My Assets gallery tile — Portfolio.html `pf-gtile`. */
-export function PortfolioHoldingsGalleryTile({
+export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalleryTile({
   row,
   headline,
   href,
@@ -75,8 +77,8 @@ export function PortfolioHoldingsGalleryTile({
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
-  onSetPrice: () => void;
+  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
+  onSetPrice: (tokenId: number) => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
@@ -113,14 +115,14 @@ export function PortfolioHoldingsGalleryTile({
           <Link href={href} className="pf-gtile__media-link" aria-label={titleLabel}>
             {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={row.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+              <img src={row.imageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
             ) : (
               <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
             )}
           </Link>
         ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          <img src={row.imageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
         ) : (
           <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
         )}
@@ -182,7 +184,7 @@ export function PortfolioHoldingsGalleryTile({
               currentPriceUsd={row.currentPrice}
               editable
               saving={savingCostBasis}
-              onSave={onSaveCostBasis}
+              onSave={(usd) => void onSaveCostBasis(row.tokenId, usd)}
             />
           ) : cost != null ? (
             <span className="pf-cost-hover-line tkl-mono">
@@ -214,10 +216,16 @@ export function PortfolioHoldingsGalleryTile({
             disabled={actionsDisabled}
             disabledTitle={actionsDisabledTitle}
             redeemStatus={redeemStatus}
-            onSetPrice={onSetPrice}
+            onSetPrice={() => {
+              trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                card_id: String(row.tokenId),
+                current_price: row.currentPrice ?? undefined,
+              });
+              onSetPrice(row.tokenId);
+            }}
           />
         </div>
       </div>
     </div>
   );
-}
+});

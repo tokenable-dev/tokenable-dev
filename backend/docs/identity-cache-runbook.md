@@ -136,7 +136,7 @@ grep 'key=<collection-key>' backend.log | grep 'identity:'
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `IDENTITY_SERVICE_ENABLED` | off | Master switch |
+| `IDENTITY_SERVICE_ENABLED` | off | Cache hydrate, write-through, warmup, reconcile. DB first-writes always run. |
 | `IDENTITY_RECONCILIATION_ENABLED` | true | Proactive repair |
 | `IDENTITY_RECONCILIATION_INTERVAL_MS` | 180000 | Reconcile period |
 | `IDENTITY_RECONCILIATION_MAX_REPAIRS` | 20 | Per-tick cap (× SLO multiplier) |

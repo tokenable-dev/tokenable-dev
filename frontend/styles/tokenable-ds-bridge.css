@@ -17,6 +17,9 @@
   --azure: var(--accent-azure);
   /* Page eyebrows only — not Neutral buttons (`--brand-400` / `#977DFF`). */
   --eyebrow: #5b9aff;
+  /* Vaulting / stepper progress — not price-gain `--pos`. */
+  --progress-current: #4cde4c;
+  --progress-done: #0f3b24;
   --pos: rgb(0, 200, 100);
   --neg: rgb(228, 55, 74);
   --amber: #f59e0b;

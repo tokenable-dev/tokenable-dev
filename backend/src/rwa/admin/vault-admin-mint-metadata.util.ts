@@ -1,23 +1,9 @@
 import type { PsaAnalyzeResult } from '../../psa/psa.service';
 import type { UploadRwaDto } from '../dto/upload-rwa.dto';
 import {
-  RWA_MINT_PLACEHOLDER_FILENAME,
-  readRwaMintPlaceholderPng,
-  resolveRwaMintPlaceholderPngPath,
-} from '../rwa-mint-placeholder.util';
-import {
   resolveCardhedgerMintImageUrl,
   resolveRemoteMintImageUrl,
 } from '../rwa-mint-image.util';
-
-/** @deprecated Use {@link RWA_MINT_PLACEHOLDER_FILENAME} */
-export const VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME = RWA_MINT_PLACEHOLDER_FILENAME;
-
-/** @deprecated Use {@link resolveRwaMintPlaceholderPngPath} */
-export const resolveVaultAdminMintPlaceholderPngPath = resolveRwaMintPlaceholderPngPath;
-
-/** @deprecated Use {@link readRwaMintPlaceholderPng} */
-export const readVaultAdminMintPlaceholderPng = readRwaMintPlaceholderPng;
 
 function cardhedgerMetaWithoutCatalogImage(
   mint: PsaAnalyzeResult['cardhedgerMint'],
@@ -95,6 +81,9 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
           psa.certVerifyUrl?.trim() ||
           `https://www.psacard.com/cert/${cert}`,
         ...(psaSlabUrl ? { certImageSourceUrl: psaSlabUrl } : {}),
+        ...(params.analyze.psaCertImages?.back?.trim()
+          ? { certImageBackUrl: params.analyze.psaCertImages.back.trim() }
+          : {}),
         ...(psa.varietyHint?.trim()
           ? { Variety: psa.varietyHint.trim() }
           : {}),

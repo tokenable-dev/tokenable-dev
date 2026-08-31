@@ -146,6 +146,13 @@ export class RwaMintService {
       dto.displayImageUrl,
       chainId,
       certNumber,
+      'front',
+    );
+    const displayImageBackUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      dto.displayImageBackUrl,
+      chainId,
+      certNumber,
+      'back',
     );
     await this.vault.recordMintResult({
       cycleId: cycle.id,
@@ -155,6 +162,7 @@ export class RwaMintService {
       txHash,
       certNumber,
       displayImageUrl,
+      displayImageBackUrl,
       settlementPolicy:
         deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
       vaultPartnerId,

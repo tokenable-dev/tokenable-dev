@@ -122,6 +122,7 @@ describe('RwaMintService', () => {
       slabUrl,
       chainId,
       '83179580',
+      'front',
     );
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({ displayImageUrl: slabUrl }),

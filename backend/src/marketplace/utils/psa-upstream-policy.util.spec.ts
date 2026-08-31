@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import {
-  isPsaPublicApiBackgroundUpstreamEnabled,
   isPsaPublicApiMarketplaceUpstreamEnabled,
   isPsaPublicApiMintUpstreamEnabled,
   isPsaPublicApiSnapshotUpstreamEnabled,
@@ -12,7 +11,6 @@ describe('psa upstream policy — mint-only', () => {
   const config = {
     get: (key: string) =>
       ({
-        PSA_PUBLIC_API_BACKGROUND_UPSTREAM: 'true',
         PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT: 'always',
         PSA_PUBLIC_API_TOKEN: 'abc123',
         PSA_PUBLIC_API_UPSTREAM_ENABLED: 'true',
@@ -38,10 +36,6 @@ describe('psa upstream policy — mint-only', () => {
     expect(
       psaPublicApiAllowedForSnapshotReason('cold_start', 'always'),
     ).toBe(false);
-  });
-
-  it('hard-blocks background upstream even when env is set', () => {
-    expect(isPsaPublicApiBackgroundUpstreamEnabled(config)).toBe(false);
   });
 
   it('defaults PSA Public API upstream to off without token', () => {

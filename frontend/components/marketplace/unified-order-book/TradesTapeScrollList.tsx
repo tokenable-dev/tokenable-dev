@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   ORDER_BOOK_TRADES_FOUR_COL_GRID,
   orderBookColEndCls,
@@ -7,7 +8,6 @@ import {
   orderBookTradesContentValueCls,
   orderBookTradesPriceDataColCls,
   orderBookTradesSideDataColCls,
-  orderBookTradesSideColCls,
   orderBookTradesSourceDataCellCls,
   orderBookTradesSourceHeaderColCls,
   orderBookTradesTimeColCls,
@@ -28,6 +28,110 @@ import { TradesSourceCell } from "./TradeSourceMark";
 
 const TRADES_GRID_LEGACY =
   "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
+
+const TradesTapeRow = memo(function TradesTapeRow({
+  row,
+  nextPriceUsdc,
+  flush,
+  collectionDetail,
+  rowGridClass,
+}: {
+  row: CollectionPlatformTapeFill;
+  nextPriceUsdc: number | undefined;
+  flush: boolean;
+  collectionDetail?: boolean;
+  rowGridClass: string;
+}) {
+  const side = tapeSideDisplay(row);
+  const source = tapeSourceDisplay(row);
+  const priceTone = tradesTapePriceCompareTone(row.priceUsdc, nextPriceUsdc);
+  const priceClass = collectionDetail
+    ? priceTone === "down"
+      ? "cd-ob-trades-price cd-ob-trades-price--down"
+      : "cd-ob-trades-price cd-ob-trades-price--up"
+    : tradesTapePriceClassName(priceTone);
+  const sideLabel = collectionDetail
+    ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
+    : side.label;
+
+  return (
+    <div
+      className={`${rowGridClass} ${
+        collectionDetail
+          ? ""
+          : flush
+            ? TRADES_TAPE_FLUSH_ROW_CLASS
+            : `${orderBookTradesContentValueCls} py-0.5 text-zinc-200`
+      }`}
+    >
+      <span
+        className={
+          collectionDetail
+            ? priceClass
+            : `min-w-0 truncate ${orderBookTradesPriceDataColCls} ${priceClass}`
+        }
+      >
+        {formatTradesTapePriceUsdc(row.priceUsdc)}
+      </span>
+      {flush ? (
+        <>
+          <span
+            className={
+              collectionDetail
+                ? "cd-ob-trades-side"
+                : `min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`
+            }
+            title={side.title}
+          >
+            {sideLabel}
+          </span>
+          {collectionDetail ? (
+            <TradesSourceCell
+              source={source}
+              className="cd-ob-trades-source"
+              collectionDetail
+            />
+          ) : (
+            <TradesSourceCell
+              source={source}
+              className={orderBookTradesSourceDataCellCls}
+            />
+          )}
+          <span
+            className={
+              collectionDetail
+                ? "cd-ob-trades-time"
+                : `min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`
+            }
+            title={formatTapeTimeFull(row.t)}
+          >
+            {formatTapeDate(row.t)}
+          </span>
+        </>
+      ) : (
+        <>
+          <span
+            className={`min-w-0 truncate ${orderBookColMidCls} pl-1 sm:pl-1.5 ${side.className}`}
+            title={side.title}
+          >
+            {side.label}
+          </span>
+          <TradesSourceCell
+            source={source}
+            className={orderBookTradesSourceDataCellCls}
+          />
+          <span className={`${orderBookColEndCls} text-zinc-500`}>#{row.tokenId}</span>
+          <span
+            className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
+            title={formatTapeTimeFull(row.t)}
+          >
+            {formatTapeDate(row.t)}
+          </span>
+        </>
+      )}
+    </div>
+  );
+});
 
 export function TradesTapeScrollList({
   tapeFills,
@@ -66,102 +170,16 @@ export function TradesTapeScrollList({
         .filter(Boolean)
         .join(" ")}
     >
-      {tapeFills.map((row, index) => {
-        const side = tapeSideDisplay(row);
-        const source = tapeSourceDisplay(row);
-        const priceTone = tradesTapePriceCompareTone(
-          row.priceUsdc,
-          tapeFills[index + 1]?.priceUsdc,
-        );
-        const priceClass = collectionDetail
-          ? priceTone === "down"
-            ? "cd-ob-trades-price cd-ob-trades-price--down"
-            : "cd-ob-trades-price cd-ob-trades-price--up"
-          : tradesTapePriceClassName(priceTone);
-        /** Card.html Side column uses title case (Offer / Auction), not ALL CAPS. */
-        const sideLabel = collectionDetail
-          ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
-          : side.label;
-
-        return (
-          <div
-            key={row.orderHash}
-            className={`${rowGridClass} ${
-              collectionDetail
-                ? ""
-                : flush
-                  ? TRADES_TAPE_FLUSH_ROW_CLASS
-                  : `${orderBookTradesContentValueCls} py-0.5 text-zinc-200`
-            }`}
-          >
-            <span
-              className={
-                collectionDetail
-                  ? priceClass
-                  : `min-w-0 truncate ${orderBookTradesPriceDataColCls} ${priceClass}`
-              }
-            >
-              {formatTradesTapePriceUsdc(row.priceUsdc)}
-            </span>
-            {flush ? (
-              <>
-                <span
-                  className={
-                    collectionDetail
-                      ? "cd-ob-trades-side"
-                      : `min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`
-                  }
-                  title={side.title}
-                >
-                  {sideLabel}
-                </span>
-                {collectionDetail ? (
-                  <TradesSourceCell
-                    source={source}
-                    className="cd-ob-trades-source"
-                    collectionDetail
-                  />
-                ) : (
-                  <TradesSourceCell
-                    source={source}
-                    className={orderBookTradesSourceDataCellCls}
-                  />
-                )}
-                <span
-                  className={
-                    collectionDetail
-                      ? "cd-ob-trades-time"
-                      : `min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`
-                  }
-                  title={formatTapeTimeFull(row.t)}
-                >
-                  {formatTapeDate(row.t)}
-                </span>
-              </>
-            ) : (
-              <>
-                <span
-                  className={`min-w-0 truncate ${orderBookColMidCls} pl-1 sm:pl-1.5 ${side.className}`}
-                  title={side.title}
-                >
-                  {side.label}
-                </span>
-                <TradesSourceCell
-                  source={source}
-                  className={orderBookTradesSourceDataCellCls}
-                />
-                <span className={`${orderBookColEndCls} text-zinc-500`}>#{row.tokenId}</span>
-                <span
-                  className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
-                  title={formatTapeTimeFull(row.t)}
-                >
-                  {formatTapeDate(row.t)}
-                </span>
-              </>
-            )}
-          </div>
-        );
-      })}
+      {tapeFills.map((row, index) => (
+        <TradesTapeRow
+          key={row.orderHash}
+          row={row}
+          nextPriceUsdc={tapeFills[index + 1]?.priceUsdc}
+          flush={flush}
+          collectionDetail={collectionDetail}
+          rowGridClass={rowGridClass}
+        />
+      ))}
     </div>
   );
 }

@@ -24,9 +24,26 @@ import { readRwaMintPlaceholderPng } from './rwa-mint-placeholder.util';
 import {
   type MintImageSource,
   readCardhedgerMintImageUrlFromGraded,
+  readPsaCertBackUrlFromGraded,
   readPsaCertSlabUrlFromGraded,
   resolveRemoteMintImageUrl,
 } from './rwa-mint-image.util';
+
+function patchGradedPsaCertImageBackUrl(
+  metadata: RwaMetadata,
+  url: string,
+): void {
+  const props = metadata.properties;
+  if (!props || typeof props !== 'object') return;
+  const graded = props.graded;
+  if (!graded || typeof graded !== 'object') return;
+  const g = graded as Record<string, unknown>;
+  const prev =
+    g.psa && typeof g.psa === 'object'
+      ? (g.psa as Record<string, unknown>)
+      : {};
+  g.psa = { ...prev, certImageBackUrl: url };
+}
 
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   if (!graded || typeof graded !== 'object') return false;
@@ -253,6 +270,20 @@ export class RwaService {
       }
     }
 
+    let displayImageBackUrl: string | null = null;
+    const backSource = readPsaCertBackUrlFromGraded(gradedObj);
+    if (backSource) {
+      displayImageBackUrl = await this.rwaSlabS3.ingestMintSlabBestEffort({
+        chainId,
+        certNumber,
+        sourceUrl: backSource,
+        face: 'back',
+      });
+      if (displayImageBackUrl) {
+        patchGradedPsaCertImageBackUrl(metadata, displayImageBackUrl);
+      }
+    }
+
     const metadataCID = await this.pinataService.uploadMetadata(metadata);
 
     return {
@@ -261,6 +292,7 @@ export class RwaService {
       imageCID,
       metadata,
       displayImageUrl,
+      displayImageBackUrl,
     };
   }
 

@@ -57,7 +57,7 @@ export function PortfolioAcceptOfferModal({
       open={open}
       onClose={pending ? () => undefined : onClose}
       title="Accept offer?"
-      description={`${title} · Offer ${offerUsdc} USDC · Buyer ${buyer}`}
+      description={`Sells now to the top bid. ${title} · Offer ${offerUsdc} USDC · Buyer ${buyer}`}
       footer={
         <div className="flex gap-2">
           <TkButton
@@ -82,7 +82,7 @@ export function PortfolioAcceptOfferModal({
                 ? "Checking buyer…"
                 : buyerBlocked
                   ? "Offer unavailable"
-                  : "Confirm trade"}
+                  : "Sell"}
           </TkButton>
         </div>
       }

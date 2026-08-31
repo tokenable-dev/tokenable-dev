@@ -13,6 +13,7 @@ type ResolvedAssetPayload = {
   tokenURI: string;
   metadata: Record<string, unknown> | null;
   imageUrl: string | null;
+  imageBackUrl: string | null;
 };
 
 @Injectable()
@@ -32,18 +33,20 @@ export class RwaAssetResolveService {
     );
   }
 
-  private async displayImageOverride(
+  private async displayImageFields(
     tokenId: number,
     chainId?: SupportedChainId,
-  ): Promise<string | null> {
+  ): Promise<{ front: string | null; back: string | null }> {
     const contract = this.rwaContractAddress(chainId);
-    if (!contract) return null;
+    if (!contract) return { front: null, back: null };
     const row = await this.rwaTokenRepo.findOne({
       where: { tokenContract: contract, tokenId: String(tokenId) },
-      select: ['displayImageUrl'],
+      select: ['displayImageUrl', 'displayImageBackUrl'],
     });
-    const url = row?.displayImageUrl?.trim();
-    return url || null;
+    return {
+      front: row?.displayImageUrl?.trim() || null,
+      back: row?.displayImageBackUrl?.trim() || null,
+    };
   }
 
   private async resolveOverrideToHttps(
@@ -71,6 +74,7 @@ export class RwaAssetResolveService {
     row: RwaToken,
   ): Promise<ResolvedAssetPayload | null> {
     const displayOverride = row.displayImageUrl?.trim();
+    const imageBackUrl = row.displayImageBackUrl?.trim() || null;
     const tokenUri = row.tokenUri?.trim() ?? '';
 
     if (displayOverride) {
@@ -81,6 +85,7 @@ export class RwaAssetResolveService {
           tokenURI: tokenUri,
           metadata: null,
           imageUrl,
+          imageBackUrl,
         };
       }
     }
@@ -96,6 +101,7 @@ export class RwaAssetResolveService {
         tokenURI: tokenUri,
         metadata,
         imageUrl,
+        imageBackUrl,
       };
     } catch {
       return {
@@ -103,6 +109,7 @@ export class RwaAssetResolveService {
         tokenURI: tokenUri,
         metadata: null,
         imageUrl: null,
+        imageBackUrl,
       };
     }
   }
@@ -126,7 +133,11 @@ export class RwaAssetResolveService {
   ): Promise<ResolvedAssetPayload> {
     try {
       const onChain = await this.blockchain.getResolvedRwaAsset(tokenId, chainId);
-      if (!this.needsDbFallback(onChain)) return onChain;
+      const payload: ResolvedAssetPayload = {
+        ...onChain,
+        imageBackUrl: null,
+      };
+      if (!this.needsDbFallback(payload)) return payload;
     } catch {
       /* invalid on configured contract — fall through to DB */
     }
@@ -139,6 +150,7 @@ export class RwaAssetResolveService {
       tokenURI: '',
       metadata: null,
       imageUrl: null,
+      imageBackUrl: null,
     };
   }
 
@@ -169,18 +181,30 @@ export class RwaAssetResolveService {
     tokenURI: string;
     metadata: Record<string, unknown> | null;
     imageUrl: string | null;
+    imageBackUrl: string | null;
     displayImageUrlOverride: string | null;
   }> {
     const base = await this.resolveOnChainOrDb(tokenId, chainId);
-    const override = await this.displayImageOverride(tokenId, chainId);
-    if (!override) {
-      return { ...base, displayImageUrlOverride: null };
+    const fields = await this.displayImageFields(tokenId, chainId);
+    const imageBackUrl =
+      (fields.back
+        ? await this.resolveOverrideToHttps(fields.back)
+        : null) ??
+      base.imageBackUrl ??
+      null;
+    if (!fields.front) {
+      return {
+        ...base,
+        imageBackUrl,
+        displayImageUrlOverride: null,
+      };
     }
-    const imageUrl = await this.resolveOverrideToHttps(override);
+    const imageUrl = await this.resolveOverrideToHttps(fields.front);
     return {
       ...base,
       imageUrl: imageUrl ?? base.imageUrl,
-      displayImageUrlOverride: override,
+      imageBackUrl,
+      displayImageUrlOverride: fields.front,
     };
   }
 
@@ -193,6 +217,7 @@ export class RwaAssetResolveService {
       tokenURI: string | null;
       metadata: Record<string, unknown> | null;
       imageUrl: string | null;
+      imageBackUrl: string | null;
       displayImageUrlOverride: string | null;
     }>;
   }> {
@@ -222,6 +247,8 @@ export class RwaAssetResolveService {
           tokenURI: item.tokenURI ?? '',
           metadata: item.metadata,
           imageUrl: item.imageUrl,
+          imageBackUrl:
+            registryRows.get(item.tokenId)?.displayImageBackUrl?.trim() || null,
         };
 
         if (this.needsDbFallback(resolved)) {
@@ -232,6 +259,11 @@ export class RwaAssetResolveService {
           }
         }
 
+        const rowBack = registryRows.get(item.tokenId)?.displayImageBackUrl?.trim();
+        const imageBackUrl = rowBack
+          ? (await this.resolveOverrideToHttps(rowBack)) ?? resolved.imageBackUrl
+          : resolved.imageBackUrl;
+
         const override = overrides.get(item.tokenId) ?? null;
         if (!override) {
           return {
@@ -239,6 +271,7 @@ export class RwaAssetResolveService {
             tokenURI: resolved.tokenURI || null,
             metadata: resolved.metadata,
             imageUrl: resolved.imageUrl,
+            imageBackUrl,
             displayImageUrlOverride: null,
           };
         }
@@ -249,6 +282,7 @@ export class RwaAssetResolveService {
           tokenURI: resolved.tokenURI || null,
           metadata: resolved.metadata,
           imageUrl,
+          imageBackUrl,
           displayImageUrlOverride: override,
         };
       }),

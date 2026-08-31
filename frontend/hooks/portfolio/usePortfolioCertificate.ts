@@ -91,7 +91,7 @@ function dedupeSubjectFragments(
 export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const wallet = useLinkedPortfolioWallet();
   const chainId = activeRqChainId();
-  const { metadata, imageUrl, metaLoading } = useRwaDetailMetadata(tokenId, tokenIdOk);
+  const { metadata, imageUrl, imageBackUrl, metaLoading } = useRwaDetailMetadata(tokenId, tokenIdOk);
 
   const ownedQuery = useQuery({
     queryKey: rq.rwaTokens(wallet.portfolioAddress ?? "", chainId),
@@ -200,7 +200,12 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
-  const backCandidate = useMemo(() => resolveSlabBackCandidate(metadata), [metadata]);
+  const backCandidate = useMemo(
+    () =>
+      (typeof imageBackUrl === "string" ? imageBackUrl.trim() : "") ||
+      resolveSlabBackCandidate(metadata),
+    [imageBackUrl, metadata],
+  );
   const backNeedsGateway = Boolean(
     backCandidate?.startsWith("ipfs://") || backCandidate?.startsWith("ipfs:/"),
   );

@@ -68,7 +68,7 @@ export function SettingsLegalSection({ user }: { user: AuthUser }) {
           <div>
             <div className="tk-settings__row-t">Marketing emails</div>
             <div className="tk-settings__row-d">
-              Product news, drops, and offers. You can opt out anytime.
+              Product news and drops. Opt out anytime.
             </div>
           </div>
           <button

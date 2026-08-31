@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Order, RwaMetadata } from "@/lib/core";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
@@ -179,6 +179,22 @@ export function PortfolioHoldingsSection({
     headlineByTokenId,
   ]);
 
+  const handleSetPrice = useCallback(
+    (tokenId: number) => {
+      const row = assetRows.find((r) => r.tokenId === tokenId);
+      const isListed =
+        row != null &&
+        row.listPriceUsd != null &&
+        row.activeListingOrderHash != null;
+      trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+        card_id: String(tokenId),
+        current_price: row?.currentPrice ?? undefined,
+      });
+      onSetPrice(tokenId);
+    },
+    [assetRows, onSetPrice],
+  );
+
   if (assetsSectionLoading) {
     if (view === "gallery" && !isMobile) {
       return (
@@ -272,18 +288,8 @@ export function PortfolioHoldingsSection({
                       ? "Redemption in progress — listing unavailable"
                       : undefined
                   }
-                  onSaveCostBasis={
-                    onSaveCostBasis
-                      ? (usd) => onSaveCostBasis(row.tokenId, usd)
-                      : undefined
-                  }
-                  onSetPrice={() => {
-                    trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                      card_id: String(row.tokenId),
-                      current_price: row.currentPrice ?? undefined,
-                    });
-                    onSetPrice(row.tokenId);
-                  }}
+                  onSaveCostBasis={onSaveCostBasis}
+                  onSetPrice={handleSetPrice}
                 />
               </div>
             );
@@ -318,18 +324,8 @@ export function PortfolioHoldingsSection({
                     ? "Redemption in progress — listing unavailable"
                     : undefined
                 }
-                onSaveCostBasis={
-                  onSaveCostBasis
-                    ? (usd) => onSaveCostBasis(row.tokenId, usd)
-                    : undefined
-                }
-                onSetPrice={() => {
-                  trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                    card_id: String(row.tokenId),
-                    current_price: row.currentPrice ?? undefined,
-                  });
-                  onSetPrice(row.tokenId);
-                }}
+                onSaveCostBasis={onSaveCostBasis}
+                onSetPrice={handleSetPrice}
               />
             );
           })}
@@ -346,18 +342,7 @@ export function PortfolioHoldingsSection({
           canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
           savingCostBasisTokenId={savingCostBasisTokenId}
           onSaveCostBasis={onSaveCostBasis}
-          onSetPrice={(tokenId) => {
-            const row = filteredSortedRows.find((r) => r.tokenId === tokenId);
-            const isListed =
-              row != null &&
-              row.listPriceUsd != null &&
-              row.activeListingOrderHash != null;
-            trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-              card_id: String(tokenId),
-              current_price: row?.currentPrice ?? undefined,
-            });
-            onSetPrice(tokenId);
-          }}
+          onSetPrice={handleSetPrice}
           getBadge={getBadge}
           isTradeBlocked={(tokenId) =>
             isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))

@@ -79,6 +79,7 @@ export class P2pService {
       displayImageUrl,
       chainId,
       certNumber,
+      'front',
     );
     if (trusted) return trusted;
 
@@ -94,6 +95,7 @@ export class P2pService {
       ingested,
       chainId,
       certNumber,
+      'front',
     );
   }
 
@@ -250,6 +252,12 @@ export class P2pService {
       dto.displayImageUrl,
       dto.imageUrl,
     );
+    const displayImageBackUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      dto.displayImageBackUrl,
+      resolved,
+      certNumber,
+      'back',
+    );
     await this.vault.recordMintResult({
       cycleId: cycle.id,
       tokenContract,
@@ -259,6 +267,7 @@ export class P2pService {
       certNumber,
       displayName: dto.displayName?.trim() || null,
       displayImageUrl,
+      displayImageBackUrl,
     });
 
     const listing = await this.listings.save(

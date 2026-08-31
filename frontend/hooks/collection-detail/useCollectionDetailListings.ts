@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/core";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
@@ -45,12 +45,13 @@ export function useCollectionDetailListings(params: {
       return new Map(
         flat.map((it) => [
           it.tokenId,
-          { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl },
+          { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl, imageBackUrl: it.imageBackUrl ?? null },
         ]),
       );
     },
     enabled: enabled && tokenIds.length > 0,
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   return {

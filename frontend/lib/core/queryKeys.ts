@@ -49,6 +49,9 @@ export const rq = {
   /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
   homeAllCollections: (chainId: number) =>
     ["collections", "marketplace", "all", chainId] as const,
+  /** Ranked home ticker + grids (server `GET …/home-feed`). */
+  homeMarketplaceFeed: (chainId: number) =>
+    ["collections", "marketplace", "home-feed", chainId] as const,
   /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
   cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
@@ -227,8 +230,6 @@ export const rq = {
     ["admin-rwa-roles-overview", chainId] as const,
   adminRwaRolesStatus: (wallet: string, chainId: number) =>
     ["admin-rwa-roles-status", wallet.toLowerCase(), chainId] as const,
-  /** @deprecated use adminRwaCards */
-  adminListedRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
   adminUserStats: () => ["admin-user-stats"] as const,
   adminAnalytics: (days: number, chainId: number) =>
     ["admin-analytics", days, chainId] as const,
@@ -276,6 +277,7 @@ export const rq = {
   merkleSet: (key: string) => ["merkle-set", key] as const,
   /** Prefix key used to invalidate ALL merkle-set queries at once. */
   merkleSetAll: () => ["merkle-set"] as const,
+  bidAnchorTokens: (key: string) => ["bid-anchor-tokens", key] as const,
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
 

@@ -11,14 +11,18 @@ export function sanitizeCertForS3Key(certNumber: string): string {
   return digits.slice(0, 32) || 'unknown';
 }
 
+export type RwaSlabFace = 'front' | 'back';
+
 export function stableRwaSlabObjectKey(
   slabPrefix: string,
   chainId: number,
   certNumber: string,
+  face: RwaSlabFace = 'front',
 ): string {
   const p = slabPrefix.endsWith('/') ? slabPrefix : `${slabPrefix}/`;
   const cert = sanitizeCertForS3Key(certNumber);
-  return `${p}${chainId}/${cert}/slab`;
+  const leaf = face === 'back' ? 'slab-back' : 'slab';
+  return `${p}${chainId}/${cert}/${leaf}`;
 }
 
 export function isPlatformHostedRwaSlabUrl(
@@ -27,13 +31,14 @@ export function isPlatformHostedRwaSlabUrl(
   slabPrefix: string,
   chainId: number,
   certNumber: string,
+  face: RwaSlabFace = 'front',
 ): boolean {
   const base = publicBaseUrl.trim().replace(/\/+$/, '');
   if (!base || !publicUrl?.trim()) return false;
   const url = publicUrl.trim().split('?')[0] ?? '';
   if (!url.toLowerCase().startsWith(`${base.toLowerCase()}/`)) return false;
   const key = url.slice(base.length + 1).replace(/^\/+/, '');
-  const expected = stableRwaSlabObjectKey(slabPrefix, chainId, certNumber);
+  const expected = stableRwaSlabObjectKey(slabPrefix, chainId, certNumber, face);
   return key.toLowerCase() === expected.toLowerCase();
 }
 
@@ -42,9 +47,10 @@ export function publicUrlForRwaSlab(
   slabPrefix: string,
   chainId: number,
   certNumber: string,
+  face: RwaSlabFace = 'front',
 ): string {
   return joinCatalogCoverPublicUrl(
     publicBaseUrl,
-    stableRwaSlabObjectKey(slabPrefix, chainId, certNumber),
+    stableRwaSlabObjectKey(slabPrefix, chainId, certNumber, face),
   );
 }

@@ -1340,8 +1340,9 @@
 }
 
 .portfolio-page .pf-hbadge--settled {
-  color: var(--pos);
-  box-shadow: inset 0 0 0 1.5px var(--pos);
+  color: var(--progress-current);
+  background: var(--progress-done);
+  box-shadow: none;
 }
 
 .portfolio-page .pf-hbadge--vaulted {
@@ -1350,8 +1351,8 @@
 }
 
 .portfolio-page .pf-hbadge--pending {
-  color: #f5a623;
-  box-shadow: inset 0 0 0 1.5px #f5a623;
+  color: var(--progress-current);
+  box-shadow: inset 0 0 0 1.5px var(--progress-current);
 }
 
 .portfolio-page .pf-hbadge--failed {
@@ -1363,7 +1364,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f5a623;
+  background: var(--progress-current);
   animation: pf-hbadge-pulse 1.4s ease-in-out infinite;
 }
 

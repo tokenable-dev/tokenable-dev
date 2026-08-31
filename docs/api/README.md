@@ -139,6 +139,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | GET | `/api/marketplace/collections/:key/grade-catalog` | Grade catalog |
 | GET | `/api/marketplace/collections/:key/grade-series` | Grade time series |
 | GET | `/api/marketplace/collections/:key/merkle-set` | Merkle-eligible tokenIds |
+| GET | `/api/marketplace/collections/:key/bid-anchor-tokens` | Token ids for bids without an ask |
 | GET | `/api/marketplace/rwa/:tokenId/trades` | Token trade history |
 | GET | `/api/marketplace/collections/admin/review-counts` | Admin: review_status counts |
 | POST | `/api/marketplace/collections/:key/admin/review` | Admin: approve/reject collection |
@@ -181,7 +182,6 @@ Separate session from user JWT — `POST /api/marketplace/admin/auth/login` sets
 | GET | `/api/marketplace/admin/users/:id` | User detail |
 | GET | `/api/marketplace/admin/rwa-tokens/cards` | All RWA registry cards |
 | GET | `/api/marketplace/admin/rwa-tokens/custody-nfts` | Custody delivery queue |
-| GET | `/api/marketplace/admin/rwa-tokens/listings` | Listed cards (legacy) |
 | PATCH | `/api/marketplace/admin/rwa-tokens/:tokenId` | Update token metadata |
 | POST | `/api/marketplace/admin/rwa-tokens/:tokenId/deliver` | Deliver custody NFT to user |
 | POST | `/api/marketplace/admin/partners` | Register consignment partner (encrypted PK) |

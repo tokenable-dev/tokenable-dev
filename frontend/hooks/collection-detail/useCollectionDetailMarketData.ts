@@ -30,6 +30,7 @@ import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionD
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
 import { activeRqChainId } from "@/lib/chains";
+import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
@@ -58,7 +59,8 @@ export function useCollectionDetailMarketData(params: {
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
   const chainId = activeRqChainId();
-  const marketSeriesEnabled = key.length > 0 && !detailError;
+  const marketSeriesEnabled =
+    looksLikeCollectionKey(key) && !detailError;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
     queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION, chainId),
@@ -76,16 +78,22 @@ export function useCollectionDetailMarketData(params: {
   });
 
   const activeGradeForTrades = gradeChart.activeGrade;
+  const hasSlabGradeFromComp =
+    String(comp.gradeScore ?? "").trim().length > 0 ||
+    String(comp.psaGradeLabel ?? "").trim().length > 0 ||
+    String(comp.gradingCompany ?? "").trim().length > 0;
 
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
   /*
-   * Wait for market-series before the first trades fetch. Until then
-   * activeGrade falls back to "PSA 10", which keys a wrong query and later
-   * swaps the tape (keepPreviousData alone still flickers content).
+   * Start trades as soon as collection components include a slab grade
+   * (do not wait for market-series). If components have no grade yet, wait
+   * until market-series settles so we do not key the tape as PSA 10 by default.
    */
   const tradesQueryEnabled =
-    key.length > 0 && !detailError && !marketSeriesLoading;
+    looksLikeCollectionKey(key) &&
+    !detailError &&
+    (hasSlabGradeFromComp || !marketSeriesLoading);
 
   const {
     data: platformTradesData,

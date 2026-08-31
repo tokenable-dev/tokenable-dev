@@ -72,6 +72,7 @@ export async function mintRwaViaBackend(input: {
   deliveryMode?: "custody" | "direct";
   /** From POST /rwa/upload when S3 slab cache succeeded. */
   displayImageUrl?: string | null;
+  displayImageBackUrl?: string | null;
 }): Promise<MintRwaResult> {
   const { chainId, ...body } = input;
   const res = await backendFetch(`${getApiUrl()}/rwa/mint`, {

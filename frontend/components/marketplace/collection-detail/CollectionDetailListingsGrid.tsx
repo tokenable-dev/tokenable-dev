@@ -25,7 +25,7 @@ export function CollectionDetailListingsGrid({
   tokenIds: number[];
   askMap: Map<number, Order>;
   batchMetadata:
-    | Map<number, { metadata: RwaMetadata | null; imageUrl: string | null }>
+    | Map<number, { metadata: RwaMetadata | null; imageUrl: string | null; imageBackUrl?: string | null }>
     | undefined;
   address: Address | undefined;
   gradeLabel?: string | null;

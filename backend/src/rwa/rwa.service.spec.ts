@@ -64,6 +64,7 @@ describe('RwaService.uploadToIpfs', () => {
         certNumber: '84089328',
       }),
     );
+    expect(result.displayImageBackUrl).toBeNull();
     expect(pinata.uploadBuffer).toHaveBeenCalled();
   });
 

@@ -70,8 +70,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
         </div>
         <h1 className="sell-flow-h1">Add your cards</h1>
         <p className="sell-flow-sub">
-          Scan the QR on the slab or type the cert number. We&rsquo;ll pull the card details from
-          PSA.
+          Scan the slab QR or type the cert number.
         </p>
 
         <div className="sell-flow-glass sell-flow-glass--cards-input">

@@ -16,7 +16,7 @@ KYC is **not** triggered at signup. Investor Profile (investment qualification) 
 
 1. **Vault design flow** — before “Continue to Shipping” / “Mark as shipped”
 2. **Real mint** — `POST` mint via backend (`useMintForm` + `RwaMintService`)
-3. **Physical redeem** — `POST /api/rwa/redeem-request` (API gated; FE CTA when built)
+3. **Physical redeem** — `POST /api/rwa/redeem-batch` (API gated; portfolio Redeem UI)
 
 Optional Fractional first-purchase KYC is deferred.
 
@@ -91,7 +91,7 @@ MetaMask-only Privy accounts store a synthetic DB email (`{checksummedAddress}@p
 Custody enforcement (server):
 
 - `RwaMintService.mintForUser` — requires KYC approved
-- `RwaRedeemService.requestRedemption` — requires KYC approved
+- `RwaRedeemService.requestRedemptionBatch` — requires KYC approved
 
 ## Frontend
 

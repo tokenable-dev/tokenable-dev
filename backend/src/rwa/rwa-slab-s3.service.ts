@@ -10,7 +10,10 @@ import {
   deriveRwaSlabS3Prefix,
   isPlatformHostedRwaSlabUrl,
   stableRwaSlabObjectKey,
+  type RwaSlabFace,
 } from './rwa-slab-s3.util';
+
+export const RWA_SLAB_UPLOAD_MAX_BYTES = 24 * 1024 * 1024;
 
 const SLAB_CACHE_CONTROL = 'public, max-age=86400, must-revalidate';
 /** PSA cert photos are often larger than catalog covers; fetch then downscale. */
@@ -85,6 +88,7 @@ export class RwaSlabS3Service {
     url: string | null | undefined,
     chainId: number,
     certNumber: string,
+    face: RwaSlabFace = 'front',
   ): string | null {
     if (!url?.trim() || !this.isConfigured()) return null;
     const base = this.catalogCoverS3.getPublicBaseUrl();
@@ -95,11 +99,51 @@ export class RwaSlabS3Service {
         this.slabPrefix,
         chainId,
         certNumber,
+        face,
       )
     ) {
       return null;
     }
     return url.trim().split('?')[0] ?? null;
+  }
+
+  /**
+   * Admin file upload — throws on missing S3 or invalid image (unlike mint ingest).
+   */
+  async ingestAdminSlab(params: {
+    chainId: number;
+    certNumber: string;
+    buffer: Buffer;
+    contentType: string;
+    face?: RwaSlabFace;
+  }): Promise<string> {
+    if (!this.isConfigured()) {
+      throw new Error('CATALOG_COVER_S3_NOT_CONFIGURED');
+    }
+    const cert = params.certNumber.trim();
+    if (!cert) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    if (!params.buffer?.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    const prepared = await prepareSlabForS3(
+      params.buffer,
+      params.contentType,
+    );
+    const objectKey = stableRwaSlabObjectKey(
+      this.slabPrefix,
+      params.chainId,
+      cert,
+      params.face ?? 'front',
+    );
+    const put = await this.catalogCoverS3.putBytesAtKey(
+      objectKey,
+      prepared.body,
+      prepared.contentType,
+      SLAB_CACHE_CONTROL,
+    );
+    return put.publicUrl;
   }
 
   /**
@@ -111,6 +155,7 @@ export class RwaSlabS3Service {
     sourceUrl?: string;
     buffer?: Buffer;
     contentType?: string;
+    face?: RwaSlabFace;
   }): Promise<string | null> {
     if (!this.isConfigured()) return null;
     const cert = params.certNumber.trim();
@@ -138,6 +183,7 @@ export class RwaSlabS3Service {
         this.slabPrefix,
         params.chainId,
         cert,
+        params.face ?? 'front',
       );
       const put = await this.catalogCoverS3.putBytesAtKey(
         objectKey,

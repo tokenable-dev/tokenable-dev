@@ -11,7 +11,6 @@ import {
   TOKEN_BID_UI_DURATION_DAYS,
   tokenBidDurationOptionLabel,
 } from "@/lib/seaport/orders/submitTokenBid";
-import { feePercent } from "@/lib/seaport/orders/platformFee";
 
 function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
@@ -181,10 +180,10 @@ export function CollectionListingBidCheckout({
     const instant = bid.lastOutcome === "instant";
     const doneTitle = instant ? "Purchase complete" : "Bid submitted";
     const doneMsg = instant
-      ? "Owned instantly. Your card stays safe in the vault — withdraw it anytime."
+      ? null
       : placedBidLabel
-        ? `Your bid of $${placedBidLabel} is live for ${expiryLabel}. We'll notify you if it's matched — no funds are held until then.`
-        : `Your bid is live for ${expiryLabel}. We'll notify you if it's matched — no funds are held until then.`;
+        ? `Your bid of $${placedBidLabel} is live for ${expiryLabel}.`
+        : `Your bid is live for ${expiryLabel}.`;
 
     return (
       <div className="cd-listing-checkout__done">
@@ -192,7 +191,9 @@ export function CollectionListingBidCheckout({
           <span>&#10003;</span>
         </div>
         <div className="cd-listing-checkout__done-title">{doneTitle}</div>
-        <p className="cd-listing-checkout__done-msg">{doneMsg}</p>
+        {doneMsg ? (
+          <p className="cd-listing-checkout__done-msg">{doneMsg}</p>
+        ) : null}
         {instant ? (
           <div className="cd-listing-checkout__done-status">
             <span className="cd-listing-checkout__done-status-label tkl-mono">
@@ -313,7 +314,7 @@ export function CollectionListingBidCheckout({
       {!bid.isConnected ? (
         <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected">
           <span className="cd-listing-checkout__wallet-dot" aria-hidden />
-          <span>No wallet connected — connect to continue</span>
+          <span>No wallet connected.</span>
         </div>
       ) : bid.address ? (
         <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
@@ -344,7 +345,7 @@ export function CollectionListingBidCheckout({
       </TkButton>
 
       <p className="cd-listing-checkout__fine tkl-mono">
-        No bid fee · {feePercent()}% charged on sale only
+        No bid fee.
       </p>
     </>
   );

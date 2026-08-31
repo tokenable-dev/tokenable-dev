@@ -230,6 +230,46 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
     ).toBe(false);
   });
 
+  it('maps PSA Red Manga Alternate Art to Cardhedger Red Manga, not Alternate Art or Base', () => {
+    const redManga = {
+      variant: 'Red Manga',
+      description: 'Monkey.D.Luffy 2025 One Piece Carrying On His Will Red Manga',
+      name: 'Monkey.D.Luffy',
+      set: '2025 One Piece Carrying On His Will',
+      number: 'OP13-118',
+    };
+    expect(
+      cardhedgerRowMatchesPsaVariety(redManga, 'RED MANGA ALTERNATE ART'),
+    ).toBe(true);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        { ...redManga, variant: 'Base', description: 'Monkey.D.Luffy 2025 One Piece Carrying On His Will' },
+        'RED MANGA ALTERNATE ART',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          ...redManga,
+          variant: 'Alternate Art',
+          description:
+            'Monkey.D.Luffy 2025 One Piece Carrying On His Will Alternate Art',
+        },
+        'RED MANGA ALTERNATE ART',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          ...redManga,
+          variant: 'Manga',
+          description: 'Monkey.D.Luffy 2025 One Piece Carrying On His Will Manga',
+        },
+        'RED MANGA ALTERNATE ART',
+      ),
+    ).toBe(false);
+  });
+
   it('rejects Blue Wave when PSA only names Blue Refractor', () => {
     expect(
       cardhedgerRowMatchesPsaVariety(
@@ -251,5 +291,49 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         'BLUE REFRACTOR',
       ),
     ).toBe(true);
+  });
+
+  it('maps PSA Championship 2024-Top Prize to Cardhedger Championship 2024, not Base or Top Prize', () => {
+    const championship = {
+      variant: 'Championship 2024',
+      description:
+        'Nefeltari Vivi 2023 One Piece Japanese Awakening of the New Era Championship 2024',
+      name: 'Nefeltari Vivi',
+      set: '2023 One Piece Japanese Awakening of the New Era',
+      number: 'OP05-086',
+    };
+    expect(
+      cardhedgerRowMatchesPsaVariety(championship, 'CHAMPIONSHIP 2024-TOP PRIZE'),
+    ).toBe(true);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        { ...championship, variant: 'Base' },
+        'CHAMPIONSHIP 2024-TOP PRIZE',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Top Prize',
+          description:
+            'Portgas.D.Ace 2024 One Piece Japanese 500 Years in the Future Top Prize',
+          name: 'Portgas.D.Ace',
+          set: '2024 One Piece Japanese 500 Years in the Future',
+          number: 'OP07-119',
+        },
+        'CHAMPIONSHIP 2024-TOP PRIZE',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          ...championship,
+          variant: 'Championship 2024 Finalist',
+          description:
+            'Nefeltari Vivi 2023 One Piece Japanese Awakening of the New Era Championship 2024 Finalist',
+        },
+        'CHAMPIONSHIP 2024-TOP PRIZE',
+      ),
+    ).toBe(false);
   });
 });

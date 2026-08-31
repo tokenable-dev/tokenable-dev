@@ -23,7 +23,7 @@ CSS is loaded once via `app/globals.css`. Do not import page CSS from components
 | `tokenable-collection-detail.css` | Collection detail |
 | `tokenable-portfolio.css` | `/portfolio` |
 | `tokenable-vault.css` | Vault / Sell hub + sell router loader |
-| `tokenable-rwa-detail.css` | Token detail |
+| `tokenable-rwa-detail.css` | ListRwaModal sheet (`tk-price`); leftover `.rwa-detail-page` unused |
 | `tokenable-secondary.css` | Auth, profile, site gate |
 
 When adding a new screen from `Tokenable-with design system/*.html`, add or extend the matching `tokenable-*.css` file. Reuse `CollectibleCard` and `tkl-wrap` before inventing new layout primitives.

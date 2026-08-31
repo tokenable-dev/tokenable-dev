@@ -67,8 +67,8 @@ const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
     q: "Are there fees?",
     a: (
       <>
-        Storing a card is free. Fees apply when someone <strong>redeems</strong> — that covers the
-        withdrawal and shipping. You&rsquo;ll see the exact cost before confirming, with no markup.
+        Storing a card is free. A per-card Redemption fee plus shipping at cost. Shown
+        before you confirm.
       </>
     ),
   },
@@ -248,7 +248,7 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
               </svg>
             }
             title="PSA vault"
-            description="Send them to PSA. Once verified, your listing goes live."
+            description="PSA stores and insures each card. Redeem the physical card anytime."
             features={[
               { text: "Verified by PSA before it goes live" },
               { text: "Requires shipping and intake review", tone: "warn" },

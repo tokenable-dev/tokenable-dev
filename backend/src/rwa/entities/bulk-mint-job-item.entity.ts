@@ -71,6 +71,9 @@ export class BulkMintJobItem {
   @Column({ name: 'slab_display_image_url', type: 'text', nullable: true })
   slabDisplayImageUrl!: string | null;
 
+  @Column({ name: 'slab_display_image_back_url', type: 'text', nullable: true })
+  slabDisplayImageBackUrl!: string | null;
+
   @Column({ name: 'sort_index', type: 'int', default: 0 })
   sortIndex!: number;
 

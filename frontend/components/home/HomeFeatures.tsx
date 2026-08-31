@@ -36,8 +36,7 @@ export function HomeFeatures() {
           <div className="home-features-band__intro">
             <h2 className="tkl-sec-title">Three guarantees, every token.</h2>
             <p className="tkl-sec-sub">
-              Every card is graded, custodied, and tokenized before it ever reaches the
-              order book — so what you trade is exactly what you own.
+              Graded, vaulted, tokenized. What you trade is what you own.
             </p>
           </div>
 
@@ -51,11 +50,10 @@ export function HomeFeatures() {
               </div>
               <h3>Authentication and grading</h3>
               <p>
-                Only cards graded by trusted authorities are accepted onto the platform —
-                no raw, no self-reported condition.
+                Only PSA and BGS graded cards. No raw, no self-reported.
               </p>
               <div className="feat__chips">
-                {["PSA", "BGS", "SGC", "CGC", "TAG"].map((label) => (
+                {["PSA", "BGS"].map((label) => (
                   <span key={label} className="pchip">
                     {label}
                   </span>
@@ -72,9 +70,7 @@ export function HomeFeatures() {
               </div>
               <h3>Vaulting</h3>
               <p>
-                Cards are held in secure custody with intake verified against the
-                grader&apos;s certification database — so every token is backed by a
-                specific, verified card.
+                Held in secure custody, cert-matched on intake. Every token is a real card.
               </p>
               <div className="feat__chips feat__chips--wide">
                 <span className="pstat">
@@ -97,9 +93,7 @@ export function HomeFeatures() {
               </div>
               <h3>Instant settlement</h3>
               <p>
-                Cards stay vaulted while transactions settle atomically — continuous
-                trading with no shipping, fees, customs, chargebacks, returns, or
-                counterfeit risk.
+                Trades settle on-chain in seconds. No shipping, customs, or chargebacks.
               </p>
               <div className="feat__chips feat__chips--wide">
                 <span className="pchip">

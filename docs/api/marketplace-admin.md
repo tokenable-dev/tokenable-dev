@@ -339,6 +339,7 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/backfill-display-images` | Copy slab images to S3 for `rwa_tokens` missing `display_image_url` (reads IPFS metadata for HTTPS source) |
+| POST | `/:tokenId/image` | Multipart `file` + `face` (`front` \| `back`) — admin All cards register missing slab photos onto S3 |
 
 Body: `{ "limit": 50, "dryRun": false }` (optional; `limit` 1–500, default 50).
 

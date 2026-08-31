@@ -28,7 +28,7 @@ Charizard ex · 199/165 · PSA 10
 | Number | Drop `#` and `-`; uppercase Latin (`#OP13-118` → `OP13118`). Pokemon-style `199/165` stays. Numeric → 3-digit pad (`085`). |
 | Grade | `PSA 10`, `BGS 9.5`, etc. **Ungraded → `Raw`.** Slot is **never empty**. |
 | Year | 4-digit. Omit if unknown. |
-| Set | Set name. Category prefix is stripped on the breadcrumb node only (§4). |
+| Set | Expansion name. TCG franchise / category prefixes (`One Piece`, `Pokemon`) and a leading language token are stripped on Line 2 and the breadcrumb — they are not part of the expansion. Sports set names stay as-is. |
 | Language | Short code (`EN`, `JP`, …). Omit if unknown. |
 | Variant | Parallel / art / rarity descriptor. Omit the `· {Variant}` segment if none. |
 
@@ -69,7 +69,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 - Example: `Markets / One Piece / OP13 Carrying On His Will (JP)`.
 - Strip category prefix from the set node. Do **not** put year on the breadcrumb.
 - Language in parentheses when known; omit the `(XX)` suffix when unknown.
-- Line 2 is always full: `{Year} · {Set} {Language} · {Variant}` (language token omitted when unknown).
+- Line 2 is always full: `{Year} · {Set} {Language} · {Variant}` (language token omitted when unknown). `{Set}` is the expansion only — same franchise strip as the breadcrumb node (`One Piece OP13 …` → `OP13 …`).
 
 ---
 
@@ -89,7 +89,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Watchlist | `WatchlistCollectibleCard.tsx` | `buildMarketsCollectionTitle` | Line 1 only | — |
 | GNB search typeahead | `TkHeaderSearch.tsx` | Line 1 + `buildMarketsCollectionSearchMeta` | Line 1 + compact L2 | — |
 | Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatCardDisplayName/Meta` | L1 + L2 | Full Line 2; breadcrumb is `{Set} ({Lang})` |
-| RWA token detail | `useRwaDetailHeadline.ts`, `RwaDetailDesktopSidebar.tsx` | `buildRwaAssetDetailHeadlineParts` | L1 + L2 | Full Line 2 (no Year·Set breadcrumb on token page) |
+| RWA slab / listing checkout | `RwaDetailAssetPanelHeader.tsx`, `collectionListingModalHelpers.ts` | `buildRwaAssetDetailHeadlineParts` | L1 + L2 | Used on collection listing modal + cert panel (legacy token page is a redirect) |
 | Portfolio tx rows | `buildPortfolioTxRows.ts` | `formatCardDisplayName` | Line 1 only | — |
 | Portfolio holdings | gallery/table components | `resolvePortfolioHoldingsDisplayNames` | Line 1 only | — |
 | Listing bid checkout | `CollectionListingBidCheckout.tsx` | listing title | L1 + L2 at decision | Uses checkout modal pattern — OK scope |

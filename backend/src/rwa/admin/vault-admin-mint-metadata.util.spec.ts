@@ -1,8 +1,8 @@
+import { buildVaultAdminMintUploadFromAnalyze } from './vault-admin-mint-metadata.util';
 import {
-  buildVaultAdminMintUploadFromAnalyze,
-  resolveVaultAdminMintPlaceholderPngPath,
-  readVaultAdminMintPlaceholderPng,
-} from './vault-admin-mint-metadata.util';
+  readRwaMintPlaceholderPng,
+  resolveRwaMintPlaceholderPngPath,
+} from '../rwa-mint-placeholder.util';
 import type { PsaAnalyzeResult } from '../../psa/psa.service';
 
 describe('buildVaultAdminMintUploadFromAnalyze', () => {
@@ -16,7 +16,7 @@ describe('buildVaultAdminMintUploadFromAnalyze', () => {
       setHint: 'Base',
       certVerifyUrl: 'https://www.psacard.com/cert/83179580',
     },
-    psaCertImages: { front: 'https://example.com/slab.jpg' },
+    psaCertImages: { front: 'https://example.com/slab.jpg', back: 'https://example.com/back.jpg' },
     psaApi: { lookup: { status: 'skipped' } },
     ocr: {
       cardhedger: {
@@ -66,6 +66,8 @@ describe('buildVaultAdminMintUploadFromAnalyze', () => {
     const graded = JSON.parse(dto.gradedMetadata!).graded;
     expect(graded.gradingCompany).toBe('PSA');
     expect(graded.psa.certNumber).toBe('83179580');
+    expect(graded.psa.certImageSourceUrl).toBe('https://example.com/slab.jpg');
+    expect(graded.psa.certImageBackUrl).toBe('https://example.com/back.jpg');
   });
 
   it('copies analyze varietyHint onto graded.psa.Variety', () => {
@@ -125,10 +127,10 @@ describe('buildVaultAdminMintUploadFromAnalyze', () => {
 
 describe('vault admin mint placeholder PNG', () => {
   it('resolves and reads bundled Tokenable logo', () => {
-    const path = resolveVaultAdminMintPlaceholderPngPath();
+    const path = resolveRwaMintPlaceholderPngPath();
     expect(path).toMatch(/tokenable_mint_placeholder\.png$/);
     const { buffer, mimetype, originalname } =
-      readVaultAdminMintPlaceholderPng();
+      readRwaMintPlaceholderPng();
     expect(originalname).toBe('tokenable_mint_placeholder.png');
     expect(mimetype).toBe('image/png');
     expect(buffer.length).toBeGreaterThan(100);

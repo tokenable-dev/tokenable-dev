@@ -4,6 +4,7 @@ import type { RwaDetailMetadata } from "./rwaDetailMetadata";
 export interface RwaDetailAssetPanelProps {
   metadata: RwaDetailMetadata | null;
   imageUrl: string | null;
+  imageBackUrl?: string | null;
   tokenId: number;
   collectionLabel: string;
   metaLoading?: boolean;

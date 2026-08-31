@@ -720,14 +720,23 @@ export async function postMarketplaceCollectionSnapshotsBatched(
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };
-  const items: CollectionListMarketSnapshot[] = [];
+  const chunks: string[][] = [];
   for (let i = 0; i < collectionKeys.length; i += max) {
-    const chunk = collectionKeys.slice(i, i + max);
-    const pack = await postMarketplaceCollectionSnapshots({
-      collectionKeys: chunk,
-      priceHistoryDuration,
-    });
-    items.push(...pack.items);
+    chunks.push(collectionKeys.slice(i, i + max));
+  }
+  const CONCURRENCY = 4;
+  const items: CollectionListMarketSnapshot[] = [];
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    const wave = chunks.slice(i, i + CONCURRENCY);
+    const packs = await Promise.all(
+      wave.map((chunk) =>
+        postMarketplaceCollectionSnapshots({
+          collectionKeys: chunk,
+          priceHistoryDuration,
+        }),
+      ),
+    );
+    for (const pack of packs) items.push(...pack.items);
   }
   return { items };
 }

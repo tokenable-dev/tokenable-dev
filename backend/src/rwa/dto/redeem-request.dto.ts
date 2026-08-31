@@ -78,20 +78,6 @@ export class RedeemShipToDto {
   phone!: string;
 }
 
-export class RedeemRequestDto {
-  @ApiProperty({ description: 'tokenId of the NFT to redeem', example: 1 })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  tokenId!: number;
-
-  @ApiPropertyOptional({ type: RedeemShipToDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => RedeemShipToDto)
-  shipTo?: RedeemShipToDto;
-}
-
 /** Pay-once multi-card redeem after USDC transfer to PLATFORM_FEE_RECIPIENT. */
 export class RedeemBatchRequestDto {
   @ApiProperty({ type: [Number], example: [1, 2] })

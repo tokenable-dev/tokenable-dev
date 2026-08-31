@@ -30,7 +30,6 @@ import { RedeemEstimateBodyDto } from './dto/redeem-estimate-body.dto';
 import {
   RedeemBatchCustodyDto,
   RedeemBatchRequestDto,
-  RedeemRequestDto,
 } from './dto/redeem-request.dto';
 import { UploadRwaResult } from './interfaces/rwa-metadata.interface';
 import { RwaMintService } from './rwa-mint.service';
@@ -123,30 +122,6 @@ export class RwaController {
   ) {
     const chainId = this.chainConfig.requireChainId(chainHeader);
     return this.rwaMint.mintForUser(req.user, dto, chainId);
-  }
-
-  /**
-   * User-initiated "Redeem Request" — verifies the caller currently owns the
-   * NFT (via a linked wallet), then records the request. Actual burn +
-   * physical vault release are executed by ops once redemption is confirmed
-   * (see POST /marketplace/admin/rwa-tokens/:tokenId/burn).
-   *
-   * @deprecated Prefer POST /rwa/redeem-batch (requires USDC payment).
-   */
-  @ApiBearerAuth()
-  @ApiChainIdHeader()
-  @ApiOperation({
-    summary: 'Request redemption of an RWA NFT for its physical asset',
-  })
-  @Post('redeem-request')
-  @UseGuards(JwtAuthGuard)
-  redeemRequest(
-    @Req() req: Request & { user: User },
-    @Body() dto: RedeemRequestDto,
-    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
-  ) {
-    const chainId = this.chainConfig.requireChainId(chainHeader);
-    return this.rwaRedeem.requestRedemption(req.user, dto, chainId);
   }
 
   @ApiBearerAuth()

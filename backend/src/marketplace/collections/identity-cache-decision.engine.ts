@@ -7,7 +7,6 @@ import {
   IDENTITY_CACHE_TTL_MS,
   type IdentityCacheDecision,
   type IdentityCacheDecisionInput,
-  type IdentityCacheSnapshot,
   type IdentityConsistencyContext,
   type IdentityDriftKind,
   type IdentityRepairAction,
@@ -88,11 +87,6 @@ export class IdentityCacheDecisionEngine {
       cachedValue: state.cachedValue,
       dbValue: state.dbValue,
     });
-  }
-
-  /** @deprecated Use {@link decideFromState} — retained for snapshot-shaped inputs. */
-  decideFromSnapshot(snapshot: IdentityCacheSnapshot): IdentityCacheDecision {
-    return this.decideFromState(snapshot);
   }
 
   /** Map policy action → pure IO command (P3.12). */

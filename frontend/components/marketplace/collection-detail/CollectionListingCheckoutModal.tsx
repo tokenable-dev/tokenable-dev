@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getMerkleEligibleTokenIds,
+  getCollectionBidAnchorTokenIds,
   marketplaceRqPolicy,
   rq,
   type Order,
@@ -20,6 +20,7 @@ import {
   listingAssetTitle,
   listingVerificationTiles,
   stubListingForOffer,
+  isLiveAskListing,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { resolveRwaHeadlineGrade } from "@/lib/marketplace/assetDetailHeadline";
 import { CollectionListingBidCheckout } from "./CollectionListingBidCheckout";
@@ -54,6 +55,7 @@ export function CollectionListingCheckoutModal({
   connectedAddress,
   buyBusy,
   buyErr,
+  buyComplete = false,
   onClose,
   onFulfillBuy,
   onBidPlaced,
@@ -79,6 +81,8 @@ export function CollectionListingCheckoutModal({
   connectedAddress?: string;
   buyBusy: boolean;
   buyErr: string | null;
+  /** Card.html #tkb-done after a successful ask fill. */
+  buyComplete?: boolean;
   onClose: () => void;
   onFulfillBuy: () => void;
   onBidPlaced?: () => void;
@@ -92,20 +96,28 @@ export function CollectionListingCheckoutModal({
   const [bidHeaderTitle, setBidHeaderTitle] = useState("Place a bid");
 
   const needsCollectionToken = open && mode === "bid" && listing == null;
+  const bidFromBook = useMemo(() => {
+    const ids = collectionBids
+      .map((o) => Number(o.tokenId))
+      .filter((n) => Number.isFinite(n) && n >= 0);
+    ids.sort((a, b) => a - b);
+    return ids[0] ?? null;
+  }, [collectionBids]);
   const merkleQuery = useQuery({
-    queryKey: rq.merkleSet(collectionKey),
-    queryFn: () => getMerkleEligibleTokenIds(collectionKey),
-    enabled: needsCollectionToken,
+    queryKey: rq.bidAnchorTokens(collectionKey),
+    queryFn: () => getCollectionBidAnchorTokenIds(collectionKey),
+    enabled: needsCollectionToken && bidFromBook == null,
     staleTime: marketplaceRqPolicy.merkleSetStaleMs,
   });
 
   const resolvedTokenId = useMemo(() => {
     if (tokenId != null && Number.isFinite(tokenId) && tokenId >= 0) return tokenId;
+    if (bidFromBook != null) return bidFromBook;
     const ids = merkleQuery.data?.tokenIds ?? [];
-    const sorted = [...ids].map(Number).filter((n) => Number.isFinite(n));
+    const sorted = [...ids].map(Number).filter((n) => Number.isFinite(n) && n >= 0);
     sorted.sort((a, b) => a - b);
     return sorted[0] ?? null;
-  }, [tokenId, merkleQuery.data]);
+  }, [tokenId, bidFromBook, merkleQuery.data]);
 
   const resolvedListing = useMemo(() => {
     if (listing) return listing;
@@ -146,16 +158,16 @@ export function CollectionListingCheckoutModal({
 
   const payLabel = useMemo(() => {
     if (buyBusy) return "Processing…";
-    if (!isConnected) return "Connect wallet to pay";
+    if (!isConnected) return "Connect wallet";
     if (buyPricing) return `Pay $${formatUsdc2(buyPricing.totalUsd)}`;
-    return "Confirm purchase";
+    return "Buy";
   }, [buyBusy, isConnected, buyPricing]);
 
   const buyReady = mode === "buy" && tokenId != null && listing != null;
   if (!open || typeof document === "undefined") return null;
-  if (mode === "buy" && !buyReady) return null;
+  if (mode === "buy" && !buyReady && !buyComplete) return null;
 
-  const hasLiveAsk = listing != null && Number(listing.considerationAmount) > 0;
+  const hasLiveAsk = isLiveAskListing(listing);
   const tiles = listingVerificationTiles(metadata);
   const grade = resolveRwaHeadlineGrade(metadata);
   /** Card.html #tkb-copy — buy: cert line; bid: grade line or collection meta. */
@@ -220,9 +232,16 @@ export function CollectionListingCheckoutModal({
     runTradeAccessGate(() => onFulfillBuy());
   };
 
-  const merklePending = needsCollectionToken && merkleQuery.isLoading;
+  const merklePending =
+    needsCollectionToken &&
+    bidFromBook == null &&
+    merkleQuery.isLoading;
   const merkleEmpty =
-    needsCollectionToken && !merkleQuery.isLoading && resolvedTokenId == null;
+    needsCollectionToken &&
+    bidFromBook == null &&
+    !merkleQuery.isLoading &&
+    resolvedTokenId == null;
+  const merkleFailed = merkleEmpty && merkleQuery.isError;
 
   return createPortal(
     <div
@@ -237,7 +256,11 @@ export function CollectionListingCheckoutModal({
       <div className="cd-listing-checkout__panel cd-notch">
         <div className="cd-listing-checkout__head">
           <h2 id="cd-listing-checkout-title" className="cd-listing-checkout__title">
-            {mode === "buy" ? "Checkout" : bidHeaderTitle}
+            {mode === "buy"
+              ? buyComplete
+                ? "Receipt"
+                : "Checkout"
+              : bidHeaderTitle}
           </h2>
           <button
             type="button"
@@ -272,7 +295,42 @@ export function CollectionListingCheckoutModal({
           </div>
         </div>
 
-        {mode === "buy" && listing ? (
+        {mode === "buy" && buyComplete ? (
+          <div className="cd-listing-checkout__done">
+            <div className="cd-listing-checkout__done-icon" aria-hidden>
+              <span>&#10003;</span>
+            </div>
+            <div className="cd-listing-checkout__done-title">Purchase complete</div>
+            <div className="cd-listing-checkout__done-status">
+              <span className="cd-listing-checkout__done-status-label tkl-mono">
+                Status
+              </span>
+              <span className="cd-listing-checkout__done-status-value tkl-mono">
+                Owned · in vault
+              </span>
+            </div>
+            <div className="cd-listing-checkout__done-actions">
+              <TkButton
+                variant="primary"
+                size="sm"
+                className="cd-listing-checkout__done-primary"
+                href="/portfolio?tab=assets"
+                onClick={onClose}
+              >
+                View in Portfolio
+              </TkButton>
+              <TkButton
+                type="button"
+                variant="subtle"
+                size="sm"
+                className="cd-listing-checkout__done-secondary"
+                onClick={onClose}
+              >
+                Done
+              </TkButton>
+            </div>
+          </div>
+        ) : mode === "buy" && listing ? (
           <>
             <div className="cd-listing-checkout__rows">
               <div className="cd-listing-checkout__row">
@@ -281,12 +339,18 @@ export function CollectionListingCheckoutModal({
                   ${formatUsdc2((buyPricing?.itemUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
                 </span>
               </div>
+              <div className="cd-listing-checkout__row cd-listing-checkout__row--total">
+                <span>Total</span>
+                <span>
+                  ${formatUsdc2((buyPricing?.totalUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
+                </span>
+              </div>
             </div>
 
             {!isConnected ? (
               <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected">
                 <span className="cd-listing-checkout__wallet-dot" aria-hidden />
-                <span>No wallet connected — connect to continue</span>
+                <span>No wallet connected.</span>
               </div>
             ) : walletAddress ? (
               <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
@@ -315,11 +379,16 @@ export function CollectionListingCheckoutModal({
               {payLabel}
             </TkButton>
             <p className="cd-listing-checkout__fine tkl-mono">
-              Owned instantly · stays safely in the vault
+              Stays in the vault.
             </p>
           </>
         ) : merklePending ? (
           <p className="cd-listing-checkout__fine tkl-mono">Loading collection…</p>
+        ) : merkleFailed ? (
+          <p className="cd-listing-checkout__error" role="alert">
+            Couldn&apos;t load cards for this collection. Close and try Place a bid
+            again.
+          </p>
         ) : merkleEmpty ? (
           <p className="cd-listing-checkout__error" role="alert">
             There are no vaulted cards in this collection yet, so a bid can&apos;t be

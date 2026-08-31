@@ -51,14 +51,16 @@ At `POST /api/rwa/upload`, the backend copies the slab image (PSA URL or uploade
 
 ```
 {CATALOG_COVER_S3_PREFIX}rwa-slabs/{chainId}/{certNumber}/slab
+{CATALOG_COVER_S3_PREFIX}rwa-slabs/{chainId}/{certNumber}/slab-back
 ```
 
-Example: `dev/covers/rwa-slabs/84532/84089328/slab`
+Example: `dev/covers/rwa-slabs/84532/84089328/slab` (front) and `…/slab-back` (back).
 
 - On-chain `metadata.image` remains **Pinata / IPFS** (unchanged).
-- `displayImageUrl` in upload response + optional `POST /api/rwa/mint` field → `rwa_tokens.display_image_url`.
-- Partner **bulk mint** stores `slab_display_image_url` on `bulk_mint_job_items` at prepare and writes to `rwa_tokens` at commit.
-- S3 ingest is **best-effort** — upload/mint succeed even when S3 is down, misconfigured, or the image source is missing (bulk prepare still requires a PSA slab URL for IPFS).
+- `displayImageUrl` / `displayImageBackUrl` in upload response + optional `POST /api/rwa/mint` fields → `rwa_tokens.display_image_url` / `display_image_back_url`.
+- Partner **bulk mint** stores `slab_display_image_url` and `slab_display_image_back_url` on `bulk_mint_job_items` at prepare and writes to `rwa_tokens` at commit.
+- Admin **All cards**: `POST /api/marketplace/admin/rwa-slab/:tokenId/image` (`file` + `face=front|back`) uploads a missing face to the same keys.
+- S3 ingest at mint is **best-effort** — upload/mint succeed even when S3 is down. Admin file upload fails if S3 is not configured.
 - PSA slab photos may exceed the **8MB catalog-cover cap**. Slab ingest downloads up to **24MB**, then downscales to a **2000px** JPEG before PutObject so `displayImageUrl` still lands. Collection covers stay at 8MB.
 - Optional env override: `RWA_SLAB_S3_PREFIX` (default: `rwa-slabs/` nested under `CATALOG_COVER_S3_PREFIX`).
 
@@ -66,6 +68,8 @@ Example: `dev/covers/rwa-slabs/84532/84089328/slab`
 
 ```bash
 psql "$DATABASE_URL" -f backend/sql/maintenance/add_bulk_mint_slab_display_image_url.sql
+psql "$DATABASE_URL" -f backend/sql/maintenance/add_rwa_tokens_display_image_back_url.sql
+psql "$DATABASE_URL" -f backend/sql/maintenance/add_bulk_mint_slab_display_image_back_url.sql
 ```
 
 **Backfill** existing tokens without `display_image_url`:

@@ -29,8 +29,6 @@ export function TkHeader() {
   const userId = useAuthStore((s) => s.user?.id ?? "");
   const hideChrome = shouldHideAppChrome(pathname);
   const { unreadCount } = useMarketplaceNotifications({
-    // Admin / site-access hide GNB but this hook still ran and polled /api every 15s,
-    // which kept `next dev` compiling the proxy route (main local fan culprit).
     enabled: Boolean(userId) && !hideChrome,
   });
 

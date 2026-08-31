@@ -52,6 +52,7 @@ export function useCollectionRwaCardData(input: {
               tokenURI: "",
               metadata: cachedMeta,
               imageUrl: cachedImg,
+              imageBackUrl: null,
             };
           }
           return undefined;
@@ -65,5 +66,9 @@ export function useCollectionRwaCardData(input: {
     ? prefetchedImageUrl!.trim()
     : (metaBundle?.imageUrl ?? null);
 
-  return { metaBundle, metadata, imageUrl };
+  const imageBackUrl: string | null =
+    metaBundle?.imageBackUrl?.trim() || null;
+
+  return { metaBundle, metadata, imageUrl, imageBackUrl };
 }
+

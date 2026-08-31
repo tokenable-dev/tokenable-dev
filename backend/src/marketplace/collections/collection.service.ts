@@ -279,9 +279,7 @@ export class CollectionService {
 
     const existing = String(row.components?.cardhedgerCardId ?? '').trim();
     if (existing) {
-      if (this.identity.isEnabled()) {
-        await this.identity.writeFromCertLookup(key, existing, null);
-      }
+      await this.identity.writeFromCertLookup(key, existing, null);
       return;
     }
 
@@ -305,25 +303,7 @@ export class CollectionService {
       return;
     }
 
-    if (this.identity.isEnabled()) {
-      await this.identity.writeFromCertLookup(key, ch.cardId, ch.searchQuery);
-      return;
-    }
-
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: {
-          ...(row.components ?? {}),
-          cardhedgerCardId: ch.cardId,
-          cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
-          ...(ch.searchQuery
-            ? { cardhedgerSearchQuery: ch.searchQuery }
-            : {}),
-          ...(ch.psaSpecId ? { psaSpecId: ch.psaSpecId } : {}),
-        } as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.identity.writeFromCertLookup(key, ch.cardId, ch.searchQuery);
   }
 
   /**
@@ -744,6 +724,30 @@ export class CollectionService {
     );
 
     return { items, nextCursor };
+  }
+
+  /** Active catalog keys + createdAt — home-feed ranking (no ask-count join). */
+  async listActiveCollectionKeysWithCreatedAt(
+    chainId?: SupportedChainId,
+  ): Promise<Array<{ collectionKey: string; createdAt: Date }>> {
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select('c.collection_key', 'collectionKey')
+      .addSelect('c.created_at', 'createdAt')
+      .where(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .andWhere('c.review_status = :reviewStatus', { reviewStatus: 'active' })
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .limit(2500)
+      .getRawMany<{ collectionKey: string; createdAt: Date }>();
+    return rows.map((r) => ({
+      collectionKey: String(r.collectionKey).toLowerCase(),
+      createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt),
+    }));
   }
 
   /**
@@ -1431,12 +1435,6 @@ export class CollectionService {
     );
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
-    col: MarketplaceCollection,
-  ): Promise<MarketplaceCollection> {
-    return this.components.mergePsaSnapshotIntoComponentsFromDb(col);
-  }
-
   async auditCardhedgerCardIdExact(
     collectionKey: string,
     options?: { clearOnMismatch?: boolean },
@@ -1447,18 +1445,6 @@ export class CollectionService {
     failCodes: string[];
   }> {
     return this.components.auditCardhedgerCardIdExact(collectionKey, options);
-  }
-
-  async auditCollectionCardIdExact(
-    collectionKey: string,
-    options?: { clearOnMismatch?: boolean },
-  ): Promise<{
-    checked: boolean;
-    ok: boolean;
-    cleared: boolean;
-    failCodes: string[];
-  }> {
-    return this.components.auditCollectionCardIdExact(collectionKey, options);
   }
 
   async ensureListingDisplayTitleFromListings(
@@ -1579,6 +1565,37 @@ export class CollectionService {
     options?: { bypassCache?: boolean },
   ): Promise<{ tokenIds: string[] }> {
     return this.merkleSet.merkleEligibleTokenIds(collectionKey, options);
+  }
+
+  /**
+   * One or more minted token ids in this bucket so a card bid can be signed
+   * without an active ask. Registry first, then any historical order token ids.
+   * Does not full-scan the chain (that path is merkle-set only).
+   */
+  async sampleBidAnchorTokenIds(
+    collectionKey: string,
+  ): Promise<{ tokenIds: string[] }> {
+    const k = collectionKey.trim().toLowerCase();
+    if (!k) return { tokenIds: [] };
+
+    const fromRegistry =
+      await this.rwaTokenRegistry.tokenIdsForCollectionKey(k);
+    if (fromRegistry.length > 0) {
+      return { tokenIds: fromRegistry.slice(0, 50) };
+    }
+
+    const rows = await this.orderRepo.find({
+      where: { collectionKey: k },
+      take: 80,
+    });
+    const ids = [
+      ...new Set(
+        rows
+          .map((r) => String(r.tokenId ?? '').trim())
+          .filter((id) => id.length > 0 && id !== '0'),
+      ),
+    ];
+    return { tokenIds: ids.slice(0, 50) };
   }
 
   /**

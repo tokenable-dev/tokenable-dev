@@ -113,6 +113,24 @@ export function readPsaCertSlabUrlFromGraded(
   return null;
 }
 
+export function readPsaCertBackUrlFromGraded(
+  graded: Record<string, unknown> | undefined,
+): string | null {
+  if (!graded || typeof graded !== 'object') return null;
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const fromPsa =
+    typeof psa?.certImageBackUrl === 'string' ? psa.certImageBackUrl.trim() : '';
+  const verification = graded.verification as Record<string, unknown> | undefined;
+  const fromVer =
+    typeof verification?.slabBack === 'string'
+      ? verification.slabBack.trim()
+      : '';
+  const raw = fromPsa || fromVer;
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  if (isCardhedgerBrandedPlaceholderUrl(raw)) return null;
+  return normalizeImageUrl(raw);
+}
+
 export function readCardhedgerMintImageUrlFromGraded(
   graded: Record<string, unknown> | undefined,
 ): string | null {

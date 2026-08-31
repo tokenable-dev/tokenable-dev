@@ -31,7 +31,7 @@ export function MarketplaceAdminCardsPage() {
   const [tab, setTab] = useState<CardsTab>("active");
   const { chain } = useAppChain();
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
-  const { query, updateMutation, previewMetadataImage } = useMarketplaceAdminCards();
+  const { query, updateMutation, previewMetadataImage, uploadSlabImage } = useMarketplaceAdminCards();
   const { burningTokenId, burnToken } = useAdminBurnToken(
     isConnected && address ? address : undefined,
   );
@@ -156,6 +156,9 @@ export function MarketplaceAdminCardsPage() {
                   tokenId: row.tokenId,
                   displayImageUrl: null,
                 });
+              }}
+              onUploadSlab={async (face, file) => {
+                await uploadSlabImage(row.tokenId, face, file);
               }}
               burningTokenId={tab === "active" ? burningTokenId : null}
               onBurn={

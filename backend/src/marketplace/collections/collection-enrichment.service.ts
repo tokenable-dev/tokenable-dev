@@ -81,13 +81,6 @@ export class CollectionEnrichmentService {
     return this.components.mergePsaCertFromLiveApiIntoComponents(col, opts);
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
-    col: MarketplaceCollection,
-    opts?: { allowUpstream?: boolean },
-  ): Promise<MarketplaceCollection> {
-    return this.components.mergePsaSnapshotIntoComponentsFromDb(col, opts);
-  }
-
   async persistPsaMirrorFromCertToDb(
     collectionKey: string,
     opts?: { allowUpstream?: boolean },

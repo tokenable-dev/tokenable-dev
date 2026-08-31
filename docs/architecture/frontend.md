@@ -10,11 +10,12 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Area | Components | Hooks / lib |
 |------|------------|-------------|
 | Markets / exchange | `markets/`, `markets-ui/` | `hooks/markets/`, `lib/markets/` |
-| Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` |
+| Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` — market-series and platform trades fetch in parallel once the slab grade is known from collection components; alternate-grade series waits until the default snapshot is present. Grid cards (`CollectibleCard`) and order-book depth/tape rows are `memo`’d; catalog S3/CloudFront covers in the flat frame use `next/image`. |
+| Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
 | Trading | `collection-trading/`, `collection-detail/` (listing bid checkout) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
-| RWA detail | `rwa-detail/`, `rwa-detail-asset-panel/` | `hooks/rwa-detail/`, `lib/marketplace/rwa-detail/` |
+| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `rwa-detail-asset-panel/` | `useRwaDetailBuyFlow`, `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
@@ -33,7 +34,7 @@ frontend/
 ├── app/                           # Next.js App Router (see frontend/routes.md)
 │   ├── page.tsx                   # Landing + Market Indexes
 │   ├── markets/                   # Collection list (+ top100 sub-routes)
-│   ├── marketplace/               # Token detail, collections, admin
+│   ├── marketplace/               # Token redirect, collections, admin
 │   ├── portfolio/
 │   ├── vault/
 │   ├── watchlist/
@@ -94,6 +95,8 @@ frontend/
 
 `next.config.ts` redirects legacy **`/exchange` → `/markets`**.
 
+`/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (collection listing checkout). The old token-detail page tree is gone; `RwaDetailListModalHost` remains for portfolio Set/Edit price.
+
 ---
 
 ## Global providers chain
@@ -148,7 +151,7 @@ Collection detail layout mirrors `Tokenable-with design system-18/Card.html`: st
 
 **Markets grid titles** (`buildMarketsCollectionTitle` in `lib/markets/marketsCollectionTitle.ts`) use the catalog one-liner — `Year Set #Number CardName [Variant]` — matching Card.html `card__title` / search results. Collection detail hero keeps Display name + meta strip separately (`AssetDetailHeadlineTitle`); do not reuse the tile formatter on the detail page.
 
-**Collection detail order book** (Price / Qty / Total policy): depth-only two-sided book — columns **Price / Qty / Total** where Total = price × qty (notional USDC; compact `$1.2k` / `$3.4m` / `$1.1b` when large); depth bar width = level Total ÷ side max Total; integer qty and whole-dollar prices; ask row click opens buy at that price (hover **Buy ›**); **LAST** + **Spread** center strip; empty states for no asks (bids live), no bids (asks live), and no market with CTAs (Place a bid, Notify me, List yours).
+**Collection detail order book** (Price / Qty / Total; Card.html `#tab-offers` four layouts): **All** — asks pane + `$price ↓` / `Spread $X` strip + bids pane. **Bids only** — compact “No cards for sale yet” (Place a bid + Notify me) + `$bestBid` / **No live spread** + bids. **Asks only** — asks + `$bestAsk ↓` / **No live spread** + “No bids yet” (Place a bid). **None** — hide header/panes/spread; tall “No market yet” (List yours + Place a bid) and note **Vaulted cards can be listed here.** Depth bar = level Total ÷ side max Total; ask hover **Buy**. Palette `--ob-neg` `#F5332C` / `--ob-pos` `rgb(0,200,100)`. Same-price asks open Card.html `#tk-choose`: bottom sheet **Select your card**, rows are Cert + vault, CTA **Buy**; **Any card** + sort/vault filters when more than 8 copies.
 
 ## Design system buttons (`TkButton`)
 
@@ -241,6 +244,8 @@ Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card numbe
 
 **Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCatalogSearch` (`GET /marketplace/search`) so **minted cards (cert / name)** appear above **collections**. Digit-only `q` of any length prefix-matches `rwa_tokens.cert_number`; collection catalog still only prefix-matches collection certs at **7+** digits (short digits match card numbers / `#123`). The search page shows cert-match rows first (`SearchCertMatches`), then the collection grid. Text search does **not** match `psaBrand`. Enter on a typeahead row opens that card or collection; View all / Enter with no highlight goes to `/search`.
 
-**Admin + local `next dev` CPU:** `/marketplace/admin/*` hides GNB/footer via `shouldHideAppChrome`, and also **disables** marketplace notification polling / partner-me queries on those routes. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy (fan spin with frontend alone).
+**Admin + local `next dev` CPU:** `/marketplace/admin/*` (and other `shouldHideAppChrome` routes) skip GNB/footer. Inbox polling (`useMarketplaceNotifications`) and `useActivePartner` / `GET partner-me` are disabled on those routes **and** when the browser tab is hidden. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy.
+
+**Fonts:** `app/layout.tsx` loads Inter **400/500/600/700/800** and JetBrains Mono **400/500/600/700**. Do not add unused weights (300 was unused). Privy stays on the root provider — do not lazy-unmount it.
 
 **CSS + Turbopack:** `app/globals.css` only pulls DS + layout + shared card/secondary sheets. Heavy route CSS (`tokenable-vault`, `sell-flow`, `collection-detail`, …) is imported from the owning route layout so admin / home compiles do not reprocess ~25k lines of unrelated CSS. See [design-system-reference.md](../guides/design-system-reference.md) § CSS bundle.

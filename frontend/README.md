@@ -19,7 +19,7 @@ pnpm dev
 | `/watchlist` | Saved collections (login required) |
 | `/vault` | PSA mint wizard (IPFS + on-chain mint) |
 | `/marketplace/collections/[key]` | Collection trading |
-| `/marketplace/[tokenId]` | Token detail |
+| `/marketplace/[tokenId]` | Redirects to collection detail + listing modal |
 | `/marketplace/admin/*` | Admin console (separate login) |
 | `/site-access` | Staging password gate (when enabled) |
 

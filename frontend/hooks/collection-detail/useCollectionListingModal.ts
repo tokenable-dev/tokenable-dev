@@ -7,7 +7,6 @@ import { usePublicClient, useWriteContract } from "wagmi";
 import type { Order, RwaMetadata } from "@/lib/core";
 import { useRwaDetailBuyFlow } from "@/hooks/rwa-detail/useRwaDetailBuyFlow";
 import { useAppChain } from "@/providers/AppChainProvider";
-import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 
 export type ListingModalCheckout = "buy" | "bid" | null;
 
@@ -15,13 +14,12 @@ export function useCollectionListingModal(input: {
   collectionKey: string;
   askMap: Map<number, Order>;
   batchMetadata:
-    | Map<number, { metadata: RwaMetadata | null; imageUrl: string | null }>
+    | Map<number, { metadata: RwaMetadata | null; imageUrl: string | null; imageBackUrl?: string | null }>
     | undefined;
   address: string | undefined;
   onInvalidate: () => void;
-  onPurchaseCelebration: (kind: TradeCelebrationKind) => void;
 }) {
-  const { collectionKey, askMap, batchMetadata, address, onInvalidate, onPurchaseCelebration } =
+  const { collectionKey, askMap, batchMetadata, address, onInvalidate } =
     input;
 
   const searchParams = useSearchParams();
@@ -55,13 +53,17 @@ export function useCollectionListingModal(input: {
     [batchMetadata, selectedTokenId],
   );
 
+  const [buyComplete, setBuyComplete] = useState(false);
+
   const closeDetail = useCallback(() => {
     setSelectedTokenId(null);
     setCheckout(null);
+    setBuyComplete(false);
   }, []);
 
   const openListing = useCallback(
     (tokenId: number, action: "view" | "buy" | "bid" = "view") => {
+      setBuyComplete(false);
       setSelectedTokenId(tokenId);
       if (action === "buy") setCheckout("buy");
       else if (action === "bid") setCheckout("bid");
@@ -72,6 +74,7 @@ export function useCollectionListingModal(input: {
 
   /** Set-level Place a Bid — floor listing if any; otherwise checkout resolves a collection token. */
   const openSetLevelBid = useCallback(() => {
+    setBuyComplete(false);
     const asks = [...askMap.values()].filter((o) => o.status === "active");
     asks.sort((a, b) => {
       const pa = Number(a.considerationAmount) || 0;
@@ -100,9 +103,7 @@ export function useCollectionListingModal(input: {
     writeContractAsync,
     queryClient,
     onPurchaseSuccess: () => {
-      setCheckout(null);
-      setSelectedTokenId(null);
-      onPurchaseCelebration("purchase");
+      setBuyComplete(true);
       onInvalidate();
     },
   });
@@ -117,5 +118,6 @@ export function useCollectionListingModal(input: {
     openSetLevelBid,
     closeDetail,
     buyFlow,
+    buyComplete,
   };
 }

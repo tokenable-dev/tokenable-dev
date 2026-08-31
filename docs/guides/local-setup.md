@@ -58,7 +58,7 @@ POSTGRES_DB=tokenable
 # Redis (identity cache L2 — requires `docker compose up -d redis`)
 # Host port 6380 avoids conflict with any Cursor/VS Code Redis on 6379
 REDIS_URL=redis://127.0.0.1:6380
-# IDENTITY_SERVICE_ENABLED=true
+# IDENTITY_SERVICE_ENABLED=true  # L1/L2 cache + hydrate; DB identity writes always run
 
 # Auth
 JWT_SECRET=your_jwt_secret_here

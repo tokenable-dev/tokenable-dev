@@ -5,8 +5,10 @@ import {
   CHART_DAY_SEC,
   COLLECTION_DETAIL_AXIS_LABEL,
   COLLECTION_DETAIL_CHART_AREA_GRADIENT,
+  COLLECTION_DETAIL_CHART_DATE_FONT,
   COLLECTION_DETAIL_CHART_LINE,
-  COLLECTION_DETAIL_GRID_LINE,
+  COLLECTION_DETAIL_CHART_MARK_FONT,
+  COLLECTION_DETAIL_CHART_MONO,
   COLLECTION_DETAIL_LINE_WIDTH,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
@@ -26,6 +28,105 @@ import {
   roughTickConfigCardHtml,
 } from "./chartTimeTicks";
 import type { MergedExternalChartData } from "./types";
+
+type ChartXy = [number, number];
+
+function cardHtmlDecorateLine(
+  seriesItem: LineSeriesOption,
+  data: ChartXy[],
+): LineSeriesOption {
+  if (data.length === 0) return seriesItem;
+  let hi = data[0]!;
+  let lo = data[0]!;
+  for (const p of data) {
+    if (p[1] > hi[1]) hi = p;
+    if (p[1] < lo[1]) lo = p;
+  }
+  const first = data[0]!;
+  const lastIdx = data.length - 1;
+
+  const marks: NonNullable<LineSeriesOption["markPoint"]>["data"] = [
+    {
+      coord: hi,
+      symbol: "circle",
+      symbolSize: 7,
+      itemStyle: { color: "rgba(255,255,255,0.92)", borderWidth: 0 },
+      label: {
+        show: true,
+        formatter: `High ${formatCardHtmlTooltipUsd(hi[1])}`,
+        position: "top",
+        color: "#fff",
+        fontWeight: 600,
+        fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
+        fontFamily: COLLECTION_DETAIL_CHART_MONO,
+        distance: 10,
+      },
+    },
+  ];
+  if (hi[0] !== lo[0] || hi[1] !== lo[1]) {
+    marks.push({
+      coord: lo,
+      symbol: "circle",
+      symbolSize: 7,
+      itemStyle: { color: "rgba(150,170,210,0.9)", borderWidth: 0 },
+      label: {
+        show: true,
+        formatter: `Low ${formatCardHtmlTooltipUsd(lo[1])}`,
+        position: "bottom",
+        color: "rgba(200,214,240,0.95)",
+        fontWeight: 600,
+        fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
+        fontFamily: COLLECTION_DETAIL_CHART_MONO,
+        distance: 10,
+      },
+    });
+  }
+
+  return {
+    ...seriesItem,
+    showSymbol: true,
+    symbol: "circle",
+    symbolSize: (_value: unknown, params: { dataIndex?: number }) =>
+      params.dataIndex === lastIdx ? 8 : 0,
+    itemStyle: {
+      color: "#fff",
+      borderColor: COLLECTION_DETAIL_CHART_LINE,
+      borderWidth: 2,
+    },
+    emphasis: {
+      focus: "none",
+      scale: false,
+      itemStyle: {
+        color: "#fff",
+        borderColor: COLLECTION_DETAIL_CHART_LINE,
+        borderWidth: 2,
+      },
+      symbolSize: 9,
+    },
+    markLine: {
+      silent: true,
+      symbol: "none",
+      animation: false,
+      label: { show: false },
+      lineStyle: {
+        type: [4, 4],
+        color: "rgba(255,255,255,0.14)",
+        width: 1,
+      },
+      data: [{ yAxis: first[1] }],
+    },
+    markPoint: {
+      silent: true,
+      animation: false,
+      label: {
+        fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
+        fontWeight: 600,
+        fontFamily: COLLECTION_DETAIL_CHART_MONO,
+      },
+      data: marks,
+    },
+  };
+}
 
 export function buildCollectionDualPriceChartOption(input: {
   merged: MergedExternalChartData;
@@ -66,7 +167,7 @@ export function buildCollectionDualPriceChartOption(input: {
 
   const series: LineSeriesOption[] = [];
   if (merged.extIsPolyline) {
-    series.push({
+    const line: LineSeriesOption = {
       name: externalSeriesShortLabel,
       type: "line",
       data: merged.externalSeries,
@@ -77,10 +178,13 @@ export function buildCollectionDualPriceChartOption(input: {
       itemStyle: { color: lineColor },
       areaStyle: { color: areaGradient },
       emphasis: { focus: "series" },
-    });
+    };
+    series.push(
+      isCardHtml ? cardHtmlDecorateLine(line, merged.externalSeries) : line,
+    );
   }
   if (externalFlatSeries.length) {
-    series.push({
+    const flat: LineSeriesOption = {
       name: externalRefLineTag,
       type: "line",
       data: externalFlatSeries,
@@ -90,7 +194,8 @@ export function buildCollectionDualPriceChartOption(input: {
       itemStyle: { color: lineColor },
       areaStyle: { color: areaGradient },
       emphasis: { focus: "series" },
-    });
+    };
+    series.push(isCardHtml ? cardHtmlDecorateLine(flat, externalFlatSeries) : flat);
   }
 
   const extentDaysCeil =
@@ -112,9 +217,20 @@ export function buildCollectionDualPriceChartOption(input: {
     merged.fixedWindowDays >= 300;
 
   const yTickCount = compactTab ? 8 : isMobileChart ? 10 : 12;
-  const { min, max, interval } = isYearView
-    ? yearViewPriceScale(merged.vMin, merged.vMax)
-    : niceScale(merged.vMin, merged.vMax, yTickCount);
+  const { min, max, interval } = isCardHtml
+    ? (() => {
+        const mx = merged.vMax;
+        const mn = merged.vMin;
+        const pad = (mx - mn) * 0.14 || mx * 0.1;
+        return {
+          min: Math.max(0, mn - pad),
+          max: mx + pad,
+          interval: undefined as number | undefined,
+        };
+      })()
+    : isYearView
+      ? yearViewPriceScale(merged.vMin, merged.vMax)
+      : niceScale(merged.vMin, merged.vMax, yTickCount);
 
   const axisLabelColor = isCardHtml
     ? COLLECTION_DETAIL_AXIS_LABEL
@@ -138,7 +254,9 @@ export function buildCollectionDualPriceChartOption(input: {
       color: axisLabelColor,
       fontFamily: axisFontFamily ?? "ui-sans-serif, system-ui, sans-serif",
     },
-    grid: compactTab
+    grid: isCardHtml
+      ? { left: 16, right: 16, top: 30, bottom: 28, containLabel: false }
+      : compactTab
       ? {
           left: 38,
           right: 6,
@@ -162,9 +280,7 @@ export function buildCollectionDualPriceChartOption(input: {
               bottom: 32,
               containLabel: false,
             }
-          : isCardHtml
-            ? { left: 56, right: 16, top: 16, bottom: 34, containLabel: false }
-            : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
+          : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
       { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -176,7 +292,7 @@ export function buildCollectionDualPriceChartOption(input: {
       ...(useCoarseTimeTicks
         ? {
             minInterval: roughTick.minIntervalMs,
-            splitNumber: roughTick.splitNumber,
+            splitNumber: isCardHtml ? 2 : roughTick.splitNumber,
           }
         : {}),
       axisLine: { show: false },
@@ -184,9 +300,11 @@ export function buildCollectionDualPriceChartOption(input: {
       splitLine: { show: false },
       axisLabel: {
         color: axisLabelColor,
-        fontSize: axisLabelSize,
-        fontFamily: axisFontFamily,
+        fontSize: isCardHtml ? COLLECTION_DETAIL_CHART_DATE_FONT : axisLabelSize,
+        fontFamily: isCardHtml ? COLLECTION_DETAIL_CHART_MONO : axisFontFamily,
         hideOverlap: true,
+        showMinLabel: isCardHtml ? true : undefined,
+        showMaxLabel: isCardHtml ? true : undefined,
         margin: isMobileChart ? 12 : 10,
         padding: [4, 0, 0, isMobileChart ? 6 : 4],
         rich: isYearView
@@ -213,7 +331,7 @@ export function buildCollectionDualPriceChartOption(input: {
       type: "value",
       min,
       max,
-      interval,
+      ...(interval != null ? { interval } : {}),
       name: isYearView ? "USD" : undefined,
       nameLocation: "end",
       nameGap: isMobileChart ? 10 : 12,
@@ -225,10 +343,9 @@ export function buildCollectionDualPriceChartOption(input: {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: isCardHtml
-        ? { show: true, lineStyle: { color: COLLECTION_DETAIL_GRID_LINE, width: 1 } }
-        : { show: false },
+      splitLine: { show: false },
       axisLabel: {
+        show: !isCardHtml,
         color: axisLabelColor,
         fontSize: yAxisLabelSize,
         fontFamily: axisFontFamily,
@@ -245,17 +362,34 @@ export function buildCollectionDualPriceChartOption(input: {
     },
     tooltip: {
       trigger: "axis",
+      confine: true,
       axisPointer: {
         type: "line",
+        snap: true,
+        label: { show: false },
         lineStyle: {
           color: isCardHtml ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.26)",
+          width: 1,
           type: isCardHtml ? "solid" : "dashed",
         },
       },
-      backgroundColor: isCardHtml ? "var(--ink-2)" : "rgba(10,10,12,0.95)",
-      borderColor: isCardHtml ? "rgba(26, 111, 255, 0.35)" : "rgba(255,255,255,0.10)",
+      backgroundColor: isCardHtml ? "var(--ink-2, #0e0e0e)" : "rgba(10,10,12,0.95)",
+      borderWidth: isCardHtml ? 0 : 1,
+      borderColor: isCardHtml ? "transparent" : "rgba(255,255,255,0.10)",
       extraCssText: isCardHtml
-        ? "filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.5));padding:12px 15px;border-radius:0;border-width:0;"
+        ? "filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.5));padding:12px 15px;border-radius:0;white-space:nowrap;"
+        : undefined,
+      position: isCardHtml
+        ? (
+            pos: number[],
+            _params: unknown,
+            _el: unknown,
+            _rect: unknown,
+            size: { contentSize: number[] },
+          ) => [
+            pos[0] - size.contentSize[0] / 2,
+            pos[1] - size.contentSize[1] - 10,
+          ]
         : undefined,
       textStyle: { color: "#f4f4f5", fontSize: isCardHtml ? 12 : 11 },
       formatter: (params: unknown) => {

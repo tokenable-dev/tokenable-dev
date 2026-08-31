@@ -1,5 +1,3 @@
-import type { IdentityCacheState } from './identity-cache-execution.types';
-
 /** Shared TTL for identity cache repair writes (L1 + L2). */
 export const IDENTITY_CACHE_TTL_MS = 3 * 60 * 1000;
 
@@ -30,10 +28,6 @@ export type IdentityConsistencyContext =
   | 'read_populate'
   | 'read_l1_probe'
   | 'reconcile';
-
-export interface IdentityCacheSnapshot extends IdentityCacheState {
-  driftKind: IdentityDriftKind;
-}
 
 export interface IdentityCacheDecisionInput {
   cacheExists: boolean;

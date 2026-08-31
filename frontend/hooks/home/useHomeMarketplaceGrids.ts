@@ -2,95 +2,55 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
+import type { CollectionListMarketSnapshot } from "@/lib/core";
 import {
-  getAllMarketplaceCollections,
+  getHomeMarketplaceFeed,
   rq,
   marketplaceRqPolicy,
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
-import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
-import { resolveMarketsListingMarketChangePct, resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
-import { compareCollectionsByCreatedAtDesc } from "@/lib/markets/marketsCollectionSort";
+import { resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 
 /** ds-23 wrap grid: 10 on 5-col desktop, 8 from tablet/mobile down (CSS hides 9–10). */
 export const HOME_TOP_MOVERS_LIMIT = 10;
 export const HOME_JUST_VAULTED_LIMIT = 10;
 
-function sortByCreatedAtDesc(
-  collections: MarketplaceCollectionSummary[],
-): MarketplaceCollectionSummary[] {
-  return [...collections].sort(compareCollectionsByCreatedAtDesc);
-}
-
 export function useHomeMarketplaceGrids() {
   const chainId = activeRqChainId();
-  const { data: allCollections, isPending: collectionsPending } = useQuery({
-    queryKey: rq.homeAllCollections(chainId),
-    queryFn: getAllMarketplaceCollections,
-    staleTime: marketplaceRqPolicy.collectionsStaleMs,
+  const { data, isPending } = useQuery({
+    queryKey: rq.homeMarketplaceFeed(chainId),
+    queryFn: getHomeMarketplaceFeed,
+    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  const collections = allCollections ?? [];
-
-  const snapshotKeysSorted = useMemo(() => {
-    const u = [...new Set(collections.map((c) => c.collectionKey.toLowerCase()))];
-    u.sort();
-    return u;
-  }, [collections]);
-
-  const { snapshotByKey, snapshotsPending } = useMarketplaceSnapshots(
-    snapshotKeysSorted,
-    snapshotKeysSorted.length > 0,
-  );
-
-  const topMovers = useMemo(() => {
-    const ranked = collections
-      .map((c) => ({
-        collection: c,
-        changePct: resolveMarketsListingMarketChangePct90d(
-          snapshotByKey.get(c.collectionKey.toLowerCase()),
-        ),
-      }))
-      .filter(
-        (row) =>
-          row.changePct != null &&
-          Number.isFinite(row.changePct) &&
-          row.changePct > 0,
-      )
-      .sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0));
-    return ranked.slice(0, HOME_TOP_MOVERS_LIMIT).map((r) => r.collection);
-  }, [collections, snapshotByKey]);
-
-  const justVaulted = useMemo(
-    () => sortByCreatedAtDesc(collections).slice(0, HOME_JUST_VAULTED_LIMIT),
-    [collections],
-  );
+  const snapshotByKey = useMemo(() => {
+    const m = new Map<string, CollectionListMarketSnapshot>();
+    for (const it of data?.snapshots ?? []) {
+      m.set(it.collectionKey.toLowerCase(), it);
+    }
+    return m;
+  }, [data]);
 
   const tickerItems = useMemo(
     () =>
-      collections
-        .map((c) => {
-          const snapshot = snapshotByKey.get(c.collectionKey.toLowerCase());
-          /* Same 1Y / best-window reference % as collection detail + Markets cards. */
-          const changePct = resolveMarketsListingMarketChangePct(snapshot);
-          return { collection: c, changePct };
-        })
-        .filter((row) => row.changePct != null && Number.isFinite(row.changePct))
-        .sort((a, b) => Math.abs(b.changePct ?? 0) - Math.abs(a.changePct ?? 0))
-        .slice(0, 8),
-    [collections, snapshotByKey],
+      (data?.ticker ?? []).map((collection) => ({
+        collection,
+        changePct: resolveMarketsListingMarketChangePct(
+          snapshotByKey.get(collection.collectionKey.toLowerCase()),
+        ),
+      })),
+    [data?.ticker, snapshotByKey],
   );
 
   return {
-    topMovers,
-    justVaulted,
+    topMovers: data?.topMovers ?? [],
+    justVaulted: data?.justVaulted ?? [],
     tickerItems,
     snapshotByKey,
-    isPending: collectionsPending,
-    snapshotsPending,
+    isPending,
+    snapshotsPending: isPending,
   };
 }
 

@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { shouldHideAppChrome } from "@/constants/layout";
 import {
   fetchMarketplaceNotifications,
   markAllNotificationsRead,
@@ -45,13 +48,30 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
   };
 }
 
+function useForegroundTab(): boolean {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const sync = () => setVisible(document.visibilityState === "visible");
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
+  return visible;
+}
+
 /** Inbox for the signed-in user on the active app chain. */
 export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
   const chainId = activeRqChainId();
   const queryClient = useQueryClient();
-  const enabled = (options?.enabled ?? true) && Boolean(userId);
+  const pathname = usePathname();
+  const tabVisible = useForegroundTab();
+  const enabled =
+    (options?.enabled ?? true) &&
+    Boolean(userId) &&
+    !shouldHideAppChrome(pathname) &&
+    tabVisible;
 
   const query = useQuery({
     queryKey: rq.marketplaceNotifications(userId, chainId),

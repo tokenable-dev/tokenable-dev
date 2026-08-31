@@ -197,29 +197,3 @@ export function parseCertPriceRowsFromUpload(params: {
   }
   return [];
 }
-
-/** @deprecated Prefer parseCertPriceRowsFromCsvText — cert-only lists no longer valid for mint+list. */
-export function parseCertNumbersFromCsvText(text: string): string[] {
-  return parseCertPriceRowsFromCsvText(text).map((r) => r.certNumber);
-}
-
-/** @deprecated Prefer parseCertPriceRowsFromUpload. */
-export function parseCertNumbersFromUpload(params: {
-  filename?: string;
-  buffer?: Buffer;
-  text?: string;
-  certNumbers?: string[];
-}): string[] {
-  if (params.certNumbers?.length) {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of params.certNumbers) {
-      const cert = normalizeBulkMintCert(raw);
-      if (!cert || seen.has(cert)) continue;
-      seen.add(cert);
-      out.push(cert);
-    }
-    return out;
-  }
-  return parseCertPriceRowsFromUpload(params).map((r) => r.certNumber);
-}

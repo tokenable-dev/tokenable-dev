@@ -24,6 +24,9 @@ describe('rwa-slab-s3.util', () => {
     expect(stableRwaSlabObjectKey(slabPrefix, 84532, '84089328')).toBe(
       'dev/covers/rwa-slabs/84532/84089328/slab',
     );
+    expect(stableRwaSlabObjectKey(slabPrefix, 84532, '84089328', 'back')).toBe(
+      'dev/covers/rwa-slabs/84532/84089328/slab-back',
+    );
   });
 
   it('detects platform-hosted slab URLs', () => {

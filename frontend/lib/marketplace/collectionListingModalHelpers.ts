@@ -50,6 +50,20 @@ export function stubListingForOffer(tokenId: number, collectionKey: string): Ord
   };
 }
 
+/** Real Seaport ask — stub listings used for no-ask bids are not live. */
+export function isLiveAskListing(listing: Order | null | undefined): boolean {
+  if (!listing) return false;
+  if (String(listing.side ?? "ask").toLowerCase() === "bid") return false;
+  if (String(listing.status ?? "").toLowerCase() !== "active") return false;
+  const hash = String(listing.orderHash ?? "").trim().toLowerCase();
+  if (hash.length < 8 || hash === "0x" || /^0x0+$/.test(hash)) return false;
+  try {
+    return BigInt(String(listing.considerationAmount ?? "0").trim() || "0") > BigInt(0);
+  } catch {
+    return false;
+  }
+}
+
 export function formatListingUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
@@ -183,21 +197,27 @@ export type ListingGalleryImage = {
 };
 
 /**
- * Listing detail gallery — prefer PSA slab front/back; fall back to NFT/catalog
- * `imageUrl` when slab photos are missing (so the modal is not empty).
+ * Slab gallery: cert slab photos first (`slabFront` / PSA cert URL), then
+ * token S3 display URL. Same for back (`slabBack`, then `certImageBackUrl`).
  */
 export function listingGalleryImages(
   metadata: RwaMetadata | null,
   fallbackImageUrl?: string | null,
+  fallbackBackUrl?: string | null,
 ): ListingGalleryImage[] {
   const graded = metadata?.properties?.graded as Record<string, unknown> | undefined;
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const verification = graded?.verification as Record<string, unknown> | undefined;
 
-  const front = pickSlabGalleryUrl(psa?.certImageSourceUrl, verification?.slabFront);
+  const front = pickSlabGalleryUrl(
+    verification?.slabFront,
+    psa?.certImageSourceUrl,
+    fallbackImageUrl,
+  );
   const back = pickSlabGalleryUrl(
-    psa?.certImageBackUrl,
+    fallbackBackUrl,
     verification?.slabBack,
+    psa?.certImageBackUrl,
     extractGradedSlabBackCandidate(metadata),
   );
 
@@ -227,8 +247,9 @@ export function listingGalleryImages(
 
 export function listingImageFaces(
   metadata: RwaMetadata | null,
+  fallbackImageUrl?: string | null,
 ): { front: string | null; back: string | null } {
-  const gallery = listingGalleryImages(metadata);
+  const gallery = listingGalleryImages(metadata, fallbackImageUrl);
   const front = gallery.find((g) => g.label === "Front")?.src ?? null;
   const back = gallery.find((g) => g.label === "Back")?.src ?? null;
   return {

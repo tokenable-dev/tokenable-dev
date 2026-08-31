@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
@@ -107,7 +108,7 @@ export function buildWatchlistRowModel(
   };
 }
 
-export function WatchlistCollectibleCard({
+export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
   collection,
   snapshot,
   resolvedCoverUrl,
@@ -177,4 +178,4 @@ export function WatchlistCollectibleCard({
       </div>
     </Link>
   );
-}
+});

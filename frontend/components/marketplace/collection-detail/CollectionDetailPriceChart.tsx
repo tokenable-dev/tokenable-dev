@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { CollectionDualPriceChart } from "@/components/marketplace/collection-dual-price-chart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import type { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
@@ -16,6 +17,34 @@ type GradeChartSlice = Pick<
   | "gradeChartLoading"
 >;
 
+const PERIOD_LABELS: Record<number, string> = {
+  30: "1M",
+  90: "3M",
+  180: "6M",
+  365: "1Y",
+};
+
+function windowChange(
+  points: CollectionDualPriceChartProps["externalRollingUsd"],
+  days: number,
+): { text: string; up: boolean } | null {
+  const pts = (points ?? []).filter(
+    (p) => Number.isFinite(p.v) && p.v > 0 && Number.isFinite(p.t),
+  );
+  if (pts.length < 2) return null;
+  const first = pts[0]!.v;
+  const last = pts[pts.length - 1]!.v;
+  if (!(first > 0)) return null;
+  const pc = ((last - first) / first) * 100;
+  const up = pc >= 0;
+  const winLbl = PERIOD_LABELS[days] ?? `${days}d`;
+  const mag = Math.abs(pc).toFixed(1);
+  return {
+    text: `${up ? "▲ +" : "▼ "}${mag}% · ${winLbl}`,
+    up,
+  };
+}
+
 export function CollectionDetailPriceChart({
   chartProps,
   gradeChart,
@@ -26,6 +55,11 @@ export function CollectionDetailPriceChart({
   /** Card.html mobile scroll column — show header + full-height chart. */
   mobileLayout?: boolean;
 }) {
+  const change = useMemo(
+    () => windowChange(chartProps.externalRollingUsd, gradeChart.chartDays),
+    [chartProps.externalRollingUsd, gradeChart.chartDays],
+  );
+
   return (
     <div
       className={`cd-chart-panel cd-notch${
@@ -37,7 +71,18 @@ export function CollectionDetailPriceChart({
           mobileLayout ? "" : " max-lg:hidden"
         }`}
       >
-        <span className="cd-chart-panel__title">Price history</span>
+        <div className="cd-chart-panel__head-left">
+          <span className="cd-chart-panel__title">Price history</span>
+          {change ? (
+            <span
+              className={`cd-chart-panel__chg tkl-mono${
+                change.up ? " cd-chart-panel__chg--up" : " cd-chart-panel__chg--down"
+              }`}
+            >
+              {change.text}
+            </span>
+          ) : null}
+        </div>
         <CollectionDetailChartPeriodToolbar
           chartDays={gradeChart.chartDays}
           onChartDaysChange={gradeChart.setChartDays}

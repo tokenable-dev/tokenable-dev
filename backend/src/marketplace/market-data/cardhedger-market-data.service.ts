@@ -22,6 +22,7 @@ import {
 } from './cardhedger-resolve.service';
 import { CardhedgerPricingService } from './cardhedger-pricing.service';
 import { CardhedgerMintService } from './cardhedger-mint.service';
+import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
 import { slicePriceHistoryByDays } from './cardhedger-insight-history.util';
 import {
   catalogRowTrustedForMarketData,
@@ -53,6 +54,7 @@ export class CardhedgerMarketDataService {
     private readonly resolve: CardhedgerResolveService,
     private readonly pricing: CardhedgerPricingService,
     private readonly mint: CardhedgerMintService,
+    private readonly certLookup: CardhedgerCertLookupService,
   ) {
     this.AI_INSIGHT_HIST_ANOMALY_RATIO = Math.max(
       2,
@@ -109,7 +111,7 @@ export class CardhedgerMarketDataService {
     query: string;
     certDescription: string | null;
   } | null> {
-    const { row, certDescription } = await this.mint.getCardRowByCert(cert);
+    const { row, certDescription } = await this.certLookup.getCardRowByCert(cert);
     if (!row && !certDescription) return null;
     if (row) {
       const cardId =
@@ -650,7 +652,7 @@ export class CardhedgerMarketDataService {
 
     const cert = String(options?.certNumber ?? '').trim();
     if (!cardId && cert) {
-      const { row } = await this.mint.getCardRowByCert(cert);
+      const { row } = await this.certLookup.getCardRowByCert(cert);
       if (row) {
         catalogRow = row;
         cardId = String(row.card_id ?? '').trim();

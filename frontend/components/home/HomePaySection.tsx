@@ -144,9 +144,8 @@ export function HomePaySection() {
               Every payment, one platform.
             </h2>
             <p className="tkl-sec-sub home-pay__sub">
-              Card, bank, Apple &amp; Google Pay, or crypto — it all flows into your Tokenable
-              balance in US dollars. A secure wallet is created for you automatically; trade
-              instantly.
+              Card, bank, Apple &amp; Google Pay, or crypto. It all pays into your Tokenable
+              balance in USD.
             </p>
             <div className="home-pay__chips">
               <span className="home-pay__chip">Card</span>

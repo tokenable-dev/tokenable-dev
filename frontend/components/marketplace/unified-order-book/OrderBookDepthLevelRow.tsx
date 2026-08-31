@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   ORDER_BOOK_THREE_COL_GRID,
   orderBookBookSizeColCls,
@@ -15,7 +16,7 @@ import {
 import type { OrderBookDepthLevel } from "@/lib/marketplace/unified-order-book";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 
-export function OrderBookDepthLevelRow({
+export const OrderBookDepthLevelRow = memo(function OrderBookDepthLevelRow({
   side,
   level,
   selectedLevelKey,
@@ -129,4 +130,4 @@ export function OrderBookDepthLevelRow({
       {rowBody}
     </button>
   );
-}
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
@@ -76,7 +77,7 @@ function formatChangeSub(
   };
 }
 
-export function CollectibleCard({
+export const CollectibleCard = memo(function CollectibleCard({
   collection,
   snapshot,
   resolvedCoverUrl,
@@ -186,4 +187,4 @@ export function CollectibleCard({
   }
 
   return <div className="card-wrap">{card}</div>;
-}
+});

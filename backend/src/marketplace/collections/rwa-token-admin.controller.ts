@@ -15,7 +15,6 @@ import type { Request } from 'express';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
 import {
   AdminRwaTokenActionDto,
-  AdminRwaTokenListQueryDto,
   AdminUpdateRwaTokenDto,
   AdminDeliverRwaTokenDto,
 } from './dto/admin-rwa-token.dto';
@@ -63,20 +62,6 @@ export class RwaTokenAdminController {
     this.admin.assertAdminSession(req);
     const chainId = this.chainConfig.resolveChainId(chainHeader);
     return this.rwaTokenAdmin.listCustodyHeldNfts(chainId);
-  }
-
-  @ApiOperation({
-    summary: '[Admin] Active listed RWA cards only (legacy — prefer GET /cards)',
-  })
-  @Get('listings')
-  async listListedCards(
-    @Req() req: Request,
-    @Query() _query: AdminRwaTokenListQueryDto,
-    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
-  ) {
-    this.admin.assertAdminSession(req);
-    const chainId = this.chainConfig.resolveChainId(chainHeader);
-    return this.rwaTokenAdmin.listActiveListedCards(chainId);
   }
 
   @ApiOperation({
@@ -166,6 +151,7 @@ export class RwaTokenAdminController {
       tokenId,
       displayName: row.displayName,
       displayImageUrl: row.displayImageUrl,
+      displayImageBackUrl: row.displayImageBackUrl,
       collectionKey: row.collectionKey,
     };
   }

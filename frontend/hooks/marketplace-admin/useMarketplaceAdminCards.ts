@@ -5,6 +5,7 @@ import {
   getAdminRwaCards,
   patchAdminRwaToken,
   postAdminPreviewRwaMetadataImage,
+  postAdminRwaSlabImage,
   rq,
 } from "@/lib/core";
 import { useAppChain } from "@/providers/AppChainProvider";
@@ -43,10 +44,21 @@ export function useMarketplaceAdminCards() {
     return postAdminPreviewRwaMetadataImage(tokenId);
   };
 
+  const uploadSlabImage = async (
+    tokenId: number,
+    face: "front" | "back",
+    file: File,
+  ) => {
+    const result = await postAdminRwaSlabImage(tokenId, face, file);
+    await invalidateCard(tokenId);
+    return result;
+  };
+
   return {
     query,
     updateMutation,
     previewMetadataImage,
+    uploadSlabImage,
     invalidateCard,
   };
 }

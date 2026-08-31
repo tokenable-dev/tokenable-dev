@@ -37,11 +37,12 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
   "metadataCid": "Qm...",
   "imageCid": "Qm...",
   "metadata": { },
-  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab"
+  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab",
+  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab-back"
 }
 ```
 
-`displayImageUrl` is set when catalog S3 is configured (`CATALOG_COVER_S3_*`). The slab image is downloaded once (PSA URL or uploaded file), pinned to IPFS for `metadata.image`, and copied to S3 for fast UI reads. If S3 ingest fails, upload still succeeds and `displayImageUrl` is `null`.
+`displayImageUrl` / `displayImageBackUrl` are set when catalog S3 is configured (`CATALOG_COVER_S3_*`). The mint image is pinned to IPFS; the front is copied to S3 `/slab`. If PSA metadata includes a back URL (`certImageBackUrl`), it is copied to `/slab-back`. If S3 ingest fails, upload still succeeds and the corresponding field is `null`.
 
 ---
 
@@ -73,7 +74,8 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
   "tokenURI": "ipfs://Qm.../metadata.json",
   "certNumber": "83179580",
   "deliveryMode": "custody",
-  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab"
+  "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab",
+  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab-back"
 }
 ```
 
@@ -83,7 +85,8 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
 | `tokenURI` | Yes | From `POST /rwa/upload` |
 | `certNumber` | Yes | PSA cert number — permanent physical asset identity; used to derive `vaultRef = keccak256(certNumber.toUpperCase())` |
 | `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`; **active marketplace partner wallet + company Origin address required**) |
-| `displayImageUrl` | No | Pass through from upload response. Stored on `rwa_tokens.display_image_url` only when the URL matches the platform S3 key for this `certNumber` + chain. Spoofed URLs are ignored (mint still succeeds). |
+| `displayImageUrl` | No | Pass through from upload response. Stored on `rwa_tokens.display_image_url` only when the URL matches the platform S3 **front** key for this `certNumber` + chain. Spoofed URLs are ignored (mint still succeeds). |
+| `displayImageBackUrl` | No | Same for the **back** key (`…/slab-back`). |
 
 **Mint paths that set `display_image_url`:** sell/custody upload+mint (Phase 1), partner bulk mint prepare+commit (Phase 2), vault submission admin mint, P2P listing create (optional `displayImageUrl` / `imageUrl`). Legacy rows: admin `POST /marketplace/admin/rwa-slab/backfill-display-images` (Phase 3).
 
@@ -203,12 +206,6 @@ User tap **I've received my cards**. Batch must belong to the active chain. Requ
 | `REDEEM_AUTO_RECEIPT_ENABLED` | Default on when Track is on; set `0` to only stamp delivery + remind |
 | `REDEEM_AUTO_RECEIPT_GRACE_DAYS` | Days after delivery before auto confirm (default `3`; ignored when `GRACE_SECONDS` is set) |
 | `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` | Optional override for dev/test (e.g. `300` = 5 minutes) |
-
-## `POST /api/rwa/redeem-request`
-
-**Deprecated** for unpaid calls — returns 400 directing clients to `redeem-batch`.
-
----
 
 ## `GET /api/rwa/redemptions/mine`
 

@@ -161,7 +161,7 @@ export function PortfolioTxDetailDrawer({
                       </span>
                     </div>
                     <p className="pf-tx-drawer__note pf-tx-drawer__note--danger tkl-mono">
-                      This transaction failed. No funds were moved.
+                      Failed. No funds moved. Retry from the listing.
                     </p>
                   </>
                 ) : isPending ? (

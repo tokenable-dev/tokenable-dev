@@ -31,6 +31,7 @@ export type AdminRwaCardRow = {
   certNumber: string | null;
   displayName: string | null;
   displayImageUrl: string | null;
+  displayImageBackUrl: string | null;
   catalogImageUrl: string | null;
   resolvedImageUrl: string | null;
   collectionKey: string | null;
@@ -43,9 +44,6 @@ export type AdminRwaCardRow = {
   /** Present when burn done and physical release not yet confirmed. */
   pendingReleaseRedemptionId: string | null;
 };
-
-/** @deprecated use AdminRwaCardRow */
-export type AdminListedRwaCardRow = AdminRwaCardRow;
 
 export type AdminCustodyNftRow = {
   tokenId: number;
@@ -216,6 +214,7 @@ export class RwaTokenAdminService {
           certNumber: registry.certNumber ?? null,
           displayName: registry.displayName ?? null,
           displayImageUrl: registry.displayImageUrl?.trim() ?? null,
+          displayImageBackUrl: registry.displayImageBackUrl?.trim() ?? null,
           catalogImageUrl,
           resolvedImageUrl,
           collectionKey,
@@ -234,14 +233,6 @@ export class RwaTokenAdminService {
     );
 
     return { items };
-  }
-
-  /** @deprecated use listAllRegistryCards — kept for backward-compatible route. */
-  async listActiveListedCards(chainId: SupportedChainId): Promise<{ items: AdminRwaCardRow[] }> {
-    const all = await this.listAllRegistryCards(chainId);
-    return {
-      items: all.items.filter((row) => row.hasActiveListing),
-    };
   }
 
   async updateTokenAdmin(

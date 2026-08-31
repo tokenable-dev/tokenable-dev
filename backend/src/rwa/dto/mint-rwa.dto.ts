@@ -58,4 +58,12 @@ export class MintRwaDto {
   @IsOptional()
   @IsString()
   displayImageUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Platform S3 slab-back URL from upload response (validated server-side)',
+  })
+  @IsOptional()
+  @IsString()
+  displayImageBackUrl?: string;
 }

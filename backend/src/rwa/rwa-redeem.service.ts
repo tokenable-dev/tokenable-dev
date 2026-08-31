@@ -23,7 +23,6 @@ import { VaultService } from '../vault/vault.service';
 import {
   RedeemBatchCustodyDto,
   RedeemBatchRequestDto,
-  RedeemRequestDto,
 } from './dto/redeem-request.dto';
 import type { RedeemCountry, RedeemEstimate } from './redeem-fee.types';
 import { RedeemShippingFeeCalculator } from './redeem-shipping-fee.calculator';
@@ -189,17 +188,6 @@ export class RwaRedeemService {
       );
     }
     return estimate;
-  }
-
-  /** Legacy single-card path without payment — blocked. Use redeem-batch. */
-  async requestRedemption(
-    _user: User,
-    _dto: RedeemRequestDto,
-    _chainId: SupportedChainId,
-  ) {
-    throw new BadRequestException(
-      'Use POST /rwa/redeem-batch with paymentTxHash (USDC to platform fee recipient)',
-    );
   }
 
   async requestRedemptionBatch(

@@ -219,6 +219,8 @@ pending_deposit
 | `burned_at` | Set on adminBurn |
 | `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
 | `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `TKB Vault`) |
+| `display_image_url` | Platform S3 slab front (mint or admin) |
+| `display_image_back_url` | Platform S3 slab back (mint or admin) |
 | **Unique constraint** | `(token_contract, cert_number) WHERE burned_at IS NULL` — allows re-mint of same cert after burn |
 
 ---
@@ -268,6 +270,8 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
 | `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
 | `maintenance/add_bulk_mint_slab_display_image_url.sql` | Add `bulk_mint_job_items.slab_display_image_url` (S3 cache from prepare) |
+| `maintenance/add_rwa_tokens_display_image_back_url.sql` | Existing DBs: `rwa_tokens.display_image_back_url` |
+| `maintenance/add_bulk_mint_slab_display_image_back_url.sql` | Existing DBs: `bulk_mint_job_items.slab_display_image_back_url` |
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |

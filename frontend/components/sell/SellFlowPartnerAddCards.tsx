@@ -74,8 +74,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
           <div className="sell-flow-eyebrow">Partner vault</div>
           <h1 className="sell-flow-h1">Scan the cards you want to list</h1>
           <p className="sell-flow-sub sell-flow-sub--partner">
-            Scan the QR on the slab or type the cert number — we&rsquo;ll pull the details from
-            PSA. Your cards stay in your vault; nothing ships.
+            Scan the slab QR or type the cert number. Cards stay in your vault.
           </p>
 
           <div className="sell-flow-glass sell-flow-glass--partner-input">

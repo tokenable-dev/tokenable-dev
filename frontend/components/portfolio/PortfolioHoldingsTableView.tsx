@@ -96,7 +96,7 @@ export function PortfolioHoldingsTableView({
                     <div className="pf-table-thumb">
                       {row.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.imageUrl} alt="" />
+                        <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
                       ) : null}
                     </div>
                     <div className="pf-table-card-copy">

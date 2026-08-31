@@ -14,7 +14,8 @@ import { Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  // 300 unused; keep 500 (font-medium / .tk-caption) and 800 (home/vault titles).
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-inter",
   display: "swap",
 });

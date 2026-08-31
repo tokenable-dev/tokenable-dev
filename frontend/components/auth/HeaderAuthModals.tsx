@@ -1,19 +1,21 @@
 "use client";
 
+import { WalletsDialog } from "@privy-io/react-auth/ui";
+import { usePrivy } from "@privy-io/react-auth";
 import { PrivyWalletMismatchModal } from "./PrivyWalletMismatchModal";
 import { KycRequiredModal } from "./KycRequiredModal";
-import { WalletsDialog } from "@privy-io/react-auth/ui";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 
 /** Mount once near the app shell (`TkHeader`). */
 export function HeaderAuthModals() {
   const mounted = useClientMounted();
+  const { authenticated } = usePrivy();
 
   if (!mounted) return null;
 
   return (
     <>
-      <WalletsDialog />
+      {authenticated ? <WalletsDialog /> : null}
       <PrivyWalletMismatchModal />
       <KycRequiredModal />
     </>

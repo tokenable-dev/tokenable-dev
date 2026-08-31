@@ -78,7 +78,7 @@ V1: all roles granted to the same backend EOA at `initialize()`. Can be split la
 1. **One active NFT per physical card** — enforced by `activeTokenIdByVaultRef` mapping
 2. **Token IDs never reused** — `_nextTokenId` only increments
 3. **Burns work while paused** — `_beforeTokenTransfer` skips pause check when `to == address(0)`
-4. **No permissionless owner burn** — only `BURNER_ROLE` can burn; users initiate via `POST /rwa/redeem-request`
+4. **No permissionless owner burn** — only `BURNER_ROLE` can burn; users initiate via `POST /rwa/redeem-batch`
 5. **vaultRef is permanent** — stored per tokenId even after burn (audit trail)
 6. **UUPS proxy** — implementation can be upgraded without changing the proxy address
 

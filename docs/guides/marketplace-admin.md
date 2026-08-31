@@ -18,7 +18,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
 | `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
-| `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
+| `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, register missing slab front/back to S3, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
 | `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | One row per sale (`order_hash`); resales before auto-pay show as Sale N of M. Pay early (~95% USDC) or wait ~5 min; reject to skip |
 | `/marketplace/admin/partners` | **Partners** | Company display name + wallet for Self vault; optional encrypted PK for consignment mint & list |
@@ -205,11 +205,11 @@ Korean list UI (`전체 유저` / `플래그·제한` stub). Filters: KYC, accou
 
 List/detail enrichment: `role`, `partner`, `custodyCardCount` (minted vault cycles), `accountStatus`/`strikeCount` placeholders.
 
-### Listed RWA cards
+### RWA cards
 
 | Method | Path |
 |--------|------|
-| `GET` | `/marketplace/admin/rwa-tokens/listings` |
+| `GET` | `/marketplace/admin/rwa-tokens/cards` |
 | `PATCH` | `/marketplace/admin/rwa-tokens/:tokenId` |
 | `POST` | `/marketplace/admin/rwa-tokens/:tokenId/preview-metadata-image` |
 

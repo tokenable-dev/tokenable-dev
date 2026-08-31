@@ -58,20 +58,6 @@ export class CardhedgerMintService {
     return this.certLookup.normalizeCertDigits(cert);
   }
 
-  async getCardRowByCert(cert: string): Promise<{
-    row: CardhedgerCardRow | null;
-    certDescription: string | null;
-  }> {
-    return this.certLookup.getCardRowByCert(cert);
-  }
-
-  private async fetchCardRowsByCertsBatch(
-    certs: string[],
-    descriptionOut?: Map<string, string>,
-  ): Promise<Map<string, CardhedgerCardRow>> {
-    return this.certLookup.fetchCardRowsByCertsBatch(certs, descriptionOut);
-  }
-
   private async mapInBatches<T, R>(
     input: readonly T[],
     concurrency: number,
@@ -388,7 +374,7 @@ export class CardhedgerMintService {
         }
 
         if (flags.certPricePilotCompare) {
-          const legacyMap = await this.fetchCardRowsByCertsBatch(certs);
+          const legacyMap = await this.certLookup.fetchCardRowsByCertsBatch(certs);
           this.certPricing.logPilotPriceDiffs(
             certPriceByDigits,
             legacyMap,
@@ -406,7 +392,7 @@ export class CardhedgerMintService {
         ];
         if (missingIdentity.length > 0) {
           const descFallback = new Map<string, string>();
-          const fallback = await this.fetchCardRowsByCertsBatch(
+          const fallback = await this.certLookup.fetchCardRowsByCertsBatch(
             missingIdentity,
             descFallback,
           );
@@ -426,7 +412,7 @@ export class CardhedgerMintService {
         );
       } else {
         const descFallback = new Map<string, string>();
-        certCardByDigits = await this.fetchCardRowsByCertsBatch(
+        certCardByDigits = await this.certLookup.fetchCardRowsByCertsBatch(
           certs,
           descFallback,
         );
@@ -673,17 +659,12 @@ export class CardhedgerMintService {
     let certDescription: string | null = null;
     if (certDigits && this.mintPreviewUseCertBatch()) {
       const descOut = new Map<string, string>();
-      const certMap = await this.fetchCardRowsByCertsBatch(
+      const certMap = await this.certLookup.fetchCardRowsByCertsBatch(
         [certDigits],
         descOut,
       );
       batchRow = certMap.get(certDigits);
       certDescription = descOut.get(certDigits) ?? null;
-      if (!certDescription) {
-        const { certDescription: fromLookup } =
-          await this.getCardRowByCert(certDigits);
-        certDescription = fromLookup;
-      }
     }
 
     const graded =

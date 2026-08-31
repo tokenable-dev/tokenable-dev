@@ -126,6 +126,30 @@ Stored `components.cardhedgerCardId` is re-checked the same way (no DB migration
 
 **수정:** `cardhedgerRowMatchesPsaVariety` leftover-identity matching; `CardhedgerResolveService` Path 0/1 and `card-match` variety gates; `tryResolveCardIdByCert` refuses a conflicting cert `card_id`; mint preview / attach / comps / cert-ID audit use `cardhedgerCertRowUsableForPsaVariety`.
 
+### PSA One Piece `Championship 2024-Top Prize` (cert `161565251` Nefeltari Vivi #086)
+
+PSA Brand is **`ONE PIECE JAPANESE PROMOS`**, Variety **`Championship 2024-Top Prize`**, Card # **`086`**. Cardhedger `details-by-certs` often returns **`card: null`**. The catalog slot for this stamp is the **parent expansion** row **`OP05-086` / `variant: "Championship 2024"`** (`2023 One Piece Japanese Awakening of the New Era`). There is no Vivi `Top Prize` row; `Top Prize` on Cardhedger is a **different character** (e.g. Ace OP07-119).
+
+**수정:** (1) leftover PSA `top`/`prize` maps to Cardhedger `Championship {year}` only (not Base, Finalist, or a yearless `Top Prize`), (2) numeric PSA # ↔ `OP05-086` suffix, (3) set alias `one piece japanese`, (4) search `Name Championship 2024` (no Top Prize token, so Ace does not steal the hit).
+
+### PSA One Piece `RED MANGA ALTERNATE ART` (cert `139887849` Monkey D. Luffy OP13-118)
+
+Official pipeline is still **cert → `details-by-certs` → Variety gate → `/v1/cards/comps`**. For this cert Cardhedger already returns the right catalog row (`OP13-118` / `variant: "Red Manga"`) and PSA 10 comps exist. Tokenable used to **reject that row** because PSA Variety is **`RED MANGA ALTERNATE ART`** while the catalog string is only **`Red Manga`**. Sibling rows **`Alternate Art`**, **`Manga`**, and **`Base`** are different `card_id`s and must not steal comps.
+
+**수정:** leftover PSA `alternate`/`art` maps to Cardhedger **`Red Manga` only** (requires both `red` and `manga` on `variant`). Do not treat this label as a Pokémon rarity Base slot (unlike SAR).
+
+**Comps are empty after a correct match.** Tokenable already calls `POST /v1/cards/comps` with that Championship `card_id` + `grade: "PSA 10"`. Cardhedger returns **404** `No sales data found for this card and grade`. `prices-by-card` / `all-prices-by-card` are also `[]`. Cert `prices-by-cert` still has `card: null` because GemRate `universal_gemrate_id` is empty — sales never land on this overlay row.
+
+Sibling rows **do** have comps and must not be used for this slab:
+
+| Cardhedger row | PSA 10 comps (order of magnitude) |
+|---|---|
+| JP `Championship 2024` OP05-086 (correct stamp) | none |
+| JP `Base` OP05-086 | ~$30–40 (pack single) |
+| EN `Base` OP05-086 | mixed, including thousand-dollar outliers (not this Japanese promo) |
+
+Preview reason `cardhedger_no_sales_for_grade` is this 404, not a Tokenable wiring miss. Do not fall back to Base comps or `segment_fallback` FMV (~$58 on the 2023 One Piece bucket). Last price stays empty until Cardhedger attributes sales to the Championship `card_id`.
+
 ### 관련 코드 (참고)
 
 - `frontend/components/vault/MintForm.tsx` / `frontend/lib/vault/buildMintMetadata.ts` — 민팅 시 `graded.psa.Variety` 저장.

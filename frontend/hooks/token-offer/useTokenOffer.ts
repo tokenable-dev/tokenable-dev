@@ -17,6 +17,7 @@ import { useSeaportOrderSigner } from "@/lib/privy";
 import { mapWalletError } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
+import { isLiveAskListing } from "@/lib/marketplace/collectionListingModalHelpers";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
   submitTokenBid,
@@ -191,7 +192,7 @@ export function useTokenOffer(input: {
 
   const askMicros = askPriceMicros(listing);
   const askUsdc = Number(formatUnits(askMicros, 6));
-  const hasListedAsk = askUsdc > 0;
+  const hasListedAsk = isLiveAskListing(listing) && askUsdc > 0;
 
   const priceOk = useMemo(() => {
     const n = parseFloat(price.replace(/[^0-9.]/g, ""));
@@ -258,7 +259,7 @@ export function useTokenOffer(input: {
     }
     if (errorMsg) return { text: errorMsg, tone: "error" as const };
     return {
-      text: "No bid fee · 5% charged on sale only",
+      text: "No bid fee.",
       tone: "muted" as const,
     };
   }, [
@@ -425,7 +426,7 @@ export function useTokenOffer(input: {
   };
 
   const ctaLabel = !address
-    ? "Connect wallet to bid"
+    ? "Connect wallet"
     : walletSignerMissing
       ? "Open wallet…"
       : busy

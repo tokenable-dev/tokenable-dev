@@ -86,10 +86,10 @@ export function ListRwaModalFormView({
     : isSetPrice
       ? isReplaceListing
         ? "Update price →"
-        : "List for sale →"
+        : "List"
       : isReplaceListing
         ? "Update listing"
-        : "List for sale";
+        : "List";
 
   const listedAt =
     listedPriceUsd != null && Number.isFinite(listedPriceUsd)
@@ -165,11 +165,11 @@ export function ListRwaModalFormView({
       {crossingBidsForInstantSale.length >= 2 && selectedBidHash ? (
         <div className="rounded-xl border border-mint/25 bg-mint/[0.07] px-3 py-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-mint/95">
-            Instant sell target
+            Instant sell
           </p>
           <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
-            {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid
-            to sell into — only that offer is matched; other bids stay on the book.
+            Sells now to the top bid. {crossingBidsForInstantSale.length} bids
+            can fill at this price — pick one; other bids stay on the book.
           </p>
           <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1">
             {crossingBidsForInstantSale.map((b) => {

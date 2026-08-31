@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getResolvedRwaAsset, rq, marketplaceRqPolicy } from "@/lib/core";
+import { getResolvedRwaAsset, rq, marketplaceRqPolicy, type RwaMetadata } from "@/lib/core";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -9,7 +9,7 @@ import {
 import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
 
 function cachedAssetInitialData(tokenId: number) {
-  const cachedMeta = getCachedRwaMetadata(tokenId);
+  const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
   const cachedImg = getCachedRwaImageUrl(tokenId);
   if (!cachedMeta && !cachedImg) return undefined;
   return {
@@ -17,6 +17,7 @@ function cachedAssetInitialData(tokenId: number) {
     tokenURI: "",
     metadata: cachedMeta,
     imageUrl: cachedImg,
+    imageBackUrl: null as string | null,
   };
 }
 
@@ -31,6 +32,7 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
 
   const metadata = metaBundle?.metadata ?? null;
   const imageUrl = metaBundle?.imageUrl ?? null;
+  const imageBackUrl = metaBundle?.imageBackUrl ?? null;
 
   const { data: metadataDerivedCollectionKey } = useQuery({
     queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI),
@@ -49,6 +51,7 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
     metaBundle,
     metadata,
     imageUrl,
+    imageBackUrl,
     metaLoading,
     metadataDerivedCollectionKey: metadataDerivedCollectionKey ?? null,
   };

@@ -14,6 +14,12 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   {
     kind: 'column',
     table: 'rwa_tokens',
+    column: 'display_image_back_url',
+    fix: 'maintenance/add_rwa_tokens_display_image_back_url.sql',
+  },
+  {
+    kind: 'column',
+    table: 'rwa_tokens',
     column: 'settlement_policy',
     fix: 'maintenance/add_rwa_tokens_settlement_policy.sql',
   },

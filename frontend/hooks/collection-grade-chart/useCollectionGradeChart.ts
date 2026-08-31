@@ -136,6 +136,7 @@ export function useCollectionGradeChart(input: {
       getCollectionGradePriceSeries(collectionKey, activeGrade, chartDays),
     enabled:
       marketSeriesEnabled &&
+      !marketSeriesLoading &&
       collectionKey.length > 0 &&
       activeGrade.length > 0 &&
       !preferSnapshot,

@@ -61,7 +61,7 @@ export function actionCompleteConfig(
         sub:
           override ??
           (feeNet
-            ? `$${feeNet} is on its way to your account.`
+            ? `$${feeNet} paid to your account.`
             : "Your listing matched — USDC should appear in your wallet shortly."),
       };
     }
@@ -82,8 +82,8 @@ export function actionCompleteConfig(
         sub:
           override ??
           (price
-            ? `Listed at $${price}. We'll let you know when a bid meets it.`
-            : "Your listing is live. We'll let you know when a bid meets it."),
+            ? `You get $${price} when it sells.`
+            : "You get paid when it sells."),
       };
     case "price-updated":
       return {
@@ -92,14 +92,14 @@ export function actionCompleteConfig(
         sub:
           override ??
           (price
-            ? `Listed at $${price}. We'll let you know when a bid meets it.`
-            : "Your ask price was updated. We'll let you know when a bid meets it."),
+            ? `Listed at $${price}.`
+            : "Your ask price was updated."),
       };
     case "fill-failed":
       return {
         tone: "neg",
-        title: "That bid could no longer be filled",
-        sub: override ?? "The offer was removed. Your price is unchanged.",
+        title: "Bid no longer available",
+        sub: override ?? "Your price is unchanged.",
       };
     case "success":
     default:

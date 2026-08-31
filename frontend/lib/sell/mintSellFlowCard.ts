@@ -121,6 +121,7 @@ export async function mintSellFlowCardByCert(input: {
     chainId: input.chainId,
     deliveryMode: "direct",
     displayImageUrl: uploadResult.displayImageUrl,
+    displayImageBackUrl: uploadResult.displayImageBackUrl,
   });
   await syncRwaTokenAfterMint(mintResult.tokenId);
 

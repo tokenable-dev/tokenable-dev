@@ -12,6 +12,7 @@ import {
   cardNumberTokenForCardhedgerSearch,
   cardIdFromPsaCertLookup,
   catalogInsertNumberCompatibleWithRow,
+  catalogTcgPrefixedNumberCompatible,
   catalogIdentityNameNeedles,
   catalogProductFamiliesCompatible,
   catalogRowTrustedForMarketData,
@@ -24,6 +25,7 @@ import {
   cardhedgerExtraSearchQueries,
   cardhedgerSetAliasTokens,
   hintsLookLikeMegaEvolutionPromo,
+  hintsLookLikeOnePieceChampionshipStamp,
   hintsLookLikePrizmRookieSignatures,
   hintsLookLikeSvBlackStarPromo,
   hintsLookLikeSwshBlackStarPromo,
@@ -353,6 +355,12 @@ export class CardhedgerResolveService {
       psaBrand: q.psaBrand,
       psaVariety: q.psaVariety,
     });
+    const isOnePieceChampionship = hintsLookLikeOnePieceChampionshipStamp({
+      cardSet: q.cardSet,
+      psaBrand: q.psaBrand,
+      psaVariety: q.psaVariety,
+      cardName: q.cardName,
+    });
 
     // PSA Subject is often `FULL ART/UMBREON VMAX-HYPER`; Cardhedger indexes `Umbreon VMAX`.
     const identityNames = catalogIdentityNameNeedles(
@@ -375,7 +383,7 @@ export class CardhedgerResolveService {
       push([n, identityNum, identitySetHint].filter(Boolean).join(' ').trim());
     }
 
-    if (isKnownPromoType || isPrizmRookieSignatures) {
+    if (isKnownPromoType || isPrizmRookieSignatures || isOnePieceChampionship) {
       for (const sq of cardhedgerExtraSearchQueries({
         ...extraQueryHints,
         psaYear: q.psaYear,
@@ -645,7 +653,11 @@ export class CardhedgerResolveService {
       },
       row as Record<string, unknown>,
     );
-    const numberMatched = numberExact || numberInsertBridge;
+    const numberTcgPrefix = catalogTcgPrefixedNumberCompatible(
+      hints.cardNumber,
+      rowNum,
+    );
+    const numberMatched = numberExact || numberInsertBridge || numberTcgPrefix;
 
     if (
       this.parallelRowFailsExpectation(hints.psaVariety ?? null, row, {

@@ -60,6 +60,18 @@ export function isCatalogCoverS3Url(url: string | null | undefined): boolean {
   }
 }
 
+/** `next/image` optimizer — HTTPS catalog covers on S3/CloudFront only. */
+export function isNextImageCatalogCoverUrl(url: string | null | undefined): boolean {
+  const raw = normalizeCatalogCoverPublicUrl(url);
+  if (!raw || !isCatalogCoverS3Url(raw)) return false;
+  try {
+    const u = new URL(raw.startsWith("//") ? `https:${raw}` : raw);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Same-origin proxy URL so WebGL TextureLoader (crossOrigin=anonymous) can
  * decode catalog covers when the S3 bucket has no CORS rules.

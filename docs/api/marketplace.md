@@ -45,7 +45,7 @@ Register a Seaport order (ask or card-level bid/offer) off-chain.
 }
 ```
 
-For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). **An active ask is not required** — Place Bid uses a minted (or previously traded) token in the bucket as the Seaport consideration id (`GET …/bid-anchor-tokens`). Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
 
 ---
 
@@ -280,6 +280,12 @@ Returns a cursor-paginated list of collection summaries, or a **text search** wh
 | `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
 | `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match collection cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. Individual minted cards are searched via `GET /api/marketplace/search`. |
 
+### `GET /api/marketplace/collections/home-feed`
+
+Home ticker, Top movers, and Just vaulted in one response. Ranking uses materialized snapshots (90-day gainers, 1Y abs change for the ticker, `createdAt` for Just vaulted). Returns only the displayed collections plus their list snapshots. Cached ~30s per chain.
+
+Response: `{ topMovers, justVaulted, ticker, snapshots }`.
+
 ---
 
 ### `GET /api/marketplace/search`
@@ -402,6 +408,10 @@ Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this colle
 | Query | Description |
 |-------|-------------|
 | `bypassCache=true` | Skip cache and recompute |
+
+### `GET /api/marketplace/collections/:key/bid-anchor-tokens`
+
+Minted or previously traded token ids in this bucket. Used by Place Bid when there is **no live ask**. Does not require a listing.
 
 ---
 

@@ -35,7 +35,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
 | `/site-access/verify` | `app/site-access/verify/route.ts` | Route handler for gate cookie (if used) |
-| `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Token detail — slab panel, buy/sell, price compare |
+| `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Legacy redirect → collection detail + `?listing=` |
 | `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection — order book, dual chart, AI insight, listings |
 | `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
 | `/marketplace/admin` | `app/marketplace/admin/page.tsx` | Admin — **Overview** (platform KPIs, funnel, ops metrics) |
@@ -63,7 +63,6 @@ Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=�
 | `app/layout.tsx` | Global | HTML shell, fonts, global providers wrapper |
 | `app/providers.tsx` | Global | `PrivyAppProviders` → `PrivyProvider` → `QueryClient` → `WagmiProvider (@privy-io/wagmi)` → `WalletDataProvider` |
 | `app/portfolio/layout.tsx` | `/portfolio` | Portfolio-scoped layout |
-| `app/marketplace/[tokenId]/layout.tsx` | `/marketplace/[tokenId]` | Token-detail layout |
 | `app/marketplace/collections/[collectionKey]/layout.tsx` | Collection detail | Collection layout |
 | `app/marketplace/admin/layout.tsx` | `/marketplace/admin/*` | Admin gate + backoffice shell (`MarketplaceAdminGate`) |
 
@@ -83,7 +82,7 @@ Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=�
 | `/settings` | Session user + prefs (`PATCH /api/auth/profile`); address book (`/api/user/shipping-addresses`); USDC + Add funds (MoonPay); KYC via `/kyc`; delete via `POST /api/auth/delete-account` |
 | `/profile` | Redirect → `/settings` |
 | `/site-access` | `POST /api/site-access/verify` |
-| `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
+| `/marketplace/[tokenId]` | `POST /api/marketplace/collections/token-collection-keys` then redirect |
 | `/marketplace/collections/[collectionKey]` | Collection detail, cardhedger, market-series, stats, ai-insight, Seaport orders |
 | `/marketplace/admin/*` | `/api/marketplace/admin/auth/*`, `/api/marketplace/admin/analytics`, `/api/marketplace/admin/users/*`, `/api/marketplace/admin/rwa-tokens/*`, `/api/marketplace/collections/:key/admin/*`, `/api/admin/cardhedger/*` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
 

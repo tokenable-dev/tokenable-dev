@@ -4,6 +4,11 @@ export const LIVE_MARKET_LINE = "rgba(16, 211, 51, 1)";
 export const COLLECTION_DETAIL_CHART_LINE = "rgb(26, 111, 255)";
 export const COLLECTION_DETAIL_LINE_WIDTH = 2.5;
 export const COLLECTION_DETAIL_AXIS_LABEL = "rgba(255, 255, 255, 0.55)";
+/** Card.html canvas `fMark` / `fDate` — CSS vars are invalid in ECharts canvas fonts. */
+export const COLLECTION_DETAIL_CHART_MONO =
+  "'JetBrains Mono', ui-monospace, monospace";
+export const COLLECTION_DETAIL_CHART_MARK_FONT = 13;
+export const COLLECTION_DETAIL_CHART_DATE_FONT = 12;
 export const COLLECTION_DETAIL_GRID_LINE = "rgba(255, 255, 255, 0.03)";
 
 export const COLLECTION_DETAIL_CHART_AREA_GRADIENT = {

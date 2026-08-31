@@ -75,10 +75,10 @@ backend/src/
 │       └── user-kyc-event.entity.ts
 │
 ├── rwa/                        # Vault mint pipeline
-│   ├── rwa.controller.ts       # /api/rwa/upload, /mint, /redeem-request
+│   ├── rwa.controller.ts       # /api/rwa/upload, /mint, /redeem-batch
 │   ├── rwa.service.ts          # IPFS upload + PSA 10 gate
 │   ├── rwa-mint.service.ts     # Orchestrate cycle → mint to custody
-│   ├── rwa-redeem.service.ts   # Redemption request
+│   ├── rwa-redeem.service.ts   # Pay-first redeem-batch + custody
 │   ├── rwa.module.ts
 │   ├── dto/
 │   │   ├── mint-rwa.dto.ts
@@ -195,7 +195,7 @@ frontend/
 │   ├── markets/            # /markets, /markets/top100/...
 │   ├── marketplace/
 │   │   ├── collections/    # /marketplace/collections/[collectionKey]
-│   │   ├── [tokenId]/      # /marketplace/[tokenId]
+│   │   ├── [tokenId]/      # legacy redirect → collection + listing modal
 │   │   ├── other-listings/ # /marketplace/other-listings
 │   │   └── admin/          # /marketplace/admin/* (all admin pages)
 │   │       ├── custody-nfts/
@@ -214,7 +214,7 @@ frontend/
 │   │   ├── admin/          # All admin page components
 │   │   ├── collection-detail/
 │   │   ├── collection-trading/
-│   │   ├── rwa-detail/
+│   │   ├── rwa-detail/     # ListModalHost + theme (page tree removed)
 │   │   └── ...
 │   ├── network/            # NetworkSwitcher
 │   ├── portfolio/
@@ -228,7 +228,7 @@ frontend/
 │   ├── auth/               # useAuthSession, usePrivySession
 │   ├── marketplace-admin/  # useMarketplaceAdminCards, useMarketplaceAdminCustodyNfts, etc.
 │   ├── portfolio/
-│   ├── rwa-detail/
+│   ├── rwa-detail/         # buy-flow + metadata (collection checkout / cert)
 │   ├── unified-order-book/
 │   ├── sell/               # useSellFlow, useSellShipping
 │   ├── vault/              # useMintForm
@@ -319,7 +319,7 @@ docs/
 ├── api/
 │   ├── README.md
 │   ├── auth.md                 # Auth API (Privy session, session, logout)
-│   ├── rwa.md                  # RWA API (upload, mint, redeem-request)
+│   ├── rwa.md                  # RWA API (upload, mint, redeem-batch)
 │   ├── marketplace.md          # Marketplace orders + collections + portfolio
 │   ├── marketplace-admin.md    # Admin API (custody, deliver, burn, users)
 │   ├── blockchain.md           # Blockchain read API

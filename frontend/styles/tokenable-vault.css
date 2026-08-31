@@ -248,21 +248,21 @@
 }
 
 .vault-stepper__dot--active {
-  background: var(--azure);
-  color: #fff;
-  box-shadow: 0 0 0 0 rgba(26, 111, 255, 0.5);
+  background: var(--progress-current);
+  color: #0e0e0e;
+  box-shadow: 0 0 0 0 rgba(76, 222, 76, 0.5);
   animation: vault-stepper-pulse-ring 1.8s infinite;
 }
 
-/* Submit/Shipping simple flow: static azure glow (no pulse) */
+/* Submit/Shipping simple flow: static glow (no pulse) */
 .vault-stepper:not(.vault-stepper--rich) .vault-stepper__dot--active {
-  box-shadow: 0 0 16px rgba(26, 111, 255, 0.35);
+  box-shadow: 0 0 16px rgba(76, 222, 76, 0.35);
   animation: none;
 }
 
-/* Detail rich bar: static azure glow (Vault-Detail.html .circle--active) */
+/* Detail rich bar: static glow (Vault-Detail.html .circle--active) */
 .vault-stepper--rich .vault-stepper__dot--active {
-  box-shadow: 0 0 16px rgba(26, 111, 255, 0.35);
+  box-shadow: 0 0 16px rgba(76, 222, 76, 0.35);
   animation: none;
 }
 
@@ -272,18 +272,18 @@
 
 @keyframes vault-stepper-pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(26, 111, 255, 0.5);
+    box-shadow: 0 0 0 0 rgba(76, 222, 76, 0.5);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(26, 111, 255, 0);
+    box-shadow: 0 0 0 8px rgba(76, 222, 76, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(26, 111, 255, 0);
+    box-shadow: 0 0 0 0 rgba(76, 222, 76, 0);
   }
 }
 
 .vault-stepper__dot--done {
-  background: var(--pos);
+  background: var(--progress-done);
   color: #fff;
 }
 
@@ -330,7 +330,7 @@
 }
 
 .vault-stepper__line--gradient {
-  background: linear-gradient(90deg, var(--pos), var(--azure));
+  background: linear-gradient(90deg, var(--progress-done), var(--progress-current));
 }
 
 .vault-stepper--rejected .vault-stepper__line {
@@ -350,7 +350,7 @@
 }
 
 .vault-stepper__line--done {
-  background: var(--pos);
+  background: var(--progress-done);
 }
 
 .vault-stepper__line--active {
@@ -371,7 +371,7 @@
 }
 
 .vault-stepper__label--done {
-  color: var(--pos);
+  color: var(--progress-current);
 }
 
 /* ── Submit header ────────────────────────────────────────────────────────── */
@@ -2063,7 +2063,7 @@
 .vault-ship-progress__fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--pos);
+  background: var(--progress-current);
   transition: width 0.3s ease;
 }
 
@@ -2076,7 +2076,7 @@
 }
 
 .vault-ship-progress__text--done {
-  color: var(--pos);
+  color: var(--progress-current);
 }
 
 .vault-ship-tracking {
@@ -2392,7 +2392,7 @@
 
 .vault-progress-fill {
   height: 100%;
-  background: var(--pos);
+  background: var(--progress-current);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -2807,11 +2807,11 @@
 }
 
 .vault-step-pill.done {
-  background: var(--pos);
+  background: var(--progress-done);
 }
 
 .vault-step-pill.active {
-  background: var(--azure);
+  background: var(--progress-current);
   animation: vault-pill-pulse 2s infinite;
 }
 
@@ -3316,7 +3316,7 @@
 
 .vault-hub-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 20px;
@@ -3444,18 +3444,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 60px 24px 48px;
+  padding: 72px 24px 56px;
   text-align: center;
 }
 
 .vault-empty-state__icon {
   width: 120px;
   height: 120px;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
 }
 
 .vault-empty-state__title {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -3464,7 +3464,7 @@
 
 .vault-empty-state__sub {
   max-width: 380px;
-  margin: 0 0 32px;
+  margin: 0 0 40px;
   font-size: 15px;
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.4);
@@ -3897,13 +3897,13 @@
 
 .vault-v-chip--transit,
 .vault-v-chip--verify {
-  color: var(--azure);
-  background: rgba(26, 111, 255, 0.1);
+  color: var(--progress-current);
+  background: rgba(76, 222, 76, 0.1);
 }
 
 .vault-v-chip--vaulted {
-  color: var(--pos);
-  background: rgba(0, 175, 90, 0.12);
+  color: var(--progress-current);
+  background: var(--progress-done);
 }
 
 .vault-v-chip--reject {
@@ -3944,15 +3944,15 @@
 }
 
 .vault-v-step--done .vault-v-step__dot {
-  background: var(--pos);
+  background: var(--progress-done);
   color: #fff;
   box-shadow: none;
 }
 
 .vault-v-step--current .vault-v-step__dot {
-  background: var(--azure);
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(26, 111, 255, 0.15);
+  background: var(--progress-current);
+  color: #0e0e0e;
+  box-shadow: 0 0 0 4px rgba(76, 222, 76, 0.15);
 }
 
 .vault-v-step__lbl {
@@ -3980,7 +3980,7 @@
 }
 
 .vault-v-step--done .vault-v-step__bar {
-  background: var(--pos);
+  background: var(--progress-done);
 }
 
 .vault-v-eta {
@@ -4001,14 +4001,14 @@
   margin-top: 16px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: rgba(0, 175, 90, 0.08);
+  background: rgba(76, 222, 76, 0.08);
   font-size: 13px;
-  color: #37d67a;
+  color: var(--progress-current);
   line-height: 1.5;
 }
 
 .vault-v-note a {
-  color: #37d67a;
+  color: var(--progress-current);
   font-weight: 600;
 }
 
@@ -5039,6 +5039,11 @@
   border-top-color: #fff;
   border-radius: 50%;
   animation: vault-spin 0.8s linear infinite;
+}
+
+.vault-stepper__dot--active .vault-stepper__spin {
+  border-color: rgba(14, 14, 14, 0.25);
+  border-top-color: #0e0e0e;
 }
 
 /* ── Submit Add Cards (Vault-Submit.html) ───────────────────────────────── */

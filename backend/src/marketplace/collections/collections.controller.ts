@@ -284,6 +284,16 @@ export class CollectionsController {
     });
   }
 
+  @ApiOperation({
+    summary: 'Home ticker / Top movers / Just vaulted (ranked server-side)',
+  })
+  @Get('collections/home-feed')
+  getHomeFeed(@Headers(CHAIN_ID_HEADER) chainHeader?: string) {
+    return this.collectionMarketService.getHomeFeed(
+      this.chainConfig.resolveChainId(chainHeader),
+    );
+  }
+
   /** Admin: counts by review_status for Collections filter chips */
   @ApiOperation({ summary: '[Admin] 컬렉션 review_status 카운트' })
   @Get('collections/admin/review-counts')
@@ -965,5 +975,15 @@ export class CollectionsController {
     return this.collectionService.merkleEligibleTokenIds(key, {
       bypassCache: bypassCache === '1' || bypassCache === 'true',
     });
+  }
+
+  /** Token ids for placing a card bid when the collection has no live ask. */
+  @ApiOperation({
+    summary: 'Bid anchor tokenIds (no ask required)',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Get('collections/:key/bid-anchor-tokens')
+  bidAnchorTokens(@Param('key') key: string) {
+    return this.collectionService.sampleBidAnchorTokenIds(this.normalizeKey(key));
   }
 }

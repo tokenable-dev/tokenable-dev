@@ -58,15 +58,15 @@ export function ListRwaModalSuccessView({
     !successMeta?.matched && !fillFailed
       ? isSetPrice || isReplaceListing
         ? priceUsdc != null
-          ? `Listed at $${priceUsdc.toLocaleString("en-US")}. We'll let you know when a bid meets it.`
+          ? `Listed at $${priceUsdc.toLocaleString("en-US")}.`
           : undefined
-        : `Asset #${tokenId} is now listed for ${price} USDC.`
+        : priceUsdc != null
+          ? `You get $${priceUsdc.toLocaleString("en-US")} when it sells.`
+          : `Asset #${tokenId} is now listed for ${price} USDC.`
       : undefined;
 
   const fillFailedSub = fillFailed
-    ? `The offer was removed. Your listing stays active at $${
-        priceUsdc != null ? priceUsdc.toLocaleString("en-US") : price
-      }.`
+    ? "Your price is unchanged."
     : undefined;
 
   const sub =

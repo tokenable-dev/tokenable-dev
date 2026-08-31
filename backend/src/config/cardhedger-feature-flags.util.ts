@@ -1,29 +1,32 @@
 /**
- * Cardhedger rollout feature flags (Phase 0+).
- * Parsed from env — defaults keep existing behaviour until explicitly enabled.
+ * Cardhedger opt-in flags. All default **off** so production matches the
+ * cert → resolve → comps pipeline until a flag is explicitly enabled.
  */
 
 export interface CardhedgerFeatureFlags {
-  /** Phase 2 — use POST /v1/cards/card-fmv-batch for bulk headline FMV. */
+  /** Opt-in: POST /v1/cards/card-fmv-batch for bulk headline FMV. */
   fmvBatchEnabled: boolean;
-  /** Phase 4 — cert → price via POST /v1/cards/batch-prices-by-cert. */
+  /** Opt-in: cert → price via POST /v1/cards/batch-prices-by-cert. */
   batchPricesByCertEnabled: boolean;
-  /** Phase 4 — sparse cards via POST /v1/cards/batch-price-estimate. */
+  /** Opt-in: sparse cards via POST /v1/cards/batch-price-estimate. */
   batchPriceEstimateEnabled: boolean;
-  /** Phase 5 — PSA slab OCR via POST /v1/cards/prices-by-cert-ocr. */
+  /** Opt-in: PSA slab OCR via POST /v1/cards/prices-by-cert-ocr. */
   pricesByCertOcrEnabled: boolean;
-  /** Phase 6 — try card-match before multi card-search in resolve. */
+  /** Opt-in: try card-match before multi card-search in resolve. Default off — search aliases are preferred. */
   cardMatchFirst: boolean;
-  /** Phase 2 pilot — skip comps fetch in mint-previews (headline price only). */
+  /** Opt-in: skip comps fetch in mint-previews (headline price only). */
   mintPreviewSkipComps: boolean;
-  /** Phase 4 pilot — log old vs new cert price diff (extra details-by-certs for compare). */
+  /**
+   * Pilot only: extra details-by-certs vs batch-prices-by-cert log.
+   * Default off. Do not leave on in production (duplicate upstream).
+   */
   certPricePilotCompare: boolean;
-  /** Phase 8A — inbound Cardhedger price webhook + subscribe-price-updates. */
+  /** Opt-in: inbound Cardhedger price webhook + subscribe-price-updates. */
   priceWebhookEnabled: boolean;
   priceSubscribeEnabled: boolean;
-  /** Phase 8B — nightly POST /v1/cards/price-updates delta (non-Enterprise path). */
+  /** Opt-in: nightly POST /v1/cards/price-updates delta (non-Enterprise path). */
   dailyPriceDeltaImportEnabled: boolean;
-  /** Phase 8B — optional CSV daily-price-export (Elite/Enterprise only). */
+  /** Opt-in: CSV daily-price-export (Elite/Enterprise only). */
   dailyPriceExportCsvEnabled: boolean;
 }
 

@@ -13,8 +13,6 @@ import {
   isPsaCollectorsFrom,
 } from './psa-mail.shared';
 
-/** @deprecated use PSA_ITEMS_RECEIVED_SUBJECT */
-export const PSA_VAULTED_SUBJECT = PSA_ITEMS_RECEIVED_SUBJECT;
 export const PSA_VAULTED_BODY_MARKER = PSA_VAULTED_SECURED_MARKER;
 export { PSA_ARRIVAL_BODY_MARKER };
 

@@ -15,7 +15,7 @@ function kycModalCopy(status: string | undefined): {
     return {
       title: "Verification in progress",
       description:
-        "Your identity check is still under review. This usually takes 1–2 minutes. You can continue verification or wait for approval before shipping or redeeming a card.",
+        "We'll email you when verification completes.",
       cta: "Continue verification",
     };
   }
@@ -29,8 +29,8 @@ function kycModalCopy(status: string | undefined): {
   }
   return {
     title: "Verify your identity",
-    description:
-      "To keep vaulted cards safe for custody and shipping, we need a quick identity check — ID (passport or driver’s license), a liveness selfie, usually 1–2 minutes.",
+      description:
+        "Upload a clear photo of your government ID (passport, license, or national ID). Take a quick selfie to match your ID.",
     cta: "Start Verification",
   };
 }

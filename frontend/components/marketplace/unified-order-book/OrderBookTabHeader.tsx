@@ -19,7 +19,7 @@ export function OrderBookTabHeader({
     { id: "trades" as const, label: "Trades" },
     {
       id: "book" as const,
-      label: collectionDetail ? "Order book" : "Offers",
+      label: collectionDetail ? "Listings" : "Offers",
     },
   ];
   const tabBase = collectionDetail

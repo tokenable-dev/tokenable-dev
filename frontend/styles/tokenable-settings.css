@@ -34,10 +34,17 @@
   gap: 2px;
 }
 
+.tk-settings__snav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .tk-settings__snav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   padding: 11px 14px;
   border-radius: 10px;
   cursor: pointer;
@@ -534,7 +541,7 @@
     flex-shrink: 0;
     padding: 10px 12px;
     font-size: 13.5px;
-    gap: 8px;
+    gap: 0;
   }
 
   .tk-settings__snav-item svg {

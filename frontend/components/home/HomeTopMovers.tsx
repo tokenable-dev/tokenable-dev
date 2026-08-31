@@ -14,7 +14,7 @@ export function HomeTopMovers() {
         <div>
           <h2 className="tkl-sec-title">Top movers</h2>
           <p className="tkl-sec-sub">
-            Steepest price gains across the market right now.
+            Biggest gainers right now.
           </p>
         </div>
         <Link href="/markets?sort=gainers" className="tkl-view-all">

@@ -268,6 +268,31 @@ export function stripLeadingTcgSeriesFromSetDisplay(
   return formatCardDisplaySetLabel([...lang, ...dropped].join(" "));
 }
 
+/**
+ * Line 2 / meta: drop TCG franchise + leading language (`One Piece`, `Pokemon Japanese`)
+ * so the expansion remains (`OP13 Carrying On His Will`). Does not strip set codes like `OP13`.
+ * Display-only.
+ */
+export function stripLeadingTcgFranchiseFromSetDisplay(
+  setDisplay: string | null | undefined,
+): string {
+  const raw = (setDisplay ?? "").trim();
+  if (!raw) return "";
+  const tokens = raw.replace(/\s*&\s*/g, " & ").split(/\s+/).filter(Boolean);
+  while (tokens[0] && /^\d{4}$/.test(tokens[0])) tokens.shift();
+  let rest = tokens;
+  const prefix = takeTcgFranchiseLanguagePrefix(tokens);
+  if (prefix) rest = tokens.slice(prefix.length);
+  else if (tokens[0] && TCG_LANGUAGE_PREFIX.test(tokens[0])) {
+    rest = tokens.slice(1);
+  }
+  while (rest[0] && /^\d{4}$/.test(rest[0])) rest = rest.slice(1);
+  const dropped = dropLeadingAmpersandSeries(rest);
+  if (dropped) rest = dropped;
+  if (!rest.length) return formatCardDisplaySetLabel(raw);
+  return formatCardDisplaySetLabel(rest.join(" "));
+}
+
 /** Catalog expansion prefer, then structural series omit — display only. */
 export function resolveCardDisplaySetName(
   psaBrandDisplay: string | null | undefined,
@@ -413,8 +438,10 @@ function formatLine2SetLanguageChunk(
   setName: string | null | undefined,
   language: string | null | undefined,
 ): string {
+  const raw = (setName ?? "").trim();
+  const expansion = stripLeadingTcgFranchiseFromSetDisplay(raw);
   const set = formatCardDisplaySetLabel(
-    stripLeadingTcgSeriesFromSetDisplay(setName),
+    expansion || stripLeadingTcgSeriesFromSetDisplay(raw),
   );
   const lang = formatCardDisplayLanguageShort(language) ?? language?.trim() ?? "";
   if (!set && !lang) return "";

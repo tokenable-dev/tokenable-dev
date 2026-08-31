@@ -48,7 +48,7 @@ export function VaultHubView() {
 
   return (
     <>
-      <VaultHubHeader />
+      <VaultHubHeader showSubmitCta={hasActivity} />
       {hasActivity ? <VaultActiveDashboardView /> : <VaultEmptyDashboardView />}
     </>
   );

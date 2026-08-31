@@ -4,7 +4,7 @@ import "@/styles/tokenable-portfolio.css";
 import "@/styles/tokenable-portfolio-redeem.css";
 import "@/styles/tokenable-portfolio-asset.css";
 import "@/styles/tokenable-watchlist.css";
-/* Set price / Edit price sheet (ListRwaModal + tk-price) — shared with RWA detail */
+/* ListRwaModal Set/Edit price sheet (`tk-price` in tokenable-rwa-detail.css) */
 import "@/styles/tokenable-rwa-detail.css";
 
 export const metadata: Metadata = {

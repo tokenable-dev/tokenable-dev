@@ -39,8 +39,7 @@ export function HomePartners() {
           <span className="home-partners__cta-eyebrow">Get started</span>
           <h2 className="home-partners__cta-title">Vault it. Tokenize it. Trade it.</h2>
           <p className="home-partners__cta-sub">
-            Get your cards graded, vault them securely, and trade on-chain with full
-            provenance.
+            Grade it, vault it, trade it on-chain.
           </p>
         </div>
         <div className="home-partners__cta-actions">

@@ -206,6 +206,33 @@ export function cardhedgerRowMatchesPsaVariety(
       (t) => !variantTokens.includes(t) && !PRINT_FINISH_TOKENS.has(t),
     );
     if (leftoverIdentity.length === 0) return true;
+    /**
+     * PSA One Piece championship stamps: `Championship 2024-Top Prize`.
+     * Cardhedger files the same overlay as `variant: "Championship 2024"`
+     * (distinct from other characters' `Top Prize` / Finalist / Top Player).
+     */
+    if (
+      leftoverIdentity.every(
+        (t) => t === 'top' || t === 'prize' || t === 'event',
+      ) &&
+      variantTokens.includes('championship') &&
+      variantTokens.some((t) => /^20\d{2}$/.test(t) && psaTokens.has(t))
+    ) {
+      return true;
+    }
+    /**
+     * PSA One Piece manga AA: `RED MANGA ALTERNATE ART`.
+     * Cardhedger files that print as `variant: "Red Manga"` (not `Alternate Art`).
+     * Leftover `alternate`/`art` is the PSA rarity line, not the regular AA row.
+     */
+    if (
+      leftoverIdentity.every((t) => t === 'alternate' || t === 'art') &&
+      leftoverIdentity.length > 0 &&
+      variantTokens.includes('manga') &&
+      variantTokens.includes('red')
+    ) {
+      return true;
+    }
   }
 
   const chunks = varietyMatchChunks(pv);

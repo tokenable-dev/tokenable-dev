@@ -1,5 +1,10 @@
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
 
+const PNG_1X1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 describe('RwaSlabS3Service', () => {
   const catalogCoverS3 = {
     isConfigured: jest.fn(),
@@ -42,13 +47,33 @@ describe('RwaSlabS3Service', () => {
     const url = await service.ingestMintSlabBestEffort({
       chainId: 84532,
       certNumber: '84089328',
-      buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
-      contentType: 'image/jpeg',
+      buffer: PNG_1X1,
+      contentType: 'image/png',
     });
     expect(url).toBe(
       'https://cdn.example.com/dev/covers/rwa-slabs/84532/84089328/slab',
     );
     expect(catalogCoverS3.putBytesAtKey).toHaveBeenCalled();
+  });
+
+  it('ingests back face to slab-back key', async () => {
+    catalogCoverS3.putBytesAtKey.mockResolvedValue({
+      publicUrl:
+        'https://cdn.example.com/dev/covers/rwa-slabs/84532/84089328/slab-back',
+    });
+    const url = await service.ingestMintSlabBestEffort({
+      chainId: 84532,
+      certNumber: '84089328',
+      buffer: PNG_1X1,
+      contentType: 'image/png',
+      face: 'back',
+    });
+    expect(url).toBe(
+      'https://cdn.example.com/dev/covers/rwa-slabs/84532/84089328/slab-back',
+    );
+    expect(catalogCoverS3.putBytesAtKey.mock.calls[0][0]).toContain(
+      'slab-back',
+    );
   });
 
   it('swallows S3 download failures without throwing', async () => {

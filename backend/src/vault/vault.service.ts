@@ -316,6 +316,7 @@ export class VaultService {
     certNumber: string;
     displayName?: string | null;
     displayImageUrl?: string | null;
+    displayImageBackUrl?: string | null;
     /** Persisted on `rwa_tokens`; defaults to `standard`. */
     settlementPolicy?: 'standard' | 'self_vault_hold';
     /** Self-vault partner id — set when settlementPolicy is self_vault_hold. */
@@ -349,6 +350,7 @@ export class VaultService {
         tokenUri: params.tokenURI,
         displayName: params.displayName?.trim() || null,
         displayImageUrl: params.displayImageUrl?.trim() || null,
+        displayImageBackUrl: params.displayImageBackUrl?.trim() || null,
         vaultCycleId: cycle.id,
         vaultRef,
         settlementPolicy,
@@ -361,6 +363,7 @@ export class VaultService {
           'token_uri',
           'display_name',
           'display_image_url',
+          'display_image_back_url',
           'vault_cycle_id',
           'vault_ref',
           'settlement_policy',

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS rwa_tokens (
   metadata_cid varchar(128),
   display_name varchar(512),
   display_image_url text,
+  display_image_back_url text,
   collection_key varchar(64),
   metadata_synced_at timestamptz,
   vault_cycle_id uuid REFERENCES vault_cycles(id) ON DELETE SET NULL,
@@ -42,7 +43,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_rwa_tokens_contract_cert_active
 COMMENT ON TABLE rwa_tokens IS
   'Registry of minted RWA tokens; cert and metadata synced from chain/IPFS on listing or boot sync.';
 COMMENT ON COLUMN rwa_tokens.display_image_url IS
-  'Admin override image URL; takes precedence over on-chain metadata when resolving imageUrl.';
+  'Admin override / platform S3 slab front URL; takes precedence over on-chain metadata when resolving imageUrl.';
+COMMENT ON COLUMN rwa_tokens.display_image_back_url IS
+  'Platform S3 slab back URL (mint ingest or admin upload).';
 COMMENT ON COLUMN rwa_tokens.vault_cycle_id IS
   'Links this mint to its vault_cycles row. NULL for pre-vault-lifecycle tokens.';
 COMMENT ON COLUMN rwa_tokens.vault_ref IS

@@ -54,8 +54,8 @@ backend/src/
 ├── health/                  # GET /api/health
 ├── site-access/             # Optional staging gate middleware + POST verify
 │
-├── rwa/                     # IPFS upload (Pinata), platform-signed mint, redeem-request
-│   ├── rwa.controller.ts    # POST /upload, /mint, /redeem-request
+├── rwa/                     # IPFS upload (Pinata), platform-signed mint, redeem-batch
+│   ├── rwa.controller.ts    # POST /upload, /mint, /redeem-batch
 │   ├── rwa.service.ts       # IPFS upload logic + PSA 10 gate
 │   ├── rwa-mint.service.ts  # Vault cycle + mint (custody default; direct for self vault)
 │   ├── rwa-redeem.service.ts
@@ -139,8 +139,9 @@ POST /api/rwa/mint  (JWT required)
 POST /api/marketplace/admin/rwa-tokens/:id/deliver  (custody path only)
   → RwaChainWriterService.safeTransferFromCustody(tokenId, userPrimaryWallet)
 
-POST /api/rwa/redeem-request  (JWT required)
-  → VaultService.requestRedemption()
+POST /api/rwa/redeem-batch  (JWT required)
+  → RwaRedeemService.requestRedemptionBatch()
+  → VaultService.requestRedemption() per token after USDC verify
 
 POST /api/marketplace/admin/rwa-tokens/:id/burn
   → RwaChainWriterService.adminBurn()
@@ -158,7 +159,7 @@ Detail: [vault-lifecycle.md](./vault-lifecycle.md).
 ```
 Ask POST → OrdersService.ensureCollectionForListing
          → marketplace_collections + rwa_tokens
-         → CollectionIdentityService (optional cardhedgerCardId from mint metadata)
+         → CollectionIdentityService (cardhedgerCardId first-write; cache when IDENTITY_SERVICE_ENABLED)
          → snapshot scheduler enqueue → collection_market_snapshots upsert (async)
 ```
 
@@ -231,7 +232,7 @@ synchronize: NODE_ENV !== 'production'
 
 Use bootstrap SQL for prod; do not rely on `synchronize` in production.
 
-Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`. A traffic spike queues checkouts inside the app instead of exhausting Postgres `max_connections`.
+Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`, TCP `keepAlive`. pg-pool reports checkout/handshake waits as `timeout exceeded when trying to connect` — that is often a dead idle socket (Docker Desktop) or a full pool, not Postgres being down. `GET /api/health` can still succeed if one live client remains in the pool.
 
 ## Module dependencies (key relationships)
 

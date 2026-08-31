@@ -1,6 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
@@ -13,7 +15,7 @@ import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 
 /** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
-export function PortfolioMobileAssetCard({
+export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   row,
   headline,
   href,
@@ -39,8 +41,8 @@ export function PortfolioMobileAssetCard({
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onSaveCostBasis?: (costBasisUsd: number) => void | Promise<void>;
-  onSetPrice: () => void;
+  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
+  onSetPrice: (tokenId: number) => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
@@ -61,12 +63,12 @@ export function PortfolioMobileAssetCard({
           <Link href={href} aria-label={titleLabel}>
             {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={row.imageUrl} alt="" />
+              <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
             ) : null}
           </Link>
         ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.imageUrl} alt="" />
+          <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
         ) : null}
       </div>
       <div className="pf-mobile-asset-card__info">
@@ -131,7 +133,7 @@ export function PortfolioMobileAssetCard({
                 valueUsd={cost}
                 editable
                 saving={savingCostBasis}
-                onSave={onSaveCostBasis}
+                onSave={(usd) => void onSaveCostBasis(row.tokenId, usd)}
               />
             ) : (
               <div className="pf-mobile-asset-card__row">
@@ -169,11 +171,17 @@ export function PortfolioMobileAssetCard({
               disabled={actionsDisabled}
               disabledTitle={actionsDisabledTitle}
               redeemStatus={redeemStatus}
-              onSetPrice={onSetPrice}
+              onSetPrice={() => {
+                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                  card_id: String(row.tokenId),
+                  current_price: row.currentPrice ?? undefined,
+                });
+                onSetPrice(row.tokenId);
+              }}
             />
           </div>
         ) : null}
       </div>
     </div>
   );
-}
+});

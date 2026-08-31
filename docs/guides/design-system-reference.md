@@ -68,8 +68,8 @@ Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `g
 | `tokenable-markets.css` | `app/markets/layout.tsx` |
 | `tokenable-watchlist.css` | `app/watchlist/layout.tsx` |
 | `tokenable-collection-detail.css` | `app/marketplace/collections/[collectionKey]/layout.tsx` |
-| `tokenable-rwa-detail.css` | `app/marketplace/[tokenId]/layout.tsx` (+ Portfolio Set/Edit price sheet: `PortfolioPageView` / `app/portfolio/layout.tsx`) |
-| `tokenable-portfolio.css` + `tokenable-portfolio-redeem.css` | `PortfolioPageView` (+ `app/portfolio/layout.tsx` for redeem routes) |
+| `tokenable-rwa-detail.css` | ListRwaModal Set/Edit price sheet — `app/portfolio/layout.tsx`, `app/partner/portfolio/layout.tsx`, collection-detail layout |
+| `tokenable-portfolio.css` + `tokenable-portfolio-redeem.css` | `app/portfolio/layout.tsx` / `app/partner/portfolio/layout.tsx` |
 | `tokenable-vault.css` | `app/vault/layout.tsx` |
 | `tokenable-sell-flow.css` | `app/sell/layout.tsx` |
 | `tokenable-admin.css` | `app/marketplace/admin/layout.tsx` (+ `app/dev/layout.tsx`) |
@@ -118,6 +118,8 @@ We use **semantic CSS variables** from Figma, e.g.:
 **Primitives:** `--brand-100` … `--brand-500` … `--brand-1000`, `--gray-*`, `--slate-*`, etc.
 
 App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
+
+**next/font weights** (same file): Inter `400 500 600 700 800` (500 = `font-medium` / `.tk-caption`; 800 = home/vault titles). JetBrains Mono `400 500 600 700`. Do not register unused weights.
 
 ### Bridge aliases (legacy — prefer semantic tokens in new code)
 

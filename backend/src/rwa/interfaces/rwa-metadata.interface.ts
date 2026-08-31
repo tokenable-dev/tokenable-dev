@@ -20,4 +20,5 @@ export interface UploadRwaResult {
   metadata: RwaMetadata;
   /** Platform S3 slab URL when catalog S3 is configured; null if skipped or failed. */
   displayImageUrl: string | null;
+  displayImageBackUrl: string | null;
 }

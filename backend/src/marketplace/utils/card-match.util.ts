@@ -117,6 +117,40 @@ export function isPureNumericCardNumber(num: string): boolean {
   return /^\d+$/.test(t);
 }
 
+/** `OP05-086` / `ST01-009` — TCG set code + checklist digits. */
+function tcgSetPrefixedNumberParts(
+  num: string,
+): { prefix: string; digits: string } | null {
+  const t = primaryCardNumber(num);
+  const m = t.match(/^([A-Za-z][A-Za-z0-9]{1,7})-(\d+)$/);
+  if (!m) return null;
+  const digits = m[2].replace(/^0+/, '') || '0';
+  return { prefix: m[1].toLowerCase(), digits };
+}
+
+/**
+ * PSA One Piece (and similar TCG) slabs often print checklist digits only (`086`)
+ * while Cardhedger uses `OP05-086`. Same numeric suffix, not a different set code.
+ */
+export function catalogTcgPrefixedNumberCompatible(
+  wantNum: string,
+  gotNum: string,
+): boolean {
+  const wantP = primaryCardNumber(wantNum);
+  const gotP = primaryCardNumber(gotNum);
+  const wantPref = tcgSetPrefixedNumberParts(wantP);
+  const gotPref = tcgSetPrefixedNumberParts(gotP);
+  const wantDigits = isPureNumericCardNumber(wantP)
+    ? wantP.replace(/^0+/, '') || '0'
+    : null;
+  const gotDigits = isPureNumericCardNumber(gotP)
+    ? gotP.replace(/^0+/, '') || '0'
+    : null;
+  if (wantPref && gotDigits) return wantPref.digits === gotDigits;
+  if (gotPref && wantDigits) return gotPref.digits === wantDigits;
+  return false;
+}
+
 /**
  * Product-family tokens that must not cross-match (Prizm ↔ Dominion, Chrome ↔ Select, …)
  * when present on the PSA / mint side.
@@ -325,7 +359,13 @@ export function relaxedCatalogMatchForAudit(
     },
     row,
   );
-  if (!numberExact && !numberInsertBridge) failCodes.push('number_mismatch');
+  const numberTcgPrefix = catalogTcgPrefixedNumberCompatible(
+    hints.cardNumber,
+    numGot,
+  );
+  if (!numberExact && !numberInsertBridge && !numberTcgPrefix) {
+    failCodes.push('number_mismatch');
+  }
 
   const nameGotN = normalizeForExactCatalogMatch(nameGot);
   const nameOk = [hints.psaSubject, hints.cardName].some((want) =>

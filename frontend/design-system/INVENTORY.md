@@ -234,15 +234,13 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 ---
 
-## RWA token detail — (Phase 9) — **Done**
+## RWA token detail — (Phase 9) — **Done** (page tree removed)
 
-Overlap with Card.html sidebar: list/buy/trade panel.
+`/marketplace/[tokenId]` redirects to collection detail + `?listing=`. Listing/buy lives on collection checkout.
 
-**CSS:** `frontend/styles/tokenable-rwa-detail.css`
+**CSS:** `frontend/styles/tokenable-rwa-detail.css` (ListRwaModal `tk-price` sheet; imported from portfolio + collection layouts)
 
-**Components:** `RwaDetailPageShell`, `RwaDetailBreadcrumb`, `RwaDetailLoadedView`, trade panels, `RwaDetailListModalHost` (sheet), `RwaDetailPlaceBidModal` (sheet)
-
-**Existing (logic preserved):** `app/marketplace/[tokenId]/page.tsx`, `hooks/rwa-detail/*`, `RwaDetailAssetPanel`
+**Kept:** `RwaDetailListModalHost`, `rwa-detail/theme`, `RwaDetailAssetPanel`, `useRwaDetailBuyFlow`, `useRwaDetailMetadata`
 
 ---
 

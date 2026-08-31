@@ -123,7 +123,7 @@ All marketplace prices and trades are denominated in **USDC (6 decimals)**.
 
 The `adminBurn` endpoint does not require a prior `vault_redemptions` row, but the standard ops flow is:
 
-1. User submits `POST /rwa/redeem-request`
+1. User submits `POST /rwa/redeem-batch` (USDC payment + ship-to)
 2. Admin verifies, then calls `POST /admin/rwa-tokens/:id/burn`
 
 Admin can burn without a redemption request (emergency cases). The vault cycle state will not have a `vault_redemption` record in that case.

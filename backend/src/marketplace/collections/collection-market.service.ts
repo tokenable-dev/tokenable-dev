@@ -14,7 +14,16 @@ import {
   type GradePriceStrip,
   type UsdPoint,
   referenceChangeWithBestWindow,
+  referenceLagAnchorFromPoints,
 } from '../utils/collection-market.util';
+import {
+  pickHomeTickerKeys,
+  pickHomeTopMoverKeys,
+  pickJustVaultedKeys,
+  uniqueKeysInOrder,
+  HOME_MOVERS_LAG_90D_SEC,
+} from '../utils/collection-home-feed.util';
+import type { CollectionSummary } from './collection.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
@@ -201,9 +210,20 @@ function emptyMarketBundle(
   };
 }
 
+export type HomeMarketplaceFeed = {
+  topMovers: CollectionSummary[];
+  justVaulted: CollectionSummary[];
+  ticker: CollectionSummary[];
+  snapshots: CollectionListSnapshot[];
+};
+
 @Injectable()
 export class CollectionMarketService {
   private readonly logger = new Logger(CollectionMarketService.name);
+  private readonly homeFeedCache = new Map<
+    number,
+    { at: number; payload: HomeMarketplaceFeed }
+  >();
 
   constructor(
     private readonly collectionService: CollectionService,
@@ -1122,6 +1142,107 @@ export class CollectionMarketService {
       items.push(...chunkResults);
     }
     return { items };
+  }
+
+  /**
+   * Home ticker + Top movers + Just vaulted in one round-trip.
+   * Ranks from materialized snapshots (same 90d / 1Y rules as the previous
+   * client walk) and returns only the displayed collections.
+   */
+  async getHomeFeed(chainId?: SupportedChainId): Promise<HomeMarketplaceFeed> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const cached = this.homeFeedCache.get(resolved);
+    if (cached && Date.now() - cached.at < 30_000) {
+      return cached.payload;
+    }
+
+    const metas =
+      await this.collectionService.listActiveCollectionKeysWithCreatedAt(
+        resolved,
+      );
+    const allKeys = metas.map((m) => m.collectionKey);
+    const snapByKey = await this.listSnapshotsFromMaterializedRows(allKeys);
+
+    const rankRows = allKeys.map((collectionKey) => {
+      const snap = snapByKey.get(collectionKey);
+      const spark = snap?.sparklineUsd ?? [];
+      const pct90d =
+        spark.length >= 2
+          ? (referenceLagAnchorFromPoints(spark, HOME_MOVERS_LAG_90D_SEC)
+              ?.pct ?? null)
+          : null;
+      const bundled = snap?.marketChangePct;
+      const changePct =
+        bundled != null && Number.isFinite(bundled)
+          ? bundled
+          : spark.length >= 2
+            ? (referenceChangeWithBestWindow(spark).pct ?? null)
+            : null;
+      return { collectionKey, pct90d, changePct };
+    });
+
+    const topMoverKeys = pickHomeTopMoverKeys(rankRows);
+    const tickerKeys = pickHomeTickerKeys(
+      rankRows.map((r) => ({
+        collectionKey: r.collectionKey,
+        changePct: r.changePct,
+      })),
+    );
+    const justVaultedKeys = pickJustVaultedKeys(
+      metas.map((m) => ({
+        collectionKey: m.collectionKey,
+        createdAtMs: m.createdAt.getTime(),
+      })),
+    );
+
+    const ordered = uniqueKeysInOrder([
+      topMoverKeys,
+      justVaultedKeys,
+      tickerKeys,
+    ]);
+    const summaries = await this.collectionService.listSummariesByKeys(
+      ordered,
+      resolved,
+    );
+    const summaryByKey = new Map(
+      summaries.map((s) => [s.collectionKey.toLowerCase(), s] as const),
+    );
+    const pick = (keys: string[]) =>
+      keys
+        .map((k) => summaryByKey.get(k))
+        .filter((s): s is CollectionSummary => s != null);
+
+    const snapshots = ordered
+      .map((k) => snapByKey.get(k))
+      .filter((s): s is CollectionListSnapshot => s != null);
+
+    const payload: HomeMarketplaceFeed = {
+      topMovers: pick(topMoverKeys),
+      justVaulted: pick(justVaultedKeys),
+      ticker: pick(tickerKeys),
+      snapshots,
+    };
+    this.homeFeedCache.set(resolved, { at: Date.now(), payload });
+    return payload;
+  }
+
+  private async listSnapshotsFromMaterializedRows(
+    collectionKeys: string[],
+  ): Promise<Map<string, CollectionListSnapshot>> {
+    const out = new Map<string, CollectionListSnapshot>();
+    const CHUNK = 400;
+    for (let i = 0; i < collectionKeys.length; i += CHUNK) {
+      const chunk = collectionKeys.slice(i, i + CHUNK);
+      const rowMap = await this.snapshotService.findByKeys(chunk);
+      for (const row of rowMap.values()) {
+        const key = row.collectionKey.toLowerCase();
+        if (!rowHasMaterializedListPrices(row)) continue;
+        const bundle = this.snapshotRead.buildBundleFromRow(row, 'max', [])
+          .bundle;
+        out.set(key, bundleToListSnapshot(bundle, null));
+      }
+    }
+    return out;
   }
 
   /**

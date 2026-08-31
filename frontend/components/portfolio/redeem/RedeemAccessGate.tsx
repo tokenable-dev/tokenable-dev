@@ -29,7 +29,7 @@ function gateCopy(
   if (kycStatus === "pending") {
     return {
       title: "Verification in progress",
-      body: "Your identity check is still under review. This usually takes 1–2 minutes — you can continue verification or come back once it clears.",
+      body: "We'll email you when verification completes.",
       sub: "Your address and cards are saved. Nothing is charged until you pay.",
       cta: "Continue verification",
     };
