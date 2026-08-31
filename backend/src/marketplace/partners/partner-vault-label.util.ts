@@ -1,4 +1,7 @@
-/** UI label for partner self-vault custody (e.g. "Courtyard Vault"). */
+/**
+ * Partner-internal / admin label (e.g. "ORP Vault").
+ * Never use this on buyer-facing marketplace surfaces.
+ */
 export function formatPartnerVaultLabel(displayName: string | null | undefined): string {
   const n = String(displayName ?? '').trim();
   if (!n) return 'Self Vault';
@@ -10,15 +13,18 @@ export function formatPartnerVaultLabel(displayName: string | null | undefined):
 
 export const PSA_VAULT_LABEL = 'PSA Vault';
 
+/** Buyer-facing self-vault / partner-custody chip. */
+export const PUBLIC_SELF_VAULT_LABEL = 'TKB Vault';
+
 export type VaultCustodyPolicy = 'standard' | 'self_vault_hold';
 
-/** Token custody chip — never infer from seller partner status. */
+/** Public token custody chip — partner company name is admin-only. */
 export function vaultLabelForCustody(
   settlementPolicy: VaultCustodyPolicy,
-  partnerDisplayName: string | null | undefined,
+  _partnerDisplayName?: string | null,
 ): string {
   if (settlementPolicy === 'self_vault_hold') {
-    return formatPartnerVaultLabel(partnerDisplayName);
+    return PUBLIC_SELF_VAULT_LABEL;
   }
   return PSA_VAULT_LABEL;
 }

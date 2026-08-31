@@ -19,7 +19,8 @@ export interface CollectionOverviewBoardProps {
   headlineMetaStrip?: string | null;
   headlineInfoTags?: { id: string; text: string; title?: string }[] | null;
   categoryBadge?: string | null;
-  gradeBadge?: string | null;
+  /** Grade text for Line 1 headline — not a separate badge. */
+  headlineGrade?: string | null;
   populationBadge?: string | null;
   headlineTitleLayout?: boolean;
   badgeLabel?: string;

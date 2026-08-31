@@ -12,7 +12,7 @@ function vaultShortLabel(label: string): string {
   return first.length <= 6 ? first.toUpperCase() : first.slice(0, 3).toUpperCase();
 }
 
-/** Card.html VAULT column — `PSA`, `PSA · CYD`, `PSA ×2 · CYD`. Bids use `—`. */
+/** Card.html VAULT column — `PSA`, `PSA · TKB`, `PSA ×2 · TKB`. Bids use `—`. */
 export function formatOrderBookVaultColumn(orders: Order[]): string {
   if (!orders.length) return "—";
   const counts = new Map<string, number>();

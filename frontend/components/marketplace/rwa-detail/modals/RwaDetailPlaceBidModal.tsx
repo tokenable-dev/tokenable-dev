@@ -9,6 +9,7 @@ import {
   listingVerificationTiles,
   stubListingForOffer,
 } from "@/lib/marketplace/collectionListingModalHelpers";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 export function RwaDetailPlaceBidModal({
   open,
@@ -103,7 +104,9 @@ export function RwaDetailPlaceBidModal({
             ) : null}
           </div>
           <div className="cd-listing-checkout__item-meta">
-            <div className="cd-listing-checkout__item-title">{assetTitle}</div>
+            <div className={`cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+              {assetTitle}
+            </div>
             <div className="cd-listing-checkout__item-sub">{itemSub}</div>
           </div>
         </div>

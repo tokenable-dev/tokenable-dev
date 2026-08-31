@@ -47,8 +47,6 @@ Register a Seaport order (ask or card-level bid/offer) off-chain.
 
 For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Max **1 active bid per wallet per collection**. Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
 
-When the token has **no active ask**, the bid must be ≥ **70% of the collection market price** (materialized snapshot). Bids above market are allowed. `POST /orders/replace-bid` uses the same floor.
-
 ---
 
 ### `POST /api/marketplace/orders/replace-listing`
@@ -185,7 +183,7 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 ### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
 
 Returns `{ tokenId, settlementPolicy, vaultLabel }` where `settlementPolicy` is `standard` or `self_vault_hold`.  
-`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `{partner displayName} vault` for Self vault. **Not** inferred from whether the owner is a marketplace partner. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
+`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `TKB Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
 
 ### `POST /api/marketplace/rwa-tokens/vault-info/batch`
 
@@ -303,9 +301,9 @@ Batch fetches list-row snapshots from **materialized** `collection_market_snapsh
 
 Returns collection detail + active listings + collection bids + representative image URL.
 
-Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `{name} vault`, otherwise `PSA Vault`). A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
+Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `TKB Vault`, otherwise `PSA Vault`). A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
 
-Collection **Place a Bid** does not require an active ask. With no listings, the offer attaches to a minted token in the collection and must be at least 70% of market (see BR-8a).
+Collection **Place a Bid** does not require an active ask. With no listings, the offer attaches to a minted token in the collection.
 
 When no `marketplace_collections` row exists yet, `collection: null` is returned (no 404) to support client prefetch.
 

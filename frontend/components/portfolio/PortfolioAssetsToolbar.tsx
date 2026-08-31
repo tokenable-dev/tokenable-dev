@@ -13,7 +13,7 @@ const SORT_OPTIONS: { value: AssetsToolbarSort; label: string }[] = [
   { value: "newest", label: "Newest" },
   { value: "value", label: "Value" },
   { value: "pl", label: "Gain $" },
-  { value: "ret", label: "Return %" },
+  { value: "ret", label: "% Chg." },
   { value: "name", label: "Name" },
 ];
 

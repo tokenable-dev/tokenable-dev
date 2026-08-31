@@ -80,31 +80,56 @@ describe('buildVaultAdminMintUploadFromAnalyze', () => {
     expect(graded.psa.Variety).toBe('VSTAR UNIVERSE');
   });
 
-  it('flags placeholder when no remote image is available', () => {
+  it('flags placeholder when no PSA, upload, or usable Cardhedger image', () => {
     const { dto, imageUrl, usePlaceholderImage } =
       buildVaultAdminMintUploadFromAnalyze({
         certNumber: '83179580',
         analyze: {
           ...analyze,
           psaCertImages: undefined,
-          cardhedgerMint: undefined,
+          cardhedgerMint: {
+            cardId: '12345',
+            imageUrl: 'https://cardhedger.example/cardhedger-default/crop_image',
+            matchConfidence: 'verified',
+          },
         },
-        fallbackImageUrl: null,
       });
     expect(usePlaceholderImage).toBe(true);
     expect(imageUrl).toBeNull();
     expect(dto.imageUrl).toBeUndefined();
-    expect(dto.gradedMetadata).toBeTruthy();
+    const graded = JSON.parse(dto.gradedMetadata!).graded;
+    expect(graded.cardhedger?.imageUrl).toBeUndefined();
+    expect(graded.cardhedger?.cardId).toBe('12345');
+  });
+
+  it('uses Cardhedger catalog when PSA slab is missing', () => {
+    const catalog = 'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/crop_image';
+    const { dto, imageUrl, usePlaceholderImage } =
+      buildVaultAdminMintUploadFromAnalyze({
+        certNumber: '83179580',
+        analyze: {
+          ...analyze,
+          psaCertImages: undefined,
+          cardhedgerMint: {
+            cardId: '12345',
+            imageUrl: catalog,
+            matchConfidence: 'verified',
+          },
+        },
+      });
+    expect(usePlaceholderImage).toBe(false);
+    expect(imageUrl).toBe(catalog);
+    expect(dto.imageUrl).toBe(catalog);
   });
 });
 
 describe('vault admin mint placeholder PNG', () => {
   it('resolves and reads bundled Tokenable logo', () => {
     const path = resolveVaultAdminMintPlaceholderPngPath();
-    expect(path).toMatch(/tokenable_logo\.png$/);
+    expect(path).toMatch(/tokenable_mint_placeholder\.png$/);
     const { buffer, mimetype, originalname } =
       readVaultAdminMintPlaceholderPng();
-    expect(originalname).toBe('tokenable_logo.png');
+    expect(originalname).toBe('tokenable_mint_placeholder.png');
     expect(mimetype).toBe('image/png');
     expect(buffer.length).toBeGreaterThan(100);
     expect(buffer[0]).toBe(0x89);

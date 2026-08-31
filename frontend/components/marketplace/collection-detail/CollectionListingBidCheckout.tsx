@@ -128,9 +128,6 @@ export function CollectionListingBidCheckout({
       parts.push(`Highest offer $${formatUsdc2(highestDisplayUsd)}`);
     }
     if (parts.length === 0) {
-      if (bid.unlistedMarketFloorUsdc > 0) {
-        return `Min bid $${formatUsdc2(bid.unlistedMarketFloorUsdc)} (70% of market) · No bid fee, 5% on sale only`;
-      }
       return "No active listing · connect wallet to bid";
     }
     if (!bid.isConnected) {
@@ -140,20 +137,16 @@ export function CollectionListingBidCheckout({
   }, [
     askDisplayUsd,
     highestDisplayUsd,
-    bid.unlistedMarketFloorUsdc,
     bid.isConnected,
   ]);
 
   const hintText =
-    bid.policyHint.tone === "error" || bid.policyHint.tone === "warn"
+    bid.policyHint.tone === "error"
       ? bid.policyHint.text
       : !bid.isConnected
         ? listedHint
         : bid.policyHint.text;
-  const hintTone =
-    bid.policyHint.tone === "error" || bid.policyHint.tone === "warn"
-      ? bid.policyHint.tone
-      : "muted";
+  const hintTone = bid.policyHint.tone === "error" ? "error" : "muted";
 
   const showSuccess = bid.step === "success";
   const placedBidLabel = useMemo(() => {
@@ -283,9 +276,7 @@ export function CollectionListingBidCheckout({
         className={
           hintTone === "error"
             ? "cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--error"
-            : hintTone === "warn"
-              ? "cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--warn"
-              : "cd-listing-checkout__bid-hint"
+            : "cd-listing-checkout__bid-hint"
         }
       >
         {hintText}
@@ -345,26 +336,12 @@ export function CollectionListingBidCheckout({
         className="cd-listing-checkout__cta"
         disabled={
           bid.busy ||
-          (Boolean(bid.address) && bid.ctaMode === "blocked") ||
-          (Boolean(bid.address) && bid.belowHardMarketFloor)
+          (Boolean(bid.address) && bid.ctaMode === "blocked")
         }
         onClick={handleAction}
       >
         {bid.ctaLabel}
       </TkButton>
-
-      {bid.ctaMode === "override" ? (
-        <TkButton
-          type="button"
-          variant="subtle"
-          size="sm"
-          className="cd-listing-checkout__cta-aux"
-          disabled={bid.busy}
-          onClick={bid.handleAdjustBid}
-        >
-          Adjust bid
-        </TkButton>
-      ) : null}
 
       <p className="cd-listing-checkout__fine tkl-mono">
         No bid fee · {feePercent()}% charged on sale only

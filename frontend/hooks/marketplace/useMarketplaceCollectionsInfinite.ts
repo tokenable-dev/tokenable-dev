@@ -10,10 +10,9 @@ import {
 import { activeRqChainId } from "@/lib/chains";
 
 /**
- * First paint ≈ 5 rows on the desktop Markets grid (4 columns).
- * Mobile (2 columns) shows ~10 cards; further pages load via infinite scroll.
+ * First Markets grid page. Further pages use the same size via infinite scroll.
  */
-export const MARKETS_COLLECTIONS_PAGE_SIZE = 20;
+export const MARKETS_COLLECTIONS_PAGE_SIZE = 50;
 
 /** Matches backend `searchSummaries` cap. */
 const SEARCH_PAGE_SIZE = 40;

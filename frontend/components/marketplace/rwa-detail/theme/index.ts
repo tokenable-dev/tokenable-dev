@@ -55,7 +55,7 @@ export const RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS =
 /** Desktop left slab column — slight drop so hero aligns with sidebar content. */
 export const RWA_DETAIL_DESKTOP_SLAB_TOP_INSET_CLASS = "lg:pt-8";
 /** Desktop right sidebar title — same tone as mobile, smaller than legacy hero sizing. */
-export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} min-w-0 whitespace-normal break-words text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} leading-[1.2] tracking-normal [overflow-wrap:anywhere] sm:text-[16px]`;
+export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} cd-display-name--line1-clamp-2 min-w-0 text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} leading-[1.2] tracking-normal [overflow-wrap:anywhere] sm:text-[16px] [--cd-line1-lh:1.2]`;
 export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS = `${RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS} tabular-nums text-white`;
 
 /** Desktop two-column shell — slab hugs content; tight gap to sidebar. */

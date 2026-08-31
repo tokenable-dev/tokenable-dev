@@ -81,11 +81,11 @@ Key facts:
 
 | | |
 |---|---|
-| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
+| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md` |
 | **Backend** | `backend/src/marketplace/orders/`, `backend/src/marketplace/collections/`, `backend/src/marketplace/snapshots/`, `backend/src/marketplace/notifications/` |
 | **Frontend** | `frontend/lib/seaport/`, `frontend/hooks/unified-order-book/`, `frontend/components/marketplace/`, `frontend/components/layout/notifications/` |
 | **Database tables** | `orders`, `marketplace_collections`, `collection_market_snapshots`, `marketplace_notifications` |
-| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
+| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md` (card title formatting) |
 
 Key facts:
 - Seaport 1.5 only for **Vault** token trades; no relational bid/ask matching
@@ -293,7 +293,7 @@ Key facts:
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |
 | PSA integration | `docs/api/psa.md`, `backend/src/psa/psa-public-api.service.ts` |
 | Frontend state | `frontend/store/authStore.ts`, `frontend/lib/core/queryKeys.ts`, `frontend/lib/core/invalidation.ts` |
-| Frontend UI / design system | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
+| Frontend UI / design system | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md`, `docs/guides/card-display-name.md` |
 | Deployment | `docs/guides/deployment.md`, `.github/workflows/deploy.yml` |
 
 ---

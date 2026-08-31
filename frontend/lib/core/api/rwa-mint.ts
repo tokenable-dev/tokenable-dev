@@ -15,6 +15,50 @@ export type MintRwaResult = {
   chainId: number;
 };
 
+export type RwaCertAvailability = {
+  available: boolean;
+  certNumber: string;
+  message: string | null;
+};
+
+export async function getRwaCertAvailability(
+  certNumber: string,
+  chainId: SupportedChainId,
+): Promise<RwaCertAvailability> {
+  const cert = certNumber.trim();
+  const res = await backendFetch(
+    `${getApiUrl()}/rwa/cert-availability/${encodeURIComponent(cert)}`,
+    {
+      method: "GET",
+      headers: { [CHAIN_ID_HEADER]: String(chainId) },
+      credentials: "include",
+    },
+  );
+  if (!res.ok) {
+    const error = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(error.message)
+      ? error.message.join(", ")
+      : error.message;
+    throw new Error(msg ?? "Could not check cert availability");
+  }
+  return res.json() as Promise<RwaCertAvailability>;
+}
+
+/** Returns a block reason when the cert already has an active mint on this chain. */
+export async function certMintBlockReason(
+  certNumber: string,
+  chainId: SupportedChainId,
+): Promise<string | null> {
+  const check = await getRwaCertAvailability(certNumber, chainId);
+  if (check.available) return null;
+  return (
+    check.message ??
+    `PSA cert #${check.certNumber || certNumber} is already minted on this network.`
+  );
+}
+
 export async function mintRwaViaBackend(input: {
   recipientAddress: string;
   tokenURI: string;

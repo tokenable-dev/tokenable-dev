@@ -18,6 +18,7 @@ import {
   compareSortNum,
   compareSortText,
   formatPortfolioGradeLabel,
+  resolvePortfolioHoldingsHeadlines,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkButton } from "@/components/ds";
@@ -103,6 +104,11 @@ export function PortfolioHoldingsSection({
     );
   }
 
+  const headlineByTokenId = useMemo(
+    () => resolvePortfolioHoldingsHeadlines(assetRows, metadataByTokenId),
+    [assetRows, metadataByTokenId],
+  );
+
   const filteredSortedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const rows = assetRows.filter((row) => {
@@ -116,7 +122,8 @@ export function PortfolioHoldingsSection({
       const cert = certNumberFromMetadata(meta)?.toLowerCase() ?? "";
       const grade = formatPortfolioGradeLabel(meta)?.toLowerCase() ?? "";
       const set = (row.setName ?? "").toLowerCase();
-      const hay = `${row.name} ${cert} ${grade} ${set}`.toLowerCase();
+      const headline = headlineByTokenId.get(row.tokenId);
+      const hay = `${headline?.line1 ?? row.name} ${cert} ${grade} ${set}`.toLowerCase();
       return hay.includes(q);
     });
 
@@ -169,6 +176,7 @@ export function PortfolioHoldingsSection({
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
+    headlineByTokenId,
   ]);
 
   if (assetsSectionLoading) {
@@ -237,9 +245,8 @@ export function PortfolioHoldingsSection({
       ) : view === "gallery" ? (
         <div className="pf-gallery" role="list">
           {filteredSortedRows.map((row) => {
-            const meta = metadataByTokenId.get(row.tokenId) ?? null;
-            const grade = formatPortfolioGradeLabel(meta);
             const cost = costBasisByTokenId.get(row.tokenId);
+            const headline = headlineByTokenId.get(row.tokenId);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
@@ -250,8 +257,8 @@ export function PortfolioHoldingsSection({
               <div key={row.tokenId} className="pf-gallery__item" role="listitem">
                 <PortfolioHoldingsGalleryTile
                   row={row}
+                  headline={headline ?? null}
                   href={portfolioAssetHref(assetsBase, row.tokenId)}
-                  grade={grade}
                   cost={cost}
                   vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
                   valuesPending={valuesPending}
@@ -285,9 +292,8 @@ export function PortfolioHoldingsSection({
       ) : isMobile ? (
         <div className="pf-mobile-asset-cards" role="list">
           {filteredSortedRows.map((row) => {
-            const meta = metadataByTokenId.get(row.tokenId) ?? null;
-            const grade = formatPortfolioGradeLabel(meta);
             const cost = costBasisByTokenId.get(row.tokenId);
+            const headline = headlineByTokenId.get(row.tokenId);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
@@ -298,8 +304,8 @@ export function PortfolioHoldingsSection({
               <PortfolioMobileAssetCard
                 key={row.tokenId}
                 row={row}
+                headline={headline ?? null}
                 href={portfolioAssetHref(assetsBase, row.tokenId)}
-                grade={grade}
                 cost={cost}
                 valuesPending={valuesPending}
                 canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
@@ -331,6 +337,7 @@ export function PortfolioHoldingsSection({
       ) : (
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
+          headlineByTokenId={headlineByTokenId}
           assetHrefBase={assetsBase}
           metadataByTokenId={metadataByTokenId}
           costBasisByTokenId={costBasisByTokenId}

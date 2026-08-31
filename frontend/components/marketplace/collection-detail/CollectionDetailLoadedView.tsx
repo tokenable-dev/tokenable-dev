@@ -337,7 +337,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       >
         <CollectionDetailBreadcrumb
           categoryLabel={headline.collectionCategoryBadge}
-          trailLabel={headline.headlineSetLine ?? headline.subtitle ?? headline.collectionHeadlineDisplayTitle}
+          trailLabel={headline.collectionBreadcrumbTrail}
         />
         {collection.reviewStatus === "pending_review" ||
         collection.reviewStatus === "rejected" ? (
@@ -359,7 +359,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           headlineMetaStrip={headline.collectionHeadlineMetaStrip ?? undefined}
           headlineInfoTags={headline.headlineInfoTags ?? undefined}
           categoryBadge={headline.collectionCategoryBadge}
-          gradeBadge={headline.headlineGradeBadge ?? undefined}
+          headlineGrade={headline.headlineGrade ?? undefined}
           populationBadge={headline.collectionPopulationBadge ?? undefined}
           headlineTitleLayout
           hideDesktopTopBarHeadline

@@ -119,10 +119,7 @@
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
-  min-height: 1.2em;
-  max-height: 1.2em;
-  height: 1.2em;
-  -webkit-line-clamp: 1;
+  --cd-line1-lh: 1.2;
 }
 
 .watchlist-grid .card__stat,
@@ -256,11 +253,7 @@
 
   .watchlist-grid .card__title {
     font-size: 13px;
-    line-height: 1.3;
-    min-height: 1.3em;
-    max-height: 1.3em;
-    height: 1.3em;
-    -webkit-line-clamp: 1;
+    --cd-line1-lh: 1.3;
   }
 
   .watchlist-grid .watchlist-card__meta {

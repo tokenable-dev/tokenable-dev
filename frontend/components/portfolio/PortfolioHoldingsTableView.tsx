@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import type { RwaMetadata } from "@/lib/core";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
-  formatPortfolioGradeLabel,
-  formatPortfolioGradeSubtitle,
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
+  type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
@@ -19,6 +19,7 @@ import { PortfolioStaticTh } from "./PortfolioSortableTh";
 /** Portfolio.html `#pf-tableview` — My Assets table layout. */
 export function PortfolioHoldingsTableView({
   rows,
+  headlineByTokenId,
   metadataByTokenId,
   costBasisByTokenId,
   vaultLabelByTokenId,
@@ -32,6 +33,7 @@ export function PortfolioHoldingsTableView({
   assetHrefBase,
 }: {
   rows: AssetRow[];
+  headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
   metadataByTokenId: Map<number, RwaMetadata | null>;
   costBasisByTokenId: Map<number, number>;
   vaultLabelByTokenId?: Map<number, string>;
@@ -61,16 +63,13 @@ export function PortfolioHoldingsTableView({
           <PortfolioStaticTh label="Vault" sortHint />
           <PortfolioStaticTh label="Cost basis" align="right" sortHint />
           <PortfolioStaticTh label="Mkt Price" align="right" sortHint />
-          <PortfolioStaticTh label="Profit" align="right" sortHint />
-          <PortfolioStaticTh label="Return" align="right" sortHint />
+          <PortfolioStaticTh label="$ Chg." align="right" sortHint />
+          <PortfolioStaticTh label="% Chg." align="right" sortHint />
           <PortfolioStaticTh label="Action" align="right" muted />
         </tr>
       </thead>
       <tbody>
         {rows.map((row, index) => {
-          const meta = metadataByTokenId.get(row.tokenId) ?? null;
-          const grade = formatPortfolioGradeLabel(meta);
-          const gradeSub = formatPortfolioGradeSubtitle(meta);
           const cost = costBasisByTokenId.get(row.tokenId);
           const isListed =
             row.listPriceUsd != null && row.activeListingOrderHash != null;
@@ -83,6 +82,8 @@ export function PortfolioHoldingsTableView({
               ? " pf-holdings-row--dim"
               : "";
           const vault = vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault";
+          const headline = headlineByTokenId.get(row.tokenId) ?? null;
+          const titleLabel = headline?.line1 ?? row.name;
 
           return (
             <tr key={row.tokenId} className={`pf-holdings-row${zebra}${dim}`}>
@@ -99,14 +100,18 @@ export function PortfolioHoldingsTableView({
                       ) : null}
                     </div>
                     <div className="pf-table-card-copy">
-                      <span className="pf-table-card-name" title={row.name}>
-                        {row.name}
-                      </span>
-                      {gradeSub ? (
-                        <span className="pf-table-card-sub tkl-mono">{gradeSub}</span>
-                      ) : grade ? (
-                        <span className="pf-table-card-sub tkl-mono">{grade}</span>
-                      ) : null}
+                      {headline ? (
+                        <AssetDetailHeadlineTitle
+                          as="span"
+                          parts={headline.parts}
+                          grade={headline.grade}
+                          className="pf-table-card-name block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.35]"
+                        />
+                      ) : (
+                        <span className="pf-table-card-name" title={titleLabel}>
+                          {titleLabel}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 </div>
@@ -118,7 +123,7 @@ export function PortfolioHoldingsTableView({
                 {canEditCostBasis && onSaveCostBasis && !badge ? (
                   <PortfolioCostBasisInlineEdit
                     layout="desktop"
-                    assetName={row.name}
+                    assetName={titleLabel}
                     valueUsd={cost}
                     editable
                     saving={savingCostBasisTokenId === row.tokenId}
@@ -135,7 +140,7 @@ export function PortfolioHoldingsTableView({
                   {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
                 </span>
               </td>
-              <td data-label="Profit" className="pf-col-num-cell">
+              <td data-label="$ Chg." className="pf-col-num-cell">
                 <span
                   className={`tkl-mono pf-table-pl${
                     pnl
@@ -148,7 +153,7 @@ export function PortfolioHoldingsTableView({
                   {pnl?.profit ?? "—"}
                 </span>
               </td>
-              <td data-label="Return" className="pf-col-return-cell">
+              <td data-label="% Chg." className="pf-col-return-cell">
                 <span
                   className={`tkl-mono pf-table-return${
                     pnl

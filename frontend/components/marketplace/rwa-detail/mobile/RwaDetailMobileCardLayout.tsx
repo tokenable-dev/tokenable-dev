@@ -27,7 +27,6 @@ const MOBILE_SLAB_CAPTION_BASE =
 const MOBILE_SLAB_CAPTION_TEXT_CLASS = `block w-full min-w-0 break-words [overflow-wrap:break-word] ${MOBILE_SLAB_CAPTION_BASE}`;
 const MOBILE_SLAB_TITLE_CLASS = `${MOBILE_SLAB_CAPTION_TEXT_CLASS} ${MOBILE_SLAB_CAPTION_MUTED_COLOR} text-[14px] font-normal sm:text-[15px]`;
 const MOBILE_SLAB_META_ROW_CLASS = `${MOBILE_SLAB_CAPTION_TEXT_CLASS} flex flex-wrap items-baseline gap-x-4 text-[14px] sm:gap-x-5 sm:text-[15px]`;
-const MOBILE_SLAB_GRADE_CLASS = `${MOBILE_SLAB_CAPTION_MUTED_COLOR} font-bold`;
 const MOBILE_SLAB_CERT_CLASS = "font-bold tabular-nums text-white";
 
 /** Full PSA slab text — title + grade/cert row under the hero image (mobile). */
@@ -44,9 +43,9 @@ export function RwaDetailMobileSlabCaption({
     () => buildRwaDetailMobileTrustView(metadata),
     [metadata],
   );
-  const { titleBlock, gradeLine, certLabel } = useMemo(() => {
+  const { titleBlock, certLabel } = useMemo(() => {
     if (!headlineParts) {
-      return { titleBlock: "—", gradeLine: "", certLabel: "" };
+      return { titleBlock: "—", certLabel: "" };
     }
     return formatRwaMobileSlabLabelTwoLines(headlineParts, trust);
   }, [headlineParts, trust]);
@@ -54,7 +53,7 @@ export function RwaDetailMobileSlabCaption({
     if (!headlineParts) return "—";
     return formatRwaMobileSlabLabelLine(headlineParts, trust);
   }, [headlineParts, trust]);
-  const showMetaRow = Boolean(gradeLine || certLabel);
+  const showMetaRow = Boolean(certLabel);
 
   return (
     <footer
@@ -79,9 +78,6 @@ export function RwaDetailMobileSlabCaption({
             <span className={MOBILE_SLAB_TITLE_CLASS}>{titleBlock}</span>
             {showMetaRow ? (
               <span className={MOBILE_SLAB_META_ROW_CLASS}>
-                {gradeLine ? (
-                  <span className={MOBILE_SLAB_GRADE_CLASS}>{gradeLine}</span>
-                ) : null}
                 {certLabel ? (
                   <span className={MOBILE_SLAB_CERT_CLASS}>{certLabel}</span>
                 ) : null}

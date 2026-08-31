@@ -1,3 +1,6 @@
+import { joinCardDisplaySegments, resolveCardDisplayGrade } from "@/lib/marketplace/cardDisplayName";
+import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
+
 type Top100CardLike = {
   description: string;
   player: string | null;
@@ -5,6 +8,7 @@ type Top100CardLike = {
   number: string | null;
   variant: string | null;
   set_type?: string | null;
+  grade?: string | null;
 };
 
 export function resolveTop100ImageUrl(raw: string | null): string | null {
@@ -25,13 +29,18 @@ export function formatTop100Usd(price: number): string {
 export function top100CardSubText(card: Top100CardLike): string {
   const subParts: string[] = [];
   if (card.set) subParts.push(card.set);
-  if (card.number) subParts.push(`#${card.number}`);
+  if (card.number) {
+    const num = formatHeadlineCardNumber(card.number);
+    if (num) subParts.push(num);
+  }
   if (card.variant) subParts.push(card.variant);
   return subParts.join(" · ");
 }
 
 export function top100CardTitle(card: Top100CardLike): string {
-  return card.player ?? card.description;
+  const name = (card.player ?? card.description)?.trim() || "";
+  const grade = resolveCardDisplayGrade(card.grade);
+  return joinCardDisplaySegments([name, grade]);
 }
 
 /** eBay search — card name plus set type (and set when distinct). */

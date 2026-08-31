@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import {
   resolveMarketsListingMarketChangePct90d,
   resolveMarketsListingMarketUsd,
@@ -77,7 +78,7 @@ function AdminHomePreviewTable({
                     <td className={ADMIN_TABLE_TD}>
                       <Link
                         href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-                        className={ADMIN_LINK}
+                        className={`${ADMIN_LINK} ${CARD_DISPLAY_LINE1_CLAMP_CLASS} [--cd-line1-lh:1.35]`}
                         target="_blank"
                         rel="noreferrer"
                       >

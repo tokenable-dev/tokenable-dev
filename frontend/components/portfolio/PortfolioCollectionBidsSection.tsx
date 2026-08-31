@@ -11,6 +11,7 @@ import type { PortfolioBidCancelTarget } from "@/hooks/portfolio/usePortfolioBid
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioPanelSearch } from "./PortfolioPanelSearch";
 import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 type BidsSortKey = "name" | "bid" | "ask";
 
@@ -271,7 +272,7 @@ export function PortfolioCollectionBidsSection({
                         <div className="h-full w-full animate-pulse bg-white/5" />
                       ) : null}
                     </div>
-                    <span className="pf-table-card-name">{label}</span>
+                    <span className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>{label}</span>
                   </Link>
                 </td>
                 <td data-label="Your bid" style={{ textAlign: "right" }}>

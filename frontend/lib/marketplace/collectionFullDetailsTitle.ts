@@ -81,6 +81,7 @@ export function toCardDisplayCase(value: string | null | undefined): string {
         return lower.toUpperCase();
       }
       if (/^#\d/.test(w)) return w;
+      if (/^#[A-Za-z0-9]/.test(w)) return normalizeHeadlineCardNumberToken(w);
       // Keep hyphenated tokens like EN-151 readable
       if (w.includes("-")) {
         return w
@@ -108,17 +109,28 @@ export function toCardDisplayUppercase(value: string | null | undefined): string
   return t.length === 0 ? "" : t.toLocaleUpperCase("en-US");
 }
 
-/** Padded `#085` when numeric; otherwise `#` + trimmed token. */
+/** Uppercase Latin letters in catalog card numbers (`op13-118` → `OP13-118`). */
+export function normalizeHeadlineCardNumberToken(token: string): string {
+  return token.replace(/[a-z]/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Display card number: drop `#` and `-`, uppercase Latin (`#op13-118` → `OP13118`).
+ * Pure numeric → zero-padded 3 digits (`85` → `085`).
+ */
 export function formatHeadlineCardNumber(raw: string | undefined | null): string | null {
   const n = String(raw ?? "")
     .trim()
-    .replace(/^#/, "");
+    .replace(/#/g, "")
+    .replace(/-/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!n) return null;
   if (/^\d+$/.test(n)) {
     const v = parseInt(n, 10);
-    if (Number.isFinite(v) && v >= 0) return `#${String(v).padStart(3, "0")}`;
+    if (Number.isFinite(v) && v >= 0) return String(v).padStart(3, "0");
   }
-  return `#${n}`;
+  return normalizeHeadlineCardNumberToken(n);
 }
 
 export function yearFromComponents(components: CollectionComponents): number | null {

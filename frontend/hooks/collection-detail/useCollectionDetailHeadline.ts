@@ -13,6 +13,7 @@ import {
 import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
+import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
@@ -24,6 +25,11 @@ import {
   toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import {
+  formatCardDisplayLanguageShort,
+  resolveCardDisplayGrade,
+  formatDetailBreadcrumbTrail,
+} from "@/lib/marketplace/cardDisplayName";
 import {
   resolveCollectionSlabCardTitle,
   resolveCollectionSlabSetLine,
@@ -138,6 +144,23 @@ export function useCollectionDetailHeadline(params: {
     [comp, marketPreview?.card?.variant],
   );
 
+  const headlineLanguageLabel = useMemo(() => {
+    const listingTitle = listingDisplayTitleFromComp(comp);
+    const raw = resolveCollectionDisplayLanguage({
+      comp,
+      marketPreview,
+      corpusLines: [
+        listingTitle,
+        headlineSetLine,
+        marketPreview?.card?.setName,
+        marketPreview?.card?.name,
+        bucketCardSetForDisplay(comp),
+      ],
+    });
+    if (!raw) return null;
+    return formatCardDisplayLanguageShort(raw) ?? raw;
+  }, [comp, marketPreview, headlineSetLine]);
+
   const collectionHeadlineParts = useMemo((): AssetDetailHeadlineParts => {
     const explicitYear = yearFromComponents(comp);
     let year: number | string | null = explicitYear;
@@ -159,6 +182,7 @@ export function useCollectionDetailHeadline(params: {
       cardName: collectionHeadlineCardName,
       cardNumber: headlineCardNumberToken,
       variety: headlineVarietyLabel,
+      language: headlineLanguageLabel,
     });
   }, [
     headlineSetLine,
@@ -166,24 +190,40 @@ export function useCollectionDetailHeadline(params: {
     collectionHeadlineCardName,
     headlineCardNumberToken,
     headlineVarietyLabel,
+    headlineLanguageLabel,
     displayLabel,
   ]);
 
-  const headlineGradeBadge = useMemo(() => {
-    const label = activeGradeLabel?.trim() || pokeTierLabel;
-    return label ? toCardDisplayCase(label) : null;
+  const headlineGrade = useMemo(() => {
+    const label = activeGradeLabel?.trim() || pokeTierLabel?.trim();
+    return label ? toCardDisplayCase(label) : resolveCardDisplayGrade(null);
   }, [activeGradeLabel, pokeTierLabel]);
 
   const collectionHeadlineDisplayTitle = useMemo(
     () =>
       formatCardDisplayName(collectionHeadlineParts, {
-        grade: headlineGradeBadge,
+        grade: headlineGrade,
       }),
-    [collectionHeadlineParts, headlineGradeBadge],
+    [collectionHeadlineParts, headlineGrade],
+  );
+
+  const collectionBreadcrumbTrail = useMemo(
+    () =>
+      formatDetailBreadcrumbTrail({
+        setLine: headlineSetLine,
+        setName: collectionHeadlineParts.setName,
+        categoryLabel: collectionCategoryBadge,
+        language: headlineLanguageLabel,
+      }),
+    [
+      collectionHeadlineParts.setName,
+      headlineSetLine,
+      collectionCategoryBadge,
+      headlineLanguageLabel,
+    ],
   );
 
   const collectionHeadlineMetaStrip = useMemo(() => {
-    // Card.html `#hero-meta`: Year · Set · Variant — number + grade live on `#hero-title`.
     const catalog = formatCardDisplayMeta(collectionHeadlineParts);
     const collab = buildCollectionHeadlineMetaStrip({
       setLine: headlineSetLine,
@@ -195,7 +235,6 @@ export function useCollectionDetailHeadline(params: {
     if (!catalog) return collabCased;
     if (!collabCased) return catalog;
 
-    // Avoid "Year · Set · Variant · Set" when collab echoes a catalog segment.
     const catalogSegs = new Set(
       catalog
         .split(/\s*·\s*/)
@@ -228,9 +267,9 @@ export function useCollectionDetailHeadline(params: {
         collectionHeadlineParts,
         collectionHeadlineMetaStrip,
         null,
-        { grade: headlineGradeBadge },
+        { grade: headlineGrade },
       ),
-    [collectionHeadlineParts, collectionHeadlineMetaStrip, headlineGradeBadge],
+    [collectionHeadlineParts, collectionHeadlineMetaStrip, headlineGrade],
   );
 
   const headlineInfoTags = useMemo((): CollectionHeadlineInfoTag[] | null => {
@@ -245,7 +284,7 @@ export function useCollectionDetailHeadline(params: {
     if (!raw) return null;
     return raw.map((t) => ({
       ...t,
-      text: toCardDisplayCase(t.text),
+      text: t.id === "cardno" ? t.text : toCardDisplayCase(t.text),
       title: t.title ? toCardDisplayCase(t.title) : undefined,
     }));
   }, [
@@ -341,10 +380,11 @@ export function useCollectionDetailHeadline(params: {
     subtitle,
     headlineSetLine,
     collectionCategoryBadge,
+    collectionBreadcrumbTrail,
     collectionHeadlineParts,
     collectionHeadlineDisplayTitle,
     collectionHeadlineMetaStrip,
-    headlineGradeBadge,
+    headlineGrade,
     collectionPopulationBadge,
     collectionWovenTitle,
     headlineInfoTags,

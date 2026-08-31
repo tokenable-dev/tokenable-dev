@@ -310,7 +310,7 @@ Excel/CSV **certNumber + price** → **prepare** (PSA + IPFS) → **one approve*
 
 **Item statuses:** `pending` · `preparing` · `ready` · `minting` · `minted` · `listed` · `prepare_failed` · `mint_failed` · `list_failed` · `skipped`
 
-Prepare downloads each PSA slab once → IPFS (`metadata.image`) + S3 (`slab_display_image_url` on the item, then `rwa_tokens.display_image_url` at commit). If S3 ingest fails, prepare still succeeds when IPFS upload works (`slab_display_image_url` null). If PSA has no slab image, the item becomes `prepare_failed`.
+Prepare downloads each PSA slab once → IPFS (`metadata.image`) + S3 (`slab_display_image_url` on the item, then `rwa_tokens.display_image_url` at commit). If S3 ingest fails, prepare still succeeds when IPFS upload works (`slab_display_image_url` null). If PSA has no slab image, prepare tries Cardhedger catalog art (skipping Cardhedger’s branded placeholder card), then the bundled Tokenable default (`tokenable_mint_placeholder.png`) — same priority as self-vault mint.
 
 **Example (JSON):**
 

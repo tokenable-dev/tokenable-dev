@@ -20,6 +20,7 @@ import {
 } from "@/lib/markets/top100Routing";
 import { formatSportCategoryDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import { TOP_CARDS_SECTION_TITLE } from "@/lib/markets/top100Copy";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
 import { AppPageState } from "@/components/ui/AppPageState";
 import { ASSETS } from "@/constants/assets";
@@ -323,17 +324,6 @@ function RankBadge({
   );
 }
 
-function GradeBadge({ grade }: { grade: string | null }) {
-  if (!grade) return null;
-  return (
-    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[5px] border border-mint/25 bg-mint/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-mint/90">
-      {grade}
-    </span>
-  );
-}
-
-// ─── leaderboard row ──────────────────────────────────────────────────────────
-
 function formatTop100SalesLabel(
   count: number | null | undefined,
   capitalize = false,
@@ -370,7 +360,7 @@ function LeaderboardCardRow({
       <Top100CardImage item={item} />
       <div className="min-w-0 flex-1 overflow-hidden">
         <p
-          className="line-clamp-1 text-[0.8rem] font-semibold leading-snug text-white sm:text-sm"
+          className={`${CARD_DISPLAY_LINE1_CLAMP_CLASS} text-[0.8rem] font-semibold leading-snug text-white sm:text-sm [--cd-line1-lh:1.375]`}
           title={top100CardTitle(item)}
         >
           {top100CardTitle(item)}
@@ -379,14 +369,12 @@ function LeaderboardCardRow({
           <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500">{subText}</p>
         ) : null}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
-          <GradeBadge grade={item.grade} />
           {!emphasizeSales && salesLabel ? (
             <span className="text-[10px] tabular-nums text-zinc-500">{salesLabel}</span>
           ) : null}
         </div>
       </div>
       <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-        <GradeBadge grade={item.grade} />
         {!emphasizeSales && salesLabel ? (
           <span className="text-[10px] tabular-nums text-zinc-500">{salesLabel}</span>
         ) : null}

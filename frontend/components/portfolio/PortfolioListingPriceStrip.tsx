@@ -42,7 +42,7 @@ export function PortfolioListingPriceStrip({
 
   return (
     <p
-      className={`flex min-w-0 items-center justify-between gap-x-3 ${STRIP_TEXT_CLASS}`}
+      className={`flex min-w-0 flex-wrap items-baseline justify-start gap-x-2 gap-y-1 ${STRIP_TEXT_CLASS}`}
       title={fullTitle}
     >
       <span className="inline-flex min-w-0 items-baseline gap-1">
@@ -53,7 +53,7 @@ export function PortfolioListingPriceStrip({
       </span>
 
       {askPriceUsd != null && (marketPending || marketPriceUsd != null) ? (
-        <span className="inline-flex shrink-0 items-center gap-1.5">
+        <span className="inline-flex shrink-0 items-baseline gap-1.5">
           {marketPending && marketPriceUsd == null ? (
             <span
               className="inline-block h-3.5 w-16 animate-pulse rounded bg-zinc-800/80 sm:h-4 sm:w-[4.5rem]"

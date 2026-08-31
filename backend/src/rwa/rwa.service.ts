@@ -20,6 +20,13 @@ import {
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
+import { readRwaMintPlaceholderPng } from './rwa-mint-placeholder.util';
+import {
+  type MintImageSource,
+  readCardhedgerMintImageUrlFromGraded,
+  readPsaCertSlabUrlFromGraded,
+  resolveRemoteMintImageUrl,
+} from './rwa-mint-image.util';
 
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   if (!graded || typeof graded !== 'object') return false;
@@ -42,12 +49,6 @@ export class RwaService {
     chainId: number,
     file?: Express.Multer.File,
   ): Promise<UploadRwaResult> {
-    if (!file && !dto.imageUrl) {
-      throw new BadRequestException(
-        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
-      );
-    }
-
     let parsedGraded: {
       graded?: Record<string, unknown>;
       attributes?: RwaAttribute[];
@@ -69,6 +70,38 @@ export class RwaService {
     }
 
     const gradedObj = parsedGraded?.graded;
+    let mintImageSource: MintImageSource = 'tokenable_placeholder';
+    let mintFile = file;
+    let remoteMintUrl: string | null = null;
+
+    if (mintFile?.buffer) {
+      mintImageSource = 'user_upload';
+    } else {
+      const remote = resolveRemoteMintImageUrl({
+        psaCertSlabUrl: readPsaCertSlabUrlFromGraded(gradedObj),
+        userImageUrl: dto.imageUrl?.trim(),
+        cardhedgerImageUrl: readCardhedgerMintImageUrlFromGraded(gradedObj),
+      });
+      if (remote.url && remote.source) {
+        remoteMintUrl = remote.url;
+        mintImageSource = remote.source;
+      } else {
+        const placeholder = readRwaMintPlaceholderPng();
+        mintFile = {
+          buffer: placeholder.buffer,
+          originalname: placeholder.originalname,
+          mimetype: placeholder.mimetype,
+          fieldname: 'file',
+          encoding: '7bit',
+          size: placeholder.buffer.length,
+          stream: undefined as unknown as Express.Multer.File['stream'],
+          destination: '',
+          filename: '',
+          path: '',
+        };
+        mintImageSource = 'tokenable_placeholder';
+      }
+    }
     const psaGraded =
       gradedObj && typeof gradedObj === 'object'
         ? isPsaGraded(gradedObj)
@@ -98,11 +131,11 @@ export class RwaService {
     }
     await this.vault.assertAvailableForNewCycle(certNumber, chainId);
 
-    let imageCID: string;
+    let imageCID!: string;
     let displayImageUrl: string | null = null;
 
-    if (file?.buffer) {
-      const mime = resolveCatalogCoverMime(file.mimetype, file.buffer);
+    if (mintFile?.buffer) {
+      const mime = resolveCatalogCoverMime(mintFile.mimetype, mintFile.buffer);
       if (!mime) {
         throw new BadRequestException(
           '이미지 파일 형식이 올바르지 않습니다 (JPEG/PNG/WebP).',
@@ -111,47 +144,83 @@ export class RwaService {
       const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
         chainId,
         certNumber,
-        buffer: file.buffer,
+        buffer: mintFile.buffer,
         contentType: mime,
       });
       try {
-        imageCID = await this.pinataService.uploadFile(file);
+        imageCID = await this.pinataService.uploadFile(mintFile);
       } catch {
         throw new InternalServerErrorException(
           '이미지 IPFS 업로드에 실패했습니다.',
         );
       }
       displayImageUrl = await slabPromise;
-    } else if (dto.imageUrl) {
+    } else if (remoteMintUrl) {
       let fetched: { buffer: Buffer; mimeType: string; extension: string };
       try {
-        fetched = await this.pinataService.fetchImageBufferFromUrl(dto.imageUrl);
+        fetched = await this.pinataService.fetchImageBufferFromUrl(remoteMintUrl);
       } catch {
-        throw new InternalServerErrorException(
-          'URL 이미지를 가져오지 못했습니다.',
-        );
+        if (mintImageSource === 'cardhedger_catalog') {
+          const placeholder = readRwaMintPlaceholderPng();
+          mintFile = {
+            buffer: placeholder.buffer,
+            originalname: placeholder.originalname,
+            mimetype: placeholder.mimetype,
+            fieldname: 'file',
+            encoding: '7bit',
+            size: placeholder.buffer.length,
+            stream: undefined as unknown as Express.Multer.File['stream'],
+            destination: '',
+            filename: '',
+            path: '',
+          };
+          mintImageSource = 'tokenable_placeholder';
+          const mime = resolveCatalogCoverMime(
+            mintFile.mimetype,
+            mintFile.buffer,
+          );
+          if (!mime) {
+            throw new InternalServerErrorException(
+              'Mint placeholder image is invalid.',
+            );
+          }
+          const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+            chainId,
+            certNumber,
+            buffer: mintFile.buffer,
+            contentType: mime,
+          });
+          imageCID = await this.pinataService.uploadFile(mintFile);
+          displayImageUrl = await slabPromise;
+        } else {
+          throw new InternalServerErrorException(
+            'URL 이미지를 가져오지 못했습니다.',
+          );
+        }
       }
-      const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
-        chainId,
-        certNumber,
-        buffer: fetched.buffer,
-        contentType: fetched.mimeType,
-      });
-      try {
-        imageCID = await this.pinataService.uploadBuffer(
-          fetched.buffer,
-          `${dto.name}.${fetched.extension}`,
-          fetched.mimeType,
-        );
-      } catch {
-        throw new InternalServerErrorException(
-          'URL 이미지 IPFS 업로드에 실패했습니다.',
-        );
+      if (!mintFile?.buffer) {
+        const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+          chainId,
+          certNumber,
+          buffer: fetched!.buffer,
+          contentType: fetched!.mimeType,
+        });
+        try {
+          imageCID = await this.pinataService.uploadBuffer(
+            fetched!.buffer,
+            `${dto.name}.${fetched!.extension}`,
+            fetched!.mimeType,
+          );
+        } catch {
+          throw new InternalServerErrorException(
+            'URL 이미지 IPFS 업로드에 실패했습니다.',
+          );
+        }
+        displayImageUrl = await slabPromise;
       }
-      displayImageUrl = await slabPromise;
     } else {
-      throw new BadRequestException(
-        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
+      throw new InternalServerErrorException(
+        'Mint image could not be resolved.',
       );
     }
 
@@ -166,6 +235,7 @@ export class RwaService {
       metadata.properties = {
         ...(metadata.properties ?? {}),
         ...(parsedGraded.properties ?? {}),
+        mintImageSource,
       };
       if (parsedGraded.graded && typeof parsedGraded.graded === 'object') {
         metadata.properties.graded = {
@@ -192,5 +262,23 @@ export class RwaService {
       metadata,
       displayImageUrl,
     };
+  }
+
+  /** UI pre-flight — does not reserve a cycle. */
+  async checkCertAvailability(
+    certNumber: string,
+    chainId: number,
+  ): Promise<{
+    available: boolean;
+    certNumber: string;
+    message: string | null;
+  }> {
+    const trimmed = certNumber.trim();
+    if (!/^\d{7,10}$/.test(trimmed)) {
+      throw new BadRequestException(
+        'Enter a valid PSA cert number (7–10 digits).',
+      );
+    }
+    return this.vault.checkAvailableForNewCycle(trimmed, chainId);
   }
 }

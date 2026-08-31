@@ -56,6 +56,8 @@
   font-weight: 700;
 }
 
+/* §5 — Line 1 clamp lives in tokenable-collectible-card.css (`.cd-display-name--line1-clamp-2`) */
+
 /* ── Flat markets cluster (no bezel/mat chrome) ───────────────────────────── */
 
 .collection-detail-page .cd-markets-cluster__inner,
@@ -579,14 +581,10 @@
   font-weight: 700;
   font-size: clamp(17px, 1.8vw, 24px);
   line-height: 1.2;
+  --cd-line1-lh: 1.2;
   letter-spacing: -0.02em;
   color: #fff;
   max-width: none;
-  white-space: normal;
-}
-
-.cd-hero-bar__title > span {
-  display: inline;
   white-space: normal;
 }
 
@@ -600,6 +598,12 @@
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--t2);
+  /* §5 — Line 2 truncates from end; keep Year + leading tokens visible */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cd-hero-bar__metrics {
@@ -719,7 +723,7 @@
 }
 
 .cd-hero-bar__sec-lbl {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.04em;
   color: var(--t3);
   white-space: nowrap;
@@ -1966,18 +1970,13 @@
   font-size: 13px;
   font-weight: 600;
   color: #fff;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.5em;
+  --cd-line1-lh: 1.35;
 }
 
 .cd-si-card__price-row {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
   flex-wrap: nowrap;
 }
@@ -4082,11 +4081,7 @@ button.cd-listing-orderbook__thumb-link {
   font-weight: 600;
   font-size: 14px;
   color: #fff;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  --cd-line1-lh: 1.3;
 }
 
 .cd-listing-checkout__item-sub {
@@ -4585,7 +4580,7 @@ button.cd-listing-orderbook__thumb-link {
   font-weight: 600;
   font-size: 14px;
   color: #fff;
-  line-height: 1.3;
+  --cd-line1-lh: 1.3;
 }
 
 .cd-choose-copy__item-sub {

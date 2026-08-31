@@ -6,11 +6,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   analyzePsaByCertNumber,
   analyzePsaSlab,
+  certMintBlockReason,
   getPartnerMe,
   listVaultSubmissions,
   rq,
   type PsaAnalyzeResult,
 } from "@/lib/core";
+import {
+  resolveSelfVaultMintImageSelection,
+} from "@/lib/vault/mintImageSource";
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycStatus } from "@/lib/kyc/api";
@@ -95,11 +99,15 @@ function cardFromAnalyze(
   if (grade !== 9 && grade !== 10) {
     return { error: "Only PSA 9 and PSA 10 are accepted right now." };
   }
+  const mintImage = resolveSelfVaultMintImageSelection({
+    analyze: r,
+    certNumber: cert,
+    userImage: uploadPreviewDataUrl,
+  });
   const img =
-    r.psaCertImages?.front?.trim() ||
-    r.cardhedgerMint?.imageUrl?.trim() ||
-    uploadPreviewDataUrl?.trim() ||
-    null;
+    mintImage.source === "user_upload" && uploadPreviewDataUrl?.trim()
+      ? uploadPreviewDataUrl.trim()
+      : mintImage.previewUrl;
   return {
     cert,
     name: buildCardTitle(r),
@@ -468,6 +476,11 @@ export function useSellFlow() {
     lookupLockRef.current = true;
     setLookupBusy(true);
     try {
+      const taken = await certMintBlockReason(cert, chainId);
+      if (taken) {
+        setCertError(taken);
+        return;
+      }
       if (vaultChoice === "self") {
         const rows = await listVaultSubmissions();
         const blocked = findSelfVaultBlockedCert(rows, cert);
@@ -494,7 +507,7 @@ export function useSellFlow() {
       lookupLockRef.current = false;
       setLookupBusy(false);
     }
-  }, [addCardFromResult, cards, certInput, vaultChoice]);
+  }, [addCardFromResult, cards, certInput, vaultChoice, chainId]);
 
   const scanSlab = useCallback(() => {
     slabInputRef.current?.click();
@@ -520,6 +533,11 @@ export function useSellFlow() {
           );
           return;
         }
+        const taken = await certMintBlockReason(cert, chainId);
+        if (taken) {
+          setCertError(taken);
+          return;
+        }
         if (vaultChoice === "self") {
           const rows = await listVaultSubmissions();
           const blocked = findSelfVaultBlockedCert(rows, cert);
@@ -543,7 +561,7 @@ export function useSellFlow() {
         if (slabInputRef.current) slabInputRef.current.value = "";
       }
     },
-    [addCardFromResult, cards.length, vaultChoice],
+    [addCardFromResult, cards.length, vaultChoice, chainId],
   );
 
   const toggleConfirm = useCallback((index: number) => {
@@ -589,14 +607,22 @@ export function useSellFlow() {
     window.setTimeout(() => setDraftSavedFlash(false), 1800);
   }, [cards, vaultChoice]);
 
-  const continueToShipping = useCallback(() => {
+  const continueToShipping = useCallback(async () => {
     if (!canContinueShipping) return;
     if (vaultChoice === "self") return;
+    const confirmed = cards.filter((c) => c.confirmed);
+    for (const card of confirmed) {
+      const taken = await certMintBlockReason(card.cert, chainId);
+      if (taken) {
+        setCertError(taken);
+        return;
+      }
+    }
     writeSellFlowDraftCards(cards);
     writeSellFlowProgress({ step: "shipping-pack", vaultChoice: "psa" });
     // First vault_submissions write happens on /sell/shipping (awaiting_shipment).
     router.push("/sell/shipping");
-  }, [canContinueShipping, cards, router, vaultChoice]);
+  }, [canContinueShipping, cards, router, vaultChoice, chainId]);
 
   /** Partner vault: mint confirmed cards directly to the user's portfolio wallet. */
   const continueToSelfMint = useCallback(async () => {
@@ -647,6 +673,12 @@ export function useSellFlow() {
         setMintStatus(
           `Minting ${i + 1}/${confirmed.length}: cert #${card.cert}…`,
         );
+
+        const taken = await certMintBlockReason(card.cert, chainId);
+        if (taken) {
+          pushSkip(card, taken);
+          continue;
+        }
 
         const blocked = findSelfVaultBlockedCert(rows, card.cert);
         if (blocked) {

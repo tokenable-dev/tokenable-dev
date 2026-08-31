@@ -4,13 +4,23 @@ import {
   toCardDisplayCase,
   toCardDisplayUppercase,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import {
+  cardDisplayPartsFromAssetDetail,
+  formatCardDisplayLanguageShort,
+  formatCardDisplayLine1,
+  formatCardDisplayLine2,
+  formatCardDisplayName as formatCardDisplayNameCore,
+  formatCardDisplayHoverTitle as formatCardDisplayHoverTitleCore,
+  formatCardDisplaySetLabel,
+  joinCardDisplaySegments,
+  resolveCardDisplayGrade,
+} from "@/lib/marketplace/cardDisplayName";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 /**
  * Structured fields for card display names.
- * Title = Character · Number · Grade
- * Meta  = Year · Set · Variant
+ * Formatting rules: docs/guides/card-display-name.md
  */
 export type AssetDetailHeadlineParts = {
   year: string | null;
@@ -18,6 +28,7 @@ export type AssetDetailHeadlineParts = {
   cardNumber: string | null;
   cardName: string | null;
   variety: string | null;
+  language?: string | null;
 };
 
 function pickString(...vals: unknown[]): string | undefined {
@@ -56,6 +67,13 @@ function extractYearFromText(lineRaw: string | null | undefined): number | null 
   return y >= 1880 && y <= 2100 ? y : null;
 }
 
+function toDisplayParts(
+  parts: AssetDetailHeadlineParts,
+  grade?: string | null,
+) {
+  return cardDisplayPartsFromAssetDetail(parts, grade);
+}
+
 /**
  * Build structured headline parts from collection / slab fields.
  * Default casing is title case (not ALL CAPS).
@@ -66,6 +84,7 @@ export function buildAssetDetailHeadlineParts(input: {
   cardName?: string | null;
   cardNumber?: string | null;
   variety?: string | null;
+  language?: string | null;
   /** @deprecated Prefer title case — only for rare ALL CAPS call sites. */
   uppercase?: boolean;
 }): AssetDetailHeadlineParts {
@@ -93,34 +112,35 @@ export function buildAssetDetailHeadlineParts(input: {
   const card = (input.cardName ?? "").trim();
   const num = formatHeadlineCardNumber(input.cardNumber);
   const variety = (input.variety ?? "").trim();
+  const languageRaw = (input.language ?? "").trim();
+  const languageShort =
+    formatCardDisplayLanguageShort(languageRaw) ??
+    (languageRaw ? applyHeadlineCasing(languageRaw, uppercase) : null);
 
   return {
     year: yearOut ? applyHeadlineCasing(yearOut, uppercase) : null,
-    setName: setOut ? applyHeadlineCasing(setOut, uppercase) : null,
-    cardNumber: num ? applyHeadlineCasing(num, uppercase) : null,
+    setName: setOut
+      ? formatCardDisplaySetLabel(applyHeadlineCasing(setOut, uppercase))
+      : null,
+    cardNumber: num || null,
     cardName: card ? applyHeadlineCasing(card, uppercase) : null,
     variety: variety ? applyHeadlineCasing(variety, uppercase) : null,
+    language: languageShort,
   };
 }
 
-/** Title line: `{Character} · {Number} · {Grade}` (grade optional). */
+/** Title line: `{Card name} · {Number} · {Grade}` — grade defaults to `Raw`. */
 export function formatCardDisplayName(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null },
 ): string {
-  const chunks: string[] = [];
-  const name = parts.cardName?.trim() || "";
-  if (name) chunks.push(name);
-  const num = parts.cardNumber?.trim() || "";
-  if (num) chunks.push(num);
-  const grade = opts?.grade?.trim() || "";
-  if (grade) chunks.push(grade);
-  if (chunks.length > 0) return chunks.join(" · ");
-  // Fallback when name/number missing — prefer variety alone over empty.
-  return parts.variety?.trim() || "";
+  const display = toDisplayParts(parts, opts?.grade);
+  const line1 = formatCardDisplayLine1(display);
+  if (line1) return line1;
+  return parts.variety?.trim() || resolveCardDisplayGrade(opts?.grade);
 }
 
-/** Meta line: `{Year} · {Set} · {Variant}`. */
+/** Meta line: `{Year} · {Set} {Language} · {Variant}`. */
 export function formatCardDisplayMeta(
   parts: AssetDetailHeadlineParts,
   opts?: {
@@ -131,31 +151,21 @@ export function formatCardDisplayMeta(
     omitNumber?: boolean;
   },
 ): string {
-  const chunks: string[] = [];
-  const year = parts.year?.trim();
-  if (year) chunks.push(year);
-  if (!opts?.omitSet) {
-    const set = parts.setName?.trim();
-    if (set) chunks.push(set);
-  }
-  const variety = parts.variety?.trim();
-  if (variety) chunks.push(variety);
-  return chunks.join(" · ");
+  return formatCardDisplayLine2(toDisplayParts(parts, opts?.grade), {
+    omitSet: opts?.omitSet,
+  });
 }
 
-/** Hover / search / document title — Title + Meta. */
+/** Hover / search / document title — Line 1 + Line 2 (self-contained). */
 export function formatCardDisplayHoverTitle(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null },
 ): string {
-  const display = formatCardDisplayName(parts, opts);
-  const meta = formatCardDisplayMeta(parts);
-  return [display, meta].filter(Boolean).join(" · ");
+  return formatCardDisplayHoverTitleCore(toDisplayParts(parts, opts?.grade));
 }
 
 /**
- * User-facing title = Character · Number · Grade.
- * Prefer this alias at call sites migrating from the old PSA slab one-liner.
+ * User-facing title = Card name · Number · Grade.
  */
 export function formatAssetDetailHeadlineText(
   parts: AssetDetailHeadlineParts,
@@ -179,19 +189,25 @@ export function computeAssetDetailWovenTitle(
   parts: AssetDetailHeadlineParts,
   metaStrip: string | null,
   populationBadge: string | null,
-  opts?: { grade?: string | null },
+  opts?: {
+    grade?: string | null;
+  },
 ): string {
   const chunks: string[] = [];
   const display = formatCardDisplayName(parts, opts);
   if (display) chunks.push(display);
-  const m = (metaStrip ?? "").trim() || formatCardDisplayMeta(parts);
+  const m =
+    (metaStrip ?? "").trim() ||
+    formatCardDisplayMeta(parts, {
+      grade: opts?.grade,
+    });
   if (m) {
     const hay = display.toLowerCase();
     if (!hay.includes(m.toLowerCase())) chunks.push(m);
   }
   const pop = (populationBadge ?? "").trim();
   if (pop && !chunks.join(" ").toLowerCase().includes("pop ·")) chunks.push(pop);
-  return chunks.join(" · ");
+  return joinCardDisplaySegments(chunks);
 }
 
 export type RwaHeadlineMetadata = {
@@ -268,11 +284,11 @@ export function buildRwaAssetDetailHeadlineParts(
   };
 }
 
-/** Grade label from graded NFT metadata when present (e.g. PSA 10). */
+/** Grade label from graded NFT metadata when present; otherwise `Raw`. */
 export function resolveRwaHeadlineGrade(
   meta: RwaHeadlineMetadata | null | undefined,
-): string | null {
-  if (!meta) return null;
+): string {
+  if (!meta) return resolveCardDisplayGrade(null);
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded =
     (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
@@ -281,5 +297,22 @@ export function resolveRwaHeadlineGrade(
   const score = pickString(psa?.grade, psa?.Grade, graded?.grade);
   if (score) return toCardDisplayCase(`${company} ${score}`);
   const label = pickString(psa?.gradeLabel, graded?.gradeLabel);
-  return label ? toCardDisplayCase(label) : null;
+  return resolveCardDisplayGrade(label ? toCardDisplayCase(label) : null);
 }
+
+export {
+  cardDisplayPartsFromAssetDetail,
+  formatCardDisplayLanguageShort,
+  formatCardDisplayLine1,
+  formatCardDisplayLine2,
+  formatCardDisplayName as formatCardDisplayNameStructured,
+  formatDetailBreadcrumbTrail,
+  joinCardDisplaySegments,
+  resolveCardDisplayGrade,
+  stripCategoryPrefixFromSet,
+} from "@/lib/marketplace/cardDisplayName";
+export type {
+  CardDisplayNameMode,
+  CardDisplayNameParts,
+  FormatCardDisplayNameOptions,
+} from "@/lib/marketplace/cardDisplayName";

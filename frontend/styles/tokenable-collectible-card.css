@@ -130,16 +130,27 @@
   font-size: 18px;
   font-weight: 600;
   color: #fff;
-  line-height: 1.3;
+  line-height: var(--cd-line1-lh, 1.3);
+  --cd-line1-lh: 1.3;
+  margin: 0;
+  min-width: 0;
+}
+
+/* SSOT — Line 1 `{Name} · {Number} · {Grade}`: reserve 2 lines, ellipsis beyond */
+.cd-display-name--line1-clamp-2 {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 2.6em;
-  max-height: 2.6em;
-  height: 2.6em;
-  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  line-height: var(--cd-line1-lh, 1.3);
+  min-height: calc(2 * var(--cd-line1-lh, 1.3) * 1em);
+  max-height: calc(2 * var(--cd-line1-lh, 1.3) * 1em);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .card__set {
@@ -207,7 +218,7 @@
 .card__foot {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
   margin-top: 2px;
   gap: 2px 8px;
@@ -223,22 +234,20 @@
   letter-spacing: -0.02em;
   white-space: nowrap;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 .card__sub {
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
-  /* Markets.html: change + period stay on one line; wrap under price when narrow */
+  /* Immediately after price — not pushed to the far edge */
   white-space: nowrap;
   display: inline-flex;
   align-items: baseline;
   gap: 0;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  margin-left: auto;
-  max-width: 100%;
 }
 
 .card__sub-glyph {
@@ -304,11 +313,7 @@
 
   .card__title {
     font-size: 13px;
-    line-height: 1.3;
-    min-height: 2.6em;
-    max-height: 2.6em;
-    height: 2.6em;
-    -webkit-line-clamp: 2;
+    --cd-line1-lh: 1.3;
   }
 
   .card__set {

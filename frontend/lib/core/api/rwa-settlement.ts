@@ -29,7 +29,7 @@ export async function getRwaSettlementPolicy(
     vaultLabel:
       raw.vaultLabel ??
       (raw.settlementPolicy === "self_vault_hold"
-        ? "Partner vault"
+        ? "TKB Vault"
         : "PSA Vault"),
   };
 }

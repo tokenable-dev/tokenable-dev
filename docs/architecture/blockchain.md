@@ -175,7 +175,7 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table (backend rejects self-vault asks that are not full-platform-take)
 
-**Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address. The vault badge uses token `settlement_policy` / `vaultLabel` (`PSA Vault` vs `{partner} vault`), not seller identity — a partner may list PSA-vaulted cards.
+**Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address. The vault badge uses token `settlement_policy` / `vaultLabel` (`PSA Vault` vs `TKB Vault`), not seller identity — a partner may list PSA-vaulted cards. Admin / partner portal still show `{partner} Vault`.
 
 **Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c.
 

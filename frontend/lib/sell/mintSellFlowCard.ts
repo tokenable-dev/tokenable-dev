@@ -1,5 +1,6 @@
 import {
   analyzePsaByCertNumber,
+  certMintBlockReason,
   mintRwaViaBackend,
   syncRwaTokenAfterMint,
   uploadRwaMetadata,
@@ -11,7 +12,7 @@ import {
   buildMintOpenSeaAttributes,
 } from "@/lib/vault/buildMintMetadata";
 import { MINT_FORM_INITIAL_STATE } from "@/lib/vault/mintFormConstants";
-import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
+import { resolveSelfVaultMintImageSelection } from "@/lib/vault/mintImageSource";
 import type { GradedCardFormState } from "@/types/gradedCard";
 
 /** Build mint form state from a fresh PSA analyze result (cert-lookup path). */
@@ -70,6 +71,11 @@ export async function mintSellFlowCardByCert(input: {
     throw new Error(`Invalid cert: ${cert}`);
   }
 
+  const taken = await certMintBlockReason(cert, input.chainId);
+  if (taken) {
+    throw new Error(taken);
+  }
+
   const analyze = await analyzePsaByCertNumber(cert);
   const form = gradedFormFromPsaAnalyze(analyze);
   if (!form.grade.certNumber.trim()) {
@@ -80,20 +86,13 @@ export async function mintSellFlowCardByCert(input: {
   data.append("name", form.name || `PSA CERT #${cert}`);
   data.append("description", form.description.trim() || "No description");
 
-  const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
+  const mintImage = resolveSelfVaultMintImageSelection({
     analyze,
-    form.grade.certNumber,
-  )
-    ? analyze.psaCertImages?.front
-    : undefined;
-  const selectedMintImageUrl =
-    trustedPsaSlabUrl || analyze.cardhedgerMint?.imageUrl;
-  if (selectedMintImageUrl) {
-    data.append("imageUrl", selectedMintImageUrl);
-  } else {
-    throw new Error(
-      `No mint image for cert ${cert}. PSA/Cardhedger image required.`,
-    );
+    certNumber: form.grade.certNumber || cert,
+    userImage: null,
+  });
+  if (mintImage.imageUrl) {
+    data.append("imageUrl", mintImage.imageUrl);
   }
 
   const meta = buildGradedCardMetadata(form, analyze);

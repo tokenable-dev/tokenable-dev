@@ -1005,13 +1005,7 @@
   font-weight: 600;
   font-size: 14px;
   color: #fff;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-word;
+  --cd-line1-lh: 1.35;
 }
 
 .portfolio-page .pf-table-card-sub {
@@ -1919,10 +1913,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #fff;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  --cd-line1-lh: 1.35;
 }
 
 .pf-gtile__meta {
@@ -1947,16 +1938,18 @@
   justify-content: space-between;
   gap: 8px;
   margin-top: 2px;
-  min-height: 40px;
+  min-height: 28px;
 }
 
 .pf-gtile__price-main {
   min-width: 0;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 40px;
+  margin: 0;
+  width: auto;
+}
+
+.pf-gtile__price-main.card__price-row {
+  align-items: baseline;
 }
 
 .pf-gtile__mkt {
@@ -1966,15 +1959,13 @@
   color: #fff;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  min-height: 1.15em;
 }
 
 .pf-gtile__ret {
   font-size: 12px;
   font-weight: 700;
-  margin-top: 2px;
   line-height: 1.2;
-  min-height: 1.2em;
+  margin-top: 0;
 }
 
 .pf-gtile__ret--empty {
@@ -2179,11 +2170,7 @@
   font-weight: 700;
   font-size: 14px;
   color: #fff;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  --cd-line1-lh: 1.3;
 }
 
 .pf-mobile-asset-card__grade {
@@ -2243,6 +2230,19 @@
   text-align: right;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.pf-mobile-asset-card__val--mkt {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.pf-mobile-asset-card__val--mkt .pf-mobile-asset-card__return {
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .pf-mobile-asset-card__return {

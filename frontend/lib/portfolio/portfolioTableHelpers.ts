@@ -1,7 +1,59 @@
-import type { CollectionMarketSeries, CollectionUsdPoint } from "@/lib/core";
+import type { CollectionMarketSeries, CollectionUsdPoint, RwaMetadata } from "@/lib/core";
 import { filterMergedChartPointsForWindow } from "@/lib/market/collectionChartHistory";
+import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  cardDisplayPartsFromAssetDetail,
+  formatCardDisplayHoverTitle,
+  formatCardDisplayLine1,
+  resolveRwaHeadlineGrade,
+  type AssetDetailHeadlineParts,
+} from "@/lib/marketplace/assetDetailHeadline";
 
 export { formatPortfolioGradeLabel, formatPortfolioGradeSubtitle } from "@/lib/portfolio/portfolioAssetMeta";
+
+export type PortfolioHoldingsHeadline = {
+  parts: AssetDetailHeadlineParts;
+  grade: string;
+  line1: string;
+  hover: string;
+};
+
+/** Portfolio holdings — SSOT Line 1 parts + formatted strings. */
+export function resolvePortfolioHoldingsHeadlines(
+  rows: AssetRow[],
+  metadataByTokenId: Map<number, RwaMetadata | null>,
+): Map<number, PortfolioHoldingsHeadline> {
+  const out = new Map<number, PortfolioHoldingsHeadline>();
+  for (const row of rows) {
+    const meta = metadataByTokenId.get(row.tokenId) ?? null;
+    const fallback = `RWA #${row.tokenId}`;
+    const parts = buildRwaAssetDetailHeadlineParts(meta, fallback);
+    const grade = resolveRwaHeadlineGrade(meta);
+    const line1 = formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade));
+    const hover = formatCardDisplayHoverTitle(parts, { grade });
+    out.set(row.tokenId, {
+      parts,
+      grade,
+      line1: line1 || row.name,
+      hover: hover || line1 || row.name,
+    });
+  }
+  return out;
+}
+
+/** Portfolio holdings — Line 1 titles (`{Name} · {Number} · {Grade}`). */
+export function resolvePortfolioHoldingsDisplayNames(
+  rows: AssetRow[],
+  metadataByTokenId: Map<number, RwaMetadata | null>,
+): Map<number, string> {
+  const headlines = resolvePortfolioHoldingsHeadlines(rows, metadataByTokenId);
+  const out = new Map<number, string>();
+  for (const row of rows) {
+    out.set(row.tokenId, headlines.get(row.tokenId)?.line1 ?? row.name);
+  }
+  return out;
+}
 
 export function formatPortfolioUsd(
   value: number | null | undefined,

@@ -103,7 +103,7 @@ export const MARKETS_VAULT_FILTER_OPTIONS: {
   chipLabel: string;
 }[] = [
   { id: "psa", chipLabel: "PSA Vault" },
-  { id: "partner", chipLabel: "Partner vault" },
+  { id: "partner", chipLabel: "TKB Vault" },
 ];
 
 export function vaultKindFromAsk(order: {

@@ -16,5 +16,5 @@ export function defaultVaultLabelForShipment(input: {
   const label = input.vaultLabel?.trim();
   if (label) return label;
   if (input.shipmentKey === "psa_vault") return "PSA Vault";
-  return "Partner vault";
+  return "TKB Vault";
 }

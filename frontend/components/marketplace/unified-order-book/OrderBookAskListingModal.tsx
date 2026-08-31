@@ -13,6 +13,7 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
 import { useIsMobileViewport } from "@/hooks/ui";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 const LISTING_IMAGE_STAGE =
   "bg-[radial-gradient(ellipse_85%_72%_at_50%_100%,rgba(58,62,74,0.5)_0%,rgba(22,24,30,0.92)_52%,#0a0b0e_100%)]";
@@ -125,7 +126,7 @@ function OrderBookAskListingCard({
 
       <div className="flex min-h-0 flex-col gap-1 p-1.5 sm:p-2">
         <div className="min-w-0 space-y-0.5">
-          <p className="line-clamp-1 text-xs font-semibold leading-snug text-white sm:text-[12px]">
+          <p className={`${CARD_DISPLAY_LINE1_CLAMP_CLASS} text-xs font-semibold leading-snug text-white sm:text-[12px] [--cd-line1-lh:1.375]`}>
             {displayTitle}
           </p>
           {trust.certNumber ? (

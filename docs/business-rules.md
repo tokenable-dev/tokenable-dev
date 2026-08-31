@@ -19,7 +19,7 @@ Only **PSA-graded cards with a numeric grade of 10** may be minted as RWA tokens
 At any time, a PSA cert number can have **at most one active (non-burned) NFT** on the platform.
 
 - **Enforced at:** Smart contract `VaultRefAlreadyActive` custom error
-- **Enforced at:** Backend `VaultService.reserveCycleForDeposit()` — rejects if open cycle exists
+- **Enforced at:** Backend `VaultService.reserveCycleForDeposit()` — rejects if open cycle exists. UI pre-flight: `GET /api/rwa/cert-availability/:certNumber` (mint form + sell flow) blocks Mint / add-cert before upload.
 - **Why:** Prevents double-representation of the same physical asset
 - **Exception:** After burn, the same cert may be re-minted (new tokenId, new vault cycle)
 
@@ -97,7 +97,6 @@ Bids are **token offers** on a specific card (`tokenId`), not collection-wide cr
 - Max **1 active offer** per wallet per `collectionKey` (same collection, any tokenId)
 - Offers expire after a buyer-chosen window of **1, 3, 7, 14, 30, 60, 90, or 180 days** (Seaport `endTime`). Default is **7 days**.
 - Collection **Place a Bid** works with or without an active ask. Floor listing → that `tokenId`; otherwise a minted token in the collection. If the collection has no vaulted tokens yet, bid is unavailable.
-- Unlisted token bids (no active ask on that card) must be at least **70% of the collection market price** (Cardhedger snapshot). Example: $100 market → min $70. There is **no maximum** vs market (a $150 bid on a $100 market is allowed). If market price is unknown, the floor is not applied.
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
 

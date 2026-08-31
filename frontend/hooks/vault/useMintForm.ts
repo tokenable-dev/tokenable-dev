@@ -6,6 +6,7 @@ import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
+  certMintBlockReason,
   uploadRwaMetadata,
   mintRwaViaBackend,
   syncRwaTokenAfterMint,
@@ -19,7 +20,7 @@ import {
   MINT_FORM_INITIAL_STATE,
   type MintFormStep,
 } from "@/lib/vault/mintFormConstants";
-import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
+import { resolveSelfVaultMintImageSelection } from "@/lib/vault/mintImageSource";
 import { validateMintForm } from "@/lib/vault/validateMintForm";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
 import { useAppChain } from "@/providers/AppChainProvider";
@@ -50,8 +51,16 @@ export function useMintForm() {
   const submitLockRef = useRef(false);
   const [walletActivateError, setWalletActivateError] = useState("");
   const [walletActivateBusy, setWalletActivateBusy] = useState(false);
+  const [certTakenMessage, setCertTakenMessage] = useState<string | null>(null);
+  const [certTakenChecking, setCertTakenChecking] = useState(false);
 
   const psa = useMintFormPsaState(form, setForm);
+
+  const resolvedCert = (
+    form.grade.certNumber.trim() ||
+    psa.lastAnalyze?.psa.certNumber?.trim() ||
+    ""
+  );
 
   const updateForm = useCallback(<K extends keyof GradedCardFormState>(
     key: K,
@@ -78,11 +87,35 @@ export function useMintForm() {
     [],
   );
 
+  useEffect(() => {
+    if (!/^\d{7,10}$/.test(resolvedCert)) {
+      setCertTakenMessage(null);
+      setCertTakenChecking(false);
+      return;
+    }
+    let cancelled = false;
+    setCertTakenChecking(true);
+    void certMintBlockReason(resolvedCert, chainId)
+      .then((reason) => {
+        if (!cancelled) setCertTakenMessage(reason);
+      })
+      .catch(() => {
+        if (!cancelled) setCertTakenMessage(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCertTakenChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedCert, chainId]);
+
   const validate = useCallback((): boolean => {
     const next = validateMintForm(form, psa.lastAnalyze, psa.psaInputMode);
+    if (certTakenMessage) next.certNumber = certTakenMessage;
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [form, psa.lastAnalyze, psa.psaInputMode]);
+  }, [form, psa.lastAnalyze, psa.psaInputMode, certTakenMessage]);
 
   const resetForm = useCallback(() => {
     submitLockRef.current = false;
@@ -141,7 +174,23 @@ export function useMintForm() {
       e.preventDefault();
       if (submitLockRef.current) return;
       if (!validate() || !primaryAddress || !isWalletReady) return;
+      if (certTakenMessage) return;
       if (!runAccessGate()) return;
+
+      const certForMint =
+        form.grade.certNumber.trim() ||
+        psa.lastAnalyze?.psa.certNumber?.trim() ||
+        "";
+      if (certForMint) {
+        const taken = await certMintBlockReason(certForMint, chainId);
+        if (taken) {
+          setCertTakenMessage(taken);
+          setErrorMsg(taken);
+          setStep("error");
+          submitLockRef.current = false;
+          return;
+        }
+      }
 
       submitLockRef.current = true;
       setErrorMsg("");
@@ -155,22 +204,15 @@ export function useMintForm() {
         const data = new FormData();
         data.append("name", form.name);
         data.append("description", form.description.trim() || "No description");
-        const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
-          psa.lastAnalyze,
-          form.grade.certNumber,
-        )
-          ? psa.lastAnalyze?.psaCertImages?.front
-          : undefined;
-        // Prefer PSA CloudFront slab (usually sharper) for the pinned NFT image.
-        // Cardhedger catalog URL stays in graded.cardhedger.imageUrl for covers.
-        const selectedMintImageUrl =
-          trustedPsaSlabUrl || psa.lastAnalyze?.cardhedgerMint?.imageUrl;
-        if (selectedMintImageUrl) {
-          data.append("imageUrl", selectedMintImageUrl);
-        } else if (form.image instanceof File) {
+        const mintImage = resolveSelfVaultMintImageSelection({
+          analyze: psa.lastAnalyze,
+          certNumber: form.grade.certNumber,
+          userImage: form.image,
+        });
+        if (mintImage.imageUrl) {
+          data.append("imageUrl", mintImage.imageUrl);
+        } else if (mintImage.useUserFile && form.image instanceof File) {
           data.append("image", form.image);
-        } else if (typeof form.image === "string" && form.image.trim()) {
-          data.append("imageUrl", form.image);
         }
 
         const meta = buildGradedCardMetadata(form, psa.lastAnalyze);
@@ -240,7 +282,9 @@ export function useMintForm() {
       queryClient,
       refresh,
       validate,
+      certTakenMessage,
       runAccessGate,
+      chainId,
     ],
   );
 
@@ -269,5 +313,7 @@ export function useMintForm() {
     walletActivateBusy,
     activateAccountWallet,
     address: primaryAddress,
+    certTakenMessage,
+    certTakenChecking,
   };
 }

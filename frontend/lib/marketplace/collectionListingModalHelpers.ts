@@ -99,7 +99,9 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
-/** Vault badge for listing cards / orderbook — Card.html `PSA Vault` / `{Partner} Vault`. */
+const PUBLIC_SELF_VAULT_LABEL = "TKB Vault";
+
+/** Vault badge for listing cards / orderbook — `PSA Vault` / `TKB Vault`. */
 export function listingVaultBadge(
   listing: {
     sellerDisplayName?: string | null;
@@ -111,28 +113,17 @@ export function listingVaultBadge(
 ): { label: string; tone: "psa" | "partner"; title?: string } {
   if (!listing) return { label: "—", tone: "psa" };
   const addr = listing.offerer || listing.parameters?.offerer;
+  if (listing.settlementPolicy === "self_vault_hold") {
+    return { label: PUBLIC_SELF_VAULT_LABEL, tone: "partner", title: addr };
+  }
   const tokenLabel = listing.vaultLabel?.trim();
   if (tokenLabel) {
-    const tone =
-      listing.settlementPolicy === "self_vault_hold" ? "partner" : "psa";
-    return { label: capitalizeVaultWord(tokenLabel), tone, title: addr };
-  }
-  if (listing.settlementPolicy === "standard") {
-    return { label: "PSA Vault", tone: "psa", title: addr };
-  }
-  const name = listing.sellerDisplayName?.trim();
-  if (name) {
-    const label = /vault$/i.test(name)
-      ? capitalizeVaultWord(name)
-      : `${name} Vault`;
-    return { label, tone: "partner", title: addr };
+    if (/^psa(\s+vault)?$/i.test(tokenLabel)) {
+      return { label: "PSA Vault", tone: "psa", title: addr };
+    }
+    return { label: PUBLIC_SELF_VAULT_LABEL, tone: "partner", title: addr };
   }
   return { label: "PSA Vault", tone: "psa", title: addr };
-}
-
-/** Normalize `… vault` → `… Vault` for display. */
-function capitalizeVaultWord(label: string): string {
-  return label.replace(/\bvault\b/gi, "Vault");
 }
 
 /** Desktop listing / prov sticky — Card.html vault badge. */

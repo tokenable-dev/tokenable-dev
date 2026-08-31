@@ -1095,11 +1095,7 @@
 .markets-grid .card__title {
   font-size: 18px;
   font-weight: 600;
-  line-height: 1.2;
-  min-height: 2.4em;
-  max-height: 2.4em;
-  height: 2.4em;
-  -webkit-line-clamp: 2;
+  --cd-line1-lh: 1.2;
 }
 
 .markets-grid .card__grade {
@@ -1152,14 +1148,7 @@
   .markets-grid .card__title {
     display: block;
     font-size: 13px;
-    line-height: 1.3;
-    min-height: unset;
-    max-height: none;
-    height: auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    -webkit-line-clamp: unset;
+    --cd-line1-lh: 1.3;
   }
 }
 
@@ -1319,13 +1308,7 @@
 
   .markets-grid .card__title {
     font-size: 13px;
-    line-height: 1.3;
-    min-height: unset;
-    max-height: none;
-    height: auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    --cd-line1-lh: 1.3;
   }
 
   .markets-grid .card__meta {

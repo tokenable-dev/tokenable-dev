@@ -45,6 +45,20 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
 
 ---
 
+## `GET /api/rwa/cert-availability/:certNumber`
+
+**Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id`
+
+Pre-flight for PSA vault / Tokenable (self) vault mint. Does **not** reserve a cycle.
+
+```json
+{ "available": true, "certNumber": "83179580", "message": null }
+```
+
+`available: false` when the cert already has an open vault cycle on that chain. Upload and mint still return `409` if the UI is bypassed.
+
+---
+
 ## `POST /api/rwa/mint`
 
 **Guard:** `JwtAuthGuard`
@@ -244,7 +258,7 @@ Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RA
 
 **Body (POST)** preferred for Partner Rate: same fields + `shipTo` (full address + optional `countryCode`). Frontend Calculate uses POST.
 
-**Response** includes totals plus `shipments[]` (`provider`, `vaultLabel`, fee lines, `shippingSource`, optional FedEx quote metadata) and flat `cards[]` for payment reconciliation.
+**Response** includes totals plus `shipments[]` (`provider`, `vaultLabel`, fee lines, `shippingSource`, optional FedEx quote metadata) and flat `cards[]` for payment reconciliation. Buyer `vaultLabel` is `PSA Vault` or `TKB Vault` (partner company names are admin-only).
 
 | Env | Purpose |
 |-----|---------|

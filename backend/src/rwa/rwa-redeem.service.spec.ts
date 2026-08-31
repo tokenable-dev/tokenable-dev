@@ -161,7 +161,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     expect(psa?.retrievalFeeTotalUsd).toBe(1.99);
     expect(partner?.shippingUsd).toBe(12.99);
     expect(partner?.retrievalFeeTotalUsd).toBe(0);
-    expect(partner?.vaultLabel).toMatch(/Tokenable/i);
+    expect(partner?.vaultLabel).toBe('TKB Vault');
     expect(partner?.shippingSource).toBe('fedex_stub');
     expect(partner?.shippingDestinationCountry).toBe('US');
     expect(partner?.shippingQuoteExpiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);

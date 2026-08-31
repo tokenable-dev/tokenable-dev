@@ -11,6 +11,7 @@ import {
 import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioPanelSearch } from "./PortfolioPanelSearch";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
@@ -191,7 +192,7 @@ export function PortfolioActivitySection({
                   </span>
                 </td>
                 <td data-label="Card">
-                  <span className="pf-table-card-name">{tx.asset}</span>
+                  <span className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>{tx.asset}</span>
                 </td>
                 <td data-label="Status" style={{ textAlign: "right" }}>
                   <PortfolioHistoryStatusBadge status={tx.status ?? "settled"} />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { TkButton } from "@/components/ds";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
@@ -10,7 +11,12 @@ import {
   isFlatReferencePercentChange,
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import {
+  buildMarketsCollectionHeadlineParts,
+  buildMarketsCollectionHoverTitle,
+  buildMarketsCollectionTitle,
+  gradeLabelFromComp,
+} from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
@@ -18,33 +24,6 @@ import {
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
-
-function formatBadgeCount(n: number): string {
-  const abs = Math.abs(n);
-  if (abs >= 1_000_000) {
-    const m = n / 1_000_000;
-    return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
-  }
-  if (abs >= 10_000) {
-    const k = n / 1_000;
-    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}k`;
-  }
-  return n.toLocaleString("en-US");
-}
-
-function formatGradeLabel(collection: MarketplaceCollectionSummary): string | null {
-  const comp = parseCollectionComponents(collection.components);
-  const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
-  const score = comp.gradeScore?.trim();
-  if (company && score) return `${company} ${score}`;
-  const label = comp.psaGradeLabel?.trim();
-  if (label) return label;
-  if (score) {
-    const fallbackCompany = comp.gradingCompany?.trim() || "PSA";
-    return `${fallbackCompany} ${score}`;
-  }
-  return null;
-}
 
 function formatCardChangePeriod(snapshot: CollectionListMarketSnapshot | undefined): string {
   if (!snapshot) return "1Y";
@@ -93,8 +72,9 @@ function resolveChangeDisplay(
 export type WatchlistRowModel = {
   href: string;
   title: string;
-  grade: string | null;
-  popLabel: string | null;
+  titleHover: string;
+  headlineParts: ReturnType<typeof buildMarketsCollectionHeadlineParts>;
+  grade: string;
   priceLabel: string;
   change: { pctLabel: string; period: string; tone: "up" | "down" | "muted" };
   imageSrc: string | null;
@@ -109,19 +89,18 @@ export function buildWatchlistRowModel(
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
-  const title = buildMarketsCollectionTitle({ collection, comp, omitGrade: true });
-  const grade = formatGradeLabel(collection);
-  const pop =
-    typeof comp.psaTotalPopulation === "number" && comp.psaTotalPopulation >= 0
-      ? Math.floor(comp.psaTotalPopulation)
-      : null;
+  const headlineParts = buildMarketsCollectionHeadlineParts({ collection, comp });
+  const grade = gradeLabelFromComp(comp);
+  const title = buildMarketsCollectionTitle({ collection, comp });
+  const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct = resolveMarketsListingMarketChangePct(snapshot);
   return {
     href: `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`,
     title,
+    titleHover,
+    headlineParts,
     grade,
-    popLabel: pop != null ? formatBadgeCount(pop) : null,
     priceLabel: formatUsdCompact(priceUsd),
     change: resolveChangeDisplay(snapshot, changePct, changeLoading),
     imageSrc,
@@ -145,7 +124,7 @@ export function WatchlistCollectibleCard({
     resolvedCoverUrl,
     changeLoading,
   );
-  const { href, title, grade, popLabel, priceLabel, change, imageSrc } = row;
+  const { href, title, titleHover, headlineParts, grade, priceLabel, change, imageSrc } = row;
 
   return (
     <Link
@@ -172,14 +151,13 @@ export function WatchlistCollectibleCard({
         </div>
       </div>
       <div className="card__body">
-        <div className="card__title">{title}</div>
-        <div className="card__meta watchlist-card__meta">
-          {grade ? <span className="watchlist-card__grade">{grade}</span> : null}
-          {popLabel != null ? (
-            <span className="card__stat">
-              POP<span className="card__stat-val">{popLabel}</span>
-            </span>
-          ) : null}
+        <div className="card__title" title={titleHover || title}>
+          <AssetDetailHeadlineTitle
+            as="span"
+            parts={headlineParts}
+            grade={grade}
+            className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.2]"
+          />
         </div>
         <div className="card__price-row">
           <span className="card__price">{priceLabel}</span>

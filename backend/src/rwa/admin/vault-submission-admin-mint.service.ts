@@ -19,7 +19,6 @@ import { RwaMintService } from '../rwa-mint.service';
 import { RwaService } from '../rwa.service';
 import {
   buildVaultAdminMintUploadFromAnalyze,
-  readVaultAdminMintPlaceholderPng,
 } from './vault-admin-mint-metadata.util';
 
 @Injectable()
@@ -145,72 +144,14 @@ export class VaultSubmissionAdminMintService {
       }
 
       const analyze = await this.psa.analyzeByCertNumber(cert);
-      let { dto, usePlaceholderImage } = buildVaultAdminMintUploadFromAnalyze({
+      let { dto } = buildVaultAdminMintUploadFromAnalyze({
         certNumber: cert,
         analyze,
         fallbackName: item.displayName,
         fallbackImageUrl: item.imageUrl,
       });
 
-      // Same Cardhedger catalog path as collection cover create (Bubble crop_image
-      // etc.) — try before the Tokenable logo so NFT image matches markets UI.
-      if (usePlaceholderImage && dto.gradedMetadata?.trim()) {
-        try {
-          let meta: Record<string, unknown> = {
-            properties: JSON.parse(dto.gradedMetadata) as Record<
-              string,
-              unknown
-            >,
-          };
-          meta = await this.collectionCover.attachCardhedgerFromPsaCert(
-            meta,
-            cert,
-          );
-          const catalogUrl =
-            await this.collectionCover.resolveCoverUrlFromMeta(meta);
-          if (catalogUrl?.trim()) {
-            dto = { ...dto, imageUrl: catalogUrl.trim() };
-            usePlaceholderImage = false;
-            this.logger.log(
-              `Mint queue: using Cardhedger/catalog image for cert=${cert}`,
-            );
-          }
-        } catch (e) {
-          this.logger.warn(
-            `Mint queue catalog image resolve failed cert=${cert}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-          );
-        }
-      }
-
-      let file: Express.Multer.File | undefined;
-      if (usePlaceholderImage) {
-        try {
-          const placeholder = readVaultAdminMintPlaceholderPng();
-          this.logger.log(
-            `Mint queue: no PSA/Cardhedger/item/catalog image for cert=${cert}; using Tokenable placeholder`,
-          );
-          file = {
-            buffer: placeholder.buffer,
-            originalname: placeholder.originalname,
-            mimetype: placeholder.mimetype,
-            fieldname: 'file',
-            encoding: '7bit',
-            size: placeholder.buffer.length,
-            stream: undefined as unknown as Express.Multer.File['stream'],
-            destination: '',
-            filename: '',
-            path: '',
-          };
-        } catch (e) {
-          throw new BadRequestException(
-            e instanceof Error ? e.message : String(e),
-          );
-        }
-      }
-
-      const upload = await this.rwa.uploadToIpfs(dto, chainId, file);
+      const upload = await this.rwa.uploadToIpfs(dto, chainId);
 
       const mint = await this.rwaMint.mintCustodyThenDeliverForUser(
         user,

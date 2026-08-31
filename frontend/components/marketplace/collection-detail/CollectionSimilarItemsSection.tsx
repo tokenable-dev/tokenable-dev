@@ -11,6 +11,7 @@ import {
   type SimilarCollectionItem,
 } from "@/hooks/collection-detail/useCollectionSimilarItems";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 function ChangeChip({ pct }: { pct: number | null }) {
   if (pct == null || !Number.isFinite(pct)) {
@@ -52,7 +53,7 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
         )}
       </div>
       <div className="cd-si-card__body">
-        <div className="cd-si-card__title">{item.displayLabel}</div>
+        <div className={`cd-si-card__title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>{item.displayLabel}</div>
         <div className="cd-si-card__price-row">
           <span className="cd-si-card__price">
             {item.lastPriceUsd != null

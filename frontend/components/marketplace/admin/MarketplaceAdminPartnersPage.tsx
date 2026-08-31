@@ -103,10 +103,9 @@ export function MarketplaceAdminPartnersPage() {
 
       <p className={`mb-6 text-sm ${ADMIN_TEXT_SECONDARY}`}>
         Active partners with a company Origin address can use{" "}
-        <strong>Partner vault</strong> in the sell flow. Listings and portfolio show{" "}
-        <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">
-          {"{company name} vault"}
-        </code>
+        <strong>Partner vault</strong> in the sell flow. Admin keeps each
+        partner&rsquo;s vault name (e.g. ORP Vault); buyers always see{" "}
+        <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">TKB Vault</code>
         . Origin is the FedEx ship-from for Partner vault redeems — edit it below
         or from the partner&rsquo;s Settings. After adding a private key, use{" "}
         <a

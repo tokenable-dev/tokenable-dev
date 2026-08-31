@@ -39,7 +39,9 @@ Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** c
 
 **Register / seller consents:** `/sell/flow` always opens on the register screen. Consents are session-only and must be re-accepted each visit. Draft cards may still resume after Continue. Optional `?vault=self` (Partner Add Cards) prefills Partner vault so Continue skips Choose vault.
 
-**Partner vault mint queue:** confirmed cards mint **one at a time**. A per-card failure (already minted cert, PSA shipment block, missing image, PSA lookup error, etc.) **skips that card and continues**. The result modal lists registered token IDs and skip reasons. Succeeded certs are removed from the local list; skipped certs stay for retry. Partner-eligibility errors (no company address / not a partner) stop the remaining queue.
+**Partner vault mint queue:** confirmed cards mint **one at a time**. Cert availability (`GET /api/rwa/cert-availability`) is checked when adding a cert and again before each mint. A per-card failure (already minted cert, PSA shipment block, missing image, PSA lookup error, etc.) **skips that card and continues**. The result modal lists registered token IDs and skip reasons. Succeeded certs are removed from the local list; skipped certs stay for retry. Partner-eligibility errors (no company address / not a partner) stop the remaining queue.
+
+**PSA vault:** the same cert-availability check runs on add-cert and before Continue to shipping so an already-minted cert cannot enter a new shipment.
 
 Vault hub (`/vault`) active view mirrors `Tokenable-with design system-22/Vault-Dashboard-Active.html`: **All · In transit · Verifying · Vaulted · Rejected** plus a per-card stepper (not package ip-cards). `in_transit` / `awaiting_shipment` → In transit (Add tracking still works before a number is set). `psa_reviewing` open items → Verifying. Item `completed` → Vaulted (green note + Portfolio link). Rejected / failed items (and scenario `F` / `H` without per-item flags) → Rejected with reason copy; primary CTA opens the existing submission detail (or carrier track for “not received”). Partner-vault holdings are **not** listed here (Portfolio only). Pre-ship drafts do not appear — resume Add cards via `/sell/flow`. After tracking confirm, local draft keys are cleared.
 
@@ -57,7 +59,7 @@ Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` 
 
 **Mint & deliver (PSA → Live):** `GET …/mint-queue` lists `reviewing`/`approved` items on `psa_reviewing` packages. Gmail vault-confirmation mail (“now secured in your PSA Vault”) auto-runs the same `mint-and-deliver` path (`vault_psa_vaulted_reviews`). Manual: `POST …/:id/items/:itemId/mint-and-deliver`.
 
-**Mint image:** preferred order is PSA cert front → Cardhedger mint image (from analyze) → submission item `imageUrl` → **Cardhedger catalog resolve** (same path as collection cover: `details-by-certs` / card-search → Bubble `cdn.bubble.io/.../crop_image` etc.) → bundled Tokenable logo (`backend/src/assets/tokenable_logo.png`). Mint is not blocked when PSA slab images are missing.
+**Mint image priority:** PSA cert slab → user/submission upload → Cardhedger catalog (never Cardhedger’s branded placeholder card) → bundled Tokenable default (`backend/src/assets/tokenable_mint_placeholder.png`). `properties.mintImageSource` records which tier was pinned. Cardhedger `cardId` stays in metadata for pricing/collection matching even when catalog art is unavailable.
 
 ### Sell flow vault choice
 

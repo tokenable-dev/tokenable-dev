@@ -2,6 +2,7 @@
 
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { PortfolioAssetCardCta } from "./PortfolioAssetCardCta";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
 import {
   PortfolioCardIconButton,
@@ -119,7 +120,7 @@ export function PortfolioAssetCard({
       </div>
       <div className="pf-asset-card__body flex min-w-0 flex-1 flex-col">
         <p
-          className="pf-asset-card__title line-clamp-2"
+          className={`pf-asset-card__title ${CARD_DISPLAY_LINE1_CLAMP_CLASS} [--cd-line1-lh:1.375]`}
           title={titleLine}
         >
           {titleLine}

@@ -89,6 +89,26 @@ describe('RwaService.uploadToIpfs', () => {
     expect(result.displayImageUrl).toBeNull();
   });
 
+  it('uses Tokenable placeholder when no image file or URL', async () => {
+    pinata.uploadFile.mockResolvedValue('bafyPlaceholder');
+
+    const result = await service.uploadToIpfs(
+      {
+        name: 'Charizard',
+        description: 'Test',
+        gradedMetadata,
+      },
+      84532,
+    );
+
+    expect(pinata.uploadFile).toHaveBeenCalled();
+    expect(pinata.fetchImageBufferFromUrl).not.toHaveBeenCalled();
+    expect(result.metadata.properties?.mintImageSource).toBe(
+      'tokenable_placeholder',
+    );
+    expect(result.tokenURI).toBe('ipfs://bafyMeta');
+  });
+
   it('fails when image fetch fails (before mint)', async () => {
     pinata.fetchImageBufferFromUrl.mockRejectedValue(new Error('network'));
 

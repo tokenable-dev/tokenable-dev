@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { TkTag } from "@/components/ds";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
+  type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
@@ -48,8 +49,8 @@ function galleryStatusSeg(
 /** My Assets gallery tile — Portfolio.html `pf-gtile`. */
 export function PortfolioHoldingsGalleryTile({
   row,
+  headline,
   href,
-  grade,
   cost,
   vaultLabel,
   valuesPending,
@@ -63,8 +64,8 @@ export function PortfolioHoldingsGalleryTile({
   onSetPrice,
 }: {
   row: AssetRow;
+  headline: PortfolioHoldingsHeadline | null;
   href?: string;
-  grade: string | null;
   cost: number | undefined;
   vaultLabel: string;
   valuesPending: boolean;
@@ -82,9 +83,9 @@ export function PortfolioHoldingsGalleryTile({
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
   const costEditable = canEditCostBasis && !redeemStatus;
-  const retLabel = pnl
-    ? `${pnl.positive ? "↗" : "↘"} ${pnl.returnPct.replace("+", "").replace("-", "")}`
-    : null;
+  const retLabel = pnl?.returnPct ?? null;
+  const titleHover = headline?.hover ?? row.name;
+  const titleLabel = headline?.line1 ?? row.name;
 
   const tileClass = [
     "pf-gtile",
@@ -94,11 +95,22 @@ export function PortfolioHoldingsGalleryTile({
     .filter(Boolean)
     .join(" ");
 
+  const titleNode = headline ? (
+    <AssetDetailHeadlineTitle
+      as="span"
+      parts={headline.parts}
+      grade={headline.grade}
+      className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.35]"
+    />
+  ) : (
+    titleLabel
+  );
+
   return (
     <div className={tileClass}>
       <div className="pf-gtile__media">
         {href ? (
-          <Link href={href} className="pf-gtile__media-link" aria-label={row.name}>
+          <Link href={href} className="pf-gtile__media-link" aria-label={titleLabel}>
             {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={row.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
@@ -118,43 +130,37 @@ export function PortfolioHoldingsGalleryTile({
       </div>
 
       <div className="pf-gtile__body">
-        <div className="pf-gtile__title" title={row.name}>
+        <div className="pf-gtile__title" title={titleHover}>
           {href ? (
             <Link href={href} className="pf-gtile__title-link">
-              {row.name}
+              {titleNode}
             </Link>
           ) : (
-            row.name
+            titleNode
           )}
         </div>
         <div className="pf-gtile__meta">
-          {grade ? (
-            <TkTag tone="neutral" appearance="soft" className="pf-gtile__grade">
-              {grade}
-            </TkTag>
-          ) : null}
           <span className="pf-gtile__vault tkl-mono">{vaultLabel}</span>
         </div>
 
         <div className="pf-gtile__price-row">
-          <div className="pf-gtile__price-main">
-            <div className="pf-gtile__mkt" title="Market price">
+          <div className="pf-gtile__price-main card__price-row">
+            <span className="card__price pf-gtile__mkt" title="Market price">
               {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
-            </div>
-            {/* Always reserve return-line height so tiles stay equal without cost/mkt. */}
-            <div
-              className={`pf-gtile__ret tkl-mono${
+            </span>
+            <span
+              className={`card__sub pf-gtile__ret tkl-mono${
                 hasVal && retLabel && pnl
                   ? pnl.positive
-                    ? " pf-table-pl--pos"
-                    : " pf-table-pl--neg"
+                    ? " card__sub--up pf-table-pl--pos"
+                    : " card__sub--down pf-table-pl--neg"
                   : " pf-gtile__ret--empty"
               }`}
-              title={hasVal && retLabel ? "Unrealized return" : undefined}
+              title={hasVal && retLabel ? "% change vs cost" : undefined}
               aria-hidden={!retLabel}
             >
               {hasVal && retLabel ? retLabel : "\u00a0"}
-            </div>
+            </span>
           </div>
           <span className="pf-gtile__spark" title="1-year market price">
             {hasVal ? (
@@ -167,12 +173,11 @@ export function PortfolioHoldingsGalleryTile({
           </span>
         </div>
 
-        {/* Always mount cost slot so hover/touch height stays uniform. */}
         <div className="pf-cost-hover">
           {costEditable && onSaveCostBasis ? (
             <PortfolioCostBasisInlineEdit
               layout="gallery"
-              assetName={row.name}
+              assetName={titleLabel}
               valueUsd={cost}
               currentPriceUsd={row.currentPrice}
               editable

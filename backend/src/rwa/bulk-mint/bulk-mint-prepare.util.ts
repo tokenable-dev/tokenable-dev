@@ -1,3 +1,4 @@
+import type { MintImageSource } from '../rwa-mint-image.util';
 import type { PsaCertRecord } from '../../psa/psa-public-api.service';
 import { parseGradeFromPsaCertRecord } from '../../psa/psa-public-api.service';
 import type { RwaMetadata } from '../interfaces/rwa-metadata.interface';
@@ -11,8 +12,10 @@ export function buildBulkMintMetadataFromPsaCert(params: {
   imageUrl: string;
   /** PSA slab photo URL stored for UI fallback (not pinned on-chain). */
   certImageSourceUrl?: string | null;
+  mintImageSource?: MintImageSource;
 }): { name: string; description: string; metadata: RwaMetadata } {
-  const { certNumber, psaCert, imageUrl, certImageSourceUrl } = params;
+  const { certNumber, psaCert, imageUrl, certImageSourceUrl, mintImageSource } =
+    params;
   const { label, score } = parseGradeFromPsaCertRecord(psaCert);
   const subject = String(psaCert.Subject ?? '').trim();
   const year = String(psaCert.Year ?? psaCert.YearIssued ?? '').trim();
@@ -95,7 +98,10 @@ export function buildBulkMintMetadataFromPsaCert(params: {
       ...(year ? [{ trait_type: 'Year', value: year }] : []),
       ...(brand ? [{ trait_type: 'Brand', value: brand }] : []),
     ],
-    properties: { graded },
+    properties: {
+      graded,
+      ...(mintImageSource ? { mintImageSource } : {}),
+    },
   };
 
   return { name, description, metadata };

@@ -6,8 +6,6 @@ import { useAccount, usePublicClient, useReadContract, useWriteContract } from "
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getCollectionBidsByOfferer,
-  getCollectionMarketSeries,
-  marketplaceRqPolicy,
   rq,
   type Order,
 } from "@/lib/core";
@@ -35,12 +33,6 @@ import {
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { resolveExternalMarketUsd } from "@/lib/market";
-import { MARKET_METRICS_SERIES_DURATION } from "@/lib/market/priceChangePeriod";
-import {
-  isUnlistedTokenBidBelowMarketFloor,
-  minUnlistedTokenBidUsdc,
-} from "@/lib/marketplace/tokenBidMarketFloor";
 
 /** Digits + optional one decimal place (e.g. `3.5`). Strips commas / extra dots. */
 export function sanitizeTokenBidPriceInput(raw: string): string {
@@ -59,8 +51,6 @@ export function sanitizeTokenBidPriceInput(raw: string): string {
 
 export const MAX_ACTIVE_BIDS_PER_COLLECTION = 1;
 export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
-/** Soft floor vs live ask — Card.html `tkbMin` uses 70% of market. */
-const MARKET_FLOOR_RATIO = 0.7;
 
 function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
@@ -77,7 +67,7 @@ export type TokenOfferStep =
   | "success"
   | "error";
 
-export type TokenOfferCtaMode = "submit" | "addfunds" | "override" | "blocked";
+export type TokenOfferCtaMode = "submit" | "addfunds" | "blocked";
 
 export function useTokenOffer(input: {
   collectionKey: string;
@@ -129,7 +119,6 @@ export function useTokenOffer(input: {
   const durationDaysRef = useRef(durationDays);
   durationDaysRef.current = durationDays;
   const priceTouchedRef = useRef(false);
-  const [softOverride, setSoftOverride] = useState(false);
   const [step, setStep] = useState<TokenOfferStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [lastOutcome, setLastOutcome] = useState<"instant" | "bid" | null>(null);
@@ -200,36 +189,6 @@ export function useTokenOffer(input: {
   const askMicros = askPriceMicros(listing);
   const askUsdc = Number(formatUnits(askMicros, 6));
   const hasListedAsk = askUsdc > 0;
-  const askSoftFloorUsdc = hasListedAsk ? askUsdc * MARKET_FLOOR_RATIO : 0;
-
-  const marketSeriesQuery = useQuery({
-    queryKey: rq.collectionMarketSeries(
-      collectionKey,
-      MARKET_METRICS_SERIES_DURATION,
-      chainId,
-    ),
-    queryFn: () =>
-      getCollectionMarketSeries(collectionKey, MARKET_METRICS_SERIES_DURATION),
-    enabled: !hasListedAsk && collectionKey.trim().length > 0,
-    staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
-  });
-
-  const unlistedMarketUsd = useMemo(() => {
-    if (hasListedAsk) return null;
-    const series = marketSeriesQuery.data;
-    if (!series) return null;
-    const resolved = resolveExternalMarketUsd({
-      marketPreview: series.cardhedgerPreview ?? null,
-      gradePrices: series.gradePrices ?? null,
-      gradeScore: 10,
-      spotPriceBasis: series.spotPriceBasis ?? null,
-    });
-    return resolved.usd != null && resolved.usd > 0 ? resolved.usd : null;
-  }, [hasListedAsk, marketSeriesQuery.data]);
-
-  const unlistedMarketFloorUsdc =
-    unlistedMarketUsd != null ? minUnlistedTokenBidUsdc(unlistedMarketUsd) : 0;
-  const marketFloorUsdc = hasListedAsk ? askSoftFloorUsdc : unlistedMarketFloorUsdc;
 
   const priceOk = useMemo(() => {
     const n = parseFloat(price.replace(/[^0-9.]/g, ""));
@@ -255,17 +214,6 @@ export function useTokenOffer(input: {
 
   const crossesAsk =
     hasListedAsk && priceOk && priceInUnits != null && priceInUnits >= askMicros;
-  const belowSoftFloor =
-    hasListedAsk &&
-    priceOk &&
-    !crossesAsk &&
-    priceUsdc < askSoftFloorUsdc &&
-    !softOverride;
-  const belowHardMarketFloor =
-    !hasListedAsk &&
-    priceOk &&
-    unlistedMarketFloorUsdc > 0 &&
-    isUnlistedTokenBidBelowMarketFloor(priceUsdc, unlistedMarketUsd);
   const insufficientFunds =
     priceOk &&
     priceInUnits != null &&
@@ -280,9 +228,8 @@ export function useTokenOffer(input: {
   const ctaMode: TokenOfferCtaMode = useMemo(() => {
     if (bidLimitReached) return "blocked";
     if (insufficientFunds) return "addfunds";
-    if (belowSoftFloor) return "override";
     return "submit";
-  }, [bidLimitReached, insufficientFunds, belowSoftFloor]);
+  }, [bidLimitReached, insufficientFunds]);
 
   const busy =
     step === "signing" ||
@@ -306,33 +253,9 @@ export function useTokenOffer(input: {
         tone: "error" as const,
       };
     }
-    if (belowHardMarketFloor) {
-      return {
-        text: `Bid must be at least $${formatUsdc2(unlistedMarketFloorUsdc)} (70% of market).`,
-        tone: "error" as const,
-      };
-    }
-    if (belowSoftFloor) {
-      return {
-        text: `Bid is below the $${formatUsdc2(askSoftFloorUsdc)} minimum (70% of market). Continue anyway?`,
-        tone: "warn" as const,
-      };
-    }
     if (errorMsg) return { text: errorMsg, tone: "error" as const };
-    if (!hasListedAsk) {
-      if (unlistedMarketFloorUsdc > 0) {
-        return {
-          text: `Min bid $${formatUsdc2(unlistedMarketFloorUsdc)} (70% of market) · No bid fee, 5% on sale only`,
-          tone: "muted" as const,
-        };
-      }
-      return {
-        text: "No bid fee · 5% charged on sale only",
-        tone: "muted" as const,
-      };
-    }
     return {
-      text: `Min bid $${formatUsdc2(askSoftFloorUsdc)} (70% of market) · No bid fee, 5% on sale only`,
+      text: "No bid fee · 5% charged on sale only",
       tone: "muted" as const,
     };
   }, [
@@ -342,12 +265,7 @@ export function useTokenOffer(input: {
     step,
     insufficientFunds,
     shortfallUsdc,
-    belowHardMarketFloor,
-    unlistedMarketFloorUsdc,
-    belowSoftFloor,
-    askSoftFloorUsdc,
     errorMsg,
-    hasListedAsk,
   ]);
 
   const busyLabel =
@@ -377,15 +295,9 @@ export function useTokenOffer(input: {
 
   const setPriceDigits = (raw: string) => {
     priceTouchedRef.current = true;
-    setSoftOverride(false);
     setHintError(null);
     setErrorMsg("");
     setPrice(sanitizeTokenBidPriceInput(raw));
-  };
-
-  const handleAdjustBid = () => {
-    setSoftOverride(false);
-    setHintError(null);
   };
 
   const handleAddFunds = async () => {
@@ -423,13 +335,6 @@ export function useTokenOffer(input: {
     if (insufficientFunds) {
       await handleAddFunds();
       return;
-    }
-    if (belowHardMarketFloor) {
-      return;
-    }
-    // "Bid anyway" — accept soft floor and continue in the same click.
-    if (belowSoftFloor) {
-      setSoftOverride(true);
     }
 
     if (crossesAsk) {
@@ -524,13 +429,11 @@ export function useTokenOffer(input: {
         ? busyLabel
         : ctaMode === "addfunds"
           ? "Add funds"
-          : ctaMode === "override"
-            ? "Bid anyway"
-            : ctaMode === "blocked"
-              ? "Maximum bids reached"
-              : crossesAsk
-                ? "Buy at listed price"
-                : "Place bid";
+          : ctaMode === "blocked"
+            ? "Maximum bids reached"
+            : crossesAsk
+              ? "Buy at listed price"
+              : "Place bid";
 
   return {
     address,
@@ -544,8 +447,6 @@ export function useTokenOffer(input: {
     priceOk,
     priceUsdc,
     askUsdc,
-    marketFloorUsdc,
-    unlistedMarketFloorUsdc,
     hasListedAsk,
     balanceUsdc,
     step,
@@ -556,11 +457,8 @@ export function useTokenOffer(input: {
     ctaLabel,
     busy,
     walletSignerMissing,
-    softOverride,
     handleSubmit,
-    handleAdjustBid,
     handleAddFunds,
-    submitDisabled: bidLimitReached || !priceOk || belowHardMarketFloor,
-    belowHardMarketFloor,
+    submitDisabled: bidLimitReached || !priceOk,
   };
 }

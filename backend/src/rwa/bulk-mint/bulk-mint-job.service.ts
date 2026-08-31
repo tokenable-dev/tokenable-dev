@@ -26,6 +26,12 @@ import {
 } from '../../psa/psa-public-api.service';
 import { VaultService } from '../../vault/vault.service';
 import { PinataService } from '../pinata/pinata.service';
+import { readRwaMintPlaceholderPng } from '../rwa-mint-placeholder.util';
+import {
+  type MintImageSource,
+  resolveCardhedgerMintImageUrl,
+} from '../rwa-mint-image.util';
+import { PsaService } from '../../psa/psa.service';
 import {
   BulkMintJob,
   type BulkMintJobStatus,
@@ -110,6 +116,7 @@ export class BulkMintJobService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly psaPublicApi: PsaPublicApiService,
+    private readonly psa: PsaService,
     private readonly pinata: PinataService,
     private readonly vault: VaultService,
     private readonly chainWriter: RwaChainWriterService,
@@ -477,27 +484,65 @@ export class BulkMintJobService {
       });
       if (gradeReject) throw new Error(gradeReject);
 
-      let imageUrl =
+      let certImageSourceUrl: string | null =
         extractPsaCertImageUrlsFromApiBody(lookup.raw, item.certNumber).front ??
         null;
-      if (!imageUrl) {
+      if (!certImageSourceUrl) {
         const imgs = await this.psaPublicApi.getImagesByCertNumber(item.certNumber);
         if (imgs.status === 'success') {
-          imageUrl =
+          certImageSourceUrl =
             extractPsaCertImagesFromGetImagesBody(imgs.raw).front ??
             extractPsaCertImagesFromGetImagesBody(imgs.raw).back ??
             null;
         }
       }
-      if (!imageUrl) {
-        throw new Error('No PSA slab image URL available for this cert');
-      }
 
-      let fetched: { buffer: Buffer; mimeType: string; extension: string };
-      try {
-        fetched = await this.pinata.fetchImageBufferFromUrl(imageUrl);
-      } catch {
-        throw new Error('Failed to download PSA slab image');
+      let fetched!: { buffer: Buffer; mimeType: string; extension: string };
+      let mintImageSource: MintImageSource = 'tokenable_placeholder';
+      if (certImageSourceUrl) {
+        mintImageSource = 'psa_cert';
+        try {
+          fetched = await this.pinata.fetchImageBufferFromUrl(certImageSourceUrl);
+        } catch {
+          throw new Error('Failed to download PSA slab image');
+        }
+      } else {
+        let remoteUrl: string | null = null;
+        try {
+          const analyze = await this.psa.analyzeByCertNumber(item.certNumber);
+          remoteUrl = resolveCardhedgerMintImageUrl({
+            imageUrl: analyze.cardhedgerMint?.imageUrl,
+          });
+        } catch (e) {
+          this.logger.warn(
+            `bulk mint prepare cert=${item.certNumber}: Cardhedger image resolve skipped: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+        if (remoteUrl) {
+          mintImageSource = 'cardhedger_catalog';
+          try {
+            fetched = await this.pinata.fetchImageBufferFromUrl(remoteUrl);
+          } catch {
+            this.logger.warn(
+              `bulk mint prepare cert=${item.certNumber}: Cardhedger image download failed; using Tokenable placeholder`,
+            );
+            remoteUrl = null;
+          }
+        }
+        if (!remoteUrl) {
+          const placeholder = readRwaMintPlaceholderPng();
+          fetched = {
+            buffer: placeholder.buffer,
+            mimeType: placeholder.mimetype,
+            extension: 'png',
+          };
+          mintImageSource = 'tokenable_placeholder';
+          this.logger.log(
+            `bulk mint prepare cert=${item.certNumber}: no PSA slab or Cardhedger catalog image; using Tokenable placeholder`,
+          );
+        }
       }
 
       const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
@@ -511,7 +556,8 @@ export class BulkMintJobService {
         certNumber: item.certNumber,
         psaCert,
         imageUrl: '',
-        certImageSourceUrl: imageUrl,
+        certImageSourceUrl: certImageSourceUrl ?? undefined,
+        mintImageSource,
       });
 
       let imageCid: string;

@@ -1,64 +1,45 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 import type { PsaAnalyzeResult } from '../../psa/psa.service';
 import type { UploadRwaDto } from '../dto/upload-rwa.dto';
+import {
+  RWA_MINT_PLACEHOLDER_FILENAME,
+  readRwaMintPlaceholderPng,
+  resolveRwaMintPlaceholderPngPath,
+} from '../rwa-mint-placeholder.util';
+import {
+  resolveCardhedgerMintImageUrl,
+  resolveRemoteMintImageUrl,
+} from '../rwa-mint-image.util';
 
-/** Bundled via nest-cli `src/assets/**` → `dist/assets/`. */
-export const VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME = 'tokenable_logo.png';
+/** @deprecated Use {@link RWA_MINT_PLACEHOLDER_FILENAME} */
+export const VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME = RWA_MINT_PLACEHOLDER_FILENAME;
 
-/**
- * Resolve Tokenable placeholder PNG for admin mint when PSA/Cardhedger/item
- * image is missing. Prefer built `dist/assets` (Docker), then `src/assets` (dev).
- */
-export function resolveVaultAdminMintPlaceholderPngPath(): string {
-  const candidates = [
-    join(__dirname, '..', '..', 'assets', VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME),
-    join(
-      process.cwd(),
-      'dist',
-      'assets',
-      VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME,
-    ),
-    join(
-      process.cwd(),
-      'src',
-      'assets',
-      VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME,
-    ),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  throw new Error(
-    `Tokenable mint placeholder missing (${VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME}). Expected under dist/assets or src/assets.`,
-  );
-}
+/** @deprecated Use {@link resolveRwaMintPlaceholderPngPath} */
+export const resolveVaultAdminMintPlaceholderPngPath = resolveRwaMintPlaceholderPngPath;
 
-export function readVaultAdminMintPlaceholderPng(): {
-  buffer: Buffer;
-  originalname: string;
-  mimetype: string;
-} {
-  const path = resolveVaultAdminMintPlaceholderPngPath();
-  return {
-    buffer: readFileSync(path),
-    originalname: VAULT_ADMIN_MINT_PLACEHOLDER_FILENAME,
-    mimetype: 'image/png',
-  };
+/** @deprecated Use {@link readRwaMintPlaceholderPng} */
+export const readVaultAdminMintPlaceholderPng = readRwaMintPlaceholderPng;
+
+function cardhedgerMetaWithoutCatalogImage(
+  mint: PsaAnalyzeResult['cardhedgerMint'],
+): Record<string, unknown> | null {
+  if (!mint) return null;
+  const out: Record<string, unknown> = {};
+  if (mint.cardId?.trim()) out.cardId = mint.cardId.trim();
+  if (mint.searchQuery != null) out.searchQuery = mint.searchQuery;
+  if (mint.matchConfidence) out.matchConfidence = mint.matchConfidence;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /**
  * Build IPFS upload DTO for admin PSA-vault mint from a cert analyze result.
- * Mirrors the self-vault frontend path (`mintSellFlowCardByCert`) enough for
- * `RwaService.uploadToIpfs` grade policy + cert extraction.
- *
- * When no remote image exists, `usePlaceholderImage` is true — caller must
- * upload the bundled Tokenable logo via `uploadToIpfs(..., file)`.
+ * Mint image priority: PSA slab → submission/item image → Cardhedger catalog
+ * (never Cardhedger branded placeholder) → caller/`RwaService` Tokenable default.
  */
 export function buildVaultAdminMintUploadFromAnalyze(params: {
   certNumber: string;
   analyze: PsaAnalyzeResult;
   fallbackName?: string | null;
+  /** Submission/item photo when PSA has no slab URL. */
   fallbackImageUrl?: string | null;
 }): {
   dto: UploadRwaDto;
@@ -72,16 +53,23 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
     params.fallbackName?.trim() ||
     `PSA CERT #${cert}`;
 
-  const imageUrl =
-    params.analyze.psaCertImages?.front?.trim() ||
-    params.analyze.cardhedgerMint?.imageUrl?.trim() ||
-    params.fallbackImageUrl?.trim() ||
-    '';
-  const usePlaceholderImage = !imageUrl;
+  const psaSlabUrl = params.analyze.psaCertImages?.front?.trim() || '';
+  const remote = resolveRemoteMintImageUrl({
+    psaCertSlabUrl: psaSlabUrl,
+    userImageUrl: params.fallbackImageUrl,
+    cardhedgerImageUrl: resolveCardhedgerMintImageUrl({
+      imageUrl: params.analyze.cardhedgerMint?.imageUrl,
+    }),
+  });
+  const remoteMintUrl = remote.url;
+  const usePlaceholderImage = !remoteMintUrl;
 
   const gradeScore = psa.gradeScore ?? null;
   const gradeLabel = psa.gradeLabel?.trim() || null;
   const gradeDescription = psa.gradeDescription?.trim() || null;
+  const cardhedger = cardhedgerMetaWithoutCatalogImage(
+    params.analyze.cardhedgerMint,
+  );
 
   const gradedMetadata = JSON.stringify({
     graded: {
@@ -106,6 +94,7 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
         certVerifyUrl:
           psa.certVerifyUrl?.trim() ||
           `https://www.psacard.com/cert/${cert}`,
+        ...(psaSlabUrl ? { certImageSourceUrl: psaSlabUrl } : {}),
         ...(psa.varietyHint?.trim()
           ? { Variety: psa.varietyHint.trim() }
           : {}),
@@ -121,9 +110,7 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
           psa.certVerifyUrl?.trim() ||
           `https://www.psacard.com/cert/${cert}`,
       },
-      ...(params.analyze.cardhedgerMint
-        ? { cardhedger: params.analyze.cardhedgerMint }
-        : {}),
+      ...(cardhedger ? { cardhedger } : {}),
     },
     attributes: [
       { trait_type: 'Grading Company', value: 'PSA' },
@@ -141,13 +128,13 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
   const dto: UploadRwaDto = {
     name,
     description: `PSA-graded collectible (cert ${cert}). Minted via Tokenable PSA vault admin.`,
-    ...(imageUrl ? { imageUrl } : {}),
+    ...(remoteMintUrl ? { imageUrl: remoteMintUrl } : {}),
     gradedMetadata,
   };
 
   return {
     dto,
-    imageUrl: imageUrl || null,
+    imageUrl: remoteMintUrl,
     usePlaceholderImage,
   };
 }

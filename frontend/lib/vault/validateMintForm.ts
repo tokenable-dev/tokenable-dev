@@ -1,7 +1,11 @@
 import type { PsaAnalyzeResult } from "@/lib/core";
 import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
-import type { GradedCardFormState } from "@/types/gradedCard";
+import {
+  isUsableCardhedgerMintImageUrl,
+  resolveSelfVaultMintImageSelection,
+} from "@/lib/vault/mintImageSource";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
+import type { GradedCardFormState } from "@/types/gradedCard";
 
 export function validateMintForm(
   form: GradedCardFormState,
@@ -15,25 +19,31 @@ export function validateMintForm(
       "PSA cert number is required — run a cert lookup or PSA photo analysis first.";
   }
   let hasImage = false;
-  if (
-    psaCertImageMatchesFormCert(lastAnalyze, form.grade.certNumber) ||
-    lastAnalyze?.cardhedgerMint?.imageUrl
+  if (psaCertImageMatchesFormCert(lastAnalyze, form.grade.certNumber)) {
+    hasImage = true;
+  } else if (
+    form.image instanceof File ||
+    (typeof form.image === "string" && !!form.image.trim())
   ) {
     hasImage = true;
-  } else if (lastAnalyze?.psaCertImages?.front) {
-    hasImage =
-      form.image instanceof File || (typeof form.image === "string" && !!form.image.trim());
-  } else {
-    hasImage =
-      form.image instanceof File || (typeof form.image === "string" && !!form.image.trim());
+  } else if (
+    psaInputMode === "cert" &&
+    lastAnalyze?.psa?.enrichedFromOfficialApi &&
+    (isUsableCardhedgerMintImageUrl(lastAnalyze.cardhedgerMint?.imageUrl) ||
+      resolveSelfVaultMintImageSelection({
+        analyze: lastAnalyze,
+        certNumber: form.grade.certNumber,
+        userImage: form.image,
+      }).source === "tokenable_placeholder")
+  ) {
+    // PSA cert valid — Cardhedger catalog, user upload, or Tokenable default on backend.
+    hasImage = true;
   }
   if (!hasImage) {
     next.image =
       psaInputMode === "cert"
-        ? lastAnalyze?.psa?.enrichedFromOfficialApi
-          ? "PSA cert data loaded but no slab image is available. We use a Cardhedger catalog image when found; otherwise upload a slab photo in Photo mode."
-          : "Run cert lookup first. When PSA has no slab image, a Cardhedger catalog image or uploaded photo is used for minting."
-        : "Upload a photo and wait for analysis, or use Cert # mode. If PSA does not supply an image URL, your uploaded photo is used.";
+        ? "Run cert lookup first. When PSA has no slab photo, we use your upload, catalog art, or the Tokenable default image."
+        : "Upload a photo and wait for analysis, or use Cert # mode. If PSA does not supply a slab URL, your uploaded photo is used.";
   }
   return next;
 }

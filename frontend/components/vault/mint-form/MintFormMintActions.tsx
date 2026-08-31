@@ -20,6 +20,8 @@ type MintFormMintActionsProps = {
   psaInputMode: PsaInputMode;
   step: MintFormStep;
   errorMsg: string;
+  certTakenMessage?: string | null;
+  certTakenChecking?: boolean;
 };
 
 export function MintFormMintActions({
@@ -36,6 +38,8 @@ export function MintFormMintActions({
   psaInputMode,
   step,
   errorMsg,
+  certTakenMessage = null,
+  certTakenChecking = false,
 }: MintFormMintActionsProps) {
   return (
     <>
@@ -72,20 +76,32 @@ export function MintFormMintActions({
           )}
         </div>
       ) : showMintReady ? (
-        <TkButton
-          type="submit"
-          variant="primary"
-          className="w-full"
-          disabled={isProcessing || showPsaAnalyzeOverlay}
-        >
-          {isProcessing
-            ? "Minting…"
-            : showPsaAnalyzeOverlay
-              ? psaInputMode === "cert"
-                ? "Looking up cert…"
-                : "Analyzing slab…"
-              : "Mint"}
-        </TkButton>
+        <>
+          <TkButton
+            type="submit"
+            variant="primary"
+            className="w-full"
+            disabled={
+              isProcessing ||
+              showPsaAnalyzeOverlay ||
+              certTakenChecking ||
+              Boolean(certTakenMessage)
+            }
+          >
+            {isProcessing
+              ? "Minting…"
+              : showPsaAnalyzeOverlay
+                ? psaInputMode === "cert"
+                  ? "Looking up cert…"
+                  : "Analyzing slab…"
+                : certTakenChecking
+                  ? "Checking cert…"
+                  : "Mint"}
+          </TkButton>
+          {certTakenMessage ? (
+            <p className="text-center text-xs text-[var(--neg)]">{certTakenMessage}</p>
+          ) : null}
+        </>
       ) : null}
 
       {isProcessing && (

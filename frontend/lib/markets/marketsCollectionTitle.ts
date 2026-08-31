@@ -1,7 +1,12 @@
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import {
   buildAssetDetailHeadlineParts,
-  formatCardDisplayMeta,
+  cardDisplayPartsFromAssetDetail,
+  formatCardDisplayLine1,
+  formatCardDisplayLine2,
+  formatCardDisplayHoverTitle,
+  formatCardDisplayLanguageShort,
+  resolveCardDisplayGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
@@ -17,7 +22,7 @@ import {
   resolveCollectionSlabSetLine,
 } from "@/lib/marketplace/slabDisplayTitle";
 
-export function gradeLabelFromComp(comp: CollectionComponents): string | null {
+export function gradeLabelFromComp(comp: CollectionComponents): string {
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
   if (company && score) return toCardDisplayCase(`${company} ${score}`);
@@ -27,7 +32,7 @@ export function gradeLabelFromComp(comp: CollectionComponents): string | null {
     const fallbackCompany = comp.gradingCompany?.trim() || "PSA";
     return toCardDisplayCase(`${fallbackCompany} ${score}`);
   }
-  return null;
+  return resolveCardDisplayGrade(null);
 }
 
 export function buildMarketsCollectionHeadlineParts(params: {
@@ -57,6 +62,9 @@ export function buildMarketsCollectionHeadlineParts(params: {
       }
     }
   }
+  const languageRaw = comp.language?.trim() || null;
+  const language =
+    formatCardDisplayLanguageShort(languageRaw) ?? languageRaw ?? null;
 
   return buildAssetDetailHeadlineParts({
     setLine: setLine || null,
@@ -64,39 +72,26 @@ export function buildMarketsCollectionHeadlineParts(params: {
     cardName: cardName.trim() || null,
     cardNumber,
     variety,
+    language,
   });
 }
 
-/**
- * Tile / search title line — `{Name} {Number}[ · {Grade}]`.
- * Name and number are space-separated (no middle dot); grade keeps ` · `.
- * Prefer `buildMarketsCollectionTitle` + `buildMarketsCollectionMeta` for two-line UI.
- */
+/** Markets tile Line 1 — `{Name} · {Number} · {Grade}`. */
 export function formatMarketsCollectionTileTitle(
   parts: AssetDetailHeadlineParts,
   grade?: string | null,
 ): string {
-  const name = parts.cardName?.trim() || "";
-  const num = parts.cardNumber?.trim() || "";
-  const nameNum = [name, num].filter(Boolean).join(" ");
-  const chunks: string[] = [];
-  if (nameNum) chunks.push(nameNum);
-  const g = grade?.trim() || "";
-  if (g) chunks.push(g);
-  if (chunks.length > 0) return chunks.join(" · ");
-  return parts.variety?.trim() || "";
+  return formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade));
 }
 
-/** Markets / home / search primary title — `{Name} {Number}[ · {Grade}]`. */
+/** Markets / home / search / watchlist — Line 1 only. */
 export function buildMarketsCollectionTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
-  /** Markets grid: grade is shown as a badge — omit from title. */
-  omitGrade?: boolean;
 }): string {
   const { collection } = params;
   const parts = buildMarketsCollectionHeadlineParts(params);
-  const grade = params.omitGrade ? null : gradeLabelFromComp(params.comp);
+  const grade = gradeLabelFromComp(params.comp);
   const out = formatMarketsCollectionTileTitle(parts, grade);
   if (out) return out;
   const dl =
@@ -104,25 +99,32 @@ export function buildMarketsCollectionTitle(params: {
   return dl ? toCardDisplayCase(dl) : "";
 }
 
-/** Meta under tile titles — `{Year} · {Set} · {Variant}`. */
+/** GNB search / self-contained surfaces — full Line 2 under Line 1 title. */
+export function buildMarketsCollectionSearchMeta(params: {
+  collection: MarketplaceCollectionSummary;
+  comp: CollectionComponents;
+}): string {
+  const parts = buildMarketsCollectionHeadlineParts(params);
+  return formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
+}
+
+/** Meta under tile titles — `{Year} · {Set} {Language} · {Variant}`. */
 export function buildMarketsCollectionMeta(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
-  return formatCardDisplayMeta(parts);
+  return formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
 }
 
-/** Single-line hover / search / ticker — Title · Meta. */
+/** Single-line hover / search / ticker — self-contained Line 1 + Line 2. */
 export function buildMarketsCollectionHoverTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
   const grade = gradeLabelFromComp(params.comp);
-  const title = formatMarketsCollectionTileTitle(parts, grade);
-  const meta = formatCardDisplayMeta(parts);
-  const hover = [title, meta].filter(Boolean).join(" · ");
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
   if (hover) return hover;
   return buildMarketsCollectionTitle(params);
 }

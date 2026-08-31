@@ -63,6 +63,8 @@ export function MintForm() {
                   psaInputMode={psa.psaInputMode}
                   step={mint.step}
                   errorMsg={mint.errorMsg}
+                  certTakenMessage={mint.certTakenMessage}
+                  certTakenChecking={mint.certTakenChecking}
                 />
 
                 <MintFormMintImageSection

@@ -96,16 +96,21 @@ export class VaultService {
    * `activeTokenIdByVaultRef` invariant is per contract, so a live Sepolia
    * NFT must not block a Polygon mint.
    */
-  async assertAvailableForNewCycle(
+  async findOpenCycleForCert(
     certNumber: string,
     chainId: number,
     assetType: VaultAssetType = 'psa_graded',
-  ): Promise<void> {
+  ): Promise<{
+    certNumber: string;
+    cycleNumber: number;
+    status: string;
+  } | null> {
     const normalized = VaultService.normalizeCert(certNumber);
+    if (!normalized) return null;
     const asset = await this.assets.findOne({
       where: { assetType, externalCertNumber: normalized },
     });
-    if (!asset) return;
+    if (!asset) return null;
 
     const openCycle = await this.cycles
       .createQueryBuilder('c')
@@ -113,10 +118,54 @@ export class VaultService {
       .andWhere('c.chain_id = :chainId', { chainId })
       .andWhere("c.status NOT IN ('redeemed', 'cancelled')")
       .getOne();
+    if (!openCycle) return null;
+    return {
+      certNumber: normalized,
+      cycleNumber: openCycle.cycleNumber,
+      status: openCycle.status,
+    };
+  }
 
-    if (openCycle) {
+  /** Non-throwing pre-flight for UI mint gates. */
+  async checkAvailableForNewCycle(
+    certNumber: string,
+    chainId: number,
+    assetType: VaultAssetType = 'psa_graded',
+  ): Promise<{
+    available: boolean;
+    certNumber: string;
+    message: string | null;
+  }> {
+    const normalized = VaultService.normalizeCert(certNumber);
+    const open = await this.findOpenCycleForCert(
+      certNumber,
+      chainId,
+      assetType,
+    );
+    if (!open) {
+      return { available: true, certNumber: normalized, message: null };
+    }
+    return {
+      available: false,
+      certNumber: open.certNumber,
+      message: `PSA cert #${open.certNumber} is already minted on this network (cycle #${open.cycleNumber}, ${open.status}). Redeem it before minting again.`,
+    };
+  }
+
+  async assertAvailableForNewCycle(
+    certNumber: string,
+    chainId: number,
+    assetType: VaultAssetType = 'psa_graded',
+  ): Promise<void> {
+    const check = await this.checkAvailableForNewCycle(
+      certNumber,
+      chainId,
+      assetType,
+    );
+    if (!check.available) {
       throw new ConflictException(
-        `PSA cert #${normalized} already has an active vault cycle on chain ${chainId} (#${openCycle.cycleNumber}, status=${openCycle.status}). Redeem it before re-vaulting.`,
+        check.message ??
+          `PSA cert #${check.certNumber} already has an active vault cycle on chain ${chainId}. Redeem it before re-vaulting.`,
       );
     }
   }

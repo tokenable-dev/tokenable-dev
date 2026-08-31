@@ -46,7 +46,7 @@ export function variantAlreadyRepresentedInMetaStrip(
   return m.includes(v);
 }
 
-/** `#085`-style token from preview or components (shared by hero title + chips). */
+/** Display card number from preview or components (shared by hero title + chips). */
 export function resolveHeadlineFormattedCardNumber(
   marketPreview: HeadlineCardNumberMarketPreview,
   comp: CollectionComponents,
@@ -94,7 +94,7 @@ export type BuildCollectionHeadlineInfoTagsInput = {
       market?: string | null;
     } | null;
   } | null;
-  /** Visible hero title (includes formatted `#085` when applicable). */
+  /** Visible hero title (includes formatted card number when applicable). */
   collectionHeadlineTitle: string;
   collectionHeadlineMetaStrip: string | null;
   pokeTierLabel: string | null;

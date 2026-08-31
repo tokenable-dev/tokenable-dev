@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import type { SupportedChainId } from '../blockchain/chain-config.service';
 import { ChainConfigService } from '../blockchain/chain-config.service';
 import { PlatformFeeWalletService } from '../blockchain/platform-fee-wallet.service';
-import { formatPartnerVaultLabel } from '../marketplace/partners/partner-vault-label.util';
+import { PUBLIC_SELF_VAULT_LABEL } from '../marketplace/partners/partner-vault-label.util';
 import { MarketplacePartnersService } from '../marketplace/partners/marketplace-partners.service';
 import { VaultService } from '../vault/vault.service';
 import {
@@ -137,11 +137,6 @@ export class RedeemShippingFeeCalculator {
       }
     }
 
-    const partnerIds = [...groups.values()]
-      .map((g) => g.partnerId)
-      .filter((id): id is string => Boolean(id));
-    const partnerNames = await this.partners.getDisplayNamesByIds(partnerIds);
-
     const needsPartnerQuote = [...groups.values()].some(
       (g) => g.provider === 'partner',
     );
@@ -267,7 +262,6 @@ export class RedeemShippingFeeCalculator {
       ) {
         earliestQuoteExpiresAt = quote.expiresAt;
       }
-      const displayName = partnerNames.get(partnerId) ?? 'Partner';
       const cards: RedeemCardFeeLine[] = g.tokens.map((m, index) => {
         const shippingUsd = index === 0 ? quote.shippingUsd : 0;
         const line: RedeemCardFeeLine = {
@@ -287,7 +281,7 @@ export class RedeemShippingFeeCalculator {
         key: g.key,
         provider: 'partner',
         vaultPartnerId: partnerId,
-        vaultLabel: formatPartnerVaultLabel(displayName),
+        vaultLabel: PUBLIC_SELF_VAULT_LABEL,
         cardCount: cards.length,
         shippingUsd,
         retrievalFeeTotalUsd: 0,

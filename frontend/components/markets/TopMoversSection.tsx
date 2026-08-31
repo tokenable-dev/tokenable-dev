@@ -22,6 +22,7 @@ import {
 } from "@/lib/markets/top100Copy";
 import { formatSportCategoryDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import { AppPageState } from "@/components/ui/AppPageState";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { ASSETS } from "@/constants/assets";
 import {
   MARKET_RASTER_ICON_IMG,
@@ -149,7 +150,7 @@ function MoverCardRow({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-1 text-[0.8rem] font-semibold text-white sm:text-sm">
+        <p className={`${CARD_DISPLAY_LINE1_CLAMP_CLASS} text-[0.8rem] font-semibold text-white sm:text-sm [--cd-line1-lh:1.375]`}>
           {top100CardTitle(item)}
         </p>
         {subText ? (

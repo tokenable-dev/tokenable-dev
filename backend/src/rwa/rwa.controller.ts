@@ -81,6 +81,22 @@ export class RwaController {
       },
     }),
   )
+  @ApiBearerAuth()
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary:
+      'Check whether a PSA cert can be minted on this chain (no open vault cycle)',
+  })
+  @Get('cert-availability/:certNumber')
+  @UseGuards(JwtAuthGuard)
+  checkCertAvailability(
+    @Param('certNumber') certNumber: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaService.checkCertAvailability(certNumber, chainId);
+  }
+
   uploadToIpfs(
     @Body() dto: UploadRwaDto,
     @UploadedFile() file?: Express.Multer.File,

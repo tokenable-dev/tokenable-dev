@@ -27,7 +27,7 @@ export function CollectionOverviewTopBar({
   useStructuredHeadline,
   headlineTitleLayout,
   categoryBadge,
-  gradeBadge,
+  headlineGrade,
   populationBadge,
   badgeLabel,
   listingCount,
@@ -48,7 +48,7 @@ export function CollectionOverviewTopBar({
   useStructuredHeadline: boolean;
   headlineTitleLayout: boolean;
   categoryBadge?: string | null;
-  gradeBadge?: string | null;
+  headlineGrade?: string | null;
   populationBadge?: string | null;
   badgeLabel: string;
   listingCount: number;
@@ -95,9 +95,6 @@ export function CollectionOverviewTopBar({
                       ) : (
                         <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
                       )}
-                      {gradeBadge ? (
-                        <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span>
-                      ) : null}
                       <PsaVaultOutlineTag variant="desktop" />
                     </div>
                   </div>
@@ -112,7 +109,7 @@ export function CollectionOverviewTopBar({
                           <AssetDetailHeadlineTitle
                             as="h1"
                             parts={headlineStructuredTitle}
-                            grade={gradeBadge}
+                            grade={headlineGrade}
                             className={COLLECTION_HEADLINE_TITLE_CLASS}
                           />
                           {headlineMetaStrip ? (
@@ -142,9 +139,6 @@ export function CollectionOverviewTopBar({
                         ) : (
                           <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
                         )}
-                        {gradeBadge ? (
-                          <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span>
-                        ) : null}
                         <PsaVaultOutlineTag variant="desktop" />
                       </div>
                     </div>

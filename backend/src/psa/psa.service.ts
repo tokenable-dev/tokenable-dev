@@ -19,6 +19,7 @@ import {
   primaryCardNumber,
 } from '../marketplace/utils/card-match.util';
 import { normalizeImageUrl } from '../marketplace/utils/collection-image.util';
+import { resolveCardhedgerMintImageUrl } from '../rwa/rwa-mint-image.util';
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
@@ -1640,6 +1641,15 @@ export class PsaService {
         : undefined;
     } catch (e) {
       this.logger.warn(`psaCertVerifyUrl failed: ${String(e)}`);
+    }
+
+    if (cardhedgerMint?.imageUrl) {
+      const clean = resolveCardhedgerMintImageUrl({
+        imageUrl: cardhedgerMint.imageUrl,
+      });
+      cardhedgerMint = clean
+        ? { ...cardhedgerMint, imageUrl: clean }
+        : { ...cardhedgerMint, imageUrl: undefined };
     }
 
     const result: PsaAnalyzeResult = {

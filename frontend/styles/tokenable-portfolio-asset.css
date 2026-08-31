@@ -776,7 +776,8 @@
 .pa-page .vph {
   position: relative;
   border: 0;
-  aspect-ratio: 1 / 1;
+  /* Slab intake photos are portrait — 1:1 squares clip tall art when width fills first. */
+  aspect-ratio: 3 / 4;
   border-radius: 0;
   clip-path: var(--pixel-notch-sm);
   overflow: hidden;
@@ -785,13 +786,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px;
+  padding: 10px;
   box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
 }
 .pa-page .vph img {
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  display: block;
+  min-width: 0;
+  min-height: 0;
 }
 .pa-page .vph--back {
   background: linear-gradient(155deg, #141c3a, #0a0d1c);
@@ -968,5 +976,14 @@
   }
   .pa-page .foot-actions {
     grid-template-columns: 1fr;
+  }
+  .pa-page .vph-grid--single {
+    max-width: 100%;
+  }
+  .pa-page .vph-grid {
+    gap: 10px;
+  }
+  .pa-page .vph {
+    padding: 8px;
   }
 }

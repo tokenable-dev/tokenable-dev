@@ -11,6 +11,7 @@ import {
   shortenWallet,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatOrderBookPriceUsdc } from "@/lib/marketplace/unified-order-book";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 function vaultAccent(tone: "psa" | "partner"): string {
   return tone === "psa" ? "#5B9AFF" : "var(--pos)";
@@ -127,7 +128,9 @@ export function CollectionChooseCopyModal({
             ) : null}
           </div>
           <div className="cd-choose-copy__item-meta">
-            <div className="cd-choose-copy__item-title">{collectionTitle}</div>
+            <div className={`cd-choose-copy__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+              {collectionTitle}
+            </div>
             {collectionGradeLine ? (
               <div className="cd-choose-copy__item-sub tkl-mono">{collectionGradeLine}</div>
             ) : null}

@@ -17,9 +17,9 @@ import type { MarketplaceCollectionSummary, MarketplaceSearchCardHit } from "@/l
 import { useMarketplaceCatalogSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildMarketsCollectionTitle, buildMarketsCollectionSearchMeta } from "@/lib/markets/marketsCollectionTitle";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
-import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -74,16 +74,11 @@ function SearchClearButton({
 }
 
 function formatSearchMeta(c: MarketplaceCollectionSummary): string {
-  const comp = c.components;
-  const company = (comp.gradingCompanyDisplay || comp.gradingCompany || "PSA").trim();
-  const score = (comp.gradeScore || "").trim();
-  const grade = score ? `${company} ${score}` : company;
-  const set =
-    (comp.cardSetDisplay || comp.psaBrand || comp.cardSet || "").trim() ||
-    (c.queryUsed ? toCardDisplayCase(c.queryUsed) : "");
-  if (grade && set) return `${grade} · ${set}`;
-  if (grade) return grade;
-  if (set) return set;
+  const meta = buildMarketsCollectionSearchMeta({
+    collection: c,
+    comp: c.components,
+  });
+  if (meta) return meta;
   const n = c.activeListingCount;
   return `${n} listing${n !== 1 ? "s" : ""}`;
 }
@@ -187,7 +182,9 @@ export function SearchResultsList({
                   <Thumb src={src} />
                 </div>
                 <div className="gnb-search-item__info">
-                  <div className="gnb-search-item__name">{card.title}</div>
+                  <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+                    {card.title}
+                  </div>
                   <div className="gnb-search-item__meta">{formatCardMeta(card)}</div>
                 </div>
                 {price ? (
@@ -225,7 +222,7 @@ export function SearchResultsList({
                 />
               </div>
               <div className="gnb-search-item__info">
-                <div className="gnb-search-item__name">
+                <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
                   {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
                 </div>
                 <div className="gnb-search-item__meta">{formatSearchMeta(c)}</div>

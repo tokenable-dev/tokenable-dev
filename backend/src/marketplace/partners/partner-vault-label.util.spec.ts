@@ -1,6 +1,7 @@
 import {
   formatPartnerVaultLabel,
   PSA_VAULT_LABEL,
+  PUBLIC_SELF_VAULT_LABEL,
   vaultLabelForCustody,
 } from './partner-vault-label.util';
 
@@ -29,7 +30,10 @@ describe('vaultLabelForCustody', () => {
     expect(vaultLabelForCustody('standard', 'Acme')).toBe('PSA Vault');
   });
 
-  it('uses partner Vault for self_vault_hold', () => {
-    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('Acme Vault');
+  it('uses TKB Vault for self_vault_hold regardless of partner name', () => {
+    expect(PUBLIC_SELF_VAULT_LABEL).toBe('TKB Vault');
+    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('TKB Vault');
+    expect(vaultLabelForCustody('self_vault_hold', 'ORP')).toBe('TKB Vault');
+    expect(formatPartnerVaultLabel('ORP')).toBe('ORP Vault');
   });
 });

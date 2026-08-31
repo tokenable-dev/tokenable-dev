@@ -61,6 +61,8 @@ export const ASSETS = {
     tokenableFavicon: `${ASSETS_BASE}/icons/tokenable_favicon.png`,
     /** 360×360 square brand mark (light-background master) */
     tokenableLogo: `${ASSETS_BASE}/icons/tokenable_logo.png`,
+    /** Default mint slab when PSA / upload / Cardhedger art is unavailable */
+    tokenableMintPlaceholder: `${ASSETS_BASE}/icons/tokenable_mint_placeholder.png`,
     /** 180×180 iOS home screen (from `tokenable_favicon.png`) */
     tokenableApple: `${ASSETS_BASE}/icons/apple-touch-icon.png`,
     /** PSA wordmark PNG (card detail / docs). */

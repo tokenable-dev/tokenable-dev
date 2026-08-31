@@ -5,9 +5,10 @@ import {
 } from "@/lib/market/psaGradePolicy";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
-  formatCardDisplayMeta,
-  formatCardDisplayName,
+  formatAssetDetailHeadlineText,
+  resolveCardDisplayGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type RwaDetailMetadata = {
@@ -78,7 +79,7 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   if (num) {
     rows.push({
       label: "Card Number",
-      value: String(num).startsWith("#") ? String(num) : `#${num}`,
+      value: formatHeadlineCardNumber(String(num)) ?? String(num),
     });
   }
   if (set) rows.push({ label: "Set", value: set });
@@ -125,26 +126,9 @@ function joinSlabTextParts(...vals: (string | null | undefined)[]): string {
     .join(" ");
 }
 
-function slabGradeShort(trust: RwaDetailMobileTrustView): string {
-  const grade = trust.gradeLine?.trim();
-  if (!grade) return "";
-  return grade.replace(/^PSA\s+/i, "").trim() || grade;
-}
-
 function formatRwaMobileSlabCertLabel(certNumber: string | null | undefined): string {
   const cert = certNumber?.trim() ?? "";
   return cert ? `CERT. ${cert}` : "";
-}
-
-/**
- * Mobile RWA — slab copy below the card:
- * title = Name · Number · Year · Set · Variant;
- * meta row = grade + CERT (styled separately in UI).
- */
-function formatRwaMobileSlabTitleBlock(parts: AssetDetailHeadlineParts): string {
-  const title = formatCardDisplayName(parts);
-  const meta = formatCardDisplayMeta(parts);
-  return [title, meta].filter(Boolean).join(" · ") || "—";
 }
 
 /** Mobile RWA — full slab copy as one line (e.g. screen readers). */
@@ -152,26 +136,28 @@ export function formatRwaMobileSlabLabelLine(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): string {
-  const { titleBlock, gradeLine, certLabel } = formatRwaMobileSlabLabelTwoLines(
-    parts,
-    trust,
-  );
+  const { titleBlock, certLabel } = formatRwaMobileSlabLabelTwoLines(parts, trust);
   return (
     joinSlabTextParts(
       titleBlock === "—" ? null : titleBlock,
-      gradeLine,
       certLabel,
     ) || "—"
   );
 }
 
+/**
+ * Mobile RWA — slab copy below the card:
+ * title = Name · Number · Grade (Line 1);
+ * meta row = CERT only (grade is on title).
+ */
 export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): { titleBlock: string; gradeLine: string; certLabel: string } {
+  const grade = trust.gradeLine?.trim() || resolveCardDisplayGrade(null);
   return {
-    titleBlock: formatRwaMobileSlabTitleBlock(parts),
-    gradeLine: slabGradeShort(trust),
+    titleBlock: formatAssetDetailHeadlineText(parts, { grade }) || "—",
+    gradeLine: "",
     certLabel: formatRwaMobileSlabCertLabel(trust.certNumber),
   };
 }
@@ -232,7 +218,7 @@ export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | n
   let numFormatted: string | null = null;
   if (numRaw) {
     const s = String(numRaw).trim();
-    numFormatted = s.startsWith("#") ? s : `#${s}`;
+    numFormatted = formatHeadlineCardNumber(s);
   }
 
   if (left && numFormatted) return `${left} | ${numFormatted}`;
@@ -249,7 +235,7 @@ export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | n
       if (tt === "set") setAttr = v;
       const numish =
         tt === "card number" || tt === "card #" || tt === "card no" || tt === "#" || tt === "number";
-      if (numish) numAttr = v.startsWith("#") ? v : `#${v}`;
+      if (numish) numAttr = formatHeadlineCardNumber(v) ?? v;
     }
     if (setAttr && numAttr) return `${setAttr} | ${numAttr}`;
     return pickString(setAttr, numAttr) ?? null;
@@ -279,7 +265,7 @@ export function formatRwaDetailCardIdLine(meta: RwaDetailMetadata | null): strin
   const numRaw = pickString(card?.number, psa?.cardNumberHint);
   if (!numRaw) return null;
   const s = String(numRaw).trim();
-  return s.startsWith("#") ? s : `#${s}`;
+  return formatHeadlineCardNumber(s);
 }
 
 export function getRwaDetailHeaderBadgeLabels(meta: RwaDetailMetadata | null): {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TkButton, TkTag } from "@/components/ds";
+import { TkButton } from "@/components/ds";
 import type { Order } from "@/lib/core";
 import { listingVaultBadge } from "@/lib/marketplace/collectionListingModalHelpers";
 
@@ -23,13 +23,13 @@ export function CollectionListingOrderbookRow({
   collectionKey,
   listing,
   imageUrl,
-  gradeLabel,
   onOpenListing,
 }: {
   tokenId: number;
   collectionKey: string;
   listing: Order;
   imageUrl?: string | null;
+  /** @deprecated Grade is on collection Line 1 — not shown on orderbook rows. */
   gradeLabel?: string | null;
   onOpenListing?: (tokenId: number, action?: "view" | "buy" | "bid") => void;
 }) {
@@ -69,11 +69,6 @@ export function CollectionListingOrderbookRow({
           {vault.label}
         </div>
       </div>
-      {gradeLabel ? (
-        <TkTag tone="neutral" appearance="soft" className="cd-listing-orderbook__grade shrink-0">
-          {gradeLabel}
-        </TkTag>
-      ) : null}
       <div className="cd-listing-orderbook__actions">
         {onOpenListing ? (
           <TkButton

@@ -83,6 +83,22 @@ describe('VaultService.assertAvailableForNewCycle (chain-scoped)', () => {
       service.assertAvailableForNewCycle('999999999', POLYGON),
     ).resolves.toBeUndefined();
   });
+
+  it('checkAvailableForNewCycle reports taken vs free without throwing', async () => {
+    const taken = await makeService(sepoliaCycle).checkAvailableForNewCycle(
+      '123123123',
+      SEPOLIA,
+    );
+    expect(taken.available).toBe(false);
+    expect(taken.message).toMatch(/already minted/i);
+
+    const free = await makeService(sepoliaCycle).checkAvailableForNewCycle(
+      '123123123',
+      POLYGON,
+    );
+    expect(free.available).toBe(true);
+    expect(free.message).toBeNull();
+  });
 });
 
 describe('VaultService.assertTokensRedeemable', () => {

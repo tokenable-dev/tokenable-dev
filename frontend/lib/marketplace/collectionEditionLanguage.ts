@@ -1,3 +1,5 @@
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+
 /** Normalize bucket / Cardhedger raw tokens to a short language label (English UI). */
 export function displayEditionLanguage(raw: string | null | undefined): string | null {
   const t = raw?.trim();
@@ -76,4 +78,43 @@ export function inferLanguageFromLatinPokemonRegion(corpus: string): string | nu
   }
 
   return null;
+}
+
+export function resolveCollectionDisplayLanguage(params: {
+  comp: Pick<CollectionComponents, "language">;
+  marketPreview?: {
+    card?: { market?: string | null; setName?: string | null; name?: string | null } | null;
+  } | null;
+  corpusLines: (string | null | undefined)[];
+  /** Details KV defaults Latin catalog cards to English; hero meta omits that default. */
+  includeDefaultEnglish?: boolean;
+}): string | null {
+  const { comp, marketPreview, corpusLines, includeDefaultEnglish = false } = params;
+  const ch = marketPreview?.card ?? null;
+  const fromComp =
+    typeof comp.language === "string" && comp.language.trim()
+      ? comp.language.trim()
+      : null;
+  const fromMarket = ch?.market?.trim() ?? null;
+  const corpus = corpusLines
+    .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
+    .join(" ");
+
+  let lang: string | null = null;
+  if (fromComp) lang = displayEditionLanguage(fromComp) ?? fromComp;
+  if (!lang && fromMarket) lang = displayEditionLanguage(fromMarket) ?? fromMarket;
+  if (!lang) lang = inferLanguageFromCorpus(corpus);
+  if (!lang) lang = inferLanguageFromLatinPokemonRegion(corpus);
+  if (
+    !lang &&
+    includeDefaultEnglish &&
+    ch != null &&
+    !/[\u3000-\u9fff\uac00-\ud7af]/.test(corpus)
+  ) {
+    lang = "English";
+  }
+  if (lang === "English" && /\bindonesia(?:n)?\b/i.test(corpus)) {
+    lang = "English · Indonesian (card)";
+  }
+  return lang;
 }

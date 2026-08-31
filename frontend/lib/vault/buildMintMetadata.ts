@@ -111,14 +111,6 @@ export function buildGradedCardMetadata(
         ...(lastAnalyze.cardhedgerMint.searchQuery != null
           ? { searchQuery: lastAnalyze.cardhedgerMint.searchQuery }
           : {}),
-        ...(lastAnalyze.cardhedgerMint.imageUrl?.trim()
-          ? { imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim() }
-          : {}),
-      };
-    } else if (lastAnalyze.cardhedgerMint?.imageUrl?.trim()) {
-      metadata.cardhedger = {
-        ...(metadata.cardhedger ?? {}),
-        imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim(),
       };
     }
     const l = lastAnalyze.psaApi.lookup;

@@ -218,7 +218,7 @@ pending_deposit
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
 | `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
-| `vault_partner_id` | FK to `marketplace_partners` for Self vault `{name} vault` labels |
+| `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `TKB Vault`) |
 | **Unique constraint** | `(token_contract, cert_number) WHERE burned_at IS NULL` — allows re-mint of same cert after burn |
 
 ---

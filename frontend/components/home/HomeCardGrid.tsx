@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
@@ -188,7 +188,6 @@ export function HomeCardGrid({
               marketChangePctOverride={changePct90d}
               marketChangePeriodLabel={periodLabel}
               shell="none"
-              showSetLine={false}
             />
           );
         })}

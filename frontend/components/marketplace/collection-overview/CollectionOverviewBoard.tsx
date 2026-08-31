@@ -23,7 +23,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     headlineMetaStrip,
     headlineInfoTags,
     categoryBadge,
-    gradeBadge,
+    headlineGrade,
     populationBadge,
     headlineTitleLayout = false,
     badgeLabel = "Collection",
@@ -121,7 +121,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         useStructuredHeadline={layout.useStructuredHeadline}
         headlineTitleLayout={headlineTitleLayout}
         categoryBadge={categoryBadge}
-        gradeBadge={gradeBadge}
+        headlineGrade={headlineGrade}
         populationBadge={populationBadge}
         badgeLabel={badgeLabel}
         listingCount={listingCount}

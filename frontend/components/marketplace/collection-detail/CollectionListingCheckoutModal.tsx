@@ -11,6 +11,7 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { TkButton } from "@/components/ds";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useAccount } from "wagmi";
 import { useAppStore } from "@/store";
@@ -256,7 +257,9 @@ export function CollectionListingCheckoutModal({
             ) : null}
           </div>
           <div className="cd-listing-checkout__item-meta">
-            <div className="cd-listing-checkout__item-title">{title}</div>
+            <div className={`cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+              {title}
+            </div>
             <div
               className={`cd-listing-checkout__item-sub${
                 mode === "buy" || mode === "bid"
