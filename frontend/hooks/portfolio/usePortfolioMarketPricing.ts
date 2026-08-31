@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getRwaTokenTrades,
   postBatchMintMarketPreviews,
   postPortfolioCollectionMarketBatchBatched,
   rq,
@@ -12,13 +11,11 @@ import {
   type CollectionMarketStats,
   type PortfolioMarketBatchItem,
 } from "@/lib/core";
+import { portfolioSnapshotCanPriceHoldings } from "@/lib/portfolio/portfolioAssetMeta";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
-import { extractSparklineFromTapeFills } from "@/lib/portfolio/portfolioTableHelpers";
 import { activeRqChainId } from "@/lib/chains";
 
 const EMPTY_MINT_PREVIEW: Record<number, CollectionMarketPreview | undefined> = {};
-const EMPTY_SPARKLINE: Record<number, number[]> = {};
-const TOKEN_SPARKLINE_CONCURRENCY = 8;
 
 function batchNeedsSnapshotPoll(items: PortfolioMarketBatchItem[] | undefined): boolean {
   if (!items || items.length === 0) return false;
@@ -28,46 +25,21 @@ function batchNeedsSnapshotPoll(items: PortfolioMarketBatchItem[] | undefined): 
   );
 }
 
-function snapshotPreviewMatched(item: PortfolioMarketBatchItem | undefined): boolean {
-  return Boolean(
-    item?.series?.cardhedgerPreview?.matched && item.series.cardhedgerPreview.card,
-  );
-}
-
-async function fetchTokenSparklines(
-  tokenIds: number[],
-): Promise<Record<number, number[]>> {
-  const out: Record<number, number[]> = {};
-  for (let i = 0; i < tokenIds.length; i += TOKEN_SPARKLINE_CONCURRENCY) {
-    const chunk = tokenIds.slice(i, i + TOKEN_SPARKLINE_CONCURRENCY);
-    const rows = await Promise.all(
-      chunk.map(async (id) => {
-        try {
-          const tape = await getRwaTokenTrades(id);
-          return [id, extractSparklineFromTapeFills(tape.trades)] as const;
-        } catch {
-          return [id, [] as number[]] as const;
-        }
-      }),
-    );
-    for (const [id, spark] of rows) out[id] = spark;
-  }
-  return out;
-}
-
 export function usePortfolioMarketPricing(input: {
   address: string | undefined;
   isConnected: boolean;
   assets: OwnedAsset[];
   uniqueCollectionKeys: string[];
-  tokenToCollectionKey: Record<number, string>;
+  tokenToServerCollectionKey: Record<number, string>;
+  serverKeysReady: boolean;
 }) {
   const {
     address,
     isConnected,
     assets,
     uniqueCollectionKeys,
-    tokenToCollectionKey,
+    tokenToServerCollectionKey,
+    serverKeysReady,
   } = input;
 
   const chainId = activeRqChainId();
@@ -76,7 +48,6 @@ export function usePortfolioMarketPricing(input: {
   const {
     data: portfolioMarketBatch,
     isLoading: portfolioMarketBatchLoading,
-    isFetched: portfolioMarketBatchFetched,
   } = useQuery({
     queryKey: rq.portfolioMarketBatch(chainId, uniqueCollectionKeys),
     queryFn: () =>
@@ -90,52 +61,6 @@ export function usePortfolioMarketPricing(input: {
     refetchInterval: (q) =>
       batchNeedsSnapshotPoll(q.state.data?.items) ? 20_000 : false,
   });
-
-  const snapshotReady =
-    uniqueCollectionKeys.length === 0 ||
-    portfolioMarketBatchFetched ||
-    !portfolioMarketBatchLoading;
-
-  const unmatchedTokenIds = useMemo(() => {
-    if (!address || !isConnected || assets.length === 0) return [];
-    if (!snapshotReady) return [];
-    const byKey = new Map<string, PortfolioMarketBatchItem>();
-    for (const it of portfolioMarketBatch?.items ?? []) {
-      byKey.set(it.collectionKey.toLowerCase(), it);
-    }
-    return assets
-      .filter((a) => {
-        const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase();
-        if (!ck) return true;
-        return !snapshotPreviewMatched(byKey.get(ck));
-      })
-      .map((a) => a.tokenId);
-  }, [
-    address,
-    isConnected,
-    assets,
-    snapshotReady,
-    portfolioMarketBatch,
-    tokenToCollectionKey,
-  ]);
-
-  const { data: mintPreviewByToken = EMPTY_MINT_PREVIEW, isLoading: mintPreviewLoading } =
-    useQuery({
-      queryKey: rq.marketMintPreviews(address, unmatchedTokenIds, chainId),
-      queryFn: () => postBatchMintMarketPreviews(unmatchedTokenIds),
-      enabled:
-        Boolean(address && isConnected) &&
-        unmatchedTokenIds.length > 0,
-    });
-
-  const { data: sparklineByToken = EMPTY_SPARKLINE, isLoading: sparklineLoading } =
-    useQuery({
-      queryKey: rq.portfolioTokenSparklines(chainId, unmatchedTokenIds),
-      queryFn: () => fetchTokenSparklines(unmatchedTokenIds),
-      enabled:
-        Boolean(address && isConnected) &&
-        unmatchedTokenIds.length > 0,
-    });
 
   const statsByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketStats>();
@@ -155,22 +80,51 @@ export function usePortfolioMarketPricing(input: {
     return m;
   }, [portfolioMarketBatch]);
 
-  const statsLoadingAny =
-    portfolioMarketBatchLoading && hasCollectionBuckets;
-  const overlayPending =
-    unmatchedTokenIds.length > 0 && (mintPreviewLoading || sparklineLoading);
+  const snapshotBatchSettled =
+    !hasCollectionBuckets ||
+    !portfolioMarketBatchLoading;
+
+  const unmatchedTokenIds = useMemo(() => {
+    if (!address || !isConnected || assets.length === 0) return [];
+    if (!serverKeysReady) return [];
+    if (!snapshotBatchSettled) return [];
+    return assets
+      .filter((a) => {
+        const ck = tokenToServerCollectionKey[a.tokenId]?.toLowerCase();
+        if (!ck) return true;
+        return !portfolioSnapshotCanPriceHoldings(
+          seriesByCollectionKey.get(ck),
+        );
+      })
+      .map((a) => a.tokenId);
+  }, [
+    address,
+    isConnected,
+    assets,
+    serverKeysReady,
+    snapshotBatchSettled,
+    tokenToServerCollectionKey,
+    seriesByCollectionKey,
+  ]);
+
+  const { data: mintPreviewByToken = EMPTY_MINT_PREVIEW } = useQuery({
+    queryKey: rq.marketMintPreviews(address, unmatchedTokenIds, chainId),
+    queryFn: () => postBatchMintMarketPreviews(unmatchedTokenIds),
+    enabled:
+      Boolean(address && isConnected) && unmatchedTokenIds.length > 0,
+  });
 
   const valuesPending =
     Boolean(address) &&
     isConnected &&
     assets.length > 0 &&
-    (statsLoadingAny || overlayPending || !snapshotReady);
+    (!serverKeysReady ||
+      (hasCollectionBuckets && portfolioMarketBatchLoading));
 
   return {
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken,
-    sparklineByToken,
     portfolioMarketBatchLoading,
     hasCollectionBuckets,
     valuesPending,

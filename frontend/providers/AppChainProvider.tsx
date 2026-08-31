@@ -141,7 +141,6 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["portfolio-bids"] });
     void queryClient.invalidateQueries({ queryKey: ["user-watchlist"] });
     void queryClient.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
-    void queryClient.invalidateQueries({ queryKey: ["portfolio-token-sparklines"] });
     void queryClient.invalidateQueries({ queryKey: ["p2p"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-custody-nfts"] });

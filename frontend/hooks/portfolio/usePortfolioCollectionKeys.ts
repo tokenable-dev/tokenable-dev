@@ -62,7 +62,11 @@ export function usePortfolioCollectionKeys(input: {
 
   // Fire the server collection-key batch as soon as tokenIds are available —
   // in parallel with postRwaMetadataBatch. Both requests only need tokenIds.
-  const { data: prefetchedServerKeys } = useQuery({
+  const {
+    data: prefetchedServerKeys,
+    isFetching: serverKeysFetching,
+    isFetched: serverKeysFetched,
+  } = useQuery({
     queryKey: rq.tokenCollectionKeyBatch(address ?? "", tokenIds),
     queryFn: () => postTokenCollectionKeysByTokenIdsBatched(tokenIds),
     enabled: Boolean(address && isConnected && tokenIds.length > 0),
@@ -76,7 +80,7 @@ export function usePortfolioCollectionKeys(input: {
 
   const portfolioBucketKeysSig = portfolioBucketKeySourceSig;
 
-  const { data: tokenToCollectionKey = {}, isFetching: bucketKeysFetching } = useQuery({
+  const { data: tokenToCollectionKey = {} } = useQuery({
     queryKey: rq.portfolioBucketKeys(address ?? "", portfolioBucketKeysSig),
     queryFn: async () => {
       const o: Record<number, string> = {};
@@ -145,18 +149,30 @@ export function usePortfolioCollectionKeys(input: {
     });
   }, [assets, listingCollectionKeyByToken, tokenToCollectionKey]);
 
-  const uniqueCollectionKeys = useMemo(() => {
-    const s = new Set<string>();
+  const tokenToServerCollectionKey = useMemo(() => {
+    const o: Record<number, string> = {};
     for (const a of assets) {
-      const k = tokenToCollectionKey[a.tokenId];
-      if (k) s.add(k);
+      const listingKey = listingCollectionKeyByToken.get(a.tokenId)?.trim().toLowerCase();
+      if (listingKey) {
+        o[a.tokenId] = listingKey;
+        continue;
+      }
+      const dbKey = String(prefetchedServerKeys?.[a.tokenId] ?? "").trim().toLowerCase();
+      if (dbKey) o[a.tokenId] = dbKey;
     }
-    return [...s];
-  }, [assets, tokenToCollectionKey]);
+    return o;
+  }, [assets, listingCollectionKeyByToken, prefetchedServerKeys]);
+
+  const uniqueCollectionKeys = useMemo(() => {
+    return [...new Set(Object.values(tokenToServerCollectionKey))];
+  }, [tokenToServerCollectionKey]);
 
   return {
     tokenToCollectionKey,
+    tokenToServerCollectionKey,
     uniqueCollectionKeys,
-    bucketKeysFetching,
+    serverKeysReady:
+      tokenIds.length === 0 || serverKeysFetched || Boolean(prefetchedServerKeys),
+    bucketKeysFetching: serverKeysFetching,
   };
 }

@@ -194,11 +194,11 @@ export function psaVarietyIsGenericSportRefractorLine(
 export function psaVarietyIsSpecialIllustrationRareLabel(
   psaVariety: string | null | undefined,
 ): boolean {
-  const v = String(psaVariety ?? '').trim().toLowerCase();
-  if (!v) return false;
-  if (/\bsir\b/.test(v)) return true;
-  if (/special\s+illustration\s+rare/.test(v)) return true;
-  if (/special\s+illustration/.test(v) && /\brare\b/.test(v)) return true;
+  for (const v of psaVarietyLabelPhrases(psaVariety)) {
+    if (/\bsir\b/.test(v)) return true;
+    if (/special\s+illustration\s+rare/.test(v)) return true;
+    if (/special\s+illustration/.test(v) && /\brare\b/.test(v)) return true;
+  }
   return false;
 }
 
@@ -210,9 +210,47 @@ export function psaVarietyIsIllustrationRareLabel(
   psaVariety: string | null | undefined,
 ): boolean {
   if (psaVarietyIsSpecialIllustrationRareLabel(psaVariety)) return false;
-  const v = String(psaVariety ?? '').trim().toLowerCase();
-  if (!v) return false;
-  return /\billustration\s+rare\b/.test(v);
+  return psaVarietyLabelPhrases(psaVariety).some((v) =>
+    /\billustration\s+rare\b/.test(v),
+  );
+}
+
+/**
+ * PSA often concatenates rarity and subject on one Variety line
+ * (`FULL ART/UMBREON VMAX-HYPER`). Rarity matching must use each `/`-separated
+ * phrase, not only the whole string.
+ */
+export function psaVarietyLabelPhrases(
+  psaVariety: string | null | undefined,
+): string[] {
+  const raw = String(psaVariety ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+  if (!raw) return [];
+  const parts = raw
+    .split(/[|/]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return [...new Set([raw, ...parts])];
+}
+
+/**
+ * Cardhedger splits these Pokémon prints onto non-Base `variant` rows.
+ * Do not treat them as rarity-slot Base even if the line also says "rare".
+ */
+function psaVarietyNamesPokemonPrintParallel(
+  psaVariety: string | null | undefined,
+): boolean {
+  const t = String(psaVariety ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+  if (!t) return false;
+  if (/\bmaster\s+ball\b/.test(t)) return true;
+  if (/\bpoke\s*ball\b/.test(t)) return true;
+  if (/\breverse\s+(holo|foil|holofoil)\b/.test(t)) return true;
+  return false;
 }
 
 /**
@@ -223,10 +261,10 @@ export function psaVarietyIsIllustrationRareLabel(
 export function psaVarietyIsArtRareLabel(
   psaVariety: string | null | undefined,
 ): boolean {
-  const v = String(psaVariety ?? '').trim().toLowerCase();
-  if (!v) return false;
-  if (/^art\s+rare$/.test(v)) return true;
-  if (/\bar\b/.test(v) && /\brare\b/.test(v)) return true;
+  for (const v of psaVarietyLabelPhrases(psaVariety)) {
+    if (/^art\s+rare$/.test(v)) return true;
+    if (/\bar\b/.test(v) && /\brare\b/.test(v)) return true;
+  }
   return false;
 }
 
@@ -238,35 +276,49 @@ export function psaVarietyIsArtRareLabel(
 export function psaVarietyIsSpecialArtRareLabel(
   psaVariety: string | null | undefined,
 ): boolean {
-  const v = String(psaVariety ?? '').trim().toLowerCase();
+  for (const v of psaVarietyLabelPhrases(psaVariety)) {
+    if (/special\s+art\s+rare/.test(v)) return true;
+    if (/^sar$/.test(v)) return true;
+    if (/\bsar\b/.test(v) && !/illustration/.test(v)) return true;
+  }
+  return false;
+}
+
+function phraseIsPokemonRaritySlot(phrase: string): boolean {
+  const v = phrase.trim().toLowerCase().replace(/\s+/g, ' ');
   if (!v) return false;
-  if (/special\s+art\s+rare/.test(v)) return true;
-  if (/^sar$/.test(v)) return true;
-  if (/\bsar\b/.test(v) && !/illustration/.test(v)) return true;
+  if (psaVarietyIsSpecialIllustrationRareLabel(v)) return true;
+  if (psaVarietyIsIllustrationRareLabel(v)) return true;
+  if (psaVarietyIsSpecialArtRareLabel(v)) return true;
+  if (psaVarietyIsArtRareLabel(v)) return true;
+  if (/^full\s+art$/.test(v)) return true;
+  if (/^(mega\s+)?(ultra|hyper|secret|amazing)\s+rare$/.test(v)) return true;
+  if (
+    /^(double|triple|character|rainbow|gold|shiny)\s+rare$/.test(v)
+  ) {
+    return true;
+  }
+  if (/^(ace\s+spec|trainer\s+gallery)$/.test(v)) return true;
+  if (
+    /^(sar|sir|ir|hr|ur|sr|rr|rrr|csr|ssr|mur|ar)$/.test(v)
+  ) {
+    return true;
+  }
   return false;
 }
 
 /**
  * Pokémon TCG rarity labels where PSA names the card's rarity slot while
- * Cardhedger still uses `variant: "Base"` (e.g. Art Rare, Special Art Rare,
- * Illustration Rare, Special Illustration Rare, Hyper Rare, Full Art,
- * Amazing Rare, Ultra Rare).
- * These occupy unique card numbers in the secret-rare range — no parallel conflict.
+ * Cardhedger still uses `variant: "Base"` (Art Rare, Full Art, Hyper Rare, …).
+ * PSA often appends the subject after a slash (`FULL ART/UMBREON VMAX-HYPER`);
+ * that is still a rarity slot, not a Cardhedger parallel.
+ * Print finishes (Master Ball, Reverse Holo) stay non-base.
  */
 export function psaVarietyIsPokemonRarityLabel(
   psaVariety: string | null | undefined,
 ): boolean {
-  const v = String(psaVariety ?? '').trim().toLowerCase();
-  if (!v) return false;
-  if (psaVarietyIsSpecialIllustrationRareLabel(psaVariety)) return true;
-  if (psaVarietyIsIllustrationRareLabel(psaVariety)) return true;
-  if (psaVarietyIsSpecialArtRareLabel(psaVariety)) return true;
-  if (psaVarietyIsArtRareLabel(psaVariety)) return true;
-  if (/^hyper\s+rare$/.test(v)) return true;
-  if (/^full\s+art$/.test(v)) return true;
-  if (/^amazing\s+rare$/.test(v)) return true;
-  if (/^ultra\s+rare$/.test(v)) return true;
-  if (/^trainer\s+gallery$/.test(v)) return true;
-  if (/^secret\s+rare$/.test(v)) return true;
-  return false;
+  const raw = String(psaVariety ?? '').trim();
+  if (!raw) return false;
+  if (psaVarietyNamesPokemonPrintParallel(raw)) return false;
+  return psaVarietyLabelPhrases(raw).some((p) => phraseIsPokemonRaritySlot(p));
 }

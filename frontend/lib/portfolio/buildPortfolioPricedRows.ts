@@ -28,8 +28,6 @@ export function buildPortfolioPricedRows(input: {
   statsByCollectionKey: Map<string, CollectionMarketStats>;
   seriesByCollectionKey: Map<string, CollectionMarketSeries>;
   mintPreviewByToken: Record<number, CollectionMarketPreview | undefined>;
-  /** Token-level sparkline when the collection snapshot has no 1y series. */
-  sparklineByToken?: Record<number, number[]>;
 }): PricedAssetRow[] {
   const {
     assets,
@@ -38,7 +36,6 @@ export function buildPortfolioPricedRows(input: {
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken,
-    sparklineByToken,
   } = input;
 
   return assets.map((a) => {
@@ -84,11 +81,7 @@ export function buildPortfolioPricedRows(input: {
     const displayName =
       formatAssetDetailHeadlineText(parts, { grade }) ||
       displayAssetNameFromMetadata(a.metadata, fallbackName);
-    const fromSeries = extractSparklineValues1y(series);
-    const sparkline1y =
-      fromSeries.length >= 2
-        ? fromSeries
-        : sparklineByToken?.[a.tokenId] ?? [];
+    const sparkline1y = extractSparklineValues1y(series);
 
     return {
       tokenId: a.tokenId,

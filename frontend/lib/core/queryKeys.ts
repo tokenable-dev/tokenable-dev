@@ -295,13 +295,6 @@ export const rq = {
       chainId,
       ...collectionKeys.map((k) => k.toLowerCase()).sort(),
     ] as const,
-  /** Token-level comps sparkline for holdings without a collection snapshot. */
-  portfolioTokenSparklines: (chainId: number, tokenIds: readonly number[]) =>
-    [
-      "portfolio-token-sparklines",
-      chainId,
-      ...[...tokenIds].slice().sort((a, b) => a - b),
-    ] as const,
   /**
    * Collection-key-to-tokenId resolution for the portfolio page.
    * `sig` is a stable derived string summarising the current set of owned assets
@@ -432,6 +425,5 @@ export function configureMarketQueryDefaults(queryClient: QueryClient): void {
   const d = marketQueryDefaults;
   queryClient.setQueryDefaults(["cardhedger-mint-previews"], d);
   queryClient.setQueryDefaults(["portfolio-market-batch"], d);
-  queryClient.setQueryDefaults(["portfolio-token-sparklines"], d);
   queryClient.setQueryDefaults(["collection-market-series"], d);
 }

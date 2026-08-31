@@ -252,6 +252,34 @@ export function gradeScoreFromMetadata(meta: RwaMetadata | null): number | null 
   return fromName ? parseGradeScoreNumber(fromName) : null;
 }
 
+function finitePositiveUsd(n: number | null | undefined): boolean {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
+/**
+ * Snapshot can fill My Assets USD without a live mint-preview.
+ * Unmatched Cardhedger (e.g. Master Ball cert attached to Reverse Foil, then Variety-gated)
+ * with no grade strip is a blank row until mint-preview runs.
+ */
+export function portfolioSnapshotCanPriceHoldings(
+  series: CollectionMarketSeries | null | undefined,
+): boolean {
+  if (!series) return false;
+  const preview = series.cardhedgerPreview;
+  if (preview?.matched && preview.card) return true;
+  const gp = series.gradePrices;
+  if (
+    finitePositiveUsd(gp?.psa10) ||
+    finitePositiveUsd(gp?.psa9) ||
+    finitePositiveUsd(gp?.raw)
+  ) {
+    return true;
+  }
+  return Boolean(
+    series.allGradePrices?.some((e) => finitePositiveUsd(e.priceUsd)),
+  );
+}
+
 /**
  * Prefer whichever preview actually matched; when both match, keep series (chart-aligned).
  */

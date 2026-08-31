@@ -1,11 +1,9 @@
 import type {
   CollectionMarketSeries,
-  CollectionPlatformTapeFill,
   CollectionUsdPoint,
   RwaMetadata,
 } from "@/lib/core";
 import { filterMergedChartPointsForWindow } from "@/lib/market/collectionChartHistory";
-import { countableTapeFills } from "@/lib/market/tradesVolume";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import {
   buildRwaAssetDetailHeadlineParts,
@@ -133,21 +131,6 @@ export function extractSparklineValues1y(
     series?.externalUsd,
     "365d",
   );
-  const values = windowed
-    .map((p) => p.v)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);
-  return downsampleSparklineValues(values, maxPoints);
-}
-
-/** Sparkline from token tape (platform fills + Cardhedger comps) when no collection snapshot exists. */
-export function extractSparklineFromTapeFills(
-  trades: CollectionPlatformTapeFill[] | null | undefined,
-  maxPoints = 14,
-): number[] {
-  const points: CollectionUsdPoint[] = countableTapeFills(trades ?? [])
-    .map((row) => ({ t: row.t, v: row.priceUsdc }))
-    .sort((a, b) => a.t - b.t);
-  const windowed = filterMergedChartPointsForWindow(points, "365d");
   const values = windowed
     .map((p) => p.v)
     .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);

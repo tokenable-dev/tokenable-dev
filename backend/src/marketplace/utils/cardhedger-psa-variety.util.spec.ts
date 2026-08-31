@@ -122,6 +122,36 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
     ).toBe(true);
   });
 
+  it('matches PSA FULL ART/subject compound Variety to Cardhedger Base', () => {
+    const row = {
+      variant: 'Base',
+      description: 'Umbreon VMAX 2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+      name: 'Umbreon VMAX',
+      set: '2021 Pokemon Japanese Sword & Shield Eevee Heroes',
+      number: '95',
+    };
+    expect(
+      cardhedgerRowMatchesPsaVariety(row, 'FULL ART/UMBREON VMAX-HYPER'),
+    ).toBe(true);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(row, 'FULL ART/UMBREON VMAX-HYPER'),
+    ).toBe(true);
+  });
+
+  it('matches Mega Ultra Rare to Cardhedger Base, not a named parallel', () => {
+    const row = {
+      variant: 'Base',
+      description: 'Mega Charizard X EX 2025 Pokemon Japanese Inferno X',
+      name: 'Mega Charizard X EX',
+      set: '2025 Pokemon Japanese Inferno X',
+      number: '116',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(row, 'MEGA ULTRA RARE')).toBe(true);
+    expect(cardhedgerCertRowUsableForPsaVariety(row, 'MEGA ULTRA RARE')).toBe(
+      true,
+    );
+  });
+
   it('matches Special Art Rare (SAR) to Cardhedger Base, not a named parallel', () => {
     expect(
       cardhedgerRowMatchesPsaVariety(

@@ -90,6 +90,16 @@ Tokenable used to treat SAR like a named parallel (Master Ball / Silver Prizm). 
 
 **수정:** `psaVarietyIsSpecialArtRareLabel` — SAR is a Pokémon rarity label (same class as SIR / Art Rare). `marketParallelKey` stays `base`. Do not require “special art” on the Cardhedger row.
 
+### Pokémon rarity vs Cardhedger `Base` (compound PSA Variety)
+
+Cardhedger usually stores Pokémon **rarity slots** (Full Art, SAR, MUR, SIR, …) as **`variant: "Base"`** plus a unique card number. PSA Variety is often **only the rarity**, but just as often **`RARITY/SUBJECT`** on one line.
+
+Example: cert `171849969` — GemRate `2021 … Full Art/Umbreon Vmax-Hyper 095`. Cardhedger Base `#95` already has comps (`prices-by-cert`). Tokenable used to match rarity labels with **whole-string equality** (`/^full art$/`), so `FULL ART/UMBREON VMAX-HYPER` was treated like a named parallel (Master Ball / Silver Prizm). The Variety gate **rejected Base**, resolve stayed unmatched, and trades-tape / mint-preview comps never ran.
+
+**수정:** split Variety on `/`, treat each phrase as a rarity-slot candidate (`psaVarietyLabelPhrases` + `psaVarietyIsPokemonRarityLabel`). Master Ball / Reverse Holo / Poké Ball prints stay non-base. Do not add a new one-off string per cert.
+
+Same class of miss as SAR and Mega Ultra Rare; those exact labels still match, including after a slash suffix.
+
 ### Pokémon `MASTER BALL` vs `REVERSE HOLO` (Japanese 151, etc.)
 
 PSA **Variety** is often **`MASTER BALL REVERSE HOLO`** while Cardhedger catalogs that print as **`variant: "Master Ball"`** (no reverse/holo in the variant string). A sibling **`Reverse Foil`** row exists for **`REVERSE HOLO`** and is a **different `card_id` and price band** (Master Ball PSA 10 is typically several times Reverse Foil).

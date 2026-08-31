@@ -55,7 +55,7 @@ flowchart TD
 
 **Portfolio holdings** (`POST …/portfolio-market-batch`) never overlay live Cardhedger and never scan the listing pool. Missing rows enqueue `cold_start` and return an empty series until the worker upserts.
 
-Holdings that have **no `marketplace_collections` row** cannot get a snapshot. The portfolio UI then uses token-level `POST /marketplace/cardhedger/mint-previews` (spot) and `GET /marketplace/rwa/:tokenId/trades` (comps sparkline). Daily wallet totals (`portfolio_daily_snapshots`) already apply the same mint-preview fallback.
+Holdings that have **no `marketplace_collections` row**, or a snapshot with unmatched Cardhedger and no grade-strip USD, cannot be priced from this endpoint. The portfolio list then uses token-level `POST /marketplace/cardhedger/mint-previews` for spot only. It does not fetch per-token trades/comps on My Assets (that was an N+1 Cardhedger waterfall). Daily wallet totals (`portfolio_daily_snapshots`) still apply a mint-preview fallback.
 
 ## Cold start
 

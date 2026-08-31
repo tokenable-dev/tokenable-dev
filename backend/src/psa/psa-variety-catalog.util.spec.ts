@@ -59,3 +59,28 @@ describe('psaVarietyIsPokemonRarityLabel — Special Art Rare (SAR)', () => {
     ).toBe('red_manga_alternate_art');
   });
 });
+
+describe('psaVarietyIsPokemonRarityLabel — Mega Ultra Rare', () => {
+  it('treats MEGA ULTRA RARE as a Base catalog slot, not a parallel', () => {
+    expect(psaVarietyIndicatesGenericBaseLine('MEGA ULTRA RARE')).toBe(true);
+    expect(marketParallelKeyFromPsaVariety('MEGA ULTRA RARE')).toBe('base');
+    expect(psaVarietyIndicatesGenericBaseLine('MUR')).toBe(true);
+    expect(psaVarietyIndicatesGenericBaseLine('MEGA HYPER RARE')).toBe(true);
+  });
+});
+
+describe('psaVarietyIsPokemonRarityLabel — PSA rarity/subject compound lines', () => {
+  it('treats FULL ART/… as Full Art (Base), not a named parallel', () => {
+    const variety = 'FULL ART/UMBREON VMAX-HYPER';
+    expect(psaVarietyIndicatesGenericBaseLine(variety)).toBe(true);
+    expect(marketParallelKeyFromPsaVariety(variety)).toBe('base');
+    expect(psaVarietyIndicatesGenericBaseLine('FULL ART')).toBe(true);
+  });
+
+  it('does not treat Master Ball or sports inserts as rarity slots', () => {
+    expect(
+      psaVarietyIndicatesGenericBaseLine('MASTER BALL REVERSE HOLO'),
+    ).toBe(false);
+    expect(psaVarietyIndicatesGenericBaseLine('SILVER PRIZM')).toBe(false);
+  });
+});

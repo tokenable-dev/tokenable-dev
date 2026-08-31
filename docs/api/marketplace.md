@@ -425,7 +425,7 @@ Batch **materialized snapshot** reads per collection key (max 60 keys). Used by 
 
 Does **not** call Cardhedger, listing-pool stats, or platform tape on the request. Missing or empty snapshot rows are enqueued for background refresh. `stats` is always `null` on this path — holdings USD comes from `series` (grade strip / Cardhedger preview on the snapshot).
 
-When a holding has **no collection row**, this endpoint cannot price it. The Portfolio UI falls back to `POST /marketplace/cardhedger/mint-previews` and `GET /marketplace/rwa/:tokenId/trades` for that token.
+When a holding has **no collection row**, or the snapshot series is unmatched with no grade-strip USD, this endpoint cannot price it. The Portfolio list falls back to `POST /marketplace/cardhedger/mint-previews` for that token (not per-token trades). Collection detail still overlays live Cardhedger on a thin snapshot; portfolio does not.
 
 **Body:** `PortfolioMarketBatchDto`
 
