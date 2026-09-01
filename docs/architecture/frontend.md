@@ -188,11 +188,15 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 
 `/portfolio` uses `useUserAssets(..., { assetPageSize: PORTFOLIO_ASSETS_PAGE_SIZE })` (50):
 
-1. `GET /blockchain/rwa/tokens/:address` — full owned token id list (on-chain scan; cached ~30s)
-2. Metadata (+ collection keys / market pricing) loads in **pages of 50** (newest `tokenId` first) via `useInfiniteQuery`
+1. `GET /blockchain/rwa/tokens/:address` — owned token id list (owner index when enabled; cached ~30s)
+2. **BFF** — `POST /marketplace/portfolio/assets-page` with the first **50** `tokenIds` (metadata + collection keys + market snapshots + mint-previews in **one** round-trip). Load more sends only **new** tokenIds incrementally.
 3. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
-4. **Prices** — `POST …/portfolio-market-batch` for tokens that already have a `marketplace_collections` row (Postgres snapshot, no Cardhedger on the request). Mint-preview (`POST …/cardhedger/mint-previews`) runs for tokens with **no collection** *or* a snapshot that cannot produce a USD mark (unmatched Cardhedger and empty grade strip). That covers minted parallels such as Master Ball Reverse Holo, where cert APIs attach Reverse Foil, Variety rejects it, and the snapshot stays unmatched while collection detail still overlays live resolve. The holdings list does **not** call `GET …/rwa/:tokenId/trades` per card. Gallery sparklines come from the snapshot series when a collection exists. Missing snapshots enqueue a background refresh; the query polls every 20s until `syncedAt` appears. Price `…` waits on collection-key lookup + snapshot batch, not on mint-preview.
-5. **Load more** on `PortfolioHoldingsSection` fetches the next metadata page only
+4. **Holdings prefs** — `POST /portfolio/holdings/batch` for hide + cost basis across **all** owned tokenIds (lightweight DB read).
+5. **Prices** — included in the assets-page BFF (`portfolio-market-batch` + mint-preview fallback). Gallery sparklines come from snapshot series. Missing snapshots enqueue background refresh.
+6. **Load more** — next `assets-page` call for the next 50 tokenIds only
+7. **Perf RUM (Phase 3)** — `usePortfolioLoadPerf` emits `portfolio/tokenIds-ready`, `assets-ready`, `prices-ready` when `localStorage.PERF_LOG=1` (see `lib/perf/`)
+
+Legacy client waterfall (`metadata/batch` + `token-collection-keys` + `portfolio-market-batch` + `mint-previews` separately) remains available via `useUserAssets({ metadataSource: 'client' })` + `usePortfolioMarketPricing` for non-portfolio consumers.
 
 Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row. After mint, buy, or hide, React Query invalidates `portfolio-daily-snapshots` so the open Portfolio page refetches the recaptured slot.
 

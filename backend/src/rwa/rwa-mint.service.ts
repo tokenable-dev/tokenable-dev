@@ -166,6 +166,7 @@ export class RwaMintService {
       settlementPolicy:
         deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
       vaultPartnerId,
+      ownerWallet: mintToAddress,
     });
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
 

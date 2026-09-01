@@ -95,7 +95,11 @@ Returns array of tokenIds owned by `address`.
 [1, 5, 12, 99]
 ```
 
-Backed by a full-supply `ownerOf` scan (≈ totalMinted RPC calls). Defenses: address format validated (400 on invalid), result cached 30s per `(chainId, address)`, concurrent identical scans coalesced, and the route is rate-limited to 30 req/min per IP.
+When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
+
+Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill + live Transfer listener). Optional: `CHAIN_{id}_RWA_DEPLOY_BLOCK` to narrow log replay, `RWA_OWNER_INDEX_LOG_CHUNK` = inclusive block count per `eth_getLogs` (default 4000; use **10** on Alchemy Free), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default 150 — throttle between chunks to avoid 429), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default 6). Non-default chains without deploy block skip backfill until `CHAIN_{id}_RWA_DEPLOY_BLOCK` is set.
+
+Defenses: address format validated (400 on invalid), result cached 30s per `(chainId, address)`, concurrent identical scans coalesced, rate-limited to 30 req/min per IP.
 
 ---
 

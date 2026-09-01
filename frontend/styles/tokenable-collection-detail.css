@@ -2743,6 +2743,12 @@
   min-height: 0;
 }
 
+.collection-detail-page .cd-detail-grid__orderbook .cd-ob-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
 /* Drawer / listings View all — show every trade row if tape is embedded */
 .cd-viewall-drawer .cd-ob-trades-scroll > .cd-ob-trades-row:nth-child(n + 8) {
   display: grid;
@@ -2798,6 +2804,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .collection-detail-page .cd-ob-book-pane {
@@ -2807,6 +2814,7 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  background: #191919;
 }
 
 .collection-detail-page .cd-ob-book:not(.cd-ob-book--empty-market) .cd-ob-book-pane {
@@ -2846,19 +2854,23 @@
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
+  overflow-anchor: none;
+  touch-action: pan-y;
+  background: #191919;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
-  display: flex;
-  flex-direction: column;
 }
 
-.collection-detail-page .cd-ob-book-pane__scroll--hug-asks {
-  justify-content: flex-end;
+.collection-detail-page .cd-ob-book-pane__scroll-inner {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.collection-detail-page .cd-ob-book-pane__scroll--hug-bids {
-  justify-content: flex-start;
+.collection-detail-page .cd-ob-book-pane__scroll-inner--hug-asks,
+.collection-detail-page .cd-ob-book-pane__scroll-inner--hug-bids {
+  padding-bottom: 2px;
 }
 
 .collection-detail-page .cd-ob-book-pane__scroll::-webkit-scrollbar {
@@ -2878,59 +2890,6 @@
   flex: 0 0 auto;
   width: 100%;
   min-height: 0;
-}
-
-/* Card.html `.ob-fade` — gradient + CSS chevron (not ▲/▼ glyphs). */
-.collection-detail-page .cd-ob-book-pane__fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 30px;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  z-index: 2;
-  display: flex;
-  justify-content: center;
-  color: var(--t2);
-  font-size: 11px;
-  line-height: 1;
-}
-
-.collection-detail-page .cd-ob-book-pane__fade::after {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  box-sizing: border-box;
-}
-
-.collection-detail-page .cd-ob-book-pane__fade--top {
-  top: 0;
-  align-items: flex-start;
-  padding-top: 4px;
-  background: linear-gradient(180deg, #191919, transparent);
-}
-
-.collection-detail-page .cd-ob-book-pane__fade--top::after {
-  transform: rotate(-135deg);
-  margin-top: 2px;
-}
-
-.collection-detail-page .cd-ob-book-pane__fade--bot {
-  bottom: 0;
-  align-items: flex-end;
-  padding-bottom: 4px;
-  background: linear-gradient(0deg, #191919, transparent);
-}
-
-.collection-detail-page .cd-ob-book-pane__fade--bot::after {
-  transform: rotate(45deg);
-  margin-bottom: 4px;
-}
-
-.collection-detail-page .cd-ob-book-pane__fade.is-hidden {
-  opacity: 0;
 }
 
 .collection-detail-page .cd-ob-book-center {
@@ -3018,15 +2977,22 @@
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
-  /* All rows visible; panel height clips + scrolls on desktop. */
-  height: auto;
-  max-height: none;
-  overflow: visible;
-  scrollbar-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
 .collection-detail-page .cd-ob-trades-scroll::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+
+.collection-detail-page .cd-ob-trades-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
 }
 
 .collection-detail-page .cd-ob-trades-row {
@@ -3687,17 +3653,17 @@
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
-    /* Tab header + body; body scrolls when capped at 376px. */
+    /* Tab bar + body share the 376px rail; body flex-fills the remainder. */
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
 
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-body {
-    flex: none;
-    height: 372px;
-    min-height: 372px;
-    max-height: 372px;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3707,19 +3673,6 @@
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll {
     flex: 1 1 auto;
     min-height: 0;
-    height: auto;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
   }
 
   /* Offers / book tab — split panes scroll; body stays clipped. */

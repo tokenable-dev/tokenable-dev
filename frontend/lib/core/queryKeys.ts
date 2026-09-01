@@ -297,6 +297,18 @@ export const rq = {
       chainId,
       ...collectionKeys.map((k) => k.toLowerCase()).sort(),
     ] as const,
+  /** My Assets BFF — incremental tokenId pages only (sorted). */
+  portfolioAssetsPage: (
+    addr: string,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
+    [
+      "portfolio-assets-page",
+      addr.toLowerCase(),
+      chainId,
+      ...[...tokenIds].sort((a, b) => a - b),
+    ] as const,
   /**
    * Collection-key-to-tokenId resolution for the portfolio page.
    * `sig` is a stable derived string summarising the current set of owned assets

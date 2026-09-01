@@ -50,7 +50,8 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
-| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`, `vault_partner_id`) | `marketplace/entities/rwa-token.entity.ts` |
+| `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`, `vault_partner_id`, `owner_wallet`) | `marketplace/entities/rwa-token.entity.ts` |
+| `rwa_owner_index_cursors` | Transfer-log backfill cursor per RWA contract | `blockchain/entities/rwa-owner-index-cursor.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
 | `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
 | `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |

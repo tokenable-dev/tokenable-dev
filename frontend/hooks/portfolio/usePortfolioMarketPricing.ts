@@ -118,8 +118,7 @@ export function usePortfolioMarketPricing(input: {
     Boolean(address) &&
     isConnected &&
     assets.length > 0 &&
-    (!serverKeysReady ||
-      (hasCollectionBuckets && portfolioMarketBatchLoading));
+    !serverKeysReady;
 
   return {
     statsByCollectionKey,

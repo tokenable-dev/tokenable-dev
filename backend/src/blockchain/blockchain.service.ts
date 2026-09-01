@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Contract } from 'ethers';
@@ -17,6 +18,8 @@ import {
 } from '../common/cache/ttl-cache.interface';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
+import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
+import { withRpcRateLimitRetry } from './rpc-retry.util';
 
 const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 /** Owner scans cost ~totalMinted RPC calls each — cache briefly and coalesce. */
@@ -39,6 +42,7 @@ function isErc721InvalidTokenError(e: unknown): boolean {
 
 @Injectable()
 export class BlockchainService {
+  private readonly logger = new Logger(BlockchainService.name);
   private readonly rwaByChain = new Map<SupportedChainId, Contract>();
   /** Coalesces concurrent owner scans for the same wallet into one RPC pass. */
   private readonly tokensByOwnerInFlight = new Map<string, Promise<number[]>>();
@@ -46,6 +50,7 @@ export class BlockchainService {
   constructor(
     private readonly chainConfig: ChainConfigService,
     private readonly ipfs: IpfsGatewayResolverService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
     @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {}
 
@@ -70,13 +75,18 @@ export class BlockchainService {
     symbol: string;
     totalMinted: number;
   }> {
-    const rwa = this.tokenableRwa(chainId);
-    const [name, symbol, totalMinted] = await Promise.all([
-      rwa.name(),
-      rwa.symbol(),
-      rwa.totalMinted(),
-    ]);
-    return { name, symbol, totalMinted: Number(totalMinted) };
+    return withRpcRateLimitRetry(
+      async () => {
+        const rwa = this.tokenableRwa(chainId);
+        const [name, symbol, totalMinted] = await Promise.all([
+          rwa.name(),
+          rwa.symbol(),
+          rwa.totalMinted(),
+        ]);
+        return { name, symbol, totalMinted: Number(totalMinted) };
+      },
+      { label: 'getRwaInfo' },
+    );
   }
 
   /** Returns the current on-chain owner of an RWA token (lowercase). Throws NotFoundException if not minted/burned. */
@@ -130,7 +140,23 @@ export class BlockchainService {
     const inFlight = this.tokensByOwnerInFlight.get(cacheKey);
     if (inFlight) return inFlight;
 
-    const scan = this.scanRwaTokensByOwner(normalized, chainId)
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const load = (async () => {
+      if (await this.ownerIndex.isIndexReady(chain)) {
+        const tokenIds = await this.ownerIndex.getTokenIdsByOwner(
+          normalized,
+          chain,
+        );
+        this.ttlCache.set(
+          TOKENS_BY_OWNER_CACHE_NS,
+          cacheKey,
+          tokenIds,
+          TOKENS_BY_OWNER_CACHE_TTL_MS,
+        );
+        return tokenIds;
+      }
+      return this.scanRwaTokensByOwner(normalized, chain);
+    })()
       .then((tokenIds) => {
         this.ttlCache.set(
           TOKENS_BY_OWNER_CACHE_NS,
@@ -143,8 +169,8 @@ export class BlockchainService {
       .finally(() => {
         this.tokensByOwnerInFlight.delete(cacheKey);
       });
-    this.tokensByOwnerInFlight.set(cacheKey, scan);
-    return scan;
+    this.tokensByOwnerInFlight.set(cacheKey, load);
+    return load;
   }
 
   private async scanRwaTokensByOwner(
@@ -152,6 +178,8 @@ export class BlockchainService {
     chainId?: SupportedChainId,
   ): Promise<number[]> {
     const _t0 = perfNow();
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const contract = this.chainConfig.getRwaAddress(chain);
     try {
       const { totalMinted } = await this.getRwaInfo(chainId);
       if (totalMinted <= 0) return [];
@@ -161,6 +189,16 @@ export class BlockchainService {
         24,
         chainId,
       );
+      if (!(await this.ownerIndex.isBackfillInProgress(chain))) {
+        void this.ownerIndex
+          .persistOwnerMap(contract, owners, chain)
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `persistOwnerMap from owner scan skipped: ${String(err)}`,
+            );
+          });
+      }
+
       const tokenIds: number[] = [];
       for (const [tokenId, owner] of owners) {
         if (owner === normalized) tokenIds.push(tokenId);
@@ -170,7 +208,7 @@ export class BlockchainService {
     } finally {
       perfLog('rpc', 'tokensByOwnerScan', elapsedMs(_t0), {
         address: normalized.slice(0, 10),
-        chainId: chainId ?? this.chainConfig.getDefaultChainId(),
+        chainId: chain,
       });
     }
   }

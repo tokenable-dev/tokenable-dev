@@ -214,4 +214,12 @@ async function bootstrap() {
   logger.log(`Server running on http://127.0.0.1:${port}/api`);
   logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
+
+process.on('unhandledRejection', (reason) => {
+  const logger = new Logger('UnhandledRejection');
+  logger.error(
+    `Unhandled promise rejection — process kept alive: ${String(reason)}`,
+  );
+});
+
 bootstrap();

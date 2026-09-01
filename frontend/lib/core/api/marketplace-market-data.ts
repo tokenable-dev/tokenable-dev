@@ -524,6 +524,30 @@ export interface CollectionMarketPreview {
 
 /** Matches `MintPreviewsByTokenIdsDto` `@ArrayMaxSize(32)` in the Nest controller. */
 const MINT_MARKET_PREVIEW_MAX_BATCH = 32;
+const MINT_MARKET_PREVIEW_CHUNK_PARALLEL = 3;
+
+async function postBatchMintMarketPreviewsChunk(
+  tokenIds: number[],
+): Promise<Record<number, CollectionMarketPreview>> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
+    );
+  }
+  const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
+  const out: Record<number, CollectionMarketPreview> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k);
+    if (Number.isFinite(id)) out[id] = v;
+  }
+  return out;
+}
 
 /** Cardhedger batch — 서버가 tokenId별 메타데이터를 조회 (요청은 id 목록만) */
 export async function postBatchMintMarketPreviews(
@@ -532,26 +556,21 @@ export async function postBatchMintMarketPreviews(
   const unique = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter(
     (n) => Number.isFinite(n) && n >= 0,
   );
-  const out: Record<number, CollectionMarketPreview> = {};
+  if (unique.length === 0) return {};
 
+  const chunks: number[][] = [];
   for (let i = 0; i < unique.length; i += MINT_MARKET_PREVIEW_MAX_BATCH) {
-    const chunk = unique.slice(i, i + MINT_MARKET_PREVIEW_MAX_BATCH);
-    const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenIds: chunk }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(
-        (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
-      );
-    }
-    const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
-    for (const [k, v] of Object.entries(raw)) {
-      const id = Number(k);
-      if (Number.isFinite(id)) out[id] = v;
-    }
+    chunks.push(unique.slice(i, i + MINT_MARKET_PREVIEW_MAX_BATCH));
+  }
+
+  const out: Record<number, CollectionMarketPreview> = {};
+  for (let i = 0; i < chunks.length; i += MINT_MARKET_PREVIEW_CHUNK_PARALLEL) {
+    const packs = await Promise.all(
+      chunks
+        .slice(i, i + MINT_MARKET_PREVIEW_CHUNK_PARALLEL)
+        .map((chunk) => postBatchMintMarketPreviewsChunk(chunk)),
+    );
+    for (const pack of packs) Object.assign(out, pack);
   }
 
   return out;

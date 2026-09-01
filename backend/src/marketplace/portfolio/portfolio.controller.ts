@@ -21,6 +21,8 @@ import {
 import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
 import { PortfolioHoldingsBatchDto } from './dto/portfolio-holdings-batch.dto';
 import { PortfolioSetCostBasisDto } from './dto/portfolio-set-cost-basis.dto';
+import { PortfolioAssetsPageDto } from './dto/portfolio-assets-page.dto';
+import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from './portfolio-holding.service';
 
@@ -34,6 +36,7 @@ export class PortfolioController {
   constructor(
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly portfolioAssetsPage: PortfolioAssetsPageService,
     private readonly chainConfig: ChainConfigService,
   ) {}
 
@@ -167,6 +170,30 @@ export class PortfolioController {
       chainId,
     );
     return { items };
+  }
+
+  /**
+   * My Assets BFF — metadata, collection keys, market snapshots, mint previews,
+   * and holding prefs for one page of tokenIds (max 50).
+   */
+  @ApiOperation({
+    summary: '포트폴리오 My Assets 페이지 배치 (BFF)',
+    description:
+      'Combines rwa metadata, token→collection_key, portfolio-market-batch, mint-previews, and holdings batch for one wallet page.',
+  })
+  @ApiChainIdHeader()
+  @ApiBody(apiBodyDefault(PortfolioAssetsPageDto, SWAGGER_BODY_EXAMPLES.portfolioAssetsPage))
+  @Post('portfolio/assets-page')
+  async getPortfolioAssetsPage(
+    @Body() body: PortfolioAssetsPageDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.portfolioAssetsPage.loadPage(
+      body.walletAddress,
+      body.tokenIds,
+      chainId,
+    );
   }
 
   /** User manual cost basis edit — never overwritten by auto seed */

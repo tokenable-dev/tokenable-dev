@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { postTokenCollectionKeysByTokenIdsBatched, rq } from "@/lib/core";
 import {
@@ -60,18 +60,45 @@ export function usePortfolioCollectionKeys(input: {
 }) {
   const { address, isConnected, assets, tokenIds, listingCollectionKeyByToken } = input;
 
-  // Fire the server collection-key batch as soon as tokenIds are available —
-  // in parallel with postRwaMetadataBatch. Both requests only need tokenIds.
+  const fetchedTokenIdsRef = useRef<Set<number>>(new Set());
+  const [accumulatedServerKeys, setAccumulatedServerKeys] = useState<
+    Record<number, string>
+  >({});
+  const [fetchGeneration, setFetchGeneration] = useState(0);
+
+  useEffect(() => {
+    fetchedTokenIdsRef.current = new Set();
+    setAccumulatedServerKeys({});
+    setFetchGeneration((g) => g + 1);
+  }, [address]);
+
+  const pendingTokenIds = useMemo(() => {
+    void fetchGeneration;
+    return tokenIds.filter((id) => !fetchedTokenIdsRef.current.has(id));
+  }, [tokenIds, fetchGeneration]);
+
   const {
-    data: prefetchedServerKeys,
+    data: pendingServerKeys,
     isFetching: serverKeysFetching,
-    isFetched: serverKeysFetched,
+    isFetched: pendingBatchFetched,
   } = useQuery({
-    queryKey: rq.tokenCollectionKeyBatch(address ?? "", tokenIds),
-    queryFn: () => postTokenCollectionKeysByTokenIdsBatched(tokenIds),
-    enabled: Boolean(address && isConnected && tokenIds.length > 0),
+    queryKey: rq.tokenCollectionKeyBatch(address ?? "", pendingTokenIds),
+    queryFn: () => postTokenCollectionKeysByTokenIdsBatched(pendingTokenIds),
+    enabled: Boolean(address && isConnected && pendingTokenIds.length > 0),
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (!pendingBatchFetched || pendingTokenIds.length === 0) return;
+    const ids = [...pendingTokenIds];
+    for (const id of ids) {
+      fetchedTokenIdsRef.current.add(id);
+    }
+    if (pendingServerKeys) {
+      setAccumulatedServerKeys((prev) => ({ ...prev, ...pendingServerKeys }));
+    }
+    setFetchGeneration((g) => g + 1);
+  }, [pendingBatchFetched, pendingServerKeys, pendingTokenIds]);
 
   const portfolioBucketKeySourceSig = useMemo(
     () => buildPortfolioBucketKeySourceSig(assets, listingCollectionKeyByToken),
@@ -84,9 +111,7 @@ export function usePortfolioCollectionKeys(input: {
     queryKey: rq.portfolioBucketKeys(address ?? "", portfolioBucketKeysSig),
     queryFn: async () => {
       const o: Record<number, string> = {};
-      // prefetchedServerKeys is guaranteed to be defined when this queryFn runs
-      // because `enabled` below requires it. No extra network call needed here.
-      const backendResolved: Record<number, string> = prefetchedServerKeys ?? {};
+      const backendResolved: Record<number, string> = accumulatedServerKeys;
       await Promise.all(
         assets.map(async (a) => {
           const listingKey = listingCollectionKeyByToken.get(a.tokenId);
@@ -111,43 +136,14 @@ export function usePortfolioCollectionKeys(input: {
       );
       return o;
     },
-    // Wait until BOTH metadata (assets) and server keys are ready.
-    // Since both fire in parallel, the total wait is max(metadata, serverKeys)
-    // instead of metadata + serverKeys (sequential).
     enabled: Boolean(
       address &&
         isConnected &&
         assets.length > 0 &&
-        (tokenIds.length === 0 || prefetchedServerKeys !== undefined),
+        (tokenIds.length === 0 || pendingTokenIds.length === 0),
     ),
     staleTime: 60_000,
   });
-
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
-    assets.forEach((a) => {
-      const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
-      const fromMeta =
-        typeof tokenToCollectionKey[a.tokenId] === "string" &&
-        tokenToCollectionKey[a.tokenId]!.trim()
-          ? tokenToCollectionKey[a.tokenId]!.trim().toLowerCase()
-          : undefined;
-      if (fromOrder && fromMeta && fromOrder !== fromMeta) {
-        console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
-          tokenId: a.tokenId,
-          fromActiveListingOrder: fromOrder,
-          fromClientMetadata: fromMeta,
-          note: "Order row collection_key differs from computeMarketBucketKey(metadata).",
-        });
-      }
-      if (fromOrder && fromMeta && fromOrder === fromMeta) {
-        console.info("[collection_key_pipeline] listing and meta keys match", {
-          tokenId: a.tokenId,
-          collectionKey: fromOrder,
-        });
-      }
-    });
-  }, [assets, listingCollectionKeyByToken, tokenToCollectionKey]);
 
   const tokenToServerCollectionKey = useMemo(() => {
     const o: Record<number, string> = {};
@@ -157,22 +153,25 @@ export function usePortfolioCollectionKeys(input: {
         o[a.tokenId] = listingKey;
         continue;
       }
-      const dbKey = String(prefetchedServerKeys?.[a.tokenId] ?? "").trim().toLowerCase();
+      const dbKey = String(accumulatedServerKeys[a.tokenId] ?? "").trim().toLowerCase();
       if (dbKey) o[a.tokenId] = dbKey;
     }
     return o;
-  }, [assets, listingCollectionKeyByToken, prefetchedServerKeys]);
+  }, [assets, listingCollectionKeyByToken, accumulatedServerKeys]);
 
   const uniqueCollectionKeys = useMemo(() => {
     return [...new Set(Object.values(tokenToServerCollectionKey))];
   }, [tokenToServerCollectionKey]);
 
+  const serverKeysReady =
+    tokenIds.length === 0 ||
+    (pendingTokenIds.length === 0 && !serverKeysFetching);
+
   return {
     tokenToCollectionKey,
     tokenToServerCollectionKey,
     uniqueCollectionKeys,
-    serverKeysReady:
-      tokenIds.length === 0 || serverKeysFetched || Boolean(prefetchedServerKeys),
+    serverKeysReady,
     bucketKeysFetching: serverKeysFetching,
   };
 }

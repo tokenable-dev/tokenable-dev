@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Contract, Wallet, ZeroHash } from 'ethers';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { ChainConfigService } from './chain-config.service';
+import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
@@ -33,6 +34,7 @@ export class RwaChainWriterService {
   constructor(
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
   ) {}
 
   private withSignerLock<T>(
@@ -198,6 +200,12 @@ export class RwaChainWriterService {
         tokenId = totalMinted; // last minted
       }
 
+      await this.ownerIndex.recordOwner(
+        this.chainConfig.getRwaAddress(chainId),
+        tokenId,
+        recipient,
+      );
+
       return { tokenId, txHash: receipt.hash };
     });
   }
@@ -267,6 +275,11 @@ export class RwaChainWriterService {
         );
       }
 
+      const contractAddr = this.chainConfig.getRwaAddress(chainId);
+      for (let i = 0; i < tokenIds.length; i++) {
+        await this.ownerIndex.recordOwner(contractAddr, tokenIds[i], tos[i]);
+      }
+
       return { tokenIds, txHash: receipt.hash };
     });
   }
@@ -328,6 +341,11 @@ export class RwaChainWriterService {
         if (!receipt?.hash) {
           throw new InternalServerErrorException('Transfer transaction failed');
         }
+        await this.ownerIndex.recordOwner(
+          this.chainConfig.getRwaAddress(chainId),
+          tid,
+          recipient,
+        );
         return { txHash: receipt.hash };
       } catch (e) {
         if (e instanceof InternalServerErrorException) throw e;
@@ -382,6 +400,10 @@ export class RwaChainWriterService {
         if (!receipt?.hash) {
           throw new InternalServerErrorException('Burn transaction failed');
         }
+        await this.ownerIndex.recordBurn(
+          this.chainConfig.getRwaAddress(chainId),
+          tid,
+        );
         return { txHash: receipt.hash };
       } catch (e) {
         if (e instanceof InternalServerErrorException) throw e;

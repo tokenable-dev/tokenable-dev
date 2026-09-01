@@ -31,6 +31,17 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   },
   {
     kind: 'column',
+    table: 'rwa_tokens',
+    column: 'owner_wallet',
+    fix: 'maintenance/add_rwa_tokens_owner_wallet.sql',
+  },
+  {
+    kind: 'table',
+    name: 'rwa_owner_index_cursors',
+    fix: 'maintenance/add_rwa_owner_index_cursors.sql',
+  },
+  {
+    kind: 'column',
     table: 'vault_redemptions',
     column: 'payment_batch_id',
     fix: 'maintenance/add_vault_redemptions_fee_payment.sql',

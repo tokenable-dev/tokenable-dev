@@ -13,7 +13,7 @@ import {
   usePortfolioHoldingActions,
   usePortfolioHoldings,
   usePortfolioListingCollectionKeys,
-  usePortfolioMarketPricing,
+  usePortfolioAssetsPage,
   usePortfolioMyBids,
   useUserAssets,
   PORTFOLIO_ASSETS_PAGE_SIZE,
@@ -66,6 +66,7 @@ import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatPortfolioGradeLabel, listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
 import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
+import { usePortfolioLoadPerf } from "@/hooks/portfolio/usePortfolioLoadPerf";
 
 export type PortfolioPageVariant = "default" | "partner";
 
@@ -180,12 +181,10 @@ export function PortfolioPageView({
   }, []);
 
   const {
-    assets: hookAssets,
     tokenIds,
     loadedTokenIds,
     activeOrders: allOrders,
     isLoadingIds: idsLoading,
-    isLoadingMetadata: assetsLoading,
     hasMoreAssets,
     isLoadingMoreAssets,
     loadMoreAssets,
@@ -196,6 +195,7 @@ export function PortfolioPageView({
     includeMarketPreview: false,
     retainPreviousOwner: false,
     assetPageSize: PORTFOLIO_ASSETS_PAGE_SIZE,
+    metadataSource: "bff",
   });
 
   const chainId = activeRqChainId();
@@ -217,15 +217,19 @@ export function PortfolioPageView({
     query: myRedemptionsQuery,
   } = useMyRedemptions(portfolioDataEnabled);
 
-  const assets: OwnedAsset[] = useMemo(
-    () =>
-      hookAssets.map((a) => ({
-        tokenId: a.tokenId,
-        metadata: a.metadata,
-        imageUrl: a.imageUrl,
-      })),
-    [hookAssets],
+  const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
+    allOrders,
+    portfolioAddress,
   );
+
+  const assetsPage = usePortfolioAssetsPage({
+    address: portfolioAddress,
+    enabled: portfolioDataEnabled,
+    tokenIds: loadedTokenIds,
+    listingCollectionKeyByToken,
+  });
+
+  const assets: OwnedAsset[] = assetsPage.assets;
 
   const metadataByTokenId = useMemo(() => {
     const m = new Map<number, OwnedAsset["metadata"]>();
@@ -235,35 +239,19 @@ export function PortfolioPageView({
     return m;
   }, [assets]);
 
-  const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
-    allOrders,
-    portfolioAddress,
-  );
-
-  const { tokenToCollectionKey, tokenToServerCollectionKey, uniqueCollectionKeys, serverKeysReady, bucketKeysFetching } =
-    usePortfolioCollectionKeys({
-    address: portfolioAddress,
-    isConnected: portfolioDataEnabled,
-    assets,
-    // Only resolve keys for loaded pages — keeps Load more cheap.
-    tokenIds: loadedTokenIds,
-    listingCollectionKeyByToken,
-  });
-
   const {
+    tokenToCollectionKey,
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken,
-    valuesPending: marketValuesPending,
-  } = usePortfolioMarketPricing({
-    address: portfolioAddress,
-    isConnected: portfolioDataEnabled,
-    assets,
-    uniqueCollectionKeys,
-    tokenToServerCollectionKey,
-    serverKeysReady,
-  });
-  const valuesPending = marketValuesPending || bucketKeysFetching;
+    valuesPending,
+  } = {
+    tokenToCollectionKey: assetsPage.tokenToCollectionKey,
+    statsByCollectionKey: assetsPage.statsByCollectionKey,
+    seriesByCollectionKey: assetsPage.seriesByCollectionKey,
+    mintPreviewByToken: assetsPage.mintPreviewByToken,
+    valuesPending: assetsPage.valuesPending,
+  };
 
   const myActiveListings = useMemo(
     () =>
@@ -402,17 +390,12 @@ export function PortfolioPageView({
     refetchActiveOrders,
   });
 
+  const bidsTabActive = portfolioMainTab === "bids";
+
   const topBidCollectionKeys = useMemo(() => {
+    if (!bidsTabActive) return [];
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const raw of uniqueCollectionKeys) {
-      const key = raw?.trim();
-      if (!key) continue;
-      const lower = key.toLowerCase();
-      if (seen.has(lower)) continue;
-      seen.add(lower);
-      out.push(key);
-    }
     for (const bid of myBids.activeBids) {
       const key = bid.collectionKey?.trim();
       if (!key) continue;
@@ -422,11 +405,11 @@ export function PortfolioPageView({
       out.push(key);
     }
     return out;
-  }, [uniqueCollectionKeys, myBids.activeBids]);
+  }, [bidsTabActive, myBids.activeBids]);
 
   const collectionTopBids = usePortfolioCollectionTopBids(
     topBidCollectionKeys,
-    portfolioDataEnabled,
+    portfolioDataEnabled && bidsTabActive,
   );
 
   const highestBidByCollectionKey = useMemo(() => {
@@ -688,8 +671,17 @@ export function PortfolioPageView({
     dailyPnlPct,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
-  const assetsSectionLoading = idsLoading || assetsLoading;
+  const assetsSectionLoading = idsLoading || assetsPage.isLoading;
   const portfolioValuePending = dailySnapshotsLoading;
+
+  usePortfolioLoadPerf({
+    enabled: portfolioDataEnabled,
+    tokenIdsCount: tokenIds.length,
+    assetsCount: assets.length,
+    valuesPending,
+    assetsLoading: assetsSectionLoading,
+  });
+
   const bidsSectionLoading = myBids.loading;
   const historySectionLoading =
     idsLoading || activityQuery.isLoading || myRedemptionsQuery.isLoading;

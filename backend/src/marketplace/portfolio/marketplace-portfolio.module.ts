@@ -9,6 +9,8 @@ import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-d
 import { PortfolioDailySnapshotSchedulerService } from './portfolio-daily-snapshot-scheduler.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from './portfolio-holding.service';
+import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
+import { PortfolioAssetsPageCacheService } from './portfolio-assets-page-cache.service';
 import { PortfolioController } from './portfolio.controller';
 
 /** Wallet portfolio daily snapshots and per-holding UI prefs (hide + cost basis). */
@@ -24,11 +26,14 @@ import { PortfolioController } from './portfolio.controller';
     PortfolioDailySnapshotService,
     PortfolioDailySnapshotSchedulerService,
     PortfolioHoldingService,
+    PortfolioAssetsPageService,
+    PortfolioAssetsPageCacheService,
   ],
   exports: [
     PortfolioDailySnapshotService,
     PortfolioDailySnapshotSchedulerService,
     PortfolioHoldingService,
+    PortfolioAssetsPageService,
   ],
 })
 export class MarketplacePortfolioModule {}

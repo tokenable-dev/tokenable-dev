@@ -391,6 +391,8 @@ export class VaultService {
     settlementPolicy?: 'standard' | 'self_vault_hold';
     /** Self-vault partner id — set when settlementPolicy is self_vault_hold. */
     vaultPartnerId?: string | null;
+    /** On-chain mint recipient (indexed for portfolio owner lookup). */
+    ownerWallet?: string | null;
   }): Promise<void> {
     const cycle = await this.cycles.findOne({ where: { id: params.cycleId } });
     if (!cycle) {
@@ -425,6 +427,7 @@ export class VaultService {
         vaultRef,
         settlementPolicy,
         vaultPartnerId,
+        ownerWallet: params.ownerWallet?.trim().toLowerCase() || null,
         metadataSyncedAt: new Date(),
       })
       .orUpdate(
@@ -438,6 +441,7 @@ export class VaultService {
           'vault_ref',
           'settlement_policy',
           'vault_partner_id',
+          'owner_wallet',
           'metadata_synced_at',
         ],
         ['token_contract', 'token_id'],
@@ -917,6 +921,7 @@ export class VaultService {
     const now = new Date();
     token.burnedAt = now;
     token.burnTxHash = params.burnTxHash;
+    token.ownerWallet = null;
     await this.rwaTokens.save(token);
 
     if (!token.vaultCycleId) {

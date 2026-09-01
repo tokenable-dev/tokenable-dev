@@ -118,17 +118,10 @@ export function CollectionUnifiedOrderBook({
       />
 
       {flush && !embedInMobileTab && collectionDetail ? (
-        <>
-          <div
-            className={book.tab === "book" ? "cd-ob-body" : "hidden"}
-            aria-hidden={book.tab !== "book"}
-          >
+        <div className="cd-ob-body">
+          {book.tab === "book" ? (
             <OrderBookBookTab {...bookTabProps} flush />
-          </div>
-          <div
-            className={book.tab === "trades" ? "cd-ob-body" : "hidden"}
-            aria-hidden={book.tab !== "trades"}
-          >
+          ) : (
             <OrderBookTradesTab
               tapeFills={tapeFills}
               tapeLoading={tapeLoading}
@@ -137,8 +130,8 @@ export function CollectionUnifiedOrderBook({
               flush
               collectionDetail
             />
-          </div>
-        </>
+          )}
+        </div>
       ) : flush && !embedInMobileTab ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <div

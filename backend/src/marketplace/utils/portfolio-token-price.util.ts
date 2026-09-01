@@ -76,6 +76,26 @@ function pickPortfolioMarketPreview(
   return s ?? mintPv ?? null;
 }
 
+/** True when portfolio snapshot alone can price a holding (no mint-preview needed). */
+export function portfolioSnapshotCanPriceHoldings(
+  series: CollectionMarketBundle | null | undefined,
+): boolean {
+  if (!series) return false;
+  const preview = series.cardhedgerPreview;
+  if (preview?.matched && preview?.card) return true;
+  const gp = series.gradePrices;
+  if (
+    finitePositive(gp?.psa10) ||
+    finitePositive(gp?.psa9) ||
+    finitePositive(gp?.raw)
+  ) {
+    return true;
+  }
+  return Boolean(
+    series.allGradePrices?.some((e) => finitePositive(e.priceUsd)),
+  );
+}
+
 /** Cardhedger-backed mark for one owned token (snapshot-first, mint preview fallback). */
 export function resolveTokenMarkUsd(
   meta: Record<string, unknown>,

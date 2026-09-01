@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -60,12 +60,19 @@ export function useUserAssets(
      * Use `loadMoreAssets` / `hasMoreAssets` for a Load more control.
      */
     assetPageSize?: number;
+    /**
+     * `bff` — metadata/pricing loaded via `usePortfolioAssetsPage` (default for portfolio).
+     * `client` — legacy per-endpoint metadata batch on the client.
+     */
+    metadataSource?: "bff" | "client";
   },
 ) {
   const enabled = (opts?.enabled ?? true) && Boolean(address?.trim());
   const includeOrderHistory = opts?.includeOrderHistory ?? true;
   const includeMarketPreview = opts?.includeMarketPreview ?? true;
   const retainPreviousOwner = opts?.retainPreviousOwner ?? true;
+  const metadataSource = opts?.metadataSource ?? "client";
+  const loadMetadata = metadataSource === "client";
   const previousOwnerPlaceholder = retainPreviousOwner ? keepPreviousData : undefined;
   const chainId = activeRqChainId();
   const pageSize =
@@ -73,6 +80,11 @@ export function useUserAssets(
       ? Math.floor(opts.assetPageSize)
       : null;
   const paged = pageSize != null;
+  const [bffLoadedCount, setBffLoadedCount] = useState(pageSize ?? 0);
+
+  useEffect(() => {
+    setBffLoadedCount(pageSize ?? 0);
+  }, [address, chainId, pageSize]);
 
   const tokenIdsQuery = useQuery({
     queryKey: rq.rwaTokens(address!, chainId),
@@ -113,7 +125,7 @@ export function useUserAssets(
       const next = last.start + last.slice.length;
       return next < tokenIds.length ? next : undefined;
     },
-    enabled: enabled && paged && tokenIds.length > 0,
+    enabled: enabled && paged && tokenIds.length > 0 && loadMetadata,
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
     placeholderData: previousOwnerPlaceholder,
   });
@@ -131,19 +143,22 @@ export function useUserAssets(
       );
       return pack.items;
     },
-    enabled: enabled && !paged && tokenIds.length > 0,
+    enabled: enabled && !paged && tokenIds.length > 0 && loadMetadata,
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
     placeholderData: previousOwnerPlaceholder,
   });
 
   const loadedTokenIds = useMemo(() => {
     if (!paged) return tokenIds;
+    if (!loadMetadata) {
+      return tokenIds.slice(0, Math.min(bffLoadedCount, tokenIds.length));
+    }
     const ids: number[] = [];
     for (const page of pagedMetadataQuery.data?.pages ?? []) {
       ids.push(...page.slice);
     }
     return ids;
-  }, [paged, tokenIds, pagedMetadataQuery.data?.pages]);
+  }, [paged, loadMetadata, tokenIds, bffLoadedCount, pagedMetadataQuery.data?.pages]);
 
   const metadataRows = useMemo(() => {
     if (!paged) return fullMetadataQuery.data ?? EMPTY_METADATA_ROWS;
@@ -219,21 +234,42 @@ export function useUserAssets(
     [marketPreviewQuery.data],
   );
 
-  const isLoadingMetadata = paged
-    ? pagedMetadataQuery.isLoading
-    : fullMetadataQuery.isLoading;
+  const isLoadingMetadata = loadMetadata
+    ? paged
+      ? pagedMetadataQuery.isLoading
+      : fullMetadataQuery.isLoading
+    : false;
   const hasMoreAssets = paged
-    ? Boolean(pagedMetadataQuery.hasNextPage)
+    ? loadMetadata
+      ? Boolean(pagedMetadataQuery.hasNextPage)
+      : loadedTokenIds.length < tokenIds.length
     : false;
   const isLoadingMoreAssets = paged
-    ? pagedMetadataQuery.isFetchingNextPage
+    ? loadMetadata
+      ? pagedMetadataQuery.isFetchingNextPage
+      : false
     : false;
 
   const loadMoreAssets = useCallback(() => {
-    if (!paged || !pagedMetadataQuery.hasNextPage) return;
+    if (!paged) return;
+    if (!loadMetadata) {
+      if (loadedTokenIds.length >= tokenIds.length) return;
+      setBffLoadedCount((n) =>
+        Math.min(tokenIds.length, n + (pageSize ?? PORTFOLIO_ASSETS_PAGE_SIZE)),
+      );
+      return;
+    }
+    if (!pagedMetadataQuery.hasNextPage) return;
     if (pagedMetadataQuery.isFetchingNextPage) return;
     void pagedMetadataQuery.fetchNextPage();
-  }, [paged, pagedMetadataQuery]);
+  }, [
+    paged,
+    loadMetadata,
+    loadedTokenIds.length,
+    tokenIds.length,
+    pageSize,
+    pagedMetadataQuery,
+  ]);
 
   return {
     address,

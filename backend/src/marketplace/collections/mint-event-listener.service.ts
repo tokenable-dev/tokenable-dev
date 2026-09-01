@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Contract } from 'ethers';
 import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { TOKENABLE_RWA_CONTRACT } from '../../blockchain/constants/injection-tokens';
+import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 
 /**
@@ -26,6 +27,7 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
     @Inject(TOKENABLE_RWA_CONTRACT)
     private readonly contract: Contract,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
     private readonly config: ConfigService,
   ) {}
 
@@ -59,16 +61,19 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.contract.on(
         'Minted',
-        (to: string, tokenId: bigint, tokenURI: string) => {
+        (to: string, tokenId: bigint, _vaultRef: string, tokenURI: string) => {
           const id = Number(tokenId);
+          const owner = String(to).trim().toLowerCase();
           this.logger.log(
-            `Minted event: tokenId=${id} to=${to} uri=${tokenURI.slice(0, 80)}`,
+            `Minted event: tokenId=${id} to=${owner} uri=${tokenURI.slice(0, 80)}`,
           );
-          void this.handleMintedToken(id).catch((err: unknown) => {
-            this.logger.warn(
-              `handleMintedToken failed for #${id}: ${String(err)}`,
-            );
-          });
+          void this.handleMintedToken(id, undefined, owner).catch(
+            (err: unknown) => {
+              this.logger.warn(
+                `handleMintedToken failed for #${id}: ${String(err)}`,
+              );
+            },
+          );
         },
       );
       this.listening = true;
@@ -89,11 +94,18 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
   async handleMintedToken(
     tokenId: number,
     chainId?: SupportedChainId,
+    mintedTo?: string,
   ): Promise<string | null> {
     const id = Math.floor(tokenId);
     if (!Number.isFinite(id) || id < 0) return null;
 
     await this.rwaTokenRegistry.syncTokenFromChain(id, null, chainId);
+    if (mintedTo) {
+      const contract = this.contract.target;
+      if (typeof contract === 'string') {
+        await this.ownerIndex.recordOwner(contract, id, mintedTo);
+      }
+    }
     this.logger.log(
       `MintEventListenerService: synced rwa_tokens for #${id} chain=${chainId ?? 'default'} (collection deferred to first listing)`,
     );

@@ -89,6 +89,11 @@ export class RwaToken {
   @Column({ name: 'vault_partner_id', type: 'uuid', nullable: true })
   vaultPartnerId: string | null;
 
+  /** Current on-chain holder (lowercase). NULL when burned or not yet indexed. */
+  @Index()
+  @Column({ name: 'owner_wallet', type: 'varchar', length: 42, nullable: true })
+  ownerWallet: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

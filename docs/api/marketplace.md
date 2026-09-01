@@ -554,6 +554,30 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 **Body:** `{ walletAddress, tokenId }` — restore one holding.
 
+### `POST /api/marketplace/portfolio/assets-page`
+
+**My Assets BFF** — one request per page of tokenIds (max **50**, matches frontend `PORTFOLIO_ASSETS_PAGE_SIZE`).
+
+**Body:** `{ walletAddress, tokenIds }`
+
+**Response:**
+
+```json
+{
+  "metadataItems": [{ "tokenId": 1, "tokenURI": "ipfs://…", "metadata": {}, "imageUrl": "https://…", "imageBackUrl": null }],
+  "collectionKeys": { "1": "abc123…" },
+  "marketItems": [{ "collectionKey": "abc123…", "stats": null, "series": { } }],
+  "mintPreviews": { "2": { "matched": true, "card": {} } },
+  "holdings": [{ "tokenId": 1, "hidden": false, "costBasisUsd": null, "costBasisSource": null, "acquiredAt": null }]
+}
+```
+
+Server-side pipeline (parallel where possible): RWA metadata batch → token→`collection_key` resolve → `portfolio-market-batch` snapshots → Cardhedger mint-previews for unmatched tokens → holdings batch for the page.
+
+**Cache (Phase 3):** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). Holdings are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`. `perfLog` includes `cache: memory|redis|miss` when `PERF_LOG=true`.
+
+Honors `x-tokenable-chain-id`. Portfolio UI uses this instead of separate `rwa/metadata/batch`, `token-collection-keys`, `portfolio-market-batch`, and `mint-previews` calls per page.
+
 ### `POST /api/marketplace/portfolio/holdings/batch`
 
 **Body:** `{ walletAddress, tokenIds }` (max 500).

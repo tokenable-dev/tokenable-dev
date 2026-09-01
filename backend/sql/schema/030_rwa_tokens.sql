@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS rwa_tokens (
   settlement_policy varchar(32) NOT NULL DEFAULT 'standard',
   -- FK added in 064_marketplace_partners.sql (partners table created later).
   vault_partner_id uuid,
+  owner_wallet varchar(42),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (token_contract, token_id)
@@ -31,6 +32,10 @@ CREATE INDEX IF NOT EXISTS idx_rwa_tokens_cert_number
 CREATE INDEX IF NOT EXISTS idx_rwa_tokens_collection_key
   ON rwa_tokens (collection_key)
   WHERE collection_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_rwa_tokens_contract_owner_live
+  ON rwa_tokens (token_contract, owner_wallet)
+  WHERE owner_wallet IS NOT NULL AND burned_at IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rwa_tokens_vault_cycle_id
   ON rwa_tokens (vault_cycle_id)
@@ -56,3 +61,5 @@ COMMENT ON COLUMN rwa_tokens.settlement_policy IS
   'standard = Seaport seller+fee split; self_vault_hold = 100% platform take, delayed seller payout';
 COMMENT ON COLUMN rwa_tokens.vault_partner_id IS
   'Self-vault partner who holds the physical card; used for "{name} vault" UI labels';
+COMMENT ON COLUMN rwa_tokens.owner_wallet IS
+  'Current on-chain holder (lowercase). Maintained by Transfer indexer + mint/burn writers.';

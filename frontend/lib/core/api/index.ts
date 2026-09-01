@@ -25,6 +25,7 @@ export * from "./marketplace-admin-data-inventory";
 export * from "./marketplace-admin-psa";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
+export * from "./portfolio-assets-page";
 export * from "./watchlist";
 export * from "./buyerListingAlert";
 export * from "./notifications";

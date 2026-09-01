@@ -215,8 +215,8 @@ function OrderBookEmptyNaOnly({
 }
 
 /**
- * Design HTML split-scroll pane: fixed visual height, independent scroll,
- * top/bottom fades, optional pin-to-bottom (asks near spread).
+ * Fixed-height order book pane — rows scroll inside the panel only.
+ * Short lists align to the spread (asks bottom, bids top) without scrollable dead space.
  */
 function OrderBookSplitScrollPane({
   pinToBottom,
@@ -230,73 +230,63 @@ function OrderBookSplitScrollPane({
   scrollKey: string;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [fadeTop, setFadeTop] = useState(false);
-  const [fadeBot, setFadeBot] = useState(false);
-
-  const updateFades = () => {
-    const el = ref.current;
-    if (!el) return;
-    const atTop = el.scrollTop <= 2;
-    const atBot = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
-    const canScroll = el.scrollHeight > el.clientHeight + 2;
-    setFadeTop(canScroll && !atTop);
-    setFadeBot(canScroll && !atBot);
-  };
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const scrollEl = scrollRef.current;
+    const innerEl = innerRef.current;
+    if (!scrollEl || !innerEl) return;
 
-    const pin = () => {
-      /* Card.html: `ael.scrollTop = ael.scrollHeight` so best ask sits on the spread. */
-      if (pinToBottom) {
-        el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      } else {
-        el.scrollTop = 0;
+    const listEl = innerEl.firstElementChild as HTMLElement | null;
+    if (!listEl) return;
+
+    const applyLayout = () => {
+      const viewport = scrollEl.clientHeight;
+      const content = listEl.offsetHeight;
+
+      innerEl.style.paddingTop = "0px";
+      innerEl.style.paddingBottom = hug === "bids" ? "4px" : "2px";
+
+      if (content <= viewport) {
+        scrollEl.style.overflowY = "hidden";
+        if (hug === "asks") {
+          innerEl.style.paddingTop = `${Math.max(0, viewport - content)}px`;
+        }
+        scrollEl.scrollTop = 0;
+        return;
       }
-      updateFades();
+
+      scrollEl.style.overflowY = "auto";
+      if (pinToBottom && hug === "asks") {
+        scrollEl.scrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      } else if (hug === "bids") {
+        scrollEl.scrollTop = 0;
+      }
     };
 
-    pin();
-    const raf = window.requestAnimationFrame(() => {
-      pin();
-      window.requestAnimationFrame(pin);
-    });
-    return () => window.cancelAnimationFrame(raf);
-  }, [scrollKey, pinToBottom]);
+    applyLayout();
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => updateFades());
-    ro.observe(el);
-    const child = el.firstElementChild;
-    if (child) ro.observe(child);
-    return () => ro.disconnect();
-  }, [scrollKey]);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(applyLayout) : null;
+    ro?.observe(scrollEl);
+    ro?.observe(listEl);
+
+    return () => ro?.disconnect();
+  }, [scrollKey, hug, pinToBottom]);
 
   return (
     <div className="cd-ob-book-pane">
       <div
-        ref={ref}
-        className={`cd-ob-book-pane__scroll cd-ob-book-pane__scroll--hug-${hug}`}
-        onScroll={updateFades}
+        ref={scrollRef}
+        className={`cd-ob-book-pane__scroll cd-ob-book-pane__scroll--${hug}`}
       >
-        {children}
+        <div
+          ref={innerRef}
+          className={`cd-ob-book-pane__scroll-inner cd-ob-book-pane__scroll-inner--hug-${hug}`}
+        >
+          {children}
+        </div>
       </div>
-      <div
-        className={`cd-ob-book-pane__fade cd-ob-book-pane__fade--top${
-          fadeTop ? "" : " is-hidden"
-        }`}
-        aria-hidden
-      />
-      <div
-        className={`cd-ob-book-pane__fade cd-ob-book-pane__fade--bot${
-          fadeBot ? "" : " is-hidden"
-        }`}
-        aria-hidden
-      />
     </div>
   );
 }

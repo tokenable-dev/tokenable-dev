@@ -27,6 +27,7 @@ import { Order } from './marketplace/entities/order.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { CollectionMarketSnapshot } from './marketplace/entities/collection-market-snapshot.entity';
 import { RwaToken } from './marketplace/entities/rwa-token.entity';
+import { RwaOwnerIndexCursor } from './blockchain/entities/rwa-owner-index-cursor.entity';
 import { UserAuthProvider } from './user/entities/user-auth-provider.entity';
 import { UserKycEvent } from './user/entities/user-kyc-event.entity';
 import { User } from './user/entities/user.entity';
@@ -138,6 +139,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           MarketplaceCollection,
           CollectionMarketSnapshot,
           RwaToken,
+          RwaOwnerIndexCursor,
           User,
           UserWallet,
           UserShippingAddress,

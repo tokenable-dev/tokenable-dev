@@ -154,6 +154,7 @@ export const SWAGGER_BODY_EXAMPLES = {
   mediaResolve: { uris: [F.ipfsImage, F.coverUrl] },
   portfolioHide: { walletAddress: F.wallet, tokenId: F.tokenId },
   portfolioHoldingsBatch: { walletAddress: F.wallet, tokenIds: F.tokenIds },
+  portfolioAssetsPage: { walletAddress: F.wallet, tokenIds: F.tokenIds },
   portfolioSetCostBasis: {
     walletAddress: F.wallet,
     tokenId: F.tokenId,
