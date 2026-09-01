@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useLogin } from "@privy-io/react-auth";
+import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 /** Opens Privy's native login modal when auth UI store requests sign-in. */
@@ -9,6 +9,7 @@ export function PrivySignInLauncher() {
   const signInOpen = useAuthUiStore((s) => s.signInOpen);
   const closeSignIn = useAuthUiStore((s) => s.closeSignIn);
   const { login } = useLogin();
+  const { authenticated } = usePrivy();
   const launchInFlight = useRef(false);
 
   useEffect(() => {
@@ -16,9 +17,11 @@ export function PrivySignInLauncher() {
 
     launchInFlight.current = true;
     closeSignIn();
-    login();
+    if (!authenticated) {
+      login();
+    }
     launchInFlight.current = false;
-  }, [signInOpen, login, closeSignIn]);
+  }, [signInOpen, login, closeSignIn, authenticated]);
 
   return null;
 }

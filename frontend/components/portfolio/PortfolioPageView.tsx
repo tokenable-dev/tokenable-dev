@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
@@ -39,6 +40,7 @@ import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
+import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,
@@ -82,6 +84,8 @@ export function PortfolioPageView({
   const user = useAuthStore((s) => s.user);
   const authInitialized = useAuthStore((s) => s.initialized);
   const authLoading = useAuthStore((s) => s.loading);
+  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
+  const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const guestSignInPromptedRef = useRef(false);
   const { runSellAccessGate } = useSellAccessGate(portfolioBase);
@@ -137,7 +141,16 @@ export function PortfolioPageView({
   }, [searchParams, isPartnerPortfolio]);
 
   useEffect(() => {
-    if (!authInitialized || authLoading || user) {
+    if (
+      shouldDeferGuestSignIn({
+        authInitialized,
+        authLoading,
+        user,
+        privyReady,
+        privyAuthenticated,
+        privySessionSyncing,
+      })
+    ) {
       if (user) guestSignInPromptedRef.current = false;
       return;
     }
@@ -151,6 +164,9 @@ export function PortfolioPageView({
     authInitialized,
     authLoading,
     user,
+    privyReady,
+    privyAuthenticated,
+    privySessionSyncing,
     searchParams,
     portfolioBase,
     openSignIn,

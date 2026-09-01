@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
+import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -14,6 +16,8 @@ export function VaultAuthGate({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
+  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
+  const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const pathname = usePathname();
   const redirected = useRef(false);
@@ -21,17 +25,39 @@ export function VaultAuthGate({ children }: { children: ReactNode }) {
   const returnTo = pathname || "/vault";
 
   useEffect(() => {
-    if (!initialized || loading || user || redirected.current) return;
+    if (
+      shouldDeferGuestSignIn({
+        authInitialized: initialized,
+        authLoading: loading,
+        user,
+        privyReady,
+        privyAuthenticated,
+        privySessionSyncing,
+      }) ||
+      redirected.current
+    ) {
+      return;
+    }
     redirected.current = true;
     openSignIn({ returnTo });
     router.replace("/markets");
-  }, [initialized, loading, user, openSignIn, returnTo, router]);
+  }, [
+    initialized,
+    loading,
+    user,
+    privyReady,
+    privyAuthenticated,
+    privySessionSyncing,
+    openSignIn,
+    returnTo,
+    router,
+  ]);
 
   useEffect(() => {
     if (user) redirected.current = false;
   }, [user]);
 
-  if (!initialized || loading) {
+  if (!initialized || loading || privySessionSyncing || (privyAuthenticated && !user)) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div

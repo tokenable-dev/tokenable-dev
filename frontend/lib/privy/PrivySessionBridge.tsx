@@ -16,6 +16,12 @@ import { useAuthUiStore } from "@/store/authUiStore";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
+/** Privy token / backend session sync — mobile OAuth often needs a beat before `getAccessToken()`. */
+const SESSION_SYNC_DELAYS_MS = [0, 400, 800, 1500, 2500, 4000] as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Keeps Tokenable session in sync with Privy auth.
@@ -42,6 +48,7 @@ export function PrivySessionBridge() {
   });
   const { wallets } = useWallets();
   const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
+  const setPrivySessionSyncing = useAuthStore((s) => s.setPrivySessionSyncing);
   const syncInFlight = useRef(false);
   const syncPending = useRef(false);
   const returnToHandled = useRef(false);
@@ -79,6 +86,7 @@ export function PrivySessionBridge() {
     if (!ready) return;
 
     if (!authenticated || isSignOutInProgress()) {
+      setPrivySessionSyncing(false);
       if (!authenticated) {
         returnToHandled.current = false;
         catchupAttempt.current = 0;
@@ -97,14 +105,30 @@ export function PrivySessionBridge() {
       do {
         syncPending.current = false;
         syncInFlight.current = true;
+        setPrivySessionSyncing(true);
         try {
-          const token = await getAccessToken();
-          if (!token) break;
+          let syncedUser: Awaited<ReturnType<typeof syncPrivySession>> | null = null;
 
-          const user = await syncPrivySession(token);
-          await hydrateFromSession(user);
+          for (let attempt = 0; attempt < SESSION_SYNC_DELAYS_MS.length; attempt++) {
+            if (cancelled || isSignOutInProgress()) break;
+            const delay = SESSION_SYNC_DELAYS_MS[attempt] ?? 0;
+            if (delay > 0) await sleep(delay);
 
-          if (userHasLinkedWallet(user)) {
+            const token = await getAccessToken();
+            if (!token) continue;
+
+            try {
+              syncedUser = await syncPrivySession(token);
+              await hydrateFromSession(syncedUser);
+              break;
+            } catch {
+              // Mobile OAuth / site-access gate races — retry with backoff.
+            }
+          }
+
+          if (!syncedUser || cancelled) break;
+
+          if (userHasLinkedWallet(syncedUser)) {
             catchupAttempt.current = 0;
           } else {
             const clientWalletCount = walletsRef.current.length;
@@ -124,7 +148,7 @@ export function PrivySessionBridge() {
                 ]!;
               catchupAttempt.current = attempt + 1;
               syncPending.current = true;
-              await new Promise((resolve) => setTimeout(resolve, delay));
+              await sleep(delay);
             }
           }
 
@@ -135,19 +159,32 @@ export function PrivySessionBridge() {
               router.push(returnTo);
             }
           }
-        } catch {
-          break;
         } finally {
           syncInFlight.current = false;
+          if (!cancelled) {
+            setPrivySessionSyncing(false);
+          }
         }
         // Drain pending even if this effect was cancelled (wallet list change mid-sync).
-      } while (syncPending.current && !isSignOutInProgress());
+      } while (syncPending.current && !isSignOutInProgress() && !cancelled);
     })();
 
     return () => {
       cancelled = true;
+      setPrivySessionSyncing(false);
     };
-  }, [ready, authenticated, getAccessToken, hydrateFromSession, router, walletAddresses, privyWalletHint, privyUser, loginSyncNonce]);
+  }, [
+    ready,
+    authenticated,
+    getAccessToken,
+    hydrateFromSession,
+    router,
+    walletAddresses,
+    privyWalletHint,
+    privyUser,
+    loginSyncNonce,
+    setPrivySessionSyncing,
+  ]);
 
   return null;
 }
