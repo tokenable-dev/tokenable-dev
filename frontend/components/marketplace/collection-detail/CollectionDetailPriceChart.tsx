@@ -27,7 +27,7 @@ const PERIOD_LABELS: Record<number, string> = {
 function windowChange(
   points: CollectionDualPriceChartProps["externalRollingUsd"],
   days: number,
-): { text: string; up: boolean } | null {
+): { arrow: string; rest: string; up: boolean } | null {
   const pts = (points ?? []).filter(
     (p) => Number.isFinite(p.v) && p.v > 0 && Number.isFinite(p.t),
   );
@@ -40,7 +40,8 @@ function windowChange(
   const winLbl = PERIOD_LABELS[days] ?? `${days}d`;
   const mag = Math.abs(pc).toFixed(1);
   return {
-    text: `${up ? "▲ +" : "▼ "}${mag}% · ${winLbl}`,
+    arrow: up ? "▲" : "▼",
+    rest: `${up ? "+" : ""}${mag}% · ${winLbl}`,
     up,
   };
 }
@@ -79,7 +80,10 @@ export function CollectionDetailPriceChart({
                 change.up ? " cd-chart-panel__chg--up" : " cd-chart-panel__chg--down"
               }`}
             >
-              {change.text}
+              <span className="cd-chg-glyph" aria-hidden>
+                {change.arrow}
+              </span>{" "}
+              {change.rest}
             </span>
           ) : null}
         </div>

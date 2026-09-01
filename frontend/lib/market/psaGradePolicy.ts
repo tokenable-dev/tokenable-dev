@@ -168,8 +168,15 @@ export function psaGradePolicyInputFromGraded(
   const psa = graded.psa as Record<string, unknown> | undefined;
   const grade = graded.grade as Record<string, unknown> | undefined;
   return {
-    gradingCompany: String(graded.gradingCompany ?? "PSA"),
-    gradeScore: psa?.gradeScore ?? grade?.score ?? graded.gradeScore,
+    gradingCompany: String(
+      graded.gradingCompany ?? psa?.company ?? psa?.gradingCompany ?? "PSA",
+    ),
+    gradeScore:
+      psa?.gradeScore ??
+      grade?.score ??
+      graded.gradeScore ??
+      psa?.score ??
+      psa?.grade,
     gradeLabel:
       typeof psa?.gradeLabel === "string"
         ? psa.gradeLabel

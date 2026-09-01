@@ -1,6 +1,6 @@
 export const LIVE_MARKET_LINE = "rgba(16, 211, 51, 1)";
 
-/** Card.html collection detail price history — azure `#1A6FFF` / `rgb(26,111,255)`. */
+/** Collection detail price history — azure `#1A6FFF` / `rgb(26,111,255)`. */
 export const COLLECTION_DETAIL_CHART_LINE = "rgb(26, 111, 255)";
 export const COLLECTION_DETAIL_LINE_WIDTH = 2.5;
 export const COLLECTION_DETAIL_AXIS_LABEL = "rgba(255, 255, 255, 0.55)";

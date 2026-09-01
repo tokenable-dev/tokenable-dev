@@ -157,7 +157,7 @@ export function HeaderWalletMenuPanel({
         onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
       >
         <WalletBidsIcon />
-        Active Bids
+        My Bids
       </button>
       <button
         type="button"
@@ -165,7 +165,7 @@ export function HeaderWalletMenuPanel({
         onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
       >
         <WalletHistoryIcon />
-        Transaction History
+        Tx History
       </button>
       <button type="button" className={itemClass(variant)} onClick={() => go("/watchlist")}>
         <WalletWatchlistIcon />

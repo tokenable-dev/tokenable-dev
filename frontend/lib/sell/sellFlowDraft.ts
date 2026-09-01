@@ -1,9 +1,16 @@
+import { formatCardDisplayName } from "@/lib/marketplace/cardDisplayName";
+
 export type SellDraftCard = {
   cert: string;
   name: string;
   grade: number;
   img: string | null;
   confirmed: boolean;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
 };
 
 export const SELL_FLOW_DRAFT_KEY = "tk_sell_flow_draft";
@@ -331,6 +338,22 @@ export function parseGradeNumber(grade: string | null | undefined): number {
   const m = String(grade).match(/(\d+(?:\.\d+)?)/);
   const n = m ? Number(m[1]) : 10;
   return n === 9 || n === 10 ? n : 10;
+}
+
+/** Line 1 + Line 2 per docs/guides/card-display-name.md */
+export function sellDraftCardDisplay(card: SellDraftCard) {
+  return formatCardDisplayName(
+    {
+      cardName: card.name,
+      cardNumber: card.cardNumber ?? null,
+      grade: `PSA ${card.grade}`,
+      year: card.year ?? null,
+      setName: card.setName ?? null,
+      language: card.language ?? null,
+      variant: card.variant ?? null,
+    },
+    { mode: "line1+line2" },
+  );
 }
 
 /** Map API submission items → local draft cards. */

@@ -50,7 +50,7 @@ export function PortfolioValuePanel({
             />
           ) : (
             <>
-              <span className="pf-value-hero__amount">
+              <span className="pf-value-hero__amount tkl-mono">
                 {formatUsdCompact(totalValue)}
               </span>
               {showChange ? (

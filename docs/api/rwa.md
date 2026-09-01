@@ -149,7 +149,7 @@ Pay-first multi-card redeem. Client transfers USDC to `PLATFORM_FEE_RECIPIENT`, 
 
 **Quote pinning:** the server recomputes the estimate at verification time, but carrier rates can drift between Calculate and Pay (FedEx sandbox especially). Payment is accepted against the **cheaper** of the fresh total and any unexpired recently issued estimate for the same token set + destination (in-memory, TTL = quote validity) — a completed USDC transfer is never rejected by re-quote drift. **Fee snapshots** (`fee_shipping_usd` per card: shipment total on the first card of each vault, `0` on siblings) are taken from the quote whose total matches the **on-chain USDC**, not from a later more expensive re-quote.
 
-**Missing vault cycle self-heal:** if an `rwa_tokens` row has no `vault_cycle_id` (e.g. row created by the chain registry sync after a DB reset) but has a PSA cert on file, batch creation backfills the `vault_assets` / `vault_cycles` records (status `minted`, unknown `deposited_at` → treated as early withdrawal) instead of stranding a paid redeem. Tokens with no registry row or no cert fail the **estimate** with a clear message before any payment.
+**Missing vault cycle self-heal:** if an `rwa_tokens` row has no `vault_cycle_id` (e.g. row created by the chain registry sync after a DB reset) but has a PSA cert on file, batch creation backfills the `vault_assets` / `vault_cycles` records (status `minted`, unknown `deposited_at` → treated as early withdrawal) instead of stranding a paid redeem. A missing registry row is healed from chain at estimate/pay when the NFT exists on the configured contract. Tokens that still have no row or no cert after that fail with a clear message before any payment.
 
 ```json
 {
@@ -190,7 +190,7 @@ The backend never pulls NFTs from the buyer. PSA Vault and Partner Self Vault sh
 
 **Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-User tap **I've received my cards**. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via=user`. Idempotent if already completed.
+User tap **I've received my cards**, or **Mark this shipment received** on the last (or only) shipment — both call this endpoint. Sandbox all-1s tracking (`111111111111`) is treated as FedEx Delivered on poll; auto-receipt still waits `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` (local default 5 min) before `completed`. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via=user`. Idempotent if already completed.
 
 **FedEx Track auto-receipt (server cron):** when `FEDEX_TRACK_ENABLED=true`, Nest polls `POST /track/v1/trackingnumbers` for open redeem rows with FedEx (or empty) `tracking_carrier`. On Delivered (`ACTUAL_DELIVERY` / status `DL`) it sets `carrier_delivered_at` and emits `RD_RECEIVED_REMINDER`. After `REDEEM_AUTO_RECEIPT_GRACE_DAYS` (default **3**) from the latest delivery in the batch, cron auto-confirms receipt (`receipt_confirmed_via=auto` → `completed`) so settlement can proceed without the user returning to tap the button. Non-FedEx carriers (UPS/DHL) still require the user tap. Apply `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql` on existing DBs.
 
@@ -202,7 +202,7 @@ User tap **I've received my cards**. Batch must belong to the active chain. Requ
 | `FEDEX_TRACK_SANDBOX_ONES_DELIVERED` | Default on when API host is sandbox; treat `111111111`-style numbers as delivered |
 | `FEDEX_API_BASE_URL` | Sandbox or prod base URL (shared) |
 | `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` | Basic Integrated Visibility project (Track). FedEx does not allow Track + Rate in one project — use separate keys. Falls back to `FEDEX_CLIENT_ID` / `SECRET` if unset. |
-| `REDEEM_FEDEX_TRACK_CRON` | Default `*/30 * * * *` |
+| `REDEEM_FEDEX_TRACK_CRON` | Default `*/5 * * * *` (`.env` is loaded before the cron decorator) |
 | `REDEEM_AUTO_RECEIPT_ENABLED` | Default on when Track is on; set `0` to only stamp delivery + remind |
 | `REDEEM_AUTO_RECEIPT_GRACE_DAYS` | Days after delivery before auto confirm (default `3`; ignored when `GRACE_SECONDS` is set) |
 | `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` | Optional override for dev/test (e.g. `300` = 5 minutes) |
@@ -226,7 +226,7 @@ Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(va
 
 **Guard:** none · `x-tokenable-chain-id` **required** when `tokenIds` is set
 
-When `tokenIds` is set, the estimate first runs a **redeemability check** (`VaultService.assertTokensRedeemable`): token must exist in `rwa_tokens`, not be burned, and its vault cycle (if any) must be `minted`. Tokens missing a cycle but with a cert on file pass (backfilled at pay). This surfaces blockers at "Calculate" time — **before** any USDC moves.
+When `tokenIds` is set, the estimate first runs a **redeemability check** (`VaultService.assertTokensRedeemable`): token must exist in `rwa_tokens` (decimal `token_id` compared with leading zeros stripped, so `40` matches `040`), not be burned, and its vault cycle (if any) must be `minted`. If the registry row is missing, the API **syncs that token from chain** (`1..totalMinted` on TokenableRWA — not `0..total-1`) and retries, so a card that is already in the wallet is not blocked by a stale boot scan. Tokens missing a cycle but with a cert on file pass (backfilled at pay). This surfaces blockers at "Calculate" time — **before** any USDC moves.
 
 Estimates may group tokens into **multiple shipments** (one USDC total):
 

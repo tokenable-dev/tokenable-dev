@@ -1,6 +1,8 @@
 # HTML prototypes (designer handoff)
 
-Path: `Tokenable-with design system-5/` (repo root). **Preferred HTML reference** — not imported by Next.js. Earlier folders (`Tokenable-with design system/` … `-4`) are superseded for handoff.
+**Tokens / standalone:** `Tokenable Design System/` (repo root) — Figma CSS, showcase HTML. Not imported by Next.js.
+
+**Screen HTML:** `Tokenable-with design system-5/` and later numbered folders remain layout/copy references. Earlier folders (`Tokenable-with design system/` … `-4`) are superseded for handoff.
 
 ## Page prototypes
 
@@ -15,7 +17,7 @@ Path: `Tokenable-with design system-5/` (repo root). **Preferred HTML reference*
 | `Sell.html` | Sell entry router | `app/sell/page.tsx` | 2 (ds-v2) |
 | `Sell-Flow.html` | KYC + vault choice + add cards (PSA ship / self mint) | `app/sell/flow/page.tsx` | ds-v2 |
 | `Choose-Vault.html` | Vault choice (standalone) | `SellFlowChooseVault` in `/sell/flow` | ds-v2 |
-| `PSA-Shipping.html` | Pack & tracking | `app/sell/shipping/page.tsx` | ds-v2 |
+| `PSA-Shipping.html` | Pack and tracking | `app/sell/shipping/page.tsx` | ds-v2 |
 | `Vault.html` | Vault landing | `app/vault/page.tsx` | 8 |
 | `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub (ds-22 active: per-card In transit / Verifying / Vaulted / Rejected) | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |
 | `Vault-Submit.html` | Personal mint submit | `app/vault/submit` + `MintForm` | 8 |

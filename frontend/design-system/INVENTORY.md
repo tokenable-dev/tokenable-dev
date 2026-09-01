@@ -1,4 +1,4 @@
-# Design system — screen & component inventory
+# Design system — screen and component inventory
 
 Maps designer HTML sections to existing React modules. Use when implementing Phases 3–10.
 
@@ -17,6 +17,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Dev network switch | `NetworkSwitcher` | Account dropdown (desktop) + mobile drawer | `components/network/NetworkSwitcher.tsx` |
 | Notifications | `tk-notifications.js` | bell + panel | (Phase 10) |
 | Footer | `tk-footer.js` | `TkFooter` | `components/layout/TkFooter.tsx` |
+| FAQ | `FAQ.html` / `faq.js` | `FaqPage` | `components/faq/FaqPage.tsx` (`/faq`) |
 | Page container | `.wrap` | `tkl-wrap` | `constants/layout.ts` (`APP_MAIN_SHELL_CLASS`) |
 
 ---
@@ -38,6 +39,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | `.tk-note` | `TkNote` | `components/ds/Note.tsx` |
 | `.tk-check`, `.tk-switch` | `TkCheckbox`, `TkSwitch` | `components/ds/Checkbox.tsx` |
 | `.tk-divider` | `TkDivider` | `components/ds/Divider.tsx` |
+| `.tk-stepper` (dark/light, horizontal/vertical) | `TkStepper` | `components/ds/Stepper.tsx` |
 
 **QA page:** `app/dev/design-system/page.tsx`
 
@@ -55,7 +57,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 |---------|----------------------|--------------|------|
 | Hero + CTA | `.hero-section` (index2-standalone) | `HomeHero` | `components/home/HomeHero.tsx` — photo bg `assets/home/hero-bg.jpg` + 3D slab ring; tags + “The card market, finally liquid.” Below-hero sections still from ds-5 until confirmed. |
 | 3D spinning slab | `#heroSlabCanvas` / `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts` — faces from `public/assets/home/newcards/c01.jpg`…`c06.jpg` |
-| Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
+| Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` — landing only |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | wrap grid, 10 desktop / 8 mobile (ds-23) |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | wrap grid, 10 desktop / 8 mobile (ds-23) |
 | Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` — ds-5: Instant settlement; Three guarantees, every token. |
@@ -72,14 +74,13 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Section | React target | File |
 |---------|--------------|------|
 | Page header | eyebrow + title | `components/markets/MarketsPageHeader.tsx` |
-| Ticker | `HomeTicker` | `components/home/HomeTicker.tsx` |
-| Filter / sort bar | Pokemon / One Piece / NBA / MLB / Others chips + Grade / Price + More filters + Sort | `components/markets/MarketsFilterBar.tsx` |
+| Filter / sort bar | Pokemon / One Piece / NBA / MLB / Others + More filters + Sort | `components/markets/MarketsFilterBar.tsx` |
 | Card grid | `MarketsCollectionGrid` + `CollectibleCard` | `components/markets/MarketsCollectionGrid.tsx`, `components/collectibles/CollectibleCard.tsx` |
 | Page compose | `MarketsPage` | `components/markets/MarketsPage.tsx` |
 
 **CSS:** `frontend/styles/tokenable-markets.css` (grid 6/5/3/3/2 — do not regress)
 
-**Facets wired (client-side):** category (Pokemon / One Piece / NBA / MLB / Others), price, grade (PSA 10 / 9, BGS Pristine / 10 / 9.5), sort. Year / vault / category tree deferred until backend supports them.
+**Facets wired (client-side):** category chips on the slim bar; set / price / grade / vault live in **More filters**. Sort menu: price, newest, population (no Top gainers; no Clear/Done/check chrome). Year deferred until backend supports them.
 
 ---
 
@@ -122,7 +123,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 | Section | Prototype class | React target | File |
 |---------|-----------------|--------------|------|
-| Page shell + ticker | `.wrap`, ticker | `portfolio-page`, `HomeTicker` | `app/portfolio/page.tsx` |
+| Page shell | `.wrap` | `portfolio-page` | `app/portfolio/page.tsx` |
 | Value hero | eyebrow + value + 24h chip | `PortfolioSummaryBar` | `components/portfolio/PortfolioSummaryBar.tsx` |
 | Stat grid | `.pf-stat-grid`, `.notch` | `PortfolioStatGrid` | `components/portfolio/PortfolioStatGrid.tsx` |
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
@@ -139,28 +140,28 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** only (bid meta lives in the Set price drawer, not on the row). Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
 
-**ds-5 holdings note:** Card cell = thumb + name only (no redeem chip under/beside title). **In transit** / **Redeeming — preparing** chips + View status live only in the Action column (`PortfolioHoldingsRowActions`). Possession is Action text only.
+**ds-5 holdings note:** Card cell = thumb + name only (no redeem chip under/beside title). **In transit** / **Redeeming — preparing** chips live only in the Action column (`PortfolioHoldingsRowActions`). Transit CTA is **Track →** (Portfolio.html). Possession is Action text only. Gallery tile badge for any in-flight redeem is **Shipping out** (not Verifying).
 
 ---
 
-## Portfolio Redeem — `Ship-From-Vault.html` / design system-13 (pay-first)
+## Portfolio Redeem — `Ship-From-Vault.html` (pay-first; product name Redeem)
 
-Product copy uses **Redeem**. Canonical prototype: `Tokenable-with design system-13/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged).
+Canonical prototype: `Tokenable-with design system-26/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged). Eyebrow copy is **Redeem**, not Ship from vault. Card titles use Line 1 `{Name} · {Number} · {Grade}` (grade is not a separate chip).
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|
 | Entry | Certificate of Ownership footer | Single-card **Redeem** → draft in sessionStorage | `PortfolioCertificateView`, `PortfolioCertificatePage` |
-| Address | `#wd-request` | Ship-to + **Calculate shipping cost** (idle/loading/quoted/stale) → **Review and pay** | `RedeemRequestPanel`, `shipToValidation.ts` |
-| Review & pay | `#wd-pay` | Cost + ship-to + USDC pay → redeem-batch | `RedeemPayPanel` |
-| Preparing | `#wd-preparing` | Payment-received banner + progress | `RedeemPreparingPanel`; `?view=preparing` |
-| In transit | `#wd-transit` | Tracking links + per-card Report (UI-only) + per-shipment received checklist | `RedeemTransitPanel`; `?view=transit` |
-| Done | `#wd-done` | Possession complete | `RedeemDonePanel`; `?view=done` |
+| Address | `#wd-request` | Ship-to + **address search** + **Calculate cost** (idle/loading/quoted/stale) → **Continue** | `RedeemRequestPanel`, `AddressSearchField`, `shipToValidation.ts` |
+| Review and pay | `#wd-pay` | Cost + ship-to + USDC pay → redeem-batch | `RedeemPayPanel` |
+| Preparing | `#wd-preparing` | Shipment progress + Paid + Cancel (disabled) + Back to Portfolio | `RedeemPreparingPanel`; `?view=preparing&batch=` |
+| In transit | `#wd-transit` | Shipment box (Carrier / Tracking / Est. delivery / Grades) + Cards list + **I've received my cards** | `RedeemTransitPanel`; `?view=transit&batch=` |
+| Done | `#wd-done` | H1 **Delivered** + possession copy | `RedeemDonePanel`; `?view=done&batch=` |
 
 **Hooks / API:** `useRedeemFlow`, `useMyRedemptions`, `lib/core/api/rwa-redeem.ts`, draft + saved address `lib/portfolio/redeemDraft.ts`
 
 **Admin:** Confirm release on burned cards → `postAdminConfirmRedemptionRelease`
 
-**HTML sync notes (ds-13):** Pay-first UX — address → pay → preparing → transit → done. Deferred: cancel redeem API, real claim/report API, PSA return-address intake (UI stores locally + prefills from Settings).
+**HTML sync notes (ds-26, Phase 0–8):** Certificate: idle *Redeem anytime*; in-flight heading uses the surface badge + **Redemption status**. Partner shipments share collector **Carrier** / **Tracking** labels, `FedEx`/`UPS`/`DHL` display names, DHL AWB track URL, and tracking `→`. Quoted cost matches `#wd-cost-box` / `costHTML`. Review and pay matches `#wd-pay`. Preparing matches `#wd-preparing`. In transit matches `#wd-transit` (no UUID request bar; shipment rows as `costHTML` lines). Eyebrow stays **Redeem**. Deferred: cancel redeem API, claim API. The HTML `#wd-batch-head` UUID bar stays hidden — a raw batch id is support-only, not collector UI.
 
 ---
 
@@ -189,7 +190,7 @@ Product copy uses **Redeem**. Canonical prototype: `Tokenable-with design system
 
 | Section | Prototype class | React target | File |
 |---------|-----------------|--------------|------|
-| Page shell + ticker | `.wrap`, ticker | `watchlist-page`, `HomeTicker` | `components/watchlist/WatchlistPage.tsx` |
+| Page shell | `.wrap` | `watchlist-page` | `components/watchlist/WatchlistPage.tsx` |
 | Header | eyebrow + title | `WatchlistPageHeader` | `components/watchlist/WatchlistPageHeader.tsx` |
 | Filter / sort bar | `markets-filter-*` | `MarketsFilterBar` | `components/markets/MarketsFilterBar.tsx` |
 | Card grid | `.grid4`, `.card` | `WatchlistCollectionGrid` + `WatchlistCollectibleCard` | set 1-line ellipsis; no INSURED |
@@ -222,7 +223,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 **CSS:** `frontend/styles/tokenable-vault.css` (includes `.sell-router`); sell flow + shipping in `tokenable-sell-flow.css`
 
-**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultThumb`
+**Shared:** `VaultShell`, `VaultStepper` (`TkStepper`), `VaultBreadcrumb`, `VaultThumb`
 
 **Gate:** Hub `/vault`, submit paths, and `/vault/submissions/[id]` are open; other `/vault/*` stay coming-soon until `VAULT_PUBLIC_ENABLED`.
 
@@ -244,7 +245,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 ---
 
-## Auth & secondary (Phase 10) — **Done**
+## Auth and secondary (Phase 10) — **Done**
 
 | Surface | Notes |
 |---------|--------|
@@ -285,7 +286,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 |------|-------|-------|
 | `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — Redeem requests (`tkl-view-all`) in `PortfolioValuePanel`; tabs: My Assets / Active Bids / Transaction History only + **Redeem** toolbar btn; GNB is Markets / Portfolio / Sell only; redeem queue also in account menu / mobile drawer for active partners; `/portfolio` redirects here |
 | `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/sell/flow` with `vaultChoice=self` |
-| `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — breadcrumb, summary pills, 24h urgency banner, tabs; tracking via `PATCH …/redeems/batches/:id/tracking` with `redemptionIds` (scoped by `trackingGroupKey` = batch + ship-to) → same `vault_redemptions` rows as admin redeem page |
+| `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — **Carrier** / **Tracking** same as collector transit (`formatCarrierLabel`, `buildCarrierTrackingUrl`); tracking via `PATCH …/redeems/batches/:id/tracking` |
 | `Partner-Shipping-Origin.html` | Settings `#partner-origin` | existing Origin modal + Settings section |
 
 **Gate:** `PartnerGate` via `GET /marketplace/partners/me`  

@@ -10,13 +10,27 @@
 
 | Line | Format |
 |------|--------|
-| **Line 1 — identity** | `{Card name} · {Number} · {Grade}` |
+| **Line 1 — identity** | `{Card name} · {Number} · {Grade}` on lists **and** Markets collection detail. **Certificate of Ownership:** `{Card name} · {Number}` (grade is below the title). |
 | **Line 2 — provenance** | `{Year} · {Set} {Language} · {Variant}` |
 
-Example:
+Example (lists):
 
 ```
 Charizard ex · 199/165 · PSA 10
+2023 · 151 EN · Special Illustration Rare
+```
+
+Example (collection detail / markets):
+
+```
+Charizard ex · 199/165 · PSA 10
+2023 · 151 EN · Special Illustration Rare
+```
+
+Example (portfolio Certificate of Ownership):
+
+```
+Charizard ex · 199/165
 2023 · 151 EN · Special Illustration Rare
 ```
 
@@ -42,12 +56,13 @@ Charizard ex · 199/165 · PSA 10
 | Surface | Shows | Notes |
 | --- | --- | --- |
 | Markets / list row | Line 1 only | Variant on Line 2 / meta only (§3). |
-| Card detail header | Line 1 + Line 2 | Full Line 2; breadcrumb is set + language only (§4). |
+| Card detail header | Line 1 (with grade) + Line 2 | `{Name} · {Number} · {Grade}` then `{Year} · {Set} {Language} · {Variant}`. |
+| Certificate of Ownership | Line 1 (no grade) + Line 2 | `{Name} · {Number}` then provenance. Grade + cert chips below. |
 | Search results | Line 1 + compact Line 2 | Global scope — keep Line 2. |
 | Watchlist | Line 1 only | Variant on Line 2 / meta only (§3). |
 | Portfolio / holdings | Line 1 only | Grade always present. |
 | Order book / trade history | Line 1 (abbrev ok) | Tight: `{Name} · {Grade}`. |
-| Checkout / Redeem / modals | Line 1 + Line 2 | Full context at decision points. |
+| Checkout / Redeem / modals | Line 1 | `{Name} · {Number} · {Grade}` on every card row. Vault chip + cert are meta, not a grade badge. |
 | Notifications / share / email | Line 1 + Line 2 | Self-contained (no breadcrumb dedupe). |
 
 Use `formatCardDisplayName({ parts, mode })` — never hand-join segments at call sites.
@@ -75,8 +90,8 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 
 ## 5. Truncation
 
-- Line 1 (`{Name} · {Number} · {Grade}`): **always reserve 2 lines** of height; clamp with ellipsis when longer.
-- CSS class: `.cd-display-name--line1-clamp-2` (via `AssetDetailHeadlineTitle` or `CARD_DISPLAY_LINE1_CLAMP_CLASS`).
+- **Line 1 titles** (tiles, tables, heroes, search, checkout): **one line**. Overflow becomes `…` on the **card name**. Number and grade stay immediately after the name (not flush to the right).
+- CSS class: `.cd-display-name--line1-clamp-2` (via `AssetDetailHeadlineTitle` or `CARD_DISPLAY_LINE1_CLAMP_CLASS`) in `tokenable-collectible-card.css`.
 - Line 2: truncate from end; prefer keeping Year + Variant.
 
 ---
@@ -88,8 +103,8 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Markets grid / home cards | `CollectibleCard.tsx`, `marketsCollectionTitle.ts` | `buildMarketsCollectionTitle` | Line 1 only | — |
 | Watchlist | `WatchlistCollectibleCard.tsx` | `buildMarketsCollectionTitle` | Line 1 only | — |
 | GNB search typeahead | `TkHeaderSearch.tsx` | Line 1 + `buildMarketsCollectionSearchMeta` | Line 1 + compact L2 | — |
-| Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatCardDisplayName/Meta` | L1 + L2 | Full Line 2; breadcrumb is `{Set} ({Lang})` |
-| RWA slab / listing checkout | `RwaDetailAssetPanelHeader.tsx`, `collectionListingModalHelpers.ts` | `buildRwaAssetDetailHeadlineParts` | L1 + L2 | Used on collection listing modal + cert panel (legacy token page is a redirect) |
+| Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatCardDisplayName/Meta` | L1 name+number+grade + L2 | Grade on the title |
+| Portfolio asset / certificate | `usePortfolioCertificate.ts`, `PortfolioCertificateView.tsx` | `formatCardDisplayName` (`omitGrade`) + `formatCardDisplayMeta` | L1 + L2 | Grade + cert chips stay below; do not put number on a third line |
 | Portfolio tx rows | `buildPortfolioTxRows.ts` | `formatCardDisplayName` | Line 1 only | — |
 | Portfolio holdings | gallery/table components | `resolvePortfolioHoldingsDisplayNames` | Line 1 only | — |
 | Listing bid checkout | `CollectionListingBidCheckout.tsx` | listing title | L1 + L2 at decision | Uses checkout modal pattern — OK scope |
@@ -131,14 +146,14 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 - [x] `marketsCollectionTitle.ts` uses SSOT Line 1/2 join rules
 - [x] Language short codes in headline pipeline
 - [x] Grade defaults to `Raw` in formatters
-- [x] `AssetDetailHeadlineTitle` always renders grade text (including `Raw`)
+- [x] `AssetDetailHeadlineTitle` renders grade on Line 1 except Certificate of Ownership (`includeGrade={false}`)
 - [x] Collection detail language → short codes via `formatCardDisplayLanguageShort`
 - [x] Grade badge removal (Phase 2) — detail outline chip, Markets/Watchlist row, portfolio holdings, RWA header badges, Top 100
 - [x] Breadcrumb §4 — `Markets / Category / {Set} ({Language})`
 - [x] Detail Line 2 — full `{Year} · {Set} {Language} · {Variant}` (no set omit)
 - [x] Surface-by-surface mode wiring (Phase 5) — markets/watchlist Line 1, search Line 2 meta, portfolio Line 1
 - [x] Line 1 strict (Phase 6) — no variant on main title; variant on Line 2 only
-- [x] Truncation CSS (Phase 7) — card name ellipsis; number + grade pinned; hero Line 2 end-truncate
+- [x] Truncation CSS (Phase 7) — name ellipsis; number + grade stay beside the name; hero Line 2 end-truncate
 - [x] Language pipeline (Phase 8) — `formatCardDisplayLanguageShort` in markets + collection headline
 - [ ] Backend notifications copy (uses stored `displayName` — no SSOT reformat yet)
 
@@ -152,7 +167,8 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Watchlist | Line 1 only | `WatchlistCollectibleCard` |
 | GNB search collections | Line 1 + Line 2 meta | `buildMarketsCollectionSearchMeta` |
 | Portfolio holdings | Line 1 only | `resolvePortfolioHoldingsDisplayNames` |
-| Collection detail | Line 1 + full Line 2 | §4 breadcrumb |
+| Collection detail | Line 1 name+number+grade + full Line 2 | Grade on hero title |
+| Portfolio certificate | Line 1 name+number + full Line 2 | Grade below title |
 | Order book listing rows | No grade chip | grade on collection Line 1 context |
 | Checkout / modals | Full context | existing checkout copy (unchanged logic) |
 
@@ -165,9 +181,9 @@ Use when validating a release after display-name work.
 | # | Check | Pass? |
 | --- | --- | --- |
 | 1 | Collection breadcrumb is `Markets / {Category} / {Set} ({Lang})` — no year | |
-| 2 | Grade appears as Line 1 text; no grade-only badge on collection detail | |
-| 3 | Ungraded cards show `Raw` in Line 1 | |
-| 4 | Line 1 always uses ` · ` between name, number, grade | |
+| 2 | Collection / Markets Line 1 is name + number + grade | |
+| 3 | Certificate of Ownership Line 1 is name + number only; grade is below | |
+| 4 | List Line 1 uses ` · ` between name, number, grade | |
 | 5 | No dangling `·` or empty segments in formatted strings | |
 | 6 | Language shows as `EN` / `JP` when known; omitted when unknown | |
 | 7 | Markets list row shows Line 1 only (no set line under title) | |

@@ -100,7 +100,7 @@ export function PortfolioAcceptOfferModal({
           </p>
         )}
         {buyerBlocked ? (
-          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100">
+          <p className="rounded-md border border-warn/30 bg-warn/10 px-2 py-1.5 text-xs text-warn">
             This offer cannot be filled right now (buyer USDC or Seaport allowance).
             It has been removed from the active book so others do not retry it. Your
             ask was not changed.

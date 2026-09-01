@@ -35,13 +35,13 @@ import { countableTapeFills } from "@/lib/market/tradesVolume";
 import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
+  formatCardDisplayMeta,
+  formatCardDisplayName,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata, stripGradeQualifierFromDisplayName } from "@/lib/marketplace/rwaDisplayTitle";
 import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
-  formatRwaDetailCardIdLine,
-  formatRwaDetailSetDescription,
 } from "@/lib/marketplace/rwa-detail";
 import {
   formatPortfolioGradeLabel,
@@ -66,27 +66,6 @@ export type CertHistoryNode = {
   highlight: boolean;
   you: boolean;
 };
-
-/** Join fragments with `·`, dropping any already visible on the lines above. */
-function dedupeSubjectFragments(
-  fragments: (string | null | undefined)[],
-  alreadyShown: (string | null | undefined)[],
-): string {
-  const shown = alreadyShown
-    .map((s) => s?.trim().toLowerCase())
-    .filter(Boolean)
-    .join(" · ");
-  const out: string[] = [];
-  for (const raw of fragments) {
-    const value = raw?.trim();
-    if (!value) continue;
-    const key = value.toLowerCase();
-    if (shown.includes(key)) continue;
-    if (out.some((prev) => prev.toLowerCase() === key)) continue;
-    out.push(value);
-  }
-  return out.join(" · ");
-}
 
 export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const wallet = useLinkedPortfolioWallet();
@@ -247,26 +226,13 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
   );
 
-  /**
-   * Subject block = character heading, then one meta line joining `year set`
-   * with `variety · number`. Each fragment appears once, so the card number
-   * lives on the meta line instead of repeating in the heading.
-   */
   const nameLine = stripGradeQualifierFromDisplayName(
-    headlineParts.cardName?.trim() ||
+    formatCardDisplayName(headlineParts, { omitGrade: true }) ||
+      headlineParts.cardName?.trim() ||
       displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
   );
-  const setLine =
-    formatRwaDetailSetDescription(metadata) ||
-    [headlineParts.year, headlineParts.setName]
-      .map((s) => s?.trim())
-      .filter(Boolean)
-      .join(" · ") ||
-    null;
-  const idLine = dedupeSubjectFragments(
-    [headlineParts.variety, formatRwaDetailCardIdLine(metadata)],
-    [nameLine, setLine],
-  );
+  const setLine = formatCardDisplayMeta(headlineParts) || null;
+  const idLine = "";
 
   const trust = buildRwaDetailMobileTrustView(metadata);
   const gradeChip = formatPortfolioGradeLabel(metadata);
@@ -305,6 +271,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     redeemStatus,
     redemptions.redeemTrackingByTokenId.get(tokenId),
     redemptions.redeemCarrierDeliveredByTokenId.get(tokenId),
+    redemptions.redeemPaymentBatchByTokenId.get(tokenId),
   );
   /** Custody holds the NFT while a redemption runs, so the wallet check alone under-reports. */
   const redeemInFlight = isRedeemInFlight(redeemStatus);
@@ -312,11 +279,9 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const statusLine = ownedQuery.isLoading
     ? "…"
     : redeemBadge
-      ? `● ${redeemBadge.label}`
+        ? `● ${redeemBadge.label}`
       : isOwner
-        ? listed
-          ? "● Owned · listed"
-          : "● Owned · in vault"
+        ? `● Owned · ${vaultLabel}`
         : wallet.portfolioAddress
           ? "Not in this wallet"
           : "Connect wallet";
@@ -331,6 +296,9 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const chainLine = chain
     ? `${chain.def.shortLabel} · ${formatExplorerShort(chain.contracts.rwaAddress)} · token #${tokenId}`
     : `token #${tokenId}`;
+  const headerTokenLabel = chain
+    ? `Token · ${formatExplorerShort(chain.contracts.rwaAddress)} · #${tokenId}`
+    : `Token · #${tokenId}`;
 
   const trades = useMemo((): CollectionPlatformTapeFill[] => {
     return [...countableTapeFills(tradesQuery.data?.trades ?? [])]
@@ -341,18 +309,28 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const history: CertHistoryNode[] = useMemo(() => {
     const nodes: CertHistoryNode[] = [];
     if (holding?.acquiredAt) {
-      const buy = holding.costBasisSource === "marketplace_buy";
       nodes.push({
-        id: "acquired",
-        label: buy ? "You bought it" : "Acquired",
-        detail: formatHistDate(holding.acquiredAt),
-        amount:
-          holding.costBasisUsd != null
-            ? `$${Math.round(holding.costBasisUsd).toLocaleString("en-US")}`
-            : null,
-        highlight: buy,
-        you: buy,
+        id: "vault-entry",
+        label: "Vault entry",
+        detail: `${formatHistDate(holding.acquiredAt)} · ${vaultLabel}`,
+        amount: null,
+        highlight: false,
+        you: false,
       });
+      const buy = holding.costBasisSource === "marketplace_buy";
+      if (buy) {
+        nodes.push({
+          id: "acquired",
+          label: "You bought it",
+          detail: formatHistDate(holding.acquiredAt),
+          amount:
+            holding.costBasisUsd != null
+              ? `$${Math.round(holding.costBasisUsd).toLocaleString("en-US")}`
+              : null,
+          highlight: true,
+          you: true,
+        });
+      }
     }
     for (const t of trades) {
       if (t.source === "cardhedger") continue;
@@ -367,7 +345,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       });
     }
     return nodes;
-  }, [holding, trades]);
+  }, [holding, trades, vaultLabel]);
 
   return {
     tokenId,
@@ -398,6 +376,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     marketUsd,
     marketChangePct,
     chainLine,
+    headerTokenLabel,
     explorerUrl,
     chainLabel: chain?.def.shortLabel ?? null,
     history,

@@ -16,8 +16,8 @@ export function tradesTapePriceCompareTone(
   return "neutral";
 }
 
-export const TRADES_TAPE_PRICE_DOWN_CLASS = "text-rose-400";
-export const TRADES_TAPE_PRICE_DEFAULT_CLASS = "text-mint/95";
+export const TRADES_TAPE_PRICE_DOWN_CLASS = "text-neg";
+export const TRADES_TAPE_PRICE_DEFAULT_CLASS = "text-pos/95";
 
 export function tradesTapePriceClassName(tone: TradesTapePriceTone): string {
   return tone === "down"

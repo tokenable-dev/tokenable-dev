@@ -2,10 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { TkButton } from "@/components/ds";
-import {
-  formatRedeemUsd,
-  getRedeemEstimate,
-} from "@/lib/core/api/rwa-redeem";
+import { getRedeemEstimate } from "@/lib/core/api/rwa-redeem";
 import { composeShipToPhone } from "@/lib/shipping/shipToValidation";
 import { PHONE_DIAL_CODE_VALUES } from "@/lib/shipping/phoneDialOptions";
 import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
@@ -117,10 +114,10 @@ export function RedeemPayPanel({
       <p className="pf-redeem-sub">
         {custodyPending
           ? "Your USDC payment is already recorded. Confirm each NFT transfer into Tokenable custody to continue — do not pay again."
-          : "This is the final amount and it\u2019s charged now. After payment you will sign NFT transfers into Tokenable custody, then we start preparing your shipment."}
+          : "Final amount, charged now."}
       </p>
 
-      <RedeemCardSummary cards={cards} />
+      <RedeemCardSummary cards={cards} compact />
 
       {!custodyPending ? (
         <div className="pf-redeem-cost">
@@ -131,7 +128,7 @@ export function RedeemPayPanel({
             embed
             title="Total charged now"
           />
-          <p className="pf-redeem-cost__copy">Matches — no markup.</p>
+          <p className="pf-redeem-cost__copy">Final price.</p>
         </div>
       ) : (
         <div className="pf-redeem-cost">
@@ -181,44 +178,14 @@ export function RedeemPayPanel({
           <p className="pf-redeem-paybox__copy">
             Account balance{" "}
             <span className="tkl-mono pf-redeem-paybox__bal">
-              {usdcBalanceFormatted} USDC
+              {usdcBalanceFormatted || "—"} USDC
             </span>
           </p>
-          <p className="pf-redeem-cost__copy">
+          <p className="pf-redeem-paybox__note">
             Charged as a USDC transfer to the Tokenable fee wallet.
           </p>
         </div>
       ) : null}
-
-      <div className="pf-redeem-paybox">
-        <div className="pf-redeem-cost__title">
-          What your wallet will ask you to sign
-        </div>
-        <ol className="pf-redeem-sign-steps">
-          {!custodyPending ? (
-            <li>
-              <strong>USDC payment</strong> — one transfer
-              {est ? ` of ${formatRedeemUsd(est.totalUsd)} USDC` : ""} to the
-              Tokenable fee wallet. This covers shipping and vault fees — the
-              exact amount shown above, nothing else.
-            </li>
-          ) : null}
-          <li>
-            <strong>
-              {cards.length === 1
-                ? "1 card transfer"
-                : `${cards.length} card transfers`}
-            </strong>{" "}
-            — one confirmation per card, moving each card&rsquo;s NFT into
-            Tokenable custody. This proves you gave up the token in exchange
-            for the physical card. No USDC is charged by these transfers.
-          </li>
-        </ol>
-        <p className="pf-redeem-cost__copy">
-          If you close your wallet mid-way, nothing is lost — come back and
-          we&rsquo;ll resume exactly where you stopped, without charging again.
-        </p>
-      </div>
 
       {error ? (
         <p className="pf-redeem-error" role="alert">
@@ -253,15 +220,10 @@ export function RedeemPayPanel({
             }
             onClick={onPay}
           >
-            {busy
-              ? busyLabel(payPhase)
-              : est
-                ? `Pay ${formatRedeemUsd(est.totalUsd)} USDC and ship`
-                : "Pay and ship"}
+            {busy ? busyLabel(payPhase) : "Pay"}
           </TkButton>
           <p className="pf-redeem-hint-below">
-            While your cards are on their way, Tokenable holds their ownership
-            for you.
+            Tokenable holds ownership until delivery.
           </p>
         </>
       )}

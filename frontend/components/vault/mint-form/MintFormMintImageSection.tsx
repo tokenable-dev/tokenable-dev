@@ -102,7 +102,7 @@ export function MintFormMintImageSection({
   );
 
   if (!showCollapsible) {
-    return imageError ? <p className="text-xs text-red-400">{imageError}</p> : null;
+    return imageError ? <p className="text-xs text-neg">{imageError}</p> : null;
   }
 
   return (
@@ -121,7 +121,7 @@ export function MintFormMintImageSection({
       </summary>
       <div className="space-y-5 border-t border-gray-700/40 px-4 pb-4 pt-3 sm:px-5">
         {body}
-        {imageError ? <p className="text-xs text-red-400">{imageError}</p> : null}
+        {imageError ? <p className="text-xs text-neg">{imageError}</p> : null}
       </div>
     </details>
   );

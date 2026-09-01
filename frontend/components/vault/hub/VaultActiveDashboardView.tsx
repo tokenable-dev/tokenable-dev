@@ -12,19 +12,19 @@ import {
   countVaultHubByState,
 } from "@/lib/vault/buildVaultHubRows";
 import type { VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
+import { TkStepper } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 
 type TabFilter = "all" | VaultHubVState;
 
 const TABS: { id: TabFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "transit", label: "In transit" },
+  { id: "transit", label: "Shipped" },
   { id: "verify", label: "Verifying" },
   { id: "vaulted", label: "Vaulted" },
   { id: "reject", label: "Rejected" },
 ];
 
-const STEPS = ["In transit", "Verifying", "Vaulted"] as const;
 const STEP_IDX: Record<Exclude<VaultHubVState, "reject">, number> = {
   transit: 0,
   verify: 1,
@@ -40,27 +40,65 @@ function RejectChip() {
   );
 }
 
-function Steps({ status }: { status: VaultHubVState }) {
-  const cur = status === "reject" ? 1 : STEP_IDX[status];
-  return (
-    <div className="vault-v-steps">
-      {STEPS.map((label, i) => {
-        const cls = i < cur ? "done" : i === cur ? "current" : "";
-        const mark = i < cur ? "✓" : String(i + 1);
-        return (
-          <div key={label} className={cn("vault-v-step", cls && `vault-v-step--${cls}`)}>
-            <span className="vault-v-step__dot">{mark}</span>
-            <span className="vault-v-step__lbl">{label}</span>
-            {i < STEPS.length - 1 ? <span className="vault-v-step__bar" /> : null}
-          </div>
-        );
-      })}
-    </div>
-  );
+function hubStepperSteps(status: Exclude<VaultHubVState, "reject">) {
+  const labels = ["Shipped", "Verifying", "Vaulted"] as const;
+  const idx = STEP_IDX[status];
+  return labels.map((label, i) => ({
+    label,
+    state:
+      status === "vaulted"
+        ? ("done" as const)
+        : i < idx
+          ? ("done" as const)
+          : i === idx
+            ? ("current" as const)
+            : ("todo" as const),
+  }));
+}
+
+function HubCardAction({ item }: { item: VaultHubRow }) {
+  const s = "vault-v-side-btn";
+  if (item.vstate === "reject") return null;
+  if (item.vstate === "transit" && item.addTrackingHref) {
+    return (
+      <Link href={item.addTrackingHref} className={`tk-btn tk-btn--primary ${s}`}>
+        Add tracking
+      </Link>
+    );
+  }
+  if (item.vstate === "transit" && item.trackingUrl) {
+    return (
+      <a
+        href={item.trackingUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`tk-btn tk-btn--subtle ${s}`}
+      >
+        Track →
+      </a>
+    );
+  }
+  if (item.vstate === "verify" && item.detailHref) {
+    return (
+      <Link href={item.detailHref} className={`tk-btn tk-btn--subtle ${s}`}>
+        View
+      </Link>
+    );
+  }
+  if (item.vstate === "vaulted") {
+    return (
+      <Link href="/portfolio" className={`tk-btn tk-btn--subtle ${s}`}>
+        View in portfolio
+      </Link>
+    );
+  }
+  return null;
 }
 
 function HubCard({ item }: { item: VaultHubRow }) {
   const reject = item.vstate === "reject" && item.reject;
+  const nameWithGrade = [item.name, item.grade].filter(Boolean).join(" · ");
+  const certLine = item.cert ? `Cert #${item.cert}` : null;
   return (
     <div className={cn("vault-v-card", reject && "vault-v-card--reject")}>
       <div className="vault-v-card__body">
@@ -69,14 +107,23 @@ function HubCard({ item }: { item: VaultHubRow }) {
         </div>
         <div className="vault-v-info">
           <div className="vault-v-name-row">
-            <div className="vault-v-name">{item.name}</div>
-            {reject ? <RejectChip /> : null}
-          </div>
-          <div className="vault-v-meta">
-            <span className="vault-v-grade">{item.grade}</span>
-            {item.cert ? (
-              <span className="vault-v-cert tkl-mono">Cert #{item.cert}</span>
-            ) : null}
+            <div className="vault-v-name-block">
+              <div className="vault-v-name">{nameWithGrade}</div>
+              {certLine ? <div className="vault-v-cert">{certLine}</div> : null}
+            </div>
+            <div className="vault-v-card__side">
+              {reject ? <RejectChip /> : <HubCardAction item={item} />}
+              {reject ? (
+                <>
+                  <Link href={item.reject!.actionHref} className="tk-btn tk-btn--primary vault-v-side-btn vault-v-side-btn--sm">
+                    {item.reject!.actionLabel}
+                  </Link>
+                  <a href="mailto:dev@tokenable.io" className="tk-btn tk-btn--subtle vault-v-side-btn vault-v-side-btn--sm">
+                    Contact support
+                  </a>
+                </>
+              ) : null}
+            </div>
           </div>
           {reject ? (
             <div className="vault-v-reject-box">
@@ -89,45 +136,30 @@ function HubCard({ item }: { item: VaultHubRow }) {
                 Reason · {item.reject!.label}
               </span>
               <p className="vault-v-reason-exp">{item.reject!.exp}</p>
-              <div className="vault-v-actions">
-                <Link href={item.reject!.actionHref} className="tk-btn tk-btn--primary">
-                  {item.reject!.actionLabel}
-                </Link>
-                <a href="mailto:dev@tokenable.io" className="tk-btn tk-btn--subtle">
-                  Contact support
-                </a>
-              </div>
             </div>
           ) : (
             <>
-              <Steps status={item.vstate} />
+              <div className="vault-v-stepper">
+                <TkStepper
+                  theme="dark"
+                  size="sm"
+                  aria-label="Vaulting progress"
+                  steps={hubStepperSteps(item.vstate as Exclude<VaultHubVState, "reject">)}
+                />
+              </div>
               {item.vstate === "vaulted" ? (
                 <div className="vault-v-note">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                   <span>
-                    Verified and moved to your{" "}
-                    <Link href="/portfolio">Portfolio</Link> — drops off this page shortly.
+                    Token minted to your{" "}
+                    <Link href="/portfolio">Portfolio</Link>.
                   </span>
                 </div>
-              ) : (
-                <div className="vault-v-eta">
-                  {item.trackingUrl && item.eta ? (
-                    <a href={item.trackingUrl} target="_blank" rel="noopener noreferrer">
-                      {item.eta}
-                    </a>
-                  ) : (
-                    item.eta
-                  )}
-                  {item.addTrackingHref ? (
-                    <>
-                      {" · "}
-                      <Link href={item.addTrackingHref}>Add tracking</Link>
-                    </>
-                  ) : null}
-                </div>
-              )}
+              ) : item.eta ? (
+                <div className="vault-v-eta">{item.eta}</div>
+              ) : null}
             </>
           )}
         </div>
@@ -166,13 +198,6 @@ export function VaultActiveDashboardView() {
 
   return (
     <div className="vault-hub-active">
-      <p className="vault-hub-legend">
-        Once <strong>vaulted</strong>, a card moves to your <strong>Portfolio</strong> and leaves
-        this page. <strong>Rejected</strong> cards stay here until you resolve them. Partner-vault
-        (instant) cards skip vaulting and go straight to Portfolio. Full record is always in your{" "}
-        <Link href="/portfolio">transaction history</Link>.
-      </p>
-
       <div className="vault-vtabs" role="tablist" aria-label="Vaulting status">
         {TABS.map((t) => {
           const on = filter === t.id;

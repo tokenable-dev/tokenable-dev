@@ -22,7 +22,6 @@ import {
   stubListingForOffer,
   isLiveAskListing,
 } from "@/lib/marketplace/collectionListingModalHelpers";
-import { resolveRwaHeadlineGrade } from "@/lib/marketplace/assetDetailHeadline";
 import { CollectionListingBidCheckout } from "./CollectionListingBidCheckout";
 
 function formatUsdc2(n: number): string {
@@ -169,30 +168,19 @@ export function CollectionListingCheckoutModal({
 
   const hasLiveAsk = isLiveAskListing(listing);
   const tiles = listingVerificationTiles(metadata);
-  const grade = resolveRwaHeadlineGrade(metadata);
-  /** Card.html #tkb-copy — buy: cert line; bid: grade line or collection meta. */
+  /** Card.html #tkb-copy — buy: cert + vault (grade lives on the title). */
   const itemSub =
     mode === "buy" && hasLiveAsk
       ? [
-          grade,
           tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
           "Vaulted",
         ]
           .filter(Boolean)
           .join(" · ")
       : mode === "bid"
-        ? (
-            collectionGradeLine?.trim() ||
-            [
-              grade,
-              tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
-              hasLiveAsk ? "Vaulted" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") ||
-            collectionMeta?.trim() ||
-            ""
-          )
+        ? collectionMeta?.trim() ||
+          collectionGradeLine?.trim() ||
+          ""
         : [
             collectionMeta?.trim() || null,
             ...(hasLiveAsk
@@ -245,7 +233,11 @@ export function CollectionListingCheckoutModal({
 
   return createPortal(
     <div
-      className="cd-listing-checkout"
+      className={
+        mode === "bid"
+          ? "cd-listing-checkout cd-listing-checkout--sheet"
+          : "cd-listing-checkout"
+      }
       role="dialog"
       aria-modal="true"
       aria-labelledby="cd-listing-checkout-title"
@@ -253,7 +245,16 @@ export function CollectionListingCheckoutModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="cd-listing-checkout__panel cd-notch">
+      <div
+        className={
+          mode === "bid"
+            ? "cd-listing-checkout__panel cd-listing-checkout__panel--sheet"
+            : "cd-listing-checkout__panel cd-notch"
+        }
+      >
+        {mode === "bid" ? (
+          <div className="cd-choose-copy__grab" aria-hidden />
+        ) : null}
         <div className="cd-listing-checkout__head">
           <h2 id="cd-listing-checkout-title" className="cd-listing-checkout__title">
             {mode === "buy"
@@ -280,7 +281,14 @@ export function CollectionListingCheckoutModal({
             ) : null}
           </div>
           <div className="cd-listing-checkout__item-meta">
-            <div className={`cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+            <div
+              className={
+                mode === "bid"
+                  ? "cd-listing-checkout__item-title cd-listing-checkout__item-title--one-line tkl-mono"
+                  : `cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`
+              }
+              title={mode === "bid" ? title : undefined}
+            >
               {title}
             </div>
             <div
@@ -288,7 +296,8 @@ export function CollectionListingCheckoutModal({
                 mode === "buy" || mode === "bid"
                   ? " cd-listing-checkout__item-sub--copy tkl-mono"
                   : ""
-              }`}
+              }${mode === "bid" ? " cd-listing-checkout__item-sub--one-line" : ""}`}
+              title={mode === "bid" && itemSub ? itemSub : undefined}
             >
               {itemSub}
             </div>

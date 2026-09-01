@@ -24,7 +24,7 @@ export async function waitForWagmiAccountAddress(
     const { address, isConnected } = getAccount(wagmiPrivyConfig);
     const got = normalizeWalletAddress(address);
     if (isConnected && got === want) return;
-    await sleep(120);
+    await sleep(40);
   }
 
   throw new Error("Account wallet session is not ready. Please wait a moment and try again.");

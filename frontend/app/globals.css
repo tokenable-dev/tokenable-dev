@@ -42,6 +42,9 @@
   --color-brand-500: var(--brand-500);
   --color-brand-400: var(--brand-400);
   --color-brand-700: var(--brand-700);
+  --color-pos: var(--text-positive-default);
+  --color-neg: var(--background-danger-default);
+  --color-warn: var(--background-warning-default);
 }
 
 body {
@@ -253,9 +256,9 @@ body {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(0, 51, 255, 0.03) 0%,
-    rgba(0, 51, 255, 0.2) 50%,
-    rgba(0, 51, 255, 0.03) 100%
+    rgba(26, 111, 255, 0.03) 0%,
+    rgba(26, 111, 255, 0.2) 50%,
+    rgba(26, 111, 255, 0.03) 100%
   );
   animation: ai-insight-scan 1.15s ease-in-out infinite;
   pointer-events: none;
@@ -277,7 +280,7 @@ body {
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(0, 51, 255, 0.2) 45%,
+    rgba(26, 111, 255, 0.2) 45%,
     rgba(255, 255, 255, 0) 100%
   );
   animation: ai-insight-shimmer 1.2s linear infinite;
@@ -366,14 +369,14 @@ body {
   --privy-color-foreground-3: rgba(255, 255, 255, 0.52);
   --privy-color-foreground-4: rgba(255, 255, 255, 0.4);
   --privy-color-foreground-accent: #ffffff;
-  --privy-color-accent: #1a6fff;
+  --privy-color-accent: #1A6FFF;
   --privy-color-accent-light: #5b9aff;
   --privy-color-accent-lightest: rgba(26, 111, 255, 0.15);
   --privy-color-accent-dark: #1558cc;
   --privy-color-accent-darkest: #0f4199;
-  --privy-color-success: #00c864;
-  --privy-color-error: #e4374a;
-  --privy-color-error-light: rgba(228, 55, 74, 0.15);
+  --privy-color-success: var(--text-positive-default);
+  --privy-color-error: var(--background-danger-default);
+  --privy-color-error-light: var(--background-danger-tertiary);
 }
 
 /* Landing logo — Privy caps at 90×180; bump wordmark a bit for Tokenable. */

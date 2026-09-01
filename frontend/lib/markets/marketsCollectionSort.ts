@@ -8,7 +8,7 @@ import type {
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 
-export const MARKETS_DEFAULT_SORT_ID = "pct_change_high" as const;
+export const MARKETS_DEFAULT_SORT_ID = "high_price" as const;
 
 /** Labels match `Tokenable-with design system-13/Markets.html` Sort menu. */
 export const MARKETS_SORT_OPTIONS = [
@@ -39,7 +39,6 @@ export function resolveMarketsSortId(raw: string | null | undefined): MarketsSor
 
 /** Markets.html Sort menu order (excludes watchlist-only `recent_sold`). */
 export const MARKETS_SORT_UI_IDS: readonly MarketsSortId[] = [
-  "pct_change_high",
   "low_price",
   "high_price",
   "recent_listed",

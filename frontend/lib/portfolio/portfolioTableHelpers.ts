@@ -10,18 +10,75 @@ import {
   cardDisplayPartsFromAssetDetail,
   formatCardDisplayHoverTitle,
   formatCardDisplayLine1,
+  formatCardDisplayMeta,
   resolveRwaHeadlineGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
 
 export { formatPortfolioGradeLabel, formatPortfolioGradeSubtitle } from "@/lib/portfolio/portfolioAssetMeta";
+
+/** Redeem lists — Line 1 `{Name} · {Number} · {Grade}` (grade is never stripped). */
+export function formatRedeemCardLine1FromMetadata(
+  meta: RwaMetadata | null | undefined,
+  fallbackName: string,
+  gradeOverride?: string | null,
+): string {
+  const parts = buildRwaAssetDetailHeadlineParts(meta, fallbackName);
+  const grade =
+    gradeOverride?.trim() ||
+    formatPortfolioGradeLabel(meta ?? null) ||
+    resolveRwaHeadlineGrade(meta);
+  return (
+    formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
+    fallbackName
+  );
+}
+
+export function formatRedeemCardLine1FromDraft(card: {
+  name: string;
+  grade: string | null;
+}): string {
+  const grade = card.grade?.trim() || null;
+  const name = card.name.trim();
+  if (grade && name.includes(grade)) return name;
+  return formatCardDisplayLine1(
+    cardDisplayPartsFromAssetDetail({ cardName: name }, grade),
+  );
+}
 
 export type PortfolioHoldingsHeadline = {
   parts: AssetDetailHeadlineParts;
   grade: string;
   line1: string;
+  /** Year · set · variant — shown under Line 1 on table-row hover. */
+  line2: string;
   hover: string;
 };
+
+/** Set / Edit price sheet identity — name, number, grade (SSOT Line 1 parts). */
+export function listPriceSheetIdentity(
+  meta: RwaMetadata | null | undefined,
+  tokenId: number,
+  fallbackName?: string | null,
+): PortfolioHoldingsHeadline {
+  const fallback = fallbackName?.trim() || `RWA #${tokenId}`;
+  const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
+  const grade =
+    formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
+  const line1 =
+    formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
+    fallback;
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
+  const line2 = formatCardDisplayMeta(parts);
+  return {
+    parts,
+    grade,
+    line1,
+    line2,
+    hover: hover || line1,
+  };
+}
 
 /** Portfolio holdings — SSOT Line 1 parts + formatted strings. */
 export function resolvePortfolioHoldingsHeadlines(
@@ -31,16 +88,11 @@ export function resolvePortfolioHoldingsHeadlines(
   const out = new Map<number, PortfolioHoldingsHeadline>();
   for (const row of rows) {
     const meta = metadataByTokenId.get(row.tokenId) ?? null;
-    const fallback = `RWA #${row.tokenId}`;
-    const parts = buildRwaAssetDetailHeadlineParts(meta, fallback);
-    const grade = resolveRwaHeadlineGrade(meta);
-    const line1 = formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade));
-    const hover = formatCardDisplayHoverTitle(parts, { grade });
+    const identity = listPriceSheetIdentity(meta, row.tokenId, row.name);
     out.set(row.tokenId, {
-      parts,
-      grade,
-      line1: line1 || row.name,
-      hover: hover || line1 || row.name,
+      ...identity,
+      line1: identity.line1 || row.name,
+      hover: identity.hover || identity.line1 || row.name,
     });
   }
   return out;
@@ -99,6 +151,11 @@ export function formatPortfolioProfitReturn(
     returnPct: `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`,
     positive: delta >= 0,
   };
+}
+
+/** Gallery / table: ↗ up, ↘ down (vs cost). */
+export function portfolioPriceChangeArrow(up: boolean): "↗" | "↘" {
+  return up ? "↗" : "↘";
 }
 
 function downsampleSparklineValues(values: number[], maxPoints: number): number[] {

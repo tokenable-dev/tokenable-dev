@@ -101,6 +101,8 @@ Saved ship-to book for vault redeem / physical withdrawal, and the **default** u
 
 | Method | Path | Notes |
 |--------|------|--------|
+| GET | `/api/user/shipping-addresses/autocomplete?q=` | Suggestions (`{ enabled, suggestions }`). Google Places when `GOOGLE_PLACES_API_KEY` is set; otherwise a small mock in non-production. |
+| GET | `/api/user/shipping-addresses/place?placeId=` | Fill fields (`line1`/`city`/`region`/`postal`/`country`/`phoneDial`). `blocked` for TH/RU/BY. |
 | `GET` | `/api/user/shipping-addresses` | `{ addresses: [...] }` |
 | `POST` | `/api/user/shipping-addresses` | Create (max 10). First address or `isDefault: true` becomes default. |
 | `PATCH` | `/api/user/shipping-addresses/:id` | Update fields / `isDefault` |
@@ -108,6 +110,8 @@ Saved ship-to book for vault redeem / physical withdrawal, and the **default** u
 | `DELETE` | `/api/user/shipping-addresses/:id` | Delete; promotes another default if needed |
 
 All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`. Redeem’s “Save this address…” checkbox upserts the **default** address here (same fields / form UI as Settings). PSA shipping (`useSellShipping`) prefills Return Address from `isDefault` (else first saved row), then Partner Origin if the address book is empty.
+
+Address search (Redeem, Settings, Partner origin) is one extra line on `ShippingAddressFormFields` / partner origin — not the HTML `tk-address.js` runtime. Key stays server-side.
 
 ---
 

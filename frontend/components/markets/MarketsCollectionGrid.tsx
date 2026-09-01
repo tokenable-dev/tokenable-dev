@@ -14,6 +14,7 @@ export function MarketsCollectionGrid({
   changeLoading = false,
   snapshotsFetching = false,
   onBeforeNavigate,
+  showCatalogSubtitle = false,
 }: {
   collections: MarketplaceCollectionSummary[];
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
@@ -22,6 +23,7 @@ export function MarketsCollectionGrid({
   /** True while a later snapshot batch is in flight — only missing cards show “…”. */
   snapshotsFetching?: boolean;
   onBeforeNavigate?: () => void;
+  showCatalogSubtitle?: boolean;
 }) {
   const seenKeysRef = useRef(new Set<string>());
   const enterKeys = useMemo(() => {
@@ -68,6 +70,7 @@ export function MarketsCollectionGrid({
               }
               position={index}
               onBeforeNavigate={onBeforeNavigate}
+              showCatalogSubtitle={showCatalogSubtitle}
             />
           </div>
         );

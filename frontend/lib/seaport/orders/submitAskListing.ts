@@ -7,7 +7,7 @@ import {
   SEAPORT_ABI,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/core";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
@@ -53,9 +53,6 @@ export async function submitAskListingOrder(params: {
     params;
   const { rwaAddress, usdcAddress } = getChainContracts(chainId);
   const tokenIdStr = normalizeDecimalTokenId(params.tokenId);
-  const settlementPolicy: AskSettlementPolicy =
-    params.settlementPolicy ??
-    (await getRwaSettlementPolicy(tokenIdStr)).settlementPolicy;
   const tokenIdBn = BigInt(tokenIdStr);
   const n = parseFloat(priceUsdc);
   if (!Number.isFinite(n) || n <= 0) {
@@ -66,12 +63,13 @@ export async function submitAskListingOrder(params: {
   }
 
   const priceInUnits = parseUnits(priceUsdc, 6);
-  /** Wall clock can be ahead of `block.timestamp` — Seaport requires `startTime <= now` at fill time. */
-  const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const [counter, alreadyAll] = await Promise.all([
+  const [settlementPolicy, now, counter, alreadyAll] = await Promise.all([
+    params.settlementPolicy
+      ? Promise.resolve(params.settlementPolicy)
+      : getRwaSettlementPolicy(tokenIdStr).then((r) => r.settlementPolicy),
+    getChainTimestampSec(publicClient),
     publicClient.readContract({
       address: SEAPORT_ADDRESS,
       abi: SEAPORT_ABI,
@@ -85,6 +83,8 @@ export async function submitAskListingOrder(params: {
       args: [address, SEAPORT_ADDRESS],
     }),
   ]);
+  const endTime = now + BigInt(ORDER_DURATION_SECONDS);
+
   if (!alreadyAll) {
     const gasSetAll = await gasWithCapFast(
       publicClient,
@@ -105,7 +105,7 @@ export async function submitAskListingOrder(params: {
       chainId,
       gas: gasSetAll,
     });
-    await publicClient.waitForTransactionReceipt({ hash: setAllTx });
+    await waitForUserTxReceipt(publicClient, setAllTx);
   }
 
   const considerationItems = buildAskConsideration(

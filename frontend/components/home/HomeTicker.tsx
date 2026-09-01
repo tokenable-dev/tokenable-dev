@@ -15,8 +15,7 @@ import "@/styles/tokenable-home.css";
  * the row is still empty (snapshots pending); when items arrive the transform is
  * stuck. Remount the row after layout + on resume so the loop always runs.
  *
- * Styles live in tokenable-home.css; import here so Portfolio / Markets / Watchlist
- * (which reuse this strip) still get the ticker rules outside `/`.
+ * Styles live in tokenable-home.css. Shown on the landing page only.
  */
 export function HomeTicker() {
   const { tickerItems, isPending, snapshotsPending } = useHomeMarketplaceGrids();

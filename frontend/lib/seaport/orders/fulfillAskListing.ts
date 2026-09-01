@@ -1,4 +1,5 @@
-import type { Address, Hash, PublicClient, TransactionReceipt } from "viem";
+import type { Address, Hash, PublicClient } from "viem";
+import { maxUint256 } from "viem";
 import { fulfillOrderApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
@@ -6,7 +7,7 @@ import {
   USDC_ABI,
 } from "@/constants/contracts";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
 import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "./fulfillOrderArgs";
 
 function askPriceMicros(o: Order): bigint {
@@ -45,28 +46,9 @@ function isTimeoutError(e: unknown): boolean {
   return /timed out|timeout|time out|deadline/i.test(msg);
 }
 
-/** Wait for receipt; if polling times out, one last getTransactionReceipt (tx may already be mined). */
-async function waitForBuyReceipt(
-  publicClient: PublicClient,
-  hash: Hash,
-): Promise<TransactionReceipt> {
-  try {
-    return await publicClient.waitForTransactionReceipt({
-      hash,
-      timeout: 120_000,
-    });
-  } catch (e: unknown) {
-    const receipt = await publicClient
-      .getTransactionReceipt({ hash })
-      .catch(() => null);
-    if (receipt) return receipt;
-    throw e;
-  }
-}
-
 /**
  * Fulfill an active ask listing (buy the listed RWA at the listing price).
- * Approves USDC if needed, then Seaport fulfillOrder, then notifies the API.
+ * Approves USDC to Seaport with maxUint256 if needed (same as bids), then fulfillOrder.
  */
 export async function fulfillAskListingOrder(params: {
   ask: Order;
@@ -105,7 +87,7 @@ export async function fulfillAskListingOrder(params: {
         address: usdcAddress,
         abi: USDC_ABI,
         functionName: "approve",
-        args: [SEAPORT_ADDRESS, payUnits],
+        args: [SEAPORT_ADDRESS, maxUint256],
         account: address,
       },
       GAS_FALLBACK.erc20Approve,
@@ -115,11 +97,11 @@ export async function fulfillAskListingOrder(params: {
       address: usdcAddress,
       abi: USDC_ABI,
       functionName: "approve",
-      args: [SEAPORT_ADDRESS, payUnits],
+      args: [SEAPORT_ADDRESS, maxUint256],
       chainId,
       gas: gasApprove,
     });
-    const approveReceipt = await waitForBuyReceipt(publicClient, approveTx);
+    const approveReceipt = await waitForUserTxReceipt(publicClient, approveTx);
     if (approveReceipt.status === "reverted") {
       throw new Error("USDC approval was reverted on-chain. Try again.");
     }
@@ -134,7 +116,7 @@ export async function fulfillAskListingOrder(params: {
     chainId,
     gas: gasFulfill,
   });
-  const receipt = await waitForBuyReceipt(publicClient, fulfillTx);
+  const receipt = await waitForUserTxReceipt(publicClient, fulfillTx);
   if (receipt.status === "reverted") {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
   }

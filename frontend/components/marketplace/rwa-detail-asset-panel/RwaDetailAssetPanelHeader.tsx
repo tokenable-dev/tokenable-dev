@@ -27,7 +27,6 @@ export function RwaDetailAssetPanelHeader({
   hideHeaderOnXl?: boolean;
   openSeaMobile?: boolean;
 }) {
-  const grade = resolveRwaHeadlineGrade(metadata);
   const metaText = formatCardDisplayMeta(headlineParts);
 
   return (
@@ -52,8 +51,8 @@ export function RwaDetailAssetPanelHeader({
           <AssetDetailHeadlineTitle
             as="h1"
             parts={headlineParts}
-            grade={grade}
-            className="text-xl font-medium leading-snug tracking-normal text-white sm:text-[1.375rem]"
+            grade={resolveRwaHeadlineGrade(metadata)}
+            className="text-[17px] font-medium leading-snug tracking-normal text-white"
           />
           {metaText ? (
             <p className="m-0 text-[13px] font-medium tracking-tight text-white/55">{metaText}</p>

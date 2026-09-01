@@ -33,11 +33,11 @@ export const OrderBookDepthLevelRow = memo(function OrderBookDepthLevelRow({
 }) {
   const isAsk = side === "ask";
   const selected = selectedLevelKey === level.key;
-  const selectedRing = isAsk ? "ring-rose-500/50" : "ring-mint/50";
-  const priceClass = isAsk ? "text-red-300/95" : "text-zinc-200/95";
+  const selectedRing = isAsk ? "ring-neg/50" : "ring-pos/50";
+  const priceClass = isAsk ? "text-neg/95" : "text-zinc-200/95";
   const depthGradient = isAsk
-    ? "absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/35 to-rose-600/[0.07] transition-[width]"
-    : "absolute inset-y-0 left-0 bg-gradient-to-r from-mint/35 to-mint/[0.07] transition-[width]";
+    ? "absolute inset-y-0 right-0 bg-gradient-to-l from-neg/35 to-neg/[0.07] transition-[width]"
+    : "absolute inset-y-0 left-0 bg-gradient-to-r from-pos/35 to-pos/[0.07] transition-[width]";
 
   const interactive = isAsk;
   const rowClass = collectionDetail

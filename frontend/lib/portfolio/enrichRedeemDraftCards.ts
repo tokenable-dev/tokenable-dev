@@ -1,6 +1,9 @@
 import { postRwaMetadataBatchBatched } from "@/lib/core/api/rwa-blockchain";
 import { certNumberFromMetadata, type RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
-import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioTableHelpers";
+import {
+  formatPortfolioGradeLabel,
+  formatRedeemCardLine1FromMetadata,
+} from "@/lib/portfolio/portfolioTableHelpers";
 
 /** Fill name / image / grade / cert from metadata when resume/preparing lacks draft thumbs. */
 export async function enrichRedeemDraftCards(
@@ -13,7 +16,8 @@ export async function enrichRedeemDraftCards(
       !c.name ||
       /^RWA #\d+$/i.test(c.name) ||
       !c.grade ||
-      !c.certNumber,
+      !c.certNumber ||
+      (Boolean(c.grade) && !c.name.includes(c.grade!)),
   );
   if (!needs) return cards;
 
@@ -26,15 +30,16 @@ export async function enrichRedeemDraftCards(
       const it = byId.get(c.tokenId);
       if (!it) return c;
       const meta = it.metadata;
-      const name =
+      const grade = c.grade ?? formatPortfolioGradeLabel(meta ?? null);
+      const fallback =
         meta && typeof meta.name === "string" && meta.name.trim()
           ? meta.name.trim()
           : c.name;
       return {
         ...c,
-        name,
+        name: formatRedeemCardLine1FromMetadata(meta, fallback, grade),
         imageUrl: it.imageUrl ?? c.imageUrl,
-        grade: c.grade ?? formatPortfolioGradeLabel(meta),
+        grade,
         certNumber: c.certNumber ?? certNumberFromMetadata(meta),
       };
     });

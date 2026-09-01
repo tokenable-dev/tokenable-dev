@@ -12,9 +12,9 @@ export function HomeJustVaulted() {
     <section className="tkl-wrap home-section home-section--vaulted">
       <div className="home-section-head">
         <div>
-          <h2 className="tkl-sec-title">Just vaulted</h2>
+          <h2 className="tkl-sec-title">New items</h2>
           <p className="tkl-sec-sub">
-            New to the vault. First to market.
+            Vaulted and freshly minted tokens
           </p>
         </div>
         <Link href="/markets?sort=newest" className="tkl-view-all">
@@ -27,8 +27,9 @@ export function HomeJustVaulted() {
         <HomeCardGrid
           collections={justVaulted}
           snapshotByKey={snapshotByKey}
-          subMode="vaulted"
+          subMode="change"
           changeLoading={snapshotsPending}
+          use1yChange
           layout="wrap"
         />
       )}

@@ -34,6 +34,8 @@ export type FormatCardDisplayNameOptions = {
   mode?: CardDisplayNameMode;
   /** Drop set segment on Line 2 (rare; default keeps full `{Year} · {Set} {Lang} · {Variant}`). */
   omitSetOnLine2?: boolean;
+  /** Asset detail hero: Line 1 is `{Name} · {Number}` — grade lives below the title. */
+  omitGrade?: boolean;
 };
 
 /** Join non-empty segments with spaced middot — never leaves dangling separators. */
@@ -480,7 +482,7 @@ export function cardDisplayPartsFromAssetDetail(
 
 export function formatCardDisplayLine1(
   parts: CardDisplayNameParts,
-  opts?: { abbrev?: boolean },
+  opts?: { abbrev?: boolean; omitGrade?: boolean },
 ): string {
   const grade = resolveCardDisplayGrade(parts.grade);
   const name = parts.cardName?.trim() || "";
@@ -488,6 +490,9 @@ export function formatCardDisplayLine1(
 
   if (opts?.abbrev) {
     return joinCardDisplaySegments([name, grade]);
+  }
+  if (opts?.omitGrade) {
+    return joinCardDisplaySegments([name, number]);
   }
 
   return joinCardDisplaySegments([name, number, grade]);
@@ -522,6 +527,7 @@ export function formatCardDisplayName(
   const mode = opts.mode ?? "line1";
   const line1 = formatCardDisplayLine1(parts, {
     abbrev: mode === "line1Abbrev",
+    omitGrade: opts.omitGrade,
   });
 
   const needsLine2 =

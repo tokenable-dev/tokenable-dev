@@ -5,8 +5,13 @@ import { useMemo, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type { RedeemShipmentView } from "@/lib/portfolio/buildRedeemShipments";
-import { type RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
-import { buildCarrierTrackingUrl } from "@/lib/psa/psaOrderProgressDisplay";
+import {
+  readRedeemShipmentReceived,
+  writeRedeemShipmentReceived,
+  type RedeemDraftCard,
+} from "@/lib/portfolio/redeemDraft";
+import { formatRedeemCardLine1FromDraft } from "@/lib/portfolio/portfolioTableHelpers";
+import { buildCarrierTrackingUrl, formatCarrierLabel } from "@/lib/shipping/carrierTracking";
 
 type ReportKind = "missing" | "damaged" | "wrong";
 
@@ -16,21 +21,21 @@ const REPORT_OPTIONS: { kind: ReportKind; label: string }[] = [
   { kind: "wrong", label: "This is not the card I expected" },
 ];
 
-function formatRedeemClock(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return iso;
-  return new Date(t).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function minutesUntil(iso: string, nowMs = Date.now()): number | null {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return null;
   return Math.max(0, Math.ceil((t - nowMs) / 60_000));
+}
+
+function formatEstDelivery(iso: string | null): string {
+  if (!iso) return "Pending";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "Pending";
+  return new Date(t).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 /** "PSA 10 ×3 · BGS 9.5 ×1" — grades are full labels, so never assume PSA. */
@@ -81,12 +86,10 @@ function ReportProblemModal({
           Report a problem
         </div>
         <h2 id="pf-redeem-report-title" className="pf-redeem-report-modal__title">
-          {card.name}
+          {formatRedeemCardLine1FromDraft(card)}
         </h2>
         <p className="pf-redeem-report-modal__meta tkl-mono">
-          {[card.grade, card.certNumber ? `Cert #${card.certNumber}` : null]
-            .filter(Boolean)
-            .join(" · ")}
+          {card.certNumber ? `Cert #${card.certNumber}` : null}
         </p>
         <div className="pf-redeem-report-modal__opts">
           {REPORT_OPTIONS.map((opt) => (
@@ -102,9 +105,9 @@ function ReportProblemModal({
           ))}
         </div>
         <p className="pf-redeem-report-modal__note">
-          Claim opens soon. For now we mark this card locally so you can still
-          confirm the rest of the shipment. Contact support if you need help
-          right away.
+          We&rsquo;ll open a claim and hold this card&rsquo;s ownership in your
+          account until it&rsquo;s resolved. Confirm the rest of the shipment as
+          normal.
         </p>
         <TkButton
           type="button"
@@ -139,7 +142,7 @@ function ShipmentContents({
   const term = query.trim().toLowerCase();
   const matches = term
     ? shipment.cards.filter((c) =>
-        `${c.certNumber ?? ""} ${c.name}`.toLowerCase().includes(term),
+        `${c.certNumber ?? ""} ${formatRedeemCardLine1FromDraft(c)}`.toLowerCase().includes(term),
       )
     : shipment.cards;
 
@@ -200,10 +203,14 @@ function ShipmentContents({
                     ) : null}
                   </div>
                   <div className="pf-redeem-contents__info">
-                    <div className="pf-redeem-contents__name">{c.name}</div>
+                    <div className="pf-redeem-contents__name">
+                      {formatRedeemCardLine1FromDraft(c)}
+                    </div>
                     <div className="pf-redeem-contents__meta">
-                      {c.grade ? (
-                        <span className="pf-redeem-chip">{c.grade}</span>
+                      {c.grade?.trim() ? (
+                        <span className="pf-redeem-contents__grade tkl-mono">
+                          {c.grade.trim()}
+                        </span>
                       ) : null}
                       {c.certNumber ? (
                         <span className="pf-redeem-contents__cert tkl-mono">
@@ -247,47 +254,31 @@ function ShipmentContents({
 function ShipmentBox({
   shipment,
   locallyReceived,
+  busy,
   reportedKeys,
   onReport,
   onMarkReceived,
 }: {
   shipment: RedeemShipmentView;
   locallyReceived: boolean;
+  busy: boolean;
   reportedKeys: Set<string>;
   onReport: (card: RedeemDraftCard) => void;
   onMarkReceived: () => void;
 }) {
   const onWay = shipment.state === "on_the_way" || Boolean(shipment.trackingNumber);
-  const delivered = Boolean(shipment.carrierDeliveredAt);
   const trackUrl = buildCarrierTrackingUrl(
     shipment.trackingCarrier ?? undefined,
     shipment.trackingNumber ?? undefined,
   );
+  const carrierLabel =
+    formatCarrierLabel(shipment.trackingCarrier) ||
+    (onWay ? "—" : "Pending");
   const trackingLabel = shipment.trackingNumber?.trim() || "Pending";
-  const minsLeft = shipment.autoReceiptEligibleAt
-    ? minutesUntil(shipment.autoReceiptEligibleAt)
-    : null;
-  const deliveryMeta = delivered
-    ? `Delivered ${formatRedeemClock(shipment.carrierDeliveredAt!)}`
-    : onWay
-      ? "Pending carrier update"
-      : "—";
-  const autoMeta =
-    delivered && shipment.autoReceiptEligibleAt
-      ? minsLeft != null && minsLeft > 0
-        ? `Auto-confirm in ~${minsLeft} min`
-        : "Auto-confirm pending (next check)"
-      : null;
+  const estDelivery = formatEstDelivery(shipment.carrierDeliveredAt);
 
   return (
-    <div
-      className={cn(
-        "pf-redeem-shipment",
-        locallyReceived && "pf-redeem-shipment--received",
-        delivered && !locallyReceived && "pf-redeem-shipment--delivered",
-      )}
-      data-shipment={shipment.shipmentKey}
-    >
+    <div className="pf-redeem-shipment" data-shipment={shipment.shipmentKey}>
       <div className="pf-redeem-prep-row pf-redeem-shipment__head">
         <span className="pf-redeem-shipment__title" style={{ margin: 0 }}>
           Shipment {shipment.idx} · {shipment.vaultLabel} · {shipment.cardCount}{" "}
@@ -297,60 +288,55 @@ function ShipmentBox({
           className={`pf-redeem-status-pill tkl-mono ${
             locallyReceived
               ? "pf-redeem-status-pill--pos"
-              : delivered
-                ? "pf-redeem-status-pill--pos"
-                : "pf-redeem-status-pill--warn"
+              : "pf-redeem-status-pill--warn"
           }`}
         >
-          {locallyReceived
-            ? "Received"
-            : delivered
-              ? "Delivered"
-              : onWay
-                ? "On the way"
-                : "Preparing"}
+          {locallyReceived ? "Received" : onWay ? "On the way" : "Preparing"}
         </span>
       </div>
-      <div className="pf-redeem-shipment__meta tkl-mono">
-        <div>
-          <span className="pf-redeem-shipment__k">Carrier</span>
-          <span>
-            {shipment.trackingCarrier || (onWay ? "—" : "Pending")}
-          </span>
+      <div className="pf-redeem-cost__lines">
+        <div className="pf-redeem-cost__line">
+          <span className="pf-redeem-cost__label">Carrier</span>
+          <span className="tkl-mono pf-redeem-cost__val">{carrierLabel}</span>
         </div>
-        <div>
-          <span className="pf-redeem-shipment__k">Tracking</span>
+        <div className="pf-redeem-cost__line">
+          <span className="pf-redeem-cost__label">Tracking</span>
           {trackUrl ? (
             <a
-              className="pf-redeem-track-link"
+              className="pf-redeem-track-link tkl-mono"
               href={trackUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {trackingLabel}
+              {trackingLabel} →
             </a>
           ) : (
-            <span>{trackingLabel}</span>
+            <span className="tkl-mono pf-redeem-cost__val">{trackingLabel}</span>
           )}
         </div>
-        <div>
-          <span className="pf-redeem-shipment__k">
-            {delivered ? "Delivered" : "Est. delivery"}
-          </span>
-          <span className={delivered ? "pf-redeem-shipment__delivered" : undefined}>
-            {deliveryMeta}
-          </span>
+        <div className="pf-redeem-cost__line">
+          <span className="pf-redeem-cost__label">Est. delivery</span>
+          <span className="tkl-mono pf-redeem-cost__val">{estDelivery}</span>
         </div>
-        {autoMeta ? (
-          <div>
-            <span className="pf-redeem-shipment__k">Auto receipt</span>
-            <span className="pf-redeem-shipment__auto">{autoMeta}</span>
+        {shipment.autoReceiptEligibleAt && !locallyReceived ? (
+          <div className="pf-redeem-cost__line">
+            <span className="pf-redeem-cost__label">Auto receipt</span>
+            <span className="tkl-mono pf-redeem-cost__val">
+              {(() => {
+                const mins = minutesUntil(shipment.autoReceiptEligibleAt);
+                return mins != null && mins > 0
+                  ? `In ~${mins} min`
+                  : "Pending next check";
+              })()}
+            </span>
           </div>
         ) : null}
         {shipment.cards.length > 0 ? (
-          <div>
-            <span className="pf-redeem-shipment__k">Grades</span>
-            <span>{gradeSummary(shipment.cards)}</span>
+          <div className="pf-redeem-cost__line">
+            <span className="pf-redeem-cost__label">Grades</span>
+            <span className="tkl-mono pf-redeem-cost__val">
+              {gradeSummary(shipment.cards)}
+            </span>
           </div>
         ) : null}
       </div>
@@ -363,26 +349,15 @@ function ShipmentBox({
         />
       ) : null}
 
-      <p className="pf-redeem-shipment__copy">
-        {locallyReceived
-          ? "Marked received on this device. Confirm below once every shipment has arrived."
-          : delivered
-            ? "Carrier marked this shipment delivered. Confirm below, or wait for automatic receipt confirmation."
-            : onWay
-              ? "This vault has shipped. Other vaults in the same order may still be preparing."
-              : "Waiting for the vault to share a tracking number."}
-      </p>
-
-      {onWay && shipment.trackingNumber?.trim() && !locallyReceived ? (
-        <TkButton
-          type="button"
-          variant="subtle"
-          className="pf-redeem-ship-received"
-          onClick={onMarkReceived}
-        >
-          Mark this shipment received
-        </TkButton>
-      ) : null}
+      <TkButton
+        type="button"
+        variant="subtle"
+        className="pf-redeem-ship-received"
+        disabled={locallyReceived || busy}
+        onClick={onMarkReceived}
+      >
+        {locallyReceived ? "Received" : busy ? "Confirming…" : "Mark this shipment received"}
+      </TkButton>
     </div>
   );
 }
@@ -392,13 +367,15 @@ export function RedeemTransitPanel({
   shipments = [],
   busy = false,
   error = null,
+  paymentBatchId,
   onConfirmReceived,
 }: {
   cards: RedeemDraftCard[];
   shipments?: RedeemShipmentView[];
   busy?: boolean;
   error?: string | null;
-  onConfirmReceived?: () => void;
+  paymentBatchId?: string | null;
+  onConfirmReceived?: () => void | Promise<boolean | void>;
   /** @deprecated use shipments */
   trackingNumber?: string | null;
   trackingCarrier?: string | null;
@@ -424,74 +401,65 @@ export function RedeemTransitPanel({
         : [];
 
   const [reportedKeys, setReportedKeys] = useState<Set<string>>(() => new Set());
-  const [localReceived, setLocalReceived] = useState<Set<string>>(() => new Set());
+  const [localReceived, setLocalReceived] = useState<Set<string>>(
+    () => new Set(readRedeemShipmentReceived(paymentBatchId ?? "")),
+  );
   const [reportTarget, setReportTarget] = useState<{
     shipmentKey: string;
     card: RedeemDraftCard;
   } | null>(null);
 
   const trackedKeys = useMemo(
-    () =>
-      list
-        .filter((s) => Boolean(s.trackingNumber?.trim()))
-        .map((s) => s.shipmentKey),
+    () => list.map((s) => s.shipmentKey),
     [list],
   );
-
-  const allTracked =
-    list.length > 0 &&
-    list.every((s) => Boolean(s.trackingNumber?.trim()));
   const receivedCount = trackedKeys.filter((k) => localReceived.has(k)).length;
   const multiTracked = trackedKeys.length > 1;
-  const canConfirm = allTracked && Boolean(onConfirmReceived) && !busy;
+  const canConfirm = Boolean(onConfirmReceived) && !busy;
+
+  const persistPartial = (next: Set<string>) => {
+    setLocalReceived(next);
+    if (paymentBatchId) {
+      writeRedeemShipmentReceived(paymentBatchId, [...next]);
+    }
+  };
+
+  const markShipmentReceived = (shipmentKey: string) => {
+    if (busy || localReceived.has(shipmentKey)) return;
+    const next = new Set(localReceived).add(shipmentKey);
+    const remaining = trackedKeys.filter((k) => !next.has(k));
+    if (remaining.length === 0) {
+      void onConfirmReceived?.();
+      return;
+    }
+    persistPartial(next);
+  };
 
   const confirmLabel = busy
     ? "Confirming…"
-    : multiTracked
-      ? `I've received my cards (${receivedCount} of ${trackedKeys.length})`
+    : multiTracked && receivedCount > 0 && receivedCount < trackedKeys.length
+      ? `I've received my cards (${receivedCount} of ${trackedKeys.length} shipments confirmed)`
       : "I've received my cards";
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-banner pf-redeem-banner--azure">
-        <svg
-          className="pf-redeem-banner__icon"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden
-        >
-          <rect x="1" y="3" width="15" height="13" />
-          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-          <circle cx="5.5" cy="18.5" r="2.5" />
-          <circle cx="18.5" cy="18.5" r="2.5" />
-        </svg>
-        <div>
-          <strong>Your cards are on their way</strong>
-          <p>
-            Confirm once your cards arrive so we can close this request.
-            {list.length > 1
-              ? " Each vault ships separately with its own tracking."
-              : ""}
-          </p>
-        </div>
-      </div>
+      <div className="pf-redeem-eyebrow">Redeem</div>
+      <h1 className="pf-redeem-h1">Your cards are on their way</h1>
+      <p className="pf-redeem-sub pf-redeem-sub--prep">
+        Confirm once your cards arrive so we can close this request.
+      </p>
 
       {list.map((sh) => (
         <ShipmentBox
           key={sh.shipmentKey}
           shipment={sh}
           locallyReceived={localReceived.has(sh.shipmentKey)}
+          busy={busy}
           reportedKeys={reportedKeys}
           onReport={(card) =>
             setReportTarget({ shipmentKey: sh.shipmentKey, card })
           }
-          onMarkReceived={() =>
-            setLocalReceived((prev) => new Set(prev).add(sh.shipmentKey))
-          }
+          onMarkReceived={() => markShipmentReceived(sh.shipmentKey)}
         />
       ))}
 
@@ -505,17 +473,8 @@ export function RedeemTransitPanel({
         {confirmLabel}
       </TkButton>
       {error ? (
-        <p className="pf-redeem-cost__copy" style={{ textAlign: "center", color: "var(--neg, #c00)" }}>
+        <p className="pf-redeem-error" role="alert">
           {error}
-        </p>
-      ) : !allTracked ? (
-        <p className="pf-redeem-cost__copy" style={{ textAlign: "center" }}>
-          Available once every vault shipment has a tracking number.
-        </p>
-      ) : multiTracked && receivedCount < trackedKeys.length ? (
-        <p className="pf-redeem-cost__copy" style={{ textAlign: "center" }}>
-          You can still confirm the whole order when every package has arrived —
-          per-shipment marks are only a checklist on this device.
         </p>
       ) : null}
       <Link href="/portfolio" className="pf-redeem-primary-link">

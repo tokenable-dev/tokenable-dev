@@ -59,6 +59,8 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 | PATCH | `/api/auth/profile` | JWT | Display name + marketing / email notification prefs |
 | POST | `/api/auth/avatar` | JWT | Profile avatar upload (S3, multipart `file`) |
 | GET/POST/PATCH/DELETE | `/api/user/shipping-addresses` | JWT | Settings address book (see [auth.md](./auth.md)) |
+| GET | `/api/user/shipping-addresses/autocomplete` | JWT | Address search suggestions |
+| GET | `/api/user/shipping-addresses/place` | JWT | Resolve a suggestion into ship-to fields |
 | POST | `/api/auth/logout` | — | Clear Tokenable cookie (204) |
 | POST | `/api/auth/delete-account` | JWT | Delete account (`password` optional — legacy email users only) |
 

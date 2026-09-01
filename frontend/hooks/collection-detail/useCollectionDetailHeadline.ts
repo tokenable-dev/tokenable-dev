@@ -20,7 +20,6 @@ import {
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
-  buildCollectionHeadlineMetaStrip,
   leadingYearFromSetLine,
   toCardDisplayCase,
   yearFromComponents,
@@ -133,8 +132,13 @@ export function useCollectionDetailHeadline(params: {
   );
 
   const headlineCardNumberToken = useMemo(
-    () => resolveHeadlineFormattedCardNumber(marketPreview, comp),
-    [marketPreview, comp],
+    () =>
+      resolveHeadlineFormattedCardNumber(
+        marketPreview,
+        comp,
+        typeof displayLabel === "string" ? displayLabel : null,
+      ),
+    [marketPreview, comp, displayLabel],
   );
 
   const headlineVarietyLabel = useMemo(
@@ -202,9 +206,7 @@ export function useCollectionDetailHeadline(params: {
 
   const collectionHeadlineDisplayTitle = useMemo(
     () =>
-      formatCardDisplayName(collectionHeadlineParts, {
-        grade: headlineGrade,
-      }),
+      formatCardDisplayName(collectionHeadlineParts, { grade: headlineGrade }),
     [collectionHeadlineParts, headlineGrade],
   );
 
@@ -224,37 +226,10 @@ export function useCollectionDetailHeadline(params: {
     ],
   );
 
-  const collectionHeadlineMetaStrip = useMemo(() => {
-    const catalog = formatCardDisplayMeta(collectionHeadlineParts);
-    const collab = buildCollectionHeadlineMetaStrip({
-      setLine: headlineSetLine,
-      comp,
-      marketPreview,
-      displayLabel: typeof displayLabel === "string" ? displayLabel.trim() : null,
-    });
-    const collabCased = collab?.trim() ? toCardDisplayCase(collab) : null;
-    if (!catalog) return collabCased;
-    if (!collabCased) return catalog;
-
-    const catalogSegs = new Set(
-      catalog
-        .split(/\s*·\s*/)
-        .map((s) => s.trim().toLowerCase())
-        .filter(Boolean),
-    );
-    const collabExtra = collabCased
-      .split(/\s*·\s*/)
-      .map((s) => s.trim())
-      .filter((s) => s && !catalogSegs.has(s.toLowerCase()));
-    if (collabExtra.length === 0) return catalog;
-    return `${catalog} · ${collabExtra.join(" · ")}`;
-  }, [
-    collectionHeadlineParts,
-    headlineSetLine,
-    comp,
-    marketPreview,
-    displayLabel,
-  ]);
+  const collectionHeadlineMetaStrip = useMemo(
+    () => formatCardDisplayMeta(collectionHeadlineParts) || null,
+    [collectionHeadlineParts],
+  );
 
   const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;

@@ -35,6 +35,8 @@ export interface MarketplaceSearchCardHit {
   vaultLabel: string;
   listedUsd: number | null;
   imageUrl: string | null;
+  /** Present when the token is in a catalog bucket — used for Line 1 / Line 2. */
+  components?: CollectionComponents | null;
 }
 
 export async function getMarketplaceSearch(opts: {

@@ -92,6 +92,10 @@ Portfolio transaction history for a wallet (chain-scoped via `x-tokenable-chain-
 
 Sell-into-bid fills persist `_settlementAmount`, `_matchedBidOrderHash`, and `_filledByBuyer` on the ask so the UI shows **one row per settlement** at the price paid.
 
+The portfolio Tx History table merges this with **Mint** (owned tokens with no matching buy) and **Redeem** (`GET /api/rwa/redemptions/mine`). Status is a separate lifecycle column (`In progress` / `Completed` / `Failed` / `Canceled`) — not Vaulted / In possession / Off platform.
+
+Activity list items include `tokenContract` and `considerationToken`. The UI shows those plus seller/buyer wallets and, for redeems, `paymentTxHash` / `custodyTxHash` (explorer `/tx/`). Seaport `orderHash` is not an Ethereum transaction.
+
 ---
 
 ### `GET /api/marketplace/orders/by-offerer`
@@ -294,11 +298,13 @@ Unified catalog search for the header typeahead and `/search` page.
 
 | Query | Default | Description |
 |-------|---------|-------------|
-| `q` | required | Same collection text match as `GET /collections?q=`. Digit-only queries prefix-match **`rwa_tokens.cert_number`** at any length (e.g. `123`). Text queries match token `display_name`. |
+| `q` | required | Same collection text match as `GET /collections?q=`. Digit-only queries **7+ digits** prefix-match **`rwa_tokens.cert_number`**. Shorter digits match **token id**, exact cert, or `#123` in the display name (not every cert that merely starts with `123`). Text queries match token `display_name`. |
 | `cardLimit` | `12` | Max minted-card hits (`0`–`24`). |
 | `collectionLimit` | `40` | Max collection hits (`0`–`40`). `0` skips collection search. |
 
 Response: `{ cards: SearchCardHit[], collections: CollectionSummary[] }`. Cards are listed first in the UI (cert row), then collections.
+
+Each card hit includes `components` from the token’s collection bucket (when present). The UI formats **Line 1** `{Name} · {Number} · {Grade}` and **Line 2** `{Year} · {Set} {Language} · {Variant}` the same way as collection detail — not raw `displayName` / cert/vault strings.
 
 ---
 

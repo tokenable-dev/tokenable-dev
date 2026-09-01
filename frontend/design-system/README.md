@@ -1,6 +1,6 @@
 # Tokenable design system (Next.js)
 
-Committed CSS source for the Azure / pixel UI. HTML prototypes live at repo root in `Tokenable-with design system/` (reference only).
+Committed CSS source for the Azure / pixel UI. Latest Figma export lives at repo root in `Tokenable Design System/` (reference only). Screen HTML prototypes remain in `Tokenable-with design system-*`.
 
 ## Quick start (Phase 1+)
 
@@ -11,7 +11,7 @@ Committed CSS source for the Azure / pixel UI. HTML prototypes live at repo root
 @import "../styles/tokenable-layout.css";
 ```
 
-**Visual QA:** `http://localhost:3000/dev/design-system` (live `TkButton` strip + designer standalone iframe)
+**Visual QA:** `http://localhost:3000/dev/design-system` (live `TkButton` / `TkStepper` + designer standalone iframe)
 
 **DS changelog (v2 Phase 1):** `ghost` + `table` button variants; tokens `--border-strong`, `--surface-hover`.
 
@@ -57,8 +57,8 @@ Migration phases 0–10 are done. Prototype folder is reference only — no auto
 
 ## Prototype folder vs this directory
 
-| | `Tokenable-with design system/` | `frontend/design-system/` (here) |
+| | `Tokenable Design System/` | `frontend/design-system/` (here) |
 |---|--------------------------------|-------------------------------------|
-| Role | Designer HTML / `_ds` reference | **Production** tokens + `tk-*` CSS |
+| Role | Designer Figma/CSS + standalone | **Production** tokens + `tk-*` CSS |
 | Next.js | Not imported | Imported via `tokenable-ds-entry.css` |
 | Updates | Manual diff + merge into here | PR + `DS: …` changelog line + `/dev/design-system` check |

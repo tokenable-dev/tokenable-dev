@@ -1,20 +1,26 @@
-/** Transaction history status — Portfolio.html `hbadge` outline chips. */
+import type { TxLifecycle } from "@/lib/portfolio/portfolioTypes";
+import { txLifecycleLabel } from "@/lib/portfolio/buildPortfolioTxRows";
+
+/** Lifecycle chips — In progress amber · Completed green · Failed red · Canceled gray. */
 export function PortfolioHistoryStatusBadge({
-  status = "settled",
+  status = "completed",
 }: {
-  status?: "settled" | "pending" | "failed" | "vaulted";
+  status?: TxLifecycle;
 }) {
-  if (status === "pending") {
+  const label = txLifecycleLabel(status);
+  if (status === "in_progress") {
     return (
       <span className="pf-hbadge pf-hbadge--pending">
         <span className="pf-hbadge__dot" aria-hidden />
-        Processing
+        {label}
       </span>
     );
   }
-
-  const label =
-    status === "failed" ? "Failed" : status === "vaulted" ? "Vaulted" : "Settled";
-
-  return <span className={`pf-hbadge pf-hbadge--${status}`}>{label}</span>;
+  if (status === "failed") {
+    return <span className="pf-hbadge pf-hbadge--failed">{label}</span>;
+  }
+  if (status === "canceled") {
+    return <span className="pf-hbadge pf-hbadge--canceled">{label}</span>;
+  }
+  return <span className="pf-hbadge pf-hbadge--settled">{label}</span>;
 }

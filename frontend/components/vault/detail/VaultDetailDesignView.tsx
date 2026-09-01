@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { TkButton, TkInput, TkSelect, TkTag } from "@/components/ds";
+import { TkButton, TkInput, TkSelect } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useModalScrollLock } from "@/hooks/ui/useModalScrollLock";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
@@ -162,10 +162,9 @@ function PackageInfoCard({
                 <VaultThumb src={c.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
               </div>
               <div className="vault-detail-package__name">{c.name}</div>
-              <TkTag tone="neutral" appearance="soft" className="vault-detail-grade-tag">
-                {c.grade}
-              </TkTag>
-              <span className="mono vault-detail-package__cert">#{c.cert}</span>
+              <span className="mono vault-detail-package__cert">
+                {[c.grade, c.cert ? `#${c.cert}` : null].filter(Boolean).join(" · ")}
+              </span>
             </li>
           ))}
         </ul>
@@ -278,30 +277,18 @@ function CtaRow({ ctas }: { ctas: VaultDetailScenario["cta"] }) {
   );
 }
 
-function cardStatusRight(card: VaultPackageCard) {
+function cardStatusLabel(card: VaultPackageCard) {
   switch (card.status) {
     case "completed":
-      return (
-        <>
-          <span className="mono vault-lm-row__status vault-lm-row__status--pos">Live</span>
-          <span className="mono vault-lm-row__token">View listing →</span>
-        </>
-      );
+      return <span className="mono vault-lm-row__status vault-lm-row__status--pos">Live</span>;
     case "approved":
       return <span className="mono vault-lm-row__status vault-lm-row__status--pos">Approved</span>;
     case "reviewing":
-      return (
-        <span className="mono vault-lm-row__status vault-lm-row__status--azure">Reviewing</span>
-      );
+      return <span className="mono vault-lm-row__status vault-lm-row__status--azure">Reviewing</span>;
     case "failed":
       return <span className="vault-lm-row__status vault-lm-row__status--neg">Failed</span>;
     case "rejected":
-      return (
-        <>
-          <span className="vault-lm-row__status vault-lm-row__status--neg">Rejected</span>
-          {card.reason ? <div className="vault-lm-row__reason">{card.reason}</div> : null}
-        </>
-      );
+      return <span className="vault-lm-row__status vault-lm-row__status--neg">Rejected</span>;
     default:
       return null;
   }
@@ -326,12 +313,13 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
           <VaultThumb src={card.imageUrl} width={150} height={210} className="h-full w-full object-contain" />
         </div>
         <div className="vault-lb-panel__name">{card.name}</div>
+        {card.grade || card.cert ? (
+          <div className="vault-lb-panel__sub mono">
+            {[card.grade, card.cert ? `Cert #${card.cert}` : null].filter(Boolean).join(" · ")}
+          </div>
+        ) : null}
       </div>
       <span className="vault-detail-section-label vault-detail-section-label--box">Card Details</span>
-      <div className="vault-detail-row">
-        <span className="vault-detail-k">Graded By</span>
-        <span className="vault-detail-v">PSA · {card.grade}</span>
-      </div>
       <div className="vault-detail-row">
         <span className="vault-detail-k">Cert #</span>
         <span className="vault-detail-v mono">{card.cert}</span>
@@ -622,15 +610,24 @@ function LayoutB({
                 <VaultThumb src={card.imageUrl} width={38} height={52} className="h-full w-full object-contain" />
               </div>
               <div className="vault-lm-row__body">
-                <div className="vault-lm-row__name">{card.name}</div>
-                <div className="vault-lm-row__meta">
-                  <TkTag tone="neutral" appearance="soft" className="vault-detail-grade-tag vault-detail-grade-tag--list">
-                    {card.grade}
-                  </TkTag>
-                  <span className="mono vault-lm-row__cert">Cert #{card.cert}</span>
+                <div className="vault-lm-row__name-line">
+                  <div className="vault-lm-row__name">{card.name}</div>
+                  {cardStatusLabel(card)}
                 </div>
+                <div className="vault-lm-row__meta">
+                  <span className="mono vault-lm-row__cert">
+                    {[card.grade, card.cert ? `Cert #${card.cert}` : null].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+                {card.status === "rejected" && card.reason ? (
+                  <div className="vault-lm-row__reason">{card.reason}</div>
+                ) : null}
               </div>
-              <div className="vault-lm-row__right">{cardStatusRight(card)}</div>
+              {card.status === "completed" ? (
+                <span className="mono vault-lm-row__token">View listing →</span>
+              ) : (
+                <div className="vault-lm-row__right" />
+              )}
             </button>
           ))}
         </div>

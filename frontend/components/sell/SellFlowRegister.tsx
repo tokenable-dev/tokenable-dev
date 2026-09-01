@@ -157,17 +157,14 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
             >
               <ConsentCheck on={consents.authenticity} />
               <span>
-                I&rsquo;m responsible for the authenticity of the cards I list. Tokenable
-                doesn&rsquo;t authenticate cards; PSA verifies cert numbers, and for Partner vault
-                cards, the partner is also responsible for confirming authenticity before listing.{" "}
+                I&rsquo;m responsible for the authenticity of the cards I list.{" "}
                 <span className="sell-flow-req">*</span>
               </span>
             </button>
             <button type="button" className="sell-flow-consent-row" onClick={() => updateConsent("storage")}>
               <ConsentCheck on={consents.storage} />
               <span>
-                My cards are held in the vault I choose — PSA Vault or a Partner vault. I agree to
-                the{" "}
+                My cards are stored at PSA Vault. I agree to the{" "}
                 <a href="/terms" className="sell-flow-link" onClick={(e) => e.stopPropagation()}>
                   storage and shipping terms
                 </a>
@@ -184,7 +181,6 @@ export function SellFlowRegister({ flow }: { flow: Flow }) {
           <TkButton
             type="button"
             variant="primary"
-            className="sell-flow-continue"
             disabled={!canContinueRegister}
             onClick={goToVault}
           >

@@ -296,7 +296,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 
 | Variable | Purpose |
 |----------|---------|
-| `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | Scan all minted tokenIds → `rwa_tokens` |
+| `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | Scan minted token ids **1..totalMinted** → `rwa_tokens` (TokenableRWA is 1-based) |
 | `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | Recompute active ask `collection_key` (v2). Listing `ensureCollectionForListing` also rewrites that token’s live ask when the key changes (e.g. Variety-as-set-name now hashes as `base`). |
 | `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | Snapshot refresh PSA cert mirror (`always` to enable) |
 | `MARKET_SNAPSHOT_*` | Snapshot worker tuning |

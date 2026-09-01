@@ -78,10 +78,10 @@ export function MintForm() {
                 />
 
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && mint.errors.image && (
-                  <p className="text-xs text-red-400">{mint.errors.image}</p>
+                  <p className="text-xs text-neg">{mint.errors.image}</p>
                 )}
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && mint.errors.name && (
-                  <p className="text-xs text-red-400">{mint.errors.name}</p>
+                  <p className="text-xs text-neg">{mint.errors.name}</p>
                 )}
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS &&
                   psa.lastAnalyze?.psa.cardNameHint?.trim() && (
@@ -106,7 +106,7 @@ export function MintForm() {
 
                 {psa.analyzeError && !psa.psaRateLimitAlert && (
                   <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
-                    <p className="text-xs text-red-400 break-words">{psa.analyzeError}</p>
+                    <p className="text-xs text-neg break-words">{psa.analyzeError}</p>
                   </div>
                 )}
 

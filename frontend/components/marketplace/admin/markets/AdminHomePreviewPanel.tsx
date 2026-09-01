@@ -137,7 +137,7 @@ export function AdminHomePreviewPanel() {
         <p className="mt-2 leading-relaxed">
           Mirrors the public home page: <strong>Top movers</strong> ranks every
           marketplace collection by <strong>90-day</strong> Cardhedger reference
-          gain (max 10 on desktop 5-col, 8 on tablet/mobile, positive only). <strong>Just vaulted</strong> lists the same count
+          gain (max 10 on desktop 5-col, 8 on tablet/mobile, positive only). <strong>New items</strong> lists the same count
           of most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
         </p>
         <p className="mt-2">
@@ -157,8 +157,8 @@ export function AdminHomePreviewPanel() {
       />
 
       <AdminHomePreviewTable
-        title="Just vaulted"
-        subtitle="Newest minted collections — same order as home Just vaulted."
+        title="New items"
+        subtitle="Newest minted collections — same order as home New items."
         rows={justVaulted}
         snapshotByKey={snapshotByKey}
         showChange={false}

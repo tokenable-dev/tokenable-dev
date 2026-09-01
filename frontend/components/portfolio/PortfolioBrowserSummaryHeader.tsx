@@ -10,8 +10,8 @@ export const BROWSER_VALUE_CHART_ICON_SIZE_CLASS =
   "h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12";
 const BROWSER_VALUE_LABEL_CLASS = `shrink-0 ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-white`;
 const BROWSER_VALUE_AMOUNT_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-white`;
-const BROWSER_VALUE_PCT_POSITIVE_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-mint`;
-const BROWSER_VALUE_PCT_NEGATIVE_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-red-400`;
+const BROWSER_VALUE_PCT_POSITIVE_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-pos`;
+const BROWSER_VALUE_PCT_NEGATIVE_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-neg`;
 
 /** Desktop/browser — Portfolio value, price, change %, chart toggle only. */
 export function PortfolioBrowserSummaryHeader({

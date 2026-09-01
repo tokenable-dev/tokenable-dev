@@ -52,7 +52,7 @@
 }
 
 .pf-value-hero__amount {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-weight: 800;
   font-size: clamp(32px, 4vw, 44px);
   letter-spacing: -0.03em;
@@ -69,11 +69,11 @@
 }
 
 .pf-value-hero__chip--pos {
-  color: var(--pos, #00c350);
+  color: var(--pos, #00C864);
 }
 
 .pf-value-hero__chip--neg {
-  color: var(--neg, #e4374a);
+  color: var(--neg, #f5332c);
 }
 
 .pf-value-hero__redeem {
@@ -535,6 +535,146 @@
   margin: 12px 0 16px;
 }
 
+.pf-hx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 4px;
+  margin: 0 0 8px;
+}
+
+.pf-hx-search {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+}
+
+.pf-hx-search__icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.pf-hx-search__input {
+  width: 100%;
+  height: 38px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 0 12px 0 34px;
+  outline: none;
+}
+
+.pf-hx-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.portfolio-page .pf-hx-sel {
+  height: 38px;
+}
+
+.portfolio-page .pf-hx-sel .tk-input {
+  height: 38px;
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.pf-hx-multi {
+  position: relative;
+}
+
+.pf-hx-multi__summary {
+  list-style: none;
+  height: 38px;
+  min-width: 132px;
+  padding: 0 28px 0 12px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pf-hx-multi__summary::-webkit-details-marker {
+  display: none;
+}
+
+.pf-hx-multi__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 8;
+  min-width: 168px;
+  padding: 8px;
+  background: #191919;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pf-hx-multi__opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #fff;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.pf-hx-multi__clear {
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.pf-hx-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf-hx-custom__input {
+  height: 38px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  color: #fff;
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+.pf-hx-custom__sep {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.portfolio-page .pf-hx-export {
+  height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+}
+
 .pf-panel-search {
   display: flex;
   align-items: center;
@@ -753,31 +893,35 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-card {
-  width: 26%;
+  width: 22%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-grade {
-  width: 10%;
+  width: 8%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-cost {
-  width: 12%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-value {
-  width: 12%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-profit {
   width: 11%;
 }
 
-.portfolio-page .pf-table--holdings .pf-col-return {
+.portfolio-page .pf-table--holdings .pf-col-value {
+  width: 11%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-profit {
   width: 10%;
 }
 
+.portfolio-page .pf-table--holdings .pf-col-return {
+  width: 8%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-status {
+  width: 16%;
+}
+
 .portfolio-page .pf-table--holdings .pf-col-action {
-  width: 19%;
+  width: 14%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-card {
@@ -859,6 +1003,47 @@
   color: #5b9aff;
   white-space: nowrap;
   vertical-align: middle;
+}
+
+.pf-vault-chip--partner {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-sale-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pf-sale-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.pf-sale-status--listed {
+  color: #37d67a;
+}
+
+.pf-sale-status--listed .pf-sale-status__dot {
+  background: #37d67a;
+}
+
+.pf-sale-status--redeeming {
+  color: #8ec2ff;
+}
+
+.pf-sale-status--redeeming .pf-sale-status__dot {
+  background: #1a6fff;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action-cell {
@@ -1000,7 +1185,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
 }
 
 .portfolio-page .pf-table-card-name {
@@ -1011,6 +1196,9 @@
   font-size: 14px;
   color: #fff;
   --cd-line1-lh: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .portfolio-page .pf-table-card-sub {
@@ -1021,6 +1209,27 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.portfolio-page .pf-table-card-sub--hover {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition: max-height 0.15s ease, opacity 0.15s ease, margin-top 0.15s ease;
+}
+
+.portfolio-page .pf-holdings-row:hover .pf-table-card-sub--hover,
+.portfolio-page .pf-holdings-row:focus-within .pf-table-card-sub--hover {
+  max-height: 20px;
+  opacity: 1;
+  margin-top: 3px;
+}
+
+@media (max-width: 768px) {
+  .portfolio-page .pf-table-card-sub--hover {
+    display: none;
+  }
 }
 
 .portfolio-page .pf-grade-chip {
@@ -1199,7 +1408,14 @@
 }
 
 .portfolio-page .pf-table-pl--neg {
-  color: #e4374a;
+  color: #f5332c;
+}
+
+.portfolio-page .pf-mkt-dir {
+  margin-left: 6px;
+  font-weight: 700;
+  font-size: 0.82em;
+  letter-spacing: -0.04em;
 }
 
 .portfolio-page .pf-table-listed {
@@ -1226,10 +1442,26 @@
   flex-wrap: wrap;
 }
 
+.portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-actions {
+  justify-content: center;
+}
+
 .portfolio-page .pf-table-actions--set-price {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+}
+
+.portfolio-page .pf-table-ask {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.portfolio-page .pf-table-ask--empty {
+  color: var(--t3);
 }
 
 .portfolio-page .pf-table-actions--full {
@@ -1281,6 +1513,9 @@
 }
 
 .portfolio-page .pf-table-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
 }
@@ -1290,17 +1525,32 @@
 }
 
 .portfolio-page .pf-table-type--sell {
-  color: #e4374a;
+  color: #f5332c;
 }
 
+.portfolio-page .pf-table-type--mint,
 .portfolio-page .pf-table-type--vault {
   color: var(--azure);
 }
 
+.portfolio-page .pf-table-type--redeem {
+  color: var(--azure);
+}
+
+.portfolio-page .pf-table-type--transfer {
+  color: var(--t2);
+}
+
 .portfolio-page .pf-table-amount {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: #fff;
+}
+
+.portfolio-page .pf-table--history .pf-table-amount {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .portfolio-page .pf-table-amount--dash {
@@ -1315,7 +1565,8 @@
   justify-content: center;
   gap: 6px;
   height: 26px;
-  min-width: 96px;
+  width: 116px;
+  min-width: 116px;
   padding: 0 12px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1351,13 +1602,25 @@
 }
 
 .portfolio-page .pf-hbadge--pending {
-  color: var(--progress-current);
-  box-shadow: inset 0 0 0 1.5px var(--progress-current);
+  color: #f3701e;
+  background: rgba(243, 112, 30, 0.18);
+  box-shadow: none;
+}
+
+.portfolio-page .pf-hbadge--pending .pf-hbadge__dot {
+  background: #f3701e;
 }
 
 .portfolio-page .pf-hbadge--failed {
-  color: rgb(228, 55, 74);
-  box-shadow: inset 0 0 0 1.5px rgb(228, 55, 74);
+  color: #fff;
+  background: rgba(245, 51, 44, 0.88);
+  box-shadow: none;
+}
+
+.portfolio-page .pf-hbadge--canceled {
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 .portfolio-page .pf-hbadge__dot {
@@ -1610,7 +1873,7 @@
 }
 
 .portfolio-page .pf-tx-drawer__note--danger {
-  color: rgb(228, 55, 74);
+  color: rgb(245, 51, 44);
   font-style: normal;
 }
 
@@ -1632,6 +1895,15 @@
 .portfolio-page .pf-tx-drawer__hash {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.portfolio-page .pf-tx-drawer__hash-link {
+  text-decoration: none;
+}
+
+.portfolio-page .pf-tx-drawer__hash-link:hover {
+  color: var(--azure);
+  text-decoration: underline;
 }
 
 .portfolio-page .pf-tx-drawer__copy {
@@ -1817,6 +2089,9 @@
   height: 100%;
 }
 .pf-gtile__title-link {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   color: inherit;
   text-decoration: none;
 }
@@ -1858,14 +2133,19 @@
 }
 
 .pf-gbadge--listed {
-  background: rgba(26, 111, 255, 0.16);
-  color: #5b9aff;
+  background: rgba(0, 200, 100, 0.14);
+  color: #37d67a;
+}
+
+.pf-gbadge--redeeming {
+  background: rgba(26, 111, 255, 0.18);
+  color: #8ec2ff;
 }
 
 .pf-gbadge--shipping,
 .pf-gbadge--verifying {
-  background: rgba(234, 130, 0, 0.14);
-  color: rgb(234, 130, 0);
+  background: rgba(26, 111, 255, 0.18);
+  color: #8ec2ff;
 }
 
 .pf-gbadge--possession {
@@ -1920,6 +2200,8 @@
   font-weight: 600;
   color: #fff;
   --cd-line1-lh: 1.35;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .pf-gtile__meta {
@@ -1941,7 +2223,7 @@
 .pf-gtile__price-row {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 2px;
   min-height: 28px;
@@ -1959,7 +2241,7 @@
 }
 
 .pf-gtile__mkt {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 19px;
   font-weight: 700;
   color: #fff;
@@ -2068,6 +2350,21 @@
   width: 100%;
 }
 
+.pf-gtile__act .pf-table-ask,
+.pf-mobile-asset-card__actions .pf-table-ask {
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.pf-gtile__act .pf-table-ask--empty,
+.pf-mobile-asset-card__actions .pf-table-ask--empty {
+  color: var(--t3);
+}
+
 .pf-gtile__act .pf-table-btn--full,
 .pf-gtile__act .pf-table-actions__status-btn,
 .pf-gtile__act .pf-table-actions__status-link {
@@ -2163,10 +2460,9 @@
   gap: 6px;
 }
 
-.pf-mobile-asset-card__head {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.pf-mobile-asset-card__head .pf-sale-status {
+  flex-shrink: 0;
+  font-size: 11px;
 }
 
 .pf-mobile-asset-card__title {
@@ -2554,12 +2850,9 @@
     font-weight: 700;
     line-height: 1.35;
     text-align: left;
-    white-space: normal;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .portfolio-page .pf-table--history tbody td[data-label="Card"] .pf-table-card-name {
@@ -2570,18 +2863,15 @@
     max-width: none;
     font-weight: 600;
     text-align: right;
-    white-space: normal;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .portfolio-page .pf-table--history tbody td[data-label="Amount"] .pf-table-amount {
     margin-left: auto;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .portfolio-page .pf-table--history tbody td[data-label="Amount"] .pf-table-amount--dash {

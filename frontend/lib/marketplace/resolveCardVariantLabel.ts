@@ -1,5 +1,6 @@
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { shouldHideDuplicateVariant } from "@/lib/marketplace/cardDisplayName";
+import { peelTrailingCollectorNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 /** Parallel / edition label — drives bucket split and market pricing. */
 export function resolveCardVariantLabel(sources: {
@@ -36,16 +37,18 @@ export function resolveCollectionComponentVariant(
   for (const raw of [comp.variant, comp.psaVariety, marketVariant]) {
     const t = typeof raw === "string" ? raw.trim() : "";
     if (!t) continue;
+    const peeled = peelTrailingCollectorNumber(t);
+    const label = peeled.text || t;
     if (
       shouldHideDuplicateVariant({
-        variant: t,
+        variant: label,
         displayedSetName: set,
         psaBrand: brand,
       })
     ) {
       continue;
     }
-    return t;
+    return label;
   }
   return null;
 }

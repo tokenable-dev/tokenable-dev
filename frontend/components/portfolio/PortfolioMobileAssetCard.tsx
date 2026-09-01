@@ -9,10 +9,12 @@ import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
+  portfolioPriceChangeArrow,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
+import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
 
 /** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
 export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
@@ -98,31 +100,12 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
               titleLabel
             )}
           </div>
+          <PortfolioHoldingsSaleStatus
+            isListed={isListed}
+            listPriceUsd={row.listPriceUsd}
+            redeemStatus={redeemStatus}
+          />
         </div>
-
-        {redeemStatus?.kind === "possession" ? (
-          <div className="pf-mobile-asset-card__possession tkl-mono">In your possession</div>
-        ) : null}
-
-        {redeemStatus && redeemStatus.kind !== "possession" ? (
-          <div className="pf-mobile-asset-card__status">
-            <span className={`pf-redeem-badge pf-redeem-badge--${redeemStatus.tone}`}>
-              {redeemStatus.label}
-            </span>
-            {redeemStatus.kind === "transit" ? (
-              <div className="pf-mobile-asset-card__note">
-                This card is on its way — it can&apos;t be listed.
-              </div>
-            ) : redeemStatus.kind === "preparing" ||
-              redeemStatus.kind === "custody_pending" ? (
-              <div className="pf-mobile-asset-card__note pf-mobile-asset-card__note--azure">
-                {redeemStatus.kind === "custody_pending"
-                  ? "Paid — finish transferring NFTs into custody."
-                  : "Paid — your cards are being prepared."}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
 
         {redeemStatus?.kind !== "transit" && redeemStatus?.kind !== "possession" ? (
           <>
@@ -146,7 +129,19 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
             <div className="pf-mobile-asset-card__row">
               <span className="pf-mobile-asset-card__label">Mkt Price</span>
               <span className="pf-mobile-asset-card__val pf-mobile-asset-card__val--mkt tkl-mono">
-                <span>{valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}</span>
+                <span>
+                  {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+                  {pnl ? (
+                    <span
+                      className={`pf-mkt-dir${
+                        pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
+                      }`}
+                      aria-hidden
+                    >
+                      {portfolioPriceChangeArrow(pnl.positive)}
+                    </span>
+                  ) : null}
+                </span>
                 {pnl ? (
                   <span className={`pf-mobile-asset-card__return pf-table-pl ${plClass}`}>
                     {pnl.returnPct}
@@ -167,6 +162,8 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           <div className="pf-mobile-asset-card__actions">
             <PortfolioHoldingsRowActions
               isListed={isListed}
+              listPriceUsd={row.listPriceUsd}
+              listedAskLabel
               fullWidth
               disabled={actionsDisabled}
               disabledTitle={actionsDisabledTitle}

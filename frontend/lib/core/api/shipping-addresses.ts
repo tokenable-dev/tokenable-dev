@@ -92,6 +92,61 @@ export async function deleteShippingAddress(id: string): Promise<void> {
   if (!res.ok) throw new Error(await readError(res, "Failed to delete address"));
 }
 
+export type AddressSearchSuggestion = {
+  placeId: string;
+  main: string;
+  sec: string;
+};
+
+export type AddressSearchDetails = {
+  placeId: string;
+  main: string;
+  sec: string;
+  line1: string;
+  line2: string;
+  city: string;
+  region: string;
+  postal: string;
+  country: ShippingCountry;
+  countryIso2: string;
+  phoneDial: string;
+  blocked: boolean;
+  blockedName: string | null;
+};
+
+export async function getAddressAutocomplete(input: {
+  q?: string;
+  sessionToken?: string;
+}): Promise<{ enabled: boolean; suggestions: AddressSearchSuggestion[] }> {
+  const params = new URLSearchParams();
+  if (input.q?.trim()) params.set("q", input.q.trim());
+  if (input.sessionToken) params.set("sessionToken", input.sessionToken);
+  const qs = params.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/user/shipping-addresses/autocomplete${qs ? `?${qs}` : ""}`,
+  );
+  if (!res.ok) {
+    return { enabled: false, suggestions: [] };
+  }
+  return (await res.json()) as {
+    enabled: boolean;
+    suggestions: AddressSearchSuggestion[];
+  };
+}
+
+export async function getAddressPlace(input: {
+  placeId: string;
+  sessionToken?: string;
+}): Promise<AddressSearchDetails> {
+  const params = new URLSearchParams({ placeId: input.placeId });
+  if (input.sessionToken) params.set("sessionToken", input.sessionToken);
+  const res = await backendFetch(
+    `${getApiUrl()}/user/shipping-addresses/place?${params.toString()}`,
+  );
+  if (!res.ok) throw new Error(await readError(res, "Address not found"));
+  return (await res.json()) as AddressSearchDetails;
+}
+
 /**
  * Save as the user's default profile address (Settings → Addresses).
  * Updates the current default if one exists; otherwise creates a new default.

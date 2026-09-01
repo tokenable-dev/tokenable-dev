@@ -177,7 +177,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 51, 255, 0.25);
+  border: 2px solid rgba(26, 111, 255, 0.25);
   border-top-color: var(--azure);
   animation: secondary-spin 0.7s linear infinite;
 }
@@ -283,8 +283,8 @@
 }
 
 .secondary-panel--danger {
-  border: 1px solid rgba(228, 55, 74, 0.2);
-  background: rgba(228, 55, 74, 0.06);
+  border: 1px solid rgba(245, 51, 44, 0.2);
+  background: rgba(245, 51, 44, 0.06);
 }
 
 .secondary-panel--danger .secondary-panel__title {
@@ -341,8 +341,8 @@
 }
 
 .secondary-dialog-wallet--brand {
-  border-color: rgba(0, 51, 255, 0.25);
-  background: rgba(0, 51, 255, 0.08);
+  border-color: rgba(26, 111, 255, 0.25);
+  background: rgba(26, 111, 255, 0.08);
 }
 
 .secondary-dialog-wallet__label {

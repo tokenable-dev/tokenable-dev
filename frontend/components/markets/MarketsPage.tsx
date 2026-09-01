@@ -24,7 +24,6 @@ import {
 import { useMarketsInfiniteScroll } from "@/hooks/markets/useMarketsInfiniteScroll";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
-import { HomeTicker } from "@/components/home/HomeTicker";
 import {
   collectionMatchesCategoryFilters,
   type CollectionCategoryId,
@@ -409,7 +408,6 @@ export default function MarketsPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
     return (
       <div className="markets-page">
-        <HomeTicker />
         <div className="tkl-wrap py-16">
           <AppPageState
             kind="markets_load_failed"
@@ -434,7 +432,6 @@ export default function MarketsPage() {
 
   return (
     <div className="markets-page">
-      <HomeTicker />
       <MarketsPageHeader
         searchQuery={isSearchMode ? searchQ : undefined}
         resultCount={
@@ -625,6 +622,7 @@ export default function MarketsPage() {
                   changeLoading={showMarketSnapshotLoadingBar}
                   snapshotsFetching={snapshotsFetching}
                   onBeforeNavigate={saveMarketsBrowseContext}
+                  showCatalogSubtitle={isSearchMode}
                 />
 
                 {isFetchingNextPage ? (

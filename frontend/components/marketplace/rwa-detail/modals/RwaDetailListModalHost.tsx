@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Order } from "@/lib/core";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
 const ListRwaModal = dynamic(
   () =>
@@ -15,6 +16,8 @@ export function RwaDetailListModalHost({
   open,
   tokenId,
   assetTitle,
+  headlineParts,
+  headlineGrade,
   collectionKey,
   collectionBids,
   existingAskOrder,
@@ -31,6 +34,8 @@ export function RwaDetailListModalHost({
   open: boolean;
   tokenId: number;
   assetTitle: string;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineGrade?: string | null;
   collectionKey?: string;
   collectionBids: Order[];
   existingAskOrder?: Order;
@@ -51,6 +56,8 @@ export function RwaDetailListModalHost({
       shell="sheet"
       tokenId={tokenId}
       assetTitle={assetTitle}
+      headlineParts={headlineParts}
+      headlineGrade={headlineGrade}
       collectionKey={collectionKey}
       collectionBids={collectionBids}
       existingAskOrder={existingAskOrder}

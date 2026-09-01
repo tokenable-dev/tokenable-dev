@@ -14,6 +14,7 @@ import {
 import {
   buildMarketsCollectionHeadlineParts,
   buildMarketsCollectionHoverTitle,
+  buildMarketsCollectionMeta,
   buildMarketsCollectionTitle,
   gradeLabelFromComp,
 } from "@/lib/markets/marketsCollectionTitle";
@@ -27,8 +28,8 @@ import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailCom
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 type CardSub = {
+  glyph?: string;
   label: string;
-  period?: string;
   tone: "up" | "down" | "muted" | "accent";
 };
 
@@ -69,10 +70,10 @@ function formatChangeSub(
   const tone = referenceChangeTone(changePct);
   const window = periodLabel?.trim() || formatCardChangePeriod(snapshot);
   const pct = formatCardChangePercent(changePct);
-  const arrow = tone === "down" ? "▼ " : "▲ ";
+  const glyph = tone === "down" ? "\u25BC" : "\u25B2";
   return {
-    label: `${arrow}${pct}`,
-    period: window,
+    glyph,
+    label: `${pct} \u00b7 ${window}`,
     tone: tone === "down" ? "down" : "up",
   };
 }
@@ -81,13 +82,14 @@ export const CollectibleCard = memo(function CollectibleCard({
   collection,
   snapshot,
   resolvedCoverUrl,
-  subMode = "change",
+  subMode: _subMode = "change",
   changeLoading = false,
   marketChangePctOverride,
   marketChangePeriodLabel,
   onBeforeNavigate,
   shell = "wrap",
   position,
+  showCatalogSubtitle = false,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
@@ -99,6 +101,8 @@ export const CollectibleCard = memo(function CollectibleCard({
   onBeforeNavigate?: () => void;
   shell?: "wrap" | "none";
   position?: number;
+  /** Search results — Line 2 `{Year} · {Set} {Language} · {Variant}` under Line 1. */
+  showCatalogSubtitle?: boolean;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
@@ -107,6 +111,9 @@ export const CollectibleCard = memo(function CollectibleCard({
   const grade = gradeLabelFromComp(comp);
   const title = buildMarketsCollectionTitle({ collection, comp });
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
+  const catalogSubtitle = showCatalogSubtitle
+    ? buildMarketsCollectionMeta({ collection, comp })
+    : "";
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct =
     marketChangePctOverride !== undefined
@@ -115,14 +122,7 @@ export const CollectibleCard = memo(function CollectibleCard({
   const changePeriod =
     marketChangePeriodLabel?.trim() || formatCardChangePeriod(snapshot);
 
-  let sub = formatChangeSub(snapshot, changePct, changeLoading, changePeriod);
-  if (
-    subMode === "vaulted" &&
-    !changeLoading &&
-    (changePct == null || !Number.isFinite(changePct))
-  ) {
-    sub = { label: "Just listed", tone: "muted" };
-  }
+  const sub = formatChangeSub(snapshot, changePct, changeLoading, changePeriod);
 
   const href = `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`;
 
@@ -171,11 +171,16 @@ export const CollectibleCard = memo(function CollectibleCard({
             className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.3]"
           />
         </div>
+        {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
         <div className="card__price-row">
           <span className="card__price">{formatUsdCompact(priceUsd)}</span>
           <span className={`card__sub card__sub--${sub.tone}`}>
+            {sub.glyph ? (
+              <span className="card__sub-glyph" aria-hidden>
+                {sub.glyph}
+              </span>
+            ) : null}
             {sub.label}
-            {sub.period ? <span className="card__per">{sub.period}</span> : null}
           </span>
         </div>
       </div>

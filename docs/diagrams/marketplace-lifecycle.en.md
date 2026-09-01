@@ -165,7 +165,7 @@ sequenceDiagram
     rect rgba(250, 204, 21, 0.12)
         Note over U,C: ④ Instant Buy (bid price ≥ lowest ask)
         Note over A: pickLowestActiveAsk() → runInstantPurchase(ask)
-        A  ->> C  : USDC.approve(Seaport, askPrice)
+        A  ->> C  : USDC.approve(Seaport, maxUint256)
         A  ->> C  : Seaport.fulfillOrder(orderParams, extraData)
         C -->> U  : 💸 NFT → buyer / USDC → seller
         A  ->> S  : PATCH /api/marketplace/orders/:hash/fulfill

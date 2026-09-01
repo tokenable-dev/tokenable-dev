@@ -2,103 +2,67 @@
 
 import Link from "next/link";
 import { TkButton } from "@/components/ds";
+import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { holdingsSaleKind } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 
-/** Set price / Edit price — or redeem status CTAs (right-side Action only). */
+/** Action column — 1:1 with sale status (Set price / Edit price / Track →). */
 export function PortfolioHoldingsRowActions({
   isListed,
+  listPriceUsd = null,
   fullWidth = false,
+  listedAskLabel = false,
   disabled = false,
   disabledTitle,
   redeemStatus = null,
   onSetPrice,
 }: {
   isListed: boolean;
-  /** Mobile cards use full-width ghost CTA (height 44). */
+  listPriceUsd?: number | null;
   fullWidth?: boolean;
+  /** Gallery / mobile: show `Listed · $n` (or `—`) above the CTA. */
+  listedAskLabel?: boolean;
   disabled?: boolean;
   disabledTitle?: string;
-  /** When set, replaces Set price with status on the Action column only. */
   redeemStatus?: RedeemSurfaceBadge | null;
   onSetPrice: () => void;
 }) {
-  if (redeemStatus) {
-    if (redeemStatus.kind === "custody_pending" && redeemStatus.statusHref) {
-      return (
-        <div
-          className={`pf-table-actions pf-table-actions--status pf-table-actions--preparing${fullWidth ? " pf-table-actions--full" : ""}`}
-          title="Paid — finish transferring NFTs into custody"
-        >
-          {fullWidth ? null : (
-            <span className={`pf-redeem-badge pf-redeem-badge--${redeemStatus.tone}`}>
-              {redeemStatus.label}
-            </span>
-          )}
-          <Link
-            href={redeemStatus.statusHref}
-            className="pf-table-actions__status-btn"
-          >
-            Finish transfer
-          </Link>
-        </div>
-      );
-    }
+  const kind = holdingsSaleKind(isListed, redeemStatus);
+  const wrap = `pf-table-actions${fullWidth ? " pf-table-actions--full" : ""}`;
 
-    if (redeemStatus.kind === "preparing" && redeemStatus.statusHref) {
-      return (
-        <div
-          className={`pf-table-actions pf-table-actions--status pf-table-actions--preparing${fullWidth ? " pf-table-actions--full" : ""}`}
-          title="Paid — being prepared to ship"
-        >
-          {fullWidth ? null : (
-            <span className={`pf-redeem-badge pf-redeem-badge--${redeemStatus.tone}`}>
-              {redeemStatus.label}
-            </span>
-          )}
-          <Link
-            href={redeemStatus.statusHref}
-            className="pf-table-actions__status-btn"
-          >
-            View status
-          </Link>
-        </div>
-      );
+  if (kind === "redeeming") {
+    const href = redeemStatus?.statusHref;
+    if (!href) {
+      return <div className={wrap} />;
     }
-
-    if (redeemStatus.kind === "transit" && redeemStatus.statusHref) {
-      return (
-        <div
-          className={`pf-table-actions pf-table-actions--status${fullWidth ? " pf-table-actions--full" : ""}`}
-          title="Redemption in progress — listing unavailable"
-        >
-          {fullWidth ? null : (
-            <span className={`pf-redeem-badge pf-redeem-badge--${redeemStatus.tone}`}>
-              {redeemStatus.label}
-            </span>
-          )}
-          <Link
-            href={redeemStatus.statusHref}
-            className="pf-table-actions__status-link tkl-mono"
-          >
-            View status →
-          </Link>
-        </div>
-      );
-    }
-
     return (
-      <div
-        className={`pf-table-actions pf-table-actions--status${fullWidth ? " pf-table-actions--full" : ""}`}
-      >
-        <span className="pf-table-actions__status tkl-mono">{redeemStatus.label}</span>
+      <div className={`${wrap} pf-table-actions--status`}>
+        <Link href={href} className="pf-table-actions__status-link tkl-mono">
+          Track →
+        </Link>
       </div>
     );
   }
 
+  const showAsk = listedAskLabel;
+  const askText =
+    isListed && listPriceUsd != null
+      ? `Listed · ${formatPortfolioUsd(listPriceUsd)}`
+      : "—";
+
   return (
     <div
-      className={`pf-table-actions pf-table-actions--set-price${fullWidth ? " pf-table-actions--full" : ""}${disabled ? " pf-table-actions--dim" : ""}`}
+      className={`${wrap}${showAsk ? " pf-table-actions--set-price" : ""}${disabled ? " pf-table-actions--dim" : ""}`}
     >
+      {showAsk ? (
+        <span
+          className={`pf-table-ask tkl-mono${
+            isListed && listPriceUsd != null ? "" : " pf-table-ask--empty"
+          }`}
+        >
+          {askText}
+        </span>
+      ) : null}
       <TkButton
         type="button"
         variant="ghost"
@@ -108,7 +72,7 @@ export function PortfolioHoldingsRowActions({
         title={disabled ? disabledTitle : undefined}
         onClick={onSetPrice}
       >
-        {isListed ? "Edit price" : "Set price"}
+        {kind === "listed" ? "Edit price" : "Set price"}
       </TkButton>
     </div>
   );

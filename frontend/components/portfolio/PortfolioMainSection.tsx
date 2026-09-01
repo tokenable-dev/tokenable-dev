@@ -90,22 +90,22 @@ export function PortfolioMainSection({
           id="portfolio-tab-bids"
           active={activeTab === "bids"}
           aria-controls="portfolio-panel-bids"
-          aria-label="Active Bids"
+          aria-label="My Bids"
           onClick={() => onTabChange("bids")}
         >
           <BidsTabIcon />
-          <TabLabel full="Active Bids" />
+          <TabLabel full="My Bids" />
           <TabCount value={counts.bids} />
         </TkTab>
         <TkTab
           id="portfolio-tab-history"
           active={activeTab === "history"}
           aria-controls="portfolio-panel-history"
-          aria-label="TX History"
+          aria-label="Tx History"
           onClick={() => onTabChange("history")}
         >
           <HistoryTabIcon />
-          <TabLabel full="TX History" />
+          <TabLabel full="Tx History" />
           <TabCount value={counts.history} />
         </TkTab>
       </TkTabs>

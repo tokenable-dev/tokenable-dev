@@ -113,6 +113,9 @@ SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300
 # FEDEX_RATE_QUOTE_TTL_MINUTES=15
 # Redeem delivery → auto receipt (FedEx Track; separate BIV project keys)
 # FEDEX_TRACK_ENABLED=false
+# Address autocomplete (Redeem / Settings / Partner origin). Server-side Places.
+# Omit in production to hide the search line. Local mock works without a key.
+# GOOGLE_PLACES_API_KEY=
 # FEDEX_TRACK_SANDBOX_ONES_DELIVERED=true
 # REDEEM_FEDEX_TRACK_CRON=*/30 * * * *
 # REDEEM_AUTO_RECEIPT_ENABLED=true

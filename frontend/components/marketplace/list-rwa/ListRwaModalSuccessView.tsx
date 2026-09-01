@@ -46,7 +46,8 @@ export function ListRwaModalSuccessView({
   let kind: ActionCompleteKind = "listed";
   if (fillFailed) kind = "fill-failed";
   else if (successMeta?.matched) kind = "sale";
-  else if (isSetPrice || isReplaceListing) kind = "price-updated";
+  else if (isReplaceListing) kind = "price-updated";
+  else kind = "listed";
 
   const saleSub = successMeta?.matched
     ? isSelfVaultHold
@@ -56,7 +57,7 @@ export function ListRwaModalSuccessView({
 
   const listedSub =
     !successMeta?.matched && !fillFailed
-      ? isSetPrice || isReplaceListing
+      ? isReplaceListing
         ? priceUsdc != null
           ? `Listed at $${priceUsdc.toLocaleString("en-US")}.`
           : undefined

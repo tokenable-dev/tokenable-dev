@@ -37,13 +37,12 @@ export function formatCardNameForHeadline(raw: string): string {
 
 /**
  * User-facing card copy — prefer title case over ALL CAPS.
- * Mixed-case input is preserved; ALL-CAPS / slug input is title-cased with common TCG acronyms kept.
+ * Mixed-case tokens (`SV2a`, `Charizard`) stay as-is; ALL-CAPS words are title-cased.
  */
 export function toCardDisplayCase(value: string | null | undefined): string {
   if (value == null) return "";
   const t = String(value).trim().replace(/\s+/g, " ");
   if (!t) return "";
-  if (/[a-z]/.test(t)) return t;
 
   const acronyms = new Set([
     "psa",
@@ -67,35 +66,29 @@ export function toCardDisplayCase(value: string | null | undefined): string {
     "bsp",
   ]);
 
+  const mapPart = (part: string): string => {
+    if (!part) return part;
+    if (/[a-z]/.test(part)) return part;
+    const lower = part.toLowerCase();
+    if (acronyms.has(lower)) {
+      if (lower === "v") return "V";
+      if (lower === "vmax") return "VMAX";
+      if (lower === "vstar") return "VSTAR";
+      return lower.toUpperCase();
+    }
+    if (/^#\d/.test(part)) return part;
+    if (/^#[A-Za-z0-9]/.test(part)) return normalizeHeadlineCardNumberToken(part);
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  };
+
   return t
     .replace(/\/+/g, " ")
     .replace(/[_]+/g, " ")
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => {
-      const lower = w.toLowerCase();
-      if (acronyms.has(lower)) {
-        if (lower === "v") return "V";
-        if (lower === "vmax") return "VMAX";
-        if (lower === "vstar") return "VSTAR";
-        return lower.toUpperCase();
-      }
-      if (/^#\d/.test(w)) return w;
-      if (/^#[A-Za-z0-9]/.test(w)) return normalizeHeadlineCardNumberToken(w);
-      // Keep hyphenated tokens like EN-151 readable
-      if (w.includes("-")) {
-        return w
-          .split("-")
-          .map((part) => {
-            const pl = part.toLowerCase();
-            if (acronyms.has(pl)) return pl.toUpperCase();
-            if (!part) return part;
-            return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-          })
-          .join("-");
-      }
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
+    .map((w) =>
+      w.includes("-") ? w.split("-").map(mapPart).join(" ") : mapPart(w),
+    )
     .join(" ");
 }
 
@@ -131,6 +124,49 @@ export function formatHeadlineCardNumber(raw: string | undefined | null): string
     if (Number.isFinite(v) && v >= 0) return String(v).padStart(3, "0");
   }
   return normalizeHeadlineCardNumberToken(n);
+}
+
+/**
+ * Pull a collector number out of a listing / catalog title when `components.cardNumber` is missing.
+ * Prefers `#199/165`, `199/165`, `#OP13-118` — never a 4-digit year.
+ */
+export function extractCardNumberFromDisplayText(
+  raw: string | null | undefined,
+): string | null {
+  const t = String(raw ?? "").trim();
+  if (!t) return null;
+  const slash = /#?(\d{1,3}\s*\/\s*\d{1,3})\b/.exec(t);
+  if (slash) return formatHeadlineCardNumber(slash[1].replace(/\s+/g, ""));
+  const op = /\b(OP\d{1,2}-?\d{2,4})\b/i.exec(t);
+  if (op) return formatHeadlineCardNumber(op[1]);
+  const hashedAlnum = /#([A-Za-z]{1,4}\d{2,6}[A-Za-z]?)\b/.exec(t);
+  if (hashedAlnum) return formatHeadlineCardNumber(hashedAlnum[1]);
+  const hashedNum = /#(\d{1,4})\b/.exec(t);
+  if (hashedNum) {
+    const token = hashedNum[1];
+    if (/^\d{4}$/.test(token)) {
+      const y = Number(token);
+      if (y >= 1880 && y <= 2100) return null;
+    }
+    return formatHeadlineCardNumber(token);
+  }
+  return peelTrailingCollectorNumber(t).cardNumber;
+}
+
+/** `Master Ball Reverse Holo · 094` → text + `094`. Does not peel years. */
+export function peelTrailingCollectorNumber(raw: string | null | undefined): {
+  text: string;
+  cardNumber: string | null;
+} {
+  const t = String(raw ?? "").trim();
+  if (!t) return { text: "", cardNumber: null };
+  const m = /^(.*?)(?:\s*[·•]\s*|\s+)#?(\d{2,3})$/.exec(t);
+  if (!m) return { text: t, cardNumber: null };
+  const rest = m[1].trim();
+  const token = m[2];
+  if (!rest) return { text: t, cardNumber: null };
+  if (/^\d{4}$/.test(token)) return { text: t, cardNumber: null };
+  return { text: rest, cardNumber: formatHeadlineCardNumber(token) };
 }
 
 export function yearFromComponents(components: CollectionComponents): number | null {

@@ -5,11 +5,11 @@ const FEATURES = [
   {
     iconTone: "pos" as const,
     title: "Authentication",
-    text: "Only PSA 9 and PSA 10 graded cards accepted. Each cert is verified against PSA's database.",
+    text: "Only PSA 9 & PSA 10 graded cards accepted. Each cert is verified against PSA's database.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="9" />
         <path d="M9 12l2 2 4-4" />
-        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
       </svg>
     ),
   },
@@ -30,42 +30,39 @@ const FEATURES = [
     text: "Cards stay vaulted while transactions settle atomically. No shipping, no chargebacks, no counterfeit risk.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        <path d="M3 12h4l3 8 4-16 3 8h4" />
       </svg>
     ),
   },
 ] as const;
 
 const ICON_BG = {
-  pos: { background: "rgba(0,200,100,0.08)", color: "var(--pos)" },
-  azure: { background: "rgba(26,111,255,0.08)", color: "var(--azure)" },
-  purple: { background: "rgba(139,92,246,0.08)", color: "#8b5cf6" },
+  pos: { background: "rgba(0,200,100,0.12)", color: "var(--pos)" },
+  azure: { background: "rgba(26,111,255,0.12)", color: "var(--azure)" },
+  purple: { background: "rgba(111,75,255,0.14)", color: "#8f7bff" },
 };
 
-/** Signed-out sell hub landing — entry before Connecting to seller tools. */
+/** Signed-out sell hub landing — Vault-Dashboard-Active.html `#view-landing`. */
 export function VaultLandingView({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div className="vault-landing">
-      <div className="vault-landing__icon">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="1.5">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          <circle cx="12" cy="16" r="1" />
-        </svg>
+      <div className="vault-landing__hero">
+        <div className="vault-landing__icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h1>
+          Vault your cards.
+          <br />
+          <span>Trade the token.</span>
+        </h1>
+        <TkButton variant="primary" size="md" className="vault-landing__cta" onClick={onSignIn}>
+          Connect wallet
+        </TkButton>
+        <div className="vault-landing__connect-hint">to start selling</div>
       </div>
-      <h1>
-        Sell your cards.
-        <br />
-        <span>Own the token.</span>
-      </h1>
-      <p className="vault-landing__text">
-        Submit your PSA-graded cards to our secure vault.
-        <br />
-        We verify and mint your token — so you can trade without shipping.
-      </p>
-      <TkButton variant="primary" size="md" className="h-14 px-9 text-base" onClick={onSignIn}>
-        Connect Wallet to Start →
-      </TkButton>
 
       <div className="vault-landing__features">
         {FEATURES.map((f) => (

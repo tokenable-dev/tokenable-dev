@@ -222,11 +222,11 @@
 .tk-settings__btn--danger {
   background: transparent;
   color: #ff6b7a;
-  box-shadow: inset 0 0 0 1px rgba(228, 55, 74, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(245, 51, 44, 0.4);
 }
 
 .tk-settings__btn--danger:hover:not(:disabled) {
-  background: rgba(228, 55, 74, 0.08);
+  background: rgba(245, 51, 44, 0.08);
 }
 
 .tk-settings__btn--sm {
@@ -293,7 +293,7 @@
 }
 
 .tk-settings__chip--warn {
-  background: rgba(234, 130, 0, 0.12);
+  background: rgba(243, 112, 30, 0.12);
   color: var(--warn);
 }
 

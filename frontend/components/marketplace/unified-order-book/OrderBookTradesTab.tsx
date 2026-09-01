@@ -131,7 +131,7 @@ export function OrderBookTradesTab({
                 : "flex min-h-[12rem] flex-1 items-center justify-center px-4 text-center"
           }
         >
-          <span className={`${rowValueCls} text-rose-400/90`}>
+          <span className={`${rowValueCls} text-neg/90`}>
             {tapeErrorMessage?.trim() || "Failed to load trades"}
           </span>
         </div>

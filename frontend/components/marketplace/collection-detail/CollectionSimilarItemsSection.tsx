@@ -29,7 +29,10 @@ function ChangeChip({ pct }: { pct: number | null }) {
             : ""
       }`}
     >
-      {arrow} {formatReferencePercentChange(pct)}
+      <span className="cd-chg-glyph" aria-hidden>
+        {arrow}
+      </span>{" "}
+      {formatReferencePercentChange(pct)}
     </span>
   );
 }

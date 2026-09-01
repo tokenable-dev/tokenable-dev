@@ -270,7 +270,7 @@ export function PartnerCompanyAddressRequiredModal() {
             height="18"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#EA8200"
+            stroke="#F3701E"
             strokeWidth="2.2"
             style={{ flex: "none" }}
             aria-hidden

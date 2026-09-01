@@ -106,8 +106,7 @@ function transitEta(s: VaultSubmissionApi): string {
   if (carrier && s.trackingNumber) parts.push(`${carrier} · ${s.trackingNumber}`);
   else if (s.trackingNumber) parts.push(s.trackingNumber);
   if (parts.length) return parts.join(" · ");
-  if (s.status === "awaiting_shipment") return "Tracking number required";
-  return "In transit to the vault";
+  return "";
 }
 
 function verifyEta(s: VaultSubmissionApi): string {
@@ -175,6 +174,7 @@ function progressRows(s: VaultSubmissionApi): VaultHubRow[] {
       eta: vstate === "transit" ? transitEta(s) : verifyEta(s),
       trackingUrl: vstate === "transit" ? trackingHref(s) : undefined,
       addTrackingHref: awaiting ? resumeHref : undefined,
+      detailHref: detailHref(s.publicId),
     };
   });
 }
@@ -184,6 +184,7 @@ function doneRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubR
     id: `${s.publicId}:done:${item.id}`,
     vstate: "vaulted",
     ...itemMeta(item),
+    detailHref: `/portfolio`,
   };
 }
 
@@ -194,6 +195,7 @@ function rejectedRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): Vault
     vstate: "reject",
     ...itemMeta(item),
     reject: resolveReject(item.rejectionReason, failed, s),
+    detailHref: detailHref(s.publicId),
   };
 }
 

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { TkButton } from "@/components/ds";
 import { PARTNER_PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { PartnerMintBatchResult } from "@/lib/sell/mintSellFlowCard";
 
-/** Partner-Add-Cards.html #done-overlay + #done-box */
+/** Partner mint success — overlay modal (copy from Choose-Vault-Individual.html #scr-done). */
 export function SellFlowPartnerDoneModal({
   result,
   onAddMore,
@@ -28,6 +28,21 @@ export function SellFlowPartnerDoneModal({
   const allFailed = ok === 0 && skip > 0;
   const noun = ok === 1 ? "card" : "cards";
 
+  const title = allFailed ? (
+    <>None of {total} cards were registered</>
+  ) : (
+    <>
+      {ok} {noun} vaulted and token minted.
+      {skip > 0 ? ` (${skip} skipped)` : null}
+    </>
+  );
+
+  const copy = allFailed
+    ? "Each card below was skipped so the rest of the queue could finish. You can fix them and try again."
+    : skip > 0
+      ? "Registered cards are in your portfolio. Skipped cards stayed in your list so you can retry."
+      : "Set a price and start selling, or add more cards.";
+
   return createPortal(
     <div
       className="sell-flow-partner-done-overlay"
@@ -45,18 +60,18 @@ export function SellFlowPartnerDoneModal({
           aria-hidden
         >
           {allFailed ? (
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
           ) : (
             <svg
-              width="34"
-              height="34"
+              width="42"
+              height="42"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#059669"
+              stroke="var(--pos, rgb(0, 200, 100))"
               strokeWidth="2.6"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -65,33 +80,10 @@ export function SellFlowPartnerDoneModal({
             </svg>
           )}
         </div>
-        <div id="partner-done-title" className="sell-flow-partner-done-title">
-          {allFailed ? (
-            <>None of {total} cards were registered</>
-          ) : (
-            <>
-              <span className="sell-flow-partner-done-n">{ok}</span>{" "}
-              <span className="sell-flow-partner-done-noun">{noun}</span> registered
-              {skip > 0 ? (
-                <>
-                  {" "}
-                  <span className="sell-flow-partner-done-skip-n">
-                    ({skip} skipped)
-                  </span>
-                </>
-              ) : (
-                <> in your vault</>
-              )}
-            </>
-          )}
-        </div>
-        <p className="sell-flow-partner-done-copy">
-          {allFailed
-            ? "Each card below was skipped so the rest of the queue could finish. You can fix them and try again."
-            : skip > 0
-              ? "Registered cards are in your portfolio. Skipped cards stayed in your list so you can retry."
-              : "They’re now digital assets in your portfolio. Set a price to put them up for sale."}
-        </p>
+        <h1 id="partner-done-title" className="sell-flow-partner-done-title">
+          {title}
+        </h1>
+        <p className="sell-flow-partner-done-copy">{copy}</p>
 
         {ok + skip > 0 ? (
           <div className="sell-flow-partner-done-scroll">
@@ -136,24 +128,13 @@ export function SellFlowPartnerDoneModal({
 
         <div className="sell-flow-partner-done-actions">
           {ok > 0 ? (
-            <Link
-              href={PARTNER_PORTFOLIO_PATH}
-              className="sell-flow-partner-modal-btn sell-flow-partner-modal-btn--primary"
-            >
-              Set prices in portfolio
-            </Link>
+            <TkButton href={PARTNER_PORTFOLIO_PATH} variant="primary">
+              Set prices
+            </TkButton>
           ) : null}
-          <button
-            type="button"
-            className={
-              ok > 0
-                ? "sell-flow-partner-modal-btn sell-flow-partner-modal-btn--ghost"
-                : "sell-flow-partner-modal-btn sell-flow-partner-modal-btn--primary"
-            }
-            onClick={onAddMore}
-          >
-            {skip > 0 ? "Back to remaining cards" : "Add more cards"}
-          </button>
+          <TkButton type="button" variant={ok > 0 ? "subtle" : "primary"} onClick={onAddMore}>
+            Add cards
+          </TkButton>
         </div>
       </div>
     </div>,

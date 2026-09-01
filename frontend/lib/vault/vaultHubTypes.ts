@@ -23,6 +23,7 @@ export type VaultHubRow = {
   /** Pre-ship: existing Add tracking flow. */
   addTrackingHref?: string;
   reject?: VaultHubReject;
+  detailHref?: string;
 };
 
 /** @deprecated Prefer VaultHubRow — kept for older imports. */

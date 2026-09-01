@@ -19,7 +19,7 @@ export function HomePartners() {
   return (
     <section className="tkl-wrap home-partners-section">
       <div className="home-partners__row">
-        <span className="home-partners__label">Trusted data &amp; grading partners</span>
+        <span className="home-partners__label">Data and information sources</span>
         <div className="home-partners__logos">
           {PARTNER_LOGOS.map((logo) => (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -37,9 +37,9 @@ export function HomePartners() {
         <div className="home-partners__cta-glow" aria-hidden />
         <div className="home-partners__cta-copy">
           <span className="home-partners__cta-eyebrow">Get started</span>
-          <h2 className="home-partners__cta-title">Vault it. Tokenize it. Trade it.</h2>
+          <h2 className="home-partners__cta-title">Vault it. Trade it.</h2>
           <p className="home-partners__cta-sub">
-            Grade it, vault it, trade it on-chain.
+            The safest and fastest way to trade collectibles.
           </p>
         </div>
         <div className="home-partners__cta-actions">

@@ -23,7 +23,9 @@ function DetailsBody({
       <h2 className="sr-only">{title}</h2>
       {subtitle?.trim() ? <p className="sr-only">{subtitle}</p> : null}
       {catalogLine?.trim() ? (
-        <p className="cd-details-kv__catalog">{catalogLine}</p>
+        <p className="cd-details-kv__catalog" title={catalogLine}>
+          {catalogLine}
+        </p>
       ) : null}
 
       {rows.length > 0 ? (
@@ -33,16 +35,21 @@ function DetailsBody({
           {rows.map((row) => {
             const href = row.href?.trim() || null;
             return (
-              <div key={row.id} className="cd-details-kv__row">
+              <div
+                key={row.id}
+                className={`cd-details-kv__row${
+                  row.id === "owner" ? " cd-details-kv__row--break" : ""
+                }`}
+              >
                 <dt className="cd-details-kv__label">{row.label}</dt>
-                <dd className="cd-details-kv__value">
+                <dd className="cd-details-kv__value" title={row.value}>
                   {href ? (
                     <Link
                       href={href}
                       className="cd-details-kv__attr-link"
                       title={`Browse Markets for ${row.value}`}
                     >
-                      {row.value}
+                      <span className="cd-details-kv__attr-text">{row.value}</span>
                       <span className="cd-details-kv__attr-arrow" aria-hidden>
                         ↗
                       </span>
@@ -58,7 +65,7 @@ function DetailsBody({
       ) : null}
 
       {footer ? (
-        <div className={rows.length > 0 ? "mt-2 px-4 pb-3 pt-2" : "px-4 py-3"}>
+        <div className={rows.length > 0 ? "mt-2 px-5 pb-1 pt-2" : "px-5 py-3"}>
           {footer}
         </div>
       ) : null}

@@ -7,11 +7,8 @@ export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boole
   return (
     <div className="vault-hub-header">
       <div className="vault-hub-header__copy">
-        <span className="vault-hub-header__eyebrow">Sell</span>
-        <h1 className="vault-hub-header__title">Vaulting</h1>
-        <p className="vault-hub-header__sub">
-          Cards being verified and vaulted before they go live.
-        </p>
+        <span className="vault-hub-header__eyebrow">Selling</span>
+        <h1 className="vault-hub-header__title">Track your vaulting progress</h1>
       </div>
       {showSubmitCta ? (
         <Link href="/sell/flow" className="vault-hub-header__cta tk-btn tk-btn--primary">

@@ -100,7 +100,7 @@ export function MarketplaceOrderBook({
                   style={{ width: `${Math.min(100, depth * 100)}%` }}
                 />
                 <div className={`relative z-10 ${rowGrid}`}>
-                  <span className="text-rose-400 font-medium group-hover:text-rose-300">
+                  <span className="text-neg font-medium group-hover:text-neg/80">
                     {price.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,

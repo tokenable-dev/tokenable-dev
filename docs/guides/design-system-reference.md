@@ -5,7 +5,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 
 **AI agents:** `.cursor/rules/design-system-migration.mdc` and `.cursor/rules/design-system-reference.mdc` apply to `frontend/**` and point here first.
 
-**Governance:** `Tokenable-with design system-5/` is the preferred HTML reference; earlier `Tokenable-with design system/` / `-2` / `-3` / `-4` folders are superseded for handoff. None are imported by Next.js — update `frontend/design-system/` intentionally when adopting prototype changes.
+**Governance:** `Tokenable Design System/` is the preferred Figma/CSS token reference. Screen HTML still lives in `Tokenable-with design system-*` folders. None are imported by Next.js — update `frontend/design-system/` intentionally when adopting prototype changes.
 
 ---
 
@@ -13,7 +13,7 @@ Read this before any visual work. Phased migration (0–10) is complete — do n
 
 | Layer | Path | Role |
 |-------|------|------|
-| Designer prototype | `Tokenable-with design system-5/` | HTML / `_ds` bundle — **reference only**, not imported by Next.js |
+| Designer prototype | `Tokenable Design System/` | Tokens + standalone showcase — **reference only**, not imported by Next.js |
 | Committed DS | `frontend/design-system/` | Tokens + `tk-*` CSS — **canonical styles for production** |
 | React primitives | `frontend/components/ds/` | `TkButton`, `TkField`, `TkInput`, `TkSelect`, `TkDialog`, … |
 | App wiring | `frontend/styles/tokenable-ds-entry.css`, `globals.css` | Imports committed DS only |
@@ -39,7 +39,7 @@ Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azu
 1. **This file** — tokens, components, do/don't, CSS import order
 2. **[INVENTORY.md](../../frontend/design-system/INVENTORY.md)** — which React component owns which screen section
 3. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
-4. Matching HTML prototype (reference only): `Tokenable-with design system-5/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
+4. Matching HTML prototype (reference only): `Tokenable Design System/` for tokens; screen HTML in `Tokenable-with design system-*` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
 
 **Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge. Admin backoffice: `http://localhost:3000/dev/admin-ui`.
 
@@ -64,7 +64,7 @@ Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `g
 
 | File | Import from |
 |------|-------------|
-| `tokenable-home.css` | `HomePageContent` + `HomeTicker` (ticker also used on Portfolio / Markets / Watchlist) |
+| `tokenable-home.css` | `HomePageContent` + `HomeTicker` (landing only) |
 | `tokenable-markets.css` | `app/markets/layout.tsx` |
 | `tokenable-watchlist.css` | `app/watchlist/layout.tsx` |
 | `tokenable-collection-detail.css` | `app/marketplace/collections/[collectionKey]/layout.tsx` |
@@ -72,6 +72,7 @@ Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `g
 | `tokenable-portfolio.css` + `tokenable-portfolio-redeem.css` | `app/portfolio/layout.tsx` / `app/partner/portfolio/layout.tsx` |
 | `tokenable-vault.css` | `app/vault/layout.tsx` |
 | `tokenable-sell-flow.css` | `app/sell/layout.tsx` |
+| `tokenable-faq.css` | `app/faq/layout.tsx` |
 | `tokenable-admin.css` | `app/marketplace/admin/layout.tsx` (+ `app/dev/layout.tsx`) |
 | `tokenable-settings.css` | `app/settings/layout.tsx` |
 | `tokenable-partner.css` | `app/partner/layout.tsx` |
@@ -153,7 +154,9 @@ Designer specs may use names like `$background`, `$background-hover` — **map t
 | Primary / links / CTA | `--azure` / `--brand-500` | `#1A6FFF` | same |
 | Page eyebrow | `--eyebrow` | `#5B9AFF` | same |
 | Neutral button | `--brand-400` | `#977DFF` | same |
-| Up / down / warn | `--pos` / `--neg` / `--warn` | existing | same |
+| Up / gain | `--pos` / `--text-positive-default` | `#00C864` | `--green-500` |
+| Down / danger | `--neg` / `--background-danger-default` | `#F5332C` | `--red-500` |
+| Warning | `--warn` / `--background-warning-default` | `#F3701E` | `--yellow-400` |
 
 Do not use `#5B9AFF` for Neutral buttons. Do not use `--brand-400` / `#977DFF` for page eyebrows.
 
@@ -161,7 +164,7 @@ Do not use `#5B9AFF` for Neutral buttons. Do not use `--brand-400` / `#977DFF` f
 
 ## Prototype sync (designer handoff)
 
-When the designer updates `Tokenable-with design system/` (HTML pages, `_ds_bundle.js`, or `_ds/.../components.css`):
+When the designer updates `Tokenable Design System/` (tokens, `components/components.css`, or the standalone HTML):
 
 ### Workflow
 
@@ -240,6 +243,7 @@ Import from `@/components/ds`:
 | `TkDialog` | `tk-dialog` | Center modal — confirm / result (Feedback-States Dialog: title, body, foot) |
 | `TkNote` | `tk-note` / `tk-note--positive\|warning\|danger\|brand` | Inline banners + ephemeral toasts (`NotificationToastsHost`) |
 | `TkActionSheet` | `tk-sheet-*` | Portfolio list/bid/sell — drawer / bottom sheet |
+| `TkStepper` | `tk-stepper` / `--dark` `--light` / `--horizontal` `--vertical` | Shared progress (vault, ship, refund). States `done` `current` `todo` `rejected`. Do not reuse `VaultStepper` for new flows. |
 | `TkTabs`, `TkTable`, `TkTag`, `TkCard`, … | matching `tk-*` | See showcase page |
 
 **Domain cards:** `CollectibleCard` for marketplace tiles (not raw `.card` markup in pages).

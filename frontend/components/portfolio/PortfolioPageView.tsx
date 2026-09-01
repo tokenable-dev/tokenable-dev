@@ -29,7 +29,6 @@ import {
   getPortfolioActivityOrders,
   marketplaceRqPolicy,
   postRwaMetadataBatchBatched,
-  postRwaVaultInfoBatch,
   putPortfolioCostBasis,
   rq,
   type Order,
@@ -38,7 +37,6 @@ import {
 import { activeRqChainId } from "@/lib/chains";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
-import { HomeTicker } from "@/components/home/HomeTicker";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
@@ -64,7 +62,7 @@ import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/moda
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
-import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioTableHelpers";
+import { formatPortfolioGradeLabel, listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
 import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 
 export type PortfolioPageVariant = "default" | "partner";
@@ -104,6 +102,8 @@ export function PortfolioPageView({
   const [listModal, setListModal] = useState<{
     tokenId: number;
     assetTitle: string;
+    headlineParts: ReturnType<typeof listPriceSheetIdentity>["parts"];
+    headlineGrade: string;
     collectionKey?: string;
     existingAskOrderHash?: string;
     marketValueUsd?: number | null;
@@ -190,6 +190,16 @@ export function PortfolioPageView({
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+
+  const {
+    redeemStatusByTokenId,
+    redeemTrackingByTokenId,
+    redeemCarrierDeliveredByTokenId,
+    redeemPaymentBatchByTokenId,
+    inFlightRows,
+    completedRows,
+    query: myRedemptionsQuery,
+  } = useMyRedemptions(portfolioDataEnabled);
 
   const assets: OwnedAsset[] = useMemo(
     () =>
@@ -282,8 +292,12 @@ export function PortfolioPageView({
       const tid = Number(o.tokenId);
       if (Number.isFinite(tid) && tid >= 0) ids.add(tid);
     }
+    for (const row of myRedemptionsQuery.data ?? []) {
+      const tid = Number(row.tokenId);
+      if (Number.isFinite(tid) && tid >= 0) ids.add(tid);
+    }
     return [...ids].sort((a, b) => a - b);
-  }, [fulfilledOrders]);
+  }, [fulfilledOrders, myRedemptionsQuery.data]);
 
   const activityMetaQuery = useQuery({
     queryKey: rq.rwaMetadataBatch(
@@ -314,29 +328,6 @@ export function PortfolioPageView({
     }
     return m;
   }, [assets, activityMetaQuery.data]);
-
-  const vaultInfoQuery = useQuery({
-    queryKey: rq.rwaVaultInfoBatch(
-      portfolioAddress,
-      loadedTokenIds,
-      activeRqChainId(),
-    ),
-    queryFn: () => postRwaVaultInfoBatch(loadedTokenIds),
-    enabled: Boolean(
-      portfolioDataEnabled && portfolioAddress && loadedTokenIds.length > 0,
-    ),
-    staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
-  });
-
-  const vaultLabelByTokenId = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const item of vaultInfoQuery.data?.items ?? []) {
-      const tid = Number(item.tokenId);
-      if (!Number.isFinite(tid)) continue;
-      m.set(tid, item.vaultLabel || "PSA Vault");
-    }
-    return m;
-  }, [vaultInfoQuery.data]);
 
   const { costBasisByTokenId, acquiredAtByTokenId, hiddenSet } = usePortfolioHoldings(
     portfolioAddress,
@@ -441,26 +432,40 @@ export function PortfolioPageView({
 
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
+    const ownedMints: Array<{ tokenId: number; dateMs: number }> = [];
+    for (const tid of tokenIds) {
+      if (hiddenSet.has(tid)) continue;
+      const iso = acquiredAtByTokenId.get(tid);
+      if (!iso) continue;
+      const dateMs = Date.parse(iso);
+      if (!Number.isFinite(dateMs)) continue;
+      ownedMints.push({ tokenId: tid, dateMs });
+    }
     return buildPortfolioTxRows(
       fulfilledOrders,
       portfolioAddress,
       activityMetadataByTokenId,
       activityImageByTokenId,
+      {
+        redemptions: myRedemptionsQuery.data ?? [],
+        ownedMints,
+      },
     );
   }, [
     fulfilledOrders,
     portfolioAddress,
     activityMetadataByTokenId,
     activityImageByTokenId,
+    tokenIds,
+    hiddenSet,
+    acquiredAtByTokenId,
+    myRedemptionsQuery.data,
   ]);
 
   const visibleAssetRows = useMemo(
     () => assetRows.filter((row) => !hiddenSet.has(row.tokenId)),
     [assetRows, hiddenSet],
   );
-
-  const { redeemStatusByTokenId, redeemTrackingByTokenId, redeemCarrierDeliveredByTokenId, inFlightRows, completedRows, query: myRedemptionsQuery } =
-    useMyRedemptions(portfolioDataEnabled);
 
   const ownedTokenIdSet = useMemo(() => new Set(tokenIds), [tokenIds]);
 
@@ -630,9 +635,18 @@ export function PortfolioPageView({
       runSellAccessGate(() => {
         const row = assetRows.find((r) => r.tokenId === tokenId);
         const listing = listingByTokenId.get(tokenId);
+        const identity = listPriceSheetIdentity(
+          holdingsMetadataByTokenId.get(tokenId) ??
+            metadataByTokenId.get(tokenId) ??
+            null,
+          tokenId,
+          row?.name,
+        );
         setListModal({
           tokenId,
-          assetTitle: row?.name ?? `RWA #${tokenId}`,
+          assetTitle: identity.line1,
+          headlineParts: identity.parts,
+          headlineGrade: identity.grade,
           collectionKey: tokenToCollectionKey[tokenId],
           existingAskOrderHash: listing?.orderHash,
           marketValueUsd: row?.currentPrice ?? null,
@@ -646,6 +660,8 @@ export function PortfolioPageView({
       runSellAccessGate,
       tokenToCollectionKey,
       redeemStatusByTokenId,
+      holdingsMetadataByTokenId,
+      metadataByTokenId,
     ],
   );
 
@@ -659,7 +675,8 @@ export function PortfolioPageView({
   const assetsSectionLoading = idsLoading || assetsLoading;
   const portfolioValuePending = dailySnapshotsLoading;
   const bidsSectionLoading = myBids.loading;
-  const historySectionLoading = idsLoading || activityQuery.isLoading;
+  const historySectionLoading =
+    idsLoading || activityQuery.isLoading || myRedemptionsQuery.isLoading;
 
   const portfolioViewedFiredRef = useRef(false);
   useEffect(() => {
@@ -735,7 +752,6 @@ export function PortfolioPageView({
         isPartnerPortfolio ? " portfolio-page--partner" : ""
       }`}
     >
-      <HomeTicker />
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
         <PortfolioValuePanel
           totalsPending={portfolioValuePending}
@@ -783,12 +799,12 @@ export function PortfolioPageView({
               redeemStatusByTokenId={redeemStatusByTokenId}
               redeemTrackingByTokenId={redeemTrackingByTokenId}
               redeemCarrierDeliveredByTokenId={redeemCarrierDeliveredByTokenId}
+              redeemPaymentBatchByTokenId={redeemPaymentBatchByTokenId}
               hasMoreAssets={hasMoreAssets}
               isLoadingMoreAssets={isLoadingMoreAssets}
               onLoadMoreAssets={loadMoreAssets}
               loadedAssetCount={holdingsDisplayRows.length}
               totalAssetCount={holdingsDisplayCount}
-              vaultLabelByTokenId={vaultLabelByTokenId}
             />
           }
           redeemPanel={
@@ -866,6 +882,8 @@ export function PortfolioPageView({
           open
           tokenId={listModal.tokenId}
           assetTitle={listModal.assetTitle}
+          headlineParts={listModal.headlineParts}
+          headlineGrade={listModal.headlineGrade}
           collectionKey={listModal.collectionKey}
           collectionBids={
             listModal.collectionKey

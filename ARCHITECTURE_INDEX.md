@@ -245,14 +245,14 @@ Key facts:
 | **Reference (read first)** | `docs/guides/design-system-reference.md` |
 | **Committed DS CSS** | `frontend/design-system/` (`styles.css`, `tokens/`, `components/components.css`) |
 | **Screen inventory** | `frontend/design-system/INVENTORY.md` |
-| **HTML prototypes (reference)** | `Tokenable-with design system/` (repo root — not imported by Next.js) |
+| **HTML prototypes (reference)** | `Tokenable Design System/` + `Tokenable-with design system-*` (not imported by Next.js) |
 | **DS public assets** | `frontend/public/assets/ds/` |
 | **Cursor rule** | `.cursor/rules/design-system-migration.mdc`, `.cursor/rules/design-system-reference.mdc` |
 | **Required reading before UI/visual changes** | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
 
 Key facts:
 - Migration phases 0–10 are **Done**. Extend the reference + INVENTORY for new UI work.
-- **Prototype sync:** `Tokenable-with design system/` is reference only; production styles live in `frontend/design-system/`.
+- **Prototype sync:** `Tokenable Design System/` is reference only; production styles live in `frontend/design-system/`.
 - Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
 - Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
 - Admin console uses light chrome (`tokenable-admin.css` + `adminUi.ts`) — not pixel `tk-btn`. Layout matches `admin/` HTML (sidebar + main).

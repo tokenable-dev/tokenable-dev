@@ -7,114 +7,13 @@ import type { SellVaultChoice } from "@/lib/sell/sellFlowDraft";
 
 type Flow = ReturnType<typeof useSellFlow>;
 
-const PARTNER_SELF_VAULT_HINT =
-  "Partner vault is a partner service for companies under contract with Tokenable. To apply, contact ";
-
-/** Choose-Vault.html #hero-partner — PSA first, Tokenable Vault second. */
-const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
-  {
-    q: "What is a vault?",
-    a: (
-      <>
-        A way to hold your card so you can sell or trade it instantly without shipping anything each
-        time. The real card stays safely stored; only ownership trades. With PSA Vault, PSA stores
-        it; with Partner vault, a contracted partner stores it.
-      </>
-    ),
-  },
-  {
-    q: "What's the difference between PSA Vault and Partner vault?",
-    a: (
-      <>
-        <strong>PSA Vault</strong> — PSA verifies your card, stores it, insures it while stored, and
-        ships it when someone redeems. <strong>Partner vault</strong> — a contracted partner stores
-        it, attests to it, and ships it on redeem; it isn&rsquo;t independently PSA-verified or
-        insured by the platform. Every listing shows which vault a card is in.
-      </>
-    ),
-  },
-  {
-    q: "Can I choose Partner vault?",
-    a: (
-      <>
-        Partner vault is only for contracted partners. If you&rsquo;re an individual seller, your card
-        goes through <strong>PSA Vault</strong> — it&rsquo;s verified, insured while stored, and
-        shipped for you.
-      </>
-    ),
-  },
-  {
-    q: "Is my card insured?",
-    a: (
-      <>
-        Cards in <strong>PSA Vault</strong> are insured while stored.{" "}
-        <strong>Partner vault</strong> cards are not insured by the platform.
-      </>
-    ),
-  },
-  {
-    q: "Should I trust a Partner vault listing when buying?",
-    a: (
-      <>
-        Partner vault cards are held and attested by a contracted partner, but they&rsquo;re not
-        independently PSA-verified or platform-insured. If you want independent verification and
-        insured storage, choose a <strong>PSA Vault</strong> listing. The badge on every listing
-        tells you which is which.
-      </>
-    ),
-  },
-  {
-    q: "Are there fees?",
-    a: (
-      <>
-        Storing a card is free. A per-card Redemption fee plus shipping at cost. Shown
-        before you confirm.
-      </>
-    ),
-  },
-  {
-    q: "How do I get the physical card?",
-    a: (
-      <>
-        Redeem it: pick the card(s), enter your address, review the cost, confirm and pay. For{" "}
-        <strong>PSA Vault</strong>, PSA ships it from the vault; for <strong>Partner vault</strong>
-        , the partner ships it. Once it arrives it shows as <strong>in your possession</strong>.
-      </>
-    ),
-  },
-  {
-    q: "Can I sell a card without ever shipping it?",
-    a: (
-      <>
-        Yes — that&rsquo;s the point. When it sells, ownership transfers instantly and the card stays
-        in its vault. It only ships when someone redeems.
-      </>
-    ),
-  },
-  {
-    q: "Who verifies the card is real?",
-    a: (
-      <>
-        For <strong>PSA Vault</strong>, PSA grades and verifies it before listing. For{" "}
-        <strong>Partner vault</strong>, the contracted partner attests to it; it isn&rsquo;t
-        independently PSA-verified. The badge tells you which.
-      </>
-    ),
-  },
-];
-
 function CheckFeat({ tone = "pos" }: { tone?: "pos" | "warn" }) {
   if (tone === "warn") {
     return (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-        <circle cx="12" cy="12" r="10" fill="#f59e0b" />
-        <path
-          d="M12 7.2v6.2M12 16.6v.2"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2.2" aria-hidden>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="13" />
+        <line x1="12" y1="16.5" x2="12.01" y2="16.5" />
       </svg>
     );
   }
@@ -194,7 +93,6 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
     goToRegister,
     canContinueVault,
     selfVaultEligible,
-    selfVaultPartnerOnly,
     selfVaultNeedsCompanyAddress,
   } = flow;
 
@@ -202,21 +100,17 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
 
   const continueLabel =
     vaultChoice === "self"
-      ? "Continue with partner vault"
+      ? "Continue with Tokenable Vault"
       : vaultChoice === "psa"
-        ? "Continue with PSA vault"
+        ? "Continue with PSA Vault"
         : "Continue";
 
   const hint =
-    selfVaultNeedsCompanyAddress && vaultChoice === "self"
-      ? null
-      : selfVaultPartnerOnly
-        ? null
-        : vaultChoice === "self" && selfVaultEligible
-          ? "Your cards stay with you and are listed within minutes — no shipping, no review."
-          : vaultChoice === "psa"
-            ? "You'll ship these cards to PSA to be verified before they go live."
-            : "Pick a vault to continue.";
+    vaultChoice === "self"
+      ? "Confirmed cards are listed straight from your Tokenable Vault · no shipping, no review."
+      : vaultChoice === "psa"
+        ? "You'll ship these cards to PSA to be verified before they go live."
+        : "Pick a vault to continue.";
 
   return (
     <section className="sell-flow-screen">
@@ -239,7 +133,7 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
             id="psa"
             selected={vaultChoice === "psa"}
             onSelect={() => selectVault("psa")}
-            badge="14—16 BUSINESS DAYS AFTER ARRIVAL"
+            badge="14–16 BUSINESS DAYS AFTER ARRIVAL"
             badgeTone="muted"
             icon={
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -247,8 +141,8 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
                 <polyline points="9 12 11 14 15 10" />
               </svg>
             }
-            title="PSA vault"
-            description="PSA stores and insures each card. Redeem the physical card anytime."
+            title="PSA Vault"
+            description="Send them to PSA. Once verified, your listing goes live."
             features={[
               { text: "Verified by PSA before it goes live" },
               { text: "Requires shipping and intake review", tone: "warn" },
@@ -269,7 +163,7 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
               </svg>
             }
             title="Tokenable Vault"
-            description="Cards you already hold. List them right away — no shipping, no review."
+            description="Cards you already hold. List them right away · no shipping, no review."
             features={[
               { text: "Listed within minutes" },
               { text: "Stays in your own vault" },
@@ -278,69 +172,27 @@ export function SellFlowChooseVault({ flow }: { flow: Flow }) {
           />
         </div>
 
-        <div className="sell-flow-vault-cta sell-flow-vault-cta--solo">
-          <TkButton
-            type="button"
-            variant="primary"
-            className="sell-flow-vault-continue"
-            disabled={!canContinueVault}
-            onClick={continueFromVault}
-          >
-            {continueLabel}
-          </TkButton>
-        </div>
+        {hint ? <p className="sell-flow-vault-hint">{hint}</p> : null}
 
-        {selfVaultNeedsCompanyAddress && vaultChoice === "self" ? (
+        {vaultChoice === "self" && selfVaultNeedsCompanyAddress ? (
           <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
-            Add your company vault address before using Partner vault.{" "}
+            Add your company vault address before using Tokenable Vault.{" "}
             <a className="sell-flow-link" href="/settings?section=addresses#partner-origin">
               Open Settings → Addresses
             </a>
             .
           </p>
-        ) : selfVaultPartnerOnly ? (
-          <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
-            {PARTNER_SELF_VAULT_HINT}
-            <a className="sell-flow-link" href="mailto:dev@tokenable.io">
-              dev@tokenable.io
-            </a>
-            .
-          </p>
-        ) : hint ? (
-          <p className="sell-flow-vault-hint">{hint}</p>
         ) : null}
 
-        <div className="sell-flow-vault-faq-wrap">
-          <h2 className="sell-flow-vault-sec-h">FAQs</h2>
-          <p className="sell-flow-vault-sec-p">Answers for both sellers and buyers.</p>
-          <div className="sell-flow-vault-faq">
-            {FAQ_ITEMS.map((item) => (
-              <details key={item.q}>
-                <summary>{item.q}</summary>
-                <p>{item.a}</p>
-              </details>
-            ))}
-          </div>
-          <div className="sell-flow-vault-faq sell-flow-vault-faq--terms">
-            <details>
-              <summary>Terms and conditions</summary>
-              <p>
-                Vault storage, listing and redemption are covered by our{" "}
-                <a href="/terms" className="sell-flow-link">
-                  Terms of Service
-                </a>
-                ,{" "}
-                <a href="/terms" className="sell-flow-link">
-                  Seller Agreement
-                </a>{" "}
-                and{" "}
-                <a href="/terms" className="sell-flow-link">
-                  Vault Storage Terms
-                </a>
-                . Read them before you list.
-              </p>
-            </details>
-          </div>
+        <div className="sell-flow-vault-cta sell-flow-vault-cta--solo">
+          <TkButton
+            type="button"
+            variant="primary"
+            disabled={!canContinueVault}
+            onClick={continueFromVault}
+          >
+            {continueLabel}
+          </TkButton>
         </div>
       </div>
     </section>

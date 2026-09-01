@@ -13,6 +13,7 @@ import { PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
 import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
 import { useAppChain } from "@/providers/AppChainProvider";
+import { waitForUserTxReceipt } from "@/lib/network";
 
 export default function P2pOrderPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,7 +56,7 @@ export default function P2pOrderPage() {
         functionName: "confirmReceipt",
         args: [order.escrowOrderId as `0x${string}`],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForUserTxReceipt(publicClient, hash);
       await recordP2pSettlement(order.id, {
         releaseTxHash: hash,
         source: "confirm",

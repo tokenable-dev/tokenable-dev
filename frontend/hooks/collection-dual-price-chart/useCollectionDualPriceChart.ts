@@ -38,8 +38,9 @@ export function useCollectionDualPriceChart(input: {
         externalMarketUsd,
         externalWindowDays,
         nowSec,
+        stretchToWindow: colorTheme === "collection-detail",
       }),
-    [externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec],
+    [externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec, colorTheme],
   );
 
   const chartOption = useMemo<EChartsOption>(

@@ -105,19 +105,21 @@ export async function submitTokenBid(input: {
   }
 
   const days = resolveTokenBidDurationDays(durationDays);
-  const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(tokenBidDurationSeconds(days));
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  let allowancePre = usdcAllowanceRaw;
-  if (allowancePre === undefined) {
-    allowancePre = await publicClient.readContract({
-      address: usdcAddress,
-      abi: USDC_ABI,
-      functionName: "allowance",
-      args: [address, SEAPORT_ADDRESS],
-    });
-  }
+  const [now, allowanceLoaded] = await Promise.all([
+    getChainTimestampSec(publicClient),
+    usdcAllowanceRaw !== undefined
+      ? Promise.resolve(usdcAllowanceRaw)
+      : publicClient.readContract({
+          address: usdcAddress,
+          abi: USDC_ABI,
+          functionName: "allowance",
+          args: [address, SEAPORT_ADDRESS],
+        }),
+  ]);
+  const endTime = now + BigInt(tokenBidDurationSeconds(days));
+  const allowancePre = allowanceLoaded;
   const needsUsdcApprove = allowancePre < bidUnits;
   const usdcApproveGasPromise = needsUsdcApprove
     ? gasWithCapFast(

@@ -30,12 +30,12 @@ export function holdingsLifecycleSeg(
   redeemStatus: RedeemSurfaceBadge | null,
 ): HoldingsLifecycleSeg {
   if (redeemStatus?.kind === "possession") return "possession";
-  if (redeemStatus?.kind === "transit") return "shipping";
   if (
+    redeemStatus?.kind === "transit" ||
     redeemStatus?.kind === "preparing" ||
     redeemStatus?.kind === "custody_pending"
   ) {
-    return "verifying";
+    return "shipping";
   }
   return isListed ? "listed" : "notlisted";
 }

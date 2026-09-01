@@ -141,10 +141,10 @@ export function HomePaySection() {
         <div className="home-pay__grid">
           <div className="home-pay__copy">
             <h2 id="home-pay-title" className="tkl-sec-title">
-              Every payment, one platform.
+              Pay and get paid, however you like. Bank, card, or crypto.
             </h2>
             <p className="tkl-sec-sub home-pay__sub">
-              Card, bank, Apple &amp; Google Pay, or crypto. It all pays into your Tokenable
+              Card, bank, Apple and Google Pay, or crypto. It all pays into your Tokenable
               balance in USD.
             </p>
             <div className="home-pay__chips">

@@ -13,9 +13,9 @@ export function PortfolioHeaderStat({
 }) {
   const valueClass =
     tone === "positive"
-      ? "text-emerald-400/90"
+      ? "text-pos/90"
       : tone === "negative"
-        ? "text-red-400/90"
+        ? "text-neg/90"
         : "text-zinc-100";
 
   const alignCls =

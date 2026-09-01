@@ -166,7 +166,7 @@ export function NetworkSwitcher({
                     onClick={() => pick(c.id, configured)}
                     className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition ${
                       active
-                        ? "bg-[rgba(0, 51, 255,0.12)] font-semibold text-white"
+                        ? "bg-[rgba(26, 111, 255,0.12)] font-semibold text-white"
                         : configured
                           ? "text-[var(--t2)] hover:bg-white/[0.04]"
                           : "cursor-not-allowed text-[var(--t3)] opacity-45"

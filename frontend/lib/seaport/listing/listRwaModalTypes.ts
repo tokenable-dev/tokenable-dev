@@ -1,4 +1,5 @@
 import type { Order } from "@/lib/core";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import type { MatchFailureCode } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 
 export type ListRwaModalStep =
@@ -36,6 +37,9 @@ export type ListRwaModalShell = "modal" | "sheet";
 export interface ListRwaModalProps {
   tokenId: number;
   assetTitle?: string | null;
+  /** Set/Edit price sheet — card name / number / grade under the eyebrow. */
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineGrade?: string | null;
   onClose: () => void;
   onMatchedSale?: () => void;
   onListed?: (tokenId: number) => void;

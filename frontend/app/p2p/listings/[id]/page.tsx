@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { maxUint256 } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import {
   getP2pListing,
@@ -14,6 +15,7 @@ import { ERC20_APPROVE_ABI, PAYMENT_ESCROW_ABI } from "@/lib/p2p/escrowAbi";
 import { useAuthStore } from "@/store/authStore";
 import { TkButton, TkField, TkInput } from "@/components/ds";
 import { useAppChain } from "@/providers/AppChainProvider";
+import { waitForUserTxReceipt } from "@/lib/network";
 
 function formatUsdc(atomic: string): string {
   const n = Number(atomic) / 1e6;
@@ -88,9 +90,9 @@ export default function P2pListingDetailPage() {
           address: prep.usdcAddress as `0x${string}`,
           abi: ERC20_APPROVE_ABI,
           functionName: "approve",
-          args: [prep.escrowAddress as `0x${string}`, amount],
+          args: [prep.escrowAddress as `0x${string}`, maxUint256],
         });
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForUserTxReceipt(publicClient, approveHash);
       }
       const depositHash = await writeContractAsync({
         chainId: listingChainId,
@@ -104,7 +106,7 @@ export default function P2pListingDetailPage() {
           BigInt(prep.autoReleaseAt),
         ],
       });
-      await publicClient.waitForTransactionReceipt({ hash: depositHash });
+      await waitForUserTxReceipt(publicClient, depositHash);
 
       const order = await recordP2pDeposit(listing.id, {
         buyerWallet: address,

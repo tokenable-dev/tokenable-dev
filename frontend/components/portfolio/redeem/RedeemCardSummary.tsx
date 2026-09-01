@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
+import { formatRedeemCardLine1FromDraft } from "@/lib/portfolio/portfolioTableHelpers";
 
 function TrashIcon() {
   return (
@@ -15,9 +16,12 @@ function TrashIcon() {
 export function RedeemCardSummary({
   cards,
   onRemove,
+  compact = false,
 }: {
   cards: RedeemDraftCard[];
   onRemove?: (tokenId: number) => void;
+  /** Pay screen — thumbs + count only (HTML `#wd-pay` has no Review). */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const thumbs = cards.slice(0, 4);
@@ -29,7 +33,7 @@ export function RedeemCardSummary({
   }, [cards]);
 
   return (
-    <div className="pf-redeem-summary">
+    <div className={compact ? "pf-redeem-summary pf-redeem-summary--compact" : "pf-redeem-summary"}>
       <div className="pf-redeem-summary__head">
         <div className="pf-redeem-summary__thumbs" aria-hidden>
           {thumbs.map((c, i) => (
@@ -51,10 +55,11 @@ export function RedeemCardSummary({
           </div>
           <div className="pf-redeem-summary__sub">
             {vaultCount > 1
-              ? `Shipping in ${vaultCount} deliveries by vault`
-              : "Shipping together in one delivery"}
+              ? `${vaultCount} deliveries`
+              : "One delivery"}
           </div>
         </div>
+        {!compact ? (
         <button
           type="button"
           className="pf-redeem-summary__toggle"
@@ -62,8 +67,9 @@ export function RedeemCardSummary({
         >
           {open ? "Hide" : "Review"}
         </button>
+        ) : null}
       </div>
-      {open ? (
+      {open && !compact ? (
         <ul className="pf-redeem-summary__list">
           {cards.map((c) => (
             <li key={c.tokenId} className="pf-redeem-summary__row">
@@ -74,11 +80,10 @@ export function RedeemCardSummary({
                 ) : null}
               </div>
               <div className="pf-redeem-summary__row-info">
-                <div className="pf-redeem-summary__row-name">{c.name}</div>
+                <div className="pf-redeem-summary__row-name">
+                  {formatRedeemCardLine1FromDraft(c)}
+                </div>
                 <div className="pf-redeem-summary__row-meta">
-                  {c.grade ? (
-                    <span className="pf-redeem-chip">{c.grade}</span>
-                  ) : null}
                   <span className="pf-redeem-chip pf-redeem-chip--vault">
                     {c.vaultLabel || "PSA Vault"}
                   </span>

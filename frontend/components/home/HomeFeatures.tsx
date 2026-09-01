@@ -36,7 +36,9 @@ export function HomeFeatures() {
           <div className="home-features-band__intro">
             <h2 className="tkl-sec-title">Three guarantees, every token.</h2>
             <p className="tkl-sec-sub">
-              Graded, vaulted, tokenized. What you trade is what you own.
+              The safest and fastest way to trade collectibles. All cards tokenized
+              on our platform are graded, verified, vaulted, and settle instantly
+              on-chain.
             </p>
           </div>
 
@@ -48,9 +50,9 @@ export function HomeFeatures() {
                 </div>
                 <span className="feat__num">01</span>
               </div>
-              <h3>Authentication and grading</h3>
+              <h3>Authenticated and graded</h3>
               <p>
-                Only PSA and BGS graded cards. No raw, no self-reported.
+                Only PSA and BGS graded cards are traded.
               </p>
               <div className="feat__chips">
                 {["PSA", "BGS"].map((label) => (
@@ -70,7 +72,8 @@ export function HomeFeatures() {
               </div>
               <h3>Vaulting</h3>
               <p>
-                Held in secure custody, cert-matched on intake. Every token is a real card.
+                All cards are held in PSA or Tokenable vaults. Vaulted cards reduce
+                settlement fees by up to 70%.
               </p>
               <div className="feat__chips feat__chips--wide">
                 <span className="pstat">

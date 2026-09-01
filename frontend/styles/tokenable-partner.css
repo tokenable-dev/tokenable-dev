@@ -135,7 +135,7 @@
 }
 
 .partner-redeem-page__pill--soon {
-  background: rgba(234, 130, 0, 0.14);
+  background: rgba(243, 112, 30, 0.14);
   color: #eabf7a;
 }
 
@@ -145,7 +145,7 @@
   gap: 12px;
   padding: 14px 18px;
   border-radius: 12px;
-  background: rgba(234, 130, 0, 0.1);
+  background: rgba(243, 112, 30, 0.1);
   color: #eabf7a;
   font-size: 13.5px;
   line-height: 1.55;
@@ -158,8 +158,8 @@
 
 .partner-ship__card--soon,
 .partner-ship__trow--soon {
-  box-shadow: inset 3px 0 0 0 rgb(234, 130, 0);
-  background: rgba(234, 130, 0, 0.04);
+  box-shadow: inset 3px 0 0 0 rgb(243, 112, 30);
+  background: rgba(243, 112, 30, 0.04);
 }
 
 .partner-ship__empty-icon {
@@ -188,7 +188,7 @@
 .partner-ship__retry {
   background: none;
   border: 0;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -343,7 +343,7 @@
 }
 
 .partner-ship__vs a {
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   text-decoration: none;
 }
 
@@ -358,7 +358,7 @@
 }
 
 .partner-ship__dl--warn {
-  color: rgb(234, 130, 0);
+  color: rgb(243, 112, 30);
 }
 
 .partner-ship__status-pill {
@@ -565,7 +565,7 @@
   right: 10px;
   bottom: -1px;
   height: 2px;
-  background: var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
 }
 
 .partner-ship__tab-count {
@@ -727,7 +727,7 @@
   align-items: flex-start;
   padding: 14px 16px;
   border-radius: 12px;
-  background: rgba(234, 130, 0, 0.1);
+  background: rgba(243, 112, 30, 0.1);
   color: #eabf7a;
   font-size: 13.5px;
   line-height: 1.6;
@@ -882,7 +882,7 @@
   }
 
   .partner-ship__trow--soon {
-    background: linear-gradient(rgba(234, 130, 0, 0.07), rgba(234, 130, 0, 0.07)),
+    background: linear-gradient(rgba(243, 112, 30, 0.07), rgba(243, 112, 30, 0.07)),
       #191919 !important;
   }
 
@@ -981,7 +981,7 @@
   justify-content: center;
   border-radius: 13px;
   background: #fff;
-  color: #1a6fff;
+  color: #1A6FFF;
   font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;

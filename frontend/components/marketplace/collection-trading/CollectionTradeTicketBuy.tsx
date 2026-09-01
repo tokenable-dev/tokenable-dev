@@ -219,7 +219,7 @@ export function CollectionTradeTicketBuy({
         </button>
       </div>
 
-      {buyErr && <p className="mt-2 text-[10px] text-rose-400/90">{buyErr}</p>}
+      {buyErr && <p className="mt-2 text-[10px] text-neg/90">{buyErr}</p>}
     </div>
   );
 }

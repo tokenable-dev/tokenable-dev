@@ -1,6 +1,7 @@
 import type { ConnectedWallet, User as PrivyUser } from "@privy-io/react-auth";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
-import { isEmbeddedOnlyWalletPolicy } from "@/lib/privy/config";
+import { getAccount } from "wagmi/actions";
+import { isEmbeddedOnlyWalletPolicy, wagmiPrivyConfig } from "@/lib/privy/config";
 
 function isPrivyLinkedEthereumWallet(
   account: PrivyUser["linkedAccounts"][number],
@@ -78,7 +79,10 @@ export async function ensurePrivyWalletOnChain(
   wallet: ConnectedWallet,
   chainId: number,
 ): Promise<void> {
-  if (parsePrivyWalletChainId(wallet) === chainId) return;
+  const parsed = parsePrivyWalletChainId(wallet);
+  if (parsed === chainId) return;
+  // Unknown CAIP id but wagmi is already on the app chain — do not re-prompt switch.
+  if (parsed == null && getAccount(wagmiPrivyConfig).chainId === chainId) return;
   await wallet.switchChain(chainId);
 }
 

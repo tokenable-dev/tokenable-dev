@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { TkField, TkInput, TkSelect } from "@/components/ds";
+import { AddressSearchField } from "@/components/shipping/AddressSearchField";
 
 export type PartnerCompanyAddressFormState = {
   companyName: string;
@@ -136,6 +137,31 @@ export function PartnerCompanyAddressFormFields({
   return (
     <div className="tk-ship-form">
       {extrasBefore}
+
+      <div className="tk-ship-form__section">
+        <AddressSearchField
+          label="Company origin"
+          disabled={disabled}
+          line1FieldId={`${idPrefix}-line1`}
+          onPick={(place) => {
+            const iso = place.countryIso2;
+            const country = PARTNER_COMPANY_COUNTRY_OPTIONS.some(
+              (o) => o.value === iso,
+            )
+              ? iso
+              : value.country;
+            onChange({
+              ...value,
+              line1: place.line1,
+              line2: place.line2,
+              city: place.city,
+              region: place.region,
+              postal: place.postal,
+              country,
+            });
+          }}
+        />
+      </div>
 
       {showCompanyName ? (
         <div className="tk-ship-form__section">

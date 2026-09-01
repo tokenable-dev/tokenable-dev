@@ -89,10 +89,10 @@ function OrderBookFooterCounts({
     >
       <div className={`flex justify-between gap-2 ${orderBookColumnHeaderCls} tabular-nums`}>
         <span>
-          Bids <span className="text-mint/80">{bidCount}</span>
+          Bids <span className="text-pos/80">{bidCount}</span>
         </span>
         <span>
-          Asks <span className="text-rose-400/80">{askCount}</span>
+          Asks <span className="text-neg/80">{askCount}</span>
         </span>
       </div>
       {showSellHint ? (
@@ -220,11 +220,13 @@ function OrderBookEmptyNaOnly({
  */
 function OrderBookSplitScrollPane({
   pinToBottom,
+  hug,
   scrollKey,
   children,
 }: {
   pinToBottom?: boolean;
-  /** Remount/reset scroll when depth identity changes. */
+  /** Asks hug the spread from above; bids from below. */
+  hug: "asks" | "bids";
   scrollKey: string;
   children: ReactNode;
 }) {
@@ -257,25 +259,28 @@ function OrderBookSplitScrollPane({
     };
 
     pin();
-    const ro = new ResizeObserver(pin);
-    ro.observe(el);
-    const child = el.firstElementChild;
-    if (child) ro.observe(child);
     const raf = window.requestAnimationFrame(() => {
       pin();
       window.requestAnimationFrame(pin);
     });
-    return () => {
-      ro.disconnect();
-      window.cancelAnimationFrame(raf);
-    };
+    return () => window.cancelAnimationFrame(raf);
   }, [scrollKey, pinToBottom]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => updateFades());
+    ro.observe(el);
+    const child = el.firstElementChild;
+    if (child) ro.observe(child);
+    return () => ro.disconnect();
+  }, [scrollKey]);
 
   return (
     <div className="cd-ob-book-pane">
       <div
         ref={ref}
-        className="cd-ob-book-pane__scroll"
+        className={`cd-ob-book-pane__scroll cd-ob-book-pane__scroll--hug-${hug}`}
         onScroll={updateFades}
       >
         {children}
@@ -426,6 +431,7 @@ export function OrderBookBookTab({
             ) : (
               <OrderBookSplitScrollPane
                 pinToBottom
+                hug="asks"
                 scrollKey={`asks:${askLevels.map((l) => l.key).join(",")}`}
               >
                 <AskLevelsList
@@ -461,6 +467,7 @@ export function OrderBookBookTab({
               </div>
             ) : (
               <OrderBookSplitScrollPane
+                hug="bids"
                 scrollKey={`bids:${bidLevels.map((l) => l.key).join(",")}`}
               >
                 <BidLevelsList

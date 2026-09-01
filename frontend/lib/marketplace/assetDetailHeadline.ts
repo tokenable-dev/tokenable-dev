@@ -1,6 +1,7 @@
 import {
   formatHeadlineCardNumber,
   leadingYearFromSetLine,
+  peelTrailingCollectorNumber,
   toCardDisplayCase,
   toCardDisplayUppercase,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
@@ -19,6 +20,8 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import { bucketGradeScoreFromPsaGradeInput, psaGradePolicyInputFromGraded } from "@/lib/market/psaGradePolicy";
+import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
+import type { RwaMetadata } from "@/lib/core";
 
 /**
  * Structured fields for card display names.
@@ -117,8 +120,10 @@ export function buildAssetDetailHeadlineParts(input: {
   }
 
   const card = (input.cardName ?? "").trim();
-  const num = formatHeadlineCardNumber(input.cardNumber);
-  const variety = (input.variety ?? "").trim();
+  const peeledVariety = peelTrailingCollectorNumber(input.variety ?? "");
+  const num =
+    formatHeadlineCardNumber(input.cardNumber) || peeledVariety.cardNumber;
+  const variety = peeledVariety.text;
   const languageRaw = (input.language ?? "").trim();
   const languageShort =
     formatCardDisplayLanguageShort(languageRaw) ??
@@ -139,11 +144,12 @@ export function buildAssetDetailHeadlineParts(input: {
 /** Title line: `{Card name} · {Number} · {Grade}` — grade defaults to `Raw`. */
 export function formatCardDisplayName(
   parts: AssetDetailHeadlineParts,
-  opts?: { grade?: string | null },
+  opts?: { grade?: string | null; omitGrade?: boolean },
 ): string {
   const display = toDisplayParts(parts, opts?.grade);
-  const line1 = formatCardDisplayLine1(display);
+  const line1 = formatCardDisplayLine1(display, { omitGrade: opts?.omitGrade });
   if (line1) return line1;
+  if (opts?.omitGrade) return parts.variety?.trim() || "";
   return parts.variety?.trim() || resolveCardDisplayGrade(opts?.grade);
 }
 
@@ -166,8 +172,14 @@ export function formatCardDisplayMeta(
 /** Hover / search / document title — Line 1 + Line 2 (self-contained). */
 export function formatCardDisplayHoverTitle(
   parts: AssetDetailHeadlineParts,
-  opts?: { grade?: string | null },
+  opts?: { grade?: string | null; omitGrade?: boolean },
 ): string {
+  if (opts?.omitGrade) {
+    return joinCardDisplaySegments([
+      formatCardDisplayLine1(toDisplayParts(parts, opts.grade), { omitGrade: true }),
+      formatCardDisplayLine2(toDisplayParts(parts, opts.grade)),
+    ]);
+  }
   return formatCardDisplayHoverTitleCore(toDisplayParts(parts, opts?.grade));
 }
 
@@ -198,6 +210,7 @@ export function computeAssetDetailWovenTitle(
   populationBadge: string | null,
   opts?: {
     grade?: string | null;
+    omitGrade?: boolean;
   },
 ): string {
   const chunks: string[] = [];
@@ -225,6 +238,15 @@ export type RwaHeadlineMetadata = {
   graded?: unknown;
 };
 
+function inferLanguageFromSetCopy(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  if (/\bjapanese\b/i.test(raw)) return "JP";
+  if (/\bkorean\b/i.test(raw)) return "KR";
+  if (/\bchinese\b/i.test(raw)) return "CN";
+  if (/\benglish\b/i.test(raw)) return "EN";
+  return undefined;
+}
+
 /** Card detail hero parts from graded NFT metadata. */
 export function buildRwaAssetDetailHeadlineParts(
   meta: RwaHeadlineMetadata | null | undefined,
@@ -249,47 +271,37 @@ export function buildRwaAssetDetailHeadlineParts(
 
   const catalogSet = pickString(card?.set);
   const yearRaw = pickString(psa?.Year, psa?.year, card?.year);
-  const explicitYear = normalizeYear(yearRaw);
-
-  let yearOut: string | null = explicitYear != null ? String(explicitYear) : null;
-  let setOut: string | null =
+  let setLine =
     pickString(psa?.brand, card?.set, psa?.setHint) || null;
-  if (setOut) {
-    const yFromSet = leadingYearFromSetLine(setOut);
-    if (yFromSet != null) {
-      yearOut = yearOut ?? String(yFromSet);
-      const stripped = setOut.replace(/^\s*\d{4}\b\s*/, "").trim();
-      setOut = stripped || setOut;
-    }
-    setOut = resolveCardDisplaySetName(setOut, catalogSet);
-  }
 
-  const numRaw = pickString(card?.number, psa?.cardNumberHint);
-  const cardNameRaw =
-    pickString(psa?.subject, card?.name, psa?.cardNameHint) ??
-    displayAssetNameFromMetadata(meta, fallback).trim() ??
-    fallback ??
-    null;
-  const variety = resolveRwaMetadataVariant(graded);
-
-  if (!setOut && meta.attributes?.length) {
+  if (!setLine && meta.attributes?.length) {
     for (const a of meta.attributes) {
       const tt = (a.trait_type ?? "").trim().toLowerCase();
       if (tt === "set") {
         const v = String(a.value ?? "").trim();
-        if (v) setOut = v;
+        if (v) setLine = v;
         break;
       }
     }
   }
 
-  return {
-    year: yearOut,
-    setName: setOut ? toCardDisplayCase(setOut) : null,
-    cardNumber: formatHeadlineCardNumber(numRaw),
-    cardName: cardNameRaw ? toCardDisplayCase(cardNameRaw) : null,
-    variety: variety ? toCardDisplayCase(variety) : null,
-  };
+  const cardNameRaw =
+    pickString(psa?.subject, card?.name, psa?.cardNameHint) ??
+    displayAssetNameFromMetadata(meta, fallback).trim() ??
+    fallback ??
+    null;
+
+  return buildAssetDetailHeadlineParts({
+    setLine,
+    year: yearRaw,
+    cardName: cardNameRaw || fallback,
+    cardNumber: pickString(card?.number, psa?.cardNumberHint),
+    variety: resolveRwaMetadataVariant(graded),
+    language:
+      pickString(psa?.language, card?.language, psa?.Language) ||
+      inferLanguageFromSetCopy(setLine ?? undefined),
+    catalogSetName: catalogSet,
+  });
 }
 
 /** Grade for Line 1 — `{Company} {score}` (e.g. PSA 10). Not PSA qualifier copy like GEM MT 10. */
@@ -300,22 +312,24 @@ export function resolveRwaHeadlineGrade(
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded =
     (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
-  if (!graded || typeof graded !== "object") {
-    return resolveCardDisplayGrade(null);
+  if (graded && typeof graded === "object") {
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    const company =
+      pickString(
+        psa?.gradingCompany,
+        psa?.company,
+        psa?.grader,
+        graded.gradingCompany,
+        graded.grader,
+      ) ?? "PSA";
+    const score = bucketGradeScoreFromPsaGradeInput(
+      psaGradePolicyInputFromGraded(graded),
+    );
+    if (score === "auth") return toCardDisplayCase(`${company} AUTH`);
+    if (score) return toCardDisplayCase(`${company} ${score}`);
   }
-  const psa = graded.psa as Record<string, unknown> | undefined;
-  const company =
-    pickString(
-      psa?.gradingCompany,
-      psa?.grader,
-      graded.gradingCompany,
-      graded.grader,
-    ) ?? "PSA";
-  const score = bucketGradeScoreFromPsaGradeInput(
-    psaGradePolicyInputFromGraded(graded),
-  );
-  if (score === "auth") return toCardDisplayCase(`${company} AUTH`);
-  if (score) return toCardDisplayCase(`${company} ${score}`);
+  const fromMeta = formatPortfolioGradeLabel(meta as RwaMetadata);
+  if (fromMeta?.trim()) return toCardDisplayCase(fromMeta);
   return resolveCardDisplayGrade(null);
 }
 

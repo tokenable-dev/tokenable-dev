@@ -15,7 +15,13 @@ import type { MergeExternalChartSeriesInput, MergedExternalChartData } from "./t
 export function mergeExternalChartSeries(
   input: MergeExternalChartSeriesInput,
 ): MergedExternalChartData {
-  const { externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec } = input;
+  const {
+    externalRollingUsd,
+    externalMarketUsd,
+    externalWindowDays,
+    nowSec,
+    stretchToWindow = false,
+  } = input;
 
   const extRolling = externalRollingUsd?.length
     ? [...externalRollingUsd].sort((a, b) => a.t - b.t)
@@ -77,7 +83,10 @@ export function mergeExternalChartSeries(
     } else if (isUniformPrice(seriesProbe)) {
       const flatV = refPrice ?? seriesProbe[seriesProbe.length - 1]!.v;
       extForChart = buildFullWindowFlatSeries(tMin, tMax, flatV);
-    } else if (shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)) {
+    } else if (
+      stretchToWindow ||
+      shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)
+    ) {
       extForChart = extendSeriesToWindowEdges(
         validUsdPoints(extForChart).length > 0 ? extForChart : seriesProbe,
         tMin,

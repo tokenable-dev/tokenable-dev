@@ -74,29 +74,30 @@ export async function submitCollectionCriteriaBid(input: {
     throw new Error("oldOrderHash required for replace");
   }
 
-  const now = await getChainTimestampSec(publicClient);
+  const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
+
+  const [now, allowanceLoaded] = await Promise.all([
+    getChainTimestampSec(publicClient),
+    usdcAllowanceRaw !== undefined
+      ? Promise.resolve(usdcAllowanceRaw)
+      : publicClient.readContract({
+          address: usdcAddress,
+          abi: USDC_ABI,
+          functionName: "allowance",
+          args: [address, SEAPORT_ADDRESS],
+        }),
+  ]);
   const durationSec =
     durationDays != null
       ? tokenBidDurationSeconds(resolveTokenBidDurationDays(durationDays))
       : CRITERIA_BID_ORDER_DURATION_SECONDS;
   const endTime = now + BigInt(durationSec);
-  const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
-
+  const allowancePre = allowanceLoaded;
   const tokenIds = merkleLeafTokenIds.map((x) => BigInt(x));
   const tree = new SeaportMerkleTree(tokenIds);
   const rootHex = tree.getHexRoot();
   assertMerkleRootBytes32(rootHex);
   const merkleRootU256 = hexToBigInt(rootHex);
-
-  let allowancePre = usdcAllowanceRaw;
-  if (allowancePre === undefined) {
-    allowancePre = await publicClient.readContract({
-      address: usdcAddress,
-      abi: USDC_ABI,
-      functionName: "allowance",
-      args: [address, SEAPORT_ADDRESS],
-    });
-  }
   const needsUsdcApprove = allowancePre < bidUnits;
   const usdcApproveGasPromise = needsUsdcApprove
     ? gasWithCapFast(

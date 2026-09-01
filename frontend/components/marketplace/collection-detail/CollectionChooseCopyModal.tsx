@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Order, RwaMetadata } from "@/lib/core";
-import { TkButton } from "@/components/ds";
+import { TkBadge, TkButton } from "@/components/ds";
 import {
   formatListingUsdc,
   listingGalleryImages,
@@ -186,11 +186,7 @@ export function CollectionChooseCopyModal({
   }
 
   const priceLabel = formatOrderBookPriceUsdc(price);
-  const subParts = [
-    itemSetLine?.trim() || null,
-    "Gem Mint",
-    `Ask $${priceLabel}`,
-  ].filter(Boolean);
+  const subParts = [itemSetLine?.trim() || null, "Gem Mint"].filter(Boolean);
   const itemSub = subParts.join(" · ");
 
   const selected =
@@ -238,9 +234,12 @@ export function CollectionChooseCopyModal({
         >
           <div className="cd-choose-copy__grab" aria-hidden />
           <div className="cd-choose-copy__head">
-            <h2 id="cd-choose-copy-title" className="cd-choose-copy__title">
-              Select your card
-            </h2>
+            <div className="cd-choose-copy__head-title">
+              <h2 id="cd-choose-copy-title" className="cd-choose-copy__title">
+                Select your card
+              </h2>
+              <TkBadge>{`$${priceLabel}`}</TkBadge>
+            </div>
             <button
               type="button"
               className="cd-choose-copy__close"
@@ -377,14 +376,6 @@ export function CollectionChooseCopyModal({
             <span className="cd-choose-copy-lb__counter tkl-mono">
               Cert #{lbRow.cert}
             </span>
-            <button
-              type="button"
-              className="cd-choose-copy__zoom"
-              aria-label="Close"
-              onClick={() => setLbOpen(false)}
-            >
-              ×
-            </button>
           </div>
           <div className="cd-choose-copy-lb__stage">
             {lbSrc ? (
@@ -425,49 +416,15 @@ export function CollectionChooseCopyModal({
               Back
             </button>
           </div>
-          <div className="cd-choose-copy-lb__strip" aria-label="Front and back">
-            {lbRow.front ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={lbRow.front}
-                alt="Front"
-                className={lbFace === "front" ? "is-on" : undefined}
-                onClick={() => {
-                  setLbFace("front");
-                  setLbZoom(false);
-                }}
-              />
-            ) : (
-              <span className="cd-choose-copy-lb__strip-empty" />
-            )}
-            {lbRow.back ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={lbRow.back}
-                alt="Back"
-                className={lbFace === "back" ? "is-on" : undefined}
-                onClick={() => {
-                  setLbFace("back");
-                  setLbZoom(false);
-                }}
-              />
-            ) : (
-              <span className="cd-choose-copy-lb__strip-empty" aria-label="Back unavailable" />
-            )}
-          </div>
           <div className="cd-choose-copy-lb__foot">
             <TkButton
               type="button"
               variant="primary"
               size="sm"
               className="cd-choose-copy__cta"
-              onClick={() => {
-                setAutoSel(false);
-                setSelectedHash(lbRow.order.orderHash);
-                setLbOpen(false);
-              }}
+              onClick={() => setLbOpen(false)}
             >
-              Select this card
+              Close
             </TkButton>
           </div>
         </div>

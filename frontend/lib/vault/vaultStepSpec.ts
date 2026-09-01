@@ -30,6 +30,13 @@ export function buildSimpleVaultSteps(activeStep: number): VaultStepDef[] {
   });
 }
 
+export function toTkStepperState(state: VaultStepState): "done" | "current" | "todo" | "rejected" {
+  if (state === "done") return "done";
+  if (state === "failed") return "rejected";
+  if (state === "active" || state === "action") return "current";
+  return "todo";
+}
+
 export function subColorCss(color?: VaultStepSubColor): string {
   switch (color) {
     case "pos":

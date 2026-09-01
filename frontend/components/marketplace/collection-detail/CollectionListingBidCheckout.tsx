@@ -273,15 +273,19 @@ export function CollectionListingBidCheckout({
           onChange={(e) => bid.setPriceDigits(e.target.value)}
         />
       </div>
-      <div
-        className={
-          hintTone === "error"
-            ? "cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--error"
-            : "cd-listing-checkout__bid-hint"
-        }
-      >
-        {hintText}
-      </div>
+      {hintText ? (
+        <div
+          className={
+            hintTone === "error"
+              ? "cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--error"
+              : "cd-listing-checkout__bid-hint"
+          }
+        >
+          {hintText}
+        </div>
+      ) : (
+        <div className="cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--spacer" />
+      )}
 
       <div className="cd-listing-checkout__label">Valid for</div>
       <div
@@ -337,16 +341,13 @@ export function CollectionListingBidCheckout({
         className="cd-listing-checkout__cta"
         disabled={
           bid.busy ||
-          (Boolean(bid.address) && bid.ctaMode === "blocked")
+          (Boolean(bid.address) &&
+            (bid.ctaMode === "blocked" || !bid.priceOk))
         }
         onClick={handleAction}
       >
         {bid.ctaLabel}
       </TkButton>
-
-      <p className="cd-listing-checkout__fine tkl-mono">
-        No bid fee.
-      </p>
     </>
   );
 }

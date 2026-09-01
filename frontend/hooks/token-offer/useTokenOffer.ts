@@ -259,7 +259,7 @@ export function useTokenOffer(input: {
     }
     if (errorMsg) return { text: errorMsg, tone: "error" as const };
     return {
-      text: "No bid fee.",
+      text: "",
       tone: "muted" as const,
     };
   }, [

@@ -11,6 +11,7 @@ import {
   writeRedeemDraft,
 } from "@/lib/portfolio/redeemDraft";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
+import { formatRedeemCardLine1FromMetadata, listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
 import {
   PARTNER_PORTFOLIO_PATH,
   PORTFOLIO_PATH,
@@ -44,7 +45,11 @@ export function PortfolioCertificatePage({
       cards: [
         {
           tokenId,
-          name: data.displayName,
+          name: formatRedeemCardLine1FromMetadata(
+            data.metadata,
+            data.displayName,
+            formatPortfolioGradeLabel(data.metadata),
+          ),
           imageUrl: data.imageUrl,
           grade: formatPortfolioGradeLabel(data.metadata),
           certNumber: certNumberFromMetadata(data.metadata),
@@ -54,6 +59,12 @@ export function PortfolioCertificatePage({
     });
     router.push("/portfolio/redeem");
   };
+
+  const listIdentity = listPriceSheetIdentity(
+    data.metadata,
+    tokenId,
+    data.displayName,
+  );
 
   return (
     <>
@@ -68,7 +79,9 @@ export function PortfolioCertificatePage({
       {listOpen && tokenIdOk ? (
         <ListRwaModal
           tokenId={tokenId}
-          assetTitle={data.displayName}
+          assetTitle={listIdentity.line1}
+          headlineParts={listIdentity.parts}
+          headlineGrade={listIdentity.grade}
           collectionKey={data.collectionKey}
           shell="sheet"
           copyVariant="set-price"

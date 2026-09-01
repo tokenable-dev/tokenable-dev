@@ -39,3 +39,13 @@ export type { TkNoteProps, TkNoteTone } from "./Note";
 
 export { TkCheckbox, TkSwitch } from "./Checkbox";
 export type { TkCheckboxProps, TkSwitchProps } from "./Checkbox";
+
+export { TkStepper } from "./Stepper";
+export type {
+  TkStepperProps,
+  TkStepperStep,
+  TkStepperStepState,
+  TkStepperTheme,
+  TkStepperOrientation,
+  TkStepperSize,
+} from "./Stepper";

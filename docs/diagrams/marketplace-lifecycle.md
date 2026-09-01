@@ -175,7 +175,7 @@ sequenceDiagram
     rect rgba(250, 204, 21, 0.12)
         Note over U,C: ④ 즉시 구매 · Instant Buy  (입력가 ≥ 최저 매도가)
         Note over A: pickLowestActiveAsk() → runInstantPurchase(ask)
-        A  ->> C  : USDC.approve(Seaport, askPrice)
+        A  ->> C  : USDC.approve(Seaport, maxUint256)
         A  ->> C  : Seaport.fulfillOrder(orderParams, extraData)
         C -->> U  : 💸 NFT → 구매자 / USDC → 판매자
         A  ->> S  : PATCH /api/marketplace/orders/:hash/fulfill

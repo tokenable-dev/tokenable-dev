@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { MyRedemptionRow } from "@/lib/core/api/rwa-redeem";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import { formatRedeemCardLine1FromDraft } from "@/lib/portfolio/portfolioTableHelpers";
 import {
   redeemSurfaceBadge,
   type RedeemSurfaceBadge,
@@ -47,10 +48,14 @@ function groupOrders(
         r.status,
         r.trackingNumber,
         r.carrierDeliveredAt,
+        r.paymentBatchId,
       );
       return {
         tokenId,
-        name: asset?.name ?? `RWA #${r.tokenId}`,
+        name: formatRedeemCardLine1FromDraft({
+          name: asset?.name ?? `RWA #${r.tokenId}`,
+          grade: null,
+        }),
         imageUrl: asset?.imageUrl ?? null,
         status: r.status,
         badge,
@@ -111,7 +116,9 @@ function OrderList({
                     ? linkLabel(firstBadge)
                     : firstBadge?.kind === "custody_pending"
                       ? "Finish transfer"
-                      : "View status"}
+                      : firstBadge?.kind === "transit"
+                        ? "Track →"
+                        : "View status"}
                 </Link>
               ) : null}
             </div>
@@ -126,10 +133,15 @@ function OrderList({
                   </div>
                   <div className="pf-redeem-progress__card-body">
                     <div className="pf-redeem-progress__card-name">{c.name}</div>
-                    <div className="pf-redeem-progress__card-meta tkl-mono">
-                      #{c.tokenId}
-                      {c.badge ? ` · ${c.badge.label}` : ` · ${c.status}`}
-                    </div>
+                    {c.badge ? (
+                      <div className="pf-redeem-progress__card-meta tkl-mono">
+                        {c.badge.label}
+                      </div>
+                    ) : (
+                      <div className="pf-redeem-progress__card-meta tkl-mono">
+                        {c.status}
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}

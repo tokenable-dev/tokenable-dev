@@ -7,15 +7,6 @@ import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 
 type Flow = ReturnType<typeof useSellFlow>;
 
-function ArrowIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </svg>
-  );
-}
-
 function BackChevron() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
@@ -66,16 +57,17 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
         </button>
 
         <div className="sell-flow-eyebrow">
-          {vaultChoice === "self" ? "Partner vault" : "PSA Vault"}
+          {vaultChoice === "self" ? "Tokenable Vault" : "PSA Vault"}
         </div>
         <h1 className="sell-flow-h1">Add your cards</h1>
         <p className="sell-flow-sub">
-          Scan the slab QR or type the cert number.
+          Scan the QR on the slab or type the cert number. We’ll pull the card details from PSA.
         </p>
 
         <div className="sell-flow-glass sell-flow-glass--cards-input">
-          <button
+          <TkButton
             type="button"
+            variant="subtle"
             className="sell-flow-scan-btn"
             disabled={busy}
             onClick={scanSlab}
@@ -84,8 +76,8 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
               <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
               <line x1="7" y1="12" x2="17" y2="12" />
             </svg>
-            Scan slab
-          </button>
+            Upload Slab
+          </TkButton>
           <input
             ref={slabInputRef}
             type="file"
@@ -179,10 +171,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
             disabled={!canContinueShipping || mintBusy}
             onClick={() => continueToShipping()}
           >
-            Continue to shipping{" "}
-            <span className="sell-flow-ship-btn__icon" aria-hidden>
-              <ArrowIcon />
-            </span>
+            Continue to shipping <span className="tkl-mono" aria-hidden>→</span>
           </TkButton>
         </div>
       </div>

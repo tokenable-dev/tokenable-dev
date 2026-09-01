@@ -46,12 +46,6 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
 
   const busy = lookupBusy || mintBusy;
   const allConfirmed = cards.length > 0 && cards.every((c) => c.confirmed);
-  const confirmedCount = cards.filter((c) => c.confirmed).length;
-  const registerTotal = confirmedCount > 0 ? confirmedCount : cards.length;
-  const registerLabel =
-    registerTotal > 0
-      ? `Add ${registerTotal} card${registerTotal === 1 ? "" : "s"} to my vault`
-      : "Add to my vault";
 
   return (
     <>
@@ -68,10 +62,10 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             <span className="sell-flow-partner-crumb__sep" aria-hidden>
               ›
             </span>
-            <span className="sell-flow-partner-crumb__current">Partner vault</span>
+            <span className="sell-flow-partner-crumb__current">Tokenable Vault</span>
           </nav>
 
-          <div className="sell-flow-eyebrow">Partner vault</div>
+          <div className="sell-flow-eyebrow">Tokenable Vault</div>
           <h1 className="sell-flow-h1">Scan the cards you want to list</h1>
           <p className="sell-flow-sub sell-flow-sub--partner">
             Scan the slab QR or type the cert number. Cards stay in your vault.
@@ -86,7 +80,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
               onClick={scanSlab}
             >
               <ScanIcon />
-              Scan slab
+              Upload Slab
             </TkButton>
             <input
               ref={slabInputRef}
@@ -193,10 +187,12 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             >
               {mintBusy ? (
                 <>
-                  <span className="sell-flow-spinner" aria-hidden /> Adding…
+                  <span className="sell-flow-spinner" aria-hidden /> Minting…
                 </>
               ) : (
-                registerLabel
+                <>
+                  Mint to portfolio <span className="tkl-mono" aria-hidden>→</span>
+                </>
               )}
             </TkButton>
           </div>

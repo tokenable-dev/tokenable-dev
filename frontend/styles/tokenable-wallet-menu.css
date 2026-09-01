@@ -135,7 +135,7 @@
 }
 
 .tk-copy-addr.is-copied {
-  color: var(--pos, #00c350);
+  color: var(--pos, #00C864);
   background: rgba(0, 200, 100, 0.16);
 }
 
@@ -166,7 +166,7 @@
 
 .tk-wd-item--funds,
 .tk-mw-link.tk-wd-item--funds {
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-weight: 600;
 }
 
@@ -245,7 +245,7 @@
 
 .tk-wd-network__check {
   font-size: 12px;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
 }
 
 .tk-wd-divider {
@@ -255,7 +255,7 @@
 }
 
 .tk-wallet-disconnect {
-  color: #e4374a !important;
+  color: #f5332c !important;
 }
 
 .gnb-drawer .tk-mw-link {

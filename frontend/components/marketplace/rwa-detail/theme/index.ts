@@ -32,7 +32,7 @@ export const RWA_DETAIL_BUTTON_INNER_ROUNDED = "!rounded-[9px]";
 export const RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED = RWA_DETAIL_BUTTON_FRAME_ROUNDED;
 export const RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS = RWA_DETAIL_BUTTON_RIM_PAD_CLASS;
 export const RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED = RWA_DETAIL_BUTTON_INNER_ROUNDED;
-export const RWA_DETAIL_BUY_NOW_TEXT_CLASS = "!text-[#10D333]";
+export const RWA_DETAIL_BUY_NOW_TEXT_CLASS = "!text-pos";
 export const RWA_DETAIL_BUY_NOW_FRAME_SHADOW =
   "shadow-[0_0_16px_-10px_rgba(16,211,51,0.22),0_0_24px_-14px_rgba(0,107,107,0.1)] has-[:enabled]:hover:shadow-[0_0_24px_-6px_rgba(16,211,51,0.38),0_0_36px_-10px_rgba(0,107,107,0.16)]";
 export const RWA_DETAIL_PLACE_BID_FRAME_SHADOW =

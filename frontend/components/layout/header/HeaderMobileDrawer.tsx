@@ -311,7 +311,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
                       >
                         <WalletBidsIcon width={16} height={16} aria-hidden />
-                        Active Bids
+                        My Bids
                       </button>
                       <button
                         type="button"
@@ -322,7 +322,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
                       >
                         <WalletHistoryIcon width={16} height={16} aria-hidden />
-                        Transaction History
+                        Tx History
                       </button>
                     </div>
                   ) : null}

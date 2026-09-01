@@ -79,6 +79,44 @@ export function clearRedeemDraft(): void {
   sessionStorage.removeItem(STORAGE_KEY);
 }
 
+const RECEIVED_KEY = "tk_redeem_shipment_received_v1";
+
+type StoredReceived = Record<string, string[]>;
+
+function readReceivedMap(): StoredReceived {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(RECEIVED_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as StoredReceived;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function readRedeemShipmentReceived(batchId: string): string[] {
+  if (!batchId) return [];
+  const keys = readReceivedMap()[batchId];
+  return Array.isArray(keys) ? keys.filter((k) => typeof k === "string") : [];
+}
+
+export function writeRedeemShipmentReceived(
+  batchId: string,
+  shipmentKeys: string[],
+): void {
+  if (typeof window === "undefined" || !batchId) return;
+  const next = { ...readReceivedMap(), [batchId]: shipmentKeys };
+  sessionStorage.setItem(RECEIVED_KEY, JSON.stringify(next));
+}
+
+export function clearRedeemShipmentReceived(batchId: string): void {
+  if (typeof window === "undefined" || !batchId) return;
+  const map = readReceivedMap();
+  delete map[batchId];
+  sessionStorage.setItem(RECEIVED_KEY, JSON.stringify(map));
+}
+
 type StoredRedeemAddress = RedeemShipTo & { ownerUserId?: string };
 
 export function readSavedRedeemAddress(forUserId?: string): RedeemAddressForm | null {
@@ -205,18 +243,61 @@ export function isRedeemTransitPhase(
   return status === "in_custody" && Boolean(trackingNumber?.trim());
 }
 
+export type RedeemStatusView = "done" | "transit" | "preparing" | "resume";
+
 export type RedeemSurfaceBadge = {
   label: string;
   tone: "redeeming" | "transit" | "possession";
   kind: "custody_pending" | "preparing" | "transit" | "possession";
-  /** Deep-link into redeem status / resume screens (null for possession). */
+  /** Deep-link into redeem status / resume screens. */
   statusHref: string | null;
 };
+
+/** Canonical collector URL. HTML prototype used `?state=`; we keep `?view=` (inbox + app). */
+export function buildRedeemStatusHref(
+  view: RedeemStatusView,
+  paymentBatchId?: string | null,
+): string {
+  const qs = new URLSearchParams();
+  qs.set("view", view);
+  const batch = paymentBatchId?.trim();
+  if (batch) qs.set("batch", batch);
+  return `/portfolio/redeem?${qs.toString()}`;
+}
+
+/**
+ * `view` wins; `state` is the HTML/bookmark alias.
+ * `pay` is never a valid bookmark — charged links must not reopen Review and pay.
+ */
+export function parseRedeemViewQuery(
+  searchParams: Pick<URLSearchParams, "get">,
+): string | null {
+  const raw = (
+    searchParams.get("view") ||
+    searchParams.get("state") ||
+    ""
+  ).trim();
+  if (!raw) return null;
+  if (raw === "pay") return "resume";
+  return raw;
+}
+
+export function redeemViewForStatus(
+  status?: string | null,
+  trackingNumber?: string | null,
+): RedeemStatusView | null {
+  if (status === "completed") return "done";
+  if (isRedeemTransitPhase(status, trackingNumber)) return "transit";
+  if (isRedeemPreparingPhase(status, trackingNumber)) return "preparing";
+  if (status === "ownership_verified" || status === "pending") return "resume";
+  return null;
+}
 
 export function redeemSurfaceBadge(
   status?: string | null,
   trackingNumber?: string | null,
   carrierDeliveredAt?: string | null,
+  paymentBatchId?: string | null,
 ): RedeemSurfaceBadge | null {
   if (!status) return null;
   if (status === "completed") {
@@ -224,7 +305,7 @@ export function redeemSurfaceBadge(
       label: "In your possession",
       tone: "possession",
       kind: "possession",
-      statusHref: "/portfolio/redeem?view=done",
+      statusHref: buildRedeemStatusHref("done", paymentBatchId),
     };
   }
   const tracked = Boolean(trackingNumber?.trim());
@@ -238,7 +319,7 @@ export function redeemSurfaceBadge(
       label: delivered ? "Delivered — confirm receipt" : "In transit",
       tone: "transit",
       kind: "transit",
-      statusHref: "/portfolio/redeem?view=transit",
+      statusHref: buildRedeemStatusHref("transit", paymentBatchId),
     };
   }
   if (status === "in_custody") {
@@ -246,7 +327,7 @@ export function redeemSurfaceBadge(
       label: "Redeeming — preparing",
       tone: "redeeming",
       kind: "preparing",
-      statusHref: "/portfolio/redeem?view=preparing",
+      statusHref: buildRedeemStatusHref("preparing", paymentBatchId),
     };
   }
   if (status === "ownership_verified" || status === "pending") {
@@ -254,7 +335,7 @@ export function redeemSurfaceBadge(
       label: "Redeeming — finish transfer",
       tone: "redeeming",
       kind: "custody_pending",
-      statusHref: "/portfolio/redeem?view=resume",
+      statusHref: buildRedeemStatusHref("resume", paymentBatchId),
     };
   }
   return null;

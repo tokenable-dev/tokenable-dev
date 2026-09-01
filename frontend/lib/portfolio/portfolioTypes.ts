@@ -25,10 +25,15 @@ export interface PricedAssetRow {
 
 export type AssetRow = PricedAssetRow;
 
+export type TxKind = "BUY" | "SELL" | "MINT" | "REDEEM" | "TRANSFER";
+export type TxLifecycle = "in_progress" | "completed" | "failed" | "canceled";
+
 export interface TxRow {
-  type: "BUY" | "SELL";
-  status?: "settled" | "pending" | "failed" | "vaulted";
+  type: TxKind;
+  status: TxLifecycle;
   asset: string;
+  /** Full card title for hover / detail (Line 1 + Line 2). */
+  assetHover?: string;
   category: string | null;
   amount: number;
   price: number;
@@ -39,6 +44,12 @@ export interface TxRow {
   dateMs: number;
   orderHash: string;
   tokenId?: number;
+  tokenContract?: string | null;
+  considerationToken?: string | null;
+  sellerWallet?: string | null;
+  buyerWallet?: string | null;
+  /** Persisted Ethereum tx hashes (not Seaport order hash). */
+  chainTxs?: Array<{ label: string; hash: string }>;
   imageUrl?: string | null;
   gradeLabel?: string | null;
   certNumber?: string | null;

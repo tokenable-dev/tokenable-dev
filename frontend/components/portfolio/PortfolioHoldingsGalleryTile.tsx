@@ -9,43 +9,32 @@ import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
+  portfolioPriceChangeArrow,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
-import { PortfolioTrendSparkline } from "./PortfolioTrendSparkline";
+import {
+  holdingsSaleKind,
+  holdingsSaleStatusLabel,
+} from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 
-type GalleryStatusSeg =
-  | "notlisted"
-  | "listed"
-  | "shipping"
-  | "verifying"
-  | "possession";
+type GalleryStatusSeg = "notlisted" | "listed" | "redeeming";
 
-const GALLERY_STATUS: Record<
-  GalleryStatusSeg,
-  { label: string; className: string }
-> = {
-  notlisted: { label: "Not listed", className: "pf-gbadge--notlisted" },
-  listed: { label: "Listed", className: "pf-gbadge--listed" },
-  shipping: { label: "Shipping out", className: "pf-gbadge--shipping" },
-  verifying: { label: "Verifying", className: "pf-gbadge--verifying" },
-  possession: { label: "In possession", className: "pf-gbadge--possession" },
+const GALLERY_STATUS: Record<GalleryStatusSeg, { className: string }> = {
+  notlisted: { className: "pf-gbadge--notlisted" },
+  listed: { className: "pf-gbadge--listed" },
+  redeeming: { className: "pf-gbadge--redeeming" },
 };
 
 function galleryStatusSeg(
   isListed: boolean,
   redeemStatus: RedeemSurfaceBadge | null,
 ): GalleryStatusSeg {
-  if (redeemStatus?.kind === "possession") return "possession";
-  if (redeemStatus?.kind === "transit") return "shipping";
-  if (
-    redeemStatus?.kind === "preparing" ||
-    redeemStatus?.kind === "custody_pending"
-  ) {
-    return "verifying";
-  }
-  return isListed ? "listed" : "notlisted";
+  const kind = holdingsSaleKind(isListed, redeemStatus);
+  if (kind === "listed") return "listed";
+  if (kind === "redeeming") return "redeeming";
+  return "notlisted";
 }
 
 /** My Assets gallery tile — Portfolio.html `pf-gtile`. */
@@ -54,7 +43,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   headline,
   href,
   cost,
-  vaultLabel,
   valuesPending,
   canEditCostBasis,
   savingCostBasis,
@@ -69,7 +57,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   headline: PortfolioHoldingsHeadline | null;
   href?: string;
   cost: number | undefined;
-  vaultLabel: string;
   valuesPending: boolean;
   canEditCostBasis: boolean;
   savingCostBasis?: boolean;
@@ -84,6 +71,10 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
+  const badgeLabel = holdingsSaleStatusLabel(
+    holdingsSaleKind(isListed, redeemStatus),
+    row.listPriceUsd,
+  );
   const costEditable = canEditCostBasis && !redeemStatus;
   const retLabel = pnl?.returnPct ?? null;
   const titleHover = headline?.hover ?? row.name;
@@ -127,7 +118,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
           <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
         )}
         <div className="pf-gtile__badge-wrap">
-          <span className={`pf-gbadge tkl-mono ${badge.className}`}>{badge.label}</span>
+          <span className={`pf-gbadge tkl-mono ${badge.className}`}>{badgeLabel}</span>
         </div>
       </div>
 
@@ -141,14 +132,21 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             titleNode
           )}
         </div>
-        <div className="pf-gtile__meta">
-          <span className="pf-gtile__vault tkl-mono">{vaultLabel}</span>
-        </div>
 
         <div className="pf-gtile__price-row">
           <div className="pf-gtile__price-main card__price-row">
-            <span className="card__price pf-gtile__mkt" title="Market price">
+            <span className="card__price pf-gtile__mkt tkl-mono" title="Market price">
               {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+              {hasVal && pnl ? (
+                <span
+                  className={`pf-mkt-dir${
+                    pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
+                  }`}
+                  aria-hidden
+                >
+                  {portfolioPriceChangeArrow(pnl.positive)}
+                </span>
+              ) : null}
             </span>
             <span
               className={`card__sub pf-gtile__ret tkl-mono${
@@ -164,15 +162,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
               {hasVal && retLabel ? retLabel : "\u00a0"}
             </span>
           </div>
-          <span className="pf-gtile__spark" title="1-year market price">
-            {hasVal ? (
-              <PortfolioTrendSparkline
-                values={row.sparkline1y}
-                width={60}
-                height={16}
-              />
-            ) : null}
-          </span>
         </div>
 
         <div className="pf-cost-hover">
@@ -212,6 +201,8 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         <div className="pf-gtile__act">
           <PortfolioHoldingsRowActions
             isListed={isListed}
+            listPriceUsd={row.listPriceUsd}
+            listedAskLabel
             fullWidth
             disabled={actionsDisabled}
             disabledTitle={actionsDisabledTitle}

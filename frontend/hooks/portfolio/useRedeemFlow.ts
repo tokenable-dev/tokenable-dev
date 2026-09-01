@@ -7,12 +7,16 @@ import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useAppChain } from "@/providers/AppChainProvider";
 import {
   EMPTY_REDEEM_ADDRESS_FORM,
+  buildRedeemStatusHref,
   clearRedeemDraft,
+  clearRedeemShipmentReceived,
   clearSavedRedeemAddress,
   isRedeemPreparingPhase,
   isRedeemTransitPhase,
   markRedeemAddressMigrated,
+  parseRedeemViewQuery,
   readRedeemDraft,
+  redeemViewForStatus,
   readSavedRedeemAddress,
   writeRedeemDraft,
   writeSavedRedeemAddress,
@@ -70,6 +74,7 @@ import {
 } from "@/lib/shipping/shipToValidation";
 import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
 import { mapWalletError } from "@/lib/network/walletError";
+import { waitForUserTxReceipt } from "@/lib/network";
 
 /** Pay-first UI: address → pay (+ user-signed NFT custody) → preparing → transit → done. */
 export type RedeemFlowStep =
@@ -101,6 +106,35 @@ function validateShipTo(form: RedeemAddressForm): string | null {
   });
   const first = firstShipToErrorKey(errors);
   return first ? errors[first]! : null;
+}
+
+/** After USDC is charged, never reopen Review and pay. Resume (NFT transfer) is not "charged done". */
+function bestChargedView(
+  rows: Array<{
+    status: string;
+    trackingNumber?: string | null;
+    paymentBatchId?: string | null;
+  }>,
+): { view: "transit" | "preparing" | "done"; batchId: string | null } | null {
+  if (rows.length === 0) return null;
+  if (
+    rows.some((r) => redeemViewForStatus(r.status, r.trackingNumber) === "resume")
+  ) {
+    return null;
+  }
+  for (const view of ["transit", "preparing", "done"] as const) {
+    const hit = rows.find(
+      (r) => redeemViewForStatus(r.status, r.trackingNumber) === view,
+    );
+    if (hit) {
+      const batchId =
+        hit.paymentBatchId?.trim() ||
+        rows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId?.trim() ||
+        null;
+      return { view, batchId };
+    }
+  }
+  return null;
 }
 
 function toShipTo(form: RedeemAddressForm): RedeemShipTo {
@@ -394,7 +428,18 @@ export function useRedeemFlow() {
   const { writeContractAsync } = useWriteContract();
   const usdcBalance = useAppStore((s) => s.usdcBalance);
 
-  const viewParam = searchParams.get("view");
+  const viewParam = parseRedeemViewQuery(searchParams);
+  const queryViewRaw = (
+    searchParams.get("view") ||
+    searchParams.get("state") ||
+    ""
+  ).trim();
+  const batchParam = searchParams.get("batch")?.trim() || null;
+  const usedHtmlStateAlias = Boolean(
+    !searchParams.get("view")?.trim() && searchParams.get("state")?.trim(),
+  );
+  const shouldCanonicalizeUrl =
+    usedHtmlStateAlias || queryViewRaw === "pay";
 
   const [draft, setDraft] = useState<RedeemDraft | null>(null);
   const [displayCards, setDisplayCards] = useState<RedeemDraftCard[]>([]);
@@ -454,7 +499,19 @@ export function useRedeemFlow() {
             transitScope.length > 0 ? transitScope : filtered,
             draftCards,
           );
-          const scopeRows = transitScope.length > 0 ? transitScope : filtered;
+          let scopeRows = transitScope.length > 0 ? transitScope : filtered;
+          const preferredBatch =
+            (batchParam &&
+            scopeRows.some((r) => r.paymentBatchId === batchParam)
+              ? batchParam
+              : null) ||
+            scopeRows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ||
+            null;
+          if (preferredBatch) {
+            scopeRows = scopeRows.filter(
+              (r) => r.paymentBatchId === preferredBatch,
+            );
+          }
           const nextShipments = applyShipmentsFromRows(scopeRows, cards);
           setShipments(nextShipments);
           const tracked = scopeRows.find((r) => r.trackingNumber?.trim());
@@ -462,14 +519,26 @@ export function useRedeemFlow() {
             trackingNumber: tracked?.trackingNumber ?? null,
             trackingCarrier: tracked?.trackingCarrier ?? null,
           });
-          setPaymentBatchId(
+          const batchId =
             scopeRows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
-              null,
+            null;
+          setPaymentBatchId(batchId);
+          setDisplayCards(
+            preferredBatch
+              ? cards.filter((c) =>
+                  scopeRows.some((r) => Number(r.tokenId) === c.tokenId),
+                )
+              : cards,
           );
-          setDisplayCards(cards);
           setStep(viewParam === "done" ? "done" : "transit");
           setSubmitted(true);
           setHydrated(true);
+          if (typeof window !== "undefined") {
+            const nextView = viewParam === "done" ? "done" : "transit";
+            if (shouldCanonicalizeUrl || (batchId && batchParam !== batchId)) {
+              router.replace(buildRedeemStatusHref(nextView, batchId));
+            }
+          }
           return;
         } catch {
           if (cancelled) return;
@@ -527,21 +596,47 @@ export function useRedeemFlow() {
               setSubmitted(true);
               setHydrated(true);
               if (typeof window !== "undefined") {
-                router.replace("/portfolio/redeem?view=transit");
+                const bid =
+                  scope.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
+                  null;
+                router.replace(buildRedeemStatusHref("transit", bid));
               }
               return;
             }
 
             if (preparingRows.length > 0) {
+              const preferredBatch =
+                (batchParam &&
+                preparingRows.some((r) => r.paymentBatchId === batchParam)
+                  ? batchParam
+                  : null) ||
+                preparingRows.find((r) => r.paymentBatchId?.trim())
+                  ?.paymentBatchId ||
+                null;
+              const scoped = preferredBatch
+                ? preparingRows.filter(
+                    (r) => r.paymentBatchId === preferredBatch,
+                  )
+                : preparingRows;
+              const batchId =
+                scoped.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
+                null;
               const cards = await cardsFromRedemptionRowsEnriched(
-                preparingRows,
+                scoped,
                 draftCards,
               );
-              setShipments(applyShipmentsFromRows(preparingRows, cards));
+              setShipments(applyShipmentsFromRows(scoped, cards));
+              setPaymentBatchId(batchId);
               setDisplayCards(cards);
               setStep("preparing");
               setSubmitted(true);
               setHydrated(true);
+              if (
+                typeof window !== "undefined" &&
+                (shouldCanonicalizeUrl || (batchId && batchParam !== batchId))
+              ) {
+                router.replace(buildRedeemStatusHref("preparing", batchId));
+              }
               return;
             }
             /* Wrong legacy deep-link while NFTs still need transfer — resume. */
@@ -562,6 +657,11 @@ export function useRedeemFlow() {
             setStep("pay");
             setSubmitted(true);
             setHydrated(true);
+            if (typeof window !== "undefined" && shouldCanonicalizeUrl) {
+              router.replace(
+                buildRedeemStatusHref("resume", open.pending.paymentBatchId),
+              );
+            }
             return;
           }
 
@@ -596,6 +696,29 @@ export function useRedeemFlow() {
       setDisplayCards(loaded.cards);
 
       try {
+        const existing = await getMyRedemptions(
+          chainId,
+          loaded.cards.map((c) => c.tokenId),
+        );
+        if (cancelled) return;
+        const charged = bestChargedView(existing);
+        if (charged) {
+          clearRedeemDraft();
+          clearRedeemCustodyPending();
+          setDraft(null);
+          setDisplayCards([]);
+          if (typeof window !== "undefined") {
+            router.replace(
+              buildRedeemStatusHref(charged.view, charged.batchId),
+            );
+          }
+          return;
+        }
+      } catch {
+        /* still allow a fresh pay from the draft */
+      }
+
+      try {
         const pending = await resolvePendingCustody({
           chainId,
           tokenIds: loaded.cards.map((c) => c.tokenId),
@@ -612,14 +735,23 @@ export function useRedeemFlow() {
         /* ignore — user can still pay normally */
       }
 
-      if (!cancelled) setHydrated(true);
+      if (!cancelled) {
+        setHydrated(true);
+        if (
+          typeof window !== "undefined" &&
+          shouldCanonicalizeUrl &&
+          viewParam === "request"
+        ) {
+          router.replace("/portfolio/redeem");
+        }
+      }
     }
 
     void hydrate();
     return () => {
       cancelled = true;
     };
-  }, [authReady, chainId, viewParam, userId, router]);
+  }, [authReady, chainId, viewParam, batchParam, userId, router, shouldCanonicalizeUrl]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -658,6 +790,19 @@ export function useRedeemFlow() {
     setBusy(true);
     try {
       await persistProfileAddressIfNeeded(form, userId);
+      const existing = await getMyRedemptions(
+        chainId,
+        draft.cards.map((c) => c.tokenId),
+      );
+      const charged = bestChargedView(existing);
+      if (charged) {
+        clearRedeemDraft();
+        clearRedeemCustodyPending();
+        setDraft(null);
+        setSubmitted(true);
+        router.replace(buildRedeemStatusHref(charged.view, charged.batchId));
+        return;
+      }
       const pending = await resolvePendingCustody({
         chainId,
         tokenIds: draft.cards.map((c) => c.tokenId),
@@ -673,7 +818,7 @@ export function useRedeemFlow() {
     } finally {
       setBusy(false);
     }
-  }, [draft, form, userId, chainId]);
+  }, [draft, form, userId, chainId, router]);
 
   const finishCustodyTransfers = useCallback(
     async (pending: RedeemCustodyPending) => {
@@ -742,7 +887,7 @@ export function useRedeemFlow() {
           functionName: "safeTransferFrom",
           args: [userWallet, custodyWallet, BigInt(tokenId)],
         });
-        await publicClient.waitForTransactionReceipt({ hash: nftHash });
+        await waitForUserTxReceipt(publicClient, nftHash);
         transfers.push({ tokenId, txHash: nftHash });
       }
 
@@ -787,9 +932,13 @@ export function useRedeemFlow() {
       setSuccessCount(result.transferred || custodyPending.tokenIds.length);
       const enriched = await enrichRedeemDraftCards(displayCards);
       setDisplayCards(enriched);
+      setPaymentBatchId(custodyPending.paymentBatchId);
       clearRedeemDraft();
       setSubmitted(true);
       setStep("preparing");
+      router.replace(
+        buildRedeemStatusHref("preparing", custodyPending.paymentBatchId),
+      );
     } catch (e) {
       setBusy(false);
       setPayPhase(null);
@@ -902,7 +1051,7 @@ export function useRedeemFlow() {
         args: [payTo, amount],
       });
       paymentSent = true;
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForUserTxReceipt(publicClient, hash);
 
       setPayPhase({ kind: "record" });
       let batch;
@@ -949,9 +1098,13 @@ export function useRedeemFlow() {
 
       setBusy(false);
       setSuccessCount(batch.redemptions.length);
+      setPaymentBatchId(batch.paymentBatchId);
       clearRedeemDraft();
       setSubmitted(true);
       setStep("preparing");
+      router.replace(
+        buildRedeemStatusHref("preparing", batch.paymentBatchId),
+      );
     } catch (e) {
       setBusy(false);
       setPayPhase(null);
@@ -994,23 +1147,26 @@ export function useRedeemFlow() {
   const confirmReceived = useCallback(async () => {
     if (!paymentBatchId?.trim()) {
       setError("Missing payment batch — reopen status from Portfolio.");
-      return;
+      return false;
     }
     setBusy(true);
     setError(null);
     try {
       await postRedeemBatchConfirmReceived(paymentBatchId, chainId);
       clearRedeemDraft();
+      clearRedeemShipmentReceived(paymentBatchId);
       clearRedeemCustodyPending();
       void queryClient.invalidateQueries({
         queryKey: ["rwa", "redemptions", "mine"],
       });
       setStep("done");
-      router.replace("/portfolio/redeem?view=done");
+      router.replace(buildRedeemStatusHref("done", paymentBatchId));
+      return true;
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Could not confirm receipt.",
       );
+      return false;
     } finally {
       setBusy(false);
     }

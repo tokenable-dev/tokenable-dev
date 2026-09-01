@@ -12,7 +12,7 @@ import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCol
 import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
@@ -252,7 +252,7 @@ export async function runCriteriaMatch(params: {
   });
 
   const receipt = await Promise.race([
-    publicClient.waitForTransactionReceipt({ hash }),
+    waitForUserTxReceipt(publicClient, hash),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>
@@ -389,7 +389,7 @@ export async function runTokenBidMatch(params: {
   });
 
   const receipt = await Promise.race([
-    publicClient.waitForTransactionReceipt({ hash }),
+    waitForUserTxReceipt(publicClient, hash),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>

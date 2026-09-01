@@ -6,6 +6,9 @@ import { TkButton } from "@/components/ds";
 export function RedeemDonePanel() {
   return (
     <div className="pf-redeem-panel">
+      <div className="pf-redeem-eyebrow">Redeem</div>
+      <h1 className="pf-redeem-h1">Delivered</h1>
+
       <div className="pf-redeem-banner pf-redeem-banner--pos pf-redeem-banner--center">
         <svg
           width="48"
@@ -19,11 +22,10 @@ export function RedeemDonePanel() {
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
-        <strong>They&rsquo;re yours now</strong>
+        <strong>Delivered</strong>
         <p>
-          Your cards are in your hands — the physical originals. They&rsquo;ve
-          left your online assets and now show as “In your possession” in your
-          portfolio.
+          The physical originals are in your hands. They now show as &ldquo;In
+          your possession&rdquo; in your portfolio.
         </p>
       </div>
 

@@ -176,24 +176,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const handleOrderBookSelectLevel = useCallback(
     (sel: BookRowSelection) => {
-      if (sel.side === "ask") {
-        if (sel.orders.length > 1) {
-          setOrderBookAskPicker(sel);
-          return;
-        }
-        const tid = Number(sel.orders[0]?.tokenId);
-        if (Number.isFinite(tid)) {
-          openBuyCheckoutForToken(tid);
-          return;
-        }
+      if (sel.side === "ask" && sel.orders.length >= 1) {
+        setOrderBookAskPicker(sel);
+        return;
       }
       collectionOrderBookProps?.onSelectLevel?.(sel);
     },
-    [
-      collectionOrderBookProps,
-      setOrderBookAskPicker,
-      openBuyCheckoutForToken,
-    ],
+    [collectionOrderBookProps, setOrderBookAskPicker],
   );
 
   const orderBookPropsWithActions = useMemo(
@@ -252,22 +241,14 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         return false;
       }
     });
-    // Same floor price on multiple cards → pick which copy (Card.html #tk-choose).
-    if (floorOrders.length > 1) {
-      const price = priceUsdcFromOrder(floorOrders[0]!);
-      setOrderBookAskPicker({
-        side: "ask",
-        levelKey: `ask-${priceLevelKey(price)}`,
-        price,
-        orders: floorOrders,
-      });
-      return;
-    }
-    const floor = floorOrders[0];
-    if (floor?.tokenId == null) return;
-    const tid = Number(floor.tokenId);
-    if (!Number.isFinite(tid)) return;
-    openBuyCheckoutForToken(tid);
+    if (floorOrders.length === 0) return;
+    const price = priceUsdcFromOrder(floorOrders[0]!);
+    setOrderBookAskPicker({
+      side: "ask",
+      levelKey: `ask-${priceLevelKey(price)}`,
+      price,
+      orders: floorOrders,
+    });
   };
 
   /** Card.html #tk-choose: `Name · # · Grade`; sub built in the sheet. */
@@ -339,7 +320,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         {collection.reviewStatus === "pending_review" ||
         collection.reviewStatus === "rejected" ? (
           <div
-            className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-50"
+            className="mb-4 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-warn"
             role="status"
           >
             {collection.reviewStatus === "pending_review"

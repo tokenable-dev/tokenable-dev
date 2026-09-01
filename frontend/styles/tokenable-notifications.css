@@ -6,7 +6,7 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #e4374a;
+  background: #f5332c;
   color: #fff;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -151,7 +151,7 @@
 }
 
 .tk-notif-filter--active {
-  background: #1a6fff;
+  background: #1A6FFF;
   color: #fff;
 }
 
@@ -277,7 +277,7 @@
   height: 36px;
   padding: 0 18px;
   margin-top: 12px;
-  background: #1a6fff;
+  background: #1A6FFF;
   color: #fff;
   font-family: var(--font-sans);
   font-size: 13px;

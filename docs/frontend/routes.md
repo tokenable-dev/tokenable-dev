@@ -20,7 +20,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/vault` | `app/vault/page.tsx` | **Sell hub** — landing / empty dashboard / **vaulting list** (tabs: All · In transit · Verifying · Vaulted · Rejected; ds-22 `Vault-Dashboard-Active.html`) |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
 | `/sell/flow` | `app/sell/flow/page.tsx` | Seller verification → choose vault → add cards (PSA → ship, or self → custody mint) |
-| `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack & tracking (PSA Shipping) |
+| `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack and tracking (PSA Shipping) |
 | `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Mint entry alias |
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
@@ -30,6 +30,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/partner/portfolio/assets/[tokenId]` | `app/partner/portfolio/assets/[tokenId]/page.tsx` | Partner certificate of ownership |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
 | `/settings` | `app/settings/page.tsx` | Account settings — Profile, Notifications, Wallet, Addresses, Identity, Legal, Security (`?section=`) |
+| `/faq` | `app/faq/page.tsx` | Help center FAQ (`FAQ.html`) — linked from footer |
 | `/profile` | `app/profile/page.tsx` | Redirects to `/settings` |
 | `/login` | `app/login/page.tsx` | Sign in — Privy modal launcher (Google, email, wallet) |
 | `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |

@@ -11,6 +11,7 @@ import {
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 const MARKET_CHANGE_LAG_90D_SEC = 90 * 86_400;
+const MARKET_CHANGE_LAG_1Y_SEC = 365 * 86_400;
 
 /**
  * Markets grid / landing carousel spot USD — same resolution order as collection detail
@@ -54,5 +55,15 @@ export function resolveMarketsListingMarketChangePct90d(
   const spark = snapshot?.sparklineUsd ?? [];
   if (spark.length < 2) return null;
   const anchor = referenceLagAnchorFromPoints(spark, MARKET_CHANGE_LAG_90D_SEC);
+  return anchor?.pct ?? null;
+}
+
+/** Home New items — 1-year LOCF reference vs latest. */
+export function resolveMarketsListingMarketChangePct1y(
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number | null {
+  const spark = snapshot?.sparklineUsd ?? [];
+  if (spark.length < 2) return null;
+  const anchor = referenceLagAnchorFromPoints(spark, MARKET_CHANGE_LAG_1Y_SEC);
   return anchor?.pct ?? null;
 }

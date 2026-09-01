@@ -2,6 +2,7 @@ import type { PartnerRedeemRow } from "@/lib/core";
 import { getCachedRwaImageUrl } from "@/lib/marketplace";
 import type { PartnerShipmentGroup } from "@/lib/partner/partnerRedeemGroups";
 import { partnerRedeemDeadlineMs } from "@/lib/partner/partnerRedeemStats";
+import { buildCarrierTrackingUrl } from "@/lib/shipping/carrierTracking";
 
 export type PartnerShipmentStatusKey =
   | "new"
@@ -21,8 +22,8 @@ export const PARTNER_SHIPMENT_STATUS: Record<
   },
   preparing: {
     label: "Preparing",
-    bg: "rgba(234,130,0,0.14)",
-    fg: "#EA8200",
+    bg: "rgba(243,112,30,0.14)",
+    fg: "#F3701E",
   },
   shipped: {
     label: "Shipped",
@@ -95,22 +96,8 @@ export function partnerCardCertLine(item: PartnerRedeemRow): string | null {
 export function partnerTrackingUrl(
   carrier: string | null,
   trackingNumber: string,
-): string {
-  const c = (carrier ?? "").toLowerCase();
-  const num = encodeURIComponent(trackingNumber);
-  if (c.includes("dhl")) {
-    return `https://www.dhl.com/en/express/tracking.html?AWB=${num}`;
-  }
-  if (c.includes("ups")) {
-    return `https://www.ups.com/track?tracknum=${num}`;
-  }
-  if (c.includes("fedex")) {
-    return `https://www.fedex.com/fedextrack/?trknbr=${num}`;
-  }
-  if (c.includes("usps")) {
-    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${num}`;
-  }
-  return "#";
+): string | null {
+  return buildCarrierTrackingUrl(carrier ?? undefined, trackingNumber);
 }
 
 /** Resolve card image: API `imageUrl` first, then metadata batch fallback for legacy rows. */

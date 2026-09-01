@@ -3,16 +3,18 @@ import {
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
+  extractCardNumberFromDisplayText,
   formatHeadlineCardNumber,
   leadingYearFromSetLine,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type CollectionHeadlineInfoTag = { id: string; text: string; title?: string };
 
 export type HeadlineCardNumberMarketPreview = {
-  card?: { cardNumber?: string | null } | null;
+  card?: { cardNumber?: string | null; name?: string | null } | null;
 } | null;
 
 /** Normalize chips for duplicate detection (against set/title lines). */
@@ -46,15 +48,42 @@ export function variantAlreadyRepresentedInMetaStrip(
   return m.includes(v);
 }
 
-/** Display card number from preview or components (shared by hero title + chips). */
+function componentCardNumberRaw(comp: CollectionComponents): string {
+  const v = comp.cardNumber as unknown;
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return "";
+}
+
+/** Display card number from preview, components, or listing title (shared by hero title + chips). */
 export function resolveHeadlineFormattedCardNumber(
   marketPreview: HeadlineCardNumberMarketPreview,
   comp: CollectionComponents,
+  extraHaystack?: string | null,
 ): string | null {
-  const cardNoStr = typeof comp.cardNumber === "string" ? comp.cardNumber.trim() : "";
-  return formatHeadlineCardNumber(
-    marketPreview?.card?.cardNumber?.trim() || cardNoStr,
-  );
+  const direct = [
+    marketPreview?.card?.cardNumber,
+    componentCardNumberRaw(comp),
+  ];
+  for (const raw of direct) {
+    const formatted = formatHeadlineCardNumber(raw);
+    if (formatted) return formatted;
+  }
+  const haystacks = [
+    extraHaystack ?? "",
+    listingDisplayTitleFromComp(comp),
+    typeof comp.psaSubject === "string" ? comp.psaSubject : "",
+    typeof comp.cardNameDisplay === "string" ? comp.cardNameDisplay : "",
+    typeof comp.cardName === "string" ? comp.cardName : "",
+    typeof comp.variant === "string" ? comp.variant : "",
+    typeof comp.psaVariety === "string" ? comp.psaVariety : "",
+    marketPreview?.card?.name ?? "",
+  ];
+  for (const hay of haystacks) {
+    const extracted = extractCardNumberFromDisplayText(hay);
+    if (extracted) return extracted;
+  }
+  return null;
 }
 
 export function headlineContainsFormattedCardNumber(

@@ -37,7 +37,7 @@ function periodChipLabel(
 
 function formatBookUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-  return formatUsdCompact(n);
+  return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
 /** Strip segments already shown in `#hero-title` (name / number / grade). */
@@ -58,12 +58,19 @@ function stripHeroTitleDupesFromMeta(
       .map((s) => (s ?? "").trim().toLowerCase())
       .filter(Boolean),
   );
+  const num = (cardNumber ?? "").trim();
+  if (num) {
+    skip.add(num.replace(/^0+/, "") || num);
+    const padded = /^\d+$/.test(num.replace(/^#/, ""))
+      ? String(parseInt(num.replace(/^#/, ""), 10)).padStart(3, "0")
+      : "";
+    if (padded) skip.add(padded.toLowerCase());
+  }
 
   const kept: string[] = [];
   for (const seg of segments) {
     const key = seg.toLowerCase();
     if (skip.has(key)) continue;
-    // Drop consecutive identical segments ("Holofoil · Holofoil").
     if (kept.length > 0 && kept[kept.length - 1].toLowerCase() === key) continue;
     kept.push(seg);
   }
@@ -337,12 +344,6 @@ export function CollectionDetailStatMain({
     changePct != null && Number.isFinite(changePct)
       ? formatChangeTag(changePct)
       : null;
-  const changeTagTone =
-    changeTone === "down"
-      ? "danger"
-      : changeTone === "up"
-        ? "positive"
-        : "neutral";
 
   const hasAsk =
     lowestAskUsd != null && Number.isFinite(lowestAskUsd) && lowestAskUsd > 0;
@@ -401,9 +402,9 @@ export function CollectionDetailStatMain({
                 <AssetDetailHeadlineTitle
                   as="h1"
                   parts={headlineParts}
+                  grade={gradeLabel}
                   className="cd-hero-bar__title"
                   id="hero-title"
-                  grade={gradeLabel}
                 />
               ) : (
                 <h1
@@ -450,13 +451,20 @@ export function CollectionDetailStatMain({
                     aria-hidden
                   />
                 ) : changeTag ? (
-                  <TkTag
-                    tone={changeTagTone}
-                    className="cd-hero-bar__change-tag"
+                  <span
+                    className={`cd-chart-panel__chg tkl-mono${
+                      changeTone === "down"
+                        ? " cd-chart-panel__chg--down"
+                        : changeTone === "up"
+                          ? " cd-chart-panel__chg--up"
+                          : ""
+                    }`}
                   >
-                    <span aria-hidden>{changeTag.arrow}</span>{" "}
+                    <span className="cd-chg-glyph" aria-hidden>
+                      {changeTag.arrow}
+                    </span>{" "}
                     {changeTag.label}
-                  </TkTag>
+                  </span>
                 ) : (
                   <TkTag tone="neutral" className="cd-hero-bar__change-tag">
                     {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
@@ -471,10 +479,10 @@ export function CollectionDetailStatMain({
       {/* Card.html: two `.hero-secondary` columns (Ask/Bid + market · Pop + gem) */}
             <div className="cd-hero-bar__secondary hero-secondary cd-hero-bar__secondary--wide">
               <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Ask / Bid</span>
+                <span className="cd-hero-bar__sec-lbl mono">Ask | Bid</span>
                 <span className="cd-hero-bar__sec-val mono cd-hero-bar__askbid">
                   <span id="ob-ask">{formatBookUsd(lowestAskUsd)}</span>
-                  {" / "}
+                  {" | "}
                   <span
                     id="ob-bid"
                     className={hasBid ? "cd-hero-bar__sec-val--bid" : undefined}
@@ -543,7 +551,7 @@ export function CollectionDetailStatMain({
                     disabled={buyDisabled || !hasAsk}
                     onClick={onBuyLowestAsk}
                   >
-                    Buy now
+                    Buy
                   </TkButton>
                 ) : null}
                 {onPlaceBid ? (

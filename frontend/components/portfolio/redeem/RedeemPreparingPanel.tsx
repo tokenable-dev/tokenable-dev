@@ -14,10 +14,9 @@ import type {
   RedeemAddressForm,
   RedeemDraftCard,
 } from "@/lib/portfolio/redeemDraft";
-import { RedeemCardSummary } from "./RedeemCardSummary";
 import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
 
-/** After pay / custody — cards are being prepared (ds-5 `wd-preparing`). */
+/** After pay / custody — cards are being prepared (`#wd-preparing`). */
 export function RedeemPreparingPanel({
   cards,
   form: _form,
@@ -66,32 +65,12 @@ export function RedeemPreparingPanel({
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-banner pf-redeem-banner--azure">
-        <svg
-          className="pf-redeem-banner__icon pf-redeem-banner__icon--pos"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          aria-hidden
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-        <div>
-          <strong>Payment received — your cards are being prepared</strong>
-          <p>
-            While your cards are on their way, Tokenable holds their ownership for
-            you. They can&rsquo;t be sold or listed until they&rsquo;re delivered.
-            {progressRows.length > 1
-              ? " Cards from different vaults ship as separate packages."
-              : ""}
-          </p>
-        </div>
-      </div>
-
-      {cards.length > 0 ? <RedeemCardSummary cards={cards} /> : null}
+      <div className="pf-redeem-eyebrow">Redeem</div>
+      <h1 className="pf-redeem-h1">Preparing your cards</h1>
+      <p className="pf-redeem-sub pf-redeem-sub--prep">
+        Tokenable holds ownership until delivery. They can&rsquo;t be sold or
+        listed until they&rsquo;re delivered.
+      </p>
 
       <div className="pf-redeem-shipment">
         <div className="pf-redeem-shipment__title">Shipment progress</div>
@@ -117,36 +96,23 @@ export function RedeemPreparingPanel({
           title="Paid"
           totalLabel="Total paid"
         />
-        <p className="pf-redeem-cost__copy">
-          Charged when you confirmed — no markup. Amounts are from your recorded
-          payment (not re-quoted).
-          {est &&
-          Math.abs(
-            est.shippingUsd +
-              est.retrievalFeeTotalUsd +
-              est.earlyWithdrawalFeeTotalUsd -
-              est.totalUsd,
-          ) > 0.05
-            ? " Line items are the quote stored at confirmation; Total paid is the USDC that actually moved (FedEx sandbox rates can change between Calculate and Pay)."
-            : ""}
-        </p>
+        <p className="pf-redeem-cost__copy">Charged at confirmation.</p>
       </div>
 
       <TkButton
         type="button"
         variant="subtle"
-        className="pf-redeem-primary"
+        className="pf-redeem-primary pf-redeem-cancel-btn"
         disabled
       >
-        Cancel this request
+        Cancel
       </TkButton>
-      <p className="pf-redeem-hint-below" style={{ marginBottom: 20 }}>
-        You can cancel until the courier is contacted. Your ship-from-vault
-        request is refunded in full — shipping and the Redemption fee — and
-        ownership is back in your account. (Cancel ships in a later update.)
+      <p className="pf-redeem-hint-below pf-redeem-hint-below--prep">
+        Cancel until the courier is contacted. Refunded in full, and ownership
+        returns to your account.
       </p>
 
-      <Link href="/portfolio" className="pf-redeem-primary-link">
+      <Link href="/portfolio" className="pf-redeem-primary-link pf-redeem-primary-link--prep">
         <TkButton type="button" variant="primary" className="pf-redeem-primary">
           Back to Portfolio
         </TkButton>

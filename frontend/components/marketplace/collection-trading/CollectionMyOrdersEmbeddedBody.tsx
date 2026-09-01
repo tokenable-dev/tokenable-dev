@@ -48,8 +48,8 @@ export function CollectionMyOrdersEmbeddedBody({
     ? "font-mono tabular-nums text-zinc-200"
     : "font-mono tabular-nums text-zinc-400";
   const cancelListingCls = isOrderBook
-    ? "shrink-0 text-[12px] font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-40"
-    : "shrink-0 text-[10px] font-medium text-rose-400/90 hover:text-rose-300 disabled:opacity-40";
+    ? "shrink-0 text-[12px] font-semibold text-neg hover:text-neg/80 disabled:opacity-40"
+    : "shrink-0 text-[10px] font-medium text-neg/90 hover:text-neg/80 disabled:opacity-40";
   const changePriceCls = isOrderBook
     ? "text-[12px] font-semibold text-mint hover:text-mint/90 disabled:opacity-40"
     : "text-[10px] font-medium text-mint/90 hover:text-mint disabled:opacity-40";
@@ -57,8 +57,8 @@ export function CollectionMyOrdersEmbeddedBody({
     ? "text-[12px] font-semibold text-zinc-300 hover:text-white disabled:opacity-40"
     : "text-[10px] font-medium text-zinc-400 hover:text-zinc-200 disabled:opacity-40";
   const staleBadgeCls = isOrderBook
-    ? "ml-1.5 rounded border border-amber-500/35 bg-amber-500/[0.12] px-1.5 py-0.5 text-[10px] font-medium text-amber-100/95"
-    : "ml-1.5 rounded border border-amber-500/35 bg-amber-500/[0.12] px-1 py-px text-[9px] font-medium text-amber-200/95";
+    ? "ml-1.5 rounded border border-warn/35 bg-warn/[0.12] px-1.5 py-0.5 text-[10px] font-medium text-warn"
+    : "ml-1.5 rounded border border-warn/35 bg-warn/[0.12] px-1 py-px text-[9px] font-medium text-warn";
   const actionGapCls = isOrderBook ? "gap-2.5" : "gap-2";
 
   if (!addr) {

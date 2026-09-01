@@ -134,23 +134,40 @@
   --cd-line1-lh: 1.3;
   margin: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
-/* SSOT — Line 1 `{Name} · {Number} · {Grade}`: reserve 2 lines, ellipsis beyond */
+/**
+ * Line 1 `{Name} · {Number} · {Grade}` stays a single run on the left.
+ * The name may ellipsis; number/grade do not grow to the trailing edge.
+ */
 .cd-display-name--line1-clamp-2 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: flex;
+  justify-content: flex-start;
+  align-items: baseline;
   overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
   max-width: 100%;
   line-height: var(--cd-line1-lh, 1.3);
-  min-height: calc(2 * var(--cd-line1-lh, 1.3) * 1em);
-  max-height: calc(2 * var(--cd-line1-lh, 1.3) * 1em);
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  min-height: 0;
+  max-height: none;
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.cd-display-name--line1-clamp-2 .cd-display-name__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-display-name--line1-clamp-2 .cd-display-name__meta,
+.cd-display-name--line1-clamp-2 .cd-display-name__grade,
+.cd-display-name--line1-clamp-2 .cd-display-name__sep {
+  flex: 0 0 auto;
 }
 
 .card__set {
@@ -194,7 +211,7 @@
   color: #fff;
   padding: 4px 8px;
   line-height: 1;
-  background: #1a6fff;
+  background: #1A6FFF;
   border-radius: 6px;
 }
 
@@ -239,21 +256,23 @@
 
 .card__sub {
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  /* Immediately after price — not pushed to the far edge */
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
   display: inline-flex;
-  align-items: baseline;
-  gap: 0;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
   min-width: 0;
 }
 
 .card__sub-glyph {
   flex: none;
-  width: 8px;
-  height: 6px;
+  display: inline-block;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 .card__sub--up {
@@ -261,7 +280,7 @@
 }
 
 .card__sub--down {
-  color: rgb(228, 55, 74);
+  color: rgb(245, 51, 44);
 }
 
 .card__sub--muted {
@@ -273,20 +292,24 @@
 }
 
 .card__per {
-  font-family: var(--font-mono);
-  /* Markets.html inline period span uses 12px */
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  margin-left: 0.35em;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  margin-left: 0;
 }
 
 /* index.html card tokens — home grid4 (Top movers / Just vaulted) */
 .home-page .card__grade,
 .home-page .card__stat,
-.home-page .card__kv,
+.home-page .card__kv {
+  font-synthesis: none;
+}
+
 .home-page .card__sub {
   font-synthesis: none;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .home-page .card__sub--up {
@@ -294,7 +317,7 @@
 }
 
 .home-page .card__sub--down {
-  color: rgb(228, 55, 74);
+  color: rgb(245, 51, 44);
 }
 
 .home-page .card__sub--muted {
@@ -340,7 +363,7 @@
   }
 
   .card__sub {
-    font-size: 12px;
+    font-size: 11px;
     flex-shrink: 1;
   }
 
@@ -354,8 +377,7 @@
   }
 
   .card__sub-glyph {
-    width: 7px;
-    height: 5px;
+    font-size: 6px;
   }
 }
 

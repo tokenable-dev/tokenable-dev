@@ -58,6 +58,17 @@ export function useMyRedemptions(enabled = true) {
     return m;
   }, [query.data]);
 
+  const redeemPaymentBatchByTokenId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const row of query.data ?? []) {
+      const id = Number(row.tokenId);
+      if (!Number.isFinite(id)) continue;
+      const b = row.paymentBatchId?.trim();
+      if (b && !m.has(id)) m.set(id, b);
+    }
+    return m;
+  }, [query.data]);
+
   const redemptionByTokenId = useMemo(() => {
     const m = new Map<number, MyRedemptionRow>();
     for (const row of query.data ?? []) {
@@ -101,6 +112,7 @@ export function useMyRedemptions(enabled = true) {
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
+    redeemPaymentBatchByTokenId,
     redemptionByTokenId,
     inFlightRows,
     completedRows,

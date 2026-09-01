@@ -4,7 +4,7 @@
  *   node scripts/ds-import-standalone.mjs [path/to/standalone.html]
  *   node scripts/ds-import-standalone.mjs --extract-css [path]
  *
- * Default source: repo root `Tokenable Design System (Standalone).html`
+ * Default source: `Tokenable Design System/Tokenable Design System (Standalone).html`
  * Copies showcase bundle to `public/design-system-standalone.html` (/dev/design-system iframe).
  * `--extract-css` pulls typography + components from the embedded bundle (escaped in the loader)
  * into `design-system/_import-*.css` for manual diff — does not overwrite production CSS.
@@ -20,7 +20,11 @@ const repoRoot = path.resolve(frontendRoot, "..");
 const args = process.argv.slice(2);
 const extractCss = args.includes("--extract-css");
 const srcArg = args.filter((a) => !a.startsWith("--"))[0];
-const defaultSrc = path.join(repoRoot, "Tokenable Design System (Standalone).html");
+const defaultSrc = path.join(
+  repoRoot,
+  "Tokenable Design System",
+  "Tokenable Design System (Standalone).html",
+);
 const src = path.resolve(srcArg ?? defaultSrc);
 
 if (!fs.existsSync(src)) {

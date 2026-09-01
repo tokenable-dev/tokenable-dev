@@ -94,7 +94,7 @@
 .pf-redeem-chk {
   width: 18px;
   height: 18px;
-  accent-color: var(--azure, #1a6fff);
+  accent-color: var(--azure, #1A6FFF);
   cursor: pointer;
 }
 
@@ -122,8 +122,8 @@
 }
 
 .pf-redeem-badge--transit {
-  background: rgba(234, 130, 0, 0.14);
-  color: rgb(234, 130, 0);
+  background: rgba(243, 112, 30, 0.14);
+  color: rgb(243, 112, 30);
 }
 
 .pf-redeem-badge--possession {
@@ -156,7 +156,7 @@
 .pf-table-actions__status-link {
   font-size: 11px;
   font-weight: 600;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -172,7 +172,7 @@
   height: 32px;
   padding: 0 14px;
   border-radius: 8px;
-  background: var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
   color: #fff;
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 13px;
@@ -280,7 +280,7 @@
   padding: 0 22px !important;
   font-size: 14px !important;
   font-weight: 600 !important;
-  background: var(--azure, #1a6fff) !important;
+  background: var(--azure, #1A6FFF) !important;
   color: #fff !important;
   border: 0 !important;
   border-radius: 10px !important;
@@ -323,7 +323,7 @@
 }
 
 .pf-redeem-crumb a {
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   text-decoration: none;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -370,19 +370,25 @@
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--eyebrow);
+  color: var(--azure, #1A6FFF);
   display: inline-flex;
   align-items: center;
   gap: 9px;
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-eyebrow {
+    display: none;
+  }
 }
 
 .pf-redeem-h1 {
   margin: 10px 0 6px;
   font-family: var(--font-sans, system-ui, sans-serif);
   font-weight: 700;
-  font-size: 22px;
+  font-size: clamp(26px, 3.2vw, 38px);
   letter-spacing: -0.025em;
-  line-height: 1.2;
+  line-height: 1.1;
   color: #fff;
 }
 
@@ -391,6 +397,42 @@
   font-size: 15px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.5;
+}
+
+.pf-redeem-sub--prep {
+  margin-bottom: 20px;
+}
+
+.pf-redeem-batch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #191919;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.pf-redeem-batch-head__label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+}
+
+.pf-redeem-batch-head__id {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.pf-redeem-batch-head__scope {
+  text-align: right;
 }
 
 /* Shared ship-to form — Redeem.html + Settings Addresses (`.tk-ship-form`) */
@@ -460,7 +502,7 @@
 }
 
 .tk-ship-form .tk-input:focus {
-  border-color: var(--azure, #1a6fff) !important;
+  border-color: var(--azure, #1A6FFF) !important;
   box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15) !important;
 }
 
@@ -547,7 +589,7 @@
 .pf-redeem-cbx input {
   width: 16px;
   height: 16px;
-  accent-color: var(--azure, #1a6fff);
+  accent-color: var(--azure, #1A6FFF);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -574,6 +616,10 @@
   margin-bottom: 28px;
   border-radius: 16px;
   background: #191919;
+  padding: 20px;
+}
+
+.pf-redeem-summary--compact {
   padding: 16px 20px;
 }
 
@@ -604,12 +650,14 @@
 }
 
 .pf-redeem-summary__thumb {
-  width: 36px;
-  height: 52px;
-  border-radius: 4px;
-  overflow: hidden;
+  width: 30px;
+  height: 42px;
   background: #0e0e0e;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 2px;
+  border: 1px solid #191919;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .pf-redeem-summary__thumb img {
@@ -630,14 +678,14 @@
 
 .pf-redeem-summary__sub {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.52);
   margin-top: 2px;
 }
 
 .pf-redeem-summary__toggle {
   border: 0;
   background: rgba(255, 255, 255, 0.06);
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -707,7 +755,7 @@
 
 .pf-redeem-chip {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
@@ -722,7 +770,7 @@
 
 .pf-redeem-summary__row-cert {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.52);
 }
 
 .pf-redeem-summary__trash {
@@ -757,17 +805,9 @@
 }
 
 .pf-redeem-quote {
-  /* Keep Cost card from collapsing when idle → loading (old spinner was tiny) */
-  min-height: 196px;
   transition:
-    min-height 220ms ease,
     box-shadow 220ms ease,
     border-color 220ms ease;
-}
-
-.pf-redeem-quote--loading {
-  border: 1px solid rgba(26, 111, 255, 0.22);
-  box-shadow: 0 0 0 1px rgba(26, 111, 255, 0.06);
 }
 
 .pf-redeem-quote--done {
@@ -780,7 +820,11 @@
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  min-height: 28px;
+}
+
+.pf-redeem-quote__label,
+.pf-redeem-quote .pf-redeem-cost__title {
+  margin: 0;
 }
 
 .pf-redeem-quote__badge {
@@ -811,55 +855,50 @@
 }
 
 .pf-redeem-quote__badge--stale {
-  background: rgba(234, 130, 0, 0.14);
-  color: #ea8200;
+  background: rgba(243, 112, 30, 0.14);
+  color: #f3701e;
 }
 
 .pf-redeem-quote__stage {
   margin-top: 14px;
-  /* Reserve idle footprint so Calculate → loading never shrinks the card */
-  min-height: 118px;
 }
 
 .pf-redeem-quote__body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  animation: pf-redeem-quote-in 220ms ease both;
+  display: block;
+}
+
+.pf-redeem-quote__body--loading {
+  margin-top: 4px;
 }
 
 .pf-redeem-quote__body--result {
-  gap: 12px;
-}
-
-@keyframes pf-redeem-quote-in {
-  from {
-    opacity: 0.45;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  margin-top: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pf-redeem-quote,
-  .pf-redeem-quote__body,
   .pf-redeem-quote__badge,
-  .pf-redeem-quote__bar-fill,
-  .pf-redeem-quote__continue {
-    animation: none !important;
+  .pf-redeem-quote__bar-fill {
     transition: none !important;
   }
 }
 
 .pf-redeem-quote__intro {
-  margin: 0;
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
 }
 
 .pf-redeem-quote__stale-note {
-  margin: 0;
+  margin: 0 0 14px;
+  background: rgba(243, 112, 30, 0.08);
+  border: 1px solid rgba(243, 112, 30, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
 }
 
 .pf-redeem-quote__skeleton {
@@ -919,12 +958,25 @@
   }
 }
 
-.pf-redeem-quote__loading {
+.pf-redeem-quote__loading,
+.pf-redeem-quote__loading-row {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-redeem-quote__loading-copy {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-redeem-quote-btn.tk-btn {
+  width: 100%;
+  height: 48px !important;
+  min-height: 48px !important;
+  font-size: 15px !important;
 }
 
 .pf-redeem-quote__spin {
@@ -933,7 +985,7 @@
   flex: none;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--azure, #1a6fff);
+  border-top-color: var(--azure, #1A6FFF);
   animation: pf-redeem-spin 0.7s linear infinite;
 }
 
@@ -948,16 +1000,17 @@
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.07);
   overflow: hidden;
+  margin-top: 14px;
 }
 
 .pf-redeem-quote__bar-fill {
   height: 100%;
-  background: var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
   transition: width 220ms linear;
 }
 
 .pf-redeem-quote__continue {
-  animation: pf-redeem-quote-in 260ms ease both;
+  width: 100%;
 }
 
 .pf-redeem-cost__inner {
@@ -971,9 +1024,8 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.pf-redeem-cost__shipment:first-child {
-  border-top: 0;
-  padding-top: 0;
+.pf-redeem-quote__body--result .pf-redeem-cost__copy {
+  margin-top: 12px;
 }
 
 .pf-redeem-cost__shipment-title {
@@ -984,7 +1036,7 @@
 }
 
 .pf-redeem-cost__shipment-count {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.52);
   font-weight: 500;
 }
 
@@ -1012,12 +1064,22 @@
 .pf-redeem-shipment__title,
 .pf-redeem-next__title {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.pf-redeem-cost .pf-redeem-cost__title,
+.pf-redeem-shipto .pf-redeem-cost__title,
+.pf-redeem-paybox .pf-redeem-cost__title {
+  margin-bottom: 6px;
+}
+
+.pf-redeem-paybox .pf-redeem-cost__copy {
+  margin-top: 10px;
 }
 
 .pf-redeem-cost__copy,
@@ -1026,17 +1088,6 @@
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.6;
   margin: 12px 0 0;
-}
-
-.pf-redeem-cost__duty {
-  margin-top: 14px;
-  background: rgba(234, 130, 0, 0.08);
-  border: 1px solid rgba(234, 130, 0, 0.2);
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
 }
 
 .pf-redeem-cost__lines {
@@ -1052,7 +1103,10 @@
   gap: 12px;
   padding: 9px 0;
   color: #fff;
-  font-weight: 600;
+}
+
+.pf-redeem-cost__line--item {
+  padding: 5px 0;
 }
 
 .pf-redeem-cost__label {
@@ -1061,11 +1115,22 @@
   font-family: var(--font-sans, inherit);
 }
 
+.pf-redeem-cost__val {
+  font-weight: 600;
+  color: #fff;
+}
+
 .pf-redeem-cost__line--total {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 8px;
   padding-top: 14px;
   font-size: 16px;
+  font-weight: 700;
+}
+
+.pf-redeem-cost__line--total .pf-redeem-cost__val {
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .pf-redeem-shipto__head {
@@ -1103,15 +1168,15 @@
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 6px;
 }
 
 .pf-redeem-status-pill--warn {
-  background: rgba(234, 130, 0, 0.14);
-  color: #ea8200;
+  background: rgba(243, 112, 30, 0.14);
+  color: #f3701e;
 }
 
 .pf-redeem-status-pill--pos {
@@ -1121,11 +1186,11 @@
 
 .pf-redeem-shipment__head {
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .pf-redeem-track-link {
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-weight: 600;
   text-decoration: none;
   word-break: break-all;
@@ -1163,7 +1228,7 @@
 
 .pf-redeem-flag--reported,
 .pf-redeem-flag:disabled {
-  background: rgba(228, 55, 74, 0.16);
+  background: rgba(245, 51, 44, 0.16);
   color: #ff6b7a;
   cursor: default;
 }
@@ -1252,25 +1317,15 @@
 }
 
 .pf-redeem-paybox__bal {
-  color: rgb(0, 200, 100);
+  color: var(--pos, rgb(0, 200, 100));
   margin-left: 6px;
 }
 
-/* "What your wallet will ask you to sign" list */
-.pf-redeem-sign-steps {
-  margin: 10px 0 12px;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.pf-redeem-sign-steps strong {
-  color: #fff;
-  font-weight: 600;
+.pf-redeem-paybox__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
 }
 
 .pf-redeem-shipment__meta {
@@ -1300,7 +1355,7 @@
 }
 
 .pf-redeem-shipment__auto {
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
 }
 
 .pf-redeem-shipment--delivered {
@@ -1339,12 +1394,13 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  margin-bottom: 20px;
 }
 
 .pf-redeem-banner__icon {
   flex-shrink: 0;
   margin-top: 1px;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
 }
 
 .pf-redeem-banner strong {
@@ -1359,11 +1415,6 @@
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--t2);
-}
-
-.pf-redeem-banner--azure {
-  background: rgba(26, 111, 255, 0.08);
-  border: 1px solid rgba(26, 111, 255, 0.25);
 }
 
 .pf-redeem-banner--pos {
@@ -1417,10 +1468,26 @@
   border-top-color: #fff;
 }
 
+.pf-redeem-shipment .pf-redeem-shipment__title {
+  margin-bottom: 14px;
+}
+
+.pf-redeem-cancel-btn.tk-btn {
+  margin-bottom: 12px;
+}
+
+.pf-redeem-hint-below--prep {
+  margin-bottom: 20px;
+}
+
 .pf-redeem-primary-link {
   display: block;
   text-decoration: none;
   margin-top: 10px;
+}
+
+.pf-redeem-primary-link--prep {
+  margin-top: 0;
 }
 
 /* Portfolio Redeem tab — in-progress + completed history */
@@ -1567,7 +1634,7 @@
   height: 40px;
   border-radius: 11px;
   background: rgba(26, 111, 255, 0.12);
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1659,7 +1726,7 @@
 .pf-redeem-contents__slip {
   border: 0;
   background: rgba(255, 255, 255, 0.05);
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-family: var(--font-sans, inherit);
   font-size: 12px;
   font-weight: 600;
@@ -1768,6 +1835,15 @@
   border-radius: 5px;
 }
 
+.pf-redeem-contents__grade {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .pf-redeem-contents__cert {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.42);
@@ -1804,7 +1880,7 @@
   height: 38px;
   border-radius: 11px;
   background: rgba(26, 111, 255, 0.12);
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1835,7 +1911,7 @@
   margin-top: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   text-decoration: none;
 }
 

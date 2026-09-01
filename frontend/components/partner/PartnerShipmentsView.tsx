@@ -30,6 +30,7 @@ import {
   partnerTrackingUrl,
   sortPartnerShipmentGroups,
 } from "@/lib/partner/partnerShipmentDisplay";
+import { formatCarrierLabel } from "@/lib/shipping/carrierTracking";
 import { usePartnerRedeemMetadataImages } from "@/hooks/partner/usePartnerRedeemMetadataImages";
 import type { PartnerRedeemRow } from "@/lib/core";
 
@@ -367,6 +368,11 @@ function ShipmentRow({
     group.tab === "delivered";
   // Partner-Shipments.html: Edit tracking only while still shipped (not delivered).
   const canEditTracking = group.tab === "shipped";
+  const trackingHref =
+    showTrackingMeta && group.trackingNumber
+      ? partnerTrackingUrl(group.trackingCarrier, group.trackingNumber)
+      : null;
+  const carrierShown = formatCarrierLabel(group.trackingCarrier);
 
   return (
     <>
@@ -455,20 +461,21 @@ function ShipmentRow({
                 {showTrackingMeta && group.trackingNumber ? (
                   <span className="partner-ship__track-meta">
                     <span className="partner-ship__v">
-                      {group.trackingCarrier || "Carrier"}
+                      {carrierShown || "—"}
                     </span>
                     <span className="partner-ship__vs">
-                      <a
-                        className="tkl-mono"
-                        href={partnerTrackingUrl(
-                          group.trackingCarrier,
-                          group.trackingNumber,
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {group.trackingNumber}
-                      </a>
+                      {trackingHref ? (
+                        <a
+                          className="tkl-mono"
+                          href={trackingHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {group.trackingNumber} →
+                        </a>
+                      ) : (
+                        <span className="tkl-mono">{group.trackingNumber}</span>
+                      )}
                     </span>
                   </span>
                 ) : null}

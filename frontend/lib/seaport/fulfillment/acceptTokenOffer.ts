@@ -7,7 +7,7 @@ import {
 } from "@/constants/contracts";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import { fulfillOrderApi, getRwaSettlementPolicy, type Order } from "@/lib/core";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
 import { askGrossUsdcMicros, bidUsdcAmount } from "../orders/bidUsdc";
 import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import {
@@ -70,7 +70,7 @@ async function ensureNftApprovedForSeaport(params: {
     chainId,
     gas,
   });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await waitForUserTxReceipt(publicClient, hash);
   if (receipt.status === "reverted") {
     throw new Error("NFT approval for Seaport was reverted. Try again.");
   }
@@ -184,7 +184,7 @@ export async function acceptTokenOffer(params: {
       chainId,
       gas,
     });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await waitForUserTxReceipt(publicClient, hash);
     if (receipt.status === "reverted") {
       throw new Error(
         `Seaport fulfill reverted (tx ${hash}). The buyer may lack USDC or Seaport allowance. Your listing was not changed.`,

@@ -87,6 +87,8 @@ export interface OrderListItem {
   filledByBuyer?: string | null;
   matchedOrderHash?: string | null;
   sellerDisplayName?: string | null;
+  tokenContract?: string | null;
+  considerationToken?: string | null;
   settlementPolicy?: "standard" | "self_vault_hold" | null;
   vaultLabel?: string | null;
   considerationRecipients: string[];

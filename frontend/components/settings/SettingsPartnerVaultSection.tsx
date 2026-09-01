@@ -202,7 +202,7 @@ export function SettingsPartnerVaultSection() {
             disabled={saveMutation.isPending}
           />
           {error ? (
-            <p className="mt-3 text-sm text-red-400" role="alert">
+            <p className="mt-3 text-sm text-neg" role="alert">
               {error}
             </p>
           ) : null}

@@ -48,27 +48,7 @@ export function orderProgressStepLabel(step: number | undefined): string {
   return STEP_LABELS[step] ?? `Step ${step}`;
 }
 
-export function buildCarrierTrackingUrl(
-  carrier: string | undefined,
-  trackingNumber: string | undefined,
-): string | null {
-  const num = trackingNumber?.trim();
-  if (!num) return null;
-  const c = carrier?.trim().toLowerCase() ?? "";
-  if (c.includes("ups")) {
-    return `https://www.ups.com/track?tracknum=${encodeURIComponent(num)}`;
-  }
-  if (c.includes("fedex")) {
-    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(num)}`;
-  }
-  if (c.includes("usps")) {
-    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(num)}`;
-  }
-  if (c.includes("dhl")) {
-    return `https://www.dhl.com/global-en/home/tracking.html?tracking-id=${encodeURIComponent(num)}`;
-  }
-  return null;
-}
+export { buildCarrierTrackingUrl } from "@/lib/shipping/carrierTracking";
 
 export function formatBoolFlag(value: boolean | undefined, yes = "Yes", no = "No"): string {
   if (value === true) return yes;

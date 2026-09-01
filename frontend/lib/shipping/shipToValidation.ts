@@ -1,5 +1,6 @@
 import type { ShippingCountry } from "@/lib/core/api/shipping-addresses";
 import { phoneDialLensFor } from "@/lib/shipping/phoneDialOptions";
+import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
 
 export type ShipToFieldKey =
   | "name"
@@ -7,7 +8,8 @@ export type ShipToFieldKey =
   | "city"
   | "region"
   | "postal"
-  | "phone";
+  | "phone"
+  | "country";
 
 export type ShipToFieldErrors = Partial<Record<ShipToFieldKey, string>>;
 
@@ -154,6 +156,24 @@ export function validateShipToFields(
     errors.phone = `Enter a valid ${lenHint} number for ${dial || "the selected country"}`;
   }
 
+  const UNDELIVERABLE: Record<string, string> = {
+    TH: "Thailand",
+    RU: "Russia",
+    BY: "Belarus",
+  };
+  try {
+    const iso = redeemDestinationCountryCode({
+      country: input.country,
+      phoneDial: input.phoneDial,
+    });
+    const blocked = UNDELIVERABLE[iso];
+    if (blocked) {
+      errors.country = `We can’t ship an insured vault package to ${blocked}`;
+    }
+  } catch {
+    /* dial/country incomplete — other field errors cover it */
+  }
+
   return errors;
 }
 
@@ -166,6 +186,7 @@ export function firstShipToErrorKey(
     "city",
     "region",
     "postal",
+    "country",
     "phone",
   ];
   return order.find((k) => errors[k]) ?? null;

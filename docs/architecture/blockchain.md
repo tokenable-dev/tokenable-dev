@@ -180,7 +180,7 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 **Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c.
 
 **Buy (buyer):**
-1. USDC `approve(Seaport, amount)` if insufficient allowance
+1. USDC `approve(Seaport, maxUint256)` if allowance is below the ask price (one-time; later buys skip this)
 2. `Seaport.fulfillOrder(order, fulfillerConduitKey)` — on-chain
 3. `PATCH /api/marketplace/orders/:hash/fulfill` — backend marks order fulfilled
 

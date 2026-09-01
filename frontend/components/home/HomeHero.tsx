@@ -2,14 +2,14 @@
 
 import { useRef } from "react";
 import { ASSETS } from "@/constants/assets";
-import { TkTag } from "@/components/ds";
+import { TkTag, TkButton } from "@/components/ds";
 import { HomeHeroSlabCarousel } from "@/components/home/HomeHeroSlabCarousel";
 
 /** index.html hero Group 4 — static marketing figures for now. */
 const HERO_STATS = [
   { value: "128,540", label: "Graded cards", tone: "default" as const },
   { value: "$284M", label: "Vaulted", tone: "default" as const },
-  { value: "+18.4%", label: "Index · 1Y", tone: "pos" as const },
+  { value: "27%", label: "1 Yr Chg in Value", tone: "pos" as const },
 ];
 
 export function HomeHero() {
@@ -49,12 +49,12 @@ export function HomeHero() {
           <div ref={mobileSlotRef} className="home-hero__carousel-mobile" />
 
           <div className="home-hero__cta home-hero__reveal home-hero__reveal--2">
-            <a href="/markets" className="home-hero__browse-link">
+            <TkButton href="/markets" variant="primary" className="home-hero__browse-btn">
               Browse all markets{" "}
               <span className="home-hero__browse-link-arrow" aria-hidden>
                 ↗
               </span>
-            </a>
+            </TkButton>
           </div>
 
           <div

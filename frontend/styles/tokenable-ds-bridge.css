@@ -20,12 +20,12 @@
   /* Vaulting / stepper progress — not price-gain `--pos`. */
   --progress-current: #4cde4c;
   --progress-done: #0f3b24;
-  --pos: rgb(0, 200, 100);
-  --neg: rgb(228, 55, 74);
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.08);
-  --amber-border: rgba(245, 158, 11, 0.25);
-  --warn: rgb(234, 130, 0);
+  --pos: var(--text-positive-default);
+  --neg: var(--background-danger-default);
+  --amber: var(--background-warning-default);
+  --amber-bg: var(--background-warning-tertiary);
+  --amber-border: var(--border-warning-tertiary);
+  --warn: var(--background-warning-default);
   --t1: rgba(255, 255, 255, 0.95);
   --t2: var(--text-default-secondary);
   --t3: var(--text-default-tertiary);

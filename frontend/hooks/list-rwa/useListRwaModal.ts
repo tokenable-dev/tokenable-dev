@@ -15,7 +15,7 @@ import {
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { mapWalletError } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
@@ -321,31 +321,7 @@ export function useListRwaModal({
         functionName: "isApprovedForAll",
         args: [address, SEAPORT_ADDRESS],
       });
-      if (!alreadyAll) {
-        setStep("approving");
-        const gasSetAll = await gasWithCapFast(
-          publicClient,
-          {
-            address: rwaAddress,
-            abi: TOKENABLE_RWA_APPROVE_ABI,
-            functionName: "setApprovalForAll",
-            args: [SEAPORT_ADDRESS, true],
-            account: address,
-          },
-          GAS_FALLBACK.setApprovalForAll,
-        );
-        const setAllTx = await writeContractAsync({
-          address: rwaAddress,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "setApprovalForAll",
-          args: [SEAPORT_ADDRESS, true],
-          chainId,
-          gas: gasSetAll,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: setAllTx });
-      }
-
-      setStep("signing");
+      setStep(alreadyAll ? "signing" : "approving");
 
       let createdFinal = await submitAskListingOrder({
         tokenId,

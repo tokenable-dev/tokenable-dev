@@ -34,10 +34,10 @@ const TYPE_STYLE: Record<
   Exclude<NotificationFilterKey, "all">,
   { icon: NotificationIcon; color: string }
 > = {
-  trade: { icon: "check", color: "#00C350" },
+  trade: { icon: "check", color: "#00C864" },
   bid: { icon: "layer", color: "#1A6FFF" },
   vault: { icon: "shield", color: "#1A6FFF" },
-  price: { icon: "trend", color: "#EA8200" },
+  price: { icon: "trend", color: "#F3701E" },
 };
 
 export function notificationTypeStyle(

@@ -43,9 +43,9 @@ function gateCopy(
     };
   }
   return {
-    title: "Verify your identity to ship a card",
+    title: "Verify your identity",
     body: "We ship only to a verified owner, so your card reaches the right hands.",
-    sub: "One time only — you won’t be asked again. Buying, selling and moving funds don’t need this.",
+    sub: "One time only.",
     cta: "Verify identity",
   };
 }

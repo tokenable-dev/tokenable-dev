@@ -79,7 +79,7 @@ const STALE_COPY: Record<
 > = {
   address: {
     badge: "Address changed",
-    note: "Your address changed — recalculate to get the cost for the new address.",
+    note: "Address changed. Recalculate the cost.",
   },
   cards: {
     badge: "Cards changed",
@@ -106,7 +106,7 @@ function RedeemRequestHeader() {
       <div className="pf-redeem-eyebrow">Redeem · Step 1 of 2</div>
       <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
       <p className="pf-redeem-sub">
-        We&rsquo;ll ship your physical cards from the vault to the address below.
+        Ship your physical cards from the vault to the address below.
       </p>
     </>
   );
@@ -159,7 +159,7 @@ export function RedeemRequestPanel({
     if (quoteState !== "loading") return;
     setLoadProgress(8);
     const t = window.setInterval(() => {
-      setLoadProgress((p) => Math.min(96, p + 8 + Math.random() * 18));
+      setLoadProgress((p) => Math.min(96, p + Math.random() * 22));
     }, 260);
     return () => window.clearInterval(t);
   }, [quoteState]);
@@ -255,7 +255,7 @@ export function RedeemRequestPanel({
     } catch (e) {
       setQuoteState("idle");
       setQuoteError(
-        e instanceof Error ? e.message : "Could not calculate shipping cost.",
+        e instanceof Error ? e.message : "Could not calculate the cost.",
       );
     }
   };
@@ -299,6 +299,7 @@ export function RedeemRequestPanel({
         showPhoneDial
         fieldErrors={fieldErrors}
         onChange={patchForm}
+        addressSearchLabel="Delivery address"
         extrasAfter={
           <label className="tk-ship-cbx">
             <input
@@ -323,7 +324,7 @@ export function RedeemRequestPanel({
         ].join(" ")}
       >
         <div className="pf-redeem-quote__head">
-          <span className="pf-redeem-cost__title" style={{ margin: 0 }}>
+          <span className="pf-redeem-cost__title pf-redeem-quote__label">
             Cost
           </span>
           <span
@@ -336,37 +337,28 @@ export function RedeemRequestPanel({
         <div className="pf-redeem-quote__stage">
           {quoteState === "idle" ? (
             <div className="pf-redeem-quote__body">
-              <p className="pf-redeem-cost__copy pf-redeem-quote__intro">
-                We price shipping from the carrier for the address above. Enter
-                your address, then calculate the cost.
+              <p className="pf-redeem-quote__intro">
+                Enter your address, then calculate the cost.
               </p>
               <TkButton
                 type="button"
                 variant="primary"
-                className="pf-redeem-primary"
+                className="pf-redeem-primary pf-redeem-quote-btn"
                 disabled={busy || cards.length === 0}
                 onClick={() => void runQuote()}
               >
-                Calculate shipping cost
+                Calculate cost
               </TkButton>
             </div>
           ) : null}
 
           {quoteState === "loading" ? (
-            <div className="pf-redeem-quote__body" aria-busy="true">
-              <div className="pf-redeem-quote__skeleton">
-                <div className="pf-redeem-quote__sk-row">
-                  <span className="pf-redeem-quote__sk-chip" />
-                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--sm" />
-                </div>
-                <div className="pf-redeem-quote__sk-row">
-                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--md" />
-                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--sm" />
-                </div>
-                <div className="pf-redeem-quote__sk-row pf-redeem-quote__sk-row--total">
-                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--md" />
-                  <span className="pf-redeem-quote__sk-chip pf-redeem-quote__sk-chip--lg" />
-                </div>
+            <div className="pf-redeem-quote__body pf-redeem-quote__body--loading" aria-busy="true">
+              <div className="pf-redeem-quote__loading-row">
+                <span className="pf-redeem-quote__spin" aria-hidden />
+                <span className="pf-redeem-quote__loading-copy">
+                  Getting rates for your address…
+                </span>
               </div>
               <div className="pf-redeem-quote__bar" aria-hidden>
                 <div
@@ -374,15 +366,6 @@ export function RedeemRequestPanel({
                   style={{ width: `${loadProgress}%` }}
                 />
               </div>
-              <TkButton
-                type="button"
-                variant="primary"
-                className="pf-redeem-primary pf-redeem-primary--busy"
-                disabled
-              >
-                <span className="pf-redeem-quote__spin" aria-hidden />
-                Getting rates for your address…
-              </TkButton>
             </div>
           ) : null}
 
@@ -396,34 +379,24 @@ export function RedeemRequestPanel({
                 title={null}
               />
               <p className="pf-redeem-cost__copy">
-                Ship up to 50 cards per shipment. Shipping is charged once per
-                shipment.
+                Final price. Billed once per shipment.
               </p>
-              {form.country !== "us" ? (
-                <p className="pf-redeem-cost__duty" role="note">
-                  Import duties, if any, are charged separately by the carrier on
-                  delivery.
-                </p>
-              ) : null}
             </div>
           ) : null}
 
           {quoteState === "stale" ? (
             <div className="pf-redeem-quote__body">
-              <p
-                className="pf-redeem-cost__duty pf-redeem-quote__stale-note"
-                role="note"
-              >
+              <p className="pf-redeem-quote__stale-note" role="note">
                 {STALE_COPY[staleReason].note}
               </p>
               <TkButton
                 type="button"
                 variant="primary"
-                className="pf-redeem-primary"
+                className="pf-redeem-primary pf-redeem-quote-btn"
                 disabled={busy || cards.length === 0}
                 onClick={() => void runQuote()}
               >
-                Recalculate shipping cost
+                Recalculate
               </TkButton>
             </div>
           ) : null}
@@ -454,11 +427,10 @@ export function RedeemRequestPanel({
               ? "Saving…"
               : cards.length === 0
                 ? "No cards selected"
-                : "Review and pay"}
+                : "Continue"}
           </TkButton>
           <p className="pf-redeem-hint-below">
-            You pay shipping and the Redemption fee now — it&rsquo;s the final
-            amount, with no markup.
+            Shipping and the Redemption fee, charged now.
           </p>
         </div>
       ) : null}

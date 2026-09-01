@@ -98,12 +98,12 @@
 
 .rwa-detail-page [class*="border-mint"],
 .rwa-detail-page .tk-sheet-panel [class*="border-mint"] {
-  border-color: rgba(0, 51, 255, 0.35) !important;
+  border-color: rgba(26, 111, 255, 0.35) !important;
 }
 
 .rwa-detail-page [class*="bg-mint"],
 .rwa-detail-page .tk-sheet-panel [class*="bg-mint"] {
-  background: rgba(0, 51, 255, 0.08) !important;
+  background: rgba(26, 111, 255, 0.08) !important;
 }
 
 .rwa-detail-page .accent-mint,
@@ -155,6 +155,29 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--eyebrow);
+}
+
+.rd-list-sheet__card {
+  min-width: 0;
+}
+
+.rd-list-sheet__card-name {
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.rd-list-sheet__card-facts {
+  margin: 6px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .rd-list-sheet__price-wrap {
@@ -389,7 +412,7 @@
 .tk-price__use {
   border: 0;
   background: rgba(255, 255, 255, 0.07);
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 700;
@@ -400,6 +423,44 @@
 }
 
 .tk-price__use:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tk-price__use--sell {
+  background: var(--pos, #00c864);
+  color: #04140b;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.tk-price__sells-now {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pos, #00c864);
+  background: rgba(0, 200, 100, 0.14);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.tk-price__ref-val--bid {
+  color: var(--pos, #00c864);
+}
+
+.tk-price__base-tog {
+  border: 0;
+  background: transparent;
+  color: var(--azure, #1A6FFF);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tk-price__base-tog:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -417,7 +478,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--pos, #00c864);
+  background: var(--pos, #00C864);
 }
 
 .tk-price__loading {
@@ -434,15 +495,30 @@
   margin-bottom: 8px;
 }
 
-.tk-price__base-tog {
+.tk-price__ref--bid {
+  width: 100%;
   border: 0;
   background: transparent;
-  color: var(--azure, #1a6fff);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
-  padding: 0;
+  text-align: left;
+  border-radius: 10px;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+.tk-price__ref--on {
+  box-shadow: 0 0 0 1px rgba(0, 200, 100, 0.55), 0 0 18px rgba(0, 200, 100, 0.28);
+  background: rgba(0, 200, 100, 0.08);
+}
+.tk-price__ref-check {
+  color: var(--pos);
+  font-weight: 800;
+}
+.tk-price__base-tog--static {
+  cursor: default;
 }
 
 .tk-price__field {
@@ -504,7 +580,7 @@
 }
 
 .tk-price__chip--on {
-  background: var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
   color: #fff;
 }
 
@@ -541,13 +617,25 @@
   margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: 9px;
-  background: rgba(234, 130, 0, 0.1);
-  color: #ea8200;
+  background: rgba(243, 112, 30, 0.1);
+  color: #f3701e;
 }
 
-.tk-price__hint--good {
+.tk-price__hint--good,
+.tk-price__hint--cross {
   background: rgba(0, 200, 100, 0.1);
-  color: var(--pos, #00c864);
+  color: var(--pos, #00C864);
+}
+
+.rd-list-sheet__cta--sell.tk-btn--primary {
+  background: #00c864 !important;
+  color: #04140b !important;
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 20, 10, 0.35),
+    inset 0 0 0 1px rgba(150, 255, 190, 0.6),
+    inset 0 3px 0 0 rgba(150, 255, 190, 0.7),
+    inset 0 -3px 0 0 rgba(0, 60, 25, 0.4) !important;
+  filter: drop-shadow(4px 4px 0 rgba(0, 195, 80, 0.5));
 }
 
 .tk-price__fee {
@@ -578,7 +666,7 @@
 .tk-price__net-val {
   font-size: 22px;
   font-weight: 700;
-  color: var(--pos, #00c864);
+  color: var(--pos, #00C864);
 }
 
 .tk-price__payout-note {

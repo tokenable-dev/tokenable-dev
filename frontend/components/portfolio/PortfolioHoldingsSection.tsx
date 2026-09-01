@@ -52,12 +52,12 @@ export function PortfolioHoldingsSection({
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
   redeemCarrierDeliveredByTokenId,
+  redeemPaymentBatchByTokenId,
   hasMoreAssets = false,
   isLoadingMoreAssets = false,
   onLoadMoreAssets,
   loadedAssetCount,
   totalAssetCount,
-  vaultLabelByTokenId,
 }: {
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
@@ -74,17 +74,17 @@ export function PortfolioHoldingsSection({
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
   redeemCarrierDeliveredByTokenId?: Map<number, string>;
+  redeemPaymentBatchByTokenId?: Map<number, string>;
   hasMoreAssets?: boolean;
   isLoadingMoreAssets?: boolean;
   onLoadMoreAssets?: () => void;
   loadedAssetCount?: number;
   totalAssetCount?: number;
-  vaultLabelByTokenId?: Map<number, string>;
 }) {
   const [segment, setSegment] = useState<AssetsSegment>("tradeable");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<AssetsToolbarSort>("value");
+  const [sort, setSort] = useState<AssetsToolbarSort>("newest");
   /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
   const [view, setView] = useState<AssetsViewMode>("table");
   const isMobile = useIsMobileViewport(768);
@@ -101,6 +101,7 @@ export function PortfolioHoldingsSection({
       redeemStatusByTokenId?.get(tokenId),
       redeemTrackingByTokenId?.get(tokenId),
       redeemCarrierDeliveredByTokenId?.get(tokenId),
+      redeemPaymentBatchByTokenId?.get(tokenId),
     );
   }
 
@@ -176,6 +177,7 @@ export function PortfolioHoldingsSection({
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
+    redeemPaymentBatchByTokenId,
     headlineByTokenId,
   ]);
 
@@ -276,7 +278,6 @@ export function PortfolioHoldingsSection({
                   headline={headline ?? null}
                   href={portfolioAssetHref(assetsBase, row.tokenId)}
                   cost={cost}
-                  vaultLabel={vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault"}
                   valuesPending={valuesPending}
                   canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
                   savingCostBasis={savingCostBasisTokenId === row.tokenId}
@@ -335,9 +336,7 @@ export function PortfolioHoldingsSection({
           rows={filteredSortedRows}
           headlineByTokenId={headlineByTokenId}
           assetHrefBase={assetsBase}
-          metadataByTokenId={metadataByTokenId}
           costBasisByTokenId={costBasisByTokenId}
-          vaultLabelByTokenId={vaultLabelByTokenId}
           valuesPending={valuesPending}
           canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
           savingCostBasisTokenId={savingCostBasisTokenId}

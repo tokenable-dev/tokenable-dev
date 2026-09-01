@@ -1,28 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import type { RwaMetadata } from "@/lib/core";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
+  portfolioPriceChangeArrow,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
+import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
 import { PortfolioStaticTh } from "./PortfolioSortableTh";
 
 /** Portfolio.html `#pf-tableview` — My Assets table layout. */
 export function PortfolioHoldingsTableView({
   rows,
   headlineByTokenId,
-  metadataByTokenId,
   costBasisByTokenId,
-  vaultLabelByTokenId,
   valuesPending,
   canEditCostBasis,
   savingCostBasisTokenId,
@@ -34,9 +33,7 @@ export function PortfolioHoldingsTableView({
 }: {
   rows: AssetRow[];
   headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
-  metadataByTokenId: Map<number, RwaMetadata | null>;
   costBasisByTokenId: Map<number, number>;
-  vaultLabelByTokenId?: Map<number, string>;
   valuesPending: boolean;
   canEditCostBasis: boolean;
   savingCostBasisTokenId?: number | null;
@@ -50,21 +47,21 @@ export function PortfolioHoldingsTableView({
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
       <colgroup>
         <col className="pf-col-card" />
-        <col className="pf-col-grade" />
         <col className="pf-col-cost" />
         <col className="pf-col-value" />
         <col className="pf-col-profit" />
         <col className="pf-col-return" />
+        <col className="pf-col-status" />
         <col className="pf-col-action" />
       </colgroup>
       <thead>
         <tr>
           <PortfolioStaticTh label="Card" sortHint />
-          <PortfolioStaticTh label="Vault" sortHint />
           <PortfolioStaticTh label="Cost basis" align="right" sortHint />
           <PortfolioStaticTh label="Mkt Price" align="right" sortHint />
           <PortfolioStaticTh label="$ Chg." align="right" sortHint />
           <PortfolioStaticTh label="% Chg." align="right" sortHint />
+          <PortfolioStaticTh label="Status" muted />
           <PortfolioStaticTh label="Action" align="right" muted />
         </tr>
       </thead>
@@ -81,9 +78,9 @@ export function PortfolioHoldingsTableView({
             badge?.kind === "transit" || badge?.kind === "possession"
               ? " pf-holdings-row--dim"
               : "";
-          const vault = vaultLabelByTokenId?.get(row.tokenId) ?? "PSA Vault";
           const headline = headlineByTokenId.get(row.tokenId) ?? null;
           const titleLabel = headline?.line1 ?? row.name;
+          const line2 = headline?.line2?.trim() || "";
 
           return (
             <tr key={row.tokenId} className={`pf-holdings-row${zebra}${dim}`}>
@@ -112,12 +109,14 @@ export function PortfolioHoldingsTableView({
                           {titleLabel}
                         </span>
                       )}
+                      {line2 ? (
+                        <span className="pf-table-card-sub pf-table-card-sub--hover">
+                          {line2}
+                        </span>
+                      ) : null}
                     </div>
                   </Link>
                 </div>
-              </td>
-              <td data-label="Vault">
-                <span className="pf-vault-chip">{vault}</span>
               </td>
               <td data-label="Cost basis" className="pf-col-num-cell">
                 {canEditCostBasis && onSaveCostBasis && !badge ? (
@@ -138,6 +137,16 @@ export function PortfolioHoldingsTableView({
               <td data-label="Mkt Price" className="pf-col-num-cell">
                 <span className="tkl-mono pf-table-mkt">
                   {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+                  {pnl ? (
+                    <span
+                      className={`pf-mkt-dir${
+                        pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
+                      }`}
+                      aria-hidden
+                    >
+                      {portfolioPriceChangeArrow(pnl.positive)}
+                    </span>
+                  ) : null}
                 </span>
               </td>
               <td data-label="$ Chg." className="pf-col-num-cell">
@@ -165,6 +174,13 @@ export function PortfolioHoldingsTableView({
                 >
                   {pnl?.returnPct ?? "—"}
                 </span>
+              </td>
+              <td data-label="Status">
+                <PortfolioHoldingsSaleStatus
+                  isListed={isListed}
+                  listPriceUsd={row.listPriceUsd}
+                  redeemStatus={badge}
+                />
               </td>
               <td data-label="Action" className="pf-col-action-cell">
                 <PortfolioHoldingsRowActions

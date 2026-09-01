@@ -108,7 +108,7 @@ export const AI_INSIGHT_THEME_DARK: AiInsightPanelTheme = {
   loadingBlock: "ai-insight-loading-block rounded bg-zinc-800/60",
   loadingText: "text-center text-[10px] font-medium uppercase tracking-widest text-mint/70",
   expandHint: "text-xs text-zinc-500",
-  error: "text-xs text-red-400",
+  error: "text-xs text-neg",
   emptyChart:
     "flex h-[140px] items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/40 text-xs text-zinc-500",
   identityRow:

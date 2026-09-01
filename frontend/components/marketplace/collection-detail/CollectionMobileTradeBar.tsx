@@ -39,7 +39,7 @@ export function CollectionMobileTradeBar({
           disabled={buyDisabled || !hasAsk}
           onClick={onBuy}
         >
-          Buy now
+          Buy
         </TkButton>
         <TkButton
           type="button"

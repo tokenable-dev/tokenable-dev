@@ -34,6 +34,9 @@ export function TkFooter() {
           <span className="navlink" aria-disabled>
             Fees
           </span>
+          <Link href="/faq" className="navlink">
+            FAQ
+          </Link>
           <span className="navlink" aria-disabled>
             Docs
           </span>

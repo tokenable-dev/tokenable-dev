@@ -48,15 +48,15 @@ export function Top100DayChangeBadge({
   const flatPrice = change.priceDelta === 0;
 
   const rankClass = rankImproved
-    ? "text-mint"
+    ? "text-pos"
     : rankDropped
-      ? "text-rose-400"
+      ? "text-neg"
       : "text-zinc-500";
 
   const priceClass = priceUp
-    ? "text-mint"
+    ? "text-pos"
     : priceDown
-      ? "text-rose-400"
+      ? "text-neg"
       : "text-zinc-500";
 
   if (variant === "detail") {

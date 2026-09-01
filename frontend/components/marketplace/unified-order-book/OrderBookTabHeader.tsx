@@ -23,7 +23,7 @@ export function OrderBookTabHeader({
     },
   ];
   const tabBase = collectionDetail
-    ? "cd-ob-tab shrink-0 px-4 py-4 text-[15px] transition-colors duration-200"
+    ? "cd-ob-tab shrink-0 px-4 py-2.5 text-[15px] transition-colors duration-200"
     : flush
       ? `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent pb-1.5 text-center transition-colors duration-200`
       : `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
@@ -38,7 +38,7 @@ export function OrderBookTabHeader({
     <div
       className={`relative flex w-full shrink-0 items-end border-b ${
         collectionDetail
-          ? "cd-ob-tabs border-white/[0.08] bg-transparent px-4"
+          ? "cd-ob-tabs border-white/[0.08] bg-transparent"
           : `border-zinc-800/70 bg-black ${
               flush
                 ? `${COLLECTION_ORDER_BOOK_FLUSH_INSET} pb-0`

@@ -96,6 +96,11 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const str = (v: unknown): string | undefined =>
     typeof v === "string" ? v : undefined;
+  const strOrNum = (v: unknown): string | undefined => {
+    if (typeof v === "string") return v;
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    return undefined;
+  };
   const strOrNull = (v: unknown): string | null | undefined =>
     typeof v === "string" ? v : v === null ? null : undefined;
   const num = (v: unknown): number | undefined =>
@@ -121,7 +126,7 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
   const gradeScore = str(r.gradeScore);
   if (gradeScore !== undefined) out.gradeScore = gradeScore;
 
-  const cardNumber = str(r.cardNumber);
+  const cardNumber = strOrNum(r.cardNumber);
   if (cardNumber !== undefined) out.cardNumber = cardNumber;
 
   const marketParallelKey = str(r.marketParallelKey);

@@ -45,8 +45,8 @@ export function RedeemFlowView() {
         <span className="pf-redeem-crumb__sep" aria-hidden>
           ›
         </span>
-        <span className="pf-redeem-crumb__current">Redeem</span>
-      </nav>
+          <span className="pf-redeem-crumb__current">Redeem</span>
+        </nav>
 
       {flow.step === "request" ? (
         <RedeemRequestPanel
@@ -88,7 +88,8 @@ export function RedeemFlowView() {
           shipments={flow.shipments}
           busy={flow.busy}
           error={flow.error}
-          onConfirmReceived={() => void flow.confirmReceived()}
+          paymentBatchId={flow.paymentBatchId}
+          onConfirmReceived={() => flow.confirmReceived()}
         />
       ) : null}
 

@@ -180,7 +180,7 @@
 }
 
 .home-ticker__item-pct--down {
-  color: rgb(228, 55, 74);
+  color: rgb(245, 51, 44);
 }
 
 @media (max-width: 1024px) {
@@ -540,7 +540,7 @@
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
-  color: var(--azure, #1a6fff);
+  color: var(--azure, #1A6FFF);
   cursor: pointer;
 }
 
@@ -548,25 +548,23 @@
   color: #2e80ff;
 }
 
-.home-hero__search-btn-arrow,
-.home-hero__browse-link-arrow {
+.home-hero__browse-btn.tk-btn {
+  height: 56px;
+  padding: 0 32px;
+  font-size: 16px;
+  font-weight: 700;
+  align-self: flex-start;
+}
+
+.home-hero__browse-btn .home-hero__browse-link-arrow {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.home-hero__search-btn-arrow {
   font-family: var(--font-mono);
   font-size: 17px;
-}
-
-.home-hero__browse-link {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--azure, #1a6fff);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.home-hero__browse-link:hover {
-  color: #2e80ff;
 }
 
 .home-hero__stats {
@@ -584,7 +582,7 @@
 }
 
 .home-hero__stat-value--pos {
-  color: var(--pos, #00c350);
+  color: var(--pos, #00C864);
 }
 
 .home-hero__stat-label {

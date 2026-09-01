@@ -17,14 +17,18 @@ import type { MarketplaceCollectionSummary, MarketplaceSearchCardHit } from "@/l
 import { useMarketplaceCatalogSearch } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
-import { buildMarketsCollectionTitle, buildMarketsCollectionSearchMeta } from "@/lib/markets/marketsCollectionTitle";
+import {
+  buildMarketsCollectionTitle,
+  buildMarketsCollectionSearchMeta,
+} from "@/lib/markets/marketsCollectionTitle";
+import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-const SEARCH_PLACEHOLDER = "Find your card — name, cert #, set, player…";
+const SEARCH_PLACEHOLDER = "Search cards by name";
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
   return (
@@ -74,28 +78,15 @@ function SearchClearButton({
 }
 
 function formatSearchMeta(c: MarketplaceCollectionSummary): string {
-  const meta = buildMarketsCollectionSearchMeta({
+  return buildMarketsCollectionSearchMeta({
     collection: c,
     comp: c.components,
   });
-  if (meta) return meta;
-  const n = c.activeListingCount;
-  return `${n} listing${n !== 1 ? "s" : ""}`;
 }
 
 type SearchHit =
   | { kind: "card"; card: MarketplaceSearchCardHit }
   | { kind: "collection"; collection: MarketplaceCollectionSummary };
-
-function formatCardMeta(card: MarketplaceSearchCardHit): string {
-  return [
-    card.gradeLabel,
-    card.certNumber ? `Cert #${card.certNumber}` : null,
-    card.vaultLabel,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
 
 function formatSearchPrice(c: MarketplaceCollectionSummary): string | null {
   const usd = c.components.psaEstimateUsd;
@@ -165,6 +156,7 @@ export function SearchResultsList({
             : null;
           const price =
             card.listedUsd != null ? formatUsdCompact(card.listedUsd) : null;
+          const display = formatSearchCardHitDisplay(card);
           return (
             <div key={`card-${card.tokenId}`}>
               {i === 0 ? (
@@ -183,9 +175,11 @@ export function SearchResultsList({
                 </div>
                 <div className="gnb-search-item__info">
                   <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-                    {card.title}
+                    {display.line1}
                   </div>
-                  <div className="gnb-search-item__meta">{formatCardMeta(card)}</div>
+                  {display.line2 ? (
+                    <div className="gnb-search-item__meta">{display.line2}</div>
+                  ) : null}
                 </div>
                 {price ? (
                   <div className="gnb-search-item__price">
@@ -199,6 +193,7 @@ export function SearchResultsList({
         const c = hit.collection;
         const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
         const price = formatSearchPrice(c);
+        const meta = formatSearchMeta(c);
         return (
           <div key={`col-${c.collectionKey}`}>
             {i === cardCount ? (
@@ -225,7 +220,7 @@ export function SearchResultsList({
                 <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
                   {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
                 </div>
-                <div className="gnb-search-item__meta">{formatSearchMeta(c)}</div>
+                {meta ? <div className="gnb-search-item__meta">{meta}</div> : null}
               </div>
               {price ? (
                 <div className="gnb-search-item__price">

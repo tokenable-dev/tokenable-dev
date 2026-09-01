@@ -175,7 +175,7 @@
 .markets-catchip--on:hover,
 .markets-catchip--on:active,
 .markets-catchip--on:focus {
-  background: #1a6fff;
+  background: #1A6FFF;
   color: #fff;
 }
 
@@ -418,8 +418,8 @@
 }
 
 .markets-pop__item--sel .markets-pop__chk {
-  background: var(--azure, #1a6fff);
-  box-shadow: inset 0 0 0 2px var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
+  box-shadow: inset 0 0 0 2px var(--azure, #1A6FFF);
 }
 
 .markets-pop__foot {
@@ -777,8 +777,8 @@
 }
 
 .markets-frow--on .markets-fbox {
-  background: var(--azure, #1a6fff);
-  box-shadow: inset 0 0 0 1.5px var(--azure, #1a6fff);
+  background: var(--azure, #1A6FFF);
+  box-shadow: inset 0 0 0 1.5px var(--azure, #1A6FFF);
 }
 
 .markets-fname {
@@ -1103,7 +1103,7 @@
   font-weight: 400;
   line-height: 1.2;
   padding: 4px 8px;
-  background: #1a6fff;
+  background: #1A6FFF;
   border-radius: 6px;
 }
 
@@ -1207,7 +1207,7 @@
 
 .markets-ddchip:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px rgba(0, 51, 255, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(26, 111, 255, 0.6) !important;
 }
 
 .markets-preview-sections {
@@ -1320,7 +1320,7 @@
     font-weight: 400;
     line-height: 1.2;
     padding: 3px 6px;
-    background: #1a6fff;
+    background: #1A6FFF;
   }
 
   .markets-grid .card__stat,

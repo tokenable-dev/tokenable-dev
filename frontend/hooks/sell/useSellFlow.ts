@@ -78,17 +78,6 @@ const EMPTY_CONSENTS: SellConsents = {
   marketing: false,
 };
 
-function buildCardTitle(r: PsaAnalyzeResult): string {
-  const year = r.psa.year?.trim();
-  const name = r.psa.cardNameHint?.trim();
-  const set = r.psa.setHint?.trim();
-  const num = r.psa.cardNumberHint?.trim();
-  const parts = [year, set, num ? `#${num}` : null, name].filter(Boolean);
-  if (parts.length) return parts.join(" ").toUpperCase();
-  const cert = r.psa.certNumber?.trim();
-  return cert ? `PSA CERT #${cert}` : "PSA GRADED CARD";
-}
-
 function cardFromAnalyze(
   r: PsaAnalyzeResult,
   certFallback: string,
@@ -108,12 +97,18 @@ function cardFromAnalyze(
     mintImage.source === "user_upload" && uploadPreviewDataUrl?.trim()
       ? uploadPreviewDataUrl.trim()
       : mintImage.previewUrl;
+  const name =
+    r.psa.cardNameHint?.trim() || (cert ? `PSA CERT #${cert}` : "PSA GRADED CARD");
   return {
     cert,
-    name: buildCardTitle(r),
+    name,
     grade,
     img,
     confirmed: true,
+    cardNumber: r.psa.cardNumberHint?.trim() || null,
+    year: r.psa.year?.trim() || null,
+    setName: r.psa.setHint?.trim() || null,
+    variant: r.psa.varietyHint?.trim() || null,
   };
 }
 

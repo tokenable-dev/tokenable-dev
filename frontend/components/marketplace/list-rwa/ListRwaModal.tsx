@@ -14,6 +14,8 @@ export function ListRwaModal(props: ListRwaModalProps) {
   const {
     tokenId,
     assetTitle,
+    headlineParts,
+    headlineGrade,
     collectionKey,
     onClose,
     shell = "modal",
@@ -62,6 +64,8 @@ export function ListRwaModal(props: ListRwaModalProps) {
     <ListRwaModalFormView
       tokenId={tokenId}
       assetTitle={assetTitle}
+      headlineParts={headlineParts}
+      headlineGrade={headlineGrade}
       collectionKey={collectionKey}
       isReplaceListing={modal.isReplaceListing}
       price={modal.price}

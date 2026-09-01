@@ -18,7 +18,7 @@ export function MintFormAssetListingSection({
   onDescriptionChange: (value: string) => void;
 }) {
   if (!SHOW_VAULT_COLLAPSIBLE_SECTIONS) {
-    return errors.name ? <p className="text-xs text-red-400">{errors.name}</p> : null;
+    return errors.name ? <p className="text-xs text-neg">{errors.name}</p> : null;
   }
 
   return (

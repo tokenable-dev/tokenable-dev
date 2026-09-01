@@ -23,7 +23,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Auth / profile | `auth/`, `layout/header/wallet/` | `lib/privy/PrivySessionBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
-Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment).
+Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment). User transactions wait for 1 confirmation with **250ms** receipt polling (`waitForUserTxReceipt`) so Privy/MetaMask confirmations are not stalled by viem’s default 4s HTTP poll. Gas estimation is capped at 200ms before a conservative fallback so the wallet prompt opens sooner.
 
 ---
 
@@ -143,7 +143,7 @@ Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
 
 PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts` and Card.html `#hero-title` / `#hero-meta`:
-**Hero title** = `Character[ · Variant] · # · Grade`; **Hero meta** = `Year · Set · …` (no `#` / grade — those stay on the title line only). Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
+**Hero title** = `{Card name} · {Number}`; **Hero meta** = `{Year} · {Set} {Language} · {Variant}` (grade is shown below the title, not on Line 1). Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
 
 Collection detail layout mirrors `Tokenable-with design system-18/Card.html`: sticky `#hero-bar` with title/meta inside (`#hero-mid`), Ask/Bid + market metrics columns, Buy now + Bid on a non-wrapping `.cd-hero-bar__actions` row (stats shrink; buttons stay right); `1.35fr / 1fr` grid (Price history + **Similar items** left; Trades/Order book + Details/Pop. rail right). Trades **View all** expands the panel inline (`.tk-expanded` / Show less) — no right drawer. Left ask listings table is not rendered (asks live in Order book). Mobile (`≤1023`): Card.html hero grid — title full-width, then image | last-price (+chg), then secondary metric rows; Buy/Bid in fixed `#ob-bottom-bar`; sticky condense on scroll (title · price, no thumb). Column order: chart → rail → similar.
 
@@ -178,7 +178,7 @@ Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk
 
 `PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
 
-**Settings** (`/settings`, Settings.html parity): side-nav sections for Profile, Notifications, Wallet & balance, Addresses, Identity, Legal, Security. Wired today: display name (`PATCH /auth/profile`), avatar upload (`POST /auth/avatar` → S3), email notification + marketing prefs (stored; delivery TBD), shipping address book CRUD (`/user/shipping-addresses`; default prefills PSA vault return address on `/sell/shipping`, else Partner Origin), USDC + Add funds (MoonPay), linked wallet link/unlink/export, KYC → `/kyc`, sign out + delete account (delete clears Privy too). Honest “Coming soon” stubs: Telegram bot, server web-push, payment methods, multi-device sessions, 2FA, agreement document pages, consent audit log. Legacy `/profile` redirects here.
+**Settings** (`/settings`, Settings.html parity): side-nav sections for Profile, Notifications, Wallet and balance, Addresses, Identity, Legal, Security. Wired today: display name (`PATCH /auth/profile`), avatar upload (`POST /auth/avatar` → S3), email notification + marketing prefs (stored; delivery TBD), shipping address book CRUD (`/user/shipping-addresses`; default prefills PSA vault return address on `/sell/shipping`, else Partner Origin; address search via `AddressSearchField` + Places proxy), USDC + Add funds (MoonPay), linked wallet link/unlink/export, KYC → `/kyc`, sign out + delete account (delete clears Privy too). Honest “Coming soon” stubs: Telegram bot, server web-push, payment methods, multi-device sessions, 2FA, agreement document pages, consent audit log. Legacy `/profile` redirects here.
 
 Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
 
@@ -236,13 +236,13 @@ Collection Details KV values deep-link to `/markets` using the Card.html / `mark
 | `set` | Set facet |
 | `year_min` / `year_max` | Year range |
 | `grade` | e.g. `PSA 10` (pipe-joined) |
-| `price_min` / `price_max`, `sort` | Sort ids: `pct_change_high` (alias `gainers` = Top gainers), `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Top movers → View all** → `/markets?sort=gainers`; **Just vaulted → View all** → `/markets?sort=newest`. |
+| `price_min` / `price_max`, `sort` | Default sort is `high_price`. `pct_change_high` (alias `gainers` = Top gainers) still works from URLs (landing Top movers → View all) but is not in the Markets sort menu. `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Just vaulted → View all** → `/markets?sort=newest`. |
 
 Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card number / Variant / Language stay plain text (no Markets facet yet). Series is not linked — no `series` field in collection components.
 
-**Set facet sync:** Details **Set** values and Markets `set=` use the same canonical label (`resolveCollectionSetFacetLabel` — year prefix stripped). Markets slim bar **Set** filter searches that label against loaded collections; chosen sets and `sort` both persist in the URL so deep-links from Details and in-page filtering stay aligned.
+**Set facet sync:** Details **Set** values and Markets `set=` use the same canonical label (`resolveCollectionSetFacetLabel` — year prefix stripped). Set / grade / price are edited in **More filters** (not the slim bar). Chosen sets and `sort` persist in the URL so deep-links from Details stay aligned.
 
-**Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCatalogSearch` (`GET /marketplace/search`) so **minted cards (cert / name)** appear above **collections**. Digit-only `q` of any length prefix-matches `rwa_tokens.cert_number`; collection catalog still only prefix-matches collection certs at **7+** digits (short digits match card numbers / `#123`). The search page shows cert-match rows first (`SearchCertMatches`), then the collection grid. Text search does **not** match `psaBrand`. Enter on a typeahead row opens that card or collection; View all / Enter with no highlight goes to `/search`.
+**Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCatalogSearch` (`GET /marketplace/search`) so **minted cards (cert / name)** appear above **collections**. Digit-only `q` of **7+** digits prefix-matches `rwa_tokens.cert_number`; shorter digits match token id, exact cert, or `#123` in the display name (same 7-digit floor as collection cert search). The search page shows cert-match rows first (`SearchCertMatches`), then the collection grid. Both use SSOT Line 1 + Line 2 titles (`formatSearchCardHitDisplay` / `showCatalogSubtitle` on `CollectibleCard`). Text search does **not** match `psaBrand`. Enter on a typeahead row opens that card or collection; View all / Enter with no highlight goes to `/search`. Card hits use the token slab image (PSA CloudFront allowed) and hydrate grade/name from collection components or IPFS metadata when the token was never listed.
 
 **Admin + local `next dev` CPU:** `/marketplace/admin/*` (and other `shouldHideAppChrome` routes) skip GNB/footer. Inbox polling (`useMarketplaceNotifications`) and `useActivePartner` / `GET partner-me` are disabled on those routes **and** when the browser tab is hidden. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy.
 

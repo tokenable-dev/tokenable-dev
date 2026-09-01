@@ -26,7 +26,7 @@ export function PortfolioTrendSparkline({
       })
       .join(" ");
     const up = values[values.length - 1]! >= values[0]!;
-    return { points: pts, stroke: up ? "#00C350" : "#E4374A" };
+    return { points: pts, stroke: up ? "#00C864" : "#F5332C" };
   }, [values, width, height]);
 
   if (!points) {

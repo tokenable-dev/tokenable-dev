@@ -37,12 +37,12 @@ export function OrderBookCenterStrip({
     : model.tone === "none"
       ? "text-gray-500"
       : model.tone === "ask"
-        ? "text-red-400"
+        ? "text-neg"
         : model.tone === "bid"
-          ? "text-mint"
+          ? "text-pos"
           : model.tone === "last" && model.lastSide === "sell"
-            ? "text-rose-400"
-            : "text-mint";
+            ? "text-neg"
+            : "text-pos";
 
   const showUp =
     !isSpreadPrimary &&
@@ -109,7 +109,7 @@ export function OrderBookCenterStrip({
         <div className="flex items-center gap-1">
           {showUp ? (
             <span
-              className="text-[13px] font-bold leading-none text-mint/90 lg:text-[15px]"
+              className="text-[13px] font-bold leading-none text-pos/90 lg:text-[15px]"
               aria-hidden
             >
               ↑
@@ -117,7 +117,7 @@ export function OrderBookCenterStrip({
           ) : null}
           {showDown ? (
             <span
-              className="text-[13px] font-bold leading-none text-rose-400/90 lg:text-[15px]"
+              className="text-[13px] font-bold leading-none text-neg/90 lg:text-[15px]"
               aria-hidden
             >
               ↓
