@@ -12,6 +12,7 @@ import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
 import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
 import { parseCertPriceResult } from '../marketplace/market-data/cardhedger-cert-price.util';
+import { cardhedgerCertRowUsableForPsaVariety } from '../marketplace/utils/cardhedger-psa-variety.util';
 import {
   cardNumberTokenForCardhedgerSearch,
   normalizeForExactCardNumberKey,
@@ -805,6 +806,7 @@ export class PsaService {
   private async tryCardhedgerMintFromPricesByCert(
     certNumber: string,
     fallbackSearchQuery: string,
+    psaVariety?: string | null,
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
     const digits = certNumber.replace(/\D/g, '');
     if (digits.length < 7) return undefined;
@@ -827,6 +829,14 @@ export class PsaService {
         certLookupComplete: true,
       });
       if (!mapped?.cardId && !mapped?.imageUrl) return undefined;
+      const card = (raw as { card?: Record<string, unknown> }).card;
+      if (
+        card &&
+        mapped.cardId &&
+        !cardhedgerCertRowUsableForPsaVariety(card, psaVariety ?? '')
+      ) {
+        return undefined;
+      }
       let imageUrl = mapped.imageUrl;
       if (mapped.cardId && !imageUrl) {
         imageUrl = await this.fetchCardhedgerCatalogImageByCardId(mapped.cardId);
@@ -866,6 +876,7 @@ export class PsaService {
       const byPrice = await this.tryCardhedgerMintFromPricesByCert(
         certNumber,
         searchQuery,
+        psaParsed.varietyHint,
       );
       if (byPrice) {
         mint = mint
@@ -932,6 +943,7 @@ export class PsaService {
   private async tryResolveCardhedgerMintByCert(
     certNumber: string,
     fallbackSearchQuery: string,
+    psaVariety?: string | null,
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
     const digits = certNumber.replace(/\D/g, '');
     if (digits.length < 7) return undefined;
@@ -961,6 +973,14 @@ export class PsaService {
         if (certDigits !== digits) continue;
         const card = row.card;
         if (!card) continue;
+        if (
+          !cardhedgerCertRowUsableForPsaVariety(
+            card as Record<string, unknown>,
+            psaVariety ?? '',
+          )
+        ) {
+          continue;
+        }
         const id =
           typeof card.card_id === 'string' && card.card_id.trim()
             ? card.card_id.trim()
@@ -1543,6 +1563,7 @@ export class PsaService {
         cardhedgerMint = await this.tryResolveCardhedgerMintByCert(
           psaParsed.certNumber,
           cardhedgerQuery,
+          psaParsed.varietyHint,
         );
       }
       if (!cardhedgerMint) {

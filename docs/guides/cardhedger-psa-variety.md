@@ -56,6 +56,12 @@ If Variety is treated as a parallel slug (`vstar_universe`), **the same PSA 10 s
 
 시세 resolver는 `components`의 PSA 거울 필드(`psaSubject`, `psaBrand`, `psaVariety`, `psaYear`)로 **여러 검색어를 순서대로 시도**한다 (풀 PSA 라인 → Variety 제외 → Subject+Brand → 긴 Brand/Subject 단독 등). 틈새·NON-SPORT·PSA/DNA처럼 카탈로그 표기가 긴 품목은 **한 번의 짧은 쿼리**보다 이 **팬아웃**이 유리할 수 있다. 그래도 Cardhedger에 품목이 없으면 `matched: false`이다.
 
+### Empty PSA Variety + GemRate cert mis-map (e.g. cert `115765506` Ohtani 2018 Bowman Chrome #1)
+
+PSA **Variety** is blank and population is thousands — the slab is the **flagship chrome base**, not a 1/1 Superfractor. GemRate / `details-by-certs` can still attach **`variant: Superfractor`** via `gemrate_id`.
+
+**수정:** When PSA Variety is empty, reject cert/catalog rows whose `variant` or description names a parallel (Superfractor, Refractor, Silver Prizm, …). Resolve falls through to **`card-search`** and picks **`variant: Base`**. Same gate on mint analyze (`tryResolveCardhedgerMintByCert`), portfolio mint-preview, and collection Path 0.
+
 ### PSA `BLUE REFRACTOR` vs Cardhedger `Blue Wave` (Topps Chrome #150 등)
 
 PSA **Variety**가 **`BLUE REFRACTOR`**인데 Cardhedger **`Pitching Blue Wave Refractor`** 행을 쓰면 시세가 **한 자릿수 배** 어긋날 수 있다 (예: Ohtani 2018 Topps Chrome #150 — Blue Refractor /150 vs Blue Wave).

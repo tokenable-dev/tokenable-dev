@@ -78,6 +78,29 @@ describe('cardhedgerRowMatchesPsaVariety — JP 151 Gengar finishes', () => {
     ).toBe(0);
   });
 
+  it('rejects Superfractor cert row when PSA Variety is blank (GemRate mis-map)', () => {
+    const ohtaniBase = {
+      variant: 'Base',
+      description: 'Shohei Ohtani 2018 Bowman Chrome Baseball',
+      name: 'Shohei Ohtani',
+      set: '2018 Bowman Chrome Baseball',
+      number: '1',
+    };
+    const ohtaniSuperfractor = {
+      variant: 'Superfractor',
+      description: 'Shohei Ohtani 2018 Bowman Chrome Baseball Superfractor',
+      name: 'Shohei Ohtani',
+      set: '2018 Bowman Chrome Baseball',
+      number: '1',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniBase, '')).toBe(true);
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniSuperfractor, '')).toBe(false);
+    expect(cardhedgerCertRowUsableForPsaVariety(ohtaniSuperfractor, '')).toBe(
+      false,
+    );
+    expect(cardhedgerCertRowUsableForPsaVariety(ohtaniBase, '')).toBe(true);
+  });
+
   it('rejects cert Reverse Foil rows for Master Ball PSA Variety', () => {
     expect(
       cardhedgerCertRowUsableForPsaVariety(

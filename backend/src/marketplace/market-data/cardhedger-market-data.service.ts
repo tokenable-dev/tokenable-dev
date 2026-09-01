@@ -132,10 +132,9 @@ export class CardhedgerMarketDataService {
               .psaVariety
           : undefined;
         if (
-          psaVariety &&
           !cardhedgerCertRowUsableForPsaVariety(
             row as Record<string, unknown>,
-            psaVariety,
+            psaVariety ?? '',
           )
         ) {
           this.logger.log(

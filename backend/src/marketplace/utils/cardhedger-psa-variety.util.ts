@@ -167,13 +167,35 @@ export function cardhedgerRowIsPrintFinishOnly(
   return vt.length > 0 && namedIdentityTokens(vt).length === 0;
 }
 
+/**
+ * PSA Variety blank → flagship/base catalog line only.
+ * GemRate cert lookup can attach 1/1 or insert rows (e.g. Superfractor) when PSA
+ * prints no parallel on the label.
+ */
+export function cardhedgerRowImpliedParallelWithoutPsaVariety(
+  row: Record<string, unknown>,
+): boolean {
+  const blob = rowParallelBlob(row);
+  if (cardhedgerRowParallelFlavorConflict('', blob)) return true;
+
+  const variant = String(row.variant ?? '').trim();
+  if (!variant || /^base$/i.test(variant)) return false;
+
+  if (cardhedgerRowIsPrintFinishOnly(row)) return true;
+
+  const variantTokens = variantFieldTokens(row);
+  return namedIdentityTokens(variantTokens).length > 0;
+}
+
 /** Cardhedger catalog row compatible with PSA PSACert.Variety (PSA is authoritative). */
 export function cardhedgerRowMatchesPsaVariety(
   row: Record<string, unknown>,
   psaVariety: string | null | undefined,
 ): boolean {
   const pv = String(psaVariety ?? '').trim();
-  if (!pv) return true;
+  if (!pv) {
+    return !cardhedgerRowImpliedParallelWithoutPsaVariety(row);
+  }
   if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return true;
 
   const blob = rowParallelBlob(row);

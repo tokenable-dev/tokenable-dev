@@ -552,6 +552,12 @@ export class CardhedgerResolveService {
   ): boolean {
     if (opts?.trustStoredCardhedgerCatalogId) return false;
     const pv = psaVariety?.trim() ?? '';
+    if (!pv) {
+      return !cardhedgerRowMatchesPsaVariety(
+        row as Record<string, unknown>,
+        pv,
+      );
+    }
     if (!psaVarietyRequiresNonBaseCardhedgerRow(pv, opts?.brandOrSet)) {
       return false;
     }
