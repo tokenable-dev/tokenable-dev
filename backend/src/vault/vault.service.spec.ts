@@ -178,4 +178,22 @@ describe('VaultService.assertTokensRedeemable', () => {
       ).assertTokensRedeemable(contract, ['49']),
     ).resolves.toBeUndefined();
   });
+
+  it('matches a zero-padded registry token_id against a numeric request', async () => {
+    await expect(
+      makeRedeemableService(
+        [{ tokenId: '040', burnedAt: null, vaultCycleId: 'c1' }],
+        [{ id: 'c1', status: 'minted' }],
+      ).assertTokensRedeemable(contract, ['40']),
+    ).resolves.toBeUndefined();
+  });
+
+  it('matches a padded request against an unpadded registry token_id', async () => {
+    await expect(
+      makeRedeemableService(
+        [{ tokenId: '40', burnedAt: null, vaultCycleId: 'c1' }],
+        [{ id: 'c1', status: 'minted' }],
+      ).assertTokensRedeemable(contract, ['040']),
+    ).resolves.toBeUndefined();
+  });
 });

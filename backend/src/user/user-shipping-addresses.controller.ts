@@ -4,13 +4,16 @@ import {
   Delete,
   Get,
   HttpCode,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -21,9 +24,12 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { User } from './entities/user.entity';
 import {
+  AddressAutocompleteQueryDto,
+  AddressPlaceQueryDto,
   CreateShippingAddressDto,
   UpdateShippingAddressDto,
 } from './dto/shipping-address.dto';
+import { PlacesAddressService } from './places-address.service';
 import { UserService } from './user.service';
 
 @ApiTags('user-settings')
@@ -31,7 +37,28 @@ import { UserService } from './user.service';
 @UseGuards(JwtAuthGuard)
 @Controller('user/shipping-addresses')
 export class UserShippingAddressesController {
-  constructor(private readonly users: UserService) {}
+  constructor(
+    private readonly users: UserService,
+    private readonly places: PlacesAddressService,
+  ) {}
+
+  @Get('autocomplete')
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  @ApiOperation({
+    summary: 'Address search suggestions (Google Places; mock in non-prod without a key)',
+  })
+  autocomplete(@Query() query: AddressAutocompleteQueryDto) {
+    return this.places.suggest(query.q ?? '', query.sessionToken);
+  }
+
+  @Get('place')
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  @ApiOperation({ summary: 'Resolved address fields for a suggestion' })
+  async place(@Query() query: AddressPlaceQueryDto) {
+    const row = await this.places.details(query.placeId, query.sessionToken);
+    if (!row) throw new NotFoundException('Address not found');
+    return row;
+  }
 
   @Get()
   @ApiOperation({ summary: 'List saved shipping addresses' })

@@ -15,6 +15,16 @@ function metadataCidFromTokenUri(uri: string): string | null {
   return cid || null;
 }
 
+/**
+ * TokenableRWA mints 1..totalMinted (`_nextTokenId` starts at 1).
+ * A 0..totalMinted-1 scan skips the newest id and wastes a call on token 0.
+ */
+export function mintedTokenIdRange(totalMinted: number): number[] {
+  const n = Math.floor(Number(totalMinted));
+  if (!Number.isFinite(n) || n <= 0) return [];
+  return Array.from({ length: n }, (_, i) => i + 1);
+}
+
 @Injectable()
 export class RwaTokenRegistryService {
   private readonly logger = new Logger(RwaTokenRegistryService.name);
@@ -100,13 +110,47 @@ export class RwaTokenRegistryService {
     }
   }
 
-  /** Scan `0..totalMinted-1` on the configured RWA contract (boot / admin). */
+  /** Index `rwa_tokens` from chain when Calculate/pay hits a missing registry row. */
+  async ensureFromChain(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const id = Math.floor(Number(tokenId));
+    if (!Number.isFinite(id) || id <= 0) return;
+    await this.syncTokenFromChain(id, null, chainId);
+    if (await this.hasRow(id, chainId)) return;
+    try {
+      const tokenUri = await this.blockchain.getRwaTokenURI(id, chainId);
+      await this.upsertFromMetadata(id, {}, { tokenUri, chainId });
+    } catch (e) {
+      this.logger.debug(
+        `rwa_tokens ensure skip #${id}: ${String(e).slice(0, 120)}`,
+      );
+    }
+  }
+
+  private async hasRow(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<boolean> {
+    const contract = this.rwaContractAddress(chainId);
+    if (!contract) return false;
+    const tid = String(tokenId);
+    const row = await this.repo.findOne({
+      where: { tokenContract: contract, tokenId: tid },
+      select: ['tokenId'],
+    });
+    return Boolean(row);
+  }
+
+  /** Scan `1..totalMinted` on the configured RWA contract (boot / admin). */
   async syncAllMintedFromChain(chainId?: SupportedChainId): Promise<{ scanned: number; upserted: number }> {
     const contract = this.rwaContractAddress(chainId);
     if (!contract) return { scanned: 0, upserted: 0 };
     const { totalMinted: total } = await this.blockchain.getRwaInfo(chainId);
+    const ids = mintedTokenIdRange(total);
     let upserted = 0;
-    for (let id = 0; id < total; id++) {
+    for (const id of ids) {
       try {
         await this.syncTokenFromChain(id, null, chainId);
         upserted++;
@@ -114,7 +158,7 @@ export class RwaTokenRegistryService {
         /* skip */
       }
     }
-    return { scanned: total, upserted };
+    return { scanned: ids.length, upserted };
   }
 
   async collectionKeysByTokenIds(

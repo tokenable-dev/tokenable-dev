@@ -8,6 +8,34 @@ import {
   MinLength,
 } from 'class-validator';
 
+export class AddressAutocompleteQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  q?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sessionToken?: string;
+}
+
+export class AddressPlaceQueryDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(256)
+  placeId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sessionToken?: string;
+}
+
 export class CreateShippingAddressDto {
   @ApiPropertyOptional({ example: 'Home' })
   @IsOptional()

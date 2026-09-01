@@ -16,7 +16,12 @@ import {
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
 } from "@/lib/marketplace/cardDisplayName";
-import { buildAssetDetailHeadlineParts, resolveRwaHeadlineGrade } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  buildAssetDetailHeadlineParts,
+  buildRwaAssetDetailHeadlineParts,
+  resolveRwaHeadlineGrade,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { extractCardNumberFromDisplayText } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 describe("cardDisplayName SSOT", () => {
   it("joinCardDisplaySegments skips empty segments", () => {
@@ -53,6 +58,88 @@ describe("cardDisplayName SSOT", () => {
       variant: null,
     });
     expect(line1).toBe("Charizard ex · 199/165 · Raw");
+  });
+
+  it("omits grade on asset-detail Line 1", () => {
+    expect(
+      formatCardDisplayLine1(
+        {
+          cardName: "Charizard ex",
+          cardNumber: "199/165",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "151",
+          language: "EN",
+          variant: "Special Illustration Rare",
+        },
+        { omitGrade: true },
+      ),
+    ).toBe("Charizard ex · 199/165");
+  });
+
+  it("extracts collector number from a listing title", () => {
+    expect(
+      extractCardNumberFromDisplayText(
+        "2023 Pokemon 151 Charizard ex #199/165 PSA 10",
+      ),
+    ).toBe("199/165");
+    expect(extractCardNumberFromDisplayText("Monkey D. Luffy OP13-118")).toBe(
+      "OP13118",
+    );
+    expect(
+      extractCardNumberFromDisplayText("Master Ball Reverse Holo · 094"),
+    ).toBe("094");
+  });
+
+  it("puts Gengar collector number on line 1 and Master Ball variant on line 2", () => {
+    const parts = buildAssetDetailHeadlineParts({
+      setLine: "2023 POKEMON JAPANESE SV2a-POKEMON CARD 151",
+      year: 2023,
+      cardName: "Gengar",
+      cardNumber: null,
+      variety: "Master Ball Reverse Holo · 094",
+      language: "JP",
+    });
+    expect(parts.cardNumber).toBe("094");
+    expect(parts.variety).toBe("Master Ball Reverse Holo");
+    expect(
+      formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts), {
+        omitGrade: true,
+      }),
+    ).toBe("Gengar · 094");
+    const line2 = formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
+    expect(line2).toContain("Master Ball Reverse Holo");
+    expect(line2).not.toMatch(/\b094\b/);
+    expect(line2.startsWith("2023")).toBe(true);
+  });
+
+  it("buildRwaAssetDetailHeadlineParts uses the same Gengar layout as collection detail", () => {
+    const parts = buildRwaAssetDetailHeadlineParts(
+      {
+        name: "Gengar",
+        properties: {
+          graded: {
+            psa: {
+              Year: "2023",
+              brand: "2023 POKEMON JAPANESE SV2a-POKEMON CARD 151",
+              subject: "Gengar",
+              variety: "Master Ball Reverse Holo · 094",
+            },
+            card: { name: "Gengar" },
+          },
+        },
+      },
+      "RWA #1",
+    );
+    expect(
+      formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts), {
+        omitGrade: true,
+      }),
+    ).toBe("Gengar · 094");
+    const line2 = formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
+    expect(line2).toBe(
+      "2023 · SV2a Pokemon Card 151 JP · Master Ball Reverse Holo",
+    );
   });
 
   it("formats Line 2 as Year · Set Language · Variant", () => {

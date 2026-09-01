@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -29,6 +30,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplacePartner } from '../entities/marketplace-partner.entity';
 import { formatPartnerVaultLabel } from '../partners/partner-vault-label.util';
+import { REDEEM_TRACKING_UPDATED_EVENT } from '../../rwa/redeem-delivery-track.service';
 import {
   isActiveRedeemShipmentStatus,
   redeemShipmentKey,
@@ -216,6 +218,7 @@ export class RedeemsAdminService {
     private readonly vault: VaultService,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   /**
@@ -642,6 +645,7 @@ export class RedeemsAdminService {
       row.trackingCarrier = null;
     }
     await this.redemptions.save(row);
+    this.events.emit(REDEEM_TRACKING_UPDATED_EVENT);
     if (isNewTracking && row.paymentBatchId) {
       const [joined] = await this.enrich([row]);
       const chainId = this.resolveChainId(row);
@@ -768,6 +772,7 @@ export class RedeemsAdminService {
       row.trackingSetAt = at;
     }
     await this.redemptions.save(targets.map((t) => t.redemption));
+    this.events.emit(REDEEM_TRACKING_UPDATED_EVENT);
     if (appliedNewTracking) {
       const ownerWallet = rows[0].ownerWalletAddress;
       const chainId = this.resolveChainId(rows[0]);

@@ -39,6 +39,8 @@ import {
 } from '../utils/collection-label.util';
 import {
   pickCollectionDisplayImageUrl,
+  pickSearchTokenImageUrl,
+  pickRwaAssetDisplayImageRef,
   pickTrendingSlabImageRef,
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
@@ -96,6 +98,8 @@ export type SearchCardHit = {
   vaultLabel: string;
   listedUsd: number | null;
   imageUrl: string | null;
+  /** Collection `components` when the token is bucketed — SSOT Line 1 / Line 2 on search. */
+  components: Record<string, unknown> | null;
 };
 
 export type CollectionReviewStatusFilter =
@@ -845,10 +849,20 @@ export class CollectionService {
   } {
     const escaped = CollectionService.escapeIlike(q);
     const digitOnly = /^\d+$/.test(q);
+    if (digitOnly && q.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      return {
+        sql: `(COALESCE(t.certNumber, '') ILIKE :certPat ESCAPE '\\' OR t.tokenId = :tid)`,
+        params: { certPat: `${escaped}%`, tid: q },
+      };
+    }
     if (digitOnly) {
       return {
-        sql: `COALESCE(t.certNumber, '') ILIKE :certPat ESCAPE '\\'`,
-        params: { certPat: `${escaped}%` },
+        sql: `(
+          t.tokenId = :tid
+          OR COALESCE(t.certNumber, '') = :tid
+          OR COALESCE(t.displayName, '') ILIKE :hashPat ESCAPE '\\'
+        )`,
+        params: { tid: q, hashPat: `%#${escaped}%` },
       };
     }
     return {
@@ -868,6 +882,87 @@ export class CollectionService {
     if (label) return label;
     if (score) return `PSA ${score}`;
     return null;
+  }
+
+  static searchComponentsFromGradedMeta(
+    meta: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
+    if (!graded || typeof graded !== 'object') return {};
+    const psa =
+      graded.psa && typeof graded.psa === 'object'
+        ? (graded.psa as Record<string, unknown>)
+        : {};
+    const card =
+      graded.card && typeof graded.card === 'object'
+        ? (graded.card as Record<string, unknown>)
+        : {};
+    const gradeObj =
+      graded.grade && typeof graded.grade === 'object'
+        ? (graded.grade as Record<string, unknown>)
+        : {};
+    const str = (v: unknown) => {
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+      return '';
+    };
+    const name =
+      str(card.name) ||
+      str(psa.cardNameHint) ||
+      str(psa.subject) ||
+      str(psa.Subject);
+    const set =
+      str(card.set) || str(psa.setHint) || str(psa.brand) || str(psa.Brand);
+    const num = str(card.number) || str(psa.cardNumberHint);
+    const company = str(graded.gradingCompany) || (name || set ? 'PSA' : '');
+    const score =
+      str(graded.gradeScore) ||
+      str(psa.gradeScore) ||
+      str(gradeObj.score);
+    const out: Record<string, unknown> = {};
+    if (name) {
+      out.cardName = name;
+      out.cardNameDisplay = name;
+      out.psaSubject = name;
+    }
+    if (set) {
+      out.cardSet = set;
+      out.cardSetDisplay = set;
+      out.psaBrand = set;
+    }
+    if (num) out.cardNumber = num;
+    if (company) {
+      out.gradingCompany = company;
+      out.gradingCompanyDisplay = company;
+    }
+    if (score) out.gradeScore = score;
+    const label = str(graded.gradeLabel) || str(psa.gradeLabel);
+    if (label) out.psaGradeLabel = label;
+    const year = str(psa.year) || str(psa.Year);
+    if (year) out.year = year;
+    const variety = str(card.variant) || str(psa.variety) || str(psa.Variety);
+    if (variety) {
+      out.variant = variety;
+      out.psaVariety = variety;
+    }
+    const listing = extractListingDisplayTitleFromMeta(meta);
+    if (listing) out.listingDisplayTitle = listing;
+    return out;
+  }
+
+  private static headlineComponentsReady(
+    comp: Record<string, unknown> | null | undefined,
+  ): boolean {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const name =
+      str(comp?.cardNameDisplay) ||
+      str(comp?.cardName) ||
+      str(comp?.psaSubject);
+    const grade = CollectionService.gradeLabelFromComponents(comp);
+    return Boolean(name && grade);
   }
 
   private static setLineFromComponents(
@@ -941,26 +1036,50 @@ export class CollectionService {
     const digitOnly = /^\d+$/.test(input.q);
     const ranked = [...tokens].sort((a, b) => {
       if (digitOnly) {
+        if (a.tokenId === input.q && b.tokenId !== input.q) return -1;
+        if (b.tokenId === input.q && a.tokenId !== input.q) return 1;
         const qa = (a.certNumber ?? '').replace(/\D/g, '');
         const qb = (b.certNumber ?? '').replace(/\D/g, '');
-        const exactA = qa === input.q ? 0 : qa.startsWith(input.q) ? 1 : 2;
-        const exactB = qb === input.q ? 0 : qb.startsWith(input.q) ? 1 : 2;
+        const exactA = qa === input.q ? 0 : 1;
+        const exactB = qb === input.q ? 0 : 1;
         if (exactA !== exactB) return exactA - exactB;
       }
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
+    const needMeta = ranked.filter((t) => {
+      const col = t.collectionKey
+        ? colByKey.get(t.collectionKey.toLowerCase())
+        : undefined;
+      return !CollectionService.headlineComponentsReady(
+        (col?.components ?? null) as Record<string, unknown> | null,
+      );
+    });
+    const hydrated = await this.hydrateSearchTokenMeta(needMeta);
+
     return ranked.map((t) => {
       const col = t.collectionKey
         ? colByKey.get(t.collectionKey.toLowerCase())
         : undefined;
-      const comp = (col?.components ?? {}) as Record<string, unknown>;
+      const colComp = (col?.components ?? {}) as Record<string, unknown>;
+      const extra = hydrated.get(t.tokenId);
+      const comp = CollectionService.headlineComponentsReady(colComp)
+        ? colComp
+        : { ...colComp, ...(extra?.components ?? {}) };
+      const name =
+        (typeof comp.cardNameDisplay === 'string' &&
+          comp.cardNameDisplay.trim()) ||
+        (typeof comp.cardName === 'string' && comp.cardName.trim()) ||
+        (typeof comp.psaSubject === 'string' && comp.psaSubject.trim()) ||
+        '';
       const title =
+        name ||
         (t.displayName ?? '').trim() ||
         (col?.displayLabel ?? '').trim() ||
         (t.certNumber ? `Cert #${t.certNumber}` : `Token #${t.tokenId}`);
       const imageUrl =
-        pickCollectionDisplayImageUrl(t.displayImageUrl) ??
+        pickSearchTokenImageUrl(t.displayImageUrl, null) ??
+        pickSearchTokenImageUrl(extra?.imageUrl ?? null, null) ??
         pickCollectionDisplayImageUrl(col?.coverImageUrl ?? null);
       return {
         tokenId: t.tokenId,
@@ -977,8 +1096,53 @@ export class CollectionService {
         ),
         listedUsd: askByToken.get(t.tokenId) ?? null,
         imageUrl,
+        components: Object.keys(comp).length > 0 ? comp : null,
       };
     });
+  }
+
+  private async hydrateSearchTokenMeta(
+    tokens: RwaToken[],
+  ): Promise<
+    Map<string, { components: Record<string, unknown>; imageUrl: string | null }>
+  > {
+    const out = new Map<
+      string,
+      { components: Record<string, unknown>; imageUrl: string | null }
+    >();
+    await Promise.all(
+      tokens.map(async (t) => {
+        const uri = t.tokenUri?.trim();
+        if (!uri) return;
+        try {
+          const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+          const extracted = extractOrDiagnoseBucketComponents(meta);
+          const fromExtract =
+            extracted.ok && extracted.components
+              ? ({
+                  ...(extracted.components as unknown as Record<
+                    string,
+                    unknown
+                  >),
+                } as Record<string, unknown>)
+              : {};
+          const fromPsa =
+            CollectionService.searchComponentsFromGradedMeta(meta);
+          const imageUrl = pickRwaAssetDisplayImageRef(meta)?.trim() || null;
+          out.set(t.tokenId, {
+            components: { ...fromPsa, ...fromExtract },
+            imageUrl,
+          });
+        } catch (err) {
+          this.logger.debug(
+            `search token metadata skip #${t.tokenId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }),
+    );
+    return out;
   }
 
   /**

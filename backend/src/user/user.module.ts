@@ -6,6 +6,7 @@ import { UserShippingAddress } from './entities/user-shipping-address.entity';
 import { User } from './entities/user.entity';
 import { UserWallet } from './entities/user-wallet.entity';
 import { UserService } from './user.service';
+import { PlacesAddressService } from './places-address.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { UserService } from './user.service';
       UserShippingAddress,
     ]),
   ],
-  providers: [UserService],
-  exports: [UserService],
+  providers: [UserService, PlacesAddressService],
+  exports: [UserService, PlacesAddressService],
 })
 export class UserModule {}

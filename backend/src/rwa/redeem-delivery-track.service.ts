@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OnEvent } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
@@ -31,6 +32,8 @@ const TRACK_ELIGIBLE_STATUSES: VaultRedemptionStatus[] = [
 const POLL_ADVISORY_LOCK_KEY = 872314510;
 const MAX_TRACK_NUMBERS_PER_POLL = 90;
 const MAX_AUTO_BATCHES_PER_POLL = 40;
+
+export const REDEEM_TRACKING_UPDATED_EVENT = 'redeem.tracking.updated';
 
 /**
  * Poll FedEx Track for redeem shipments → set carrier_delivered_at,
@@ -73,9 +76,21 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
       );
       return;
     }
+    const cronExpr =
+      this.config.get<string>('REDEEM_FEDEX_TRACK_CRON')?.trim() ||
+      process.env.REDEEM_FEDEX_TRACK_CRON ||
+      '*/5 * * * *';
     this.logger.log(
-      `Redeem FedEx Track armed cron=${process.env.REDEEM_FEDEX_TRACK_CRON || '*/30 * * * *'} graceMs=${this.graceDelayMs()} autoReceipt=${this.autoReceiptEnabled() ? 'on' : 'off'}`,
+      `Redeem FedEx Track armed cron=${cronExpr} graceMs=${this.graceDelayMs()} autoReceipt=${this.autoReceiptEnabled() ? 'on' : 'off'}`,
     );
+    setTimeout(() => {
+      void this.pollCron();
+    }, 8_000);
+  }
+
+  @OnEvent(REDEEM_TRACKING_UPDATED_EVENT)
+  onTrackingUpdated(): void {
+    void this.pollCron();
   }
 
   private autoReceiptEnabled(): boolean {
@@ -96,7 +111,7 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
     });
   }
 
-  @Cron(process.env.REDEEM_FEDEX_TRACK_CRON || '*/30 * * * *')
+  @Cron(process.env.REDEEM_FEDEX_TRACK_CRON || '*/5 * * * *')
   async pollCron(): Promise<void> {
     if (!this.track.enabled()) return;
     if (this.running) return;

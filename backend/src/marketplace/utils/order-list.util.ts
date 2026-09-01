@@ -26,6 +26,10 @@ export type OrderListItem = {
   matchedOrderHash?: string | null;
   /** Active consignment partner display name when offerer matches. */
   sellerDisplayName?: string | null;
+  /** Tokenable RWA ERC-721. */
+  tokenContract?: string | null;
+  /** Payment token (USDC). */
+  considerationToken?: string | null;
   /** Token custody — `self_vault_hold` vs PSA. Null on bids. */
   settlementPolicy?: 'standard' | 'self_vault_hold' | null;
   /** "PSA Vault" or "{partner} vault" from token custody, not seller identity. */
@@ -109,6 +113,8 @@ export function orderToListItem(
     filledByBuyer: filledBy || null,
     matchedOrderHash: matched || null,
     sellerDisplayName: sellerDisplayName ?? null,
+    tokenContract: o.tokenContract,
+    considerationToken: o.considerationToken,
     considerationRecipients: considerationRecipientsFromParams(o.parameters),
   };
 }

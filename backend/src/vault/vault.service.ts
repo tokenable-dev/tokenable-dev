@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { keccak256, toUtf8Bytes } from 'ethers';
-import { EntityManager, In, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, In, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { MarketplacePartner } from '../marketplace/entities/marketplace-partner.entity';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
@@ -38,6 +38,21 @@ export type VaultAssetHistoryEntry = {
   tokenContract: string | null;
   burnedAt: Date | null;
 };
+
+/** Strip leading zeros on decimal token ids (`040` → `40`). */
+export function normalizeDecimalTokenId(raw: string): string {
+  const s = String(raw ?? '').trim();
+  if (!/^\d+$/.test(s)) return s;
+  let i = 0;
+  while (i < s.length - 1 && s[i] === '0') i++;
+  return s.slice(i);
+}
+
+function decimalTokenIdLookupKeys(raw: string): string[] {
+  const trimmed = String(raw ?? '').trim();
+  if (!trimmed) return [];
+  return [...new Set([trimmed, normalizeDecimalTokenId(trimmed)])];
+}
 
 /**
  * Operational source of truth for the Tokenable asset lifecycle:
@@ -87,6 +102,61 @@ export class VaultService {
       throw new BadRequestException('certNumber is required to compute vaultRef');
     }
     return keccak256(toUtf8Bytes(normalized));
+  }
+
+  /**
+   * Match `rwa_tokens.token_id` whether the API sent `40` and the row is `040`
+   * (or the reverse). Wallet/NFT clients and mint inserts do not always use
+   * the same zero-padding.
+   */
+  private applyDecimalTokenIdMatch(
+    qb: SelectQueryBuilder<RwaToken>,
+    tokenContract: string,
+    tokenIds: string[],
+  ): SelectQueryBuilder<RwaToken> {
+    const ids = [...new Set(tokenIds.flatMap(decimalTokenIdLookupKeys))];
+    const norms = [...new Set(tokenIds.map((id) => normalizeDecimalTokenId(id)))];
+    return qb
+      .where('LOWER(t.token_contract) = :rwaContract', {
+        rwaContract: tokenContract.toLowerCase(),
+      })
+      .andWhere(
+        `(t.token_id IN (:...rwaTokenIds) OR (t.token_id ~ :rwaNumRe AND COALESCE(NULLIF(LTRIM(t.token_id, :rwaZero), :rwaEmpty), :rwaZeroToken) IN (:...rwaNorms)))`,
+        {
+          rwaTokenIds: ids,
+          rwaNumRe: '^[0-9]+$',
+          rwaZero: '0',
+          rwaEmpty: '',
+          rwaZeroToken: '0',
+          rwaNorms: norms,
+        },
+      );
+  }
+
+  private async findRwaTokensByDecimalIds(
+    tokenContract: string,
+    tokenIds: string[],
+  ): Promise<RwaToken[]> {
+    const ids = [
+      ...new Set(tokenIds.map((t) => String(t).trim()).filter((t) => /^\d+$/.test(t))),
+    ];
+    if (ids.length === 0) return [];
+    if (typeof this.rwaTokens.createQueryBuilder !== 'function') {
+      const lookupKeys = [...new Set(ids.flatMap(decimalTokenIdLookupKeys))];
+      const rows = await this.rwaTokens.find({
+        where: {
+          tokenContract: tokenContract.toLowerCase(),
+          tokenId: In(lookupKeys),
+        },
+      });
+      const wanted = new Set(ids.map((id) => normalizeDecimalTokenId(id)));
+      return rows.filter((r) => wanted.has(normalizeDecimalTokenId(r.tokenId)));
+    }
+    return this.applyDecimalTokenIdMatch(
+      this.rwaTokens.createQueryBuilder('t'),
+      tokenContract,
+      ids,
+    ).getMany();
   }
 
   /**
@@ -725,13 +795,24 @@ export class VaultService {
       paymentReceivedUsdcMicros: string;
     },
   ): Promise<VaultRedemption> {
-    const token = await em.findOne(RwaToken, {
-      where: {
-        tokenContract: params.tokenContract,
-        tokenId: params.tokenId,
-      },
-      lock: { mode: 'pessimistic_write' },
-    });
+    const token = await em
+      .createQueryBuilder(RwaToken, 't')
+      .setLock('pessimistic_write')
+      .where('LOWER(t.token_contract) = :rwaContract', {
+        rwaContract: params.tokenContract.toLowerCase(),
+      })
+      .andWhere(
+        `(t.token_id IN (:...rwaTokenIds) OR (t.token_id ~ :rwaNumRe AND COALESCE(NULLIF(LTRIM(t.token_id, :rwaZero), :rwaEmpty), :rwaZeroToken) IN (:...rwaNorms)))`,
+        {
+          rwaTokenIds: decimalTokenIdLookupKeys(params.tokenId),
+          rwaNumRe: '^[0-9]+$',
+          rwaZero: '0',
+          rwaEmpty: '',
+          rwaZeroToken: '0',
+          rwaNorms: [normalizeDecimalTokenId(params.tokenId)],
+        },
+      )
+      .getOne();
     if (!token) {
       throw new NotFoundException(
         `Token #${params.tokenId} is not registered on Tokenable — cannot process redemption. Contact support.`,
@@ -895,12 +976,11 @@ export class VaultService {
     tokenContract: string,
     tokenId: string,
   ): Promise<void> {
-    const token = await this.rwaTokens.findOne({
-      where: {
-        tokenContract: tokenContract.toLowerCase(),
-        tokenId: String(tokenId),
-      },
-    });
+    const rows = await this.findRwaTokensByDecimalIds(
+      tokenContract,
+      [String(tokenId)],
+    );
+    const token = rows[0];
     if (!token) return;
     if (token.burnedAt) {
       throw new BadRequestException(
@@ -924,19 +1004,8 @@ export class VaultService {
     tokenId: string,
   ): Promise<'standard' | 'self_vault_hold'> {
     const raw = String(tokenId ?? '').trim();
-    let normalized = raw;
-    if (/^\d+$/.test(raw)) {
-      let i = 0;
-      while (i < raw.length - 1 && raw[i] === '0') i++;
-      normalized = raw.slice(i);
-    }
-    const candidates = [...new Set([raw, normalized].filter(Boolean))];
-    const token = await this.rwaTokens.findOne({
-      where: candidates.map((tid) => ({
-        tokenContract: tokenContract.toLowerCase(),
-        tokenId: tid,
-      })),
-    });
+    const rows = await this.findRwaTokensByDecimalIds(tokenContract, [raw]);
+    const token = rows[0];
     return token?.settlementPolicy === 'self_vault_hold'
       ? 'self_vault_hold'
       : 'standard';
@@ -957,10 +1026,10 @@ export class VaultService {
     );
     if (ids.length === 0) return;
 
-    const rows = await this.rwaTokens.find({
-      where: { tokenContract: tokenContract.toLowerCase(), tokenId: In(ids) },
-    });
-    const byId = new Map(rows.map((r) => [r.tokenId, r]));
+    const rows = await this.findRwaTokensByDecimalIds(tokenContract, ids);
+    const byNorm = new Map(
+      rows.map((r) => [normalizeDecimalTokenId(r.tokenId), r] as const),
+    );
 
     const cycleIds = rows
       .map((r) => r.vaultCycleId)
@@ -972,7 +1041,7 @@ export class VaultService {
     const cycleById = new Map(cycles.map((c) => [c.id, c]));
 
     for (const tokenId of ids) {
-      const token = byId.get(tokenId);
+      const token = byNorm.get(normalizeDecimalTokenId(tokenId));
       if (!token) {
         throw new BadRequestException(
           `Token #${tokenId} is not registered on Tokenable yet — it cannot be redeemed. Contact support.`,
@@ -1018,15 +1087,12 @@ export class VaultService {
       ),
     ].slice(0, 200);
     if (!ids.length) return [];
-    const rows = await this.rwaTokens.find({
-      where: {
-        tokenContract: tokenContract.toLowerCase(),
-        tokenId: In(ids),
-      },
-    });
-    const byId = new Map(rows.map((r) => [r.tokenId, r]));
+    const rows = await this.findRwaTokensByDecimalIds(tokenContract, ids);
+    const byNorm = new Map(
+      rows.map((r) => [normalizeDecimalTokenId(r.tokenId), r] as const),
+    );
     return ids.map((tokenId) => {
-      const row = byId.get(tokenId);
+      const row = byNorm.get(normalizeDecimalTokenId(tokenId));
       const settlementPolicy =
         row?.settlementPolicy === 'self_vault_hold'
           ? 'self_vault_hold'
@@ -1156,7 +1222,19 @@ export class VaultService {
       ]);
 
     if (tokenIds && tokenIds.length > 0) {
-      qb.andWhere('t.token_id IN (:...tokenIds)', { tokenIds });
+      const lookup = [...new Set(tokenIds.flatMap(decimalTokenIdLookupKeys))];
+      const norms = [...new Set(tokenIds.map((id) => normalizeDecimalTokenId(id)))];
+      qb.andWhere(
+        `(t.token_id IN (:...tokenIds) OR (t.token_id ~ :rwaNumRe AND COALESCE(NULLIF(LTRIM(t.token_id, :rwaZero), :rwaEmpty), :rwaZeroToken) IN (:...tokenNorms)))`,
+        {
+          tokenIds: lookup,
+          rwaNumRe: '^[0-9]+$',
+          rwaZero: '0',
+          rwaEmpty: '',
+          rwaZeroToken: '0',
+          tokenNorms: norms,
+        },
+      );
     }
 
     const rows = await qb.getRawMany<{

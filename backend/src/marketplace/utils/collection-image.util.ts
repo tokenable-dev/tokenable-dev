@@ -223,6 +223,21 @@ export function pickCollectionDisplayImageUrl(
   return normalizeLooseCatalogCoverUrl(cover);
 }
 
+/**
+ * Individual minted-card search: show the token slab (including PSA cert
+ * CloudFront). Collection list covers still strip cert slabs.
+ */
+export function pickSearchTokenImageUrl(
+  tokenDisplayImageUrl: string | null | undefined,
+  collectionCoverUrl: string | null | undefined,
+): string | null {
+  const token = tokenDisplayImageUrl?.trim() ?? '';
+  if (token && isUsableCoverUrl(token)) {
+    return normalizeImageUrl(token);
+  }
+  return pickCollectionDisplayImageUrl(collectionCoverUrl);
+}
+
 /** Append `/cover` when a catalog folder URL is missing the object key suffix. */
 function normalizeLooseCatalogCoverUrl(url: string): string {
   try {

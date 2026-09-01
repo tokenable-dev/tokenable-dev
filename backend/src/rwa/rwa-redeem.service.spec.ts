@@ -34,6 +34,9 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
       fedex,
       platformFee as never,
     );
+    const rwaTokenRegistry = {
+      ensureFromChain: jest.fn().mockResolvedValue(undefined),
+    };
     return {
       svc: new RwaRedeemService(
         {} as never,
@@ -46,10 +49,12 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
         { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
         config,
+        rwaTokenRegistry as never,
       ),
       vault,
       partners,
       feeCalculator,
+      rwaTokenRegistry,
     };
   }
 
@@ -275,6 +280,25 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     ).rejects.toThrow(/not registered/);
   });
 
+  it('syncs a missing rwa_tokens row from chain then estimates', async () => {
+    const { svc, vault, rwaTokenRegistry } = makeService();
+    vault.assertTokensRedeemable
+      .mockRejectedValueOnce(
+        new Error(
+          'Token #22 is not registered on Tokenable yet — it cannot be redeemed. Contact support.',
+        ),
+      )
+      .mockResolvedValueOnce(undefined);
+    await expect(
+      svc.estimateRedeemCost({
+        country: 'us',
+        tokenIds: [22],
+        chainId: 11155111 as never,
+      }),
+    ).resolves.toBeDefined();
+    expect(rwaTokenRegistry.ensureFromChain).toHaveBeenCalledWith(22, 11155111);
+  });
+
   it('pins the estimate total and keeps the cheapest unexpired quote', async () => {
     const { svc } = makeService();
     await svc.estimateRedeemCost({
@@ -346,6 +370,7 @@ describe('RwaRedeemService.confirmReceipt', () => {
       { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
       { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
       { get: () => undefined } as never,
+      { ensureFromChain: jest.fn().mockResolvedValue(undefined) } as never,
     );
   }
 

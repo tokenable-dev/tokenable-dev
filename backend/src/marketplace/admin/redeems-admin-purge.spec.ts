@@ -56,6 +56,7 @@ describe('RedeemsAdminService.purgeAllDevData', () => {
       {} as never,
       config,
       {} as never,
+      { emit: jest.fn() } as never,
     );
 
     return { service, em };

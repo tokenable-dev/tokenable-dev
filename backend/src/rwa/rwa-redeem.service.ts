@@ -19,6 +19,7 @@ import { PlatformFeeWalletService } from '../blockchain/platform-fee-wallet.serv
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
 import { KycService } from '../kyc/kyc.service';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
+import { RwaTokenRegistryService } from '../marketplace/collections/rwa-token-registry.service';
 import { VaultService } from '../vault/vault.service';
 import {
   RedeemBatchCustodyDto,
@@ -71,6 +72,7 @@ export class RwaRedeemService {
     private readonly kyc: KycService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly rwaTokenRegistry: RwaTokenRegistryService,
   ) {}
 
   private static quotePinKey(
@@ -114,6 +116,44 @@ export class RwaRedeemService {
       return;
     }
     this.recentQuoteTotals.set(key, { totalMicros, expiresAtMs, estimate });
+  }
+
+  private static notRegisteredTokenId(err: unknown): number | null {
+    const msg = err instanceof Error ? err.message : String(err);
+    const m = /Token #(\d+) is not registered on Tokenable yet/.exec(msg);
+    if (!m) return null;
+    const id = Number(m[1]);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  /**
+   * Registry can lag the chain (boot sync used to skip 1-based newest ids).
+   * Pull the missing token from chain once, then re-run the pre-pay check.
+   */
+  private async assertRedeemableAfterRegistryHeal(
+    chainId: SupportedChainId,
+    tokenIds: number[],
+  ): Promise<void> {
+    const contract = this.chainConfig.getRwaAddress(chainId);
+    const ids = [...new Set(tokenIds.filter((n) => n > 0))];
+    const healed = new Set<number>();
+    for (let i = 0; i <= ids.length; i++) {
+      try {
+        await this.vault.assertTokensRedeemable(
+          contract,
+          ids.map(String),
+        );
+        return;
+      } catch (e) {
+        const missing = RwaRedeemService.notRegisteredTokenId(e);
+        if (missing == null || healed.has(missing)) throw e;
+        healed.add(missing);
+        await this.rwaTokenRegistry.ensureFromChain(missing, chainId);
+      }
+    }
+    throw new BadRequestException(
+      'One or more tokens are not registered on Tokenable yet — they cannot be redeemed. Contact support.',
+    );
   }
 
   private pinnedQuote(key: string): {
@@ -169,11 +209,7 @@ export class RwaRedeemService {
   }): Promise<RedeemEstimate> {
     const tokenIds = (params.tokenIds ?? []).filter((n) => n > 0);
     if (tokenIds.length > 0 && params.chainId != null) {
-      /* Surface non-redeemable tokens at quote time — before any USDC moves. */
-      await this.vault.assertTokensRedeemable(
-        this.chainConfig.getRwaAddress(params.chainId),
-        tokenIds.map(String),
-      );
+      await this.assertRedeemableAfterRegistryHeal(params.chainId, tokenIds);
     }
     const estimate = await this.feeCalculator.estimate(params);
     if (tokenIds.length > 0) {
@@ -217,11 +253,8 @@ export class RwaRedeemService {
       countryCode: shipTo.countryCode,
     });
 
-    /* Same validation the estimate ran — clear error instead of a late DB failure. */
-    await this.vault.assertTokensRedeemable(
-      this.chainConfig.getRwaAddress(chainId),
-      tokenIds.map(String),
-    );
+    /* Same validation the estimate ran — heal missing registry rows from chain. */
+    await this.assertRedeemableAfterRegistryHeal(chainId, tokenIds);
 
     const freshEstimate = await this.feeCalculator.estimate({
       country: shipTo.country,

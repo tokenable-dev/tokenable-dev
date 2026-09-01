@@ -62,15 +62,46 @@ describe('CollectionService.scoreCollectionSearchHit', () => {
 });
 
 describe('CollectionService.buildTokenSearchSql', () => {
-  it('prefix-matches token certs for digit queries including short ones', () => {
+  it('does not prefix-match certs for short digit queries', () => {
     const { sql, params } = CollectionService.buildTokenSearchSql('123');
-    expect(sql).toContain('certNumber');
-    expect(params.certPat).toBe('123%');
+    expect(sql).not.toContain('certPat');
+    expect(params.tid).toBe('123');
+    expect(params.hashPat).toBe('%#123%');
+  });
+
+  it('prefix-matches token certs when the query looks like a PSA cert', () => {
+    const { sql, params } = CollectionService.buildTokenSearchSql('159806544');
+    expect(sql).toContain('certPat');
+    expect(params.certPat).toBe('159806544%');
+    expect(params.tid).toBe('159806544');
   });
 
   it('matches token display names for text queries', () => {
     const { sql, params } = CollectionService.buildTokenSearchSql('charizard');
     expect(sql).toContain('displayName');
     expect(params.pat).toBe('%charizard%');
+  });
+});
+
+describe('CollectionService.searchComponentsFromGradedMeta', () => {
+  it('maps PSA subject and grade onto search headline fields', () => {
+    const out = CollectionService.searchComponentsFromGradedMeta({
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          gradeScore: '10',
+          psa: {
+            cardNameHint: 'Charizard ex',
+            setHint: '151',
+            cardNumberHint: '199/165',
+            year: '2023',
+          },
+        },
+      },
+    });
+    expect(out.cardName).toBe('Charizard ex');
+    expect(out.gradeScore).toBe('10');
+    expect(out.gradingCompany).toBe('PSA');
+    expect(out.cardNumber).toBe('199/165');
   });
 });

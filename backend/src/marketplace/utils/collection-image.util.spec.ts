@@ -3,6 +3,7 @@ import {
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
   pickPreferredCollectionCoverUrl,
+  pickSearchTokenImageUrl,
   rankCollectionCoverUrls,
   scoreCollectionCoverUrl,
 } from './collection-image.util';
@@ -96,6 +97,23 @@ describe('pickCollectionDisplayImageUrl', () => {
   it('returns null when cover is empty', () => {
     expect(pickCollectionDisplayImageUrl(null)).toBeNull();
     expect(pickCollectionDisplayImageUrl('')).toBeNull();
+  });
+});
+
+describe('pickSearchTokenImageUrl', () => {
+  it('keeps PSA cert slab URLs for individual token hits', () => {
+    const slab =
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/143719559/uDxUkmwFzE.jpg';
+    expect(pickSearchTokenImageUrl(slab, null)).toBe(slab);
+  });
+
+  it('falls back to catalog cover when the token has no image', () => {
+    expect(
+      pickSearchTokenImageUrl(
+        null,
+        'https://images.pokemontcg.io/sv3pt5/199/large.png',
+      ),
+    ).toBe('https://images.pokemontcg.io/sv3pt5/199/large.png');
   });
 });
 
