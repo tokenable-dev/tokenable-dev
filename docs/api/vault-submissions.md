@@ -17,7 +17,18 @@ Sell-flow package tracking (local cards → ship package → PSA → mint link).
 ### Card payload
 
 ```json
-{ "cert": "12345678", "name": "…", "grade": 10, "img": null, "confirmed": true }
+{
+  "cert": "12345678",
+  "name": "Charizard ex",
+  "grade": 10,
+  "img": null,
+  "confirmed": true,
+  "cardNumber": "199/165",
+  "year": "2023",
+  "setName": "151",
+  "language": "EN",
+  "variant": "Special Illustration Rare"
+}
 ```
 
 `POST /draft` requires **≥1 card** and **every** card `confirmed: true`. Otherwise `400` with a client-readable message (Add-cards UI keeps drafts in `localStorage` only).

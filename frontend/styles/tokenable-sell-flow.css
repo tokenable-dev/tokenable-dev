@@ -924,12 +924,10 @@
 }
 
 .sell-flow-cardrow__cert {
-  flex: none;
-  align-self: flex-start;
-  margin-top: 2px;
-  font-size: 12.5px;
-  color: var(--t2);
-  white-space: nowrap;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--t3);
+  line-height: 1.4;
 }
 
 .sell-flow-cardrow__cert strong {
@@ -1964,7 +1962,6 @@ button.sell-ship-step--btn:focus-visible {
   font-size: 13.5px;
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.6;
-  max-width: 560px;
 }
 
 .sell-ship-howto__grid {
@@ -2704,7 +2701,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-vault-sec-h,
 .sell-flow-page .sell-ship-addr-name,
 .sell-flow-page .sell-ship-howto__title,
-.sell-flow-page .sell-flow-consent-strong,
 .sell-flow-page .sell-ship-package-sync__title {
   font-weight: 800;
 }
@@ -2717,7 +2713,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-sub,
 .sell-flow-page .sell-flow-id-copy,
 .sell-flow-page .sell-flow-id-failed-copy,
-.sell-flow-page .sell-flow-consent-row > span:last-child,
+.sell-flow-page .sell-flow-consent-list .sell-flow-consent-row > span:last-child,
 .sell-flow-page .sell-flow-consent-note,
 .sell-flow-page .sell-flow-gate-hint,
 .sell-flow-page .sell-flow-cards-empty,
@@ -3177,7 +3173,15 @@ button.sell-ship-step--btn:focus-visible {
   border-bottom-color: rgba(17, 17, 17, 0.08);
 }
 
-.sell-flow-page .sell-flow-consent-row > span:last-child {
+/* Choose-Vault-Individual.html — master row only: 14px / 700 / #18181B */
+.sell-flow-page .sell-flow-consent-row--master .sell-flow-consent-strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #18181b;
+  line-height: 1.6;
+}
+
+.sell-flow-page .sell-flow-consent-list .sell-flow-consent-row > span:last-child {
   color: #18181b;
 }
 
@@ -3486,7 +3490,7 @@ button.sell-ship-step--btn:focus-visible {
     font-size: 17px;
   }
 
-  .sell-flow-page .sell-flow-consent-row > span:last-child {
+  .sell-flow-page .sell-flow-consent-list .sell-flow-consent-row > span:last-child {
     font-size: 14px;
     line-height: 1.6;
   }

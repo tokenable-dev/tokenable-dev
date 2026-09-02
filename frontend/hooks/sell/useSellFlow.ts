@@ -33,6 +33,7 @@ import {
   readSellFlowDraftCards,
   readSellFlowProgress,
   clearSellSubmissionPublicId,
+  sellDraftCardFieldsFromPsaAnalyze,
   writeSellFlowDraftCards,
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
@@ -97,18 +98,18 @@ function cardFromAnalyze(
     mintImage.source === "user_upload" && uploadPreviewDataUrl?.trim()
       ? uploadPreviewDataUrl.trim()
       : mintImage.previewUrl;
-  const name =
-    r.psa.cardNameHint?.trim() || (cert ? `PSA CERT #${cert}` : "PSA GRADED CARD");
+  const displayFields = sellDraftCardFieldsFromPsaAnalyze(r);
   return {
     cert,
-    name,
+    name: displayFields.name,
     grade,
     img,
     confirmed: true,
-    cardNumber: r.psa.cardNumberHint?.trim() || null,
-    year: r.psa.year?.trim() || null,
-    setName: r.psa.setHint?.trim() || null,
-    variant: r.psa.varietyHint?.trim() || null,
+    cardNumber: displayFields.cardNumber,
+    year: displayFields.year,
+    setName: displayFields.setName,
+    variant: displayFields.variant,
+    language: displayFields.language,
   };
 }
 

@@ -39,7 +39,6 @@ import { BuyerListingAlertService } from '../buyer-listing-alert/buyer-listing-a
 import { VaultService } from '../../vault/vault.service';
 import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
-import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
 import {
   backfillAskTokenIdFromParameters,
   isCriteriaCollectionBidOrder,
@@ -117,8 +116,8 @@ export class OrdersService {
       return {
         ...i,
         sellerDisplayName,
-        settlementPolicy: vault?.settlementPolicy ?? 'standard',
-        vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
+        settlementPolicy: vault?.settlementPolicy ?? null,
+        vaultLabel: vault?.vaultLabel ?? null,
       };
     });
   }
@@ -158,8 +157,8 @@ export class OrdersService {
     ).get(String(order.tokenId));
     return Object.assign(order, {
       sellerDisplayName,
-      settlementPolicy: vault?.settlementPolicy ?? 'standard',
-      vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
+      settlementPolicy: vault?.settlementPolicy ?? null,
+      vaultLabel: vault?.vaultLabel ?? null,
     });
   }
 
@@ -1052,8 +1051,8 @@ export class OrdersService {
           o,
           names.get(o.offerer.toLowerCase()) ?? null,
         ),
-        settlementPolicy: isBid ? null : vault?.settlementPolicy ?? 'standard',
-        vaultLabel: isBid ? null : vault?.vaultLabel ?? PSA_VAULT_LABEL,
+        settlementPolicy: isBid ? null : vault?.settlementPolicy ?? null,
+        vaultLabel: isBid ? null : vault?.vaultLabel ?? null,
       };
       const nk = normalizeDecimalTokenId(String(o.tokenId));
       for (const n of requested) {

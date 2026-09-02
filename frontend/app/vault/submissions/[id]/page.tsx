@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { VaultShell } from "@/components/vault/VaultShell";
 import { VaultDetailDesignView } from "@/components/vault/detail/VaultDetailDesignView";
+import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
 import {
   CARRIER_LABELS,
   CARRIER_TRACK_URLS,
@@ -15,6 +16,7 @@ import {
   resolveDetailScenarioKey,
   type VaultPackageCard,
 } from "@/lib/vault/vaultDetailScenarios";
+import { vaultSubmissionItemDisplaySource } from "@/lib/vault/vaultSubmissionDisplay";
 
 function VaultSubmissionDetailBody() {
   const params = useParams<{ id: string }>();
@@ -44,19 +46,32 @@ function VaultSubmissionDetailBody() {
     };
   }, [paramId]);
 
+  const displayByCert = useVaultSubmissionDisplayByCert(apiSub?.items ?? []);
+
   const livePackageCards = useMemo((): VaultPackageCard[] => {
     if (!apiSub?.items?.length) return [];
-    return apiSub.items.map((c, i) => ({
-      id: i,
-      name: c.name ?? c.cert,
-      imageUrl: c.imageUrl ?? "",
-      grade: c.grade ?? "PSA",
-      cert: c.cert,
-      status: mapApiItemStatus(c.status),
-      reason: c.rejectionReason ?? undefined,
-      token: c.vaultCycleId ? `#${c.vaultCycleId.slice(0, 6)}` : undefined,
-    }));
-  }, [apiSub]);
+    return apiSub.items.map((c, i) => {
+      const display = vaultSubmissionItemDisplaySource(
+        c,
+        displayByCert.get(c.cert),
+      );
+      return {
+        id: i,
+        name: display.name ?? c.cert,
+        imageUrl: c.imageUrl ?? "",
+        grade: c.grade ?? "PSA",
+        cert: c.cert,
+        cardNumber: display.cardNumber,
+        year: display.year,
+        setName: display.setName,
+        language: display.language,
+        variant: display.variant,
+        status: mapApiItemStatus(c.status),
+        reason: c.rejectionReason ?? undefined,
+        token: c.vaultCycleId ? `#${c.vaultCycleId.slice(0, 6)}` : undefined,
+      };
+    });
+  }, [apiSub, displayByCert]);
 
   const tracking = useMemo(() => {
     if (!apiSub?.carrier || !apiSub.trackingNumber) return null;

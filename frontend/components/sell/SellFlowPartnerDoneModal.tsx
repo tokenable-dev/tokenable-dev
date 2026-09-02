@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { TkButton } from "@/components/ds";
 import { PARTNER_PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import type { SellDraftCard } from "@/lib/sell/sellFlowDraft";
 import type { PartnerMintBatchResult } from "@/lib/sell/mintSellFlowCard";
+import { SellCardNameBlock } from "./SellCardNameBlock";
 
 /** Partner mint success — overlay modal (copy from Choose-Vault-Individual.html #scr-done). */
 export function SellFlowPartnerDoneModal({
   result,
+  cards = [],
   onAddMore,
 }: {
   result: PartnerMintBatchResult;
+  cards?: SellDraftCard[];
   onAddMore: () => void;
 }) {
+  const cardByCert = useMemo(
+    () => new Map(cards.map((card) => [card.cert, card])),
+    [cards],
+  );
+
+  const resolveCard = (cert: string, name: string) =>
+    cardByCert.get(cert) ?? { cert, name };
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -95,9 +106,14 @@ export function SellFlowPartnerDoneModal({
                       OK
                     </span>
                     <span className="sell-flow-partner-done-row__body">
-                      <span className="sell-flow-partner-done-row__name">{row.name}</span>
+                      <SellCardNameBlock
+                        card={resolveCard(row.cert, row.name)}
+                        certOnLine2
+                        line1ClassName="sell-flow-partner-done-row__name"
+                        line2ClassName="sell-flow-partner-done-row__meta"
+                      />
                       <span className="sell-flow-partner-done-row__meta tkl-mono">
-                        Cert #{row.cert} · token #{row.tokenId}
+                        token #{row.tokenId}
                       </span>
                     </span>
                   </li>
@@ -113,9 +129,14 @@ export function SellFlowPartnerDoneModal({
                       Skip
                     </span>
                     <span className="sell-flow-partner-done-row__body">
-                      <span className="sell-flow-partner-done-row__name">{row.name}</span>
+                      <SellCardNameBlock
+                        card={resolveCard(row.cert, row.name)}
+                        certOnLine2
+                        line1ClassName="sell-flow-partner-done-row__name"
+                        line2ClassName="sell-flow-partner-done-row__meta"
+                      />
                       <span className="sell-flow-partner-done-row__meta tkl-mono">
-                        Cert #{row.cert} · {row.title}
+                        {row.title}
                       </span>
                       <span className="sell-flow-partner-done-row__detail">{row.detail}</span>
                     </span>

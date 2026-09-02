@@ -26,15 +26,45 @@ export const NOTIFICATION_FILTERS: {
   { key: "trade", label: "Trade" },
   { key: "bid", label: "Bid" },
   { key: "vault", label: "Vault" },
-  { key: "price", label: "Price Alert" },
+  { key: "price", label: "Price alert" },
 ];
+
+export type NotificationGroupKey = "today" | "week" | "earlier";
+
+export const NOTIFICATION_GROUPS: {
+  key: NotificationGroupKey;
+  label: string;
+}[] = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This week" },
+  { key: "earlier", label: "Earlier" },
+];
+
+/** Group inbox rows — parity with Notifications-standalone.html. */
+export function notificationTimeGroup(
+  createdAt: string,
+  nowMs = Date.now(),
+): NotificationGroupKey {
+  const t = Date.parse(createdAt);
+  if (!Number.isFinite(t)) return "earlier";
+  const now = new Date(nowMs);
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  if (t >= startOfToday) return "today";
+  const sevenDaysAgo = nowMs - 7 * 24 * 60 * 60 * 1000;
+  if (t >= sevenDaysAgo) return "week";
+  return "earlier";
+}
 
 /** Colors match `Tokenable-with design system-3/tk-notifications.js`. */
 const TYPE_STYLE: Record<
   Exclude<NotificationFilterKey, "all">,
   { icon: NotificationIcon; color: string }
 > = {
-  trade: { icon: "check", color: "#00C864" },
+  trade: { icon: "check", color: "#00C350" },
   bid: { icon: "layer", color: "#1A6FFF" },
   vault: { icon: "shield", color: "#1A6FFF" },
   price: { icon: "trend", color: "#F3701E" },

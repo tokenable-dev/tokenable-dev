@@ -13,8 +13,8 @@ export function formatPartnerVaultLabel(displayName: string | null | undefined):
 
 export const PSA_VAULT_LABEL = 'PSA Vault';
 
-/** Buyer-facing self-vault / partner-custody chip. */
-export const PUBLIC_SELF_VAULT_LABEL = 'TKB Vault';
+/** Buyer-facing self-vault / partner-custody chip (matches sell-flow "Tokenable Vault"). */
+export const PUBLIC_SELF_VAULT_LABEL = 'Tokenable Vault';
 
 export type VaultCustodyPolicy = 'standard' | 'self_vault_hold';
 

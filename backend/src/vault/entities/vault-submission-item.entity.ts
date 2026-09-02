@@ -44,6 +44,21 @@ export class VaultSubmissionItem {
   @Column({ name: 'display_name', type: 'varchar', length: 512, nullable: true })
   displayName: string | null;
 
+  @Column({ name: 'card_number', type: 'varchar', length: 64, nullable: true })
+  cardNumber: string | null;
+
+  @Column({ name: 'card_year', type: 'varchar', length: 8, nullable: true })
+  cardYear: string | null;
+
+  @Column({ name: 'set_name', type: 'varchar', length: 256, nullable: true })
+  setName: string | null;
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  language: string | null;
+
+  @Column({ type: 'varchar', length: 256, nullable: true })
+  variant: string | null;
+
   @Column({ type: 'varchar', length: 32, nullable: true })
   grade: string | null;
 

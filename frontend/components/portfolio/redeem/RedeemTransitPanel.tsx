@@ -387,7 +387,7 @@ export function RedeemTransitPanel({
         ? [
             {
               shipmentKey: "psa_vault",
-              vaultLabel: cards[0]?.vaultLabel || "PSA Vault",
+              vaultLabel: cards[0]?.vaultLabel?.trim() || "—",
               idx: 1,
               cardCount: cards.length,
               cards,

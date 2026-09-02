@@ -75,7 +75,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             <TkButton
               type="button"
               variant="subtle"
-              className="sell-flow-scan-btn sell-flow-partner-btn--ghost"
+              className="sell-flow-scan-btn"
               disabled={busy}
               onClick={scanSlab}
             >
@@ -205,6 +205,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
       {partnerMintSuccess !== null ? (
         <SellFlowPartnerDoneModal
           result={partnerMintSuccess}
+          cards={cards}
           onAddMore={resetPartnerAddCards}
         />
       ) : null}

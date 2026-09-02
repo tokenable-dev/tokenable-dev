@@ -14,15 +14,13 @@ const KIND_CLASS: Record<HoldingsSaleKind, string> = {
 /** Dot + label only — no subtext (shipping copy lives behind Track). */
 export function PortfolioHoldingsSaleStatus({
   isListed,
-  listPriceUsd,
   redeemStatus,
 }: {
   isListed: boolean;
-  listPriceUsd: number | null;
   redeemStatus: RedeemSurfaceBadge | null;
 }) {
   const kind = holdingsSaleKind(isListed, redeemStatus);
-  const label = holdingsSaleStatusLabel(kind, listPriceUsd);
+  const label = holdingsSaleStatusLabel(kind);
   return (
     <span className={`pf-sale-status ${KIND_CLASS[kind]}`}>
       <span className="pf-sale-status__dot" aria-hidden />

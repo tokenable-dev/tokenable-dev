@@ -41,30 +41,7 @@
 
 /* ── Collection title variant (inline in `#hero-title` when not on meta) ──── */
 
-.cd-display-name__variant {
-  color: var(--t3);
-  font-weight: 600;
-}
-
-.cd-display-name__sep {
-  flex: 0 0 auto;
-  font-weight: 400;
-  line-height: inherit;
-  padding: 0 0.28em;
-  color: inherit;
-}
-
-.cd-display-name__meta {
-  color: #fff;
-  font-weight: inherit;
-}
-
-.cd-display-name__grade {
-  color: #fff;
-  font-weight: inherit;
-}
-
-/* §5 — Line 1 clamp lives in tokenable-collectible-card.css (`.cd-display-name--line1-clamp-2`) */
+/* §5 — Line 1 ellipsis lives in tokenable-collectible-card.css (`.cd-display-name--line1-clamp-2`) */
 
 /* ── Flat markets cluster (no bezel/mat chrome) ───────────────────────────── */
 
@@ -248,7 +225,7 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs {
-    padding: 4px 20px 0 !important;
+    padding: 0 16px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
   }
@@ -265,7 +242,7 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs {
-    padding: 4px 20px 0 !important;
+    padding: 0 16px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
@@ -593,36 +570,51 @@
   margin: 0 0 8px;
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 17px;
+  font-size: clamp(17px, 1.8vw, 24px);
   line-height: 1.2;
-  --cd-line1-lh: 1.2;
   letter-spacing: -0.02em;
   color: #fff;
   max-width: none;
-  display: flex;
-  justify-content: flex-start;
-  align-items: baseline;
-  white-space: nowrap;
-  overflow: hidden;
-  min-height: 0;
+  white-space: normal;
+}
+
+.cd-hero-bar__title-name,
+.cd-hero-bar__title-num,
+.cd-hero-bar__title-grade {
+  color: #fff;
+}
+
+.cd-hero-bar__title-sep {
+  color: var(--t3);
+  font-weight: 600;
+}
+
+.cd-hero-bar__title-num {
+  font-weight: 600;
+}
+
+.cd-hero-bar__title-grade {
+  font-weight: 700;
 }
 
 .cd-hero-bar__meta,
 #hero-meta {
   margin: 0;
-  /* Match title — Inter / --font-sans (not mono). */
   font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: clamp(15px, 1.5vw, 18px);
+  font-weight: 400;
+  font-size: 15px;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
   color: var(--t2);
-  /* §5 — Line 2 truncates from end; keep Year + leading tokens visible */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
   max-width: 100%;
+}
+
+.cd-hero-bar__meta-variant {
+  color: var(--t3);
 }
 
 .cd-hero-bar__actions {
@@ -2916,19 +2908,24 @@
   line-height: 1;
 }
 
-/* Tabs padding — Card.html `padding:0 16px` on tab bar */
+/* Tabs — Card.html trades/listings header (`padding:0 16px` bar · `16px` per tab) */
 .collection-detail-page .cd-ob-tabs {
-  padding: 4px 20px 0 !important;
+  padding: 0 16px !important;
 }
 
 .collection-detail-page .cd-sidebar-details .cd-ob-tabs {
-  padding: 4px 20px 0 !important;
+  padding: 0 16px !important;
+}
+
+.collection-detail-page .cd-ob-tabs .cd-ob-tab {
+  padding: 16px;
 }
 
 .collection-detail-page .cd-ob-tab {
   position: relative;
-  margin-bottom: -1px;
-  border-bottom: 2px solid transparent;
+  margin-bottom: 0;
+  border: 0;
+  border-bottom: none;
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
@@ -2941,9 +2938,10 @@
 }
 
 .collection-detail-page .cd-ob-tab--active {
+  margin-bottom: -1px;
   font-weight: 700;
   color: #fff;
-  border-bottom-color: var(--brand-500);
+  border-bottom: 2px solid var(--brand-500);
 }
 
 .collection-detail-page .cd-ob-tab:not(.cd-ob-tab--active) {

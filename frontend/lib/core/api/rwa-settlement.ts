@@ -1,12 +1,35 @@
 import { backendFetch, getApiUrl } from "./client";
+import {
+  vaultLabelFromPolicy,
+  type VaultCustodyPolicy,
+} from "@/lib/marketplace/vaultCustodyLabel";
 
-export type AskSettlementPolicy = "standard" | "self_vault_hold";
+export type AskSettlementPolicy = VaultCustodyPolicy;
 
 export type RwaVaultInfo = {
   tokenId: string;
-  settlementPolicy: AskSettlementPolicy;
-  vaultLabel: string;
+  known: boolean;
+  settlementPolicy: AskSettlementPolicy | null;
+  vaultLabel: string | null;
 };
+
+function parseVaultInfo(raw: {
+  tokenId: string;
+  settlementPolicy?: AskSettlementPolicy | null;
+  vaultLabel?: string | null;
+  known?: boolean;
+}): RwaVaultInfo {
+  const known = raw.known !== false;
+  const settlementPolicy = known ? (raw.settlementPolicy ?? null) : null;
+  return {
+    tokenId: raw.tokenId,
+    known,
+    settlementPolicy,
+    vaultLabel: known
+      ? vaultLabelFromPolicy(settlementPolicy, raw.vaultLabel)
+      : null,
+  };
+}
 
 export async function getRwaSettlementPolicy(
   tokenId: string | number,
@@ -15,23 +38,24 @@ export async function getRwaSettlementPolicy(
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/rwa-tokens/${tid}/settlement-policy`,
   );
+  if (res.status === 404) {
+    return {
+      tokenId: String(tokenId).trim(),
+      known: false,
+      settlementPolicy: null,
+      vaultLabel: null,
+    };
+  }
   if (!res.ok) {
     throw new Error("Failed to load settlement policy");
   }
   const raw = (await res.json()) as {
     tokenId: string;
-    settlementPolicy: AskSettlementPolicy;
-    vaultLabel?: string;
+    settlementPolicy?: AskSettlementPolicy | null;
+    vaultLabel?: string | null;
+    known?: boolean;
   };
-  return {
-    tokenId: raw.tokenId,
-    settlementPolicy: raw.settlementPolicy,
-    vaultLabel:
-      raw.vaultLabel ??
-      (raw.settlementPolicy === "self_vault_hold"
-        ? "TKB Vault"
-        : "PSA Vault"),
-  };
+  return parseVaultInfo(raw);
 }
 
 export async function postRwaVaultInfoBatch(tokenIds: Array<string | number>): Promise<{
@@ -47,7 +71,17 @@ export async function postRwaVaultInfoBatch(tokenIds: Array<string | number>): P
   if (!res.ok) {
     throw new Error("Failed to load vault info");
   }
-  return res.json() as Promise<{ items: RwaVaultInfo[] }>;
+  const body = (await res.json()) as {
+    items: Array<{
+      tokenId: string;
+      settlementPolicy?: AskSettlementPolicy | null;
+      vaultLabel?: string | null;
+      known?: boolean;
+    }>;
+  };
+  return {
+    items: (body.items ?? []).map(parseVaultInfo),
+  };
 }
 
 export type SelfVaultSettlementStatus =

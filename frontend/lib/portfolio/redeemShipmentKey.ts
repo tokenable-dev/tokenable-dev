@@ -1,3 +1,8 @@
+import {
+  PSA_VAULT_LABEL,
+  TOKENABLE_VAULT_LABEL,
+} from "@/lib/marketplace/vaultCustodyLabel";
+
 /** Matches backend redeem-shipment-key.util / fee calculator grouping. */
 export function redeemShipmentKey(input: {
   settlementPolicy?: string | null;
@@ -15,6 +20,6 @@ export function defaultVaultLabelForShipment(input: {
 }): string {
   const label = input.vaultLabel?.trim();
   if (label) return label;
-  if (input.shipmentKey === "psa_vault") return "PSA Vault";
-  return "TKB Vault";
+  if (input.shipmentKey === "psa_vault") return PSA_VAULT_LABEL;
+  return TOKENABLE_VAULT_LABEL;
 }

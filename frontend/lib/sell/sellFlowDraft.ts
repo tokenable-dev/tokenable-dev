@@ -1,4 +1,190 @@
-import { formatCardDisplayName } from "@/lib/marketplace/cardDisplayName";
+import {
+  formatCardDisplayName,
+  joinCardDisplaySegments,
+} from "@/lib/marketplace/cardDisplayName";
+import type { PsaAnalyzeResult } from "@/lib/core";
+
+export type SellCardDisplaySource = {
+  cert?: string | null;
+  name?: string | null;
+  grade?: number | string | null;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
+};
+
+function resolveSellCardGrade(
+  grade: number | string | null | undefined,
+): string | null {
+  if (grade == null) return null;
+  if (typeof grade === "number") return `PSA ${grade}`;
+  const g = grade.trim();
+  if (!g) return null;
+  if (/^psa\b/i.test(g)) return g;
+  return `PSA ${g}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cleanPsaCardName(raw: string): string {
+  return raw
+    .replace(/\bPSA\/?DNA\b/gi, " ")
+    .replace(/\bDNA\b/gi, " ")
+    .replace(/\bAUTOGRAPH(?:ED)?\b/gi, " ")
+    .replace(/\bSIGNED\b/gi, " ")
+    .replace(/\bAUTO\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** When cardNameHint is still a full catalog line, peel known year/set/# tokens. */
+function stripEmbeddedPsaIdentityFromName(
+  name: string,
+  parts: Pick<SellCardDisplaySource, "year" | "setName" | "cardNumber">,
+): string {
+  let out = name.trim();
+  const year = parts.year?.trim();
+  const setName = parts.setName?.trim();
+  const cardNumber = parts.cardNumber?.trim()?.replace(/^#/, "");
+
+  if (year && out.toLowerCase().startsWith(year.toLowerCase())) {
+    out = out.slice(year.length).trim();
+  }
+  if (setName) {
+    const re = new RegExp(`^${escapeRegExp(setName)}\\b`, "i");
+    out = out.replace(re, "").trim();
+  }
+  if (cardNumber) {
+    out = out
+      .replace(new RegExp(`^#?${escapeRegExp(cardNumber)}\\b`, "i"), "")
+      .trim();
+  }
+
+  return out;
+}
+
+/** Sports-style PSA catalog line stored only in `name` (legacy drafts). */
+function parseLegacyPsaCatalogLine(
+  line: string,
+): Partial<SellCardDisplaySource> | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{4})\s+(.+?)\s+#([A-Za-z0-9/.-]+)\s+(.+)$/i.exec(trimmed);
+  if (!match) return null;
+  return {
+    year: match[1],
+    setName: match[2]?.trim() || null,
+    cardNumber: match[3]?.trim() || null,
+    name: cleanPsaCardName(match[4] ?? ""),
+  };
+}
+
+/** Map PSA analyze → SSOT display fields for sell draft cards. */
+export function sellDraftCardFieldsFromPsaAnalyze(
+  r: PsaAnalyzeResult,
+): Pick<
+  SellDraftCard,
+  "name" | "cardNumber" | "year" | "setName" | "language" | "variant"
+> {
+  const psa = r.psa;
+  const base = r.identity?.base_card;
+
+  const cardNumber =
+    base?.card_number?.trim() ||
+    psa.cardNumberHint?.trim()?.replace(/^#/, "") ||
+    null;
+  const year = base?.year?.trim() || psa.year?.trim() || null;
+  const setName = base?.set?.trim() || psa.setHint?.trim() || null;
+  const variant = psa.varietyHint?.trim() || null;
+
+  let name = cleanPsaCardName(
+    base?.card_name?.trim() || psa.cardNameHint?.trim() || "",
+  );
+  if (name && (year || setName || cardNumber)) {
+    const stripped = stripEmbeddedPsaIdentityFromName(name, {
+      year,
+      setName,
+      cardNumber,
+    });
+    if (stripped) name = cleanPsaCardName(stripped);
+  }
+
+  const cert = psa.certNumber?.trim();
+  return {
+    name: name || (cert ? `PSA CERT #${cert}` : "PSA GRADED CARD"),
+    cardNumber,
+    year,
+    setName,
+    variant,
+    language: null,
+  };
+}
+
+/** Normalize legacy sell cards before SSOT formatting. */
+export function normalizeSellCardDisplaySource(
+  source: SellCardDisplaySource,
+): SellCardDisplaySource {
+  const hasStructure =
+    Boolean(source.cardNumber?.trim()) ||
+    Boolean(source.year?.trim()) ||
+    Boolean(source.setName?.trim()) ||
+    Boolean(source.variant?.trim());
+
+  if (hasStructure) {
+    const cleanedName = cleanPsaCardName(source.name ?? "");
+    const name =
+      stripEmbeddedPsaIdentityFromName(cleanedName, source) || cleanedName;
+    return { ...source, name };
+  }
+
+  const parsed = parseLegacyPsaCatalogLine(source.name ?? "");
+  if (parsed) {
+    return {
+      ...source,
+      ...parsed,
+      name: parsed.name ?? source.name ?? null,
+    };
+  }
+
+  return source;
+}
+
+/** Line 1 + Line 2 per docs/guides/card-display-name.md (Sell / Vault surfaces). */
+export function formatSellCardDisplay(
+  source: SellCardDisplaySource,
+  opts?: { certOnLine2?: boolean },
+): { line1: string; line2: string | null } {
+  const normalized = normalizeSellCardDisplaySource(source);
+  const { line1, line2 } = formatCardDisplayName(
+    {
+      cardName: normalized.name ?? null,
+      cardNumber: normalized.cardNumber ?? null,
+      grade: resolveSellCardGrade(normalized.grade),
+      year: normalized.year ?? null,
+      setName: normalized.setName ?? null,
+      language: normalized.language ?? null,
+      variant: normalized.variant ?? null,
+    },
+    { mode: "line1+line2" },
+  );
+
+  const cert = source.cert?.trim();
+  if (opts?.certOnLine2 && cert) {
+    const certLabel = `Cert #${cert}`;
+    return {
+      line1,
+      line2: line2
+        ? joinCardDisplaySegments([line2, certLabel])
+        : certLabel,
+    };
+  }
+
+  return { line1, line2: line2 || null };
+}
 
 export type SellDraftCard = {
   cert: string;
@@ -223,7 +409,19 @@ export function readSellFlowDraftCards(): SellDraftCard[] {
     const raw = localStorage.getItem(SELL_FLOW_DRAFT_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as SellDraftCard[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((card) => {
+      const normalized = normalizeSellCardDisplaySource(card);
+      return {
+        ...card,
+        name: normalized.name ?? card.name,
+        cardNumber: normalized.cardNumber ?? card.cardNumber,
+        year: normalized.year ?? card.year,
+        setName: normalized.setName ?? card.setName,
+        variant: normalized.variant ?? card.variant,
+        language: normalized.language ?? card.language,
+      };
+    });
   } catch {
     return [];
   }
@@ -326,9 +524,8 @@ export function bannerCardLabel(cards: SellDraftCard[]): string {
   const confirmed = confirmedSellCards(cards);
   if (confirmed.length === 0) return "Your cards";
   if (confirmed.length === 1) {
-    const c = confirmed[0]!;
-    const short = c.name.length > 42 ? `${c.name.slice(0, 40)}…` : c.name;
-    return `${short} · PSA ${c.grade}`;
+    const { line1 } = formatSellCardDisplay(confirmed[0]!);
+    return line1.length > 48 ? `${line1.slice(0, 46)}…` : line1;
   }
   return `${confirmed.length} cards · PSA graded`;
 }
@@ -341,19 +538,11 @@ export function parseGradeNumber(grade: string | null | undefined): number {
 }
 
 /** Line 1 + Line 2 per docs/guides/card-display-name.md */
-export function sellDraftCardDisplay(card: SellDraftCard) {
-  return formatCardDisplayName(
-    {
-      cardName: card.name,
-      cardNumber: card.cardNumber ?? null,
-      grade: `PSA ${card.grade}`,
-      year: card.year ?? null,
-      setName: card.setName ?? null,
-      language: card.language ?? null,
-      variant: card.variant ?? null,
-    },
-    { mode: "line1+line2" },
-  );
+export function sellDraftCardDisplay(
+  card: SellDraftCard,
+  opts?: { certOnLine2?: boolean },
+) {
+  return formatSellCardDisplay(card, opts);
 }
 
 /** Map API submission items → local draft cards. */
@@ -364,6 +553,11 @@ export function draftCardsFromSubmissionItems(
     grade: string | null;
     imageUrl: string | null;
     status: string;
+    cardNumber?: string | null;
+    year?: string | null;
+    setName?: string | null;
+    language?: string | null;
+    variant?: string | null;
   }>,
 ): SellDraftCard[] {
   return items.map((it) => ({
@@ -372,6 +566,11 @@ export function draftCardsFromSubmissionItems(
     grade: parseGradeNumber(it.grade),
     img: it.imageUrl,
     confirmed: it.status === "confirmed" || it.status === "in_transit",
+    cardNumber: it.cardNumber ?? null,
+    year: it.year ?? null,
+    setName: it.setName ?? null,
+    language: it.language ?? null,
+    variant: it.variant ?? null,
   }));
 }
 
@@ -382,6 +581,11 @@ export function sellSubmissionResumeHref(status: string, publicId: string): stri
     return `/sell/shipping?submission=${encodeURIComponent(publicId)}`;
   }
   return `/vault/submissions/${encodeURIComponent(publicId)}`;
+}
+
+/** Vault hub → enter tracking on the ship flow track step. */
+export function sellSubmissionAddTrackingHref(publicId: string): string {
+  return `/sell/shipping?submission=${encodeURIComponent(publicId)}&panel=track`;
 }
 
 export async function downloadPackingSlip(cards: SellDraftCard[]) {
@@ -428,7 +632,9 @@ export async function downloadPackingSlip(cards: SellDraftCard[]) {
     y += 14;
   } else {
     for (const [i, c] of confirmed.entries()) {
-      const line = `${i + 1}. Cert #${c.cert}  |  PSA ${c.grade}  |  ${c.name}`;
+      const { line1, line2 } = formatSellCardDisplay(c, { certOnLine2: true });
+      const detail = line2 ? `${line1} — ${line2}` : line1;
+      const line = `${i + 1}. ${detail}`;
       const wrapped = doc.splitTextToSize(line, 500);
       doc.text(wrapped, marginX, y);
       y += wrapped.length * 13 + 4;

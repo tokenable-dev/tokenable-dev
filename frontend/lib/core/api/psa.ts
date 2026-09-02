@@ -41,6 +41,16 @@ export interface PsaAnalyzeResult {
     /** PSA Public API PSACert 병합 여부 */
     enrichedFromOfficialApi?: boolean;
   };
+  /** Two-layer identity from PSA analyze (base_card fields for display SSOT). */
+  identity?: {
+    base_card?: {
+      year?: string;
+      set?: string;
+      card_number?: string;
+      card_name?: string;
+      base_identity?: string;
+    };
+  };
   psaApi: {
     lookup: PsaPublicApiLookup;
   };

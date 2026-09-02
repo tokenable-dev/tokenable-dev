@@ -90,7 +90,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 
 ## 5. Truncation
 
-- **Line 1 titles** (tiles, tables, heroes, search, checkout): **one line**. Overflow becomes `…` on the **card name**. Number and grade stay immediately after the name (not flush to the right).
+- **Line 1 titles** (tiles, tables, heroes, search, checkout): **one line** as `{Name} · {Number} · {Grade}`. Overflow becomes `…` at the **end of the full string** (not name-only truncation).
 - CSS class: `.cd-display-name--line1-clamp-2` (via `AssetDetailHeadlineTitle` or `CARD_DISPLAY_LINE1_CLAMP_CLASS`) in `tokenable-collectible-card.css`.
 - Line 2: truncate from end; prefer keeping Year + Variant.
 
@@ -135,7 +135,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | `frontend/lib/marketplace/assetDetailHeadline.ts` | Delegates Line 1/2 to SSOT; re-exports helpers |
 | `frontend/lib/markets/marketsCollectionTitle.ts` | Line 1 ` · ` join; grade via SSOT |
 | `frontend/hooks/collection-detail/useCollectionDetailHeadline.ts` | Language short codes; grade defaults `Raw` |
-| `frontend/components/marketplace/marketplace-shared/AssetDetailHeadlineTitle.tsx` | Grade always rendered on Line 1 |
+| `frontend/components/marketplace/marketplace-shared/AssetDetailHeadlineTitle.tsx` | Renders SSOT Line 1 as one string with end ellipsis |
 | `backend/src/marketplace/utils/card-display-name.util.spec.ts` | Unit tests (imports frontend SSOT) |
 | `backend/jest.config.ts` | `@/*` → frontend for cross-package tests |
 | `backend/tsconfig.json` | `@/*` paths for `tsc --noEmit` |
@@ -153,7 +153,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 - [x] Detail Line 2 — full `{Year} · {Set} {Language} · {Variant}` (no set omit)
 - [x] Surface-by-surface mode wiring (Phase 5) — markets/watchlist Line 1, search Line 2 meta, portfolio Line 1
 - [x] Line 1 strict (Phase 6) — no variant on main title; variant on Line 2 only
-- [x] Truncation CSS (Phase 7) — name ellipsis; number + grade stay beside the name; hero Line 2 end-truncate
+- [x] Truncation CSS (Phase 7) — full Line 1 end ellipsis; hero Line 2 end-truncate
 - [x] Language pipeline (Phase 8) — `formatCardDisplayLanguageShort` in markets + collection headline
 - [ ] Backend notifications copy (uses stored `displayName` — no SSOT reformat yet)
 

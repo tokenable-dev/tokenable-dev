@@ -135,39 +135,21 @@
   margin: 0;
   min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /**
- * Line 1 `{Name} · {Number} · {Grade}` stays a single run on the left.
- * The name may ellipsis; number/grade do not grow to the trailing edge.
+ * Line 1 `{Name} · {Number} · {Grade}` — single run; ellipsis at end when overflow.
  */
 .cd-display-name--line1-clamp-2 {
-  display: flex;
-  justify-content: flex-start;
-  align-items: baseline;
+  display: block;
   overflow: hidden;
   min-width: 0;
   max-width: 100%;
   line-height: var(--cd-line1-lh, 1.3);
-  min-height: 0;
-  max-height: none;
-  word-break: normal;
-  overflow-wrap: normal;
   white-space: nowrap;
-}
-
-.cd-display-name--line1-clamp-2 .cd-display-name__name {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cd-display-name--line1-clamp-2 .cd-display-name__meta,
-.cd-display-name--line1-clamp-2 .cd-display-name__grade,
-.cd-display-name--line1-clamp-2 .cd-display-name__sep {
-  flex: 0 0 auto;
 }
 
 .card__set {

@@ -3,7 +3,6 @@
 import { memo } from "react";
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
@@ -12,7 +11,6 @@ import {
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
 import {
-  buildMarketsCollectionHeadlineParts,
   buildMarketsCollectionHoverTitle,
   buildMarketsCollectionMeta,
   buildMarketsCollectionTitle,
@@ -107,7 +105,6 @@ export const CollectibleCard = memo(function CollectibleCard({
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
-  const headlineParts = buildMarketsCollectionHeadlineParts({ collection, comp });
   const grade = gradeLabelFromComp(comp);
   const title = buildMarketsCollectionTitle({ collection, comp });
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
@@ -164,12 +161,7 @@ export const CollectibleCard = memo(function CollectibleCard({
       </div>
       <div className="card__body">
         <div className="card__title" title={titleHover || title}>
-          <AssetDetailHeadlineTitle
-            as="span"
-            parts={headlineParts}
-            grade={grade}
-            className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.3]"
-          />
+          {title}
         </div>
         {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
         <div className="card__price-row">

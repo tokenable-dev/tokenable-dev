@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { PortfolioCertificateModel } from "@/hooks/portfolio/usePortfolioCertificate";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { joinCardDisplaySegments } from "@/lib/marketplace/cardDisplayName";
 import {
   formatCertDate,
   formatMarketChangePct,
@@ -91,6 +92,10 @@ export function PortfolioCertificateView({
         </Link>
 
         <div className="cert">
+          <span className="cbrk tl" aria-hidden />
+          <span className="cbrk tr" aria-hidden />
+          <span className="cbrk bl" aria-hidden />
+          <span className="cbrk br" aria-hidden />
           <div className="cert-head">
             <span className="cert-title">◆ Certificate of Ownership</span>
             {d.explorerUrl ? (
@@ -161,7 +166,9 @@ export function PortfolioCertificateView({
               </span>
             </div>
             <div className="subj-info">
-              <div className="subj-name">{d.nameLine}</div>
+              <div className="subj-name">
+                {joinCardDisplaySegments([d.titleName, d.titleNumber])}
+              </div>
               <div className="subj-meta">
                 {d.setLine ? <div>{d.setLine}</div> : null}
                 {d.idLine ? <div>{d.idLine}</div> : null}

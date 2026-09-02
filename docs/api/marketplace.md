@@ -200,12 +200,12 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 
 ### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
 
-Returns `{ tokenId, settlementPolicy, vaultLabel }` where `settlementPolicy` is `standard` or `self_vault_hold`.  
-`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `TKB Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
+Returns `{ tokenId, settlementPolicy, vaultLabel, known }` where `settlementPolicy` is `standard` or `self_vault_hold` when the token is indexed on the chain.  
+`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `Tokenable Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. Returns **404** when the token is not indexed — clients must not assume PSA custody. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
 
 ### `POST /api/marketplace/rwa-tokens/vault-info/batch`
 
-Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, settlementPolicy, vaultLabel }] }`. Chain-scoped via `x-tokenable-chain-id`. Same custody rule as settlement-policy (PSA vs partner vault per token, not per seller).
+Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, known, settlementPolicy, vaultLabel }] }`. Unknown tokens return `known: false` with null policy/label. Chain-scoped via `x-tokenable-chain-id`. Same custody rule as settlement-policy (PSA vs partner vault per token, not per seller).
 
 ### `GET /api/marketplace/partners/self-vault-eligibility?wallet=`
 
@@ -327,7 +327,7 @@ Batch fetches list-row snapshots from **materialized** `collection_market_snapsh
 
 Returns collection detail + active listings + collection bids + representative image URL.
 
-Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `TKB Vault`, otherwise `PSA Vault`). A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
+Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `Tokenable Vault`, otherwise `PSA Vault`). Unknown custody returns null fields — never defaults to PSA. A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
 
 Collection **Place a Bid** does not require an active ask. With no listings, the offer attaches to a minted token in the collection.
 

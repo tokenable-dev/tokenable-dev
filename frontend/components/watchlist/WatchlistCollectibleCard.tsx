@@ -3,7 +3,6 @@
 import { memo } from "react";
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { TkButton } from "@/components/ds";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
@@ -13,10 +12,8 @@ import {
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
 import {
-  buildMarketsCollectionHeadlineParts,
   buildMarketsCollectionHoverTitle,
   buildMarketsCollectionTitle,
-  gradeLabelFromComp,
 } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
@@ -74,8 +71,6 @@ export type WatchlistRowModel = {
   href: string;
   title: string;
   titleHover: string;
-  headlineParts: ReturnType<typeof buildMarketsCollectionHeadlineParts>;
-  grade: string;
   priceLabel: string;
   change: { pctLabel: string; period: string; tone: "up" | "down" | "muted" };
   imageSrc: string | null;
@@ -90,8 +85,6 @@ export function buildWatchlistRowModel(
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
-  const headlineParts = buildMarketsCollectionHeadlineParts({ collection, comp });
-  const grade = gradeLabelFromComp(comp);
   const title = buildMarketsCollectionTitle({ collection, comp });
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
@@ -100,8 +93,6 @@ export function buildWatchlistRowModel(
     href: `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`,
     title,
     titleHover,
-    headlineParts,
-    grade,
     priceLabel: formatUsdCompact(priceUsd),
     change: resolveChangeDisplay(snapshot, changePct, changeLoading),
     imageSrc,
@@ -125,7 +116,7 @@ export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
     resolvedCoverUrl,
     changeLoading,
   );
-  const { href, title, titleHover, headlineParts, grade, priceLabel, change, imageSrc } = row;
+  const { href, title, titleHover, priceLabel, change, imageSrc } = row;
 
   return (
     <Link
@@ -153,12 +144,7 @@ export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
       </div>
       <div className="card__body">
         <div className="card__title" title={titleHover || title}>
-          <AssetDetailHeadlineTitle
-            as="span"
-            parts={headlineParts}
-            grade={grade}
-            className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.2]"
-          />
+          {title}
         </div>
         <div className="card__price-row">
           <span className="card__price">{priceLabel}</span>

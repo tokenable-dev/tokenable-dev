@@ -94,12 +94,24 @@ export class RedeemShippingFeeCalculator {
       uniqueIds.map(String),
     );
 
+    const unknownIds = custody.filter((c) => !c.known).map((c) => c.tokenId);
+    if (unknownIds.length > 0) {
+      throw new BadRequestException(
+        `RWA token(s) not indexed for this chain: ${unknownIds.join(', ')}`,
+      );
+    }
+
     const metas: TokenMeta[] = uniqueIds.map((tokenId) => {
       const row = custody.find((c) => c.tokenId === String(tokenId));
+      if (!row?.known || row.settlementPolicy == null) {
+        throw new BadRequestException(
+          `RWA token ${tokenId} is not indexed for this chain`,
+        );
+      }
       return {
         tokenId,
-        settlementPolicy: row?.settlementPolicy ?? 'standard',
-        vaultPartnerId: row?.vaultPartnerId ?? null,
+        settlementPolicy: row.settlementPolicy,
+        vaultPartnerId: row.vaultPartnerId ?? null,
         vaultedAt: ages.get(String(tokenId))?.depositedAt ?? null,
       };
     });

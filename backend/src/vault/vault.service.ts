@@ -1002,16 +1002,18 @@ export class VaultService {
   }
 
   /**
-   * Seaport settlement policy for a minted RWA (`standard` when unknown).
+   * Seaport settlement policy for a minted RWA.
+   * Returns null when the token is not indexed on this chain — never assume PSA custody.
    */
   async getSettlementPolicy(
     tokenContract: string,
     tokenId: string,
-  ): Promise<'standard' | 'self_vault_hold'> {
+  ): Promise<'standard' | 'self_vault_hold' | null> {
     const raw = String(tokenId ?? '').trim();
     const rows = await this.findRwaTokensByDecimalIds(tokenContract, [raw]);
     const token = rows[0];
-    return token?.settlementPolicy === 'self_vault_hold'
+    if (!token) return null;
+    return token.settlementPolicy === 'self_vault_hold'
       ? 'self_vault_hold'
       : 'standard';
   }
@@ -1080,8 +1082,9 @@ export class VaultService {
   ): Promise<
     Array<{
       tokenId: string;
-      settlementPolicy: 'standard' | 'self_vault_hold';
+      settlementPolicy: 'standard' | 'self_vault_hold' | null;
       vaultPartnerId: string | null;
+      known: boolean;
     }>
   > {
     const ids = [
@@ -1098,8 +1101,16 @@ export class VaultService {
     );
     return ids.map((tokenId) => {
       const row = byNorm.get(normalizeDecimalTokenId(tokenId));
+      if (!row) {
+        return {
+          tokenId,
+          settlementPolicy: null,
+          vaultPartnerId: null,
+          known: false,
+        };
+      }
       const settlementPolicy =
-        row?.settlementPolicy === 'self_vault_hold'
+        row.settlementPolicy === 'self_vault_hold'
           ? 'self_vault_hold'
           : 'standard';
       return {
@@ -1107,8 +1118,9 @@ export class VaultService {
         settlementPolicy,
         vaultPartnerId:
           settlementPolicy === 'self_vault_hold'
-            ? row?.vaultPartnerId ?? null
+            ? row.vaultPartnerId ?? null
             : null,
+        known: true,
       };
     });
   }
@@ -1146,6 +1158,7 @@ export class VaultService {
       }
     >();
     for (const row of rows) {
+      if (!row.known || row.settlementPolicy == null) continue;
       const vaultLabel = vaultLabelForCustody(
         row.settlementPolicy,
         row.vaultPartnerId ? names.get(row.vaultPartnerId) : null,

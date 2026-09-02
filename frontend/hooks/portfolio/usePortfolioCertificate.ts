@@ -36,9 +36,10 @@ import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
   formatCardDisplayMeta,
-  formatCardDisplayName,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { displayAssetNameFromMetadata, stripGradeQualifierFromDisplayName } from "@/lib/marketplace/rwaDisplayTitle";
+import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
@@ -226,13 +227,21 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
   );
 
-  const nameLine = stripGradeQualifierFromDisplayName(
-    formatCardDisplayName(headlineParts, { omitGrade: true }) ||
-      headlineParts.cardName?.trim() ||
+  const titleName = stripGradeQualifierFromDisplayName(
+    headlineParts.cardName?.trim() ||
       displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
   );
-  const setLine = formatCardDisplayMeta(headlineParts) || null;
-  const idLine = "";
+  const titleNumber =
+    formatHeadlineCardNumber(headlineParts.cardNumber) ||
+    headlineParts.cardNumber?.trim() ||
+    null;
+  const metaLine = formatCardDisplayMeta(headlineParts) || null;
+  const varietyLine = headlineParts.variety?.trim() || null;
+  const setLine =
+    metaLine && varietyLine && metaLine.endsWith(` · ${varietyLine}`)
+      ? metaLine.slice(0, -(varietyLine.length + 3)).trim() || metaLine
+      : metaLine;
+  const idLine = varietyLine;
 
   const trust = buildRwaDetailMobileTrustView(metadata);
   const gradeChip = formatPortfolioGradeLabel(metadata);
@@ -262,7 +271,9 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       ? mintChange
       : null);
 
-  const vaultLabel = vaultQuery.data?.vaultLabel ?? "PSA Vault";
+  const vaultLabel =
+    formatVaultCustodyLabel(vaultQuery.data) ??
+    (vaultQuery.isLoading ? "…" : "—");
   const listed = listing != null;
 
   const redemptions = useMyRedemptions(tokenIdOk);
@@ -355,7 +366,8 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     imageUrl,
     backUrl,
     displayName,
-    nameLine,
+    titleName,
+    titleNumber,
     setLine,
     idLine,
     gradeChip,

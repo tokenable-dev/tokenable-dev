@@ -56,7 +56,7 @@ export function RedeemPreparingPanel({
       : [
           {
             shipmentKey: "legacy",
-            vaultLabel: cards[0]?.vaultLabel || "PSA Vault",
+            vaultLabel: cards[0]?.vaultLabel?.trim() || "—",
             cardCount: count,
             state: "preparing" as const,
             idx: 1,

@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Headers,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -26,7 +27,6 @@ import {
   SelfVaultSettlement,
   type SelfVaultSettlementStatus,
 } from '../entities/self-vault-settlement.entity';
-import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
 import { SelfVaultSettlementService } from './self-vault-settlement.service';
 
 class RecordPayoutDto {
@@ -68,10 +68,16 @@ export class SelfVaultSettlementController {
       tid,
     ]);
     const row = display.get(tid);
+    if (!row) {
+      throw new NotFoundException(
+        `RWA token ${tid} is not indexed for chain ${chainId}`,
+      );
+    }
     return {
       tokenId: tid,
-      settlementPolicy: row?.settlementPolicy ?? 'standard',
-      vaultLabel: row?.vaultLabel ?? PSA_VAULT_LABEL,
+      settlementPolicy: row.settlementPolicy,
+      vaultLabel: row.vaultLabel,
+      known: true,
     };
   }
 
@@ -92,8 +98,9 @@ export class SelfVaultSettlementController {
         const row = display.get(tokenId);
         return {
           tokenId,
-          settlementPolicy: row?.settlementPolicy ?? 'standard',
-          vaultLabel: row?.vaultLabel ?? PSA_VAULT_LABEL,
+          known: Boolean(row),
+          settlementPolicy: row?.settlementPolicy ?? null,
+          vaultLabel: row?.vaultLabel ?? null,
         };
       }),
     };

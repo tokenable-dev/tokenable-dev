@@ -1,3 +1,5 @@
+import type { SellCardDisplaySource } from "@/lib/sell/sellFlowDraft";
+
 /**
  * Sell hub row — Vault-Dashboard-Active.html (design system-22) per-card card.
  */
@@ -11,7 +13,7 @@ export type VaultHubReject = {
   actionHref: string;
 };
 
-export type VaultHubRow = {
+export type VaultHubRow = SellCardDisplaySource & {
   id: string;
   vstate: VaultHubVState;
   name: string;

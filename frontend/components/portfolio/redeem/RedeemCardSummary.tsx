@@ -27,7 +27,7 @@ export function RedeemCardSummary({
   const thumbs = cards.slice(0, 4);
   const vaultCount = useMemo(() => {
     const labels = new Set(
-      cards.map((c) => (c.vaultLabel || "PSA Vault").trim()),
+      cards.map((c) => (c.vaultLabel?.trim() || "—")),
     );
     return labels.size;
   }, [cards]);
@@ -85,7 +85,7 @@ export function RedeemCardSummary({
                 </div>
                 <div className="pf-redeem-summary__row-meta">
                   <span className="pf-redeem-chip pf-redeem-chip--vault">
-                    {c.vaultLabel || "PSA Vault"}
+                    {c.vaultLabel?.trim() || "—"}
                   </span>
                   {c.certNumber ? (
                     <span className="pf-redeem-summary__row-cert tkl-mono">

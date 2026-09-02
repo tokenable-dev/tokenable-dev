@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { SellCardNameBlock } from "@/components/sell/SellCardNameBlock";
 import { VaultThumb } from "@/components/vault/VaultThumb";
+import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
 import { listVaultSubmissions } from "@/lib/core/api/vault-submissions";
 import { rq } from "@/lib/core";
 import { useAuthStore } from "@/store/authStore";
@@ -59,25 +61,30 @@ function hubStepperSteps(status: Exclude<VaultHubVState, "reject">) {
 function HubCardAction({ item }: { item: VaultHubRow }) {
   const s = "vault-v-side-btn";
   if (item.vstate === "reject") return null;
-  if (item.vstate === "transit" && item.addTrackingHref) {
-    return (
-      <Link href={item.addTrackingHref} className={`tk-btn tk-btn--primary ${s}`}>
-        Add tracking
-      </Link>
-    );
+
+  if (item.vstate === "transit") {
+    if (item.addTrackingHref) {
+      return (
+        <Link href={item.addTrackingHref} className={`tk-btn tk-btn--primary ${s}`}>
+          Add tracking
+        </Link>
+      );
+    }
+    if (item.trackingUrl) {
+      return (
+        <a
+          href={item.trackingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`tk-btn tk-btn--subtle ${s}`}
+        >
+          Track →
+        </a>
+      );
+    }
+    return null;
   }
-  if (item.vstate === "transit" && item.trackingUrl) {
-    return (
-      <a
-        href={item.trackingUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`tk-btn tk-btn--subtle ${s}`}
-      >
-        Track →
-      </a>
-    );
-  }
+
   if (item.vstate === "verify" && item.detailHref) {
     return (
       <Link href={item.detailHref} className={`tk-btn tk-btn--subtle ${s}`}>
@@ -85,6 +92,7 @@ function HubCardAction({ item }: { item: VaultHubRow }) {
       </Link>
     );
   }
+
   if (item.vstate === "vaulted") {
     return (
       <Link href="/portfolio" className={`tk-btn tk-btn--subtle ${s}`}>
@@ -92,13 +100,12 @@ function HubCardAction({ item }: { item: VaultHubRow }) {
       </Link>
     );
   }
+
   return null;
 }
 
 function HubCard({ item }: { item: VaultHubRow }) {
   const reject = item.vstate === "reject" && item.reject;
-  const nameWithGrade = [item.name, item.grade].filter(Boolean).join(" · ");
-  const certLine = item.cert ? `Cert #${item.cert}` : null;
   return (
     <div className={cn("vault-v-card", reject && "vault-v-card--reject")}>
       <div className="vault-v-card__body">
@@ -108,8 +115,12 @@ function HubCard({ item }: { item: VaultHubRow }) {
         <div className="vault-v-info">
           <div className="vault-v-name-row">
             <div className="vault-v-name-block">
-              <div className="vault-v-name">{nameWithGrade}</div>
-              {certLine ? <div className="vault-v-cert">{certLine}</div> : null}
+              <SellCardNameBlock
+                card={item}
+                certOnLine2
+                line1ClassName="vault-v-name"
+                line2ClassName="vault-v-cert"
+              />
             </div>
             <div className="vault-v-card__side">
               {reject ? <RejectChip /> : <HubCardAction item={item} />}
@@ -178,9 +189,18 @@ export function VaultActiveDashboardView() {
     staleTime: 10_000,
   });
 
+  const submissions = submissionsQ.data ?? [];
+
+  const submissionItems = useMemo(
+    () => submissions.flatMap((s) => s.items),
+    [submissions],
+  );
+
+  const displayByCert = useVaultSubmissionDisplayByCert(submissionItems);
+
   const allRows = useMemo(
-    () => buildVaultHubRowsFromSubmissions(submissionsQ.data ?? []),
-    [submissionsQ.data],
+    () => buildVaultHubRowsFromSubmissions(submissions, displayByCert),
+    [submissions, displayByCert],
   );
 
   const counts = useMemo(() => countVaultHubByState(allRows), [allRows]);

@@ -17,7 +17,17 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
       getRwaAddress: () => '0xrwa',
     };
     const vault = {
-      getVaultCustodyRows: jest.fn().mockResolvedValue([]),
+      getVaultCustodyRows: jest.fn().mockImplementation(
+        (_contract: string, tokenIds: string[]) =>
+          Promise.resolve(
+            tokenIds.map((tokenId) => ({
+              tokenId: String(tokenId),
+              settlementPolicy: 'standard' as const,
+              vaultPartnerId: null,
+              known: true,
+            })),
+          ),
+      ),
       getDepositedAtByTokenIds: jest.fn().mockResolvedValue(new Map()),
       assertTokensRedeemable: jest.fn().mockResolvedValue(undefined),
     };
@@ -115,11 +125,13 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         tokenId: '1',
         settlementPolicy: 'standard',
         vaultPartnerId: null,
+        known: true,
       },
       {
         tokenId: '2',
         settlementPolicy: 'self_vault_hold',
         vaultPartnerId: 'partner-1',
+        known: true,
       },
     ]);
     vault.getDepositedAtByTokenIds.mockResolvedValue(
@@ -166,7 +178,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     expect(psa?.retrievalFeeTotalUsd).toBe(1.99);
     expect(partner?.shippingUsd).toBe(12.99);
     expect(partner?.retrievalFeeTotalUsd).toBe(0);
-    expect(partner?.vaultLabel).toBe('TKB Vault');
+    expect(partner?.vaultLabel).toBe('Tokenable Vault');
     expect(partner?.shippingSource).toBe('fedex_stub');
     expect(partner?.shippingDestinationCountry).toBe('US');
     expect(partner?.shippingQuoteExpiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -182,6 +194,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         tokenId: '2',
         settlementPolicy: 'self_vault_hold',
         vaultPartnerId: 'partner-1',
+        known: true,
       },
     ]);
     vault.getDepositedAtByTokenIds.mockResolvedValue(
@@ -224,6 +237,7 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         tokenId: '2',
         settlementPolicy: 'self_vault_hold',
         vaultPartnerId: 'partner-1',
+        known: true,
       },
     ]);
     vault.getDepositedAtByTokenIds.mockResolvedValue(

@@ -68,7 +68,14 @@ export async function submitAskListingOrder(params: {
   const [settlementPolicy, now, counter, alreadyAll] = await Promise.all([
     params.settlementPolicy
       ? Promise.resolve(params.settlementPolicy)
-      : getRwaSettlementPolicy(tokenIdStr).then((r) => r.settlementPolicy),
+      : getRwaSettlementPolicy(tokenIdStr).then((r) => {
+          if (!r.settlementPolicy) {
+            throw new Error(
+              "Vault custody is unknown for this token — refresh and try again",
+            );
+          }
+          return r.settlementPolicy;
+        }),
     getChainTimestampSec(publicClient),
     publicClient.readContract({
       address: SEAPORT_ADDRESS,

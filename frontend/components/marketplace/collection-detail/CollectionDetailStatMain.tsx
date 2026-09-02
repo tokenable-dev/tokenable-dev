@@ -18,7 +18,11 @@ import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePerio
 import { formatReferenceChangePeriodShort } from "@/lib/market/priceChangePeriod";
 import { RwaImageLightbox } from "@/components/common";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import {
+  formatCardDisplayHoverTitle,
+  resolveCardDisplayGrade,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 function formatChangeTag(pct: number): { arrow: string; label: string } {
   const tone = referenceChangeTone(pct);
@@ -77,6 +81,59 @@ function stripHeroTitleDupesFromMeta(
   return kept.join(" · ");
 }
 
+function heroTitleName(nameRaw: string, cardNumber: string): string {
+  if (!nameRaw || !cardNumber) return nameRaw;
+  const escaped = cardNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripped = nameRaw
+    .replace(new RegExp(`(?:\\s*[·•#]\\s*|\\s+)${escaped}\\s*$`, "i"), "")
+    .trim();
+  return stripped || nameRaw;
+}
+
+/** Card.html `#hero-title` — name + number (white) + grade; separators muted. */
+function CollectionHeroTitle({
+  parts,
+  grade,
+  className,
+  id,
+}: {
+  parts: AssetDetailHeadlineParts;
+  grade?: string | null;
+  className?: string;
+  id?: string;
+}) {
+  const nameRaw = parts.cardName?.trim() || "";
+  const cardNumber =
+    formatHeadlineCardNumber(parts.cardNumber)?.trim() ||
+    parts.cardNumber?.trim() ||
+    "";
+  const name = heroTitleName(nameRaw, cardNumber);
+  const gradeText = resolveCardDisplayGrade(grade);
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
+
+  return (
+    <h1 className={className} id={id} title={hover}>
+      {name ? <span className="cd-hero-bar__title-name">{name}</span> : null}
+      {cardNumber ? (
+        <>
+          <span className="cd-hero-bar__title-sep" aria-hidden>
+            {" · "}
+          </span>
+          <span className="cd-hero-bar__title-num">{cardNumber}</span>
+        </>
+      ) : null}
+      {gradeText ? (
+        <>
+          <span className="cd-hero-bar__title-sep" aria-hidden>
+            {" · "}
+          </span>
+          <strong className="cd-hero-bar__title-grade">{gradeText}</strong>
+        </>
+      ) : null}
+    </h1>
+  );
+}
+
 function HeroMeta({
   meta,
   gradeLabel,
@@ -96,9 +153,27 @@ function HeroMeta({
     cardName,
   );
   if (!text) return null;
+
+  const segments = text
+    .split(/\s*·\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length <= 1) {
+    return (
+      <div className="cd-hero-bar__meta" id="hero-meta">
+        {text}
+      </div>
+    );
+  }
+
+  const lead = segments.slice(0, -1).join(" · ");
+  const tail = segments[segments.length - 1]!;
+
   return (
     <div className="cd-hero-bar__meta" id="hero-meta">
-      {text}
+      {lead}
+      {" · "}
+      <span className="cd-hero-bar__meta-variant">{tail}</span>
     </div>
   );
 }
@@ -399,8 +474,7 @@ export function CollectionDetailStatMain({
           {title ? (
             <div className="cd-hero-bar__head" id="hero-head">
               {headlineParts ? (
-                <AssetDetailHeadlineTitle
-                  as="h1"
+                <CollectionHeroTitle
                   parts={headlineParts}
                   grade={gradeLabel}
                   className="cd-hero-bar__title"

@@ -3,7 +3,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
@@ -71,10 +71,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
-  const badgeLabel = holdingsSaleStatusLabel(
-    holdingsSaleKind(isListed, redeemStatus),
-    row.listPriceUsd,
-  );
+  const badgeLabel = holdingsSaleStatusLabel(holdingsSaleKind(isListed, redeemStatus));
   const costEditable = canEditCostBasis && !redeemStatus;
   const retLabel = pnl?.returnPct ?? null;
   const titleHover = headline?.hover ?? row.name;
@@ -89,12 +86,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     .join(" ");
 
   const titleNode = headline ? (
-    <AssetDetailHeadlineTitle
-      as="span"
-      parts={headline.parts}
-      grade={headline.grade}
-      className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.35]"
-    />
+    <span className={CARD_DISPLAY_LINE1_CLAMP_CLASS}>{headline.line1}</span>
   ) : (
     titleLabel
   );
@@ -201,8 +193,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         <div className="pf-gtile__act">
           <PortfolioHoldingsRowActions
             isListed={isListed}
-            listPriceUsd={row.listPriceUsd}
-            listedAskLabel
             fullWidth
             disabled={actionsDisabled}
             disabledTitle={actionsDisabledTitle}

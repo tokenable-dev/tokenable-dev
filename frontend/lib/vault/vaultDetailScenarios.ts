@@ -17,6 +17,11 @@ export type VaultPackageCard = {
   imageUrl: string;
   grade: string;
   cert: string;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
   status: VaultPackageCardStatus;
   token?: string;
   reason?: string;

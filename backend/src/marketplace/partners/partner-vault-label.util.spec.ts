@@ -30,10 +30,10 @@ describe('vaultLabelForCustody', () => {
     expect(vaultLabelForCustody('standard', 'Acme')).toBe('PSA Vault');
   });
 
-  it('uses TKB Vault for self_vault_hold regardless of partner name', () => {
-    expect(PUBLIC_SELF_VAULT_LABEL).toBe('TKB Vault');
-    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('TKB Vault');
-    expect(vaultLabelForCustody('self_vault_hold', 'ORP')).toBe('TKB Vault');
+  it('uses Tokenable Vault for self_vault_hold regardless of partner name', () => {
+    expect(PUBLIC_SELF_VAULT_LABEL).toBe('Tokenable Vault');
+    expect(vaultLabelForCustody('self_vault_hold', 'Acme')).toBe('Tokenable Vault');
+    expect(vaultLabelForCustody('self_vault_hold', 'ORP')).toBe('Tokenable Vault');
     expect(formatPartnerVaultLabel('ORP')).toBe('ORP Vault');
   });
 });

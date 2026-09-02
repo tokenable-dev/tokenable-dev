@@ -2,9 +2,11 @@ import type { VaultSubmissionApi, VaultSubmissionApiItem } from "@/lib/core/api/
 import {
   CARRIER_LABELS,
   CARRIER_TRACK_URLS,
-  sellSubmissionResumeHref,
+  sellSubmissionAddTrackingHref,
+  type SellCardDisplaySource,
   type SellCarrier,
 } from "@/lib/sell/sellFlowDraft";
+import { vaultSubmissionItemDisplaySource } from "@/lib/vault/vaultSubmissionDisplay";
 import type { VaultHubReject, VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
 
 const OPEN_PACKAGE = new Set(["awaiting_shipment", "in_transit", "psa_reviewing"]);
@@ -75,10 +77,18 @@ function isIssueItem(item: VaultSubmissionApiItem): boolean {
   return false;
 }
 
-function itemMeta(item: VaultSubmissionApiItem) {
+function itemMeta(
+  item: VaultSubmissionApiItem,
+  enrichment?: Map<string, SellCardDisplaySource>,
+) {
+  const display = vaultSubmissionItemDisplaySource(
+    item,
+    enrichment?.get(item.cert),
+  );
   return {
-    name: item.name?.trim() || item.cert || "Card",
-    grade: formatGrade(item.grade),
+    ...display,
+    name: display.name?.trim() || item.cert || "Card",
+    grade: formatGrade(String(display.grade ?? item.grade)),
     cert: item.cert,
     imageUrl: item.imageUrl ?? "",
   };
@@ -88,12 +98,16 @@ function detailHref(publicId: string): string {
   return `/vault/submissions/${encodeURIComponent(publicId)}`;
 }
 
+function hasShipmentTracking(s: VaultSubmissionApi): boolean {
+  return Boolean(s.trackingNumber?.trim());
+}
+
 function trackingHref(s: VaultSubmissionApi): string | undefined {
-  if (!s.trackingNumber || !s.carrier) return undefined;
-  const carrier = s.carrier as SellCarrier;
-  const base = CARRIER_TRACK_URLS[carrier];
-  if (!base) return undefined;
-  return `${base}${encodeURIComponent(s.trackingNumber)}`;
+  const num = s.trackingNumber?.trim();
+  if (!num) return undefined;
+  const carrier = (s.carrier as SellCarrier) || "fedex";
+  const base = CARRIER_TRACK_URLS[carrier] ?? CARRIER_TRACK_URLS.fedex;
+  return `${base}${encodeURIComponent(num)}`;
 }
 
 function transitEta(s: VaultSubmissionApi): string {
@@ -158,57 +172,78 @@ function resolveReject(
   };
 }
 
-function progressRows(s: VaultSubmissionApi): VaultHubRow[] {
+function progressRows(
+  s: VaultSubmissionApi,
+  enrichment?: Map<string, SellCardDisplaySource>,
+): VaultHubRow[] {
   const open = s.items.filter((i) => isOpenItem(i) && !isIssueItem(i));
   const cards = open.length > 0 ? open : s.items.length > 0 ? [s.items[0]] : [];
-  const resumeHref = sellSubmissionResumeHref(s.status, s.publicId);
   const awaiting = s.status === "awaiting_shipment";
   const inTransit = s.status === "in_transit";
+  const shipped = awaiting || inTransit;
+  const hasTracking = hasShipmentTracking(s);
 
   return cards.map((item) => {
-    const vstate: VaultHubVState = awaiting || inTransit ? "transit" : "verify";
+    const vstate: VaultHubVState = shipped ? "transit" : "verify";
     return {
       id: `${s.publicId}:${vstate}:${item.id}`,
       vstate,
-      ...itemMeta(item),
+      ...itemMeta(item, enrichment),
       eta: vstate === "transit" ? transitEta(s) : verifyEta(s),
-      trackingUrl: vstate === "transit" ? trackingHref(s) : undefined,
-      addTrackingHref: awaiting ? resumeHref : undefined,
+      trackingUrl: shipped && hasTracking ? trackingHref(s) : undefined,
+      addTrackingHref:
+        shipped && !hasTracking
+          ? sellSubmissionAddTrackingHref(s.publicId)
+          : undefined,
       detailHref: detailHref(s.publicId),
     };
   });
 }
 
-function doneRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubRow {
+function doneRow(
+  s: VaultSubmissionApi,
+  item: VaultSubmissionApiItem,
+  enrichment?: Map<string, SellCardDisplaySource>,
+): VaultHubRow {
   return {
     id: `${s.publicId}:done:${item.id}`,
     vstate: "vaulted",
-    ...itemMeta(item),
+    ...itemMeta(item, enrichment),
     detailHref: `/portfolio`,
   };
 }
 
-function rejectedRow(s: VaultSubmissionApi, item: VaultSubmissionApiItem): VaultHubRow {
+function rejectedRow(
+  s: VaultSubmissionApi,
+  item: VaultSubmissionApiItem,
+  enrichment?: Map<string, SellCardDisplaySource>,
+): VaultHubRow {
   const failed = itemStatus(item) === "failed";
   return {
     id: `${s.publicId}:rej:${item.id}`,
     vstate: "reject",
-    ...itemMeta(item),
+    ...itemMeta(item, enrichment),
     reject: resolveReject(item.rejectionReason, failed, s),
     detailHref: detailHref(s.publicId),
   };
 }
 
-function packageIssueRow(s: VaultSubmissionApi): VaultHubRow {
+function packageIssueRow(
+  s: VaultSubmissionApi,
+  enrichment?: Map<string, SellCardDisplaySource>,
+): VaultHubRow {
   const card = s.items[0];
+  const meta = card ? itemMeta(card, enrichment) : null;
   const allRejected = s.scenario === "F";
   return {
     id: `${s.publicId}:issue`,
     vstate: "reject",
-    name: card?.name?.trim() || card?.cert || "Submission",
-    grade: formatGrade(card?.grade),
-    cert: card?.cert ?? "",
-    imageUrl: card?.imageUrl ?? "",
+    ...(meta ?? {
+      name: "Submission",
+      grade: "—",
+      cert: "",
+      imageUrl: "",
+    }),
     reject: {
       label: allRejected ? "Rejected" : "Failed",
       exp: allRejected
@@ -236,6 +271,7 @@ const VSTATE_ORDER: Record<VaultHubVState, number> = {
 
 export function buildVaultHubRowsFromSubmissions(
   submissions: VaultSubmissionApi[],
+  enrichment?: Map<string, SellCardDisplaySource>,
 ): VaultHubRow[] {
   const rows: VaultHubRow[] = [];
 
@@ -245,18 +281,18 @@ export function buildVaultHubRowsFromSubmissions(
     let issueCount = 0;
     for (const item of s.items) {
       if (isIssueItem(item)) {
-        rows.push(rejectedRow(s, item));
+        rows.push(rejectedRow(s, item, enrichment));
         issueCount += 1;
       }
-      if (itemStatus(item) === "completed") rows.push(doneRow(s, item));
+      if (itemStatus(item) === "completed") rows.push(doneRow(s, item, enrichment));
     }
 
     if (issueCount === 0 && (s.scenario === "F" || s.scenario === "H")) {
-      rows.push(packageIssueRow(s));
+      rows.push(packageIssueRow(s, enrichment));
     }
 
     if (shouldShowProgressPackage(s) && OPEN_PACKAGE.has(s.status)) {
-      rows.push(...progressRows(s));
+      rows.push(...progressRows(s, enrichment));
     } else if (
       s.status === "completed" &&
       !s.items.some((i) => itemStatus(i) === "completed") &&
@@ -265,7 +301,7 @@ export function buildVaultHubRowsFromSubmissions(
       s.scenario !== "H"
     ) {
       const first = s.items[0];
-      if (first) rows.push(doneRow(s, first));
+      if (first) rows.push(doneRow(s, first, enrichment));
     }
   }
 

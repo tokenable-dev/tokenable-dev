@@ -4,6 +4,11 @@ export type VaultSubmissionApiItem = {
   id: string;
   cert: string;
   name: string | null;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
   grade: string | null;
   imageUrl: string | null;
   status: string;
@@ -33,6 +38,11 @@ export type VaultSubmissionCardInput = {
   grade: number;
   img?: string | null;
   confirmed: boolean;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
 };
 
 export async function listVaultSubmissions(): Promise<VaultSubmissionApi[]> {

@@ -13,6 +13,10 @@ import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
 } from "@/lib/marketplace/rwa-detail/rwaDetailMetadata";
+import {
+  PSA_VAULT_LABEL,
+  TOKENABLE_VAULT_LABEL,
+} from "@/lib/marketplace/vaultCustodyLabel";
 
 /** Placeholder ask so Place Bid can run without an active listing (RWA + collection). */
 export function stubListingForOffer(tokenId: number, collectionKey: string): Order {
@@ -113,9 +117,7 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
-const PUBLIC_SELF_VAULT_LABEL = "TKB Vault";
-
-/** Vault badge for listing cards / orderbook — `PSA Vault` / `TKB Vault`. */
+/** Vault badge for listing cards / orderbook — `PSA Vault` / `Tokenable Vault`. */
 export function listingVaultBadge(
   listing: {
     sellerDisplayName?: string | null;
@@ -128,16 +130,22 @@ export function listingVaultBadge(
   if (!listing) return { label: "—", tone: "psa" };
   const addr = listing.offerer || listing.parameters?.offerer;
   if (listing.settlementPolicy === "self_vault_hold") {
-    return { label: PUBLIC_SELF_VAULT_LABEL, tone: "partner", title: addr };
+    return { label: TOKENABLE_VAULT_LABEL, tone: "partner", title: addr };
+  }
+  if (listing.settlementPolicy === "standard") {
+    return { label: PSA_VAULT_LABEL, tone: "psa", title: addr };
   }
   const tokenLabel = listing.vaultLabel?.trim();
   if (tokenLabel) {
     if (/^psa(\s+vault)?$/i.test(tokenLabel)) {
-      return { label: "PSA Vault", tone: "psa", title: addr };
+      return { label: PSA_VAULT_LABEL, tone: "psa", title: addr };
     }
-    return { label: PUBLIC_SELF_VAULT_LABEL, tone: "partner", title: addr };
+    if (/^tokenable(\s+vault)?$/i.test(tokenLabel) || /^tkb(\s+vault)?$/i.test(tokenLabel)) {
+      return { label: TOKENABLE_VAULT_LABEL, tone: "partner", title: addr };
+    }
+    return { label: tokenLabel, tone: "partner", title: addr };
   }
-  return { label: "PSA Vault", tone: "psa", title: addr };
+  return { label: "—", tone: "psa", title: addr };
 }
 
 /** Desktop listing / prov sticky — Card.html vault badge. */

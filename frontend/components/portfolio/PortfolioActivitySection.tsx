@@ -76,42 +76,6 @@ function inDateRange(
   return tx.dateMs >= now.getTime() - days * DAY_MS;
 }
 
-function TypeGlyph({ kind }: { kind: TxKind }) {
-  if (kind === "BUY") {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-        <path d="M6 2v7M3 6.5L6 9.5 9 6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    );
-  }
-  if (kind === "SELL") {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-        <path d="M2 6h8" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      </svg>
-    );
-  }
-  if (kind === "MINT") {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-        <rect x="2" y="2" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    );
-  }
-  if (kind === "REDEEM") {
-    return (
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-        <path d="M3 6h6M6 3l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-      <path d="M2 6h8M7 3l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
-}
-
 export function PortfolioActivitySection({
   loading,
   txRows,
@@ -121,7 +85,7 @@ export function PortfolioActivitySection({
 }) {
   const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilters, setTypeFilters] = useState<TxKind[]>([]);
+  const [typeFilter, setTypeFilter] = useState<"" | TxKind>("");
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
   const [rangeFilter, setRangeFilter] = useState<HistoryRangeFilter>("90");
   const [customFrom, setCustomFrom] = useState("");
@@ -132,13 +96,13 @@ export function PortfolioActivitySection({
   const sortedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const now = new Date();
-    const kindSet = new Set(typeFilters);
+    const kindFilter = typeFilter;
     const rows = txRows.filter((tx) => {
       if (q) {
         const hay = `${tx.asset} ${tx.assetHover ?? ""} ${tx.certNumber ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (kindSet.size > 0 && !kindSet.has(tx.type)) return false;
+      if (kindFilter && tx.type !== kindFilter) return false;
       if (statusFilter && tx.status !== statusFilter) return false;
       if (!inDateRange(tx, rangeFilter, customFrom, customTo, now)) return false;
       return true;
@@ -161,7 +125,7 @@ export function PortfolioActivitySection({
   }, [
     txRows,
     searchQuery,
-    typeFilters,
+    typeFilter,
     statusFilter,
     rangeFilter,
     customFrom,
@@ -169,12 +133,6 @@ export function PortfolioActivitySection({
     sortKey,
     sortDir,
   ]);
-
-  function toggleKind(kind: TxKind) {
-    setTypeFilters((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
-    );
-  }
 
   function exportCsv() {
     const lines = [
@@ -216,11 +174,6 @@ export function PortfolioActivitySection({
     a.download = "tokenable-tx-history.csv";
     a.click();
   }
-
-  const typeSummary =
-    typeFilters.length === 0
-      ? "All types"
-      : typeFilters.map((k) => TX_KIND_LABEL[k]).join(", ");
 
   if (loading) {
     return (
@@ -273,32 +226,19 @@ export function PortfolioActivitySection({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <details className="pf-hx-multi">
-          <summary className="pf-hx-multi__summary" aria-label="Filter by type">
-            {typeSummary}
-          </summary>
-          <div className="pf-hx-multi__menu" role="group" aria-label="Types">
-            {ALL_KINDS.map((kind) => (
-              <label key={kind} className="pf-hx-multi__opt">
-                <input
-                  type="checkbox"
-                  checked={typeFilters.includes(kind)}
-                  onChange={() => toggleKind(kind)}
-                />
-                {TX_KIND_LABEL[kind]}
-              </label>
-            ))}
-            {typeFilters.length > 0 ? (
-              <button
-                type="button"
-                className="pf-hx-multi__clear"
-                onClick={() => setTypeFilters([])}
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </details>
+        <TkSelect
+          aria-label="Filter by type"
+          wrapClassName="pf-hx-sel"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as "" | TxKind)}
+        >
+          <option value="">All types</option>
+          {ALL_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {TX_KIND_LABEL[kind]}
+            </option>
+          ))}
+        </TkSelect>
         <TkSelect
           aria-label="Filter by status"
           wrapClassName="pf-hx-sel"
@@ -434,7 +374,6 @@ export function PortfolioActivitySection({
                   </td>
                   <td data-label="Type">
                     <span className={`pf-table-type ${txKindClass(tx)}`}>
-                      <TypeGlyph kind={tx.type} />
                       {txKindLabel(tx)}
                     </span>
                   </td>

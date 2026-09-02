@@ -3,7 +3,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
@@ -79,20 +79,14 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
             {headline ? (
               href ? (
                 <Link href={href} className="pf-mobile-asset-card__title-link">
-                  <AssetDetailHeadlineTitle
-                    as="span"
-                    parts={headline.parts}
-                    grade={headline.grade}
-                    className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.3]"
-                  />
+                  <span className={CARD_DISPLAY_LINE1_CLAMP_CLASS}>
+                    {headline?.line1 ?? titleLabel}
+                  </span>
                 </Link>
               ) : (
-                <AssetDetailHeadlineTitle
-                  as="span"
-                  parts={headline.parts}
-                  grade={headline.grade}
-                  className="block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.3]"
-                />
+                <span className={CARD_DISPLAY_LINE1_CLAMP_CLASS}>
+                  {headline?.line1 ?? titleLabel}
+                </span>
               )
             ) : href ? (
               <Link href={href}>{titleLabel}</Link>
@@ -102,7 +96,6 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           </div>
           <PortfolioHoldingsSaleStatus
             isListed={isListed}
-            listPriceUsd={row.listPriceUsd}
             redeemStatus={redeemStatus}
           />
         </div>
@@ -162,8 +155,6 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           <div className="pf-mobile-asset-card__actions">
             <PortfolioHoldingsRowActions
               isListed={isListed}
-              listPriceUsd={row.listPriceUsd}
-              listedAskLabel
               fullWidth
               disabled={actionsDisabled}
               disabledTitle={actionsDisabledTitle}

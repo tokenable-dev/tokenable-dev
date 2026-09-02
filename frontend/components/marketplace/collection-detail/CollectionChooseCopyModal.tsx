@@ -280,7 +280,7 @@ export function CollectionChooseCopyModal({
                 >
                   <option value="all">Vault · All</option>
                   {vaultOptions.hasPsa ? <option value="psa">PSA Vault</option> : null}
-                  {vaultOptions.hasPartner ? <option value="partner">TKB Vault</option> : null}
+                  {vaultOptions.hasPartner ? <option value="partner">Tokenable Vault</option> : null}
                 </select>
               </div>
             ) : null}

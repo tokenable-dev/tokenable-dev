@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
@@ -10,9 +10,11 @@ import { usePrivyFiatOnramp } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { cn } from "@/lib/ds/cn";
 import {
   NOTIFICATION_FILTERS,
+  NOTIFICATION_GROUPS,
   type NotificationFilterKey,
   type NotificationIcon,
   type NotificationItem,
+  notificationTimeGroup,
 } from "@/lib/notifications/notifications";
 import { isAddFundsNotification } from "@/lib/notifications/activateNotification";
 
@@ -62,8 +64,13 @@ function NotificationItemView({
   item: NotificationItem;
   onActivate: (item: NotificationItem) => void;
 }) {
-  const body = (
-    <>
+  return (
+    <button
+      type="button"
+      className="tk-notif-item"
+      data-type={item.type}
+      onClick={() => onActivate(item)}
+    >
       <div
         className="tk-notif-item__icon"
         style={{
@@ -73,36 +80,25 @@ function NotificationItemView({
       >
         <NotifIcon icon={item.icon} />
       </div>
-      <div className="tk-notif-item__body">
-        <div className="tk-notif-item__top">
-          <span className="tk-notif-item__title">{item.title}</span>
-          {item.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt="" className="tk-notif-item__thumb" />
-          ) : null}
+      <div className="tk-notif-item__main">
+        <div className="tk-notif-item__head">
+          <span className="tk-notif-item__title">
+            {item.unread ? <span className="tk-notif-item__dot" aria-hidden /> : null}
+            {item.title}
+          </span>
+          <span className="tk-notif-item__time">{item.time}</span>
         </div>
         {item.desc ? <p className="tk-notif-item__desc">{item.desc}</p> : null}
-        <span className="tk-notif-item__time mono">{item.time}</span>
         {item.ctaLabel ? (
           <span className="tk-notif-item__cta">{item.ctaLabel}</span>
         ) : null}
       </div>
-    </>
-  );
-
-  const className = cn(
-    "tk-notif-item",
-    item.unread && "tk-notif-item--unread",
-  );
-
-  return (
-    <button
-      type="button"
-      className={className}
-      data-type={item.type}
-      onClick={() => onActivate(item)}
-    >
-      {body}
+      <div className="tk-notif-item__thumb-slot">
+        {item.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.imageUrl} alt="" className="tk-notif-item__thumb" />
+        ) : null}
+      </div>
     </button>
   );
 }
@@ -154,13 +150,39 @@ export function NotificationsDrawer({
     };
   }, [open, onClose]);
 
+  const filteredItems = useMemo(
+    () =>
+      filter === "all"
+        ? allItems
+        : allItems.filter((n) => n.type === filter),
+    [allItems, filter],
+  );
+
+  const groupedItems = useMemo(() => {
+    return NOTIFICATION_GROUPS.map((group) => ({
+      ...group,
+      items: filteredItems.filter(
+        (item) => notificationTimeGroup(item.createdAt) === group.key,
+      ),
+    })).filter((group) => group.items.length > 0);
+  }, [filteredItems]);
+
   if (!mounted || !visible) return null;
 
-  const items =
-    filter === "all"
-      ? allItems
-      : allItems.filter((n) => n.type === filter);
   const hasUnread = allItems.some((n) => n.unread);
+
+  function activateItem(item: NotificationItem) {
+    if (item.unread) markRead(item.id);
+    if (isAddFundsNotification(item)) {
+      onClose();
+      void startFunding(walletAddress);
+      return;
+    }
+    if (item.href) {
+      onClose();
+      router.push(item.href);
+    }
+  }
 
   return createPortal(
     <div
@@ -181,6 +203,15 @@ export function NotificationsDrawer({
             Notifications
           </span>
           <div className="tk-notif-panel__header-actions">
+            {hasUnread ? (
+              <button
+                type="button"
+                className="tk-notif-panel__mark-all"
+                onClick={() => markAllRead()}
+              >
+                Mark all read
+              </button>
+            ) : null}
             <button type="button" className="tk-notif-panel__close" aria-label="Close" onClick={onClose}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -203,46 +234,24 @@ export function NotificationsDrawer({
           ))}
         </div>
 
-        <div className="tk-notif-panel__divider" />
-
-        <div className="tk-notif-panel__section">
-          <span>Recent</span>
-          {hasUnread ? (
-            <button
-              type="button"
-              className="tk-notif-panel__mark-all"
-              onClick={() => markAllRead()}
-            >
-              Mark all read
-            </button>
-          ) : null}
-        </div>
-
         <div className="tk-notif-list">
-          {items.map((item) => (
-            <NotificationItemView
-              key={item.id}
-              item={item}
-              onActivate={(n) => {
-                if (n.unread) markRead(n.id);
-                if (isAddFundsNotification(n)) {
-                  onClose();
-                  void startFunding(walletAddress);
-                  return;
-                }
-                if (n.href) {
-                  onClose();
-                  // router.push so same-route query deep-links (e.g. setprice) always apply
-                  router.push(n.href);
-                }
-              }}
-            />
+          {groupedItems.map((group) => (
+            <div key={group.key} className="tk-notif-group">
+              <div className="tk-notif-group__label">{group.label}</div>
+              {group.items.map((item) => (
+                <NotificationItemView
+                  key={item.id}
+                  item={item}
+                  onActivate={activateItem}
+                />
+              ))}
+            </div>
           ))}
-          {isLoading && items.length === 0 ? (
+          {isLoading && filteredItems.length === 0 ? (
             <div className="tk-notif-empty">Loading…</div>
           ) : null}
-          {!isLoading && items.length === 0 ? (
-            <div className="tk-notif-empty">No notifications in this category.</div>
+          {!isLoading && filteredItems.length === 0 ? (
+            <div className="tk-notif-empty">No notifications.</div>
           ) : null}
         </div>
       </div>

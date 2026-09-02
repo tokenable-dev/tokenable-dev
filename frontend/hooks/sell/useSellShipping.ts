@@ -149,6 +149,11 @@ async function upsertAwaitingShipmentPackage(
       grade: c.grade,
       img: c.img,
       confirmed: true,
+      cardNumber: c.cardNumber,
+      year: c.year,
+      setName: c.setName,
+      language: c.language,
+      variant: c.variant,
     })),
   });
   writeSellSubmissionPublicId(saved.publicId);
@@ -164,6 +169,7 @@ export function useSellShipping() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const submissionQuery = (searchParams.get("submission") ?? "").trim();
+  const panelQuery = searchParams.get("panel");
   const userId = useAuthStore((s) => s.user?.id);
   const authInitialized = useAuthStore((s) => s.initialized);
   const [ready, setReady] = useState(false);
@@ -335,7 +341,7 @@ export function useSellShipping() {
           setReturnAddress(nextReturn);
           setReturnEditing(!isSellReturnAddressComplete(nextReturn));
           setEditReturnPath(vaultPath);
-          if (progress.step === "shipping-track") {
+          if (panelQuery === "track" || progress.step === "shipping-track") {
             setPanel("track");
           } else {
             setPanel("pack");
@@ -441,7 +447,7 @@ export function useSellShipping() {
     return () => {
       cancelled = true;
     };
-  }, [router, authInitialized, userId, submissionQuery]);
+  }, [router, authInitialized, userId, submissionQuery, panelQuery]);
 
   // Persist shipping form as the user fills it.
   useEffect(() => {

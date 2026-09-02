@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
@@ -98,12 +98,12 @@ export function PortfolioHoldingsTableView({
                     </div>
                     <div className="pf-table-card-copy">
                       {headline ? (
-                        <AssetDetailHeadlineTitle
-                          as="span"
-                          parts={headline.parts}
-                          grade={headline.grade}
-                          className="pf-table-card-name block min-w-0 text-[inherit] font-[inherit] leading-[inherit] text-inherit [--cd-line1-lh:1.35]"
-                        />
+                        <span
+                          className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                          title={headline.hover}
+                        >
+                          {headline.line1}
+                        </span>
                       ) : (
                         <span className="pf-table-card-name" title={titleLabel}>
                           {titleLabel}
@@ -178,7 +178,6 @@ export function PortfolioHoldingsTableView({
               <td data-label="Status">
                 <PortfolioHoldingsSaleStatus
                   isListed={isListed}
-                  listPriceUsd={row.listPriceUsd}
                   redeemStatus={badge}
                 />
               </td>

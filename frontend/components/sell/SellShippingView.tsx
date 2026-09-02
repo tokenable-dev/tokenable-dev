@@ -175,8 +175,7 @@ export function SellShippingView() {
             <div className="sell-flow-eyebrow">Ship to PSA</div>
             <h1 className="sell-flow-h1">Ship to PSA</h1>
             <p className="sell-flow-sub">
-              Send your cards to PSA. Once they arrive and pass intake, they&rsquo;ll be stored at
-              PSA Vault and land in your portfolio — set a price there to go live.
+              After intake, cards are stored at PSA Vault and appear in your portfolio.
             </p>
           </div>
 
@@ -290,8 +289,7 @@ export function SellShippingView() {
               <div className="sell-ship-howto">
                 <h2 className="sell-ship-howto__title">Shipping instructions</h2>
                 <p className="sell-ship-howto__sub">
-                  Follow these three steps and label the box clearly with the address above. Keep the
-                  packing slip inside the box so PSA can match your cards to your account.
+                  Label the box with the address above. Keep the packing slip inside the box so PSA can match your cards to your account.
                 </p>
                 <div className="sell-ship-howto__grid">
                   <article className="sell-ship-howto__card">

@@ -255,7 +255,7 @@ Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RA
 
 **Body (POST)** preferred for Partner Rate: same fields + `shipTo` (full address + optional `countryCode`). Frontend Calculate uses POST.
 
-**Response** includes totals plus `shipments[]` (`provider`, `vaultLabel`, fee lines, `shippingSource`, optional FedEx quote metadata) and flat `cards[]` for payment reconciliation. Buyer `vaultLabel` is `PSA Vault` or `TKB Vault` (partner company names are admin-only).
+**Response** includes totals plus `shipments[]` (`provider`, `vaultLabel`, fee lines, `shippingSource`, optional FedEx quote metadata) and flat `cards[]` for payment reconciliation. Buyer `vaultLabel` is `PSA Vault` or `Tokenable Vault` (partner company names are admin-only).
 
 | Env | Purpose |
 |-----|---------|

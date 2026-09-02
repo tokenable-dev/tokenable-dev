@@ -36,6 +36,31 @@ export class VaultSubmissionCardDto {
 
   @IsBoolean()
   confirmed!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  cardNumber?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  year?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  setName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  language?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  variant?: string | null;
 }
 
 export class UpsertVaultSubmissionDraftDto {

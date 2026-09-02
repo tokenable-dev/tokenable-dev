@@ -16,6 +16,7 @@ import {
   type VaultDetailScenarioKey,
   type VaultPackageCard,
 } from "@/lib/vault/vaultDetailScenarios";
+import { vaultDetailCardLines } from "@/lib/vault/vaultSubmissionDisplay";
 import { cn } from "@/lib/ds/cn";
 
 function formatSubmitDate(iso: string): string {
@@ -110,7 +111,7 @@ function LayoutAContent({
   submittedAt,
 }: {
   scenario: VaultDetailScenario;
-  packageCards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  packageCards: VaultPackageCard[];
   tracking: { label: string; url: string } | null;
   submissionId: string;
   submittedAt?: string | null;
@@ -133,7 +134,7 @@ function PackageInfoCard({
   cards,
   submittedAt,
 }: {
-  cards: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  cards: VaultPackageCard[];
   submittedAt?: string | null;
 }) {
   const count = cards.length;
@@ -153,20 +154,26 @@ function PackageInfoCard({
         <p className="px-1 py-3 text-sm text-white/40">No cards in this submission.</p>
       ) : (
         <ul className="vault-detail-package__list">
-          {cards.map((c, i) => (
-            <li
-              key={c.cert || c.id}
-              className={cn("vault-detail-package__row", i > 0 && "vault-detail-package__row--border")}
-            >
-              <div className="vault-detail-package__thumb">
-                <VaultThumb src={c.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
-              </div>
-              <div className="vault-detail-package__name">{c.name}</div>
-              <span className="mono vault-detail-package__cert">
-                {[c.grade, c.cert ? `#${c.cert}` : null].filter(Boolean).join(" · ")}
-              </span>
-            </li>
-          ))}
+          {cards.map((c, i) => {
+            const { line1 } = vaultDetailCardLines(c);
+            return (
+              <li
+                key={c.cert || c.id}
+                className={cn("vault-detail-package__row", i > 0 && "vault-detail-package__row--border")}
+              >
+                <div className="vault-detail-package__thumb">
+                  <VaultThumb src={c.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
+                </div>
+                <div className="vault-detail-package__copy">
+                  <div className="vault-detail-package__name">{line1}</div>
+                </div>
+                <span className="tk-tag tk-tag--neutral tk-tag--soft vault-detail-package__grade">
+                  {c.grade}
+                </span>
+                <span className="vault-detail-package__cert mono">#{c.cert}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -278,23 +285,27 @@ function CtaRow({ ctas }: { ctas: VaultDetailScenario["cta"] }) {
 }
 
 function cardStatusLabel(card: VaultPackageCard) {
-  switch (card.status) {
-    case "completed":
-      return <span className="mono vault-lm-row__status vault-lm-row__status--pos">Live</span>;
-    case "approved":
-      return <span className="mono vault-lm-row__status vault-lm-row__status--pos">Approved</span>;
-    case "reviewing":
-      return <span className="mono vault-lm-row__status vault-lm-row__status--azure">Reviewing</span>;
-    case "failed":
-      return <span className="vault-lm-row__status vault-lm-row__status--neg">Failed</span>;
-    case "rejected":
-      return <span className="vault-lm-row__status vault-lm-row__status--neg">Rejected</span>;
-    default:
-      return null;
-  }
+  const map: Record<VaultPackageCard["status"], [string, string, string]> = {
+    completed: ["Live", "var(--pos)", "rgba(0,200,100,0.14)"],
+    approved: ["Approved", "var(--pos)", "rgba(0,200,100,0.14)"],
+    reviewing: ["Reviewing", "var(--azure)", "rgba(26,111,255,0.14)"],
+    rejected: ["Rejected", "var(--neg)", "rgba(245,51,44,0.14)"],
+    failed: ["Failed", "var(--neg)", "rgba(245,51,44,0.14)"],
+  };
+  const s = map[card.status];
+  if (!s) return null;
+  return (
+    <span
+      className="mono vault-lm-row__status-pill"
+      style={{ color: s[1], background: s[2] }}
+    >
+      {s[0]}
+    </span>
+  );
 }
 
 function CardDetailPanel({ card }: { card: VaultPackageCard }) {
+  const { line1 } = vaultDetailCardLines(card);
   const stMap: Record<string, [string, string]> = {
     completed: ["Live", "var(--pos)"],
     approved: ["Queued", "var(--amber)"],
@@ -310,14 +321,9 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
     <div className="vault-lb-panel">
       <div className="vault-lb-panel__hero">
         <div className={cn("vault-lb-panel__img", card.status === "rejected" && "vault-lb-panel__img--dim")}>
-          <VaultThumb src={card.imageUrl} width={150} height={210} className="h-full w-full object-contain" />
+          <VaultThumb src={card.imageUrl} width={280} height={392} className="h-full w-full object-contain" />
         </div>
-        <div className="vault-lb-panel__name">{card.name}</div>
-        {card.grade || card.cert ? (
-          <div className="vault-lb-panel__sub mono">
-            {[card.grade, card.cert ? `Cert #${card.cert}` : null].filter(Boolean).join(" · ")}
-          </div>
-        ) : null}
+        <div className="vault-lb-panel__name">{line1}</div>
       </div>
       <span className="vault-detail-section-label vault-detail-section-label--box">Card Details</span>
       <div className="vault-detail-row">
@@ -344,7 +350,9 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       {card.status === "reviewing" ? (
         <div className="vault-lb-panel__pending">
           <span className="vault-detail-section-label vault-detail-section-label--muted">Vault Review</span>
-          <div>PSA inspection in progress…</div>
+          <div>
+            PSA inspection in progress. We&apos;ll update this page when it&apos;s done.
+          </div>
         </div>
       ) : null}
       {card.status === "approved" ? (
@@ -599,37 +607,35 @@ function LayoutB({
           })}
         </div>
         <div className="vault-lm-list">
-          {filtered.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              className={cn("vault-lm-row", card.status, selectedId === card.id && "selected")}
-              onClick={() => handleSelectCard(card.id)}
-            >
-              <div className={cn("vault-lm-row__thumb", card.status === "rejected" && "dim")}>
-                <VaultThumb src={card.imageUrl} width={38} height={52} className="h-full w-full object-contain" />
-              </div>
-              <div className="vault-lm-row__body">
-                <div className="vault-lm-row__name-line">
-                  <div className="vault-lm-row__name">{card.name}</div>
-                  {cardStatusLabel(card)}
+          {filtered.map((card) => {
+            const { line1, listLine2 } = vaultDetailCardLines(card);
+            return (
+              <button
+                key={card.id}
+                type="button"
+                className={cn("vault-lm-row", card.status, selectedId === card.id && "selected")}
+                onClick={() => handleSelectCard(card.id)}
+              >
+                <div className={cn("vault-lm-row__thumb", card.status === "rejected" && "dim")}>
+                  <VaultThumb src={card.imageUrl} width={38} height={52} className="h-full w-full object-contain" />
                 </div>
-                <div className="vault-lm-row__meta">
-                  <span className="mono vault-lm-row__cert">
-                    {[card.grade, card.cert ? `Cert #${card.cert}` : null].filter(Boolean).join(" · ")}
-                  </span>
+                <div className="vault-lm-row__body">
+                  <div className="vault-lm-row__name-line">
+                    <span className="vault-lm-row__name">{line1}</span>
+                    {cardStatusLabel(card)}
+                  </div>
+                  <div className="vault-lm-row__subline mono">{listLine2}</div>
                 </div>
-                {card.status === "rejected" && card.reason ? (
-                  <div className="vault-lm-row__reason">{card.reason}</div>
-                ) : null}
-              </div>
-              {card.status === "completed" ? (
-                <span className="mono vault-lm-row__token">View listing →</span>
-              ) : (
-                <div className="vault-lm-row__right" />
-              )}
-            </button>
-          ))}
+                {card.status === "completed" ? (
+                  <span className="mono vault-lm-row__token">View listing →</span>
+                ) : card.status === "rejected" && card.reason ? (
+                  <div className="vault-lm-row__reason-col">{card.reason}</div>
+                ) : (
+                  <div className="vault-lm-row__right" />
+                )}
+              </button>
+            );
+          })}
         </div>
         <div className="vault-detail-layout-b__notif">
           <NotifBanner msg={scenario.notif} />
@@ -725,13 +731,7 @@ export function VaultDetailDesignView({
     `vault-detail-page--${scenarioKey.toLowerCase()}`,
   );
 
-  const layoutACards = livePackageCards.map((c) => ({
-    id: c.id,
-    name: c.name,
-    imageUrl: c.imageUrl,
-    grade: c.grade,
-    cert: c.cert,
-  }));
+  const layoutACards = livePackageCards;
 
   return (
     <div className={shellClass}>

@@ -53,7 +53,6 @@ import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
-import { PSA_VAULT_LABEL } from '../partners/partner-vault-label.util';
 import { VaultService } from '../../vault/vault.service';
 import {
   CHAIN_ID_HEADER,
@@ -670,8 +669,8 @@ export class CollectionsController {
       return Object.assign(o, {
         sellerDisplayName:
           sellerNames.get(String(o.offerer).toLowerCase()) ?? null,
-        settlementPolicy: vault?.settlementPolicy ?? 'standard',
-        vaultLabel: vault?.vaultLabel ?? PSA_VAULT_LABEL,
+        settlementPolicy: vault?.settlementPolicy ?? null,
+        vaultLabel: vault?.vaultLabel ?? null,
       });
     });
 

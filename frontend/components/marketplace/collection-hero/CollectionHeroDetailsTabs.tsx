@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 type SidebarTab = "details" | "psa";
 
 const TAB_BASE =
-  "cd-ob-tab shrink-0 px-4 py-2.5 text-[15px] transition-colors duration-200";
+  "cd-ob-tab shrink-0 transition-colors duration-200";
 const TAB_ACTIVE = "cd-ob-tab--active";
 const TAB_INACTIVE = "";
 

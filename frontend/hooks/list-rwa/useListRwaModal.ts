@@ -35,6 +35,7 @@ import type {
 } from "@/lib/seaport/listing/listRwaModalTypes";
 import { useSeaportOrderSigner } from "@/lib/privy";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export function useListRwaModal({
@@ -68,12 +69,12 @@ export function useListRwaModal({
   const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
 
   const { data: settlementPolicyData } = useQuery({
-    queryKey: ["rwa-settlement-policy", String(tokenId)],
+    queryKey: ["rwa-settlement-policy", chainId, String(tokenId)],
     queryFn: () => getRwaSettlementPolicy(tokenId),
+    enabled: Boolean(String(tokenId).trim()),
     staleTime: 60_000,
   });
-  const settlementPolicy =
-    settlementPolicyData?.settlementPolicy ?? ("standard" as const);
+  const settlementPolicy = settlementPolicyData?.settlementPolicy ?? undefined;
 
   const [price, setPrice] = useState("");
   const [selectedBidHash, setSelectedBidHash] = useState<string | null>(null);
@@ -402,7 +403,7 @@ export function useListRwaModal({
     setSelectedBidHash,
     topCollectionBid,
     settlementPolicy,
-    vaultLabel: settlementPolicyData?.vaultLabel ?? "PSA Vault",
+    vaultLabel: formatVaultCustodyLabel(settlementPolicyData) ?? "—",
     isProcessing,
     handleList,
     dismissSuccess,

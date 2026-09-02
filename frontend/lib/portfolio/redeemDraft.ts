@@ -61,7 +61,7 @@ export function readRedeemDraft(): RedeemDraft | null {
       cards: parsed.cards.map((c) => ({
         ...c,
         certNumber: c.certNumber ?? null,
-        vaultLabel: c.vaultLabel ?? "PSA Vault",
+        vaultLabel: c.vaultLabel?.trim() || "",
       })),
     };
   } catch {

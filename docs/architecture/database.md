@@ -219,7 +219,7 @@ pending_deposit
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
 | `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
-| `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `TKB Vault`) |
+| `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `Tokenable Vault`) |
 | `display_image_url` | Platform S3 slab front (mint or admin) |
 | `display_image_back_url` | Platform S3 slab back (mint or admin) |
 | **Unique constraint** | `(token_contract, cert_number) WHERE burned_at IS NULL` — allows re-mint of same cert after burn |
@@ -280,6 +280,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/alter_marketplace_partners_optional_pk.sql` | Existing DBs: nullable partner private key |
 | `maintenance/add_rwa_tokens_vault_partner_id.sql` | Existing DBs: `rwa_tokens.vault_partner_id` |
 | `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |
+| `maintenance/add_vault_submission_item_display_fields.sql` | Existing DBs: SSOT card number/year/set on `vault_submission_items` |
 | `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 | `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
