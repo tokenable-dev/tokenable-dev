@@ -47,10 +47,6 @@ import {
   type PartnerMintBatchResult,
   type PartnerMintSucceeded,
 } from "@/lib/sell/mintSellFlowCard";
-import {
-  findSelfVaultBlockedCert,
-  selfVaultBlockedMessage,
-} from "@/lib/sell/psaShipmentSelfVaultGuard";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -477,14 +473,6 @@ export function useSellFlow() {
         setCertError(taken);
         return;
       }
-      if (vaultChoice === "self") {
-        const rows = await listVaultSubmissions();
-        const blocked = findSelfVaultBlockedCert(rows, cert);
-        if (blocked) {
-          setCertError(selfVaultBlockedMessage(blocked));
-          return;
-        }
-      }
       const r = await analyzePsaByCertNumber(cert);
       addCardFromResult(r, cert);
     } catch (e) {
@@ -533,14 +521,6 @@ export function useSellFlow() {
         if (taken) {
           setCertError(taken);
           return;
-        }
-        if (vaultChoice === "self") {
-          const rows = await listVaultSubmissions();
-          const blocked = findSelfVaultBlockedCert(rows, cert);
-          if (blocked) {
-            setCertError(selfVaultBlockedMessage(blocked));
-            return;
-          }
         }
         addCardFromResult(r, cert, uploadPreview);
       } catch (e) {
@@ -661,7 +641,6 @@ export function useSellFlow() {
     };
 
     try {
-      const rows = await listVaultSubmissions();
       const recipientAddress = await ensureAccountWalletReady();
 
       for (let i = 0; i < confirmed.length; i++) {
@@ -673,12 +652,6 @@ export function useSellFlow() {
         const taken = await certMintBlockReason(card.cert, chainId);
         if (taken) {
           pushSkip(card, taken);
-          continue;
-        }
-
-        const blocked = findSelfVaultBlockedCert(rows, card.cert);
-        if (blocked) {
-          pushSkip(card, selfVaultBlockedMessage(blocked));
           continue;
         }
 

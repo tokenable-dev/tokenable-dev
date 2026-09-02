@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { VaultService } from '../vault/vault.service';
+import { VaultSubmissionService } from '../vault/vault-submission.service';
 import { psaCertNumberFromGradedMeta } from '../marketplace/utils/collection-image.util';
 import {
   resolveCatalogCoverMime,
@@ -58,6 +59,7 @@ export class RwaService {
   constructor(
     private readonly pinataService: PinataService,
     private readonly vault: VaultService,
+    private readonly vaultSubmissions: VaultSubmissionService,
     private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
@@ -311,6 +313,34 @@ export class RwaService {
         'Enter a valid PSA cert number (7–10 digits).',
       );
     }
-    return this.vault.checkAvailableForNewCycle(trimmed, chainId);
+
+    const cycleCheck = await this.vault.checkAvailableForNewCycle(
+      trimmed,
+      chainId,
+    );
+    if (!cycleCheck.available) {
+      return cycleCheck;
+    }
+
+    try {
+      await this.vaultSubmissions.assertCertAvailableForSelfVault(trimmed);
+    } catch (e) {
+      if (e instanceof BadRequestException) {
+        const body = e.getResponse();
+        const raw =
+          typeof body === 'object' && body !== null && 'message' in body
+            ? (body as { message: string | string[] }).message
+            : e.message;
+        const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
+        return {
+          available: false,
+          certNumber: trimmed,
+          message,
+        };
+      }
+      throw e;
+    }
+
+    return { available: true, certNumber: trimmed, message: null };
   }
 }

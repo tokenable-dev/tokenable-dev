@@ -240,7 +240,7 @@ curl -sS https://your-domain.com/api/health
 - [ ] If custody wallet differs from minter: `RWA_CUSTODY_WALLET_ADDRESS` + `RWA_CUSTODY_PRIVATE_KEY`
 - [ ] `PLATFORM_FEE_PRIVATE_KEY` set (self-vault payouts + redeem USDC refunds)
 - [ ] `PARTNER_WALLET_ENCRYPTION_KEY` set before using Partners / bulk mint+list
-- [ ] **Schema:** after pulling new code, apply any pending `backend/sql/maintenance/*.sql` **before** restarting backend. Production boot runs `SchemaAssertService` and **exits** if required columns/tables are missing (e.g. `rwa_tokens.vault_partner_id`). Escape hatch: `SCHEMA_ASSERT_ON_BOOT=0`.
+- [ ] **Schema:** after pulling new code, apply any pending `backend/sql/maintenance/*.sql` **before** restarting backend (CI runs `backend/sql/scripts/apply-deploy-maintenance.sh` on deploy). Production boot runs `SchemaAssertService` and **exits** if required columns/tables are missing (e.g. `vault_submission_items.card_number`). Escape hatch: `SCHEMA_ASSERT_ON_BOOT=0`.
 - [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
 - [ ] Ethereum mainnet: add `CHAIN_1_*` env vars when ready
 - [ ] Polygon mainnet: add `CHAIN_137_*` / `NEXT_PUBLIC_CHAIN_137_*` after deploy
@@ -252,6 +252,21 @@ curl -sS https://your-domain.com/api/health
 ### Backend exits on boot: “Database schema is behind”
 
 Production asserts required tables/columns (see `backend/src/health/schema-assert.service.ts`). Apply the listed `backend/sql/maintenance/…` files, then restart. Temporary bypass: `SCHEMA_ASSERT_ON_BOOT=0` (do not leave on).
+
+**`vault_submission_items.card_number does not exist` (500 on `/api/vault/submissions`):** code was deployed before `add_vault_submission_item_display_fields.sql` ran on the server DB. Fix immediately:
+
+```bash
+cd /home/ubuntu/app
+bash backend/sql/scripts/apply-deploy-maintenance.sh
+docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate backend
+```
+
+Or one file only:
+
+```bash
+docker exec -i tokenable-postgres psql -U tokenable -d tokenable -v ON_ERROR_STOP=1 \
+  < backend/sql/maintenance/add_vault_submission_item_display_fields.sql
+```
 
 ### `/api/...` returns 502 Bad Gateway
 

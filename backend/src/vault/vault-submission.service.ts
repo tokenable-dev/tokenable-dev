@@ -217,6 +217,13 @@ export class VaultSubmissionService {
     return 'C';
   }
 
+  private isoOrNull(value: Date | string | null | undefined): string | null {
+    if (value == null) return null;
+    if (value instanceof Date) return value.toISOString();
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
   private toDto(sub: VaultSubmission) {
     const items = [...(sub.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
     return {
@@ -227,10 +234,10 @@ export class VaultSubmissionService {
       carrier: sub.carrier,
       trackingNumber: sub.trackingNumber,
       shipDate: sub.shipDate,
-      shippedAt: sub.shippedAt?.toISOString() ?? null,
-      packingSlipDownloadedAt: sub.packingSlipDownloadedAt?.toISOString() ?? null,
-      createdAt: sub.createdAt.toISOString(),
-      updatedAt: sub.updatedAt.toISOString(),
+      shippedAt: this.isoOrNull(sub.shippedAt),
+      packingSlipDownloadedAt: this.isoOrNull(sub.packingSlipDownloadedAt),
+      createdAt: this.isoOrNull(sub.createdAt) ?? new Date(0).toISOString(),
+      updatedAt: this.isoOrNull(sub.updatedAt) ?? new Date(0).toISOString(),
       items: items.map((it) => ({
         id: it.id,
         cert: it.certNumber,

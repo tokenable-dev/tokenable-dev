@@ -97,6 +97,12 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     name: 'self_vault_settlements',
     fix: 'maintenance/add_self_vault_settlements.sql',
   },
+  {
+    kind: 'column',
+    table: 'vault_submission_items',
+    column: 'card_number',
+    fix: 'maintenance/add_vault_submission_item_display_fields.sql',
+  },
 ];
 
 export function formatSchemaAssertFailure(missing: SchemaRequirement[]): string {

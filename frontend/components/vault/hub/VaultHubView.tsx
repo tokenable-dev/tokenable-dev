@@ -7,8 +7,9 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { VaultEmptyDashboardView } from "@/components/vault/hub/VaultEmptyDashboardView";
 import { VaultHubHeader } from "@/components/vault/hub/VaultHubHeader";
 import {
-  useHasVaultHubActivity,
+  useVaultHubViewState,
   VaultActiveDashboardView,
+  VaultHubActivityLoading,
 } from "@/components/vault/hub/VaultActiveDashboardView";
 import { VaultLandingView } from "@/components/vault/hub/VaultLandingViews";
 
@@ -17,7 +18,7 @@ export function VaultHubView() {
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
-  const hasActivity = useHasVaultHubActivity();
+  const viewState = useVaultHubViewState();
   const { ready, authenticated } = usePrivy();
   const [sessionWaitTimedOut, setSessionWaitTimedOut] = useState(false);
   const sessionCatchingUp = ready && authenticated && !user && !sessionWaitTimedOut;
@@ -48,8 +49,10 @@ export function VaultHubView() {
 
   return (
     <>
-      <VaultHubHeader showSubmitCta={hasActivity} />
-      {hasActivity ? <VaultActiveDashboardView /> : <VaultEmptyDashboardView />}
+      <VaultHubHeader showSubmitCta={viewState === "active"} />
+      {viewState === "loading" ? <VaultHubActivityLoading /> : null}
+      {viewState === "empty" ? <VaultEmptyDashboardView /> : null}
+      {viewState === "active" ? <VaultActiveDashboardView /> : null}
     </>
   );
 }

@@ -56,7 +56,7 @@ Pre-flight for PSA vault / Tokenable (self) vault mint. Does **not** reserve a c
 { "available": true, "certNumber": "83179580", "message": null }
 ```
 
-`available: false` when the cert already has an open vault cycle on that chain. Upload and mint still return `409` if the UI is bypassed.
+`available: false` when the cert already has an open vault cycle on that chain, or when the cert is on an active PSA vault shipment (in transit / at PSA). Upload and mint still return `409` if the UI is bypassed.
 
 ---
 

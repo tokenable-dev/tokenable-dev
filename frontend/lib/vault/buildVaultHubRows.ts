@@ -310,6 +310,13 @@ export function buildVaultHubRowsFromSubmissions(
   );
 }
 
+/** True when the signed-in user has any non-cancelled vault submission. */
+export function hasVaultHubActivityFromSubmissions(
+  submissions: VaultSubmissionApi[],
+): boolean {
+  return submissions.some((s) => s.status !== "cancelled");
+}
+
 export function countVaultHubByState(rows: VaultHubRow[]) {
   const counts = {
     all: rows.length,

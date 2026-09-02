@@ -41,7 +41,8 @@ sql/
 │   ├── add_rwa_tokens_settlement_policy.sql
 │   ├── alter_marketplace_partners_optional_pk.sql
 │   ├── add_rwa_tokens_vault_partner_id.sql
-   │   ├── add_user_settings_prefs_and_addresses.sql
+│   ├── add_vault_submission_item_display_fields.sql  # SSOT card fields on vault_submission_items
+│   ├── add_user_settings_prefs_and_addresses.sql
    │   ├── add_vault_redemptions_custody_refund.sql  # redeem payment micros, custody, refunds, memo, tracking
    │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
    │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
@@ -56,7 +57,7 @@ sql/
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
 | **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
-| **Existing prod after code pull** | Apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
+| **Existing prod after code pull** | Run `backend/sql/scripts/apply-deploy-maintenance.sh` (also in CI deploy), or apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
 | **Site relaunch (keep users)** | `maintenance/reset_marketplace_data.sql` — run `node scripts/burn-all-rwa-tokens.mjs` first if re-minting same PSA certs |
 | **Review / audit** | Read `schema/*.sql` — one file per domain |
 

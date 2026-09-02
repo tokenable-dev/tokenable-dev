@@ -229,6 +229,9 @@ jobs:
             git checkout develop
             git pull origin develop
 
+            # Idempotent schema patches (must run before backend restart).
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+
             # 시크릿은 docker-compose.ec2.yml → /home/ubuntu/.env.production.backend 만 사용 (~/app/backend 에 touch 불필요)
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
@@ -267,6 +270,8 @@ jobs:
             git fetch origin
             git checkout main
             git pull origin main
+
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main

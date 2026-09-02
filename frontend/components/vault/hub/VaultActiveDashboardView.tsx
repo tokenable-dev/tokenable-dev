@@ -12,6 +12,7 @@ import { useAuthStore } from "@/store/authStore";
 import {
   buildVaultHubRowsFromSubmissions,
   countVaultHubByState,
+  hasVaultHubActivityFromSubmissions,
 } from "@/lib/vault/buildVaultHubRows";
 import type { VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
 import { TkStepper } from "@/components/ds";
@@ -179,15 +180,20 @@ function HubCard({ item }: { item: VaultHubRow }) {
   );
 }
 
+export function VaultHubActivityLoading() {
+  return (
+    <div className="vault-hub-active vault-hub-active--loading" aria-busy>
+      <div className="vault-hub-active__skel" />
+      <div className="vault-hub-active__skel" />
+    </div>
+  );
+}
+
 /** Vault-Dashboard-Active.html — status tabs + per-card list. */
 export function VaultActiveDashboardView() {
   const [filter, setFilter] = useState<TabFilter>("all");
 
-  const submissionsQ = useQuery({
-    queryKey: rq.vaultSubmissions(),
-    queryFn: listVaultSubmissions,
-    staleTime: 10_000,
-  });
+  const submissionsQ = useVaultHubSubmissions();
 
   const submissions = submissionsQ.data ?? [];
 
@@ -207,13 +213,8 @@ export function VaultActiveDashboardView() {
 
   const visible = filter === "all" ? allRows : allRows.filter((r) => r.vstate === filter);
 
-  if (submissionsQ.isLoading && allRows.length === 0) {
-    return (
-      <div className="vault-hub-active vault-hub-active--loading" aria-busy>
-        <div className="vault-hub-active__skel" />
-        <div className="vault-hub-active__skel" />
-      </div>
-    );
+  if (submissionsQ.isPending && allRows.length === 0) {
+    return <VaultHubActivityLoading />;
   }
 
   return (
@@ -250,19 +251,28 @@ export function VaultActiveDashboardView() {
   );
 }
 
-/** True when the signed-in user has any PSA vaulting activity on this hub. */
-export function useHasVaultHubActivity(): boolean {
+export function useVaultHubSubmissions() {
   const user = useAuthStore((s) => s.user);
 
-  const submissionsQ = useQuery({
+  return useQuery({
     queryKey: rq.vaultSubmissions(),
     queryFn: listVaultSubmissions,
     staleTime: 10_000,
     enabled: Boolean(user),
   });
+}
 
-  return useMemo(
-    () => buildVaultHubRowsFromSubmissions(submissionsQ.data ?? []).length > 0,
-    [submissionsQ.data],
-  );
+export type VaultHubViewState = "loading" | "empty" | "active";
+
+export function useVaultHubViewState(): VaultHubViewState {
+  const submissionsQ = useVaultHubSubmissions();
+
+  if (submissionsQ.isPending) return "loading";
+
+  return hasVaultHubActivityFromSubmissions(submissionsQ.data ?? []) ? "active" : "empty";
+}
+
+/** True when the signed-in user has any PSA vaulting activity on this hub. */
+export function useHasVaultHubActivity(): boolean {
+  return useVaultHubViewState() === "active";
 }

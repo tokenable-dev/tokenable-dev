@@ -11,6 +11,14 @@ describe('RwaService.uploadToIpfs', () => {
   };
   const vault = {
     assertAvailableForNewCycle: jest.fn().mockResolvedValue(undefined),
+    checkAvailableForNewCycle: jest.fn().mockResolvedValue({
+      available: true,
+      certNumber: '84089328',
+      message: null,
+    }),
+  };
+  const vaultSubmissions = {
+    assertCertAvailableForSelfVault: jest.fn().mockResolvedValue(undefined),
   };
   const rwaSlabS3 = {
     ingestMintSlabBestEffort: jest.fn(),
@@ -34,6 +42,7 @@ describe('RwaService.uploadToIpfs', () => {
     service = new RwaService(
       pinata as never,
       vault as never,
+      vaultSubmissions as never,
       rwaSlabS3 as never,
     );
   });
@@ -140,5 +149,75 @@ describe('RwaService.uploadToIpfs', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(pinata.fetchImageBufferFromUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('RwaService.checkCertAvailability', () => {
+  const pinata = {} as never;
+  const vault = {
+    checkAvailableForNewCycle: jest.fn(),
+  };
+  const vaultSubmissions = {
+    assertCertAvailableForSelfVault: jest.fn(),
+  };
+  const rwaSlabS3 = {} as never;
+
+  let service: RwaService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new RwaService(pinata, vault as never, vaultSubmissions as never, rwaSlabS3);
+  });
+
+  it('returns unavailable when an open vault cycle exists', async () => {
+    vault.checkAvailableForNewCycle.mockResolvedValue({
+      available: false,
+      certNumber: '150726566',
+      message: 'already minted',
+    });
+
+    const result = await service.checkCertAvailability('150726566', 11155111);
+
+    expect(result.available).toBe(false);
+    expect(vaultSubmissions.assertCertAvailableForSelfVault).not.toHaveBeenCalled();
+  });
+
+  it('returns unavailable when cert is blocked by PSA shipment', async () => {
+    vault.checkAvailableForNewCycle.mockResolvedValue({
+      available: true,
+      certNumber: '150726566',
+      message: null,
+    });
+    vaultSubmissions.assertCertAvailableForSelfVault.mockRejectedValue(
+      new BadRequestException(
+        'PSA cert #150726566 is already in PSA vault shipment SUB-20260902-00001',
+      ),
+    );
+
+    const result = await service.checkCertAvailability('150726566', 11155111);
+
+    expect(result).toEqual({
+      available: false,
+      certNumber: '150726566',
+      message:
+        'PSA cert #150726566 is already in PSA vault shipment SUB-20260902-00001',
+    });
+  });
+
+  it('returns available when cycle and PSA shipment checks pass', async () => {
+    vault.checkAvailableForNewCycle.mockResolvedValue({
+      available: true,
+      certNumber: '150726566',
+      message: null,
+    });
+    vaultSubmissions.assertCertAvailableForSelfVault.mockResolvedValue(undefined);
+
+    const result = await service.checkCertAvailability('150726566', 11155111);
+
+    expect(result).toEqual({
+      available: true,
+      certNumber: '150726566',
+      message: null,
+    });
   });
 });
