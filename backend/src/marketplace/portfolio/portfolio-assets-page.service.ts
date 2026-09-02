@@ -2,25 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { CollectionMarketService } from '../collections/collection-market.service';
 import type { CollectionMarketBundle } from '../collections/collection-market.service';
 import { CollectionService } from '../collections/collection.service';
+import { BlockchainService } from '../../blockchain/blockchain.service';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
+import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import {
   ChainConfigService,
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
-import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
 import type { PortfolioHoldingBatchItem } from './portfolio-holding.service';
 import { PortfolioHoldingService } from './portfolio-holding.service';
-import {
-  componentsFromMetadata,
-  portfolioSnapshotCanPriceHoldings,
-} from '../utils/portfolio-token-price.util';
+import { componentsFromMetadata } from '../utils/portfolio-token-price.util';
 import { computeMarketBucketKey } from '../utils/bucket-key.util';
 import { perfNow, perfLog, elapsedMs } from '../../common/perf/perf';
 import {
   PortfolioAssetsPageCacheService,
-  type CachedPortfolioAssetsPagePayload,
 } from './portfolio-assets-page-cache.service';
+import { PORTFOLIO_ASSETS_PAGE_MAX } from './dto/portfolio-assets-page.dto';
 
 const MARKET_KEY_CHUNK = 60;
 const KEY_RESOLVE_CONCURRENCY = 8;
@@ -34,6 +32,8 @@ export type PortfolioAssetsPageMetadataItem = {
 };
 
 export type PortfolioAssetsPageResponse = {
+  /** Full owned tokenId list from DB owner index (newest-first). */
+  ownedTokenIds: number[];
   metadataItems: PortfolioAssetsPageMetadataItem[];
   collectionKeys: Record<number, string>;
   marketItems: Array<{
@@ -51,28 +51,40 @@ export class PortfolioAssetsPageService {
     private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly collectionService: CollectionService,
     private readonly collectionMarket: CollectionMarketService,
-    private readonly cardhedger: CardhedgerMarketDataService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly chainConfig: ChainConfigService,
     private readonly pageCache: PortfolioAssetsPageCacheService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
+    private readonly blockchain: BlockchainService,
   ) {}
 
   async loadPage(
     walletAddress: string,
-    tokenIds: number[],
+    tokenIds: number[] | undefined,
     chainId?: SupportedChainId,
   ): Promise<PortfolioAssetsPageResponse> {
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const wallet = walletAddress.trim().toLowerCase();
-    const uniqueTokenIds = [
+
+    const ownedTokenIds = await this.resolveOwnedTokenIds(wallet, chain);
+    const ownedSet = new Set(ownedTokenIds);
+
+    const requested = [
       ...new Set(
-        tokenIds
+        (tokenIds ?? [])
           .map((n) => Math.floor(Number(n)))
           .filter((n) => Number.isFinite(n) && n >= 0),
       ),
-    ];
+    ].filter((id) => ownedSet.has(id));
+
+    const uniqueTokenIds =
+      requested.length > 0
+        ? requested
+        : ownedTokenIds.slice(0, PORTFOLIO_ASSETS_PAGE_MAX);
+
     if (uniqueTokenIds.length === 0) {
       return {
+        ownedTokenIds,
         metadataItems: [],
         collectionKeys: {},
         marketItems: [],
@@ -95,9 +107,11 @@ export class PortfolioAssetsPageService {
         perfLog('api', 'portfolioAssetsPage', elapsedMs(_t0), {
           chainId: chain,
           tokenCount: uniqueTokenIds.length,
+          ownedCount: ownedTokenIds.length,
           cache: cached.layer,
+          source: 'db',
         });
-        return { ...cached.payload, holdings };
+        return { ...cached.payload, ownedTokenIds, holdings };
       }
     }
 
@@ -109,12 +123,35 @@ export class PortfolioAssetsPageService {
     );
 
     if (this.pageCache.isEnabled()) {
-      const { holdings, ...cacheable } = result;
-      void this.pageCache.set(cacheKey, cacheable as CachedPortfolioAssetsPagePayload);
+      const { holdings, ownedTokenIds: _o, ...cacheable } = result;
+      void this.pageCache.set(cacheKey, cacheable);
       void holdings;
+      void _o;
     }
 
-    return result;
+    return { ...result, ownedTokenIds };
+  }
+
+  /** DB owner index first; RPC ownerOf scan only when index is empty and incomplete. */
+  private async resolveOwnedTokenIds(
+    wallet: string,
+    chainId: SupportedChainId,
+  ): Promise<number[]> {
+    const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
+    if (await this.ownerIndex.isIndexReady(chainId)) {
+      return this.sortOwnedNewestFirst(fromDb);
+    }
+    if (fromDb.length > 0) {
+      return this.sortOwnedNewestFirst(fromDb);
+    }
+    const fromChain = await this.blockchain.getRwaTokensByOwner(wallet, chainId);
+    return this.sortOwnedNewestFirst(fromChain);
+  }
+
+  private sortOwnedNewestFirst(tokenIds: number[]): number[] {
+    return [...new Set(tokenIds)]
+      .filter((n) => Number.isFinite(n) && n >= 0)
+      .sort((a, b) => b - a);
   }
 
   private async loadPageUncached(
@@ -123,9 +160,10 @@ export class PortfolioAssetsPageService {
     chain: SupportedChainId,
     _t0: bigint,
   ): Promise<PortfolioAssetsPageResponse> {
-    const [metadataPack, holdings] = await Promise.all([
-      this.rwaAssetResolve.batchRwaMetadata(uniqueTokenIds, chain),
+    const [metadataPack, holdings, registryKeys] = await Promise.all([
+      this.rwaAssetResolve.batchPortfolioMetadata(uniqueTokenIds, chain),
       this.portfolioHoldings.getHoldingsBatch(wallet, uniqueTokenIds, chain),
+      this.collectionService.collectionKeysByTokenIds(uniqueTokenIds, chain),
     ]);
 
     const metadataItems: PortfolioAssetsPageMetadataItem[] =
@@ -148,6 +186,7 @@ export class PortfolioAssetsPageService {
       uniqueTokenIds,
       metaByToken,
       chain,
+      registryKeys,
     );
 
     const uniqueKeys = [
@@ -174,38 +213,20 @@ export class PortfolioAssetsPageService {
       }
     }
 
-    const seriesByKey = new Map<string, CollectionMarketBundle | null>();
-    for (const it of marketItems) {
-      seriesByKey.set(it.collectionKey.toLowerCase(), it.series);
-    }
-
-    const unmatchedTokenIds = uniqueTokenIds.filter((tokenId) => {
-      const key = collectionKeys[tokenId]?.toLowerCase();
-      if (!key) return true;
-      return !portfolioSnapshotCanPriceHoldings(seriesByKey.get(key));
-    });
-
-    const mintPreviews =
-      unmatchedTokenIds.length > 0
-        ? await this.cardhedger.getBatchMintPreviewsFromTokenIds(
-            unmatchedTokenIds,
-            chain,
-          )
-        : {};
-
     perfLog('api', 'portfolioAssetsPage', elapsedMs(_t0), {
       chainId: chain,
       tokenCount: uniqueTokenIds.length,
       collectionKeys: uniqueKeys.length,
-      mintPreviews: unmatchedTokenIds.length,
       cache: 'miss',
+      source: 'db',
     });
 
     return {
+      ownedTokenIds: [],
       metadataItems,
       collectionKeys,
       marketItems,
-      mintPreviews,
+      mintPreviews: {},
       holdings,
     };
   }
@@ -214,36 +235,40 @@ export class PortfolioAssetsPageService {
     tokenIds: number[],
     metaByToken: Map<number, Record<string, unknown>>,
     chainId: SupportedChainId,
+    registryKeys: Record<number, string>,
   ): Promise<Record<number, string>> {
-    const cached = await this.collectionService.collectionKeysByTokenIds(
-      tokenIds,
-      chainId,
-    );
-    const out: Record<number, string> = { ...cached };
+    const out: Record<number, string> = {};
+    for (const [idStr, key] of Object.entries(registryKeys)) {
+      const id = Number(idStr);
+      const k = key?.trim().toLowerCase();
+      if (Number.isFinite(id) && k) out[id] = k;
+    }
     const missing = tokenIds.filter((id) => !out[id]);
 
     for (let i = 0; i < missing.length; i += KEY_RESOLVE_CONCURRENCY) {
       const chunk = missing.slice(i, i + KEY_RESOLVE_CONCURRENCY);
       await Promise.all(
         chunk.map(async (tokenId) => {
+          const meta = metaByToken.get(tokenId);
+          if (meta) {
+            const comp = componentsFromMetadata(meta);
+            if (comp) {
+              out[tokenId] = computeMarketBucketKey(comp).toLowerCase();
+              return;
+            }
+          }
           try {
-            const fromApi =
+            const fromChain =
               await this.collectionService.resolveCollectionKeyFromTokenMetadata(
                 String(tokenId),
                 chainId,
               );
-            if (fromApi) {
-              out[tokenId] = fromApi.toLowerCase();
-              return;
+            if (fromChain) {
+              out[tokenId] = fromChain.toLowerCase();
             }
           } catch {
-            /* fall through */
+            /* metadata unavailable on chain */
           }
-          const meta = metaByToken.get(tokenId);
-          if (!meta) return;
-          const comp = componentsFromMetadata(meta);
-          if (!comp) return;
-          out[tokenId] = computeMarketBucketKey(comp).toLowerCase();
         }),
       );
     }

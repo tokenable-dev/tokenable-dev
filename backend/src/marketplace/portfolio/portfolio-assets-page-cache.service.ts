@@ -16,11 +16,11 @@ import type { PortfolioAssetsPageResponse } from './portfolio-assets-page.servic
 
 export type CachedPortfolioAssetsPagePayload = Omit<
   PortfolioAssetsPageResponse,
-  'holdings'
+  'holdings' | 'ownedTokenIds'
 >;
 
-const MEMORY_NS = 'portfolio:assets-page';
-const REDIS_KEY_PREFIX = 'portfolio:assets-page:v1:';
+const MEMORY_NS = 'portfolio:assets-page:v3';
+const REDIS_KEY_PREFIX = 'portfolio:assets-page:v3:';
 
 const REDIS_CONNECT_TIMEOUT_MS = 2_000;
 const REDIS_COMMAND_TIMEOUT_MS = 1_000;

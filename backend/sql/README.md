@@ -167,7 +167,7 @@ Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/datab
 | `PORTFOLIO_SNAPSHOT_CRON_ENABLED` | Daily 09:00 KST capture (default **on** in `production`) |
 | `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | Boot capture into active slot (default **on** in `production`) |
 | `PORTFOLIO_SNAPSHOT_BOOTSTRAP_DELAY_MS` | Delay before bootstrap (default **10000**) |
-| `PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY` | Parallel `ownerOf` RPC (default **24**) |
+| `PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY` | Parallel `ownerOf` RPC (default **4**) |
 | `PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY` | Parallel wallet upserts (default **8**) |
 
 ## Snapshot worker env

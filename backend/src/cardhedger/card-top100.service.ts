@@ -196,6 +196,13 @@ export class CardTop100Service implements OnApplicationBootstrap {
 
   // ─── Cron ────────────────────────────────────────────────────────────────
 
+  private cronEnabled(): boolean {
+    const raw = this.config.get<string>('CARD_TOP100_CRON_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
   /**
    * Daily at 09:40 KST — staggered after the 09:00 collection prewarm and
    * 09:20 portfolio capture so daily jobs don't hit DB/CardHedger at once.
@@ -204,6 +211,7 @@ export class CardTop100Service implements OnApplicationBootstrap {
    */
   @Cron('0 40 9 * * *', { timeZone: 'Asia/Seoul' })
   async scheduledRefresh(): Promise<void> {
+    if (!this.cronEnabled()) return;
     this.logger.log('Card Top100: daily refresh — discovering categories');
     this.invalidateDayCache(); // clear stale in-memory cache from yesterday
     const categories = await this.discoverCategoriesLive();

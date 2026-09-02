@@ -5,7 +5,6 @@ import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from 
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import {
-  resolveMarketsListingMarketChangePct1y,
   resolveMarketsListingMarketChangePct90d,
 } from "@/lib/markets/marketsListingMarketPrice";
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
@@ -65,7 +64,6 @@ export function HomeCardGrid({
   subMode = "change",
   changeLoading = false,
   use90dChange = false,
-  use1yChange = false,
   layout = "scroll",
 }: {
   collections: MarketplaceCollectionSummary[];
@@ -74,8 +72,6 @@ export function HomeCardGrid({
   changeLoading?: boolean;
   /** Home Top movers — fixed 90-day reference % change. */
   use90dChange?: boolean;
-  /** Home New items — fixed 1-year reference % change. */
-  use1yChange?: boolean;
   layout?: "scroll" | "wrap";
 }) {
   const isWrap = layout === "wrap";
@@ -176,12 +172,10 @@ export function HomeCardGrid({
         {collections.map((collection) => {
           const key = collection.collectionKey.toLowerCase();
           const snapshot = snapshotByKey.get(key);
-          const changePctOverride = use1yChange
-            ? resolveMarketsListingMarketChangePct1y(snapshot)
-            : use90dChange
-              ? resolveMarketsListingMarketChangePct90d(snapshot)
-              : undefined;
-          const periodLabel = use1yChange ? "1Y" : use90dChange ? "90d" : undefined;
+          const changePctOverride = use90dChange
+            ? resolveMarketsListingMarketChangePct90d(snapshot)
+            : undefined;
+          const periodLabel = use90dChange ? "90d" : undefined;
           return (
             <CollectibleCard
               key={collection.collectionKey}

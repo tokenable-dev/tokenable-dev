@@ -7,6 +7,7 @@ import {
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import { User } from '../../user/entities/user.entity';
 import {
   CollectionMarketBundle,
@@ -89,6 +90,7 @@ export class PortfolioDailySnapshotService {
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
     private readonly blockchain: BlockchainService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
     private readonly collectionMarket: CollectionMarketService,
     private readonly cardhedger: CardhedgerMarketDataService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
@@ -102,10 +104,10 @@ export class PortfolioDailySnapshotService {
   ownerScanConcurrency(): number {
     const raw = Number(
       this.config.get<string>('PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY') ??
-        '24',
+        '4',
     );
-    if (!Number.isFinite(raw) || raw < 1) return 24;
-    return Math.min(Math.floor(raw), 64);
+    if (!Number.isFinite(raw) || raw < 1) return 4;
+    return Math.min(Math.floor(raw), 16);
   }
 
   upsertConcurrency(): number {
@@ -436,10 +438,33 @@ export class PortfolioDailySnapshotService {
   }> {
     const { totalMinted: totalRaw } = await this.blockchain.getRwaInfo(chainId);
     const totalMinted = Math.max(0, Math.floor(Number(totalRaw)));
-    const holderIndex: HolderIndex = new Map();
     if (totalMinted <= 0) {
-      return { totalMinted: 0, holderIndex };
+      return { totalMinted: 0, holderIndex: new Map() };
     }
+
+    if (await this.ownerIndex.isIndexReady(chainId)) {
+      const holderIndex = await this.ownerIndex.buildHolderIndex(chainId);
+      this.logger.debug(
+        JSON.stringify({
+          msg: 'portfolio_snapshot_holder_index',
+          chainId,
+          source: 'owner_index_db',
+          holders: holderIndex.size,
+          totalMinted,
+        }),
+      );
+      return { totalMinted, holderIndex };
+    }
+
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'portfolio_snapshot_holder_index',
+        chainId,
+        source: 'ownerOf_scan',
+        totalMinted,
+        hint: 'Enable RWA_OWNER_INDEX_ENABLED=1 and wait for backfill to avoid RPC scan',
+      }),
+    );
 
     const tokenIds = Array.from({ length: totalMinted }, (_, i) => i + 1);
     const ownerByToken = await this.blockchain.batchOwnerOf(
@@ -448,6 +473,7 @@ export class PortfolioDailySnapshotService {
       chainId,
     );
 
+    const holderIndex: HolderIndex = new Map();
     for (const [tokenId, owner] of ownerByToken) {
       const list = holderIndex.get(owner) ?? [];
       list.push(tokenId);

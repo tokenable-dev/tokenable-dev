@@ -199,6 +199,16 @@ export function classifyPartnerMintSkip(message: string): {
   if (m.includes("rate limit")) {
     return { kind: "rate_limit", title: "PSA rate limit" };
   }
+  if (
+    m.includes("compute units per second") ||
+    m.includes("could not coalesce error") ||
+    /\b429\b/.test(m)
+  ) {
+    return {
+      kind: "rate_limit",
+      title: "Network busy — wait and retry",
+    };
+  }
   if (m.includes("invalid cert")) {
     return { kind: "invalid_cert", title: "Invalid cert number" };
   }

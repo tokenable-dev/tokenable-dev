@@ -160,7 +160,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | GET | `/api/marketplace/portfolio/hidden/:wallet` | — | Hidden token IDs |
 | POST | `/api/marketplace/portfolio/hidden` | — | Hide holding |
 | DELETE | `/api/marketplace/portfolio/hidden` | — | Unhide holding |
-| POST | `/api/marketplace/portfolio/assets-page` | — | My Assets BFF (metadata + keys + market + mint-previews per page) |
+| POST | `/api/marketplace/portfolio/assets-page` | — | My Assets BFF (metadata + keys + market + holdings per page; mint-previews client follow-up) |
 | POST | `/api/marketplace/portfolio/holdings/batch` | — | Batch hide + cost basis per tokenId |
 | PUT | `/api/marketplace/portfolio/holdings/cost-basis` | — | Manual cost basis (never overwritten by auto-seed) |
 | GET | `/api/marketplace/watchlist` | JWT | List saved collections (`x-tokenable-chain-id` optional) |

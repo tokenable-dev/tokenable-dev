@@ -186,17 +186,15 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 
 ## Portfolio My Assets loading
 
-`/portfolio` uses `useUserAssets(..., { assetPageSize: PORTFOLIO_ASSETS_PAGE_SIZE })` (50):
+`/portfolio` uses `usePortfolioAssetsPage` (DB bootstrap + pagination) and `usePortfolioActiveOrders` (listings):
 
-1. `GET /blockchain/rwa/tokens/:address` — owned token id list (owner index when enabled; cached ~30s)
-2. **BFF** — `POST /marketplace/portfolio/assets-page` with the first **50** `tokenIds` (metadata + collection keys + market snapshots + mint-previews in **one** round-trip). Load more sends only **new** tokenIds incrementally.
-3. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
-4. **Holdings prefs** — `POST /portfolio/holdings/batch` for hide + cost basis across **all** owned tokenIds (lightweight DB read).
-5. **Prices** — included in the assets-page BFF (`portfolio-market-batch` + mint-preview fallback). Gallery sparklines come from snapshot series. Missing snapshots enqueue background refresh.
+1. **BFF bootstrap** — `POST /marketplace/portfolio/assets-page` with **wallet only** (no client token list). Server reads **`ownedTokenIds`** from the DB owner index and returns the first **50** tokens' metadata, collection keys, market snapshots, and holdings in **one** round-trip. **No** `GET /blockchain/rwa/tokens/:address`.
+2. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
+3. **Holdings prefs** — included in the assets-page BFF for the loaded page (hide + cost basis). No separate holdings batch for the visible grid.
+4. **Prices** — snapshot marks from assets-page BFF (DB); Cardhedger mint-previews load in a **follow-up** request for tokens without snapshot prices. Gallery sparklines come from snapshot series. Hero **Portfolio value** sums live marks on loaded visible rows; **24h P/L chip** uses daily snapshots. Missing snapshots enqueue background refresh.
+5. **Browser cache** — `PortfolioQueryPersistence` mirrors markets: localStorage paint cache (24h TTL) for owned token list, assets-page payload, daily snapshots, listings, and mint previews. Refresh shows cached UI immediately; stale data refetches in the background.
 6. **Load more** — next `assets-page` call for the next 50 tokenIds only
 7. **Perf RUM (Phase 3)** — `usePortfolioLoadPerf` emits `portfolio/tokenIds-ready`, `assets-ready`, `prices-ready` when `localStorage.PERF_LOG=1` (see `lib/perf/`)
-
-Legacy client waterfall (`metadata/batch` + `token-collection-keys` + `portfolio-market-batch` + `mint-previews` separately) remains available via `useUserAssets({ metadataSource: 'client' })` + `usePortfolioMarketPricing` for non-portfolio consumers.
 
 Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row. After mint, buy, or hide, React Query invalidates `portfolio-daily-snapshots` so the open Portfolio page refetches the recaptured slot.
 

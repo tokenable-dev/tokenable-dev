@@ -162,9 +162,25 @@ MARKETPLACE_ADMIN_SESSION_SECRET=dev_secret_change_in_prod
 # MARKET_SNAPSHOT_ON_DEMAND=true
 # MARKET_SNAPSHOT_STALE_AFTER_SEC=900
 
-# Portfolio daily snapshots — 09:00 KST cron
-PORTFOLIO_SNAPSHOT_CRON_ENABLED=true
-PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED=true
+# Portfolio daily snapshots — 09:20 KST cron (production default; off in dev)
+# PORTFOLIO_SNAPSHOT_CRON_ENABLED=false
+# PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED=false
+
+# Background workers — off in local dev unless you are testing them
+# MARKET_SNAPSHOT_CRON_ENABLED=false          # Cardhedger 15-min refresh (default: prod only)
+# CARD_TOP100_CRON_ENABLED=false              # Cardhedger daily top-100 (default: prod only)
+# CARDLADDER_INDEXES_PREWARM_ENABLED=false    # Playwright scrape on boot (default: prod only)
+# IDENTITY_RECONCILIATION_ENABLED=false       # 3-min cache repair loop (default: prod only)
+# RWA_OWNER_INDEX_ENABLED=0                   # Transfer log index + poll (enable in prod/staging)
+# RWA_OWNER_INDEX_POLL_MS=60000               # Active poll while backfilling (default 60s)
+# RWA_OWNER_INDEX_IDLE_POLL_MS=120000         # Idle poll after index ready (default 2min)
+
+# Alchemy Free RPC tuning (defaults are Free-friendly — override only if you upgrade)
+# RPC_MAX_CONCURRENCY=2
+# RPC_OWNER_SCAN_CONCURRENCY=4
+# RPC_METADATA_BATCH_CONCURRENCY=2
+# RPC_BATCH_CHUNK_DELAY_MS=250
+# CHAIN_11155111_RWA_DEPLOY_BLOCK=<TokenableRWA deploy block>  # required for owner-index log backfill
 
 # Performance instrumentation
 # PERF_LOG=true

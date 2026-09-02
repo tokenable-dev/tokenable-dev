@@ -67,8 +67,9 @@ export function MarketplaceAdminPortfolioPage() {
         </div>
         <p className={`mt-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
           Cron captures all holders daily. First portfolio view triggers baseline
-          backfill. Hero <strong>Portfolio value</strong> and <strong>24h P/L</strong> use
-          snapshots only — not live mark sums.
+          backfill. Hero <strong>Portfolio value</strong> sums live market marks on
+          visible holdings; <strong>24h P/L chip</strong> uses daily snapshots — not
+          live mark sums.
         </p>
       </div>
 

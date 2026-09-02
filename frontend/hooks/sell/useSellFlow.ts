@@ -51,6 +51,13 @@ import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
+/** Pause between partner self-vault mints — keeps Alchemy Free CU/s headroom. */
+const PARTNER_MINT_INTER_CARD_DELAY_MS = 2_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type SellFlowScreen = "register" | "vault" | "cards";
 
 /** Legacy key — consents are session-only now; cleared on hydrate. */
@@ -670,6 +677,9 @@ export function useSellFlow() {
             tokenId: result.tokenId,
             address: recipientAddress,
           });
+          if (i + 1 < confirmed.length) {
+            await sleep(PARTNER_MINT_INTER_CARD_DELAY_MS);
+          }
         } catch (e) {
           const detail =
             e instanceof Error ? e.message : "Partner vault mint failed";

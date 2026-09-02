@@ -34,8 +34,11 @@ export default registerAs('cardladder', () => ({
     0,
     600_000,
   ),
-  /** Boot + interval refresh unless CARDLADDER_INDEXES_PREWARM_DISABLED=1 */
-  indexesPrewarmEnabled: !flag(process.env.CARDLADDER_INDEXES_PREWARM_DISABLED),
+  /** Boot + interval refresh — production by default; dev needs explicit opt-in. */
+  indexesPrewarmEnabled:
+    process.env.NODE_ENV === 'production'
+      ? !flag(process.env.CARDLADDER_INDEXES_PREWARM_DISABLED)
+      : flag(process.env.CARDLADDER_INDEXES_PREWARM_ENABLED),
   /** Max wait for an in-flight scrape on cold HTTP reads (avoids proxy socket hang-up). */
   indexesColdWaitMs: clampInt(
     process.env.CARDLADDER_INDEXES_COLD_WAIT_MS,

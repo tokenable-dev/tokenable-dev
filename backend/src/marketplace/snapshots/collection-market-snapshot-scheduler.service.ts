@@ -131,7 +131,9 @@ export class CollectionMarketSnapshotSchedulerService
 
   cronEnabled(): boolean {
     const raw = this.config.get<string>('MARKET_SNAPSHOT_CRON_ENABLED');
-    return raw !== '0' && raw !== 'false';
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
   }
 
   maxQueueDepth(): number {

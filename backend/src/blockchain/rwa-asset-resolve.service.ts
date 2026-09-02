@@ -58,6 +58,59 @@ export class RwaAssetResolveService {
     return this.ipfs.resolveUriToHttps(ref);
   }
 
+  private registryMetadataUri(row: RwaToken): string {
+    const tokenUri = row.tokenUri?.trim();
+    if (tokenUri) return tokenUri;
+    const cid = row.metadataCid?.trim();
+    if (!cid) return '';
+    return /^ipfs:\/\//i.test(cid) ? cid : `ipfs://${cid}`;
+  }
+
+  private async fetchMetadataJsonSafe(
+    tokenUri: string,
+  ): Promise<Record<string, unknown> | null> {
+    const uri = tokenUri.trim();
+    if (!uri) return null;
+    try {
+      return await this.ipfs.fetchMetadataJson(uri);
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveImageFromMetadata(
+    metadata: Record<string, unknown> | null,
+  ): Promise<string | null> {
+    if (!metadata) return null;
+    const ref = pickRwaAssetDisplayImageRef(metadata);
+    return ref ? await this.ipfs.resolveImageToHttps(ref) : null;
+  }
+
+  private async ensureMetadata(
+    payload: ResolvedAssetPayload,
+    row?: RwaToken | null,
+  ): Promise<ResolvedAssetPayload> {
+    if (payload.metadata) return payload;
+
+    const uris = [
+      payload.tokenURI?.trim(),
+      row ? this.registryMetadataUri(row) : '',
+    ].filter(Boolean) as string[];
+
+    for (const uri of uris) {
+      const metadata = await this.fetchMetadataJsonSafe(uri);
+      if (!metadata) continue;
+      return {
+        ...payload,
+        tokenURI: payload.tokenURI?.trim() ? payload.tokenURI : uri,
+        metadata,
+        imageUrl: payload.imageUrl ?? (await this.resolveImageFromMetadata(metadata)),
+      };
+    }
+
+    return payload;
+  }
+
   /** DB registry row for this chain's RWA contract only (never cross-chain by tokenId). */
   private async findRegistryRow(
     tokenId: number,
@@ -75,43 +128,32 @@ export class RwaAssetResolveService {
   ): Promise<ResolvedAssetPayload | null> {
     const displayOverride = row.displayImageUrl?.trim();
     const imageBackUrl = row.displayImageBackUrl?.trim() || null;
-    const tokenUri = row.tokenUri?.trim() ?? '';
+    const tokenUri = this.registryMetadataUri(row);
 
+    let imageUrl: string | null = null;
     if (displayOverride) {
-      const imageUrl = await this.resolveOverrideToHttps(displayOverride);
-      if (imageUrl) {
-        return {
-          tokenId,
-          tokenURI: tokenUri,
-          metadata: null,
-          imageUrl,
-          imageBackUrl,
-        };
-      }
+      imageUrl = await this.resolveOverrideToHttps(displayOverride);
     }
 
-    if (!tokenUri) return null;
+    const metadata = tokenUri
+      ? await this.fetchMetadataJsonSafe(tokenUri)
+      : null;
+    if (!imageUrl && metadata) {
+      imageUrl = await this.resolveImageFromMetadata(metadata);
+    }
 
-    try {
-      const metadata = await this.ipfs.fetchMetadataJson(tokenUri);
-      const ref = pickRwaAssetDisplayImageRef(metadata);
-      const imageUrl = ref ? await this.ipfs.resolveImageToHttps(ref) : null;
-      return {
+    if (!imageUrl && !metadata && !tokenUri) return null;
+
+    return this.ensureMetadata(
+      {
         tokenId,
         tokenURI: tokenUri,
         metadata,
         imageUrl,
         imageBackUrl,
-      };
-    } catch {
-      return {
-        tokenId,
-        tokenURI: tokenUri,
-        metadata: null,
-        imageUrl: null,
-        imageBackUrl,
-      };
-    }
+      },
+      row,
+    );
   }
 
   private async resolveFromDbRegistry(
@@ -184,7 +226,9 @@ export class RwaAssetResolveService {
     imageBackUrl: string | null;
     displayImageUrlOverride: string | null;
   }> {
-    const base = await this.resolveOnChainOrDb(tokenId, chainId);
+    let base = await this.resolveOnChainOrDb(tokenId, chainId);
+    const registryRow = await this.findRegistryRow(tokenId, chainId);
+    base = await this.ensureMetadata(base, registryRow);
     const fields = await this.displayImageFields(tokenId, chainId);
     const imageBackUrl =
       (fields.back
@@ -208,6 +252,53 @@ export class RwaAssetResolveService {
     };
   }
 
+  private stubMetadataFromRegistryRow(
+    row: RwaToken,
+  ): Record<string, unknown> | null {
+    const name = row.displayName?.trim();
+    const cert = row.certNumber?.trim();
+    if (!name && !cert) return null;
+    const meta: Record<string, unknown> = {};
+    if (name) meta.name = name;
+    if (cert) {
+      meta.properties = {
+        graded: {
+          gradingCompany: 'PSA',
+          psa: { certNumber: cert },
+        },
+      };
+    }
+    return meta;
+  }
+
+  private async fetchMetadataJsonByUriMap(
+    uris: string[],
+  ): Promise<Map<string, Record<string, unknown> | null>> {
+    const unique = [...new Set(uris.map((u) => u.trim()).filter(Boolean))];
+    const out = new Map<string, Record<string, unknown> | null>();
+    const concurrency = 4;
+    for (let i = 0; i < unique.length; i += concurrency) {
+      const chunk = unique.slice(i, i + concurrency);
+      await Promise.all(
+        chunk.map(async (uri) => {
+          out.set(uri, await this.fetchMetadataJsonSafe(uri));
+        }),
+      );
+    }
+    return out;
+  }
+
+  /**
+   * Portfolio list path — DB registry batch + deduped IPFS metadata reads.
+   * No on-chain tokenURI unless the token has no registry row.
+   */
+  async batchPortfolioMetadata(
+    tokenIds: number[],
+    chainId?: SupportedChainId,
+  ): ReturnType<RwaAssetResolveService['batchRwaMetadata']> {
+    return this.batchRwaMetadata(tokenIds, chainId);
+  }
+
   async batchRwaMetadata(
     tokenIds: number[],
     chainId?: SupportedChainId,
@@ -221,73 +312,126 @@ export class RwaAssetResolveService {
       displayImageUrlOverride: string | null;
     }>;
   }> {
-    const base = await this.blockchain.batchRwaMetadata(tokenIds, chainId);
+    const unique = [
+      ...new Set(
+        tokenIds
+          .map((n) => Math.floor(Number(n)))
+          .filter((n) => Number.isFinite(n) && n >= 0),
+      ),
+    ];
+    if (unique.length === 0) return { items: [] };
+
     const contract = this.rwaContractAddress(chainId);
     const overrides = new Map<number, string>();
     const registryRows = new Map<number, RwaToken>();
 
-    const ids = base.items.map((i) => String(i.tokenId));
-    if (ids.length > 0) {
+    if (contract) {
       const rows = await this.rwaTokenRepo.find({
-        where: { tokenContract: contract, tokenId: In(ids) },
+        where: { tokenContract: contract, tokenId: In(unique.map(String)) },
       });
       for (const row of rows) {
         const tid = Number(row.tokenId);
         if (!Number.isFinite(tid)) continue;
-        if (!registryRows.has(tid)) registryRows.set(tid, row);
+        registryRows.set(tid, row);
         const url = row.displayImageUrl?.trim();
         if (url) overrides.set(tid, url);
       }
     }
 
-    const items = await Promise.all(
-      base.items.map(async (item) => {
-        let resolved: ResolvedAssetPayload = {
-          tokenId: item.tokenId,
-          tokenURI: item.tokenURI ?? '',
-          metadata: item.metadata,
-          imageUrl: item.imageUrl,
-          imageBackUrl:
-            registryRows.get(item.tokenId)?.displayImageBackUrl?.trim() || null,
-        };
+    const needsOnChain = unique.filter((tokenId) => {
+      const row = registryRows.get(tokenId);
+      return !row || !this.registryMetadataUri(row);
+    });
 
-        if (this.needsDbFallback(resolved)) {
-          const row = registryRows.get(item.tokenId);
-          if (row) {
-            const fromDb = await this.resolveFromRegistryRow(item.tokenId, row);
-            if (fromDb) resolved = fromDb;
-          }
+    const onChainById = new Map<
+      number,
+      {
+        tokenURI: string | null;
+        metadata: Record<string, unknown> | null;
+        imageUrl: string | null;
+      }
+    >();
+    if (needsOnChain.length > 0) {
+      const base = await this.blockchain.batchRwaMetadata(needsOnChain, chainId);
+      for (const item of base.items) {
+        onChainById.set(item.tokenId, item);
+      }
+    }
+
+    const registryUris: string[] = [];
+    for (const tokenId of unique) {
+      const row = registryRows.get(tokenId);
+      if (!row) continue;
+      const uri = this.registryMetadataUri(row);
+      if (uri) registryUris.push(uri);
+    }
+    const metadataByUri = await this.fetchMetadataJsonByUriMap(registryUris);
+    const httpsBackCache = new Map<string, string | null>();
+
+    const items = await Promise.all(
+      unique.map(async (tokenId) => {
+        const row = registryRows.get(tokenId);
+        const registryUri = row ? this.registryMetadataUri(row) : '';
+
+        let metadata: Record<string, unknown> | null = null;
+        if (registryUri) {
+          metadata = metadataByUri.get(registryUri) ?? null;
+        }
+        if (!metadata && row) {
+          metadata = this.stubMetadataFromRegistryRow(row);
+        }
+        const onChain = onChainById.get(tokenId);
+        if (!metadata) {
+          metadata = onChain?.metadata ?? null;
         }
 
-        const rowBack = registryRows.get(item.tokenId)?.displayImageBackUrl?.trim();
-        const imageBackUrl = rowBack
-          ? (await this.resolveOverrideToHttps(rowBack)) ?? resolved.imageBackUrl
-          : resolved.imageBackUrl;
+        const override = overrides.get(tokenId) ?? null;
+        let imageUrl: string | null = null;
+        if (override) {
+          imageUrl = await this.resolveOverrideToHttps(override);
+        } else if (metadata) {
+          imageUrl = await this.resolveImageFromMetadata(metadata);
+        } else {
+          imageUrl = onChain?.imageUrl ?? null;
+        }
 
-        const override = overrides.get(item.tokenId) ?? null;
+        let imageBackUrl: string | null = null;
+        const rowBack = row?.displayImageBackUrl?.trim();
+        if (rowBack) {
+          if (!httpsBackCache.has(rowBack)) {
+            httpsBackCache.set(
+              rowBack,
+              (await this.resolveOverrideToHttps(rowBack)) ?? null,
+            );
+          }
+          imageBackUrl = httpsBackCache.get(rowBack) ?? null;
+        }
+
+        const tokenURI = registryUri || onChain?.tokenURI?.trim() || null;
+
         if (!override) {
           return {
-            tokenId: resolved.tokenId,
-            tokenURI: resolved.tokenURI || null,
-            metadata: resolved.metadata,
-            imageUrl: resolved.imageUrl,
+            tokenId,
+            tokenURI,
+            metadata,
+            imageUrl,
             imageBackUrl,
             displayImageUrlOverride: null,
           };
         }
-        const imageUrl =
-          (await this.resolveOverrideToHttps(override)) ?? resolved.imageUrl;
+
         return {
-          tokenId: resolved.tokenId,
-          tokenURI: resolved.tokenURI || null,
-          metadata: resolved.metadata,
-          imageUrl,
+          tokenId,
+          tokenURI,
+          metadata,
+          imageUrl: imageUrl ?? (await this.resolveImageFromMetadata(metadata)),
           imageBackUrl,
           displayImageUrlOverride: override,
         };
       }),
     );
 
+    items.sort((a, b) => a.tokenId - b.tokenId);
     return { items };
   }
 }

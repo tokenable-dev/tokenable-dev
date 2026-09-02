@@ -97,9 +97,20 @@ Returns array of tokenIds owned by `address`.
 
 When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
 
-Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill + live Transfer listener). Optional: `CHAIN_{id}_RWA_DEPLOY_BLOCK` to narrow log replay, `RWA_OWNER_INDEX_LOG_CHUNK` = inclusive block count per `eth_getLogs` (default 4000; use **10** on Alchemy Free), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default 150 — throttle between chunks to avoid 429), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default 6). Non-default chains without deploy block skip backfill until `CHAIN_{id}_RWA_DEPLOY_BLOCK` is set.
+Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill + live Transfer listener). **Required for log replay:** `CHAIN_{id}_RWA_DEPLOY_BLOCK` = TokenableRWA deploy block (without it, log backfill is skipped to avoid scanning genesis→head and hitting RPC 429s; portfolio still works via `ownerOf` scan + live Transfer listener). Optional tuning: `RWA_OWNER_INDEX_LOG_CHUNK` = inclusive blocks per `eth_getLogs` (default **10**, Alchemy Free), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default **600**), `RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN` (default **500** — pauses between passes), `RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS` (default **60000**), `RWA_OWNER_INDEX_POLL_MS` (default **60000** — active poll while backfilling), `RWA_OWNER_INDEX_IDLE_POLL_MS` (default **120000** — after all chains indexed), `RWA_OWNER_INDEX_POLL_MAX_BLOCKS` (default **50** per poll), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default 6).
 
-Defenses: address format validated (400 on invalid), result cached 30s per `(chainId, address)`, concurrent identical scans coalesced, rate-limited to 30 req/min per IP.
+**Alchemy Free RPC budget** (defaults tuned for Free tier CU/s):
+
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `RPC_MAX_CONCURRENCY` | `2` | Max in-flight JSON-RPC calls (global semaphore) |
+| `RPC_BATCH_CHUNK_DELAY_MS` | `250` | Pause between batched `ownerOf` / `tokenURI` chunks |
+| `RPC_OWNER_SCAN_CONCURRENCY` | `4` | Parallel `ownerOf` during full-supply wallet scan |
+| `RPC_METADATA_BATCH_CONCURRENCY` | `2` | Parallel on-chain `tokenURI` reads when DB has no `token_uri` |
+
+Portfolio metadata batch prefers `rwa_tokens.token_uri` (IPFS only — **no on-chain read**) when the registry row exists. Mint writes use the same semaphore + 429 backoff.
+
+Defenses: address format validated (400 on invalid), result cached **120s** per `(chainId, address)`, concurrent identical scans coalesced, rate-limited to 30 req/min per IP.
 
 ---
 

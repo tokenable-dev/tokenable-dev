@@ -1,9 +1,16 @@
 import {
   isRpcRateLimitError,
+  resetRpcSemaphoreForTests,
+  withRpcProviderCall,
   withRpcRateLimitRetry,
 } from './rpc-retry.util';
 
 describe('rpc-retry.util', () => {
+  afterEach(() => {
+    resetRpcSemaphoreForTests();
+    delete process.env.RPC_MAX_CONCURRENCY;
+  });
+
   it('detects Alchemy 429 payloads', () => {
     expect(
       isRpcRateLimitError({
@@ -32,5 +39,23 @@ describe('rpc-retry.util', () => {
     );
     expect(result).toBe(42);
     expect(attempts).toBe(2);
+  });
+
+  it('limits concurrent in-flight RPC calls', async () => {
+    process.env.RPC_MAX_CONCURRENCY = '1';
+    let inflight = 0;
+    let maxSeen = 0;
+
+    const work = (ms: number) =>
+      withRpcProviderCall(async () => {
+        inflight += 1;
+        maxSeen = Math.max(maxSeen, inflight);
+        await new Promise((r) => setTimeout(r, ms));
+        inflight -= 1;
+        return ms;
+      });
+
+    await Promise.all([work(30), work(30)]);
+    expect(maxSeen).toBe(1);
   });
 });

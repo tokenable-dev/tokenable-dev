@@ -9,6 +9,7 @@ import { Contract, Wallet, ZeroHash } from 'ethers';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { ChainConfigService } from './chain-config.service';
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
+import { withRpcProviderCall } from './rpc-retry.util';
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
@@ -174,40 +175,42 @@ export class RwaChainWriterService {
       throw new BadRequestException('vaultRef is required');
     }
 
-    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
-      const contract = this.signedContract(chainId);
-      const tx = await contract.mint(recipient, uri, vaultRef);
-      this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('Mint transaction failed');
-      }
-
-      let tokenId = -1;
-      for (const log of receipt.logs ?? []) {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          if (parsed?.name === 'Minted') {
-            tokenId = Number(parsed.args.tokenId);
-            break;
-          }
-        } catch {
-          /* skip unrelated logs */
+    return this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
+      withRpcProviderCall(async () => {
+        const contract = this.signedContract(chainId);
+        const tx = await contract.mint(recipient, uri, vaultRef);
+        this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('Mint transaction failed');
         }
-      }
-      if (!Number.isFinite(tokenId) || tokenId < 0) {
-        const totalMinted = Number(await contract.totalMinted());
-        tokenId = totalMinted; // last minted
-      }
 
-      await this.ownerIndex.recordOwner(
-        this.chainConfig.getRwaAddress(chainId),
-        tokenId,
-        recipient,
-      );
+        let tokenId = -1;
+        for (const log of receipt.logs ?? []) {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            if (parsed?.name === 'Minted') {
+              tokenId = Number(parsed.args.tokenId);
+              break;
+            }
+          } catch {
+            /* skip unrelated logs */
+          }
+        }
+        if (!Number.isFinite(tokenId) || tokenId < 0) {
+          const totalMinted = Number(await contract.totalMinted());
+          tokenId = totalMinted; // last minted
+        }
 
-      return { tokenId, txHash: receipt.hash };
-    });
+        await this.ownerIndex.recordOwner(
+          this.chainConfig.getRwaAddress(chainId),
+          tokenId,
+          recipient,
+        );
+
+        return { tokenId, txHash: receipt.hash };
+      }, { label: 'mintTo' }),
+    );
   }
 
   /**
@@ -247,41 +250,43 @@ export class RwaChainWriterService {
       refs.push(it.vaultRef);
     }
 
-    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
-      const contract = this.signedContract(chainId);
-      const tx = await contract.mintBatch(tos, uris, refs);
-      this.logger.log(
-        `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
-      );
-      const receipt = await tx.wait();
-      if (!receipt?.hash) {
-        throw new InternalServerErrorException('MintBatch transaction failed');
-      }
-
-      const tokenIds: number[] = [];
-      for (const log of receipt.logs ?? []) {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          if (parsed?.name === 'Minted') {
-            tokenIds.push(Number(parsed.args.tokenId));
-          }
-        } catch {
-          /* skip unrelated logs */
-        }
-      }
-      if (tokenIds.length !== items.length) {
-        throw new InternalServerErrorException(
-          `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
+    return this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
+      withRpcProviderCall(async () => {
+        const contract = this.signedContract(chainId);
+        const tx = await contract.mintBatch(tos, uris, refs);
+        this.logger.log(
+          `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
         );
-      }
+        const receipt = await tx.wait();
+        if (!receipt?.hash) {
+          throw new InternalServerErrorException('MintBatch transaction failed');
+        }
 
-      const contractAddr = this.chainConfig.getRwaAddress(chainId);
-      for (let i = 0; i < tokenIds.length; i++) {
-        await this.ownerIndex.recordOwner(contractAddr, tokenIds[i], tos[i]);
-      }
+        const tokenIds: number[] = [];
+        for (const log of receipt.logs ?? []) {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            if (parsed?.name === 'Minted') {
+              tokenIds.push(Number(parsed.args.tokenId));
+            }
+          } catch {
+            /* skip unrelated logs */
+          }
+        }
+        if (tokenIds.length !== items.length) {
+          throw new InternalServerErrorException(
+            `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
+          );
+        }
 
-      return { tokenIds, txHash: receipt.hash };
-    });
+        const contractAddr = this.chainConfig.getRwaAddress(chainId);
+        for (let i = 0; i < tokenIds.length; i++) {
+          await this.ownerIndex.recordOwner(contractAddr, tokenIds[i], tos[i]);
+        }
+
+        return { tokenIds, txHash: receipt.hash };
+      }, { label: 'mintBatchTo' }),
+    );
   }
 
   // ─── Custody delivery ──────────────────────────────────────────────────────

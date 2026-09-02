@@ -19,6 +19,8 @@ export type PortfolioAssetsPageMetadataItem = {
 };
 
 export type PortfolioAssetsPageResponse = {
+  /** Full wallet holdings from DB owner index (newest first). */
+  ownedTokenIds: number[];
   metadataItems: PortfolioAssetsPageMetadataItem[];
   collectionKeys: Record<number, string>;
   marketItems: PortfolioMarketBatchItem[];
@@ -28,24 +30,24 @@ export type PortfolioAssetsPageResponse = {
 
 export async function postPortfolioAssetsPage(body: {
   walletAddress: string;
-  tokenIds: number[];
+  /** Omit or pass [] to let the server resolve owned tokens from DB and return page 1. */
+  tokenIds?: number[];
 }): Promise<PortfolioAssetsPageResponse> {
   const tokenIds = [
     ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
   ].filter((n) => Number.isFinite(n) && n >= 0);
-  if (tokenIds.length === 0) {
-    return {
-      metadataItems: [],
-      collectionKeys: {},
-      marketItems: [],
-      mintPreviews: {},
-      holdings: [],
-    };
-  }
+
   if (tokenIds.length > PORTFOLIO_ASSETS_PAGE_MAX) {
     throw new Error(
       `Portfolio assets page max is ${PORTFOLIO_ASSETS_PAGE_MAX} tokenIds`,
     );
+  }
+
+  const payload: { walletAddress: string; tokenIds?: number[] } = {
+    walletAddress: body.walletAddress,
+  };
+  if (tokenIds.length > 0) {
+    payload.tokenIds = tokenIds;
   }
 
   const res = await backendFetch(
@@ -53,10 +55,7 @@ export async function postPortfolioAssetsPage(body: {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        walletAddress: body.walletAddress,
-        tokenIds,
-      }),
+      body: JSON.stringify(payload),
     },
   );
   if (!res.ok) {

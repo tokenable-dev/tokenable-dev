@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Contract } from 'ethers';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import {
   ChainConfigService,
   type SupportedChainId,
@@ -12,15 +12,17 @@ import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
 import {
-  isRpcRateLimitError,
-  withRpcRateLimitRetry,
+  withRpcProviderCall,
 } from './rpc-retry.util';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
-const DEFAULT_LOG_CHUNK = 4_000;
-const DEFAULT_LOG_DELAY_MS = 150;
+/** Alchemy Free `eth_getLogs` is ~10 blocks; larger chunks 429 immediately. */
+const DEFAULT_LOG_CHUNK = 10;
+const DEFAULT_LOG_DELAY_MS = 600;
 const DEFAULT_LOG_MAX_RETRIES = 6;
+/** Cap each backfill pass so boot does not hammer RPC until head. */
+const DEFAULT_MAX_BLOCKS_PER_RUN = 500;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -97,6 +99,33 @@ export class RwaTokenOwnerIndexService {
       .filter((id) => Number.isFinite(id) && id > 0);
     ids.sort((a, b) => a - b);
     return ids;
+  }
+
+  /** Wallet → token ids from indexed `rwa_tokens` rows (no RPC). */
+  async buildHolderIndex(
+    chainId?: SupportedChainId,
+  ): Promise<Map<string, number[]>> {
+    const contract = this.contractAddress(chainId);
+    const rows = await this.rwaTokens.find({
+      where: {
+        tokenContract: contract,
+        ownerWallet: Not(IsNull()),
+        burnedAt: IsNull(),
+      },
+      select: ['tokenId', 'ownerWallet'],
+      order: { tokenId: 'ASC' },
+    });
+
+    const holderIndex = new Map<string, number[]>();
+    for (const row of rows) {
+      const owner = row.ownerWallet?.trim().toLowerCase();
+      const tokenId = Number(row.tokenId);
+      if (!owner || !Number.isFinite(tokenId) || tokenId <= 0) continue;
+      const list = holderIndex.get(owner) ?? [];
+      list.push(tokenId);
+      holderIndex.set(owner, list);
+    }
+    return holderIndex;
   }
 
   async recordOwner(
@@ -228,7 +257,12 @@ export class RwaTokenOwnerIndexService {
    */
   async backfillFromTransferLogs(
     chainId?: SupportedChainId,
-    opts?: { fromBlock?: number; toBlock?: number },
+    opts?: {
+      fromBlock?: number;
+      toBlock?: number;
+      /** Override per-pass block cap (live poll uses a smaller value). */
+      maxBlocksPerRun?: number;
+    },
   ): Promise<{ transfers: number; lastBlock: number }> {
     const id = chainId ?? this.chainConfig.getDefaultChainId();
     const contractAddr = this.contractAddress(id);
@@ -253,18 +287,34 @@ export class RwaTokenOwnerIndexService {
         : deployBlock;
     const fromBlock = Math.max(deployBlock, opts?.fromBlock ?? resumeAfter);
     const latest =
-      opts?.toBlock ?? Number(await provider.getBlockNumber());
+      opts?.toBlock ??
+      Number(
+        await withRpcProviderCall(() => provider.getBlockNumber(), {
+          label: 'getBlockNumber',
+        }),
+      );
     if (fromBlock > latest) {
       return { transfers: 0, lastBlock: latest };
     }
 
     const chunk = this.logChunkSize();
     const delayMs = this.logDelayMs();
+    const maxBlocksPerRun = opts?.maxBlocksPerRun ?? this.maxBlocksPerRun();
     const _t0 = perfNow();
     let transfers = 0;
+    let blocksProcessed = 0;
+    let lastProcessedBlock = fromBlock - 1;
 
-    // `chunk` = inclusive block count per eth_getLogs (Alchemy Free max 10).
+    // `chunk` = inclusive block count per eth_getLogs (Alchemy Free ≈10).
     for (let start = fromBlock; start <= latest; start += chunk) {
+      if (blocksProcessed >= maxBlocksPerRun) {
+        this.logger.log(
+          `RWA owner index backfill paused chain=${id} at block ${lastProcessedBlock} ` +
+            `(${maxBlocksPerRun} blocks this pass; cursor saved — will continue)`,
+        );
+        break;
+      }
+
       const end = Math.min(start + chunk - 1, latest);
       const logs = await this.queryTransferLogs(contract, start, end);
       const batch: TransferLogRow[] = [];
@@ -298,6 +348,8 @@ export class RwaTokenOwnerIndexService {
         );
       }
       transfers += batch.length;
+      blocksProcessed += end - start + 1;
+      lastProcessedBlock = end;
 
       await this.cursors.save({
         tokenContract: contractAddr,
@@ -312,7 +364,10 @@ export class RwaTokenOwnerIndexService {
 
     const { totalMinted } = await this.readTotalMinted(id);
     const liveOwners = await this.countLiveIndexedOwners(contractAddr);
+    const caughtUp = lastProcessedBlock >= latest;
     if (totalMinted > 0 && liveOwners >= totalMinted) {
+      await this.markBackfillComplete(contractAddr);
+    } else if (caughtUp && transfers === 0 && liveOwners === 0 && totalMinted === 0) {
       await this.markBackfillComplete(contractAddr);
     }
 
@@ -320,21 +375,45 @@ export class RwaTokenOwnerIndexService {
       chainId: id,
       transfers,
       fromBlock,
-      toBlock: latest,
+      toBlock: lastProcessedBlock,
+      caughtUp,
     });
     this.logger.log(
-      `RWA owner index backfill chain=${id} transfers=${transfers} blocks=${fromBlock}-${latest} liveOwners=${liveOwners}/${totalMinted}`,
+      `RWA owner index backfill chain=${id} transfers=${transfers} blocks=${fromBlock}-${lastProcessedBlock}` +
+        (caughtUp ? '' : ` (paused; head=${latest})`) +
+        ` liveOwners=${liveOwners}/${totalMinted}`,
     );
-    return { transfers, lastBlock: latest };
+    return { transfers, lastBlock: lastProcessedBlock };
   }
 
-  /** Skip non-default chains until `CHAIN_{id}_RWA_DEPLOY_BLOCK` is set (avoids genesis scan + 429). */
+  /**
+   * Lightweight live poll — `eth_getLogs` from cursor to head (no eth_newFilter).
+   * Alchemy Free expires filter subscriptions quickly; polling avoids "filter not found".
+   */
+  async pollTransferLogsSinceCursor(
+    chainId?: SupportedChainId,
+  ): Promise<{ transfers: number; lastBlock: number }> {
+    return this.backfillFromTransferLogs(chainId, {
+      maxBlocksPerRun: this.pollMaxBlocksPerRun(),
+    });
+  }
+
+  private pollMaxBlocksPerRun(): number {
+    const raw = this.config
+      .get<string>('RWA_OWNER_INDEX_POLL_MAX_BLOCKS')
+      ?.trim();
+    const n = Number(raw ?? '50');
+    if (!Number.isFinite(n) || n < 10) return 50;
+    return Math.min(Math.floor(n), 500);
+  }
+
+  /** Skip log replay until deploy block is configured (avoids genesis→head scan + 429). */
   shouldBackfillChain(chainId: SupportedChainId, deployBlock: number): boolean {
     if (deployBlock > 0) return true;
-    const defaultId = this.chainConfig.getDefaultChainId();
-    if (chainId === defaultId) return true;
-    this.logger.log(
-      `RWA owner index backfill skipped chain=${chainId} (set CHAIN_${chainId}_RWA_DEPLOY_BLOCK)`,
+    this.logger.warn(
+      `RWA owner index log backfill skipped chain=${chainId} — ` +
+        `set CHAIN_${chainId}_RWA_DEPLOY_BLOCK to the TokenableRWA deploy block ` +
+        `(live getLogs poll still records new mints when deploy block is set; portfolio uses ownerOf until indexed)`,
     );
     return false;
   }
@@ -344,30 +423,20 @@ export class RwaTokenOwnerIndexService {
     start: number,
     end: number,
   ) {
-    const maxRetries = this.logMaxRetries();
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await contract.queryFilter(
-          contract.filters.Transfer(),
-          start,
-          end,
-        );
-      } catch (err) {
-        if (!isRpcRateLimitError(err) || attempt >= maxRetries) throw err;
-        const waitMs = Math.min(30_000, 400 * 2 ** (attempt - 1));
-        this.logger.warn(
-          `owner index getLogs rate limited blocks=${start}-${end}; retry ${attempt}/${maxRetries} in ${waitMs}ms`,
-        );
-        await sleep(waitMs);
-      }
-    }
-    return [];
+    return withRpcProviderCall(
+      () =>
+        contract.queryFilter(contract.filters.Transfer(), start, end),
+      {
+        maxRetries: this.logMaxRetries(),
+        label: 'ownerIndexGetLogs',
+      },
+    );
   }
 
   private async readTotalMinted(
     chainId?: SupportedChainId,
   ): Promise<{ totalMinted: number }> {
-    return withRpcRateLimitRetry(
+    return withRpcProviderCall(
       async () => {
         const id = chainId ?? this.chainConfig.getDefaultChainId();
         const provider = this.chainConfig.createJsonRpcProvider(id);
@@ -407,5 +476,11 @@ export class RwaTokenOwnerIndexService {
     const raw = this.config.get<string>('RWA_OWNER_INDEX_LOG_MAX_RETRIES')?.trim();
     const n = Number(raw ?? DEFAULT_LOG_MAX_RETRIES);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_LOG_MAX_RETRIES;
+  }
+
+  private maxBlocksPerRun(): number {
+    const raw = this.config.get<string>('RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN')?.trim();
+    const n = Number(raw ?? DEFAULT_MAX_BLOCKS_PER_RUN);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_MAX_BLOCKS_PER_RUN;
   }
 }

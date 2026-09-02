@@ -7,16 +7,13 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
-  usePortfolioCollectionKeys,
   usePortfolioDailyChart,
   usePortfolioBidActions,
   usePortfolioHoldingActions,
-  usePortfolioHoldings,
   usePortfolioListingCollectionKeys,
+  usePortfolioActiveOrders,
   usePortfolioAssetsPage,
   usePortfolioMyBids,
-  useUserAssets,
-  PORTFOLIO_ASSETS_PAGE_SIZE,
   useMyRedemptions,
 } from "@/hooks/portfolio";
 import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
@@ -180,23 +177,10 @@ export function PortfolioPageView({
     }
   }, []);
 
-  const {
-    tokenIds,
-    loadedTokenIds,
-    activeOrders: allOrders,
-    isLoadingIds: idsLoading,
-    hasMoreAssets,
-    isLoadingMoreAssets,
-    loadMoreAssets,
-    refetchActiveOrders,
-  } = useUserAssets(portfolioAddress, {
-    enabled: portfolioDataEnabled,
-    includeOrderHistory: false,
-    includeMarketPreview: false,
-    retainPreviousOwner: false,
-    assetPageSize: PORTFOLIO_ASSETS_PAGE_SIZE,
-    metadataSource: "bff",
-  });
+  const { activeOrders: allOrders, refetchActiveOrders } = usePortfolioActiveOrders(
+    portfolioAddress,
+    portfolioDataEnabled,
+  );
 
   const chainId = activeRqChainId();
   const activityQuery = useQuery({
@@ -225,11 +209,26 @@ export function PortfolioPageView({
   const assetsPage = usePortfolioAssetsPage({
     address: portfolioAddress,
     enabled: portfolioDataEnabled,
-    tokenIds: loadedTokenIds,
     listingCollectionKeyByToken,
   });
 
-  const assets: OwnedAsset[] = assetsPage.assets;
+  const {
+    ownedTokenIds: tokenIds,
+    loadedTokenIds,
+    idsLoading,
+    hasMoreAssets,
+    loadMoreAssets,
+    isLoadingMoreAssets,
+    assets,
+    tokenToCollectionKey,
+    statsByCollectionKey,
+    seriesByCollectionKey,
+    mintPreviewByToken,
+    valuesPending,
+    costBasisByTokenId,
+    acquiredAtByTokenId,
+    hiddenSet,
+  } = assetsPage;
 
   const metadataByTokenId = useMemo(() => {
     const m = new Map<number, OwnedAsset["metadata"]>();
@@ -238,20 +237,6 @@ export function PortfolioPageView({
     }
     return m;
   }, [assets]);
-
-  const {
-    tokenToCollectionKey,
-    statsByCollectionKey,
-    seriesByCollectionKey,
-    mintPreviewByToken,
-    valuesPending,
-  } = {
-    tokenToCollectionKey: assetsPage.tokenToCollectionKey,
-    statsByCollectionKey: assetsPage.statsByCollectionKey,
-    seriesByCollectionKey: assetsPage.seriesByCollectionKey,
-    mintPreviewByToken: assetsPage.mintPreviewByToken,
-    valuesPending: assetsPage.valuesPending,
-  };
 
   const myActiveListings = useMemo(
     () =>
@@ -332,12 +317,6 @@ export function PortfolioPageView({
     }
     return m;
   }, [assets, activityMetaQuery.data]);
-
-  const { costBasisByTokenId, acquiredAtByTokenId, hiddenSet } = usePortfolioHoldings(
-    portfolioAddress,
-    tokenIds,
-    portfolioDataEnabled,
-  );
 
   const assetRows = useMemo(
     () =>
@@ -664,15 +643,26 @@ export function PortfolioPageView({
     ],
   );
 
-  const {
-    dailySnapshotsLoading,
-    portfolioValue,
-    dailyPnlUsd,
-    dailyPnlPct,
-  } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
+  const { dailyPnlUsd, dailyPnlPct } = usePortfolioDailyChart(
+    portfolioAddress,
+    portfolioDataEnabled,
+  );
+
+  /** Live mark-to-market — sum of priced visible rows (not daily snapshot). */
+  const livePortfolioValue = useMemo(
+    () =>
+      visibleAssetRows.reduce(
+        (sum, row) =>
+          row.currentPrice != null && Number.isFinite(row.currentPrice)
+            ? sum + row.currentPrice
+            : sum,
+        0,
+      ),
+    [visibleAssetRows],
+  );
 
   const assetsSectionLoading = idsLoading || assetsPage.isLoading;
-  const portfolioValuePending = dailySnapshotsLoading;
+  const portfolioValuePending = assetsSectionLoading || valuesPending;
 
   usePortfolioLoadPerf({
     enabled: portfolioDataEnabled,
@@ -694,7 +684,7 @@ export function PortfolioPageView({
     portfolioViewedFiredRef.current = true;
     trackEvent("portfolio_viewed", {
       total_assets: tokenIds.filter((id) => !hiddenSet.has(id)).length,
-      total_value: portfolioValue ?? 0,
+      total_value: livePortfolioValue,
     });
   }, [
     user,
@@ -703,7 +693,7 @@ export function PortfolioPageView({
     portfolioValuePending,
     tokenIds,
     hiddenSet,
-    portfolioValue,
+    livePortfolioValue,
   ]);
 
   useEffect(() => {
@@ -763,7 +753,7 @@ export function PortfolioPageView({
       <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
         <PortfolioValuePanel
           totalsPending={portfolioValuePending}
-          totalValue={portfolioValue ?? 0}
+          totalValue={livePortfolioValue}
           dailyPnlUsd={dailyPnlUsd}
           dailyPnlPct={dailyPnlPct}
           partnerRedeemHref={isPartnerPortfolio ? "/partner/shipments" : null}

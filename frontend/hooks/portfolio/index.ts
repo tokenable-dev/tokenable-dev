@@ -1,14 +1,8 @@
-export { usePortfolioAssetsPage } from "./usePortfolioAssetsPage";
-export { useUserAssets, PORTFOLIO_ASSETS_PAGE_SIZE } from "./useUserAssets";
-export {
-  usePortfolioCollectionKeys,
-  usePortfolioListingCollectionKeys,
-} from "./usePortfolioCollectionKeys";
-export { usePortfolioMarketPricing } from "./usePortfolioMarketPricing";
+export { usePortfolioAssetsPage, PORTFOLIO_ASSETS_PAGE_SIZE } from "./usePortfolioAssetsPage";
+export { usePortfolioActiveOrders } from "./usePortfolioActiveOrders";
+export { usePortfolioListingCollectionKeys } from "./usePortfolioListingCollectionKeys";
 export { usePortfolioDailyChart } from "./usePortfolioDailyChart";
-export { usePortfolioAssetList } from "./usePortfolioAssetList";
 export { usePortfolioHoldingActions } from "./usePortfolioHoldingActions";
-export { usePortfolioHoldings } from "./usePortfolioHoldings";
 export { usePortfolioMyBids } from "./usePortfolioMyBids";
 export { usePortfolioBidActions } from "./usePortfolioBidActions";
 export { usePortfolioAcceptOffer } from "./usePortfolioAcceptOffer";

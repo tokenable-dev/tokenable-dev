@@ -8,7 +8,7 @@ import type { QueryClient } from "@tanstack/react-query";
  *  2. No UI state — open/modal booleans must NOT appear in query keys; use `enabled` instead.
  *  3. Sig naming — any derived/computed identity string passed as a key element must be
  *                  named with the suffix `Sig` at the call site
- *                  (e.g. `portfolioMarketBatchSig`, `portfolioBucketKeysSig`, `floorAskMetadataSig`).
+ *                  (e.g. `floorAskMetadataSig`).
  *  4. Sorted arrays — any array element must be sorted so cache is order-independent.
  */
 export const rq = {
@@ -257,17 +257,6 @@ export const rq = {
   rwaActivity: (tokenId: number) => ["rwa-activity", tokenId] as const,
   /** Server-resolved collection_key for a minted/owned token (rwa_tokens + metadata). */
   tokenCollectionKey: (tokenId: number) => ["token-collection-key", tokenId] as const,
-  /**
-   * Batch server-resolved collection_key for a wallet's owned token set.
-   * Keyed by (wallet address, sorted token IDs) so it fires in parallel with
-   * the metadata batch — both only need tokenIds, not the full metadata payload.
-   */
-  tokenCollectionKeyBatch: (addr: string, tokenIds: readonly number[]) =>
-    [
-      "token-collection-key-batch",
-      addr.toLowerCase(),
-      [...tokenIds].slice().sort((a, b) => a - b),
-    ] as const,
   /** Resolved https URL for the slab back-image (used in RWA detail panel). */
   rwaSlabBack: (uri: string) => ["rwa-detail-slab-back", uri] as const,
 
@@ -284,19 +273,6 @@ export const rq = {
   /** Daily portfolio value snapshots for a wallet (per active app chain). */
   portfolioDailySnapshots: (addr: string, chainId: number) =>
     ["portfolio-daily-snapshots", addr.trim().toLowerCase(), chainId] as const,
-  /**
-   * Market stats + series batch for portfolio holdings.
-   * Collection keys are spread individually (not nested array) so React Query's
-   * prefix invalidation via `["portfolio-market-batch"]` remains effective.
-   * Keys are lowercased + sorted so the cache is wallet-agnostic and order-independent.
-   * Call site must pre-compute `portfolioMarketBatchSig` and pass sorted keys.
-   */
-  portfolioMarketBatch: (chainId: number, collectionKeys: readonly string[]) =>
-    [
-      "portfolio-market-batch",
-      chainId,
-      ...collectionKeys.map((k) => k.toLowerCase()).sort(),
-    ] as const,
   /** My Assets BFF — incremental tokenId pages only (sorted). */
   portfolioAssetsPage: (
     addr: string,
@@ -309,14 +285,9 @@ export const rq = {
       chainId,
       ...[...tokenIds].sort((a, b) => a - b),
     ] as const,
-  /**
-   * Collection-key-to-tokenId resolution for the portfolio page.
-   * `sig` is a stable derived string summarising the current set of owned assets
-   * (token IDs + metadata components + listing keys). Named `portfolioBucketKeysSig`
-   * at the call site. Required because this query has no external invalidation.
-   */
-  portfolioBucketKeys: (addr: string, sig: string) =>
-    ["portfolio-bucket-keys", addr.toLowerCase(), sig] as const,
+  /** DB bootstrap — wallet-only first load (no client tokenId list). */
+  portfolioAssetsPageBootstrap: (addr: string, chainId: number) =>
+    ["portfolio-assets-page-bootstrap", addr.toLowerCase(), chainId] as const,
 
   // ── Media ──────────────────────────────────────────────────────────────────
 

@@ -31,6 +31,7 @@ import { WalletDataProvider } from "@/providers/WalletDataProvider";
 import { AppChainProvider } from "@/providers/AppChainProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
+import { PortfolioQueryPersistence } from "@/providers/PortfolioQueryPersistence";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
 
 /** Mount once inside PrivyProvider — silently selects the account embedded wallet. */
@@ -101,6 +102,7 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
         <PerfObservers />
         <WagmiProvider config={wagmiPrivyConfig} reconnectOnMount={false}>
           <MarketplaceQueryPersistence />
+          <PortfolioQueryPersistence />
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
           <PrivySessionBridge />

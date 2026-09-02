@@ -19,12 +19,17 @@ import {
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
-import { withRpcRateLimitRetry } from './rpc-retry.util';
+import {
+  rpcBatchChunkDelayMs,
+  rpcMetadataBatchConcurrency,
+  rpcOwnerScanConcurrency,
+  withRpcProviderCall,
+} from './rpc-retry.util';
 
 const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 /** Owner scans cost ~totalMinted RPC calls each — cache briefly and coalesce. */
 const TOKENS_BY_OWNER_CACHE_NS = 'rwa-tokens-by-owner';
-const TOKENS_BY_OWNER_CACHE_TTL_MS = 30_000;
+const TOKENS_BY_OWNER_CACHE_TTL_MS = 120_000;
 
 /** OpenZeppelin ERC721 — tokenId 미민팅 시 revert */
 function isErc721InvalidTokenError(e: unknown): boolean {
@@ -75,7 +80,7 @@ export class BlockchainService {
     symbol: string;
     totalMinted: number;
   }> {
-    return withRpcRateLimitRetry(
+    return withRpcProviderCall(
       async () => {
         const rwa = this.tokenableRwa(chainId);
         const [name, symbol, totalMinted] = await Promise.all([
@@ -95,7 +100,10 @@ export class BlockchainService {
     chainId?: SupportedChainId,
   ): Promise<string> {
     try {
-      const owner: string = await this.tokenableRwa(chainId).ownerOf(tokenId);
+      const owner: string = await withRpcProviderCall(
+        () => this.tokenableRwa(chainId).ownerOf(tokenId),
+        { label: 'ownerOf' },
+      );
       return owner.trim().toLowerCase();
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
@@ -110,7 +118,10 @@ export class BlockchainService {
     chainId?: SupportedChainId,
   ): Promise<string> {
     try {
-      return await this.tokenableRwa(chainId).tokenURI(tokenId);
+      return await withRpcProviderCall(
+        () => this.tokenableRwa(chainId).tokenURI(tokenId),
+        { label: 'tokenURI' },
+      );
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
         throw new NotFoundException(
@@ -142,18 +153,15 @@ export class BlockchainService {
 
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const load = (async () => {
+      const fromDb = await this.ownerIndex.getTokenIdsByOwner(
+        normalized,
+        chain,
+      );
       if (await this.ownerIndex.isIndexReady(chain)) {
-        const tokenIds = await this.ownerIndex.getTokenIdsByOwner(
-          normalized,
-          chain,
-        );
-        this.ttlCache.set(
-          TOKENS_BY_OWNER_CACHE_NS,
-          cacheKey,
-          tokenIds,
-          TOKENS_BY_OWNER_CACHE_TTL_MS,
-        );
-        return tokenIds;
+        return fromDb;
+      }
+      if (fromDb.length > 0) {
+        return fromDb;
       }
       return this.scanRwaTokensByOwner(normalized, chain);
     })()
@@ -186,7 +194,7 @@ export class BlockchainService {
 
       const owners = await this.batchOwnerOf(
         Array.from({ length: totalMinted }, (_, i) => i + 1),
-        24,
+        rpcOwnerScanConcurrency(),
         chainId,
       );
       if (!(await this.ownerIndex.isBackfillInProgress(chain))) {
@@ -219,7 +227,7 @@ export class BlockchainService {
    */
   async batchOwnerOf(
     tokenIds: number[],
-    concurrency = 24,
+    concurrency = rpcOwnerScanConcurrency(),
     chainId?: SupportedChainId,
   ): Promise<Map<number, string>> {
     const _t0 = perfNow();
@@ -234,12 +242,16 @@ export class BlockchainService {
     const out = new Map<number, string>();
     if (unique.length === 0) return out;
 
-    const parallel = Math.max(1, Math.min(Math.floor(concurrency), 64));
+    const parallel = Math.max(1, Math.min(Math.floor(concurrency), 16));
+    const chunkDelayMs = rpcBatchChunkDelayMs();
     for (let i = 0; i < unique.length; i += parallel) {
       const chunk = unique.slice(i, i + parallel);
       const settled = await Promise.allSettled(
         chunk.map(async (tokenId) => {
-          const owner: string = await rwa.ownerOf(tokenId);
+          const owner: string = await withRpcProviderCall(
+            () => rwa.ownerOf(tokenId),
+            { label: 'batchOwnerOf' },
+          );
           return {
             tokenId,
             owner: String(owner).trim().toLowerCase(),
@@ -250,6 +262,9 @@ export class BlockchainService {
         if (s.status !== 'fulfilled') continue;
         const { tokenId, owner } = s.value;
         if (owner) out.set(tokenId, owner);
+      }
+      if (chunkDelayMs > 0 && i + parallel < unique.length) {
+        await new Promise((r) => setTimeout(r, chunkDelayMs));
       }
     }
     perfLog('rpc', 'batchOwnerOf', elapsedMs(_t0), { count: unique.length });
@@ -304,7 +319,8 @@ export class BlockchainService {
     const unique = [
       ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
     ].filter((n) => n >= 0);
-    const concurrency = 8;
+    const concurrency = rpcMetadataBatchConcurrency();
+    const chunkDelayMs = rpcBatchChunkDelayMs();
     const items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -342,6 +358,9 @@ export class BlockchainService {
         if (s.status === 'fulfilled') {
           items.push(s.value);
         }
+      }
+      if (chunkDelayMs > 0 && i + concurrency < unique.length) {
+        await new Promise((r) => setTimeout(r, chunkDelayMs));
       }
     }
 

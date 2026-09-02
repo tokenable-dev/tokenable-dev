@@ -558,23 +558,35 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 **My Assets BFF** — one request per page of tokenIds (max **50**, matches frontend `PORTFOLIO_ASSETS_PAGE_SIZE`).
 
-**Body:** `{ walletAddress, tokenIds }`
+**Body:** `{ walletAddress, tokenIds? }`
+
+- Omit **`tokenIds`** on first load — server reads owned tokens from the DB owner index (`rwa_tokens.owner_wallet` / transfer index) and returns the first page plus the full **`ownedTokenIds`** list.
+- Include **`tokenIds`** on load-more / incremental fetches (must be a subset of the caller's owned tokens).
 
 **Response:**
 
 ```json
 {
+  "ownedTokenIds": [42, 41, 40],
   "metadataItems": [{ "tokenId": 1, "tokenURI": "ipfs://…", "metadata": {}, "imageUrl": "https://…", "imageBackUrl": null }],
   "collectionKeys": { "1": "abc123…" },
   "marketItems": [{ "collectionKey": "abc123…", "stats": null, "series": { } }],
-  "mintPreviews": { "2": { "matched": true, "card": {} } },
+  "mintPreviews": { },
   "holdings": [{ "tokenId": 1, "hidden": false, "costBasisUsd": null, "costBasisSource": null, "acquiredAt": null }]
 }
 ```
 
-Server-side pipeline (parallel where possible): RWA metadata batch → token→`collection_key` resolve → `portfolio-market-batch` snapshots → Cardhedger mint-previews for unmatched tokens → holdings batch for the page.
+Server-side pipeline (DB-first, parallel where possible):
 
-**Cache (Phase 3):** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). Holdings are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`. `perfLog` includes `cache: memory|redis|miss` when `PERF_LOG=true`.
+1. **`ownedTokenIds`** — DB owner index (newest-first); RPC `ownerOf` scan only when index incomplete **and** DB has no rows for the wallet.
+2. **Metadata** — batch read from `rwa_tokens` registry (`display_name`, `display_image_url`, `token_uri`); IPFS fetched once per unique URI (not per token).
+3. **Collection keys** — `collection_key` from registry batch; metadata bucket fallback only when registry row lacks a key.
+4. **Market** — `collection_market_snapshots` via `portfolio-market-batch`.
+5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit).
+
+**`mintPreviews` is always `{}`** — the client loads Cardhedger mint-previews in a follow-up request for tokens without snapshot prices.
+
+**Cache (Phase 3):** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). **`ownedTokenIds` and holdings** are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`. `perfLog` includes `cache: memory|redis|miss` when `PERF_LOG=true`.
 
 Honors `x-tokenable-chain-id`. Portfolio UI uses this instead of separate `rwa/metadata/batch`, `token-collection-keys`, `portfolio-market-batch`, and `mint-previews` calls per page.
 

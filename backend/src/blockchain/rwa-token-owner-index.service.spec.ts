@@ -84,9 +84,25 @@ describe('RwaTokenOwnerIndexService', () => {
     await expect(svc.isIndexReady()).resolves.toBe(true);
   });
 
-  it('shouldBackfillChain skips non-default chain without deploy block', () => {
+  it('buildHolderIndex groups indexed rows by owner_wallet', async () => {
+    const { svc, rwaTokens } = makeService();
+    rwaTokens.find.mockResolvedValue([
+      { tokenId: '2', ownerWallet: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      { tokenId: '5', ownerWallet: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      { tokenId: '3', ownerWallet: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+    ]);
+
+    const index = await svc.buildHolderIndex();
+    expect(index.get('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')).toEqual([
+      2, 5,
+    ]);
+    expect(index.get('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')).toEqual([3]);
+  });
+
+  it('shouldBackfillChain requires deploy block on every chain', () => {
     const { svc } = makeService();
-    expect(svc.shouldBackfillChain(11155111, 0)).toBe(true);
+    expect(svc.shouldBackfillChain(11155111, 0)).toBe(false);
+    expect(svc.shouldBackfillChain(11155111, 12_000)).toBe(true);
     expect(svc.shouldBackfillChain(137, 0)).toBe(false);
     expect(svc.shouldBackfillChain(137, 12_000)).toBe(true);
   });

@@ -90,9 +90,15 @@ export class IdentityCacheReconciliationService
       1,
       200,
     );
-    const flag =
-      this.config.get<string>('IDENTITY_RECONCILIATION_ENABLED') ?? 'true';
-    this.jobEnabled = flag !== 'false' && flag !== '0';
+    const flag = this.config.get<string>('IDENTITY_RECONCILIATION_ENABLED');
+    if (flag === '1' || flag === 'true') {
+      this.jobEnabled = true;
+    } else if (flag === '0' || flag === 'false') {
+      this.jobEnabled = false;
+    } else {
+      this.jobEnabled =
+        this.config.get<string>('NODE_ENV') === 'production';
+    }
   }
 
   onModuleInit(): void {
