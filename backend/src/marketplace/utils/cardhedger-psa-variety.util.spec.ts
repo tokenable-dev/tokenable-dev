@@ -101,6 +101,55 @@ describe('cardhedgerRowMatchesPsaVariety — JP 151 Gengar finishes', () => {
     expect(cardhedgerCertRowUsableForPsaVariety(ohtaniBase, '')).toBe(true);
   });
 
+  it('accepts Base - Pitching when PSA Variety is blank (sports pose, not parallel)', () => {
+    const ohtaniPitching = {
+      card_id: '1618415741939x277262937125552130',
+      variant: 'Base - Pitching',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Pitching',
+      name: 'Shohei Ohtani',
+      set: '2018 Topps Chrome Baseball',
+      number: '150',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniPitching, '')).toBe(true);
+    expect(cardhedgerCertRowUsableForPsaVariety(ohtaniPitching, '')).toBe(true);
+  });
+
+  it('rejects Base - Variation when PSA Variety is blank or BASE (image variation Spec)', () => {
+    const ohtaniVariation = {
+      variant: 'Base - Variation',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Vatiation',
+      name: 'Shohei Ohtani',
+      set: '2018 Topps Chrome Baseball',
+      number: '150',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniVariation, '')).toBe(false);
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniVariation, 'BASE')).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(ohtaniVariation, 'BASEBALL'),
+    ).toBe(false);
+  });
+
+  it('rejects Superfractor when PSA Variety is BASE (not only when blank)', () => {
+    const ohtaniSuperfractor = {
+      variant: 'Superfractor',
+      description: 'Shohei Ohtani 2018 Bowman Chrome Baseball Superfractor',
+      name: 'Shohei Ohtani',
+      set: '2018 Bowman Chrome Baseball',
+      number: '1',
+    };
+    const ohtaniBase = {
+      variant: 'Base',
+      description: 'Shohei Ohtani 2018 Bowman Chrome Baseball',
+      name: 'Shohei Ohtani',
+      set: '2018 Bowman Chrome Baseball',
+      number: '1',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniSuperfractor, 'BASE')).toBe(
+      false,
+    );
+    expect(cardhedgerRowMatchesPsaVariety(ohtaniBase, 'BASE')).toBe(true);
+  });
+
   it('rejects cert Reverse Foil rows for Master Ball PSA Variety', () => {
     expect(
       cardhedgerCertRowUsableForPsaVariety(
@@ -314,6 +363,166 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         'BLUE REFRACTOR',
       ),
     ).toBe(true);
+  });
+
+  it('accepts Pitching/Batting Blue Refractor when PSA only names BLUE REFRACTOR', () => {
+    const pitchingBlue = {
+      variant: 'Pitching Blue Refractor',
+      description:
+        'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Blue Refractor',
+      name: 'Shohei Ohtani',
+      set: '2018 Topps Chrome Baseball',
+      number: '150',
+    };
+    const battingBlue = {
+      ...pitchingBlue,
+      variant: 'Batting Blue Refractor',
+      description:
+        'Shohei Ohtani 2018 Topps Chrome Baseball Batting Blue Refractor',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(pitchingBlue, 'BLUE REFRACTOR')).toBe(
+      true,
+    );
+    expect(cardhedgerCertRowUsableForPsaVariety(pitchingBlue, 'BLUE REFRACTOR')).toBe(
+      true,
+    );
+    expect(cardhedgerRowMatchesPsaVariety(battingBlue, 'BLUE REFRACTOR')).toBe(
+      true,
+    );
+    // PSA named a pose → catalog must carry the same pose (not the sibling).
+    expect(
+      cardhedgerRowMatchesPsaVariety(battingBlue, 'PITCHING BLUE REFRACTOR'),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(pitchingBlue, 'PITCHING BLUE REFRACTOR'),
+    ).toBe(true);
+    // Print-run suffix on pop UI copy must not break matching.
+    expect(
+      cardhedgerRowMatchesPsaVariety(pitchingBlue, 'BLUE REFRACTOR /150'),
+    ).toBe(true);
+  });
+
+  it('keeps PSA VARIATION-* apart from flagship Pitching / Blue Refractor rows', () => {
+    const pitchingBlue = {
+      variant: 'Pitching Blue Refractor',
+      description:
+        'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Blue Refractor',
+      name: 'Shohei Ohtani',
+    };
+    const variationBlue = {
+      variant: 'Variation Blue Refractor',
+      description:
+        'Shohei Ohtani 2018 Topps Chrome Baseball Variation Blue Refractor',
+      name: 'Shohei Ohtani',
+    };
+    const baseVariation = {
+      variant: 'Base - Variation',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Vatiation',
+      name: 'Shohei Ohtani',
+    };
+    expect(
+      cardhedgerRowMatchesPsaVariety(pitchingBlue, 'VARIATION-BLUE REFRACTOR'),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(variationBlue, 'VARIATION-BLUE REFRACTOR'),
+    ).toBe(true);
+    expect(
+      cardhedgerRowMatchesPsaVariety(variationBlue, 'BLUE REFRACTOR'),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(baseVariation, 'BLUE REFRACTOR'),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(pitchingBlue, 'VARIATION-REFRACTOR'),
+    ).toBe(false);
+  });
+
+  it('accepts Cardhedger Chrome shorthand that omits Refractor (Green Wave / Prism)', () => {
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Pitching Green Wave',
+          description: 'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Green Wave',
+        },
+        'GREEN WAVE REFRACTOR',
+      ),
+    ).toBe(true);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        {
+          variant: 'Pitching Prism',
+          description: 'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Prism',
+        },
+        'PRISM REFRACTOR',
+      ),
+    ).toBe(true);
+    // Still reject Wave when PSA did not name Wave.
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Pitching Green Wave',
+          description: 'Shohei Ohtani Pitching Green Wave',
+        },
+        'GREEN REFRACTOR',
+      ),
+    ).toBe(false);
+    // Variation Refractor must not collapse onto Base - Variation.
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Base - Variation',
+          description: 'Shohei Ohtani 2018 Topps Chrome Baseball Vatiation',
+        },
+        'VARIATION-REFRACTOR',
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects GemRate mis-maps for PSA VARIATION-* when catalog has no Variation parallel', () => {
+    const flagshipOrange = {
+      variant: 'Orange Refractor',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Orange Refractor',
+      number: '150',
+    };
+    const variationRedJersey = {
+      variant: 'Variation Red Jersey',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Red Jersey',
+      number: '150',
+    };
+    const flagshipRefractor = {
+      variant: 'Refractor',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Refractor',
+      number: '150',
+    };
+    const baseVariation = {
+      variant: 'Base - Variation',
+      description: 'Shohei Ohtani 2018 Topps Chrome Baseball Vatiation',
+      number: '150',
+    };
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        flagshipOrange,
+        'VARIATION-ORANGE REFRACTOR',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        variationRedJersey,
+        'VARIATION-REFRACTOR',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        flagshipRefractor,
+        'VARIATION-REFRACTOR',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        baseVariation,
+        'VARIATION-GREEN REFRACTOR',
+      ),
+    ).toBe(false);
   });
 
   it('maps PSA Championship 2024-Top Prize to Cardhedger Championship 2024, not Base or Top Prize', () => {

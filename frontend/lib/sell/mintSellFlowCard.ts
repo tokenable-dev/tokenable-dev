@@ -152,6 +152,13 @@ export type PartnerMintSucceeded = {
   cert: string;
   name: string;
   tokenId: number;
+  /** Snapshot at mint time — draft cards are removed before the done modal paints. */
+  grade?: number | string | null;
+  cardNumber?: string | null;
+  year?: string | null;
+  setName?: string | null;
+  language?: string | null;
+  variant?: string | null;
 };
 
 export type PartnerMintBatchResult = {

@@ -611,6 +611,7 @@ export class CardhedgerResolveService {
       psaVariety?: string | null;
       psaSubject?: string | null;
       psaBrand?: string | null;
+      psaYear?: string | null;
       marketParallelKey?: string;
     },
     parallelOpts?: { trustStoredCardhedgerCatalogId?: boolean },
@@ -638,6 +639,14 @@ export class CardhedgerResolveService {
     const rowName = String(row.description ?? row.name ?? '');
     const rowSet = String(row.set ?? '');
     const rowNum = String(row.number ?? '');
+    const yearWant =
+      String(hints.psaYear ?? '').match(/\b((?:19|20)\d{2})\b/)?.[1] ?? null;
+    const rowYear =
+      `${rowSet} ${rowName}`.match(/\b((?:19|20)\d{2})\b/)?.[1] ?? null;
+    // Same player/# parallel can exist across years — never score a wrong-year hit.
+    if (yearWant && rowYear && yearWant !== rowYear) {
+      return { score: 0, verified: false, numberMatched: false };
+    }
 
     const wantNum = normalizeForExactCardNumberKey(
       primaryCardNumber(hints.cardNumber),
@@ -745,6 +754,7 @@ export class CardhedgerResolveService {
     else if (numberInsertBridge) score += 90;
     if (setMatched) score += 60;
     if (nameMatched) score += 50;
+    if (yearWant && rowYear && yearWant === rowYear) score += 40;
 
     const pv = hints.psaVariety?.trim() ?? '';
     if (

@@ -8,7 +8,9 @@ function rowParallelBlob(row: Record<string, unknown>): string {
   return [row.variant, row.description, row.name, row.set, row.set_type]
     .map((x) => String(x ?? ''))
     .join(' ')
-    .toLowerCase();
+    .toLowerCase()
+    // Cardhedger OCR/catalog typos for Topps image variations.
+    .replace(/\bvatiation\b/g, 'variation');
 }
 
 /**
@@ -28,11 +30,15 @@ const PARALLEL_FLAVOR_MARKERS = [
   'negative',
   'superfractor',
   'xfractor',
+  'prism',
   'speckle',
   'lava',
   'autograph',
   'patch',
   'relic',
+  'variation',
+  'printing',
+  'plate',
 ] as const;
 
 /**
@@ -46,6 +52,26 @@ const PRINT_FINISH_TOKENS = new Set([
   'foil',
   'holofoil',
   'holographic',
+]);
+
+/**
+ * Sports photo-pose words. PSA often prints only the parallel (`BLUE REFRACTOR`) while
+ * Cardhedger splits the same checklist # into `Pitching Blue Refractor` / `Batting …`.
+ * Pose on the catalog row is not a parallel flavor — do not reject solely for extra pose.
+ * When PSA *does* name a pose, chunk matching still requires it on the row.
+ */
+const SPORT_POSE_TOKENS = new Set([
+  'pitching',
+  'batting',
+  'fielding',
+  'running',
+  'sliding',
+  'catching',
+  'throwing',
+  'posing',
+  'portrait',
+  'horizontal',
+  'vertical',
 ]);
 
 function escapeRegExp(s: string): string {
@@ -80,15 +106,37 @@ function cardhedgerRowParallelFlavorConflict(
 
 function synonymizeToken(t: string): string {
   if (t === 'foil' || t === 'holofoil' || t === 'holographic') return 'holo';
+  if (t === 'vatiation') return 'variation';
   return t;
 }
 
+/**
+ * PSA pop/checklist UIs often append print-run (`BLUE REFRACTOR /150`).
+ * Official cert Variety is usually without it — strip so `/150` is not an identity token.
+ */
+export function normalizePsaVarietyForMatch(
+  psaVariety: string | null | undefined,
+): string {
+  return String(psaVariety ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\/\s*\d+\s*$/i, '')
+    .replace(/\bx\s*[- ]?\s*fractor\b/gi, 'xfractor')
+    .replace(/\bvatiation\b/gi, 'variation')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function varietyMatchChunks(psaVariety: string): string[] {
-  const v = psaVariety.trim().toLowerCase();
-  if (psaVarietyIsGenericSportRefractorLine(v)) {
-    return ['refractor', ...chromeColorTokensIn(v)].map(synonymizeToken);
+  const normalized = normalizePsaVarietyForMatch(psaVariety).toLowerCase();
+  if (!normalized) return [];
+  if (psaVarietyIsGenericSportRefractorLine(normalized)) {
+    return ['refractor', ...chromeColorTokensIn(normalized)].map(
+      synonymizeToken,
+    );
   }
-  const parts = v
+  const parts = normalized
     .split(/[\s.\-/]+/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 2);
@@ -101,6 +149,10 @@ function varietyMatchChunks(psaVariety: string): string[] {
     'soccer',
   ]) {
     out.delete(sport);
+  }
+  // Print-run numerals (`/150`, `/99`) — not parallel identity. Keep years for stamps.
+  for (const p of [...out]) {
+    if (/^\d+$/.test(p) && !/^(19|20)\d{2}$/.test(p)) out.delete(p);
   }
   if ([...out].some((p) => p === 'grn' || p.includes('grn'))) {
     out.add('green');
@@ -116,8 +168,18 @@ function varietyMatchChunks(psaVariety: string): string[] {
   return [...out].filter((c) => c.length >= 2).map(synonymizeToken);
 }
 
+function rowLooksLikeImageVariation(row: Record<string, unknown>): boolean {
+  const blob = rowParallelBlob(row);
+  return /\bvariation\b/.test(blob);
+}
+
 function namedIdentityTokens(tokens: string[]): string[] {
-  return tokens.filter((t) => t !== 'base' && !PRINT_FINISH_TOKENS.has(t));
+  return tokens.filter(
+    (t) =>
+      t !== 'base' &&
+      !PRINT_FINISH_TOKENS.has(t) &&
+      !SPORT_POSE_TOKENS.has(t),
+  );
 }
 
 function blobHasVarietyChunk(blob: string, chunk: string): boolean {
@@ -168,18 +230,27 @@ export function cardhedgerRowIsPrintFinishOnly(
 }
 
 /**
- * PSA Variety blank → flagship/base catalog line only.
+ * PSA Variety blank / generic BASE → flagship catalog line only.
  * GemRate cert lookup can attach 1/1 or insert rows (e.g. Superfractor) when PSA
  * prints no parallel on the label.
+ *
+ * Cardhedger often files sports base poses as `Base - Pitching` / `Base - Batting`.
+ * Those are still base catalog lines (not chrome parallels) — accept them when PSA
+ * Variety is empty so cert pricing (e.g. Ohtani Topps Chrome #150) is not dropped.
+ *
+ * Image **Variation** (`Base - Variation`) is a different PSA Spec family — reject it
+ * for blank/BASE Variety even though the catalog prefix is `Base`.
  */
 export function cardhedgerRowImpliedParallelWithoutPsaVariety(
   row: Record<string, unknown>,
 ): boolean {
   const blob = rowParallelBlob(row);
   if (cardhedgerRowParallelFlavorConflict('', blob)) return true;
+  if (rowLooksLikeImageVariation(row)) return true;
 
   const variant = String(row.variant ?? '').trim();
-  if (!variant || /^base$/i.test(variant)) return false;
+  // Exact `Base`, or pose subtypes like `Base - Pitching` (not Variation).
+  if (!variant || /^base(\b|$)/i.test(variant)) return false;
 
   if (cardhedgerRowIsPrintFinishOnly(row)) return true;
 
@@ -192,11 +263,12 @@ export function cardhedgerRowMatchesPsaVariety(
   row: Record<string, unknown>,
   psaVariety: string | null | undefined,
 ): boolean {
-  const pv = String(psaVariety ?? '').trim();
-  if (!pv) {
+  const pv = normalizePsaVarietyForMatch(psaVariety);
+  // Blank / BASE / sport-only / Pokémon rarity-slot → flagship catalog only.
+  // Do not `return true` for every row (that used to accept Superfractor on BASE).
+  if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv)) {
     return !cardhedgerRowImpliedParallelWithoutPsaVariety(row);
   }
-  if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return true;
 
   const blob = rowParallelBlob(row);
   if (cardhedgerRowParallelFlavorConflict(pv, blob)) return false;
@@ -220,14 +292,32 @@ export function cardhedgerRowMatchesPsaVariety(
    * print finish (`REVERSE HOLO` on a Master Ball slab). Do not require those finish
    * tokens to appear on the Cardhedger row.
    */
-  if (
-    variantTokens.length > 0 &&
-    variantTokens.every((t) => psaTokens.has(t))
-  ) {
+  const variantTokensCoveredByPsa = variantTokens.every(
+    (t) => psaTokens.has(t) || SPORT_POSE_TOKENS.has(t),
+  );
+  if (variantTokens.length > 0 && variantTokensCoveredByPsa) {
     const leftoverIdentity = [...psaTokens].filter(
       (t) => !variantTokens.includes(t) && !PRINT_FINISH_TOKENS.has(t),
     );
     if (leftoverIdentity.length === 0) return true;
+    /**
+     * Topps Chrome: Cardhedger often shortens `Green Wave Refractor` → `Green Wave` /
+     * `Pitching Prism` (omits the word Refractor). When a non-variation parallel anchor
+     * (color / wave / prism / …) from PSA is on the row, leftover `refractor` alone is OK.
+     * Do **not** treat image-variation base (`Base - Variation`) as a Refractor parallel.
+     */
+    if (
+      leftoverIdentity.length === 1 &&
+      leftoverIdentity[0] === 'refractor' &&
+      namedIdentityTokens(variantTokens).some(
+        (t) =>
+          t !== 'refractor' &&
+          t !== 'variation' &&
+          psaTokens.has(t),
+      )
+    ) {
+      return true;
+    }
     /**
      * PSA One Piece championship stamps: `Championship 2024-Top Prize`.
      * Cardhedger files the same overlay as `variant: "Championship 2024"`
@@ -259,7 +349,22 @@ export function cardhedgerRowMatchesPsaVariety(
 
   const chunks = varietyMatchChunks(pv);
   if (chunks.length === 0) return true;
-  return chunks.every((c) => blobHasVarietyChunk(blob, c));
+  return chunks.every((c) => {
+    if (blobHasVarietyChunk(blob, c)) return true;
+    // Same Chrome shorthand: PSA `… REFRACTOR` vs catalog without the word.
+    if (
+      c === 'refractor' &&
+      namedIdentityTokens([...psaTokens]).some(
+        (t) =>
+          t !== 'refractor' &&
+          t !== 'variation' &&
+          blobHasVarietyChunk(blob, t),
+      )
+    ) {
+      return true;
+    }
+    return false;
+  });
 }
 
 /**

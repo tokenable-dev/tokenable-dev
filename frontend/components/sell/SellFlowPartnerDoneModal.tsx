@@ -107,7 +107,7 @@ export function SellFlowPartnerDoneModal({
                     </span>
                     <span className="sell-flow-partner-done-row__body">
                       <SellCardNameBlock
-                        card={resolveCard(row.cert, row.name)}
+                        card={row}
                         certOnLine2
                         line1ClassName="sell-flow-partner-done-row__name"
                         line2ClassName="sell-flow-partner-done-row__meta"

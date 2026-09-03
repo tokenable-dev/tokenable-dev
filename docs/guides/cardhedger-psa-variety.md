@@ -20,7 +20,14 @@
 | Cardhedger 매칭 | `psaVariety`가 비어 있으면 **베이스 vs 실버 구분 게이트가 동작하지 않음**. 저장된 `cardhedger.cardId`가 베이스면 번호·이름만 맞아도 **verified**로 잠김. |
 | 결과 | Cardhedger **베이스 행** comps(~$400대)를 그대로 표시. 실제 슬랩은 **SILVER PRIZM**. |
 
-**수정 요지:** 민팅 시 `graded.psa.Variety`에 PSA Variety를 **반드시** 기록한다. 마켓플레이스/스냅샷/포트폴리오 경로는 PSA Public API를 호출하지 않는다(mint-only). Variety가 비어 있으면 Cardhedger resolve가 Base에 잠기거나 `matched: false`가 될 수 있으므로, 보정은 **재민트·analyze-by-cert로 mint 메타를 고치는 쪽**에서 한다.
+## Sports `Base - Pose` (Topps Chrome Ohtani #150)
+
+PSA labels often omit Variety for **base** sports cards. Cardhedger still files pose lines as `variant: "Base - Pitching"` / `Base - Batting`.
+
+Tokenable previously treated any non-exact `Base` variant as an implied parallel when PSA Variety was blank, which **dropped** a valid `batch-prices-by-cert` hit (e.g. cert `92130818` → ~$1.6k, `card_id` `1618415741939x…`) and fell through to an unmatched search.
+
+**Rule:** `variant` matching `/^base(\b|$)/i` (including `Base - Pitching`) is still a base catalog line when PSA Variety is empty. True parallels (`Superfractor`, `Refractor`, …) remain rejected.
+
 
 ## 다른 카드 테스트 시 체크리스트
 
@@ -67,6 +74,41 @@ PSA **Variety** is blank and population is thousands — the slab is the **flags
 PSA **Variety**가 **`BLUE REFRACTOR`**인데 Cardhedger **`Pitching Blue Wave Refractor`** 행을 쓰면 시세가 **한 자릿수 배** 어긋날 수 있다 (예: Ohtani 2018 Topps Chrome #150 — Blue Refractor /150 vs Blue Wave).
 
 과거에는 `blue`·`refractor` 토큰만 맞으면 **Wave**가 있는 행도 통과했다. 현재는 Cardhedger `variant`에 **PSA에 없는 병행 토큰**(예: `wave`, `raywave`)이 있으면 **불일치**로 거른다. 컬렉션 bucket hash(v2)에도 **`marketParallelKey`**(`blue_refractor` 등)가 들어가 Base·다른 병행과 풀을 나눈다.
+
+### Sports pose on Cardhedger (`Pitching` / `Batting`) vs PSA parallel-only Variety
+
+PSA often prints **`BLUE REFRACTOR`** (or blank on base) and **does not** encode photo pose. Cardhedger still files checklist rows as **`Pitching Blue Refractor`**, **`Batting Blue Refractor`**, **`Base - Pitching`**, etc.
+
+**Bug (certs `63566677` / `63087722`):** Tokenable treated `pitching` as an extra named identity, **rejected** the GemRate cert row (`Pitching Blue Refractor`), then `card-search` fell through to a wrong-year **`Blue Refractor`** (e.g. 2026 Topps Finest #150).
+
+**Rule:** Sports **pose** tokens (`pitching`, `batting`, `fielding`, …) are optional on the catalog row when PSA Variety omits them — same class as print-finish tokens, **not** parallel flavors like Wave. If PSA Variety **includes** a pose, the Cardhedger row must carry that pose. Wave / Superfractor / color still reject when PSA does not name them.
+
+**Limit:** When PSA SpecID is shared across poses (both certs above → SpecID `2634238`, Variety `BLUE REFRACTOR`) and GemRate maps both slabs to one pose row, Tokenable cannot invent a sibling pose from the label alone.
+
+### Authority model (mint / collections / comps) — no per-card hardcoding
+
+1. **PSA Public API cert** is the source of truth for Subject / Brand / CardNumber / Year / **Variety** / SpecID / grade.
+2. **`marketParallelKey`** (bucket v2) = slug of that Variety when it names a parallel (`blue_refractor`, `variation_green_refractor`, …) else `base`. That is how collections and order books stay split without a manual checklist.
+3. **Cardhedger** supplies `card_id` + comps. GemRate `details-by-certs` / `prices-by-cert` is preferred **only if** the catalog row passes the PSA Variety gate.
+4. **Image Variation** (PSA `VARIATION-*`) is a parallel identity, not a pose. `Base - Variation` must **not** attach to blank/`BASE`/`BLUE REFRACTOR` slabs. Flagship `Pitching Blue Refractor` must **not** attach to `VARIATION-*`.
+5. **Pose** on Cardhedger (`Pitching`) is **not** a Tokenable collection axis when PSA omits it — PSA Spec already defines the tradable pool.
+6. Fail closed on variety mismatch (`matched: false` / no comps) rather than a plausible wrong parallel.
+
+Matching helpers live in `cardhedger-psa-variety.util.ts` + `varietyHintsForSearch` (VARIATION search aliases, strip `/150` print-run noise). Do not add cert- or player-specific maps.
+
+Cardhedger sometimes shortens Chrome parallels (`Pitching Green Wave`, `Pitching Prism`) and omits the word **Refractor**. When a non-variation parallel anchor (color / wave / prism / …) from PSA is on the row, leftover `refractor` alone is accepted. Image-variation base (`Base - Variation`) must not absorb `VARIATION-… REFRACTOR`.
+
+### Ohtani 2018 Topps Chrome #150 — PSA `VARIATION-*` audit (Cardhedger catalog)
+
+Real Cardhedger search over 2018 Chrome `#150` Ohtani rows found **no** catalog lines for:
+
+| PSA Variety | Example cert | GemRate / card-match behavior | Tokenable |
+|-------------|--------------|-------------------------------|-----------|
+| `VARIATION-GREEN REFRACTOR` | `137839751` | cert known; **`card: null`** | unmatched (correct) |
+| `VARIATION-ORANGE REFRACTOR` | `42652975` | **`card_match` → flagship `Orange Refractor`** | gate **rejects** |
+| `VARIATION-REFRACTOR` | `80147607` | **`gemrate_id` → `Variation Red Jersey`**; match → flagship `Refractor` | gate **rejects** |
+
+Catalog variation-related rows that **do** exist: `Base - Variation`, `Variation Red Jersey` only — not Green/Orange/Refractor Variation parallels. Do not invent prices from flagship siblings.
 
 ### PSA `PANINI PRIZM ROOKIE SIGNATURES` (insert 세트, 예: Lonnie Walker IV #RSLW4)
 

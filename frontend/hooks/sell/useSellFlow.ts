@@ -672,6 +672,12 @@ export function useSellFlow() {
             cert: result.cert,
             name: card.name,
             tokenId: result.tokenId,
+            grade: card.grade,
+            cardNumber: card.cardNumber,
+            year: card.year,
+            setName: card.setName,
+            language: card.language,
+            variant: card.variant,
           });
           await invalidateAfterRwaMintTx(queryClient, {
             tokenId: result.tokenId,

@@ -685,6 +685,10 @@ export class PsaService {
       : [];
     if (cards.length === 0) return undefined;
 
+    const yearWant =
+      searchQuery.match(/\b((?:19|20)\d{2})\b/)?.[1] ??
+      null;
+
     const scored = cards
       .filter(
         (x): x is Record<string, unknown> => typeof x === 'object' && x != null,
@@ -702,6 +706,12 @@ export class PsaService {
         const num = normalizeForExactCardNumberKey(
           primaryCardNumber(String(row.number ?? '')),
         );
+        const rowYearBlob = `${String(row.set ?? '')} ${String(row.description ?? '')}`;
+        const rowYear = rowYearBlob.match(/\b((?:19|20)\d{2})\b/)?.[1] ?? null;
+        // Same player/# parallel can exist across years (e.g. Finest Blue Refractor).
+        if (yearWant && rowYear && yearWant !== rowYear) {
+          return { id, score: 0, verified: false };
+        }
 
         let score = 0;
         const numMatch = Boolean(cardNumWant && num && cardNumWant === num);
@@ -726,6 +736,7 @@ export class PsaService {
         if (numMatch) score += 100;
         if (setMatch) score += 60;
         if (nameMatch) score += 50;
+        if (yearWant && rowYear && yearWant === rowYear) score += 40;
 
         // verified = number must match AND at least one of (set OR name) must match
         // This is more robust than requiring all three, because PSA and Cardhedger
