@@ -7,6 +7,7 @@ import {
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import { User } from '../../user/entities/user.entity';
 import {
@@ -90,6 +91,7 @@ export class PortfolioDailySnapshotService {
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
     private readonly blockchain: BlockchainService,
+    private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly ownerIndex: RwaTokenOwnerIndexService,
     private readonly collectionMarket: CollectionMarketService,
     private readonly cardhedger: CardhedgerMarketDataService,
@@ -532,7 +534,7 @@ export class PortfolioDailySnapshotService {
     ];
 
     const metaByToken = new Map<number, Record<string, unknown>>();
-    const metadataPack = await this.blockchain.batchRwaMetadata(
+    const metadataPack = await this.rwaAssetResolve.batchPortfolioMetadata(
       uniqueTokenIds,
       chainId,
     );

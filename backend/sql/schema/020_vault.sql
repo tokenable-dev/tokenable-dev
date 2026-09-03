@@ -28,19 +28,25 @@ CREATE TABLE IF NOT EXISTS vault_cycles (
   deposit_verified_by uuid REFERENCES users(id) ON DELETE SET NULL,
   deposited_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
   redeemed_at timestamptz,
+  -- Intent before/during on-chain mint; cleared when status becomes minted.
+  mint_attempt jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT vault_cycles_asset_number_unique UNIQUE (vault_asset_id, cycle_number),
   CONSTRAINT vault_cycles_chain_id_positive CHECK (chain_id > 0),
   CONSTRAINT vault_cycles_status_check CHECK (
     status IN (
-      'pending_deposit', 'deposit_verified', 'minted',
+      'pending_deposit', 'deposit_verified', 'minting', 'minted',
       'redemption_requested', 'redeemed', 'cancelled'
     )
   )
 );
 
 CREATE INDEX IF NOT EXISTS idx_vault_cycles_asset_id ON vault_cycles (vault_asset_id);
+
+CREATE INDEX IF NOT EXISTS idx_vault_cycles_minting
+  ON vault_cycles (updated_at)
+  WHERE status = 'minting';
 
 -- One open cycle per (asset, chain) — the on-chain activeTokenIdByVaultRef
 -- invariant is per contract, i.e. per chain. A live Sepolia NFT must not

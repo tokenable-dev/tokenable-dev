@@ -3,10 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
-import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
+import {
+  pickRwaAssetDisplayImageRef,
+  psaCertNumberFromGradedMeta,
+} from '../marketplace/utils/collection-image.util';
 import { BlockchainService } from './blockchain.service';
 import { ChainConfigService, type SupportedChainId } from './chain-config.service';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
+
+function metadataCidFromTokenUri(uri: string): string | null {
+  const u = uri.trim();
+  if (!u.startsWith('ipfs://')) return null;
+  const rest = u.slice(7).replace(/^ipfs\//, '');
+  const cid = rest.split('/')[0]?.trim();
+  return cid || null;
+}
 
 type ResolvedAssetPayload = {
   tokenId: number;
@@ -289,14 +300,180 @@ export class RwaAssetResolveService {
   }
 
   /**
-   * Portfolio list path — DB registry batch + deduped IPFS metadata reads.
-   * No on-chain tokenURI unless the token has no registry row.
+   * Portfolio list path — graded JSON from registry `token_uri` (IPFS) when
+   * present; owner-index stubs without URI fall back to on-chain tokenURI +
+   * IPFS (same as detail). Prefers DB slab images. Heals empty registry fields.
    */
   async batchPortfolioMetadata(
     tokenIds: number[],
     chainId?: SupportedChainId,
-  ): ReturnType<RwaAssetResolveService['batchRwaMetadata']> {
-    return this.batchRwaMetadata(tokenIds, chainId);
+  ): Promise<{
+    items: Array<{
+      tokenId: number;
+      tokenURI: string | null;
+      metadata: Record<string, unknown> | null;
+      imageUrl: string | null;
+      imageBackUrl: string | null;
+      displayImageUrlOverride: string | null;
+    }>;
+  }> {
+    const unique = [
+      ...new Set(
+        tokenIds
+          .map((n) => Math.floor(Number(n)))
+          .filter((n) => Number.isFinite(n) && n >= 0),
+      ),
+    ];
+    if (unique.length === 0) return { items: [] };
+
+    const contract = this.rwaContractAddress(chainId);
+    const registryRows = new Map<number, RwaToken>();
+    if (contract) {
+      const rows = await this.rwaTokenRepo.find({
+        where: { tokenContract: contract, tokenId: In(unique.map(String)) },
+      });
+      for (const row of rows) {
+        const tid = Number(row.tokenId);
+        if (Number.isFinite(tid)) registryRows.set(tid, row);
+      }
+    }
+
+    const needsOnChain = unique.filter((tokenId) => {
+      const row = registryRows.get(tokenId);
+      return !row || !this.registryMetadataUri(row);
+    });
+    const onChainById = new Map<
+      number,
+      {
+        tokenURI: string | null;
+        metadata: Record<string, unknown> | null;
+        imageUrl: string | null;
+      }
+    >();
+    if (needsOnChain.length > 0) {
+      const base = await this.blockchain.batchRwaMetadata(needsOnChain, chainId);
+      for (const item of base.items) {
+        onChainById.set(item.tokenId, item);
+      }
+    }
+
+    const registryUris: string[] = [];
+    for (const tokenId of unique) {
+      const row = registryRows.get(tokenId);
+      if (!row) continue;
+      const uri = this.registryMetadataUri(row);
+      if (uri) registryUris.push(uri);
+    }
+    const metadataByUri = await this.fetchMetadataJsonByUriMap(registryUris);
+
+    const httpsCache = new Map<string, string | null>();
+    const resolveHttps = async (raw: string | null | undefined) => {
+      const url = raw?.trim();
+      if (!url) return null;
+      if (httpsCache.has(url)) return httpsCache.get(url) ?? null;
+      const https = (await this.resolveOverrideToHttps(url)) ?? null;
+      httpsCache.set(url, https);
+      return https;
+    };
+
+    const items = await Promise.all(
+      unique.map(async (tokenId) => {
+        const row = registryRows.get(tokenId);
+        const registryUri = row ? this.registryMetadataUri(row) : '';
+        const onChain = onChainById.get(tokenId);
+
+        let metadata: Record<string, unknown> | null = null;
+        if (registryUri) {
+          metadata = metadataByUri.get(registryUri) ?? null;
+        }
+        if (!metadata && row) {
+          metadata = this.stubMetadataFromRegistryRow(row);
+        }
+        if (!metadata) {
+          metadata = onChain?.metadata ?? null;
+        }
+
+        const tokenURI =
+          registryUri || onChain?.tokenURI?.trim() || null;
+
+        this.maybeBackfillRegistryFields(row, tokenId, tokenURI, metadata);
+
+        const override = row?.displayImageUrl?.trim() || null;
+        let imageUrl: string | null = null;
+        if (override) {
+          imageUrl = await resolveHttps(override);
+        } else if (metadata) {
+          imageUrl = await this.resolveImageFromMetadata(metadata);
+        }
+        if (!imageUrl) {
+          imageUrl = onChain?.imageUrl ?? null;
+        }
+        const imageBackUrl = await resolveHttps(row?.displayImageBackUrl);
+
+        return {
+          tokenId,
+          tokenURI,
+          metadata,
+          imageUrl,
+          imageBackUrl,
+          displayImageUrlOverride: override,
+        };
+      }),
+    );
+
+    items.sort((a, b) => a.tokenId - b.tokenId);
+    return { items };
+  }
+
+  /**
+   * Heal owner-index stubs / incomplete mint rows after a successful resolve.
+   * Only fills empty columns — never overwrites settlement_policy or images.
+   */
+  private maybeBackfillRegistryFields(
+    row: RwaToken | undefined,
+    tokenId: number,
+    tokenURI: string | null,
+    metadata: Record<string, unknown> | null,
+  ): void {
+    const contract = row?.tokenContract ?? this.rwaContractAddress();
+    if (!contract) return;
+    const tid = String(tokenId);
+
+    const patch: {
+      displayName?: string;
+      tokenUri?: string;
+      metadataCid?: string | null;
+      certNumber?: string;
+      metadataSyncedAt: Date;
+    } = { metadataSyncedAt: new Date() };
+    let dirty = false;
+
+    const name =
+      typeof metadata?.name === 'string' ? metadata.name.trim() : '';
+    if (name && !row?.displayName?.trim()) {
+      patch.displayName = name;
+      dirty = true;
+    }
+
+    const uri = tokenURI?.trim() || '';
+    if (uri && !row?.tokenUri?.trim() && !row?.metadataCid?.trim()) {
+      patch.tokenUri = uri;
+      patch.metadataCid = metadataCidFromTokenUri(uri);
+      dirty = true;
+    }
+
+    const cert = metadata
+      ? psaCertNumberFromGradedMeta(metadata)?.trim() || null
+      : null;
+    if (cert && !row?.certNumber?.trim()) {
+      patch.certNumber = cert;
+      dirty = true;
+    }
+
+    if (!dirty) return;
+    void this.rwaTokenRepo
+      .update({ tokenContract: contract, tokenId: tid }, patch)
+      .catch(() => undefined);
   }
 
   async batchRwaMetadata(

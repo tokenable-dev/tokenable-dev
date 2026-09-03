@@ -35,10 +35,12 @@ sql/
 │   ├── add_collection_review_status.sql
 │   ├── add_portfolio_daily_snapshot_chain_id.sql
 │   ├── add_vault_cycles_chain_id.sql
+│   ├── add_vault_cycles_mint_attempt.sql       # minting status + mint_attempt JSON (crash recovery)
 │   ├── add_marketplace_notifications_chain_id.sql
 │   ├── cancel_legacy_vault_submission_drafts.sql  # cancel orphan status=draft packages
 │   ├── add_self_vault_settlements.sql
 │   ├── add_rwa_tokens_settlement_policy.sql
+│   ├── nullable_rwa_tokens_settlement_policy.sql  # NULL = custody unknown until mint registry
 │   ├── alter_marketplace_partners_optional_pk.sql
 │   ├── add_rwa_tokens_vault_partner_id.sql
 │   ├── add_vault_submission_item_display_fields.sql  # SSOT card fields on vault_submission_items

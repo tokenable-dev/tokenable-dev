@@ -6,6 +6,7 @@ import {
   PortfolioCostBasisSource,
   PortfolioHolding,
 } from '../entities/portfolio-holding.entity';
+import { RwaToken } from '../entities/rwa-token.entity';
 import { PortfolioHoldingService } from './portfolio-holding.service';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
@@ -68,15 +69,40 @@ describe('PortfolioHoldingService', () => {
     getRwaAddress: () => CONTRACT,
   };
 
+  const registryCreatedAt = new Map<string, Date>();
+  const rwaTokenRepo = {
+    find: jest.fn(
+      async ({
+        where,
+      }: {
+        where: { tokenId?: { _value?: string[] } | string[] };
+      }) => {
+        const ids = Array.isArray(where.tokenId)
+          ? where.tokenId
+          : ((where.tokenId as { _value?: string[] } | undefined)?._value ??
+            []);
+        return ids
+          .map((tid) => {
+            const createdAt = registryCreatedAt.get(String(tid));
+            if (!createdAt) return null;
+            return { tokenId: String(tid), createdAt };
+          })
+          .filter(Boolean);
+      },
+    ),
+  };
+
   beforeEach(async () => {
     rows.clear();
     nextId = 1;
+    registryCreatedAt.clear();
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         PortfolioHoldingService,
         { provide: getRepositoryToken(PortfolioHolding), useValue: holdingRepo },
+        { provide: getRepositoryToken(RwaToken), useValue: rwaTokenRepo },
         { provide: ChainConfigService, useValue: chainConfig },
       ],
     }).compile();
@@ -151,5 +177,44 @@ describe('PortfolioHoldingService', () => {
     const row = rows.get(13);
     expect(row?.costBasisUsd).toBe(900);
     expect(row?.costBasisSource).toBe(PortfolioCostBasisSource.MARKETPLACE_BUY);
+  });
+
+  it('records vault mint acquisition without cost basis', async () => {
+    const acquiredAt = new Date('2026-09-03T01:00:00.000Z');
+    await service.recordVaultMintAcquisition(WALLET, 117, acquiredAt);
+
+    const row = rows.get(117);
+    expect(row?.acquiredAt?.toISOString()).toBe(acquiredAt.toISOString());
+    expect(row?.costBasisUsd ?? null).toBeNull();
+    expect(row?.costBasisSource ?? null).toBeNull();
+  });
+
+  it('falls back to rwa_tokens.created_at when holdings lack acquiredAt', async () => {
+    const mintedAt = new Date('2026-09-03T02:00:00.000Z');
+    registryCreatedAt.set('117', mintedAt);
+
+    const batch = await service.getHoldingsBatch(WALLET, [117]);
+    expect(batch).toEqual([
+      {
+        tokenId: 117,
+        hidden: false,
+        costBasisUsd: null,
+        costBasisSource: null,
+        acquiredAt: mintedAt.toISOString(),
+      },
+    ]);
+  });
+
+  it('unhide keeps acquisition-only rows', async () => {
+    await service.recordVaultMintAcquisition(
+      WALLET,
+      118,
+      new Date('2026-09-03T03:00:00.000Z'),
+    );
+    await service.hide(WALLET, 118);
+    await service.unhide(WALLET, 118);
+
+    expect(rows.get(118)?.acquiredAt).not.toBeNull();
+    expect(rows.get(118)?.hiddenAt).toBeNull();
   });
 });

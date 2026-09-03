@@ -140,11 +140,13 @@ Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/v
 ## VaultCycle Status Machine
 
 ```
-pending_deposit  →  deposit_verified  →  minted  →  redemption_requested  →  redeemed
+pending_deposit  →  deposit_verified  →  minting  →  minted  →  redemption_requested  →  redeemed
+                                              ↑
+                         (intent persisted before on-chain mint; crash recovery completes)
                                                                  ↑
                                                          (admin burn completes)
 
-Any state  →  cancelled   (on-chain mint failure; compensating action)
+Any of deposit_verified / minting  →  cancelled   (on-chain mint failed or stale minting with no NFT)
 ```
 
 ### Automated vs manual steps
@@ -152,11 +154,26 @@ Any state  →  cancelled   (on-chain mint failure; compensating action)
 | Step | Who | When |
 |------|-----|------|
 | `deposit_verified` | Automated | PSA cert lookup passes; `reserveCycleForDeposit()` |
-| `minted` | Backend on-chain | After `mint()` tx confirmed; `recordMintResult()` |
+| `minting` | Backend | `beginMintAttempt()` **before** `mint()` gas — stores settlement policy, tokenURI, images on `vault_cycles.mint_attempt` |
+| `minted` | Backend on-chain | After `mint()` tx confirmed; `recordMintResult()` (also run by `VaultMintRecoveryService` if the process died mid-mint) |
 | `redemption_requested` | User API | `POST /rwa/redeem-batch` |
 | `redeemed` | Admin on-chain | After `adminBurn()` tx confirmed |
 | `completed` | Admin ops | After physical card shipped (`confirmVaultRelease`) |
-| `cancelled` | Backend (compensating) | On-chain mint failed; cycle released for retry |
+| `cancelled` | Backend (compensating) | On-chain mint failed, or `minting` with no on-chain token after timeout |
+
+### Crash / redeploy safety
+
+`mint()` is on-chain and `recordMintResult()` is a separate DB write. A non-zero-downtime Docker restart between them used to leave a live NFT with no `rwa_tokens` row ("ghost" — listing fails with vault custody unknown).
+
+Mitigation:
+
+1. **Before** `mint()`: persist `mint_attempt` JSON + status `minting` (includes `settlement_policy` so PSA vs partner/self vault is never guessed later)
+2. **After** mint confirms: stamp `tokenId`/`txHash` on the attempt, then `recordMintResult`
+3. **Boot poll** (`VaultMintRecoveryService`): for each `minting` cycle, read `activeTokenIdOf(vaultRef)` (or stamped tokenId) and finish `recordMintResult` from the saved attempt; cancel only if no on-chain token after ~30 minutes
+
+`rwa_tokens.settlement_policy` is **nullable**. Transfer-index owner stubs leave it `NULL` (custody unknown). Only `recordMintResult` sets `standard` (PSA vault) or `self_vault_hold` (partner/self vault). Listing APIs treat `NULL` as unknown — never default to PSA.
+
+Maintenance SQL (existing DBs): `add_vault_cycles_mint_attempt.sql`, `nullable_rwa_tokens_settlement_policy.sql`.
 
 ### Portfolio Redeem UI (design system-5 — pay-first)
 

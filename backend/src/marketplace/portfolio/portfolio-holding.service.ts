@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
+import { RwaToken } from '../entities/rwa-token.entity';
 import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import {
   PortfolioCostBasisSource,
@@ -20,6 +21,8 @@ export class PortfolioHoldingService {
   constructor(
     @InjectRepository(PortfolioHolding)
     private readonly holdingRepo: Repository<PortfolioHolding>,
+    @InjectRepository(RwaToken)
+    private readonly rwaTokens: Repository<RwaToken>,
     private readonly chainConfig: ChainConfigService,
   ) {}
 
@@ -94,7 +97,11 @@ export class PortfolioHoldingService {
       where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
     });
     if (!existing) return;
-    if (existing.costBasisUsd == null && existing.costBasisSource == null) {
+    if (
+      existing.costBasisUsd == null &&
+      existing.costBasisSource == null &&
+      existing.acquiredAt == null
+    ) {
       await this.holdingRepo.delete(existing.id);
       return;
     }
@@ -140,16 +147,74 @@ export class PortfolioHoldingService {
     });
     const byTokenId = new Map(rows.map((r) => [r.tokenId, r]));
 
+    const missingAcquired = normalized.filter(
+      (id) => !byTokenId.get(id)?.acquiredAt,
+    );
+    const mintedAtByToken = new Map<number, Date>();
+    if (missingAcquired.length > 0) {
+      const registry = await this.rwaTokens.find({
+        where: {
+          tokenContract: contract,
+          tokenId: In(missingAcquired.map(String)),
+        },
+        select: ['tokenId', 'createdAt'],
+      });
+      for (const row of registry) {
+        const tid = Number(row.tokenId);
+        if (Number.isFinite(tid) && row.createdAt) {
+          mintedAtByToken.set(tid, row.createdAt);
+        }
+      }
+    }
+
     return normalized.map((tokenId) => {
       const row = byTokenId.get(tokenId);
+      const acquiredAt =
+        row?.acquiredAt?.toISOString() ??
+        mintedAtByToken.get(tokenId)?.toISOString() ??
+        null;
       return {
         tokenId,
         hidden: row?.hiddenAt != null,
         costBasisUsd: row?.costBasisUsd ?? null,
         costBasisSource: row?.costBasisSource ?? null,
-        acquiredAt: row?.acquiredAt?.toISOString() ?? null,
+        acquiredAt,
       };
     });
+  }
+
+  /**
+   * Direct/self-vault mint: always record acquiredAt so Tx History shows MINT
+   * even when Cardhedger has no mark USD for cost basis.
+   */
+  async recordVaultMintAcquisition(
+    walletAddress: string,
+    tokenId: number,
+    acquiredAt = new Date(),
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const wallet = this.normalizeWallet(walletAddress);
+    if (!wallet) return;
+    const tid = this.normalizeTokenId(tokenId);
+    const contract = this.rwaContractAddress(chainId);
+    const existing = await this.holdingRepo.findOne({
+      where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
+    });
+    if (existing) {
+      if (!existing.acquiredAt) {
+        existing.acquiredAt = acquiredAt;
+        await this.holdingRepo.save(existing);
+      }
+      return;
+    }
+    await this.holdingRepo.save(
+      this.holdingRepo.create({
+        walletAddress: wallet,
+        tokenContract: contract,
+        tokenId: tid,
+        acquiredAt,
+      }),
+    );
   }
 
   async setManualCostBasis(

@@ -132,6 +132,26 @@ export class BlockchainService {
     }
   }
 
+  /**
+   * On-chain active token for a vaultRef (0 when none / after burn).
+   * Used by mint-crash recovery to finish `recordMintResult`.
+   */
+  async getActiveTokenIdOfVaultRef(
+    vaultRef: string,
+    chainId?: SupportedChainId,
+  ): Promise<number> {
+    const ref = vaultRef?.trim();
+    if (!ref || !/^0x[a-fA-F0-9]{64}$/.test(ref)) {
+      throw new BadRequestException('vaultRef must be bytes32 hex');
+    }
+    const id: bigint = await withRpcProviderCall(
+      () => this.tokenableRwa(chainId).activeTokenIdOf(ref),
+      { label: 'activeTokenIdOf' },
+    );
+    const n = Number(id);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
   async getRwaTokensByOwner(
     address: string,
     chainId?: SupportedChainId,

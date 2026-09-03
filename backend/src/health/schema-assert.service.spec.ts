@@ -16,6 +16,17 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes vault_cycles.mint_attempt (mint crash recovery)', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'vault_cycles' &&
+          r.column === 'mint_attempt',
+      ),
+    ).toBe(true);
+  });
+
   it('formatSchemaAssertFailure names maintenance files', () => {
     const msg = formatSchemaAssertFailure([
       {

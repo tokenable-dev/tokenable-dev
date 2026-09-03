@@ -20,7 +20,10 @@ import {
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
 import { VaultAsset, VaultAssetType } from './entities/vault-asset.entity';
-import { VaultCycle } from './entities/vault-cycle.entity';
+import {
+  VaultCycle,
+  type VaultMintAttempt,
+} from './entities/vault-cycle.entity';
 import { VaultRedeemPaymentClaim } from './entities/vault-redeem-payment-claim.entity';
 import {
   VaultRedemption,
@@ -360,16 +363,119 @@ export class VaultService {
   }
 
   /**
-   * Compensating action for a reserved cycle whose on-chain mint failed —
+   * Persist mint intent + move cycle to `minting` BEFORE spending gas.
+   * If the process dies after on-chain mint, recovery completes from this row.
+   */
+  async beginMintAttempt(
+    cycleId: string,
+    attempt: VaultMintAttempt,
+  ): Promise<void> {
+    const cycle = await this.cycles.findOne({ where: { id: cycleId } });
+    if (!cycle) {
+      throw new NotFoundException(`Vault cycle ${cycleId} not found`);
+    }
+    if (cycle.status !== 'deposit_verified' && cycle.status !== 'minting') {
+      throw new ConflictException(
+        `Vault cycle ${cycleId} cannot begin mint (status=${cycle.status})`,
+      );
+    }
+    const tokenURI = attempt.tokenURI?.trim();
+    const certNumber = VaultService.normalizeCert(attempt.certNumber);
+    const ownerWallet = attempt.ownerWallet?.trim().toLowerCase();
+    if (!tokenURI || !certNumber || !ownerWallet) {
+      throw new BadRequestException(
+        'mint attempt requires tokenURI, certNumber, and ownerWallet',
+      );
+    }
+    const settlementPolicy =
+      attempt.settlementPolicy === 'self_vault_hold'
+        ? 'self_vault_hold'
+        : 'standard';
+    cycle.status = 'minting';
+    cycle.mintAttempt = {
+      tokenURI,
+      certNumber,
+      settlementPolicy,
+      vaultPartnerId:
+        settlementPolicy === 'self_vault_hold'
+          ? attempt.vaultPartnerId?.trim() || null
+          : null,
+      ownerWallet,
+      deliveryMode: attempt.deliveryMode === 'direct' ? 'direct' : 'custody',
+      displayName: attempt.displayName?.trim() || null,
+      displayImageUrl: attempt.displayImageUrl?.trim() || null,
+      displayImageBackUrl: attempt.displayImageBackUrl?.trim() || null,
+      tokenId: attempt.tokenId?.trim() || null,
+      txHash: attempt.txHash?.trim().toLowerCase() || null,
+    };
+    await this.cycles.save(cycle);
+  }
+
+  /** After mint tx confirms — stamp tokenId/txHash on the attempt for crash recovery. */
+  async noteMintAttemptTx(
+    cycleId: string,
+    params: { tokenId: string; txHash: string },
+  ): Promise<void> {
+    const cycle = await this.cycles.findOne({ where: { id: cycleId } });
+    if (!cycle || cycle.status !== 'minting' || !cycle.mintAttempt) return;
+    cycle.mintAttempt = {
+      ...cycle.mintAttempt,
+      tokenId: String(params.tokenId).trim(),
+      txHash: params.txHash.trim().toLowerCase(),
+    };
+    await this.cycles.save(cycle);
+  }
+
+  /**
+   * Compensating action for a reserved/minting cycle whose on-chain mint failed —
    * releases the "occupied" slot so the same physical asset can be retried
    * instead of being stuck open forever.
+   * Do NOT call this when the NFT already exists on-chain — use recordMintResult.
    */
   async cancelCycle(cycleId: string, reason: string): Promise<void> {
     const cycle = await this.cycles.findOne({ where: { id: cycleId } });
-    if (!cycle || cycle.status !== 'deposit_verified') return;
+    if (
+      !cycle ||
+      (cycle.status !== 'deposit_verified' && cycle.status !== 'minting')
+    ) {
+      return;
+    }
     cycle.status = 'cancelled';
+    cycle.mintAttempt = null;
     await this.cycles.save(cycle);
     this.logger.warn(`Vault cycle ${cycleId} cancelled: ${reason}`);
+  }
+
+  /** Open mint attempts waiting for recordMintResult (crash/redeploy recovery). */
+  async listMintingCyclesForRecovery(limit = 50): Promise<
+    Array<{
+      cycle: VaultCycle;
+      asset: VaultAsset;
+      attempt: VaultMintAttempt;
+    }>
+  > {
+    const cycles = await this.cycles.find({
+      where: { status: 'minting' },
+      order: { updatedAt: 'ASC' },
+      take: Math.min(Math.max(limit, 1), 200),
+    });
+    if (cycles.length === 0) return [];
+    const assets = await this.assets.find({
+      where: { id: In(cycles.map((c) => c.vaultAssetId)) },
+    });
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    const out: Array<{
+      cycle: VaultCycle;
+      asset: VaultAsset;
+      attempt: VaultMintAttempt;
+    }> = [];
+    for (const cycle of cycles) {
+      const attempt = cycle.mintAttempt;
+      const asset = byId.get(cycle.vaultAssetId);
+      if (!attempt?.tokenURI || !attempt.certNumber || !asset) continue;
+      out.push({ cycle, asset, attempt });
+    }
+    return out;
   }
 
   /**
@@ -398,8 +504,18 @@ export class VaultService {
     if (!cycle) {
       throw new NotFoundException(`Vault cycle ${params.cycleId} not found`);
     }
+    if (
+      cycle.status !== 'deposit_verified' &&
+      cycle.status !== 'minting' &&
+      cycle.status !== 'minted'
+    ) {
+      throw new ConflictException(
+        `Vault cycle ${params.cycleId} cannot record mint (status=${cycle.status})`,
+      );
+    }
 
     cycle.status = 'minted';
+    cycle.mintAttempt = null;
     await this.cycles.save(cycle);
 
     const vaultRef = VaultService.computeVaultRef(params.certNumber);
@@ -1003,7 +1119,8 @@ export class VaultService {
 
   /**
    * Seaport settlement policy for a minted RWA.
-   * Returns null when the token is not indexed on this chain — never assume PSA custody.
+   * Returns null when the token is not indexed OR mint registry has not
+   * recorded custody yet — never assume PSA vault.
    */
   async getSettlementPolicy(
     tokenContract: string,
@@ -1013,9 +1130,9 @@ export class VaultService {
     const rows = await this.findRwaTokensByDecimalIds(tokenContract, [raw]);
     const token = rows[0];
     if (!token) return null;
-    return token.settlementPolicy === 'self_vault_hold'
-      ? 'self_vault_hold'
-      : 'standard';
+    if (token.settlementPolicy === 'self_vault_hold') return 'self_vault_hold';
+    if (token.settlementPolicy === 'standard') return 'standard';
+    return null;
   }
 
   /** Batch load settlement + partner id for portfolio / listing vault chips. */
@@ -1109,18 +1226,28 @@ export class VaultService {
           known: false,
         };
       }
-      const settlementPolicy =
-        row.settlementPolicy === 'self_vault_hold'
-          ? 'self_vault_hold'
-          : 'standard';
+      if (row.settlementPolicy === 'self_vault_hold') {
+        return {
+          tokenId,
+          settlementPolicy: 'self_vault_hold' as const,
+          vaultPartnerId: row.vaultPartnerId ?? null,
+          known: true,
+        };
+      }
+      if (row.settlementPolicy === 'standard') {
+        return {
+          tokenId,
+          settlementPolicy: 'standard' as const,
+          vaultPartnerId: null,
+          known: true,
+        };
+      }
+      // Transfer-index stub or incomplete mint registry — custody unknown.
       return {
         tokenId,
-        settlementPolicy,
-        vaultPartnerId:
-          settlementPolicy === 'self_vault_hold'
-            ? row.vaultPartnerId ?? null
-            : null,
-        known: true,
+        settlementPolicy: null,
+        vaultPartnerId: null,
+        known: false,
       };
     });
   }

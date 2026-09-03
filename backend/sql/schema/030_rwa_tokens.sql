@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS rwa_tokens (
   vault_ref varchar(66),
   burned_at timestamptz,
   burn_tx_hash varchar(80),
-  settlement_policy varchar(32) NOT NULL DEFAULT 'standard',
+  -- NULL until recordMintResult — owner-index stubs must not imply PSA custody.
+  settlement_policy varchar(32),
   -- FK added in 064_marketplace_partners.sql (partners table created later).
   vault_partner_id uuid,
   owner_wallet varchar(42),
@@ -58,7 +59,7 @@ COMMENT ON COLUMN rwa_tokens.vault_ref IS
 COMMENT ON COLUMN rwa_tokens.burned_at IS
   'Set once on-chain adminBurn (redemption) is confirmed. NULL while the NFT is live.';
 COMMENT ON COLUMN rwa_tokens.settlement_policy IS
-  'standard = Seaport seller+fee split; self_vault_hold = 100% platform take, delayed seller payout';
+  'NULL = custody unknown (not yet recorded from mint). standard = PSA vault Seaport split; self_vault_hold = partner/self vault delayed payout';
 COMMENT ON COLUMN rwa_tokens.vault_partner_id IS
   'Self-vault partner who holds the physical card; used for "{name} vault" UI labels';
 COMMENT ON COLUMN rwa_tokens.owner_wallet IS

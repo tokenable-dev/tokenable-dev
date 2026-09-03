@@ -14,10 +14,27 @@ import { VaultAsset } from './vault-asset.entity';
 export type VaultCycleStatus =
   | 'pending_deposit'
   | 'deposit_verified'
+  | 'minting'
   | 'minted'
   | 'redemption_requested'
   | 'redeemed'
   | 'cancelled';
+
+/** Persisted on vault_cycles before on-chain mint; used to heal after crash/redeploy. */
+export type VaultMintAttempt = {
+  tokenURI: string;
+  certNumber: string;
+  settlementPolicy: 'standard' | 'self_vault_hold';
+  vaultPartnerId?: string | null;
+  ownerWallet: string;
+  deliveryMode: 'custody' | 'direct';
+  displayName?: string | null;
+  displayImageUrl?: string | null;
+  displayImageBackUrl?: string | null;
+  /** Filled after mint tx confirms (helps recovery without RPC). */
+  tokenId?: string | null;
+  txHash?: string | null;
+};
 
 /**
  * One deposit-to-redemption lifecycle for a `VaultAsset`, scoped to one chain.
@@ -64,6 +81,13 @@ export class VaultCycle {
 
   @Column({ name: 'redeemed_at', type: 'timestamptz', nullable: true })
   redeemedAt: Date | null;
+
+  /**
+   * Mint intent written before `mint()` gas is spent. Cleared on `minted`.
+   * Boot recovery completes `recordMintResult` from this + on-chain token id.
+   */
+  @Column({ name: 'mint_attempt', type: 'jsonb', nullable: true })
+  mintAttempt: VaultMintAttempt | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

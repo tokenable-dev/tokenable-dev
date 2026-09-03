@@ -802,11 +802,55 @@ export class BulkMintJobService {
     const toMint = reserved.filter((r) => r.item.tokenUri && r.item.vaultRef);
     if (!toMint.length) return;
 
+    const readyToMint: Array<{ item: BulkMintJobItem; cycleId: string }> = [];
+    for (const r of toMint) {
+      const displayImageUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+        r.item.slabDisplayImageUrl,
+        job.chainId,
+        r.item.certNumber,
+        'front',
+      );
+      const displayImageBackUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+        r.item.slabDisplayImageBackUrl,
+        job.chainId,
+        r.item.certNumber,
+        'back',
+      );
+      try {
+        await this.vault.beginMintAttempt(r.cycleId, {
+          tokenURI: r.item.tokenUri!,
+          certNumber: r.item.certNumber,
+          settlementPolicy: 'self_vault_hold',
+          vaultPartnerId: job.partnerId,
+          ownerWallet: mintTo,
+          deliveryMode: 'direct',
+          displayImageUrl,
+          displayImageBackUrl,
+        });
+        readyToMint.push(r);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        await this.vault.cancelCycle(
+          r.cycleId,
+          `beginMintAttempt failed: ${msg}`,
+        );
+        await this.itemRepo.update(
+          { id: r.item.id },
+          {
+            status: 'mint_failed',
+            vaultCycleId: null,
+            errorMessage: msg,
+          },
+        );
+      }
+    }
+    if (!readyToMint.length) return;
+
     let tokenIds: number[];
     let txHash: string;
     try {
       ({ tokenIds, txHash } = await this.chainWriter.mintBatchTo(
-        toMint.map((r) => ({
+        readyToMint.map((r) => ({
           to: mintTo,
           tokenURI: r.item.tokenUri!,
           vaultRef: r.item.vaultRef!,
@@ -815,7 +859,7 @@ export class BulkMintJobService {
       ));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      for (const r of toMint) {
+      for (const r of readyToMint) {
         await this.vault.cancelCycle(r.cycleId, `bulk mintBatch failed: ${msg}`);
         await this.itemRepo.update(
           { id: r.item.id },
@@ -829,9 +873,13 @@ export class BulkMintJobService {
       throw e;
     }
 
-    for (let i = 0; i < toMint.length; i++) {
-      const r = toMint[i]!;
+    for (let i = 0; i < readyToMint.length; i++) {
+      const r = readyToMint[i]!;
       const tokenId = tokenIds[i]!;
+      await this.vault.noteMintAttemptTx(r.cycleId, {
+        tokenId: String(tokenId),
+        txHash,
+      });
       try {
         await this.vault.recordMintResult({
           cycleId: r.cycleId,
@@ -854,6 +902,7 @@ export class BulkMintJobService {
           ),
           settlementPolicy: 'self_vault_hold',
           vaultPartnerId: job.partnerId,
+          ownerWallet: mintTo,
         });
         await this.itemRepo.update(
           { id: r.item.id },
@@ -869,6 +918,7 @@ export class BulkMintJobService {
         this.logger.error(
           `recordMintResult failed cert=${r.item.certNumber} tokenId=${tokenId}: ${msg}`,
         );
+        // Leave vault_cycles.status=minting for boot recovery — do not cancel.
         await this.itemRepo.update(
           { id: r.item.id },
           {

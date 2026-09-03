@@ -13,6 +13,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # Add new idempotent maintenance/*.sql here when the API entity layer depends on them.
 FILES=(
   maintenance/add_vault_submission_item_display_fields.sql
+  maintenance/add_vault_cycles_mint_attempt.sql
+  maintenance/nullable_rwa_tokens_settlement_policy.sql
 )
 
 run_psql() {

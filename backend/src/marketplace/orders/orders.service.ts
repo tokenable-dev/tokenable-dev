@@ -734,6 +734,11 @@ export class OrdersService {
       dto.tokenContract,
       String(dto.tokenId),
     );
+    if (policy == null) {
+      throw new BadRequestException(
+        `Token #${dto.tokenId} vault custody is unknown — mint registry incomplete; refresh or contact support`,
+      );
+    }
     if (!isSelfVaultHoldPolicy(policy)) return;
 
     const feeRecipient = (

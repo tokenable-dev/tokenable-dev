@@ -10,6 +10,7 @@
  *  - Scenario functions (export) — composite invalidation for a user action
  */
 import type { QueryClient } from "@tanstack/react-query";
+import { clearPortfolioBundle } from "@/lib/portfolio/portfolioQueryPersistence";
 import { rq } from "./queryKeys";
 
 // ── Internal atomic helpers ────────────────────────────────────────────────
@@ -173,8 +174,12 @@ export async function invalidateAfterRwaMintTx(
   await _invalidatePortfolioMarketBatch(qc);
   await _invalidatePortfolioDailySnapshots(qc, input.address);
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
+  // Owned-token list must not stay frozen on localStorage / bootstrap cache.
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page-bootstrap"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page"] });
 
   if (input.address?.trim()) {
+    clearPortfolioBundle(input.address);
     await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
 }

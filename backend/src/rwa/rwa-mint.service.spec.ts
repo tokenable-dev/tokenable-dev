@@ -29,6 +29,8 @@ describe('RwaMintService', () => {
     reserveCycleForDeposit: jest.fn().mockResolvedValue({
       cycle: { id: 'cycle-1' },
     }),
+    beginMintAttempt: jest.fn().mockResolvedValue(undefined),
+    noteMintAttemptTx: jest.fn().mockResolvedValue(undefined),
     recordMintResult: jest.fn().mockResolvedValue(undefined),
     cancelCycle: jest.fn().mockResolvedValue(undefined),
   };
@@ -39,6 +41,7 @@ describe('RwaMintService', () => {
   };
   const portfolioHoldings = {
     seedVaultDeliveryCostBasis: jest.fn().mockResolvedValue(undefined),
+    recordVaultMintAcquisition: jest.fn().mockResolvedValue(undefined),
   };
   const portfolioSnapshots = {
     resolveMarkUsdByTokenIds: jest
@@ -155,14 +158,27 @@ describe('RwaMintService', () => {
     expect(result.deliveryMode).toBe('custody');
     expect(result.mintedTo).toBe('0xcustody');
     expect(result.intendedRecipient).toBe('0xuserwallet');
+    expect(portfolioHoldings.recordVaultMintAcquisition).not.toHaveBeenCalled();
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
     expect(portfolioSnapshots.refreshCurrentSlotSnapshot).not.toHaveBeenCalled();
+    expect(vault.beginMintAttempt).toHaveBeenCalledWith(
+      'cycle-1',
+      expect.objectContaining({
+        settlementPolicy: 'standard',
+        deliveryMode: 'custody',
+      }),
+    );
+    expect(vault.noteMintAttemptTx).toHaveBeenCalledWith('cycle-1', {
+      tokenId: '9',
+      txHash: '0xtx',
+    });
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({ settlementPolicy: 'standard' }),
     );
   });
 
-  it('mints directly to recipient and seeds cost basis when deliveryMode=direct', async () => {
+  it('mints directly to recipient and schedules post-mint portfolio work', async () => {
+    jest.useFakeTimers();
     const result = await service.mintForUser(
       user,
       { ...baseDto, deliveryMode: 'direct' },
@@ -181,6 +197,19 @@ describe('RwaMintService', () => {
     expect(result.deliveryMode).toBe('direct');
     expect(result.mintedTo).toBe('0xuserwallet');
     expect(result.custodyWallet).toBe('0xcustody');
+    expect(portfolioHoldings.recordVaultMintAcquisition).not.toHaveBeenCalled();
+    expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+
+    expect(portfolioHoldings.recordVaultMintAcquisition).toHaveBeenCalledWith(
+      '0xuserwallet',
+      9,
+      expect.any(Date),
+      chainId,
+    );
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).toHaveBeenCalledWith(
       '0xuserwallet',
       9,
@@ -191,7 +220,7 @@ describe('RwaMintService', () => {
     expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
       '0xuserwallet',
       chainId,
-      1500,
+      0,
     );
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,6 +228,7 @@ describe('RwaMintService', () => {
         vaultPartnerId: 'partner-1',
       }),
     );
+    jest.useRealTimers();
   });
 
   it('rejects direct mint for non-partner wallets', async () => {
@@ -282,6 +312,7 @@ describe('RwaMintService', () => {
   });
 
   it('mintCustodyThenDeliverForUser mints to custody then transfers to user', async () => {
+    jest.useFakeTimers();
     const result = await service.mintCustodyThenDeliverForUser(
       user,
       baseDto,
@@ -301,15 +332,46 @@ describe('RwaMintService', () => {
     );
     expect(result.deliverTxHash).toBe('0xdeliver');
     expect(result.mintedTo).toBe('0xuserwallet');
+    expect(portfolioHoldings.recordVaultMintAcquisition).not.toHaveBeenCalled();
+    expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+
+    expect(portfolioHoldings.recordVaultMintAcquisition).toHaveBeenCalled();
     expect(portfolioHoldings.seedVaultDeliveryCostBasis).toHaveBeenCalled();
     expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
       '0xuserwallet',
       chainId,
-      1500,
+      0,
     );
+    jest.useRealTimers();
+  });
+
+  it('records acquisition even when mark USD is missing', async () => {
+    jest.useFakeTimers();
+    portfolioSnapshots.resolveMarkUsdByTokenIds.mockResolvedValueOnce(new Map());
+    await service.mintForUser(
+      user,
+      { ...baseDto, deliveryMode: 'direct' },
+      chainId,
+    );
+
+    await jest.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+
+    expect(portfolioHoldings.recordVaultMintAcquisition).toHaveBeenCalledWith(
+      '0xuserwallet',
+      9,
+      expect.any(Date),
+      chainId,
+    );
+    expect(portfolioHoldings.seedVaultDeliveryCostBasis).not.toHaveBeenCalled();
+    jest.useRealTimers();
   });
 
   it('adoptExistingMintedAndDeliverForUser delivers from custody without reminting', async () => {
+    jest.useFakeTimers();
     blockchain.getRwaTokenOwner.mockResolvedValueOnce('0xcustody');
     const result = await service.adoptExistingMintedAndDeliverForUser(
       user,
@@ -341,14 +403,21 @@ describe('RwaMintService', () => {
     expect(result.adoptedExisting).toBe(true);
     expect(result.alreadyWithUser).toBe(false);
     expect(result.deliverTxHash).toBe('0xdeliver');
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1500);
+    await Promise.resolve();
+
     expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
       '0xuserwallet',
       chainId,
-      1500,
+      0,
     );
+    jest.useRealTimers();
   });
 
   it('adoptExistingMintedAndDeliverForUser skips transfer when user already holds NFT', async () => {
+    jest.useFakeTimers();
     blockchain.getRwaTokenOwner.mockResolvedValueOnce('0xuserwallet');
     const result = await service.adoptExistingMintedAndDeliverForUser(
       user,
@@ -366,10 +435,16 @@ describe('RwaMintService', () => {
     expect(chainWriter.safeTransferFromCustody).not.toHaveBeenCalled();
     expect(result.alreadyWithUser).toBe(true);
     expect(result.deliverTxHash).toBeNull();
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshot).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
     expect(portfolioSnapshots.refreshCurrentSlotSnapshot).toHaveBeenCalledWith(
       '0xuserwallet',
       chainId,
       0,
     );
+    jest.useRealTimers();
   });
 });

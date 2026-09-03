@@ -13,7 +13,7 @@ import type { PortfolioAssetsPageResponse } from "@/lib/core/api/portfolio-asset
 import { activeRqChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
-const SCHEMA = 1;
+const SCHEMA = 4;
 /** Paint-time cache TTL — matches marketplace list persistence. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 const LS_PREFIX = "tokenable.rq.portfolio.v1.";
@@ -80,14 +80,39 @@ export function writePortfolioBundle(
     localStorage.setItem(
       lsKey(address, bundle.chainId),
       JSON.stringify({
-        v: SCHEMA,
-        savedAt: Date.now(),
         ...bundle,
         address,
-      }),
+        v: SCHEMA,
+        savedAt: Date.now(),
+      } satisfies PersistedPortfolioBundle),
     );
   } catch {
-    /* quota / private mode */
+    /* quota */
+  }
+}
+
+/** Drop paint-time cache so the next portfolio visit re-bootstraps ownedTokenIds. */
+export function clearPortfolioBundle(
+  address: string,
+  chainId?: number,
+): void {
+  if (typeof window === "undefined") return;
+  const addr = address.trim().toLowerCase();
+  if (!addr) return;
+  try {
+    if (chainId != null) {
+      localStorage.removeItem(lsKey(addr, chainId));
+      return;
+    }
+    const needle = `.${addr}`;
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(LS_PREFIX) && k.endsWith(needle)) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -145,13 +170,8 @@ function hydrateBundle(queryClient: QueryClient, bundle: PersistedPortfolioBundl
   const address = bundle.address.trim().toLowerCase();
   const chainId = bundle.chainId;
 
-  if (bundle.tokenIds.length > 0) {
-    queryClient.setQueryData(rq.rwaTokens(address, chainId), bundle.tokenIds);
-    queryClient.setQueryData(
-      rq.portfolioAssetsPageBootstrap(address, chainId),
-      bundleToAssetsPageResponse(bundle),
-    );
-  }
+  // Never hydrate bootstrap / rwa-tokens from localStorage — a stale ownedTokenIds
+  // list freezes My Assets after mint (paint-time restore in the hook is enough).
 
   if (bundle.dailySnapshots) {
     queryClient.setQueryData(

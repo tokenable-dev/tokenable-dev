@@ -21,7 +21,6 @@ import {
 import { PORTFOLIO_ASSETS_PAGE_MAX } from './dto/portfolio-assets-page.dto';
 
 const MARKET_KEY_CHUNK = 60;
-const KEY_RESOLVE_CONCURRENCY = 8;
 
 export type PortfolioAssetsPageMetadataItem = {
   tokenId: number;
@@ -185,7 +184,6 @@ export class PortfolioAssetsPageService {
     const collectionKeys = await this.resolveCollectionKeys(
       uniqueTokenIds,
       metaByToken,
-      chain,
       registryKeys,
     );
 
@@ -234,7 +232,6 @@ export class PortfolioAssetsPageService {
   private async resolveCollectionKeys(
     tokenIds: number[],
     metaByToken: Map<number, Record<string, unknown>>,
-    chainId: SupportedChainId,
     registryKeys: Record<number, string>,
   ): Promise<Record<number, string>> {
     const out: Record<number, string> = {};
@@ -245,32 +242,16 @@ export class PortfolioAssetsPageService {
     }
     const missing = tokenIds.filter((id) => !out[id]);
 
-    for (let i = 0; i < missing.length; i += KEY_RESOLVE_CONCURRENCY) {
-      const chunk = missing.slice(i, i + KEY_RESOLVE_CONCURRENCY);
-      await Promise.all(
-        chunk.map(async (tokenId) => {
-          const meta = metaByToken.get(tokenId);
-          if (meta) {
-            const comp = componentsFromMetadata(meta);
-            if (comp) {
-              out[tokenId] = computeMarketBucketKey(comp).toLowerCase();
-              return;
-            }
-          }
-          try {
-            const fromChain =
-              await this.collectionService.resolveCollectionKeyFromTokenMetadata(
-                String(tokenId),
-                chainId,
-              );
-            if (fromChain) {
-              out[tokenId] = fromChain.toLowerCase();
-            }
-          } catch {
-            /* metadata unavailable on chain */
-          }
-        }),
-      );
+    // Portfolio list: never call chain/IPFS for collection keys — that was the
+    // 20s+ waterfall. Keys come from rwa_tokens.collection_key or metadata stub;
+    // unpriced tokens fall through to deferred mint-preview on the client.
+    for (const tokenId of missing) {
+      const meta = metaByToken.get(tokenId);
+      if (!meta) continue;
+      const comp = componentsFromMetadata(meta);
+      if (comp) {
+        out[tokenId] = computeMarketBucketKey(comp).toLowerCase();
+      }
     }
 
     return out;

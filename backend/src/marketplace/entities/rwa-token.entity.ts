@@ -69,17 +69,18 @@ export class RwaToken {
   burnTxHash: string | null;
 
   /**
-   * Seaport settlement policy:
-   * - `standard` — seller + platform fee split (default ~5%)
+   * Seaport settlement policy — set only by mint registry (`recordMintResult`).
+   * NULL means custody is unknown (e.g. Transfer-index stub before mint heal).
+   * - `standard` — seller + platform fee split (PSA vault)
    * - `self_vault_hold` — 100% USDC to platform fee recipient; seller paid later
    */
   @Column({
     name: 'settlement_policy',
     type: 'varchar',
     length: 32,
-    default: 'standard',
+    nullable: true,
   })
-  settlementPolicy: 'standard' | 'self_vault_hold';
+  settlementPolicy: 'standard' | 'self_vault_hold' | null;
 
   /**
    * Self-vault partner who holds the physical card.

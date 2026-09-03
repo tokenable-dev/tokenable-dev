@@ -125,6 +125,33 @@ export class RwaMintService {
 
     const custodyWallet = await this.chainWriter.getCustodyWalletAddress(chainId);
     const mintToAddress = deliveryMode === 'direct' ? recipient : custodyWallet;
+    const settlementPolicy =
+      deliveryMode === 'direct' ? 'self_vault_hold' : 'standard';
+    const displayImageUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      dto.displayImageUrl,
+      chainId,
+      certNumber,
+      'front',
+    );
+    const displayImageBackUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
+      dto.displayImageBackUrl,
+      chainId,
+      certNumber,
+      'back',
+    );
+
+    // Persist intent before gas — redeploy mid-mint can then heal from this row.
+    await this.vault.beginMintAttempt(cycle.id, {
+      tokenURI,
+      certNumber,
+      settlementPolicy,
+      vaultPartnerId,
+      ownerWallet: mintToAddress,
+      deliveryMode,
+      displayImageUrl,
+      displayImageBackUrl,
+    });
+
     let tokenId: number;
     let txHash: string;
     try {
@@ -141,42 +168,38 @@ export class RwaMintService {
       throw err;
     }
 
-    const contract = this.chainConfig.getRwaAddress(chainId);
-    const displayImageUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
-      dto.displayImageUrl,
-      chainId,
-      certNumber,
-      'front',
-    );
-    const displayImageBackUrl = this.rwaSlabS3.normalizeTrustedMintSlabUrl(
-      dto.displayImageBackUrl,
-      chainId,
-      certNumber,
-      'back',
-    );
-    await this.vault.recordMintResult({
-      cycleId: cycle.id,
-      tokenContract: contract,
+    await this.vault.noteMintAttemptTx(cycle.id, {
       tokenId: String(tokenId),
-      tokenURI,
       txHash,
-      certNumber,
-      displayImageUrl,
-      displayImageBackUrl,
-      settlementPolicy:
-        deliveryMode === 'direct' ? 'self_vault_hold' : 'standard',
-      vaultPartnerId,
-      ownerWallet: mintToAddress,
     });
+
+    const contract = this.chainConfig.getRwaAddress(chainId);
+    try {
+      await this.vault.recordMintResult({
+        cycleId: cycle.id,
+        tokenContract: contract,
+        tokenId: String(tokenId),
+        tokenURI,
+        txHash,
+        certNumber,
+        displayImageUrl,
+        displayImageBackUrl,
+        settlementPolicy,
+        vaultPartnerId,
+        ownerWallet: mintToAddress,
+      });
+    } catch (err) {
+      // On-chain mint succeeded — leave status=minting so boot recovery finishes
+      // the registry. Do not cancelCycle (that would orphan a live NFT).
+      this.logger.error(
+        `recordMintResult failed after on-chain mint token=#${tokenId} cycle=${cycle.id} tx=${txHash}: ${String(err)}`,
+      );
+      throw err;
+    }
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
 
     if (deliveryMode === 'direct') {
-      await this.seedDirectMintCostBasis(recipient, tokenId, chainId);
-      await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
-        recipient,
-        chainId,
-        1500,
-      );
+      this.schedulePostMintPortfolioWork(recipient, tokenId, chainId);
     }
 
     return {
@@ -214,12 +237,7 @@ export class RwaMintService {
         recipient,
         chainId,
       );
-    await this.seedDirectMintCostBasis(recipient, mint.tokenId, chainId);
-    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
-      recipient,
-      chainId,
-      1500,
-    );
+    this.schedulePostMintPortfolioWork(recipient, mint.tokenId, chainId, 1500);
     return {
       ...mint,
       mintedTo: recipient,
@@ -290,7 +308,6 @@ export class RwaMintService {
         chainId,
       );
       deliverTxHash = transferred.txHash;
-      await this.seedDirectMintCostBasis(recipient, params.tokenId, chainId);
     } else {
       throw new BadRequestException(
         `Token #${params.tokenId} is neither in custody nor the depositor wallet (owner=${onChainOwner}). Resolve ownership before mint-queue adopt.`,
@@ -298,8 +315,9 @@ export class RwaMintService {
     }
 
     await this.vaultSubmissions.markItemCompletedForCycle(params.cycleId);
-    await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+    this.schedulePostMintPortfolioWork(
       recipient,
+      params.tokenId,
       chainId,
       alreadyWithUser ? 0 : 1500,
     );
@@ -320,6 +338,32 @@ export class RwaMintService {
     };
   }
 
+  /** Cost basis + daily snapshot after mint — never blocks the mint HTTP response. */
+  private schedulePostMintPortfolioWork(
+    walletAddress: string,
+    tokenId: number,
+    chainId: SupportedChainId,
+    waitForRpcMs = 1500,
+  ): void {
+    void (async () => {
+      if (waitForRpcMs > 0) {
+        await new Promise((r) => setTimeout(r, waitForRpcMs));
+      }
+      await this.seedDirectMintCostBasis(walletAddress, tokenId, chainId);
+      await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+        walletAddress,
+        chainId,
+        0,
+      );
+    })().catch((e) => {
+      this.logger.warn(
+        `Post-mint portfolio work failed wallet=${walletAddress} tokenId=${tokenId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    });
+  }
+
   /** Same cost-basis seed as admin deliver, for self-vault direct mints. */
   private async seedDirectMintCostBasis(
     walletAddress: string,
@@ -332,6 +376,12 @@ export class RwaMintService {
         chainId,
       );
       const markUsd = marks.get(tokenId);
+      await this.portfolioHoldings.recordVaultMintAcquisition(
+        walletAddress,
+        tokenId,
+        new Date(),
+        chainId,
+      );
       if (markUsd != null && Number.isFinite(markUsd)) {
         await this.portfolioHoldings.seedVaultDeliveryCostBasis(
           walletAddress,
@@ -342,7 +392,7 @@ export class RwaMintService {
         );
       } else {
         this.logger.warn(
-          `Direct mint: no mark USD for token #${tokenId} — cost basis not seeded`,
+          `Direct mint: no mark USD for token #${tokenId} — acquiredAt recorded, cost basis skipped`,
         );
       }
     } catch (e) {

@@ -15,6 +15,7 @@ import { VaultPsaVaultedReview } from './entities/vault-psa-vaulted-review.entit
 import { VaultSubmissionService } from './vault-submission.service';
 import { VaultSubmissionsController } from './vault-submissions.controller';
 import { VaultService } from './vault.service';
+import { VaultMintRecoveryService } from './vault-mint-recovery.service';
 import { PsaReceivedMailService } from './psa-received-mail.service';
 
 /**
@@ -39,7 +40,12 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
     BlockchainModule,
   ],
   controllers: [VaultSubmissionsController],
-  providers: [VaultService, VaultSubmissionService, PsaReceivedMailService],
+  providers: [
+    VaultService,
+    VaultSubmissionService,
+    PsaReceivedMailService,
+    VaultMintRecoveryService,
+  ],
   exports: [VaultService, VaultSubmissionService, PsaReceivedMailService],
 })
 export class VaultModule {}

@@ -39,7 +39,7 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `vault_assets` | Permanent physical card identity (PSA cert → vaultRef = keccak256) | `vault/entities/vault-asset.entity.ts` |
-| `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
+| `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); statuses include `minting` + `mint_attempt` JSON for crash recovery; at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
 | `vault_redemptions` | Per-card redeem state machine + denormalized fee/payment/custody/refund/tracking fields (`carrier_delivered_at`, `receipt_confirmed_via` for FedEx Track auto-receipt) | `vault/entities/vault-redemption.entity.ts` |
 | `vault_redeem_payment_claims` | Ledger: unique `payment_tx_hash` → one `payment_batch_id` (batch total micros). Referenced by paid `vault_redemptions.payment_tx_hash` | `vault/entities/vault-redeem-payment-claim.entity.ts` |
 | `vault_submissions` | Sell-flow shipping package (awaiting_shipment → PSA; add-cards is local) | `vault/entities/vault-submission.entity.ts` |
@@ -218,7 +218,7 @@ pending_deposit
 | `vault_cycle_id` | Links to vault lifecycle |
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
-| `settlement_policy` | `standard` (default) or `self_vault_hold` (direct mint) — Seaport fee shape + delayed payout |
+| `settlement_policy` | `NULL` until mint registry (`recordMintResult`); then `standard` (PSA) or `self_vault_hold` (partner/self). Transfer-index stubs stay `NULL` — never invent PSA custody |
 | `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `Tokenable Vault`) |
 | `display_image_url` | Platform S3 slab front (mint or admin) |
 | `display_image_back_url` | Platform S3 slab back (mint or admin) |
@@ -277,6 +277,8 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order/P2P indexes for chain-scoped reads |
 | `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
+| `maintenance/nullable_rwa_tokens_settlement_policy.sql` | Existing DBs: allow `NULL` settlement until mint registry; clear stub defaults |
+| `maintenance/add_vault_cycles_mint_attempt.sql` | Existing DBs: `minting` status + `mint_attempt` JSON for redeploy-safe mint |
 | `maintenance/alter_marketplace_partners_optional_pk.sql` | Existing DBs: nullable partner private key |
 | `maintenance/add_rwa_tokens_vault_partner_id.sql` | Existing DBs: `rwa_tokens.vault_partner_id` |
 | `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |

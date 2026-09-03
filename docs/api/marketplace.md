@@ -579,10 +579,12 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 Server-side pipeline (DB-first, parallel where possible):
 
 1. **`ownedTokenIds`** — DB owner index (newest-first); RPC `ownerOf` scan only when index incomplete **and** DB has no rows for the wallet.
-2. **Metadata** — batch read from `rwa_tokens` registry (`display_name`, `display_image_url`, `token_uri`); IPFS fetched once per unique URI (not per token).
-3. **Collection keys** — `collection_key` from registry batch; metadata bucket fallback only when registry row lacks a key.
-4. **Market** — `collection_market_snapshots` via `portfolio-market-batch`.
-5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit).
+2. **Metadata** — `batchPortfolioMetadata`: graded NFT JSON from registry `token_uri` (IPFS, URI-deduped). **Owner-index stubs** (no `token_uri`) fall back to on-chain `tokenURI` + IPFS, then heal empty `display_name` / `token_uri` / `cert_number` on `rwa_tokens`. Slab images prefer DB `display_image_url`. Detail pages still use full `batchRwaMetadata`.
+3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
+4. **Market** — `collection_market_snapshots` via `portfolio-market-batch` (snapshot-only).
+5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
+
+**UI:** Frontend renders owned-token shells as soon as `ownedTokenIds` arrive; images/names/prices fill in-place. The holdings section is not blocked on the full BFF round-trip. Bootstrap always refetches on mount (`ownedTokenIds` is never frozen from localStorage / React Query hydrate).
 
 **`mintPreviews` is always `{}`** — the client loads Cardhedger mint-previews in a follow-up request for tokens without snapshot prices.
 
@@ -603,6 +605,8 @@ Honors `x-tokenable-chain-id`. Portfolio UI uses this instead of separate `rwa/m
 **Body:** `{ walletAddress, tokenId, costBasisUsd }` — user manual edit (`source = manual`).
 
 **Vault deliver seed:** when admin delivers a custody NFT (`deliverCustodyNftToUser`), the backend seeds `vault_delivery` cost basis from the current market mark USD at deliver time. Manual rows are skipped.
+
+**Self-vault direct mint:** always records `acquired_at` on `portfolio_holdings` (so Tx History shows Mint). Cost basis is seeded only when a mark USD exists; otherwise acquisition is kept without `cost_basis_usd`.
 
 **Marketplace buy seed:** after ask fulfill (`PATCH …/fulfill?buyerAddress=`) or matched-pair fulfill, the backend seeds `marketplace_buy` from the ask USDC price for the buyer wallet. Manual rows are skipped.
 

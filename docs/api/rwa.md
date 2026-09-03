@@ -112,7 +112,9 @@ Backend enforcement is via `MarketplacePartnersService.assertSelfVaultEligibleFo
 2. If `direct`: asserts partner + company Origin (`COMPANY_ADDRESS_REQUIRED` / `SELF_VAULT_PARTNER_ONLY`)
 3. `VaultService.reserveCycleForDeposit()` — opens a vault cycle; fails if cert already has open cycle
 4. `RwaChainWriterService.mintTo(mintTo, tokenURI, vaultRef)` — `mintTo` is custody (`custody`) or `recipientAddress` (`direct`)
-5. `VaultService.recordMintResult()` — links `rwa_tokens` to vault cycle; sets `settlement_policy` to `self_vault_hold` when `direct`, else `standard`; stores `vault_partner_id` for Self vault labels
+5. `VaultService.beginMintAttempt()` — status `minting` + `mint_attempt` JSON (settlement policy, tokenURI, images) **before** on-chain gas
+6. On-chain `mint()` / `mintTo`
+7. `VaultService.noteMintAttemptTx()` + `recordMintResult()` — links `rwa_tokens` to vault cycle; sets `settlement_policy` to `self_vault_hold` when `direct`, else `standard`; stores `vault_partner_id` for Self vault labels. If the process dies between (6) and (7), `VaultMintRecoveryService` finishes from `mint_attempt` + `activeTokenIdOf(vaultRef)`.
 6. If `direct`: seeds `vault_delivery` cost basis from current mark USD (same as admin deliver)
 
 **Response:**

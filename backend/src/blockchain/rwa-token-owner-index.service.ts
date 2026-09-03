@@ -147,6 +147,8 @@ export class RwaTokenOwnerIndexService {
         tokenId: tid,
         ownerWallet: wallet,
         burnedAt: null,
+        // Never invent PSA/self custody — only mint registry sets settlement_policy.
+        settlementPolicy: null,
       })
       // Never touch burned_at on conflict — replaying pre-burn Transfer logs must
       // not resurrect redeemed tokens (same cert re-mint would violate uq cert).
@@ -218,6 +220,7 @@ export class RwaTokenOwnerIndexService {
             tokenId: String(tokenId),
             ownerWallet: this.normalizeWallet(ownerWallet),
             burnedAt: null,
+            settlementPolicy: null,
           })),
         )
         .orUpdate(['owner_wallet'], ['token_contract', 'token_id'])

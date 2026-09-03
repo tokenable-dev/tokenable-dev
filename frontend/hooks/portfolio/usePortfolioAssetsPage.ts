@@ -113,6 +113,7 @@ export function usePortfolioAssetsPage(input: {
       resetForWallet();
       return;
     }
+    // Instant paint from cache — server bootstrap still runs to pick up new mints.
     const restored = accumulatedFromPortfolioBundle(bundle);
     fetchedTokenIdsRef.current = new Set(restored.fetchedTokenIds);
     bootstrapDoneRef.current = bundle.tokenIds.length > 0;
@@ -139,10 +140,6 @@ export function usePortfolioAssetsPage(input: {
     setFetchGeneration((g) => g + 1);
   }, [address, chainId]);
 
-  const loadedTokenIds = useMemo(() => {
-    return ownedTokenIds.slice(0, Math.max(0, bffLoadedCount));
-  }, [ownedTokenIds, bffLoadedCount]);
-
   const {
     data: bootstrapData,
     isFetching: bootstrapFetching,
@@ -150,17 +147,17 @@ export function usePortfolioAssetsPage(input: {
   } = useQuery({
     queryKey: rq.portfolioAssetsPageBootstrap(address ?? "", chainId),
     queryFn: () => postPortfolioAssetsPage({ walletAddress: address! }),
-    enabled:
-      Boolean(address && enabled) &&
-      !bootstrapDoneRef.current &&
-      ownedTokenIds.length === 0,
-    staleTime: 120_000,
+    // Always sync ownedTokenIds from DB — localStorage / RQ hydrate must not freeze the list after mint.
+    enabled: Boolean(address && enabled),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   useEffect(() => {
     if (!bootstrapFetched || !bootstrapData) return;
     bootstrapDoneRef.current = true;
-    setOwnedTokenIds(bootstrapData.ownedTokenIds ?? []);
+    const serverIds = bootstrapData.ownedTokenIds ?? [];
+    setOwnedTokenIds(serverIds);
 
     primeRwaMetadataCache(
       bootstrapData.metadataItems.map((it) => ({
@@ -177,6 +174,10 @@ export function usePortfolioAssetsPage(input: {
     setAccumulated((prev) => mergePageIntoAccumulated(prev, bootstrapData));
     setFetchGeneration((g) => g + 1);
   }, [bootstrapFetched, bootstrapData]);
+
+  const loadedTokenIds = useMemo(() => {
+    return ownedTokenIds.slice(0, Math.max(0, bffLoadedCount));
+  }, [ownedTokenIds, bffLoadedCount]);
 
   const pendingTokenIds = useMemo(() => {
     void fetchGeneration;
@@ -209,9 +210,7 @@ export function usePortfolioAssetsPage(input: {
     }
 
     if (pageData) {
-      if (pageData.ownedTokenIds?.length) {
-        setOwnedTokenIds(pageData.ownedTokenIds);
-      }
+      // Do not clobber ownedTokenIds from incremental page cache — bootstrap owns the list.
 
       primeRwaMetadataCache(
         pageData.metadataItems.map((it) => ({
@@ -228,9 +227,16 @@ export function usePortfolioAssetsPage(input: {
   }, [pendingBatchFetched, pageData, pendingTokenIds]);
 
   const assets = useMemo(() => {
-    return loadedTokenIds
-      .filter((id) => accumulated.metadataByToken.has(id))
-      .map((id) => accumulated.metadataByToken.get(id)!);
+    // Show shells as soon as we know owned ids — don't wait for BFF metadata.
+    return loadedTokenIds.map((id) => {
+      const loaded = accumulated.metadataByToken.get(id);
+      if (loaded) return loaded;
+      return {
+        tokenId: id,
+        metadata: null,
+        imageUrl: null,
+      } satisfies OwnedAsset;
+    });
   }, [loadedTokenIds, accumulated.metadataByToken]);
 
   const tokenToServerCollectionKey = useMemo(() => {
@@ -393,19 +399,16 @@ export function usePortfolioAssetsPage(input: {
     Boolean(address) &&
     enabled &&
     loadedTokenIds.length > 0 &&
-    !serverKeysReady;
+    (isFetching || pendingTokenIds.length > 0 || !serverKeysReady);
 
-  const isLoading =
-    enabled &&
-    loadedTokenIds.length > 0 &&
-    assets.length === 0 &&
-    (isFetching || pendingTokenIds.length > 0);
+  /** Section skeleton only until owned token ids are known; cards fill in-place. */
+  const isLoading = false;
 
   const idsLoading =
     enabled &&
     Boolean(address) &&
     ownedTokenIds.length === 0 &&
-    bootstrapFetching;
+    (bootstrapFetching || !bootstrapFetched);
 
   const loadMoreAssets = useCallback(() => {
     if (loadedTokenIds.length >= ownedTokenIds.length) return;

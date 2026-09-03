@@ -228,24 +228,7 @@ export class P2pService {
       depositedByUserId: user.id,
     });
     const custody = await this.chainWriter.getCustodyWalletAddress(resolved);
-    let tokenId: number;
-    let txHash: string;
-    try {
-      ({ tokenId, txHash } = await this.chainWriter.mintTo(
-        custody,
-        dto.tokenURI.trim(),
-        vaultRef,
-        resolved,
-      ));
-    } catch (err) {
-      await this.vault.cancelCycle(
-        cycle.id,
-        `p2p mint failed: ${String(err)}`,
-      );
-      throw err;
-    }
-
-    const tokenContract = this.chainConfig.getRwaAddress(resolved);
+    const tokenURI = dto.tokenURI.trim();
     const displayImageUrl = await this.resolveP2pMintDisplayImageUrl(
       resolved,
       certNumber,
@@ -258,17 +241,58 @@ export class P2pService {
       certNumber,
       'back',
     );
-    await this.vault.recordMintResult({
-      cycleId: cycle.id,
-      tokenContract,
-      tokenId: String(tokenId),
-      tokenURI: dto.tokenURI.trim(),
-      txHash,
+    await this.vault.beginMintAttempt(cycle.id, {
+      tokenURI,
       certNumber,
+      settlementPolicy: 'standard',
+      ownerWallet: custody,
+      deliveryMode: 'custody',
       displayName: dto.displayName?.trim() || null,
       displayImageUrl,
       displayImageBackUrl,
     });
+    let tokenId: number;
+    let txHash: string;
+    try {
+      ({ tokenId, txHash } = await this.chainWriter.mintTo(
+        custody,
+        tokenURI,
+        vaultRef,
+        resolved,
+      ));
+    } catch (err) {
+      await this.vault.cancelCycle(
+        cycle.id,
+        `p2p mint failed: ${String(err)}`,
+      );
+      throw err;
+    }
+
+    await this.vault.noteMintAttemptTx(cycle.id, {
+      tokenId: String(tokenId),
+      txHash,
+    });
+    const tokenContract = this.chainConfig.getRwaAddress(resolved);
+    try {
+      await this.vault.recordMintResult({
+        cycleId: cycle.id,
+        tokenContract,
+        tokenId: String(tokenId),
+        tokenURI,
+        txHash,
+        certNumber,
+        displayName: dto.displayName?.trim() || null,
+        displayImageUrl,
+        displayImageBackUrl,
+        settlementPolicy: 'standard',
+        ownerWallet: custody,
+      });
+    } catch (err) {
+      this.logger.error(
+        `P2P recordMintResult failed after on-chain mint token=#${tokenId} cycle=${cycle.id}: ${String(err)}`,
+      );
+      throw err;
+    }
 
     const listing = await this.listings.save(
       this.listings.create({
@@ -277,7 +301,7 @@ export class P2pService {
         vaultRef,
         tokenContract,
         tokenId: String(tokenId),
-        tokenUri: dto.tokenURI.trim(),
+        tokenUri: tokenURI,
         mintTxHash: txHash,
         chainId: resolved,
         priceUsdc: dto.priceUsdc,
