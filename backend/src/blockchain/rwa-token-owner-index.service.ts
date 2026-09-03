@@ -148,7 +148,9 @@ export class RwaTokenOwnerIndexService {
         ownerWallet: wallet,
         burnedAt: null,
       })
-      .orUpdate(['owner_wallet', 'burned_at'], ['token_contract', 'token_id'])
+      // Never touch burned_at on conflict — replaying pre-burn Transfer logs must
+      // not resurrect redeemed tokens (same cert re-mint would violate uq cert).
+      .orUpdate(['owner_wallet'], ['token_contract', 'token_id'])
       .execute();
   }
 
@@ -163,7 +165,10 @@ export class RwaTokenOwnerIndexService {
     await this.rwaTokens
       .createQueryBuilder()
       .update(RwaToken)
-      .set({ ownerWallet: null })
+      .set({
+        ownerWallet: null,
+        burnedAt: () => 'COALESCE(burned_at, NOW())',
+      })
       .where('token_contract = :contract AND token_id = :tid', {
         contract,
         tid,
@@ -215,7 +220,7 @@ export class RwaTokenOwnerIndexService {
             burnedAt: null,
           })),
         )
-        .orUpdate(['owner_wallet', 'burned_at'], ['token_contract', 'token_id'])
+        .orUpdate(['owner_wallet'], ['token_contract', 'token_id'])
         .execute();
     }
 

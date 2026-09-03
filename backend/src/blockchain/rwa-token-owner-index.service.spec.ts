@@ -31,7 +31,7 @@ describe('RwaTokenOwnerIndexService', () => {
     return { svc, rwaTokens, cursors };
   }
 
-  it('recordTransfer to zero address clears owner_wallet', async () => {
+  it('recordTransfer to zero address clears owner and marks burned when not yet burned', async () => {
     const { svc, rwaTokens } = makeService();
     const qb = {
       update: jest.fn().mockReturnThis(),
@@ -49,10 +49,13 @@ describe('RwaTokenOwnerIndexService', () => {
     );
 
     expect(qb.update).toHaveBeenCalled();
-    expect(qb.set).toHaveBeenCalledWith({ ownerWallet: null });
+    expect(qb.set).toHaveBeenCalledWith({
+      ownerWallet: null,
+      burnedAt: expect.any(Function),
+    });
   });
 
-  it('recordOwner upserts owner_wallet', async () => {
+  it('recordOwner upserts owner_wallet only (preserves burned_at on conflict)', async () => {
     const { svc, rwaTokens } = makeService();
     const qb = {
       insert: jest.fn().mockReturnThis(),
@@ -69,12 +72,9 @@ describe('RwaTokenOwnerIndexService', () => {
       '0x2222222222222222222222222222222222222222',
     );
 
-    expect(qb.values).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tokenContract: contract,
-        tokenId: '3',
-        ownerWallet: '0x2222222222222222222222222222222222222222',
-      }),
+    expect(qb.orUpdate).toHaveBeenCalledWith(
+      ['owner_wallet'],
+      ['token_contract', 'token_id'],
     );
   });
 
