@@ -2,6 +2,10 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  TTL_CACHE_PROVIDER,
+  type TtlCacheProvider,
+} from '../../common/cache/ttl-cache.interface';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import { CollectionEnrichmentService } from '../collections/collection-enrichment.service';
 import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
@@ -19,6 +23,11 @@ import type {
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 
+const PRICE_INDEX_NS = 'collection-market-snapshots:price-index';
+const PRICE_INDEX_KEY = 'all';
+/** Default 30s — long enough to coalesce portfolio/list reads, short enough after upserts. */
+const PRICE_INDEX_TTL_DEFAULT_MS = 30_000;
+
 /**
  * Builds and persists materialized Cardhedger snapshots.
  * All upstream Cardhedger work for refresh paths lives here.
@@ -30,6 +39,8 @@ export class CollectionMarketSnapshotService {
     string,
     Promise<CollectionMarketSnapshot | null>
   >();
+  private priceIndexInflight: Promise<Map<string, CollectionMarketSnapshot>> | null =
+    null;
 
   constructor(
     @InjectRepository(CollectionMarketSnapshot)
@@ -39,6 +50,7 @@ export class CollectionMarketSnapshotService {
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {}
 
   staleAfterSec(): number {
@@ -72,7 +84,50 @@ export class CollectionMarketSnapshotService {
       .createQueryBuilder('s')
       .where('s.collection_key IN (:...keys)', { keys })
       .getMany();
-    return new Map(rows.map((r) => [r.collectionKey, r]));
+    return new Map(rows.map((r) => [r.collectionKey.toLowerCase(), r]));
+  }
+
+  priceIndexTtlMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS') ??
+        String(PRICE_INDEX_TTL_DEFAULT_MS),
+    );
+    if (!Number.isFinite(raw) || raw < 1_000) return PRICE_INDEX_TTL_DEFAULT_MS;
+    return Math.min(Math.floor(raw), 300_000);
+  }
+
+  /**
+   * All collection snapshot rows, keyed by lowercase collection_key.
+   * Shared by portfolio My Assets so prices do not wait on a second keyed SELECT
+   * after token listing / metadata.
+   */
+  async getPriceIndex(): Promise<Map<string, CollectionMarketSnapshot>> {
+    const cached = this.ttlCache.get<Map<string, CollectionMarketSnapshot>>(
+      PRICE_INDEX_NS,
+      PRICE_INDEX_KEY,
+    );
+    if (cached) return cached;
+    if (this.priceIndexInflight) return this.priceIndexInflight;
+
+    this.priceIndexInflight = this.loadPriceIndex().finally(() => {
+      this.priceIndexInflight = null;
+    });
+    return this.priceIndexInflight;
+  }
+
+  invalidatePriceIndex(): void {
+    this.ttlCache.delete(PRICE_INDEX_NS, PRICE_INDEX_KEY);
+  }
+
+  private async loadPriceIndex(): Promise<
+    Map<string, CollectionMarketSnapshot>
+  > {
+    const rows = await this.snapshotRepo.find();
+    const map = new Map(
+      rows.map((r) => [r.collectionKey.toLowerCase(), r] as const),
+    );
+    this.ttlCache.set(PRICE_INDEX_NS, PRICE_INDEX_KEY, map, this.priceIndexTtlMs());
+    return map;
   }
 
   isRowStale(row: CollectionMarketSnapshot | null | undefined): boolean {
@@ -304,6 +359,7 @@ export class CollectionMarketSnapshotService {
     };
 
     await this.snapshotRepo.upsert(entity, ['collectionKey']);
+    this.invalidatePriceIndex();
     const saved = await this.findByKey(payload.collectionKey);
     if (!saved) {
       throw new Error(
@@ -328,6 +384,7 @@ export class CollectionMarketSnapshotService {
           lastRefreshError: message.slice(0, 2000),
         },
       );
+      this.invalidatePriceIndex();
       return;
     }
     await this.snapshotRepo.upsert(
@@ -339,6 +396,7 @@ export class CollectionMarketSnapshotService {
       },
       ['collectionKey'],
     );
+    this.invalidatePriceIndex();
   }
 
   /**

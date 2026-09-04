@@ -174,6 +174,11 @@ GET …/collections, POST …/market-snapshots
 ### Portfolio
 
 ```
+POST …/portfolio/assets-page
+         → owned tokens (DB) + metadata
+         → collection_market_snapshots price index (parallel, TTL)
+         → in-memory join on collection_key → My Assets marks
+
 09:00 KST cron → PortfolioDailySnapshotSchedulerService
          → ownerOf scan + batch Cardhedger pricing → portfolio_daily_snapshots upsert
 
