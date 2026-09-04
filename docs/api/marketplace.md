@@ -439,7 +439,7 @@ Max 32 token IDs per request.
 
 Batch **materialized snapshot** reads per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
 
-Does **not** call Cardhedger, listing-pool stats, or platform tape on the request. Missing or empty snapshot rows are enqueued for background refresh. `stats` is always `null` on this path — holdings USD comes from `series` (grade strip / Cardhedger preview on the snapshot).
+Does **not** call Cardhedger, listing-pool stats, or platform tape on the request. Reads the in-process snapshot price index (same table as My Assets). Missing or empty snapshot rows are enqueued for background refresh. `stats` is always `null` on this path — holdings USD comes from `series` (grade strip / Cardhedger preview on the snapshot).
 
 When a holding has **no collection row**, or the snapshot series is unmatched with no grade-strip USD, this endpoint cannot price it. The Portfolio list falls back to `POST /marketplace/cardhedger/mint-previews` for that token (not per-token trades). Collection detail still overlays live Cardhedger on a thin snapshot; portfolio does not.
 
@@ -581,7 +581,7 @@ Server-side pipeline (DB-first, parallel where possible):
 1. **`ownedTokenIds`** — heal incomplete `rwa_tokens` vs on-chain `totalMinted` if needed, then DB owner index (newest-first); RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
 2. **Metadata** — `batchPortfolioMetadata`: graded NFT JSON from registry `token_uri` (IPFS, URI-deduped). **Owner-index stubs** (no `token_uri`) fall back to on-chain `tokenURI` + IPFS, then heal empty `display_name` / `token_uri` / `cert_number` on `rwa_tokens`. Slab images prefer DB `display_image_url`. Detail pages still use full `batchRwaMetadata`.
 3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
-4. **Market** — `collection_market_snapshots` via `portfolio-market-batch` (snapshot-only).
+4. **Market** — preload `collection_market_snapshots` (full table price index, TTL) in parallel with metadata / holdings / `rwa_tokens.collection_key`, then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
 5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
 
 **UI:** Frontend renders owned-token shells as soon as `ownedTokenIds` arrive; images/names/prices fill in-place. The holdings section is not blocked on the full BFF round-trip. Bootstrap always refetches on mount (`ownedTokenIds` is never frozen from localStorage / React Query hydrate).

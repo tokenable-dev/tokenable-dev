@@ -19,8 +19,8 @@ export type CachedPortfolioAssetsPagePayload = Omit<
   'holdings' | 'ownedTokenIds'
 >;
 
-const MEMORY_NS = 'portfolio:assets-page:v4';
-const REDIS_KEY_PREFIX = 'portfolio:assets-page:v4:';
+const MEMORY_NS = 'portfolio:assets-page:v5';
+const REDIS_KEY_PREFIX = 'portfolio:assets-page:v5:';
 
 const REDIS_CONNECT_TIMEOUT_MS = 2_000;
 const REDIS_COMMAND_TIMEOUT_MS = 1_000;

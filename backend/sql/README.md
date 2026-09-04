@@ -181,6 +181,7 @@ Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/datab
 | `MARKET_SNAPSHOT_CRON_ENABLED` | Background refresh (default **on**) |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | Worker concurrency (default **4**) |
 | `MARKET_SNAPSHOT_CRON_MAX_KEYS` | Max keys per cron tick (default **120**) |
+| `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | In-process cache for the full `collection_market_snapshots` price index used by portfolio (default **30000**, max 300000) |
 | `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, snapshot refresh may call PSA for cert mirror |
 
 ## Collection bucket key (v2)

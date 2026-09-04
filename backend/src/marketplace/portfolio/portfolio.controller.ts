@@ -179,7 +179,7 @@ export class PortfolioController {
   @ApiOperation({
     summary: '포트폴리오 My Assets 페이지 배치 (BFF)',
     description:
-      'Combines rwa metadata, token→collection_key, portfolio-market-batch, mint-previews, and holdings batch for one wallet page.',
+      'Combines rwa metadata, token→collection_key, snapshot price-index join, and holdings batch for one wallet page. Prices come from collection_market_snapshots (DB), not per-token Cardhedger.',
   })
   @ApiChainIdHeader()
   @ApiBody(apiBodyDefault(PortfolioAssetsPageDto, SWAGGER_BODY_EXAMPLES.portfolioAssetsPage))

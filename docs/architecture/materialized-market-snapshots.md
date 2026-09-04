@@ -53,7 +53,7 @@ flowchart TD
 2. If `stale_after <= now()`, response includes `snapshotStale: true`.
 3. Scheduler enqueues async refresh — the HTTP request does not block on Cardhedger.
 
-**Portfolio holdings** (`POST …/portfolio-market-batch`) never overlay live Cardhedger and never scan the listing pool. Missing rows enqueue `cold_start` and return an empty series until the worker upserts.
+**Portfolio holdings** (`POST …/portfolio-market-batch` and `POST …/portfolio/assets-page`) never overlay live Cardhedger and never scan the listing pool. My Assets loads the full snapshot price index from PostgreSQL (in-process TTL) **in parallel** with wallet metadata, then joins by `collection_key`. Missing rows enqueue `cold_start` and return an empty series until the worker upserts.
 
 Holdings that have **no `marketplace_collections` row**, or a snapshot with unmatched Cardhedger and no grade-strip USD, cannot be priced from this endpoint. The portfolio list then uses token-level `POST /marketplace/cardhedger/mint-previews` for spot only. It does not fetch per-token trades/comps on My Assets (that was an N+1 Cardhedger waterfall). Daily wallet totals (`portfolio_daily_snapshots`) still apply a mint-preview fallback.
 
@@ -75,7 +75,7 @@ See [backend/sql/README.md](../../backend/sql/README.md#snapshot-worker-env). Co
 | `MARKET_SNAPSHOT_CRON_ENABLED` | on | Background `@Cron` refresh |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | 4 | Parallel worker cap |
 | `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | ignored | Mint-only PSA policy — snapshot refresh never calls PSA |
-| `PORTFOLIO_SNAPSHOT_*` | see sql README | Daily 09:00 KST wallet totals (`portfolio_daily_snapshots`) |
+| `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | 30000 | In-process full snapshot price index for portfolio joins |
 
 ## Future: BullMQ + Redis
 

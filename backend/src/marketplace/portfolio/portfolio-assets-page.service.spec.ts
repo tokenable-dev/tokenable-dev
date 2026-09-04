@@ -10,6 +10,8 @@ describe('PortfolioAssetsPageService', () => {
   };
   const collectionMarket = {
     batchPortfolioMarketData: jest.fn(),
+    getSnapshotPriceIndex: jest.fn(),
+    portfolioMarketItemsFromIndex: jest.fn(),
   };
   const portfolioHoldings = {
     getHoldingsBatch: jest.fn(),
@@ -77,7 +79,8 @@ describe('PortfolioAssetsPageService', () => {
     collectionService.collectionKeysByTokenIds.mockResolvedValue({
       42: 'abc123',
     });
-    collectionMarket.batchPortfolioMarketData.mockResolvedValue({ items: [] });
+    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     const result = await service.loadPage(
       '0x0000000000000000000000000000000000000001',
@@ -88,13 +91,62 @@ describe('PortfolioAssetsPageService', () => {
     expect(result.collectionKeys[42]).toBe('abc123');
     expect(result.ownedTokenIds).toEqual([42, 41]);
     expect(result.mintPreviews).toEqual({});
+    expect(collectionMarket.getSnapshotPriceIndex).toHaveBeenCalled();
+    expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
+    expect(collectionMarket.portfolioMarketItemsFromIndex).toHaveBeenCalledWith(
+      ['abc123'],
+      expect.any(Map),
+      '365d',
+    );
+  });
+
+  it('joins metadata-derived collection keys against the preloaded snapshot index', async () => {
+    const meta = {
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          card: { name: 'Test Player', set: 'Topps', number: '1' },
+          grade: { score: 10 },
+        },
+      },
+    };
+
+    rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
+      items: [
+        {
+          tokenId: 42,
+          tokenURI: 'ipfs://x',
+          metadata: meta,
+          imageUrl: null,
+          imageBackUrl: null,
+        },
+      ],
+    });
+    portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
+    collectionService.collectionKeysByTokenIds.mockResolvedValue({});
+    const index = new Map();
+    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(index);
+    collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
+
+    await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      [42],
+    );
+
+    expect(collectionMarket.portfolioMarketItemsFromIndex).toHaveBeenCalledWith(
+      [expect.stringMatching(/^[a-f0-9]{64}$/)],
+      index,
+      '365d',
+    );
+    expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
   });
 
   it('loads first page from DB when tokenIds omitted', async () => {
     rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({ items: [] });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
-    collectionMarket.batchPortfolioMarketData.mockResolvedValue({ items: [] });
+    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     const result = await service.loadPage(
       '0x0000000000000000000000000000000000000001',

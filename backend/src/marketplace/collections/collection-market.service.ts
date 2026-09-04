@@ -1245,36 +1245,23 @@ export class CollectionMarketService {
     return out;
   }
 
-  /**
-   * Portfolio holdings price read — snapshot table only.
-   * Does not call Cardhedger, order-pool stats, or platform tape on the request.
-   * Missing/stale keys are enqueued for background refresh.
-   */
-  async batchPortfolioMarketData(
-    collectionKeys: string[],
-    opts: {
-      priceHistoryDuration?: PriceHistoryDuration;
-      chainId?: SupportedChainId;
-    } = {},
-  ): Promise<{
-    items: Array<{
-      collectionKey: string;
-      stats: CollectionMarketStatsResponse | null;
-      series: CollectionMarketBundle | null;
-    }>;
-  }> {
-    const windowRaw = opts.priceHistoryDuration ?? '365d';
-    const d: PriceHistoryDuration = [
-      '7d',
-      '30d',
-      '90d',
-      '180d',
-      '365d',
-      'max',
-    ].includes(windowRaw)
-      ? windowRaw
-      : '365d';
+  getSnapshotPriceIndex(): Promise<Map<string, CollectionMarketSnapshot>> {
+    return this.snapshotService.getPriceIndex();
+  }
 
+  /**
+   * Join collection keys to an already-loaded snapshot price index (no extra SELECT).
+   */
+  portfolioMarketItemsFromIndex(
+    collectionKeys: string[],
+    rowMap: Map<string, CollectionMarketSnapshot>,
+    priceHistoryDuration: PriceHistoryDuration = '365d',
+  ): Array<{
+    collectionKey: string;
+    stats: CollectionMarketStatsResponse | null;
+    series: CollectionMarketBundle | null;
+  }> {
+    const d = this.normalizePriceHistoryDuration(priceHistoryDuration);
     const keys = [
       ...new Set(
         collectionKeys
@@ -1285,12 +1272,10 @@ export class CollectionMarketService {
           )
           .filter((k) => k.length > 0),
       ),
-    ].slice(0, 60);
-
-    const rowMap = await this.snapshotService.findByKeys(keys);
+    ];
     const onDemand = this.snapshotService.onDemandEnabled();
 
-    const items = keys.map((key) => {
+    return keys.map((key) => {
       const row = rowMap.get(key);
       if (!row || !rowHasMaterializedListPrices(row)) {
         if (onDemand) {
@@ -1310,7 +1295,60 @@ export class CollectionMarketService {
         series: this.snapshotRead.buildBundleFromRow(row, d, []).bundle,
       };
     });
-    return { items };
+  }
+
+  /**
+   * Portfolio holdings price read — snapshot table only.
+   * Does not call Cardhedger, order-pool stats, or platform tape on the request.
+   * Missing/stale keys are enqueued for background refresh.
+   */
+  async batchPortfolioMarketData(
+    collectionKeys: string[],
+    opts: {
+      priceHistoryDuration?: PriceHistoryDuration;
+      chainId?: SupportedChainId;
+    } = {},
+  ): Promise<{
+    items: Array<{
+      collectionKey: string;
+      stats: CollectionMarketStatsResponse | null;
+      series: CollectionMarketBundle | null;
+    }>;
+  }> {
+    const d = this.normalizePriceHistoryDuration(
+      opts.priceHistoryDuration ?? '365d',
+    );
+    const keys = [
+      ...new Set(
+        collectionKeys
+          .map((k) =>
+            String(k ?? '')
+              .trim()
+              .toLowerCase(),
+          )
+          .filter((k) => k.length > 0),
+      ),
+    ].slice(0, 60);
+
+    const rowMap = await this.snapshotService.getPriceIndex();
+    return {
+      items: this.portfolioMarketItemsFromIndex(keys, rowMap, d),
+    };
+  }
+
+  private normalizePriceHistoryDuration(
+    windowRaw: string,
+  ): PriceHistoryDuration {
+    return [
+      '7d',
+      '30d',
+      '90d',
+      '180d',
+      '365d',
+      'max',
+    ].includes(windowRaw)
+      ? (windowRaw as PriceHistoryDuration)
+      : '365d';
   }
 }
 

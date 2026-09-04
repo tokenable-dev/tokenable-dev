@@ -20,8 +20,6 @@ import {
 } from './portfolio-assets-page-cache.service';
 import { PORTFOLIO_ASSETS_PAGE_MAX } from './dto/portfolio-assets-page.dto';
 
-const MARKET_KEY_CHUNK = 60;
-
 export type PortfolioAssetsPageMetadataItem = {
   tokenId: number;
   tokenURI: string | null;
@@ -160,10 +158,11 @@ export class PortfolioAssetsPageService {
     chain: SupportedChainId,
     _t0: bigint,
   ): Promise<PortfolioAssetsPageResponse> {
-    const [metadataPack, holdings, registryKeys] = await Promise.all([
+    const [metadataPack, holdings, registryKeys, snapshotIndex] = await Promise.all([
       this.rwaAssetResolve.batchPortfolioMetadata(uniqueTokenIds, chain),
       this.portfolioHoldings.getHoldingsBatch(wallet, uniqueTokenIds, chain),
       this.collectionService.collectionKeysByTokenIds(uniqueTokenIds, chain),
+      this.collectionMarket.getSnapshotPriceIndex(),
     ]);
 
     const metadataItems: PortfolioAssetsPageMetadataItem[] =
@@ -196,26 +195,17 @@ export class PortfolioAssetsPageService {
       ),
     ];
 
-    const marketItems: PortfolioAssetsPageResponse['marketItems'] = [];
-    for (let i = 0; i < uniqueKeys.length; i += MARKET_KEY_CHUNK) {
-      const chunk = uniqueKeys.slice(i, i + MARKET_KEY_CHUNK);
-      const batch = await this.collectionMarket.batchPortfolioMarketData(chunk, {
-        priceHistoryDuration: '365d',
-        chainId: chain,
-      });
-      for (const it of batch.items) {
-        marketItems.push({
-          collectionKey: it.collectionKey,
-          stats: it.stats,
-          series: it.series,
-        });
-      }
-    }
+    const marketItems = this.collectionMarket.portfolioMarketItemsFromIndex(
+      uniqueKeys,
+      snapshotIndex,
+      '365d',
+    );
 
     perfLog('api', 'portfolioAssetsPage', elapsedMs(_t0), {
       chainId: chain,
       tokenCount: uniqueTokenIds.length,
       collectionKeys: uniqueKeys.length,
+      snapshotIndexSize: snapshotIndex.size,
       cache: 'miss',
       source: 'db',
     });
