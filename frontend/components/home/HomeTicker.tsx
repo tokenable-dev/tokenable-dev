@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { buildHomeTickerCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import {
   formatReferencePercentChange,
   referenceChangeTone,
@@ -23,7 +23,7 @@ export function HomeTicker() {
   const items = useMemo(() => {
     return tickerItems.map(({ collection, changePct }) => {
       const tone = referenceChangeTone(changePct ?? 0);
-      const shortTitle = buildMarketsCollectionTitle({
+      const shortTitle = buildHomeTickerCollectionTitle({
         collection,
         comp: collection.components,
       });
