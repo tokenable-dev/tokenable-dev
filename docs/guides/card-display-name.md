@@ -112,7 +112,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Order book | unified order book | ask/bid labels | L1 abbrev | Price/vault only on rows — grade on collection context |
 | Notifications | `notifications.service.ts` (backend copy) | free text | L1 + L2 self-contained | Backend strings not wired to SSOT |
 | Admin preview | `AdminHomePreviewPanel.tsx` | `buildMarketsCollectionTitle` | Line 1 | Low priority |
-| Home ticker | `HomeTicker.tsx` | `buildMarketsCollectionTitle` | Line 1 | OK after SSOT line1 fix |
+| Home ticker | `HomeTicker.tsx` | `buildHomeTickerCollectionTitle` | `{Name} {Number}` — no middots, no grade | Compact marquee labels; markets tiles still use full Line 1 |
 
 ### Data sources (headline parts)
 

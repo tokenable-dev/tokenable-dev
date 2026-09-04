@@ -84,19 +84,40 @@ export function formatMarketsCollectionTileTitle(
   return formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade));
 }
 
+function collectionDisplayLabelFallback(
+  collection: MarketplaceCollectionSummary,
+): string {
+  const dl =
+    typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
+  return dl ? toCardDisplayCase(dl) : "";
+}
+
 /** Markets / home / search / watchlist — Line 1 only. */
 export function buildMarketsCollectionTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
 }): string {
-  const { collection } = params;
   const parts = buildMarketsCollectionHeadlineParts(params);
   const grade = gradeLabelFromComp(params.comp);
   const out = formatMarketsCollectionTileTitle(parts, grade);
   if (out) return out;
-  const dl =
-    typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
-  return dl ? toCardDisplayCase(dl) : "";
+  return collectionDisplayLabelFallback(params.collection);
+}
+
+/**
+ * Landing Indices 1Y strip — `{Name} {Number}` only.
+ * No middots and no grade (PSA 10) so the marquee labels stay short.
+ */
+export function buildHomeTickerCollectionTitle(params: {
+  collection: MarketplaceCollectionSummary;
+  comp: CollectionComponents;
+}): string {
+  const parts = buildMarketsCollectionHeadlineParts(params);
+  const name = parts.cardName?.trim() || "";
+  const number = parts.cardNumber?.trim() || "";
+  const out = [name, number].filter(Boolean).join(" ");
+  if (out) return out;
+  return collectionDisplayLabelFallback(params.collection);
 }
 
 /** GNB search / self-contained surfaces — full Line 2 under Line 1 title. */
@@ -117,7 +138,7 @@ export function buildMarketsCollectionMeta(params: {
   return formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
 }
 
-/** Single-line hover / search / ticker — self-contained Line 1 + Line 2. */
+/** Single-line hover / search — self-contained Line 1 + Line 2. */
 export function buildMarketsCollectionHoverTitle(params: {
   collection: MarketplaceCollectionSummary;
   comp: CollectionComponents;
