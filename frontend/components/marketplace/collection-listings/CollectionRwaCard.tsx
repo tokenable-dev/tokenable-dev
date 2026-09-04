@@ -43,8 +43,10 @@ function formatUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
     if (!Number.isFinite(n)) return "—";
-    /* Card.html listings use whole-dollar figures ($9,000). */
-    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    return n.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   } catch {
     return "—";
   }

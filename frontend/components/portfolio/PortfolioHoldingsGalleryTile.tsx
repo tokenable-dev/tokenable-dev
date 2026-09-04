@@ -6,6 +6,7 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
@@ -128,7 +129,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         <div className="pf-gtile__price-row">
           <div className="pf-gtile__price-main card__price-row">
             <span className="card__price pf-gtile__mkt tkl-mono" title="Market price">
-              {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+              {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
               {hasVal && pnl ? (
                 <span
                   className={`pf-mkt-dir${
@@ -178,7 +179,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
                     →
                   </span>
                   <span className="pf-cost-hover-line__mkt">
-                    {formatPortfolioUsd(row.currentPrice)}
+                    {formatUsdCompact(row.currentPrice)}
                   </span>
                 </>
               ) : null}

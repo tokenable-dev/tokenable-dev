@@ -246,7 +246,7 @@ export class RwaService {
     const metadata: RwaMetadata = {
       name: dto.name,
       description: dto.description,
-      image: this.pinataService.ipfsHttpsUrl(imageCID),
+      image: this.pinataService.ipfsUri(imageCID),
       ...(dto.attributes && { attributes: dto.attributes }),
     };
 

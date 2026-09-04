@@ -968,23 +968,31 @@
 }
 
 .portfolio-page .pf-table--bids .pf-col-card {
-  width: 38%;
+  width: 26%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-bid {
-  width: 14%;
+  width: 11%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-top {
+  width: 11%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-ask {
-  width: 14%;
+  width: 11%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-status {
-  width: 18%;
+  width: 16%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-expires {
+  width: 10%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-action {
-  width: 16%;
+  width: 15%;
 }
 
 .portfolio-page .pf-table--history .pf-col-date {
@@ -1439,6 +1447,41 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--azure);
+}
+
+.portfolio-page .pf-table-top-bid--mine {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.portfolio-page .pf-table-expires {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-table-expires--urgent {
+  color: var(--warn);
+}
+
+.portfolio-page .pf-table-expires--done {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.portfolio-page .pf-table-row--expired {
+  opacity: 0.55;
+}
+
+.portfolio-page .pf-table-btn--bid-action {
+  height: 38px;
+  min-width: 96px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+
+.portfolio-page .pf-panel-toolbar--bids-only {
+  justify-content: flex-end;
 }
 
 .portfolio-page .pf-table-pl {

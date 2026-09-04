@@ -106,9 +106,9 @@ Real Cardhedger search over 2018 Chrome `#150` Ohtani rows found **no** catalog 
 |-------------|--------------|-------------------------------|-----------|
 | `VARIATION-GREEN REFRACTOR` | `137839751` | cert known; **`card: null`** | unmatched (correct) |
 | `VARIATION-ORANGE REFRACTOR` | `42652975` | **`card_match` → flagship `Orange Refractor`** | gate **rejects** |
-| `VARIATION-REFRACTOR` | `80147607` | **`gemrate_id` → `Variation Red Jersey`**; match → flagship `Refractor` | gate **rejects** |
+| `VARIATION-REFRACTOR` | `80147607` | GemRate → `Variation Red Jersey` (wrong); catalog **`Red Jersey Refractor`** exists | gate accepts **`Red Jersey Refractor`** (SP photo name); rejects flagship `Refractor` / non-refractor `Variation Red Jersey` |
 
-Catalog variation-related rows that **do** exist: `Base - Variation`, `Variation Red Jersey` only — not Green/Orange/Refractor Variation parallels. Do not invent prices from flagship siblings.
+PSA Spec Variety is often `VARIATION-REFRACTOR` while the **physical label** (and Cardhedger) say **`RED JERSEY-REFRACTOR` / `Red Jersey Refractor`**. Mint photo from PSA cert is correct; unmatched prices were the naming gap above.
 
 ### PSA `PANINI PRIZM ROOKIE SIGNATURES` (insert 세트, 예: Lonnie Walker IV #RSLW4)
 

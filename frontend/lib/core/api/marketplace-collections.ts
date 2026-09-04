@@ -346,7 +346,7 @@ export async function postAdminCollectionCoverFromToken(
   return res.json() as Promise<{ coverImageUrl: string | null; saved: boolean }>;
 }
 
-/** Admin: delete collection bucket and related marketplace rows. */
+/** Admin: delete collection bucket (orders + snapshots). Keeps rwa_tokens. */
 export async function postAdminDeleteCollection(
   collectionKey: string,
   body: { confirmCollectionKey: string },
@@ -354,7 +354,7 @@ export async function postAdminDeleteCollection(
   collectionKey: string;
   deletedSnapshots: number;
   deletedOrders: number;
-  deletedRwaTokens: number;
+  unlinkedRwaTokens: number;
   deletedCollection: boolean;
 }> {
   const enc = encodeURIComponent(collectionKey);
@@ -376,7 +376,7 @@ export async function postAdminDeleteCollection(
     collectionKey: string;
     deletedSnapshots: number;
     deletedOrders: number;
-    deletedRwaTokens: number;
+    unlinkedRwaTokens: number;
     deletedCollection: boolean;
   }>;
 }

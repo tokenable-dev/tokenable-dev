@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
@@ -136,7 +137,7 @@ export function PortfolioHoldingsTableView({
               </td>
               <td data-label="Mkt Price" className="pf-col-num-cell">
                 <span className="tkl-mono pf-table-mkt">
-                  {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+                  {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
                   {pnl ? (
                     <span
                       className={`pf-mkt-dir${

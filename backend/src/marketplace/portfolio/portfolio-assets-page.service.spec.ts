@@ -29,6 +29,7 @@ describe('PortfolioAssetsPageService', () => {
   };
   const blockchain = {
     getRwaTokensByOwner: jest.fn(),
+    healOwnerRegistryIfIncomplete: jest.fn(),
   };
 
   let service: PortfolioAssetsPageService;
@@ -37,6 +38,7 @@ describe('PortfolioAssetsPageService', () => {
     jest.clearAllMocks();
     ownerIndex.isIndexReady.mockResolvedValue(true);
     ownerIndex.getTokenIdsByOwner.mockResolvedValue([42, 41]);
+    blockchain.healOwnerRegistryIfIncomplete.mockResolvedValue(false);
     service = new PortfolioAssetsPageService(
       rwaAssetResolve as never,
       collectionService as never,
@@ -100,6 +102,9 @@ describe('PortfolioAssetsPageService', () => {
     );
 
     expect(ownerIndex.getTokenIdsByOwner).toHaveBeenCalled();
+    expect(blockchain.healOwnerRegistryIfIncomplete).toHaveBeenCalledWith(
+      11155111,
+    );
     expect(rwaAssetResolve.batchPortfolioMetadata).toHaveBeenCalledWith(
       [42, 41],
       11155111,

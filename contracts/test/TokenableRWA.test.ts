@@ -44,7 +44,7 @@ describe("TokenableRWA (UUPS v2)", function () {
 
   describe("initialize", function () {
     it("sets name and symbol", async function () {
-      expect(await contract.name()).to.equal("Tokenable_RWA");
+      expect(await contract.name()).to.equal("Tokenable");
       expect(await contract.symbol()).to.equal("TRWA");
     });
 

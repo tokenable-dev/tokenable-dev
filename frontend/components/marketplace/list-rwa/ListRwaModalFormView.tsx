@@ -14,7 +14,7 @@ import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHead
 import { resolveCardDisplayGrade } from "@/lib/marketplace/cardDisplayName";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
 import { ListRwaPriceInput } from "./ListRwaPriceInput";
-import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 
 export function ListRwaModalFormView({
   tokenId,
@@ -100,7 +100,7 @@ export function ListRwaModalFormView({
   const ctaLabel = isProcessing
     ? "Processing..."
     : sellingNow
-      ? `Sell now — ${formatPortfolioUsd(listPriceNum)}`
+      ? `Sell now — ${formatUsdListing(listPriceNum)}`
     : isSetPrice
       ? isReplaceListing
         ? "Update"
@@ -160,7 +160,7 @@ export function ListRwaModalFormView({
             Currently listed at
           </div>
           <span className="rd-list-sheet__ref-val">
-            {formatPortfolioUsd(listedPriceUsd)}
+            {formatUsdListing(listedPriceUsd)}
           </span>
         </div>
       ) : null}

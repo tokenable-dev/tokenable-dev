@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { MarketplaceSearchCardHit } from "@/lib/core";
-import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useMemo } from "react";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
@@ -62,7 +62,7 @@ export function SearchCertMatches({ cards }: { cards: MarketplaceSearchCardHit[]
             </div>
             <div className="srch-cert-match__price">
               <div className="srch-cert-match__usd">
-                {card.listedUsd != null ? formatUsdCompact(card.listedUsd) : "—"}
+                {card.listedUsd != null ? formatUsdListing(card.listedUsd) : "—"}
               </div>
               <div className="srch-cert-match__listed">
                 {card.listedUsd != null ? "Listed" : "Unlisted"}

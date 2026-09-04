@@ -148,7 +148,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | POST | `/api/marketplace/collections/:key/admin/cover` | Admin: set cover URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Admin: upload cover to S3 |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Admin: cover from token |
-| POST | `/api/marketplace/collections/:key/admin/delete` | Admin: delete collection |
+| POST | `/api/marketplace/collections/:key/admin/delete` | Admin: delete collection bucket (unlinks `rwa_tokens.collection_key`; does not delete NFTs) |
 
 ---
 

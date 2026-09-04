@@ -16,6 +16,9 @@ export default registerAs('marketplace', () => {
     300,
     86_400,
   );
+  /** Dev/staging Data-inventory “reset for new contract” gate. */
+  const adminDbResetPassword =
+    process.env.MARKETPLACE_ADMIN_DB_RESET_PASSWORD?.trim() || '3009';
 
   const activeOrdersMaxRaw = Number(
     process.env.MARKETPLACE_ACTIVE_ORDERS_MAX ?? '20000',
@@ -87,6 +90,7 @@ export default registerAs('marketplace', () => {
     adminPassword,
     adminSessionSecret,
     adminSessionSeconds,
+    adminDbResetPassword,
     activeOrdersMax,
     collectionActiveOrdersMax,
     maxActiveCollectionBidsPerOfferer,

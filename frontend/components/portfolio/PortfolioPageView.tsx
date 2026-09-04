@@ -24,6 +24,7 @@ import {
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import {
+  getOrderByHash,
   getPortfolioActivityOrders,
   marketplaceRqPolicy,
   postRwaMetadataBatchBatched,
@@ -58,10 +59,12 @@ import {
   portfolioUrl,
 } from "@/lib/portfolio/portfolioPaths";
 import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/modals/RwaDetailListModalHost";
+import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatPortfolioGradeLabel, listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
+import type { PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import { usePortfolioLoadPerf } from "@/hooks/portfolio/usePortfolioLoadPerf";
 
@@ -118,6 +121,12 @@ export function PortfolioPageView({
     orderHash: string;
     listPriceUsd: number | null;
   } | null>(null);
+  const [changeBidModal, setChangeBidModal] = useState<{
+    bid: Order;
+    collectionKey: string;
+    mode: "change" | "rebid";
+  } | null>(null);
+  const [changingBidHash, setChangingBidHash] = useState<string | null>(null);
   const listQueryHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -375,7 +384,7 @@ export function PortfolioPageView({
     if (!bidsTabActive) return [];
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const bid of myBids.activeBids) {
+    for (const bid of myBids.displayBids) {
       const key = bid.collectionKey?.trim();
       if (!key) continue;
       const lower = key.toLowerCase();
@@ -384,29 +393,55 @@ export function PortfolioPageView({
       out.push(key);
     }
     return out;
-  }, [bidsTabActive, myBids.activeBids]);
+  }, [bidsTabActive, myBids.displayBids]);
 
   const collectionTopBids = usePortfolioCollectionTopBids(
     topBidCollectionKeys,
     portfolioDataEnabled && bidsTabActive,
   );
 
-  const highestBidByCollectionKey = useMemo(() => {
-    const map = new Map<string, number | null>();
-    for (const [key, info] of collectionTopBids.byCollectionKey) {
-      map.set(key, info.highestBidUsd);
-      map.set(key.toLowerCase(), info.highestBidUsd);
-    }
-    return map;
-  }, [collectionTopBids.byCollectionKey]);
-
   const bidsByCollectionKey = useMemo(() => {
     const map = new Map<string, Order[]>();
     for (const [key, info] of collectionTopBids.byCollectionKey) {
       map.set(key, info.bids);
+      map.set(key.toLowerCase(), info.bids);
     }
     return map;
   }, [collectionTopBids.byCollectionKey]);
+
+  const listingsByCollectionKey = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    for (const [key, info] of collectionTopBids.byCollectionKey) {
+      map.set(key, info.listings);
+      map.set(key.toLowerCase(), info.listings);
+    }
+    return map;
+  }, [collectionTopBids.byCollectionKey]);
+
+  const openChangeOrRebid = useCallback(
+    async (row: PortfolioBidRow, mode: "change" | "rebid") => {
+      if (!signerAddress) {
+        window.alert("Connect the wallet that placed this bid to continue.");
+        return;
+      }
+      setChangingBidHash(row.orderHash);
+      try {
+        const order = await getOrderByHash(row.orderHash);
+        setChangeBidModal({
+          bid: order,
+          collectionKey: row.collectionKey,
+          mode,
+        });
+      } catch (err) {
+        window.alert(
+          err instanceof Error ? err.message : "Failed to load bid for editing",
+        );
+      } finally {
+        setChangingBidHash(null);
+      }
+    },
+    [signerAddress],
+  );
 
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
@@ -817,17 +852,21 @@ export function PortfolioPageView({
             <PortfolioCollectionBidsSection
               loading={bidsSectionLoading}
               metaLoading={myBids.collectionMetaLoading}
-              activeBids={myBids.activeBids}
+              bids={myBids.displayBids}
               collectionMetaByKey={myBids.collectionMetaByKey}
               statsByCollectionKey={statsByCollectionKey}
-              highestBidByCollectionKey={highestBidByCollectionKey}
+              bidsByCollectionKey={bidsByCollectionKey}
+              listingsByCollectionKey={listingsByCollectionKey}
               cancellingHash={bidActions.cancellingHash}
-              clearingOutbid={bidActions.clearingOutbid}
-              onCancel={(hash, key, label, price, mode) => {
-                bidActions.requestCancel(hash, key, label, price, mode);
+              changingHash={changingBidHash}
+              onCancel={(hash, key, label, price) => {
+                bidActions.requestCancel(hash, key, label, price, "cancel");
               }}
-              onClearOutbid={(items) => {
-                bidActions.requestClearOutbid(items);
+              onChangeBid={(row) => {
+                void openChangeOrRebid(row, "change");
+              }}
+              onRebid={(row) => {
+                void openChangeOrRebid(row, "rebid");
               }}
             />
           }
@@ -851,6 +890,36 @@ export function PortfolioPageView({
           }
           onClose={bidActions.closeCancelConfirm}
           onConfirm={() => void bidActions.confirmCancel()}
+        />
+      ) : null}
+
+      {changeBidModal != null ? (
+        <CollectionChangeBidModal
+          open
+          bid={changeBidModal.bid}
+          collectionKey={changeBidModal.collectionKey}
+          activeAsks={
+            listingsByCollectionKey.get(changeBidModal.collectionKey) ??
+            listingsByCollectionKey.get(
+              changeBidModal.collectionKey.toLowerCase(),
+            ) ??
+            []
+          }
+          collectionBids={
+            bidsByCollectionKey.get(changeBidModal.collectionKey) ??
+            bidsByCollectionKey.get(changeBidModal.collectionKey.toLowerCase()) ??
+            []
+          }
+          connectedAddress={signerAddress}
+          mode={changeBidModal.mode}
+          onClose={() => setChangeBidModal(null)}
+          onUpdated={() => {
+            void myBids.refetchBids();
+            void refetchActiveOrders();
+            void queryClient.invalidateQueries({
+              queryKey: rq.collectionDetail(changeBidModal.collectionKey, activeRqChainId()),
+            });
+          }}
         />
       ) : null}
 

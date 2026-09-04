@@ -16,6 +16,7 @@ export function CollectionChangeBidModal({
   activeAsks,
   collectionBids = [],
   connectedAddress,
+  mode = "change",
   onClose,
   onUpdated,
 }: {
@@ -25,6 +26,8 @@ export function CollectionChangeBidModal({
   activeAsks: Order[];
   collectionBids?: Order[];
   connectedAddress?: string;
+  /** "rebid" = place a new bid after expiry (no replace). */
+  mode?: "change" | "rebid";
   onClose: () => void;
   onUpdated?: () => void;
 }) {
@@ -49,6 +52,10 @@ export function CollectionChangeBidModal({
       ? `${formatListingUsdc(listing.considerationAmount)}.00`
       : null;
 
+  const replaceBid = bid.status === "active" ? bid : null;
+  const title = mode === "rebid" ? "Re-bid" : "Change bid price";
+  const subtitleLabel = mode === "rebid" ? "Previous bid" : "Current bid";
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">
       <div
@@ -68,10 +75,10 @@ export function CollectionChangeBidModal({
               id="collection-change-bid-title"
               className="text-xl font-bold tracking-tight text-white sm:text-2xl"
             >
-              Change bid price
+              {title}
             </h2>
             <p className="mt-1.5 text-sm leading-snug text-zinc-400">
-              Current bid:{" "}
+              {subtitleLabel}:{" "}
               <span className="font-mono tabular-nums text-zinc-200">
                 {bidMaxUsdcFromOrder(bid)} USDC
               </span>
@@ -95,7 +102,7 @@ export function CollectionChangeBidModal({
             collectionBids={collectionBids}
             listedPriceLabel={listedLabel}
             connectedAddress={connectedAddress}
-            bidToReplace={bid}
+            bidToReplace={replaceBid}
             onPlaced={() => {
               onUpdated?.();
               onClose();

@@ -578,7 +578,7 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 Server-side pipeline (DB-first, parallel where possible):
 
-1. **`ownedTokenIds`** — DB owner index (newest-first); RPC `ownerOf` scan only when index incomplete **and** DB has no rows for the wallet.
+1. **`ownedTokenIds`** — heal incomplete `rwa_tokens` vs on-chain `totalMinted` if needed, then DB owner index (newest-first); RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
 2. **Metadata** — `batchPortfolioMetadata`: graded NFT JSON from registry `token_uri` (IPFS, URI-deduped). **Owner-index stubs** (no `token_uri`) fall back to on-chain `tokenURI` + IPFS, then heal empty `display_name` / `token_uri` / `cert_number` on `rwa_tokens`. Slab images prefer DB `display_image_url`. Detail pages still use full `batchRwaMetadata`.
 3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
 4. **Market** — `collection_market_snapshots` via `portfolio-market-batch` (snapshot-only).

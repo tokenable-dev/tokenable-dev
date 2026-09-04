@@ -1,3 +1,4 @@
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { joinCardDisplaySegments, resolveCardDisplayGrade } from "@/lib/marketplace/cardDisplayName";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 
@@ -18,12 +19,7 @@ export function resolveTop100ImageUrl(raw: string | null): string | null {
 }
 
 export function formatTop100Usd(price: number): string {
-  return price.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatUsdCompact(price);
 }
 
 export function top100CardSubText(card: Top100CardLike): string {

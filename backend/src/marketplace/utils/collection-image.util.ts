@@ -62,6 +62,10 @@ export function scoreCollectionCoverUrl(url: string): number {
     if (host.includes('cloudfront.net') && path.includes('/cert/')) {
       return 0;
     }
+    // Our mint slab copies — not catalog art.
+    if (path.includes('/rwa-slabs/')) {
+      return 0;
+    }
     if (/^https?:\/\//i.test(t)) return 50;
     return 0;
   } catch {
@@ -218,6 +222,7 @@ export function pickCollectionDisplayImageUrl(
   const cover = coverImageUrl?.trim() ?? '';
   if (!cover) return null;
   if (isPsaCertSlabCloudfrontUrl(cover)) return null;
+  if (/\/rwa-slabs\//i.test(cover)) return null;
   if (isLegacyNormalizedCollectionCoverApiPath(cover)) return null;
   // Lazy import avoided — normalize only for our S3 folder shape.
   return normalizeLooseCatalogCoverUrl(cover);

@@ -50,9 +50,10 @@ const TradesTapeRow = memo(function TradesTapeRow({
       ? "cd-ob-trades-price cd-ob-trades-price--down"
       : "cd-ob-trades-price cd-ob-trades-price--up"
     : tradesTapePriceClassName(priceTone);
-  const sideLabel = collectionDetail
-    ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
-    : side.label;
+  const sideLabel =
+    collectionDetail && !side.label.includes(" ")
+      ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
+      : side.label;
 
   return (
     <div

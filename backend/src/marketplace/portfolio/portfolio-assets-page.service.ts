@@ -131,11 +131,12 @@ export class PortfolioAssetsPageService {
     return { ...result, ownedTokenIds };
   }
 
-  /** DB owner index first; RPC ownerOf scan only when index is empty and incomplete. */
+  /** DB owner index first; RPC ownerOf scan only when index is not ready and DB is empty. */
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
   ): Promise<number[]> {
+    await this.blockchain.healOwnerRegistryIfIncomplete(chainId);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
     if (await this.ownerIndex.isIndexReady(chainId)) {
       return this.sortOwnedNewestFirst(fromDb);

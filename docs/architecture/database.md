@@ -190,7 +190,7 @@ erDiagram
     }
     marketplace_collections ||--o| collection_market_snapshots : "collection_key"
     marketplace_collections ||--o{ orders : "collection_key"
-    marketplace_collections ||--o{ rwa_tokens : "collection_key"
+    marketplace_collections ||--o{ rwa_tokens : "collection_key (nullable; admin delete unlinks, does not drop rows)"
 ```
 
 ---

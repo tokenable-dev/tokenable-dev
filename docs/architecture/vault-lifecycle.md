@@ -171,6 +171,8 @@ Mitigation:
 2. **After** mint confirms: stamp `tokenId`/`txHash` on the attempt, then `recordMintResult`
 3. **Boot poll** (`VaultMintRecoveryService`): for each `minting` cycle, read `activeTokenIdOf(vaultRef)` (or stamped tokenId) and finish `recordMintResult` from the saved attempt; cancel only if no on-chain token after ~30 minutes
 
+Admin **collection delete** must not drop `rwa_tokens` rows. Those rows are the mint registry and portfolio owner index (`owner_wallet`). Delete only clears `collection_key` (unlink from the marketplace bucket). A past wipe is healed on portfolio load when `COUNT(rwa_tokens) < totalMinted`.
+
 `rwa_tokens.settlement_policy` is **nullable**. Transfer-index owner stubs leave it `NULL` (custody unknown). Only `recordMintResult` sets `standard` (PSA vault) or `self_vault_hold` (partner/self vault). Listing APIs treat `NULL` as unknown — never default to PSA.
 
 Maintenance SQL (existing DBs): `add_vault_cycles_mint_attempt.sql`, `nullable_rwa_tokens_settlement_policy.sql`.

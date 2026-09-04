@@ -24,7 +24,7 @@ export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
   let label = "SALE";
   if (lower.includes("auction")) label = "AUCTION";
   else if (lower.includes("offer")) label = "OFFER";
-  else if (lower.includes("buy it now") || lower === "bin") label = "BIN";
+  else if (lower.includes("buy it now") || lower === "bin") label = "Buy It Now";
   else if (saleType.length <= 10) label = saleType.toUpperCase();
 
   return {
