@@ -14,7 +14,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
-| `/marketplace/admin/data-inventory` | **Data inventory** | All accumulated PostgreSQL stores — row counts, date ranges, how each table is written, links to related admin pages |
+| `/marketplace/admin/data-inventory` | **데이터 인벤토리** | All `public` tables (catalog + uncatalogued under `other`) — row counts, date ranges, how each table is written, paginated raw row browser (sensitive columns redacted), links to related admin pages |
 | `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
 | `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
@@ -224,7 +224,7 @@ List/detail enrichment: `role`, `partner`, `custodyCardCount` (minted vault cycl
 | `POST` | `/marketplace/collections/:key/admin/cover` |
 | `POST` | `/marketplace/collections/:key/admin/cover/upload` |
 | `POST` | `/marketplace/collections/:key/admin/cover/from-token` |
-| `POST` | `/marketplace/collections/:key/admin/delete` |
+| `POST` | `/marketplace/collections/:key/admin/delete` | Removes the marketplace bucket, snapshots, and orders. **Does not delete `rwa_tokens`** — those rows are the NFT registry + portfolio owner index. `collection_key` is set to null. |
 
 Public `GET /marketplace/collections` always returns **`active`** only.  
 Cover upload **overwrites** the collection’s stable S3 object and writes that public URL to `coverImageUrl`. New collections ingest Cardhedger images to S3 on create. See [catalog-cover-s3.md](catalog-cover-s3.md).  

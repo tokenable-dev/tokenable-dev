@@ -192,6 +192,7 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
+| POST | `/api/marketplace/collections/:key/admin/delete` | Delete marketplace bucket + snapshots + orders. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
 
 New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
 
@@ -437,7 +438,9 @@ Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; sam
 |--------|------|-------------|
 | GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries (mints/orders/GMV/holdings scoped by `x-tokenable-chain-id`). Server caches 60s per chain+period; admin UI does not auto-poll. |
 | GET | `/analytics/ga4` | GA4 traffic (when configured) |
-| GET | `/data-inventory` | Accumulated PostgreSQL stores — row counts, date ranges, per-table metadata |
+| GET | `/data-inventory` | All `public` tables + catalog metadata — row counts, freshness. Uncatalogued tables appear under domain `other`. |
+| GET | `/data-inventory/tables/:table/rows?page=&pageSize=` | Paginated raw rows (`pageSize` 1–200). Sensitive columns (`password`, `secret`, `private_key`, …) redacted. |
+| POST | `/data-inventory/reset-for-new-contract` | **Dev/staging only** (`NODE_ENV !== production`). Body `{ password }` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Same wipe as `sql/maintenance/reset_marketplace_data.sql`: truncates marketplace + vault transactional tables; **keeps** users, admins, partners, Cardhedger infra audit. Use after manually updating `CHAIN_*_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_*_RWA` to a newly deployed proxy. Does **not** burn on-chain NFTs. |
 
 Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only while the browser tab is visible (paused when hidden).
 
@@ -451,6 +454,7 @@ Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only 
 | `MARKETPLACE_ADMIN_PASSWORD` | Admin console password (default: `071725`) |
 | `MARKETPLACE_ADMIN_SESSION_SECRET` | HMAC secret for admin session cookie |
 | `MARKETPLACE_ADMIN_SESSION_SECONDS` | Admin session TTL (default: 86400) |
+| `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` | Data inventory “reset for new contract” password (default: `3009`; dev/staging only) |
 | `AWS_REGION` / `CATALOG_COVER_S3_*` / `CATALOG_COVER_PUBLIC_BASE_URL` | Catalog cover S3 upload ([catalog-cover-s3.md](../guides/catalog-cover-s3.md)) |
 | `RWA_OWNER_PRIVATE_KEY` | Signs mint and adminBurn transactions |
 | `RWA_ADMIN_PRIVATE_KEY` | Signs grantRole/revokeRole (must hold DEFAULT_ADMIN_ROLE on-chain; dev fallback: DEPLOYER_PRIVATE_KEY) |

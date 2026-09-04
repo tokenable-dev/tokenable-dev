@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { PortfolioCertificateModel } from "@/hooks/portfolio/usePortfolioCertificate";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { joinCardDisplaySegments } from "@/lib/marketplace/cardDisplayName";
 import {
   formatCertDate,
@@ -319,7 +320,7 @@ export function PortfolioCertificateView({
           <div className="cert-foot">
             <div className="mval">
               <span className="mval-k">Market value</span>
-              <span className="mval-v">{formatPortfolioUsd(d.marketUsd)}</span>
+              <span className="mval-v">{formatUsdCompact(d.marketUsd)}</span>
               {chg ? (
                 <span className={`mval-chg${chg.positive ? "" : " neg"}`}>{chg.text}</span>
               ) : null}
@@ -328,7 +329,7 @@ export function PortfolioCertificateView({
               <div className="mval">
                 <span className="mval-k">Listed</span>
                 <span className="mval-v mval-v--listed">
-                  {formatPortfolioUsd(d.listing.priceUsd)}
+                  {formatUsdListing(d.listing.priceUsd)}
                 </span>
               </div>
             ) : null}

@@ -1,7 +1,8 @@
-import type { PartnerRedeemRow } from "@/lib/core";
+import type { PartnerRedeemRow, RwaMetadata } from "@/lib/core";
 import { getCachedRwaImageUrl } from "@/lib/marketplace";
 import type { PartnerShipmentGroup } from "@/lib/partner/partnerRedeemGroups";
 import { partnerRedeemDeadlineMs } from "@/lib/partner/partnerRedeemStats";
+import { formatRedeemCardLine1FromMetadata } from "@/lib/portfolio/portfolioTableHelpers";
 import { buildCarrierTrackingUrl } from "@/lib/shipping/carrierTracking";
 
 export type PartnerShipmentStatusKey =
@@ -92,6 +93,23 @@ export function partnerCardCertLine(item: PartnerRedeemRow): string | null {
   if (!item.certNumber?.trim()) return null;
   return item.certNumber.trim();
 }
+
+/**
+ * Redeem requests card title — same Line 1 as portfolio redeem:
+ * `{Name} · {Number} · {Grade}`.
+ */
+export function partnerRedeemCardTitle(
+  item: PartnerRedeemRow,
+  metadataByTokenId?: ReadonlyMap<string, RwaMetadata>,
+): string {
+  const fallback =
+    item.displayName?.trim() ||
+    (item.tokenId?.trim() ? `Token #${item.tokenId}` : "Card");
+  const tid = item.tokenId?.trim();
+  const meta = tid ? metadataByTokenId?.get(tid) : undefined;
+  return formatRedeemCardLine1FromMetadata(meta ?? null, fallback);
+}
+
 
 export function partnerTrackingUrl(
   carrier: string | null,

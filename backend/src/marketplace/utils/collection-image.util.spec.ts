@@ -55,6 +55,15 @@ describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
       rankCollectionCoverUrls([bubbleResize, bubbleCrop, pokemonHiresUrl]),
     ).toEqual([pokemonHiresUrl, bubbleCrop, bubbleResize]);
   });
+
+  it('excludes platform rwa-slabs mint copies from cover ranking', () => {
+    const slabCopy =
+      'https://tokenable-catalog-covers.s3.ap-northeast-2.amazonaws.com/dev/covers/rwa-slabs/84532/63028611/slab';
+    expect(scoreCollectionCoverUrl(slabCopy)).toBe(0);
+    expect(pickPreferredCollectionCoverUrl([slabCopy, bubbleCrop])).toBe(
+      bubbleCrop,
+    );
+  });
 });
 
 describe('pickCollectionDisplayImageUrl', () => {

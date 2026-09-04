@@ -29,6 +29,8 @@ function isPersistableCoverUrl(url: string): boolean {
   if (!/^https?:\/\//i.test(t)) return false;
   if (t.toLowerCase().includes('/ipfs/')) return false;
   if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
+  // Mint display copies live under rwa-slabs/ — never use as collection covers.
+  if (/\/rwa-slabs\//i.test(t)) return false;
   return true;
 }
 
@@ -562,12 +564,20 @@ export class CollectionCoverService {
   /**
    * Gather catalog candidates (Cardhedger + Pokémon TCG when applicable), ranked
    * best → worst. Collects multiple Cardhedger matches so a tiny `/crop_image`
-   * thumb can lose to a Holo sibling or Pokémon TCG hires after download.
+   * thumb can lose to a same-variety Holo sibling or Pokémon TCG hires after
+   * download.
+   *
+   * Search results are gated by {@link cardhedgerRowMatchesPsaVariety} — without
+   * that, a high-scoring sibling image (e.g. one B&W Ohtani thumb) can win the
+   * URL-quality rank for every parallel collection that shares name/number/set.
    */
   private async resolveRankedCatalogImageUrlsFromMeta(
     meta: Record<string, unknown>,
   ): Promise<string[]> {
-    const candidates: string[] = [];
+    /** Identity-trusted: attached Cardhedger + card-details + variety-matched search. */
+    const trusted: string[] = [];
+    /** Pokémon TCG only — never mixed ahead of Cardhedger identity matches. */
+    const tcgFallback: string[] = [];
 
     const props = meta.properties as Record<string, unknown> | undefined;
     const graded = (props?.graded ?? meta.graded) as
@@ -576,13 +586,16 @@ export class CollectionCoverService {
     const ch = graded?.cardhedger as Record<string, unknown> | undefined;
     const cardMeta = graded?.card as Record<string, unknown> | undefined;
     const psaMeta = graded?.psa as Record<string, unknown> | undefined;
+    const psaVariety = psaVarietyFromMintMeta(meta);
+    const requireNamed = psaVarietyHasNamedCollectibleIdentity(psaVariety);
 
     const cardId = typeof ch?.cardId === 'string' ? ch.cardId.trim() : '';
     const chImageUrl =
       typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
     const chSearchQuery =
       typeof ch?.searchQuery === 'string' ? ch.searchQuery.trim() : '';
-    pushCandidate(candidates, chImageUrl);
+    // Attached at mint/catalog create with the same Variety gate.
+    pushCandidate(trusted, chImageUrl);
 
     const cardName = (
       typeof cardMeta?.name === 'string'
@@ -622,7 +635,7 @@ export class CollectionCoverService {
             typeof row.image === 'string' && row.image.trim()
               ? row.image.trim()
               : null;
-          pushCandidate(candidates, rawImg);
+          pushCandidate(trusted, rawImg);
         }
       } catch {
         /* fall through */
@@ -678,10 +691,10 @@ export class CollectionCoverService {
             wantNameWords.every((w) => rowDesc.includes(w));
           const setOk =
             !wantSet || rowSet.includes(wantSet) || wantSet.includes(rowSet);
-          // Keep every plausible match — size is verified after download.
-          if (numOk && (nameOk || setOk)) {
-            pushCandidate(candidates, rawImg);
-          }
+          if (!(numOk && (nameOk || setOk))) continue;
+          // Same gate as cardId attach — do not let a sibling finish win cover rank.
+          if (!cardhedgerRowMatchesPsaVariety(row, psaVariety)) continue;
+          pushCandidate(trusted, rawImg);
         }
       } catch {
         /* fall through */
@@ -696,7 +709,10 @@ export class CollectionCoverService {
       /pokemon/i.test(category) ||
       /tcg/i.test(category);
 
-    if (isPokemon && cardName) {
+    // Pokémon TCG API has no parallel field equivalent to Cardhedger `variant`.
+    // Only use it when we lack a variety-trusted Cardhedger image, or when PSA
+    // does not name a collectible identity (base / blank).
+    if (isPokemon && cardName && (trusted.length === 0 || !requireNamed)) {
       try {
         const name = cardName.replace(/"/g, '').trim();
         const num = cardNumber.replace(/"/g, '').trim();
@@ -720,11 +736,10 @@ export class CollectionCoverService {
               )?.slice(0, 4) ?? '';
             return yearOf(a) === year ? -1 : yearOf(b) === year ? 1 : 0;
           });
-          // Prefer a few top set-year matches so hires can beat a bad Cardhedger thumb.
           for (const card of sorted.slice(0, 3)) {
             const images = card?.images as Record<string, string> | undefined;
-            pushCandidate(candidates, images?.large ?? null);
-            pushCandidate(candidates, images?.small ?? null);
+            pushCandidate(tcgFallback, images?.large ?? null);
+            pushCandidate(tcgFallback, images?.small ?? null);
           }
         }
       } catch {
@@ -732,7 +747,11 @@ export class CollectionCoverService {
       }
     }
 
-    return rankCollectionCoverUrls(candidates).filter(isPersistableCoverUrl);
+    const rankedTrusted = rankCollectionCoverUrls(trusted).filter(
+      isPersistableCoverUrl,
+    );
+    if (rankedTrusted.length > 0) return rankedTrusted;
+    return rankCollectionCoverUrls(tcgFallback).filter(isPersistableCoverUrl);
   }
 
   private async persistCoverImageUrl(

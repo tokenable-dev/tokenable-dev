@@ -2,7 +2,7 @@
 
 import { TkButton } from "@/components/ds";
 import { TkDialog } from "@/components/ds/Dialog";
-import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 
 /** Cancel Listing? — portfolio-modals.js `pfCancelListingModal` (design system-2). */
 export function PortfolioCancelListingConfirmModal({
@@ -23,7 +23,7 @@ export function PortfolioCancelListingConfirmModal({
   onConfirm: () => void | Promise<void>;
 }) {
   const title = assetTitle.trim() || "This listing";
-  const price = formatPortfolioUsd(listPriceUsd);
+  const price = formatUsdListing(listPriceUsd);
   const grade = gradeLabel?.trim();
   const detail = [title, grade, price !== "—" ? `Listed ${price}` : null]
     .filter(Boolean)

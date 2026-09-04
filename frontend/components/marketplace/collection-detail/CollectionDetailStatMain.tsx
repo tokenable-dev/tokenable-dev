@@ -7,6 +7,7 @@ import {
   formatGemRatePercent,
   formatReferencePercentChange,
   formatUsdCompact,
+  formatUsdListing,
   formatPsaPopulationCount,
   formatVelocityPercent,
   NO_EXTERNAL_PRICE,
@@ -39,9 +40,9 @@ function periodChipLabel(
   return `${formatReferenceChangePeriodShort(period)} Chg.`;
 }
 
-function formatBookUsd(n: number | null | undefined): string {
+function formatAskBidUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatUsdListing(n);
 }
 
 /** Strip segments already shown in `#hero-title` (name / number / grade). */
@@ -555,13 +556,13 @@ export function CollectionDetailStatMain({
               <div className="cd-hero-bar__sec-row">
                 <span className="cd-hero-bar__sec-lbl mono">Ask | Bid</span>
                 <span className="cd-hero-bar__sec-val mono cd-hero-bar__askbid">
-                  <span id="ob-ask">{formatBookUsd(lowestAskUsd)}</span>
+                  <span id="ob-ask">{formatAskBidUsd(lowestAskUsd)}</span>
                   {" | "}
                   <span
                     id="ob-bid"
                     className={hasBid ? "cd-hero-bar__sec-val--bid" : undefined}
                   >
-                    {formatBookUsd(highestBidUsd)}
+                    {formatAskBidUsd(highestBidUsd)}
                   </span>
                 </span>
               </div>

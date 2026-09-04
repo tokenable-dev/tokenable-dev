@@ -5,6 +5,7 @@ import type { Order } from "@/lib/core";
 import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import {
@@ -16,13 +17,6 @@ function formatUsdc2(n: number): string {
   return n.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
-}
-
-/** Card.html ask/highest cards — whole dollars, e.g. `$9,000`. */
-function formatUsdWhole(n: number): string {
-  return n.toLocaleString("en-US", {
-    maximumFractionDigits: 0,
   });
 }
 
@@ -246,13 +240,13 @@ export function CollectionListingBidCheckout({
         <div className="cd-listing-checkout__bid-stat">
           <div className="cd-listing-checkout__bid-stat-label tkl-mono">Ask price</div>
           <div className="cd-listing-checkout__bid-stat-value">
-            {askDisplayUsd != null ? `$${formatUsdWhole(askDisplayUsd)}` : "—"}
+            {askDisplayUsd != null ? formatUsdListing(askDisplayUsd) : "—"}
           </div>
         </div>
         <div className="cd-listing-checkout__bid-stat">
           <div className="cd-listing-checkout__bid-stat-label tkl-mono">Highest bid</div>
           <div className="cd-listing-checkout__bid-stat-value cd-listing-checkout__bid-stat-value--pos">
-            {highestDisplayUsd != null ? `$${formatUsdWhole(highestDisplayUsd)}` : "—"}
+            {highestDisplayUsd != null ? formatUsdListing(highestDisplayUsd) : "—"}
           </div>
         </div>
       </div>

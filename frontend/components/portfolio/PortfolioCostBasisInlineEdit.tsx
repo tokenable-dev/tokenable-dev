@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent } from "react";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 import { PortfolioCostBasisPencilButton } from "./PortfolioCostBasisPencil";
 
@@ -184,7 +185,7 @@ export function PortfolioCostBasisInlineEdit({
   if (layout === "gallery") {
     const mkt =
       currentPriceUsd != null && Number.isFinite(currentPriceUsd)
-        ? formatPortfolioUsd(currentPriceUsd)
+        ? formatUsdCompact(currentPriceUsd)
         : null;
     return (
       <div className="pf-cost-hover-line tkl-mono">

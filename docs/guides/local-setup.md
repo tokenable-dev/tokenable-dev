@@ -157,6 +157,7 @@ CARDHEDGER_API_KEY=your_cardhedger_key
 MARKETPLACE_ADMIN_USERNAME=skyand
 MARKETPLACE_ADMIN_PASSWORD=071725
 MARKETPLACE_ADMIN_SESSION_SECRET=dev_secret_change_in_prod
+MARKETPLACE_ADMIN_DB_RESET_PASSWORD=3009
 
 # Collection market snapshot worker (optional — code defaults apply)
 # MARKET_SNAPSHOT_ON_DEMAND=true

@@ -43,6 +43,7 @@ export function isUsableCardhedgerMintImageUrl(
   const t = normalizeImageUrl(url.trim());
   if (!/^https?:\/\//i.test(t)) return false;
   if (isPsaCertSlabCloudfrontUrl(t)) return false;
+  if (/\/rwa-slabs\//i.test(t)) return false;
   if (isCardhedgerBrandedPlaceholderUrl(t)) return false;
   if (scoreCollectionCoverUrl(t) < 55) return false;
   return true;

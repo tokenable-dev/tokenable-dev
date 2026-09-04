@@ -78,6 +78,15 @@ describe('RwaTokenOwnerIndexService', () => {
     );
   });
 
+  it('countIndexedTokenRows counts all registry rows for the chain contract', async () => {
+    const { svc, rwaTokens } = makeService();
+    rwaTokens.count.mockResolvedValue(12);
+    await expect(svc.countIndexedTokenRows()).resolves.toBe(12);
+    expect(rwaTokens.count).toHaveBeenCalledWith({
+      where: { tokenContract: contract },
+    });
+  });
+
   it('isIndexReady reads cursor.backfillComplete', async () => {
     const { svc, cursors } = makeService();
     cursors.findOne.mockResolvedValue({ backfillComplete: true });

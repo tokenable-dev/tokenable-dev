@@ -371,10 +371,18 @@ export class CollectionService {
         }),
       );
     }
-    const ch = cardhedgerFromRwaMetadata(meta);
+    const psaCert = psaCertNumberFromGradedMeta(meta);
+    // Ask-time mint meta often has cardId but strips catalog imageUrl (slab is
+    // the NFT image). Re-attach Cardhedger art from cert + Variety before cover
+    // ingest so Markets never falls through to rwa-slabs / PSA cert photos.
+    let coverMeta = meta;
+    if (psaCert) {
+      coverMeta = await this.cover.attachCardhedgerFromPsaCert(meta, psaCert);
+    }
+    const ch = cardhedgerFromRwaMetadata(coverMeta);
     const coverImageUrl = await this.cover.resolveCoverUrlForNewCollection(
       collectionKey,
-      meta,
+      coverMeta,
     );
 
     const compRecord: Record<string, unknown> = {
@@ -383,7 +391,7 @@ export class CollectionService {
     if (opts.catalogSource) {
       compRecord.catalogSource = opts.catalogSource;
     }
-    const listingTitle = extractListingDisplayTitleFromMeta(meta);
+    const listingTitle = extractListingDisplayTitleFromMeta(coverMeta);
     if (listingTitle) {
       compRecord.listingDisplayTitle = listingTitle;
     }
@@ -402,16 +410,14 @@ export class CollectionService {
       compRecord.psaSpecId = ch.psaSpecId;
     }
 
-    const psaCert = psaCertNumberFromGradedMeta(meta);
-
-    const trendingSlab = pickTrendingSlabImageRef(meta);
+    const trendingSlab = pickTrendingSlabImageRef(coverMeta);
     if (trendingSlab) {
       compRecord.trendingSlabImageUrl = trendingSlab;
     }
 
     const gradedSrc =
-      (meta.properties as Record<string, unknown> | undefined)?.graded ??
-      meta.graded;
+      (coverMeta.properties as Record<string, unknown> | undefined)?.graded ??
+      coverMeta.graded;
     if (gradedSrc && typeof gradedSrc === 'object') {
       const g = gradedSrc as Record<string, unknown>;
       const psa = g.psa as Record<string, unknown> | undefined;
@@ -1689,7 +1695,7 @@ export class CollectionService {
     collectionKey: string;
     deletedSnapshots: number;
     deletedOrders: number;
-    deletedRwaTokens: number;
+    unlinkedRwaTokens: number;
     deletedCollection: boolean;
   }> {
     const k = collectionKey.toLowerCase();
@@ -1703,14 +1709,21 @@ export class CollectionService {
         collectionKey: k,
       });
       const orderRes = await em.delete(Order, { collectionKey: k });
-      const rwaRes = await em.delete(RwaToken, { collectionKey: k });
+      // Keep mint registry / owner index. Portfolio reads ownedTokenIds from
+      // rwa_tokens.owner_wallet — deleting those rows hides live NFTs.
+      const rwaRes = await em
+        .createQueryBuilder()
+        .update(RwaToken)
+        .set({ collectionKey: null })
+        .where('LOWER(collection_key) = :k', { k })
+        .execute();
       const colRes = await em.delete(MarketplaceCollection, {
         collectionKey: k,
       });
       return {
         deletedSnapshots: snapRes.affected ?? 0,
         deletedOrders: orderRes.affected ?? 0,
-        deletedRwaTokens: rwaRes.affected ?? 0,
+        unlinkedRwaTokens: rwaRes.affected ?? 0,
         deletedCollection: (colRes.affected ?? 0) > 0,
       };
     });
@@ -1718,7 +1731,7 @@ export class CollectionService {
     this.merkleSet.invalidateForCollection(k);
 
     this.logger.warn(
-      `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} rwa_tokens=${result.deletedRwaTokens}`,
+      `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
     );
 
     return { collectionKey: k, ...result };

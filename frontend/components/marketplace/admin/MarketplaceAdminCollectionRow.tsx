@@ -472,7 +472,7 @@ export function MarketplaceAdminCollectionRow({
               onClick={() => {
                 if (
                   !window.confirm(
-                    "Permanently delete this collection from the marketplace database?",
+                    "Delete this collection from the marketplace? Listings and snapshots for this bucket are removed. NFTs stay in wallets and the mint registry (portfolio is not wiped).",
                   )
                 ) {
                   return;

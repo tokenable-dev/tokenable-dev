@@ -216,7 +216,7 @@ export function formatHoverWhen(tSec: number): string {
 
 export function formatTooltipUsd(v: number | null): string {
   if (v == null || !Number.isFinite(v)) return "—";
-  return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
+  return `$${Math.round(v).toLocaleString("en-US")}`;
 }
 
 /** Card.html tooltip price — `$9,000` via locale grouping. */

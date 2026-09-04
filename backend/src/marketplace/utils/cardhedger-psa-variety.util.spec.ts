@@ -499,6 +499,12 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
       description: 'Shohei Ohtani 2018 Topps Chrome Baseball Vatiation',
       number: '150',
     };
+    const redJerseyRefractor = {
+      variant: 'Red Jersey Refractor',
+      description:
+        'Shohei Ohtani 2018 Topps Chrome Baseball Red Jersey Refractor',
+      number: '150',
+    };
     expect(
       cardhedgerCertRowUsableForPsaVariety(
         flagshipOrange,
@@ -523,6 +529,13 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         'VARIATION-GREEN REFRACTOR',
       ),
     ).toBe(false);
+    // PSA Spec VARIATION-REFRACTOR ↔ Cardhedger / slab "Red Jersey Refractor".
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        redJerseyRefractor,
+        'VARIATION-REFRACTOR',
+      ),
+    ).toBe(true);
   });
 
   it('maps PSA Championship 2024-Top Prize to Cardhedger Championship 2024, not Base or Top Prize', () => {

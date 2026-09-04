@@ -1,5 +1,6 @@
 import type { PsaAnalyzeResult } from "@/lib/core";
 import type { GradedCardFormState, GradedCardMetadata } from "@/types/gradedCard";
+import { resolveCardhedgerMintImageUrl } from "@/lib/vault/mintImageSource";
 
 export function buildGradedCardMetadata(
   form: GradedCardFormState,
@@ -106,11 +107,23 @@ export function buildGradedCardMetadata(
       lastAnalyze.cardhedgerMint?.matchConfidence === "verified" &&
       lastAnalyze.cardhedgerMint?.cardId?.trim()
     ) {
+      const rawImg = lastAnalyze.cardhedgerMint.imageUrl?.trim() || "";
+      // Prefer high-score catalog art; still seed Bubble /resize for collection
+      // cover resolve (mint NFT image stays PSA slab via upload imageUrl).
+      const catalogImg =
+        resolveCardhedgerMintImageUrl(rawImg) ||
+        (rawImg &&
+        /^https?:\/\//i.test(rawImg) &&
+        !rawImg.includes("d1htnxwo4o0jhw.cloudfront.net/cert/") &&
+        !/\/rwa-slabs\//i.test(rawImg)
+          ? rawImg
+          : null);
       metadata.cardhedger = {
         cardId: lastAnalyze.cardhedgerMint.cardId.trim(),
         ...(lastAnalyze.cardhedgerMint.searchQuery != null
           ? { searchQuery: lastAnalyze.cardhedgerMint.searchQuery }
           : {}),
+        ...(catalogImg ? { imageUrl: catalogImg } : {}),
       };
     }
     const l = lastAnalyze.psaApi.lookup;

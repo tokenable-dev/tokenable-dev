@@ -24,6 +24,7 @@ import {
   PARTNER_SHIPMENT_STATUS,
   partnerCardCertLine,
   partnerCardImageUrl,
+  partnerRedeemCardTitle,
   partnerShipmentStatusKey,
   partnerShipToAddressLines,
   partnerShipToCity,
@@ -31,8 +32,11 @@ import {
   sortPartnerShipmentGroups,
 } from "@/lib/partner/partnerShipmentDisplay";
 import { formatCarrierLabel } from "@/lib/shipping/carrierTracking";
-import { usePartnerRedeemMetadataImages } from "@/hooks/partner/usePartnerRedeemMetadataImages";
-import type { PartnerRedeemRow } from "@/lib/core";
+import {
+  usePartnerRedeemMetadata,
+} from "@/hooks/partner/usePartnerRedeemMetadataImages";
+import type { PartnerRedeemRow, RwaMetadata } from "@/lib/core";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 type TabId = PartnerShipmentTab;
 type ShipmentGroup = ReturnType<typeof groupPartnerRedeems>[number];
@@ -56,11 +60,13 @@ const CARRIERS = [
 function TrackingModal({
   group,
   metadataImages,
+  metadataByTokenId,
   onClose,
   onSaved,
 }: {
   group: ShipmentGroup;
   metadataImages: ReadonlyMap<string, string>;
+  metadataByTokenId: ReadonlyMap<string, RwaMetadata>;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -153,8 +159,10 @@ function TrackingModal({
                   className="partner-ship__thumb--sm"
                 />
                 <span className="partner-ship__cardtext">
-                  <span className="partner-ship__cname partner-ship__cname--sm">
-                    {item.displayName || `Token #${item.tokenId}`}
+                  <span
+                    className={`partner-ship__cname partner-ship__cname--sm ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                  >
+                    {partnerRedeemCardTitle(item, metadataByTokenId)}
                   </span>
                   {partnerCardCertLine(item) ? (
                     <span className="partner-ship__cid tkl-mono">
@@ -335,6 +343,7 @@ function ShipmentRow({
   expanded,
   menuOpen,
   metadataImages,
+  metadataByTokenId,
   onToggleExpand,
   onToggleMenu,
   onEnterTracking,
@@ -343,6 +352,7 @@ function ShipmentRow({
   expanded: boolean;
   menuOpen: boolean;
   metadataImages: ReadonlyMap<string, string>;
+  metadataByTokenId: ReadonlyMap<string, RwaMetadata>;
   onToggleExpand: () => void;
   onToggleMenu: () => void;
   onEnterTracking: () => void;
@@ -382,8 +392,8 @@ function ShipmentRow({
         <div className="partner-ship__cardcell">
           <CardThumb item={first} metadataImages={metadataImages} />
           <span className="partner-ship__cardtext">
-            <span className="partner-ship__cname">
-              {first.displayName || `Token #${first.tokenId}`}
+            <span className={`partner-ship__cname ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
+              {partnerRedeemCardTitle(first, metadataByTokenId)}
             </span>
             {partnerCardCertLine(first) ? (
               <span className="partner-ship__cid tkl-mono">
@@ -520,8 +530,10 @@ function ShipmentRow({
                     className="partner-ship__thumb--xs"
                   />
                   <span className="partner-ship__cardtext">
-                    <span className="partner-ship__cname partner-ship__cname--sm">
-                      {item.displayName || `Token #${item.tokenId}`}
+                    <span
+                      className={`partner-ship__cname partner-ship__cname--sm ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                    >
+                      {partnerRedeemCardTitle(item, metadataByTokenId)}
                     </span>
                     {partnerCardCertLine(item) ? (
                       <span className="partner-ship__cid tkl-mono">
@@ -626,7 +638,9 @@ export function PartnerShipmentsView() {
     [query.data?.items],
   );
 
-  const metadataImages = usePartnerRedeemMetadataImages(query.data?.items ?? []);
+  const cardMeta = usePartnerRedeemMetadata(query.data?.items ?? []);
+  const metadataImages = cardMeta.images;
+  const metadataByTokenId = cardMeta.metadataByTokenId;
 
   const filtered = useMemo(() => {
     const list = tab === "all" ? groups : groups.filter((g) => g.tab === tab);
@@ -739,6 +753,7 @@ export function PartnerShipmentsView() {
                   expanded={expandedKey === g.key}
                   menuOpen={menuKey === g.key}
                   metadataImages={metadataImages}
+                  metadataByTokenId={metadataByTokenId}
                   onToggleExpand={() =>
                     setExpandedKey((k) => (k === g.key ? null : g.key))
                   }
@@ -786,6 +801,7 @@ export function PartnerShipmentsView() {
         <TrackingModal
           group={editing}
           metadataImages={metadataImages}
+          metadataByTokenId={metadataByTokenId}
           onClose={() => setEditing(null)}
           onSaved={() => {
             void qc.invalidateQueries({

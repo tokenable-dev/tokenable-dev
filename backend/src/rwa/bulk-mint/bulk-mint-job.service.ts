@@ -612,7 +612,7 @@ export class BulkMintJobService {
           graded.psa = psa;
         }
       }
-      metadata.image = this.pinata.ipfsHttpsUrl(imageCid);
+      metadata.image = this.pinata.ipfsUri(imageCid);
       const metadataCid = await this.pinata.uploadMetadata(metadata);
       const tokenUri = `ipfs://${metadataCid}`;
       const vaultRef = VaultService.computeVaultRef(item.certNumber);

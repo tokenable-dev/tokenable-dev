@@ -48,6 +48,18 @@ export class PinataService {
     return `https://${host}/ipfs/${cid}`;
   }
 
+  /**
+   * On-chain metadata `image` value.
+   * Prefer the configured dedicated Pinata HTTPS gateway: wallets (MetaMask)
+   * resolve `ipfs://` via public gateways (ipfs.io / Cloudflare), which often
+   * cannot find freshly Pinata-pinned CIDs. Dedicated gateway URLs with empty
+   * Access Controls serve our pins publicly and load reliably in MetaMask.
+   * Sepolia Etherscan still may not render NFT media either way.
+   */
+  ipfsUri(cid: string): string {
+    return this.ipfsHttpsUrl(cid);
+  }
+
   async uploadBuffer(
     buffer: Buffer,
     filename: string,

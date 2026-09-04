@@ -1,6 +1,6 @@
 "use client";
 
-import { formatUsdCompact } from "@/lib/market";
+import { formatUsdCompact, formatUsdListing } from "@/lib/market";
 import { computeAskVsMarketPct } from "@/lib/portfolio/askVsMarketPct";
 
 const STRIP_MUTED_CLASS = "text-[#8BA1B3]";
@@ -30,7 +30,7 @@ export function PortfolioListingPriceStrip({
 
   const priceTitle =
     askPriceUsd != null
-      ? `Price: ${formatUsdCompact(askPriceUsd)}`
+      ? `Price: ${formatUsdListing(askPriceUsd)}`
       : "Price: —";
 
   const fullTitle =
@@ -48,7 +48,7 @@ export function PortfolioListingPriceStrip({
       <span className="inline-flex min-w-0 items-baseline gap-1">
         <span className={STRIP_MUTED_CLASS}>Price:</span>
         <span className={STRIP_VALUE_CLASS}>
-          {askPriceUsd != null ? formatUsdCompact(askPriceUsd) : "—"}
+          {askPriceUsd != null ? formatUsdListing(askPriceUsd) : "—"}
         </span>
       </span>
 

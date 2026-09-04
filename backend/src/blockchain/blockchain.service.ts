@@ -51,6 +51,11 @@ export class BlockchainService {
   private readonly rwaByChain = new Map<SupportedChainId, Contract>();
   /** Coalesces concurrent owner scans for the same wallet into one RPC pass. */
   private readonly tokensByOwnerInFlight = new Map<string, Promise<number[]>>();
+  private registryHealInFlight: Promise<void> | null = null;
+  private readonly registryCompleteCache = new Map<
+    SupportedChainId,
+    { totalMinted: number; at: number }
+  >();
 
   constructor(
     private readonly chainConfig: ChainConfigService,
@@ -173,6 +178,7 @@ export class BlockchainService {
 
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const load = (async () => {
+      await this.healOwnerRegistryIfIncomplete(chain);
       const fromDb = await this.ownerIndex.getTokenIdsByOwner(
         normalized,
         chain,
@@ -201,6 +207,65 @@ export class BlockchainService {
     return load;
   }
 
+  /**
+   * If `rwa_tokens` has fewer rows than on-chain `totalMinted` (e.g. admin
+   * collection delete used to wipe registry rows), rescan owners and persist.
+   */
+  async healOwnerRegistryIfIncomplete(
+    chainId?: SupportedChainId,
+  ): Promise<boolean> {
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const rowCount = await this.ownerIndex.countIndexedTokenRows(chain);
+    const cached = this.registryCompleteCache.get(chain);
+    const cacheFresh =
+      cached != null && Date.now() - cached.at < 300_000;
+    if (cacheFresh && rowCount >= cached.totalMinted) {
+      return false;
+    }
+
+    const { totalMinted } = await this.getRwaInfo(chain);
+    this.registryCompleteCache.set(chain, {
+      totalMinted,
+      at: Date.now(),
+    });
+    if (totalMinted <= 0 || rowCount >= totalMinted) {
+      return false;
+    }
+
+    this.logger.warn(
+      `rwa_tokens incomplete (${rowCount}/${totalMinted}) — healing owner index from chain`,
+    );
+    if (this.registryHealInFlight) {
+      await this.registryHealInFlight;
+      return true;
+    }
+    this.registryHealInFlight = this.persistFullOwnerScan(chain).finally(() => {
+      this.registryHealInFlight = null;
+    });
+    await this.registryHealInFlight;
+    this.ttlCache.clearNamespace(TOKENS_BY_OWNER_CACHE_NS);
+    return true;
+  }
+
+  private async persistFullOwnerScan(chain: SupportedChainId): Promise<void> {
+    const contract = this.chainConfig.getRwaAddress(chain);
+    const owners = await this.scanAllOwnersMap(chain);
+    if (owners.size === 0) return;
+    await this.ownerIndex.persistOwnerMap(contract, owners, chain);
+  }
+
+  private async scanAllOwnersMap(
+    chainId: SupportedChainId,
+  ): Promise<Map<number, string>> {
+    const { totalMinted } = await this.getRwaInfo(chainId);
+    if (totalMinted <= 0) return new Map();
+    return this.batchOwnerOf(
+      Array.from({ length: totalMinted }, (_, i) => i + 1),
+      rpcOwnerScanConcurrency(),
+      chainId,
+    );
+  }
+
   private async scanRwaTokensByOwner(
     normalized: string,
     chainId?: SupportedChainId,
@@ -209,14 +274,9 @@ export class BlockchainService {
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const contract = this.chainConfig.getRwaAddress(chain);
     try {
-      const { totalMinted } = await this.getRwaInfo(chainId);
-      if (totalMinted <= 0) return [];
+      const owners = await this.scanAllOwnersMap(chain);
+      if (owners.size === 0) return [];
 
-      const owners = await this.batchOwnerOf(
-        Array.from({ length: totalMinted }, (_, i) => i + 1),
-        rpcOwnerScanConcurrency(),
-        chainId,
-      );
       if (!(await this.ownerIndex.isBackfillInProgress(chain))) {
         void this.ownerIndex
           .persistOwnerMap(contract, owners, chain)

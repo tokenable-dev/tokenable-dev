@@ -1,6 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { createHash, timingSafeEqual } from 'crypto';
+import { DataSource, Repository } from 'typeorm';
 import { CardhedgerDailyPriceExportRun } from '../../cardhedger/entities/cardhedger-daily-price-export-run.entity';
 import { CardhedgerPriceDeltaCheckpoint } from '../../cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerPriceDeltaImportRun } from '../../cardhedger/entities/cardhedger-price-delta-import-run.entity';
@@ -54,6 +63,58 @@ export type DataInventoryResponse = {
     storeCount: number;
     rowCount: number;
   };
+};
+
+/** Mirrors `sql/maintenance/reset_marketplace_data.sql` (required tables). */
+const RESET_REQUIRED_TABLES = [
+  'marketplace_notifications',
+  'p2p_orders',
+  'p2p_listings',
+  'bulk_mint_job_items',
+  'bulk_mint_jobs',
+  'portfolio_holdings',
+  'orders',
+  'self_vault_settlements',
+  'rwa_tokens',
+  'rwa_owner_index_cursors',
+  'collection_market_snapshots',
+  'cardhedger_price_subscriptions',
+  'marketplace_collections',
+  'user_watchlist',
+  'user_buyer_listing_alert',
+  'portfolio_daily_snapshots',
+  'vault_redemptions',
+  'vault_redeem_payment_claims',
+  'vault_submission_items',
+  'vault_submissions',
+  'vault_cycles',
+  'vault_assets',
+] as const;
+
+const RESET_OPTIONAL_TABLES = [
+  'psa_cert_snapshots',
+  'vault_psa_arrival_reviews',
+  'vault_psa_vaulted_reviews',
+] as const;
+
+export type AdminMarketplaceResetResult = {
+  truncatedTables: string[];
+  skippedMissingTables: string[];
+  rowCountsBefore: Record<string, number>;
+};
+
+export type AdminDataInventoryRowsResult = {
+  table: string;
+  label: string;
+  description: string | null;
+  domain: DataInventoryDomainId;
+  columns: string[];
+  redactedColumns: string[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  rows: Record<string, unknown>[];
 };
 
 type TableStats = {
@@ -118,14 +179,191 @@ export class DataInventoryService {
     private readonly vaultSubmissionsRepo: Repository<VaultSubmission>,
     @InjectRepository(VaultSubmissionItem)
     private readonly vaultSubmissionItemsRepo: Repository<VaultSubmissionItem>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Dev/staging only — same wipe as `sql/maintenance/reset_marketplace_data.sql`.
+   * Keeps users, admins, partners, and Cardhedger infra audit tables.
+   * Call after updating RWA env addresses to a freshly deployed contract.
+   */
+  async resetForNewContract(
+    password: string,
+  ): Promise<AdminMarketplaceResetResult> {
+    const isProduction =
+      this.config.get<boolean>('app.isProduction') ??
+      this.config.get<string>('NODE_ENV') === 'production';
+    if (isProduction) {
+      throw new ForbiddenException(
+        'Marketplace reset for new contract is disabled in production',
+      );
+    }
+
+    const expected =
+      this.config.get<string>('marketplace.adminDbResetPassword')?.trim() ||
+      '';
+    if (!expected || !passwordMatchesResetGate(password, expected)) {
+      throw new UnauthorizedException('Invalid reset password');
+    }
+
+    const rowCountsBefore: Record<string, number> = {};
+    const truncatedTables: string[] = [];
+    const skippedMissingTables: string[] = [];
+
+    for (const table of RESET_REQUIRED_TABLES) {
+      const exists = await this.tableExists(table);
+      if (!exists) {
+        skippedMissingTables.push(table);
+        continue;
+      }
+      rowCountsBefore[table] = await this.countRows(table);
+    }
+    for (const table of RESET_OPTIONAL_TABLES) {
+      const exists = await this.tableExists(table);
+      if (!exists) {
+        skippedMissingTables.push(table);
+        continue;
+      }
+      rowCountsBefore[table] = await this.countRows(table);
+    }
+
+    const requiredPresent = RESET_REQUIRED_TABLES.filter(
+      (t) => !skippedMissingTables.includes(t),
+    );
+    if (requiredPresent.length === 0) {
+      throw new ForbiddenException('No marketplace tables found to truncate');
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      const list = requiredPresent.map((t) => `"${t}"`).join(', ');
+      await manager.query(
+        `TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`,
+      );
+      truncatedTables.push(...requiredPresent);
+
+      for (const table of RESET_OPTIONAL_TABLES) {
+        if (skippedMissingTables.includes(table)) continue;
+        await manager.query(
+          `TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE`,
+        );
+        truncatedTables.push(table);
+      }
+    });
+
+    const result: AdminMarketplaceResetResult = {
+      truncatedTables,
+      skippedMissingTables,
+      rowCountsBefore,
+    };
+    this.logger.warn(
+      JSON.stringify({ msg: 'admin_marketplace_reset_for_new_contract', ...result }),
+    );
+    return result;
+  }
+
+  private async tableExists(table: string): Promise<boolean> {
+    const rows = await this.dataSource.query(
+      `SELECT to_regclass($1) AS reg`,
+      [`public.${table}`],
+    );
+    return rows?.[0]?.reg != null;
+  }
+
+  private async countRows(table: string): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS n FROM "${table}"`,
+    );
+    return Number(rows?.[0]?.n ?? 0);
+  }
+
+  /**
+   * Paginated raw rows for any public table (admin browse).
+   * Table name must be snake_case and exist in `public`.
+   */
+  async getTableRows(
+    table: string,
+    page: number,
+    pageSize: number,
+  ): Promise<AdminDataInventoryRowsResult> {
+    const safe = table.trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]*$/.test(safe)) {
+      throw new BadRequestException('Invalid table name');
+    }
+    if (!(await this.tableExists(safe))) {
+      throw new NotFoundException(`Table not found: ${safe}`);
+    }
+
+    const total = await this.countRows(safe);
+    const columns = await this.listColumns(safe);
+    const orderCol = pickOrderColumn(columns);
+    const offset = (page - 1) * pageSize;
+    const rawRows: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT * FROM "${safe}" ORDER BY ${orderCol} LIMIT $1 OFFSET $2`,
+      [pageSize, offset],
+    );
+
+    const rows = rawRows.map((row) => redactRow(row));
+    const catalog = DATA_STORE_CATALOG.find((s) => s.table === safe);
+
+    return {
+      table: safe,
+      label: catalog?.label ?? safe,
+      description: catalog?.description ?? null,
+      domain: catalog?.domain ?? 'other',
+      columns: columns.map((c) => c.column_name),
+      redactedColumns: columns
+        .map((c) => c.column_name)
+        .filter((name) => isSensitiveColumn(name)),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      rows,
+    };
+  }
 
   async getInventory(): Promise<DataInventoryResponse> {
     const statsById = await this.loadAllStats();
-    const stores: DataStoreInventoryRow[] = DATA_STORE_CATALOG.map((entry) => {
-      const stats = statsById.get(entry.id) ?? emptyStats();
-      return { ...entry, ...stats };
-    });
+    const catalogStores: DataStoreInventoryRow[] = DATA_STORE_CATALOG.map(
+      (entry) => {
+        const stats = statsById.get(entry.id) ?? emptyStats();
+        return { ...entry, ...stats };
+      },
+    );
+
+    const catalogTables = new Set(DATA_STORE_CATALOG.map((s) => s.table));
+    const publicTables = await this.listPublicTables();
+    const extraStores: DataStoreInventoryRow[] = [];
+
+    for (const table of publicTables) {
+      if (catalogTables.has(table)) continue;
+      if (table.startsWith('pg_') || table === 'spatial_ref_sys') continue;
+      try {
+        const rowCount = await this.countRows(table);
+        extraStores.push({
+          id: table,
+          table,
+          domain: 'other',
+          label: table,
+          description:
+            '카탈로그 미등록 public 테이블입니다. 아래 「행 보기」로 전체 내용을 확인할 수 있습니다.',
+          howAccumulated: '스키마에 존재하는 모든 public 테이블을 자동 수집합니다.',
+          adminPagePath: null,
+          rowCount,
+          oldestAt: null,
+          newestAt: null,
+          lastActivityAt: null,
+          highlights: {},
+        });
+      } catch (err) {
+        this.logSkip(table, err);
+      }
+    }
+
+    extraStores.sort((a, b) => a.table.localeCompare(b.table));
+    const stores = [...catalogStores, ...extraStores];
 
     return {
       generatedAt: new Date().toISOString(),
@@ -136,6 +374,29 @@ export class DataInventoryService {
         rowCount: stores.reduce((sum, s) => sum + s.rowCount, 0),
       },
     };
+  }
+
+  private async listPublicTables(): Promise<string[]> {
+    const rows = await this.dataSource.query(
+      `SELECT table_name
+       FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_type = 'BASE TABLE'
+       ORDER BY table_name`,
+    );
+    return (rows as { table_name: string }[]).map((r) => r.table_name);
+  }
+
+  private async listColumns(
+    table: string,
+  ): Promise<{ column_name: string; data_type: string }[]> {
+    return this.dataSource.query(
+      `SELECT column_name, data_type
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1
+       ORDER BY ordinal_position`,
+      [table],
+    );
   }
 
   private async loadAllStats(): Promise<Map<string, DataStoreStats>> {
@@ -517,6 +778,60 @@ function emptyTableStats(): TableStats {
 
 function emptyStats(): DataStoreStats {
   return { rowCount: 0, oldestAt: null, newestAt: null, lastActivityAt: null, highlights: {} };
+}
+
+function passwordMatchesResetGate(provided: string, expected: string): boolean {
+  const a = createHash('sha256').update(provided, 'utf8').digest();
+  const b = createHash('sha256').update(expected, 'utf8').digest();
+  return timingSafeEqual(a, b);
+}
+
+function isSensitiveColumn(name: string): boolean {
+  return /password|secret|private_?key|encrypted|session_token|api_?key/i.test(
+    name,
+  );
+}
+
+function redactRow(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (isSensitiveColumn(k)) {
+      out[k] = v == null || v === '' ? v : '[REDACTED]';
+      continue;
+    }
+    if (v instanceof Date) {
+      out[k] = v.toISOString();
+      continue;
+    }
+    if (Buffer.isBuffer(v)) {
+      out[k] = `<bytea ${v.length} bytes>`;
+      continue;
+    }
+    if (typeof v === 'string' && v.length > 4000) {
+      out[k] = `${v.slice(0, 4000)}…(+${v.length - 4000})`;
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
+}
+
+function pickOrderColumn(
+  columns: { column_name: string; data_type: string }[],
+): string {
+  const names = columns.map((c) => c.column_name);
+  for (const pref of [
+    'created_at',
+    'updated_at',
+    'id',
+    'token_id',
+    'ran_at',
+    'snapshot_date_kst',
+  ]) {
+    if (names.includes(pref)) return `"${pref}" DESC NULLS LAST`;
+  }
+  if (names[0]) return `"${names[0]}" ASC NULLS LAST`;
+  return 'ctid ASC';
 }
 
 export type { DataInventoryDomainId };

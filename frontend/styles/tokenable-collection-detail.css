@@ -2956,7 +2956,7 @@
 /* Trades tab — Card.html `#tab-trades` */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 0.85fr 1.55fr 0.9fr 1.15fr;
   align-items: center;
   padding: 7px 20px;
 }
@@ -2995,7 +2995,7 @@
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 0.85fr 1.55fr 0.9fr 1.15fr;
   align-items: center;
   padding: 6px 20px;
 }
@@ -3024,6 +3024,10 @@
   font-size: 13px;
   font-weight: 400;
   color: #fff;
+}
+
+.collection-detail-page .cd-ob-trades-side {
+  white-space: nowrap;
 }
 
 /* Nudge Side + Source slightly left (header + cells stay aligned). */

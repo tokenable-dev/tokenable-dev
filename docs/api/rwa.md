@@ -14,6 +14,8 @@ Handles the full vault deposit pipeline: IPFS metadata upload → platform-signe
 
 Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI`.
 
+Pinned JSON uses OpenSea-compatible fields. **`metadata.image` is an HTTPS URL on `PINATA_GATEWAY`** (`https://{gateway}/ipfs/{imageCid}`). MetaMask resolves bare `ipfs://` via public gateways that often cannot reach freshly Pinata-pinned content; the dedicated gateway (with empty Access Controls) serves our pins and loads in wallets. `tokenURI` remains `ipfs://{metadataCid}`. `displayImageUrl` is the platform S3 slab copy for in-app UI.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Token name |

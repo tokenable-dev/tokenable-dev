@@ -63,6 +63,7 @@ Charizard ex · 199/165
 | Portfolio / holdings | Line 1 only | Grade always present. |
 | Order book / trade history | Line 1 (abbrev ok) | Tight: `{Name} · {Grade}`. |
 | Checkout / Redeem / modals | Line 1 | `{Name} · {Number} · {Grade}` on every card row. Vault chip + cert are meta, not a grade badge. |
+| Partner Redeem requests | Line 1 | Same Line 1 on To ship → All tabs (`partnerRedeemCardTitle`). Cert stays on the secondary line. |
 | Notifications / share / email | Line 1 + Line 2 | Self-contained (no breadcrumb dedupe). |
 
 Use `formatCardDisplayName({ parts, mode })` — never hand-join segments at call sites.

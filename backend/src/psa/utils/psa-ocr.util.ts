@@ -157,6 +157,12 @@ export function varietyHintsForSearch(varietyHint?: string): string[] {
     if (!out.some((x) => x.toLowerCase() === 'variation')) {
       out.push('Variation');
     }
+    // Spec taxonomy VARIATION-REFRACTOR; Cardhedger often uses a jersey/SP photo name.
+    if (/^variation[\s-]*refractor$/i.test(primary)) {
+      if (!out.some((x) => x.toLowerCase() === 'jersey refractor')) {
+        out.push('Jersey Refractor');
+      }
+    }
   }
   return out;
 }

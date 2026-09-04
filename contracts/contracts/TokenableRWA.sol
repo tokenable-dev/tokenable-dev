@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
- * @title  Tokenable_RWA
+ * @title  Tokenable
  * @notice Upgradeable ERC-721 representing a redeemable claim on a physical
  *         asset held in the Tokenable/PSA vault. UUPS proxy.
  *
@@ -173,7 +173,7 @@ contract TokenableRWA is
     ) external initializer {
         if (admin == address(0) || minter == address(0)) revert ZeroAddress();
 
-        __ERC721_init("Tokenable_RWA", "TRWA");
+        __ERC721_init("Tokenable", "TRWA");
         __ERC721URIStorage_init();
         __ERC2981_init();
         __AccessControl_init();

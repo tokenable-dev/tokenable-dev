@@ -259,6 +259,12 @@ export class RwaTokenOwnerIndexService {
       .getCount();
   }
 
+  /** All registry rows for a contract (including burned). Used to detect wipe/lag vs totalMinted. */
+  async countIndexedTokenRows(chainId?: SupportedChainId): Promise<number> {
+    const contract = this.contractAddress(chainId);
+    return this.rwaTokens.count({ where: { tokenContract: contract } });
+  }
+
   /**
    * Replay ERC-721 Transfer logs to populate owner_wallet.
    * Incremental when a cursor row exists; full replay from deploy block otherwise.

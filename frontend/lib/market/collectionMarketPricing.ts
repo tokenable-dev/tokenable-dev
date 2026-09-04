@@ -3,10 +3,19 @@ import type { CollectionMarketStats, CollectionUsdPoint } from "@/lib/core";
 /** Shown when catalog / reference USD cannot be resolved (not a prose explanation). */
 export const NO_EXTERNAL_PRICE = "N/A";
 
+/** Catalog / Cardhedger / 30D median — drop cents (`$39.99` → `$39`). */
 export function formatUsdCompact(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  if (n >= 1000) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${Math.trunc(n).toLocaleString("en-US")}`;
+}
+
+/** On-platform ask, bid, or listed sale — keep cents. */
+export function formatUsdListing(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 /** Hero velocity — one decimal, trailing % */

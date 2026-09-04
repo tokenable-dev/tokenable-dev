@@ -95,7 +95,7 @@ Returns array of tokenIds owned by `address`.
 [1, 5, 12, 99]
 ```
 
-When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
+When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). If the registry has fewer rows than on-chain `totalMinted` (for example after an old collection-delete wipe), it rescans `ownerOf` and persists owners before serving. Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
 
 Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill + live Transfer listener). **Required for log replay:** `CHAIN_{id}_RWA_DEPLOY_BLOCK` = TokenableRWA deploy block (without it, log backfill is skipped to avoid scanning genesis→head and hitting RPC 429s; portfolio still works via `ownerOf` scan + live Transfer listener). Optional tuning: `RWA_OWNER_INDEX_LOG_CHUNK` = inclusive blocks per `eth_getLogs` (default **10**, Alchemy Free), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default **600**), `RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN` (default **500** — pauses between passes), `RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS` (default **60000**), `RWA_OWNER_INDEX_POLL_MS` (default **60000** — active poll while backfilling), `RWA_OWNER_INDEX_IDLE_POLL_MS` (default **120000** — after all chains indexed), `RWA_OWNER_INDEX_POLL_MAX_BLOCKS` (default **50** per poll), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default 6).
 

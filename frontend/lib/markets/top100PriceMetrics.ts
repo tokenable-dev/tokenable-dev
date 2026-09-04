@@ -1,4 +1,5 @@
 import type { CardHedgerPricePoint } from "@/lib/core/api/cardhedger";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { parseTop100Price } from "./top100CardDisplay";
 
 export type Top100PriceSeries = {
@@ -108,12 +109,7 @@ export function buildMarketInsights(
 }
 
 function fmt(n: number): string {
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatUsdCompact(n);
 }
 
 function formatSignedPct(pct: number): string {

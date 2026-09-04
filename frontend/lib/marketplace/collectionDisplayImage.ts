@@ -19,6 +19,7 @@ function sanitizeCollectionCoverUrl(
   const t = url?.trim();
   if (!t) return null;
   if (isPsaCertSlabCloudfrontUrl(t)) return null;
+  if (/\/rwa-slabs\//i.test(t)) return null;
   if (isLegacyNormalizedCollectionCoverApiPath(t)) return null;
   try {
     const u = new URL(t.startsWith("//") ? `https:${t}` : t);

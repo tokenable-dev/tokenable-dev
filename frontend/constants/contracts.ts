@@ -6,7 +6,7 @@ import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
 // ─── Contract Addresses ───────────────────────────────────────────────────────
 
 /** Collection display name when metadata has no `name` */
-export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
+export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable";
 
 /** Default-chain contract addresses (legacy exports). */
 const defaultContracts = getChainContracts(DEFAULT_CHAIN_ID);

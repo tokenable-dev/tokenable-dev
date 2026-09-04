@@ -51,10 +51,10 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       },
       {
         href: "/marketplace/admin/data-inventory",
-        label: "Data inventory",
+        label: "데이터 인벤토리",
         icon: "database",
         prefix: "/marketplace/admin/data-inventory",
-        description: "PostgreSQL stores — what we accumulate and how",
+        description: "PostgreSQL 적재 현황 — 테이블별 의미와 행 수",
       },
     ],
   },

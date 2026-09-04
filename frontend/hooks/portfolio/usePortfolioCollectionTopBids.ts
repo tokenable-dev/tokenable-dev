@@ -18,6 +18,8 @@ import { normalizeDecimalTokenId } from "@/lib/marketplace";
 export type PortfolioCollectionBidInfo = {
   highestBidUsd: number | null;
   bids: Order[];
+  /** Active asks from collection detail (token-level ask price). */
+  listings: Order[];
 };
 
 function bidAmountUsd(b: Order): number | null {
@@ -103,9 +105,15 @@ export function usePortfolioCollectionTopBids(
     uniqueKeys.forEach((key, i) => {
       const detail = queries[i]?.data;
       const bids = (detail?.collectionBids ?? []).filter((b) => b.status === "active");
+      const listings = (detail?.listings ?? []).filter(
+        (a) =>
+          a.status === "active" &&
+          String(a.side ?? "ask").toLowerCase() !== "bid",
+      );
       map.set(key, {
         highestBidUsd: topBidUsd(bids),
         bids,
+        listings,
       });
     });
     return map;

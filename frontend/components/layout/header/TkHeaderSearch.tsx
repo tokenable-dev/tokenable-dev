@@ -25,7 +25,7 @@ import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
-import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const SEARCH_PLACEHOLDER = "Search cards by name";
@@ -155,7 +155,7 @@ export function SearchResultsList({
             ? (coverUrlMap.get(card.imageUrl) ?? card.imageUrl)
             : null;
           const price =
-            card.listedUsd != null ? formatUsdCompact(card.listedUsd) : null;
+            card.listedUsd != null ? formatUsdListing(card.listedUsd) : null;
           const display = formatSearchCardHitDisplay(card);
           return (
             <div key={`card-${card.tokenId}`}>

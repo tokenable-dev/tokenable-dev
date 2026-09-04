@@ -6,6 +6,7 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
+import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
   formatPortfolioUsd,
@@ -123,7 +124,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
               <span className="pf-mobile-asset-card__label">Mkt Price</span>
               <span className="pf-mobile-asset-card__val pf-mobile-asset-card__val--mkt tkl-mono">
                 <span>
-                  {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
+                  {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
                   {pnl ? (
                     <span
                       className={`pf-mkt-dir${

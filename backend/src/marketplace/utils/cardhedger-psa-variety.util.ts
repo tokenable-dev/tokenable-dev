@@ -74,6 +74,58 @@ const SPORT_POSE_TOKENS = new Set([
   'vertical',
 ]);
 
+/** Chrome color words — used to tell flagship color parallels from SP name colors (Red Jersey). */
+const CHROME_COLOR_TOKEN_SET = new Set([
+  'orange',
+  'gold',
+  'green',
+  'purple',
+  'blue',
+  'red',
+  'pink',
+  'black',
+  'sepia',
+  'aqua',
+  'yellow',
+]);
+
+/**
+ * Cardhedger often names the image-variation photo by a visual cue (`Red Jersey Refractor`)
+ * while PSA Spec Variety stays `VARIATION-REFRACTOR` (label may also say RED JERSEY-REFRACTOR).
+ */
+function rowHasImageVariationSpCue(blob: string): boolean {
+  if (/\bvariation\b/.test(blob)) return true;
+  if (/\bjersey\b/.test(blob)) return true;
+  if (/\bshort\s*prints?\b/.test(blob)) return true;
+  return false;
+}
+
+function psaVarietyNamesImageVariation(psaVariety: string): boolean {
+  return /\bvariation\b/i.test(psaVariety);
+}
+
+function rowTokenAllowedForImageVariationPsa(
+  token: string,
+  psaTokens: Set<string>,
+  psaVariety: string,
+  blob: string,
+): boolean {
+  if (psaTokens.has(token)) return true;
+  if (SPORT_POSE_TOKENS.has(token)) return true;
+  if (!psaVarietyNamesImageVariation(psaVariety)) return false;
+  if (!rowHasImageVariationSpCue(blob)) return false;
+  if (token === 'jersey' || token === 'dugout' || token === 'warmup') {
+    return true;
+  }
+  if (CHROME_COLOR_TOKEN_SET.has(token)) {
+    const psaColors = chromeColorTokensIn(psaVariety);
+    // VARIATION-ORANGE + "Blue Jersey" would conflict; same color or no PSA color is OK.
+    if (psaColors.length > 0 && !psaColors.includes(token)) return false;
+    return true;
+  }
+  return false;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -280,9 +332,12 @@ export function cardhedgerRowMatchesPsaVariety(
   /**
    * Catalog `variant` may be more specific than PSA (Master Ball vs Reverse Holo).
    * Extra named identity on the row is a mismatch even if the blob contains PSA's finish line.
+   * Exception: PSA `VARIATION-*` vs Cardhedger SP photo names (`Red Jersey Refractor`).
    */
   for (const t of rowIdentity) {
-    if (!psaTokens.has(t)) return false;
+    if (!rowTokenAllowedForImageVariationPsa(t, psaTokens, pv, blob)) {
+      return false;
+    }
   }
 
   if (blob.includes(pv.toLowerCase())) return true;
@@ -292,13 +347,22 @@ export function cardhedgerRowMatchesPsaVariety(
    * print finish (`REVERSE HOLO` on a Master Ball slab). Do not require those finish
    * tokens to appear on the Cardhedger row.
    */
-  const variantTokensCoveredByPsa = variantTokens.every(
-    (t) => psaTokens.has(t) || SPORT_POSE_TOKENS.has(t),
+  const variantTokensCoveredByPsa = variantTokens.every((t) =>
+    rowTokenAllowedForImageVariationPsa(t, psaTokens, pv, blob),
   );
   if (variantTokens.length > 0 && variantTokensCoveredByPsa) {
-    const leftoverIdentity = [...psaTokens].filter(
-      (t) => !variantTokens.includes(t) && !PRINT_FINISH_TOKENS.has(t),
-    );
+    const leftoverIdentity = [...psaTokens].filter((t) => {
+      if (variantTokens.includes(t) || PRINT_FINISH_TOKENS.has(t)) return false;
+      // PSA Spec says VARIATION; Cardhedger SP cue (jersey / variation) stands in.
+      if (
+        t === 'variation' &&
+        psaVarietyNamesImageVariation(pv) &&
+        rowHasImageVariationSpCue(blob)
+      ) {
+        return false;
+      }
+      return true;
+    });
     if (leftoverIdentity.length === 0) return true;
     /**
      * Topps Chrome: Cardhedger often shortens `Green Wave Refractor` → `Green Wave` /
@@ -351,6 +415,13 @@ export function cardhedgerRowMatchesPsaVariety(
   if (chunks.length === 0) return true;
   return chunks.every((c) => {
     if (blobHasVarietyChunk(blob, c)) return true;
+    if (
+      c === 'variation' &&
+      psaVarietyNamesImageVariation(pv) &&
+      rowHasImageVariationSpCue(blob)
+    ) {
+      return true;
+    }
     // Same Chrome shorthand: PSA `… REFRACTOR` vs catalog without the word.
     if (
       c === 'refractor' &&

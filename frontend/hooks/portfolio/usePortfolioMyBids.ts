@@ -72,9 +72,15 @@ export function usePortfolioMyBids(address: string | undefined) {
     [allBids],
   );
 
+  /** Active + expired (Portfolio.html My bids table). */
+  const displayBids = useMemo(
+    () => allBids.filter((b) => b.status === "active" || b.status === "expired"),
+    [allBids],
+  );
+
   const collectionKeysSig = useMemo(
-    () => [...new Set(activeBids.map((b) => b.collectionKey))].sort(),
-    [activeBids],
+    () => [...new Set(displayBids.map((b) => b.collectionKey))].sort(),
+    [displayBids],
   );
 
   const collectionMetaQuery = useQuery({
@@ -109,6 +115,7 @@ export function usePortfolioMyBids(address: string | undefined) {
 
   return {
     activeBids,
+    displayBids,
     collectionMetaByKey:
       collectionMetaQuery.data ?? new Map<string, PortfolioBidCollectionMeta>(),
     collectionMetaLoading:

@@ -8,6 +8,7 @@ describe('RwaService.uploadToIpfs', () => {
     fetchImageBufferFromUrl: jest.fn(),
     uploadMetadata: jest.fn().mockResolvedValue('bafyMeta'),
     ipfsHttpsUrl: jest.fn((cid: string) => `https://gateway.test/ipfs/${cid}`),
+    ipfsUri: jest.fn((cid: string) => `ipfs://${cid}`),
   };
   const vault = {
     assertAvailableForNewCycle: jest.fn().mockResolvedValue(undefined),
