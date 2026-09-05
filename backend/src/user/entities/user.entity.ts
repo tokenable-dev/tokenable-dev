@@ -7,7 +7,8 @@ import {
 } from 'typeorm';
 
 /**
- * Web2 account (Google OAuth and/or email/password) + optional wallet link.
+ * Privy-linked account. `google_id` / `password_hash` remain for legacy rows;
+ * user login is Privy-only. Marketplace admin passwords live on `marketplace_admins`.
  */
 @Entity('users')
 export class User {
@@ -17,7 +18,7 @@ export class User {
   @Column({ type: 'varchar', length: 320, unique: true })
   email: string;
 
-  /** Google OpenID subject (profile.id) */
+  /** Google subject when Privy linked Google, or leftover from pre-Privy rows */
   @Column({
     name: 'google_id',
     type: 'varchar',
@@ -27,7 +28,7 @@ export class User {
   })
   googleId: string | null;
 
-  /** scrypt hash — NULL for Google-only accounts */
+  /** Legacy user password hash — unused for login; admin hashes are not stored here */
   @Column({ name: 'password_hash', type: 'varchar', length: 255, nullable: true })
   passwordHash: string | null;
 

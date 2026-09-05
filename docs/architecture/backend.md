@@ -115,7 +115,7 @@ backend/src/
 | `POST /api/auth/logout` | Clear cookie |
 | `POST /api/auth/delete-account` | Delete account (JWT) |
 
-**Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module.
+**Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module. Unused `UserService` helpers (`createWithPassword`, `findOrCreateFromGoogle`, `updatePasswordHash`, unused wallet wrappers) and the unused `passport-google-oauth20` package were deleted; live login is still `findOrCreateFromPrivy` + admin password on `marketplace_admins`.
 
 **Admin auth:** Separate username/password (`marketplace_admins` table) → `marketplace_admin` HMAC cookie.
 
