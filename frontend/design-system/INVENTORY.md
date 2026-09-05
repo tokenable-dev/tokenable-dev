@@ -215,7 +215,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (progress: Submit → Ship → PSA → Live; pack checklist → tracking) |
 | `/vault` | `VaultHubView` — landing / empty / **vaulting cards** (`VaultActiveDashboardView`, ds-22 Vault-Dashboard-Active.html) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
-| `/vault/submit/mint` | `MintForm` (personal/internal mint entry) |
+| `/vault/submit` (`/vault/submit/mint` redirects here) | `MintForm` (personal/internal mint entry) |
 | `/vault/submit/shipping` | redirect → `/vault/submit` |
 | `/vault/submissions/[id]` | `VaultDetailDesignView` — Vault-Detail.html A~H (scenario query + live shipment) |
 | `/vault/list` | redirect → `/portfolio` |

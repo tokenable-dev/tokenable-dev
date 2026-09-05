@@ -180,7 +180,7 @@ Vault allows preview for any PSA grade; **mint** requires grade **10** in graded
 
 ---
 
-## `/vault/submit/mint` — `POST /api/psa/analyze-by-cert` fails with 429
+## `/vault/submit` — `POST /api/psa/analyze-by-cert` fails with 429
 
 **Symptom:** Cert lookup returns **429** `PSA_RATE_LIMIT_EXCEEDED`; backend log shows  
 `PSA upstream 429 cert=…`.

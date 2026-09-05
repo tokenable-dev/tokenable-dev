@@ -48,7 +48,7 @@ frontend/
 │   ├── markets/                   # MarketsPage, Top100, TopMovers sections
 │   ├── portfolio/
 │   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
-│   ├── vault/                     # MintForm (/vault/submit/mint); self-vault sell reuses mint APIs
+│   ├── vault/                     # MintForm (/vault/submit); self-vault sell reuses mint APIs
 │   ├── auth/
 │   └── marketplace/
 │       ├── collection-detail/

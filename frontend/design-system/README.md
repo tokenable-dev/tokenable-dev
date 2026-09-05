@@ -21,7 +21,7 @@ Committed CSS source for the Azure / pixel UI. Latest Figma export lives at repo
 
 **Collection (v2 Phase 4):** Set-level **Place a Bid** banner; listing rows **Buy-only**; softer vault / buyer-protection copy in listing detail + checkout.
 
-**Sell flow (v2):** Hub **+ Sell a Card** → `/sell/flow` (`Sell-Flow.html`) → `/sell/shipping` (`PSA-Shipping.html`) → `/vault/submissions/[id]?scenario=C` (`Vault-Detail.html`). Personal mint remains at `/vault/submit` and `/vault/submit/mint`.
+**Sell flow (v2):** Hub **+ Sell a Card** → `/sell/flow` (`Sell-Flow.html`) → `/sell/shipping` (`PSA-Shipping.html`) → `/vault/submissions/[id]?scenario=C` (`Vault-Detail.html`). Personal mint remains at `/vault/submit` (`/vault/submit/mint` redirects there).
 
 **Designer handoff import:**
 
