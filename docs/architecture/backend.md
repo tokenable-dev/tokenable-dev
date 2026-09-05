@@ -264,3 +264,17 @@ flowchart TB
     MM --> OR
     SN <-->|forwardRef| CO
 ```
+
+## Large-file seams (do not split in a cleanup-only PR)
+
+These files are cohesive and on the live read/write path. **Do not split them because they are long.** Split only inside a feature PR that already has to edit that file, and only along the seam that change needs. Canonical rule: `.cursor/rules/simplicity.mdc` (Known Complexity Hotspots).
+
+| File | Approx. role | Future seam (only if a feature PR is already in that slice) |
+|------|----------------|---------------------------------------------------------------|
+| `marketplace/market-data/cardhedger-pricing.service.ts` | Cardhedger HTTP + comps/history/preview | Upstream fetch/cache vs collection-facing snapshot/preview builders. Do not move live reads off `collection_market_snapshots`. |
+| `marketplace/market-data/cardhedger-resolve.service.ts` | Card search → `card_id` | Query builder vs `resolveCardForCollection`. Identity writes stay in `CollectionIdentityService`. |
+| `marketplace/collections/collection-market.service.ts` | Collection bundle, trades, home, portfolio batch | Bundle/stats vs trade history vs home feed vs portfolio index. Snapshot **writes** stay in `marketplace/snapshots/`. |
+| `psa/psa.service.ts` | Slab OCR + analyze-by-cert | Image analyze vs cert analyze. Do not add PSA HTTP outside `PsaModule`. |
+| `psa/psa-public-api.service.ts` | Cert / images / order progress + token pool | Cert lookup vs images vs submission progress. The multi-token pool remains the only Public API access pattern. |
+
+**Not a seam this cycle (leave whole):** `marketplace/admin/data-inventory.service.ts`, `marketplace-admin.module.ts`. Do not merge platform analytics into inventory. Redeem/burn stays in Vault + `rwa-redeem` / chain writer.
