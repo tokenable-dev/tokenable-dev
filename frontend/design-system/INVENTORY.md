@@ -106,7 +106,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` (Buy-only) | `components/marketplace/collection-detail/*` |
 | Set-level bid | Sticky hero + mobile trade bar | `CollectionDetailStatMain` / `CollectionMobileTradeBar` | `CollectionDetailStatMain.tsx` |
 | Mobile trade bar | `#ob-bottom-bar` | `CollectionMobileTradeBar` (Buy now / Place bid) | `CollectionMobileTradeBar.tsx` |
-| Listing detail | `#tk-prov` | `CollectionListingDetailModal` | `CollectionListingDetailModal.tsx` |
+| Listing checkout | `#tk-prov` | `CollectionListingCheckoutModal` | `CollectionListingCheckoutModal.tsx` |
 | Trades / order book | sidebar `.notch` | `CollectionUnifiedOrderBook` | `components/marketplace/unified-order-book/*` |
 | Details / PSA tabs | tab row | `CollectionHeroDetailsTabs` | `components/marketplace/collection-hero/*` |
 | Overview layout | `card-detail-grid` | `CollectionOverviewBoard` | `components/marketplace/collection-overview/*` |
@@ -231,7 +231,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 **Removed:** list/shipping/submit DesignViews, `VaultDashboardView`, `VaultDemoToggle`, `VaultBadge`, `vaultMockData` inventory/FAQ. Detail remains as `VaultDetailDesignView` (A~H; add `?demo=1` for scenario switcher).
 
-**Lib:** `lib/sell/sellFlowDraft.ts` (draft + PSA ship address + packing checklist); `lib/vault/vaultDetailScenarios.ts`; `lib/vault/vaultHubTypes.ts`; `lib/vault/buildVaultHubRows.ts`; `lib/vault/buildPartnerVaultHubRows.ts`; `lib/core/api/vault-submissions.ts`
+**Lib:** `lib/sell/sellFlowDraft.ts` (draft + PSA ship address + packing checklist); `lib/vault/vaultDetailScenarios.ts`; `lib/vault/vaultHubTypes.ts`; `lib/vault/buildVaultHubRows.ts`; `lib/core/api/vault-submissions.ts`
 
 ---
 
@@ -241,7 +241,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 **CSS:** `frontend/styles/tokenable-rwa-detail.css` (ListRwaModal `tk-price` sheet; imported from portfolio + collection layouts)
 
-**Kept:** `RwaDetailListModalHost`, `rwa-detail/theme`, `RwaDetailAssetPanel`, `useRwaDetailBuyFlow`, `useRwaDetailMetadata`
+**Kept:** `RwaDetailListModalHost`, `rwa-detail/theme`, `PsaVaultOutlineTag`, `useRwaDetailBuyFlow`, `useRwaDetailMetadata`
 
 ---
 

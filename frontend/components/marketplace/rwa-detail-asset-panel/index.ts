@@ -1,3 +1,4 @@
-export { RwaDetailAssetPanel } from "./RwaDetailAssetPanel";
-export { RwaDetailHeaderBadges } from "./ui/RwaDetailHeaderBadges";
-export { PsaVaultOutlineTag } from "./ui/PsaVaultBadge";
+export {
+  PsaVaultOutlineTag,
+  PsaVaultOutlineTagSkeleton,
+} from "./ui/PsaVaultBadge";

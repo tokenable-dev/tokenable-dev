@@ -15,7 +15,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
 | Trading | `collection-trading/`, `collection-detail/` (listing bid checkout) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
-| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `rwa-detail-asset-panel/` | `useRwaDetailBuyFlow`, `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
+| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailBuyFlow`, `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
@@ -84,7 +84,6 @@ frontend/
 │
 ├── providers/                     # AppChainProvider, PrivyAuthBridge, PrivySignInLauncher, PrivyWalletLauncher, WalletDataProvider, …
 ├── store/                         # authStore, useAppStore
-├── config/wagmi.ts                # Legacy wagmi config (kept for reference)
 ├── lib/privy/config.ts            # Privy + wagmi config (canonical)
 └── constants/                     # ABIs + contract addresses
 ```
