@@ -5,7 +5,7 @@
 
 All routes are file-system based. Dynamic segments use `[param]` notation.
 
-Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
+Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/submit`, **`/signup`** → `/login` via `next.config.ts` (query string is kept).
 
 ---
 
@@ -22,7 +22,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/sell/flow` | `app/sell/flow/page.tsx` | Seller verification → choose vault → add cards (PSA → ship, or self → custody mint) |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack and tracking (PSA Shipping) |
 | `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
-| `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Mint entry alias |
+| `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Redirects to `/vault/submit` |
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
 | `/portfolio/assets/[tokenId]` | `app/portfolio/assets/[tokenId]/page.tsx` | Certificate of Ownership (`PortfolioAsset.html`) |
@@ -33,7 +33,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/faq` | `app/faq/page.tsx` | Help center FAQ (`FAQ.html`) — linked from footer |
 | `/profile` | `app/profile/page.tsx` | Redirects to `/settings` |
 | `/login` | `app/login/page.tsx` | Sign in — Privy modal launcher (Google, email, wallet) |
-| `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |
+| `/signup` | `app/signup/page.tsx` | Redirects to `/login` |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
 | `/site-access/verify` | `app/site-access/verify/route.ts` | Route handler for gate cookie (if used) |
 | `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Legacy redirect → collection detail + `?listing=` |
@@ -79,7 +79,7 @@ Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=�
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload`, `POST /api/marketplace/collections/on-mint` |
 | `/portfolio` | holdings + daily snapshots + collection market batch; asset cert: RWA asset, vault-info, holdings batch, trades |
 | `/watchlist` | `GET/POST/DELETE /api/marketplace/watchlist` |
-| `/login`, `/signup` | Privy SDK (client-side modal) → `POST /api/auth/privy/session` |
+| `/login` (`/signup` → `/login`) | Privy SDK (client-side modal) → `POST /api/auth/privy/session` |
 | `/settings` | Session user + prefs (`PATCH /api/auth/profile`); address book (`/api/user/shipping-addresses`); USDC + Add funds (MoonPay); KYC via `/kyc`; delete via `POST /api/auth/delete-account` |
 | `/profile` | Redirect → `/settings` |
 | `/site-access` | `POST /api/site-access/verify` |
