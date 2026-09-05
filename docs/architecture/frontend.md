@@ -5,7 +5,7 @@
 
 ## Feature layout
 
-Marketplace UI is organized into **feature folders** with matching `hooks/` and `lib/marketplace/` modules. Each feature exports via a barrel `index.ts`.
+Marketplace UI is organized into **feature folders** with matching `hooks/` and `lib/marketplace/` modules. Import the file that owns the symbol (`@/components/collectibles/CollectibleCard`). Keep barrels only where they have real fan-in (`lib/core`, `components/ds`, `lib/chains`, `lib/market`, `lib/privy`).
 
 | Area | Components | Hooks / lib |
 |------|------------|-------------|
