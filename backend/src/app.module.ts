@@ -112,19 +112,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
         password: config.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: config.getOrThrow<string>('POSTGRES_DB'),
         extra: {
-          /**
-           * pg-pool uses this both for a new TCP handshake and for waiting
-           * on a busy pool. Exceeding it surfaces as
-           * "timeout exceeded when trying to connect" even when Postgres is up
-           * (Docker Desktop dropped an idle socket, or all `max` clients are
-           * checked out). KeepAlive avoids the silent-idle-drop case.
-           */
+          // Handshake + checkout wait; see docs/architecture/backend.md (Production TypeORM).
           connectionTimeoutMillis: 8_000,
-          /**
-           * Bounded pool so a traffic spike queues inside the app instead of
-           * exhausting Postgres max_connections (default 100, shared with
-           * psql/admin sessions).
-           */
           max: Number(config.get<string>('DB_POOL_MAX') ?? '20'),
           idleTimeoutMillis: 30_000,
           keepAlive: true,

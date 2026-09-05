@@ -5,7 +5,7 @@
 
 ## Marketplace layout
 
-The marketplace domain is organized into **six submodules**:
+The marketplace domain is organized into **ten submodules** (folders under `marketplace/`):
 
 | Submodule | Role |
 |-----------|------|
@@ -13,9 +13,12 @@ The marketplace domain is organized into **six submodules**:
 | `marketplace/collections/` | Bucket metadata, listing enrichment, merkle set, **identity cache**, RWA token admin |
 | `marketplace/market-data/` | Cardhedger resolve / pricing / mint previews / AI insight |
 | `marketplace/snapshots/` | Materialized `collection_market_snapshots` (write, read, cron) |
-| `marketplace/portfolio/` | Daily wallet snapshots + hidden-holdings preference |
+| `marketplace/portfolio/` | Daily wallet snapshots + `portfolio_holdings.hidden_at` |
 | `marketplace/watchlist/` | Per-user saved collections |
 | `marketplace/admin/` | Marketplace admin auth (username/password, separate from `users`) |
+| `marketplace/p2p/` | Custody P2P listings + payment escrow orders |
+| `marketplace/partners/` | Partner wallets / origin address for self-vault |
+| `marketplace/notifications/` | In-app inbox (bid / trade / vault / price) |
 
 Cross-cutting:
 
@@ -34,7 +37,7 @@ Cross-cutting:
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, helmet, compression, CORS, ValidationPipe, Swagger, perf logger
-├── app.module.ts            # Root — TypeORM (22 entities), ScheduleModule, EventEmitter, CacheModule
+├── app.module.ts            # Root — TypeORM (36 entities), ScheduleModule, EventEmitter, CacheModule
 │
 ├── config/
 │   ├── app.config.ts
@@ -100,7 +103,7 @@ backend/src/
     └── notifications/
 ```
 
-**Entities (TypeORM):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHolding`, `UserWatchlist`, `MarketplaceAdmin`, `MarketplacePartner`, `MarketplaceNotification`, P2P entities, Cardhedger price infra entities, `VaultAsset`, `VaultCycle`, `VaultRedemption`, `VaultSubmission` — see [database.md](./database.md).
+**Entities (TypeORM):** `app.module.ts` registers **36** classes (users + shipping + wallets + KYC, vault lifecycle including PSA arrival/vaulted reviews and redeem payment claims, marketplace core, P2P, notifications, self-vault settlements, portfolio/watchlist/buyer alerts, partners + bulk mint, Cardhedger price infra, `RwaOwnerIndexCursor`). Table list: [database.md](./database.md).
 
 ---
 
@@ -113,6 +116,8 @@ backend/src/
 | `POST /api/auth/privy/session` | Exchange Privy access token → Tokenable JWT cookie |
 | `GET /api/auth/session` | Current session (never 401; returns `{ user: null }` if anonymous) |
 | `POST /api/auth/logout` | Clear cookie |
+| `PATCH /api/auth/profile` | Display name + notification / marketing prefs (JWT) |
+| `POST /api/auth/avatar` | Avatar upload (JWT) |
 | `POST /api/auth/delete-account` | Delete account (JWT) |
 
 **Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module.
@@ -224,10 +229,11 @@ All writes use `SELECT … FOR UPDATE` on the collection row — multi-pod safe.
 
 | Chain ID | Network | Notes |
 |----------|---------|-------|
-| `11155111` | Ethereum Sepolia | Default dev chain |
-| `1` | Ethereum mainnet | Production chain |
+| `11155111` | Ethereum Sepolia | Fallback when `DEFAULT_CHAIN_ID` is unset or unsupported |
+| `1` | Ethereum mainnet | Production Ethereum |
+| `137` | Polygon | Production marketplace chain when configured |
 
-Chain ID is read from `x-tokenable-chain-id` header; falls back to `DEFAULT_CHAIN_ID`.
+`SUPPORTED_CHAIN_IDS` is `[11155111, 1, 137]`. Header `x-tokenable-chain-id` must be one of those or the request uses `DEFAULT_CHAIN_ID` (same fallback). Amoy `80002` is not in this list.
 
 ## Production TypeORM
 
@@ -235,7 +241,7 @@ Chain ID is read from `x-tokenable-chain-id` header; falls back to `DEFAULT_CHAI
 synchronize: NODE_ENV !== 'production'
 ```
 
-Use bootstrap SQL for prod; do not rely on `synchronize` in production.
+Production schema changes go through `backend/sql/schema/` and `backend/sql/maintenance/`. Do not enable `synchronize` in production. Do not re-run `bootstrap-db.sh` on a populated database.
 
 Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`, TCP `keepAlive`. pg-pool reports checkout/handshake waits as `timeout exceeded when trying to connect` — that is often a dead idle socket (Docker Desktop) or a full pool, not Postgres being down. `GET /api/health` can still succeed if one live client remains in the pool.
 
