@@ -159,9 +159,13 @@ These do **not** change the cert → resolve → `/comps` pipeline unless set. L
 | `CARDHEDGER_CARD_MATCH_FIRST` | Resolve tries `card-match` before `card-search` (usually worse than our aliases) |
 | `CARDHEDGER_MINT_PREVIEW_SKIP_COMPS` | Mint-preview skips `/comps` |
 | `CARDHEDGER_CERT_PRICE_PILOT_COMPARE` | Extra `details-by-certs` only to log vs batch cert prices — **do not enable in production** |
-| `CARDHEDGER_PRICE_WEBHOOK_ENABLED` / `CARDHEDGER_PRICE_SUBSCRIBE_ENABLED` | Price webhook + subscribe |
+| `CARDHEDGER_PRICE_WEBHOOK_ENABLED` / `CARDHEDGER_PRICE_SUBSCRIBE_ENABLED` | Price webhook + subscribe. Any of these four infra flags loads `CardhedgerPriceInfraModule`. |
 | `CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED` | Nightly `price-updates` import |
 | `CARDHEDGER_DAILY_EXPORT_CSV_ENABLED` | Daily CSV export (Elite/Enterprise) |
+
+Live Markets/Portfolio prices still read **`collection_market_snapshots`** (and Top 100 reads **`card_top100_daily_snapshots`**). Those tables are not gated. Infra tables are not dropped while this module exists.
+
+`GET /api/admin/cardhedger/price-subscriptions/status` stays on `CardhedgerAdminModule` so Overview / Price sync still load when workers are off. Webhook + subscribe + manual delta routes exist only when an infra flag is on.
 
 ---
 

@@ -11,40 +11,15 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import type { Request } from 'express';
-import { Repository } from 'typeorm';
-import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
 import { CardhedgerPriceDeltaImportService } from '../cardhedger-price-delta-import.service';
+import { serializeCardhedgerDeltaRun } from '../cardhedger-price-infra-status';
 import { CardhedgerPriceDeltaSchedulerService } from '../cardhedger-price-delta-scheduler.service';
 import { CardhedgerPriceSubscriptionService } from '../cardhedger-price-subscription.service';
-import { CardhedgerDailyPriceExportRun } from '../entities/cardhedger-daily-price-export-run.entity';
-import { CardhedgerPriceDeltaCheckpoint } from '../entities/cardhedger-price-delta-checkpoint.entity';
-import { CardhedgerPriceDeltaImportRun } from '../entities/cardhedger-price-delta-import-run.entity';
 
 class SyncSubscriptionsDto {
   limit?: number;
-}
-
-function serializeDeltaRun(run: CardhedgerPriceDeltaImportRun) {
-  return {
-    id: run.id,
-    ranAt: run.ranAt.toISOString(),
-    sinceIso: run.sinceIso,
-    latestTimestampIso: run.latestTimestampIso,
-    updateCount: run.updateCount,
-    uniqueCardIds: run.uniqueCardIds,
-    matchedCollectionCount: run.matchedCollectionCount,
-    deltaMatchedCollectionCount: run.deltaMatchedCollectionCount ?? 0,
-    catalogFallbackCount: run.catalogFallbackCount ?? 0,
-    unmatchedUpdateCount: run.unmatchedUpdateCount,
-    enqueuedCollectionKeys: run.enqueuedCollectionKeys,
-    matchedCollections: run.matchedCollections,
-    status: run.status,
-    errorMessage: run.errorMessage,
-  };
 }
 
 @ApiTags('admin')
@@ -55,80 +30,10 @@ export class CardhedgerPriceSubscriptionAdminController {
     private readonly subscriptions: CardhedgerPriceSubscriptionService,
     private readonly deltaScheduler: CardhedgerPriceDeltaSchedulerService,
     private readonly deltaImport: CardhedgerPriceDeltaImportService,
-    private readonly config: ConfigService,
-    @InjectRepository(CardhedgerPriceDeltaCheckpoint)
-    private readonly checkpointRepo: Repository<CardhedgerPriceDeltaCheckpoint>,
-    @InjectRepository(CardhedgerDailyPriceExportRun)
-    private readonly exportRunRepo: Repository<CardhedgerDailyPriceExportRun>,
   ) {}
 
   private assertAdmin(req: Request): void {
     this.admin.assertAdminSession(req);
-  }
-
-  private featureFlags() {
-    return (
-      this.config.get<ReturnType<typeof readCardhedgerFeatureFlags>>(
-        'marketplace.cardhedgerFeatureFlags',
-      ) ?? readCardhedgerFeatureFlags()
-    );
-  }
-
-  @Get('status')
-  @ApiOperation({ summary: 'Cardhedger price delta / subscribe infra status' })
-  async status(@Req() req: Request) {
-    this.assertAdmin(req);
-    const flags = this.featureFlags();
-    const frontendUrl =
-      this.config.get<string>('FRONTEND_URL')?.trim().replace(/\/$/, '') ?? '';
-    const webhookSecret = this.config
-      .get<string>('CARDHEDGER_WEBHOOK_SECRET')
-      ?.trim();
-    const clientId = this.config.get<string>('CARDHEDGER_CLIENT_ID')?.trim();
-    const subscribeAvailable =
-      Boolean(clientId) && flags.priceSubscribeEnabled;
-
-    const checkpoint = await this.checkpointRepo.findOne({ where: { id: 1 } });
-    const recentDeltaRuns = await this.deltaImport.listDeltaImportRuns(12);
-    const recentCsvRuns = await this.exportRunRepo.find({
-      where: { source: 'csv_export' },
-      order: { ranAt: 'DESC' },
-      take: 4,
-    });
-    const activeSubscriptions = await this.subscriptions.countActiveSubscriptions();
-
-    return {
-      mode: subscribeAvailable ? 'subscribe_and_poll' : 'delta_poll_only',
-      flags: {
-        priceWebhookEnabled: flags.priceWebhookEnabled,
-        priceSubscribeEnabled: flags.priceSubscribeEnabled,
-        dailyPriceDeltaImportEnabled: flags.dailyPriceDeltaImportEnabled,
-        dailyPriceExportCsvEnabled: flags.dailyPriceExportCsvEnabled,
-      },
-      webhookUrl: frontendUrl
-        ? `${frontendUrl}/api/webhooks/cardhedger/price-updates`
-        : null,
-      webhookAuthHeader: 'X-Cardhedger-Webhook-Secret',
-      webhookSecretConfigured: Boolean(webhookSecret),
-      clientIdConfigured: Boolean(clientId),
-      clientIdHint: clientId
-        ? `${clientId.slice(0, Math.min(6, clientId.length))}…`
-        : null,
-      subscribeAvailable,
-      deltaCronEnabled: this.deltaScheduler.cronEnabled(),
-      lastDeltaSince: checkpoint?.lastSinceIso ?? null,
-      lastDeltaCheckpointAt: checkpoint?.updatedAt?.toISOString() ?? null,
-      activeSubscriptions,
-      recentDeltaRuns: recentDeltaRuns.map(serializeDeltaRun),
-      recentCsvRuns: recentCsvRuns.map((run) => ({
-        fileDate: run.fileDate,
-        source: run.source,
-        status: run.status,
-        rowCount: run.rowCount,
-        errorMessage: run.errorMessage,
-        ranAt: run.ranAt.toISOString(),
-      })),
-    };
   }
 
   @Get('delta-runs')
@@ -138,7 +43,7 @@ export class CardhedgerPriceSubscriptionAdminController {
     const rows = await this.deltaImport.listDeltaImportRuns(
       limit != null ? Number(limit) : 20,
     );
-    return { items: rows.map(serializeDeltaRun) };
+    return { items: rows.map(serializeCardhedgerDeltaRun) };
   }
 
   @Get('delta-runs/:id')
@@ -148,7 +53,7 @@ export class CardhedgerPriceSubscriptionAdminController {
     this.assertAdmin(req);
     const run = await this.deltaImport.getDeltaImportRun(Number(id));
     if (!run) throw new NotFoundException('Delta import run not found');
-    return serializeDeltaRun(run);
+    return serializeCardhedgerDeltaRun(run);
   }
 
   @Get()
