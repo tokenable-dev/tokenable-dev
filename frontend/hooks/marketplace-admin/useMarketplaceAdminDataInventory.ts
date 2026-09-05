@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAdminDataInventory,
+  getAdminDataInventorySchema,
   getAdminDataInventoryTableRows,
   postAdminResetForNewContract,
   rq,
@@ -10,6 +11,13 @@ export function useMarketplaceAdminDataInventory() {
   return useQuery({
     queryKey: rq.adminDataInventory(),
     queryFn: getAdminDataInventory,
+  });
+}
+
+export function useMarketplaceAdminDataInventorySchema() {
+  return useQuery({
+    queryKey: [...rq.adminDataInventory(), "schema"] as const,
+    queryFn: getAdminDataInventorySchema,
   });
 }
 

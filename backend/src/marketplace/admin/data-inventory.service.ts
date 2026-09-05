@@ -44,6 +44,10 @@ import {
   type DataInventoryDomainId,
   type DataStoreCatalogEntry,
 } from './data-inventory.catalog';
+import {
+  DATA_INVENTORY_LOGICAL_EDGES,
+  type SchemaEdgeKind,
+} from './data-inventory.schema';
 
 export type DataStoreStats = {
   rowCount: number;
@@ -63,6 +67,38 @@ export type DataInventoryResponse = {
     storeCount: number;
     rowCount: number;
   };
+};
+
+export type DataInventorySchemaColumn = {
+  name: string;
+  dataType: string;
+  primaryKey: boolean;
+  unique: boolean;
+  foreignKey: boolean;
+};
+
+export type DataInventorySchemaTable = {
+  table: string;
+  label: string;
+  domain: DataInventoryDomainId;
+  rowCount: number;
+  columns: DataInventorySchemaColumn[];
+};
+
+export type DataInventorySchemaEdge = {
+  id: string;
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  kind: SchemaEdgeKind;
+  label: string;
+};
+
+export type DataInventorySchemaResponse = {
+  generatedAt: string;
+  tables: DataInventorySchemaTable[];
+  edges: DataInventorySchemaEdge[];
 };
 
 /** Mirrors `sql/maintenance/reset_marketplace_data.sql` (required tables). */
@@ -92,7 +128,6 @@ const RESET_REQUIRED_TABLES = [
 ] as const;
 
 const RESET_OPTIONAL_TABLES = [
-  'psa_cert_snapshots',
   'vault_psa_arrival_reviews',
   'vault_psa_vaulted_reviews',
 ] as const;
@@ -373,6 +408,131 @@ export class DataInventoryService {
         storeCount: stores.length,
         rowCount: stores.reduce((sum, s) => sum + s.rowCount, 0),
       },
+    };
+  }
+
+  async getSchema(): Promise<DataInventorySchemaResponse> {
+    const publicTables = await this.listPublicTables();
+    const tableSet = new Set(publicTables);
+    const catalogByTable = new Map(DATA_STORE_CATALOG.map((s) => [s.table, s]));
+    const rowCounts = new Map<string, number>();
+    for (const table of publicTables) {
+      try {
+        rowCounts.set(table, await this.countRows(table));
+      } catch {
+        rowCounts.set(table, 0);
+      }
+    }
+
+    const columnsByTable = new Map<string, DataInventorySchemaColumn[]>();
+    for (const table of publicTables) {
+      const cols = await this.listColumns(table);
+      columnsByTable.set(
+        table,
+        cols.map((c) => ({
+          name: c.column_name,
+          dataType: c.data_type,
+          primaryKey: false,
+          unique: false,
+          foreignKey: false,
+        })),
+      );
+    }
+
+    const keyRows = (await this.dataSource.query(
+      `SELECT tc.table_name, kcu.column_name, tc.constraint_type
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_schema = kcu.constraint_schema
+        AND tc.constraint_name = kcu.constraint_name
+       WHERE tc.table_schema = 'public'
+         AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE', 'FOREIGN KEY')`,
+    )) as {
+      table_name: string;
+      column_name: string;
+      constraint_type: string;
+    }[];
+
+    for (const row of keyRows) {
+      const cols = columnsByTable.get(row.table_name);
+      const col = cols?.find((c) => c.name === row.column_name);
+      if (!col) continue;
+      if (row.constraint_type === 'PRIMARY KEY') col.primaryKey = true;
+      if (row.constraint_type === 'UNIQUE') col.unique = true;
+      if (row.constraint_type === 'FOREIGN KEY') col.foreignKey = true;
+    }
+
+    const fkRows = (await this.dataSource.query(
+      `SELECT
+         kcu.table_name AS from_table,
+         kcu.column_name AS from_column,
+         ccu.table_name AS to_table,
+         ccu.column_name AS to_column
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_schema = kcu.constraint_schema
+        AND tc.constraint_name = kcu.constraint_name
+       JOIN information_schema.constraint_column_usage ccu
+         ON ccu.constraint_schema = tc.constraint_schema
+        AND ccu.constraint_name = tc.constraint_name
+       WHERE tc.table_schema = 'public'
+         AND tc.constraint_type = 'FOREIGN KEY'`,
+    )) as {
+      from_table: string;
+      from_column: string;
+      to_table: string;
+      to_column: string;
+    }[];
+
+    const edges: DataInventorySchemaEdge[] = [];
+    const seen = new Set<string>();
+
+    const pushEdge = (edge: DataInventorySchemaEdge) => {
+      if (!tableSet.has(edge.fromTable) || !tableSet.has(edge.toTable)) return;
+      if (seen.has(edge.id)) return;
+      seen.add(edge.id);
+      edges.push(edge);
+    };
+
+    for (const fk of fkRows) {
+      pushEdge({
+        id: `fk:${fk.from_table}.${fk.from_column}->${fk.to_table}.${fk.to_column}`,
+        fromTable: fk.from_table,
+        fromColumn: fk.from_column,
+        toTable: fk.to_table,
+        toColumn: fk.to_column,
+        kind: 'fk',
+        label: fk.from_column,
+      });
+    }
+
+    for (const logical of DATA_INVENTORY_LOGICAL_EDGES) {
+      pushEdge({
+        id: `logical:${logical.fromTable}.${logical.fromColumn}->${logical.toTable}.${logical.toColumn}`,
+        fromTable: logical.fromTable,
+        fromColumn: logical.fromColumn,
+        toTable: logical.toTable,
+        toColumn: logical.toColumn,
+        kind: 'logical',
+        label: logical.label,
+      });
+    }
+
+    const tables: DataInventorySchemaTable[] = publicTables.map((table) => {
+      const catalog = catalogByTable.get(table);
+      return {
+        table,
+        label: catalog?.label ?? table,
+        domain: catalog?.domain ?? 'other',
+        rowCount: rowCounts.get(table) ?? 0,
+        columns: columnsByTable.get(table) ?? [],
+      };
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      tables,
+      edges,
     };
   }
 

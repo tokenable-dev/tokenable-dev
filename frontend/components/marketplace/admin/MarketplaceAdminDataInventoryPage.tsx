@@ -22,6 +22,7 @@ import {
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+import { AdminDataInventorySchemaMap } from "./AdminDataInventorySchemaMap";
 
 type GlanceKey = "stores" | "total" | "catalog" | "markets" | "other";
 
@@ -520,7 +521,7 @@ export function MarketplaceAdminDataInventoryPage() {
     <>
       <MarketplaceAdminPageHeader
         title="데이터 인벤토리"
-        subtitle="public 스키마의 모든 테이블 — 의미·적재 방식·행 수, 그리고 「행 전부 보기」로 실제 DB 행을 페이지 단위로 전부 조회합니다."
+        subtitle="상단 스키마 맵에서 테이블·키·연결을 보고, 아래에서 행 수와 실제 데이터를 조회합니다."
         actions={
           <button
             type="button"
@@ -567,6 +568,10 @@ export function MarketplaceAdminDataInventoryPage() {
           </button>
         }
       />
+
+      <div className="mb-5">
+        <AdminDataInventorySchemaMap />
+      </div>
 
       <div className={`${ADMIN_ARTICLE} mb-5 flex flex-wrap items-center gap-3`}>
         <button

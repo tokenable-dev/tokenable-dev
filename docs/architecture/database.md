@@ -13,7 +13,7 @@
 |------|--------|
 | **Domain tables** | Auth/users, vault lifecycle, marketplace core, portfolio, Cardhedger price infra, admin |
 | **No FK constraints (marketplace core)** | Core bucket/order relationships are **logical** (enforced in app code) |
-| **FK on user-scoped tables** | `user_wallets`, `user_shipping_addresses`, `user_watchlist`, `verification_tokens`, `user_kyc_events` reference `users(id)` with CASCADE |
+| **FK on user-scoped tables** | `user_wallets`, `user_shipping_addresses`, `user_watchlist`, `user_kyc_events` reference `users(id)` with CASCADE |
 | **FK on vault tables** | `vault_cycles` → `vault_assets`, `vault_redemptions` → `vault_cycles` with RESTRICT |
 | **Bucket vs pricing split** | `marketplace_collections` = metadata · `collection_market_snapshots` = Cardhedger pricing |
 | **PSA cert facet** | `marketplace_collections.psa_cert_number` + `components` PSA mirror fields (live API / mint metadata) |
@@ -32,7 +32,6 @@
 | `user_wallets` | Multiple linked wallets per user with embedded/external metadata | `user/entities/user-wallet.entity.ts` |
 | `user_shipping_addresses` | Saved ship-to address book (Settings → Addresses; redeem) | `user/entities/user-shipping-address.entity.ts` |
 | `user_kyc_events` | Append-only KYC status audit trail | `user/entities/user-kyc-event.entity.ts` |
-| `verification_tokens` | Hashed single-use tokens (legacy admin flows only) | `auth/entities/verification-token.entity.ts` |
 
 ### Vault lifecycle (new — migrations 080–084)
 
@@ -247,7 +246,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 
 | # | File | Contents |
 |---|------|----------|
-| 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_shipping_addresses`, `user_kyc_events`, `verification_tokens` |
+| 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_shipping_addresses`, `user_kyc_events` |
 | 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_redeem_payment_claims`, `vault_submissions`, `vault_submission_items` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
@@ -286,6 +285,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 | `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
+| `maintenance/drop_legacy_unused_tables.sql` | Drop unused leftovers: `psa_cert_snapshots`, `portfolio_hidden_holdings`, `verification_tokens` |
 
 **Seeds (dev only):**
 

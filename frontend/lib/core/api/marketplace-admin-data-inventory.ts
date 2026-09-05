@@ -40,6 +40,38 @@ export type DataInventoryResponse = {
   };
 };
 
+export type DataInventorySchemaColumn = {
+  name: string;
+  dataType: string;
+  primaryKey: boolean;
+  unique: boolean;
+  foreignKey: boolean;
+};
+
+export type DataInventorySchemaTable = {
+  table: string;
+  label: string;
+  domain: DataInventoryDomainId;
+  rowCount: number;
+  columns: DataInventorySchemaColumn[];
+};
+
+export type DataInventorySchemaEdge = {
+  id: string;
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  kind: "fk" | "logical";
+  label: string;
+};
+
+export type DataInventorySchemaResponse = {
+  generatedAt: string;
+  tables: DataInventorySchemaTable[];
+  edges: DataInventorySchemaEdge[];
+};
+
 export type AdminMarketplaceResetResult = {
   truncatedTables: string[];
   skippedMissingTables: string[];
@@ -71,6 +103,14 @@ export async function getAdminDataInventory(): Promise<DataInventoryResponse> {
   );
   if (!res.ok) await parseAdminError(res, "Failed to load data inventory");
   return res.json() as Promise<DataInventoryResponse>;
+}
+
+export async function getAdminDataInventorySchema(): Promise<DataInventorySchemaResponse> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/data-inventory/schema`,
+  );
+  if (!res.ok) await parseAdminError(res, "Failed to load schema map");
+  return res.json() as Promise<DataInventorySchemaResponse>;
 }
 
 export async function getAdminDataInventoryTableRows(

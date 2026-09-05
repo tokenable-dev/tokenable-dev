@@ -147,25 +147,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS user_shipping_addresses_one_default
 
 COMMENT ON TABLE user_shipping_addresses IS
   'Saved ship-to addresses for vault redeem / physical withdrawal (Settings address book).';
-
-DO $$ BEGIN
-  CREATE TYPE verification_token_type AS ENUM ('email_verify', 'password_reset');
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
-
-CREATE TABLE IF NOT EXISTS verification_tokens (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash varchar(64) NOT NULL,
-  type verification_token_type NOT NULL,
-  expires_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_verification_tokens_token_hash ON verification_tokens (token_hash);
-CREATE INDEX IF NOT EXISTS idx_verification_tokens_user_type_created
-  ON verification_tokens (user_id, type, created_at DESC);
-
-COMMENT ON TABLE verification_tokens IS
-  'Hashed single-use verification tokens; raw token only sent by email.';

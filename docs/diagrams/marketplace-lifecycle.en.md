@@ -209,7 +209,7 @@ sequenceDiagram
 
 ## Part 3 — DB Schema & State Transitions
 
-> The application DB has **seventeen tables** (see [database.md](../architecture/database.md)). Core marketplace tables have no PostgreSQL FK constraints — keys are linked logically in app code. User-scoped tables (`user_wallets`, `user_watchlist`, `verification_tokens`) use FK to `users`.
+> Core marketplace tables have no PostgreSQL FK constraints — keys are linked logically in app code. User-scoped tables (`user_wallets`, `user_watchlist`) use FK to `users`.
 > **Full column-level ER (latest):** [architecture/database.md](../architecture/database.md#schema-overview)
 
 ### 3-1. Table structure (relationship summary)
