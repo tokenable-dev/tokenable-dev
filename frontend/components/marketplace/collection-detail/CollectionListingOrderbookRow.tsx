@@ -3,20 +3,8 @@
 import Link from "next/link";
 import { TkButton } from "@/components/ds";
 import type { Order } from "@/lib/core";
+import { formatUsdcAtomicAmount } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { listingVaultBadge } from "@/lib/marketplace/collectionListingModalHelpers";
-
-function formatUsdc(amount: string): string {
-  try {
-    const n = Number(amount) / 1_000_000;
-    if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  } catch {
-    return "—";
-  }
-}
 
 export function CollectionListingOrderbookRow({
   tokenId,
@@ -35,7 +23,7 @@ export function CollectionListingOrderbookRow({
 }) {
   const fromQs = `fromCollection=${encodeURIComponent(collectionKey)}`;
   const detailHref = `/marketplace/${tokenId}?${fromQs}`;
-  const price = formatUsdc(listing.considerationAmount);
+  const price = formatUsdcAtomicAmount(listing.considerationAmount);
   const vault = listingVaultBadge(listing);
 
   const thumb = imageUrl ? (

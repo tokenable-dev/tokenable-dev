@@ -18,6 +18,7 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
+import { formatUsdcAtomicAmount } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { listingVaultBadge } from "@/lib/marketplace/collectionListingModalHelpers";
 
 const rwaCardFont = IBM_Plex_Sans({
@@ -37,19 +38,6 @@ function shortenAddr(addr: string | undefined): string {
   const s = (addr ?? "").trim().toLowerCase();
   if (!s.startsWith("0x") || s.length < 12) return "—";
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
-}
-
-function formatUsdc(amount: string): string {
-  try {
-    const n = Number(amount) / 1_000_000;
-    if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  } catch {
-    return "—";
-  }
 }
 
 /**
@@ -187,7 +175,7 @@ export function CollectionRwaCard({
 
   const imageUrl = resolvedImageUrl;
   const listingPrice =
-    listing != null ? formatUsdc(listing.considerationAmount) : null;
+    listing != null ? formatUsdcAtomicAmount(listing.considerationAmount) : null;
   const sellerAddr = listing
     ? (listing.offerer || listing.parameters?.offerer)
     : undefined;
