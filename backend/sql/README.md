@@ -49,6 +49,7 @@ sql/
    │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
    │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
    │   ├── drop_legacy_unused_tables.sql
+   │   ├── audit_stale_public_tables.sql
    │   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh

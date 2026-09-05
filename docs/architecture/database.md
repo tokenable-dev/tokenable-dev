@@ -286,6 +286,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 | `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
 | `maintenance/drop_legacy_unused_tables.sql` | Drop unused leftovers: `psa_cert_snapshots`, `portfolio_hidden_holdings`, `verification_tokens` |
+| `maintenance/audit_stale_public_tables.sql` | Read-only: empty / quiet public tables (no DROP) |
 
 **Seeds (dev only):**
 
