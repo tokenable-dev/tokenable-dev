@@ -8,7 +8,6 @@ export {
   pickActiveAskListing,
 } from "./listingPrice";
 export { SLAB_3D_UI_ENABLED } from "./slabUi";
-export type { RwaDetailAssetPanelProps } from "./rwaDetailPanelTypes";
 export type { RwaDetailMetadata, RwaDetailMobileTrustView } from "./rwaDetailMetadata";
 export {
   buildRwaDetailMobileTrustView,
