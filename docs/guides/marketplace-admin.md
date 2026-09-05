@@ -70,7 +70,7 @@ Protected handlers call `MarketplaceAdminService.assertAdminSession(req)`. There
 | | End users | Admin |
 |---|-----------|-------|
 | Cookie | JWT session (`auth` module) | `marketplace_admin` |
-| Login | Google OAuth, email/password | Username/password only |
+| Login | Privy (`POST /api/auth/privy/session`) | Username/password only |
 | API prefix | `/api/auth/*`, `/api/marketplace/watchlist`, … | `/api/marketplace/admin/*`, `/api/admin/cardhedger/*`, selected `collections` admin POSTs |
 
 ---

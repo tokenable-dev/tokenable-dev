@@ -43,7 +43,7 @@ This path is always public (exempt from the gate).
 | `/api/site-access/verify` | POST |
 | `/api/health` | GET |
 | `/api/webhooks/cardhedger/price-updates` | POST |
-| Auth public paths | per `auth-oauth.util.ts` (Google OAuth, register, login, verify-email, forgot/reset password) |
+| Auth public paths | `GET /api/auth/session`, `POST /api/auth/privy/session`, `POST /api/auth/logout` (`isAuthPublicApiPath`) |
 | Swagger paths | per `site-access-swagger.util.ts` |
 
 All other API calls without a valid `site_access` cookie return:
