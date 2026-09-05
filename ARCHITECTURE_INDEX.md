@@ -123,7 +123,7 @@ Key facts:
 | **Implementation** | `backend/src/psa/` |
 | **Rate limit util** | `backend/src/psa/psa-public-api.service.ts` |
 | **In-memory cache** | `PsaPublicApiService` TTL (`PSA_PUBLIC_API_CACHE_TTL_MS`) |
-| **Required reading before changes** | `docs/api/psa.md`, `docs/business-rules.md` (BR-17, BR-18) |
+| **Required reading before changes** | `docs/api/psa.md`, `docs/business-rules.md` (BR-17, BR-18), `docs/architecture/backend.md` (large-file seams) |
 
 Key facts:
 - PSA subscription tier supports higher daily volume — mitigated by `PSA_PUBLIC_API_TOKENS` pool when needed
@@ -139,7 +139,7 @@ Key facts:
 | **Documentation** | `docs/api/cardhedger.md`, `docs/architecture/materialized-market-snapshots.md` |
 | **Implementation** | `backend/src/cardhedger/` |
 | **Database tables** | `collection_market_snapshots`, `cardhedger_price_*` tables |
-| **Required reading before changes** | `docs/architecture/materialized-market-snapshots.md` |
+| **Required reading before changes** | `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/backend.md` (large-file seams) |
 
 Key facts:
 - Never called on every market GET — snapshot workers only
