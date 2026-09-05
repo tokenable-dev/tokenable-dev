@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  useMarketplaceAdminDataInventory,
   useMarketplaceAdminDataInventoryRows,
   useMarketplaceAdminDataInventorySchema,
 } from "@/hooks/marketplace-admin/useMarketplaceAdminDataInventory";
@@ -55,7 +54,6 @@ type Line = {
 export function AdminDataInventorySchemaMap() {
   const { data, isLoading, isError, error } =
     useMarketplaceAdminDataInventorySchema();
-  const inventory = useMarketplaceAdminDataInventory();
   const [domain, setDomain] = useState<DataInventoryDomainId | "all">("all");
   const [showOptionalCardhedger, setShowOptionalCardhedger] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
@@ -97,7 +95,6 @@ export function AdminDataInventorySchemaMap() {
   }, [tables]);
 
   const focusedTable = tables.find((t) => t.table === focus) ?? null;
-  const focusedStore = inventory.data?.stores.find((s) => s.table === focus);
 
   const neighborEdges = useMemo(() => {
     if (!focus) return [];
@@ -325,8 +322,6 @@ export function AdminDataInventorySchemaMap() {
           {focusedTable ? (
             <SchemaDetailDrawer
               table={focusedTable}
-              description={focusedStore?.description ?? null}
-              how={focusedStore?.howAccumulated ?? null}
               edges={neighborEdges}
               onClose={() => setFocus(null)}
               onSelectTable={setFocus}
@@ -425,16 +420,22 @@ function SchemaTableCard({
       </p>
       <ul className="mt-2 space-y-1">
         {shown.map((col) => (
-          <ColumnRow key={col.name} col={col} />
+          <ColumnRow key={col.name} col={col} as="li" />
         ))}
       </ul>
     </button>
   );
 }
 
-function ColumnRow({ col }: { col: DataInventorySchemaColumn }) {
+function ColumnRow({
+  col,
+  as: Tag = "div",
+}: {
+  col: DataInventorySchemaColumn;
+  as?: "div" | "li";
+}) {
   return (
-    <li className="flex items-center gap-1 font-mono text-[11px] text-zinc-700">
+    <Tag className="flex items-center gap-1 font-mono text-[11px] text-zinc-700">
       {col.primaryKey ? <KeyBadge kind="pk" /> : null}
       {col.unique && !col.primaryKey ? <KeyBadge kind="uk" /> : null}
       {col.foreignKey ? <KeyBadge kind="fk" /> : null}
@@ -442,21 +443,17 @@ function ColumnRow({ col }: { col: DataInventorySchemaColumn }) {
       <span className="ml-auto truncate text-[10px] text-zinc-400">
         {col.dataType}
       </span>
-    </li>
+    </Tag>
   );
 }
 
 function SchemaDetailDrawer({
   table,
-  description,
-  how,
   edges,
   onClose,
   onSelectTable,
 }: {
   table: DataInventorySchemaTable;
-  description: string | null;
-  how: string | null;
   edges: DataInventorySchemaEdge[];
   onClose: () => void;
   onSelectTable: (table: string) => void;
@@ -484,13 +481,15 @@ function SchemaDetailDrawer({
             ? " · Cardhedger 부가 파이프라인 (플래그 기본 off)"
             : null}
         </p>
-        {description ? (
+        {table.description ? (
           <p className={`text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-            {description}
+            {table.description}
           </p>
         ) : null}
-        {how ? (
-          <p className={`text-xs leading-relaxed ${ADMIN_TEXT_META}`}>{how}</p>
+        {table.howAccumulated ? (
+          <p className={`text-xs leading-relaxed ${ADMIN_TEXT_META}`}>
+            {table.howAccumulated}
+          </p>
         ) : null}
 
         <div>
@@ -500,7 +499,7 @@ function SchemaDetailDrawer({
           <ul className="mt-2 divide-y divide-zinc-100 rounded-lg border border-zinc-200">
             {table.columns.map((col) => (
               <li key={col.name} className="px-2.5 py-1.5">
-                <ColumnRow col={col} />
+                <ColumnRow col={col} as="div" />
               </li>
             ))}
           </ul>
@@ -553,7 +552,7 @@ function SchemaDetailDrawer({
 
 function SchemaRowsPeek({ table }: { table: string }) {
   const { data, isLoading, isError, error } =
-    useMarketplaceAdminDataInventoryRows(table, 1, 8, true);
+    useMarketplaceAdminDataInventoryRows(table, 1, 5, true, true);
 
   return (
     <div>

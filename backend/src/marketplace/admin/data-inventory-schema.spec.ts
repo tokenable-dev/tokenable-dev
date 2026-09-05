@@ -14,22 +14,33 @@ describe('DataInventoryService.getSchema', () => {
         ];
       }
       if (sql.includes('information_schema.columns')) {
-        const table = params?.[0];
-        if (table === 'users') {
-          return [{ column_name: 'id', data_type: 'uuid' }];
-        }
-        if (table === 'user_wallets') {
-          return [
-            { column_name: 'id', data_type: 'uuid' },
-            { column_name: 'user_id', data_type: 'uuid' },
-          ];
-        }
-        if (table === 'marketplace_collections') {
-          return [{ column_name: 'collection_key', data_type: 'text' }];
-        }
         return [
-          { column_name: 'id', data_type: 'int' },
-          { column_name: 'collection_key', data_type: 'text' },
+          { table_name: 'users', column_name: 'id', data_type: 'uuid' },
+          { table_name: 'user_wallets', column_name: 'id', data_type: 'uuid' },
+          {
+            table_name: 'user_wallets',
+            column_name: 'user_id',
+            data_type: 'uuid',
+          },
+          {
+            table_name: 'marketplace_collections',
+            column_name: 'collection_key',
+            data_type: 'text',
+          },
+          { table_name: 'orders', column_name: 'id', data_type: 'int' },
+          {
+            table_name: 'orders',
+            column_name: 'collection_key',
+            data_type: 'text',
+          },
+        ];
+      }
+      if (sql.includes('pg_class')) {
+        return [
+          { table_name: 'users', n: 0 },
+          { table_name: 'user_wallets', n: 0 },
+          { table_name: 'marketplace_collections', n: 0 },
+          { table_name: 'orders', n: 0 },
         ];
       }
       if (sql.includes("constraint_type IN ('PRIMARY KEY'")) {

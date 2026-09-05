@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 
 /** Safe public table name: lowercase snake_case only. */
 export class AdminDataInventoryTableParamDto {
@@ -25,4 +33,11 @@ export class AdminDataInventoryRowsQueryDto {
   @Min(1)
   @Max(200)
   pageSize?: number = 50;
+
+  /** Schema-map peek: skip exact COUNT(*), truncate wide JSON. */
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  compact?: boolean = false;
 }

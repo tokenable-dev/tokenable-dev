@@ -52,6 +52,8 @@ export type DataInventorySchemaTable = {
   table: string;
   label: string;
   domain: DataInventoryDomainId;
+  description: string | null;
+  howAccumulated: string | null;
   rowCount: number;
   columns: DataInventorySchemaColumn[];
 };
@@ -117,11 +119,13 @@ export async function getAdminDataInventoryTableRows(
   table: string,
   page = 1,
   pageSize = 50,
+  compact = false,
 ): Promise<AdminDataInventoryRowsResult> {
   const qs = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize),
   });
+  if (compact) qs.set("compact", "1");
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/data-inventory/tables/${encodeURIComponent(table)}/rows?${qs}`,
   );

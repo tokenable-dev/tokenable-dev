@@ -26,10 +26,19 @@ export function useMarketplaceAdminDataInventoryRows(
   page: number,
   pageSize: number,
   enabled: boolean,
+  compact = false,
 ) {
   return useQuery({
-    queryKey: [...rq.adminDataInventory(), "rows", table, page, pageSize],
-    queryFn: () => getAdminDataInventoryTableRows(table!, page, pageSize),
+    queryKey: [
+      ...rq.adminDataInventory(),
+      "rows",
+      table,
+      page,
+      pageSize,
+      compact,
+    ],
+    queryFn: () =>
+      getAdminDataInventoryTableRows(table!, page, pageSize, compact),
     enabled: Boolean(enabled && table),
   });
 }

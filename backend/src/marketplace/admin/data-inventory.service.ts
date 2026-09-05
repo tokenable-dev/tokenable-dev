@@ -81,6 +81,8 @@ export type DataInventorySchemaTable = {
   table: string;
   label: string;
   domain: DataInventoryDomainId;
+  description: string | null;
+  howAccumulated: string | null;
   rowCount: number;
   columns: DataInventorySchemaColumn[];
 };
@@ -313,6 +315,27 @@ export class DataInventoryService {
     return Number(rows?.[0]?.n ?? 0);
   }
 
+  private async estimateRows(table: string): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT GREATEST(c.reltuples, 0)::bigint AS n
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relname = $1 AND c.relkind = 'r'`,
+      [table],
+    );
+    return Number(rows?.[0]?.n ?? 0);
+  }
+
+  private async estimateAllRows(): Promise<Map<string, number>> {
+    const rows = (await this.dataSource.query(
+      `SELECT c.relname AS table_name, GREATEST(c.reltuples, 0)::bigint AS n
+       FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace
+       WHERE ns.nspname = 'public' AND c.relkind = 'r'`,
+    )) as { table_name: string; n: string | number }[];
+    return new Map(rows.map((r) => [r.table_name, Number(r.n ?? 0)]));
+  }
+
   /**
    * Paginated raw rows for any public table (admin browse).
    * Table name must be snake_case and exist in `public`.
@@ -321,6 +344,7 @@ export class DataInventoryService {
     table: string,
     page: number,
     pageSize: number,
+    compact = false,
   ): Promise<AdminDataInventoryRowsResult> {
     const safe = table.trim().toLowerCase();
     if (!/^[a-z][a-z0-9_]*$/.test(safe)) {
@@ -330,16 +354,21 @@ export class DataInventoryService {
       throw new NotFoundException(`Table not found: ${safe}`);
     }
 
-    const total = await this.countRows(safe);
+    const limit = compact ? Math.min(pageSize, 8) : pageSize;
+    const total = compact
+      ? await this.estimateRows(safe)
+      : await this.countRows(safe);
     const columns = await this.listColumns(safe);
     const orderCol = pickOrderColumn(columns);
-    const offset = (page - 1) * pageSize;
+    const offset = (page - 1) * limit;
     const rawRows: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT * FROM "${safe}" ORDER BY ${orderCol} LIMIT $1 OFFSET $2`,
-      [pageSize, offset],
+      [limit, offset],
     );
 
-    const rows = rawRows.map((row) => redactRow(row));
+    const rows = rawRows.map((row) =>
+      compact ? compactRow(redactRow(row)) : redactRow(row),
+    );
     const catalog = DATA_STORE_CATALOG.find((s) => s.table === safe);
 
     return {
@@ -352,9 +381,9 @@ export class DataInventoryService {
         .map((c) => c.column_name)
         .filter((name) => isSensitiveColumn(name)),
       page,
-      pageSize,
+      pageSize: limit,
       total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
       rows,
     };
   }
@@ -415,28 +444,29 @@ export class DataInventoryService {
     const publicTables = await this.listPublicTables();
     const tableSet = new Set(publicTables);
     const catalogByTable = new Map(DATA_STORE_CATALOG.map((s) => [s.table, s]));
-    const rowCounts = new Map<string, number>();
-    for (const table of publicTables) {
-      try {
-        rowCounts.set(table, await this.countRows(table));
-      } catch {
-        rowCounts.set(table, 0);
-      }
-    }
+    const rowCounts = await this.estimateAllRows();
+
+    const allCols = (await this.dataSource.query(
+      `SELECT table_name, column_name, data_type
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+       ORDER BY table_name, ordinal_position`,
+    )) as { table_name: string; column_name: string; data_type: string }[];
 
     const columnsByTable = new Map<string, DataInventorySchemaColumn[]>();
     for (const table of publicTables) {
-      const cols = await this.listColumns(table);
-      columnsByTable.set(
-        table,
-        cols.map((c) => ({
-          name: c.column_name,
-          dataType: c.data_type,
-          primaryKey: false,
-          unique: false,
-          foreignKey: false,
-        })),
-      );
+      columnsByTable.set(table, []);
+    }
+    for (const c of allCols) {
+      const list = columnsByTable.get(c.table_name);
+      if (!list) continue;
+      list.push({
+        name: c.column_name,
+        dataType: c.data_type,
+        primaryKey: false,
+        unique: false,
+        foreignKey: false,
+      });
     }
 
     const keyRows = (await this.dataSource.query(
@@ -524,6 +554,8 @@ export class DataInventoryService {
         table,
         label: catalog?.label ?? table,
         domain: catalog?.domain ?? 'other',
+        description: catalog?.description ?? null,
+        howAccumulated: catalog?.howAccumulated ?? null,
         rowCount: rowCounts.get(table) ?? 0,
         columns: columnsByTable.get(table) ?? [],
       };
@@ -950,6 +982,24 @@ function isSensitiveColumn(name: string): boolean {
   return /password|secret|private_?key|encrypted|session_token|api_?key/i.test(
     name,
   );
+}
+
+function compactRow(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v != null && typeof v === 'object') {
+      const s = JSON.stringify(v);
+      out[k] =
+        s && s.length > 180 ? `${s.slice(0, 180)}…(+${s.length - 180})` : s;
+      continue;
+    }
+    if (typeof v === 'string' && v.length > 180) {
+      out[k] = `${v.slice(0, 180)}…(+${v.length - 180})`;
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
 }
 
 function redactRow(row: Record<string, unknown>): Record<string, unknown> {

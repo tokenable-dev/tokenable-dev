@@ -60,6 +60,7 @@ export class DataInventoryController {
       table,
       query.page ?? 1,
       query.pageSize ?? 50,
+      query.compact === true,
     );
   }
 
