@@ -145,7 +145,7 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     domain: 'markets',
     label: '시세 델타 임포트 실행 로그',
     description:
-      'Cardhedger price-updates 폴링마다 감사 로그 — 매칭 컬렉션, 체크포인트, 오류.',
+      '선택 인프라. CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED 기본 off. 스냅샷 워커와 별개.',
     howAccumulated:
       '야간 크론 + Price sync의 수동 실행. append-only.',
     adminPagePath: '/marketplace/admin/price-webhooks',
@@ -156,7 +156,7 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     domain: 'markets',
     label: '시세 델타 체크포인트',
     description:
-      '싱글톤(id=1) — 마지막 델타 `since` ISO 시각.',
+      '선택 인프라. 델타 임포트 플래그가 켜진 경우에만 의미 있음.',
     howAccumulated: '델타 임포트 성공 후 갱신.',
     adminPagePath: '/marketplace/admin/price-webhooks',
   },
@@ -166,7 +166,7 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     domain: 'markets',
     label: 'Cardhedger 시세 구독',
     description:
-      '웹훅 시세 푸시용으로 등록된 Cardhedger card ID(구독 기능 켜진 경우).',
+      '선택 인프라. CARDHEDGER_PRICE_SUBSCRIBE_ENABLED 기본 off. 라이브 시세는 collection_market_snapshots.',
     howAccumulated: '컬렉션 카탈로그에서 어드민 시세 구독 API로 동기화.',
     adminPagePath: '/marketplace/admin/price-webhooks',
   },
@@ -175,7 +175,8 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     table: 'cardhedger_daily_price_export_runs',
     domain: 'markets',
     label: '일별 시세 CSV export 로그',
-    description: 'Cardhedger 야간 CSV export(Enterprise) 감사 로그.',
+    description:
+      '선택 인프라. CARDHEDGER_DAILY_EXPORT_CSV_ENABLED 기본 off. 라이브 시세 경로 아님.',
     howAccumulated:
       'CARDHEDGER_DAILY_EXPORT_CSV_ENABLED 시 크론 — append-only.',
     adminPagePath: '/marketplace/admin/price-webhooks',
