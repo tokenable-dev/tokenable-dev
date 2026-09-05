@@ -37,6 +37,7 @@ export type DataInventoryResponse = {
   totals: {
     storeCount: number;
     rowCount: number;
+    rowCountsEstimated?: boolean;
   };
 };
 
