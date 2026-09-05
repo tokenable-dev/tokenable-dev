@@ -25,7 +25,7 @@ Cross-cutting:
 - **`CollectionIdentityService`** — canonical writer for `components.cardhedgerCardId` with L1 in-process + L2 Redis cache, row-lock precedence, write-through invalidation.
 - **`CardhedgerResolveService`** — Cardhedger card-search resolution.
 - **`CardhedgerAdminModule`** — ops health + Prometheus scrape (`/api/admin/cardhedger/*`).
-- **`CardhedgerPriceInfraModule`** — price webhook receiver, subscription sync, nightly delta import.
+- **`CardhedgerPriceInfraModule`** — optional: loaded only when webhook / subscribe / nightly delta / CSV flags are on. Live list prices stay on `collection_market_snapshots`.
 - **`common/cache/`** — global in-memory TTL cache (`TTL_CACHE_PROVIDER`).
 - **`common/metrics/`** — Cardhedger operational counters.
 - **`common/perf/`** — lightweight JSON stdout performance logging.
