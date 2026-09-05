@@ -14,7 +14,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
-| `/marketplace/admin/data-inventory` | **데이터 인벤토리** | Schema map (PK/UK/FK + logical joins) at the top, then all `public` tables — row counts, how each table is written, paginated raw row browser |
+| `/marketplace/admin/data-inventory` | **데이터 인벤토리** | Schema map (PK/UK/FK + logical joins) at the top, then all `public` tables — **estimated** row counts (`reltuples`; exact COUNT only when the estimate is 0), how each table is written, paginated raw row browser (browse still uses exact COUNT) |
 | `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
 | `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
