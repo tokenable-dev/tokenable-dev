@@ -68,6 +68,7 @@ backend/src/
 ├── vault/                   # Physical card vault lifecycle — DB orchestration only
 │   ├── vault.service.ts     # VaultAsset, VaultCycle, VaultRedemption state machine
 │   ├── vault-submissions.*  # User vault intake (JWT)
+│   ├── gmail-api.client.ts  # Shared Gmail REST for PSA received/vaulted pollers
 │   └── entities/
 │
 ├── blockchain/              # Multi-chain reads + IPFS + write operations
@@ -154,6 +155,28 @@ POST /api/marketplace/admin/rwa-tokens/:id/burn
 ```
 
 Detail: [vault-lifecycle.md](./vault-lifecycle.md).
+
+## Write ownership (mint / redeem / covers)
+
+Do not merge these services. Each row is the **writer**; others call into it.
+
+| Concern | Who writes | Entry | Notes |
+|---------|------------|-------|-------|
+| User / partner mint | `RwaMintService` | `POST /api/rwa/mint`, bulk-mint commit | Calls `VaultService.reserveCycleForDeposit` then chain `mintTo` |
+| Admin queue mint | `VaultSubmissionAdminMintService` | admin vault-submission mint | Still calls `RwaMintService` for the chain write |
+| Vault cycle / redemption rows | `VaultService` | called from mint + redeem | Physical-card state machine only |
+| Redeem fees + USDC verify | `RwaRedeemService` + `RedeemShippingFeeCalculator` | `POST /api/rwa/redeem-batch` | Keep fee math here |
+| Redeem admin (tracking, refund, burn trigger) | `RedeemsAdminService` | `/api/marketplace/admin/redeems*` | State / ops; not fee quotes |
+| Catalog cover URL | `CollectionCoverService` | admin cover upload / ingest | Writes `marketplace_collections.coverImageUrl` |
+| Cover object bytes | `CatalogCoverS3Service` | used by cover + avatars | S3 put only |
+| Slab / display image | `RwaSlabS3Service` | mint + slab backfill | Distinct from catalog cover |
+| PSA received mail | `PsaReceivedMailService` | cron | Ingest + arrival reviews |
+| PSA vaulted mail | `PsaVaultedMailService` | cron | Ingest + optional auto-mint |
+| Gmail HTTP | `GmailApiClient` | used by both pollers | Token, list/get/label/modify/insert + MIME decode |
+
+`auth/privy/` is the user session (JWKS + profile upsert). `privy/` is the catalog/funding API proxy. Do not rename.
+
+`marketplace/utils/` stays; new helpers belong next to the domain that owns them.
 
 ---
 
