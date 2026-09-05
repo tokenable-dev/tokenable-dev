@@ -136,26 +136,6 @@ export interface PortfolioDailySnapshotItem {
   cardCount: number;
 }
 
-export async function getPortfolioHiddenHoldings(
-  walletAddress: string,
-): Promise<number[]> {
-  const enc = encodeURIComponent(walletAddress);
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/portfolio/hidden/${enc}`,
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ??
-        'Failed to load hidden portfolio holdings',
-    );
-  }
-  const j = (await res.json()) as { tokenIds?: number[] };
-  return (j.tokenIds ?? [])
-    .map((n) => Math.floor(Number(n)))
-    .filter((n) => Number.isFinite(n) && n >= 0);
-}
-
 export async function hidePortfolioHolding(
   walletAddress: string,
   tokenId: number,

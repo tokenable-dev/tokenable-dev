@@ -439,6 +439,7 @@ Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; sam
 | GET | `/analytics` | KPI dashboard — users, orders, funnel, timeseries (mints/orders/GMV/holdings scoped by `x-tokenable-chain-id`). Server caches 60s per chain+period; admin UI does not auto-poll. |
 | GET | `/analytics/ga4` | GA4 traffic (when configured) |
 | GET | `/data-inventory` | All `public` tables + catalog metadata — row counts, freshness. Uncatalogued tables appear under domain `other`. |
+| GET | `/data-inventory/schema` | Live columns + PK/UK/FK from Postgres, plus documented logical joins for the admin schema map. |
 | GET | `/data-inventory/tables/:table/rows?page=&pageSize=` | Paginated raw rows (`pageSize` 1–200). Sensitive columns (`password`, `secret`, `private_key`, …) redacted. |
 | POST | `/data-inventory/reset-for-new-contract` | **Dev/staging only** (`NODE_ENV !== production`). Body `{ password }` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Same wipe as `sql/maintenance/reset_marketplace_data.sql`: truncates marketplace + vault transactional tables; **keeps** users, admins, partners, Cardhedger infra audit. Use after manually updating `CHAIN_*_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_*_RWA` to a newly deployed proxy. Does **not** burn on-chain NFTs. |
 

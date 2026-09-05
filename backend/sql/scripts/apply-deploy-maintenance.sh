@@ -15,6 +15,7 @@ FILES=(
   maintenance/add_vault_submission_item_display_fields.sql
   maintenance/add_vault_cycles_mint_attempt.sql
   maintenance/nullable_rwa_tokens_settlement_policy.sql
+  maintenance/drop_legacy_unused_tables.sql
 )
 
 run_psql() {

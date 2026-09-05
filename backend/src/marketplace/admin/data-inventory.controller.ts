@@ -35,6 +35,16 @@ export class DataInventoryController {
     return this.inventory.getInventory();
   }
 
+  @Get('schema')
+  @ApiOperation({
+    summary:
+      '[Admin] Live public schema — columns, PK/UK/FK, plus logical marketplace joins',
+  })
+  getSchema(@Req() req: Request) {
+    this.admin.assertAdminSession(req);
+    return this.inventory.getSchema();
+  }
+
   @Get('tables/:table/rows')
   @ApiOperation({
     summary:
@@ -50,6 +60,7 @@ export class DataInventoryController {
       table,
       query.page ?? 1,
       query.pageSize ?? 50,
+      query.compact === true,
     );
   }
 

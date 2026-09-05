@@ -44,6 +44,10 @@ import {
   type DataInventoryDomainId,
   type DataStoreCatalogEntry,
 } from './data-inventory.catalog';
+import {
+  DATA_INVENTORY_LOGICAL_EDGES,
+  type SchemaEdgeKind,
+} from './data-inventory.schema';
 
 export type DataStoreStats = {
   rowCount: number;
@@ -63,6 +67,40 @@ export type DataInventoryResponse = {
     storeCount: number;
     rowCount: number;
   };
+};
+
+export type DataInventorySchemaColumn = {
+  name: string;
+  dataType: string;
+  primaryKey: boolean;
+  unique: boolean;
+  foreignKey: boolean;
+};
+
+export type DataInventorySchemaTable = {
+  table: string;
+  label: string;
+  domain: DataInventoryDomainId;
+  description: string | null;
+  howAccumulated: string | null;
+  rowCount: number;
+  columns: DataInventorySchemaColumn[];
+};
+
+export type DataInventorySchemaEdge = {
+  id: string;
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  kind: SchemaEdgeKind;
+  label: string;
+};
+
+export type DataInventorySchemaResponse = {
+  generatedAt: string;
+  tables: DataInventorySchemaTable[];
+  edges: DataInventorySchemaEdge[];
 };
 
 /** Mirrors `sql/maintenance/reset_marketplace_data.sql` (required tables). */
@@ -92,7 +130,6 @@ const RESET_REQUIRED_TABLES = [
 ] as const;
 
 const RESET_OPTIONAL_TABLES = [
-  'psa_cert_snapshots',
   'vault_psa_arrival_reviews',
   'vault_psa_vaulted_reviews',
 ] as const;
@@ -278,6 +315,27 @@ export class DataInventoryService {
     return Number(rows?.[0]?.n ?? 0);
   }
 
+  private async estimateRows(table: string): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT GREATEST(c.reltuples, 0)::bigint AS n
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relname = $1 AND c.relkind = 'r'`,
+      [table],
+    );
+    return Number(rows?.[0]?.n ?? 0);
+  }
+
+  private async estimateAllRows(): Promise<Map<string, number>> {
+    const rows = (await this.dataSource.query(
+      `SELECT c.relname AS table_name, GREATEST(c.reltuples, 0)::bigint AS n
+       FROM pg_class c
+       JOIN pg_namespace ns ON ns.oid = c.relnamespace
+       WHERE ns.nspname = 'public' AND c.relkind = 'r'`,
+    )) as { table_name: string; n: string | number }[];
+    return new Map(rows.map((r) => [r.table_name, Number(r.n ?? 0)]));
+  }
+
   /**
    * Paginated raw rows for any public table (admin browse).
    * Table name must be snake_case and exist in `public`.
@@ -286,6 +344,7 @@ export class DataInventoryService {
     table: string,
     page: number,
     pageSize: number,
+    compact = false,
   ): Promise<AdminDataInventoryRowsResult> {
     const safe = table.trim().toLowerCase();
     if (!/^[a-z][a-z0-9_]*$/.test(safe)) {
@@ -295,16 +354,21 @@ export class DataInventoryService {
       throw new NotFoundException(`Table not found: ${safe}`);
     }
 
-    const total = await this.countRows(safe);
+    const limit = compact ? Math.min(pageSize, 8) : pageSize;
+    const total = compact
+      ? await this.estimateRows(safe)
+      : await this.countRows(safe);
     const columns = await this.listColumns(safe);
     const orderCol = pickOrderColumn(columns);
-    const offset = (page - 1) * pageSize;
+    const offset = (page - 1) * limit;
     const rawRows: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT * FROM "${safe}" ORDER BY ${orderCol} LIMIT $1 OFFSET $2`,
-      [pageSize, offset],
+      [limit, offset],
     );
 
-    const rows = rawRows.map((row) => redactRow(row));
+    const rows = rawRows.map((row) =>
+      compact ? compactRow(redactRow(row)) : redactRow(row),
+    );
     const catalog = DATA_STORE_CATALOG.find((s) => s.table === safe);
 
     return {
@@ -317,9 +381,9 @@ export class DataInventoryService {
         .map((c) => c.column_name)
         .filter((name) => isSensitiveColumn(name)),
       page,
-      pageSize,
+      pageSize: limit,
       total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
       rows,
     };
   }
@@ -373,6 +437,134 @@ export class DataInventoryService {
         storeCount: stores.length,
         rowCount: stores.reduce((sum, s) => sum + s.rowCount, 0),
       },
+    };
+  }
+
+  async getSchema(): Promise<DataInventorySchemaResponse> {
+    const publicTables = await this.listPublicTables();
+    const tableSet = new Set(publicTables);
+    const catalogByTable = new Map(DATA_STORE_CATALOG.map((s) => [s.table, s]));
+    const rowCounts = await this.estimateAllRows();
+
+    const allCols = (await this.dataSource.query(
+      `SELECT table_name, column_name, data_type
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+       ORDER BY table_name, ordinal_position`,
+    )) as { table_name: string; column_name: string; data_type: string }[];
+
+    const columnsByTable = new Map<string, DataInventorySchemaColumn[]>();
+    for (const table of publicTables) {
+      columnsByTable.set(table, []);
+    }
+    for (const c of allCols) {
+      const list = columnsByTable.get(c.table_name);
+      if (!list) continue;
+      list.push({
+        name: c.column_name,
+        dataType: c.data_type,
+        primaryKey: false,
+        unique: false,
+        foreignKey: false,
+      });
+    }
+
+    const keyRows = (await this.dataSource.query(
+      `SELECT tc.table_name, kcu.column_name, tc.constraint_type
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_schema = kcu.constraint_schema
+        AND tc.constraint_name = kcu.constraint_name
+       WHERE tc.table_schema = 'public'
+         AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE', 'FOREIGN KEY')`,
+    )) as {
+      table_name: string;
+      column_name: string;
+      constraint_type: string;
+    }[];
+
+    for (const row of keyRows) {
+      const cols = columnsByTable.get(row.table_name);
+      const col = cols?.find((c) => c.name === row.column_name);
+      if (!col) continue;
+      if (row.constraint_type === 'PRIMARY KEY') col.primaryKey = true;
+      if (row.constraint_type === 'UNIQUE') col.unique = true;
+      if (row.constraint_type === 'FOREIGN KEY') col.foreignKey = true;
+    }
+
+    const fkRows = (await this.dataSource.query(
+      `SELECT
+         kcu.table_name AS from_table,
+         kcu.column_name AS from_column,
+         ccu.table_name AS to_table,
+         ccu.column_name AS to_column
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_schema = kcu.constraint_schema
+        AND tc.constraint_name = kcu.constraint_name
+       JOIN information_schema.constraint_column_usage ccu
+         ON ccu.constraint_schema = tc.constraint_schema
+        AND ccu.constraint_name = tc.constraint_name
+       WHERE tc.table_schema = 'public'
+         AND tc.constraint_type = 'FOREIGN KEY'`,
+    )) as {
+      from_table: string;
+      from_column: string;
+      to_table: string;
+      to_column: string;
+    }[];
+
+    const edges: DataInventorySchemaEdge[] = [];
+    const seen = new Set<string>();
+
+    const pushEdge = (edge: DataInventorySchemaEdge) => {
+      if (!tableSet.has(edge.fromTable) || !tableSet.has(edge.toTable)) return;
+      if (seen.has(edge.id)) return;
+      seen.add(edge.id);
+      edges.push(edge);
+    };
+
+    for (const fk of fkRows) {
+      pushEdge({
+        id: `fk:${fk.from_table}.${fk.from_column}->${fk.to_table}.${fk.to_column}`,
+        fromTable: fk.from_table,
+        fromColumn: fk.from_column,
+        toTable: fk.to_table,
+        toColumn: fk.to_column,
+        kind: 'fk',
+        label: fk.from_column,
+      });
+    }
+
+    for (const logical of DATA_INVENTORY_LOGICAL_EDGES) {
+      pushEdge({
+        id: `logical:${logical.fromTable}.${logical.fromColumn}->${logical.toTable}.${logical.toColumn}`,
+        fromTable: logical.fromTable,
+        fromColumn: logical.fromColumn,
+        toTable: logical.toTable,
+        toColumn: logical.toColumn,
+        kind: 'logical',
+        label: logical.label,
+      });
+    }
+
+    const tables: DataInventorySchemaTable[] = publicTables.map((table) => {
+      const catalog = catalogByTable.get(table);
+      return {
+        table,
+        label: catalog?.label ?? table,
+        domain: catalog?.domain ?? 'other',
+        description: catalog?.description ?? null,
+        howAccumulated: catalog?.howAccumulated ?? null,
+        rowCount: rowCounts.get(table) ?? 0,
+        columns: columnsByTable.get(table) ?? [],
+      };
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      tables,
+      edges,
     };
   }
 
@@ -790,6 +982,24 @@ function isSensitiveColumn(name: string): boolean {
   return /password|secret|private_?key|encrypted|session_token|api_?key/i.test(
     name,
   );
+}
+
+function compactRow(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v != null && typeof v === 'object') {
+      const s = JSON.stringify(v);
+      out[k] =
+        s && s.length > 180 ? `${s.slice(0, 180)}…(+${s.length - 180})` : s;
+      continue;
+    }
+    if (typeof v === 'string' && v.length > 180) {
+      out[k] = `${v.slice(0, 180)}…(+${v.length - 180})`;
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
 }
 
 function redactRow(row: Record<string, unknown>): Record<string, unknown> {

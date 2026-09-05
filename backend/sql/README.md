@@ -10,7 +10,7 @@ SQL in this folder is the **production DDL mirror** — domain-grouped files for
 sql/
 ├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
 ├── schema/
-│   ├── 010_users_and_auth.sql    # users, wallets, auth providers, KYC, verification tokens
+│   ├── 010_users_and_auth.sql    # users, wallets, auth providers, KYC, addresses
 │   ├── 020_vault.sql             # vault_assets/cycles/redemptions + sell-flow submissions
 │   ├── 030_rwa_tokens.sql        # on-chain mint registry
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
@@ -48,6 +48,8 @@ sql/
    │   ├── add_vault_redemptions_custody_refund.sql  # redeem payment micros, custody, refunds, memo, tracking
    │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
    │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
+   │   ├── drop_legacy_unused_tables.sql
+   │   ├── audit_stale_public_tables.sql
    │   └── ensure_marketplace_chain_indexes.sql
 └── scripts/
     └── bootstrap-db.sh
@@ -139,7 +141,6 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 | `user_wallets` | Linked wallets per user |
 | `user_auth_providers` | Normalized login methods |
 | `user_kyc_events` | KYC audit trail |
-| `verification_tokens` | Email verify + password reset tokens |
 | `marketplace_admins` | Admin console credentials |
 | `marketplace_partners` | Consignment sellers (encrypted wallet keys) |
 | `bulk_mint_jobs` | Partner mint+list job runs |

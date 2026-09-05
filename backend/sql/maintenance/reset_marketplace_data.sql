@@ -41,9 +41,6 @@ TRUNCATE TABLE vault_assets RESTART IDENTITY CASCADE;
 -- Optional tables (may be absent on older local DBs).
 DO $$
 BEGIN
-  IF to_regclass('public.psa_cert_snapshots') IS NOT NULL THEN
-    TRUNCATE TABLE psa_cert_snapshots;
-  END IF;
   IF to_regclass('public.vault_psa_arrival_reviews') IS NOT NULL THEN
     TRUNCATE TABLE vault_psa_arrival_reviews RESTART IDENTITY CASCADE;
   END IF;

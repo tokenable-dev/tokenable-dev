@@ -22,6 +22,7 @@ import {
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+import { AdminDataInventorySchemaMap } from "./AdminDataInventorySchemaMap";
 
 type GlanceKey = "stores" | "total" | "catalog" | "markets" | "other";
 
@@ -69,6 +70,33 @@ function formatHighlightKey(key: string): string {
       .replace(/_/g, " ")
       .replace(/^./, (c) => c.toUpperCase())
   );
+}
+
+const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
+
+/** Wired product tables — empty does not mean drop. */
+const KEEP_IF_EMPTY = new Set([
+  "p2p_listings",
+  "p2p_orders",
+  "self_vault_settlements",
+  "cardhedger_price_subscriptions",
+  "cardhedger_daily_price_export_runs",
+  "cardhedger_price_delta_checkpoints",
+  "cardhedger_price_delta_import_runs",
+  "vault_psa_arrival_reviews",
+  "vault_psa_vaulted_reviews",
+  "user_buyer_listing_alert",
+  "marketplace_notifications",
+  "rwa_owner_index_cursors",
+]);
+
+function storeStaleReason(store: DataStoreInventoryRow): string | null {
+  if (store.rowCount === 0) return "empty";
+  if (!store.lastActivityAt) return null;
+  const t = new Date(store.lastActivityAt).getTime();
+  if (Number.isNaN(t)) return null;
+  if (Date.now() - t >= STALE_AFTER_MS) return "stale90";
+  return null;
 }
 
 function highlightEntries(
@@ -255,6 +283,16 @@ function DataStoreCard({
             <span className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs text-zinc-600">
               {store.table}
             </span>
+            {storeStaleReason(store) === "empty" ? (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                비어 있음
+              </span>
+            ) : null}
+            {storeStaleReason(store) === "stale90" ? (
+              <span className="rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-800">
+                90일+ 무활동
+              </span>
+            ) : null}
           </div>
           <p className={`mt-1.5 text-xs sm:text-sm ${ADMIN_TEXT_SECONDARY}`}>
             {store.rowCount.toLocaleString("ko-KR")}행
@@ -367,6 +405,74 @@ function DataStoreCard({
           {browseRows ? <TableRowsBrowser table={store.table} /> : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function StaleStoresPanel({ stores }: { stores: DataStoreInventoryRow[] }) {
+  const rows = stores
+    .map((store) => ({ store, reason: storeStaleReason(store) }))
+    .filter((r): r is { store: DataStoreInventoryRow; reason: string } =>
+      Boolean(r.reason),
+    )
+    .sort((a, b) => a.store.table.localeCompare(b.store.table));
+
+  if (rows.length === 0) {
+    return (
+      <div className={`${ADMIN_ARTICLE} mb-6`}>
+        <AdminSectionTitle
+          title="90일 무적재 후보"
+          subtitle="비어 있거나 최근 활동이 90일을 넘긴 테이블이 지금은 없습니다."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${ADMIN_ARTICLE} mb-6`}>
+      <AdminSectionTitle
+        title="90일 무적재 후보"
+        subtitle="비어 있거나 lastActivity가 90일 이전인 테이블입니다. 코드가 살아있는 기능 테이블은 비어 있어도 삭제하지 않습니다."
+      />
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead>
+            <tr className={`border-b border-zinc-200 text-xs ${ADMIN_TEXT_META}`}>
+              <th className="py-2 pr-3 font-medium">테이블</th>
+              <th className="py-2 pr-3 font-medium">상태</th>
+              <th className="py-2 pr-3 font-medium">권장</th>
+              <th className="py-2 font-medium text-right">행 수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ store, reason }) => {
+              const keep = KEEP_IF_EMPTY.has(store.table);
+              return (
+                <tr key={store.table} className="border-b border-zinc-100">
+                  <td className="py-2 pr-3">
+                    <a href={`#store-${store.id}`} className={ADMIN_LINK}>
+                      {store.table}
+                    </a>
+                  </td>
+                  <td className="py-2 pr-3 text-zinc-700">
+                    {reason === "empty" ? "비어 있음" : "90일+ 무활동"}
+                  </td>
+                  <td className={`py-2 pr-3 ${ADMIN_TEXT_SECONDARY}`}>
+                    {keep
+                      ? "기능 테이블 — 유지 (P2P·시세·PSA 메일 등)"
+                      : store.domain === "other"
+                        ? "카탈로그 없음 — 레거시 후보"
+                        : "확인 후 결정 (코어일 수 있음)"}
+                  </td>
+                  <td className="py-2 text-right font-mono">
+                    {store.rowCount.toLocaleString("ko-KR")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -520,7 +626,7 @@ export function MarketplaceAdminDataInventoryPage() {
     <>
       <MarketplaceAdminPageHeader
         title="데이터 인벤토리"
-        subtitle="public 스키마의 모든 테이블 — 의미·적재 방식·행 수, 그리고 「행 전부 보기」로 실제 DB 행을 페이지 단위로 전부 조회합니다."
+        subtitle="상단 스키마 맵에서 테이블·키·연결을 보고, 아래에서 행 수와 실제 데이터를 조회합니다."
         actions={
           <button
             type="button"
@@ -567,6 +673,10 @@ export function MarketplaceAdminDataInventoryPage() {
           </button>
         }
       />
+
+      <div className="mb-5">
+        <AdminDataInventorySchemaMap />
+      </div>
 
       <div className={`${ADMIN_ARTICLE} mb-5 flex flex-wrap items-center gap-3`}>
         <button
@@ -725,6 +835,8 @@ export function MarketplaceAdminDataInventoryPage() {
               </div>
             ) : null}
           </div>
+
+          <StaleStoresPanel stores={data.stores} />
 
           <div className={`${ADMIN_ARTICLE} mb-6`}>
             <AdminSectionTitle

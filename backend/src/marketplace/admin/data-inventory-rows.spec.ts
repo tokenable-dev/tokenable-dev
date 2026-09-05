@@ -26,6 +26,9 @@ describe('DataInventoryService.getTableRows', () => {
       if (sql.includes('COUNT(*)')) {
         return [{ n: dataRows.length }];
       }
+      if (sql.includes('pg_class')) {
+        return [{ n: dataRows.length }];
+      }
       if (sql.includes('information_schema.columns')) {
         return columns;
       }
@@ -90,5 +93,14 @@ describe('DataInventoryService.getTableRows', () => {
     expect(result.rows[0]?.password_hash).toBe('[REDACTED]');
     expect(result.rows[0]?.email).toBe('a@b.c');
     expect(result.redactedColumns).toContain('password_hash');
+  });
+
+  it('compacts wide JSON without exact COUNT', async () => {
+    const { service } = makeService({
+      rows: [{ id: '1', password_hash: 'secret', blob: { a: 'x'.repeat(400) } }],
+    });
+    const result = await service.getTableRows('users', 1, 50, true);
+    expect(result.pageSize).toBeLessThanOrEqual(8);
+    expect(String(result.rows[0]?.blob)).toContain('…');
   });
 });
