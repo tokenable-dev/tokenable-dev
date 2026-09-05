@@ -1,7 +1,6 @@
 /**
  * Connected-wallet chip: first **5** chars + omission + **last 3** chars (e.g. `0x351...691`).
- * Prefer `WalletAddressCompact` (`@/components/wallet/WalletAddressCompact`) in the UI
- * so the omission is never clipped by CSS ellipsis.
+ * Render head / tail separately so CSS `truncate` cannot clip the omission.
  */
 
 /** For layouts that render head / gap / tail separately (avoids `truncate` eating `...`). */
