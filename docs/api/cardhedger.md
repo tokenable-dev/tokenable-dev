@@ -121,6 +121,8 @@ Market-data logic lives under `marketplace/market-data/`. `CardhedgerMarketDataS
 
 Tables: `cardhedger_price_subscriptions`, `cardhedger_price_delta_checkpoints`, `cardhedger_daily_price_export_runs`, `cardhedger_price_delta_import_runs`.
 
+Flags default **off**. Do **not** `DROP` these tables in cleanup or maintenance — live market reads stay on `collection_market_snapshots` / `card_top100_daily_snapshots`. `reset_marketplace_data.sql` may `TRUNCATE` subscriptions only. Locked by `cardhedger-price-infra-tables.spec.ts`.
+
 ---
 
 ## Admin / ops HTTP

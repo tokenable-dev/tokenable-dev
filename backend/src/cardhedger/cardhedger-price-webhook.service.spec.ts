@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
 import { CardhedgerPriceWebhookService } from './cardhedger-price-webhook.service';
 import { CardhedgerPriceSubscriptionService } from './cardhedger-price-subscription.service';
 
@@ -41,6 +42,29 @@ describe('CardhedgerPriceWebhookService', () => {
       svc.assertAuthorized({ 'x-cardhedger-webhook-secret': 'test-secret' }),
     ).toThrow(ForbiddenException);
     flags.priceWebhookEnabled = true;
+  });
+
+  it('stays disabled under default feature flags (empty env)', () => {
+    const defaultFlags = readCardhedgerFeatureFlags({});
+    const config = {
+      get: (key: string) => {
+        if (key === 'marketplace.cardhedgerFeatureFlags') return defaultFlags;
+        if (key === 'CARDHEDGER_WEBHOOK_SECRET') return 'test-secret';
+        return undefined;
+      },
+    };
+    const svc = new CardhedgerPriceWebhookService(
+      config as never,
+      {
+        findCollectionKeysByCardId: jest.fn(async () => []),
+        touchWebhookForExternalIds: jest.fn(async () => undefined),
+      } as unknown as CardhedgerPriceSubscriptionService,
+      { emit: jest.fn() } as unknown as EventEmitter2,
+    );
+    expect(defaultFlags.priceWebhookEnabled).toBe(false);
+    expect(() =>
+      svc.assertAuthorized({ 'x-cardhedger-webhook-secret': 'test-secret' }),
+    ).toThrow(ForbiddenException);
   });
 
   it('enqueues snapshot refresh for external_id mapping', async () => {
