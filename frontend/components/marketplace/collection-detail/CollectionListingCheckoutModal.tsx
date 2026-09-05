@@ -15,6 +15,7 @@ import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketp
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useAccount } from "wagmi";
 import { useAppStore } from "@/store";
+import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import {
   formatListingUsdc,
   listingAssetTitle,
@@ -22,20 +23,8 @@ import {
   stubListingForOffer,
   isLiveAskListing,
 } from "@/lib/marketplace/collectionListingModalHelpers";
+import { shortenWalletAddress } from "@/lib/wallet/walletMenuDisplay";
 import { CollectionListingBidCheckout } from "./CollectionListingBidCheckout";
-
-function formatUsdc2(n: number): string {
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function shortWallet(addr: string): string {
-  const s = addr.trim();
-  if (s.length < 10) return s;
-  return `${s.slice(0, 4)}…${s.slice(-4)}`;
-}
 
 export function CollectionListingCheckoutModal({
   open,
@@ -158,7 +147,7 @@ export function CollectionListingCheckoutModal({
   const payLabel = useMemo(() => {
     if (buyBusy) return "Processing…";
     if (!isConnected) return "Connect wallet";
-    if (buyPricing) return `Pay $${formatUsdc2(buyPricing.totalUsd)}`;
+    if (buyPricing) return `Pay $${formatTradeTicketUsdcPrice(buyPricing.totalUsd)}`;
     return "Buy";
   }, [buyBusy, isConnected, buyPricing]);
 
@@ -345,13 +334,13 @@ export function CollectionListingCheckoutModal({
               <div className="cd-listing-checkout__row">
                 <span>Item price</span>
                 <span className="tkl-mono">
-                  ${formatUsdc2((buyPricing?.itemUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
+                  ${formatTradeTicketUsdcPrice((buyPricing?.itemUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
                 </span>
               </div>
               <div className="cd-listing-checkout__row cd-listing-checkout__row--total">
                 <span>Total</span>
                 <span>
-                  ${formatUsdc2((buyPricing?.totalUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
+                  ${formatTradeTicketUsdcPrice((buyPricing?.totalUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
                 </span>
               </div>
             </div>
@@ -365,7 +354,7 @@ export function CollectionListingCheckoutModal({
               <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
                 <span className="cd-listing-checkout__wallet-id">
                   <span className="cd-listing-checkout__wallet-icon" aria-hidden />
-                  <span className="tkl-mono">{shortWallet(walletAddress)}</span>
+                  <span className="tkl-mono">{shortenWalletAddress(walletAddress)}</span>
                 </span>
                 <span className="cd-listing-checkout__wallet-balance tkl-mono">
                   {Number(usdcBalanceFormatted).toLocaleString("en-US")} USDC
