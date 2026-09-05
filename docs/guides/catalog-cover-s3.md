@@ -25,6 +25,8 @@ When a collection row is first created (`ensureCollectionForListing` **or** admi
 
 Example: `covers/a1b2c3…/cover`
 
+Client: `normalizeCatalogCoverPublicUrl` (`catalogCoverPublicUrl.ts`) appends `/cover` when a public URL ends at `/covers/{key}`. Collection hero pick (`collectionDisplayImage.ts`) uses that after rejecting PSA `/cert/` slabs, `rwa-slabs/`, and the legacy `cover-image.jpg` API path.
+
 Admin replace and create-time ingest always **overwrite the same object**. No UUID segment — the public URL stays stable for a collection.
 
 Cache-Control on put: `public, max-age=300, must-revalidate` (covers are overwritable; avoid year-long immutable CDN cache).
