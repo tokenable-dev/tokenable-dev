@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **24+ entities** (incl. partners, bulk mint, P2P, notifications) 
+**ORM:** TypeORM (NestJS) — **36 entities** registered in `app.module.ts` 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -43,6 +43,8 @@
 | `vault_redeem_payment_claims` | Ledger: unique `payment_tx_hash` → one `payment_batch_id` (batch total micros). Referenced by paid `vault_redemptions.payment_tx_hash` | `vault/entities/vault-redeem-payment-claim.entity.ts` |
 | `vault_submissions` | Sell-flow shipping package (awaiting_shipment → PSA; add-cards is local) | `vault/entities/vault-submission.entity.ts` |
 | `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
+| `vault_psa_arrival_reviews` | PSA “Items Received” mail (Gmail poll / admin) | `vault/entities/vault-psa-arrival-review.entity.ts` |
+| `vault_psa_vaulted_reviews` | PSA “Items Vaulted” mail → mint/deliver review | `vault/entities/vault-psa-vaulted-review.entity.ts` |
 
 ### Marketplace core
 

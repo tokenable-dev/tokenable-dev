@@ -41,7 +41,7 @@ tokenable-dev/
 | What | Where |
 |------|-------|
 | Local setup | [guides/local-setup.md](guides/local-setup.md) |
-| Database (22 entities) | [architecture/database.md](architecture/database.md) |
+| Database (36 TypeORM entities) | [architecture/database.md](architecture/database.md) |
 | Backend module map | [architecture/backend.md](architecture/backend.md) |
 | Frontend structure | [architecture/frontend.md](architecture/frontend.md) |
 | Blockchain / contract | [architecture/blockchain.md](architecture/blockchain.md) |

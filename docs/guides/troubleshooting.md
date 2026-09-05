@@ -101,7 +101,7 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 ## Frontend API calls return 401
 
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).
-- Google OAuth callback URL must match exactly what is registered in Google Cloud Console.
+- Privy Dashboard allowed domains must include the exact origin users open (scheme + host).
 - `FRONTEND_URL` in backend env must match the URL the user opens in the browser.
 - If response includes `"code":"SITE_ACCESS_REQUIRED"`, complete **`/site-access`** first when `SITE_ACCESS_ENABLED=true` — see [site-access.md](../api/site-access.md).
 
