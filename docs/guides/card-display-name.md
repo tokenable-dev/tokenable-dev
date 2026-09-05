@@ -4,6 +4,8 @@
 
 **Implementation:** `frontend/lib/marketplace/cardDisplayName.ts` (formatters) + `frontend/lib/marketplace/assetDetailHeadline.ts` (build parts from collection/RWA fields).
 
+There is **no shared monorepo package**. Backend must not re-implement formatters. The contract is `backend/src/marketplace/utils/card-display-name.util.spec.ts` (imports the frontend SSOT via `@/`).
+
 ---
 
 ## 1. Canonical name schema (2 lines)

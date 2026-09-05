@@ -1,4 +1,5 @@
 import {
+  isHttpOrHttpsUrl,
   isPsaCertSlabCloudfrontUrl,
   normalizeImageUrl,
   scoreCollectionCoverUrl,
@@ -41,7 +42,7 @@ export function isUsableCardhedgerMintImageUrl(
 ): boolean {
   if (!url?.trim()) return false;
   const t = normalizeImageUrl(url.trim());
-  if (!/^https?:\/\//i.test(t)) return false;
+  if (!isHttpOrHttpsUrl(t)) return false;
   if (isPsaCertSlabCloudfrontUrl(t)) return false;
   if (/\/rwa-slabs\//i.test(t)) return false;
   if (isCardhedgerBrandedPlaceholderUrl(t)) return false;
@@ -67,7 +68,7 @@ export function resolveRemoteMintImageUrl(input: {
   cardhedgerImageUrl?: string | null;
 }): { url: string | null; source: MintImageSource | null } {
   const psa = input.psaCertSlabUrl?.trim() || '';
-  if (psa && /^https?:\/\//i.test(psa)) {
+  if (psa && isHttpOrHttpsUrl(psa)) {
     return { url: normalizeImageUrl(psa), source: 'psa_cert' };
   }
 
@@ -127,7 +128,7 @@ export function readPsaCertBackUrlFromGraded(
       ? verification.slabBack.trim()
       : '';
   const raw = fromPsa || fromVer;
-  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  if (!isHttpOrHttpsUrl(raw)) return null;
   if (isCardhedgerBrandedPlaceholderUrl(raw)) return null;
   return normalizeImageUrl(raw);
 }

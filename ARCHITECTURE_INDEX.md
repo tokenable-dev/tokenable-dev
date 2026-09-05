@@ -81,11 +81,11 @@ Key facts:
 
 | | |
 |---|---|
-| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md` |
+| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md`, `docs/guides/psa-grade-policy.md` |
 | **Backend** | `backend/src/marketplace/orders/`, `backend/src/marketplace/collections/`, `backend/src/marketplace/snapshots/`, `backend/src/marketplace/notifications/` |
 | **Frontend** | `frontend/lib/seaport/`, `frontend/hooks/unified-order-book/`, `frontend/components/marketplace/`, `frontend/components/layout/notifications/` |
 | **Database tables** | `orders`, `marketplace_collections`, `collection_market_snapshots`, `marketplace_notifications` |
-| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md` (card title formatting) |
+| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md`, `docs/guides/card-display-name.md` (card title formatting), `docs/guides/psa-grade-policy.md` (mint grade vs FE display) |
 
 Key facts:
 - Seaport 1.5 only for **Vault** token trades; no relational bid/ask matching
