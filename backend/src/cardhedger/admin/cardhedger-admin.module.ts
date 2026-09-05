@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { CardhedgerModule } from '../cardhedger.module';
 import { MarketplaceAdminModule } from '../../marketplace/admin/marketplace-admin.module';
+import { CardhedgerDailyPriceExportRun } from '../entities/cardhedger-daily-price-export-run.entity';
+import { CardhedgerPriceDeltaCheckpoint } from '../entities/cardhedger-price-delta-checkpoint.entity';
+import { CardhedgerPriceDeltaImportRun } from '../entities/cardhedger-price-delta-import-run.entity';
+import { CardhedgerPriceSubscription } from '../entities/cardhedger-price-subscription.entity';
 import { CardhedgerAdminController } from './cardhedger-admin.controller';
 import { CardhedgerHealthService } from './cardhedger-health.service';
 import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
@@ -23,7 +28,16 @@ import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
  * circular module context. The push-based state pattern above avoids this entirely.
  */
 @Module({
-  imports: [CardhedgerModule, MarketplaceAdminModule],
+  imports: [
+    CardhedgerModule,
+    MarketplaceAdminModule,
+    TypeOrmModule.forFeature([
+      CardhedgerPriceDeltaCheckpoint,
+      CardhedgerPriceDeltaImportRun,
+      CardhedgerDailyPriceExportRun,
+      CardhedgerPriceSubscription,
+    ]),
+  ],
   controllers: [CardhedgerAdminController],
   providers: [CardhedgerHealthService, CardhedgerPrometheusService],
 })
