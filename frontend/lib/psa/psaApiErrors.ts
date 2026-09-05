@@ -3,7 +3,7 @@ export const PSA_RATE_LIMIT_CODE = "PSA_RATE_LIMIT_EXCEEDED";
 
 /** Shown in Sell flow when PSA Public API returns 429. */
 export const PSA_RATE_LIMIT_ALERT_MESSAGE =
-  "PSA lookup limit exceeded. Please try again later.";
+  "PSA Public API quota or rate limit reached. Wait for the daily reset or check your plan at psacard.com/publicapi. After changing backend/.env, restart the backend server.";
 
 export const PSA_RATE_LIMIT_OVERLAY_TITLE = PSA_RATE_LIMIT_ALERT_MESSAGE;
 
@@ -40,6 +40,9 @@ export function isPsaRateLimitError(err: unknown): boolean {
 }
 
 export function formatPsaAnalyzeError(err: unknown): string {
+  if (err instanceof PsaApiError && err.message.trim()) {
+    return err.message.trim();
+  }
   if (isPsaRateLimitError(err)) return PSA_RATE_LIMIT_ALERT_MESSAGE;
   if (err instanceof PsaApiError) return err.message;
   if (err instanceof Error) return err.message;

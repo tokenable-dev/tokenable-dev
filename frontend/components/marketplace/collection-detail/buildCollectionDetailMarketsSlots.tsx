@@ -1,107 +1,140 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { Order } from "@/lib/core";
-import { formatMarketCapUsd } from "@/lib/market";
-import { CollectionDualPriceChart } from "@/components/marketplace/collection-dual-price-chart";
+import { CollectionDetailMetricsStrip } from "./CollectionDetailMetricsStrip";
+import { CollectionDetailPriceChart } from "./CollectionDetailPriceChart";
+import { CollectionDetailMobileScrollPanel } from "./CollectionDetailMobileScrollPanel";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
-import { CollectionPriceMetricsStrip } from "@/components/marketplace/price-metrics-strip";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
-import {
-  CollectionMobileInformationPanel,
-  CollectionMobileListingsSection,
-} from "@/components/marketplace/collection-mobile";
 import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
-type MarketSlice = Pick<
+export type CollectionDetailMarketSlice = Pick<
   ReturnType<typeof useCollectionDetailMarketData>,
-  | "resolvedExternal"
-  | "pokeTierLabel"
-  | "marketSeriesLoading"
-  | "externalPriceChange1MoPct"
-  | "externalPriceChangeResult"
-  | "externalPriceChangeCoverageHint"
-  | "volume24hUsdc"
-  | "platformTradesLoading"
+  | "gradeAwareExternalUsd"
+  | "gradeAwareTierLabel"
+  | "gradeAwarePriceLoading"
+  | "gradeAwareChange1MoPct"
+  | "gradeAwareChangeResult"
+  | "gradeAwareChangeLoading"
+  | "heroTapeStats"
+  | "heroTapeLoading"
   | "totalPopulation"
+  | "psaPopulationMetrics"
   | "marketCapComputation"
   | "chartProps"
+  | "gradeChart"
 >;
 
-export function buildCollectionDetailMarketsSlots(input: {
-  market: MarketSlice;
-  collectionOrderBookProps: CollectionUnifiedOrderBookProps;
-}): {
-  marketsPriceMetricsStrip: ReactNode;
-  collectionDualPriceChart: ReactNode;
-  collectionDualPriceChartTab: ReactNode;
-  collectionOrderBook: ReactNode;
-  collectionOrderBookMobile: ReactNode;
-} {
-  const { market, collectionOrderBookProps } = input;
-  const chartProps = market.chartProps as CollectionDualPriceChartProps;
-
+function metricsStripProps(market: CollectionDetailMarketSlice, coverImageUrl?: string | null) {
   return {
-    marketsPriceMetricsStrip: (
-      <CollectionPriceMetricsStrip
-        showFootnotes={false}
-        compact
-        marketsUnifiedRow
-        externalMarketUsd={market.resolvedExternal.usd}
-        externalPriceSource={market.resolvedExternal.source}
-        marketTierDisplay={market.pokeTierLabel}
-        externalMarketMatchConfidence={market.resolvedExternal.marketMatchConfidence}
-        externalPriceLoading={market.marketSeriesLoading}
-        externalPriceChange1MoPct={market.externalPriceChange1MoPct}
-        externalPriceChangePeriod={market.externalPriceChangeResult}
-        externalPriceChangeBasisText={market.externalPriceChangeCoverageHint}
-        externalPriceChange1MoLoading={market.marketSeriesLoading}
-        volume24hUsdc={market.volume24hUsdc}
-        volume24hLoading={market.platformTradesLoading}
-        totalPopulation={market.totalPopulation}
-        marketCapUsd={market.marketCapComputation?.usd ?? null}
-        marketCapMethodHint={market.marketCapComputation?.methodLabel ?? null}
-        formatMarketCap={formatMarketCapUsd}
-      />
-    ),
-    collectionDualPriceChart: <CollectionDualPriceChart {...chartProps} />,
-    collectionDualPriceChartTab: <CollectionDualPriceChart {...chartProps} embedInMobileTab />,
-    collectionOrderBook: <CollectionUnifiedOrderBook {...collectionOrderBookProps} />,
-    collectionOrderBookMobile: (
-      <CollectionUnifiedOrderBook {...collectionOrderBookProps} embedInMobileTab />
-    ),
+    coverImageUrl,
+    priceUsd: market.gradeAwareExternalUsd,
+    priceLoading: market.gradeAwarePriceLoading,
+    changePct: market.gradeAwareChange1MoPct,
+    changeLoading: market.gradeAwareChangeLoading,
+    changePeriod: market.gradeAwareChangeResult,
+    gradeLabel: market.gradeAwareTierLabel,
+    tradeVolumeUsdc: market.heroTapeStats.volume1yUsdc,
+    median30dUsd: market.heroTapeStats.median30dUsd,
+    velocityPct: market.heroTapeStats.velocityPct,
+    tradeVolumeLoading: market.heroTapeLoading,
+    marketCapUsd: market.marketCapComputation?.usd ?? null,
+    psaPopulationMetrics: market.psaPopulationMetrics,
+    totalPopulation: market.totalPopulation,
   };
 }
 
-export function buildCollectionDetailMobilePanels(input: {
-  market: MarketSlice;
-  asks: Order[];
-  listingsBody: ReactNode;
+export function buildCollectionDetailMarketsSlots(input: {
+  market: CollectionDetailMarketSlice;
+  collectionOrderBookProps: CollectionUnifiedOrderBookProps;
+  coverImageUrl?: string | null;
+  headlineTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineMeta?: string | null;
+  similarPanel?: ReactNode;
+  detailsPanel?: ReactNode;
+  highestBidUsd?: number | null;
+  lowestAskUsd?: number | null;
+  onPlaceBid?: () => void;
+  placeBidDisabled?: boolean;
+  onBuyLowestAsk?: () => void;
+  buyDisabled?: boolean;
 }): {
-  mobileInformationPanel: ReactNode;
-  mobileListingsPanel: ReactNode;
+  marketsPriceMetricsStrip: ReactNode;
+  collectionDualPriceChart: ReactNode;
+  collectionDualPriceChartMobile: ReactNode;
+  collectionOrderBook: ReactNode;
+  collectionOrderBookMobile: ReactNode;
+  mobileScrollPanel: ReactNode;
 } {
-  const { market, asks, listingsBody } = input;
+  const {
+    market,
+    collectionOrderBookProps,
+    coverImageUrl,
+    headlineTitle,
+    headlineParts,
+    headlineMeta,
+    similarPanel,
+    detailsPanel,
+    highestBidUsd,
+    lowestAskUsd,
+    onPlaceBid,
+    placeBidDisabled,
+    onBuyLowestAsk,
+    buyDisabled,
+  } = input;
+  const chartProps = market.chartProps as CollectionDualPriceChartProps;
+  const metricsProps = metricsStripProps(market, coverImageUrl);
+  const renderMetricsStrip = () => (
+    <CollectionDetailMetricsStrip
+      {...metricsProps}
+      headlineTitle={headlineTitle}
+      headlineParts={headlineParts}
+      headlineMeta={headlineMeta}
+      lowestAskUsd={lowestAskUsd}
+      highestBidUsd={highestBidUsd}
+      onBuyLowestAsk={onBuyLowestAsk}
+      onPlaceBid={onPlaceBid}
+      buyDisabled={buyDisabled}
+      bidDisabled={placeBidDisabled}
+    />
+  );
+
+  const collectionDualPriceChartMobile = (
+    <CollectionDetailPriceChart
+      chartProps={chartProps}
+      gradeChart={market.gradeChart}
+      mobileLayout
+    />
+  );
+
+  const collectionOrderBookMobile = (
+    <CollectionUnifiedOrderBook
+      {...collectionOrderBookProps}
+      defaultTab="trades"
+    />
+  );
 
   return {
-    mobileInformationPanel: (
-      <CollectionMobileInformationPanel
-        changePct={market.externalPriceChange1MoPct}
-        changePeriod={market.externalPriceChangeResult}
-        changeLoading={market.marketSeriesLoading}
-        volume24hUsdc={market.volume24hUsdc}
-        volume24hLoading={market.platformTradesLoading}
-        marketCapUsd={market.marketCapComputation?.usd ?? null}
-        totalPopulation={market.totalPopulation}
-        listingCount={asks.length}
-        formatMarketCap={formatMarketCapUsd}
-      />
+    marketsPriceMetricsStrip: renderMetricsStrip(),
+    collectionDualPriceChart: (
+      <CollectionDetailPriceChart chartProps={chartProps} gradeChart={market.gradeChart} />
     ),
-    mobileListingsPanel: (
-      <CollectionMobileListingsSection count={asks.length}>
-        {listingsBody}
-      </CollectionMobileListingsSection>
+    collectionDualPriceChartMobile,
+    collectionOrderBook: (
+      <CollectionUnifiedOrderBook {...collectionOrderBookProps} defaultTab="trades" />
+    ),
+    collectionOrderBookMobile,
+    mobileScrollPanel: (
+      <CollectionDetailMobileScrollPanel
+        statBlock={renderMetricsStrip()}
+        chartPanel={collectionDualPriceChartMobile}
+        similarPanel={similarPanel}
+        orderBookStack={collectionOrderBookMobile}
+        detailsPanel={detailsPanel}
+      />
     ),
   };
 }

@@ -1,8 +1,8 @@
-import type { PublicClient } from "viem";
+import type { Hash, PublicClient, TransactionReceipt } from "viem";
 import type { EstimateContractGasParameters } from "viem";
 
 /**
- * Sepolia·일부 RPC는 블록/트랜잭션 가스 상한이 2^24(16777216) 근처.
+ * 일부 RPC(테스트넷 포함)는 블록/트랜잭션 가스 상한이 2^24(16777216) 근처.
  * MetaMask·viem 기본(~21M)이면 "transaction gas limit too high" 로 거절될 수 있음.
  */
 const GAS_CEILING = BigInt(16000000);
@@ -18,7 +18,7 @@ export const GAS_FALLBACK = {
 } as const;
 
 /** RPC `estimateGas`가 느릴 때 지갑 팝업까지 지연되지 않도록 짧게 두고 fallback 사용 */
-const ESTIMATE_BUDGET_MS = 400;
+const ESTIMATE_BUDGET_MS = 200;
 
 export async function gasWithCap(
   publicClient: PublicClient,
@@ -50,4 +50,27 @@ export async function gasWithCapFast(
         resolve(fallback);
       });
   });
+}
+
+/** Default viem HTTP poll is 4s — user txs feel stuck after the wallet already confirmed. */
+const USER_TX_RECEIPT_POLL_MS = 250;
+const USER_TX_RECEIPT_TIMEOUT_MS = 120_000;
+
+export async function waitForUserTxReceipt(
+  publicClient: PublicClient,
+  hash: Hash,
+): Promise<TransactionReceipt> {
+  try {
+    return await publicClient.waitForTransactionReceipt({
+      hash,
+      pollingInterval: USER_TX_RECEIPT_POLL_MS,
+      timeout: USER_TX_RECEIPT_TIMEOUT_MS,
+    });
+  } catch (e: unknown) {
+    const receipt = await publicClient
+      .getTransactionReceipt({ hash })
+      .catch(() => null);
+    if (receipt) return receipt;
+    throw e;
+  }
 }

@@ -3,26 +3,36 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
+import { mergePsaVarietyWithMintVariant, psaVarietyIndicatesGenericBaseLine } from '../../psa/psa-variety-catalog.util';
+import { PsaSpecPopulationCaptureService } from '../../psa/psa-spec-population-capture.service';
+import {
+  hasCompletePsaPopulationByGrade,
+} from '../../psa/psa-spec-population.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
-  componentsPsaMirrorSufficientForCardhedger,
-  mergePsaCertSnapshotIntoMirror,
-} from '../utils/psa-components-mirror.util';
-import { exactCatalogMatch } from '../utils/card-match.util';
+  cardIdFromPsaCertLookup,
+  catalogRowTrustedForMarketData,
+} from '../utils/card-match.util';
+import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
   mintVariantFromGradedMeta,
+  psaSpecIdFromComponentsRow,
 } from './collection-listing-meta.helpers';
+import { CollectionIdentityService } from './collection-identity.service';
 
 /** PSA/Cardhedger/listing component enrichment from IPFS metadata and active orders. */
 @Injectable()
@@ -35,30 +45,46 @@ export class CollectionComponentsService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly identity: CollectionIdentityService,
+    private readonly specPopCapture: PsaSpecPopulationCaptureService,
   ) {}
+
+  private async fetchCompactCertFromApi(
+    _cert: string,
+    _opts?: { allowUpstream?: boolean },
+  ): Promise<Record<string, unknown> | null> {
+    // Mint-only PSA policy: marketplace never calls Public API.
+    return null;
+  }
 
   private collectionActiveOrdersCap(): number {
     return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
   }
 
-  private async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  private async activeListingsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.created_at', 'ASC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
   }
 
   async ensureMintParallelVarietyFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -67,11 +93,14 @@ export class CollectionComponentsService {
     if (!row) return false;
 
     const variants = new Set<string>();
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const cv = mintVariantFromGradedMeta(meta);
         if (cv) variants.add(cv);
@@ -104,7 +133,10 @@ export class CollectionComponentsService {
       comp.psaVariety = merged;
       dirty = true;
     }
-    const nextParallel = marketParallelKeyFromPsaVariety(merged);
+    const nextParallel = marketParallelKeyFromPsaVariety(
+      merged,
+      String(comp.psaBrand ?? comp.cardSet ?? ''),
+    );
     if (String(comp.marketParallelKey ?? '').toLowerCase() !== nextParallel) {
       comp.marketParallelKey = nextParallel;
       dirty = true;
@@ -123,23 +155,32 @@ export class CollectionComponentsService {
     );
     return true;
   }
+  /** Cert-line TotalPopulation only — Spec Grade1–10 is filled at collection create. */
   async mergePsaPopulationFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    const fresh = extractBucketComponentsFromMetadata(meta);
-    if (fresh?.psaTotalPopulation == null) return;
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: key },
     });
     if (!row) return;
-    const comp = row.components;
-    if (comp.psaTotalPopulation != null) return;
+
+    const fresh = extractBucketComponentsFromMetadata(meta);
+    if (
+      fresh?.psaTotalPopulation == null ||
+      row.components.psaTotalPopulation != null
+    ) {
+      return;
+    }
+    const next = {
+      ...row.components,
+      psaTotalPopulation: fresh.psaTotalPopulation,
+    };
     await this.collectionRepo.update(
       { collectionKey: key },
       {
-        components: { ...comp, psaTotalPopulation: fresh.psaTotalPopulation },
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
   }
@@ -186,8 +227,98 @@ export class CollectionComponentsService {
       );
     }
   }
+
+  /**
+   * Persist `components.psaSpecId` from mint / IPFS metadata only (no PSA Public API).
+   */
+  async mergePsaSpecIdFromCertIfMissing(
+    collectionKey: string,
+    _psaCert: string | undefined,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!row) return;
+    if (psaSpecIdFromComponentsRow(row.components)) return;
+
+    const specId = cardhedgerFromRwaMetadata(meta).psaSpecId;
+    if (!specId) return;
+
+    const next = { ...row.components, psaSpecId: specId };
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Fill Spec Grade1–10 on collection components (collection-create path).
+   * Marketplace on-read must call without allowUpstream (no-op).
+   * Reuses sibling SpecID cache; otherwise one GetPSASpecPopulation.
+   */
+  async ensurePsaSpecPopulationFromApi(
+    collectionKey: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<void> {
+    if (opts?.allowUpstream !== true) {
+      return;
+    }
+
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!row) return;
+
+    const comp = (row.components ?? {}) as Record<string, unknown>;
+    if (hasCompletePsaPopulationByGrade(comp)) return;
+
+    const specId = psaSpecIdFromComponentsRow(comp);
+    if (!specId) {
+      this.logger.debug(
+        `ensurePsaSpecPopulationFromApi skipped collection=${key} (no psaSpecId)`,
+      );
+      return;
+    }
+
+    let capture;
+    try {
+      capture = await this.specPopCapture.captureForSpecId(specId);
+    } catch (e) {
+      this.logger.warn(
+        `ensurePsaSpecPopulationFromApi error collection=${key} specId=${specId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return;
+    }
+    if (!capture) return;
+
+    const next = {
+      ...row.components,
+      psaSpecId: capture.specId,
+      psaPopulationByGrade: capture.byGrade,
+      psaSpecTotalPopulation: capture.total,
+      psaGrade10Population: capture.grade10,
+    };
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+    this.logger.log(
+      `Collection ${key}: Spec pop stored from ${capture.source} specId=${capture.specId}`,
+    );
+  }
+
   async ensurePsaTotalPopulationFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -202,11 +333,14 @@ export class CollectionComponentsService {
       return;
     }
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const extracted = extractBucketComponentsFromMetadata(meta);
         let pop: number | undefined = extracted?.psaTotalPopulation;
@@ -241,9 +375,13 @@ export class CollectionComponentsService {
 
   /**
    * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
+   *
+   * First-write goes through `writeFromMintMetadata`. When the identity cache
+   * flag is off, a unanimous listing ID may still overwrite a stored value.
    */
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -260,16 +398,23 @@ export class CollectionComponentsService {
         ? comp.cardhedgerSearchQuery.trim()
         : '';
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     const ids = new Set<string>();
     const queries = new Set<string>();
+    let lastMeta: Record<string, unknown> | null = null;
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const ch = cardhedgerFromRwaMetadata(meta);
-        if (ch.cardId) ids.add(ch.cardId);
+        if (ch.cardId) {
+          ids.add(ch.cardId);
+          lastMeta = meta;
+        }
         if (ch.searchQuery) queries.add(ch.searchQuery);
       } catch {
         /* skip */
@@ -284,6 +429,12 @@ export class CollectionComponentsService {
     }
     if (ids.size === 0) return false;
 
+    if (lastMeta) {
+      await this.identity.writeFromMintMetadata(k, lastMeta);
+      if (this.identity.isEnabled()) return true;
+    }
+
+    // Flag off: listings may still overwrite a stored id when they agree on one value.
     const only = [...ids][0];
     const nextComp: Record<string, unknown> = { ...comp };
     let dirty = false;
@@ -309,7 +460,10 @@ export class CollectionComponentsService {
   }
 
   /** 활성 ask 메타에서 단일 cert → `psa_cert_number` 컬럼 (충돌 시 미저장). */
-  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
+  async ensurePsaCertNumberFromListings(
+    collectionKey: string,
+    opts?: { schedulePsaRefresh?: boolean; chainId?: SupportedChainId },
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
@@ -317,12 +471,15 @@ export class CollectionComponentsService {
     if (!row) return;
 
     const colC = row.psaCertNumber?.trim() || '';
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, opts?.chainId);
     const certs = new Set<string>();
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          opts?.chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const c = psaCertNumberFromGradedMeta(meta);
         if (c) certs.add(c);
@@ -346,7 +503,6 @@ export class CollectionComponentsService {
       { collectionKey: k },
       { psaCertNumber: only },
     );
-    this.psaCertSnapshots.scheduleRefreshIfNeeded(only);
   }
 
   /**
@@ -379,6 +535,7 @@ export class CollectionComponentsService {
     }
     const nextParallel = marketParallelKeyFromPsaVariety(
       String(comp.psaVariety ?? ''),
+      String(comp.psaBrand ?? comp.cardSet ?? ''),
     );
     if (String(comp.marketParallelKey ?? '').toLowerCase() !== nextParallel) {
       comp.marketParallelKey = nextParallel;
@@ -399,33 +556,106 @@ export class CollectionComponentsService {
    * Upstream PSA Public API — only when allowed and mirror/cache still insufficient.
    */
   async refreshPsaPublicSnapshotForCollection(
+    _collectionKey: string,
+    _opts?: { allowUpstream?: boolean },
+  ): Promise<void> {
+    // Mint-only PSA policy: marketplace snapshot refresh never calls PSA.
+  }
+
+  async mergePsaCertFromLiveApiIntoComponents(
+    col: MarketplaceCollection,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<MarketplaceCollection> {
+    const cert = psaCertNumberFromCollectionRow(col);
+    if (!cert) return col;
+    const snap = await this.fetchCompactCertFromApi(cert, opts);
+    return this.mergePsaSnapshotIntoComponents(col, snap);
+  }
+
+  /**
+   * Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit.
+   * Default `allowUpstream: false` — mint-only PSA policy (no live Public API on read/snapshot).
+   */
+  async persistPsaMirrorFromCertToDb(
     collectionKey: string,
     opts?: { allowUpstream?: boolean },
-  ): Promise<void> {
-    if (opts?.allowUpstream === false) return;
+  ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
     });
-    if (!row) return;
-    const cert = psaCertNumberFromCollectionRow(row);
-    if (!cert) return;
-
-    if (componentsPsaMirrorSufficientForCardhedger(row.components)) {
-      const fresh = await this.psaCertSnapshots.getSnapshotJsonIfFresh(cert);
-      if (fresh) return;
-    }
-
-    await this.psaCertSnapshots.refreshIfStale(cert);
+    if (!row) return false;
+    const merged = await this.mergePsaCertFromLiveApiIntoComponents(
+      row,
+      opts ?? { allowUpstream: false },
+    );
+    const compBefore = JSON.stringify(row.components);
+    const compAfter = JSON.stringify(merged.components);
+    const parallelChanged =
+      String(row.marketParallelKey ?? '').toLowerCase() !==
+      String(merged.marketParallelKey ?? '').toLowerCase();
+    if (compBefore === compAfter && !parallelChanged) return false;
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      {
+        components: merged.components as QueryDeepPartialEntity<
+          Record<string, unknown>
+        >,
+        marketParallelKey: merged.marketParallelKey,
+      },
+    );
+    return true;
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
-    col: MarketplaceCollection,
-  ): Promise<MarketplaceCollection> {
-    const cert = psaCertNumberFromCollectionRow(col);
-    if (!cert) return col;
-    const snap = await this.psaCertSnapshots.getSnapshotJsonIfFresh(cert);
-    return this.mergePsaSnapshotIntoComponents(col, snap);
+  /**
+   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a match.
+   * Writes when the field is empty. Identity-on path used to require `verified` only,
+   * so Japanese set-string approximate matches (SV2a vs Scarlet & Violet 151) never
+   * persisted — admin showed Missing cardhedgerCardId while the snapshot still priced.
+   */
+  async writeCardhedgerIdFromResolvedSearch(
+    collectionKey: string,
+    resolvedCardId: string,
+    confidence: 'verified' | 'approximate',
+    searchQuery?: string | null,
+  ): Promise<void> {
+    const trimmedId = resolvedCardId.trim();
+    if (!trimmedId) return;
+    await this.identity.writeFromResolvedSearch(
+      collectionKey,
+      trimmedId,
+      confidence,
+      searchQuery,
+    );
+  }
+
+  /**
+   * Back-fill `components.cardhedgerCardId` from a cert-authoritative lookup
+   * (`POST /v1/cards/details-by-certs`). Delegates to `writeFromCertLookup`
+   * which is a conditional first-write (no-op when ID already stored).
+   */
+  async writeCardhedgerIdFromCertLookup(
+    collectionKey: string,
+    certCardId: string,
+    searchQuery?: string | null,
+  ): Promise<void> {
+    await this.identity.writeFromCertLookup(
+      collectionKey,
+      certCardId,
+      searchQuery,
+    );
+  }
+
+  /**
+   * Store a CardHedger-formatted search query from `cert_info.description` when
+   * `card: null`. Enables the text-search path to use a high-quality query on
+   * the next snapshot refresh.
+   */
+  async writeCardhedgerSearchQueryFromCert(
+    collectionKey: string,
+    description: string,
+  ): Promise<void> {
+    return this.identity.writeSearchQueryFromCert(collectionKey, description);
   }
 
   private extractCardhedgerCardDataRow(
@@ -469,6 +699,58 @@ export class CollectionComponentsService {
     if (!cardId)
       return { checked: false, ok: true, cleared: false, failCodes: [] };
 
+    /**
+     * Cert-sourced IDs skip name/set fuzzy audit (PSA set strings diverge), but
+     * still fail when the catalog variant conflicts with PSA Variety.
+     */
+    if (cardIdFromPsaCertLookup(comp)) {
+      const psaVariety = String(comp.psaVariety ?? comp.variant ?? '').trim();
+      const brandOrSet = String(comp.psaBrand ?? comp.cardSet ?? '').trim();
+      if (!psaVariety || psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet || null)) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      let certRaw: unknown;
+      try {
+        certRaw = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          { body: { card_id: cardId } },
+        );
+      } catch {
+        return {
+          checked: true,
+          ok: true,
+          cleared: false,
+          failCodes: ['upstream_fetch_failed'],
+        };
+      }
+      const certRow = this.extractCardhedgerCardDataRow(certRaw);
+      if (!certRow) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      if (cardhedgerRowMatchesPsaVariety(certRow, psaVariety)) {
+        return { checked: true, ok: true, cleared: false, failCodes: [] };
+      }
+      if (options?.clearOnMismatch) {
+        const { cleared } = await this.identity.clearCardhedgerCardIdIfUnchanged(
+          k,
+          cardId,
+        );
+        return {
+          checked: true,
+          ok: false,
+          cleared,
+          failCodes: ['psa_variety_mismatch'],
+        };
+      }
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['psa_variety_mismatch'],
+      };
+    }
+
     const wantName = String(comp.cardName ?? '').trim();
     const wantSet = String(comp.cardSet ?? '').trim();
     const wantNum = String(comp.cardNumber ?? '').trim();
@@ -506,42 +788,98 @@ export class CollectionComponentsService {
         cleared: false,
         failCodes: ['empty_card_payload'],
       };
-    const ex = exactCatalogMatch(
-      { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
+    const psaSubject =
+      typeof comp.psaSubject === 'string' ? comp.psaSubject.trim() : '';
+    const psaBrand =
+      typeof comp.psaBrand === 'string' ? comp.psaBrand.trim() : '';
+    const psaVarietyHint = String(
+      comp.psaVariety ?? comp.variant ?? '',
+    ).trim();
+    const ex = catalogRowTrustedForMarketData(
+      {
+        cardName: wantName,
+        cardNumber: wantNum,
+        cardSet: wantSet,
+        psaSubject: psaSubject || undefined,
+        psaBrand: psaBrand || undefined,
+        psaVariety: psaVarietyHint || undefined,
+        psaYear:
+          typeof comp.psaYear === 'string'
+            ? comp.psaYear.trim()
+            : typeof comp.psaYear === 'number' && Number.isFinite(comp.psaYear)
+              ? String(Math.floor(comp.psaYear))
+              : undefined,
+        cardhedgerSearchQuery:
+          typeof comp.cardhedgerSearchQuery === 'string'
+            ? comp.cardhedgerSearchQuery.trim()
+            : undefined,
+        listingDisplayTitle:
+          typeof comp.listingDisplayTitle === 'string'
+            ? comp.listingDisplayTitle.trim()
+            : undefined,
+      },
       {
         name: String(row.description ?? row.name ?? ''),
         cardNumber: String(row.number ?? ''),
         set: { name: String(row.set ?? '') },
       },
     );
-    if (ex.ok)
-      return { checked: true, ok: true, cleared: false, failCodes: [] };
+    if (ex.ok) {
+      const psaVariety = psaVarietyHint;
+      const brandOrSet = psaBrand || wantSet || null;
+      if (
+        psaVariety &&
+        !psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet) &&
+        !cardhedgerRowMatchesPsaVariety(row, psaVariety)
+      ) {
+        if (options?.clearOnMismatch) {
+          const { cleared } =
+            await this.identity.clearCardhedgerCardIdIfUnchanged(k, cardId);
+          const varietyFail = {
+            checked: true,
+            ok: false,
+            cleared,
+            failCodes: ['psa_variety_mismatch'],
+          };
+          this.identity.logAuditDecision(k, varietyFail);
+          return varietyFail;
+        }
+        const varietyFail = {
+          checked: true,
+          ok: false,
+          cleared: false,
+          failCodes: ['psa_variety_mismatch'],
+        };
+        this.identity.logAuditDecision(k, varietyFail);
+        return varietyFail;
+      }
+      const successResult = { checked: true, ok: true, cleared: false, failCodes: [] };
+      this.identity.logAuditDecision(k, successResult);
+      return successResult;
+    }
 
     if (options?.clearOnMismatch) {
-      const nextComponents: Record<string, unknown> = { ...comp };
-      delete nextComponents.cardhedgerCardId;
-      delete nextComponents.cardhedgerSearchQuery;
-      await this.collectionRepo.update(
-        { collectionKey: k },
-        {
-          components: nextComponents as QueryDeepPartialEntity<
-            Record<string, unknown>
-          >,
-        },
+      const { cleared } = await this.identity.clearCardhedgerCardIdIfUnchanged(
+        k,
+        cardId,
       );
-      return {
+      const clearedResult = {
         checked: true,
         ok: false,
-        cleared: true,
+        cleared,
         failCodes: ex.failCodes,
       };
+      this.identity.logAuditDecision(k, clearedResult);
+      return clearedResult;
     }
-    return {
+    const result = {
       checked: true,
       ok: false,
       cleared: false,
       failCodes: ex.failCodes,
     };
+    this.identity.logAuditDecision(k, result);
+    return result;
   }
 
   async auditStaleCardhedgerCardIdsOnBoot(): Promise<void> {
@@ -581,49 +919,15 @@ export class CollectionComponentsService {
     );
   }
 
-  /** Backward-compatible alias now backed by Cardhedger exact verification. */
-  async auditCollectionCardIdExact(
-    collectionKey: string,
-    options?: { clearOnMismatch?: boolean },
-  ): Promise<{
-    checked: boolean;
-    ok: boolean;
-    cleared: boolean;
-    failCodes: string[];
-  }> {
-    return this.auditCardhedgerCardIdExact(collectionKey, options);
-  }
-
-  /** duplicate key race 시 메타에만 있고 DB에 없는 cardhedger id/searchQuery 병합 */
+  /**
+   * Duplicate-key race: fill `cardhedgerCardId` + `cardhedgerSearchQuery` when the
+   * row was created by another listing and its metadata had these fields.
+   */
   async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    const key = collectionKey.toLowerCase();
-    const dbRow = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
-    });
-    if (!dbRow) return;
-    const comp = dbRow.components;
-    if (
-      typeof comp.cardhedgerCardId === 'string' &&
-      comp.cardhedgerCardId.trim()
-    ) {
-      return;
-    }
-    const ch = cardhedgerFromRwaMetadata(meta);
-    if (!ch.cardId) return;
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: {
-          ...comp,
-          cardhedgerCardId: ch.cardId,
-          ...(ch.psaSpecId ? { psaSpecId: ch.psaSpecId } : {}),
-          ...(ch.searchQuery ? { cardhedgerSearchQuery: ch.searchQuery } : {}),
-        } as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.identity.writeFromMintMetadata(collectionKey, meta);
   }
 
   /** Duplicate-key race: fill `listingDisplayTitle` when the row was created by another listing first. */
@@ -661,6 +965,7 @@ export class CollectionComponentsService {
    */
   async ensureListingDisplayTitleFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -674,11 +979,14 @@ export class CollectionComponentsService {
         : '';
     if (existing.length > 0) return;
 
-    const asks = await this.activeListingsForCollection(k);
+    const asks = await this.activeListingsForCollection(k, chainId);
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(
+          Number(o.tokenId),
+          chainId,
+        );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const t = extractListingDisplayTitleFromMeta(meta);
         if (!t) continue;

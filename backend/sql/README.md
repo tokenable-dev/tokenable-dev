@@ -2,7 +2,7 @@
 
 Canonical model: TypeORM entities under `backend/src/**/entities/*.ts`.
 
-SQL in this folder is the **production-grade DDL** mirror — modular, commented, idempotent, with CHECK constraints and partial indexes where they matter.
+SQL in this folder is the **production DDL mirror** — domain-grouped files for fresh bootstrap (no incremental migration chain).
 
 ## Layout
 
@@ -10,28 +10,60 @@ SQL in this folder is the **production-grade DDL** mirror — modular, commented
 sql/
 ├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
 ├── schema/
-│   ├── 010_users.sql
-│   ├── 015_psa_cert_snapshots.sql
-│   ├── 020_marketplace_collections.sql
-│   ├── 025_rwa_tokens.sql
-│   ├── 030_collection_market_snapshots.sql
-│   ├── 040_orders.sql
-│   ├── 050_refactor_legacy_columns.sql  # migrate older DBs; safe on fresh bootstrap
-│   ├── 060_portfolio_daily_snapshots.sql
-│   ├── 061_portfolio_hidden_holdings.sql
+│   ├── 010_users_and_auth.sql    # users, wallets, auth providers, KYC, addresses
+│   ├── 020_vault.sql             # vault_assets/cycles/redemptions + sell-flow submissions
+│   ├── 030_rwa_tokens.sql        # on-chain mint registry
+│   ├── 040_marketplace.sql       # collections, market snapshots, orders
+│   ├── 045_p2p.sql               # P2P listings + payment-escrow orders
+│   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
+│   ├── 060_admin.sql             # marketplace_admins
+│   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
+│   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
+│   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
+│   ├── 070_cardhedger.sql        # Cardhedger infra + top100 snapshots
 │   └── 900_triggers.sql          # updated_at triggers
-├── scripts/
-│   └── bootstrap-db.sh           # cat schema/*.sql — works with stdin pipe / Docker
-└── seed-dev-platform-chart-fills.sql
+├── seed/
+│   ├── marketplace-admin.sql     # default admin credentials (dev/staging)
+│   └── dev-platform-chart-fills.sql
+├── maintenance/
+│   ├── reset_marketplace_data.sql       # wipe marketplace + vault rows (keep users)
+│   ├── add_vault_submissions.sql        # existing DBs: sell-flow submission tables
+│   ├── add_marketplace_partners.sql     # existing DBs: partners table
+│   ├── add_marketplace_partner_addresses.sql  # existing DBs: partner Origin address
+│   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
+│   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
+│   ├── add_collection_review_status.sql
+│   ├── add_portfolio_daily_snapshot_chain_id.sql
+│   ├── add_vault_cycles_chain_id.sql
+│   ├── add_vault_cycles_mint_attempt.sql       # minting status + mint_attempt JSON (crash recovery)
+│   ├── add_marketplace_notifications_chain_id.sql
+│   ├── cancel_legacy_vault_submission_drafts.sql  # cancel orphan status=draft packages
+│   ├── add_self_vault_settlements.sql
+│   ├── add_rwa_tokens_settlement_policy.sql
+│   ├── nullable_rwa_tokens_settlement_policy.sql  # NULL = custody unknown until mint registry
+│   ├── alter_marketplace_partners_optional_pk.sql
+│   ├── add_rwa_tokens_vault_partner_id.sql
+│   ├── add_vault_submission_item_display_fields.sql  # SSOT card fields on vault_submission_items
+│   ├── add_user_settings_prefs_and_addresses.sql
+   │   ├── add_vault_redemptions_custody_refund.sql  # redeem payment micros, custody, refunds, memo, tracking
+   │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
+   │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
+   │   ├── drop_legacy_unused_tables.sql
+   │   ├── audit_stale_public_tables.sql
+   │   └── ensure_marketplace_chain_indexes.sql
+└── scripts/
+    └── bootstrap-db.sh
 ```
 
 ## When to use what
 
 | Environment | Approach |
 |-------------|----------|
-| **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot. Easiest path. |
-| **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false`. |
-| **Review / audit** | Read `schema/*.sql` — one file per table group. |
+| **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
+| **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
+| **Existing prod after code pull** | Run `backend/sql/scripts/apply-deploy-maintenance.sh` (also in CI deploy), or apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
+| **Site relaunch (keep users)** | Admin **Data inventory → Reset DB for new contract**, or `maintenance/reset_marketplace_data.sql`. Run `node scripts/burn-all-rwa-tokens.mjs` first only if re-minting same PSA certs on a contract that still has live tokens |
+| **Review / audit** | Read `schema/*.sql` — one file per domain |
 
 ### Bootstrap (recommended)
 
@@ -40,7 +72,7 @@ From repo root, with Docker Postgres:
 ```bash
 chmod +x backend/sql/scripts/bootstrap-db.sh
 docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
-  backend/sql/scripts/bootstrap-db.sh
+  bash -s < backend/sql/scripts/bootstrap-db.sh
 ```
 
 Or with `DATABASE_URL`:
@@ -50,68 +82,115 @@ DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable \
   backend/sql/scripts/bootstrap-db.sh
 ```
 
-When the SQL tree is **on disk inside the container** (volume mount):
-
-```bash
-docker exec tokenable-postgres psql -U tokenable -d tokenable \
-  -v ON_ERROR_STOP=1 -f /path/to/backend/sql/bootstrap-empty-prod-db.sql
-```
-
 (`bootstrap-empty-prod-db.sql` uses `\ir schema/…` — must run from `backend/sql/`.)
 
-## Tables
+### Existing DB: portfolio chain_id + marketplace indexes
+
+If `portfolio_daily_snapshots` still has UNIQUE `(wallet_address, snapshot_date_kst)` (no `chain_id`), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql
+```
+
+Optional (safe to re-run) — restores/adds order + P2P indexes used by chain-scoped reads:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/ensure_marketplace_chain_indexes.sql
+```
+
+**Do not rely on TypeORM `synchronize` for the portfolio unique-key change** — the old unique constraint must be dropped explicitly.
+
+### Existing DB: marketplace notifications chain_id
+
+If `marketplace_notifications` has no `chain_id` (inbox mixed Sepolia + Polygon alerts), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_marketplace_notifications_chain_id.sql
+```
+
+Legacy rows backfill as Sepolia (`11155111`). New bid alerts store the RWA contract’s chain.
+
+### Existing DB: vault cycles chain_id
+
+If `vault_cycles` has no `chain_id` (open-cycle rule was global across chains — a Sepolia mint blocked the same cert on Polygon), apply:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/add_vault_cycles_chain_id.sql
+```
+
+Backfills legacy cycles (P2P-linked rows from `p2p_listings.chain_id`, the rest as Sepolia) and replaces the partial unique index `uq_vault_cycles_one_open_per_asset` with `(vault_asset_id, chain_id)`. **`synchronize` alone will not replace the partial index.**
+
+### Reset marketplace data only
+
+Keeps `users`, `marketplace_admins`, and Cardhedger infra tables. Wipes orders, collections, rwa_tokens, vault lifecycle, portfolio snapshots.
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/reset_marketplace_data.sql
+```
+
+## Tables (24)
 
 | Table | Purpose |
 |-------|---------|
-| `users` | Google OAuth accounts + optional wallet |
-| `psa_cert_snapshots` | PSA Public API cache by cert number |
-| `marketplace_collections` | Bucket metadata + indexed parallel/cert facets |
-| `rwa_tokens` | On-chain mint registry (tokenId → cert, IPFS) |
-| `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
-| `orders` | Seaport ask/bid listings + fulfilled tape |
-| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD per on-chain holder (+ zero-card tracked wallets) |
-| `portfolio_hidden_holdings` | Per-wallet UI hide list (off-chain; excluded from portfolio totals) |
+| `users` | Platform accounts (Privy / Google / email) |
+| `user_wallets` | Linked wallets per user |
+| `user_auth_providers` | Normalized login methods |
+| `user_kyc_events` | KYC audit trail |
+| `marketplace_admins` | Admin console credentials |
+| `marketplace_partners` | Consignment sellers (encrypted wallet keys) |
+| `bulk_mint_jobs` | Partner mint+list job runs |
+| `bulk_mint_job_items` | Per-cert rows (price, order_hash, status) |
+| `vault_assets` | Permanent physical card identity |
+| `vault_cycles` | Deposit→redeem lifecycle per asset |
+| `vault_redemptions` | Redemption state machine |
+| `rwa_tokens` | On-chain mint registry |
+| `marketplace_collections` | Graded-metadata bucket catalog |
+| `collection_market_snapshots` | Materialized Cardhedger pricing |
+| `orders` | Seaport ask/bid + fulfilled tape |
+| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio totals **per chain** (`chain_id`) |
+| `portfolio_holdings` | Per-wallet hide + cost basis |
+| `user_watchlist` | Saved collections per user |
+| `cardhedger_price_subscriptions` | Cardhedger price push registrations |
+| `cardhedger_price_delta_checkpoints` | Delta poll checkpoint (singleton) |
+| `cardhedger_daily_price_export_runs` | Nightly CSV export audit |
+| `cardhedger_price_delta_import_runs` | Delta import run audit |
+| `card_top100_daily_snapshots` | Daily Top 100 rank snapshots |
+
+Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/database.md)**
 
 ## Portfolio daily snapshot env
 
 | Variable | Purpose |
 |----------|---------|
-| `PORTFOLIO_SNAPSHOT_CRON_ENABLED` | Daily 09:00 KST capture for all holders (default **on** in `production`) |
-| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | On boot, run the same holder capture into the active 09:00 KST slot (default **on** in `production`) |
+| `PORTFOLIO_SNAPSHOT_CRON_ENABLED` | Daily 09:00 KST capture (default **on** in `production`) |
+| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | Boot capture into active slot (default **on** in `production`) |
 | `PORTFOLIO_SNAPSHOT_BOOTSTRAP_DELAY_MS` | Delay before bootstrap (default **10000**) |
-| `PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY` | Parallel `ownerOf` RPC during holder discovery (default **24**) |
-| `PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY` | Parallel wallet upserts after batch pricing (default **8**) |
-
-Rows upsert on `(wallet_address, snapshot_date_kst)`. `snapshot_at` is always the slot’s **09:00 Asia/Seoul** (latest completed checkpoint). Cron uses a Postgres advisory lock so only one instance runs per tick. Portfolio API read path backfills a **missing** current-day row only; it does not overwrite existing cron rows.
+| `PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY` | Parallel `ownerOf` RPC (default **4**) |
+| `PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY` | Parallel wallet upserts (default **8**) |
 
 ## Snapshot worker env
 
 | Variable | Purpose |
 |----------|---------|
-| `MARKET_SNAPSHOT_ON_DEMAND` | Cold-start upstream refresh when no row (default **on**) |
+| `MARKET_SNAPSHOT_ON_DEMAND` | Cold-start upstream refresh (default **on**) |
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | SWR freshness window (default **900**) |
-| `MARKET_SNAPSHOT_CRON_ENABLED` | Background `@Cron` refresh (default **on**) |
+| `MARKET_SNAPSHOT_CRON_ENABLED` | Background refresh (default **on**) |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | Worker concurrency (default **4**) |
 | `MARKET_SNAPSHOT_CRON_MAX_KEYS` | Max keys per cron tick (default **120**) |
-| `MARKET_SNAPSHOT_RECENT_FILL_DAYS` | Include collections with recent fulfilled asks (default **30**) |
-| `MARKET_SNAPSHOT_VIEWED_LOOKBACK_DAYS` | Include recently viewed collections (default **7**) |
-| `MARKET_SNAPSHOT_PREWARM_DELAY_MS` | Boot prewarm delay (default **8000**) |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | PSA cert snapshot cache TTL (default **7 days**) |
-| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | `manual` (default): PSA API only on `cold_start` / `manual` snapshot refresh — not cron/stale_swr/prewarm. `always` / `never` |
-| `PSA_PUBLIC_API_MAX_RETRIES` | Extra attempts after HTTP 429 (default **0** — fail fast) |
+| `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | In-process cache for the full `collection_market_snapshots` price index used by portfolio (default **30000**, max 300000) |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, snapshot refresh may call PSA for cert mirror |
 
 ## Collection bucket key (v2)
 
-`collection_key` = SHA-256 of graded identity including **card number** + **market parallel** (`base` or PSA `Variety` slug). Base and Refractor lines no longer share one bucket.
-
 | Variable | Purpose |
 |----------|---------|
-| `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | When `1`/`true`, recompute keys for all **active asks** from IPFS metadata and update `orders.collection_key` (run once after deploy) |
-| `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | When `1`/`true`, scan all minted RWA tokenIds and upsert `rwa_tokens` from chain/IPFS |
-
-After bucket migration, delete stale snapshots for affected keys or wait for `MARKET_SNAPSHOT_SOURCE_VERSION` refresh.
-
-**Schema refactor:** Cardhedger pricing audit columns and per-collection PSA JSON were removed from `marketplace_collections`; use `collection_market_snapshots` and `psa_cert_snapshots` instead. Existing DBs: run `schema/050_refactor_legacy_columns.sql` (included in bootstrap).
+| `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | Recompute active ask keys from IPFS metadata |
+| `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | Scan all minted tokenIds → `rwa_tokens` |
 
 ---
 
@@ -120,17 +199,15 @@ After bucket migration, delete stale snapshots for affected keys or wait for `MA
 1. `docker compose down`
 2. `docker volume rm tokenable-dev_postgres_data` (prefix may differ — `docker volume ls`)
 3. `docker compose up -d postgres`
-4. `cd backend && pnpm start:dev` — TypeORM sync creates schema, **or** run bootstrap script above first and set `TYPEORM_SYNC=false`.
+4. `cd backend && pnpm start:dev` — TypeORM sync, **or** run bootstrap + `TYPEORM_SYNC=false`
 
 ---
 
-## Dev: platform chart seed data
-
-Fulfilled ask rows for collection chart testing:
+## Dev seeds (optional)
 
 ```bash
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable \
-  < backend/sql/seed-dev-platform-chart-fills.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/sql/seed/marketplace-admin.sql
+psql "$DATABASE_URL" -f backend/sql/seed/dev-platform-chart-fills.sql
 ```
 
-Match `rwa_contract` / `usdc_contract` at the top of the seed file to `backend/.env`.
+Match contract addresses at the top of `dev-platform-chart-fills.sql` to `backend/.env`.

@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { Order } from "@/lib/core";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import {
   buildAskDepthLevels,
   buildBidDepthLevels,
@@ -14,6 +16,12 @@ import {
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 
+/** Active bids shown in Offers depth — token offers (BR-8a) plus any legacy criteria bids. */
+function isActiveOrderBookBid(b: Order): boolean {
+  if (b.status !== "active") return false;
+  return isTokenBidOrder(b) || isCriteriaCollectionBid(b);
+}
+
 export function useUnifiedOrderBook({
   asks,
   collectionBids,
@@ -21,35 +29,45 @@ export function useUnifiedOrderBook({
   lastTradeSide = null,
   compact = false,
   flush = false,
+  defaultTab = "book",
 }: Pick<
   CollectionUnifiedOrderBookProps,
-  "asks" | "collectionBids" | "lastTradePriceUsdc" | "lastTradeSide" | "compact" | "flush"
+  | "asks"
+  | "collectionBids"
+  | "lastTradePriceUsdc"
+  | "lastTradeSide"
+  | "compact"
+  | "flush"
+  | "defaultTab"
 >) {
-  const [tab, setTab] = useState<OrderBookTab>("book");
+  const [tab, setTab] = useState<OrderBookTab>(defaultTab);
 
-  const criteriaBids = useMemo(
-    () => collectionBids.filter((b) => isCriteriaCollectionBid(b) && b.status === "active"),
+  const activeBids = useMemo(
+    () => collectionBids.filter(isActiveOrderBookBid),
     [collectionBids],
   );
 
-  const askRows = useMemo(() => [...asks].sort(cmpAskByPriceThenToken), [asks]);
-  const bidRows = useMemo(() => [...criteriaBids].sort(cmpBidByPriceDesc), [criteriaBids]);
+  const askRows = useMemo(
+    () =>
+      [...asks]
+        .filter((o) => o.status === "active")
+        .sort(cmpAskByPriceThenToken),
+    [asks],
+  );
+  const bidRows = useMemo(() => [...activeBids].sort(cmpBidByPriceDesc), [activeBids]);
 
   const askLevels = useMemo(() => buildAskDepthLevels(askRows), [askRows]);
   const bidLevels = useMemo(() => buildBidDepthLevels(bidRows), [bidRows]);
-
-  const bestAskPrice = useMemo(() => bestAskFromRows(askRows), [askRows]);
-  const bestBidPrice = useMemo(() => bestBidFromRows(bidRows), [bidRows]);
 
   const bookCenterModel = useMemo(
     () =>
       buildOrderBookCenterModel({
         lastTradePriceUsdc,
         lastTradeSide,
-        bestAskPrice,
-        bestBidPrice,
+        bestAskUsdc: bestAskFromRows(askRows),
+        bestBidUsdc: bestBidFromRows(bidRows),
       }),
-    [bestAskPrice, bestBidPrice, lastTradePriceUsdc, lastTradeSide],
+    [lastTradePriceUsdc, lastTradeSide, askRows, bidRows],
   );
 
   const depthMax = compact ? "max-h-[72px]" : "max-h-[100px]";

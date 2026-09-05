@@ -37,8 +37,6 @@ export interface GradedCardMetadata {
     /** Clean catalog image URL (no PSA cert label) — used as collection cover */
     imageUrl?: string;
   };
-  /** Collection cover on IPFS after server trims slab top (mint response) */
-  collectionCoverImage?: string;
   /** Fields filled by the PSA pipeline (cert, gradeLabel, etc.) */
   psa?: {
     certNumber?: string;

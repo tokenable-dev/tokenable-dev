@@ -2,11 +2,14 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  Logger,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { VaultService } from '../vault/vault.service';
+import { VaultSubmissionService } from '../vault/vault-submission.service';
+import { psaCertNumberFromGradedMeta } from '../marketplace/utils/collection-image.util';
+import {
+  resolveCatalogCoverMime,
+} from '../marketplace/collections/catalog-cover-s3.service';
 import { PinataService } from './pinata/pinata.service';
-import { cropPsaSlabForCollectionCover } from '../psa/utils/psa-slab-crop.util';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import {
   mintRejectionMessage,
@@ -17,9 +20,30 @@ import {
   RwaMetadata,
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
+import { RwaSlabS3Service } from './rwa-slab-s3.service';
+import { readRwaMintPlaceholderPng } from './rwa-mint-placeholder.util';
+import {
+  type MintImageSource,
+  readCardhedgerMintImageUrlFromGraded,
+  readPsaCertBackUrlFromGraded,
+  readPsaCertSlabUrlFromGraded,
+  resolveRemoteMintImageUrl,
+} from './rwa-mint-image.util';
 
-function safeCollectionCoverFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'rwa';
+function patchGradedPsaCertImageBackUrl(
+  metadata: RwaMetadata,
+  url: string,
+): void {
+  const props = metadata.properties;
+  if (!props || typeof props !== 'object') return;
+  const graded = props.graded;
+  if (!graded || typeof graded !== 'object') return;
+  const g = graded as Record<string, unknown>;
+  const prev =
+    g.psa && typeof g.psa === 'object'
+      ? (g.psa as Record<string, unknown>)
+      : {};
+  g.psa = { ...prev, certImageBackUrl: url };
 }
 
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
@@ -32,74 +56,18 @@ function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
 
 @Injectable()
 export class RwaService {
-  private readonly logger = new Logger(RwaService.name);
-
   constructor(
     private readonly pinataService: PinataService,
-    private readonly config: ConfigService,
+    private readonly vault: VaultService,
+    private readonly vaultSubmissions: VaultSubmissionService,
+    private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
-
-  /** 상단 PSA 라벨 제거 비율 (0~0.55). 기본 0.26 — `PSA_SLAB_COVER_TOP_TRIM_RATIO` */
-  private getPsaSlabTopTrimRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_TOP_TRIM_RATIO');
-    if (raw === undefined || raw === '') return 0.26;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.55 ? n : 0.26;
-  }
-
-  /** 좌·우 베젤 제거: 너비의 비율(각 측). 기본 0.09 — `PSA_SLAB_COVER_SIDE_INSET_RATIO` */
-  private getPsaSlabSideInsetRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_SIDE_INSET_RATIO');
-    if (raw === undefined || raw === '') return 0.09;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.25 ? n : 0.09;
-  }
-
-  /** 하단 베젤 제거: 높이 비율. 기본 0.05(보수적) — `PSA_SLAB_COVER_BOTTOM_INSET_RATIO` */
-  private getPsaSlabBottomInsetRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_BOTTOM_INSET_RATIO');
-    if (raw === undefined || raw === '') return 0.05;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.4 ? n : 0.05;
-  }
-
-  private psaSlabCropOptions() {
-    return {
-      topTrimRatio: this.getPsaSlabTopTrimRatio(),
-      sideInsetRatio: this.getPsaSlabSideInsetRatio(),
-      bottomInsetRatio: this.getPsaSlabBottomInsetRatio(),
-    };
-  }
-
-  /** 컬렉션 대표용 — 상단 PSA 라벨·베젤 크롭 후 IPFS CID. 실패 시 undefined. */
-  private async tryUploadPsaCollectionCover(
-    buffer: Buffer,
-    dtoName: string,
-  ): Promise<string | undefined> {
-    try {
-      const cropped = await cropPsaSlabForCollectionCover(
-        buffer,
-        this.psaSlabCropOptions(),
-      );
-      const fn = `collection-cover-${safeCollectionCoverFilename(dtoName)}.png`;
-      return await this.pinataService.uploadBuffer(cropped, fn, 'image/png');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`PSA slab crop skipped: ${msg}`);
-      return undefined;
-    }
-  }
 
   async uploadToIpfs(
     dto: UploadRwaDto,
+    chainId: number,
     file?: Express.Multer.File,
   ): Promise<UploadRwaResult> {
-    if (!file && !dto.imageUrl) {
-      throw new BadRequestException(
-        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
-      );
-    }
-
     let parsedGraded: {
       graded?: Record<string, unknown>;
       attributes?: RwaAttribute[];
@@ -121,13 +89,45 @@ export class RwaService {
     }
 
     const gradedObj = parsedGraded?.graded;
+    let mintImageSource: MintImageSource = 'tokenable_placeholder';
+    let mintFile = file;
+    let remoteMintUrl: string | null = null;
+
+    if (mintFile?.buffer) {
+      mintImageSource = 'user_upload';
+    } else {
+      const remote = resolveRemoteMintImageUrl({
+        psaCertSlabUrl: readPsaCertSlabUrlFromGraded(gradedObj),
+        userImageUrl: dto.imageUrl?.trim(),
+        cardhedgerImageUrl: readCardhedgerMintImageUrlFromGraded(gradedObj),
+      });
+      if (remote.url && remote.source) {
+        remoteMintUrl = remote.url;
+        mintImageSource = remote.source;
+      } else {
+        const placeholder = readRwaMintPlaceholderPng();
+        mintFile = {
+          buffer: placeholder.buffer,
+          originalname: placeholder.originalname,
+          mimetype: placeholder.mimetype,
+          fieldname: 'file',
+          encoding: '7bit',
+          size: placeholder.buffer.length,
+          stream: undefined as unknown as Express.Multer.File['stream'],
+          destination: '',
+          filename: '',
+          path: '',
+        };
+        mintImageSource = 'tokenable_placeholder';
+      }
+    }
     const psaGraded =
       gradedObj && typeof gradedObj === 'object'
         ? isPsaGraded(gradedObj)
         : false;
     if (!gradedObj || typeof gradedObj !== 'object') {
       throw new BadRequestException(
-        'PSA 인증 메타데이터가 필요합니다. OCR/Cert 조회로 PSA 10 확인 후 mint 해주세요.',
+        'PSA 인증 메타데이터가 필요합니다. OCR/Cert 조회로 PSA 등급 확인 후 mint 해주세요.',
       );
     }
     if (!psaGraded) {
@@ -142,54 +142,111 @@ export class RwaService {
       throw new BadRequestException(gradeReject);
     }
 
-    let imageCID: string;
-    let collectionCoverIpfsCid: string | undefined;
+    const certNumber = psaCertNumberFromGradedMeta({ graded: gradedObj });
+    if (!certNumber) {
+      throw new BadRequestException(
+        'Could not extract a PSA cert number from gradedMetadata — required to open a vault cycle.',
+      );
+    }
+    await this.vault.assertAvailableForNewCycle(certNumber, chainId);
 
-    if (file?.buffer) {
-      imageCID = await this.pinataService.uploadFile(file);
-      if (psaGraded) {
-        collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
-          file.buffer,
-          dto.name,
+    let imageCID!: string;
+    let displayImageUrl: string | null = null;
+
+    if (mintFile?.buffer) {
+      const mime = resolveCatalogCoverMime(mintFile.mimetype, mintFile.buffer);
+      if (!mime) {
+        throw new BadRequestException(
+          '이미지 파일 형식이 올바르지 않습니다 (JPEG/PNG/WebP).',
         );
       }
-    } else if (dto.imageUrl) {
-      if (psaGraded) {
+      const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+        chainId,
+        certNumber,
+        buffer: mintFile.buffer,
+        contentType: mime,
+      });
+      try {
+        imageCID = await this.pinataService.uploadFile(mintFile);
+      } catch {
+        throw new InternalServerErrorException(
+          '이미지 IPFS 업로드에 실패했습니다.',
+        );
+      }
+      displayImageUrl = await slabPromise;
+    } else if (remoteMintUrl) {
+      let fetched: { buffer: Buffer; mimeType: string; extension: string };
+      try {
+        fetched = await this.pinataService.fetchImageBufferFromUrl(remoteMintUrl);
+      } catch {
+        if (mintImageSource === 'cardhedger_catalog') {
+          const placeholder = readRwaMintPlaceholderPng();
+          mintFile = {
+            buffer: placeholder.buffer,
+            originalname: placeholder.originalname,
+            mimetype: placeholder.mimetype,
+            fieldname: 'file',
+            encoding: '7bit',
+            size: placeholder.buffer.length,
+            stream: undefined as unknown as Express.Multer.File['stream'],
+            destination: '',
+            filename: '',
+            path: '',
+          };
+          mintImageSource = 'tokenable_placeholder';
+          const mime = resolveCatalogCoverMime(
+            mintFile.mimetype,
+            mintFile.buffer,
+          );
+          if (!mime) {
+            throw new InternalServerErrorException(
+              'Mint placeholder image is invalid.',
+            );
+          }
+          const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+            chainId,
+            certNumber,
+            buffer: mintFile.buffer,
+            contentType: mime,
+          });
+          imageCID = await this.pinataService.uploadFile(mintFile);
+          displayImageUrl = await slabPromise;
+        } else {
+          throw new InternalServerErrorException(
+            'URL 이미지를 가져오지 못했습니다.',
+          );
+        }
+      }
+      if (!mintFile?.buffer) {
+        const slabPromise = this.rwaSlabS3.ingestMintSlabBestEffort({
+          chainId,
+          certNumber,
+          buffer: fetched!.buffer,
+          contentType: fetched!.mimeType,
+        });
         try {
-          const { buffer, mimeType, extension } =
-            await this.pinataService.fetchImageBufferFromUrl(dto.imageUrl);
-          const baseFn = `${safeCollectionCoverFilename(dto.name)}.${extension}`;
           imageCID = await this.pinataService.uploadBuffer(
-            buffer,
-            baseFn,
-            mimeType,
+            fetched!.buffer,
+            `${dto.name}.${fetched!.extension}`,
+            fetched!.mimeType,
           );
-          collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
-            buffer,
-            dto.name,
-          );
-        } catch (e: unknown) {
-          this.logger.error('Failed to fetch or upload PSA image from URL', e);
+        } catch {
           throw new InternalServerErrorException(
             'URL 이미지 IPFS 업로드에 실패했습니다.',
           );
         }
-      } else {
-        imageCID = await this.pinataService.uploadFromUrl(
-          dto.imageUrl,
-          dto.name,
-        );
+        displayImageUrl = await slabPromise;
       }
     } else {
-      throw new BadRequestException(
-        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
+      throw new InternalServerErrorException(
+        'Mint image could not be resolved.',
       );
     }
 
     const metadata: RwaMetadata = {
       name: dto.name,
       description: dto.description,
-      image: `ipfs://${imageCID}`,
+      image: this.pinataService.ipfsUri(imageCID),
       ...(dto.attributes && { attributes: dto.attributes }),
     };
 
@@ -197,13 +254,11 @@ export class RwaService {
       metadata.properties = {
         ...(metadata.properties ?? {}),
         ...(parsedGraded.properties ?? {}),
+        mintImageSource,
       };
       if (parsedGraded.graded && typeof parsedGraded.graded === 'object') {
         metadata.properties.graded = {
           ...parsedGraded.graded,
-          ...(collectionCoverIpfsCid && {
-            collectionCoverImage: `ipfs://${collectionCoverIpfsCid}`,
-          }),
         };
       }
       if (parsedGraded.attributes?.length) {
@@ -217,6 +272,20 @@ export class RwaService {
       }
     }
 
+    let displayImageBackUrl: string | null = null;
+    const backSource = readPsaCertBackUrlFromGraded(gradedObj);
+    if (backSource) {
+      displayImageBackUrl = await this.rwaSlabS3.ingestMintSlabBestEffort({
+        chainId,
+        certNumber,
+        sourceUrl: backSource,
+        face: 'back',
+      });
+      if (displayImageBackUrl) {
+        patchGradedPsaCertImageBackUrl(metadata, displayImageBackUrl);
+      }
+    }
+
     const metadataCID = await this.pinataService.uploadMetadata(metadata);
 
     return {
@@ -224,6 +293,54 @@ export class RwaService {
       metadataCID,
       imageCID,
       metadata,
+      displayImageUrl,
+      displayImageBackUrl,
     };
+  }
+
+  /** UI pre-flight — does not reserve a cycle. */
+  async checkCertAvailability(
+    certNumber: string,
+    chainId: number,
+  ): Promise<{
+    available: boolean;
+    certNumber: string;
+    message: string | null;
+  }> {
+    const trimmed = certNumber.trim();
+    if (!/^\d{7,10}$/.test(trimmed)) {
+      throw new BadRequestException(
+        'Enter a valid PSA cert number (7–10 digits).',
+      );
+    }
+
+    const cycleCheck = await this.vault.checkAvailableForNewCycle(
+      trimmed,
+      chainId,
+    );
+    if (!cycleCheck.available) {
+      return cycleCheck;
+    }
+
+    try {
+      await this.vaultSubmissions.assertCertAvailableForSelfVault(trimmed);
+    } catch (e) {
+      if (e instanceof BadRequestException) {
+        const body = e.getResponse();
+        const raw =
+          typeof body === 'object' && body !== null && 'message' in body
+            ? (body as { message: string | string[] }).message
+            : e.message;
+        const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
+        return {
+          available: false,
+          certNumber: trimmed,
+          message,
+        };
+      }
+      throw e;
+    }
+
+    return { available: true, certNumber: trimmed, message: null };
   }
 }

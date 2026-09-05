@@ -11,17 +11,20 @@ import { RwaDetailSlabSection } from "./slab/RwaDetailSlabSection";
 export function RwaDetailAssetPanel({
   metadata,
   imageUrl,
+  imageBackUrl = null,
   tokenId,
   collectionLabel,
   metaLoading,
   priceMetricsSlot,
   mobileHeroTradingSlot,
+  mobileSlabCaptionSlot,
   hideHeaderOnXl = false,
   openSeaMobile = false,
 }: RwaDetailAssetPanelProps) {
   const slab = useRwaDetailSlabPanel({
     metadata,
     imageUrl,
+    imageBackUrl,
     tokenId,
     collectionLabel,
     metaLoading,
@@ -32,7 +35,7 @@ export function RwaDetailAssetPanel({
     <div
       className={`flex min-w-0 flex-col gap-4 max-xl:gap-3 lg:gap-5 ${
         openSeaMobile
-          ? "max-lg:items-center max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:text-center lg:items-start lg:pt-0"
+          ? "max-lg:w-fit max-lg:max-w-full max-lg:self-center max-lg:items-stretch max-lg:gap-0 max-lg:px-0 max-lg:pt-0 lg:items-start lg:pt-0"
           : ""
       }`}
     >
@@ -55,6 +58,7 @@ export function RwaDetailAssetPanel({
         imageUrl={imageUrl}
         openSeaMobile={openSeaMobile}
         mobileHeroTradingSlot={mobileHeroTradingSlot}
+        mobileSlabCaptionSlot={mobileSlabCaptionSlot}
         slab={slab}
       />
     </div>

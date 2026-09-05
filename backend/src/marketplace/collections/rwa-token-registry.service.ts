@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
@@ -15,6 +15,16 @@ function metadataCidFromTokenUri(uri: string): string | null {
   return cid || null;
 }
 
+/**
+ * TokenableRWA mints 1..totalMinted (`_nextTokenId` starts at 1).
+ * A 0..totalMinted-1 scan skips the newest id and wastes a call on token 0.
+ */
+export function mintedTokenIdRange(totalMinted: number): number[] {
+  const n = Math.floor(Number(totalMinted));
+  if (!Number.isFinite(n) || n <= 0) return [];
+  return Array.from({ length: n }, (_, i) => i + 1);
+}
+
 @Injectable()
 export class RwaTokenRegistryService {
   private readonly logger = new Logger(RwaTokenRegistryService.name);
@@ -24,22 +34,19 @@ export class RwaTokenRegistryService {
     private readonly repo: Repository<RwaToken>,
     private readonly blockchain: BlockchainService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
-  private rwaContractAddress(): string {
-    return (
-      this.config.get<string>('RWA_CONTRACT_ADDRESS')?.trim().toLowerCase() ??
-      ''
-    );
+  private rwaContractAddress(chainId?: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(chainId ?? this.chainConfig.getDefaultChainId());
   }
 
   async upsertFromMetadata(
     tokenId: string | number,
     meta: Record<string, unknown>,
-    opts?: { tokenUri?: string; collectionKey?: string | null },
+    opts?: { tokenUri?: string; collectionKey?: string | null; chainId?: SupportedChainId },
   ): Promise<void> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(opts?.chainId);
     if (!contract) return;
     const tid = String(tokenId).trim();
     if (!tid) return;
@@ -52,8 +59,12 @@ export class RwaTokenRegistryService {
     const tokenUri = opts?.tokenUri?.trim() || null;
     const metadataCid = tokenUri ? metadataCidFromTokenUri(tokenUri) : null;
 
-    await this.repo.upsert(
-      {
+    // Explicit orUpdate columns — never touch `settlement_policy` (set at mint).
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(RwaToken)
+      .values({
         tokenContract: contract,
         tokenId: tid,
         certNumber: cert,
@@ -62,23 +73,35 @@ export class RwaTokenRegistryService {
         displayName,
         collectionKey: opts?.collectionKey?.toLowerCase() ?? null,
         metadataSyncedAt: new Date(),
-      },
-      ['tokenContract', 'tokenId'],
-    );
+      })
+      .orUpdate(
+        [
+          'cert_number',
+          'token_uri',
+          'metadata_cid',
+          'display_name',
+          'collection_key',
+          'metadata_synced_at',
+        ],
+        ['token_contract', 'token_id'],
+      )
+      .execute();
   }
 
   async syncTokenFromChain(
     tokenId: number,
     collectionKey?: string | null,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) return;
     try {
-      const tokenUri = await this.blockchain.getRwaTokenURI(tokenId);
+      const tokenUri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
       const meta = await this.ipfsResolver.fetchMetadataJson(tokenUri);
       await this.upsertFromMetadata(tokenId, meta, {
         tokenUri,
         collectionKey: collectionKey ?? null,
+        chainId,
       });
     } catch (e) {
       this.logger.debug(
@@ -87,27 +110,62 @@ export class RwaTokenRegistryService {
     }
   }
 
-  /** Scan `0..totalMinted-1` on the configured RWA contract (boot / admin). */
-  async syncAllMintedFromChain(): Promise<{ scanned: number; upserted: number }> {
-    const contract = this.rwaContractAddress();
+  /** Index `rwa_tokens` from chain when Calculate/pay hits a missing registry row. */
+  async ensureFromChain(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const id = Math.floor(Number(tokenId));
+    if (!Number.isFinite(id) || id <= 0) return;
+    await this.syncTokenFromChain(id, null, chainId);
+    if (await this.hasRow(id, chainId)) return;
+    try {
+      const tokenUri = await this.blockchain.getRwaTokenURI(id, chainId);
+      await this.upsertFromMetadata(id, {}, { tokenUri, chainId });
+    } catch (e) {
+      this.logger.debug(
+        `rwa_tokens ensure skip #${id}: ${String(e).slice(0, 120)}`,
+      );
+    }
+  }
+
+  private async hasRow(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<boolean> {
+    const contract = this.rwaContractAddress(chainId);
+    if (!contract) return false;
+    const tid = String(tokenId);
+    const row = await this.repo.findOne({
+      where: { tokenContract: contract, tokenId: tid },
+      select: ['tokenId'],
+    });
+    return Boolean(row);
+  }
+
+  /** Scan `1..totalMinted` on the configured RWA contract (boot / admin). */
+  async syncAllMintedFromChain(chainId?: SupportedChainId): Promise<{ scanned: number; upserted: number }> {
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) return { scanned: 0, upserted: 0 };
-    const { totalMinted: total } = await this.blockchain.getRwaInfo();
+    const { totalMinted: total } = await this.blockchain.getRwaInfo(chainId);
+    const ids = mintedTokenIdRange(total);
     let upserted = 0;
-    for (let id = 0; id < total; id++) {
+    for (const id of ids) {
       try {
-        await this.syncTokenFromChain(id);
+        await this.syncTokenFromChain(id, null, chainId);
         upserted++;
       } catch {
         /* skip */
       }
     }
-    return { scanned: total, upserted };
+    return { scanned: ids.length, upserted };
   }
 
   async collectionKeysByTokenIds(
     tokenIds: Array<string | number>,
+    chainId?: SupportedChainId,
   ): Promise<Record<number, string>> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const out: Record<number, string> = {};
     if (!contract) return out;
 
@@ -134,8 +192,8 @@ export class RwaTokenRegistryService {
   }
 
   /** Minted token ids indexed for a marketplace collection bucket (fast merkle path). */
-  async tokenIdsForCollectionKey(collectionKey: string): Promise<string[]> {
-    const contract = this.rwaContractAddress();
+  async tokenIdsForCollectionKey(collectionKey: string, chainId?: SupportedChainId): Promise<string[]> {
+    const contract = this.rwaContractAddress(chainId);
     const key = collectionKey.trim().toLowerCase();
     if (!contract || !key) return [];
 

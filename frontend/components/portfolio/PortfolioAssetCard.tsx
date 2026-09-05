@@ -1,8 +1,9 @@
 "use client";
 
-import { formatUsdCompact } from "@/lib/market";
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
-import { CategoryBadge, CollectiblePriceLine } from "./CollectibleCardChrome";
+import { PortfolioAssetCardCta } from "./PortfolioAssetCardCta";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
+import { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
 import {
   PortfolioCardIconButton,
   PortfolioHideIcon,
@@ -14,33 +15,38 @@ export function PortfolioAssetCard({
   assetFilter,
   address,
   valuesPending,
-  isBurnAdmin,
   cancellingListingTokenId,
-  burningTokenId,
   hidingTokenId,
   unhidingTokenId,
   onOpen,
   onRequestHide,
   onUnhide,
+  onChangeListing,
   onCancelListing,
-  onBurn,
+  onSellNow,
+  onSetPrice,
 }: {
   row: AssetRow;
   assetFilter: AssetListFilter;
   address: string | undefined;
   valuesPending: boolean;
-  isBurnAdmin: boolean;
   cancellingListingTokenId: number | null;
-  burningTokenId: number | null;
   hidingTokenId: number | null;
   unhidingTokenId: number | null;
   onOpen: () => void;
   onRequestHide: () => void;
   onUnhide: () => void;
-  onCancelListing: () => void;
-  onBurn: () => void;
+  /** @deprecated Prefer onSetPrice */
+  onChangeListing?: () => void;
+  /** @deprecated Prefer Edit price drawer cancel */
+  onCancelListing?: () => void;
+  /** @deprecated Prefer onSetPrice */
+  onSellNow?: () => void;
+  onSetPrice?: () => void;
 }) {
-  const titleLine = row.setName ? `${row.name} · ${row.setName}` : row.name;
+  const titleLine = row.name;
+  const isListed = row.listPriceUsd != null && row.activeListingOrderHash != null;
+  const setPrice = onSetPrice ?? onChangeListing ?? onSellNow;
 
   return (
     <div
@@ -53,21 +59,21 @@ export function PortfolioAssetCard({
           onOpen();
         }
       }}
-      className="group flex min-w-0 w-full cursor-pointer flex-col overflow-hidden rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] sm:rounded-xl sm:shadow-lg"
+      className="pf-asset-card group flex min-w-0 w-full cursor-pointer flex-col text-left outline-none"
     >
-      <div className="relative aspect-[5/6] w-full bg-[#070a0f] sm:aspect-[3/4]">
+      <div className="pf-asset-card__image-wrap relative w-full shrink-0 overflow-hidden">
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={row.imageUrl}
             alt=""
-            className="h-full w-full object-contain object-center p-1.5 transition-transform duration-300 group-hover:scale-[1.02] sm:p-3"
+            className="h-full w-full object-contain object-center p-2 sm:p-3"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
-            <span className="font-mono text-[11px] text-gray-600">#{row.tokenId}</span>
+            <span className="font-mono text-xs text-gray-600">#{row.tokenId}</span>
             <span className="text-[10px] text-gray-600">No preview image</span>
           </div>
         )}
@@ -112,83 +118,23 @@ export function PortfolioAssetCard({
           </PortfolioCardIconButton>
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
-            {row.listPriceUsd != null ? (
-              <span className="inline-flex shrink-0 items-center rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-mint sm:px-2 sm:text-[10px]">
-                Listed
-              </span>
-            ) : null}
-            {row.category ? <CategoryBadge label={row.category} /> : null}
-          </div>
-          <p
-            className="truncate text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
-            title={titleLine}
-          >
-            {titleLine}
-          </p>
+      <div className="pf-asset-card__body flex min-w-0 flex-1 flex-col">
+        <p
+          className={`pf-asset-card__title ${CARD_DISPLAY_LINE1_CLAMP_CLASS} [--cd-line1-lh:1.375]`}
+          title={titleLine}
+        >
+          {titleLine}
+        </p>
+        <div className="min-w-0 border-t border-white/8 pt-2">
+          <PortfolioListingPriceStrip
+            askPriceUsd={row.listPriceUsd}
+            marketPriceUsd={row.currentPrice}
+            marketPending={valuesPending}
+          />
         </div>
-        <div className="min-w-0 space-y-0.5 border-t border-gray-800/80 pt-2 sm:space-y-1 sm:pt-3">
-          <CollectiblePriceLine
-            label="Your Ask Price"
-            title={
-              row.listPriceUsd != null
-                ? `Your Ask Price : ${formatUsdCompact(row.listPriceUsd)}`
-                : "Your Ask Price : —"
-            }
-          >
-            {row.listPriceUsd != null ? formatUsdCompact(row.listPriceUsd) : "—"}
-          </CollectiblePriceLine>
-          <CollectiblePriceLine
-            label="Market Price"
-            title={
-              row.currentPrice != null
-                ? `Market Price : ${formatUsdCompact(row.currentPrice)}`
-                : "Market Price : —"
-            }
-          >
-            {valuesPending && row.currentPrice == null ? (
-              <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-800/80 align-middle sm:h-3.5 sm:w-14" />
-            ) : row.currentPrice != null ? (
-              formatUsdCompact(row.currentPrice)
-            ) : (
-              "—"
-            )}
-          </CollectiblePriceLine>
-        </div>
-        {row.listPriceUsd != null && row.activeListingOrderHash && address ? (
-          <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-            <button
-              type="button"
-              disabled={cancellingListingTokenId === row.tokenId}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onCancelListing();
-              }}
-              className="w-full rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-            >
-              {cancellingListingTokenId === row.tokenId ? "Cancelling…" : "Cancel listing"}
-            </button>
-          </div>
-        ) : null}
-        {isBurnAdmin && address && assetFilter !== "hidden" ? (
-          <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-            <button
-              type="button"
-              disabled={
-                burningTokenId === row.tokenId || cancellingListingTokenId === row.tokenId
-              }
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onBurn();
-              }}
-              className="w-full rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-amber-200 transition-colors hover:border-amber-400/45 hover:bg-amber-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-            >
-              {burningTokenId === row.tokenId ? "Burning…" : "Burn (test)"}
-            </button>
+        {address && assetFilter !== "hidden" && setPrice ? (
+          <div className="pf-asset-card__actions border-t border-white/8 pt-2">
+            <PortfolioAssetCardCta isListed={isListed} onSetPrice={setPrice} />
           </div>
         ) : null}
       </div>

@@ -1,0 +1,105 @@
+---
+description: Frontend coding rules for Next.js pages, components, hooks, and API clients
+globs: ["frontend/**/*"]
+alwaysApply: false
+---
+
+# Frontend Rules
+
+## Required Reading
+
+Before modifying frontend code, read:
+- `docs/architecture/frontend.md` — component hierarchy and state management
+- `docs/file-structure.md` — folder conventions
+- `frontend/lib/core/queryKeys.ts` — existing query key patterns
+- `frontend/lib/core/invalidation.ts` — cache invalidation patterns
+
+## Pages (app/ Router)
+
+1. Pages are thin shells. They wire one primary hook and render one primary component.
+
+2. Always add `"use client"` if the page uses hooks, state, or browser APIs. Otherwise omit.
+
+3. Route files live in `app/{path}/page.tsx`. Admin pages under `app/marketplace/admin/`.
+
+## Components
+
+4. One component per file. File name matches export name exactly.
+
+5. Domain prefix for scoped components: `Marketplace*`, `Collection*`, `RwaDetail*`, `Portfolio*`.
+
+6. Shared UI in `components/ui/`. Domain components in `components/{domain}/`.
+
+7. Admin components in `components/marketplace/admin/`. Export from `components/marketplace/admin/index.ts`.
+
+8. Components only render UI and delegate all data fetching/mutation to hooks.
+
+## Hooks
+
+9. Every data-fetching concern gets a dedicated hook in `hooks/{domain}/`.
+
+10. Naming: `use{FeatureName}.ts`. Always `"use client"` at top.
+
+11. Use React Query for server state. Use Zustand stores only for global client state.
+
+12. Always provide `queryKey` from `queryKeys.ts` for all `useQuery` calls.
+
+13. Add a new key to `queryKeys.ts` for every new data entity fetched.
+
+14. Add cache invalidation in `lib/core/invalidation.ts` for mutations that affect cached data.
+
+15. State machine pattern for forms: `type Step = 'idle' | 'pending' | 'success' | 'error'`.
+
+16. Use `submitLockRef` to prevent double-submit on async operations.
+
+## API Clients
+
+17. API client functions in `lib/core/api/{domain}.ts` — one file per backend module.
+
+18. Functions return typed results. Do not use `any`.
+
+19. Use `apiFetch` (or `fetch` with base URL from env) — never hard-code API hostnames.
+
+## State Management
+
+20. `useAuthStore` — user session, login/logout. Do not put marketplace data here.
+
+21. `useAuthUiStore` — modal state only (sign-in, wallet connect, KYC, returnTo).
+
+22. `useAppStore` — wallet address, USDC balance, refreshTick.
+
+23. React Query owns all server-fetched data. Do not store API responses in Zustand.
+
+## Authentication / Access Gates
+
+24. Use `useTradeAccessGate()` before any trade action (requires linked wallet).
+
+25. Use `useSellAccessGate()` before vault/sell actions (requires KYC approved).
+
+26. Never bypass access gates. They open the appropriate modal for the user.
+
+27. Use `useEnsureAccountWalletReady()` before signing any transaction — it ensures the Privy embedded wallet is initialized.
+
+## Seaport & Blockchain
+
+28. Seaport typed data must be signed via `useSeaportOrderSigner` — which prefers Privy embedded wallet.
+
+29. For USDC approvals: use `useERC20ApproveIfNeeded` from wagmi hooks.
+
+30. The `x-tokenable-chain-id` header is set by `setActiveChainIdForApi()` and read by the backend's `ChainConfigService`.
+
+31. Do not call `TokenableRWA.mint()` or `adminBurn()` from frontend. Those are backend-only.
+
+## Constants
+
+32. Contract addresses come from `constants/contracts.ts` (derived from `NEXT_PUBLIC_CHAIN_*` env vars).
+
+33. `NEXT_PUBLIC_*` env vars are baked at build time — changing them requires a frontend rebuild.
+
+## TypeScript
+
+34. No `any` types in new code. Use `unknown` with type narrowing if needed.
+
+35. React Query returns typed data — define the response type in `lib/core/api/` files.
+
+36. Run `pnpm exec tsc --noEmit` before considering a change complete.

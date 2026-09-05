@@ -14,6 +14,12 @@ export interface GradePriceStrip {
 }
 
 const SEC_DAY = 86_400;
+
+/** True when first→last span covers at least 365 calendar days (tolerant of timestamp gaps). */
+export function referenceHistoryCoversFullYear(spanSec: number): boolean {
+  return Math.round(spanSec / SEC_DAY) >= 365;
+}
+
 export const REFERENCE_CHANGE_LAG_1Y_SEC = 365 * SEC_DAY;
 
 /** Max calendar gap between anchor sale and (latest.t − lag) for a trustworthy 1y label. */
@@ -91,7 +97,7 @@ export function referenceChangeWithBestWindow(
     REFERENCE_CHANGE_LAG_1Y_SEC,
   );
   /** Comps-merged archives often gap >90d before the 1y anchor — still compare latest vs LOCF ~1y ago. */
-  const historyCovers1y = spanSec >= REFERENCE_CHANGE_LAG_1Y_SEC;
+  const historyCovers1y = referenceHistoryCoversFullYear(spanSec);
   if (lag1y != null && historyCovers1y) {
     return {
       pct: lag1y.pct,
@@ -101,6 +107,21 @@ export function referenceChangeWithBestWindow(
       refUsd: lag1y.refUsd,
       refAtSec: lag1y.refAtSec,
     };
+  }
+
+  /** ~365d archive where LOCF 1y target sits just before the first daily point (sub-day gap). */
+  if (historyCovers1y && lag1y == null) {
+    const lagSpan = referenceLagAnchorFromPoints(points, spanSec);
+    if (lagSpan != null) {
+      return {
+        pct: lagSpan.pct,
+        isFullYear: true,
+        spanSec: REFERENCE_CHANGE_LAG_1Y_SEC,
+        window: '365d',
+        refUsd: lagSpan.refUsd,
+        refAtSec: lagSpan.refAtSec,
+      };
+    }
   }
 
   const lagSpan = referenceLagAnchorFromPoints(points, spanSec);

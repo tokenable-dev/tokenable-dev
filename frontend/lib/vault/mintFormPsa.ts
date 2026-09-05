@@ -38,7 +38,7 @@ export function computePsaLocksFromResult(
     set: Boolean(r.psa.setHint?.trim()),
     number: Boolean(r.psa.cardNumberHint?.trim()),
     certUrl: Boolean(r.psa.certVerifyUrl?.trim()),
-    assetName: !prev.name.trim() && Boolean(r.psa.cardNameHint?.trim()),
+    assetName: Boolean(r.psa.cardNameHint?.trim()),
     labelType: Boolean(r.psa.labelType?.trim()),
     psaCategory: Boolean(r.psa.category?.trim()),
     autographGrade: Boolean(r.psa.autographGrade?.trim()),

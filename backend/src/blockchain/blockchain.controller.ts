@@ -2,86 +2,100 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { apiBodyDefault } from '../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
+import { SWAGGER_FIXTURES } from '../swagger/fixtures';
+import { ApiChainIdHeader } from '../swagger/api-headers.util';
 import { BlockchainService } from './blockchain.service';
+import { CHAIN_ID_HEADER, ChainConfigService } from './chain-config.service';
+import { RwaAssetResolveService } from './rwa-asset-resolve.service';
 import { MediaResolveDto } from './dto/media-resolve.dto';
 import { RwaMetadataBatchDto } from './dto/rwa-metadata-batch.dto';
 
+/**
+ * 온체인 RWA·미디어 조회 — IPFS는 서버에서만 해석 (브라우저 직접 fetch 금지).
+ * Reads honor `x-tokenable-chain-id` so Sepolia inventory never leaks onto Polygon/Ethereum UI.
+ */
 @ApiTags('blockchain')
 @Controller('blockchain')
 export class BlockchainController {
-  constructor(private readonly blockchainService: BlockchainService) {}
+  constructor(
+    private readonly blockchainService: BlockchainService,
+    private readonly rwaAssetResolve: RwaAssetResolveService,
+    private readonly chainConfig: ChainConfigService,
+  ) {}
 
+  /** tokenId → tokenURI + 메타데이터 + https 이미지 URL 일괄 */
   @ApiOperation({
-    summary:
-      'tokenURI + IPFS metadata + resolved https imageUrl (single server-side pipeline; browser must not fetch IPFS)',
+    summary: 'RWA 자산 단건 (tokenURI·메타·이미지 URL)',
   })
-  @ApiParam({ name: 'tokenId', description: 'RWA Token ID', example: '0' })
+  @ApiChainIdHeader()
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
   @Get('rwa/asset/:tokenId')
-  getResolvedRwaAsset(@Param('tokenId', ParseIntPipe) tokenId: number) {
-    return this.blockchainService.getResolvedRwaAsset(tokenId);
+  getResolvedRwaAsset(
+    @Param('tokenId', ParseIntPipe) tokenId: number,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.rwaAssetResolve.getResolvedRwaAsset(tokenId, chainId);
   }
 
-  @ApiOperation({ summary: '특정 tokenId의 tokenURI 조회' })
-  @ApiParam({ name: 'tokenId', description: 'RWA Token ID', example: '0' })
+  /** ERC-721 tokenURI 문자열만 */
+  @ApiOperation({ summary: 'tokenURI 조회' })
+  @ApiChainIdHeader()
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
   @Get('rwa/token-uri/:tokenId')
   getRwaTokenURI(
     @Param('tokenId', ParseIntPipe) tokenId: number,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ): Promise<string> {
-    return this.blockchainService.getRwaTokenURI(tokenId);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.blockchainService.getRwaTokenURI(tokenId, chainId);
   }
 
-  @ApiOperation({ summary: '특정 지갑이 보유한 RWA tokenId 목록 조회' })
-  @ApiParam({
-    name: 'address',
-    description: '지갑 주소 (0x...)',
-    example: '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-  })
+  /** 지갑 주소로 보유 tokenId 배열 */
+  @ApiOperation({ summary: '지갑별 보유 RWA tokenId 목록' })
+  @ApiChainIdHeader()
+  @ApiParam({ name: 'address', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
+  // Full-supply ownerOf scan behind this route — cached 30s in the service,
+  // and per-IP capped so it can't be used to drain the RPC quota.
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Get('rwa/tokens/:address')
-  getRwaTokensByOwner(@Param('address') address: string): Promise<number[]> {
-    return this.blockchainService.getRwaTokensByOwner(address);
+  getRwaTokensByOwner(
+    @Param('address') address: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ): Promise<number[]> {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.blockchainService.getRwaTokensByOwner(address, chainId);
   }
 
+  /** 여러 tokenId 메타·이미지 URL 배치 */
   @ApiOperation({
-    summary:
-      'Batch tokenURI + metadata + resolved imageUrl (server IPFS gateways + CID cache; no client IPFS)',
+    summary: 'RWA 메타데이터 배치 (tokenURI·이미지 URL)',
   })
-  @ApiBody({
-    type: RwaMetadataBatchDto,
-    examples: {
-      metadataBatch: {
-        summary: 'Resolve metadata for many token ids',
-        value: { tokenIds: [1, 2, 3, 1001] },
-      },
-    },
-  })
+  @ApiChainIdHeader()
+  @ApiBody(apiBodyDefault(RwaMetadataBatchDto, SWAGGER_BODY_EXAMPLES.rwaMetadataBatch))
   @Post('rwa/metadata/batch')
-  batchRwaMetadata(@Body() body: RwaMetadataBatchDto) {
-    return this.blockchainService.batchRwaMetadata(body.tokenIds ?? []);
+  batchRwaMetadata(
+    @Body() body: RwaMetadataBatchDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.rwaAssetResolve.batchRwaMetadata(body.tokenIds ?? [], chainId);
   }
 
+  /** ipfs:// URI → 브라우저용 https URL */
   @ApiOperation({
-    summary:
-      'Resolve ipfs:// or https /ipfs/… URIs to a browser-loadable https URL (server fallbacks + cache)',
+    summary: '미디어 URI → https URL 변환',
   })
-  @ApiBody({
-    type: MediaResolveDto,
-    examples: {
-      mediaResolve: {
-        summary: 'Resolve ipfs:// URIs to https URLs',
-        value: {
-          uris: [
-            'ipfs://bafybeibxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/image.png',
-            'https://gateway.pinata.cloud/ipfs/bafybeibyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy',
-          ],
-        },
-      },
-    },
-  })
+  @ApiBody(apiBodyDefault(MediaResolveDto, SWAGGER_BODY_EXAMPLES.mediaResolve))
   @Post('media/resolve')
   async resolveMediaUrls(@Body() body: MediaResolveDto) {
     const uris = body.uris ?? [];

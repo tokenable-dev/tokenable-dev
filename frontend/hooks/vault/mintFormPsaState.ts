@@ -32,6 +32,7 @@ export function useMintFormPsaState(
   const [analyzeError, setAnalyzeError] = useState("");
   const [psaRateLimitAlert, setPsaRateLimitAlert] = useState(false);
   const analyzeNonceRef = useRef(0);
+  const certLookupInFlightRef = useRef(false);
   const [psaFieldLocks, setPsaFieldLocks] = useState<PsaFieldLocks>(EMPTY_PSA_FIELD_LOCKS);
   const [debounceWaiting, setDebounceWaiting] = useState(false);
   const [analyzeOverlayVisible, setAnalyzeOverlayVisible] = useState(false);
@@ -78,10 +79,9 @@ export function useMintFormPsaState(
           ...prev.verification,
           certUrl: r.psa.certVerifyUrl || prev.verification.certUrl,
         },
-        name:
-          !prev.name.trim() && r.psa.cardNameHint
-            ? String(r.psa.cardNameHint).trim()
-            : prev.name,
+        name: r.psa.cardNameHint?.trim()
+          ? String(r.psa.cardNameHint).trim()
+          : prev.name,
         ...(slabFrontForMint instanceof File ? { image: prev.image ?? slabFrontForMint } : {}),
       }));
     },
@@ -147,11 +147,13 @@ export function useMintFormPsaState(
   }, []);
 
   const executePsaCertLookup = useCallback(async () => {
+    if (certLookupInFlightRef.current) return;
     const hint = certHintForPsa();
     if (!hint?.trim()) {
       setAnalyzeError("Enter a PSA cert number (7–10 digits) or a psacard.com/cert/… URL.");
       return;
     }
+    certLookupInFlightRef.current = true;
     const n = ++analyzeNonceRef.current;
     setAnalyzeError("");
     setPsaRateLimitAlert(false);
@@ -164,6 +166,7 @@ export function useMintFormPsaState(
       if (n !== analyzeNonceRef.current) return;
       handlePsaAnalyzeFailure(err);
     } finally {
+      certLookupInFlightRef.current = false;
       if (n === analyzeNonceRef.current) {
         setAnalyzeLoading(false);
       }

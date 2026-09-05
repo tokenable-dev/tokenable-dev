@@ -1,0 +1,211 @@
+import type {
+  CollectionMarketSeries,
+  CollectionUsdPoint,
+  RwaMetadata,
+} from "@/lib/core";
+import { filterMergedChartPointsForWindow } from "@/lib/market/collectionChartHistory";
+import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  cardDisplayPartsFromAssetDetail,
+  formatCardDisplayHoverTitle,
+  formatCardDisplayLine1,
+  formatCardDisplayMeta,
+  resolveRwaHeadlineGrade,
+  type AssetDetailHeadlineParts,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
+
+export { formatPortfolioGradeLabel, formatPortfolioGradeSubtitle } from "@/lib/portfolio/portfolioAssetMeta";
+
+/** Redeem lists — Line 1 `{Name} · {Number} · {Grade}` (grade is never stripped). */
+export function formatRedeemCardLine1FromMetadata(
+  meta: RwaMetadata | null | undefined,
+  fallbackName: string,
+  gradeOverride?: string | null,
+): string {
+  const parts = buildRwaAssetDetailHeadlineParts(meta, fallbackName);
+  const grade =
+    gradeOverride?.trim() ||
+    formatPortfolioGradeLabel(meta ?? null) ||
+    resolveRwaHeadlineGrade(meta);
+  return (
+    formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
+    fallbackName
+  );
+}
+
+export function formatRedeemCardLine1FromDraft(card: {
+  name: string;
+  grade: string | null;
+}): string {
+  const grade = card.grade?.trim() || null;
+  const name = card.name.trim();
+  if (grade && name.includes(grade)) return name;
+  return formatCardDisplayLine1(
+    cardDisplayPartsFromAssetDetail({ cardName: name }, grade),
+  );
+}
+
+export type PortfolioHoldingsHeadline = {
+  parts: AssetDetailHeadlineParts;
+  grade: string;
+  line1: string;
+  /** Year · set · variant — shown under Line 1 on table-row hover. */
+  line2: string;
+  hover: string;
+};
+
+/** Set / Edit price sheet identity — name, number, grade (SSOT Line 1 parts). */
+export function listPriceSheetIdentity(
+  meta: RwaMetadata | null | undefined,
+  tokenId: number,
+  fallbackName?: string | null,
+): PortfolioHoldingsHeadline {
+  const fallback = fallbackName?.trim() || `RWA #${tokenId}`;
+  const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
+  const grade =
+    formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
+  const line1 =
+    formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
+    fallback;
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
+  const line2 = formatCardDisplayMeta(parts);
+  return {
+    parts,
+    grade,
+    line1,
+    line2,
+    hover: hover || line1,
+  };
+}
+
+/** Portfolio holdings — SSOT Line 1 parts + formatted strings. */
+export function resolvePortfolioHoldingsHeadlines(
+  rows: AssetRow[],
+  metadataByTokenId: Map<number, RwaMetadata | null>,
+): Map<number, PortfolioHoldingsHeadline> {
+  const out = new Map<number, PortfolioHoldingsHeadline>();
+  for (const row of rows) {
+    const meta = metadataByTokenId.get(row.tokenId) ?? null;
+    const identity = listPriceSheetIdentity(meta, row.tokenId, row.name);
+    out.set(row.tokenId, {
+      ...identity,
+      line1: identity.line1 || row.name,
+      hover: identity.hover || identity.line1 || row.name,
+    });
+  }
+  return out;
+}
+
+/** Portfolio holdings — Line 1 titles (`{Name} · {Number} · {Grade}`). */
+export function resolvePortfolioHoldingsDisplayNames(
+  rows: AssetRow[],
+  metadataByTokenId: Map<number, RwaMetadata | null>,
+): Map<number, string> {
+  const headlines = resolvePortfolioHoldingsHeadlines(rows, metadataByTokenId);
+  const out = new Map<number, string>();
+  for (const row of rows) {
+    out.set(row.tokenId, headlines.get(row.tokenId)?.line1 ?? row.name);
+  }
+  return out;
+}
+
+export function formatPortfolioUsd(
+  value: number | null | undefined,
+  opts?: { compact?: boolean },
+): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (opts?.compact && value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (opts?.compact && value >= 1_000) {
+    return `$${(value / 1_000).toFixed(0)}k`;
+  }
+  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+
+export function formatPortfolioProfitReturn(
+  costBasis: number | null | undefined,
+  currentValue: number | null | undefined,
+): { profit: string; returnPct: string; positive: boolean } | null {
+  if (
+    costBasis == null ||
+    currentValue == null ||
+    !Number.isFinite(costBasis) ||
+    !Number.isFinite(currentValue) ||
+    costBasis <= 0
+  ) {
+    return null;
+  }
+  const delta = currentValue - costBasis;
+  const pct = (delta / costBasis) * 100;
+  const sign = delta >= 0 ? "+" : "-";
+  const absUsd = Math.abs(delta);
+  const usd =
+    absUsd >= 1000
+      ? absUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })
+      : absUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return {
+    profit: `${sign}$${usd}`,
+    returnPct: `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`,
+    positive: delta >= 0,
+  };
+}
+
+/** Gallery / table: ↗ up, ↘ down (vs cost). */
+export function portfolioPriceChangeArrow(up: boolean): "↗" | "↘" {
+  return up ? "↗" : "↘";
+}
+
+function downsampleSparklineValues(values: number[], maxPoints: number): number[] {
+  if (values.length < 2) return [];
+  if (values.length <= maxPoints) return values;
+  const step = (values.length - 1) / (maxPoints - 1);
+  const out: number[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    out.push(values[Math.round(i * step)]!);
+  }
+  return out;
+}
+
+export function extractSparklineValues(
+  series: CollectionMarketSeries | null | undefined,
+  maxPoints = 14,
+): number[] {
+  const values = (series?.externalUsd ?? [])
+    .map((p) => p.v)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  return downsampleSparklineValues(values, maxPoints);
+}
+
+/** Portfolio gallery spark — last ~365d of comps-merged external USD. */
+export function extractSparklineValues1y(
+  series: CollectionMarketSeries | null | undefined,
+  maxPoints = 14,
+): number[] {
+  const windowed: CollectionUsdPoint[] = filterMergedChartPointsForWindow(
+    series?.externalUsd,
+    "365d",
+  );
+  const values = windowed
+    .map((p) => p.v)
+    .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);
+  return downsampleSparklineValues(values, maxPoints);
+}
+
+export function compareSortText(a: string, b: string, dir: "asc" | "desc"): number {
+  const cmp = a.localeCompare(b, undefined, { sensitivity: "base" });
+  return dir === "asc" ? cmp : -cmp;
+}
+
+export function compareSortNum(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  dir: "asc" | "desc",
+): number {
+  const na = a != null && Number.isFinite(a) ? a : Number.NEGATIVE_INFINITY;
+  const nb = b != null && Number.isFinite(b) ? b : Number.NEGATIVE_INFINITY;
+  if (na !== nb) return dir === "asc" ? na - nb : nb - na;
+  return 0;
+}

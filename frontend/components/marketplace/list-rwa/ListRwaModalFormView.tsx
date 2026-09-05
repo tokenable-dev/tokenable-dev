@@ -3,121 +3,198 @@
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
-import { feePercent } from "@/lib/seaport/orders/platformFee";
+import {
+  feePercent,
+  type AskSettlementPolicy,
+} from "@/lib/seaport/orders/platformFee";
+import { TkButton } from "@/components/ds";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import { resolveCardDisplayGrade } from "@/lib/marketplace/cardDisplayName";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
+import { ListRwaPriceInput } from "./ListRwaPriceInput";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 
 export function ListRwaModalFormView({
   tokenId,
   assetTitle,
+  headlineParts,
+  headlineGrade,
+  collectionKey,
   isReplaceListing,
-  currentAskDisplay,
   price,
   onPriceChange,
   crossingBidsForInstantSale,
   selectedBidHash,
   onSelectBidHash,
+  topCollectionBid,
+  marketValueUsd,
+  listedPriceUsd,
+  onRequestCancelListing,
+  onClose,
+  copyVariant = "default",
+  settlementPolicy = "standard",
+  vaultLabel,
   step,
   errorMsg,
   isProcessing,
   onSubmit,
+  variant = "modal",
 }: {
   tokenId: number;
   assetTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineGrade?: string | null;
+  collectionKey?: string | null;
   isReplaceListing: boolean;
-  currentAskDisplay: { label: string } | null;
   price: string;
   onPriceChange: (value: string) => void;
   crossingBidsForInstantSale: Order[];
   selectedBidHash: string | null;
   onSelectBidHash: (hash: string) => void;
+  topCollectionBid?: { micros: bigint; label: string; inputValue: string } | null;
+  marketValueUsd?: number | null;
+  listedPriceUsd?: number | null;
+  onRequestCancelListing?: () => void;
+  onClose?: () => void;
+  copyVariant?: "default" | "set-price";
+  settlementPolicy?: AskSettlementPolicy;
+  vaultLabel?: string;
   step: ListRwaModalStep;
   errorMsg: string;
   isProcessing: boolean;
   onSubmit: () => void;
+  /** `embedded` — card detail inline panel; `sheet` — TkActionSheet on RWA detail. */
+  variant?: "modal" | "embedded" | "sheet";
 }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-5 pt-1">
-      <header className="flex gap-3 border-b border-white/[0.06] pb-4">
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90">
-            {isReplaceListing ? "Update listing" : "New listing"}
-          </p>
-          <h2
-            className="text-base font-semibold leading-snug tracking-tight text-white break-words [overflow-wrap:anywhere] sm:text-[1.125rem]"
-            title={listModalAssetLabel(tokenId, assetTitle)}
-          >
-            {listModalAssetLabel(tokenId, assetTitle)}
-          </h2>
-        </div>
-        <div className="w-7 shrink-0 sm:w-8" aria-hidden />
-      </header>
+  const isEmbedded = variant === "embedded";
+  const isSheet = variant === "sheet";
+  const isSetPrice = copyVariant === "set-price";
+  const inFlight =
+    isProcessing ||
+    step === "approving" ||
+    step === "signing" ||
+    step === "submitting" ||
+    step === "matching";
+  const showFlowProgress = isSetPrice ? inFlight : !isEmbedded || inFlight;
 
-      {currentAskDisplay ? (
-        <div className="rounded-xl border border-zinc-600/60 bg-zinc-900/60 px-3.5 py-2.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Current ask
-          </p>
-          <p className="mt-1.5 text-base font-semibold tabular-nums text-white">
-            <span className="text-zinc-500 text-sm font-normal mr-0.5">$</span>
-            {currentAskDisplay.label}
-            <span className="text-zinc-500 font-normal text-xs ml-1.5">USDC</span>
-          </p>
+  const eyebrow = isSetPrice
+    ? isReplaceListing
+      ? "Edit price"
+      : "Set price"
+    : isReplaceListing
+      ? "Update listing"
+      : "New listing";
+
+  const listPriceNum = Number(String(price).replace(/[^0-9.]/g, ""));
+  const topBidUsd = topCollectionBid
+    ? Number(topCollectionBid.inputValue)
+    : 0;
+  const sellingNow =
+    topBidUsd > 0 &&
+    Number.isFinite(listPriceNum) &&
+    listPriceNum > 0 &&
+    listPriceNum <= topBidUsd &&
+    crossingBidsForInstantSale.length > 0;
+  const ctaLabel = isProcessing
+    ? "Processing..."
+    : sellingNow
+      ? `Sell now — ${formatUsdListing(listPriceNum)}`
+    : isSetPrice
+      ? isReplaceListing
+        ? "Update"
+        : "List"
+      : isReplaceListing
+        ? "Update listing"
+        : "List";
+
+  const isSelfVaultHold = settlementPolicy === "self_vault_hold";
+  const feePct = isSelfVaultHold ? 5 : feePercent(settlementPolicy);
+
+  return (
+    <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
+      {!isEmbedded ? (
+        <header
+          className={`flex gap-3 ${isSheet ? "pb-3" : "border-b border-white/[0.06] pb-4"}`}
+        >
+          <div className="min-w-0 flex-1 space-y-2">
+            <p
+              className={
+                isSheet
+                  ? "rd-list-sheet__eyebrow"
+                  : "text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90"
+              }
+            >
+              {eyebrow}
+            </p>
+            {isSetPrice ? (
+              <ListPriceSheetCardIdentity
+                tokenId={tokenId}
+                assetTitle={assetTitle}
+                headlineParts={headlineParts}
+                headlineGrade={headlineGrade}
+              />
+            ) : (
+              <h2
+                className="text-base font-semibold leading-snug tracking-tight text-white break-words [overflow-wrap:anywhere] sm:text-[1.125rem]"
+                title={listModalAssetLabel(tokenId, assetTitle)}
+              >
+                {listModalAssetLabel(tokenId, assetTitle)}
+              </h2>
+            )}
+            {!isSetPrice && vaultLabel?.trim() ? (
+              <p className="text-[11px] font-medium text-white/45">{vaultLabel}</p>
+            ) : null}
+          </div>
+          {!isSheet ? <div className="w-7 shrink-0 sm:w-8" aria-hidden /> : null}
+        </header>
+      ) : null}
+
+      {!isSetPrice &&
+      isReplaceListing &&
+      listedPriceUsd != null &&
+      Number.isFinite(listedPriceUsd) ? (
+        <div className="rd-list-sheet__listed">
+          <div className="rd-list-sheet__ref-label">
+            Currently listed at
+          </div>
+          <span className="rd-list-sheet__ref-val">
+            {formatUsdListing(listedPriceUsd)}
+          </span>
         </div>
       ) : null}
 
-      <div className="space-y-2.5">
-        <label
-          htmlFor="list-rwa-price-usdc"
-          className="block text-sm leading-relaxed text-zinc-300"
-        >
-          {isReplaceListing
-            ? "Enter your new sale price in USDC below."
-            : "Enter your sale price in USDC below."}
-        </label>
-        <div className="relative rounded-xl border border-mint/40 bg-mint/[0.04] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.06)] transition-[border-color,box-shadow] focus-within:border-mint/65 focus-within:shadow-[0_0_0_2px_rgba(45,212,191,0.12)]">
-          <input
-            id="list-rwa-price-usdc"
-            type="number"
-            min="0.000001"
-            step="any"
-            placeholder="0.00"
-            value={price}
-            onChange={(e) => onPriceChange(e.target.value)}
-            disabled={isProcessing}
-            className="w-full rounded-[10px] border-0 bg-transparent px-4 py-2.5 pr-16 text-[15px] tabular-nums text-white outline-none placeholder:text-zinc-500 disabled:opacity-60"
-          />
-          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-mint/70">
-            USDC
-          </span>
-        </div>
-        {price && parseFloat(price) > 0 && feePercent() > 0 && (
-          <div className="mt-3 space-y-1.5 rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-3 py-2.5 text-[11px]">
-            <div className="flex justify-between gap-2 text-zinc-500">
-              <span>Platform fee ({feePercent()}%)</span>
-              <span className="font-mono text-zinc-400 tabular-nums">
-                {(parseFloat(price) * feePercent() / 100).toFixed(2)} USDC
-              </span>
-            </div>
-            <div className="flex justify-between gap-2 border-t border-zinc-700/40 pt-1.5 text-zinc-500">
-              <span className="text-zinc-400">You receive</span>
-              <span className="font-mono font-medium tabular-nums text-white">
-                {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      <ListRwaPriceInput
+        tokenId={tokenId}
+        collectionKey={collectionKey}
+        price={price}
+        onPriceChange={onPriceChange}
+        feePercent={feePct}
+        marketValueUsd={marketValueUsd}
+        disabled={isProcessing}
+        payoutNote={
+          isSelfVaultHold
+            ? "Sale USDC goes to Tokenable first. After the buyer confirms, you receive the amount above (after the platform fee)."
+            : null
+        }
+        highestBidUsd={
+          topCollectionBid
+            ? Number(topCollectionBid.inputValue)
+            : null
+        }
+      />
 
-      {crossingBidsForInstantSale.length >= 2 && selectedBidHash ? (
+      {!isSetPrice && crossingBidsForInstantSale.length >= 1 && selectedBidHash ? (
         <div className="rounded-xl border border-mint/25 bg-mint/[0.07] px-3 py-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-mint/95">
-            Instant sell target
+            Instant sell
           </p>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-            {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid to
-            try first (if it fails, others are tried in price order).
+          <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
+            Sells now to the selected bid.
+            {crossingBidsForInstantSale.length > 1
+              ? ` ${crossingBidsForInstantSale.length} bids can fill at this price — pick one; other bids stay on the book.`
+              : null}
           </p>
           <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1">
             {crossingBidsForInstantSale.map((b) => {
@@ -129,14 +206,24 @@ export function ListRwaModalFormView({
                   <label
                     className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors ${
                       selected
-                        ? "border-mint/45 bg-mint/[0.1]"
+                        ? "border-mint/55 bg-mint/[0.14] shadow-[0_0_18px_rgba(0,200,100,0.28)]"
                         : "border-zinc-600/50 bg-zinc-900/40 hover:border-zinc-500/60"
                     }`}
                   >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+                        selected
+                          ? "border-mint bg-mint text-[#052e1a]"
+                          : "border-zinc-500 text-transparent"
+                      }`}
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
                     <input
                       type="radio"
                       name="instant-target-bid"
-                      className="accent-mint"
+                      className="sr-only"
                       checked={selected}
                       disabled={isProcessing}
                       onChange={() => onSelectBidHash(id)}
@@ -153,6 +240,9 @@ export function ListRwaModalFormView({
                       <span className="font-mono text-mint/90">
                         {shortBidder(b.offerer)}
                       </span>
+                      {selected ? (
+                        <span className="ml-2 font-semibold text-mint">Sell now</span>
+                      ) : null}
                     </span>
                   </label>
                 </li>
@@ -162,26 +252,69 @@ export function ListRwaModalFormView({
         </div>
       ) : null}
 
-      <ListingFlowProgress step={step} />
+      {showFlowProgress ? <ListingFlowProgress step={step} /> : null}
 
       {step === "error" && errorMsg && (
-        <div className="rounded-xl border border-red-500/35 bg-red-950/40 p-3">
-          <p className="text-xs text-red-300/95 break-all">{errorMsg}</p>
+        <div className="rounded-xl border border-neg/35 bg-neg/10 p-3">
+          <p className={`text-neg break-all ${isEmbedded ? "text-sm" : "text-xs"}`}>
+            {errorMsg}
+          </p>
         </div>
       )}
 
-      <button
-        type="button"
+      <TkButton
+        className={`mt-0.5 w-full justify-center${sellingNow ? " rd-list-sheet__cta--sell" : ""}`}
         onClick={onSubmit}
         disabled={isProcessing || !price || parseFloat(price) <= 0}
-        className="mt-0.5 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-md shadow-mint/10 transition-all hover:brightness-[1.03] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isProcessing
-          ? "Processing..."
-          : isReplaceListing
-            ? "Update listing"
-            : "List for sale"}
-      </button>
+        {ctaLabel}
+      </TkButton>
+
+      {isSetPrice && isReplaceListing && onRequestCancelListing ? (
+        <TkButton
+          type="button"
+          variant="ghost"
+          className="w-full justify-center"
+          disabled={isProcessing}
+          onClick={onRequestCancelListing}
+        >
+          Cancel listing
+        </TkButton>
+      ) : isSetPrice && onClose ? (
+        <TkButton
+          type="button"
+          variant="ghost"
+          className="w-full justify-center"
+          disabled={isProcessing}
+          onClick={onClose}
+        >
+          Cancel
+        </TkButton>
+      ) : null}
     </div>
+  );
+}
+
+function ListPriceSheetCardIdentity({
+  tokenId,
+  assetTitle,
+  headlineParts,
+  headlineGrade,
+}: {
+  tokenId: number;
+  assetTitle?: string | null;
+  headlineParts?: AssetDetailHeadlineParts | null;
+  headlineGrade?: string | null;
+}) {
+  const name = headlineParts?.cardName?.trim() || "";
+  const number = headlineParts?.cardNumber?.trim() || "";
+  const grade = resolveCardDisplayGrade(headlineGrade);
+  const fallback = listModalAssetLabel(tokenId, assetTitle);
+  const line = [name || fallback, number, grade].filter(Boolean).join(" · ");
+
+  return (
+    <h2 className="rd-list-sheet__card-name" title={line}>
+      {line}
+    </h2>
   );
 }

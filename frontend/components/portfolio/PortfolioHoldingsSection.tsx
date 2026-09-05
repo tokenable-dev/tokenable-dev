@@ -1,197 +1,375 @@
 "use client";
 
-import Link from "next/link";
-import type { RefObject } from "react";
-import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
-import { PortfolioAssetCard } from "./PortfolioAssetCard";
-
-function filterEmptyMessage(
-  assetFilter: AssetListFilter,
-  assetRowsLength: number,
-): string {
-  if (assetFilter === "hidden") return "No hidden cards.";
-  if (assetFilter === "listed") return "No cards are currently listed for sale.";
-  if (assetFilter === "unlisted") {
-    return "All visible cards are currently listed. Cancel a listing to move back to not listed.";
-  }
-  if (assetRowsLength > 0) {
-    return "All holdings are hidden. Open Hidden to manage or unhide.";
-  }
-  return "No visible holdings.";
-}
-
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Order, RwaMetadata } from "@/lib/core";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  certNumberFromMetadata,
+  isRedeemInFlight,
+  redeemSurfaceBadge,
+} from "@/lib/portfolio/redeemDraft";
+import {
+  holdingsLifecycleSeg,
+  matchesAssetsSegment,
+  type AssetsSegment,
+} from "@/lib/portfolio/portfolioAssetsSegment";
+import {
+  compareSortNum,
+  compareSortText,
+  formatPortfolioGradeLabel,
+  resolvePortfolioHoldingsHeadlines,
+} from "@/lib/portfolio/portfolioTableHelpers";
+import { GatedSellLink } from "@/components/auth/GatedSellLink";
+import { TkButton } from "@/components/ds";
+import {
+  PortfolioAssetsToolbar,
+  type AssetsToolbarSort,
+  type AssetsViewMode,
+} from "./PortfolioAssetsToolbar";
+import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
+import { usePathname } from "next/navigation";
+import {
+  portfolioAssetHref,
+  portfolioBasePath,
+} from "@/lib/portfolio/portfolioPaths";
+import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
+import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
+import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
 export function PortfolioHoldingsSection({
   assetsSectionLoading,
-  assetRowsLength,
-  assetFilter,
-  setAssetFilter,
-  holdingsCount,
-  listedAssetCount,
-  unlistedAssetCount,
-  hiddenAssetCount,
-  filteredAssetRows,
-  pagedAssetRows,
-  visibleAssetCount,
-  assetScrollSentinelRef,
-  address,
+  assetRows,
+  metadataByTokenId,
+  tokenToCollectionKey: _tokenToCollectionKey,
+  bidsByCollectionKey: _bidsByCollectionKey,
+  costBasisByTokenId,
+  acquiredAtByTokenId,
   valuesPending,
-  isBurnAdmin,
-  cancellingListingTokenId,
-  burningTokenId,
-  hidingTokenId,
-  unhidingTokenId,
-  onOpenToken,
-  onRequestHide,
-  onUnhide,
-  onCancelListing,
-  onBurn,
+  canEditCostBasis,
+  onSaveCostBasis,
+  savingCostBasisTokenId,
+  onSetPrice,
+  redeemStatusByTokenId,
+  redeemTrackingByTokenId,
+  redeemCarrierDeliveredByTokenId,
+  redeemPaymentBatchByTokenId,
+  hasMoreAssets = false,
+  isLoadingMoreAssets = false,
+  onLoadMoreAssets,
+  loadedAssetCount,
+  totalAssetCount,
 }: {
   assetsSectionLoading: boolean;
-  assetRowsLength: number;
-  assetFilter: AssetListFilter;
-  setAssetFilter: (f: AssetListFilter) => void;
-  holdingsCount: number;
-  listedAssetCount: number;
-  unlistedAssetCount: number;
-  hiddenAssetCount: number;
-  filteredAssetRows: AssetRow[];
-  pagedAssetRows: AssetRow[];
-  visibleAssetCount: number;
-  assetScrollSentinelRef: RefObject<HTMLDivElement | null>;
-  address: string | undefined;
+  assetRows: AssetRow[];
+  metadataByTokenId: Map<number, RwaMetadata | null>;
+  tokenToCollectionKey: Record<number, string>;
+  bidsByCollectionKey: Map<string, Order[]>;
+  costBasisByTokenId: Map<number, number>;
+  acquiredAtByTokenId?: Map<number, string>;
   valuesPending: boolean;
-  isBurnAdmin: boolean;
-  cancellingListingTokenId: number | null;
-  burningTokenId: number | null;
-  hidingTokenId: number | null;
-  unhidingTokenId: number | null;
-  onOpenToken: (tokenId: number) => void;
-  onRequestHide: (row: AssetRow) => void;
-  onUnhide: (tokenId: number) => void;
-  onCancelListing: (tokenId: number, orderHash: string) => void;
-  onBurn: (tokenId: number, hasListing: boolean) => void;
+  canEditCostBasis?: boolean;
+  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
+  savingCostBasisTokenId?: number | null;
+  onSetPrice: (tokenId: number) => void;
+  redeemStatusByTokenId?: Map<number, string>;
+  redeemTrackingByTokenId?: Map<number, string>;
+  redeemCarrierDeliveredByTokenId?: Map<number, string>;
+  redeemPaymentBatchByTokenId?: Map<number, string>;
+  hasMoreAssets?: boolean;
+  isLoadingMoreAssets?: boolean;
+  onLoadMoreAssets?: () => void;
+  loadedAssetCount?: number;
+  totalAssetCount?: number;
 }) {
-  return (
-    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold">My Collectibles</h2>
-        </div>
-        <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
-          <button
-            type="button"
-            onClick={() => setAssetFilter("all")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            All <span className="tabular-nums">({holdingsCount})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAssetFilter("listed")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "listed"
-                ? "bg-mint text-mint-ink"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Listed <span className="tabular-nums">({listedAssetCount})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAssetFilter("unlisted")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "unlisted"
-                ? "bg-zinc-500/90 text-[#061018]"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
-          </button>
-          {hiddenAssetCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => setAssetFilter("hidden")}
-              className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-                assetFilter === "hidden"
-                  ? "bg-zinc-600/90 text-white"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Hidden <span className="tabular-nums">({hiddenAssetCount})</span>
-            </button>
-          ) : null}
-        </div>
-      </div>
-      {assetsSectionLoading ? (
-        <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="w-full overflow-hidden rounded-lg border border-gray-800/80 bg-gray-900/40 sm:rounded-xl"
-            >
-              <div className="aspect-[5/6] animate-pulse bg-gray-800/50 sm:aspect-[3/4]" />
-              <div className="space-y-2 p-2.5 sm:p-4">
-                <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800/60" />
-                <div className="h-3 w-full animate-pulse rounded bg-gray-800/40" />
+  const [segment, setSegment] = useState<AssetsSegment>("tradeable");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<AssetsToolbarSort>("newest");
+  /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
+  const [view, setView] = useState<AssetsViewMode>("table");
+  const isMobile = useIsMobileViewport(768);
+  const pathname = usePathname();
+  const assetsBase = portfolioBasePath(pathname);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 769px)").matches) setView("gallery");
+  }, []);
+
+  function getBadge(tokenId: number) {
+    return redeemSurfaceBadge(
+      redeemStatusByTokenId?.get(tokenId),
+      redeemTrackingByTokenId?.get(tokenId),
+      redeemCarrierDeliveredByTokenId?.get(tokenId),
+      redeemPaymentBatchByTokenId?.get(tokenId),
+    );
+  }
+
+  const headlineByTokenId = useMemo(
+    () => resolvePortfolioHoldingsHeadlines(assetRows, metadataByTokenId),
+    [assetRows, metadataByTokenId],
+  );
+
+  const filteredSortedRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const rows = assetRows.filter((row) => {
+      const isListed =
+        row.listPriceUsd != null && row.activeListingOrderHash != null;
+      const badge = getBadge(row.tokenId);
+      const seg = holdingsLifecycleSeg(isListed, badge);
+      if (!matchesAssetsSegment(seg, segment)) return false;
+      if (!q) return true;
+      const meta = metadataByTokenId.get(row.tokenId) ?? null;
+      const cert = certNumberFromMetadata(meta)?.toLowerCase() ?? "";
+      const grade = formatPortfolioGradeLabel(meta)?.toLowerCase() ?? "";
+      const set = (row.setName ?? "").toLowerCase();
+      const headline = headlineByTokenId.get(row.tokenId);
+      const hay = `${headline?.line1 ?? row.name} ${cert} ${grade} ${set}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+    rows.sort((a, b) => {
+      const costA = costBasisByTokenId.get(a.tokenId);
+      const costB = costBasisByTokenId.get(b.tokenId);
+      switch (sort) {
+        case "newest": {
+          const tA = Date.parse(acquiredAtByTokenId?.get(a.tokenId) ?? "") || 0;
+          const tB = Date.parse(acquiredAtByTokenId?.get(b.tokenId) ?? "") || 0;
+          if (tA !== tB) return tB - tA;
+          return b.tokenId - a.tokenId;
+        }
+        case "name":
+          return compareSortText(a.name, b.name, "asc");
+        case "pl": {
+          const dA =
+            costA != null && a.currentPrice != null ? a.currentPrice - costA : null;
+          const dB =
+            costB != null && b.currentPrice != null ? b.currentPrice - costB : null;
+          return compareSortNum(dA, dB, "desc");
+        }
+        case "ret": {
+          const rA =
+            costA != null && costA > 0 && a.currentPrice != null
+              ? (a.currentPrice - costA) / costA
+              : null;
+          const rB =
+            costB != null && costB > 0 && b.currentPrice != null
+              ? (b.currentPrice - costB) / costB
+              : null;
+          return compareSortNum(rA, rB, "desc");
+        }
+        case "value":
+        default:
+          return compareSortNum(a.currentPrice, b.currentPrice, "desc");
+      }
+    });
+    return rows;
+    // getBadge reads redeem maps; include those deps explicitly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- badge maps listed below
+  }, [
+    assetRows,
+    segment,
+    searchQuery,
+    sort,
+    metadataByTokenId,
+    costBasisByTokenId,
+    acquiredAtByTokenId,
+    redeemStatusByTokenId,
+    redeemTrackingByTokenId,
+    redeemCarrierDeliveredByTokenId,
+    redeemPaymentBatchByTokenId,
+    headlineByTokenId,
+  ]);
+
+  const handleSetPrice = useCallback(
+    (tokenId: number) => {
+      const row = assetRows.find((r) => r.tokenId === tokenId);
+      const isListed =
+        row != null &&
+        row.listPriceUsd != null &&
+        row.activeListingOrderHash != null;
+      trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+        card_id: String(tokenId),
+        current_price: row?.currentPrice ?? undefined,
+      });
+      onSetPrice(tokenId);
+    },
+    [assetRows, onSetPrice],
+  );
+
+  if (assetsSectionLoading) {
+    if (view === "gallery" && !isMobile) {
+      return (
+        <div className="pf-gallery pf-gallery--skeleton" aria-hidden>
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="pf-gallery__item">
+              <div className="pf-gtile pf-gtile--skeleton">
+                <div className="pf-gtile__media animate-pulse" />
+                <div className="pf-gtile__body">
+                  <div className="h-3 w-[80%] animate-pulse rounded bg-white/5" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-white/5" />
+                  <div className="h-6 w-2/3 animate-pulse rounded bg-white/5" />
+                </div>
               </div>
             </div>
           ))}
         </div>
-      ) : assetRowsLength === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">
-          No assets yet.{" "}
-          <Link href="/vault" className="text-mint hover:underline">
-            Mint your first card
-          </Link>
-        </p>
-      ) : filteredAssetRows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">
-          {filterEmptyMessage(assetFilter, assetRowsLength)}
-        </p>
-      ) : (
-        <div
-          className={
-            filteredAssetRows.length > 4
-              ? "max-h-[min(70vh,560px)] overflow-y-auto pr-0.5 sm:max-h-[560px]"
-              : "overflow-visible"
-          }
-        >
-          <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {pagedAssetRows.map((r) => (
-              <PortfolioAssetCard
-                key={r.tokenId}
-                row={r}
-                assetFilter={assetFilter}
-                address={address}
-                valuesPending={valuesPending}
-                isBurnAdmin={isBurnAdmin}
-                cancellingListingTokenId={cancellingListingTokenId}
-                burningTokenId={burningTokenId}
-                hidingTokenId={hidingTokenId}
-                unhidingTokenId={unhidingTokenId}
-                onOpen={() => onOpenToken(r.tokenId)}
-                onRequestHide={() => onRequestHide(r)}
-                onUnhide={() => onUnhide(r.tokenId)}
-                onCancelListing={() => {
-                  if (r.activeListingOrderHash) {
-                    onCancelListing(r.tokenId, r.activeListingOrderHash);
-                  }
-                }}
-                onBurn={() => onBurn(r.tokenId, r.listPriceUsd != null)}
-              />
-            ))}
-            {visibleAssetCount < filteredAssetRows.length ? (
-              <div
-                ref={assetScrollSentinelRef}
-                className="col-span-full h-px w-full"
-                aria-hidden
-              />
-            ) : null}
+      );
+    }
+    return (
+      <div className="pf-mobile-asset-cards" aria-hidden>
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="pf-mobile-asset-card pf-mobile-asset-card--skeleton">
+            <div className="pf-mobile-asset-card__img animate-pulse" />
+            <div className="pf-mobile-asset-card__info">
+              <div className="h-4 w-[85%] animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
+            </div>
           </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (assetRows.length === 0) {
+    return (
+      <p className="pf-empty">
+        No assets yet.{" "}
+        <GatedSellLink className="hover:underline">Mint your first card</GatedSellLink>
+      </p>
+    );
+  }
+
+  const emptyFiltered = filteredSortedRows.length === 0;
+
+  return (
+    <>
+      <PortfolioAssetsToolbar
+        segment={segment}
+        onSegmentChange={setSegment}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        sort={sort}
+        onSortChange={setSort}
+        view={view}
+        onViewChange={setView}
+      />
+
+      {emptyFiltered ? (
+        <p className="pf-empty pf-empty--panel">Nothing in this segment.</p>
+      ) : view === "gallery" ? (
+        <div className="pf-gallery" role="list">
+          {filteredSortedRows.map((row) => {
+            const cost = costBasisByTokenId.get(row.tokenId);
+            const headline = headlineByTokenId.get(row.tokenId);
+            const isListed =
+              row.listPriceUsd != null && row.activeListingOrderHash != null;
+            const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+            const badge = getBadge(row.tokenId);
+            const tradeBlocked = isRedeemInFlight(redeemStatus);
+
+            return (
+              <div key={row.tokenId} className="pf-gallery__item" role="listitem">
+                <PortfolioHoldingsGalleryTile
+                  row={row}
+                  headline={headline ?? null}
+                  href={portfolioAssetHref(assetsBase, row.tokenId)}
+                  cost={cost}
+                  valuesPending={valuesPending}
+                  canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                  savingCostBasis={savingCostBasisTokenId === row.tokenId}
+                  isListed={isListed}
+                  redeemStatus={badge}
+                  actionsDisabled={tradeBlocked}
+                  actionsDisabledTitle={
+                    tradeBlocked
+                      ? "Redemption in progress — listing unavailable"
+                      : undefined
+                  }
+                  onSaveCostBasis={onSaveCostBasis}
+                  onSetPrice={handleSetPrice}
+                />
+              </div>
+            );
+          })}
         </div>
+      ) : isMobile ? (
+        <div className="pf-mobile-asset-cards" role="list">
+          {filteredSortedRows.map((row) => {
+            const cost = costBasisByTokenId.get(row.tokenId);
+            const headline = headlineByTokenId.get(row.tokenId);
+            const isListed =
+              row.listPriceUsd != null && row.activeListingOrderHash != null;
+            const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+            const badge = getBadge(row.tokenId);
+            const tradeBlocked = isRedeemInFlight(redeemStatus);
+
+            return (
+              <PortfolioMobileAssetCard
+                key={row.tokenId}
+                row={row}
+                headline={headline ?? null}
+                href={portfolioAssetHref(assetsBase, row.tokenId)}
+                cost={cost}
+                valuesPending={valuesPending}
+                canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                savingCostBasis={savingCostBasisTokenId === row.tokenId}
+                isListed={isListed}
+                redeemStatus={badge}
+                actionsDisabled={tradeBlocked}
+                actionsDisabledTitle={
+                  tradeBlocked
+                    ? "Redemption in progress — listing unavailable"
+                    : undefined
+                }
+                onSaveCostBasis={onSaveCostBasis}
+                onSetPrice={handleSetPrice}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <PortfolioHoldingsTableView
+          rows={filteredSortedRows}
+          headlineByTokenId={headlineByTokenId}
+          assetHrefBase={assetsBase}
+          costBasisByTokenId={costBasisByTokenId}
+          valuesPending={valuesPending}
+          canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+          savingCostBasisTokenId={savingCostBasisTokenId}
+          onSaveCostBasis={onSaveCostBasis}
+          onSetPrice={handleSetPrice}
+          getBadge={getBadge}
+          isTradeBlocked={(tokenId) =>
+            isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))
+          }
+        />
       )}
-    </div>
+
+      {hasMoreAssets && onLoadMoreAssets ? (
+        <div className="pf-load-more">
+          {typeof loadedAssetCount === "number" &&
+          typeof totalAssetCount === "number" &&
+          totalAssetCount > 0 ? (
+            <p className="pf-load-more__meta">
+              Showing {loadedAssetCount} of {totalAssetCount}
+            </p>
+          ) : null}
+          <TkButton
+            type="button"
+            variant="subtle"
+            size="sm"
+            className="pf-load-more__btn"
+            disabled={isLoadingMoreAssets}
+            onClick={onLoadMoreAssets}
+          >
+            {isLoadingMoreAssets ? "Loading…" : "Load more"}
+          </TkButton>
+        </div>
+      ) : null}
+    </>
   );
 }

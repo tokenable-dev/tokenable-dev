@@ -8,3 +8,6 @@ export const CRITERIA_BID_ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
 export const CRITERIA_BID_ITEM_ERC20 = 1;
 export const CRITERIA_BID_ITEM_CRITERIA721 = 4;
+
+/** `0` = unlimited. Must match backend `MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER` (default 0). */
+export const MAX_ACTIVE_COLLECTION_BIDS_PER_COLLECTION = 0;

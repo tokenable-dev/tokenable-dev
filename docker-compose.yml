@@ -25,6 +25,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Redis (identity cache L2) ───────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tokenable-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    # 호스트 Nest (`pnpm start:dev`) → 127.0.0.1:6380 (6380 avoids VS Code/Cursor Redis on :6379)
+    ports:
+      - "6380:6379"
+    expose:
+      - "6379"
+    restart: always
+    networks:
+      - tokenable-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Nginx (리버스 프록시) ───────────────────────────────────────────
   nginx:
     image: nginx:alpine
@@ -51,6 +72,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      # Site-wide access gate — EC2: docker-compose.ec2.yml env_file (not empty defaults here;
+      # empty interpolation would override env_file). Local full stack: docker-compose.local.yml
       # SSR: 서버 컴포넌트가 Nest 를 직접 부를 때
       - INTERNAL_API_URL=http://backend:4000/api
       # Next rewrites 는 이미지 **빌드 시** API_PROXY_TARGET 으로 고정 — CI 가 http://backend:4000 전달 (로컬 빌드 시에도 동일하게 맞출 것)
@@ -72,6 +95,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Host dev uses backend/.env → redis://127.0.0.1:6380; in-compose backend uses service DNS.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     healthcheck:
       test:
         [
@@ -89,6 +117,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   tokenable-net:

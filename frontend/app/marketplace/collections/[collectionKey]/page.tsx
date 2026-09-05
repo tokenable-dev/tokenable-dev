@@ -1,22 +1,32 @@
 "use client";
 
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CollectionDetailLoadedView,
   CollectionDetailLoadingShell,
+  CollectionDetailStateShell,
 } from "@/components/marketplace/collection-detail";
+import { AppPageState } from "@/components/ui/AppPageState";
 import {
   useCollectionDetailPage,
   type CollectionDetailLoadedProps,
 } from "@/hooks/collection-detail";
+import { formatErrorDetails } from "@/lib/ui/page-state-catalog";
+import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 
-export default function MarketplaceCollectionPage() {
+function CollectionDetailPageContent() {
+  usePageViewedEvent("collection_detail");
+  const searchParams = useSearchParams();
   const detail = useCollectionDetailPage();
+  const listingParam = searchParams.get("listing")?.trim() ?? "";
+  const listingTokenId = /^\d+$/.test(listingParam) ? listingParam : "";
 
   if (detail.status === "invalid") {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center text-gray-500 text-sm">
-        Invalid collection.
-      </div>
+      <CollectionDetailStateShell>
+        <AppPageState kind="collection_invalid" />
+      </CollectionDetailStateShell>
     );
   }
 
@@ -24,15 +34,40 @@ export default function MarketplaceCollectionPage() {
     return <CollectionDetailLoadingShell />;
   }
 
-  if (detail.status === "error") {
+  if (detail.status === "not_created") {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-16 text-center">
-        <p className="text-red-400 text-sm mb-4">
-          {detail.error instanceof Error
-            ? detail.error.message
-            : "Collection not found (no summary row for this bucket yet). List an NFT in this bucket or open it from the markets after the first listing."}
-        </p>
-      </div>
+      <CollectionDetailStateShell>
+        <AppPageState
+          kind="collection_not_created"
+          primaryAction={{ label: "Go to Portfolio", href: "/portfolio", variant: "primary" }}
+          secondaryAction={
+            listingTokenId
+              ? {
+                  label: "List from Portfolio",
+                  href: `/portfolio?list=${listingTokenId}`,
+                  variant: "neutral",
+                }
+              : { label: "Browse Markets", href: "/markets", variant: "neutral" }
+          }
+        />
+      </CollectionDetailStateShell>
+    );
+  }
+
+  if (detail.status === "fetch_error") {
+    const showDetails = process.env.NODE_ENV === "development";
+    return (
+      <CollectionDetailStateShell>
+        <AppPageState
+          kind="collection_load_failed"
+          primaryAction={{
+            label: "Try again",
+            onClick: () => detail.router.refresh(),
+            variant: "primary",
+          }}
+          details={showDetails ? formatErrorDetails(detail.error) : null}
+        />
+      </CollectionDetailStateShell>
     );
   }
 
@@ -43,4 +78,12 @@ export default function MarketplaceCollectionPage() {
   const loaded = detail as CollectionDetailLoadedProps;
 
   return <CollectionDetailLoadedView {...loaded} />;
+}
+
+export default function MarketplaceCollectionPage() {
+  return (
+    <Suspense fallback={<CollectionDetailLoadingShell />}>
+      <CollectionDetailPageContent />
+    </Suspense>
+  );
 }

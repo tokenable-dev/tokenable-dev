@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
+import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
-  useAccount,
-  usePublicClient,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from "wagmi";
-import { uploadRwaMetadata } from "@/lib/core";
-import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
-import { sepolia } from "@/config/wagmi";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+  certMintBlockReason,
+  uploadRwaMetadata,
+  mintRwaViaBackend,
+  syncRwaTokenAfterMint,
+} from "@/lib/core";
+import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import {
   buildGradedCardMetadata,
   buildMintOpenSeaAttributes,
@@ -19,32 +20,47 @@ import {
   MINT_FORM_INITIAL_STATE,
   type MintFormStep,
 } from "@/lib/vault/mintFormConstants";
-import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
+import { resolveSelfVaultMintImageSelection } from "@/lib/vault/mintImageSource";
 import { validateMintForm } from "@/lib/vault/validateMintForm";
+import { normalizeWalletAddress } from "@/lib/auth/wallets";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore, selectRefresh } from "@/store";
 import type { GradedCardFormState } from "@/types/gradedCard";
 import { useMintFormPsaState } from "./mintFormPsaState";
 
 export function useMintForm() {
-  const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { primaryAddress, isWalletReady, isWalletActivating, hasAccountWallet, isWalletAwaitingPrivy } =
+    useAccountWalletSession();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
+  const { chainId } = useAppChain();
+  const { runAccessGate } = useAccessGate(2, "/vault/submit/mint");
   const refresh = useAppStore(selectRefresh);
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<GradedCardFormState>(MINT_FORM_INITIAL_STATE);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState<MintFormStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [result, setResult] = useState<{ tokenURI: string; txHash: string } | null>(null);
+  const [result, setResult] = useState<{
+    tokenURI: string;
+    txHash: string;
+    tokenId: number;
+  } | null>(null);
   const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
+  /** Synchronous guard — `isProcessing` lags one React render so double-clicks can fire two mint txs. */
+  const submitLockRef = useRef(false);
+  const [walletActivateError, setWalletActivateError] = useState("");
+  const [walletActivateBusy, setWalletActivateBusy] = useState(false);
+  const [certTakenMessage, setCertTakenMessage] = useState<string | null>(null);
+  const [certTakenChecking, setCertTakenChecking] = useState(false);
 
   const psa = useMintFormPsaState(form, setForm);
 
-  const { writeContractAsync } = useWriteContract();
-  const { data: receipt, isLoading: waitingForReceipt } =
-    useWaitForTransactionReceipt({
-      hash: result?.txHash as `0x${string}` | undefined,
-      chainId: sepolia.id,
-    });
+  const resolvedCert = (
+    form.grade.certNumber.trim() ||
+    psa.lastAnalyze?.psa.certNumber?.trim() ||
+    ""
+  );
 
   const updateForm = useCallback(<K extends keyof GradedCardFormState>(
     key: K,
@@ -71,13 +87,38 @@ export function useMintForm() {
     [],
   );
 
+  useEffect(() => {
+    if (!/^\d{7,10}$/.test(resolvedCert)) {
+      setCertTakenMessage(null);
+      setCertTakenChecking(false);
+      return;
+    }
+    let cancelled = false;
+    setCertTakenChecking(true);
+    void certMintBlockReason(resolvedCert, chainId)
+      .then((reason) => {
+        if (!cancelled) setCertTakenMessage(reason);
+      })
+      .catch(() => {
+        if (!cancelled) setCertTakenMessage(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCertTakenChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedCert, chainId]);
+
   const validate = useCallback((): boolean => {
     const next = validateMintForm(form, psa.lastAnalyze, psa.psaInputMode);
+    if (certTakenMessage) next.certNumber = certTakenMessage;
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [form, psa.lastAnalyze, psa.psaInputMode]);
+  }, [form, psa.lastAnalyze, psa.psaInputMode, certTakenMessage]);
 
   const resetForm = useCallback(() => {
+    submitLockRef.current = false;
     setStep("idle");
     setErrorMsg("");
     setResult(null);
@@ -96,32 +137,82 @@ export function useMintForm() {
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
 
+  useEffect(() => {
+    if (isWalletReady || !hasAccountWallet) return;
+    let cancelled = false;
+    void ensureAccountWalletReady()
+      .then(() => {
+        if (!cancelled) setWalletActivateError("");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message =
+          err instanceof Error ? err.message : "Could not activate account wallet.";
+        setWalletActivateError(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isWalletReady, hasAccountWallet, ensureAccountWalletReady, primaryAddress]);
+
+  const activateAccountWallet = useCallback(async () => {
+    setWalletActivateError("");
+    setWalletActivateBusy(true);
+    try {
+      await ensureAccountWalletReady();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Could not activate account wallet.";
+      setWalletActivateError(message);
+    } finally {
+      setWalletActivateBusy(false);
+    }
+  }, [ensureAccountWalletReady]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!validate() || !address || !isConnected) return;
+      if (submitLockRef.current) return;
+      if (!validate() || !primaryAddress || !isWalletReady) return;
+      if (certTakenMessage) return;
+      if (!runAccessGate()) return;
 
+      const certForMint =
+        form.grade.certNumber.trim() ||
+        psa.lastAnalyze?.psa.certNumber?.trim() ||
+        "";
+      if (certForMint) {
+        const taken = await certMintBlockReason(certForMint, chainId);
+        if (taken) {
+          setCertTakenMessage(taken);
+          setErrorMsg(taken);
+          setStep("error");
+          submitLockRef.current = false;
+          return;
+        }
+      }
+
+      submitLockRef.current = true;
       setErrorMsg("");
       setStep("uploading");
 
       try {
+        const recipientAddress = await ensureAccountWalletReady();
+        if (normalizeWalletAddress(recipientAddress) !== primaryAddress) {
+          throw new Error("Mint must use your Privy account wallet.");
+        }
         const data = new FormData();
         data.append("name", form.name);
         data.append("description", form.description.trim() || "No description");
-        const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
-          psa.lastAnalyze,
-          form.grade.certNumber,
-        )
-          ? psa.lastAnalyze?.psaCertImages?.front
-          : undefined;
-        const selectedMintImageUrl =
-          psa.lastAnalyze?.cardhedgerMint?.imageUrl || trustedPsaSlabUrl;
-        if (selectedMintImageUrl) {
-          data.append("imageUrl", selectedMintImageUrl);
-        } else if (form.image instanceof File) {
+        const mintImage = resolveSelfVaultMintImageSelection({
+          analyze: psa.lastAnalyze,
+          certNumber: form.grade.certNumber,
+          userImage: form.image,
+        });
+        if (mintImage.imageUrl) {
+          data.append("imageUrl", mintImage.imageUrl);
+        } else if (mintImage.useUserFile && form.image instanceof File) {
           data.append("image", form.image);
-        } else if (typeof form.image === "string" && form.image.trim()) {
-          data.append("imageUrl", form.image);
         }
 
         const meta = buildGradedCardMetadata(form, psa.lastAnalyze);
@@ -144,54 +235,57 @@ export function useMintForm() {
           }),
         );
 
-        const uploadResult = await uploadRwaMetadata(data);
+        const uploadResult = await uploadRwaMetadata(data, chainId);
         setStep("minting");
 
-        if (!publicClient) throw new Error("Network not ready");
-        const gas = await gasWithCapFast(
-          publicClient,
-          {
-            address: TOKENABLE_RWA_ADDRESS,
-            abi: TOKENABLE_RWA_MINT_ABI,
-            functionName: "mint",
-            args: [address, uploadResult.tokenURI],
-            account: address,
-          },
-          GAS_FALLBACK.rwaMint,
-        );
-        const txHash = await writeContractAsync({
-          address: TOKENABLE_RWA_ADDRESS,
-          abi: TOKENABLE_RWA_MINT_ABI,
-          functionName: "mint",
-          args: [address, uploadResult.tokenURI],
-          chainId: sepolia.id,
-          gas,
+        // Permanent physical-asset identity — must match what buildGradedCardMetadata()
+        // wrote into properties.graded.psa.certNumber so the on-chain vaultRef the
+        // backend derives stays stable across this card's future vault cycles.
+        const certNumber =
+          form.grade.certNumber.trim() || psa.lastAnalyze?.psa.certNumber?.trim() || "";
+
+        const mintResult = await mintRwaViaBackend({
+          recipientAddress: primaryAddress,
+          tokenURI: uploadResult.tokenURI,
+          certNumber,
+          chainId,
+          displayImageUrl: uploadResult.displayImageUrl,
+          displayImageBackUrl: uploadResult.displayImageBackUrl,
         });
 
-        setResult({ tokenURI: uploadResult.tokenURI, txHash });
+        setResult({
+          tokenURI: uploadResult.tokenURI,
+          txHash: mintResult.txHash,
+          tokenId: mintResult.tokenId,
+        });
         setStep("success");
+
+        await syncRwaTokenAfterMint(mintResult.tokenId);
+        await invalidateAfterRwaMintTx(queryClient, {
+          tokenId: mintResult.tokenId,
+          address: primaryAddress,
+        });
         refresh();
-        if (publicClient) {
-          void publicClient
-            .waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-            .then(() => refresh());
-        }
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "An unexpected error occurred";
         setErrorMsg(message);
         setStep("error");
+        submitLockRef.current = false;
       }
     },
     [
-      address,
+      primaryAddress,
       form,
-      isConnected,
+      isWalletReady,
+      ensureAccountWalletReady,
       psa.lastAnalyze,
-      publicClient,
+      queryClient,
       refresh,
       validate,
-      writeContractAsync,
+      certTakenMessage,
+      runAccessGate,
+      chainId,
     ],
   );
 
@@ -212,9 +306,15 @@ export function useMintForm() {
     resetForm,
     handleSubmit,
     isProcessing,
-    waitingForReceipt,
-    receipt,
-    isConnected,
-    address,
+    isWalletReady,
+    isWalletActivating,
+    isWalletAwaitingPrivy,
+    hasAccountWallet,
+    walletActivateError,
+    walletActivateBusy,
+    activateAccountWallet,
+    address: primaryAddress,
+    certTakenMessage,
+    certTakenChecking,
   };
 }

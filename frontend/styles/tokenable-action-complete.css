@@ -1,0 +1,95 @@
+/* Action-complete result surfaces — Feedback-States Dialog hierarchy.
+   Overlay modals use TkDialog (.tk-dialog); embedded panels keep title/body/actions. */
+
+.tk-ac-dialog.tk-dialog {
+  text-align: left;
+}
+
+.tk-ac-dialog .tk-dialog__foot {
+  width: 100%;
+}
+
+.tk-ac-dialog .tk-ac-actions {
+  width: 100%;
+  margin-top: 0;
+}
+
+.tk-ac-panel {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  text-align: left;
+}
+
+.tk-ac-panel--embedded {
+  max-width: none;
+  padding: 6px 0 4px;
+}
+
+.tk-ac-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.tk-ac-sub {
+  margin: 8px 0 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  color: #a7a9ac;
+}
+
+.tk-ac-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin: 18px 0 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tk-ac-status__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.tk-ac-status__value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pos, #00C864);
+}
+
+.tk-ac-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+  width: 100%;
+}
+
+.tk-ac-actions--stack {
+  flex-direction: column;
+}
+
+.tk-ac-actions .tk-ac-btn {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.tk-ac-extra {
+  margin-top: 0;
+  text-align: left;
+}

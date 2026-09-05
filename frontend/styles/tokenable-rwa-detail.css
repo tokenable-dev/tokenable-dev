@@ -1,0 +1,678 @@
+/* RWA token detail — Card.html single-listing focus (Phase 9) */
+
+.rwa-detail-page {
+  background: var(--ink);
+  color: var(--t1);
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+.rwa-detail-page__shell {
+  max-width: 72rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px clamp(12px, 3vw, 24px) 32px;
+}
+
+@media (min-width: 1024px) {
+  .rwa-detail-page__shell {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .rwa-detail-page__shell--main {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 8px;
+    padding-bottom: 0;
+  }
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+
+.rd-breadcrumb {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--t3);
+  margin-bottom: 20px;
+}
+
+@media (min-width: 1024px) {
+  .rd-breadcrumb {
+    display: block;
+  }
+}
+
+.rd-breadcrumb a {
+  color: var(--t2);
+  text-decoration: none;
+}
+
+.rd-breadcrumb a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.rd-breadcrumb__sep {
+  margin: 0 0.35em;
+}
+
+.rd-breadcrumb__current {
+  color: #fff;
+}
+
+/* ── Sidebar / trade panel ────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-sidebar-panel {
+  min-width: 0;
+}
+
+.rwa-detail-page .rd-trades-panel h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rwa-detail-page .rd-sidebar-divider {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.rwa-detail-page .rd-price-label {
+  color: var(--t2) !important;
+}
+
+.rwa-detail-page .rd-not-for-sale {
+  color: var(--t2) !important;
+}
+
+/* ── Mint → Azure overrides (scoped) ─────────────────────────────────────── */
+
+.rwa-detail-page [class*="text-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="text-mint"] {
+  color: var(--azure) !important;
+}
+
+.rwa-detail-page [class*="border-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="border-mint"] {
+  border-color: rgba(26, 111, 255, 0.35) !important;
+}
+
+.rwa-detail-page [class*="bg-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="bg-mint"] {
+  background: rgba(26, 111, 255, 0.08) !important;
+}
+
+.rwa-detail-page .accent-mint,
+.rwa-detail-page .tk-sheet-panel .accent-mint {
+  accent-color: var(--azure);
+}
+
+/* ── Sticky mobile footer ─────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-sticky-footer__note {
+  background: rgba(26, 26, 30, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Loading skeleton ─────────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-skeleton {
+  background: #1e1e2e !important;
+  border-radius: 16px;
+}
+
+/* ── Empty / error states ───────────────────────────────────────────────────── */
+
+.rd-empty-state {
+  text-align: center;
+  padding: 96px 16px;
+}
+
+.rd-empty-state__title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rd-empty-state__text {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+/* ── List sheet form ────────────────────────────────────────────────────────── */
+
+.rd-list-sheet__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--eyebrow);
+}
+
+.rd-list-sheet__card {
+  min-width: 0;
+}
+
+.rd-list-sheet__card-name {
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.rd-list-sheet__card-facts {
+  margin: 6px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.rd-list-sheet__price-wrap {
+  position: relative;
+}
+
+/* Beat .tk-input { padding: 10px 14px } so $ prefix / USDC suffix don't overlap digits */
+.rd-list-sheet__price-wrap .tk-input {
+  padding-left: 34px;
+  padding-right: 58px;
+}
+
+.rd-list-sheet__usdc {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+
+.rd-list-sheet__mkt {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.rd-list-sheet__ref,
+.rd-list-sheet__listed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+}
+
+.rd-list-sheet__listed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(26, 111, 255, 0.1);
+  margin-bottom: 0;
+}
+
+.rd-list-sheet__ref-label {
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.rd-list-sheet__ref-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rd-list-sheet__ref-val--muted {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.rd-list-sheet__ref-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rd-list-sheet__ref-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.rd-list-sheet__match {
+  background: rgba(26, 111, 255, 0.16);
+  border: 0;
+  color: var(--azure);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rd-list-sheet__match:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.24);
+}
+
+.rd-list-sheet__match:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rd-list-sheet__dollar {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.rd-list-sheet__fee {
+  margin-top: 4px;
+}
+
+.rd-list-sheet__fee-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.rd-list-sheet__fee-amt {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.rd-list-sheet__fee-row--net {
+  padding-bottom: 6px;
+}
+
+.rd-list-sheet__fee-net-label {
+  font-weight: 700;
+}
+
+.rd-list-sheet__fee-net {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pos);
+}
+
+.rd-list-sheet__hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Place bid sheet header ─────────────────────────────────────────────────── */
+
+.rd-bid-sheet__header {
+  padding-right: 40px;
+  margin-bottom: 16px;
+}
+
+.rd-bid-sheet__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.rd-bid-sheet__subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--t2);
+}
+
+/* tk-price-input.js — Set price / Edit price */
+.tk-price__refs {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 4px 14px;
+  margin-bottom: 16px;
+}
+
+.tk-price__ref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.tk-price__ref-lbl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-price__ref-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tk-price__ref-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tk-price__use {
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--azure, #1A6FFF);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.tk-price__use:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tk-price__use--sell {
+  background: var(--pos, #00c864);
+  color: #04140b;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.tk-price__sells-now {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pos, #00c864);
+  background: rgba(0, 200, 100, 0.14);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.tk-price__ref-val--bid {
+  color: var(--pos, #00c864);
+}
+
+.tk-price__base-tog {
+  border: 0;
+  background: transparent;
+  color: var(--azure, #1A6FFF);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tk-price__base-tog:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tk-price__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 10px;
+}
+
+.tk-price__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pos, #00C864);
+}
+
+.tk-price__loading {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.tk-price__your {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tk-price__ref--bid {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 10px;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+.tk-price__ref--on {
+  box-shadow: 0 0 0 1px rgba(0, 200, 100, 0.55), 0 0 18px rgba(0, 200, 100, 0.28);
+  background: rgba(0, 200, 100, 0.08);
+}
+.tk-price__ref-check {
+  color: var(--pos);
+  font-weight: 800;
+}
+.tk-price__base-tog--static {
+  cursor: default;
+}
+
+.tk-price__field {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.tk-price__dollar {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.tk-price__input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px 0 32px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  outline: none;
+}
+
+.tk-price__input:disabled {
+  opacity: 0.55;
+}
+
+.tk-price__chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tk-price__chip {
+  flex: 1;
+  min-width: 58px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tk-price__chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-price__chip--on {
+  background: var(--azure, #1A6FFF);
+  color: #fff;
+}
+
+.tk-price__undercut {
+  width: 100%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.tk-price__undercut:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-price__basenote {
+  margin: 0 0 14px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.5;
+}
+
+.tk-price__hint {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(243, 112, 30, 0.1);
+  color: #f3701e;
+}
+
+.tk-price__hint--good,
+.tk-price__hint--cross {
+  background: rgba(0, 200, 100, 0.1);
+  color: var(--pos, #00C864);
+}
+
+.rd-list-sheet__cta--sell.tk-btn--primary {
+  background: #00c864 !important;
+  color: #04140b !important;
+  box-shadow:
+    inset 0 0 0 3px rgba(0, 20, 10, 0.35),
+    inset 0 0 0 1px rgba(150, 255, 190, 0.6),
+    inset 0 3px 0 0 rgba(150, 255, 190, 0.7),
+    inset 0 -3px 0 0 rgba(0, 60, 25, 0.4) !important;
+  filter: drop-shadow(4px 4px 0 rgba(0, 195, 80, 0.5));
+}
+
+.tk-price__fee {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-price__fee-amt {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-price__net {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-price__net-lbl {
+  color: #fff;
+}
+
+.tk-price__net-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pos, #00C864);
+}
+
+.tk-price__payout-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+}
+

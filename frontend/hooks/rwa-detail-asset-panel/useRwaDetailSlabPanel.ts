@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postResolveMediaUrls } from "@/lib/core";
+import { postResolveMediaUrls, rq, marketplaceRqPolicy } from "@/lib/core";
 import {
   assetDetailHeadlineHasContent,
   buildRwaAssetDetailHeadlineParts,
@@ -15,16 +15,21 @@ import {
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
 import { SLAB_3D_UI_ENABLED } from "@/lib/marketplace/rwa-detail";
+import {
+  RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS,
+  RWA_MOBILE_SLAB_MAX_WIDTH_CLASS,
+} from "@/components/marketplace/rwa-detail/theme";
 
 export function useRwaDetailSlabPanel(input: {
   metadata: RwaDetailMetadata | null;
   imageUrl: string | null;
+  imageBackUrl?: string | null;
   tokenId: number;
   collectionLabel: string;
   metaLoading?: boolean;
   openSeaMobile?: boolean;
 }) {
-  const { metadata, imageUrl, tokenId, collectionLabel, metaLoading, openSeaMobile = false } =
+  const { metadata, imageUrl, imageBackUrl = null, tokenId, collectionLabel, metaLoading, openSeaMobile = false } =
     input;
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -43,16 +48,19 @@ export function useRwaDetailSlabPanel(input: {
     [metadata],
   );
 
-  const backCandidate = useMemo(() => extractGradedSlabBackCandidate(metadata), [metadata]);
+  const backCandidate = useMemo(
+    () => imageBackUrl?.trim() || extractGradedSlabBackCandidate(metadata),
+    [imageBackUrl, metadata],
+  );
   const backNeedsGateway = Boolean(
     backCandidate?.startsWith("ipfs://") || backCandidate?.startsWith("ipfs:/"),
   );
 
   const { data: backResolved, isFetching: backResolving } = useQuery({
-    queryKey: ["rwa-detail-slab-back", backCandidate],
+    queryKey: rq.rwaSlabBack(backCandidate ?? ""),
     queryFn: () => postResolveMediaUrls([backCandidate!]),
     enabled: Boolean(backCandidate && backNeedsGateway),
-    staleTime: 86400_000,
+    staleTime: marketplaceRqPolicy.mediaStaleMs,
   });
 
   const effectiveBackUrl = useMemo(() => {
@@ -67,7 +75,7 @@ export function useRwaDetailSlabPanel(input: {
   const [flipAngle, setFlipAngle] = useState(0);
   const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(false);
   const useFlipSlab = SLAB_3D_UI_ENABLED && Boolean(backCandidate);
-  const showSlabSidePicker = Boolean(backCandidate);
+  const showSlabSidePicker = Boolean(backCandidate) && !openSeaMobile;
   const showSlabFront = slabSide === "front";
 
   useEffect(() => {
@@ -90,11 +98,14 @@ export function useRwaDetailSlabPanel(input: {
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto aspect-square w-full max-w-none shrink-0 overflow-hidden rounded-none bg-transparent max-lg:max-h-[min(72vw,340px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
+    ? `relative mx-auto w-fit ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} shrink-0 max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:w-full lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]`
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
+  /** Full slab visible (object-contain) — svh cap leaves room for caption + sticky footer. */
+  const openSeaMobileSlabImgCls = `mx-auto block h-auto w-auto max-w-full ${RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS} object-contain object-center lg:h-full lg:w-full lg:max-h-none lg:min-h-0`;
+
   const slabThumbSize = openSeaMobile
-    ? "relative aspect-[3/4] w-10 shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:w-14 lg:rounded-lg"
+    ? "relative h-[2.75rem] w-[2.0625rem] shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:aspect-[3/4] lg:h-auto lg:w-14 lg:rounded-lg"
     : "relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2";
 
   const slabThumbMinH = openSeaMobile
@@ -102,8 +113,8 @@ export function useRwaDetailSlabPanel(input: {
     : "min-h-[4.5rem]";
 
   const slabControlsGap = openSeaMobile
-    ? "mt-0 flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 max-lg:min-h-[3rem] max-lg:px-5 max-lg:pb-2 max-lg:pt-2 lg:items-end lg:gap-3 lg:px-0 lg:pb-0 lg:pt-0"
-    : "mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4";
+    ? "mt-3 flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 max-lg:min-h-[3rem] max-lg:px-5 max-lg:pb-2 max-lg:pt-2 lg:mt-4 lg:items-end lg:gap-3 lg:px-0 lg:pb-0 lg:pt-0"
+    : "mt-4 flex w-full flex-wrap items-end justify-center gap-3 sm:mt-5 sm:gap-4";
 
   const slabRotateGlyphWrap = openSeaMobile
     ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45 max-xl:h-6 max-xl:w-6 lg:h-8 lg:w-8"
@@ -142,6 +153,7 @@ export function useRwaDetailSlabPanel(input: {
     frontHeroLoading,
     backHeroLoading,
     slabHeroSizing,
+    openSeaMobileSlabImgCls,
     slabThumbSize,
     slabThumbMinH,
     slabControlsGap,

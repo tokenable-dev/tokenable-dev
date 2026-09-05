@@ -2,40 +2,47 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPortfolioDailySnapshots } from "@/lib/core";
-import { formatSnapshotAxisLabel } from "@/lib/portfolio/portfolioAssetMeta";
+import { getPortfolioDailySnapshots, rq, marketplaceRqPolicy } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
+import {
+  buildPortfolioChartSeriesFromSnapshots,
+  latestSnapshotValueUsd,
+  portfolioPnlFromChartSeries,
+} from "@/lib/portfolio/portfolioChartSeries";
 
 export function usePortfolioDailyChart(
   address: string | undefined,
   isConnected: boolean,
 ) {
+  const chainId = activeRqChainId();
   const { data: dailySnapshotsData, isLoading: dailySnapshotsLoading } = useQuery({
-    queryKey: ["portfolio-daily-snapshots", address ?? ""] as const,
+    queryKey: rq.portfolioDailySnapshots(address ?? "", chainId),
     queryFn: () => getPortfolioDailySnapshots(address!, 32),
     enabled: Boolean(address && isConnected),
-    staleTime: 120_000,
+    staleTime: marketplaceRqPolicy.portfolioDailyStaleMs,
   });
 
   const dailyPnlUsd = dailySnapshotsData?.latest24h?.pnlUsd ?? null;
   const dailyPnlPct = dailySnapshotsData?.latest24h?.pnlPct ?? null;
-  const hasDailyPnl = dailyPnlUsd != null;
 
-  const dailyChartSeries = useMemo(() => {
-    const rows = dailySnapshotsData?.items ?? [];
-    const sorted = [...rows].sort(
-      (a, b) => new Date(a.snapshotAt).getTime() - new Date(b.snapshotAt).getTime(),
-    );
-    const series: { value: number; label: string }[] = [];
-    for (const r of sorted) {
-      const v = r.totalValueUsd;
-      if (!Number.isFinite(v) || v < 0) continue;
-      series.push({
-        value: v,
-        label: formatSnapshotAxisLabel(r.snapshotDateKst),
-      });
-    }
-    return series;
-  }, [dailySnapshotsData?.items]);
+  const dailyChartSeries = useMemo(
+    () => buildPortfolioChartSeriesFromSnapshots(dailySnapshotsData?.items ?? []),
+    [dailySnapshotsData?.items],
+  );
+
+  const portfolioValue = useMemo(
+    () => latestSnapshotValueUsd(dailySnapshotsData?.items ?? []),
+    [dailySnapshotsData?.items],
+  );
+
+  const snapshotPnl = useMemo(
+    () => portfolioPnlFromChartSeries(dailyChartSeries),
+    [dailyChartSeries],
+  );
+
+  const resolvedDailyPnlUsd = dailyPnlUsd ?? snapshotPnl.pnlUsd;
+  const resolvedDailyPnlPct = dailyPnlPct ?? snapshotPnl.pnlPct;
+  const hasDailyPnl = resolvedDailyPnlUsd != null;
 
   const dailyChartPoints = useMemo(
     () => dailyChartSeries.map((s) => s.value),
@@ -48,8 +55,9 @@ export function usePortfolioDailyChart(
 
   return {
     dailySnapshotsLoading,
-    dailyPnlUsd,
-    dailyPnlPct,
+    portfolioValue,
+    dailyPnlUsd: resolvedDailyPnlUsd,
+    dailyPnlPct: resolvedDailyPnlPct,
     hasDailyPnl,
     dailyChartPoints,
     dailyChartLabels,

@@ -34,11 +34,11 @@ export function CollectionOwnedRwaListAssetCard({
             No image
           </div>
         )}
-        <div className="absolute top-2 left-2 bg-black/60 text-[11px] sm:text-xs text-gray-300 px-2 py-1 rounded-full">
+        <div className="absolute top-2 left-2 bg-black/60 text-xs sm:text-xs text-gray-300 px-2 py-1 rounded-full">
           #{asset.tokenId}
         </div>
         {listed && (
-          <div className="absolute top-2 right-2 bg-slate-600/90 text-[11px] sm:text-xs text-slate-100 px-2 py-1 rounded-full">
+          <div className="absolute top-2 right-2 bg-slate-600/90 text-xs sm:text-xs text-slate-100 px-2 py-1 rounded-full">
             Listed
           </div>
         )}

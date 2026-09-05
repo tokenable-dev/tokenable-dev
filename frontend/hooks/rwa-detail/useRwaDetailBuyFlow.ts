@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { Address, PublicClient } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { useAppChain } from "@/providers/AppChainProvider";
 import type { Order } from "@/lib/core";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
-import { invalidateRwaDetailQueries } from "@/lib/marketplace/rwa-detail";
+import { invalidateAfterRwaDetail } from "@/lib/core/invalidation";
 import type { useWriteContract } from "wagmi";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export function useRwaDetailBuyFlow(input: {
   tokenId: number;
@@ -31,45 +33,69 @@ export function useRwaDetailBuyFlow(input: {
     onPurchaseSuccess,
   } = input;
 
+  const { chainId } = useAppChain();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
+
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyErr, setBuyErr] = useState<string | null>(null);
 
   const invalidateMarketplaceQueries = useCallback(async () => {
-    await invalidateRwaDetailQueries(queryClient, {
+    await invalidateAfterRwaDetail(queryClient, {
       tokenId,
       collectionKeyForMatch,
     });
   }, [queryClient, tokenId, collectionKeyForMatch]);
 
-  const handleFulfillAsk = useCallback(async () => {
-    if (!activeAskListing || !address || !publicClient) return;
-    setBuyErr(null);
-    setBuyBusy(true);
-    try {
-      await fulfillAskListingOrder({
-        ask: activeAskListing,
-        address: address as Address,
-        publicClient,
-        writeContractAsync: writeContractAsync as Parameters<
-          typeof fulfillAskListingOrder
-        >[0]["writeContractAsync"],
-        chainId: sepolia.id,
-      });
-      await invalidateMarketplaceQueries();
-      onPurchaseSuccess();
-    } catch (e: unknown) {
-      setBuyErr(mapWalletError(e).message);
-    } finally {
-      setBuyBusy(false);
-    }
-  }, [
-    activeAskListing,
-    address,
-    publicClient,
-    writeContractAsync,
-    invalidateMarketplaceQueries,
-    onPurchaseSuccess,
-  ]);
+  const handleFulfillAsk = useCallback(
+    async (overrideAsk?: Order | null) => {
+      const ask = overrideAsk ?? activeAskListing;
+      if (!ask || !publicClient) return;
+      setBuyErr(null);
+      setBuyBusy(true);
+      try {
+        // Force Privy account wallet (not a lingering MetaMask connector).
+        const signerAddress = await ensureAccountWalletReady();
+        await fulfillAskListingOrder({
+          ask,
+          address: signerAddress as Address,
+          publicClient,
+          writeContractAsync: writeContractAsync as Parameters<
+            typeof fulfillAskListingOrder
+          >[0]["writeContractAsync"],
+          chainId,
+        });
+        await invalidateMarketplaceQueries();
+        const priceUsdc = Number(ask.considerationAmount) / 1_000_000;
+        const fee = Math.round(priceUsdc * 0.05 * 100) / 100;
+        const tid = Number(ask.tokenId);
+        trackEvent("purchase_completed", {
+          card_id: String(Number.isFinite(tid) ? tid : tokenId),
+          price: priceUsdc,
+          fee,
+          net_amount: Math.round(priceUsdc * 0.95 * 100) / 100,
+        });
+        onPurchaseSuccess();
+      } catch (e: unknown) {
+        try {
+          setBuyErr(mapWalletError(e).message);
+        } catch {
+          setBuyErr("Purchase failed. Please try again.");
+        }
+      } finally {
+        setBuyBusy(false);
+      }
+    },
+    [
+      activeAskListing,
+      publicClient,
+      writeContractAsync,
+      chainId,
+      ensureAccountWalletReady,
+      invalidateMarketplaceQueries,
+      onPurchaseSuccess,
+      tokenId,
+    ],
+  );
 
   useEffect(() => {
     setBuyErr(null);

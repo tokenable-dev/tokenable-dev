@@ -1,88 +1,130 @@
 "use client";
 
+import Link from "next/link";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { formatUsdCompact } from "@/lib/market";
-import { PortfolioChartToggle } from "./PortfolioChartToggle";
-import { PortfolioValueChart } from "./PortfolioValueChart";
+import { listPartnerRedeems, rq } from "@/lib/core";
+import { groupPartnerRedeems } from "@/lib/partner/partnerRedeemGroups";
+import {
+  formatPortfolioValueChangeLabel,
+  resolvePortfolioValueChangeState,
+} from "@/lib/portfolio/portfolioValueChange";
 
-export function PortfolioValuePanel({
-  totalValue,
-  dailyPnlPct,
-  chartTotalsPending,
-  portfolioChartOpen,
-  onToggleChart,
-  isMobileViewport,
-  dailyChartPoints,
-  dailyChartLabels,
-}: {
-  totalValue: number;
-  dailyPnlPct: number | null;
-  chartTotalsPending: boolean;
-  portfolioChartOpen: boolean;
-  onToggleChart: () => void;
-  isMobileViewport: boolean;
-  dailyChartPoints: number[];
-  dailyChartLabels: string[];
-}) {
+function RedeemRequestsIcon() {
   return (
-    <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-6">
-      <p className="mb-2 text-xs font-medium text-gray-500 sm:mb-3 sm:text-sm sm:text-gray-400">
-        Total Value
-      </p>
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
-          {chartTotalsPending ? (
-            <span className="inline-block h-8 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-9 sm:w-28" />
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <polyline
+        points="3.3 7 12 12 20.7 7"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Portfolio value hero — Portfolio.html + portfolio_value_states.html.
+ */
+export function PortfolioValuePanel({
+  totalsPending,
+  totalValue,
+  dailyPnlUsd,
+  dailyPnlPct,
+  partnerRedeemHref,
+}: {
+  totalsPending: boolean;
+  totalValue: number;
+  dailyPnlUsd: number | null;
+  dailyPnlPct: number | null;
+  /** Partner portfolio — Redeem requests lives in this value row. */
+  partnerRedeemHref?: string | null;
+}) {
+  const changeState = resolvePortfolioValueChangeState(dailyPnlUsd, dailyPnlPct);
+  const changeLabel =
+    changeState === "nodata" || dailyPnlUsd == null || dailyPnlPct == null
+      ? null
+      : formatPortfolioValueChangeLabel(changeState, dailyPnlUsd, dailyPnlPct);
+  const redeemHref = partnerRedeemHref?.trim() || "";
+
+  const partnerRedeemQuery = useQuery({
+    queryKey: rq.partnerRedeems(),
+    queryFn: () => listPartnerRedeems({ limit: 100 }),
+    enabled: Boolean(redeemHref),
+    staleTime: 10_000,
+  });
+
+  const toShipCount = useMemo(() => {
+    if (!redeemHref) return 0;
+    return groupPartnerRedeems(partnerRedeemQuery.data?.items ?? []).filter(
+      (group) => group.tab === "to_ship",
+    ).length;
+  }, [redeemHref, partnerRedeemQuery.data?.items]);
+
+  return (
+    <header className="pf-value-hero" aria-label="Portfolio value">
+      <div className="pf-value-hero__main">
+        <div className="pf-value-hero__eyebrow">Portfolio value</div>
+        <div className="pf-value-hero__row">
+          {totalsPending ? (
+            <span className="pf-value-hero__skeleton" aria-hidden />
           ) : (
             <>
-              <span className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+              <span className="pf-value-hero__amount">
                 {formatUsdCompact(totalValue)}
               </span>
-              {dailyPnlPct != null && dailyPnlPct !== 0 && (
-                <span
-                  className={`text-sm font-bold tabular-nums sm:text-base ${
-                    dailyPnlPct >= 0 ? "text-mint" : "text-red-400"
-                  }`}
-                >
-                  {dailyPnlPct >= 0 ? "+" : ""}
-                  {dailyPnlPct.toFixed(1)}%
+              {changeState === "nodata" ? (
+                <span className="tkl-mono pf-value-hero__chip pf-value-hero__chip--flat">
+                  —
                 </span>
-              )}
+              ) : changeLabel ? (
+                <span
+                  id="pf-val-chip"
+                  className={`tkl-mono pf-value-hero__chip pf-value-hero__chip--${changeState}`}
+                >
+                  <span className="pf-value-hero__chip-dir" aria-hidden>
+                    {changeLabel.arrow}
+                  </span>
+                  {changeLabel.usd}
+                  <span className="pf-value-hero__chip-dot" aria-hidden>
+                    {" · "}
+                  </span>
+                  {changeLabel.pct}
+                </span>
+              ) : null}
             </>
           )}
         </div>
-        <div className="shrink-0 border-l border-gray-800/80 pl-3 sm:pl-4">
-          <PortfolioChartToggle
-            open={portfolioChartOpen}
-            disabled={chartTotalsPending}
-            onToggle={onToggleChart}
-          />
-        </div>
+        {!totalsPending && changeState === "nodata" ? (
+          <p className="pf-value-hero__note">No change data yet</p>
+        ) : null}
       </div>
-      <div
-        id="portfolio-value-chart"
-        className={`grid w-full transition-[grid-template-rows,margin] duration-300 ease-out ${
-          portfolioChartOpen ? "mt-4 grid-rows-[auto] sm:mt-5" : "mt-0 grid-rows-[0fr]"
-        }`}
-        aria-hidden={!portfolioChartOpen}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div
-            className={
-              isMobileViewport ? "h-[228px] w-full" : "h-[240px] w-full lg:h-[280px]"
-            }
-          >
-            {chartTotalsPending ? (
-              <div className="h-full w-full animate-pulse rounded-lg bg-gray-800/40" />
-            ) : (
-              <PortfolioValueChart
-                points={dailyChartPoints}
-                xLabels={dailyChartLabels}
-                compact={isMobileViewport}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+      {redeemHref ? (
+        <Link
+          href={redeemHref}
+          className="tk-btn tk-btn--primary pf-value-hero__redeem"
+        >
+          <span className="pf-value-hero__redeem-icon" aria-hidden>
+            <RedeemRequestsIcon />
+          </span>
+          <span className="pf-value-hero__redeem-text">
+            <span className="pf-value-hero__redeem-title">Redeem requests</span>
+          </span>
+          {toShipCount > 0 ? (
+            <span
+              className="tkl-mono pf-value-hero__redeem-badge"
+              aria-label={`${toShipCount} to ship`}
+            >
+              {toShipCount}
+            </span>
+          ) : null}
+        </Link>
+      ) : null}
+    </header>
   );
 }

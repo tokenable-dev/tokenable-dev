@@ -1,8 +1,35 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Contract } from 'ethers';
-import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
+import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from './chain-config.service';
+import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
+import {
+  TTL_CACHE_PROVIDER,
+  type TtlCacheProvider,
+} from '../common/cache/ttl-cache.interface';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
+import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
+import {
+  rpcBatchChunkDelayMs,
+  rpcMetadataBatchConcurrency,
+  rpcOwnerScanConcurrency,
+  withRpcProviderCall,
+} from './rpc-retry.util';
+
+const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
+/** Owner scans cost ~totalMinted RPC calls each — cache briefly and coalesce. */
+const TOKENS_BY_OWNER_CACHE_NS = 'rwa-tokens-by-owner';
+const TOKENS_BY_OWNER_CACHE_TTL_MS = 120_000;
 
 /** OpenZeppelin ERC721 — tokenId 미민팅 시 revert */
 function isErc721InvalidTokenError(e: unknown): boolean {
@@ -20,29 +47,86 @@ function isErc721InvalidTokenError(e: unknown): boolean {
 
 @Injectable()
 export class BlockchainService {
+  private readonly logger = new Logger(BlockchainService.name);
+  private readonly rwaByChain = new Map<SupportedChainId, Contract>();
+  /** Coalesces concurrent owner scans for the same wallet into one RPC pass. */
+  private readonly tokensByOwnerInFlight = new Map<string, Promise<number[]>>();
+  private registryHealInFlight: Promise<void> | null = null;
+  private readonly registryCompleteCache = new Map<
+    SupportedChainId,
+    { totalMinted: number; at: number }
+  >();
+
   constructor(
-    @Inject(TOKENABLE_RWA_CONTRACT)
-    private readonly tokenableRwa: Contract,
+    private readonly chainConfig: ChainConfigService,
     private readonly ipfs: IpfsGatewayResolverService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
+    @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {}
 
+  /** Read-only TokenableRWA for the requested chain (cached per process). */
+  private tokenableRwa(chainId?: SupportedChainId): Contract {
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const cached = this.rwaByChain.get(id);
+    if (cached) return cached;
+    const address = this.chainConfig.getRwaAddress(id);
+    const contract = new Contract(
+      address,
+      TOKENABLE_RWA_ABI,
+      this.chainConfig.createJsonRpcProvider(id),
+    );
+    this.rwaByChain.set(id, contract);
+    return contract;
+  }
+
   /** Used internally by `CollectionService` to enumerate minted token ids. */
-  async getRwaInfo(): Promise<{
+  async getRwaInfo(chainId?: SupportedChainId): Promise<{
     name: string;
     symbol: string;
     totalMinted: number;
   }> {
-    const [name, symbol, totalMinted] = await Promise.all([
-      this.tokenableRwa.name(),
-      this.tokenableRwa.symbol(),
-      this.tokenableRwa.totalMinted(),
-    ]);
-    return { name, symbol, totalMinted: Number(totalMinted) };
+    return withRpcProviderCall(
+      async () => {
+        const rwa = this.tokenableRwa(chainId);
+        const [name, symbol, totalMinted] = await Promise.all([
+          rwa.name(),
+          rwa.symbol(),
+          rwa.totalMinted(),
+        ]);
+        return { name, symbol, totalMinted: Number(totalMinted) };
+      },
+      { label: 'getRwaInfo' },
+    );
   }
 
-  async getRwaTokenURI(tokenId: number): Promise<string> {
+  /** Returns the current on-chain owner of an RWA token (lowercase). Throws NotFoundException if not minted/burned. */
+  async getRwaTokenOwner(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string> {
     try {
-      return await this.tokenableRwa.tokenURI(tokenId);
+      const owner: string = await withRpcProviderCall(
+        () => this.tokenableRwa(chainId).ownerOf(tokenId),
+        { label: 'ownerOf' },
+      );
+      return owner.trim().toLowerCase();
+    } catch (e: unknown) {
+      if (isErc721InvalidTokenError(e)) {
+        throw new NotFoundException(`RWA #${tokenId} does not exist on chain`);
+      }
+      throw e;
+    }
+  }
+
+  async getRwaTokenURI(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string> {
+    try {
+      return await withRpcProviderCall(
+        () => this.tokenableRwa(chainId).tokenURI(tokenId),
+        { label: 'tokenURI' },
+      );
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
         throw new NotFoundException(
@@ -53,9 +137,168 @@ export class BlockchainService {
     }
   }
 
-  async getRwaTokensByOwner(address: string): Promise<number[]> {
-    const tokenIds: bigint[] = await this.tokenableRwa.tokensOfOwner(address);
-    return tokenIds.map(Number);
+  /**
+   * On-chain active token for a vaultRef (0 when none / after burn).
+   * Used by mint-crash recovery to finish `recordMintResult`.
+   */
+  async getActiveTokenIdOfVaultRef(
+    vaultRef: string,
+    chainId?: SupportedChainId,
+  ): Promise<number> {
+    const ref = vaultRef?.trim();
+    if (!ref || !/^0x[a-fA-F0-9]{64}$/.test(ref)) {
+      throw new BadRequestException('vaultRef must be bytes32 hex');
+    }
+    const id: bigint = await withRpcProviderCall(
+      () => this.tokenableRwa(chainId).activeTokenIdOf(ref),
+      { label: 'activeTokenIdOf' },
+    );
+    const n = Number(id);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  async getRwaTokensByOwner(
+    address: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
+    const normalized = address.trim().toLowerCase();
+    if (!ETH_ADDRESS.test(normalized)) {
+      throw new BadRequestException('Invalid wallet address');
+    }
+    const cacheKey = `${chainId ?? this.chainConfig.getDefaultChainId()}:${normalized}`;
+
+    const cached = this.ttlCache.get<number[]>(
+      TOKENS_BY_OWNER_CACHE_NS,
+      cacheKey,
+    );
+    if (cached) return cached;
+
+    const inFlight = this.tokensByOwnerInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const load = (async () => {
+      await this.healOwnerRegistryIfIncomplete(chain);
+      const fromDb = await this.ownerIndex.getTokenIdsByOwner(
+        normalized,
+        chain,
+      );
+      if (await this.ownerIndex.isIndexReady(chain)) {
+        return fromDb;
+      }
+      if (fromDb.length > 0) {
+        return fromDb;
+      }
+      return this.scanRwaTokensByOwner(normalized, chain);
+    })()
+      .then((tokenIds) => {
+        this.ttlCache.set(
+          TOKENS_BY_OWNER_CACHE_NS,
+          cacheKey,
+          tokenIds,
+          TOKENS_BY_OWNER_CACHE_TTL_MS,
+        );
+        return tokenIds;
+      })
+      .finally(() => {
+        this.tokensByOwnerInFlight.delete(cacheKey);
+      });
+    this.tokensByOwnerInFlight.set(cacheKey, load);
+    return load;
+  }
+
+  /**
+   * If `rwa_tokens` has fewer rows than on-chain `totalMinted` (e.g. admin
+   * collection delete used to wipe registry rows), rescan owners and persist.
+   */
+  async healOwnerRegistryIfIncomplete(
+    chainId?: SupportedChainId,
+  ): Promise<boolean> {
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const rowCount = await this.ownerIndex.countIndexedTokenRows(chain);
+    const cached = this.registryCompleteCache.get(chain);
+    const cacheFresh =
+      cached != null && Date.now() - cached.at < 300_000;
+    if (cacheFresh && rowCount >= cached.totalMinted) {
+      return false;
+    }
+
+    const { totalMinted } = await this.getRwaInfo(chain);
+    this.registryCompleteCache.set(chain, {
+      totalMinted,
+      at: Date.now(),
+    });
+    if (totalMinted <= 0 || rowCount >= totalMinted) {
+      return false;
+    }
+
+    this.logger.warn(
+      `rwa_tokens incomplete (${rowCount}/${totalMinted}) — healing owner index from chain`,
+    );
+    if (this.registryHealInFlight) {
+      await this.registryHealInFlight;
+      return true;
+    }
+    this.registryHealInFlight = this.persistFullOwnerScan(chain).finally(() => {
+      this.registryHealInFlight = null;
+    });
+    await this.registryHealInFlight;
+    this.ttlCache.clearNamespace(TOKENS_BY_OWNER_CACHE_NS);
+    return true;
+  }
+
+  private async persistFullOwnerScan(chain: SupportedChainId): Promise<void> {
+    const contract = this.chainConfig.getRwaAddress(chain);
+    const owners = await this.scanAllOwnersMap(chain);
+    if (owners.size === 0) return;
+    await this.ownerIndex.persistOwnerMap(contract, owners, chain);
+  }
+
+  private async scanAllOwnersMap(
+    chainId: SupportedChainId,
+  ): Promise<Map<number, string>> {
+    const { totalMinted } = await this.getRwaInfo(chainId);
+    if (totalMinted <= 0) return new Map();
+    return this.batchOwnerOf(
+      Array.from({ length: totalMinted }, (_, i) => i + 1),
+      rpcOwnerScanConcurrency(),
+      chainId,
+    );
+  }
+
+  private async scanRwaTokensByOwner(
+    normalized: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
+    const _t0 = perfNow();
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const contract = this.chainConfig.getRwaAddress(chain);
+    try {
+      const owners = await this.scanAllOwnersMap(chain);
+      if (owners.size === 0) return [];
+
+      if (!(await this.ownerIndex.isBackfillInProgress(chain))) {
+        void this.ownerIndex
+          .persistOwnerMap(contract, owners, chain)
+          .catch((err: unknown) => {
+            this.logger.warn(
+              `persistOwnerMap from owner scan skipped: ${String(err)}`,
+            );
+          });
+      }
+
+      const tokenIds: number[] = [];
+      for (const [tokenId, owner] of owners) {
+        if (owner === normalized) tokenIds.push(tokenId);
+      }
+      tokenIds.sort((a, b) => a - b);
+      return tokenIds;
+    } finally {
+      perfLog('rpc', 'tokensByOwnerScan', elapsedMs(_t0), {
+        address: normalized.slice(0, 10),
+        chainId: chain,
+      });
+    }
   }
 
   /**
@@ -64,8 +307,11 @@ export class BlockchainService {
    */
   async batchOwnerOf(
     tokenIds: number[],
-    concurrency = 24,
+    concurrency = rpcOwnerScanConcurrency(),
+    chainId?: SupportedChainId,
   ): Promise<Map<number, string>> {
+    const _t0 = perfNow();
+    const rwa = this.tokenableRwa(chainId);
     const unique = [
       ...new Set(
         tokenIds
@@ -76,12 +322,16 @@ export class BlockchainService {
     const out = new Map<number, string>();
     if (unique.length === 0) return out;
 
-    const parallel = Math.max(1, Math.min(Math.floor(concurrency), 64));
+    const parallel = Math.max(1, Math.min(Math.floor(concurrency), 16));
+    const chunkDelayMs = rpcBatchChunkDelayMs();
     for (let i = 0; i < unique.length; i += parallel) {
       const chunk = unique.slice(i, i + parallel);
       const settled = await Promise.allSettled(
         chunk.map(async (tokenId) => {
-          const owner: string = await this.tokenableRwa.ownerOf(tokenId);
+          const owner: string = await withRpcProviderCall(
+            () => rwa.ownerOf(tokenId),
+            { label: 'batchOwnerOf' },
+          );
           return {
             tokenId,
             owner: String(owner).trim().toLowerCase(),
@@ -93,20 +343,27 @@ export class BlockchainService {
         const { tokenId, owner } = s.value;
         if (owner) out.set(tokenId, owner);
       }
+      if (chunkDelayMs > 0 && i + parallel < unique.length) {
+        await new Promise((r) => setTimeout(r, chunkDelayMs));
+      }
     }
+    perfLog('rpc', 'batchOwnerOf', elapsedMs(_t0), { count: unique.length });
     return out;
   }
 
   /**
    * tokenURI → metadata JSON → browser-safe image URL (all server-side, gateway fallbacks + CID cache).
    */
-  async getResolvedRwaAsset(tokenId: number): Promise<{
+  async getResolvedRwaAsset(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<{
     tokenId: number;
     tokenURI: string;
     metadata: Record<string, unknown> | null;
     imageUrl: string | null;
   }> {
-    const tokenURI = await this.getRwaTokenURI(tokenId);
+    const tokenURI = await this.getRwaTokenURI(tokenId, chainId);
     if (!tokenURI?.trim()) {
       return { tokenId, tokenURI: '', metadata: null, imageUrl: null };
     }
@@ -127,7 +384,10 @@ export class BlockchainService {
   /**
    * tokenURI + IPFS JSON + resolved image URL (bounded fan-out per token).
    */
-  async batchRwaMetadata(tokenIds: number[]): Promise<{
+  async batchRwaMetadata(
+    tokenIds: number[],
+    chainId?: SupportedChainId,
+  ): Promise<{
     items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -135,10 +395,12 @@ export class BlockchainService {
       imageUrl: string | null;
     }>;
   }> {
+    const _t0 = perfNow();
     const unique = [
       ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
     ].filter((n) => n >= 0);
-    const concurrency = 8;
+    const concurrency = rpcMetadataBatchConcurrency();
+    const chunkDelayMs = rpcBatchChunkDelayMs();
     const items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -152,7 +414,7 @@ export class BlockchainService {
         chunk.map(async (tokenId) => {
           let tokenURI: string | null = null;
           try {
-            tokenURI = await this.getRwaTokenURI(tokenId);
+            tokenURI = await this.getRwaTokenURI(tokenId, chainId);
             if (!tokenURI?.trim()) {
               return {
                 tokenId,
@@ -177,9 +439,13 @@ export class BlockchainService {
           items.push(s.value);
         }
       }
+      if (chunkDelayMs > 0 && i + concurrency < unique.length) {
+        await new Promise((r) => setTimeout(r, chunkDelayMs));
+      }
     }
 
     items.sort((a, b) => a.tokenId - b.tokenId);
+    perfLog('rpc', 'batchRwaMetadata', elapsedMs(_t0), { count: unique.length });
     return { items };
   }
 }

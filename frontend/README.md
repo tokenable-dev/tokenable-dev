@@ -6,8 +6,23 @@ pnpm dev
 ```
 
 - App: [http://localhost:3000](http://localhost:3000)
-- Env: copy `.env.example` to `.env` if present; set `NEXT_PUBLIC_*` contract addresses and API URL.
+- Env: `frontend/.env` — `NEXT_PUBLIC_CHAIN_80002_RPC_URL`, `_RWA`, `_USDC` (see [local-setup.md](../docs/guides/local-setup.md))
 
-Main routes: `/` (landing + trending collections), `/markets`, `/portfolio`, `/vault`, `/marketplace/collections/[key]`, `/marketplace/[tokenId]`.
+## Main routes
 
-Project docs: **[../docs/README.md](../docs/README.md)** · Deploy: **[../docs/guides/deployment.md](../docs/guides/deployment.md)** · Relational bidding API summary: **[../docs/api/marketplace.md](../docs/api/marketplace.md)**
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing + Card Ladder market indexes |
+| `/markets` | Collection list / exchange (legacy `/exchange` redirects here) |
+| `/markets/top100/card/[cardId]` | Top 100 card detail |
+| `/portfolio` | Holdings + daily chart |
+| `/watchlist` | Saved collections (login required) |
+| `/vault` | PSA mint wizard (IPFS + on-chain mint) |
+| `/marketplace/collections/[key]` | Collection trading |
+| `/marketplace/[tokenId]` | Redirects to collection detail + listing modal |
+| `/marketplace/admin/*` | Admin console (separate login) |
+| `/site-access` | Staging password gate (when enabled) |
+
+Full reference: **[../docs/frontend/routes.md](../docs/frontend/routes.md)**
+
+Project docs: **[../docs/README.md](../docs/README.md)** · Architecture: **[../docs/architecture/frontend.md](../docs/architecture/frontend.md)** · Deploy: **[../docs/guides/deployment.md](../docs/guides/deployment.md)**

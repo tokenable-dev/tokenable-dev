@@ -38,10 +38,21 @@ export interface Order {
   id: number;
   orderHash: string;
   offerer: string;
+  /** Consignment partner company name when offerer is a registered partner. */
+  sellerDisplayName?: string | null;
+  /** Token custody policy — listing vault badge uses this, not seller identity. */
+  settlementPolicy?: "standard" | "self_vault_hold" | null;
+  /** "PSA Vault" or "{partner} vault" from `rwa_tokens`, not the seller's partner status. */
+  vaultLabel?: string | null;
   /** ask = 매도 리스팅, bid = 매수 입찰 (없으면 레거시 ask로 간주) */
   side?: "ask" | "bid";
   /** graded 메타 기준 컬렉션 (매도 ask) */
   collectionKey?: string | null;
+  /**
+   * Present on create/replace ask responses — Markets visibility of the bucket.
+   * Not persisted on the order row.
+   */
+  reviewStatus?: "pending_review" | "active" | "rejected";
   tokenContract: string;
   tokenId: string;
   considerationToken: string;
@@ -64,11 +75,22 @@ export interface OrderListItem {
   collectionKey: string | null;
   /** USDC micros (same as DB consideration_amount) */
   price: string;
+  /** Actual settle micros when sell-into-bid (may differ from list price). */
+  settlementPrice?: string;
   side: "ask" | "bid";
   status: OrderStatus;
   createdAt: string;
+  /** ISO timestamp for Seaport endTime. */
+  endTime?: string;
   updatedAt?: string;
   offerer: string;
+  filledByBuyer?: string | null;
+  matchedOrderHash?: string | null;
+  sellerDisplayName?: string | null;
+  tokenContract?: string | null;
+  considerationToken?: string | null;
+  settlementPolicy?: "standard" | "self_vault_hold" | null;
+  vaultLabel?: string | null;
   considerationRecipients: string[];
 }
 
@@ -83,6 +105,82 @@ export interface CreateOrderPayload {
   side?: "ask" | "bid";
   /** Required for criteria (collection) bids */
   collectionKey?: string;
+}
+
+/** Wallet's collection bid order history (active + fulfilled + cancelled). */
+export async function getCollectionBidsByOfferer(
+  offerer: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  return getOrdersByOfferer(offerer, "bid", opts);
+}
+
+/** Active asks listed by this wallet (portfolio listings — not the global book). */
+export async function getActiveAsksByOfferer(
+  offerer: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  return getOrdersByOfferer(offerer, "ask", { limit: opts?.limit ?? 500, signal: opts?.signal });
+}
+
+async function getOrdersByOfferer(
+  offerer: string,
+  side: "ask" | "bid",
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  const sp = new URLSearchParams();
+  sp.set("offerer", offerer);
+  sp.set("side", side);
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/by-offerer?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: side === "ask" ? "Failed to fetch listings" : "Failed to fetch bids",
+    }));
+    throw new Error(
+      (err as { message?: string }).message ??
+        (side === "ask" ? "Failed to fetch listings" : "Failed to fetch bids"),
+    );
+  }
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
+}
+
+/** Fulfilled trades for portfolio activity (seller asks + buyer bids/fills). */
+export async function getPortfolioActivityOrders(
+  address: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  const sp = new URLSearchParams();
+  sp.set("address", address);
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/portfolio-activity?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: "Failed to fetch portfolio activity",
+    }));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to fetch portfolio activity",
+    );
+  }
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
 }
 
 /** 활성 매도(ask) 주문 — 경량 리스트 */
@@ -117,6 +215,9 @@ export async function getActiveOrderForToken(
   return j as Order;
 }
 
+/** Must match backend `OrdersBatchByTokenDto` `@ArrayMaxSize(120)`. */
+export const ORDERS_BATCH_BY_TOKEN_MAX = 120;
+
 /** 여러 tokenId의 주문 이력을 한 번에 (경량 행) */
 export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
   Record<string, OrderListItem[]>
@@ -128,6 +229,25 @@ export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
   });
   if (!res.ok) throw new Error("Failed to fetch order batch");
   return res.json() as Promise<Record<string, OrderListItem[]>>;
+}
+
+export async function postOrdersBatchByTokenBatched(
+  tokenIds: number[],
+): Promise<Record<string, OrderListItem[]>> {
+  const unique = [
+    ...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n)))),
+  ].filter((n) => Number.isFinite(n) && n >= 0);
+  if (unique.length === 0) return {};
+
+  const merged: Record<string, OrderListItem[]> = {};
+  for (let i = 0; i < unique.length; i += ORDERS_BATCH_BY_TOKEN_MAX) {
+    const chunk = unique.slice(i, i + ORDERS_BATCH_BY_TOKEN_MAX);
+    const part = await postOrdersBatchByToken(chunk);
+    for (const [tid, rows] of Object.entries(part)) {
+      merged[tid] = rows;
+    }
+  }
+  return merged;
 }
 
 /** orderHash로 단건 조회 */
@@ -143,11 +263,17 @@ export async function getOrderByHash(
 }
 
 /** 판매 주문 등록 */
+/** First listing may create a collection row (RPC + IPFS); allow extra headroom vs default 25s. */
+const CREATE_ORDER_FETCH_TIMEOUT_MS = 45_000;
+/** After on-chain fulfill, backend seeds holdings + may refresh charts — needs headroom. */
+const FULFILL_ORDER_FETCH_TIMEOUT_MS = 60_000;
+
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    timeoutMs: CREATE_ORDER_FETCH_TIMEOUT_MS,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to create order" }));
@@ -172,6 +298,28 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
+/** Cancel an unfundable/expired token bid (accept-offer Phase C). Idempotent. */
+export async function invalidateDeadBidApi(
+  orderHash: string,
+  callerAddress: string,
+): Promise<Order> {
+  const sp = new URLSearchParams();
+  sp.set("callerAddress", callerAddress);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/${orderHash}/invalidate-dead-bid?${sp.toString()}`,
+    { method: "PATCH" },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: "Failed to invalidate dead bid",
+    }));
+    throw new Error(
+      (err as { message: string }).message ?? "Failed to invalidate dead bid",
+    );
+  }
+  return res.json() as Promise<Order>;
+}
+
 /** After on-chain matchAdvancedOrders */
 export async function fulfillMatchedPairApi(
   body: {
@@ -191,6 +339,29 @@ export async function fulfillMatchedPairApi(
     throw new Error((err as { message?: string }).message ?? "Failed to record match");
   }
   return res.json() as Promise<{ ask: Order; bid: Order }>;
+}
+
+/** Cancel + insert new collection bid in one DB transaction. */
+export async function replaceBidApi(body: {
+  callerAddress: string;
+  oldOrderHash: string;
+  order: CreateOrderPayload;
+}): Promise<Order> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/replace-bid`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(err.message)
+      ? err.message.join(" ")
+      : err.message ?? "Failed to replace bid";
+    throw new Error(msg);
+  }
+  return res.json() as Promise<Order>;
 }
 
 /** Cancel + insert new ask in one DB transaction (keeps Merkle token IDs stable). */
@@ -217,10 +388,20 @@ export async function replaceListingApi(body: {
 }
 
 /** 구매 완료 처리 (리스팅 이행 등 단일 주문) */
-export async function fulfillOrderApi(orderHash: string): Promise<Order> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}/fulfill`, {
-    method: "PATCH",
-  });
+export async function fulfillOrderApi(
+  orderHash: string,
+  buyerAddress: string,
+): Promise<Order> {
+  const sp = new URLSearchParams();
+  sp.set('buyerAddress', buyerAddress);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/${orderHash}/fulfill?${sp.toString()}`,
+    {
+      method: "PATCH",
+      // Chart/holdings side work can exceed the default 25s; on-chain buy already finished.
+      timeoutMs: FULFILL_ORDER_FETCH_TIMEOUT_MS,
+    },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to fulfill order" }));
     throw new Error((err as { message: string }).message ?? "Failed to fulfill order");

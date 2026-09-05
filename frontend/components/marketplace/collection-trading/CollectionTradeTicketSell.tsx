@@ -23,7 +23,7 @@ export function CollectionTradeTicketSell({
     "Choose an asset from your wallet, set a USDC price, and list it in this collection’s order book.";
   const bidHint =
     selection?.side === "bid"
-      ? `Bid row ${formatTradeTicketUsdcPrice(selection.price)} USDC — List / Change price prefills this amount; if you already have a higher ask, use Change price to lower it and we’ll try to match this bid after you sign.`
+      ? `Bid row ${formatTradeTicketUsdcPrice(selection.price)} USDC — you can list a new ask at this price. If you already have a higher ask, accept the offer from Notifications (Accept offer) instead of lowering your list price.`
       : selection?.side === "ask"
         ? "Red row is someone else’s listing — use Buy to purchase it, or open List for sale to set your own price."
         : null;
@@ -49,7 +49,7 @@ export function CollectionTradeTicketSell({
           title={listTitle}
           className="w-full min-h-[40px] rounded-md bg-[#DC2626] px-3 py-2 text-xs font-bold text-white shadow-md shadow-black/25 transition hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40"
         >
-          List for sale
+          List
         </button>
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[9px] text-zinc-500">
           <Link href="/portfolio" className="hover:text-zinc-400" title="Manage RWAs in your wallet">

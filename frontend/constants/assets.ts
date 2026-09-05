@@ -16,19 +16,61 @@ export const ASSETS = {
   /** 메인 로고 (Tokenable / Tokenable_RWA) */
   logo: {
     tokenable: `${ASSETS_BASE}/logo/tokenable.png`,
+    /** DS GNB — full wordmark (also used in Privy login modal) */
+    tokenableDs: `${ASSETS_BASE}/ds/logo-tokenable.svg`,
+    /** DS GNB — symbol (mobile) */
+    tokenableSymbol: `${ASSETS_BASE}/ds/symbol-white.svg`,
+  },
+
+  /** Design system marketing assets (home, prototypes) */
+  ds: {
+    partners: {
+      psa: `${ASSETS_BASE}/ds/logo-psa.png`,
+      beckett: `${ASSETS_BASE}/ds/logo-beckett.png`,
+      cgc: `${ASSETS_BASE}/ds/logo-cgc.png`,
+      sgc: `${ASSETS_BASE}/ds/logo-sgc.png`,
+      tag: `${ASSETS_BASE}/ds/logo-tag.png`,
+      ebay: `${ASSETS_BASE}/ds/logo-ebay.svg`,
+      cardladder: `${ASSETS_BASE}/ds/logo-cardladder.png`,
+      gemrate: `${ASSETS_BASE}/ds/logo-gemrate.png`,
+      pricecharting: `${ASSETS_BASE}/ds/logo-pricecharting.png`,
+    },
+    pay: {
+      visa: `${ASSETS_BASE}/ds/logo-visa.png`,
+      amex: `${ASSETS_BASE}/ds/logo-amex.png`,
+      discover: `${ASSETS_BASE}/ds/logo-discover.png`,
+      gpay: `${ASSETS_BASE}/ds/logo-gpay.png`,
+      paypal: `${ASSETS_BASE}/ds/logo-paypal.png`,
+      stripe: `${ASSETS_BASE}/ds/logo-stripe.png`,
+    },
+    cards: {
+      charizard: `${ASSETS_BASE}/ds/card-charizard.png`,
+      lebron: `${ASSETS_BASE}/ds/card-lebron.png`,
+      pikachu: `${ASSETS_BASE}/ds/card-pikachu.png`,
+      luka: `${ASSETS_BASE}/ds/card-luka.png`,
+      nidoking: `${ASSETS_BASE}/ds/card-nidoking.jpg`,
+      pikachuEx: `${ASSETS_BASE}/ds/card-pikachu-ex.png`,
+    },
   },
 
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
+    /** 32×32 favicon (from `tokenable_favicon.png`, dark background) */
     tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
-    /** PSA wordmark PNG (landing / docs). */
+    /** 360×360 favicon source — dark background */
+    tokenableFavicon: `${ASSETS_BASE}/icons/tokenable_favicon.png`,
+    /** 360×360 square brand mark (light-background master) */
+    tokenableLogo: `${ASSETS_BASE}/icons/tokenable_logo.png`,
+    /** Default mint slab when PSA / upload / Cardhedger art is unavailable */
+    tokenableMintPlaceholder: `${ASSETS_BASE}/icons/tokenable_mint_placeholder.png`,
+    /** 180×180 iOS home screen (from `tokenable_favicon.png`) */
+    tokenableApple: `${ASSETS_BASE}/icons/apple-touch-icon.png`,
+    /** PSA wordmark PNG (card detail / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
-    /** Landing feature stat — Lowest Fees. */
-    lowestFees: `${ASSETS_BASE}/icons/landing-lowest-fees.png`,
-    /** Landing feature stat — PSA, TAG, BGS gems. */
-    gemsOnly: `${ASSETS_BASE}/icons/landing-gems-only.png`,
-    /** Landing feature stat — vaulted & authenticated. */
-    vaultedAuthenticated: `${ASSETS_BASE}/icons/landing-vaulted-authenticated.png`,
+    /** Vault submit cert label — square canvas, matches Vault-Submit.html `images/psa-logo.png`. */
+    psaMarkSubmit: `${ASSETS_BASE}/icons/psa-logo-submit.png`,
+    /** Vault safe icon — shown before PSA wordmark on card detail. */
+    psaVaultLeading: `${ASSETS_BASE}/icons/psa-vault-leading.png`,
     /** Market Indexes cards — Pokemon slot. */
     marketIndexPokemon: `${ASSETS_BASE}/icons/market-index-pokemon.png`,
     /** Market Indexes cards — MLB slot. */
@@ -39,6 +81,17 @@ export const ASSETS = {
     marketIndexNba: `${ASSETS_BASE}/icons/market-index-nba.png`,
     /** Exchange category filter — Soccer. */
     marketIndexSoccer: `${ASSETS_BASE}/icons/market-index-soccer.png`,
+  },
+
+  /** Home (`public/assets/home/`) */
+  home: {
+    heroBg: `${ASSETS_BASE}/home/hero-bg.jpg`,
+    landing1: `${ASSETS_BASE}/home/newcards/c01.jpg`,
+    landing2: `${ASSETS_BASE}/home/newcards/c02.jpg`,
+    landing3: `${ASSETS_BASE}/home/newcards/c03.jpg`,
+    landing4: `${ASSETS_BASE}/home/newcards/c04.jpg`,
+    landing5: `${ASSETS_BASE}/home/newcards/c05.jpg`,
+    landing6: `${ASSETS_BASE}/home/newcards/c06.jpg`,
   },
 
   /** 기타 이미지 */

@@ -1,52 +1,249 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
-  getActiveOrders,
-  getApiUrl,
-  postMarketplaceCollectionSnapshotsBatched,
-  rq,
-  marketplaceRqPolicy,
-  type CollectionListMarketSnapshot,
-} from "@/lib/core";
-import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
+  useMarketplaceCollectionsInfinite,
+  useMarketplaceCatalogSearch,
+  MARKETS_COLLECTIONS_PAGE_SIZE,
+} from "@/hooks/marketplace";
+import {
+  useMarketsOrders,
+  useMarketsSnapshots,
+  useMarketsStableSortedCollections,
+} from "@/hooks/markets/useMarketsPageData";
+import { useMarketsInfiniteScroll } from "@/hooks/markets/useMarketsInfiniteScroll";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
-import { CollectionCategoryFilterBar } from "@/components/marketplace/markets-ui";
+import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import {
-  collectionMatchesCategoryFilter,
-  MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
-  MARKETS_CATEGORY_FILTERS,
-  MARKETS_DEFAULT_CATEGORY_FILTER,
-  type CollectionCategoryFilterId,
+  collectionMatchesCategoryFilters,
+  type CollectionCategoryId,
 } from "@/lib/market";
 import {
   collectionKeyLower,
-  compareMarketsCollections,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
-import { CollectionGridCard } from "./CollectionGridCard";
-import { MarketsSortToolbar } from "./MarketsSortToolbar";
+import {
+  applyMarketsListingFilters,
+  collectMarketsSetFacetOptions,
+  collectionVaultKindsFromAsks,
+  type MarketsGradeFilterId,
+  type MarketsVaultFilterId,
+} from "@/lib/markets/marketsFilters";
+import {
+  marketsUrlFiltersEqual,
+  parseMarketsUrlFilters,
+  serializeMarketsUrlFilters,
+  type MarketsUrlFilters,
+} from "@/lib/markets/marketsUrlFilters";
+import { MarketsFilterBar } from "./MarketsFilterBar";
+import { MarketsPageHeader } from "./MarketsPageHeader";
+import { MarketsP2pSection } from "./MarketsP2pSection";
+import { MarketsCollectionGrid } from "./MarketsCollectionGrid";
+import { SearchCertMatches } from "@/components/search/SearchCertMatches";
+import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import {
+  buildBrowseEntriesFromSummaries,
+  saveCollectionBrowseContext,
+} from "@/lib/marketplace/collectionBrowseContext";
+import { CardTop100Section } from "./CardTop100Section";
+import { TopMoversSection } from "./TopMoversSection";
+import { AppPageState } from "@/components/ui/AppPageState";
+import { cn } from "@/lib/ds/cn";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
+
+function filtersFromState(input: {
+  categoryFilters: Set<CollectionCategoryId>;
+  sortId: MarketsSortId;
+  priceMin: string;
+  priceMax: string;
+  gradeFilters: Set<MarketsGradeFilterId>;
+  characters: string[];
+  sets: string[];
+  yearMin: string;
+  yearMax: string;
+}): MarketsUrlFilters {
+  return {
+    categories: [...input.categoryFilters],
+    sortId: input.sortId,
+    priceMin: input.priceMin,
+    priceMax: input.priceMax,
+    grades: [...input.gradeFilters],
+    characters: input.characters,
+    sets: input.sets,
+    yearMin: input.yearMin,
+    yearMax: input.yearMax,
+  };
+}
 
 export default function MarketsPage() {
-  const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
-    MARKETS_DEFAULT_CATEGORY_FILTER,
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchQ = String(searchParams.get("q") ?? "").trim();
+  const isSearchMode = pathname === "/search" || pathname.startsWith("/search/");
+  usePageViewedEvent(isSearchMode ? "search" : "markets");
+  const mounted = useClientMounted();
+
+  const urlFilters = useMemo(
+    () => parseMarketsUrlFilters(searchParams),
+    [searchParams],
   );
-  const [sortId, setSortId] = useState<MarketsSortId>("high_price");
 
-  const ordersQuery = useQuery({
-    queryKey: rq.ordersActive(),
-    queryFn: getActiveOrders,
-    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
-    staleTime: marketplaceRqPolicy.ordersStaleMs,
+  const [categoryFilters, setCategoryFilters] = useState<Set<CollectionCategoryId>>(
+    () => new Set(urlFilters.categories),
+  );
+  const [sortId, setSortId] = useState<MarketsSortId>(urlFilters.sortId);
+  const [priceMin, setPriceMin] = useState(urlFilters.priceMin);
+  const [priceMax, setPriceMax] = useState(urlFilters.priceMax);
+  const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(
+    () => new Set(urlFilters.grades),
+  );
+  const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(
+    new Set(),
+  );
+  const [characters, setCharacters] = useState(urlFilters.characters);
+  const [sets, setSets] = useState(urlFilters.sets);
+  const [yearMin, setYearMin] = useState(urlFilters.yearMin);
+  const [yearMax, setYearMax] = useState(urlFilters.yearMax);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const skipNextUrlWrite = useRef(false);
+
+  const deferredCategoryFilters = useDeferredValue(categoryFilters);
+  const deferredSortId = useDeferredValue(sortId);
+  const deferredPriceMin = useDeferredValue(priceMin);
+  const deferredPriceMax = useDeferredValue(priceMax);
+  const deferredGradeFilters = useDeferredValue(gradeFilters);
+  const deferredVaultFilters = useDeferredValue(vaultFilters);
+  const deferredCharacters = useDeferredValue(characters);
+  const deferredSets = useDeferredValue(sets);
+  const deferredYearMin = useDeferredValue(yearMin);
+  const deferredYearMax = useDeferredValue(yearMax);
+
+  // Sync local state when URL changes (Details deep-links, back/forward).
+  useEffect(() => {
+    skipNextUrlWrite.current = true;
+    setCategoryFilters(new Set(urlFilters.categories));
+    setSortId(urlFilters.sortId);
+    setPriceMin(urlFilters.priceMin);
+    setPriceMax(urlFilters.priceMax);
+    setGradeFilters(new Set(urlFilters.grades));
+    setCharacters(urlFilters.characters);
+    setSets(urlFilters.sets);
+    setYearMin(urlFilters.yearMin);
+    setYearMax(urlFilters.yearMax);
+  }, [urlFilters]);
+
+  // Write filter state back to the URL (Card.html / markets-nav.js contract).
+  useEffect(() => {
+    if (skipNextUrlWrite.current) {
+      skipNextUrlWrite.current = false;
+      return;
+    }
+    const next = filtersFromState({
+      categoryFilters,
+      sortId,
+      priceMin,
+      priceMax,
+      gradeFilters,
+      characters,
+      sets,
+      yearMin,
+      yearMax,
+    });
+    const fromLocation = parseMarketsUrlFilters(
+      new URLSearchParams(window.location.search),
+    );
+    if (marketsUrlFiltersEqual(next, fromLocation)) return;
+    const qs = serializeMarketsUrlFilters(next).toString();
+    const hrefParams = new URLSearchParams(qs);
+    if (searchQ) hrefParams.set("q", searchQ);
+    const hrefQs = hrefParams.toString();
+    const href = hrefQs ? `${pathname}?${hrefQs}` : pathname;
+    window.history.replaceState(window.history.state, "", href);
+  }, [
+    categoryFilters,
+    sortId,
+    priceMin,
+    priceMax,
+    gradeFilters,
+    characters,
+    sets,
+    yearMin,
+    yearMax,
+    pathname,
+    searchQ,
+  ]);
+
+  const toggleCategoryFilter = useCallback((id: CollectionCategoryId) => {
+    setCategoryFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleGradeFilter = useCallback((grade: MarketsGradeFilterId) => {
+    setGradeFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(grade)) next.delete(grade);
+      else next.add(grade);
+      return next;
+    });
+  }, []);
+
+  const toggleVaultFilter = useCallback((id: MarketsVaultFilterId) => {
+    setVaultFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSetFilter = useCallback((setName: string) => {
+    const trimmed = setName.trim();
+    if (!trimmed) return;
+    setSets((prev) => {
+      const i = prev.findIndex((s) => s.toLowerCase() === trimmed.toLowerCase());
+      if (i >= 0) return prev.filter((_, idx) => idx !== i);
+      return [...prev, trimmed];
+    });
+  }, []);
+
+  const clearDetailFacets = useCallback(() => {
+    setCharacters([]);
+    setSets([]);
+    setYearMin("");
+    setYearMax("");
+  }, []);
+
+  const ordersQuery = useMarketsOrders();
+  const orders = ordersQuery.orders;
+
+  const colInfinite = useMarketplaceCollectionsInfinite({
+    q: isSearchMode ? searchQ : undefined,
   });
-  const orders = ordersQuery.data ?? [];
-
-  const colInfinite = useMarketplaceCollectionsInfinite();
+  const searchCardsQuery = useMarketplaceCatalogSearch(searchQ, {
+    enabled: isSearchMode && searchQ.length > 0,
+    cardLimit: 20,
+    collectionLimit: 0,
+  });
+  const searchCards = isSearchMode ? searchCardsQuery.cards : [];
   const {
     data: colPages,
-    isLoading: colInitialLoading,
+    isPending: colInitialPending,
     isFetching: colFetching,
     isError: colLoadError,
     error: colError,
@@ -55,24 +252,26 @@ export default function MarketsPage() {
     isFetchingNextPage,
   } = colInfinite;
 
-  const collectionSummaries = useMemo(
-    () => colPages?.pages.flatMap((p) => p.items) ?? [],
-    [colPages],
-  );
+  const collectionSummaries = useMemo(() => {
+    const pages = colPages?.pages;
+    if (!Array.isArray(pages)) return [];
+    return pages.flatMap((p) =>
+      Array.isArray(p?.items) ? p.items.filter(Boolean) : [],
+    );
+  }, [colPages]);
 
   const coverRawUrls = useMemo(
-    () => collectionSummaries.map((c) => c.coverImageUrl),
+    () => collectionSummaries.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
     [collectionSummaries],
   );
   const { map: resolvedCoverMap } = useResolvedMediaUrlMap(coverRawUrls, {
     enabled: collectionSummaries.length > 0,
   });
 
-  const ordersInitialLoading = ordersQuery.isLoading;
-  const isInitialLoading = ordersInitialLoading || colInitialLoading;
+  const isInitialLoading = ordersQuery.isPending || colInitialPending;
   const loadFailed = ordersQuery.isError || colLoadError;
-  const loadError = ordersQuery.error ?? colError;
-  const showLoadingShell = isInitialLoading && !loadFailed;
+  const loadError = ordersQuery.error ?? colError ?? null;
+  const showLoadingShell = !mounted || (isInitialLoading && !loadFailed);
 
   const snapshotKeysSorted = useMemo(() => {
     const u = new Set<string>();
@@ -83,226 +282,397 @@ export default function MarketsPage() {
     return [...u].sort();
   }, [collectionSummaries]);
 
-  const { data: snapshotPack, isPending: snapshotsPending } = useQuery({
-    queryKey: rq.collectionSnapshots(snapshotKeysSorted, MARKET_PRICE_CHANGE_SNAPSHOT_DURATION),
-    queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(
-        snapshotKeysSorted,
-        MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
-      ),
-    enabled: snapshotKeysSorted.length > 0 && !isInitialLoading,
-    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
-  });
+  const {
+    snapshotByKey,
+    isPending: snapshotsPending,
+    isFetching: snapshotsFetching,
+  } = useMarketsSnapshots(snapshotKeysSorted, !isInitialLoading);
 
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
 
-  const snapshotByKey = useMemo(() => {
-    const m = new Map<string, CollectionListMarketSnapshot>();
-    for (const it of snapshotPack?.items ?? []) {
-      const k = it.collectionKey?.trim().toLowerCase();
-      if (k) m.set(k, it);
-    }
-    return m;
-  }, [snapshotPack]);
-
-  const sortedForRank = useMemo(() => {
-    return [...collectionSummaries].sort((a, b) =>
-      compareMarketsCollections(a, b, sortId, snapshotByKey),
-    );
-  }, [collectionSummaries, snapshotByKey, sortId]);
+  const sortedForRank = useMarketsStableSortedCollections(
+    collectionSummaries,
+    snapshotByKey,
+    deferredSortId,
+    snapshotsFetching,
+  );
 
   const orphanAsks = orders.filter(
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
+  const vaultKindsByKey = useMemo(
+    () => collectionVaultKindsFromAsks(orders),
+    [orders],
+  );
+
+  const setFacetOptions = useMemo(() => {
+    const pool =
+      deferredCategoryFilters.size === 0
+        ? collectionSummaries
+        : collectionSummaries.filter((c) =>
+            collectionMatchesCategoryFilters(
+              deferredCategoryFilters,
+              c,
+              snapshotByKey.get(collectionKeyLower(c)),
+            ),
+          );
+    return collectMarketsSetFacetOptions(pool);
+  }, [collectionSummaries, deferredCategoryFilters, snapshotByKey]);
+
   const filteredSorted = useMemo(() => {
-    return sortedForRank.filter((c) =>
-      collectionMatchesCategoryFilter(
-        categoryFilter,
+    const categoryFiltered = sortedForRank.filter((c) =>
+      collectionMatchesCategoryFilters(
+        deferredCategoryFilters,
         c,
         snapshotByKey.get(collectionKeyLower(c)),
       ),
     );
-  }, [sortedForRank, snapshotByKey, categoryFilter]);
+    return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
+      priceMin: deferredPriceMin,
+      priceMax: deferredPriceMax,
+      gradeFilters: deferredGradeFilters,
+      vaultFilters: deferredVaultFilters,
+      vaultKindsByKey,
+      characters: deferredCharacters,
+      sets: deferredSets,
+      yearMin: deferredYearMin,
+      yearMax: deferredYearMax,
+    });
+  }, [
+    sortedForRank,
+    snapshotByKey,
+    deferredCategoryFilters,
+    deferredPriceMin,
+    deferredPriceMax,
+    deferredGradeFilters,
+    deferredVaultFilters,
+    vaultKindsByKey,
+    deferredCharacters,
+    deferredSets,
+    deferredYearMin,
+    deferredYearMax,
+  ]);
+
+  const saveMarketsBrowseContext = useCallback(() => {
+    saveCollectionBrowseContext({
+      source: "markets-grid",
+      entries: buildBrowseEntriesFromSummaries(filteredSorted),
+      categoryFilter:
+        categoryFilters.size > 0
+          ? [...categoryFilters].join("|")
+          : undefined,
+      sortId,
+    });
+  }, [filteredSorted, categoryFilters, sortId]);
+
+  const detailFacetChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    for (const [i, name] of characters.entries()) {
+      chips.push({
+        key: `character:${name}`,
+        label: name,
+        onClear: () =>
+          setCharacters((prev) => prev.filter((_, idx) => idx !== i)),
+      });
+    }
+    if (yearMin || yearMax) {
+      const label =
+        yearMin && yearMax && yearMin === yearMax
+          ? yearMin
+          : `${yearMin || "…"}–${yearMax || "…"}`;
+      chips.push({
+        key: "year",
+        label: `Year · ${label}`,
+        onClear: () => {
+          setYearMin("");
+          setYearMax("");
+        },
+      });
+    }
+    return chips;
+  }, [characters, yearMin, yearMax]);
+
+  useMarketsInfiniteScroll({
+    sentinelRef: loadMoreSentinelRef,
+    enabled: !showLoadingShell && sortedForRank.length > 0,
+    hasNextPage: Boolean(hasNextPage),
+    isFetchingNextPage,
+    fetchNextPage: () => void fetchNextPage(),
+  });
 
   if (loadFailed) {
     const msg =
       loadError instanceof Error ? loadError.message : String(loadError ?? "Unknown error");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
     return (
-      <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
-        <div className="mx-auto w-full max-w-6xl min-w-0 px-4 py-16 sm:px-6">
-          <h1 className="text-lg font-semibold text-red-400">Markets — API unavailable</h1>
-          <p className="mt-2 text-sm text-zinc-400">
-            Could not reach the backend at{" "}
-            <code className="rounded bg-zinc-900 px-1 text-mint">{getApiUrl()}</code>. Start the
-            Nest server (in <code className="text-zinc-300">backend/</code>, run{" "}
-            <code className="text-zinc-300">pnpm start:dev</code>) and confirm Postgres is up.
-          </p>
-          <p className="mt-4 text-xs text-zinc-500">{msg}</p>
+      <div className="markets-page">
+        <div className="tkl-wrap py-16">
+          <AppPageState
+            kind="markets_load_failed"
+            message={`Could not reach the backend at ${apiUrl}. Start the Nest server (in backend/, run pnpm start:dev) and confirm Postgres is up.`}
+            primaryAction={{
+              label: "Try again",
+              onClick: () => window.location.reload(),
+              variant: "primary",
+            }}
+            secondaryAction={{ label: "Portfolio", href: "/portfolio", variant: "neutral" }}
+            details={process.env.NODE_ENV === "development" ? msg : null}
+          />
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
-      <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
-        {!showLoadingShell && sortedForRank.length > 0 ? (
-          <>
-            <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
-              <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
-                All Collections
-              </h2>
-              <MarketsSortToolbar
-                className="inline-flex sm:hidden"
-                sortId={sortId}
-                onSortChange={setSortId}
-              />
-            </div>
-            <div className="mb-4 sm:mb-4 sm:flex sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
-              <div className="min-w-0 w-full sm:flex-1">
-                <CollectionCategoryFilterBar
-                  filters={MARKETS_CATEGORY_FILTERS}
-                  value={categoryFilter}
-                  onChange={setCategoryFilter}
-                  toolbarAriaLabel="Filter all collections by category"
-                />
-              </div>
-              <MarketsSortToolbar
-                className="hidden sm:inline-flex"
-                sortId={sortId}
-                onSortChange={setSortId}
-              />
-            </div>
-          </>
-        ) : null}
+  const showMainChrome =
+    mounted &&
+    !showLoadingShell &&
+    (sortedForRank.length > 0 || searchCards.length > 0);
 
-        {showMarketSnapshotLoadingBar ? (
+  return (
+    <div className="markets-page">
+      <MarketsPageHeader
+        searchQuery={isSearchMode ? searchQ : undefined}
+        resultCount={
+          isSearchMode && !showLoadingShell
+            ? filteredSorted.length + searchCards.length
+            : undefined
+        }
+      />
+      {isSearchMode ? null : <MarketsP2pSection />}
+
+      {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) &&
+      !showLoadingShell &&
+      !isSearchMode ? (
+        <div className="tkl-wrap markets-preview-sections">
           <div
-            className="mb-6 space-y-2 sm:mb-8"
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
+            className={
+              TOP_CARDS_UI_ENABLED && TOP_MOVERS_UI_ENABLED
+                ? "markets-preview-sections__grid markets-preview-sections__grid--dual"
+                : "markets-preview-sections__grid"
+            }
           >
-            <p className="text-center text-xs text-zinc-500 sm:text-left">
+            {TOP_CARDS_UI_ENABLED ? (
+              <Suspense
+                fallback={
+                  <div className="h-64 animate-pulse rounded-2xl bg-[var(--surf)]" />
+                }
+              >
+                <CardTop100Section variant="preview" />
+              </Suspense>
+            ) : null}
+            {TOP_MOVERS_UI_ENABLED ? (
+              <Suspense
+                fallback={
+                  <div className="h-64 animate-pulse rounded-2xl bg-[var(--surf)]" />
+                }
+              >
+                <TopMoversSection />
+              </Suspense>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {showMainChrome ? (
+        <MarketsFilterBar
+          categoryFilters={categoryFilters}
+          onCategoryToggle={toggleCategoryFilter}
+          onCategoryFiltersChange={setCategoryFilters}
+          sortId={sortId}
+          onSortChange={setSortId}
+          priceMin={priceMin}
+          priceMax={priceMax}
+          onPriceRangeChange={(min, max) => {
+            setPriceMin(min);
+            setPriceMax(max);
+          }}
+          gradeFilters={gradeFilters}
+          onGradeToggle={toggleGradeFilter}
+          onGradeFiltersChange={setGradeFilters}
+          vaultFilters={vaultFilters}
+          onVaultToggle={toggleVaultFilter}
+          onVaultFiltersChange={setVaultFilters}
+          sets={sets}
+          onSetsChange={setSets}
+          onSetToggle={toggleSetFilter}
+          setFacetOptions={setFacetOptions}
+        />
+      ) : null}
+
+      {showMainChrome && detailFacetChips.length > 0 ? (
+        <div className="tkl-wrap markets-detail-facets" aria-label="Active detail filters">
+          <div className="markets-detail-facets__row">
+            {detailFacetChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className="markets-detail-facets__chip"
+                onClick={chip.onClear}
+              >
+                {chip.label}
+                <span aria-hidden> ×</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="markets-detail-facets__clear"
+              onClick={clearDetailFacets}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="tkl-wrap markets-results-section">
+        {showMarketSnapshotLoadingBar ? (
+          <div className="markets-snapshot-loading" role="status" aria-live="polite" aria-busy="true">
+            <p className="mb-2 text-center text-xs text-[var(--t2)] sm:text-left">
               Loading listing pool stats and charts…
             </p>
-            <div
-              className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
-              aria-hidden
-            >
-              <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(16,211,51,0.4)] exchange-snapshot-loading-fill" />
+            <div className="markets-snapshot-loading__bar" aria-hidden>
+              <div className="markets-snapshot-loading__fill" />
             </div>
           </div>
         ) : null}
 
         {showLoadingShell ? (
           <div className="space-y-5">
-            <p className="text-center text-sm text-zinc-500" role="status" aria-live="polite">
+            <p className="text-center text-sm text-[var(--t2)]" role="status" aria-live="polite">
               Loading collections and listings…
               {colFetching || ordersQuery.isFetching
-                ? " (waiting for backend — check terminal for GET /api/marketplace/… logs)"
+                ? " (waiting for backend)"
                 : ""}
             </p>
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="h-44 animate-pulse rounded-2xl bg-gray-800/60 sm:h-52"
-              />
-            ))}
+            <div className="markets-grid">
+              {[...Array(8)].map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[3/4] animate-pulse rounded-2xl bg-[var(--surf)]"
+                />
+              ))}
+            </div>
           </div>
-        ) : sortedForRank.length === 0 && orphanAsks.length === 0 ? (
+        ) : isSearchMode &&
+          sortedForRank.length === 0 &&
+          searchCards.length === 0 &&
+          !searchCardsQuery.isSearching ? (
           <div className="py-16 text-center">
-            <p className="mb-2 text-base text-gray-500 sm:text-lg">No assets listed for sale yet.</p>
-            <p className="text-sm text-gray-600 sm:text-base">
-              Mint and list your assets from{" "}
-              <Link href="/vault" className="text-mint hover:underline">
-                Vault
+            <p className="mb-2 text-base font-semibold text-white">
+              {searchQ
+                ? `No cards found for “${searchQ}”`
+                : "Type a card name, set, player, or cert #."}
+            </p>
+            <p className="text-sm text-[var(--t3)]">
+              Check the spelling, or try a name, set, player, or cert #.
+            </p>
+            <p className="mt-5">
+              <Link href="/markets" className="text-[var(--azure)] hover:underline">
+                Browse all markets →
               </Link>
-              .
             </p>
           </div>
-        ) : filteredSorted.length === 0 && sortedForRank.length > 0 ? (
-          <div className="rounded-2xl border border-gray-800/80 bg-[#0d0d0d] px-6 py-12 text-center">
-            <p className="text-base text-gray-400 sm:text-lg">
-              No collections match this category yet.
-            </p>
-            <p className="mt-2 text-sm text-gray-600 sm:text-base">
-              Categories use listing text and snapshot metadata — try ALL or another category.
+        ) : sortedForRank.length === 0 && orphanAsks.length === 0 && searchCards.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="mb-2 text-base text-[var(--t2)]">No assets listed for sale yet.</p>
+            <p className="text-sm text-[var(--t3)]">
+              Mint and list your assets from{" "}
+              <GatedSellLink className="text-[var(--azure)] hover:underline">Vault</GatedSellLink>.
             </p>
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-2 gap-2.5 pt-1 min-[400px]:gap-3 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-            {filteredSorted.map((c) => (
-              <CollectionGridCard
-                key={c.collectionKey}
-                collection={c}
-                snapshot={snapshotByKey.get(collectionKeyLower(c))}
-                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
-                listingCount={c.activeListingCount}
-                marketChangeLoading={showMarketSnapshotLoadingBar}
-              />
-            ))}
-            {hasNextPage ? (
-              <div className="col-span-full flex justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => void fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900/80 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  {isFetchingNextPage ? "Loading…" : "Load more collections"}
-                </button>
-              </div>
-            ) : null}
-          </div>
-          {categoryFilter === "all" && orphanAsks.length > 0 ? (
-            <div className="mt-6 sm:mt-7">
-              <Link
-                href="/marketplace/other-listings"
-                className="group flex flex-col gap-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-4 py-4 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
-              >
-                <div className="flex items-center gap-4 sm:contents">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-gray-600 sm:order-none">
-                    ○
-                  </div>
-                  <div className="flex aspect-[3/4] w-[min(108px,28vw)] shrink-0 items-center justify-center rounded-2xl border border-gray-700/50 bg-gray-800/60 text-xl text-gray-600 sm:w-[136px]">
-                    ?
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-bold leading-snug text-gray-300 transition-colors group-hover:text-mint sm:text-2xl">
-                    Other Listings
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 sm:text-lg">
-                    No collection metadata
-                  </p>
-                  <p className="mt-2 flex items-center justify-between text-sm text-zinc-500 sm:hidden">
-                    <span>
-                      <span className="text-zinc-500">Orders </span>
-                      <span className="font-bold text-white">{orphanAsks.length}</span>
-                    </span>
-                    <span className="text-zinc-500 transition-colors group-hover:text-mint" aria-hidden>
-                      →
-                    </span>
-                  </p>
-                </div>
-                <div className="hidden text-base sm:block sm:text-lg">
-                  <span className="text-gray-500">Orders </span>
-                  <span className="font-bold text-white">{orphanAsks.length}</span>
-                </div>
-                <span className="hidden shrink-0 text-xl text-gray-600 transition-colors group-hover:text-mint sm:inline sm:text-2xl">
-                  →
-                </span>
-              </Link>
+            {isSearchMode ? <SearchCertMatches cards={searchCards} /> : null}
+            {isSearchMode ? null : (
+            <div className="markets-results-bar">
+              <span className="markets-results-bar__count">
+                <b>{filteredSorted.length.toLocaleString("en-US")}</b> results
+              </span>
             </div>
-          ) : null}
+            )}
+            {filteredSorted.length === 0 ? (
+              sortedForRank.length > 0 ? (
+              <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
+                <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
+                <p className="mt-2 text-sm text-[var(--t3)]">
+                  Try All, a different category, price range, or grade — or clear detail filters.
+                </p>
+                {detailFacetChips.length > 0 ? (
+                  <button
+                    type="button"
+                    className="mt-4 text-sm font-semibold text-[var(--azure)] hover:underline"
+                    onClick={clearDetailFacets}
+                  >
+                    Clear detail filters
+                  </button>
+                ) : null}
+              </div>
+              ) : null
+            ) : (
+              <>
+                {isSearchMode ? (
+                  <h2 className="srch-sec-title">Collections</h2>
+                ) : null}
+                <MarketsCollectionGrid
+                  collections={filteredSorted}
+                  snapshotByKey={snapshotByKey}
+                  resolvedCoverMap={resolvedCoverMap}
+                  changeLoading={showMarketSnapshotLoadingBar}
+                  snapshotsFetching={snapshotsFetching}
+                  onBeforeNavigate={saveMarketsBrowseContext}
+                  showCatalogSubtitle={isSearchMode}
+                />
+
+                {isFetchingNextPage ? (
+                  <div className="markets-grid markets-grid--tail" aria-hidden>
+                    {Array.from(
+                      { length: Math.min(4, MARKETS_COLLECTIONS_PAGE_SIZE) },
+                      (_, i) => (
+                        <div
+                          key={`markets-tail-skel-${i}`}
+                          className="markets-tail-skeleton aspect-[3/4] rounded-2xl bg-[var(--surf)]"
+                        />
+                      ),
+                    )}
+                  </div>
+                ) : null}
+
+                {hasNextPage ? (
+                  <>
+                    <div
+                      className={cn(
+                        "markets-load-more",
+                        (isFetchingNextPage || snapshotsFetching) &&
+                          "markets-load-more--visible",
+                      )}
+                      role="status"
+                      aria-live="polite"
+                      aria-busy={isFetchingNextPage || snapshotsFetching}
+                    >
+                      <span className="markets-load-more__label">Loading more…</span>
+                    </div>
+                    <div ref={loadMoreSentinelRef} className="markets-load-sentinel" aria-hidden />
+                  </>
+                ) : null}
+
+                {!isSearchMode && categoryFilters.size === 0 && orphanAsks.length > 0 ? (
+                  <Link href="/marketplace/other-listings" className="markets-orphan-card">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Other Listings</h3>
+                      <p className="mt-1 text-sm text-[var(--t2)]">No collection metadata</p>
+                    </div>
+                    <p className="tkl-mono text-sm text-[var(--t2)]">
+                      Orders <b className="text-white">{orphanAsks.length}</b>
+                    </p>
+                  </Link>
+                ) : null}
+              </>
+            )}
           </>
         )}
       </div>
-
     </div>
   );
 }

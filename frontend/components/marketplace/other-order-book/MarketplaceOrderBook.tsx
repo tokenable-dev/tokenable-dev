@@ -56,8 +56,8 @@ export function MarketplaceOrderBook({
   const rowGrid =
     "grid gap-2 w-full px-3 font-mono tabular-nums " +
     (isFull
-      ? "grid-cols-[1fr_64px_80px] text-sm min-h-[40px] items-center"
-      : "grid-cols-[1fr_48px_56px] px-2 text-[11px] min-h-[30px]");
+      ? "grid-cols-[1fr_64px_80px] text-sm min-h-[44px] items-center"
+      : "grid-cols-[1fr_48px_56px] px-2 text-xs min-h-[36px]");
 
   return (
     <div className={`${shell} ${className}`.trim()}>
@@ -83,7 +83,7 @@ export function MarketplaceOrderBook({
         className={`overflow-y-auto overscroll-y-auto flex-1 py-1 space-y-px min-h-[120px] ${isFull ? "px-1" : "px-1"}`}
       >
         {rows.length === 0 ? (
-          <p className="text-[11px] text-gray-600 text-center py-8 px-2">No orders</p>
+          <p className="text-xs text-gray-600 text-center py-8 px-2">No orders</p>
         ) : (
           rows.map(({ order, price, tokenId }) => {
             const depth = price / maxPrice;
@@ -92,7 +92,7 @@ export function MarketplaceOrderBook({
                 key={order.orderHash}
                 href={`/marketplace/${tokenId}`}
                 className={`relative flex items-center rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors group ${
-                  isFull ? "min-h-[42px]" : ""
+                  isFull ? "min-h-[44px]" : ""
                 }`}
               >
                 <div
@@ -100,7 +100,7 @@ export function MarketplaceOrderBook({
                   style={{ width: `${Math.min(100, depth * 100)}%` }}
                 />
                 <div className={`relative z-10 ${rowGrid}`}>
-                  <span className="text-rose-400 font-medium group-hover:text-rose-300">
+                  <span className="text-neg font-medium group-hover:text-neg/80">
                     {price.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,

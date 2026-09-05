@@ -32,6 +32,14 @@ export class RwaToken {
   @Column({ name: 'display_name', type: 'varchar', length: 512, nullable: true })
   displayName: string | null;
 
+  /** Admin override — shown instead of metadata-derived image when set. */
+  @Column({ name: 'display_image_url', type: 'text', nullable: true })
+  displayImageUrl: string | null;
+
+  /** Platform S3 (or override) URL for the PSA slab back photo. */
+  @Column({ name: 'display_image_back_url', type: 'text', nullable: true })
+  displayImageBackUrl: string | null;
+
   /** Last marketplace bucket from an ask listing (nullable if never listed). */
   @Index()
   @Column({
@@ -44,6 +52,48 @@ export class RwaToken {
 
   @Column({ name: 'metadata_synced_at', type: 'timestamptz', nullable: true })
   metadataSyncedAt: Date | null;
+
+  /** Links this mint to its vault_cycles row. NULL for pre-vault-lifecycle tokens. */
+  @Column({ name: 'vault_cycle_id', type: 'uuid', nullable: true })
+  vaultCycleId: string | null;
+
+  /** On-chain vaultRef this token was minted with (see TokenableRWA.vaultRef()). */
+  @Column({ name: 'vault_ref', type: 'varchar', length: 66, nullable: true })
+  vaultRef: string | null;
+
+  /** Set once the on-chain adminBurn (redemption) has been confirmed. */
+  @Column({ name: 'burned_at', type: 'timestamptz', nullable: true })
+  burnedAt: Date | null;
+
+  @Column({ name: 'burn_tx_hash', type: 'varchar', length: 80, nullable: true })
+  burnTxHash: string | null;
+
+  /**
+   * Seaport settlement policy — set only by mint registry (`recordMintResult`).
+   * NULL means custody is unknown (e.g. Transfer-index stub before mint heal).
+   * - `standard` — seller + platform fee split (PSA vault)
+   * - `self_vault_hold` — 100% USDC to platform fee recipient; seller paid later
+   */
+  @Column({
+    name: 'settlement_policy',
+    type: 'varchar',
+    length: 32,
+    nullable: true,
+  })
+  settlementPolicy: 'standard' | 'self_vault_hold' | null;
+
+  /**
+   * Self-vault partner who holds the physical card.
+   * Used for "{displayName} vault" labels after ownership transfers.
+   */
+  @Index()
+  @Column({ name: 'vault_partner_id', type: 'uuid', nullable: true })
+  vaultPartnerId: string | null;
+
+  /** Current on-chain holder (lowercase). NULL when burned or not yet indexed. */
+  @Index()
+  @Column({ name: 'owner_wallet', type: 'varchar', length: 42, nullable: true })
+  ownerWallet: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

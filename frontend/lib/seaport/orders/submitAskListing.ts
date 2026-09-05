@@ -1,22 +1,22 @@
-import { type Address, type PublicClient, type WalletClient, zeroAddress } from "viem";
+import { type Address, type PublicClient, zeroAddress } from "viem";
 import { parseUnits } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import {
-  TOKENABLE_RWA_ADDRESS,
-  USDC_ADDRESS,
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
   SEAPORT_ABI,
-  SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/core";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
   buildAskConsiderationPayload,
+  type AskSettlementPolicy,
 } from "./platformFee";
 import { getChainTimestampSec } from "./seaportOrderTime";
+import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import { getRwaSettlementPolicy } from "@/lib/core";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -41,12 +41,17 @@ export async function submitAskListingOrder(params: {
   priceUsdc: string;
   address: Address;
   publicClient: PublicClient;
-  walletClient: WalletClient;
+  signSeaportOrder: SignSeaportOrderFn;
   writeContractAsync: WriteAsync;
+  chainId: SupportedChainId;
   mode: "create" | "replace";
   oldOrderHash?: string;
+  /** When omitted, fetched from backend (`rwa_tokens.settlement_policy`). */
+  settlementPolicy?: AskSettlementPolicy;
 }): Promise<Order> {
-  const { priceUsdc, address, publicClient, walletClient, writeContractAsync, mode } = params;
+  const { priceUsdc, address, publicClient, signSeaportOrder, writeContractAsync, mode, chainId } =
+    params;
+  const { rwaAddress, usdcAddress } = getChainContracts(chainId);
   const tokenIdStr = normalizeDecimalTokenId(params.tokenId);
   const tokenIdBn = BigInt(tokenIdStr);
   const n = parseFloat(priceUsdc);
@@ -58,12 +63,20 @@ export async function submitAskListingOrder(params: {
   }
 
   const priceInUnits = parseUnits(priceUsdc, 6);
-  /** Wall clock can be ahead of `block.timestamp` — Seaport requires `startTime <= now` at fill time. */
-  const now = await getChainTimestampSec(publicClient);
-  const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const [counter, alreadyAll] = await Promise.all([
+  const [settlementPolicy, now, counter, alreadyAll] = await Promise.all([
+    params.settlementPolicy
+      ? Promise.resolve(params.settlementPolicy)
+      : getRwaSettlementPolicy(tokenIdStr).then((r) => {
+          if (!r.settlementPolicy) {
+            throw new Error(
+              "Vault custody is unknown for this token — refresh and try again",
+            );
+          }
+          return r.settlementPolicy;
+        }),
+    getChainTimestampSec(publicClient),
     publicClient.readContract({
       address: SEAPORT_ADDRESS,
       abi: SEAPORT_ABI,
@@ -71,17 +84,19 @@ export async function submitAskListingOrder(params: {
       args: [address],
     }),
     publicClient.readContract({
-      address: TOKENABLE_RWA_ADDRESS,
+      address: rwaAddress,
       abi: TOKENABLE_RWA_APPROVE_ABI,
       functionName: "isApprovedForAll",
       args: [address, SEAPORT_ADDRESS],
     }),
   ]);
+  const endTime = now + BigInt(ORDER_DURATION_SECONDS);
+
   if (!alreadyAll) {
     const gasSetAll = await gasWithCapFast(
       publicClient,
       {
-        address: TOKENABLE_RWA_ADDRESS,
+        address: rwaAddress,
         abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "setApprovalForAll",
         args: [SEAPORT_ADDRESS, true],
@@ -90,17 +105,22 @@ export async function submitAskListingOrder(params: {
       GAS_FALLBACK.setApprovalForAll,
     );
     const setAllTx = await writeContractAsync({
-      address: TOKENABLE_RWA_ADDRESS,
+      address: rwaAddress,
       abi: TOKENABLE_RWA_APPROVE_ABI,
       functionName: "setApprovalForAll",
       args: [SEAPORT_ADDRESS, true],
-      chainId: sepolia.id,
+      chainId,
       gas: gasSetAll,
     });
-    await publicClient.waitForTransactionReceipt({ hash: setAllTx });
+    await waitForUserTxReceipt(publicClient, setAllTx);
   }
 
-  const considerationItems = buildAskConsideration(priceInUnits, address);
+  const considerationItems = buildAskConsideration(
+    priceInUnits,
+    address,
+    usdcAddress,
+    settlementPolicy,
+  );
 
   const orderMessage = {
     offerer: address,
@@ -108,7 +128,7 @@ export async function submitAskListingOrder(params: {
     offer: [
       {
         itemType: 2,
-        token: TOKENABLE_RWA_ADDRESS,
+        token: rwaAddress,
         identifierOrCriteria: tokenIdBn,
         startAmount: BigInt(1),
         endAmount: BigInt(1),
@@ -124,21 +144,15 @@ export async function submitAskListingOrder(params: {
     counter: counter,
   };
 
-  const signature = await walletClient.signTypedData({
-    account: address,
-    domain: {
-      name: "Seaport",
-      version: "1.5",
-      chainId: sepolia.id,
-      verifyingContract: SEAPORT_ADDRESS,
-    },
-    types: SEAPORT_ORDER_TYPES,
-    primaryType: "OrderComponents",
-    message: orderMessage as never,
-  });
+  const signature = await signSeaportOrder(orderMessage, address);
 
   const str = (v: unknown): string => String(v);
-  const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
+  const considerationPayload = buildAskConsiderationPayload(
+    priceInUnits,
+    address,
+    usdcAddress,
+    settlementPolicy,
+  );
   const payload: CreateOrderPayload = {
     side: "ask",
     parameters: {
@@ -151,7 +165,7 @@ export async function submitAskListingOrder(params: {
       offer: [
         {
           itemType: 2,
-          token: TOKENABLE_RWA_ADDRESS,
+          token: rwaAddress,
           identifierOrCriteria: tokenIdStr,
           startAmount: "1",
           endAmount: "1",
@@ -164,9 +178,9 @@ export async function submitAskListingOrder(params: {
       counter: str(counter),
     },
     signature,
-    tokenContract: TOKENABLE_RWA_ADDRESS,
+    tokenContract: rwaAddress,
     tokenId: tokenIdStr,
-    considerationToken: USDC_ADDRESS,
+    considerationToken: usdcAddress,
     considerationAmount: String(priceInUnits),
   };
 

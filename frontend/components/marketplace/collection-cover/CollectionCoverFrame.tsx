@@ -1,68 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import Image from "next/image";
 import {
   COLLECTION_DETAILS_BG_CLASS,
-  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
+import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
+import { isNextImageCatalogCoverUrl } from "@/lib/marketplace/catalogCoverPublicUrl";
+import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
+import { CollectionCoverLightbox } from "./CollectionCoverLightbox";
+import { CollectionCoverSwipeLightbox } from "./CollectionCoverSwipeLightbox";
 
-function CollectionCoverLightbox({
-  open,
-  resolvedUrl,
-  alt,
-  onClose,
-}: {
+export type CollectionCoverGalleryProps = {
+  entries: CollectionBrowseEntry[];
+  viewingKey: string;
+  currentIndex: number;
+  canSwipe: boolean;
+  onNext: () => void;
+  onPrev: () => void;
   open: boolean;
-  resolvedUrl: string | null;
-  alt: string;
+  onOpenChange: (open: boolean) => void;
   onClose: () => void;
-}) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
-
-  if (!mounted || !open || !resolvedUrl) return null;
-
-  return createPortal(
-    <button
-      type="button"
-      role="dialog"
-      aria-modal
-      aria-label="Collection cover enlarged — tap anywhere to close"
-      onClick={onClose}
-      className="fixed inset-0 z-[100] flex cursor-default items-center justify-center bg-black/88 p-4 backdrop-blur-[2px] sm:p-8"
-    >
-      <div
-        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-[rgba(11,13,16,1)] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-[rgba(11,13,16,1)]`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={resolvedUrl}
-          alt={alt || "Collection cover"}
-          className="max-h-[min(82vh,820px)] w-full object-contain object-center"
-          style={{ filter: "saturate(1.04) contrast(1.02)" }}
-        />
-      </div>
-    </button>,
-    document.body,
-  );
-}
+};
 
 export interface CollectionCoverFrameProps {
   /** `ipfs://`, `https://…/ipfs/…`, 또는 일반 https — 브라우저는 API로만 해석 */
@@ -73,12 +34,14 @@ export interface CollectionCoverFrameProps {
   /** Carousel slides: static placeholder while resolving (no pulse — avoids vertical “shake”). */
   quietLoading?: boolean;
   className?: string;
+  /** When set (e.g. from Markets browse context), fullscreen cover supports swipe between cards. */
+  coverGallery?: CollectionCoverGalleryProps;
 }
 
 /**
  * 컬렉션 대표 이미지용 프레임 — 그라데이션 베젤, 이너 매트, 은은한 하이라이트.
  * featured: 중간 크기. hero: 컬렉션 상세 좌측 히어로 — 클릭하면 큰 이미지(라이트박스).
- * flat: 베젤·링 없이 이미지 영역만 (Trending 캐러셀 등).
+ * flat: 베젤·링 없이 이미지 영역만 — markets/home 그리드는 object-fill로 좁은 아트를 가로로 늘려 채움.
  */
 export function CollectionCoverFrame({
   imageUrl,
@@ -86,33 +49,60 @@ export function CollectionCoverFrame({
   variant = "compact",
   quietLoading = false,
   className = "",
+  coverGallery,
 }: CollectionCoverFrameProps) {
-  const { url: resolved, isLoading } = useResolvedMediaUrl(imageUrl);
+  const [activeImageUrl, setActiveImageUrl] = useState(imageUrl);
+  const { url: resolved, isLoading } = useResolvedMediaUrl(activeImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
+    setActiveImageUrl(imageUrl);
     setImgFailed(false);
     setLightboxOpen(false);
-  }, [imageUrl, resolved]);
+  }, [imageUrl]);
 
-  /** Carousel 등 — 그라데이션 베젤·ring 없이 카드 안에 이미지만 채움 */
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolved, activeImageUrl]);
+
+  const handleImageError = () => {
+    setImgFailed(true);
+  };
+
+  /** Carousel / markets grid — fill the frame (crop if needed; no letterboxing). */
   if (variant === "flat") {
     return (
-      <div className={`relative h-full min-h-0 w-full bg-[#0a0e14] ${className}`}>
-        <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#030508]">
+      <div className={`relative h-full min-h-0 w-full ${className}`}>
+        <div className="relative h-full min-h-0 w-full overflow-hidden">
           {resolved && !imgFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={resolved}
-              alt={alt}
-              className="absolute inset-0 h-full w-full object-contain object-center"
-              style={{ filter: "saturate(1.04) contrast(1.02)" }}
-              onError={() => setImgFailed(true)}
-            />
+            isNextImageCatalogCoverUrl(resolved) ? (
+              <Image
+                src={resolved}
+                alt={alt}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+                className="object-fill object-center"
+                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                onError={handleImageError}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolved}
+                alt={alt}
+                className="absolute inset-0 h-full w-full object-fill object-center"
+                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                onError={handleImageError}
+                referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
+              />
+            )
           ) : imgFailed ? (
             <div
-              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
               role="img"
               aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
             >
@@ -124,7 +114,7 @@ export function CollectionCoverFrame({
               aria-hidden
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-zinc-600">
               No preview
             </div>
           )}
@@ -173,8 +163,8 @@ export function CollectionCoverFrame({
    */
   const heroOuter =
     variant === "hero"
-      ? "mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full"
-      : "mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full";
+      ? `mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[clamp(112px,30vw,128px)] max-lg:max-h-[132px] max-lg:w-[clamp(84px,22.5vw,96px)] max-lg:max-w-[96px] max-lg:shrink-0 lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`
+      : `mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`;
 
   const heroGlow =
     variant === "hero"
@@ -186,8 +176,8 @@ export function CollectionCoverFrame({
   const heroFlat =
     variant === "hero"
       ? {
-          outer: `${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
-          inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
+          outer: `max-lg:rounded-none ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(0,0,0,1)]`,
+          inner: `max-lg:rounded-none ${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
         }
       : null;
 
@@ -206,14 +196,14 @@ export function CollectionCoverFrame({
         }`;
 
   const imgShellBg =
-    variant === "hero" ? COLLECTION_DETAILS_BG_CLASS : "bg-[#030508]";
+    variant === "hero" ? COLLECTION_DETAILS_BG_CLASS : "bg-black";
 
   return (
     <div className={outerClass}>
       <div className={innerClass}>
         <div
           className={`relative min-h-0 w-full flex-1 overflow-hidden ${imgShellBg} ${
-            variant === "hero" ? "" : "ring-1 ring-[rgba(11,13,16,1)]"
+            variant === "hero" ? "" : "ring-1 ring-black"
           } ${radiusImg} ${
             variant === "compact" ? "aspect-[3/4]" : ""
           } ${heroInteractive ? "group/img" : ""}`}
@@ -225,47 +215,35 @@ export function CollectionCoverFrame({
                 src={resolved}
                 alt={alt}
                 className="absolute inset-0 h-full w-full object-contain object-center"
-                style={{ filter: "saturate(1.04) contrast(1.02)" }}
-                onError={() => setImgFailed(true)}
+                style={collectionCoverImageStyle(resolved)}
+                onError={handleImageError}
+                referrerPolicy="no-referrer"
+                loading={variant === "hero" ? "eager" : "lazy"}
+                decoding="async"
               />
               {heroInteractive ? (
                 <>
                   <button
                     type="button"
-                    onClick={() => setLightboxOpen(true)}
-                    className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500/65"
+                    onClick={() => {
+                      if (coverGallery) coverGallery.onOpenChange(true);
+                      else setLightboxOpen(true);
+                    }}
+                    className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
                     aria-label="Open collection cover in large view"
                     title="Click to view larger"
                   />
                   <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-[rgba(11,13,16,1)] transition-opacity duration-150 max-lg:hidden sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
+                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-black transition-opacity duration-150 max-lg:hidden sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
                   >
                     Click to enlarge
                   </span>
-                  <div
-                    className={`pointer-events-none absolute bottom-1 right-1 z-[6] flex h-5 w-5 items-center justify-center rounded-[5px] ${COLLECTION_DETAILS_BORDER_ALL} bg-black/45 text-white/70 backdrop-blur-sm max-lg:bottom-1 max-lg:right-1 lg:bottom-1.5 lg:right-1.5 lg:h-7 lg:w-7 lg:rounded-md lg:shadow-sm`}
-                    aria-hidden
-                    title="Click or tap for larger view"
-                  >
-                    <svg
-                      className="h-[11px] w-[11px] lg:h-[15px] lg:w-[15px]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      aria-hidden
-                    >
-                      <circle cx="11" cy="11" r="6" />
-                      <path d="M16 16l5 5" />
-                    </svg>
-                  </div>
                 </>
               ) : null}
             </>
           ) : imgFailed ? (
             <div
-              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
               role="img"
               aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
             >
@@ -274,7 +252,7 @@ export function CollectionCoverFrame({
           ) : isLoading ? (
             <div className="absolute inset-0 bg-gray-900/80 animate-pulse" aria-hidden />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-zinc-600">
               No preview
             </div>
           )}
@@ -286,12 +264,25 @@ export function CollectionCoverFrame({
           ) : null}
         </div>
       </div>
-      <CollectionCoverLightbox
-        open={lightboxOpen && heroInteractive && Boolean(resolved) && !imgFailed}
-        resolvedUrl={resolved}
-        alt={alt}
-        onClose={() => setLightboxOpen(false)}
-      />
+      {coverGallery?.canSwipe ? (
+        <CollectionCoverSwipeLightbox
+          open={coverGallery.open}
+          entries={coverGallery.entries}
+          viewingKey={coverGallery.viewingKey}
+          currentIndex={coverGallery.currentIndex}
+          canSwipe={coverGallery.canSwipe}
+          onClose={coverGallery.onClose}
+          onNext={coverGallery.onNext}
+          onPrev={coverGallery.onPrev}
+        />
+      ) : (
+        <CollectionCoverLightbox
+          open={lightboxOpen && heroInteractive && Boolean(resolved) && !imgFailed}
+          resolvedUrl={resolved}
+          alt={alt}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }

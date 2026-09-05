@@ -3,9 +3,9 @@ import type { CollectionOverviewStat } from "../types";
 export function HeaderInlineStat({ stat }: { stat: CollectionOverviewStat }) {
   const toneClass =
     stat.tone === "up"
-      ? "text-mint"
+      ? "text-pos"
       : stat.tone === "down"
-        ? "text-rose-400"
+        ? "text-neg"
         : "text-zinc-100";
   return (
     <div className="flex min-w-[4.25rem] shrink-0 flex-col gap-0.5 sm:min-w-[5rem]">

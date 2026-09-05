@@ -3,6 +3,15 @@ import type {
   CollectionMarketPreview,
 } from "@/lib/core";
 import { marketHistoryTierFromComponents } from "@/lib/market";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import {
+  formatPsaGradePopPairTitle,
+  formatPsaGradePopTileLabel,
+  psaPopForChartGradeLabel,
+  psaPopForGradeScore,
+  resolveActivePsaChartGradeLabel,
+} from "@/lib/market/psaPopulationByGrade";
+import { psaChartGradeScoreFromLabel } from "@/lib/marketplace/collection-grade-chart/psaChartGrades";
 
 /**
  * PSA 슬랩만 취급할 때의 "시가총액" 참고치.
@@ -165,10 +174,99 @@ export function computePsaMarketCapUsd(params: {
   };
 }
 
-export function parsePsaTotalPopulation(components: Record<string, unknown>): number | null {
+export function parsePsaTotalPopulation(components: CollectionComponents): number | null {
   const v = components.psaTotalPopulation;
   if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.floor(v);
   return null;
+}
+
+export interface PsaPopulationMetrics {
+  /** Active chart grade label, e.g. `PSA 9`. */
+  gradeLabel: string;
+  /** Population for {@link gradeLabel} from PSA spec report. */
+  gradePop: number | null;
+  totalPsaPop: number | null;
+  /** @deprecated Use {@link gradePop}. */
+  psa10Pop: number | null;
+}
+
+function finitePositivePop(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+  return Math.floor(v);
+}
+
+/** PSA grade pop + total PSA pop for collection detail metrics. */
+export function resolvePsaPopulationMetrics(
+  components: CollectionComponents,
+  activeGradeLabel?: string | null,
+): PsaPopulationMetrics {
+  const gradeLabel = resolveActivePsaChartGradeLabel(components, activeGradeLabel);
+  const score = psaChartGradeScoreFromLabel(gradeLabel);
+  const gradePop =
+    score != null
+      ? psaPopForGradeScore(components, score)
+      : psaPopForChartGradeLabel(components, gradeLabel);
+  const totalPsaPop = finitePositivePop(components.psaSpecTotalPopulation);
+  const psa10Pop = psaPopForGradeScore(components, 10);
+  return {
+    gradeLabel,
+    gradePop,
+    totalPsaPop,
+    psa10Pop,
+  };
+}
+
+export { formatPsaGradePopPairTitle, formatPsaGradePopTileLabel };
+
+export function formatPsaPopulationCount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return n.toLocaleString("en-US");
+}
+
+/**
+ * Gem rate = PSA Pop ÷ Total Pop (as percent).
+ * “PSA Pop” is the gem / PSA 10 population when available.
+ */
+export function computeGemRatePct(
+  psaPop: number | null | undefined,
+  totalPop: number | null | undefined,
+): number | null {
+  if (psaPop == null || totalPop == null) return null;
+  if (!Number.isFinite(psaPop) || !Number.isFinite(totalPop)) return null;
+  if (totalPop <= 0 || psaPop < 0) return null;
+  return (psaPop / totalPop) * 100;
+}
+
+/** Format gem rate for hero metrics (`27.6%`). */
+export function formatGemRatePercent(pct: number | null | undefined): string {
+  if (pct == null || !Number.isFinite(pct)) return "—";
+  return `${pct.toFixed(1)}%`;
+}
+
+/** Grade pop / total pop for metric tiles (e.g. `48.4k / 111.1k`). */
+export function formatPsaPopulationPair(
+  gradePop: number | null | undefined,
+  totalPsaPop: number | null | undefined,
+): string {
+  return `${formatPsaPopulationCompact(gradePop)} / ${formatPsaPopulationCompact(totalPsaPop)}`;
+}
+
+/** Compact pop for narrow cells — e.g. `48k`, `1.2M`; full value via `title` when needed. */
+export function formatPsaPopulationCompact(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n < 0) return "—";
+  if (n === 0) return "0";
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
+  }
+  if (n >= 10_000) {
+    return `${Math.round(n / 1_000).toLocaleString("en-US")}k`;
+  }
+  if (n >= 1_000) {
+    const k = n / 1_000;
+    return `${k >= 10 ? Math.round(k) : k.toFixed(1)}k`;
+  }
+  return n.toLocaleString("en-US");
 }
 
 export function parseGradeScoreNumber(gradeScoreStr: string | undefined | null): number | null {
@@ -193,7 +291,7 @@ function unitUsdFromGradePrices(
  * - 목록 등: 스냅샷의 PokeTrace NM 스트립(`gradePrices`) × 인구
  */
 export function computeCollectionMarketCapUsd(params: {
-  components: Record<string, unknown>;
+  components: CollectionComponents;
   gradeScoreStr: string | undefined | null;
   marketCard: CollectionMarketPreview["card"];
   /** When preview is approximate-match, skip catalog $ path (same as primary price policy). */
@@ -201,12 +299,30 @@ export function computeCollectionMarketCapUsd(params: {
   gradePrices: CollectionGradePrices | null | undefined;
   /** Full preview when available — used for slab tier spot (PSA_9, PSA_8, …). */
   marketPreview?: CollectionMarketPreview | null;
+  /** Selected chart grade label — drives pop tier + ref unit when set. */
+  chartGradeLabel?: string | null;
+  /** Cardhedger/catalog spot for selected chart grade. */
+  referenceUnitUsd?: number | null;
 }): MarketCapComputation {
-  const population = parsePsaTotalPopulation(params.components);
-  const gradeNum = parseGradeScoreNumber(params.gradeScoreStr);
-  const historyTier = marketHistoryTierFromComponents(params.components);
+  const chartScore = psaChartGradeScoreFromLabel(params.chartGradeLabel);
+  const slabScore = parseGradeScoreNumber(params.gradeScoreStr);
+  const activeScore = chartScore ?? slabScore;
+  const activeTier =
+    activeScore != null && activeScore >= 1 && activeScore <= 10
+      ? `PSA_${Math.floor(activeScore)}`
+      : marketHistoryTierFromComponents(params.components);
 
-  if (population == null) {
+  const population =
+    activeScore != null
+      ? psaPopForGradeScore(params.components, activeScore)
+      : null;
+  const populationResolved =
+    population ??
+    (activeScore === 10 || activeScore == null
+      ? parsePsaTotalPopulation(params.components)
+      : null);
+
+  if (populationResolved == null) {
     return {
       usd: null,
       confidence: "low",
@@ -215,6 +331,23 @@ export function computeCollectionMarketCapUsd(params: {
       population: null,
     };
   }
+
+  const refUnit = params.referenceUnitUsd;
+  if (refUnit != null && Number.isFinite(refUnit) && refUnit > 0) {
+    const gradeTag =
+      params.chartGradeLabel?.trim() ||
+      (activeScore != null ? `PSA ${activeScore}` : "ref");
+    return {
+      usd: refUnit * populationResolved,
+      confidence: "high",
+      methodLabel: `PSA ${activeScore ?? "?"} pop ${populationResolved.toLocaleString()} × ${gradeTag}`,
+      unitUsd: refUnit,
+      population: populationResolved,
+    };
+  }
+
+  const gradeNum = activeScore ?? slabScore;
+  const historyTier = activeTier;
 
   if (
     params.marketMatchConfidence !== "approximate" &&
@@ -232,18 +365,18 @@ export function computeCollectionMarketCapUsd(params: {
     const spot = catalogSpotUsdFromMarketPreview(previewForSpot, historyTier);
     if (spot != null && Number.isFinite(spot) && spot > 0) {
       return {
-        usd: spot * population,
+        usd: spot * populationResolved,
         confidence: "high",
-        methodLabel: `PSA 인구 ${population.toLocaleString()} × PokeTrace ${historyTier}`,
+        methodLabel: `PSA 인구 ${populationResolved.toLocaleString()} × PokeTrace ${historyTier}`,
         unitUsd: spot,
-        population,
+        population: populationResolved,
       };
     }
   }
 
   if (params.marketMatchConfidence !== "approximate" && params.marketCard) {
     const fromPt = computePsaMarketCapUsd({
-      totalPopulation: population,
+      totalPopulation: populationResolved,
       gradeScore: gradeNum,
       card: params.marketCard,
     });
@@ -254,11 +387,11 @@ export function computeCollectionMarketCapUsd(params: {
     const unit = unitUsdFromGradePrices(params.gradePrices, gradeNum);
     if (unit != null && Number.isFinite(unit) && unit > 0) {
       return {
-        usd: unit * population,
+        usd: unit * populationResolved,
         confidence: "medium",
         methodLabel: `PSA 인구 × PokeTrace NM (ref)`,
         unitUsd: unit,
-        population,
+        population: populationResolved,
       };
     }
   }
@@ -268,14 +401,12 @@ export function computeCollectionMarketCapUsd(params: {
     confidence: "low",
     methodLabel: "단가 없음",
     unitUsd: null,
-    population,
+    population: populationResolved,
   };
 }
 
+/** Collection-detail hero Market cap — full dollars, no K/M/B abbreviation. */
 export function formatMarketCapUsd(usd: number | null): string {
   if (usd == null || !Number.isFinite(usd)) return "—";
-  if (usd >= 1_000_000_000) return `$${(usd / 1_000_000_000).toFixed(2)}B`;
-  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(2)}M`;
-  if (usd >= 10_000) return `$${(usd / 1_000).toFixed(1)}K`;
   return `$${usd.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }

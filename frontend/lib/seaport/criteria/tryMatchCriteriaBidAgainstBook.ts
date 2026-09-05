@@ -1,4 +1,5 @@
 import type { PublicClient, Address } from "viem";
+import type { SupportedChainId } from "@/lib/chains";
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { getMarketplaceCollectionDetail } from "@/lib/core";
@@ -64,8 +65,9 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
   writeContractAsync: MatchWriteContractAsync;
   /** Order-book asks from UI — merged when collection detail is stale right after a new listing. */
   listingHints?: Order[];
+  chainId: SupportedChainId;
 }): Promise<TryMatchCriteriaBidAgainstBookResult> {
-  const { bid, collectionKey, address, publicClient, writeContractAsync, listingHints } =
+  const { bid, collectionKey, address, publicClient, writeContractAsync, listingHints, chainId } =
     params;
   const key = collectionKey.trim();
   if (!key || !isCriteriaCollectionBid(bid)) {
@@ -163,6 +165,7 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
         tokenId: listing.tokenId,
         collectionKey: key,
         merkleTokenIds,
+        chainId,
       });
       const micros = askPriceMicros(listing);
       const fillUsdc = Number(formatUnits(micros, 6));

@@ -1,1 +1,6 @@
-export { useMarketplaceCollectionsInfinite } from "./useMarketplaceCollectionsInfinite";
+export {
+  useMarketplaceCollectionsInfinite,
+  MARKETS_COLLECTIONS_PAGE_SIZE,
+} from "./useMarketplaceCollectionsInfinite";
+export { useMarketplaceCollectionSearch } from "./useMarketplaceCollectionSearch";
+export { useMarketplaceCatalogSearch } from "./useMarketplaceCatalogSearch";

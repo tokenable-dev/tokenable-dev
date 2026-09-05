@@ -1,49 +1,438 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
+import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { specIdStringFromPsaCertBody } from '../../psa/psa-public-api.service';
-import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
+import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
-  extractCollectionRepresentativeImage,
+  cardhedgerCertRowUsableForPsaVariety,
+  cardhedgerRowMatchesPsaVariety,
+  psaVarietyHasNamedCollectibleIdentity,
+} from '../utils/cardhedger-psa-variety.util';
+import {
   normalizeImageUrl,
-  psaCertNumberFromGradedMeta,
+  rankCollectionCoverUrls,
+  scoreCollectionCoverUrl,
 } from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
-import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
-import { psaSpecIdFromComponentsRow } from './collection-listing-meta.helpers';
+import {
+  CatalogCoverS3Service,
+  catalogCoverObjectKeyFromPublicUrl,
+  normalizeCatalogCoverPublicUrl,
+} from './catalog-cover-s3.service';
+
+/** Collection covers: Cardhedger / TCG / our catalog S3 HTTPS URLs. */
+function isPersistableCoverUrl(url: string): boolean {
+  const t = url.trim();
+  if (!/^https?:\/\//i.test(t)) return false;
+  if (t.toLowerCase().includes('/ipfs/')) return false;
+  if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
+  // Mint display copies live under rwa-slabs/ — never use as collection covers.
+  if (/\/rwa-slabs\//i.test(t)) return false;
+  return true;
+}
+
+function pushCandidate(out: string[], url: string | null | undefined): void {
+  if (typeof url !== 'string' || !url.trim()) return;
+  const n = normalizeImageUrl(url);
+  if (!isPersistableCoverUrl(n)) return;
+  out.push(n);
+}
+
+function psaVarietyFromMintMeta(meta: Record<string, unknown>): string {
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
+  if (!graded || typeof graded !== 'object') return '';
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const varietyRaw = [psa?.Variety, psa?.variety, psa?.varietyHint].find(
+    (x): x is string => typeof x === 'string' && Boolean(x.trim()),
+  );
+  const card = graded.card as Record<string, unknown> | undefined;
+  const mintVariant =
+    typeof card?.variant === 'string' ? card.variant.trim() : '';
+  return mergePsaVarietyWithMintVariant(varietyRaw, mintVariant);
+}
 
 /**
- * Collection cover images: PSA spec scrape, Cardhedger catalog, TCG API, representative resolve.
+ * Collection cover: Cardhedger / TCG → catalog S3 (when configured).
+ * Set at collection create; upgraded when a higher-scoring catalog URL is resolved.
  */
 @Injectable()
 export class CollectionCoverService {
   private readonly logger = new Logger(CollectionCoverService.name);
 
-  private readonly representativeImageResolveInflight = new Map<
-    string,
-    Promise<string | null>
-  >();
-
   constructor(
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
-    @InjectRepository(Order)
-    private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
-    private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaSpecScraper: PsaSpecScraperService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly catalogCoverS3: CatalogCoverS3Service,
   ) {}
 
-  private collectionActiveOrdersCap(): number {
-    return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
+  /** Resolve a persistable cover URL from RWA metadata (no DB write, no S3). */
+  async resolveCoverUrlFromMeta(
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const ranked = await this.resolveRankedCatalogImageUrlsFromMeta(meta);
+    return ranked[0] ?? null;
+  }
+
+  /**
+   * Admin catalog create (no mint): PSA cert → Cardhedger `details-by-certs`
+   * → attach `graded.cardhedger.{cardId,imageUrl,searchQuery}` onto metadata so
+   * {@link resolveCoverUrlForNewCollection} can fetch the catalog image and
+   * ingest it to S3. No-op when Cardhedger is unconfigured or the cert is unknown.
+   */
+  async attachCardhedgerFromPsaCert(
+    meta: Record<string, unknown>,
+    certNumber: string,
+  ): Promise<Record<string, unknown>> {
+    const digits = String(certNumber ?? '').replace(/\D/g, '');
+    if (digits.length < 7) return meta;
+
+    try {
+      this.cardhedger.assertConfigured();
+    } catch {
+      return meta;
+    }
+
+    let cardId = '';
+    let imageUrl = '';
+    let searchQuery = '';
+    const psaVariety = psaVarietyFromMintMeta(meta);
+
+    try {
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/details-by-certs',
+        { body: { certs: [digits], grader: 'PSA' } },
+      );
+      const results = Array.isArray(
+        (body as { results?: unknown[] } | null)?.results,
+      )
+        ? ((body as { results: unknown[] }).results ?? [])
+        : [];
+      for (const raw of results) {
+        if (typeof raw !== 'object' || raw == null) continue;
+        const row = raw as {
+          cert_info?: { cert?: string | number; description?: string };
+          card?: Record<string, unknown>;
+        };
+        const rowDigits = String(row.cert_info?.cert ?? '').replace(/\D/g, '');
+        if (rowDigits && rowDigits !== digits) continue;
+        const desc =
+          typeof row.cert_info?.description === 'string'
+            ? row.cert_info.description.trim()
+            : '';
+        if (desc) searchQuery = desc;
+        const card = row.card;
+        if (card && typeof card === 'object') {
+          if (cardhedgerCertRowUsableForPsaVariety(card, psaVariety)) {
+            const id =
+              typeof card.card_id === 'string' ? card.card_id.trim() : '';
+            if (id) cardId = id;
+            const img =
+              typeof card.image === 'string' ? card.image.trim() : '';
+            if (img) imageUrl = img;
+          }
+        }
+        break;
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Cardhedger details-by-certs for catalog create failed (${digits}): ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return meta;
+    }
+
+    if (cardId && !imageUrl) {
+      try {
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          { body: { card_id: cardId } },
+        );
+        const cards = (body as { cards?: unknown[] }).cards;
+        if (Array.isArray(cards) && cards.length > 0) {
+          const row = cards[0] as Record<string, unknown>;
+          const img =
+            typeof row.image === 'string' ? row.image.trim() : '';
+          if (img) imageUrl = img;
+        }
+      } catch {
+        /* cover resolve may still search by name */
+      }
+    }
+
+    // details-by-certs often returns `card: null`, or a sibling finish (Reverse
+    // Foil on a Master Ball slab). Resolve via search with the same Variety gate.
+    if (!cardId) {
+      const fromSearch = await this.resolveCardhedgerCardIdBySearch(
+        meta,
+        searchQuery,
+      );
+      if (fromSearch) {
+        cardId = fromSearch.cardId;
+        if (!imageUrl && fromSearch.imageUrl) imageUrl = fromSearch.imageUrl;
+        if (!searchQuery && fromSearch.searchQuery) {
+          searchQuery = fromSearch.searchQuery;
+        }
+      }
+    }
+
+    if (!cardId && !imageUrl && !searchQuery) return meta;
+
+    const props =
+      meta.properties && typeof meta.properties === 'object'
+        ? { ...(meta.properties as Record<string, unknown>) }
+        : {};
+    const gradedBase =
+      (props.graded ?? meta.graded) &&
+      typeof (props.graded ?? meta.graded) === 'object'
+        ? {
+            ...((props.graded ?? meta.graded) as Record<string, unknown>),
+          }
+        : {};
+    const existingCh =
+      gradedBase.cardhedger && typeof gradedBase.cardhedger === 'object'
+        ? { ...(gradedBase.cardhedger as Record<string, unknown>) }
+        : {};
+
+    if (cardId && !existingCh.cardId) existingCh.cardId = cardId;
+    if (imageUrl && !existingCh.imageUrl) existingCh.imageUrl = imageUrl;
+    if (searchQuery && !existingCh.searchQuery) {
+      existingCh.searchQuery = searchQuery;
+    }
+
+    gradedBase.cardhedger = existingCh;
+    props.graded = gradedBase;
+    return { ...meta, properties: props };
+  }
+
+  /**
+   * Resolve Cardhedger/TCG image for a new collection, download it, and store
+   * on catalog S3. Tries ranked candidates and skips tiny Cardhedger thumbs
+   * (~180px). Falls back to the best remote URL when S3 is not configured or
+   * ingest fails (listing must not block).
+   */
+  async resolveCoverUrlForNewCollection(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const ranked = await this.resolveRankedCatalogImageUrlsFromMeta(meta);
+    if (ranked.length === 0) return null;
+    if (!this.catalogCoverS3.isConfigured()) return ranked[0] ?? null;
+
+    try {
+      const { publicUrl } = await this.catalogCoverS3.ingestBestRemoteImage(
+        collectionKey,
+        ranked,
+      );
+      return publicUrl;
+    } catch (e) {
+      this.logger.warn(
+        `Catalog cover S3 ingest on create failed for ${collectionKey}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return ranked[0] ?? null;
+    }
+  }
+
+  /**
+   * Persist cover when missing, or replace when a higher-scoring catalog URL is
+   * resolved. If the existing cover is our S3 object but too small (Cardhedger
+   * thumb), re-ingest the best candidate.
+   */
+  async upgradeCoverFromMetaIfBetter(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) return null;
+
+    const current = row.coverImageUrl?.trim() ?? '';
+    const ranked = await this.resolveRankedCatalogImageUrlsFromMeta(meta);
+    if (ranked.length === 0) return current || null;
+
+    const ourKey =
+      current &&
+      catalogCoverObjectKeyFromPublicUrl(
+        current,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      );
+
+    if (this.catalogCoverS3.isConfigured() && (!current || ourKey)) {
+      let shouldReingest = !current;
+      if (ourKey && current) {
+        try {
+          const existing = await this.catalogCoverS3.downloadRemoteImage(current);
+          shouldReingest = !this.catalogCoverS3.isAdequateCatalogCoverSize(
+            existing.width,
+            existing.height,
+          );
+        } catch {
+          shouldReingest = true;
+        }
+      }
+      if (shouldReingest) {
+        try {
+          const { publicUrl } = await this.catalogCoverS3.ingestBestRemoteImage(
+            k,
+            ranked,
+          );
+          return this.persistCoverImageUrl(k, publicUrl);
+        } catch (e) {
+          this.logger.warn(
+            `Catalog cover upgrade ingest failed for ${k}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+    }
+
+    const next = ranked[0] ?? null;
+    if (!next) return current || null;
+    if (!current) {
+      return this.persistCoverImageUrl(k, next);
+    }
+    if (scoreCollectionCoverUrl(next) > scoreCollectionCoverUrl(current)) {
+      if (this.catalogCoverS3.isConfigured()) {
+        try {
+          const { publicUrl } = await this.catalogCoverS3.ingestBestRemoteImage(
+            k,
+            ranked,
+          );
+          return this.persistCoverImageUrl(k, publicUrl);
+        } catch {
+          /* fall through to remote URL */
+        }
+      }
+      return this.persistCoverImageUrl(k, next);
+    }
+    return current;
+  }
+
+  async setCollectionCoverImageAdmin(
+    collectionKey: string,
+    coverImageUrl: string,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const url = coverImageUrl.trim();
+    if (!url) throw new Error('COLLECTION_COVER_URL_EMPTY');
+    if (!isPersistableCoverUrl(url)) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+
+    const previousCover = row.coverImageUrl;
+    let urlToPersist = url;
+
+    if (this.catalogCoverS3.isConfigured()) {
+      const alreadyOurs = catalogCoverObjectKeyFromPublicUrl(
+        url,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      );
+      if (!alreadyOurs) {
+        // External URL → download and overwrite the stable S3 object.
+        const { publicUrl } = await this.catalogCoverS3.ingestRemoteImage(k, url);
+        urlToPersist = publicUrl;
+      }
+    }
+
+    const persisted = await this.persistCoverImageUrl(k, urlToPersist);
+    if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    // Clean legacy uuid-style keys when the public URL path changed.
+    if (
+      previousCover &&
+      previousCover.trim() !== urlToPersist &&
+      catalogCoverObjectKeyFromPublicUrl(
+        previousCover,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      )
+    ) {
+      await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
+    }
+
+    const refreshed = await this.findOne(k);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  /**
+   * Upload a local image, overwriting the collection's stable S3 cover object.
+   */
+  async uploadCollectionCoverImageAdmin(
+    collectionKey: string,
+    file: Express.Multer.File,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+
+    const previousCover = row.coverImageUrl;
+    const { publicUrl } = await this.catalogCoverS3.uploadCollectionCover(k, file);
+    const persisted = await this.persistCoverImageUrl(k, publicUrl);
+    if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    if (
+      previousCover &&
+      previousCover.trim() !== publicUrl &&
+      catalogCoverObjectKeyFromPublicUrl(
+        previousCover,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      )
+    ) {
+      await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
+    }
+
+    const refreshed = await this.findOne(k);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  async adminPreviewCoverFromToken(
+    tokenId: string,
+    _collectionKey?: string,
+    chainId?: SupportedChainId,
+  ): Promise<string | null> {
+    const meta = await this.loadTokenMeta(Number(tokenId), chainId);
+    if (!meta) return null;
+    return this.resolveCoverUrlFromMeta(meta);
+  }
+
+  /** Admin / ops: re-resolve from token meta and persist only if score improves. */
+  async upgradeCoverFromToken(
+    collectionKey: string,
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+    const prev = row.coverImageUrl?.trim() ?? '';
+
+    const meta = await this.loadTokenMeta(Number(tokenId), chainId);
+    if (!meta) {
+      return { coverImageUrl: prev || null, upgraded: false };
+    }
+
+    const after = await this.upgradeCoverFromMetaIfBetter(k, meta);
+    const next = after?.trim() ?? prev;
+    return {
+      coverImageUrl: next || null,
+      upgraded: Boolean(next && next !== prev),
+    };
   }
 
   private async findOne(key: string): Promise<MarketplaceCollection | null> {
@@ -52,38 +441,144 @@ export class CollectionCoverService {
     });
   }
 
-  private async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  private async loadTokenMeta(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const uri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
+      return await this.ipfsResolver.fetchMetadataJson(uri);
+    } catch {
+      return null;
+    }
   }
 
-  private async activeBidsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.BID,
-      },
-      order: { createdAt: 'DESC' },
-      take: this.collectionActiveOrdersCap(),
-    });
-  }
-
-  clearResolveInflight(collectionKey: string): void {
-    this.representativeImageResolveInflight.delete(collectionKey.toLowerCase());
-  }
-
-  private async fetchCatalogImageFromMeta(
+  /**
+   * When cert lookup has no `card`, search Cardhedger by cert description / PSA
+   * hints and return the best matching `card_id` (+ image when present).
+   */
+  private async resolveCardhedgerCardIdBySearch(
     meta: Record<string, unknown>,
-    psaSpecIdFallback?: string | null,
-  ): Promise<string | null> {
+    certDescription: string,
+  ): Promise<{
+    cardId: string;
+    imageUrl: string;
+    searchQuery: string;
+  } | null> {
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
+    const cardMeta = graded?.card as Record<string, unknown> | undefined;
+    const psaMeta = graded?.psa as Record<string, unknown> | undefined;
+
+    const cardName = (
+      typeof cardMeta?.name === 'string'
+        ? cardMeta.name
+        : typeof psaMeta?.cardNameHint === 'string'
+          ? psaMeta.cardNameHint
+          : typeof psaMeta?.subject === 'string'
+            ? psaMeta.subject
+            : ''
+    ).trim();
+    const cardNumber = String(cardMeta?.number ?? psaMeta?.cardNumberHint ?? '')
+      .replace(/^#/, '')
+      .trim();
+    const setName = (
+      typeof cardMeta?.set === 'string'
+        ? cardMeta.set
+        : typeof psaMeta?.setHint === 'string'
+          ? psaMeta.setHint
+          : typeof psaMeta?.brand === 'string'
+            ? psaMeta.brand
+            : ''
+    ).trim();
+    const year = String(cardMeta?.year ?? psaMeta?.year ?? '').trim();
+
+    const search =
+      certDescription.trim() ||
+      [cardName, cardNumber, setName, year].filter(Boolean).join(' ');
+    if (!search) return null;
+
+    try {
+      this.cardhedger.assertConfigured();
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/card-search',
+        { body: { search, page: 1, page_size: 10 } },
+      );
+      const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
+        ? ((body as { cards: unknown[] }).cards ?? [])
+        : [];
+      if (cards.length === 0) return null;
+
+      const norm = (s: string) =>
+        s
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '')
+          .replace(/[^a-z0-9]/g, '');
+      const wantNum = norm(cardNumber).replace(/^#/, '');
+      const wantNameWords = norm(cardName).match(/[a-z0-9]+/g) ?? [];
+      const psaVariety = psaVarietyFromMintMeta(meta);
+      const requireNamed =
+        psaVarietyHasNamedCollectibleIdentity(psaVariety);
+
+      let bestCompatible: Record<string, unknown> | null = null;
+      let bestNameNum: Record<string, unknown> | null = null;
+      let bestFirst: Record<string, unknown> | null = null;
+      for (const row of cards as Record<string, unknown>[]) {
+        const id = typeof row.card_id === 'string' ? row.card_id.trim() : '';
+        if (!id) continue;
+        if (!bestFirst) bestFirst = row;
+        const rowNum = norm(String(row.number ?? '')).replace(/^#/, '');
+        const rowDesc = norm(String(row.description ?? row.name ?? ''));
+        const numOk = !wantNum || rowNum === wantNum;
+        const nameOk =
+          wantNameWords.length === 0 ||
+          wantNameWords.every((w) => rowDesc.includes(w));
+        if (!(numOk && nameOk)) continue;
+        if (!bestNameNum) bestNameNum = row;
+        if (cardhedgerRowMatchesPsaVariety(row, psaVariety)) {
+          bestCompatible = row;
+          break;
+        }
+      }
+      const best =
+        bestCompatible ?? (requireNamed ? null : (bestNameNum ?? bestFirst));
+      if (!best) return null;
+      const cardId = String(best.card_id ?? '').trim();
+      if (!cardId) return null;
+      const imageUrl =
+        typeof best.image === 'string' ? best.image.trim() : '';
+      return {
+        cardId,
+        imageUrl,
+        searchQuery: search,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Gather catalog candidates (Cardhedger + Pokémon TCG when applicable), ranked
+   * best → worst. Collects multiple Cardhedger matches so a tiny `/crop_image`
+   * thumb can lose to a same-variety Holo sibling or Pokémon TCG hires after
+   * download.
+   *
+   * Search results are gated by {@link cardhedgerRowMatchesPsaVariety} — without
+   * that, a high-scoring sibling image (e.g. one B&W Ohtani thumb) can win the
+   * URL-quality rank for every parallel collection that shares name/number/set.
+   */
+  private async resolveRankedCatalogImageUrlsFromMeta(
+    meta: Record<string, unknown>,
+  ): Promise<string[]> {
+    /** Identity-trusted: attached Cardhedger + card-details + variety-matched search. */
+    const trusted: string[] = [];
+    /** Pokémon TCG only — never mixed ahead of Cardhedger identity matches. */
+    const tcgFallback: string[] = [];
+
     const props = meta.properties as Record<string, unknown> | undefined;
     const graded = (props?.graded ?? meta.graded) as
       | Record<string, unknown>
@@ -91,69 +586,17 @@ export class CollectionCoverService {
     const ch = graded?.cardhedger as Record<string, unknown> | undefined;
     const cardMeta = graded?.card as Record<string, unknown> | undefined;
     const psaMeta = graded?.psa as Record<string, unknown> | undefined;
+    const psaVariety = psaVarietyFromMintMeta(meta);
+    const requireNamed = psaVarietyHasNamedCollectibleIdentity(psaVariety);
 
-    // ── 0. PSA spec page scrape (clean card-only image, no slab) ────────────
-    const specIdRaw = psaMeta?.specId ?? psaMeta?.SpecID ?? psaMeta?.spec_id;
-    const specIdFromMeta =
-      typeof specIdRaw === 'number' && Number.isFinite(specIdRaw)
-        ? String(Math.floor(specIdRaw))
-        : typeof specIdRaw === 'string' && specIdRaw.trim()
-          ? specIdRaw.trim()
-          : '';
-    let specId =
-      specIdFromMeta ||
-      (typeof psaSpecIdFallback === 'string' && psaSpecIdFallback.trim()
-        ? psaSpecIdFallback.trim()
-        : '');
-
-    if (!specId) {
-      const certRaw = psaCertNumberFromGradedMeta(meta);
-      if (certRaw) {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
-        const fromSnap = snap
-          ? specIdStringFromPsaCertBody({ PSACert: snap })
-          : null;
-        if (fromSnap) {
-          specId = fromSnap;
-          this.logger.debug(
-            `[CoverImg] SpecID from psa_cert_snapshots cert=${certRaw}`,
-          );
-        }
-      }
-    }
-
-    if (specId) {
-      const allowFallback =
-        this.config.get<boolean>('psa.specCoverAllowFallback') === true;
-      try {
-        const psaSpecImg = await this.psaSpecScraper.scrapeSpecImageUrl(specId);
-        if (psaSpecImg) {
-          const img = normalizeImageUrl(psaSpecImg);
-          this.logger.log(`[CoverImg] PSA spec page → ${img.slice(0, 100)}`);
-          return img;
-        }
-        this.logger.warn(
-          `[CoverImg] PSA spec scrape returned null for specId=${specId}${
-            allowFallback
-              ? ' — falling back'
-              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
-          }`,
-        );
-      } catch (e) {
-        this.logger.warn(
-          `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)}${
-            allowFallback
-              ? ' — falling back'
-              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
-          }`,
-        );
-      }
-      if (!allowFallback) return null;
-      // fall through — Cardhedger / TCG may still resolve a catalog image
-    }
-
-    // Correct field names: card.name / card.set / card.number (not cardName/setName/cardNumber)
     const cardId = typeof ch?.cardId === 'string' ? ch.cardId.trim() : '';
+    const chImageUrl =
+      typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
+    const chSearchQuery =
+      typeof ch?.searchQuery === 'string' ? ch.searchQuery.trim() : '';
+    // Attached at mint/catalog create with the same Variety gate.
+    pushCandidate(trusted, chImageUrl);
+
     const cardName = (
       typeof cardMeta?.name === 'string'
         ? cardMeta.name
@@ -171,25 +614,19 @@ export class CollectionCoverService {
           ? psaMeta.setHint
           : ''
     ).trim();
+    const brand = String(psaMeta?.brand ?? psaMeta?.Brand ?? '').trim();
     const year = String(cardMeta?.year ?? psaMeta?.year ?? '').trim();
     const category = String(
       psaMeta?.category ?? cardMeta?.category ?? '',
     ).trim();
-    const certImageUrl =
-      typeof psaMeta?.certImageSourceUrl === 'string'
-        ? psaMeta.certImageSourceUrl.trim()
-        : '';
 
-    // ── 1. Cardhedger card-details by stored cardId ──────────────────────────
     if (cardId) {
       try {
         this.cardhedger.assertConfigured();
         const body = await this.cardhedger.forwardJson(
           'POST',
           '/v1/cards/card-details',
-          {
-            body: { card_id: cardId },
-          },
+          { body: { card_id: cardId } },
         );
         const cards = (body as { cards?: unknown[] }).cards;
         if (Array.isArray(cards) && cards.length > 0) {
@@ -198,37 +635,29 @@ export class CollectionCoverService {
             typeof row.image === 'string' && row.image.trim()
               ? row.image.trim()
               : null;
-          const img = rawImg ? normalizeImageUrl(rawImg) : null;
-          if (img) {
-            this.logger.log(
-              `[CoverImg] Cardhedger card-details(id) → ${img.slice(0, 80)}`,
-            );
-            return img;
-          }
+          pushCandidate(trusted, rawImg);
         }
       } catch {
         /* fall through */
       }
     }
 
-    // ── 2. Cardhedger card-search (text query) ───────────────────────────────
-    if (cardName) {
+    const searchSeed = chSearchQuery || cardName;
+    if (searchSeed) {
       try {
         this.cardhedger.assertConfigured();
-        const parts = [cardName, cardNumber, setName, year].filter(Boolean);
-        const search = parts.join(' ');
+        const parts = chSearchQuery
+          ? [chSearchQuery]
+          : [cardName, cardNumber, setName, year].filter(Boolean);
         const body = await this.cardhedger.forwardJson(
           'POST',
           '/v1/cards/card-search',
-          {
-            body: { search, page: 1, page_size: 10 },
-          },
+          { body: { search: parts.join(' '), page: 1, page_size: 10 } },
         );
         const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
           ? ((body as { cards: unknown[] }).cards ?? [])
           : [];
 
-        // Normalise helpers (same as card-match.util)
         const normNum = (s: string) =>
           s
             .replace(/^#/, '')
@@ -253,87 +682,37 @@ export class CollectionCoverService {
               ? row.image.trim()
               : null;
           if (!rawImg) continue;
-          const img = normalizeImageUrl(rawImg);
-
           const rowNum = normNum(String(row.number ?? ''));
           const rowDesc = normStr(String(row.description ?? row.name ?? ''));
           const rowSet = normStr(String(row.set ?? ''));
-
-          // Must match card number when we have one, to avoid completely wrong cards
           const numOk = !wantNum || rowNum === wantNum;
-          // Name fuzzy: all key words appear in description
           const nameOk =
             wantNameWords.length === 0 ||
             wantNameWords.every((w) => rowDesc.includes(w));
-          // Set substring match (handles year prefix differences)
           const setOk =
             !wantSet || rowSet.includes(wantSet) || wantSet.includes(rowSet);
-
-          if (numOk && (nameOk || setOk)) {
-            this.logger.log(
-              `[CoverImg] Cardhedger card-search → ${img.slice(0, 80)}`,
-            );
-            return img;
-          }
+          if (!(numOk && (nameOk || setOk))) continue;
+          // Same gate as cardId attach — do not let a sibling finish win cover rank.
+          if (!cardhedgerRowMatchesPsaVariety(row, psaVariety)) continue;
+          pushCandidate(trusted, rawImg);
         }
       } catch {
         /* fall through */
       }
     }
 
-    // ── 3. Cardhedger image-search via PSA cert image URL ───────────────────
-    if (certImageUrl) {
-      try {
-        this.cardhedger.assertConfigured();
-        // Fetch the PSA slab image and pass as base64 to image-search
-        const imgRes = await fetch(certImageUrl, {
-          signal: AbortSignal.timeout(10_000),
-          headers: { 'User-Agent': 'TokenableBackend/1.0' },
-        });
-        if (imgRes.ok) {
-          const buf = Buffer.from(await imgRes.arrayBuffer());
-          const jpg = (await import('sharp'))
-            .default(buf)
-            .resize({ width: 1200, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 80 });
-          const b64 = `data:image/jpeg;base64,${(await jpg.toBuffer()).toString('base64')}`;
-          const raw = await this.cardhedger.forwardJson(
-            'POST',
-            '/v1/cards/image-search',
-            {
-              body: { image_base64: b64 },
-            },
-          );
-          const searchCards = Array.isArray(
-            (raw as { cards?: unknown[] })?.cards,
-          )
-            ? ((raw as { cards: unknown[] }).cards ?? [])
-            : [];
-          const first = searchCards[0] as Record<string, unknown> | undefined;
-          const rawFirst =
-            typeof first?.image === 'string' && first.image.trim()
-              ? first.image.trim()
-              : null;
-          const img = rawFirst ? normalizeImageUrl(rawFirst) : null;
-          if (img) {
-            this.logger.log(
-              `[CoverImg] Cardhedger image-search → ${img.slice(0, 80)}`,
-            );
-            return img;
-          }
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-
-    // ── 4. Pokemon TCG API (free, official images) ───────────────────────────
     const isPokemon =
       /pokemon/i.test(setName) ||
       /pokemon/i.test(cardName) ||
+      /pokemon/i.test(brand) ||
+      /pokemon/i.test(chSearchQuery) ||
+      /pokemon/i.test(category) ||
       /tcg/i.test(category);
 
-    if (isPokemon && cardName) {
+    // Pokémon TCG API has no parallel field equivalent to Cardhedger `variant`.
+    // Only use it when we lack a variety-trusted Cardhedger image, or when PSA
+    // does not name a collectible identity (base / blank).
+    if (isPokemon && cardName && (trusted.length === 0 || !requireNamed)) {
       try {
         const name = cardName.replace(/"/g, '').trim();
         const num = cardNumber.replace(/"/g, '').trim();
@@ -357,12 +736,10 @@ export class CollectionCoverService {
               )?.slice(0, 4) ?? '';
             return yearOf(a) === year ? -1 : yearOf(b) === year ? 1 : 0;
           });
-          const best = sorted[0];
-          const images = best?.images as Record<string, string> | undefined;
-          const img = images?.large ?? images?.small ?? null;
-          if (img) {
-            this.logger.log(`[CoverImg] Pokemon TCG API → ${img.slice(0, 80)}`);
-            return img;
+          for (const card of sorted.slice(0, 3)) {
+            const images = card?.images as Record<string, string> | undefined;
+            pushCandidate(tcgFallback, images?.large ?? null);
+            pushCandidate(tcgFallback, images?.small ?? null);
           }
         }
       } catch {
@@ -370,240 +747,28 @@ export class CollectionCoverService {
       }
     }
 
-    return null;
-  }
-
-  /**
-   * Pick the best collection cover URL from metadata — cert number must NOT be visible.
-   * Priority:
-   *   1. Cardhedger catalog image / Pokemon TCG API (clean card, no slab)
-   *   2. `graded.cardhedger.imageUrl` already stored in metadata
-   *   3. `collectionCoverImage` (IPFS, Sharp-cropped slab)
-   *   4. PSA `certImageSourceUrl` only as last resort (full slab, cert number visible)
-   */
-  async resolveBestCoverUrl(
-    meta: Record<string, unknown>,
-    psaSpecIdFallback?: string | null,
-  ): Promise<string | null> {
-    // Try to fetch a clean catalog image at registration time
-    const catalogImg = await this.fetchCatalogImageFromMeta(
-      meta,
-      psaSpecIdFallback,
+    const rankedTrusted = rankCollectionCoverUrls(trusted).filter(
+      isPersistableCoverUrl,
     );
-    if (catalogImg) return catalogImg;
-
-    // Fall back to what's stored in metadata
-    const ref = extractCollectionRepresentativeImage(meta);
-    if (!ref) return null;
-    if (/^https?:\/\//i.test(ref) && !ref.toLowerCase().includes('/ipfs/')) {
-      return ref;
-    }
-    // IPFS ref → resolve to gateway HTTPS
-    try {
-      const resolved = await Promise.race([
-        this.ipfsResolver.resolveImageToHttps(ref),
-        new Promise<null>((res) => setTimeout(() => res(null), 8_000)),
-      ]);
-      return resolved ?? ref;
-    } catch {
-      return ref;
-    }
+    if (rankedTrusted.length > 0) return rankedTrusted;
+    return rankCollectionCoverUrls(tcgFallback).filter(isPersistableCoverUrl);
   }
 
-  /**
-   * Whether a URL is a "low-quality" cover that should be upgraded if a better source exists.
-   *
-   * PSA CloudFront has two kinds of images on the same host:
-   *   • `/cert/{certNumber}/...` → full slab photo with cert label → UPGRADEABLE
-   *   • `/spec/{specId}/...`     → card-only image (no slab)       → already high-quality
-   */
-  private isCoverUrlUpgradeable(url: string): boolean {
-    const t = url.trim();
-    if (!t) return true;
-    if (/^ipfs:\/\//i.test(t)) return true;
-    if (/^https?:\/\//i.test(t) && t.toLowerCase().includes('/ipfs/'))
-      return true;
-    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return true;
-    return false;
-  }
-
-  /** Direct, high-quality HTTPS source: Cardhedger catalog, Pokemon TCG, or PSA spec page. */
-  private isHighQualityCoverUrl(url: string): boolean {
-    const t = url.trim();
-    if (!t) return false;
-    if (!/^https?:\/\//i.test(t)) return false;
-    if (t.toLowerCase().includes('/ipfs/')) return false;
-    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
-    return true;
-  }
-
-  /**
-   * Whether the stored cover should be replaced with a direct HTTPS catalog/spec URL if possible.
-   * Used by CollectionsController to optionally await resolution on first paint.
-   */
-  coverImageNeedsUpgrade(url: string | null | undefined): boolean {
-    const t = (url ?? '').trim();
-    if (!t) return true;
-    return this.isCoverUrlUpgradeable(t);
-  }
-
-  /**
-   * Persist collection cover only while `cover_image_url` is still empty (first cover wins).
-   * Admin override: {@link setCollectionCoverImageAdmin}.
-   */
-  async persistCoverFromMetaIfMissing(
+  private async persistCoverImageUrl(
     collectionKey: string,
-    meta: Record<string, unknown>,
-  ): Promise<void> {
-    const key = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
-    });
-    if (!row) return;
-
-    const existing = row.coverImageUrl?.trim() ?? '';
-    if (existing) return;
-
-    const specFb = psaSpecIdFromComponentsRow(row.components);
-    const img = await this.resolveBestCoverUrl(meta, specFb);
-    if (!img) return;
-
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      { coverImageUrl: img },
-    );
-    this.logger.log(
-      `[CoverImg] first cover for ${key}: "${img.slice(0, 72)}"`,
-    );
-  }
-  /**
-   * Admin-only: replace collection cover (ignores first-cover freeze).
-   */
-  async setCollectionCoverImageAdmin(
-    collectionKey: string,
-    coverImageUrl: string,
-  ): Promise<MarketplaceCollection> {
-    const k = collectionKey.toLowerCase();
-    const url = coverImageUrl.trim();
-    if (!url) {
-      throw new Error('COLLECTION_COVER_URL_EMPTY');
-    }
-    if (!/^https?:\/\//i.test(url) && !/^ipfs:\/\//i.test(url)) {
-      throw new Error('COLLECTION_COVER_URL_INVALID');
-    }
-    const row = await this.findOne(k);
-    if (!row) {
-      throw new Error('COLLECTION_NOT_FOUND');
-    }
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      { coverImageUrl: url },
-    );
-    const refreshed = await this.findOne(k);
-    if (!refreshed) {
-      throw new Error('COLLECTION_NOT_FOUND');
-    }
-    this.logger.log(
-      `[CoverImg] admin set ${k}: "${url.slice(0, 72)}"`,
-    );
-    return refreshed;
-  }
-
-  /**
-   * Admin: resolve best catalog/cover URL from a token's IPFS metadata (Cardhedger / PSA / TCG).
-   */
-  async adminPreviewCoverFromToken(
-    tokenId: string,
-    collectionKey?: string,
-  ): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-    const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-    let psaSpecFb: string | null = null;
-    if (collectionKey?.trim()) {
-      const col = await this.findOne(collectionKey);
-      psaSpecFb = psaSpecIdFromComponentsRow(col?.components);
-    }
-    return this.resolveBestCoverUrl(meta, psaSpecFb);
-  }
-
-  /**
-   * Representative image: persisted `cover_image_url` only.
-   * When still empty, pick art from active listings (lowest token id first) and persist once.
-   * Never overwrites an existing cover (use admin API to replace).
-   *
-   * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
-   *
-   * @param preloaded — When set (e.g. from `GET /collections/:key`), skips a second DB read for active asks/bids.
-   */
-  async resolveRepresentativeImageForCollection(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
+    rawUrl: string,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
-    const inflight = this.representativeImageResolveInflight.get(k);
-    if (inflight) return inflight;
-
-    const job = this.runRepresentativeImageResolution(k, preloaded).finally(
-      () => {
-        this.representativeImageResolveInflight.delete(k);
-      },
-    );
-    this.representativeImageResolveInflight.set(k, job);
-    return job;
-  }
-
-  private async runRepresentativeImageResolution(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
-  ): Promise<string | null> {
-    const k = collectionKey.toLowerCase();
-    const col = await this.findOne(k);
-    const stored = col?.coverImageUrl?.trim() ?? '';
-    const psaSpecFromComp = psaSpecIdFromComponentsRow(col?.components);
-
-    if (stored) return stored;
-
-    const asks = preloaded?.asks ?? (await this.activeListingsForCollection(k));
-    const bids = preloaded?.bids ?? (await this.activeBidsForCollection(k));
-    const askIds = asks
-      .map((o) => o.tokenId)
-      .filter((id) => id != null && String(id).trim() !== '');
-    const bidIds = bids.map((o) => o.tokenId).filter((id) => id && id !== '0');
-    const tokenIds = [...new Set([...askIds, ...bidIds])].sort((a, b) => {
-      const na = Number(a);
-      const nb = Number(b);
-      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb)
-        return na - nb;
-      return String(a).localeCompare(String(b), undefined, { numeric: true });
-    });
-
-    for (const tokenId of tokenIds) {
-      try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const img = await this.resolveBestCoverUrl(meta, psaSpecFromComp);
-        if (!img) continue;
-
-        await this.collectionRepo
-          .createQueryBuilder()
-          .update(MarketplaceCollection)
-          .set({ coverImageUrl: img })
-          .where('collection_key = :k', { k })
-          .andWhere(
-            '(cover_image_url IS NULL OR TRIM(cover_image_url) = \'\')',
-          )
-          .execute();
-        this.logger.log(
-          `[CoverImg] resolveRepresentativeImage first cover ${k}: "${img.slice(0, 72)}"`,
-        );
-
-        const refreshed = await this.findOne(k);
-        return refreshed?.coverImageUrl?.trim() ?? img;
-      } catch {
-        /* next token */
-      }
+    const trimmed = normalizeCatalogCoverPublicUrl(rawUrl.trim());
+    if (!isPersistableCoverUrl(trimmed)) {
+      return null;
     }
 
-    return stored || null;
+    const patch: QueryDeepPartialEntity<MarketplaceCollection> = {
+      coverImageUrl: trimmed,
+    };
+
+    await this.collectionRepo.update({ collectionKey: k }, patch);
+    return trimmed;
   }
 }

@@ -2,7 +2,7 @@
 export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 yr";
 
 /** Compact suffix for badges (exchange cards, pills). */
-export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1 yr";
+export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1Y";
 
 /** When reference % cannot be computed (insufficient Cardhedger history). */
 export const REFERENCE_CHANGE_UNAVAILABLE_LABEL = "—";
@@ -57,7 +57,14 @@ export type ReferencePercentChangeResult = {
   /** LOCF anchor sale used for % (when computed). */
   refUsd?: number | null;
   refAtSec?: number | null;
+  /** Snapshot/API window bucket when served from materialized market series. */
+  marketChangeWindow?: string | null;
 };
+
+/** True when first→last span covers at least 365 calendar days (tolerant of timestamp gaps). */
+export function referenceHistoryCoversFullYear(spanSec: number): boolean {
+  return Math.round(spanSec / SEC_DAY) >= 365;
+}
 
 /** Standard windows — max fetch is {@link MARKET_PRICE_CHANGE_LAG_SEC} (365d). */
 export type ReferenceChangeWindowBucket = "7d" | "30d" | "90d" | "180d";
@@ -91,22 +98,34 @@ export function formatReferenceChangeWindowLabel(
 }
 
 function referenceChangeDisplayLabel(
-  result: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec">,
+  result: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  >,
   apiWindow?: string | null,
+  variant: "short" | "long" = "short",
 ): string {
-  if (result.isFullYear) return "1 yr";
+  const resolvedWindow = apiWindow ?? result.marketChangeWindow ?? null;
+  const fullYearLabel =
+    variant === "short" ? MARKET_PRICE_CHANGE_PERIOD_SHORT : MARKET_PRICE_CHANGE_PERIOD_LABEL;
+  if (result.isFullYear) return fullYearLabel;
+  if (resolvedWindow === "365d") return fullYearLabel;
   const days = referenceChangeCoverageDays(result);
+  if (days != null && days >= 300) return fullYearLabel;
   if (days == null) return MARKET_PRICE_CHANGE_PERIOD_SHORT;
   const bucket =
-    apiWindow && apiWindow !== "365d" && apiWindow !== "24h"
-      ? (apiWindow as ReferenceChangeWindowBucket)
+    resolvedWindow && resolvedWindow !== "365d" && resolvedWindow !== "24h"
+      ? (resolvedWindow as ReferenceChangeWindowBucket)
       : referenceChangeWindowFromSpanDays(days);
   return formatReferenceChangeWindowLabel(bucket, false);
 }
 
 /** Short period label for UI badges (`1 yr`, `180d`, `90d`, `30d`, `7d`). */
 export function formatReferenceChangePeriodShort(
-  result: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> | null,
+  result: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  > | null,
   apiWindow?: string | null,
 ): string {
   if (!result || result.windowSec <= 0) return MARKET_PRICE_CHANGE_PERIOD_SHORT;
@@ -115,16 +134,22 @@ export function formatReferenceChangePeriodShort(
 
 /** Longer label for stat rows / tooltips — same tokens as short labels. */
 export function formatReferenceChangePeriodLabel(
-  result: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> | null,
+  result: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  > | null,
   apiWindow?: string | null,
 ): string {
   if (!result || result.windowSec <= 0) return MARKET_PRICE_CHANGE_PERIOD_LABEL;
-  return referenceChangeDisplayLabel(result, apiWindow);
+  return referenceChangeDisplayLabel(result, apiWindow, "long");
 }
 
 /** Mobile / compact stat column e.g. `180d chg.` */
 export function formatReferenceChangeStatLabel(
-  result: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> | null,
+  result: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  > | null,
   apiWindow?: string | null,
 ): string {
   return `${formatReferenceChangePeriodShort(result, apiWindow)} chg.`;
@@ -145,11 +170,15 @@ function formatUsdAnchor(n: number): string {
 export function formatReferenceChangeCoverageHint(
   result: Pick<
     ReferencePercentChangeResult,
-    "isFullYear" | "windowSec" | "refUsd" | "refAtSec"
+    "isFullYear" | "windowSec" | "refUsd" | "refAtSec" | "marketChangeWindow"
   > | null,
 ): string {
   if (!result || result.windowSec <= 0) return "Coverage unknown";
   const label = referenceChangeDisplayLabel(result);
+  const showsFullYear =
+    result.isFullYear ||
+    result.marketChangeWindow === "365d" ||
+    referenceHistoryCoversFullYear(result.windowSec);
   if (
     result.refUsd != null &&
     Number.isFinite(result.refUsd) &&
@@ -160,12 +189,12 @@ export function formatReferenceChangeCoverageHint(
       "en-US",
       { month: "short", day: "numeric", year: "numeric" },
     );
-    if (result.isFullYear) {
+    if (showsFullYear) {
       return `1 yr vs ${formatUsdAnchor(result.refUsd)} sale (${anchorDate}), not chart endpoints`;
     }
     return `${label} vs ${formatUsdAnchor(result.refUsd)} sale (${anchorDate})`;
   }
-  if (result.isFullYear) return `Based on full 365d history`;
+  if (showsFullYear) return `Based on full 365d history`;
   return `Based on ${label} reference history`;
 }
 
@@ -179,9 +208,7 @@ export function referenceChangePeriodFromSnapshotMeta(
       }
     | null
     | undefined,
-): Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> & {
-  marketChangeWindow?: string;
-} {
+): Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec" | "marketChangeWindow"> {
   if (meta?.marketChangeSpanSec != null && meta.marketChangeSpanSec > 0) {
     return {
       isFullYear: Boolean(meta.marketChangeIsFullYear),

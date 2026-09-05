@@ -1,5 +1,6 @@
 import type { PsaAnalyzeResult } from "@/lib/core";
 import type { GradedCardFormState, GradedCardMetadata } from "@/types/gradedCard";
+import { resolveCardhedgerMintImageUrl } from "@/lib/vault/mintImageSource";
 
 export function buildGradedCardMetadata(
   form: GradedCardFormState,
@@ -60,6 +61,10 @@ export function buildGradedCardMetadata(
   }
 
   const scoreFromForm = parseFloat(form.grade.score);
+  const slabSubject =
+    form.card.name.trim() || lastAnalyze?.psa.cardNameHint?.trim() || "";
+  const slabBrand = form.card.set.trim() || lastAnalyze?.psa.setHint?.trim() || "";
+  const slabYear = form.card.year.trim() || lastAnalyze?.psa.year?.trim() || "";
   metadata.psa = {
     certNumber: form.grade.certNumber || lastAnalyze?.psa.certNumber,
     gradeLabel: lastAnalyze?.psa.gradeLabel,
@@ -74,6 +79,9 @@ export function buildGradedCardMetadata(
     year: lastAnalyze?.psa.year,
     labelType: lastAnalyze?.psa.labelType,
     category: lastAnalyze?.psa.category,
+    ...(slabSubject ? { subject: slabSubject } : {}),
+    ...(slabBrand ? { brand: slabBrand } : {}),
+    ...(slabYear ? { Year: slabYear } : {}),
     autographGrade:
       typeof form.grade.subgrades.autographGrade === "string"
         ? form.grade.subgrades.autographGrade
@@ -99,19 +107,23 @@ export function buildGradedCardMetadata(
       lastAnalyze.cardhedgerMint?.matchConfidence === "verified" &&
       lastAnalyze.cardhedgerMint?.cardId?.trim()
     ) {
+      const rawImg = lastAnalyze.cardhedgerMint.imageUrl?.trim() || "";
+      // Prefer high-score catalog art; still seed Bubble /resize for collection
+      // cover resolve (mint NFT image stays PSA slab via upload imageUrl).
+      const catalogImg =
+        resolveCardhedgerMintImageUrl(rawImg) ||
+        (rawImg &&
+        /^https?:\/\//i.test(rawImg) &&
+        !rawImg.includes("d1htnxwo4o0jhw.cloudfront.net/cert/") &&
+        !/\/rwa-slabs\//i.test(rawImg)
+          ? rawImg
+          : null);
       metadata.cardhedger = {
         cardId: lastAnalyze.cardhedgerMint.cardId.trim(),
         ...(lastAnalyze.cardhedgerMint.searchQuery != null
           ? { searchQuery: lastAnalyze.cardhedgerMint.searchQuery }
           : {}),
-        ...(lastAnalyze.cardhedgerMint.imageUrl?.trim()
-          ? { imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim() }
-          : {}),
-      };
-    } else if (lastAnalyze.cardhedgerMint?.imageUrl?.trim()) {
-      metadata.cardhedger = {
-        ...(metadata.cardhedger ?? {}),
-        imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim(),
+        ...(catalogImg ? { imageUrl: catalogImg } : {}),
       };
     }
     const l = lastAnalyze.psaApi.lookup;

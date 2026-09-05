@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/**
+ * Core CSS only — keep this graph small for Turbopack HMR.
+ * Route domains import their own `tokenable-*.css` from route layouts / pages
+ * (see docs/guides/design-system-reference.md). Do not re-barrel heavy sheets here.
+ */
+@import "../styles/tokenable-ds-entry.css";
+@import "../styles/tokenable-ds-bridge.css";
+@import "../styles/tokenable-layout.css";
+@import "../styles/tokenable-collectible-card.css";
+@import "../styles/tokenable-page-states.css";
+@import "../styles/tokenable-secondary.css";
+
 :root {
   --background: #000000;
   --foreground: #f9fafb;
@@ -8,23 +20,135 @@
   --mint-dim: #0cb82e;
   --mint-deep: #0a8f24;
   --mint-ink: #041208;
+  --input-surface: #0a0f0c;
+  --input-surface-autofill: #0c1210;
+  --input-text: #f3f4f6;
+  --scrollbar-track: #000000;
+  --scrollbar-thumb: #141414;
+  --scrollbar-thumb-hover: #242424;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  /* DS mono — JetBrains (bridge token). Do not override with Geist or ticker/labels mismatch HTML. */
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo,
+    monospace;
   --color-mint: var(--mint);
   --color-mint-dim: var(--mint-dim);
   --color-mint-deep: var(--mint-deep);
   --color-mint-ink: var(--mint-ink);
+  --color-brand-500: var(--brand-500);
+  --color-brand-400: var(--brand-400);
+  --color-brand-700: var(--brand-700);
+  --color-pos: var(--text-positive-default);
+  --color-neg: var(--background-danger-default);
+  --color-warn: var(--background-warning-default);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--t1);
+  font-family: inherit;
+}
+
+/** Collection detail mobile hero — Arial regular (h1 UA bold + next/font overrides). */
+.collection-detail-mobile-arial,
+.collection-detail-mobile-arial :where(h1, h2, p, span) {
+  font-family: Arial, Helvetica, "Helvetica Neue", sans-serif;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+/*
+ * Suppress persistent click-focus rings (mouse/touch). Avoids mint borders
+ * lingering after lightbox ESC or button blur across the app.
+ */
+@layer base {
+  :where(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="link"],
+    [tabindex]:not([tabindex="-1"])
+  ):is(:focus, :focus-visible) {
+    outline: none;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-color: transparent;
+    --tw-ring-width: 0px;
+    --tw-ring-offset-width: 0px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+  }
+
+  /** Dark inputs — tame browser autofill (no bright yellow/white flash). */
+  .input-dark {
+    color-scheme: dark;
+  }
+
+  .input-dark:-webkit-autofill,
+  .input-dark:-webkit-autofill:hover,
+  .input-dark:-webkit-autofill:focus,
+  .input-dark:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    -webkit-text-fill-color: var(--input-text) !important;
+    caret-color: var(--input-text);
+    transition:
+      background-color 99999s ease-out 0s,
+      color 99999s ease-out 0s;
+  }
+
+  .input-dark:autofill,
+  .input-dark:-moz-autofill,
+  .input-dark:-moz-autofill-preview {
+    box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    -webkit-text-fill-color: var(--input-text) !important;
+    color: var(--input-text) !important;
+    background-color: var(--input-surface-autofill) !important;
+  }
+
+  /** iOS Safari: inputs below 16px trigger auto-zoom on focus. */
+  @media (max-width: 639px) {
+    [role="dialog"] input,
+    [role="dialog"] textarea,
+    [role="dialog"] select {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* 스크롤은 유지하고 스크롤바만 숨김 (Firefox / Chromium / legacy IE) */
@@ -34,6 +158,27 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/** Embedded panels (order book depth, trades tape) — slimmer black scrollbar */
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+.scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1px solid var(--scrollbar-track);
+}
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* 컬렉션 상세: 데스크톱만 gutter (모바일에서 가로 여백·점프 방지) */
@@ -111,9 +256,9 @@ body {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(16, 211, 51, 0.03) 0%,
-    rgba(16, 211, 51, 0.2) 50%,
-    rgba(16, 211, 51, 0.03) 100%
+    rgba(26, 111, 255, 0.03) 0%,
+    rgba(26, 111, 255, 0.2) 50%,
+    rgba(26, 111, 255, 0.03) 100%
   );
   animation: ai-insight-scan 1.15s ease-in-out infinite;
   pointer-events: none;
@@ -135,137 +280,36 @@ body {
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(16, 211, 51, 0.24) 45%,
+    rgba(26, 111, 255, 0.2) 45%,
     rgba(255, 255, 255, 0) 100%
   );
   animation: ai-insight-shimmer 1.2s linear infinite;
 }
 
-/* ── Landing (/) — subtle motion; respects prefers-reduced-motion ───────── */
-@keyframes landing-enter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes landing-orb-soft {
-  from {
-    opacity: 0.72;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 0.94;
-    transform: scale(1.04);
-  }
-}
-
-@keyframes landing-grid-drift {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 48px 48px;
-  }
-}
-
-/** One-shot headline / copy / blocks */
-.landing-enter {
-  opacity: 0;
-  animation: landing-enter 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  animation-delay: var(--landing-enter-delay, 0s);
-}
-
-/** Feature grid: light stagger */
-.landing-stats-stagger > * {
-  opacity: 0;
-  animation: landing-enter 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.landing-stats-stagger > *:nth-child(1) {
-  animation-delay: 0.06s;
-}
-.landing-stats-stagger > *:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.landing-stats-stagger > *:nth-child(3) {
-  animation-delay: 0.18s;
-}
-.landing-stats-stagger > *:nth-child(4) {
-  animation-delay: 0.24s;
-}
-.landing-stats-stagger > *:nth-child(n + 5) {
-  animation-delay: 0.28s;
-}
-
-/** Aurora blobs — very slow alternate pulse */
-.landing-orb-host {
-  transform: translate(-50%, -50%);
-}
-.landing-orb-inner {
-  border-radius: 9999px;
-  animation-name: landing-orb-soft;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-  will-change: transform, opacity;
-}
-
-/** Dot grid overlay — ultra-slow crawl */
-.landing-grid-drift {
-  animation: landing-grid-drift 72s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-enter,
-  .landing-stats-stagger > * {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-  .landing-orb-inner {
-    animation: none !important;
-    opacity: 0.95 !important;
-    transform: none !important;
-  }
-  .landing-grid-drift {
-    animation: none !important;
-  }
-}
-
-/* ── Mobile stability (≤1023px): less “page moves around” ───────────────── */
+/* ── Mobile stability (≤1023px) ─────────────────────────────────────────── */
 @media (max-width: 1023px) {
   html {
-    overflow-x: clip;
+    overflow-x: hidden;
     max-width: 100%;
+    width: 100%;
   }
 
   body {
-    overflow-x: clip;
     max-width: 100%;
+    width: 100%;
     overscroll-behavior-x: none;
   }
 
   .mobile-page-root {
     isolation: isolate;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
-  /*
-   * Landing ambient loops read as the whole page shifting on a phone.
-   * Keep one-shot enter fades; drop infinite orb/grid motion (also in reduced-motion).
-   */
-  .landing-orb-inner,
-  .landing-grid-drift {
-    animation: none !important;
-    will-change: auto;
-  }
-
-  .landing-orb-inner {
-    opacity: 0.88 !important;
-    transform: none !important;
+  /* overflow-x:hidden on html breaks position:sticky (WebKit). */
+  html.collection-details-scroll {
+    overflow-x: visible;
   }
 }
 
@@ -282,4 +326,165 @@ body {
  */
 .touch-pan-y {
   touch-action: pan-y pinch-zoom;
+}
+
+/**
+ * Z-index layers (platform chrome only — Privy modals/menus keep default styling):
+ * - Page cards / watchlist chips: z-0–z-20 (within card stacking only)
+ * - Sticky header + in-header menus: z-135–z-140
+ * - Privy UserPill popovers (Floating UI portal): z-150 — see below
+ * - App modals (auth, trade, lightbox): z-200+
+ * - Mobile nav drawer (.tkm-drawer): z-8000–8001
+ * - Mobile search overlay (.gnb-search-overlay): z-8100
+ * - Privy login modal (#privy-dialog): z-999999 (Privy SDK)
+ *
+ * Privy UserPill menus portal via @floating-ui/react. The portal root is a static
+ * div; the popover surface is a nested `position: fixed` node with z-auto, so it
+ * loses to page sections like landing hero (`z-10`). Set z-index on the fixed node.
+ */
+[data-floating-ui-portal] {
+  position: relative;
+  z-index: 150;
+}
+
+[data-floating-ui-portal] > div {
+  z-index: 150 !important;
+}
+
+/**
+ * Privy login / connect modal — visual tokens from Login.html
+ * (Tokenable-with design system-17/Login.html). Auth flow stays Privy SDK.
+ * @see https://docs.privy.io/basics/react/advanced/configuring-appearance
+ */
+body {
+  --privy-border-radius-sm: 8px;
+  --privy-border-radius-md: 11px;
+  --privy-border-radius-lg: 20px;
+  --privy-border-radius-full: 9999px;
+  --privy-color-background: #141414;
+  --privy-color-background-2: #0e0e0e;
+  --privy-color-background-3: #1a1a1a;
+  --privy-color-foreground: #ffffff;
+  --privy-color-foreground-2: rgba(255, 255, 255, 0.7);
+  --privy-color-foreground-3: rgba(255, 255, 255, 0.52);
+  --privy-color-foreground-4: rgba(255, 255, 255, 0.4);
+  --privy-color-foreground-accent: #ffffff;
+  --privy-color-accent: #1A6FFF;
+  --privy-color-accent-light: #5b9aff;
+  --privy-color-accent-lightest: rgba(26, 111, 255, 0.15);
+  --privy-color-accent-dark: #1558cc;
+  --privy-color-accent-darkest: #0f4199;
+  --privy-color-success: var(--text-positive-default);
+  --privy-color-error: var(--background-danger-default);
+  --privy-color-error-light: var(--background-danger-tertiary);
+}
+
+/* Landing logo — Privy caps at 90×180; bump wordmark a bit for Tokenable. */
+#privy-modal-content img[alt$=" logo"],
+#privy-dialog img[alt$=" logo"] {
+  max-height: 40px !important;
+  max-width: 220px !important;
+  height: 36px !important;
+  width: auto !important;
+}
+
+/**
+ * Orbiting edge highlight from Login.html `.card::before`.
+ * Unofficial — targets Privy’s dialog panel shell (stable ids today).
+ * Applied whenever the modal is a floating card (including mobile after centering).
+ */
+@property --tk-privy-orbit {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0turn;
+}
+
+@keyframes tk-privy-orbit {
+  to {
+    --tk-privy-orbit: 1turn;
+  }
+}
+
+#privy-dialog div:has(> #privy-modal-content) {
+  position: relative;
+  border-radius: var(--privy-border-radius-lg);
+}
+
+#privy-dialog div:has(> #privy-modal-content)::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: calc(var(--privy-border-radius-lg) + 1.5px);
+  pointer-events: none;
+  z-index: 2;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--tk-privy-orbit),
+    transparent 0turn,
+    transparent 0.62turn,
+    rgba(120, 240, 255, 0.25) 0.78turn,
+    rgba(180, 250, 255, 1) 0.88turn,
+    rgba(120, 240, 255, 0.25) 0.95turn,
+    transparent 1turn
+  );
+  -webkit-mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  mask-composite: exclude;
+  animation: tk-privy-orbit 5s linear infinite;
+}
+
+#privy-dialog div:has(> #privy-modal-content)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--privy-border-radius-lg);
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #privy-dialog div:has(> #privy-modal-content)::before {
+    animation: none;
+  }
+}
+
+/**
+ * Privy defaults mobile (≤440px) to a bottom sheet (`align-items: flex-end`).
+ * Override to a centered floating card like Login.html.
+ */
+@media (max-width: 440px) {
+  #privy-dialog-backdrop + div {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px 14px;
+    box-sizing: border-box;
+  }
+
+  /* DialogPanel — was sticky bottom full-bleed drawer */
+  #privy-dialog div:has(> *:has(> #privy-modal-content)) {
+    position: relative !important;
+    bottom: auto !important;
+    width: min(100%, 400px) !important;
+    margin: 0 auto;
+    border-radius: var(--privy-border-radius-lg);
+    transform: none !important;
+  }
+
+  #privy-dialog div:has(> *:has(> #privy-modal-content)).entering,
+  #privy-dialog div:has(> *:has(> #privy-modal-content)).leaving {
+    opacity: 0 !important;
+    transform: none !important;
+  }
+
+  #privy-modal-content {
+    border-radius: var(--privy-border-radius-lg) !important;
+    max-height: calc(100svh - 40px) !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85);
+  }
 }

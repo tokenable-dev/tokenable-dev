@@ -5,20 +5,20 @@ import {
   useAccount,
   useWriteContract,
   usePublicClient,
-  useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { getOrderByHash } from "@/lib/core";
-import { sepolia } from "@/config/wagmi";
+import { getOrderByHash, getRwaSettlementPolicy, rq } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  TOKENABLE_RWA_ADDRESS,
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { mapWalletError } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
@@ -33,6 +33,10 @@ import type {
   ListRwaModalStep,
   ListSuccessMeta,
 } from "@/lib/seaport/listing/listRwaModalTypes";
+import { useSeaportOrderSigner } from "@/lib/privy";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
+import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
 export function useListRwaModal({
   tokenId,
@@ -47,19 +51,30 @@ export function useListRwaModal({
   preferredBidOrderHash,
 }: ListRwaModalProps) {
   const { address } = useAccount();
-  const publicClient = usePublicClient({ chainId: sepolia.id });
-  const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
-  const walletClientRef = useRef(walletClient);
-  walletClientRef.current = walletClient;
+  const { chainId } = useAppChain();
+  const { rwaAddress } = useChainContracts();
+  const publicClient = usePublicClient({ chainId });
+  const { signSeaportOrder } = useSeaportOrderSigner();
+  const ensureAccountWalletReady = useEnsureAccountWalletReady();
+  const signSeaportOrderRef = useRef(signSeaportOrder);
+  signSeaportOrderRef.current = signSeaportOrder;
   const queryClient = useQueryClient();
 
   const { data: existingAskFetched } = useQuery({
-    queryKey: ["orders", "detail", existingAskOrderHash ?? ""],
+    queryKey: rq.orderDetail(existingAskOrderHash ?? ""),
     queryFn: () => getOrderByHash(existingAskOrderHash!),
     enabled: Boolean(existingAskOrderHash?.trim()) && !existingAskOrder,
     staleTime: 15_000,
   });
   const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
+
+  const { data: settlementPolicyData } = useQuery({
+    queryKey: ["rwa-settlement-policy", chainId, String(tokenId)],
+    queryFn: () => getRwaSettlementPolicy(tokenId),
+    enabled: Boolean(String(tokenId).trim()),
+    staleTime: 60_000,
+  });
+  const settlementPolicy = settlementPolicyData?.settlementPolicy ?? undefined;
 
   const [price, setPrice] = useState("");
   const [selectedBidHash, setSelectedBidHash] = useState<string | null>(null);
@@ -69,9 +84,14 @@ export function useListRwaModal({
 
   const topCollectionBid = useMemo(() => {
     if (!collectionBids?.length) return null;
-    const rows = collectionBids.filter(
-      (b) => b.status === "active" && isCriteriaCollectionBid(b),
-    );
+    const tokenIdNorm = normalizeDecimalTokenId(tokenId);
+    const rows = collectionBids.filter((b) => {
+      if (b.status !== "active") return false;
+      if (isTokenBidOrder(b)) {
+        return normalizeDecimalTokenId(b.tokenId) === tokenIdNorm;
+      }
+      return isCriteriaCollectionBid(b);
+    });
     if (!rows.length) return null;
     rows.sort((a, b) => {
       const da = bidUsdcAmount(a);
@@ -93,7 +113,7 @@ export function useListRwaModal({
       label = String(micros);
     }
     return { micros, label, inputValue: formatUnits(micros, 6) };
-  }, [collectionBids, address]);
+  }, [collectionBids, address, tokenId]);
 
   const askMicrosFromPrice = useMemo(() => {
     const t = price.trim();
@@ -110,8 +130,14 @@ export function useListRwaModal({
   const crossingBidsForInstantSale = useMemo(() => {
     if (askMicrosFromPrice == null || !collectionBids?.length) return [];
     const ck = collectionKey?.trim();
+    const tokenIdNorm = normalizeDecimalTokenId(tokenId);
     const rows = collectionBids.filter((b) => {
-      if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+      if (b.status !== "active") return false;
+      if (isTokenBidOrder(b)) {
+        if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+        return bidUsdcAmount(b) >= askMicrosFromPrice;
+      }
+      if (!isCriteriaCollectionBid(b)) return false;
       const bk = orderCollectionKey(b);
       if (ck && bk && bk.toLowerCase() !== ck.toLowerCase()) return false;
       return bidUsdcAmount(b) >= askMicrosFromPrice;
@@ -124,23 +150,31 @@ export function useListRwaModal({
       return 0;
     });
     return rows;
-  }, [collectionBids, collectionKey, askMicrosFromPrice]);
+  }, [collectionBids, collectionKey, askMicrosFromPrice, tokenId]);
 
   useEffect(() => {
-    if (crossingBidsForInstantSale.length < 2) {
+    if (crossingBidsForInstantSale.length === 0) {
       setSelectedBidHash(null);
       return;
     }
     const hashes = crossingBidsForInstantSale.map((b) => String(b.orderHash));
-    setSelectedBidHash((prev) =>
-      prev && hashes.includes(prev) ? prev : hashes[0] ?? null,
-    );
-  }, [crossingBidsForInstantSale]);
+    setSelectedBidHash((prev) => {
+      if (prev && hashes.includes(prev)) return prev;
+      // Prefer the bid at the exact ask price (seller’s chosen list price).
+      if (askMicrosFromPrice != null) {
+        const exact = crossingBidsForInstantSale.find(
+          (b) => bidUsdcAmount(b) === askMicrosFromPrice,
+        );
+        if (exact) return String(exact.orderHash);
+      }
+      return hashes[0] ?? null;
+    });
+  }, [crossingBidsForInstantSale, askMicrosFromPrice]);
 
   const preferredBidForMatch = useMemo(() => {
-    if (crossingBidsForInstantSale.length >= 2 && selectedBidHash) return selectedBidHash;
+    if (selectedBidHash) return selectedBidHash;
     return preferredBidOrderHash ?? null;
-  }, [crossingBidsForInstantSale.length, selectedBidHash, preferredBidOrderHash]);
+  }, [selectedBidHash, preferredBidOrderHash]);
 
   const isReplaceListing = useMemo(() => {
     if (!resolvedExistingAsk || !address) return false;
@@ -151,33 +185,6 @@ export function useListRwaModal({
     }
     return resolvedExistingAsk.offerer.toLowerCase() === address.toLowerCase();
   }, [resolvedExistingAsk, address, tokenId]);
-
-  const currentAskDisplay = useMemo(() => {
-    if (!isReplaceListing || !resolvedExistingAsk?.considerationAmount) return null;
-    try {
-      const micros = BigInt(resolvedExistingAsk.considerationAmount);
-      const n = Number(formatUnits(micros, 6));
-      if (!Number.isFinite(n)) return null;
-      const label = n.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return { micros, label, inputValue: formatUnits(micros, 6) };
-    } catch {
-      return null;
-    }
-  }, [isReplaceListing, resolvedExistingAsk?.considerationAmount]);
-
-  useEffect(() => {
-    if (step !== "success") return;
-    const delayMs = successMeta?.matched
-      ? 1800
-      : successMeta?.hint
-        ? 4200
-        : 900;
-    const id = window.setTimeout(() => onClose(), delayMs);
-    return () => window.clearTimeout(id);
-  }, [step, successMeta?.matched, successMeta?.hint, onClose]);
 
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
@@ -216,9 +223,10 @@ export function useListRwaModal({
       preferredBidForMatch,
       topCollectionBid: topCollectionBid ? { micros: topCollectionBid.micros } : null,
       resolvedExistingAsk,
-      getWalletClient: () => walletClientRef.current ?? walletClient,
+      getSignSeaportOrder: () => signSeaportOrderRef.current,
       writeContractAsync: matchWrite,
       queryClient,
+      chainId,
     }),
     [
       tokenId,
@@ -229,15 +237,16 @@ export function useListRwaModal({
       preferredBidForMatch,
       topCollectionBid,
       resolvedExistingAsk,
-      walletClient,
+      signSeaportOrder,
       matchWrite,
       queryClient,
+      chainId,
     ],
   );
 
   async function handleList() {
     if (!address || !price || parseFloat(price) <= 0) return;
-    if (!walletClient) {
+    if (!signSeaportOrder) {
       setErrorMsg("Wallet not connected. Please reconnect.");
       return;
     }
@@ -250,6 +259,9 @@ export function useListRwaModal({
     setSuccessMeta(null);
 
     try {
+      // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.
+      await ensureAccountWalletReady();
+
       if (isReplaceListing && resolvedExistingAsk) {
         setStep("submitting");
         let created = await submitAskListingOrder({
@@ -257,12 +269,14 @@ export function useListRwaModal({
           priceUsdc: price.trim(),
           address: address as Address,
           publicClient,
-          walletClient,
+          signSeaportOrder,
           writeContractAsync: writeContractAsync as Parameters<
             typeof submitAskListingOrder
           >[0]["writeContractAsync"],
+          chainId,
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
+          settlementPolicy,
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -277,64 +291,51 @@ export function useListRwaModal({
           onStartMatching: () => setStep("matching"),
         });
         if (meta.matched) {
+          const salePrice = parseFloat(price.trim());
+          trackEvent("sell_now_completed", {
+            card_id: String(tokenId),
+            price: salePrice,
+            fee: Math.round(salePrice * 0.05 * 100) / 100,
+            net_amount: Math.round(salePrice * 0.95 * 100) / 100,
+          });
           onMatchedSale?.();
+        } else {
+          trackEvent("listing_submitted", {
+            card_id: String(tokenId),
+            asking_price: parseFloat(price.trim()),
+          });
         }
 
         onListed?.(tokenId);
-        setSuccessMeta(meta);
+        setSuccessMeta({
+          ...meta,
+          collectionUnderReview: created.reviewStatus === "pending_review",
+        });
         setStep("success");
         await invalidateListingQueries(instantMatchDeps, created);
         return;
       }
 
       const alreadyAll = await publicClient.readContract({
-        address: TOKENABLE_RWA_ADDRESS,
+        address: rwaAddress,
         abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "isApprovedForAll",
         args: [address, SEAPORT_ADDRESS],
       });
-      if (!alreadyAll) {
-        setStep("approving");
-        const gasSetAll = await gasWithCapFast(
-          publicClient,
-          {
-            address: TOKENABLE_RWA_ADDRESS,
-            abi: TOKENABLE_RWA_APPROVE_ABI,
-            functionName: "setApprovalForAll",
-            args: [SEAPORT_ADDRESS, true],
-            account: address,
-          },
-          GAS_FALLBACK.setApprovalForAll,
-        );
-        const setAllTx = await writeContractAsync({
-          address: TOKENABLE_RWA_ADDRESS,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "setApprovalForAll",
-          args: [SEAPORT_ADDRESS, true],
-          chainId: sepolia.id,
-          gas: gasSetAll,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: setAllTx });
-      }
-
-      setStep("signing");
-      const wc = walletClientRef.current ?? walletClient;
-      if (!wc) {
-        setErrorMsg("Wallet not connected. Please reconnect.");
-        setStep("error");
-        return;
-      }
+      setStep(alreadyAll ? "signing" : "approving");
 
       let createdFinal = await submitAskListingOrder({
         tokenId,
         priceUsdc: price.trim(),
         address: address as Address,
         publicClient,
-        walletClient: wc,
+        signSeaportOrder,
         writeContractAsync: writeContractAsync as Parameters<
           typeof submitAskListingOrder
         >[0]["writeContractAsync"],
+        chainId,
         mode: "create",
+        settlementPolicy,
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {
@@ -349,11 +350,26 @@ export function useListRwaModal({
         onStartMatching: () => setStep("matching"),
       });
       if (meta.matched) {
+        const salePrice = parseFloat(price.trim());
+        trackEvent("sell_now_completed", {
+          card_id: String(tokenId),
+          price: salePrice,
+          fee: Math.round(salePrice * 0.05 * 100) / 100,
+          net_amount: Math.round(salePrice * 0.95 * 100) / 100,
+        });
         onMatchedSale?.();
+      } else {
+        trackEvent("listing_submitted", {
+          card_id: String(tokenId),
+          asking_price: parseFloat(price.trim()),
+        });
       }
 
       onListed?.(tokenId);
-      setSuccessMeta(meta);
+      setSuccessMeta({
+        ...meta,
+        collectionUnderReview: createdFinal.reviewStatus === "pending_review",
+      });
       setStep("success");
 
       await invalidateListingQueries(instantMatchDeps, createdFinal);
@@ -369,6 +385,12 @@ export function useListRwaModal({
     step === "submitting" ||
     step === "matching";
 
+  function dismissSuccess() {
+    setStep("idle");
+    setSuccessMeta(null);
+    setErrorMsg("");
+  }
+
   return {
     price,
     setPrice,
@@ -376,11 +398,14 @@ export function useListRwaModal({
     errorMsg,
     successMeta,
     isReplaceListing,
-    currentAskDisplay,
     crossingBidsForInstantSale,
     selectedBidHash,
     setSelectedBidHash,
+    topCollectionBid,
+    settlementPolicy,
+    vaultLabel: formatVaultCustodyLabel(settlementPolicyData) ?? "—",
     isProcessing,
     handleList,
+    dismissSuccess,
   };
 }

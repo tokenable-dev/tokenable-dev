@@ -3,48 +3,25 @@
 **Controllers:**
 - `marketplace/orders/orders.controller.ts`
 - `marketplace/collections/collections.controller.ts`
-- `marketplace/collections/cert-market-trace.controller.ts`
+- `marketplace/snapshots/collection-market-snapshot.controller.ts` — `GET …/cardhedger`, `GET …/cardhedger/price-history`
+- `marketplace/portfolio/portfolio.controller.ts` — daily snapshots + hidden holdings
+- `marketplace/watchlist/watchlist.controller.ts` — saved collections (JWT)
+- `marketplace/buyer-listing-alert/buyer-listing-alert.controller.ts` — first-listing alert (JWT)
+- `marketplace/collections/rwa-token-admin.controller.ts` — `/api/marketplace/admin/rwa-tokens`
+- `marketplace/admin/marketplace-admin-auth.controller.ts` — admin console session
+- `marketplace/admin/platform-analytics.controller.ts` — platform KPI dashboard
+- `marketplace/admin/user-admin.controller.ts` — user support API
 
-**Base path:** `/api/marketplace`  
+Admin console overview: [guides/marketplace-admin.md](../guides/marketplace-admin.md).
+
+**Base paths:** `/api/marketplace`, `/api/marketplace/watchlist`, `/api/marketplace/admin/*`  
 **Swagger tag:** `marketplace`
 
 Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet. Collection **pricing reads** come from `collection_market_snapshots` (materialized Cardhedger) — see [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md).
 
-Legacy relational matching (`bids`/`asks` tables, settlement workers) and **hidden-asset** routes are **removed**.
+Legacy relational matching (`bids`/`asks` tables, settlement workers) is **removed**. The old `hidden_assets` table was replaced by **`portfolio_holdings`** (off-chain hide + cost basis).
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
-
----
-
-## Cert → PSA → Cardhedger trace (debug)
-
-### `POST /api/marketplace/cert-market-trace`
-
-**Swagger tag:** `marketplace`
-
-Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Cardhedger 프리뷰·가격 히스토리**를 한 번에 받습니다. 합성 컬렉션 `components`는 민트 메타와 맞춰 **PSA Variety → `psaVariety`** 등을 채워 Base vs Silver(병행) 구분에 쓰입니다.
-
-**Body:** `CertMarketTraceDto`
-
-| Field | Description |
-|-------|-------------|
-| `certNumber` | Cert 숫자 또는 `psacard.com/cert/…` URL (필수) |
-| `historyMaxCalendarDays` | 히스토리 윈도우 1–365 (기본 90) |
-| `scrapePsaSpecImage` | `specId`가 있을 때 Playwright로 spec 이미지 URL 스크랩 (기본 true) |
-
-**Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
-
-**응답 요약:** `meta` · `psaAnalyze` · `syntheticCollection` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history` / `cardhedger.comps`(경매 raw+headline) / `cardhedger.mergedChartPoints`(일별+comps 병합, `historyMaxCalendarDays` 클립).
-
-자세한 맥락: [cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md).
-
-```json
-{
-  "certNumber": "89531714",
-  "historyMaxCalendarDays": 90,
-  "scrapePsaSpecImage": true
-}
-```
 
 ---
 
@@ -52,7 +29,7 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 
 ### `POST /api/marketplace/orders`
 
-Register a Seaport order (ask or criteria bid) off-chain.
+Register a Seaport order (ask or card-level bid/offer) off-chain.
 
 **Body:** `CreateOrderDto` — full Seaport parameters + signature.
 
@@ -68,7 +45,7 @@ Register a Seaport order (ask or criteria bid) off-chain.
 }
 ```
 
-For criteria bids: `side: "bid"`, `tokenId: "0"`, `collectionKey: "..."`, item type `4` in `consideration`.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). **An active ask is not required** — Place Bid uses a minted (or previously traded) token in the bucket as the Seaport consideration id (`GET …/bid-anchor-tokens`). Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
 
 ---
 
@@ -97,6 +74,41 @@ Returns order history maps for multiple token IDs in one DB round-trip.
 ```json
 { "tokenIds": [1, 2, 123] }
 ```
+
+---
+
+### `GET /api/marketplace/orders/portfolio-activity`
+
+Portfolio transaction history for a wallet (chain-scoped via `x-tokenable-chain-id`). Returns **fulfilled** orders where the wallet is:
+
+- ask **offerer** (SELL), or
+- bid **offerer** (BUY via sell-into-bid), or
+- ask `parameters._filledByBuyer` (BUY via take-ask)
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `address` | Yes | Wallet |
+| `limit` | No | Max rows (default 200, cap 500) |
+
+Sell-into-bid fills persist `_settlementAmount`, `_matchedBidOrderHash`, and `_filledByBuyer` on the ask so the UI shows **one row per settlement** at the price paid.
+
+The portfolio Tx History table merges this with **Mint** (owned tokens with no matching buy) and **Redeem** (`GET /api/rwa/redemptions/mine`). Status is a separate lifecycle column (`In progress` / `Completed` / `Failed` / `Canceled`) — not Vaulted / In possession / Off platform.
+
+Activity list items include `tokenContract` and `considerationToken`. The UI shows those plus seller/buyer wallets and, for redeems, `paymentTxHash` / `custodyTxHash` (explorer `/tx/`). Seaport `orderHash` is not an Ethereum transaction.
+
+---
+
+### `GET /api/marketplace/orders/by-offerer`
+
+Wallet-scoped orders (chain via `x-tokenable-chain-id`). Does **not** return the global book.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `offerer` | Yes | Wallet |
+| `side` | Yes | `bid` — collection bid history (active + historical). `ask` — **active** asks listed by this wallet (cap 500). |
+| `limit` | No | Max rows (bid default 100, ask default 500, cap 500) |
+
+Portfolio My Assets uses `side=ask` so listing badges do not depend on `GET /orders` (global active asks, capped ~20k).
 
 ---
 
@@ -132,15 +144,123 @@ Cancels an order. Caller must be the offerer.
 
 ---
 
+### `PATCH /api/marketplace/orders/:hash/invalidate-dead-bid`
+
+Marks an **active token bid** cancelled when it is proven dead on-chain (buyer USDC balance/allowance below the offer amount, or past Seaport `endTime`). Used by accept-offer preflight / failed settle so other sellers do not retry the same dead offer. **Idempotent** by `order_hash` (already non-active → returns the row). Funded + in-window bids are rejected with 400.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `callerAddress` | Yes | Wallet that reported / attempted accept (audit trail) |
+
+See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
+
+---
+
+### `GET /api/marketplace/notifications`
+
+JWT required. Lists inbox items for **all wallets linked to the user** on the **active chain** (`x-tokenable-chain-id`). Sepolia alerts do not appear while the app is on Polygon (and vice versa).
+
+In-app events (Notifications spec **v2 2026-08** — Email/Telegram/Web push delivery TBD; in-app + toast now):
+
+| eventKey | type | Trigger |
+|----------|------|---------|
+| `SELLER_TOP_BID_UPDATED` | bid | New **highest** token bid on an active ask (Edit price CTA) |
+| `SELLER_BID_CANCELLED` / `SELLER_BID_UNFILLED` | bid | Bid withdrawn / dead after fill attempt (ask owner; not in v2 table — kept) |
+| `BUYER_BID_PLACED` / `BUYER_BID_EXPIRING` / `BUYER_BID_EXPIRED` | bid | Bidder lifecycle |
+| `BUYER_BID_FILLED` / `BUYER_FILL_FAILED` | bid | Bid filled or unfunded at settle |
+| `SELLER_SOLD` / `SELLER_PAYOUT_DONE` / `BUYER_VAULT_PURCHASED` / `SELLER_LISTING_LIVE` | trade | Sale settle / self-vault payout / listing live |
+| `SELLER_KYC_RESULT` / `SELLER_SUBMISSION_RECEIVED` / `SELLER_VERIFY_DONE_SET_PRICE` / `SELLER_CARD_REJECTED` / `SELLER_LISTING_FAILED` / `SELLER_PRICE_PENDING_REMINDER` | vault | Sell / vault ops |
+| `RD_PAID_PREPARING` | vault | Ship-from-vault prepaid confirmed / preparing (`href=/portfolio/redeem?view=…`) |
+| `RD_SHIPPED` | vault | Tracking set (`href=/portfolio/redeem?view=transit`, CTA Track) |
+| `RD_RECEIVED_REMINDER` | vault | Ask to confirm receipt (emitted when FedEx Track sets `carrier_delivered_at`) |
+| `RD_AUTO_CANCELLED_REFUND` | vault | Cancelled + refunded (admin refund today; auto SLA later) |
+| `PARTNER_SHIPMENT_REQUEST` | vault | Self-vault partner must ship (`href=/partner/shipments`) |
+| `FUNDS_WITHDRAW_SUBMITTED` / `SENT` / `FAILED` | vault | Bank cash-out helpers ready; domain not wired yet |
+| `REDEEM_COMPLETED` | vault | User confirmed receipt (ack; not in v2 table) |
+
+**Legacy aliases** (still resolved for old inbox rows): `WD_REQUEST_RECEIVED`, `WD_SHIPPED`, `REDEEM_PREPARING`, `REDEEM_REFUNDED`, `SELLER_REDEEM_SHIP`.
+
+**Not yet emitted (domain missing):** `SELLER_STRIKE` / `SELLER_SUSPENDED`, `PARTNER_SLA_WARN` / `PARTNER_SLA_BREACH`, admin ops inbox (`ADMIN_*`).
+
+**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel`. The signed-in app chrome polls `GET /marketplace/notifications` about every **15s** while the tab is active (`refetchIntervalInBackground: false`). Toasts fire only for unread items that arrive **while this tab is visible** and are **fresh** (~90s). Login, tab-focus catch-up, and background-tab backlog stay in the inbox (badge/drawer) — they are not toasted. Click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
+
+---
+
+### `PATCH /api/marketplace/notifications/read-all`
+
+JWT required. Marks all of the user’s notifications as read **on the active chain only**.
+
+---
+
+### `PATCH /api/marketplace/notifications/:id/read`
+
+JWT required. Marks one notification read (must belong to a linked wallet).
+
+---
+
+### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
+
+Returns `{ tokenId, settlementPolicy, vaultLabel, known }` where `settlementPolicy` is `standard` or `self_vault_hold` when the token is indexed on the chain.  
+`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `Tokenable Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. Returns **404** when the token is not indexed — clients must not assume PSA custody. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
+
+### `POST /api/marketplace/rwa-tokens/vault-info/batch`
+
+Body `{ tokenIds: string[] }` (max 200) → `{ items: [{ tokenId, known, settlementPolicy, vaultLabel }] }`. Unknown tokens return `known: false` with null policy/label. Chain-scoped via `x-tokenable-chain-id`. Same custody rule as settlement-policy (PSA vs partner vault per token, not per seller).
+
+### `GET /api/marketplace/partners/self-vault-eligibility?wallet=`
+
+Public. Returns whether an active partner wallet may use Self vault:
+
+`{ eligible, isPartner, hasCompanyAddress, partnerId, displayName, vaultLabel }`
+
+`eligible` is true only when the wallet matches an **active** partner **and** a company Origin address exists (`marketplace_partner_addresses`).
+
+### `GET /api/marketplace/partners/me` (JWT)
+
+Partner session for the signed-in user (wallet ∩ partners): `{ isPartner, partnerId, displayName, vaultLabel, hasCompanyAddress, companyAddress }`.
+
+### `GET|PUT /api/marketplace/partners/me/company-address` (JWT)
+
+Get or upsert the partner company / Self-vault Origin address (FedEx Rate ship-from). Country is ISO 3166-1 alpha-2; `region` required for US/CA.
+
+**UX:** Approved partners without an Origin see the designer **shipping-origin** modal (`PartnerCompanyAddressRequiredModal`). **Remind me later** dismisses to a sticky banner; Self vault mint/list stay locked until the address is saved. Backend also rejects `POST /rwa/mint` with `deliveryMode=direct` using `COMPANY_ADDRESS_REQUIRED` (see [rwa.md](./rwa.md)).
+
+### `GET /api/marketplace/partners/me/redeems` (JWT)
+
+List Partner-vault redemptions for the signed-in partner (`vault_partner_id` = me). Same row shape as admin redeems. Frontend: `/partner/shipments`.
+
+### `PATCH /api/marketplace/partners/me/redeems/batches/:batchId/tracking` (JWT)
+
+Set tracking for this partner’s shipment within a payment batch. Body: `{ shipmentKey, trackingNumber, trackingCarrier? }`. `shipmentKey` must be `partner:<me.partnerId>` — writes the same `vault_redemptions` columns as admin tracking.
+
+### Self-vault settlements
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/self-vault-settlements/mine` | JWT | Buyer/seller wallet settlements |
+| POST | `/self-vault-settlements/:id/confirm` | JWT | Buyer confirms → `confirmed` |
+| GET | `/admin/self-vault-settlements` | Admin | Optional `?status=open\|pending_confirm\|…`; scoped to `x-tokenable-chain-id`. UI: `/marketplace/admin/self-vault-payouts` |
+| POST | `/admin/self-vault-settlements/:id/confirm` | Admin | Ops confirm |
+| POST | `/admin/self-vault-settlements/:id/reject` | Admin | Reject |
+| POST | `/admin/self-vault-settlements/:id/execute-payout` | Admin | Platform fee wallet → seller USDC → `paid` (early; also auto after ~5 min) |
+
+Created automatically when a `self_vault_hold` ask is fulfilled (or matched) — **one ledger row per ask `order_hash`** (resales of the same token before payout add another row). Admin can pay early; otherwise cron auto confirm+payout after ~5 minutes per sale. See BR-8c.
+
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 
-Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
+Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). Rejects bid-only fulfill for `self_vault_hold` tokens.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price |
 
 ---
 
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
-Marks both the ask and the criteria bid fulfilled after `matchAdvancedOrders`.
+Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
+
+Seller **take-offer** flows (Edit price primary; Accept offer secondary) are specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep links: `/portfolio?setprice=` (Edit price) and `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid`. Edit-price instant match that fails on buyer USDC keeps the ask at the set price.
 
 **Body:** `FulfillMatchedPairDto`
 
@@ -152,14 +272,39 @@ Marks both the ask and the criteria bid fulfilled after `matchAdvancedOrders`.
 
 ## Collections
 
+`collection_key` (v2) is SHA-256 of grader + name + set + grade + card # + `marketParallelKey`. Vault type is not in the hash. PSA `Variety` becomes a parallel slug only when it names an insert (Refractor, Silver Prizm, …). Variety that repeats Brand/set (e.g. `VSTAR UNIVERSE`) is `base` — same spec, one order book. See [Cardhedger + PSA Variety](../guides/cardhedger-psa-variety.md).
+
 ### `GET /api/marketplace/collections`
 
-Returns a cursor-paginated list of collection summaries.
+Returns a cursor-paginated list of collection summaries, or a **text search** when `q` is set.
 
 | Query | Default | Description |
 |-------|---------|-------------|
-| `limit` | `30` | Max `60` |
-| `cursor` | — | Opaque cursor from prior page `nextCursor` |
+| `limit` | `30` | Max `60` (browse) / max `40` (when `q` set) |
+| `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
+| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match collection cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. Individual minted cards are searched via `GET /api/marketplace/search`. |
+
+### `GET /api/marketplace/collections/home-feed`
+
+Home ticker, Top movers, and Just vaulted in one response. Ranking uses materialized snapshots (90-day gainers, 1Y abs change for the ticker, `createdAt` for Just vaulted). Returns only the displayed collections plus their list snapshots. Cached ~30s per chain.
+
+Response: `{ topMovers, justVaulted, ticker, snapshots }`.
+
+---
+
+### `GET /api/marketplace/search`
+
+Unified catalog search for the header typeahead and `/search` page.
+
+| Query | Default | Description |
+|-------|---------|-------------|
+| `q` | required | Same collection text match as `GET /collections?q=`. Digit-only queries **7+ digits** prefix-match **`rwa_tokens.cert_number`**. Shorter digits match **token id**, exact cert, or `#123` in the display name (not every cert that merely starts with `123`). Text queries match token `display_name`. |
+| `cardLimit` | `12` | Max minted-card hits (`0`–`24`). |
+| `collectionLimit` | `40` | Max collection hits (`0`–`40`). `0` skips collection search. |
+
+Response: `{ cards: SearchCardHit[], collections: CollectionSummary[] }`. Cards are listed first in the UI (cert row), then collections.
+
+Each card hit includes `components` from the token’s collection bucket (when present). The UI formats **Line 1** `{Name} · {Number} · {Grade}` and **Line 2** `{Year} · {Set} {Language} · {Variant}` the same way as collection detail — not raw `displayName` / cert/vault strings.
 
 ---
 
@@ -182,6 +327,10 @@ Batch fetches list-row snapshots from **materialized** `collection_market_snapsh
 
 Returns collection detail + active listings + collection bids + representative image URL.
 
+Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `Tokenable Vault`, otherwise `PSA Vault`). Unknown custody returns null fields — never defaults to PSA. A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
+
+Collection **Place a Bid** does not require an active ask. With no listings, the offer attaches to a minted token in the collection.
+
 When no `marketplace_collections` row exists yet, `collection: null` is returned (no 404) to support client prefetch.
 
 ```json
@@ -199,11 +348,15 @@ When no `marketplace_collections` row exists yet, `collection: null` is returned
 
 Returns the Cardhedger-matched catalog card and PSA10 spot price bands for this collection.
 
+> **Controller:** `CollectionMarketSnapshotController`.
+
 ---
 
 ### `GET /api/marketplace/collections/:key/cardhedger/price-history`
 
 Returns PSA10 price history from the materialized snapshot (`external_usd_json`). No Cardhedger upstream on the hot path.
+
+> **Controller:** `CollectionMarketSnapshotController`.
 
 | Query | Values | Default |
 |-------|--------|---------|
@@ -230,7 +383,7 @@ Returns a chart bundle: platform fills (USDC) + Cardhedger reference prices + wi
 
 ### `GET /api/marketplace/collections/:key/platform-trades`
 
-Returns fulfilled listings for this collection (chart data points + trade tape rows).
+Returns platform fulfilled listings (chart `platformUsd`) plus a merged trades tape: Tokenable fills + Cardhedger comps raw (max **100** individual sales). `volume.windows` sums comps + platform fills per calendar window.
 
 ---
 
@@ -244,6 +397,16 @@ Returns pool statistics:
 
 ---
 
+### `GET /api/marketplace/collections/:key/similar`
+
+Returns active collections for Card.html **Similar items** that match **either**:
+- same card name (`cardNameDisplay` / `cardName` / `psaSubject`), **or**
+- same set (`cardSetDisplay` / `cardSet` / `psaBrand`)
+
+Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 12 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`.
+
+---
+
 ### `GET /api/marketplace/collections/:key/merkle-set`
 
 Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this collection, not just active asks).
@@ -251,6 +414,10 @@ Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this colle
 | Query | Description |
 |-------|-------------|
 | `bypassCache=true` | Skip cache and recompute |
+
+### `GET /api/marketplace/collections/:key/bid-anchor-tokens`
+
+Minted or previously traded token ids in this bucket. Used by Place Bid when there is **no live ask**. Does not require a listing.
 
 ---
 
@@ -270,7 +437,11 @@ Max 32 token IDs per request.
 
 ### `POST /api/marketplace/collections/portfolio-market-batch`
 
-Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
+Batch **materialized snapshot** reads per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
+
+Does **not** call Cardhedger, listing-pool stats, or platform tape on the request. Reads the in-process snapshot price index (same table as My Assets). Missing or empty snapshot rows are enqueued for background refresh. `stats` is always `null` on this path — holdings USD comes from `series` (grade strip / Cardhedger preview on the snapshot).
+
+When a holding has **no collection row**, or the snapshot series is unmatched with no grade-strip USD, this endpoint cannot price it. The Portfolio list falls back to `POST /marketplace/cardhedger/mint-previews` for that token (not per-token trades). Collection detail still overlays live Cardhedger on a thin snapshot; portfolio does not.
 
 **Body:** `PortfolioMarketBatchDto`
 
@@ -281,33 +452,171 @@ Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used
 }
 ```
 
+Preferred window is `365d` (spot + 1y change). `"max"` still works but is a larger JSON payload.
+
+---
+
+### `POST /api/marketplace/collections/on-mint`
+
+Called by the vault mint flow immediately after the on-chain `Minted` event is confirmed. **Awaits** marketplace bootstrap so listing price suggestions have comps before the first ask.
+
+**Body**
+
+```json
+{ "tokenId": 42 }
+```
+
+**Response**
+
+```json
+{
+  "accepted": true,
+  "collectionKey": "22028c12…",
+  "bootstrapped": true
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `collectionKey` | Lowercase bucket key when `ensureCollectionForListing` succeeded |
+| `bootstrapped` | `true` when a `marketplace_collections` row exists for this mint |
+
+Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, collection cover set on first bucket create and upgraded later when a higher-scoring catalog URL is resolved. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
+
+Also fired by optional on-chain listener when `MINT_EVENT_LISTENER_ENABLED=1` (idempotent with this POST).
+
 ---
 
 ### `POST /api/marketplace/collections/token-collection-keys`
 
 Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** — does not create `marketplace_collections` rows (unlike listing flow).
 
-**Body:** `TokenCollectionKeysDto` — `tokenIds` array (max **80** per request).
+**Body:** `TokenCollectionKeysDto` — `tokenIds` array (max **120** per request).
 
 ---
 
 ### `GET /api/marketplace/portfolio/daily/:wallet`
 
-Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`). Read path backfills **only** if today's slot row is missing (does not overwrite existing cron rows).
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing rows, including a recapture that finishes while the GET backfill is still pricing). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row. Snapshot totals skip tokens with no Cardhedger mark — a newly minted card can appear in My Assets before it adds to Portfolio value.
+
+Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 
 | Query | Description |
 |-------|-------------|
 | `limit` | Max rows (default 32, min 2, max 120) |
 
-**Response:** `{ items: [{ walletAddress, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
+**Response:** `{ chainId, items: [{ walletAddress, chainId, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
 
-Cron captures **all on-chain RWA holders** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
+Cron captures **all on-chain RWA holders on each configured chain** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
 
 ---
 
-## ~~My Assets (Hidden Tokens) — removed~~
+## Buyer listing alert (Notify me)
 
-`GET/POST/PATCH /api/marketplace/my-assets/hidden` and the `hidden_assets` table are **no longer in this repository**. Portfolio lists on-chain RWA balances only.
+Collection order book **Notify me** — not the same as watchlist. One-time in-app notification when a collection gets its **first active ask** (`BUYER_LISTING_ALERT`). After fire, the subscription is marked off; the user can subscribe again.
+
+**Controller:** `marketplace/buyer-listing-alert/buyer-listing-alert.controller.ts`  
+**Base path:** `/api/marketplace/buyer-listing-alerts` (JWT)
+
+### `GET /api/marketplace/buyer-listing-alerts/status`
+
+| Query | Description |
+|-------|-------------|
+| `collectionKey` | Marketplace collection key |
+
+**Response:** `{ active: boolean }` — `true` when subscribed and not yet fired.
+
+### `POST /api/marketplace/buyer-listing-alerts`
+
+**Body:** `{ collectionKey }` — subscribe (idempotent upsert; clears prior `fired_at`).
+
+### `DELETE /api/marketplace/buyer-listing-alerts`
+
+**Body:** `{ collectionKey }` — turn off before first listing.
+
+**Trigger:** `orders.service` calls `BuyerListingAlertService.onFirstAskListed()` when active ask count for the collection becomes **1**. Notification copy: title `[card] is now for sale`, body `Lowest ask $X — buy or place a bid.`, CTA **View listing**.
+
+---
+
+## Portfolio holdings (hide + cost basis)
+
+Off-chain prefs — NFT remains in the wallet. `hidden_at` excludes a token from portfolio totals. `cost_basis_usd` powers P/L; `manual` edits are never overwritten by auto seed.
+
+### `GET /api/marketplace/portfolio/hidden/:wallet`
+
+Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
+
+### `POST /api/marketplace/portfolio/hidden`
+
+**Body:** `{ walletAddress, tokenId }` — hide one holding.
+
+### `DELETE /api/marketplace/portfolio/hidden`
+
+**Body:** `{ walletAddress, tokenId }` — restore one holding.
+
+### `POST /api/marketplace/portfolio/assets-page`
+
+**My Assets BFF** — one request per page of tokenIds (max **50**, matches frontend `PORTFOLIO_ASSETS_PAGE_SIZE`).
+
+**Body:** `{ walletAddress, tokenIds? }`
+
+- Omit **`tokenIds`** on first load — server reads owned tokens from the DB owner index (`rwa_tokens.owner_wallet` / transfer index) and returns the first page plus the full **`ownedTokenIds`** list.
+- Include **`tokenIds`** on load-more / incremental fetches (must be a subset of the caller's owned tokens).
+
+**Response:**
+
+```json
+{
+  "ownedTokenIds": [42, 41, 40],
+  "metadataItems": [{ "tokenId": 1, "tokenURI": "ipfs://…", "metadata": {}, "imageUrl": "https://…", "imageBackUrl": null }],
+  "collectionKeys": { "1": "abc123…" },
+  "marketItems": [{ "collectionKey": "abc123…", "stats": null, "series": { } }],
+  "mintPreviews": { },
+  "holdings": [{ "tokenId": 1, "hidden": false, "costBasisUsd": null, "costBasisSource": null, "acquiredAt": null }]
+}
+```
+
+Server-side pipeline (DB-first, parallel where possible):
+
+1. **`ownedTokenIds`** — heal incomplete `rwa_tokens` vs on-chain `totalMinted` if needed, then DB owner index (newest-first); RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
+2. **Metadata** — `batchPortfolioMetadata`: graded NFT JSON from registry `token_uri` (IPFS, URI-deduped). **Owner-index stubs** (no `token_uri`) fall back to on-chain `tokenURI` + IPFS, then heal empty `display_name` / `token_uri` / `cert_number` on `rwa_tokens`. Slab images prefer DB `display_image_url`. Detail pages still use full `batchRwaMetadata`.
+3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
+4. **Market** — preload `collection_market_snapshots` (full table price index, TTL) in parallel with metadata / holdings / `rwa_tokens.collection_key`, then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
+5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
+
+**UI:** Frontend renders owned-token shells as soon as `ownedTokenIds` arrive; images/names/prices fill in-place. The holdings section is not blocked on the full BFF round-trip. Bootstrap always refetches on mount (`ownedTokenIds` is never frozen from localStorage / React Query hydrate).
+
+**`mintPreviews` is always `{}`** — the client loads Cardhedger mint-previews in a follow-up request for tokens without snapshot prices.
+
+**Cache (Phase 3):** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). **`ownedTokenIds` and holdings** are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`. `perfLog` includes `cache: memory|redis|miss` when `PERF_LOG=true`.
+
+Honors `x-tokenable-chain-id`. Portfolio UI uses this instead of separate `rwa/metadata/batch`, `token-collection-keys`, `portfolio-market-batch`, and `mint-previews` calls per page.
+
+### `POST /api/marketplace/portfolio/holdings/batch`
+
+**Body:** `{ walletAddress, tokenIds }` (max 500).
+
+**Response:** `{ items: [{ tokenId, hidden, costBasisUsd, costBasisSource, acquiredAt }] }`
+
+`costBasisSource`: `manual` | `vault_delivery` | `marketplace_buy` | null.
+
+### `PUT /api/marketplace/portfolio/holdings/cost-basis`
+
+**Body:** `{ walletAddress, tokenId, costBasisUsd }` — user manual edit (`source = manual`).
+
+**Vault deliver seed:** when admin delivers a custody NFT (`deliverCustodyNftToUser`), the backend seeds `vault_delivery` cost basis from the current market mark USD at deliver time. Manual rows are skipped.
+
+**Self-vault direct mint:** always records `acquired_at` on `portfolio_holdings` (so Tx History shows Mint). Cost basis is seeded only when a mark USD exists; otherwise acquisition is kept without `cost_basis_usd`.
+
+**Marketplace buy seed:** after ask fulfill (`PATCH …/fulfill?buyerAddress=`) or matched-pair fulfill, the backend seeds `marketplace_buy` from the ask USDC price for the buyer wallet. Manual rows are skipped.
+
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark.
+
+---
+
+## ~~My Assets (Hidden Tokens) — legacy~~
+
+The former `hidden_assets` table and `GET/POST/PATCH /api/marketplace/my-assets/hidden` routes are **gone**. Use **`portfolio/hidden`** above.
 
 ---
 

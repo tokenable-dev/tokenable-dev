@@ -1,18 +1,18 @@
 import type { Abi, PublicClient, Address } from "viem";
 import { formatUnits } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI_WITH_MATCH_ADVANCED,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
 import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
 import { canonicalBytes32Hex } from "../criteria/collectionCriteriaRoot";
-import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
@@ -40,39 +40,48 @@ export type MatchFailureCode =
 /** ERC20 offer item in Seaport order parameters. */
 const ITEM_ERC20 = 1;
 
+export type BuyerUsdcReadyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "balance" | "allowance";
+      message: string;
+    };
+
 /**
- * Criteria bids do not escrow USDC — at match time Seaport transfers from the buyer (`offerer`).
- * Fail early with a clear message instead of an opaque ERC20 revert.
+ * Criteria / token bids do not escrow USDC — at match/fulfill time Seaport
+ * transfers from the buyer (`offerer`). Returns a structured result for UI preflight.
  */
-async function assertBuyerUsdcReadyForCriteriaBid(
+export async function checkBuyerUsdcReadyForBid(
   publicClient: PublicClient,
   bid: Order,
-): Promise<void> {
+  usdcAddress: Address,
+): Promise<BuyerUsdcReadyResult> {
   const offer0 = bid.parameters?.offer?.[0];
-  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return;
+  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return { ok: true };
   if (
-    String(offer0.token).toLowerCase() !== String(USDC_ADDRESS).toLowerCase()
+    String(offer0.token).toLowerCase() !== String(usdcAddress).toLowerCase()
   ) {
-    return;
+    return { ok: true };
   }
   const buyer = bid.offerer as Address;
   let needed: bigint;
   try {
     needed = BigInt(String(offer0.startAmount).trim());
   } catch {
-    return;
+    return { ok: true };
   }
-  if (needed <= BigInt(0)) return;
+  if (needed <= BigInt(0)) return { ok: true };
 
   const [bal, allowance] = await Promise.all([
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "balanceOf",
       args: [buyer],
     }),
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "allowance",
       args: [buyer, SEAPORT_ADDRESS],
@@ -80,17 +89,35 @@ async function assertBuyerUsdcReadyForCriteriaBid(
   ]);
 
   if ((bal as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this bid requires ${formatUnits(needed, 6)} USDC at execution time. ` +
-        `Collection bids do not lock USDC — the buyer must still hold the funds when you match. ` +
-        `If you are both buyer and seller, top up that wallet or cancel the bid and list without crossing.`,
-    );
+    return {
+      ok: false,
+      code: "balance",
+      message:
+        `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this offer requires ${formatUnits(needed, 6)} USDC. ` +
+        `Offers do not lock USDC — the buyer must still hold the funds when you accept.`,
+    };
   }
   if ((allowance as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport (same as when placing the collection bid).`,
-    );
+    return {
+      ok: false,
+      code: "allowance",
+      message:
+        `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport.`,
+    };
   }
+  return { ok: true };
+}
+
+/**
+ * Fail early with a clear message when the buyer cannot fund the bid.
+ */
+export async function assertBuyerUsdcReadyForCriteriaBid(
+  publicClient: PublicClient,
+  bid: Order,
+  usdcAddress: Address,
+): Promise<void> {
+  const ready = await checkBuyerUsdcReadyForBid(publicClient, bid, usdcAddress);
+  if (!ready.ok) throw new Error(ready.message);
 }
 
 export async function runCriteriaMatch(params: {
@@ -106,6 +133,7 @@ export async function runCriteriaMatch(params: {
    * proof/root match that snapshot. Otherwise we bypass server cache to avoid stale sets vs bids.
    */
   merkleTokenIds?: string[];
+  chainId: SupportedChainId;
 }): Promise<void> {
   const {
     address,
@@ -116,7 +144,10 @@ export async function runCriteriaMatch(params: {
     tokenId,
     collectionKey,
     merkleTokenIds: merkleTokenIdsParam,
+    chainId,
   } = params;
+
+  const { usdcAddress } = getChainContracts(chainId);
 
   if (!isCriteriaCollectionBid(bid)) {
     throw new Error("Not a criteria collection bid");
@@ -159,7 +190,7 @@ export async function runCriteriaMatch(params: {
 
   const proof = tree.getCriteriaProof(tidBn);
 
-  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid);
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -216,12 +247,12 @@ export async function runCriteriaMatch(params: {
     abi: prepared.abi as Abi,
     functionName: prepared.functionName,
     args: prepared.args as readonly unknown[],
-    chainId: sepolia.id,
+    chainId,
     gas,
   });
 
   const receipt = await Promise.race([
-    publicClient.waitForTransactionReceipt({ hash }),
+    waitForUserTxReceipt(publicClient, hash),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>
@@ -262,6 +293,142 @@ export async function runCriteriaMatch(params: {
     if (aborted) {
       console.warn(
         "[runCriteriaMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
+      );
+      return;
+    }
+    throw e;
+  } finally {
+    clearTimeout(fulfillTimer);
+  }
+}
+
+/**
+ * Match a card-level token offer against an ask via `matchAdvancedOrders` (no Merkle).
+ */
+export async function runTokenBidMatch(params: {
+  address: Address;
+  publicClient: PublicClient;
+  writeContractAsync: MatchWriteContractAsync;
+  bid: Order;
+  listing: Order;
+  chainId: SupportedChainId;
+}): Promise<void> {
+  const { address, publicClient, writeContractAsync, bid, listing, chainId } =
+    params;
+  const { usdcAddress } = getChainContracts(chainId);
+
+  if (!isTokenBidOrder(bid)) {
+    throw new Error("Not a token bid");
+  }
+
+  const chainNow = await getChainTimestampSec(publicClient);
+  if (!isSeaportOrderActiveAt(bid, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(bid, chainNow, "bid"));
+  }
+  if (!isSeaportOrderActiveAt(listing, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(listing, chainNow, "listing"));
+  }
+
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+
+  const exec = buildTokenBidMatchExecution({
+    tokenBidOrder: bid,
+    listingOrder: listing,
+  });
+  const prepared = matchAdvancedOrdersArgs({
+    orders: exec.orders,
+    criteriaResolvers: exec.criteriaResolvers,
+    fulfillments: exec.fulfillments,
+    recipient: exec.recipient,
+  });
+
+  const gasPromise = gasWithCapFast(
+    publicClient,
+    {
+      address: SEAPORT_ADDRESS,
+      abi: prepared.abi,
+      functionName: prepared.functionName,
+      args: prepared.args,
+      account: address,
+    },
+    GAS_FALLBACK.matchAdvancedOrders,
+  );
+
+  const SIMULATION_MS = 55_000;
+  const [, gas] = await Promise.race([
+    Promise.all([
+      publicClient.simulateContract({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
+        functionName: "matchAdvancedOrders",
+        args: prepared.args as readonly [unknown, unknown, unknown, unknown],
+        account: address,
+      }),
+      gasPromise,
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Simulation timed out (RPC slow or overloaded). Try again in a moment.",
+            ),
+          ),
+        SIMULATION_MS,
+      ),
+    ),
+  ]);
+
+  const hash = await writeContractAsync({
+    address: SEAPORT_ADDRESS,
+    abi: prepared.abi as Abi,
+    functionName: prepared.functionName,
+    args: prepared.args as readonly unknown[],
+    chainId,
+    gas,
+  });
+
+  const receipt = await Promise.race([
+    waitForUserTxReceipt(publicClient, hash),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Match transaction confirmation timed out. Check the explorer for this tx or try again.",
+            ),
+          ),
+        120_000,
+      ),
+    ),
+  ]);
+  if (receipt.status === "reverted") {
+    throw new Error(
+      `Seaport match reverted on-chain (tx ${hash}). Check the buyer’s USDC balance and approval to Seaport.`,
+    );
+  }
+
+  const FULFILL_MS = 38_000;
+  const fulfillAbort = new AbortController();
+  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
+  try {
+    await fulfillMatchedPairApi(
+      {
+        bidOrderHash: bid.orderHash,
+        askOrderHash: listing.orderHash,
+      },
+      { signal: fulfillAbort.signal },
+    );
+  } catch (e: unknown) {
+    const aborted =
+      fulfillAbort.signal.aborted ||
+      (e instanceof Error && e.name === "AbortError") ||
+      (typeof DOMException !== "undefined" &&
+        e instanceof DOMException &&
+        e.name === "AbortError");
+    if (aborted) {
+      console.warn(
+        "[runTokenBidMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
       );
       return;
     }
@@ -319,6 +486,8 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   if (
     low.includes("balance insufficient") ||
     low.includes("insufficient balance") ||
+    low.includes("buyer usdc insufficient") ||
+    low.includes("usdc insufficient") ||
     (low.includes("erc20") && low.includes("insufficient"))
   ) {
     return "insufficient_balance";

@@ -1,5 +1,5 @@
-import { ConfigService } from '@nestjs/config';
 import { Contract, JsonRpcProvider } from 'ethers';
+import { ChainConfigService } from '../chain-config.service';
 import { TOKENABLE_RWA_ABI } from '../abis/tokenable-rwa.abi';
 import {
   ETHERS_PROVIDER,
@@ -8,15 +8,13 @@ import {
 
 export const tokenableRwaFactory = {
   provide: TOKENABLE_RWA_CONTRACT,
-  inject: [ETHERS_PROVIDER, ConfigService],
+  inject: [ETHERS_PROVIDER, ChainConfigService],
   useFactory: (
     provider: JsonRpcProvider,
-    configService: ConfigService,
+    chainConfig: ChainConfigService,
   ): Contract => {
-    const address = configService.get<string>('RWA_CONTRACT_ADDRESS')?.trim();
-    if (!address) {
-      throw new Error('Set RWA_CONTRACT_ADDRESS in environment');
-    }
+    const chainId = chainConfig.getDefaultChainId();
+    const address = chainConfig.getRwaAddress(chainId);
     return new Contract(address, TOKENABLE_RWA_ABI, provider);
   },
 };

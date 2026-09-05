@@ -1,4 +1,15 @@
 import { formatSportCategoryDisplayLabel } from "@/lib/market";
+import {
+  formatPsaGradedByDisplay,
+  psaGradePolicyInputFromGraded,
+} from "@/lib/market/psaGradePolicy";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  formatAssetDetailHeadlineText,
+  resolveCardDisplayGrade,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type RwaDetailMetadata = {
   name?: string;
@@ -55,7 +66,7 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   const player = pickString(card?.player, card?.name, psa?.cardNameHint);
   const set = pickString(card?.set, psa?.setHint);
   const num = pickString(card?.number, psa?.cardNumberHint);
-  const variant = pickString(psa?.gradeDescription, psa?.labelType);
+  const variant = resolveRwaMetadataVariant(graded);
   const gradeLabel = pickString(
     psa?.gradeLabel,
     typeof grade?.label === "string" ? grade.label : undefined,
@@ -68,11 +79,11 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   if (num) {
     rows.push({
       label: "Card Number",
-      value: String(num).startsWith("#") ? String(num) : `#${num}`,
+      value: formatHeadlineCardNumber(String(num)) ?? String(num),
     });
   }
   if (set) rows.push({ label: "Set", value: set });
-  if (variant && variant !== gradeLabel) rows.push({ label: "Variant", value: variant });
+  if (variant) rows.push({ label: "Variant", value: variant });
   if (gradeLabel) rows.push({ label: "Grade", value: gradeLabel });
   if (year) rows.push({ label: "Year", value: year });
   if (category) {
@@ -107,6 +118,49 @@ export type RwaDetailMobileTrustView = {
   certNumber: string | null;
   certVerifyUrl: string | null;
 };
+
+function joinSlabTextParts(...vals: (string | null | undefined)[]): string {
+  return vals
+    .map((v) => v?.trim())
+    .filter((v): v is string => Boolean(v))
+    .join(" ");
+}
+
+function formatRwaMobileSlabCertLabel(certNumber: string | null | undefined): string {
+  const cert = certNumber?.trim() ?? "";
+  return cert ? `CERT. ${cert}` : "";
+}
+
+/** Mobile RWA — full slab copy as one line (e.g. screen readers). */
+export function formatRwaMobileSlabLabelLine(
+  parts: AssetDetailHeadlineParts,
+  trust: RwaDetailMobileTrustView,
+): string {
+  const { titleBlock, certLabel } = formatRwaMobileSlabLabelTwoLines(parts, trust);
+  return (
+    joinSlabTextParts(
+      titleBlock === "—" ? null : titleBlock,
+      certLabel,
+    ) || "—"
+  );
+}
+
+/**
+ * Mobile RWA — slab copy below the card:
+ * title = Name · Number · Grade (Line 1);
+ * meta row = CERT only (grade is on title).
+ */
+export function formatRwaMobileSlabLabelTwoLines(
+  parts: AssetDetailHeadlineParts,
+  trust: RwaDetailMobileTrustView,
+): { titleBlock: string; gradeLine: string; certLabel: string } {
+  const grade = trust.gradeLine?.trim() || resolveCardDisplayGrade(null);
+  return {
+    titleBlock: formatAssetDetailHeadlineText(parts, { grade }) || "—",
+    gradeLine: "",
+    certLabel: formatRwaMobileSlabCertLabel(trust.certNumber),
+  };
+}
 
 export function buildRwaDetailMobileTrustView(meta: RwaDetailMetadata | null): RwaDetailMobileTrustView {
   const empty: RwaDetailMobileTrustView = {
@@ -164,7 +218,7 @@ export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | n
   let numFormatted: string | null = null;
   if (numRaw) {
     const s = String(numRaw).trim();
-    numFormatted = s.startsWith("#") ? s : `#${s}`;
+    numFormatted = formatHeadlineCardNumber(s);
   }
 
   if (left && numFormatted) return `${left} | ${numFormatted}`;
@@ -181,7 +235,7 @@ export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | n
       if (tt === "set") setAttr = v;
       const numish =
         tt === "card number" || tt === "card #" || tt === "card no" || tt === "#" || tt === "number";
-      if (numish) numAttr = v.startsWith("#") ? v : `#${v}`;
+      if (numish) numAttr = formatHeadlineCardNumber(v) ?? v;
     }
     if (setAttr && numAttr) return `${setAttr} | ${numAttr}`;
     return pickString(setAttr, numAttr) ?? null;
@@ -211,7 +265,7 @@ export function formatRwaDetailCardIdLine(meta: RwaDetailMetadata | null): strin
   const numRaw = pickString(card?.number, psa?.cardNumberHint);
   if (!numRaw) return null;
   const s = String(numRaw).trim();
-  return s.startsWith("#") ? s : `#${s}`;
+  return formatHeadlineCardNumber(s);
 }
 
 export function getRwaDetailHeaderBadgeLabels(meta: RwaDetailMetadata | null): {
@@ -250,11 +304,49 @@ export function getRwaDetailHeaderBadgeLabels(meta: RwaDetailMetadata | null): {
     const v = String(a.value ?? "").trim();
     if (!v) continue;
     if (!catOut && /^(category|game|type)$/i.test(tl)) catOut = v;
-    if (!gradeOut && (/^grade$/i.test(tl) || /^psa(\s|$)/i.test(trait))) gradeOut = v;
+    if (!gradeOut && /^grade$/i.test(tl)) {
+      const graded =
+        meta.properties?.graded && typeof meta.properties.graded === "object"
+          ? (meta.properties.graded as Record<string, unknown>)
+          : {};
+      gradeOut =
+        formatPsaGradedByDisplay({
+          ...psaGradePolicyInputFromGraded(graded),
+          gradeScore: v,
+        }) ?? v;
+    }
+  }
+
+  if (!gradeOut && graded && typeof graded === "object") {
+    gradeOut = formatPsaGradedByDisplay(psaGradePolicyInputFromGraded(graded));
   }
 
   return {
     category: catOut?.length ? formatSportCategoryDisplayLabel(catOut) : null,
     gradeLine: gradeOut?.length ? gradeOut : null,
   };
+}
+
+/** PSA-graded slab metadata — reserved for future vault routing (PSA vs Tokenable). */
+export function isPsaGradedRwaMetadata(meta: RwaDetailMetadata | null): boolean {
+  if (!meta) return false;
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  if (!graded || typeof graded !== "object") return false;
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const grade = graded.grade as Record<string, unknown> | undefined;
+  const cert = pickString(psa?.certNumber, grade?.certNumber);
+  if (cert) return true;
+  const company = pickString(typeof psa?.company === "string" ? psa.company.trim() : undefined);
+  if (company && /psa/i.test(company)) return true;
+  const gradeLabel = pickString(
+    psa?.gradeLabel,
+    typeof grade?.label === "string" ? String(grade.label).trim() : undefined,
+  );
+  if (gradeLabel && /psa/i.test(gradeLabel)) return true;
+  for (const a of meta.attributes ?? []) {
+    const trait = (a.trait_type ?? "").trim();
+    if (/^psa(\s|$)/i.test(trait)) return true;
+    if (/^grade$/i.test(trait.toLowerCase()) && /psa/i.test(String(a.value ?? ""))) return true;
+  }
+  return false;
 }

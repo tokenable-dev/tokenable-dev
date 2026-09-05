@@ -8,6 +8,8 @@ SVG, 아이콘, 이미지 등 브랜드 에셋을 관리하는 폴더입니다.
 assets/
 ├── logo/       # 로고 (풀 버전, 가로형)
 ├── icons/      # 아이콘 (favicon, 앱 아이콘, 정사각형)
+├── home/       # Home hero bg + carousel faces (`newcards/c01…c06`)
+├── ds/         # Design-system marketing assets
 └── images/     # 기타 이미지 (배경, 일러스트 등)
 ```
 

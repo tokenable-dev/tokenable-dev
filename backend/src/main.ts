@@ -1,14 +1,45 @@
+import './load-env';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { swaggerUiOptions } from './swagger/swagger-ui.setup';
+import { buildSwaggerServers } from './swagger/swagger-servers.util';
+import { sortSwaggerTagsPinFirst } from './swagger/swagger-tags.util';
+import { assertSiteAccessConfig, readSiteAccessConfig } from './site-access/site-access.util';
+import {
+  assertMarketplaceAdminAuthConfig,
+  readMarketplaceAdminAuthConfig,
+} from './marketplace/admin/marketplace-admin-auth.util';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  assertSiteAccessConfig(readSiteAccessConfig(process.env));
+  assertMarketplaceAdminAuthConfig(readMarketplaceAdminAuthConfig(process.env));
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+  app.enableShutdownHooks();
+  // One trusted proxy hop (nginx) — req.ip resolves to the real client for
+  // rate limiting instead of the proxy container IP.
+  app.set('trust proxy', 1);
   const config = app.get(ConfigService);
+
+  // Helmet must come before CORS so its headers don't override credential headers.
+  // contentSecurityPolicy disabled to keep Swagger UI (inline scripts) working.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  app.use(compression());
 
   app.use(cookieParser());
 
@@ -45,45 +76,110 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Tokenable RWA API')
+  const port = config.get<number>('app.port') ?? 4100;
+  const isProduction = config.get<boolean>('app.isProduction') ?? false;
+  const publicApiUrl = config.get<string | null>('app.publicApiUrl') ?? null;
+  const swaggerServers = buildSwaggerServers({
+    port,
+    isProduction,
+    publicApiUrl,
+  });
+
+  let swaggerBuilder = new DocumentBuilder()
+    .setTitle('Tokenable API')
     .setDescription(
       [
-        'RWA 마켓플레이스 백엔드 — 모든 HTTP 라우트는 **`/api`** 접두사 아래에 있습니다.',
-        '이 문서 UI는 **`/api/docs`** (예: `http://localhost:4000/api/docs`).',
+        isProduction
+          ? `배포 문서 — Try it out 요청은 **현재 호스트**(\`${swaggerServers[0]?.url === '/' ? 'same origin' : swaggerServers[0]?.url}\`)로 전송됩니다.`
+          : `로컬 문서: \`http://localhost:${port}/api/docs\` · 모든 경로는 \`/api\` 접두사입니다.`,
         '',
-        '**인증**: 대부분의 `auth` 엔드포인트는 **HttpOnly 쿠키 `access_token`**(Google OAuth 후 발급) 또는 **`Authorization: Bearer`** 로 동작합니다. Swagger에서 보호된 라우트는 🔓 버튼으로 JWT를 넣을 수 있습니다.',
+        '### 빠른 테스트 순서',
+        '1. **`GET /api/health`** — DB 연결 확인',
+        '2. **`site-access`** — `SITE_ACCESS_ENABLED` 시 `POST /api/site-access/verify` (비밀번호 → 쿠키)',
+        '3. **유저 JWT** — `POST /api/auth/privy/session` (`privy-access-token` Bearer) 또는 🔓 Authorize → `access-token`',
+        '4. **`marketplace`** — 컬렉션·주문·포트폴리오·watchlist (본문은 **기본 예시** 자동 채움)',
+        '5. **Admin** — `POST /api/marketplace/admin/auth/login` → `marketplace-admin` 태그 (쿠키 세션)',
         '',
-        '**Card Hedge**: 공개 HTTP는 `GET /api/cardhedger/indexes` 만; 나머지 Cardhedger 호출은 서버 내부 `CardhedgerService` 가 upstream 으로 직접 요청합니다 (`CARDHEDGER_API_KEY`).',
-        '**경로 표**: Swagger `/api/docs` 및 레포 `docs/api/README.md`.',
+        '**인증** — `access-token`: Tokenable JWT · `privy-access-token`: Privy `getAccessToken()` (세션 동기화·검증).',
+        '**체인** — 선택 헤더 `x-tokenable-chain-id` (예: `80002`). marketplace 태그 대부분에 적용.',
+        '**Privy 카탈로그** — `GET /api/privy/catalog` · 태그 `privy-auth` / `privy-users` / `privy-funding`.',
       ].join('\n'),
     )
-    .setVersion('1.0')
+    .setVersion('1.0');
+
+  for (const server of swaggerServers) {
+    swaggerBuilder = swaggerBuilder.addServer(server.url, server.description);
+  }
+
+  const swaggerConfig = swaggerBuilder
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
     )
-    .addTag('auth', 'Google OAuth · JWT 쿠키 · 세션 · 지갑 연결')
-    .addTag('rwa', 'RWA 메타데이터 multipart 업로드 → IPFS (Pinata)')
-    .addTag(
-      'blockchain',
-      'Sepolia 읽기 전용 — TokenableRWA tokenURI · 메타데이터/IPFS 해소 · 미디어 URL 해소',
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'Privy access token',
+        in: 'header',
+        description: 'From Privy `getAccessToken()` — not the Tokenable session JWT',
+      },
+      'privy-access-token',
     )
     .addTag(
+      'site-access',
+      '배포 게이트 — Swagger Try it out 전에 먼저 verify 호출 (쿠키 발급)',
+    )
+    .addTag('privy', 'Privy 기능 카탈로그 · 연동 상태 (`GET /privy/catalog`)')
+    .addTag(
+      'privy-auth',
+      'Privy 로그인 → Tokenable 세션 · access token 검증',
+    )
+    .addTag('privy-users', 'Privy Users API 프록시 (서버 secret 필요)')
+    .addTag(
+      'privy-funding',
+      '펀딩/on-ramp 설정 · Apple Pay · Google Pay는 클라이언트 useFiatOnramp (mainnet)',
+    )
+    .addTag('health', '헬스체크 — Swagger 테스트 1번')
+    .addTag('blockchain', 'RWA·IPFS 읽기')
+    .addTag('rwa', 'IPFS 업로드')
+    .addTag(
       'marketplace',
-      'Seaport 오프체인 오더북 + 컬렉션·에셋 — 주문 등록·조회·체결 동기화',
+      '주문·컬렉션·스냅샷·포트폴리오(holdings/cost basis)·watchlist',
+    )
+    .addTag(
+      'marketplace-admin',
+      '백오피스 — `POST /marketplace/admin/auth/login` 후 쿠키 세션',
     )
     .addTag(
       'cardhedger',
-      'Card Hedge — `GET /cardhedger/indexes` (대시보드 인덱스 집계)',
+      'Card Hedge upstream 프록시 (`/api/cardhedger/v1/...`) — 서버가 API 키를 주입합니다. 전체 목록: `GET /api/cardhedger/routes`',
     )
-    .addTag('psa', '슬랩 이미지 OCR · PSA Public API')
+    .addTag('cardladder', 'Card Ladder 대시보드 시장 지수')
+    .addTag(
+      'psa',
+      'PSA Public API 6종 프록시 (cert·pop·order) + 슬랩 OCR analyze — upstream: `backend/src/psa/psa-swagger.json`',
+    )
+    .addTag('admin', 'Cardhedger 운영·헬스 (관리자 지갑)')
+    .addTag('webhooks', 'Cardhedger price webhook (HMAC)')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  document.tags = sortSwaggerTagsPinFirst(document.tags, [
+    'site-access',
+    'privy',
+    'health',
+    'privy-auth',
+    'marketplace',
+    'marketplace-admin',
+  ]);
+  SwaggerModule.setup('api/docs', app, document, swaggerUiOptions);
 
-  if (!config.get<boolean>('app.isProduction')) {
+  const perfEnabled =
+    process.env.PERF_LOG === 'true' || process.env.PERF_LOG === '1';
+  const perfThreshold = Number(process.env.PERF_THRESHOLD_MS ?? '200');
+
+  if (!isProduction || perfEnabled) {
     app.use(
       (
         req: { method: string; url?: string },
@@ -93,18 +189,37 @@ async function bootstrap() {
         const start = Date.now();
         const path = req.url?.split('?')[0] ?? req.url ?? '';
         res.on('finish', () => {
-          logger.log(
-            `${req.method} ${path} ${res.statusCode} ${Date.now() - start}ms`,
-          );
+          const ms = Date.now() - start;
+          if (!isProduction) {
+            logger.log(`${req.method} ${path} ${res.statusCode} ${ms}ms`);
+          }
+          if (perfEnabled && ms >= perfThreshold) {
+            process.stdout.write(
+              JSON.stringify({
+                perf: 'http',
+                method: req.method,
+                path,
+                status: res.statusCode,
+                ms,
+              }) + '\n',
+            );
+          }
         });
         next();
       },
     );
   }
 
-  const port = config.get<number>('app.port') ?? 4000;
   await app.listen(port, '0.0.0.0');
-  logger.log(`Server running on http://0.0.0.0:${port}/api`);
+  logger.log(`Server running on http://127.0.0.1:${port}/api`);
   logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
+
+process.on('unhandledRejection', (reason) => {
+  const logger = new Logger('UnhandledRejection');
+  logger.error(
+    `Unhandled promise rejection — process kept alive: ${String(reason)}`,
+  );
+});
+
 bootstrap();

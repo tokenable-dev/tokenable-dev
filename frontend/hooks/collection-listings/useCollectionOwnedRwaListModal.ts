@@ -8,11 +8,17 @@ import {
   getActiveOrders,
   getRwaTokensByOwner,
   cancelOrder,
+  rq,
+  marketplaceRqPolicy,
   type Order,
   type OrderListItem,
   type RwaMetadata,
 } from "@/lib/core";
-import { rq, marketplaceRqPolicy } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
+import {
+  invalidateAfterOrderCancel,
+  invalidateAfterCollectionListing,
+} from "@/lib/core/invalidation";
 import { metadataMatchesCollectionKey } from "@/lib/marketplace/bucketKey";
 import {
   buildRwaAssetDetailHeadlineParts,
@@ -65,7 +71,7 @@ export function useCollectionOwnedRwaListModal({
   }, [open]);
 
   const { data: rows, isLoading } = useQuery({
-    queryKey: ["collection-owned-rwa", effectiveAddr, collectionKey, open],
+    queryKey: rq.collectionOwnedRwa(effectiveAddr ?? "", collectionKey),
     queryFn: async (): Promise<OwnedInCollection[]> => {
       if (!effectiveAddr) return [];
       const ids = await getRwaTokensByOwner(effectiveAddr);
@@ -92,7 +98,7 @@ export function useCollectionOwnedRwaListModal({
   });
 
   const { data: orders } = useQuery({
-    queryKey: rq.ordersActive(),
+    queryKey: rq.ordersActive(activeRqChainId()),
     queryFn: getActiveOrders,
     enabled: open && !!effectiveAddr,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
@@ -125,20 +131,14 @@ export function useCollectionOwnedRwaListModal({
     setCancellingHash(order.orderHash);
     try {
       await cancelOrder(order.orderHash, effectiveAddr);
-      await queryClient.invalidateQueries({ queryKey: ["orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
+      await invalidateAfterOrderCancel(queryClient, collectionKey);
     } finally {
       setCancellingHash(null);
     }
   }
 
   function invalidateAfterList() {
-    void queryClient.invalidateQueries({ queryKey: ["orders"] });
-    void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
-    void queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });
-    void queryClient.invalidateQueries({
-      queryKey: ["collection-owned-rwa", effectiveAddr, collectionKey],
-    });
+    void invalidateAfterCollectionListing(queryClient, collectionKey, effectiveAddr ?? "");
   }
 
   return {

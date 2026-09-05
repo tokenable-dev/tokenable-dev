@@ -1,8 +1,13 @@
 "use client";
 
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
-import { assetDetailHeadlineHasContent } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  assetDetailHeadlineHasContent,
+  formatCardDisplayMeta,
+  resolveRwaHeadlineGrade,
+} from "@/lib/marketplace/assetDetailHeadline";
 import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
+import { rwaDetailRightFont } from "@/components/marketplace/rwa-detail/theme";
 import { RwaDetailHeaderBadges } from "./ui/RwaDetailHeaderBadges";
 
 export function RwaDetailAssetPanelHeader({
@@ -22,15 +27,17 @@ export function RwaDetailAssetPanelHeader({
   hideHeaderOnXl?: boolean;
   openSeaMobile?: boolean;
 }) {
+  const metaText = formatCardDisplayMeta(headlineParts);
+
   return (
     <div
-      className={
+      className={`${rwaDetailRightFont.className} ${
         openSeaMobile
           ? "hidden space-y-2 px-0.5 lg:block lg:px-0"
           : hideHeaderOnXl
             ? "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0 lg:hidden"
             : "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0"
-      }
+      }`}
     >
       <RwaDetailHeaderBadges metadata={metadata} loading={headerRowPulse} variant="mobile" />
 
@@ -40,11 +47,17 @@ export function RwaDetailAssetPanelHeader({
           aria-hidden
         />
       ) : assetDetailHeadlineHasContent(headlineParts) ? (
-        <AssetDetailHeadlineTitle
-          as="h1"
-          parts={headlineParts}
-          className="text-xl font-bold leading-snug tracking-tight text-white sm:text-[1.375rem]"
-        />
+        <div className="min-w-0 space-y-1">
+          <AssetDetailHeadlineTitle
+            as="h1"
+            parts={headlineParts}
+            grade={resolveRwaHeadlineGrade(metadata)}
+            className="text-[17px] font-medium leading-snug tracking-normal text-white"
+          />
+          {metaText ? (
+            <p className="m-0 text-[13px] font-medium tracking-tight text-white/55">{metaText}</p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { Address } from "viem";
 import type { Order } from "@/lib/core";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
-import { countMyActiveOrders } from "@/lib/marketplace/collection-trading/countMyActiveOrders";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
+import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { CollectionTradingBuySellTablist } from "./CollectionTradingBuySellTablist";
 import { CollectionTradingDockBackdrop } from "./CollectionTradingDockBackdrop";
 import { collectionTradingSectionClassName } from "./collectionTradingTabsChrome";
@@ -62,21 +63,26 @@ export function CollectionTradingTabs({
   onTradeFlowChange?: (tab: CollectionTradeTab) => void;
 }) {
   const [internalFlow, setInternalFlow] = useState<CollectionTradeTab>("buy");
+  const pathname = usePathname();
+  const { runSellAccessGate } = useSellAccessGate(pathname || "/markets");
   const controlled = tradeFlowProp !== undefined && onTradeFlowChange !== undefined;
   const flow = controlled ? tradeFlowProp! : internalFlow;
   const setFlow = (f: CollectionTradeTab) => {
-    if (controlled) onTradeFlowChange!(f);
-    else setInternalFlow(f);
+    const apply = () => {
+      if (controlled) onTradeFlowChange!(f);
+      else setInternalFlow(f);
+    };
+    if (f === "sell") {
+      runSellAccessGate(apply);
+      return;
+    }
+    apply();
   };
-
-  const ordersCount = useMemo(
-    () => countMyActiveOrders(asks, collectionBids, connectedAddress),
-    [asks, collectionBids, connectedAddress],
-  );
 
   const docked = Boolean(flush && marketsDock);
   const dockControlled = onDockOpenChange != null;
   const dockVisible = docked ? (dockControlled ? dockOpen : true) : true;
+  const openSellModal = () => runSellAccessGate(() => onOpenSellModal());
 
   return (
     <>
@@ -92,9 +98,6 @@ export function CollectionTradingTabs({
       >
         <CollectionTradingTabsHeader
           collectionLabel={collectionLabel}
-          flow={flow}
-          ordersCount={ordersCount}
-          onSelectOrders={() => setFlow("orders")}
           flush={flush}
           docked={docked}
           dockControlled={dockControlled}
@@ -129,7 +132,7 @@ export function CollectionTradingTabs({
             bookSelection={bookSelection}
             address={address}
             onBuySuccess={onBuySuccess}
-            onOpenSellModal={onOpenSellModal}
+            onOpenSellModal={openSellModal}
             onInstantBuyFillUsdc={onInstantBuyFillUsdc}
             onPurchaseFilled={onPurchaseFilled}
             presetPriceFromBook={presetPriceFromBook}

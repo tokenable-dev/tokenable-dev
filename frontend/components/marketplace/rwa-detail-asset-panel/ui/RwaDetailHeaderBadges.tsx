@@ -10,8 +10,9 @@ import {
   RWA_DETAIL_OUTLINE_TAG_DESKTOP,
   RWA_DETAIL_OUTLINE_TAG_MOBILE,
 } from "../theme/constants";
+import { PsaVaultOutlineTag, PsaVaultOutlineTagSkeleton } from "./PsaVaultBadge";
 
-/** Collection-style outline badges (e.g. MLB · PSA 10) for RWA buy/detail headers. */
+/** Collection-style outline badges (category · PSA Vault) — grade is on Line 1 headline. */
 export function RwaDetailHeaderBadges({
   metadata,
   loading = false,
@@ -25,24 +26,22 @@ export function RwaDetailHeaderBadges({
 }) {
   const tagClass =
     variant === "mobile" ? RWA_DETAIL_OUTLINE_TAG_MOBILE : RWA_DETAIL_OUTLINE_TAG_DESKTOP;
-  const { category, gradeLine } = useMemo(
+  const { category } = useMemo(
     () => getRwaDetailHeaderBadgeLabels(metadata),
     [metadata],
   );
 
-  if (loading && !category && !gradeLine) {
+  if (loading && !category) {
     return (
       <div
         className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
         aria-hidden
       >
-        <span className="h-[26px] w-[4.5rem] animate-pulse rounded border border-zinc-800 bg-zinc-800/80" />
-        <span className="h-[26px] w-14 animate-pulse rounded border border-zinc-800 bg-zinc-800/80" />
+        <span className="h-[26px] w-[4.5rem] animate-pulse rounded border border-zinc-800 bg-zinc-800/80 max-sm:h-[20px]" />
+        <PsaVaultOutlineTagSkeleton variant={variant} />
       </div>
     );
   }
-
-  if (!category && !gradeLine) return null;
 
   return (
     <div
@@ -58,7 +57,7 @@ export function RwaDetailHeaderBadges({
           {category}
         </span>
       ) : null}
-      {gradeLine ? <span className={tagClass}>{gradeLine}</span> : null}
+      <PsaVaultOutlineTag variant={variant} />
     </div>
   );
 }
