@@ -17,8 +17,6 @@ export function CollectionListingOrderbookRow({
   collectionKey: string;
   listing: Order;
   imageUrl?: string | null;
-  /** @deprecated Grade is on collection Line 1 — not shown on orderbook rows. */
-  gradeLabel?: string | null;
   onOpenListing?: (tokenId: number, action?: "view" | "buy" | "bid") => void;
 }) {
   const fromQs = `fromCollection=${encodeURIComponent(collectionKey)}`;
