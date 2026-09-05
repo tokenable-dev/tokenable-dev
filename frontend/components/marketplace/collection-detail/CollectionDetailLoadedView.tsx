@@ -34,7 +34,7 @@ import {
   priceLevelKey,
   priceUsdcFromOrder,
 } from "@/lib/marketplace/unified-order-book";
-import { formatCardDisplayName } from "@/lib/marketplace/assetDetailHeadline";
+import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
@@ -254,7 +254,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   /** Card.html #tk-choose: `Name · # · Grade`; sub built in the sheet. */
   const chooseCopyTitle =
     headline.collectionHeadlineDisplayTitle ||
-    formatCardDisplayName(headline.collectionHeadlineParts);
+    formatAssetDetailLine1(headline.collectionHeadlineParts);
   const chooseCopyGradeLine = useMemo(() => {
     const grade = comp.gradeScore?.trim();
     if (!grade) return null;
@@ -343,7 +343,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           hideDesktopTopBarHeadline
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
-          coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} size="sm" />}
+          coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} />}
           coverGallery={coverGallery}
           belowCover={renderHeroDetailsTabs()}
           metadataRows={headline.metadataRows}
