@@ -1,9 +1,6 @@
 export { TkButton } from "./Button";
 export type { TkButtonProps, TkButtonVariant, TkButtonSize } from "./Button";
 
-export { TkIconButton } from "./IconButton";
-export type { TkIconButtonProps, TkIconButtonVariant, TkIconButtonSize } from "./IconButton";
-
 export { TkInput, TkTextarea, TkSelect } from "./Input";
 export type { TkInputProps, TkTextareaProps, TkSelectProps } from "./Input";
 
@@ -19,26 +16,17 @@ export type { TkActionSheetProps } from "./ActionSheet";
 export { TkTabs, TkTab } from "./Tabs";
 export type { TkTabsProps, TkTabProps } from "./Tabs";
 
-export { TkTag, TkBadge, TkStat } from "./Tag";
-export type { TkTagProps, TkBadgeProps, TkStatProps, TkTagTone, TkTagAppearance } from "./Tag";
-
-export { TkCard } from "./Card";
-export type { TkCardProps } from "./Card";
+export { TkTag, TkBadge } from "./Tag";
+export type { TkTagProps, TkBadgeProps, TkTagTone, TkTagAppearance } from "./Tag";
 
 export { TkTable } from "./Table";
 export type { TkTableProps } from "./Table";
 
-export { TkSearchInput } from "./SearchInput";
-export type { TkSearchInputProps } from "./SearchInput";
-
-export { TkDivider } from "./Divider";
-export type { TkDividerProps } from "./Divider";
-
 export { TkNote } from "./Note";
 export type { TkNoteProps, TkNoteTone } from "./Note";
 
-export { TkCheckbox, TkSwitch } from "./Checkbox";
-export type { TkCheckboxProps, TkSwitchProps } from "./Checkbox";
+export { TkCheckbox } from "./Checkbox";
+export type { TkCheckboxProps } from "./Checkbox";
 
 export { TkStepper } from "./Stepper";
 export type {
