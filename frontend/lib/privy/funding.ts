@@ -21,9 +21,6 @@ export const ETHEREUM_FUNDING_CAIP2 = "eip155:1" as const;
 /** Polygon mainnet — Tokenable production trading / USDC settlement. */
 export const POLYGON_FUNDING_CAIP2 = "eip155:137" as const;
 
-/** @deprecated Use {@link resolveFundingTargetCaip2}. */
-export const TOKENABLE_FUNDING_CAIP2 = POLYGON_FUNDING_CAIP2;
-
 /** EVM chain id → CAIP-2 (Privy fiat on-ramp / funding APIs). */
 export function chainIdToCaip2(chainId: number): `eip155:${number}` {
   return `eip155:${chainId}`;

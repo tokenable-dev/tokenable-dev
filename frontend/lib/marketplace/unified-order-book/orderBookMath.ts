@@ -165,11 +165,6 @@ export function applyOrderBookNotionalDepth(
   };
 }
 
-/** @deprecated Use {@link applyOrderBookNotionalDepth}. */
-export const applyOrderBookCumulativeDepth = applyOrderBookNotionalDepth;
-/** @deprecated Use {@link applyOrderBookNotionalDepth}. */
-export const applyOrderBookQuantityDepth = applyOrderBookNotionalDepth;
-
 /** Order-book Total column — `$999` or `$1.2k` / `$3.4m` / `$1.1b`. */
 export function formatOrderBookTotalUsdc(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—";
