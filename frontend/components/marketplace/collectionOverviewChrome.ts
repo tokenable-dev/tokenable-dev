@@ -35,7 +35,7 @@ export const COLLECTION_MARKET_CLUSTER_BEZEL =
  * Desktop chart band — height also sets the flush order book / Trades column (`lg`+).
  * Compact band fits ~10 trade rows in the adjacent column (aligned with RWA card detail).
  */
-export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
+const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
   "lg:h-[220px] lg:max-h-[220px]";
 
 /** Grade/range toolbar band above collection detail chart (hidden in UI; height reclaimed). */

@@ -41,7 +41,7 @@ tokenable-dev/
 | What | Where |
 |------|-------|
 | Local setup | [guides/local-setup.md](guides/local-setup.md) |
-| Database (22 entities) | [architecture/database.md](architecture/database.md) |
+| Database (36 TypeORM entities) | [architecture/database.md](architecture/database.md) |
 | Backend module map | [architecture/backend.md](architecture/backend.md) |
 | Frontend structure | [architecture/frontend.md](architecture/frontend.md) |
 | Blockchain / contract | [architecture/blockchain.md](architecture/blockchain.md) |
@@ -57,6 +57,8 @@ tokenable-dev/
 | Testing strategy | [testing.md](testing.md) |
 | Error handling | [error-handling.md](error-handling.md) |
 | File structure | [file-structure.md](file-structure.md) |
+| Card display name (SSOT) | [guides/card-display-name.md](guides/card-display-name.md) |
+| PSA grade policy (SSOT) | [guides/psa-grade-policy.md](guides/psa-grade-policy.md) |
 | Marketplace admin console | [guides/marketplace-admin.md](guides/marketplace-admin.md) |
 | Privy wallet funding | [guides/privy-wallet-funding.md](guides/privy-wallet-funding.md) |
 | Troubleshooting | [guides/troubleshooting.md](guides/troubleshooting.md) |

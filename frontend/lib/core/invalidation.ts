@@ -137,7 +137,6 @@ export async function invalidateAfterCollectionUpdate(
  * Refreshes broader scope than a simple collection update because bids affect
  * order book state, RWA ownership, and all market series.
  *
- * Replaces: `invalidateCollectionCriteriaBidQueries`
  */
 export async function invalidateAfterCriteriaBid(
   qc: QueryClient,

@@ -189,11 +189,15 @@ describe('User management integration (Postgres)', () => {
   });
 
   itIf('merges Privy account onto existing email user without duplicate users', async () => {
-    const legacy = await users.createWithPassword({
-      email: TEST_EMAIL,
-      passwordHash: 'hash',
-      name: 'Legacy',
-    });
+    const legacy = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: TEST_EMAIL,
+        passwordHash: 'hash',
+        name: 'Legacy',
+        googleId: null,
+        emailVerified: false,
+      }),
+    );
 
     const profile = buildFullPrivyProfile();
     const merged = await users.findOrCreateFromPrivy({

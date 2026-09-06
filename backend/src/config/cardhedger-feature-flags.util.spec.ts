@@ -1,4 +1,8 @@
-import { readCardhedgerFeatureFlags } from './cardhedger-feature-flags.util';
+import {
+  isCardhedgerPriceDeltaCronEnabled,
+  isCardhedgerPriceInfraEnabled,
+  readCardhedgerFeatureFlags,
+} from './cardhedger-feature-flags.util';
 
 describe('readCardhedgerFeatureFlags', () => {
   it('defaults all flags to false', () => {
@@ -43,6 +47,39 @@ describe('readCardhedgerFeatureFlags', () => {
       dailyPriceDeltaImportEnabled: true,
       dailyPriceExportCsvEnabled: false,
     });
+  });
+
+  it('price infra module is off when webhook/subscribe/delta/csv are off', () => {
+    expect(isCardhedgerPriceInfraEnabled(readCardhedgerFeatureFlags({}))).toBe(
+      false,
+    );
+    expect(
+      isCardhedgerPriceInfraEnabled(
+        readCardhedgerFeatureFlags({ CARDHEDGER_PRICE_WEBHOOK_ENABLED: '1' }),
+      ),
+    ).toBe(true);
+    expect(
+      isCardhedgerPriceInfraEnabled(
+        readCardhedgerFeatureFlags({
+          CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED: 'true',
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('delta cron follows explicit env then NODE_ENV=production', () => {
+    expect(isCardhedgerPriceDeltaCronEnabled({ NODE_ENV: 'development' })).toBe(
+      false,
+    );
+    expect(isCardhedgerPriceDeltaCronEnabled({ NODE_ENV: 'production' })).toBe(
+      true,
+    );
+    expect(
+      isCardhedgerPriceDeltaCronEnabled({
+        NODE_ENV: 'production',
+        CARDHEDGER_PRICE_DELTA_CRON_ENABLED: '0',
+      }),
+    ).toBe(false);
   });
 
   it('treats 0/false as disabled', () => {

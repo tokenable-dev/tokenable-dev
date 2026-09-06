@@ -21,7 +21,6 @@ export {
   buildPrivyClientConfig,
   privyDefaultChain,
   privyClientConfig,
-  privyConfig,
   wagmiPrivyConfig,
 } from "./config";
 

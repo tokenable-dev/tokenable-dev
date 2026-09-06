@@ -18,6 +18,11 @@ import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { CardhedgerModule } from './cardhedger/cardhedger.module';
+import { CardhedgerPriceInfraModule } from './cardhedger/cardhedger-price-infra.module';
+import {
+  isCardhedgerPriceInfraEnabled,
+  readCardhedgerFeatureFlags,
+} from './config/cardhedger-feature-flags.util';
 import { CardladderModule } from './cardladder/cardladder.module';
 import { RwaModule } from './rwa/rwa.module';
 import { PsaModule } from './psa/psa.module';
@@ -112,19 +117,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
         password: config.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: config.getOrThrow<string>('POSTGRES_DB'),
         extra: {
-          /**
-           * pg-pool uses this both for a new TCP handshake and for waiting
-           * on a busy pool. Exceeding it surfaces as
-           * "timeout exceeded when trying to connect" even when Postgres is up
-           * (Docker Desktop dropped an idle socket, or all `max` clients are
-           * checked out). KeepAlive avoids the silent-idle-drop case.
-           */
+          // Handshake + checkout wait; see docs/architecture/backend.md (Production TypeORM).
           connectionTimeoutMillis: 8_000,
-          /**
-           * Bounded pool so a traffic spike queues inside the app instead of
-           * exhausting Postgres max_connections (default 100, shared with
-           * psql/admin sessions).
-           */
           max: Number(config.get<string>('DB_POOL_MAX') ?? '20'),
           idleTimeoutMillis: 30_000,
           keepAlive: true,
@@ -199,6 +193,9 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
     RwaModule,
     BlockchainModule,
     CardhedgerModule,
+    ...(isCardhedgerPriceInfraEnabled(readCardhedgerFeatureFlags())
+      ? [CardhedgerPriceInfraModule]
+      : []),
     CardladderModule,
     PsaModule,
     MarketplaceModule,

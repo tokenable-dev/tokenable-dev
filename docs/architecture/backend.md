@@ -5,7 +5,7 @@
 
 ## Marketplace layout
 
-The marketplace domain is organized into **six submodules**:
+The marketplace domain is organized into **ten submodules** (folders under `marketplace/`):
 
 | Submodule | Role |
 |-----------|------|
@@ -13,16 +13,19 @@ The marketplace domain is organized into **six submodules**:
 | `marketplace/collections/` | Bucket metadata, listing enrichment, merkle set, **identity cache**, RWA token admin |
 | `marketplace/market-data/` | Cardhedger resolve / pricing / mint previews / AI insight |
 | `marketplace/snapshots/` | Materialized `collection_market_snapshots` (write, read, cron) |
-| `marketplace/portfolio/` | Daily wallet snapshots + hidden-holdings preference |
+| `marketplace/portfolio/` | Daily wallet snapshots + `portfolio_holdings.hidden_at` |
 | `marketplace/watchlist/` | Per-user saved collections |
 | `marketplace/admin/` | Marketplace admin auth (username/password, separate from `users`) |
+| `marketplace/p2p/` | Custody P2P listings + payment escrow orders |
+| `marketplace/partners/` | Partner wallets / origin address for self-vault |
+| `marketplace/notifications/` | In-app inbox (bid / trade / vault / price) |
 
 Cross-cutting:
 
 - **`CollectionIdentityService`** — canonical writer for `components.cardhedgerCardId` with L1 in-process + L2 Redis cache, row-lock precedence, write-through invalidation.
 - **`CardhedgerResolveService`** — Cardhedger card-search resolution.
 - **`CardhedgerAdminModule`** — ops health + Prometheus scrape (`/api/admin/cardhedger/*`).
-- **`CardhedgerPriceInfraModule`** — price webhook receiver, subscription sync, nightly delta import.
+- **`CardhedgerPriceInfraModule`** — optional: loaded only when webhook / subscribe / nightly delta / CSV flags are on. Live list prices stay on `collection_market_snapshots`.
 - **`common/cache/`** — global in-memory TTL cache (`TTL_CACHE_PROVIDER`).
 - **`common/metrics/`** — Cardhedger operational counters.
 - **`common/perf/`** — lightweight JSON stdout performance logging.
@@ -34,7 +37,7 @@ Cross-cutting:
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, helmet, compression, CORS, ValidationPipe, Swagger, perf logger
-├── app.module.ts            # Root — TypeORM (22 entities), ScheduleModule, EventEmitter, CacheModule
+├── app.module.ts            # Root — TypeORM (36 entities), ScheduleModule, EventEmitter, CacheModule
 │
 ├── config/
 │   ├── app.config.ts
@@ -65,6 +68,7 @@ backend/src/
 ├── vault/                   # Physical card vault lifecycle — DB orchestration only
 │   ├── vault.service.ts     # VaultAsset, VaultCycle, VaultRedemption state machine
 │   ├── vault-submissions.*  # User vault intake (JWT)
+│   ├── gmail-api.client.ts  # Shared Gmail REST for PSA received/vaulted pollers
 │   └── entities/
 │
 ├── blockchain/              # Multi-chain reads + IPFS + write operations
@@ -100,7 +104,7 @@ backend/src/
     └── notifications/
 ```
 
-**Entities (TypeORM):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHolding`, `UserWatchlist`, `MarketplaceAdmin`, `MarketplacePartner`, `MarketplaceNotification`, P2P entities, Cardhedger price infra entities, `VaultAsset`, `VaultCycle`, `VaultRedemption`, `VaultSubmission` — see [database.md](./database.md).
+**Entities (TypeORM):** `app.module.ts` registers **36** classes (users + shipping + wallets + KYC, vault lifecycle including PSA arrival/vaulted reviews and redeem payment claims, marketplace core, P2P, notifications, self-vault settlements, portfolio/watchlist/buyer alerts, partners + bulk mint, Cardhedger price infra, `RwaOwnerIndexCursor`). Table list: [database.md](./database.md).
 
 ---
 
@@ -113,9 +117,11 @@ backend/src/
 | `POST /api/auth/privy/session` | Exchange Privy access token → Tokenable JWT cookie |
 | `GET /api/auth/session` | Current session (never 401; returns `{ user: null }` if anonymous) |
 | `POST /api/auth/logout` | Clear cookie |
+| `PATCH /api/auth/profile` | Display name + notification / marketing prefs (JWT) |
+| `POST /api/auth/avatar` | Avatar upload (JWT) |
 | `POST /api/auth/delete-account` | Delete account (JWT) |
 
-**Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module.
+**Removed:** legacy `register` / `login` / Google OAuth / email verification / password-reset routes **and** the unused SMTP `mail/` module. Unused `UserService` helpers (`createWithPassword`, `findOrCreateFromGoogle`, `updatePasswordHash`, unused wallet wrappers) and the unused `passport-google-oauth20` package were deleted; live login is still `findOrCreateFromPrivy` + admin password on `marketplace_admins`.
 
 **Admin auth:** Separate username/password (`marketplace_admins` table) → `marketplace_admin` HMAC cookie.
 
@@ -149,6 +155,28 @@ POST /api/marketplace/admin/rwa-tokens/:id/burn
 ```
 
 Detail: [vault-lifecycle.md](./vault-lifecycle.md).
+
+## Write ownership (mint / redeem / covers)
+
+Do not merge these services. Each row is the **writer**; others call into it.
+
+| Concern | Who writes | Entry | Notes |
+|---------|------------|-------|-------|
+| User / partner mint | `RwaMintService` | `POST /api/rwa/mint`, bulk-mint commit | Calls `VaultService.reserveCycleForDeposit` then chain `mintTo` |
+| Admin queue mint | `VaultSubmissionAdminMintService` | admin vault-submission mint | Still calls `RwaMintService` for the chain write |
+| Vault cycle / redemption rows | `VaultService` | called from mint + redeem | Physical-card state machine only |
+| Redeem fees + USDC verify | `RwaRedeemService` + `RedeemShippingFeeCalculator` | `POST /api/rwa/redeem-batch` | Keep fee math here |
+| Redeem admin (tracking, refund, burn trigger) | `RedeemsAdminService` | `/api/marketplace/admin/redeems*` | State / ops; not fee quotes |
+| Catalog cover URL | `CollectionCoverService` | admin cover upload / ingest | Writes `marketplace_collections.coverImageUrl` |
+| Cover object bytes | `CatalogCoverS3Service` | used by cover + avatars | S3 put only |
+| Slab / display image | `RwaSlabS3Service` | mint + slab backfill | Distinct from catalog cover |
+| PSA received mail | `PsaReceivedMailService` | cron | Ingest + arrival reviews |
+| PSA vaulted mail | `PsaVaultedMailService` | cron | Ingest + optional auto-mint |
+| Gmail HTTP | `GmailApiClient` | used by both pollers | Token, list/get/label/modify/insert + MIME decode |
+
+`auth/privy/` is the user session (JWKS + profile upsert). `privy/` is the catalog/funding API proxy. Do not rename.
+
+`marketplace/utils/` stays; new helpers belong next to the domain that owns them.
 
 ---
 
@@ -224,10 +252,11 @@ All writes use `SELECT … FOR UPDATE` on the collection row — multi-pod safe.
 
 | Chain ID | Network | Notes |
 |----------|---------|-------|
-| `11155111` | Ethereum Sepolia | Default dev chain |
-| `1` | Ethereum mainnet | Production chain |
+| `11155111` | Ethereum Sepolia | Fallback when `DEFAULT_CHAIN_ID` is unset or unsupported |
+| `1` | Ethereum mainnet | Production Ethereum |
+| `137` | Polygon | Production marketplace chain when configured |
 
-Chain ID is read from `x-tokenable-chain-id` header; falls back to `DEFAULT_CHAIN_ID`.
+`SUPPORTED_CHAIN_IDS` is `[11155111, 1, 137]`. Header `x-tokenable-chain-id` must be one of those or the request uses `DEFAULT_CHAIN_ID` (same fallback). Amoy `80002` is not in this list.
 
 ## Production TypeORM
 
@@ -235,7 +264,7 @@ Chain ID is read from `x-tokenable-chain-id` header; falls back to `DEFAULT_CHAI
 synchronize: NODE_ENV !== 'production'
 ```
 
-Use bootstrap SQL for prod; do not rely on `synchronize` in production.
+Production schema changes go through `backend/sql/schema/` and `backend/sql/maintenance/`. Do not enable `synchronize` in production. Do not re-run `bootstrap-db.sh` on a populated database.
 
 Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`, TCP `keepAlive`. pg-pool reports checkout/handshake waits as `timeout exceeded when trying to connect` — that is often a dead idle socket (Docker Desktop) or a full pool, not Postgres being down. `GET /api/health` can still succeed if one live client remains in the pool.
 
@@ -264,3 +293,17 @@ flowchart TB
     MM --> OR
     SN <-->|forwardRef| CO
 ```
+
+## Large-file seams (do not split in a cleanup-only PR)
+
+These files are cohesive and on the live read/write path. **Do not split them because they are long.** Split only inside a feature PR that already has to edit that file, and only along the seam that change needs. Canonical rule: `.cursor/rules/simplicity.mdc` (Known Complexity Hotspots).
+
+| File | Approx. role | Future seam (only if a feature PR is already in that slice) |
+|------|----------------|---------------------------------------------------------------|
+| `marketplace/market-data/cardhedger-pricing.service.ts` | Cardhedger HTTP + comps/history/preview | Upstream fetch/cache vs collection-facing snapshot/preview builders. Do not move live reads off `collection_market_snapshots`. |
+| `marketplace/market-data/cardhedger-resolve.service.ts` | Card search → `card_id` | Query builder vs `resolveCardForCollection`. Identity writes stay in `CollectionIdentityService`. |
+| `marketplace/collections/collection-market.service.ts` | Collection bundle, trades, home, portfolio batch | Bundle/stats vs trade history vs home feed vs portfolio index. Snapshot **writes** stay in `marketplace/snapshots/`. |
+| `psa/psa.service.ts` | Slab OCR + analyze-by-cert | Image analyze vs cert analyze. Do not add PSA HTTP outside `PsaModule`. |
+| `psa/psa-public-api.service.ts` | Cert / images / order progress + token pool | Cert lookup vs images vs submission progress. The multi-token pool remains the only Public API access pattern. |
+
+**Not a seam this cycle (leave whole):** `marketplace/admin/data-inventory.service.ts`, `marketplace-admin.module.ts`. Do not merge platform analytics into inventory. Redeem/burn stays in Vault + `rwa-redeem` / chain writer.

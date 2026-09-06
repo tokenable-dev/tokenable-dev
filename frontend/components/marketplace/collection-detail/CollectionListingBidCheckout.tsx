@@ -6,25 +6,14 @@ import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
+import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
+import { shortenWalletAddress } from "@/lib/wallet/walletMenuDisplay";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import {
   TOKEN_BID_UI_DURATION_DAYS,
   tokenBidDurationOptionLabel,
 } from "@/lib/seaport/orders/submitTokenBid";
-
-function formatUsdc2(n: number): string {
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function shortWallet(addr: string): string {
-  const s = addr.trim();
-  if (s.length < 10) return s;
-  return `${s.slice(0, 4)}…${s.slice(-4)}`;
-}
 
 function formatBidInputDisplay(raw: string): string {
   if (!raw) return "";
@@ -115,10 +104,10 @@ export function CollectionListingBidCheckout({
   const listedHint = useMemo(() => {
     const parts: string[] = [];
     if (askDisplayUsd != null) {
-      parts.push(`Listed at $${formatUsdc2(askDisplayUsd)}`);
+      parts.push(`Listed at $${formatTradeTicketUsdcPrice(askDisplayUsd)}`);
     }
     if (highestDisplayUsd != null) {
-      parts.push(`Highest offer $${formatUsdc2(highestDisplayUsd)}`);
+      parts.push(`Highest offer $${formatTradeTicketUsdcPrice(highestDisplayUsd)}`);
     }
     if (parts.length === 0) {
       return "No active listing · connect wallet to bid";
@@ -144,7 +133,7 @@ export function CollectionListingBidCheckout({
   const showSuccess = bid.step === "success";
   const placedBidLabel = useMemo(() => {
     if (!Number.isFinite(bid.priceUsdc) || bid.priceUsdc <= 0) return null;
-    return formatUsdc2(bid.priceUsdc);
+    return formatTradeTicketUsdcPrice(bid.priceUsdc);
   }, [bid.priceUsdc]);
   const expiryLabel = tokenBidDurationOptionLabel(bid.durationDays);
 
@@ -318,7 +307,7 @@ export function CollectionListingBidCheckout({
         <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
           <span className="cd-listing-checkout__wallet-id">
             <span className="cd-listing-checkout__wallet-icon" aria-hidden />
-            <span className="tkl-mono">{shortWallet(bid.address)}</span>
+            <span className="tkl-mono">{shortenWalletAddress(bid.address)}</span>
           </span>
           {bid.balanceUsdc != null ? (
             <span className="cd-listing-checkout__wallet-balance tkl-mono">
