@@ -53,7 +53,6 @@ export function sanitizeTokenBidPriceInput(raw: string): string {
 
 /** `0` = unlimited. Restore to `1` with the backend env cap. */
 export const MAX_ACTIVE_BIDS_PER_COLLECTION = 0;
-export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
 
 export type TokenOfferStep =
   | "idle"

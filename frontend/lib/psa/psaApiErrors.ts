@@ -5,8 +5,6 @@ export const PSA_RATE_LIMIT_CODE = "PSA_RATE_LIMIT_EXCEEDED";
 export const PSA_RATE_LIMIT_ALERT_MESSAGE =
   "PSA Public API quota or rate limit reached. Wait for the daily reset or check your plan at psacard.com/publicapi. After changing backend/.env, restart the backend server.";
 
-export const PSA_RATE_LIMIT_OVERLAY_TITLE = PSA_RATE_LIMIT_ALERT_MESSAGE;
-
 export class PsaApiError extends Error {
   readonly status: number;
   readonly code?: string;
