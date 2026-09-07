@@ -42,7 +42,10 @@ function periodChipLabel(
 
 function formatAskBidUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-  return formatUsdListing(n);
+
+  return `$${n.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 /** Strip segments already shown in `#hero-title` (name / number / grade). */
