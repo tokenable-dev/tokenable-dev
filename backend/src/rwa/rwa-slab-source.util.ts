@@ -1,4 +1,7 @@
-import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
+import {
+  isHttpOrHttpsUrl,
+  pickRwaAssetDisplayImageRef,
+} from '../marketplace/utils/collection-image.util';
 
 /**
  * Resolve a remote HTTPS URL suitable for S3 slab ingest from mint metadata.
@@ -11,6 +14,6 @@ export function resolveMintSlabSourceUrl(
   const ref = pickRwaAssetDisplayImageRef(metadata);
   if (!ref?.trim()) return null;
   const t = ref.trim();
-  if (/^https?:\/\//i.test(t)) return t;
+  if (isHttpOrHttpsUrl(t)) return t;
   return null;
 }

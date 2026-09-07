@@ -19,6 +19,7 @@ export function usePortfolioActiveOrders(
     queryFn: () => getActiveAsksByOfferer(address!),
     enabled: enabled && Boolean(address?.trim()),
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    refetchIntervalInBackground: false,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 

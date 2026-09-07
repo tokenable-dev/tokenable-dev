@@ -1,5 +1,6 @@
 import {
   isCardhedgerBubbleResizeUrl,
+  isHttpOrHttpsUrl,
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
   pickPreferredCollectionCoverUrl,
@@ -7,6 +8,18 @@ import {
   rankCollectionCoverUrls,
   scoreCollectionCoverUrl,
 } from './collection-image.util';
+
+describe('isHttpOrHttpsUrl', () => {
+  it('accepts http(s) and rejects ipfs / protocol-relative / empty', () => {
+    expect(isHttpOrHttpsUrl('https://cdn.example/a.jpg')).toBe(true);
+    expect(isHttpOrHttpsUrl('http://cdn.example/a.jpg')).toBe(true);
+    expect(isHttpOrHttpsUrl('  https://cdn.example/a.jpg  ')).toBe(true);
+    expect(isHttpOrHttpsUrl('ipfs://bafy')).toBe(false);
+    expect(isHttpOrHttpsUrl('//cdn.example/a.jpg')).toBe(false);
+    expect(isHttpOrHttpsUrl('')).toBe(false);
+    expect(isHttpOrHttpsUrl(null)).toBe(false);
+  });
+});
 
 describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
   const bubbleResize =

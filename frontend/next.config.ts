@@ -77,6 +77,16 @@ const nextConfig: NextConfig = {
         destination: "/markets",
         permanent: true,
       },
+      {
+        source: "/vault/submit/mint",
+        destination: "/vault/submit",
+        permanent: false,
+      },
+      {
+        source: "/signup",
+        destination: "/login",
+        permanent: false,
+      },
     ];
   },
   images: {

@@ -60,6 +60,7 @@ export function usePortfolioMyBids(address: string | undefined) {
     enabled: Boolean(address?.trim()),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   const allBids = useMemo(

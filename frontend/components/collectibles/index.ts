@@ -1,1 +1,0 @@
-export { CollectibleCard } from "./CollectibleCard";

@@ -54,7 +54,6 @@ interface AuthUiState {
   pendingReturnTo: string | null;
 
   openSignIn: (opts?: { mode?: AuthModalMode; returnTo?: string }) => void;
-  openSignUp: (opts?: { returnTo?: string }) => void;
   closeSignIn: () => void;
   openConnectWallet: (opts?: {
     returnTo?: string;
@@ -84,13 +83,6 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     set({
       signInOpen: true,
       signInMode: opts?.mode ?? "sign-in",
-      pendingReturnTo: resolvePendingReturnTo(opts?.returnTo, get().pendingReturnTo),
-    }),
-
-  openSignUp: (opts) =>
-    set({
-      signInOpen: true,
-      signInMode: "sign-up",
       pendingReturnTo: resolvePendingReturnTo(opts?.returnTo, get().pendingReturnTo),
     }),
 

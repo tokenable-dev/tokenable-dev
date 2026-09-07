@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tokenable uses **Ethereum** (Sepolia testnet 11155111 + mainnet 1) for:
+Tokenable uses **EVM chains** configured in `ChainConfigService` (`SUPPORTED_CHAIN_IDS`: Sepolia `11155111`, Ethereum mainnet `1`, Polygon `137`) for:
 
 - **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards
 - **Seaport 1.5** — off-chain order book with on-chain USDC settlement (Vault channel)
@@ -133,7 +133,7 @@ Resolves per-chain configuration from env vars. Used throughout the backend for 
 
 | Method | Returns |
 |--------|---------|
-| `getDefaultChainId()` | `DEFAULT_CHAIN_ID` env (default: 80002) |
+| `getDefaultChainId()` | `DEFAULT_CHAIN_ID` env if it is in `SUPPORTED_CHAIN_IDS`, else `11155111` |
 | `resolveChainId(headerValue?)` | From `x-tokenable-chain-id` header or default |
 | `getRpcUrl(chainId)` | `CHAIN_{id}_RPC_URL` |
 | `getRwaAddress(chainId)` | `CHAIN_{id}_RWA_ADDRESS` |

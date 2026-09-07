@@ -42,8 +42,6 @@ export const MARKETS_CATEGORY_SELECT_OPTIONS: CategorySelectOption[] =
     label: f.label,
   }));
 
-export const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = MARKETS_CATEGORY_FILTERS;
-
 export const MARKETS_DEFAULT_CATEGORY_FILTER: CollectionCategoryFilterId = "all";
 
 export const MARKETS_CATEGORY_IDS: readonly CollectionCategoryId[] =

@@ -198,6 +198,7 @@ export function PortfolioPageView({
     enabled: portfolioDataEnabled && Boolean(portfolioAddress?.trim()),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   const {

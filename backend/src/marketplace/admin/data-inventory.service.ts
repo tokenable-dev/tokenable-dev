@@ -66,8 +66,18 @@ export type DataInventoryResponse = {
   totals: {
     storeCount: number;
     rowCount: number;
+    rowCountsEstimated: boolean;
   };
 };
+
+/** Planner estimate when > 0; exact COUNT when estimate is 0 (empty vs stale ANALYZE). */
+export async function resolveInventoryRowCount(
+  estimate: number,
+  countExact: () => Promise<number>,
+): Promise<number> {
+  if (estimate > 0) return Math.floor(estimate);
+  return countExact();
+}
 
 export type DataInventorySchemaColumn = {
   name: string;
@@ -389,7 +399,8 @@ export class DataInventoryService {
   }
 
   async getInventory(): Promise<DataInventoryResponse> {
-    const statsById = await this.loadAllStats();
+    const estimates = await this.estimateAllRows();
+    const statsById = await this.loadAllStats(estimates);
     const catalogStores: DataStoreInventoryRow[] = DATA_STORE_CATALOG.map(
       (entry) => {
         const stats = statsById.get(entry.id) ?? emptyStats();
@@ -405,7 +416,10 @@ export class DataInventoryService {
       if (catalogTables.has(table)) continue;
       if (table.startsWith('pg_') || table === 'spatial_ref_sys') continue;
       try {
-        const rowCount = await this.countRows(table);
+        const rowCount = await resolveInventoryRowCount(
+          estimates.get(table) ?? 0,
+          () => this.countRows(table),
+        );
         extraStores.push({
           id: table,
           table,
@@ -436,6 +450,7 @@ export class DataInventoryService {
       totals: {
         storeCount: stores.length,
         rowCount: stores.reduce((sum, s) => sum + s.rowCount, 0),
+        rowCountsEstimated: true,
       },
     };
   }
@@ -591,113 +606,115 @@ export class DataInventoryService {
     );
   }
 
-  private async loadAllStats(): Promise<Map<string, DataStoreStats>> {
+  private async loadAllStats(
+    estimates: Map<string, number>,
+  ): Promise<Map<string, DataStoreStats>> {
     const results = await Promise.all([
       this.loadSimple('marketplace_collections', this.collectionsRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('rwa_tokens', this.rwaRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('bulk_mint_jobs', this.bulkMintJobsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('bulk_mint_job_items', this.bulkMintItemsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('marketplace_partners', this.partnersRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
-      this.loadMarketSnapshots(),
-      this.loadTop100Snapshots(),
+      }, estimates),
+      this.loadMarketSnapshots(estimates),
+      this.loadTop100Snapshots(estimates),
       this.loadSimple('cardhedger_price_delta_import_runs', this.deltaRunsRepo, {
         oldest: 'ranAt',
         newest: 'ranAt',
         lastActivity: 'ranAt',
-      }),
+      }, estimates),
       this.loadDeltaCheckpoint(),
-      this.loadPriceSubscriptions(),
+      this.loadPriceSubscriptions(estimates),
       this.loadSimple('cardhedger_daily_price_export_runs', this.exportRunsRepo, {
         oldest: 'ranAt',
         newest: 'ranAt',
         lastActivity: 'ranAt',
-      }),
-      this.loadPortfolioSnapshots(),
+      }, estimates),
+      this.loadPortfolioSnapshots(estimates),
       this.loadSimple('portfolio_holdings', this.portfolioHoldingsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('user_watchlist', this.watchlistRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('orders', this.ordersRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('p2p_orders', this.p2pOrdersRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('p2p_listings', this.p2pListingsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('users', this.usersRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('user_wallets', this.walletsRepo, {
         oldest: 'linkedAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('user_kyc_events', this.kycEventsRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('vault_assets', this.vaultAssetsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('vault_cycles', this.vaultCyclesRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('vault_redemptions', this.vaultRedemptionsRepo, {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }),
+      }, estimates),
       this.loadSimple('vault_submissions', this.vaultSubmissionsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
       this.loadSimple('vault_submission_items', this.vaultSubmissionItemsRepo, {
         oldest: 'createdAt',
         newest: 'updatedAt',
         lastActivity: 'updatedAt',
-      }),
+      }, estimates),
     ]);
 
     return new Map(results);
@@ -711,8 +728,15 @@ export class DataInventoryService {
       newest: string;
       lastActivity: string;
     },
+    estimates: Map<string, number>,
   ): Promise<[string, DataStoreStats]> {
     try {
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
+      if (rowCount === 0) return [id, emptyStats()];
+
       const alias = 'row';
       const oldestCol = `${alias}.${columns.oldest}`;
       const newestCol = `${alias}.${columns.newest}`;
@@ -720,12 +744,10 @@ export class DataInventoryService {
 
       const row = await repo
         .createQueryBuilder(alias)
-        .select('COUNT(*)::int', 'rowCount')
-        .addSelect(`MIN(${oldestCol})`, 'oldestAt')
+        .select(`MIN(${oldestCol})`, 'oldestAt')
         .addSelect(`MAX(${newestCol})`, 'newestAt')
         .addSelect(`MAX(${lastCol})`, 'lastActivityAt')
         .getRawOne<{
-          rowCount: number;
           oldestAt: Date | string | null;
           newestAt: Date | string | null;
           lastActivityAt: Date | string | null;
@@ -733,14 +755,12 @@ export class DataInventoryService {
 
       return [
         id,
-        this.toStats(
-          row ?? {
-            rowCount: 0,
-            oldestAt: null,
-            newestAt: null,
-            lastActivityAt: null,
-          },
-        ),
+        this.toStats({
+          rowCount,
+          oldestAt: row?.oldestAt ?? null,
+          newestAt: row?.newestAt ?? null,
+          lastActivityAt: row?.lastActivityAt ?? null,
+        }),
       ];
     } catch (err) {
       this.logSkip(id, err);
@@ -748,14 +768,15 @@ export class DataInventoryService {
     }
   }
 
-  private async loadMarketSnapshots(): Promise<[string, DataStoreStats]> {
+  private async loadMarketSnapshots(
+    estimates: Map<string, number>,
+  ): Promise<[string, DataStoreStats]> {
     const id = 'collection_market_snapshots';
     try {
       const [aggregate, stateRows, withCardhedger] = await Promise.all([
         this.marketSnapshotsRepo
           .createQueryBuilder('s')
-          .select('COUNT(*)::int', 'rowCount')
-          .addSelect('MIN(s.createdAt)', 'oldestAt')
+          .select('MIN(s.createdAt)', 'oldestAt')
           .addSelect('MAX(s.syncedAt)', 'newestAt')
           .addSelect('MAX(s.updatedAt)', 'lastActivityAt')
           .getRawOne<TableStats>(),
@@ -776,10 +797,17 @@ export class DataInventoryService {
         stateRows.map((r) => [r.state, Number(r.count) || 0]),
       ) as Record<string, number>;
 
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
       return [
         id,
         {
-          ...this.toStats(aggregate ?? emptyTableStats()),
+          ...this.toStats({
+            ...(aggregate ?? emptyTableStats()),
+            rowCount,
+          }),
           highlights: {
             withCardhedgerId: withCardhedger,
             fresh: byState.fresh ?? 0,
@@ -795,15 +823,16 @@ export class DataInventoryService {
     }
   }
 
-  private async loadTop100Snapshots(): Promise<[string, DataStoreStats]> {
+  private async loadTop100Snapshots(
+    estimates: Map<string, number>,
+  ): Promise<[string, DataStoreStats]> {
     const id = 'card_top100_daily_snapshots';
     try {
       const [aggregate, distinctDates, distinctCategories, latestRow] =
         await Promise.all([
           this.top100Repo
             .createQueryBuilder('t')
-            .select('COUNT(*)::int', 'rowCount')
-            .addSelect('MIN(t.snapshotDateKst)', 'oldestAt')
+            .select('MIN(t.snapshotDateKst)', 'oldestAt')
             .addSelect('MAX(t.snapshotDateKst)', 'newestAt')
             .addSelect('MAX(t.fetchedAt)', 'lastActivityAt')
             .getRawOne<TableStats>(),
@@ -820,10 +849,14 @@ export class DataInventoryService {
           }),
         ]);
 
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
       return [
         id,
         {
-          rowCount: aggregate?.rowCount ?? 0,
+          rowCount,
           oldestAt: this.isoDate(aggregate?.oldestAt),
           newestAt: this.isoDate(aggregate?.newestAt),
           lastActivityAt: this.isoTimestamp(aggregate?.lastActivityAt),
@@ -842,14 +875,15 @@ export class DataInventoryService {
     }
   }
 
-  private async loadPortfolioSnapshots(): Promise<[string, DataStoreStats]> {
+  private async loadPortfolioSnapshots(
+    estimates: Map<string, number>,
+  ): Promise<[string, DataStoreStats]> {
     const id = 'portfolio_daily_snapshots';
     try {
       const [aggregate, wallets] = await Promise.all([
         this.portfolioSnapshotsRepo
           .createQueryBuilder('p')
-          .select('COUNT(*)::int', 'rowCount')
-          .addSelect('MIN(p.snapshotDateKst)', 'oldestAt')
+          .select('MIN(p.snapshotDateKst)', 'oldestAt')
           .addSelect('MAX(p.snapshotDateKst)', 'newestAt')
           .addSelect('MAX(p.createdAt)', 'lastActivityAt')
           .getRawOne<TableStats>(),
@@ -859,10 +893,14 @@ export class DataInventoryService {
           .getRawOne<{ count: number }>(),
       ]);
 
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
       return [
         id,
         {
-          rowCount: aggregate?.rowCount ?? 0,
+          rowCount,
           oldestAt: this.isoDate(aggregate?.oldestAt),
           newestAt: this.isoDate(aggregate?.newestAt),
           lastActivityAt: this.isoTimestamp(aggregate?.lastActivityAt),
@@ -878,14 +916,15 @@ export class DataInventoryService {
     }
   }
 
-  private async loadPriceSubscriptions(): Promise<[string, DataStoreStats]> {
+  private async loadPriceSubscriptions(
+    estimates: Map<string, number>,
+  ): Promise<[string, DataStoreStats]> {
     const id = 'cardhedger_price_subscriptions';
     try {
       const [aggregate, active] = await Promise.all([
         this.priceSubscriptionsRepo
           .createQueryBuilder('s')
-          .select('COUNT(*)::int', 'rowCount')
-          .addSelect('MIN(s.subscribedAt)', 'oldestAt')
+          .select('MIN(s.subscribedAt)', 'oldestAt')
           .addSelect(
             'MAX(COALESCE(s.lastWebhookAt, s.subscribedAt))',
             'lastActivityAt',
@@ -895,10 +934,14 @@ export class DataInventoryService {
       ]);
 
       const lastActivityAt = this.isoTimestamp(aggregate?.lastActivityAt);
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
       return [
         id,
         {
-          rowCount: aggregate?.rowCount ?? 0,
+          rowCount,
           oldestAt: this.isoTimestamp(aggregate?.oldestAt),
           newestAt: lastActivityAt,
           lastActivityAt,

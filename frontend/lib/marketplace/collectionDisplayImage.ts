@@ -1,4 +1,5 @@
 import type { MarketplaceCollectionDetail, MarketplaceCollectionSummary } from "@/lib/core";
+import { normalizeCatalogCoverPublicUrl } from "@/lib/marketplace/catalogCoverPublicUrl";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 /** PSA graded slab photos must never be collection hero images. */
@@ -21,17 +22,7 @@ function sanitizeCollectionCoverUrl(
   if (isPsaCertSlabCloudfrontUrl(t)) return null;
   if (/\/rwa-slabs\//i.test(t)) return null;
   if (isLegacyNormalizedCollectionCoverApiPath(t)) return null;
-  try {
-    const u = new URL(t.startsWith("//") ? `https:${t}` : t);
-    if (/\/cover$/i.test(u.pathname)) return u.toString();
-    if (/\/covers\/[^/]+$/i.test(u.pathname)) {
-      u.pathname = `${u.pathname.replace(/\/+$/, "")}/cover`;
-      return u.toString();
-    }
-  } catch {
-    /* keep */
-  }
-  return t;
+  return normalizeCatalogCoverPublicUrl(t);
 }
 
 /**

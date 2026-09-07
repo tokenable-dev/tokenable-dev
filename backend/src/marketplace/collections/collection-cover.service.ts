@@ -12,6 +12,7 @@ import {
   psaVarietyHasNamedCollectibleIdentity,
 } from '../utils/cardhedger-psa-variety.util';
 import {
+  isHttpOrHttpsUrl,
   normalizeImageUrl,
   rankCollectionCoverUrls,
   scoreCollectionCoverUrl,
@@ -26,7 +27,7 @@ import {
 /** Collection covers: Cardhedger / TCG / our catalog S3 HTTPS URLs. */
 function isPersistableCoverUrl(url: string): boolean {
   const t = url.trim();
-  if (!/^https?:\/\//i.test(t)) return false;
+  if (!isHttpOrHttpsUrl(t)) return false;
   if (t.toLowerCase().includes('/ipfs/')) return false;
   if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
   // Mint display copies live under rwa-slabs/ — never use as collection covers.

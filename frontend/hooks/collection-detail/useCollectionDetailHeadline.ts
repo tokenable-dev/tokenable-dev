@@ -7,7 +7,7 @@ import {
   buildAssetDetailHeadlineParts,
   computeAssetDetailWovenTitle,
   formatCardDisplayMeta,
-  formatCardDisplayName,
+  formatAssetDetailLine1,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
@@ -206,7 +206,7 @@ export function useCollectionDetailHeadline(params: {
 
   const collectionHeadlineDisplayTitle = useMemo(
     () =>
-      formatCardDisplayName(collectionHeadlineParts, { grade: headlineGrade }),
+      formatAssetDetailLine1(collectionHeadlineParts, { grade: headlineGrade }),
     [collectionHeadlineParts, headlineGrade],
   );
 

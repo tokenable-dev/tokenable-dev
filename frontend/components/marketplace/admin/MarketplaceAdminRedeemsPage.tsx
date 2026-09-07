@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { AdminRedeemRow } from "@/lib/core";
+import { formatUsdcMicrosAmount } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import {
   useAdminRedeemActions,
   useMarketplaceAdminRedeems,
@@ -41,20 +42,6 @@ function shortHash(h: string | null): string {
   if (/^0x0+$/i.test(h.replace(/\s/g, ""))) return "synced (no tx recorded)";
   if (h.length < 14) return h;
   return `${h.slice(0, 8)}…${h.slice(-6)}`;
-}
-
-function formatUsdcMicros(micros: string | null): string {
-  if (!micros) return "—";
-  try {
-    const n = Number(BigInt(micros)) / 1e6;
-    if (!Number.isFinite(n)) return micros;
-    return `$${n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  } catch {
-    return micros;
-  }
 }
 
 function formatWhen(iso: string | null): string {
@@ -355,7 +342,9 @@ function RedeemOrderCard({
               </span>
             ) : null}
             <span className="ml-2 text-sm font-semibold text-zinc-700">
-              {formatUsdcMicros(head.paymentReceivedUsdcMicros)}
+              {formatUsdcMicrosAmount(head.paymentReceivedUsdcMicros, {
+                dollar: true,
+              })}
             </span>
           </p>
           <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
@@ -373,7 +362,10 @@ function RedeemOrderCard({
           <p>pay {shortHash(head.paymentTxHash)}</p>
           {head.paymentBatchId ? <p className="break-all">batch {head.paymentBatchId}</p> : null}
           {head.refundedUsdcMicros ? (
-            <p>refunded {formatUsdcMicros(head.refundedUsdcMicros)}</p>
+            <p>
+              refunded{" "}
+              {formatUsdcMicrosAmount(head.refundedUsdcMicros, { dollar: true })}
+            </p>
           ) : null}
         </div>
       </div>

@@ -1,8 +1,11 @@
+/** Public http(s) URL. Shared by cover ranking, mint image, and slab ingest. */
+export function isHttpOrHttpsUrl(url: string | null | undefined): boolean {
+  return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
+}
+
 function isUsableCoverUrl(s: string): boolean {
   const t = s.trim();
-  return (
-    /^https?:\/\//i.test(t) || t.startsWith('ipfs://') || t.startsWith('//')
-  );
+  return isHttpOrHttpsUrl(t) || t.startsWith('ipfs://') || t.startsWith('//');
 }
 
 /**
@@ -66,7 +69,7 @@ export function scoreCollectionCoverUrl(url: string): number {
     if (path.includes('/rwa-slabs/')) {
       return 0;
     }
-    if (/^https?:\/\//i.test(t)) return 50;
+    if (isHttpOrHttpsUrl(t)) return 50;
     return 0;
   } catch {
     return 0;
@@ -132,7 +135,7 @@ export function extractCollectionRepresentativeImage(
 
 function isDirectHttpsImageUrl(s: string): boolean {
   const t = s.trim();
-  return /^https?:\/\//i.test(t) && !t.toLowerCase().includes('/ipfs/');
+  return isHttpOrHttpsUrl(t) && !t.toLowerCase().includes('/ipfs/');
 }
 
 /**

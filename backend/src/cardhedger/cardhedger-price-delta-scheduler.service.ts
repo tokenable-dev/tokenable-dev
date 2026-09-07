@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
+import {
+  isCardhedgerPriceDeltaCronEnabled,
+  readCardhedgerFeatureFlags,
+} from '../config/cardhedger-feature-flags.util';
 import {
   CardhedgerPriceDeltaImportService,
   type DeltaImportResult,
@@ -27,10 +30,12 @@ export class CardhedgerPriceDeltaSchedulerService {
   }
 
   cronEnabled(): boolean {
-    const raw = this.config.get<string>('CARDHEDGER_PRICE_DELTA_CRON_ENABLED');
-    if (raw === '1' || raw === 'true') return true;
-    if (raw === '0' || raw === 'false') return false;
-    return this.config.get<string>('NODE_ENV') === 'production';
+    return isCardhedgerPriceDeltaCronEnabled({
+      CARDHEDGER_PRICE_DELTA_CRON_ENABLED: this.config.get<string>(
+        'CARDHEDGER_PRICE_DELTA_CRON_ENABLED',
+      ),
+      NODE_ENV: this.config.get<string>('NODE_ENV'),
+    });
   }
 
   /** 04:00 KST — after Cardhedger daily export window; uses delta polling when CSV unavailable. */

@@ -158,5 +158,3 @@ export const wagmiPrivyConfig = createConfig({
   ssr: true,
 });
 
-/** @deprecated Use `privyClientConfig` — kept for older imports. */
-export const privyConfig = privyClientConfig;

@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CardhedgerCatalogController } from './controllers/cardhedger-catalog.controller';
 import { CardhedgerProxyController } from './controllers/cardhedger-proxy.controller';
@@ -9,13 +9,9 @@ import { CardTop100Service } from './card-top100.service';
 import { CardTopMoversService } from './card-top-movers.service';
 import { CardTop100DailySnapshot } from './entities/card-top100-snapshot.entity';
 
-import { CardhedgerPriceInfraModule } from './cardhedger-price-infra.module';
-
+/** Live Cardhedger HTTP + Top 100. Price webhook/delta is CardhedgerPriceInfraModule. */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([CardTop100DailySnapshot]),
-    forwardRef(() => CardhedgerPriceInfraModule),
-  ],
+  imports: [TypeOrmModule.forFeature([CardTop100DailySnapshot])],
   controllers: [
     CardhedgerCatalogController,
     CardhedgerProxyController,
@@ -23,6 +19,6 @@ import { CardhedgerPriceInfraModule } from './cardhedger-price-infra.module';
     CardTopMoversController,
   ],
   providers: [CardhedgerService, CardTop100Service, CardTopMoversService],
-  exports: [CardhedgerService, CardhedgerPriceInfraModule],
+  exports: [CardhedgerService],
 })
 export class CardhedgerModule {}

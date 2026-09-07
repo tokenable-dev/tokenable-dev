@@ -28,24 +28,3 @@ export function TkCheckbox({ label, className, id, ...rest }: TkCheckboxProps) {
     </label>
   );
 }
-
-export type TkSwitchProps = Omit<
-  React.InputHTMLAttributes<HTMLInputElement>,
-  "type"
-> & {
-  label: string;
-  className?: string;
-};
-
-export function TkSwitch({ label, className, id, ...rest }: TkSwitchProps) {
-  const inputId = id ?? rest.name;
-  return (
-    <label className={cn("tk-switch", className)}>
-      <input type="checkbox" role="switch" id={inputId} {...rest} />
-      <span className="tk-switch__track" aria-hidden>
-        <span className="tk-switch__thumb" />
-      </span>
-      {label}
-    </label>
-  );
-}

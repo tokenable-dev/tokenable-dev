@@ -10,8 +10,6 @@ export {
   buildAskDepthLevels,
   buildBidDepthLevels,
   applyOrderBookNotionalDepth,
-  applyOrderBookCumulativeDepth,
-  applyOrderBookQuantityDepth,
   buildOrderBookCenterModel,
   bestAskFromRows,
   bestBidFromRows,

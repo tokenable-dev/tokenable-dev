@@ -10,7 +10,6 @@ import {
   formatCardDisplayLanguageShort,
   formatCardDisplayLine1,
   formatCardDisplayLine2,
-  formatCardDisplayName as formatCardDisplayNameCore,
   formatCardDisplayHoverTitle as formatCardDisplayHoverTitleCore,
   formatCardDisplaySetLabel,
   joinCardDisplaySegments,
@@ -142,7 +141,7 @@ export function buildAssetDetailHeadlineParts(input: {
 }
 
 /** Title line: `{Card name} · {Number} · {Grade}` — grade defaults to `Raw`. */
-export function formatCardDisplayName(
+export function formatAssetDetailLine1(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null; omitGrade?: boolean },
 ): string {
@@ -156,15 +155,9 @@ export function formatCardDisplayName(
 /** Meta line: `{Year} · {Set} {Language} · {Variant}`. */
 export function formatCardDisplayMeta(
   parts: AssetDetailHeadlineParts,
-  opts?: {
-    /** @deprecated Grade belongs on the title line — ignored. */
-    grade?: string | null;
-    omitSet?: boolean;
-    /** @deprecated Number belongs on the title line — ignored. */
-    omitNumber?: boolean;
-  },
+  opts?: { omitSet?: boolean },
 ): string {
-  return formatCardDisplayLine2(toDisplayParts(parts, opts?.grade), {
+  return formatCardDisplayLine2(toDisplayParts(parts), {
     omitSet: opts?.omitSet,
   });
 }
@@ -190,7 +183,7 @@ export function formatAssetDetailHeadlineText(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null },
 ): string {
-  return formatCardDisplayName(parts, opts);
+  return formatAssetDetailLine1(parts, opts);
 }
 
 export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): boolean {
@@ -214,13 +207,9 @@ export function computeAssetDetailWovenTitle(
   },
 ): string {
   const chunks: string[] = [];
-  const display = formatCardDisplayName(parts, opts);
+  const display = formatAssetDetailLine1(parts, opts);
   if (display) chunks.push(display);
-  const m =
-    (metaStrip ?? "").trim() ||
-    formatCardDisplayMeta(parts, {
-      grade: opts?.grade,
-    });
+  const m = (metaStrip ?? "").trim() || formatCardDisplayMeta(parts);
   if (m) {
     const hay = display.toLowerCase();
     if (!hay.includes(m.toLowerCase())) chunks.push(m);

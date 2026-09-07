@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -369,138 +368,6 @@ export class UserService {
     return this.users.findOne({ where: { email: email.toLowerCase().trim() } });
   }
 
-  async createWithPassword(params: {
-    email: string;
-    passwordHash: string;
-    name?: string | null;
-  }): Promise<User> {
-    const email = params.email.toLowerCase().trim();
-    const user = this.users.create({
-      email,
-      passwordHash: params.passwordHash,
-      name: params.name?.trim() || null,
-      googleId: null,
-      emailVerified: false,
-    });
-    const saved = await this.users.save(user);
-    await this.syncAuthProviders(saved.id, [
-      {
-        providerType: 'email_password',
-        providerSubject: email,
-        email,
-        displayName: saved.name,
-        isVerified: false,
-        metadata: { source: 'legacy_signup' },
-      },
-    ]);
-    return saved;
-  }
-
-  async findOrCreateFromGoogle(params: {
-    googleId: string;
-    email: string;
-    name?: string | null;
-    pictureUrl?: string | null;
-    emailVerified?: boolean;
-  }): Promise<User> {
-    const existingByGoogle = await this.users.findOne({
-      where: { googleId: params.googleId },
-    });
-    if (existingByGoogle) {
-      await this.patchProfileIfNeeded(existingByGoogle, params);
-      return existingByGoogle;
-    }
-
-    const existingByEmail = await this.users.findOne({
-      where: { email: params.email.toLowerCase() },
-    });
-    if (existingByEmail) {
-      if (
-        existingByEmail.googleId &&
-        existingByEmail.googleId !== params.googleId
-      ) {
-        throw new ConflictException('Email already linked to another account');
-      }
-      existingByEmail.googleId = params.googleId;
-      existingByEmail.name = params.name ?? existingByEmail.name;
-      existingByEmail.pictureUrl =
-        params.pictureUrl ?? existingByEmail.pictureUrl;
-      if (!existingByEmail.passwordHash) {
-        existingByEmail.emailVerified =
-          params.emailVerified ?? existingByEmail.emailVerified;
-      }
-      const saved = await this.users.save(existingByEmail);
-      await this.syncAuthProviders(saved.id, [
-        {
-          providerType: 'google_oauth',
-          providerSubject: params.googleId,
-          email: saved.email,
-          displayName: saved.name,
-          avatarUrl: saved.pictureUrl,
-          isVerified: saved.emailVerified,
-          metadata: { source: 'legacy_google' },
-        },
-      ]);
-      return saved;
-    }
-
-    const user = this.users.create({
-      email: params.email.toLowerCase(),
-      googleId: params.googleId,
-      name: params.name ?? null,
-      pictureUrl: params.pictureUrl ?? null,
-      emailVerified: params.emailVerified ?? true,
-    });
-    const saved = await this.users.save(user);
-    await this.syncAuthProviders(saved.id, [
-      {
-        providerType: 'google_oauth',
-        providerSubject: params.googleId,
-        email: saved.email,
-        displayName: saved.name,
-        avatarUrl: saved.pictureUrl,
-        isVerified: saved.emailVerified,
-        metadata: { source: 'legacy_google' },
-      },
-    ]);
-    return saved;
-  }
-
-  private async patchProfileIfNeeded(
-    user: User,
-    params: {
-      name?: string | null;
-      pictureUrl?: string | null;
-      emailVerified?: boolean;
-    },
-  ): Promise<void> {
-    let dirty = false;
-    if (
-      params.name != null &&
-      params.name !== user.name &&
-      !user.name?.trim()
-    ) {
-      user.name = params.name;
-      dirty = true;
-    }
-    if (
-      params.pictureUrl != null &&
-      params.pictureUrl !== user.pictureUrl &&
-      !user.pictureUrl?.trim()
-    ) {
-      user.pictureUrl = params.pictureUrl;
-      dirty = true;
-    }
-    if (
-      params.emailVerified !== undefined &&
-      params.emailVerified !== user.emailVerified
-    ) {
-      user.emailVerified = params.emailVerified;
-      dirty = true;
-    }
-    if (dirty) await this.users.save(user);
-  }
-
   async updatePictureUrl(userId: string, pictureUrl: string): Promise<User> {
     const user = await this.findByIdOrFail(userId);
     const url = pictureUrl.trim();
@@ -581,12 +448,6 @@ export class UserService {
     return user;
   }
 
-  async updatePasswordHash(userId: string, passwordHash: string): Promise<User> {
-    const user = await this.findByIdOrFail(userId);
-    user.passwordHash = passwordHash;
-    return this.users.save(user);
-  }
-
   async deleteById(id: string): Promise<void> {
     await this.users.delete({ id });
   }
@@ -624,28 +485,6 @@ export class UserService {
     }
 
     return this.users.save(user);
-  }
-
-  /** @deprecated Use addWalletAddress — kept for internal callers */
-  async setWalletAddress(userId: string, address: string): Promise<User> {
-    return this.addWalletAddress(userId, address, { source: 'admin' });
-  }
-
-  /** @deprecated Use removeWallet — removes primary or sole wallet when address omitted */
-  async clearWallet(userId: string): Promise<User> {
-    const user = await this.findByIdOrFail(userId);
-    const primary =
-      (await this.userWallets.findOne({ where: { userId, isPrimary: true } })) ??
-      (await this.userWallets.findOne({
-        where: { userId },
-        order: { linkedAt: 'ASC' },
-      }));
-    if (!primary) {
-      user.walletAddress = null;
-      user.walletLinkedAt = null;
-      return this.users.save(user);
-    }
-    return this.removeWallet(userId, primary.walletAddress);
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {

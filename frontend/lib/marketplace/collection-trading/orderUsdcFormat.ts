@@ -30,6 +30,33 @@ export function formatTradeTicketUsdcPrice(n: number): string {
   });
 }
 
+/** Atomic USDC string (6 decimals) → `1,234.56`. Invalid → em dash. */
+export function formatUsdcAtomicAmount(amount: string): string {
+  try {
+    const n = Number(formatUnits(BigInt(amount.trim()), 6));
+    if (!Number.isFinite(n)) return "—";
+    return formatTradeTicketUsdcPrice(n);
+  } catch {
+    return "—";
+  }
+}
+
+/** Admin micros (`bigint` string). Empty → em dash; bad input → original. */
+export function formatUsdcMicrosAmount(
+  micros: string | null | undefined,
+  opts?: { dollar?: boolean },
+): string {
+  if (!micros) return "—";
+  try {
+    const n = Number(BigInt(micros)) / 1e6;
+    if (!Number.isFinite(n)) return micros;
+    const body = formatTradeTicketUsdcPrice(n);
+    return opts?.dollar ? `$${body}` : body;
+  } catch {
+    return micros;
+  }
+}
+
 export function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;
 }

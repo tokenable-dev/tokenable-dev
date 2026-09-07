@@ -18,8 +18,6 @@ export function WatchlistToggleButton({
   className?: string;
   /** Current market price in USD — used for watchlist_added analytics. */
   price?: number;
-  /** @deprecated Card fav uses fixed 32×32 DS shell — size prop ignored. */
-  size?: "sm" | "md";
 }) {
   const pathname = usePathname();
   const { runTradeAccessGate } = useTradeAccessGate(pathname || "/markets");

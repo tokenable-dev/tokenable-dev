@@ -4,6 +4,8 @@
 
 **Implementation:** `frontend/lib/marketplace/cardDisplayName.ts` (formatters) + `frontend/lib/marketplace/assetDetailHeadline.ts` (build parts from collection/RWA fields).
 
+There is **no shared monorepo package**. Backend must not re-implement formatters. The contract is `backend/src/marketplace/utils/card-display-name.util.spec.ts` (imports the frontend SSOT via `@/`).
+
 ---
 
 ## 1. Canonical name schema (2 lines)
@@ -104,9 +106,9 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | Markets grid / home cards | `CollectibleCard.tsx`, `marketsCollectionTitle.ts` | `buildMarketsCollectionTitle` | Line 1 only | — |
 | Watchlist | `WatchlistCollectibleCard.tsx` | `buildMarketsCollectionTitle` | Line 1 only | — |
 | GNB search typeahead | `TkHeaderSearch.tsx` | Line 1 + `buildMarketsCollectionSearchMeta` | Line 1 + compact L2 | — |
-| Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatCardDisplayName/Meta` | L1 name+number+grade + L2 | Grade on the title |
-| Portfolio asset / certificate | `usePortfolioCertificate.ts`, `PortfolioCertificateView.tsx` | `formatCardDisplayName` (`omitGrade`) + `formatCardDisplayMeta` | L1 + L2 | Grade + cert chips stay below; do not put number on a third line |
-| Portfolio tx rows | `buildPortfolioTxRows.ts` | `formatCardDisplayName` | Line 1 only | — |
+| Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatAssetDetailLine1` / `formatCardDisplayMeta` (adapter) → SSOT `cardDisplayName.formatCardDisplayName` | L1 name+number+grade + L2 | Grade on the title |
+| Portfolio asset / certificate | `usePortfolioCertificate.ts`, `PortfolioCertificateView.tsx` | Line 1 via asset-detail adapter (`omitGrade`) + `formatCardDisplayMeta` | L1 + L2 | Grade + cert chips stay below; do not put number on a third line |
+| Portfolio tx rows | `buildPortfolioTxRows.ts` | SSOT `formatCardDisplayName` / holdings helpers | Line 1 only | — |
 | Portfolio holdings | gallery/table components | `resolvePortfolioHoldingsDisplayNames` | Line 1 only | — |
 | Listing bid checkout | `CollectionListingBidCheckout.tsx` | listing title | L1 + L2 at decision | Uses checkout modal pattern — OK scope |
 | Order book | unified order book | ask/bid labels | L1 abbrev | Price/vault only on rows — grade on collection context |

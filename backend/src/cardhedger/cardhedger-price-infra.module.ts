@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MarketplaceAdminModule } from '../marketplace/admin/marketplace-admin.module';
 import { MarketplaceCollection } from '../marketplace/entities/marketplace-collection.entity';
@@ -30,7 +30,7 @@ import { CardhedgerPriceSubscriptionAdminController } from './controllers/cardhe
       CollectionMarketSnapshot,
     ]),
     MarketplaceAdminModule,
-    forwardRef(() => CardhedgerModule),
+    CardhedgerModule,
   ],
   controllers: [
     CardhedgerPriceWebhookController,

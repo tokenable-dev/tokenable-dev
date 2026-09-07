@@ -1,10 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import {
-  PSA_RATE_LIMIT_ALERT_MESSAGE,
-  PSA_RATE_LIMIT_OVERLAY_TITLE,
-} from "@/lib/psa/psaApiErrors";
+import { PSA_RATE_LIMIT_ALERT_MESSAGE } from "@/lib/psa/psaApiErrors";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 
 export function MintPsaAnalyzeOverlay({
@@ -28,7 +25,7 @@ export function MintPsaAnalyzeOverlay({
       aria-busy={!psaRateLimitAlert}
       aria-label={
         psaRateLimitAlert
-          ? PSA_RATE_LIMIT_OVERLAY_TITLE
+          ? PSA_RATE_LIMIT_ALERT_MESSAGE
           : psaInputMode === "cert"
             ? "Looking up PSA cert"
             : "Analyzing slab"

@@ -1,6 +1,7 @@
 "use client";
 
 import type { SelfVaultSettlement } from "@/lib/core";
+import { formatUsdcMicrosAmount } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_DANGER,
@@ -13,19 +14,6 @@ import {
 function shortAddr(addr: string): string {
   if (addr.length < 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-function formatUsdcMicros(micros: string): string {
-  try {
-    const n = Number(BigInt(micros)) / 1e6;
-    if (!Number.isFinite(n)) return micros;
-    return n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  } catch {
-    return micros;
-  }
 }
 
 function statusLabel(status: SelfVaultSettlement["status"]): string {
@@ -97,7 +85,7 @@ export function MarketplaceAdminSelfVaultSettlementRow({
     row.status === "pending_confirm" || row.status === "confirmed";
   const canReject =
     row.status === "pending_confirm" || row.status === "confirmed";
-  const payoutLabel = formatUsdcMicros(row.sellerPayoutUsdc);
+  const payoutLabel = formatUsdcMicrosAmount(row.sellerPayoutUsdc);
   const autoHint = autoPayHint(row);
   const multiSale = saleIndex != null && saleIndex.total > 1;
 
@@ -121,9 +109,9 @@ export function MarketplaceAdminSelfVaultSettlementRow({
             ) : null}
           </div>
           <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
-            Gross ${formatUsdcMicros(row.grossUsdc)} → seller payout{" "}
+            Gross ${formatUsdcMicrosAmount(row.grossUsdc)} → seller payout{" "}
             <span className="font-semibold text-zinc-900">
-              ${formatUsdcMicros(row.sellerPayoutUsdc)}
+              ${formatUsdcMicrosAmount(row.sellerPayoutUsdc)}
             </span>
             {autoHint ? (
               <>

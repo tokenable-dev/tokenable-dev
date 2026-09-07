@@ -1,5 +1,6 @@
 import type { PsaAnalyzeResult } from "@/lib/core";
 import { ASSETS } from "@/constants/assets";
+import { isPsaCertSlabCloudfrontUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { psaCertImageMatchesFormCert } from "@/lib/vault/mintFormPsa";
 
 export type MintImageSource =
@@ -14,10 +15,6 @@ const CARDHEDGER_PLACEHOLDER_PATH_RE =
 function normalizeImageUrl(url: string): string {
   const t = url.trim();
   return t.startsWith("//") ? `https:${t}` : t;
-}
-
-function isPsaCertSlabCloudfrontUrl(url: string): boolean {
-  return url.includes("d1htnxwo4o0jhw.cloudfront.net/cert/");
 }
 
 /** Cardhedger branded generic card — not real catalog art. */

@@ -735,7 +735,11 @@ export function MarketplaceAdminDataInventoryPage() {
               <GlanceTile
                 label="전체 행 수"
                 value={data.totals.rowCount.toLocaleString("ko-KR")}
-                hint="모든 테이블 row 합"
+                hint={
+                  data.totals.rowCountsEstimated
+                    ? "pg_class 추정 합 (빈 테이블은 COUNT 확인)"
+                    : "모든 테이블 row 합"
+                }
                 active={glanceKey === "total"}
                 onClick={() => toggleGlance("total")}
               />

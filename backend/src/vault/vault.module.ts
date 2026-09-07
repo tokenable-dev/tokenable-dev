@@ -16,6 +16,7 @@ import { VaultSubmissionService } from './vault-submission.service';
 import { VaultSubmissionsController } from './vault-submissions.controller';
 import { VaultService } from './vault.service';
 import { VaultMintRecoveryService } from './vault-mint-recovery.service';
+import { GmailApiClient } from './gmail-api.client';
 import { PsaReceivedMailService } from './psa-received-mail.service';
 
 /**
@@ -43,9 +44,15 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
   providers: [
     VaultService,
     VaultSubmissionService,
+    GmailApiClient,
     PsaReceivedMailService,
     VaultMintRecoveryService,
   ],
-  exports: [VaultService, VaultSubmissionService, PsaReceivedMailService],
+  exports: [
+    VaultService,
+    VaultSubmissionService,
+    GmailApiClient,
+    PsaReceivedMailService,
+  ],
 })
 export class VaultModule {}

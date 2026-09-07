@@ -22,7 +22,7 @@ export const metricPanelInsetCls =
 export const orderBookTabLabelCls = `${collectionDetailArialClass} whitespace-nowrap text-[13px] font-semibold normal-case leading-none tracking-normal lg:text-[16px]`;
 
 /** Order book + trades data rows — shared size/weight. */
-export const orderBookTradesRowValueCls = `${collectionDetailArialClass} tabular-nums font-normal max-lg:text-[13px] max-lg:leading-[1.35] lg:text-[15px] lg:leading-[140%]`;
+const orderBookTradesRowValueCls = `${collectionDetailArialClass} tabular-nums font-normal max-lg:text-[13px] max-lg:leading-[1.35] lg:text-[15px] lg:leading-[140%]`;
 
 export const orderBookRowValueCls = orderBookTradesRowValueCls;
 
@@ -49,7 +49,7 @@ export const orderBookColEndCls = "justify-self-end text-right";
 export const orderBookBookSizeColCls = "justify-self-center text-center tabular-nums";
 
 /** Trades — Price column values + header align left. */
-export const orderBookTradesPriceColCls = `${orderBookColStartCls} tabular-nums`;
+const orderBookTradesPriceColCls = `${orderBookColStartCls} tabular-nums`;
 export const orderBookTradesPriceHeaderColCls = orderBookTradesPriceColCls;
 export const orderBookTradesPriceDataColCls = orderBookTradesPriceColCls;
 

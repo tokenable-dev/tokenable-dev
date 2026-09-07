@@ -154,7 +154,6 @@ export const CollectibleCard = memo(function CollectibleCard({
         <div className="fav">
           <WatchlistToggleButton
             collectionKey={collection.collectionKey}
-            size="sm"
             price={priceUsd ?? undefined}
           />
         </div>

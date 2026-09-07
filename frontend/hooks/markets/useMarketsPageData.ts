@@ -29,6 +29,7 @@ export function useMarketsOrders() {
     queryKey: rq.ordersActive(chainId),
     queryFn: getActiveOrders,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    refetchIntervalInBackground: false,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,

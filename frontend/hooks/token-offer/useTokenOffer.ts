@@ -17,6 +17,7 @@ import { useSeaportOrderSigner } from "@/lib/privy";
 import { mapWalletError } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
+import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { isLiveAskListing } from "@/lib/marketplace/collectionListingModalHelpers";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
@@ -52,14 +53,6 @@ export function sanitizeTokenBidPriceInput(raw: string): string {
 
 /** `0` = unlimited. Restore to `1` with the backend env cap. */
 export const MAX_ACTIVE_BIDS_PER_COLLECTION = 0;
-export const MAX_ACTIVE_BIDS_PER_CARD = MAX_ACTIVE_BIDS_PER_COLLECTION;
-
-function formatUsdc2(n: number): string {
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export type TokenOfferStep =
   | "idle"
@@ -253,7 +246,7 @@ export function useTokenOffer(input: {
     }
     if (insufficientFunds) {
       return {
-        text: `Insufficient funds — add $${formatUsdc2(shortfallUsdc)} to cover this bid.`,
+        text: `Insufficient funds — add $${formatTradeTicketUsdcPrice(shortfallUsdc)} to cover this bid.`,
         tone: "error" as const,
       };
     }

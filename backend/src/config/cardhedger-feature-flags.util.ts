@@ -39,6 +39,28 @@ function envTruthy(raw: string | undefined): boolean {
  * Read Cardhedger optimisation flags from process env.
  * All default to `false` so production behaviour is unchanged until rollout.
  */
+/** Webhook / subscribe / nightly delta / CSV — not the live snapshot read path. */
+export function isCardhedgerPriceInfraEnabled(
+  flags: CardhedgerFeatureFlags,
+): boolean {
+  return (
+    flags.priceWebhookEnabled ||
+    flags.priceSubscribeEnabled ||
+    flags.dailyPriceDeltaImportEnabled ||
+    flags.dailyPriceExportCsvEnabled
+  );
+}
+
+/** Same gate as CardhedgerPriceDeltaSchedulerService.cronEnabled. */
+export function isCardhedgerPriceDeltaCronEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = env.CARDHEDGER_PRICE_DELTA_CRON_ENABLED?.trim();
+  if (raw === '1' || raw === 'true') return true;
+  if (raw === '0' || raw === 'false') return false;
+  return env.NODE_ENV === 'production';
+}
+
 export function readCardhedgerFeatureFlags(
   env: NodeJS.ProcessEnv = process.env,
 ): CardhedgerFeatureFlags {

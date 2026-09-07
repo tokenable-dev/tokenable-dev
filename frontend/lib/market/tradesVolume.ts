@@ -253,8 +253,6 @@ export function computeHeroTapeActivityStats(
   };
 }
 
-/** @deprecated Use {@link computeHeroTapeActivityStats}. */
-export const computeHeroTapeVelocityStats = computeHeroTapeActivityStats;
 
 /** Sum notional over trades in the last 365 calendar days. */
 export function computeTradeVolume1yUsdc(

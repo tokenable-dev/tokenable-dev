@@ -186,7 +186,7 @@ frontend/
 │   ├── globals.css
 │   ├── providers.tsx       # Root provider tree
 │   ├── login/              # /login → PrivyAuthEntryPage
-│   ├── signup/             # /signup → PrivyAuthEntryPage
+│   ├── signup/             # /signup → /login
 │   ├── vault/              # /vault hub, /vault/submit mint, /vault/submissions/[id]
 │   ├── sell/               # /sell router, /sell/flow, /sell/shipping, /sell/p2p
 │   ├── portfolio/          # /portfolio
