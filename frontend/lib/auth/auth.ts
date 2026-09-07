@@ -49,8 +49,6 @@ export async function fetchAuthMe(): Promise<AuthUser | null> {
   return data.user ?? null;
 }
 
-export { syncPrivySession } from "@/lib/privy/session";
-
 export async function logoutAuth(): Promise<void> {
   await backendFetch(`${getApiUrl()}/auth/logout`, { method: "POST" });
 }
