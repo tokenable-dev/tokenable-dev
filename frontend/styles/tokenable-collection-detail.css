@@ -2969,7 +2969,7 @@
 
 .collection-detail-page .cd-ob-trades-hdr span {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--t3);
@@ -2977,7 +2977,6 @@
 
 .collection-detail-page .cd-ob-trades-hdr span:last-child {
   text-align: right;
-  font-size: 12px;
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
@@ -3003,7 +3002,11 @@
   padding: 3px 20px;
 }
 
-.collection-detail-page .cd-ob-trades-price {
+.collection-detail-page .cd-ob-trades-price,
+.collection-detail-page .cd-ob-trades-side,
+.collection-detail-page .cd-ob-trades-source,
+.collection-detail-page .cd-ob-trades-source__label,
+.collection-detail-page .cd-ob-trades-time {
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 400;
@@ -3023,9 +3026,6 @@
 .collection-detail-page .cd-ob-trades-side,
 .collection-detail-page .cd-ob-trades-source,
 .collection-detail-page .cd-ob-trades-source__label {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 400;
   color: #fff;
 }
 
@@ -3055,13 +3055,9 @@
 }
 
 .collection-detail-page .cd-ob-trades-time {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 400;
   color: #fff;
   text-align: right;
   justify-self: end;
-  min-width: 0;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
