@@ -595,7 +595,7 @@ export function CollectionDetailStatMain({
               </div>
             </div>
 
-            <div className="cd-hero-bar__secondary hero-secondary">
+            <div className="cd-hero-bar__secondary hero-secondary cd-hero-bar__secondary--pop">
               <div className="cd-hero-bar__sec-row">
                 <span className="cd-hero-bar__sec-lbl mono">{popLabel}</span>
                 <span className="cd-hero-bar__sec-val mono">{popValue}</span>
