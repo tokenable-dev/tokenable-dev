@@ -108,14 +108,14 @@ export function normalizeHeadlineCardNumberToken(token: string): string {
 }
 
 /**
- * Display card number: drop `#` and `-`, uppercase Latin (`#op13-118` → `OP13118`).
- * Pure numeric → zero-padded 3 digits (`85` → `085`).
+ * Display card number: drop `#`, keep hyphens, uppercase Latin
+ * (`#op13-118` → `OP13-118`). Pure numeric → zero-padded 3 digits (`85` → `085`).
+ * Pokemon-style `199/165` stays.
  */
 export function formatHeadlineCardNumber(raw: string | undefined | null): string | null {
   const n = String(raw ?? "")
     .trim()
     .replace(/#/g, "")
-    .replace(/-/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (!n) return null;

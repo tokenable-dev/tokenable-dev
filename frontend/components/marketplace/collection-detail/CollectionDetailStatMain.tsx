@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { TkButton, TkTag } from "@/components/ds";
+import { useState } from "react";
+import { TkTag } from "@/components/ds";
 import {
   computeGemRatePct,
   formatGemRatePercent,
   formatReferencePercentChange,
   formatUsdCompact,
-  formatUsdListing,
   formatPsaPopulationCount,
   formatVelocityPercent,
   NO_EXTERNAL_PRICE,
@@ -36,16 +35,8 @@ function formatChangeTag(pct: number): { arrow: string; label: string } {
 function periodChipLabel(
   period: ReferencePercentChangeResult | null | undefined,
 ): string {
-  if (!period) return "1 YR Chg.";
-  return `${formatReferenceChangePeriodShort(period)} Chg.`;
-}
-
-function formatAskBidUsd(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-
-  return `$${n.toLocaleString("en-US", {
-    maximumFractionDigits: 2,
-  })}`;
+  if (!period) return "1Y";
+  return formatReferenceChangePeriodShort(period);
 }
 
 /** Strip segments already shown in `#hero-title` (name / number / grade). */
@@ -183,13 +174,11 @@ function HeroMeta({
 }
 
 /**
- * Card.html `#hero-bar` (2026 redesign):
- * image | mid(title+meta · last price + stats + Buy/Bid buttons).
- * Expanded bar stays in flow. Condensed bar pins after the hero scrolls away.
- * Buy/Bid stay on the right of the stats row (`.cd-hero-bar__actions`); they do not wrap.
+ * Card.html `#hero-bar` + `#hero-stats` (design-30):
+ * image | mid(title+meta · last price) then 5-col stats.
+ * Buy / Bid / Sell live in the right rail (`#tk-trade`), not in the hero.
  */
 export function CollectionDetailStatMain({
-  stuckTitle,
   headlineTitle,
   headlineParts,
   headlineMeta,
@@ -206,16 +195,10 @@ export function CollectionDetailStatMain({
   formatMarketCap,
   psaPopulationMetrics,
   totalPopulation,
-  median30dUsd,
-  lowestAskUsd,
-  highestBidUsd,
   velocityPct,
-  onBuyLowestAsk,
-  onPlaceBid,
-  buyDisabled,
-  bidDisabled,
+  /** When true, hero sits inside `#chart-card` (no own notch chrome). */
+  embedInChart = false,
 }: {
-  stuckTitle?: string | null;
   headlineTitle?: string | null;
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineMeta?: string | null;
@@ -226,173 +209,19 @@ export function CollectionDetailStatMain({
   changeLoading: boolean;
   changePeriod?: ReferencePercentChangeResult | null;
   gradeLabel?: string;
-  median30dUsd?: number | null;
   tradeVolumeUsdc: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
   formatMarketCap: (n: number | null | undefined) => string;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
-  lowestAskUsd?: number | null;
-  highestBidUsd?: number | null;
   velocityPct?: number | null;
-  onBuyLowestAsk?: () => void;
-  onPlaceBid?: () => void;
-  buyDisabled?: boolean;
-  bidDisabled?: boolean;
+  embedInChart?: boolean;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const barRef = useRef<HTMLDivElement>(null);
-  const spacerRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const midRef = useRef<HTMLDivElement>(null);
   const coverSrc = imageUrl?.trim() || null;
-  const stuckLabel = stuckTitle?.trim() || null;
   const title = headlineTitle?.trim() || null;
   const meta = headlineMeta?.trim() || null;
-
-  useEffect(() => {
-    const bar = barRef.current;
-    const spacer = spacerRef.current;
-    if (!bar || !spacer) return;
-
-    const STUCK_BAR_H = 68;
-    const GNB_H = 64;
-    /** Pin only after the expanded hero has fully scrolled under the GNB. */
-    const PIN_SLOP_PX = 8;
-    /** Extra px before unpinning — avoids flicker at the threshold. */
-    const UNPIN_SLOP_PX = 28;
-
-    let raf = 0;
-    let lastBarH = -1;
-    /** Last measured expanded (non-stuck) bar height. */
-    let expandedH = 0;
-
-    const publishBarH = () => {
-      const stuck = bar.classList.contains("is-stuck");
-      const next = stuck ? Math.round(bar.getBoundingClientRect().height) : 0;
-      if (next === lastBarH) return;
-      lastBarH = next;
-      document.documentElement.style.setProperty("--bar-h", `${next}px`);
-    };
-
-    const marginBottom = () =>
-      parseFloat(getComputedStyle(bar).marginBottom) || 0;
-
-    const measureExpandedH = () => {
-      if (bar.classList.contains("is-stuck")) return;
-      const h = Math.round(bar.getBoundingClientRect().height);
-      if (h > STUCK_BAR_H) expandedH = h;
-    };
-
-    /** Skip the twin instance that is `display:none` (desktop vs mobile mount). */
-    const barIsVisible = () => {
-      const r = bar.getBoundingClientRect();
-      return r.width >= 8 && r.height >= 8;
-    };
-
-    const clearPin = () => {
-      spacer.style.height = "";
-      bar.classList.remove("is-stuck");
-      bar.style.left = "";
-      bar.style.width = "";
-    };
-
-    /**
-     * Pin condensed hero as `position:fixed` and reserve the *expanded*
-     * in-flow height on the spacer (off-screen once we pin after scroll-past).
-     */
-    const pinBar = () => {
-      const mb = marginBottom();
-      measureExpandedH();
-      const flowH = expandedH > STUCK_BAR_H ? expandedH : STUCK_BAR_H;
-      if (window.innerWidth > 1023) {
-        const sr = spacer.getBoundingClientRect();
-        const box = sr.width >= 8 ? sr : bar.getBoundingClientRect();
-        bar.style.left = `${Math.round(box.left)}px`;
-        bar.style.width = `${Math.round(box.width)}px`;
-      } else {
-        bar.style.left = "";
-        bar.style.width = "";
-      }
-      bar.classList.add("is-stuck");
-      spacer.style.height = `${flowH + mb}px`;
-    };
-
-    const syncFixedGeometry = () => {
-      if (!bar.classList.contains("is-stuck")) return;
-      if (window.innerWidth <= 1023) {
-        bar.style.left = "";
-        bar.style.width = "";
-        return;
-      }
-      const sr = spacer.getBoundingClientRect();
-      if (sr.width < 8) return;
-      bar.style.left = `${Math.round(sr.left)}px`;
-      bar.style.width = `${Math.round(sr.width)}px`;
-    };
-
-    const slotBottom = (wasStuck: boolean) =>
-      wasStuck
-        ? spacer.getBoundingClientRect().bottom
-        : bar.getBoundingClientRect().bottom;
-
-    const onScroll = () => {
-      raf = 0;
-      const wasStuck = bar.classList.contains("is-stuck");
-
-      if (!wasStuck && !barIsVisible()) {
-        publishBarH();
-        return;
-      }
-
-      measureExpandedH();
-      const scrollY =
-        window.scrollY || document.documentElement.scrollTop || 0;
-      const bottom = slotBottom(wasStuck);
-
-      let shouldStuck: boolean;
-      if (scrollY <= 8) {
-        shouldStuck = false;
-      } else if (wasStuck) {
-        shouldStuck = bottom <= GNB_H + UNPIN_SLOP_PX;
-      } else {
-        shouldStuck = bottom <= GNB_H - PIN_SLOP_PX;
-      }
-
-      if (shouldStuck) {
-        if (!wasStuck) pinBar();
-        else syncFixedGeometry();
-      } else if (wasStuck) {
-        clearPin();
-      }
-      publishBarH();
-    };
-
-    const onScrollOrResize = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(onScroll);
-    };
-
-    measureExpandedH();
-    onScroll();
-    const settle = window.requestAnimationFrame(() => {
-      measureExpandedH();
-      onScroll();
-    });
-
-    window.addEventListener("scroll", onScrollOrResize, { passive: true });
-    window.addEventListener("resize", onScrollOrResize);
-
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      window.cancelAnimationFrame(settle);
-      window.removeEventListener("scroll", onScrollOrResize);
-      window.removeEventListener("resize", onScrollOrResize);
-      clearPin();
-      document.documentElement.style.removeProperty("--bar-h");
-    };
-  }, []);
 
   const popMetrics = psaPopulationMetrics ?? {
     gradeLabel: "PSA 10",
@@ -400,7 +229,6 @@ export function CollectionDetailStatMain({
     totalPsaPop: totalPopulation ?? null,
     psa10Pop: null,
   };
-  const popLabel = `${(popMetrics.gradeLabel || gradeLabel).replace(/\s+/g, " ")} Pop.`;
   const popValue =
     popMetrics.gradePop != null
       ? formatPsaPopulationCount(popMetrics.gradePop)
@@ -424,34 +252,26 @@ export function CollectionDetailStatMain({
       ? formatChangeTag(changePct)
       : null;
 
-  const hasAsk =
-    lowestAskUsd != null && Number.isFinite(lowestAskUsd) && lowestAskUsd > 0;
-  const hasBid =
-    highestBidUsd != null &&
-    Number.isFinite(highestBidUsd) &&
-    highestBidUsd > 0;
-  const showTradeBook = Boolean(onBuyLowestAsk || onPlaceBid);
-  const volumeLabel = "Volume 1Y";
-  const velocityLabel = "Velocity 1Y";
+  const volumeDisplay =
+    tradeVolumeLoading && tradeVolumeUsdc == null
+      ? "—"
+      : tradeVolumeUsdc == null
+        ? "—"
+        : formatUsdCompact(tradeVolumeUsdc);
+  const velocityDisplay =
+    tradeVolumeLoading && velocityPct == null && marketCapUsd == null
+      ? "—"
+      : formatVelocityPercent(velocityPct);
 
   return (
-    <div className="cd-stat-main">
-      {/* Pin probe kept for layout; condense uses live bar geometry. */}
-      <div className="cd-hero-sentinel" ref={sentinelRef} aria-hidden />
-      {/* Condensed in-flow slot while the bar is position:fixed. */}
-      <div className="cd-hero-bar-spacer" ref={spacerRef} aria-hidden />
+    <div
+      className={`cd-stat-main${embedInChart ? " cd-stat-main--embedded" : ""}`}
+    >
       <div
-        className="cd-hero-bar"
+        className={`cd-hero-bar${embedInChart ? " cd-hero-bar--embed" : ""}`}
         id="hero-bar"
-        ref={barRef}
         data-testid="collection-detail-hero-bar"
       >
-        {stuckLabel ? (
-          <div className="cd-hero-bar__stuck-title" id="hero-title-stuck">
-            {stuckLabel}
-          </div>
-        ) : null}
-
         {coverSrc ? (
           <button
             type="button"
@@ -474,7 +294,7 @@ export function CollectionDetailStatMain({
           />
         )}
 
-        <div className="cd-hero-bar__mid" id="hero-mid" ref={midRef}>
+        <div className="cd-hero-bar__mid" id="hero-mid">
           {title ? (
             <div className="cd-hero-bar__head" id="hero-head">
               {headlineParts ? (
@@ -504,147 +324,86 @@ export function CollectionDetailStatMain({
 
           <div className="cd-hero-bar__actions">
             <div className="cd-hero-bar__metrics hero-actionsrow">
-            <div className="cd-hero-bar__priceblock" id="hero-priceblock">
-              <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
-                Last price
-              </div>
-              {priceLoading && priceUsd == null ? (
-                <div
-                  className="cd-hero-bar__price cd-hero-bar__skeleton"
-                  aria-hidden
-                />
-              ) : priceUsd != null && Number.isFinite(priceUsd) ? (
-                <div className="cd-hero-bar__price">
-                  {formatUsdCompact(priceUsd)}
+              <div className="cd-hero-bar__priceblock" id="hero-priceblock">
+                <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
+                  Last price
                 </div>
-              ) : (
-                <div className="cd-hero-bar__price cd-hero-bar__price--muted">
-                  {NO_EXTERNAL_PRICE}
+                <div className="cd-hero-bar__price-row">
+                  {priceLoading && priceUsd == null ? (
+                    <div
+                      className="cd-hero-bar__price cd-hero-bar__skeleton"
+                      aria-hidden
+                    />
+                  ) : priceUsd != null && Number.isFinite(priceUsd) ? (
+                    <div className="cd-hero-bar__price">
+                      {formatUsdCompact(priceUsd)}
+                    </div>
+                  ) : (
+                    <div className="cd-hero-bar__price cd-hero-bar__price--muted">
+                      {NO_EXTERNAL_PRICE}
+                    </div>
+                  )}
+                  <div className="cd-hero-bar__chg" id="hero-chg">
+                    {changeLoading && changePct == null ? (
+                      <span
+                        className="cd-hero-bar__skeleton cd-hero-bar__skeleton--tag"
+                        aria-hidden
+                      />
+                    ) : changeTag ? (
+                      <span
+                        className={`cd-hero-bar__chg-val mono${
+                          changeTone === "down"
+                            ? " cd-hero-bar__chg-val--down"
+                            : changeTone === "up"
+                              ? " cd-hero-bar__chg-val--up"
+                              : ""
+                        }`}
+                      >
+                        <span className="cd-chg-glyph" aria-hidden>
+                          {changeTag.arrow}
+                        </span>{" "}
+                        {changeTag.label}{" "}
+                        <span className="cd-hero-bar__period">
+                          {periodChipLabel(changePeriod)}
+                        </span>
+                      </span>
+                    ) : (
+                      <TkTag tone="neutral" className="cd-hero-bar__change-tag">
+                        {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
+                      </TkTag>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="cd-hero-bar__chg" id="hero-chg">
-                {changeLoading && changePct == null ? (
-                  <span
-                    className="cd-hero-bar__skeleton cd-hero-bar__skeleton--tag"
-                    aria-hidden
-                  />
-                ) : changeTag ? (
-                  <span
-                    className={`cd-chart-panel__chg tkl-mono${
-                      changeTone === "down"
-                        ? " cd-chart-panel__chg--down"
-                        : changeTone === "up"
-                          ? " cd-chart-panel__chg--up"
-                          : ""
-                    }`}
-                  >
-                    <span className="cd-chg-glyph" aria-hidden>
-                      {changeTag.arrow}
-                    </span>{" "}
-                    {changeTag.label}
-                  </span>
-                ) : (
-                  <TkTag tone="neutral" className="cd-hero-bar__change-tag">
-                    {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
-                  </TkTag>
-                )}
-                <span className="cd-hero-bar__period mono">
-                  {periodChipLabel(changePeriod)}
-                </span>
-              </div>
-            </div>
-
-      {/* Card.html: two `.hero-secondary` columns (Ask/Bid + market · Pop + gem) */}
-            <div className="cd-hero-bar__secondary hero-secondary cd-hero-bar__secondary--wide">
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Ask | Bid</span>
-                <span className="cd-hero-bar__sec-val mono cd-hero-bar__askbid">
-                  <span id="ob-ask">{formatAskBidUsd(lowestAskUsd)}</span>
-                  {" | "}
-                  <span
-                    id="ob-bid"
-                    className={hasBid ? "cd-hero-bar__sec-val--bid" : undefined}
-                  >
-                    {formatAskBidUsd(highestBidUsd)}
-                  </span>
-                </span>
-              </div>
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">30D Median</span>
-                <span className="cd-hero-bar__sec-val mono">
-                  {tradeVolumeLoading && median30dUsd == null
-                    ? "—"
-                    : formatUsdCompact(median30dUsd)}
-                </span>
-              </div>
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Market cap</span>
-                <span className="cd-hero-bar__sec-val mono">
-                  {formatMarketCap(marketCapUsd)}
-                </span>
-              </div>
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">{volumeLabel}</span>
-                <span className="cd-hero-bar__sec-val mono">
-                  {tradeVolumeLoading && tradeVolumeUsdc == null
-                    ? "—"
-                    : tradeVolumeUsdc == null
-                      ? "—"
-                      : formatUsdCompact(tradeVolumeUsdc)}
-                </span>
-              </div>
-            </div>
-
-            <div className="cd-hero-bar__secondary hero-secondary cd-hero-bar__secondary--pop">
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">{popLabel}</span>
-                <span className="cd-hero-bar__sec-val mono">{popValue}</span>
-              </div>
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">Gem rate</span>
-                <span className="cd-hero-bar__sec-val mono">
-                  {gemRateLabel}
-                </span>
-              </div>
-              <div className="cd-hero-bar__sec-row">
-                <span className="cd-hero-bar__sec-lbl mono">{velocityLabel}</span>
-                <span className="cd-hero-bar__sec-val mono">
-                  {tradeVolumeLoading &&
-                  velocityPct == null &&
-                  marketCapUsd == null
-                    ? "—"
-                    : formatVelocityPercent(velocityPct)}
-                </span>
               </div>
             </div>
           </div>
+        </div>
 
-            {showTradeBook ? (
-              <div className="cd-hero-bar__book" id="hero-book">
-                {onBuyLowestAsk ? (
-                  <TkButton
-                    type="button"
-                    variant="primary"
-                    className="cd-hero-bar__buy-btn"
-                    disabled={buyDisabled || !hasAsk}
-                    onClick={onBuyLowestAsk}
-                  >
-                    Buy
-                  </TkButton>
-                ) : null}
-                {onPlaceBid ? (
-                  <TkButton
-                    type="button"
-                    variant="subtle"
-                    className="cd-hero-bar__bid-btn bid-btn"
-                    disabled={bidDisabled}
-                    onClick={onPlaceBid}
-                  >
-                    Bid
-                  </TkButton>
-                ) : null}
+        {/* Card.html: `#hero-stats` is a child of `#hero-bar` (full-width wrap row). */}
+        <div className="cd-hero-stats" id="hero-stats">
+          <div className="cd-hero-stats__grid" id="hero-stats-grid">
+            <div className="cd-hero-stats__cell">
+              <div className="cd-hero-stats__lbl">Mkt cap</div>
+              <div className="cd-hero-stats__val mono">
+                {formatMarketCap(marketCapUsd)}
               </div>
-            ) : null}
+            </div>
+            <div className="cd-hero-stats__cell">
+              <div className="cd-hero-stats__lbl">Vol 1Yr</div>
+              <div className="cd-hero-stats__val mono">{volumeDisplay}</div>
+            </div>
+            <div className="cd-hero-stats__cell">
+              <div className="cd-hero-stats__lbl">Velocity</div>
+              <div className="cd-hero-stats__val mono">{velocityDisplay}</div>
+            </div>
+            <div className="cd-hero-stats__cell">
+              <div className="cd-hero-stats__lbl">Pop</div>
+              <div className="cd-hero-stats__val mono">{popValue}</div>
+            </div>
+            <div className="cd-hero-stats__cell">
+              <div className="cd-hero-stats__lbl">Gem rate</div>
+              <div className="cd-hero-stats__val mono">{gemRateLabel}</div>
+            </div>
           </div>
         </div>
       </div>

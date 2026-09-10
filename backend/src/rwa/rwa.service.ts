@@ -20,6 +20,7 @@ import {
   RwaMetadata,
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
+import { collectionKeyFromGradedMetadata } from '../marketplace/utils/bucket-key.util';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
 import { readRwaMintPlaceholderPng } from './rwa-mint-placeholder.util';
 import {
@@ -287,6 +288,9 @@ export class RwaService {
     }
 
     const metadataCID = await this.pinataService.uploadMetadata(metadata);
+    const collectionKey = collectionKeyFromGradedMetadata(
+      metadata as unknown as Record<string, unknown>,
+    );
 
     return {
       tokenURI: `ipfs://${metadataCID}`,
@@ -295,6 +299,7 @@ export class RwaService {
       metadata,
       displayImageUrl,
       displayImageBackUrl,
+      collectionKey,
     };
   }
 

@@ -15,6 +15,7 @@ import {
   joinCardDisplaySegments,
   resolveCardDisplaySetName,
   resolveCardDisplayGrade,
+  stripTrailingRawGradeLabel,
 } from "@/lib/marketplace/cardDisplayName";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -140,7 +141,7 @@ export function buildAssetDetailHeadlineParts(input: {
   };
 }
 
-/** Title line: `{Card name} · {Number} · {Grade}` — grade defaults to `Raw`. */
+/** Title line: `{Card name} · {Number} · {Grade}` — unknown grade omits the slot (never `Raw`). */
 export function formatAssetDetailLine1(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null; omitGrade?: boolean },
@@ -274,16 +275,17 @@ export function buildRwaAssetDetailHeadlineParts(
     }
   }
 
-  const cardNameRaw =
+  const cardNameRaw = stripTrailingRawGradeLabel(
     pickString(psa?.subject, card?.name, psa?.cardNameHint) ??
-    displayAssetNameFromMetadata(meta, fallback).trim() ??
-    fallback ??
-    null;
+      displayAssetNameFromMetadata(meta, fallback).trim() ??
+      fallback ??
+      "",
+  );
 
   return buildAssetDetailHeadlineParts({
     setLine,
     year: yearRaw,
-    cardName: cardNameRaw || fallback,
+    cardName: cardNameRaw || stripTrailingRawGradeLabel(fallback) || fallback,
     cardNumber: pickString(card?.number, psa?.cardNumberHint),
     variety: resolveRwaMetadataVariant(graded),
     language:
@@ -293,11 +295,11 @@ export function buildRwaAssetDetailHeadlineParts(
   });
 }
 
-/** Grade for Line 1 — `{Company} {score}` (e.g. PSA 10). Not PSA qualifier copy like GEM MT 10. */
+/** Grade for Line 1 — `{Company} {score}` (e.g. PSA 10). Never returns `Raw`. */
 export function resolveRwaHeadlineGrade(
   meta: RwaHeadlineMetadata | null | undefined,
 ): string {
-  if (!meta) return resolveCardDisplayGrade(null);
+  if (!meta) return "";
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded =
     (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
@@ -318,8 +320,20 @@ export function resolveRwaHeadlineGrade(
     if (score) return toCardDisplayCase(`${company} ${score}`);
   }
   const fromMeta = formatPortfolioGradeLabel(meta as RwaMetadata);
-  if (fromMeta?.trim()) return toCardDisplayCase(fromMeta);
-  return resolveCardDisplayGrade(null);
+  if (fromMeta?.trim() && !/^raw$/i.test(fromMeta.trim())) {
+    return toCardDisplayCase(fromMeta);
+  }
+  // DB list stubs often only put grade on `metadata.name` (`… · PSA 10`).
+  const name = stripTrailingRawGradeLabel(
+    typeof meta.name === "string" ? meta.name : "",
+  );
+  const fromName = name.match(/\bPSA\s+(\d{1,2}(?:\.\d+)?)\s*$/i);
+  if (fromName?.[1]) {
+    return toCardDisplayCase(`PSA ${fromName[1]}`);
+  }
+  const fromAuth = name.match(/\bPSA\s+AUTH(?:ENTIC)?\s*$/i);
+  if (fromAuth) return toCardDisplayCase("PSA AUTH");
+  return "";
 }
 
 export {
@@ -334,6 +348,7 @@ export {
   resolveCardDisplaySetName,
   stripLeadingTcgSeriesFromSetDisplay,
   resolveCardDisplayGrade,
+  stripTrailingRawGradeLabel,
   stripCategoryPrefixFromSet,
   isDisplayVariantDuplicateOfSet,
   displayVariantIfNotSetDuplicate,

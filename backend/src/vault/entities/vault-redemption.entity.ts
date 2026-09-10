@@ -14,8 +14,11 @@ import { VaultCycle } from './vault-cycle.entity';
  * Redeem lifecycle:
  * - ownership_verified: USDC paid, awaiting user-signed NFT → custody
  * - in_custody: NFT held at RWA_CUSTODY (Preparing UI)
- * - burned / vault_release_pending / completed: physical ops
+ * - burned: on-chain adminBurn done (also set mid-flight during receipt finalize)
+ * - vault_release_pending / completed: physical receipt confirmed
  * - refunded: USDC (+ usually NFT) returned
+ *
+ * Receipt finalize (`confirm-received` / FedEx auto): burn then `completed`.
  */
 export type VaultRedemptionStatus =
   | 'pending'

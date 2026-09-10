@@ -91,7 +91,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       },
       {
         href: "/marketplace/admin/custody-nfts",
-        label: "Custody NFTs",
+        label: "Custody RWAs",
         icon: "package",
         prefix: "/marketplace/admin/custody-nfts",
         description: "Deliver vaulted cards to users",
@@ -195,7 +195,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         label: "Mint queue",
         icon: "list-checks",
         prefix: "/marketplace/admin/vault/mint-queue",
-        description: "At PSA → mint and deliver NFT to depositor (Live)",
+        description: "At PSA → mint and deliver RWA to depositor (Live)",
       },
       {
         href: "/marketplace/admin/vault/submissions",

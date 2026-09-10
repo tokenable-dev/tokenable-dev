@@ -8,6 +8,13 @@ import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetail
 
 export const CARD_DISPLAY_GRADE_RAW = "Raw";
 
+/** True when a grade token is the forbidden `Raw` placeholder (case-insensitive). */
+export function isCardDisplayRawGrade(
+  raw: string | null | undefined,
+): boolean {
+  return /^raw$/i.test((raw ?? "").trim());
+}
+
 export type CardDisplayNameMode =
   /** `{Name} · {Number} · {Grade}` */
   | "line1"
@@ -48,10 +55,25 @@ export function joinCardDisplaySegments(
     .join(" · ");
 }
 
-/** Ungraded / unknown → `Raw`. Otherwise trimmed label as-is. */
+/**
+ * Normalize a grade label for Line 1.
+ * Tokenable never shows `Raw` — empty/unknown omits the grade segment instead.
+ * Catalog surfaces that previously relied on a Raw placeholder now omit grade.
+ */
 export function resolveCardDisplayGrade(raw: string | null | undefined): string {
   const t = (raw ?? "").trim();
-  return t || CARD_DISPLAY_GRADE_RAW;
+  if (!t || isCardDisplayRawGrade(t)) return "";
+  return t;
+}
+
+/** Strip a trailing `· Raw` / `Raw` grade leak from stored titles. */
+export function stripTrailingRawGradeLabel(raw: string | null | undefined): string {
+  const t = (raw ?? "").trim();
+  if (!t) return "";
+  return t
+    .replace(/\s*[·•]\s*Raw\s*$/i, "")
+    .replace(/\s+Raw\s*$/i, "")
+    .trim();
 }
 
 /** Long or raw catalog tokens → short codes (`EN`, `JP`, …). Unknown → null. */
@@ -485,13 +507,13 @@ export function formatCardDisplayLine1(
   opts?: { abbrev?: boolean; omitGrade?: boolean },
 ): string {
   const grade = resolveCardDisplayGrade(parts.grade);
-  const name = parts.cardName?.trim() || "";
+  const name = stripTrailingRawGradeLabel(parts.cardName) || "";
   const number = formatHeadlineCardNumber(parts.cardNumber) ?? "";
 
   if (opts?.abbrev) {
     return joinCardDisplaySegments([name, grade]);
   }
-  if (opts?.omitGrade) {
+  if (opts?.omitGrade || !grade) {
     return joinCardDisplaySegments([name, number]);
   }
 

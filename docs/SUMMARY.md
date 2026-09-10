@@ -11,6 +11,7 @@
 - [Blockchain Architecture](architecture/blockchain.md)
 - [Vault Lifecycle](architecture/vault-lifecycle.md)
 - [Materialized Market Snapshots](architecture/materialized-market-snapshots.md)
+- [Portfolio List Materialization](architecture/portfolio-list-materialization.md)
 
 ## API Reference
 

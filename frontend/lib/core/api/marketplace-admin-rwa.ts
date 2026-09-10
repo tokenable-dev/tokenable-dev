@@ -164,7 +164,7 @@ export async function getAdminCustodyNfts(): Promise<{
     `${getApiUrl()}/marketplace/admin/rwa-tokens/custody-nfts`,
   );
   if (!res.ok) {
-    await parseAdminError(res, "Failed to load custody NFTs");
+    await parseAdminError(res, "Failed to load custody RWAs");
   }
   return res.json() as Promise<{
     custodyWallet: string;
@@ -185,7 +185,7 @@ export async function postAdminDeliverRwaToken(
     },
   );
   if (!res.ok) {
-    await parseAdminError(res, "Failed to deliver NFT");
+    await parseAdminError(res, "Failed to deliver RWA");
   }
   return res.json() as Promise<{ txHash: string; recipientAddress: string }>;
 }

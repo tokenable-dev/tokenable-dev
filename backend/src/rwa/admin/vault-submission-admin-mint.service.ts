@@ -159,8 +159,10 @@ export class VaultSubmissionAdminMintService {
           recipientAddress,
           tokenURI: upload.tokenURI,
           certNumber: cert,
+          displayName: item.displayName?.trim() || `PSA #${cert}`,
           displayImageUrl: upload.displayImageUrl ?? undefined,
           displayImageBackUrl: upload.displayImageBackUrl ?? undefined,
+          collectionKey: upload.collectionKey ?? undefined,
         },
         chainId,
       );

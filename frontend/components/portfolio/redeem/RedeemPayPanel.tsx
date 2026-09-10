@@ -109,11 +109,11 @@ export function RedeemPayPanel({
     <div className="pf-redeem-panel">
       <div className="pf-redeem-eyebrow">Redeem · Step 2 of 2</div>
       <h1 className="pf-redeem-h1">
-        {custodyPending ? "Finish NFT transfer" : "Review and pay"}
+        {custodyPending ? "Finish RWA transfer" : "Review and pay"}
       </h1>
       <p className="pf-redeem-sub">
         {custodyPending
-          ? "Your USDC payment is already recorded. Confirm each NFT transfer into Tokenable custody to continue — do not pay again."
+          ? "Your USDC payment is already recorded. Confirm each RWA transfer into Tokenable custody to continue — do not pay again."
           : "Final amount, charged now."}
       </p>
 
@@ -134,7 +134,7 @@ export function RedeemPayPanel({
         <div className="pf-redeem-cost">
           <div className="pf-redeem-cost__title">Payment status</div>
           <p className="pf-redeem-cost__copy" style={{ marginTop: 0 }}>
-            Paid — waiting for NFT custody transfers. You can leave and return
+            Paid — waiting for RWA custody transfers. You can leave and return
             later; we&rsquo;ll pick up where you left off.
           </p>
         </div>
@@ -202,7 +202,7 @@ export function RedeemPayPanel({
             disabled={busy || cards.length === 0}
             onClick={() => (onResumeCustody ? onResumeCustody() : onPay())}
           >
-            {busy ? busyLabel(payPhase) : "Finish NFT transfers"}
+            {busy ? busyLabel(payPhase) : "Finish RWA transfers"}
           </TkButton>
           <p className="pf-redeem-hint-below">
             Your wallet will ask you to transfer each remaining card into

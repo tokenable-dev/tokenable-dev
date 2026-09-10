@@ -129,7 +129,7 @@ export function PortfolioAssetCard({
           <PortfolioListingPriceStrip
             askPriceUsd={row.listPriceUsd}
             marketPriceUsd={row.currentPrice}
-            marketPending={valuesPending}
+            marketPending={valuesPending && row.currentPrice == null}
           />
         </div>
         {address && assetFilter !== "hidden" && setPrice ? (

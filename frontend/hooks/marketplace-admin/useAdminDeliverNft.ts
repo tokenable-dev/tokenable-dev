@@ -47,7 +47,7 @@ export function useAdminDeliverNft() {
         );
       } catch (err) {
         window.alert(
-          err instanceof Error ? err.message : "Failed to deliver NFT",
+          err instanceof Error ? err.message : "Failed to deliver RWA",
         );
       } finally {
         setDeliveringTokenId(null);

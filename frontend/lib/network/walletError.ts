@@ -21,7 +21,7 @@ const SEAPORT_INVALID_TIME_ABI = [
 ] as const;
 
 const SEAPORT_INVALID_TIME_SHORT =
-  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the NFT or place a new collection bid, then try again.";
+  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the RWA or place a new collection bid, then try again.";
 
 function extractRevertHexData(err: unknown): Hex | null {
   let cur: unknown = err;

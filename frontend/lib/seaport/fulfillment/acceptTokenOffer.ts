@@ -72,7 +72,7 @@ async function ensureNftApprovedForSeaport(params: {
   });
   const receipt = await waitForUserTxReceipt(publicClient, hash);
   if (receipt.status === "reverted") {
-    throw new Error("NFT approval for Seaport was reverted. Try again.");
+    throw new Error("RWA approval for Seaport was reverted. Try again.");
   }
 }
 

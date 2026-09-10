@@ -6,6 +6,8 @@ import { ChainConfigService, type SupportedChainId } from '../../blockchain/chai
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
+import { collectionKeyFromGradedMetadata } from '../utils/bucket-key.util';
+import { resolveRegistryDisplayName } from '../utils/rwa-list-display-name.util';
 
 function metadataCidFromTokenUri(uri: string): string | null {
   const u = uri.trim();
@@ -45,21 +47,33 @@ export class RwaTokenRegistryService {
     tokenId: string | number,
     meta: Record<string, unknown>,
     opts?: { tokenUri?: string; collectionKey?: string | null; chainId?: SupportedChainId },
-  ): Promise<void> {
+  ): Promise<string | null> {
     const contract = this.rwaContractAddress(opts?.chainId);
-    if (!contract) return;
+    if (!contract) return null;
     const tid = String(tokenId).trim();
-    if (!tid) return;
+    if (!tid) return null;
 
     const cert = psaCertNumberFromGradedMeta(meta) ?? null;
-    const displayName =
-      typeof meta.name === 'string' && meta.name.trim()
-        ? meta.name.trim()
-        : null;
+    // Prefer graded Line 1 over thin IPFS `name` (bare subject) so on-mint sync
+    // never clobbers mint-time `Name · # · PSA 10` with card name only.
+    const displayName = resolveRegistryDisplayName(meta);
     const tokenUri = opts?.tokenUri?.trim() || null;
     const metadataCid = tokenUri ? metadataCidFromTokenUri(tokenUri) : null;
+    const collectionKey =
+      opts?.collectionKey?.trim().toLowerCase() ||
+      collectionKeyFromGradedMetadata(meta);
 
     // Explicit orUpdate columns — never touch `settlement_policy` (set at mint).
+    // Only write collection_key when we have one so sync never nulls a mint-time key.
+    const updateCols = [
+      'cert_number',
+      'token_uri',
+      'metadata_cid',
+      'display_name',
+      'metadata_synced_at',
+      ...(collectionKey ? ['collection_key'] : []),
+    ];
+
     await this.repo
       .createQueryBuilder()
       .insert()
@@ -71,34 +85,26 @@ export class RwaTokenRegistryService {
         tokenUri,
         metadataCid,
         displayName,
-        collectionKey: opts?.collectionKey?.toLowerCase() ?? null,
+        collectionKey,
         metadataSyncedAt: new Date(),
       })
-      .orUpdate(
-        [
-          'cert_number',
-          'token_uri',
-          'metadata_cid',
-          'display_name',
-          'collection_key',
-          'metadata_synced_at',
-        ],
-        ['token_contract', 'token_id'],
-      )
+      .orUpdate(updateCols, ['token_contract', 'token_id'])
       .execute();
+
+    return collectionKey;
   }
 
   async syncTokenFromChain(
     tokenId: number,
     collectionKey?: string | null,
     chainId?: SupportedChainId,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const contract = this.rwaContractAddress(chainId);
-    if (!contract) return;
+    if (!contract) return null;
     try {
       const tokenUri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
       const meta = await this.ipfsResolver.fetchMetadataJson(tokenUri);
-      await this.upsertFromMetadata(tokenId, meta, {
+      return await this.upsertFromMetadata(tokenId, meta, {
         tokenUri,
         collectionKey: collectionKey ?? null,
         chainId,
@@ -107,6 +113,7 @@ export class RwaTokenRegistryService {
       this.logger.debug(
         `rwa_tokens sync skip #${tokenId}: ${String(e).slice(0, 120)}`,
       );
+      return null;
     }
   }
 

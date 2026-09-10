@@ -1,6 +1,5 @@
 import {
   cardDisplayPartsFromAssetDetail,
-  CARD_DISPLAY_GRADE_RAW,
   formatCardDisplayLanguageShort,
   formatCardDisplayLine1,
   formatCardDisplayLine2,
@@ -21,7 +20,9 @@ import {
   buildRwaAssetDetailHeadlineParts,
   resolveRwaHeadlineGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { extractCardNumberFromDisplayText } from "@/lib/marketplace/collectionFullDetailsTitle";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 describe("cardDisplayName SSOT", () => {
   it("joinCardDisplaySegments skips empty segments", () => {
@@ -29,9 +30,10 @@ describe("cardDisplayName SSOT", () => {
     expect(joinCardDisplaySegments([])).toBe("");
   });
 
-  it("resolveCardDisplayGrade defaults to Raw", () => {
-    expect(resolveCardDisplayGrade(null)).toBe(CARD_DISPLAY_GRADE_RAW);
-    expect(resolveCardDisplayGrade("  ")).toBe(CARD_DISPLAY_GRADE_RAW);
+  it("resolveCardDisplayGrade never returns Raw", () => {
+    expect(resolveCardDisplayGrade(null)).toBe("");
+    expect(resolveCardDisplayGrade("  ")).toBe("");
+    expect(resolveCardDisplayGrade("Raw")).toBe("");
     expect(resolveCardDisplayGrade("PSA 10")).toBe("PSA 10");
   });
 
@@ -47,7 +49,7 @@ describe("cardDisplayName SSOT", () => {
     expect(formatCardDisplayLanguageShort("")).toBeNull();
   });
 
-  it("formats Line 1 with middots and mandatory grade", () => {
+  it("formats Line 1 and omits unknown grade instead of Raw", () => {
     const line1 = formatCardDisplayLine1({
       cardName: "Charizard ex",
       cardNumber: "199/165",
@@ -57,7 +59,18 @@ describe("cardDisplayName SSOT", () => {
       language: null,
       variant: null,
     });
-    expect(line1).toBe("Charizard ex · 199/165 · Raw");
+    expect(line1).toBe("Charizard ex · 199/165");
+    expect(
+      formatCardDisplayLine1({
+        cardName: "Kobe Bryant",
+        cardNumber: null,
+        grade: "Raw",
+        year: null,
+        setName: null,
+        language: null,
+        variant: null,
+      }),
+    ).toBe("Kobe Bryant");
   });
 
   it("omits grade on asset-detail Line 1", () => {
@@ -84,7 +97,7 @@ describe("cardDisplayName SSOT", () => {
       ),
     ).toBe("199/165");
     expect(extractCardNumberFromDisplayText("Monkey D. Luffy OP13-118")).toBe(
-      "OP13118",
+      "OP13-118",
     );
     expect(
       extractCardNumberFromDisplayText("Master Ball Reverse Holo · 094"),
@@ -165,7 +178,7 @@ describe("cardDisplayName SSOT", () => {
       language: null,
       variant: null,
     });
-    expect(line1).toBe("Monkey D. Luffy · OP13118 · PSA 10");
+    expect(line1).toBe("Monkey D. Luffy · OP13-118 · PSA 10");
     expect(
       formatCardDisplayLine1({
         cardName: "Pikachu",
@@ -557,5 +570,40 @@ describe("cardDisplayName SSOT", () => {
         },
       }),
     ).toBe("PSA 10");
+  });
+
+  it("Details Set row shows expansion only — no franchise merge", () => {
+    const baseComp = {
+      cardSet: "2025 One Piece Carrying On His Will",
+      psaBrand: "2025 One Piece Carrying On His Will",
+    } as CollectionComponents;
+
+    const withCatalog = buildCollectionMarketDetailCards({
+      key: "test-key",
+      hasCollection: true,
+      marketPreview: {
+        card: { setName: "One Piece OP13 Carrying On His Will" },
+      } as never,
+      comp: baseComp,
+      headlineCardNumberToken: "OP13-118",
+      headlineSetLine: "2025 One Piece Carrying On His Will",
+      collectionCategoryBadge: "One Piece",
+    });
+    const setCatalog = withCatalog.find((r) => r.id === "set");
+    expect(setCatalog?.value).toBe("OP13 Carrying On His Will");
+    expect(setCatalog?.filterValue).toBe("One Piece Carrying On His Will");
+
+    const fromLine = buildCollectionMarketDetailCards({
+      key: "test-key",
+      hasCollection: true,
+      marketPreview: null,
+      comp: baseComp,
+      headlineCardNumberToken: null,
+      headlineSetLine: "2025 One Piece Carrying On His Will",
+      collectionCategoryBadge: "One Piece",
+    });
+    const setLine = fromLine.find((r) => r.id === "set");
+    expect(setLine?.value).toBe("Carrying On His Will");
+    expect(setLine?.filterValue).toBe("One Piece Carrying On His Will");
   });
 });

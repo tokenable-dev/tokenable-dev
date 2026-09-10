@@ -988,12 +988,6 @@
   row-gap: 32px;
 }
 
-@media (min-width: 1600px) {
-  .markets-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
 .markets-grid--tail {
   margin-top: 32px;
 }

@@ -105,10 +105,7 @@ export function useListRwaModal({
     let label: string;
     try {
       const n = Number(formatUnits(micros, 6));
-      label = n.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      label = Math.round(n).toLocaleString("en-US");
     } catch {
       label = String(micros);
     }
@@ -188,12 +185,16 @@ export function useListRwaModal({
 
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
-      setPrice(initialPriceUsdc.trim());
+      const n = Number(initialPriceUsdc.replace(/[^0-9.]/g, ""));
+      setPrice(Number.isFinite(n) && n > 0 ? String(Math.round(n)) : "");
       return;
     }
     if (resolvedExistingAsk?.considerationAmount) {
       try {
-        setPrice(formatUnits(BigInt(resolvedExistingAsk.considerationAmount), 6));
+        const n = Number(
+          formatUnits(BigInt(resolvedExistingAsk.considerationAmount), 6),
+        );
+        setPrice(Number.isFinite(n) && n > 0 ? String(Math.round(n)) : "");
       } catch {
         setPrice("");
       }
@@ -312,7 +313,9 @@ export function useListRwaModal({
           collectionUnderReview: created.reviewStatus === "pending_review",
         });
         setStep("success");
-        await invalidateListingQueries(instantMatchDeps, created);
+        await invalidateListingQueries(instantMatchDeps, created, {
+          ownershipMoved: meta.matched,
+        });
         return;
       }
 
@@ -372,7 +375,9 @@ export function useListRwaModal({
       });
       setStep("success");
 
-      await invalidateListingQueries(instantMatchDeps, createdFinal);
+      await invalidateListingQueries(instantMatchDeps, createdFinal, {
+        ownershipMoved: meta.matched,
+      });
     } catch (err: unknown) {
       setErrorMsg(mapWalletError(err).message);
       setStep("error");

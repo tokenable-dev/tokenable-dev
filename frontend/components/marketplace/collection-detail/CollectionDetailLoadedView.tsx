@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
@@ -10,11 +11,14 @@ import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollecti
 import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useBuyerListingAlert } from "@/hooks/collection-detail/useBuyerListingAlert";
+import { useCollectionOwnedRwa } from "@/hooks/collection-detail/useCollectionOwnedRwa";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import { CollectionChooseCopyModal } from "./CollectionChooseCopyModal";
+import { CollectionChooseOwnedModal } from "./CollectionChooseOwnedModal";
+import { CollectionListConfirmModal } from "./CollectionListConfirmModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -25,6 +29,8 @@ import { useCollectionListingModal } from "@/hooks/collection-detail/useCollecti
 import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
 import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
 import { CollectionSimilarItemsSection } from "./CollectionSimilarItemsSection";
+import { CollectionDetailTradePanel } from "./CollectionDetailTradePanel";
+import type { CollectionTradeCertItem } from "./CollectionDetailTradePanel";
 import {
   buildCollectionDetailMarketsSlots,
 } from "./buildCollectionDetailMarketsSlots";
@@ -34,8 +40,21 @@ import {
   priceLevelKey,
   priceUsdcFromOrder,
 } from "@/lib/marketplace/unified-order-book";
+import {
+  listingVerificationTiles,
+  listingVaultBadge,
+} from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
+import type { Order } from "@/lib/core";
+
+const ListRwaModal = dynamic(
+  () =>
+    import("@/components/marketplace/list-rwa/ListRwaModal").then((m) => ({
+      default: m.ListRwaModal,
+    })),
+  { ssr: false },
+);
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
   const {
@@ -131,6 +150,14 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     onInvalidate: invalidateCollection,
   });
 
+  const owned = useCollectionOwnedRwa(collectionKey);
+  const [bidPresetUsd, setBidPresetUsd] = useState<number | null>(null);
+  const [listPricePreset, setListPricePreset] = useState<string | null>(null);
+  const [listTokenId, setListTokenId] = useState<number | null>(null);
+  const [chooseOwnedOpen, setChooseOwnedOpen] = useState(false);
+  /** Card.html `#tk-bidconf` — confirm list from trade Sell (price already set). */
+  const [listConfirmOpen, setListConfirmOpen] = useState(false);
+
   const pathname = usePathname();
   const { runTradeAccessGate } = useTradeAccessGate(pathname || `/marketplace/collections/${collectionKey}`);
   const {
@@ -174,23 +201,96 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [listings.askMap, collectionKey, listingModal.openListing],
   );
 
+  /**
+   * Card.html `tkBuy`: one ask at the price → checkout; 2+ → `#tk-choose`.
+   */
+  const openBuyForAskOrders = useCallback(
+    (orders: Order[], priceUsd: number) => {
+      const active = orders.filter((o) => o.status === "active");
+      if (active.length === 0) return;
+      if (active.length === 1) {
+        openBuyCheckoutForToken(Number(active[0]!.tokenId));
+        return;
+      }
+      const price = priceUsd > 0 ? priceUsd : priceUsdcFromOrder(active[0]!);
+      setOrderBookAskPicker({
+        side: "ask",
+        levelKey: `ask-${priceLevelKey(price)}`,
+        price,
+        orders: active,
+      });
+    },
+    [openBuyCheckoutForToken, setOrderBookAskPicker],
+  );
+
+  /** Trade Buy / bid-meets-ask — group by the selected ask's price level. */
+  const handleTradeBuy = useCallback(
+    (tokenId: number) => {
+      const listing = listings.askMap.get(tokenId);
+      if (!listing || listing.status !== "active") return;
+      const price = priceUsdcFromOrder(listing);
+      const key = priceLevelKey(price);
+      const atPrice = [...listings.askMap.values()].filter((o) => {
+        if (o.status !== "active") return false;
+        try {
+          return priceLevelKey(priceUsdcFromOrder(o)) === key;
+        } catch {
+          return false;
+        }
+      });
+      openBuyForAskOrders(atPrice, price);
+    },
+    [listings.askMap, openBuyForAskOrders],
+  );
+
+  const openListFlow = useCallback(
+    (priceUsd: number | null, tokenId?: number | null) => {
+      const preset =
+        priceUsd != null && priceUsd > 0 ? String(Math.round(priceUsd)) : null;
+      setListPricePreset(preset);
+      setListConfirmOpen(false);
+      if (tokenId != null && tokenId >= 0) {
+        setListTokenId(tokenId);
+        return;
+      }
+      const rows = owned.rows;
+      if (rows.length === 0) {
+        router.push("/sell");
+        return;
+      }
+      if (rows.length === 1) {
+        setListTokenId(rows[0]!.tokenId);
+        return;
+      }
+      setChooseOwnedOpen(true);
+    },
+    [owned.rows, router],
+  );
+
   const handleOrderBookSelectLevel = useCallback(
     (sel: BookRowSelection) => {
       if (sel.side === "ask" && sel.orders.length >= 1) {
-        setOrderBookAskPicker(sel);
+        openBuyForAskOrders(sel.orders, sel.price);
         return;
       }
       collectionOrderBookProps?.onSelectLevel?.(sel);
     },
-    [collectionOrderBookProps, setOrderBookAskPicker],
+    [collectionOrderBookProps, openBuyForAskOrders],
   );
 
   const orderBookPropsWithActions = useMemo(
     () => ({
       ...collectionOrderBookProps,
       onSelectLevel: handleOrderBookSelectLevel,
-      onPlaceBid: listingModal.openSetLevelBid,
-      onListYours: () => router.push("/sell"),
+      onPlaceBid: () => {
+        setBidPresetUsd(null);
+        listingModal.openSetLevelBid();
+      },
+      onListYours: () => {
+        runTradeAccessGate(() => {
+          openListFlow(null);
+        });
+      },
       listingAlertActive,
       listingAlertPending,
       onToggleListingAlert: handleToggleListingAlert,
@@ -199,10 +299,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       collectionOrderBookProps,
       handleOrderBookSelectLevel,
       listingModal.openSetLevelBid,
-      router,
       listingAlertActive,
       listingAlertPending,
       handleToggleListingAlert,
+      runTradeAccessGate,
+      openListFlow,
     ],
   );
 
@@ -216,7 +317,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   );
 
   const openBuyFloor = () => {
-    const active = [...listings.askMap.values()].filter((o) => o.status === "active");
+    const active = [...listings.askMap.values()].filter(
+      (o) => o.status === "active",
+    );
     if (active.length === 0) return;
     active.sort((a, b) => {
       try {
@@ -242,25 +345,106 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       }
     });
     if (floorOrders.length === 0) return;
-    const price = priceUsdcFromOrder(floorOrders[0]!);
-    setOrderBookAskPicker({
-      side: "ask",
-      levelKey: `ask-${priceLevelKey(price)}`,
-      price,
-      orders: floorOrders,
-    });
+    openBuyForAskOrders(floorOrders, priceUsdcFromOrder(floorOrders[0]!));
   };
 
-  /** Card.html #tk-choose: `Name · # · Grade`; sub built in the sheet. */
+  const handleTradeBid = useCallback(
+    (priceUsd: number) => {
+      setBidPresetUsd(priceUsd > 0 ? priceUsd : null);
+      listingModal.openSetLevelBid();
+    },
+    [listingModal.openSetLevelBid],
+  );
+
+  const handleTradeSell = useCallback(
+    (tokenId: number, priceUsd: number) => {
+      runTradeAccessGate(() => {
+        const preset =
+          priceUsd > 0 ? String(Math.round(priceUsd)) : null;
+        setListPricePreset(preset);
+        setListTokenId(tokenId);
+        setListConfirmOpen(true);
+      });
+    },
+    [runTradeAccessGate],
+  );
+
+  const tradeBuyItems = useMemo((): CollectionTradeCertItem[] => {
+    const active = asks.filter((o) => o.status === "active");
+    const sorted = [...active].sort((a, b) => {
+      try {
+        const pa = BigInt(a.considerationAmount);
+        const pb = BigInt(b.considerationAmount);
+        if (pa === pb) return Number(a.tokenId) - Number(b.tokenId);
+        return pa < pb ? -1 : 1;
+      } catch {
+        return 0;
+      }
+    });
+    return sorted.map((order: Order) => {
+      const tokenId = Number(order.tokenId);
+      const packed = listingsBatchMetadata?.get(tokenId);
+      const tiles = listingVerificationTiles(packed?.metadata ?? null);
+      const vault = listingVaultBadge(order);
+      const cert =
+        tiles.certNumber !== "—"
+          ? `Cert. ${tiles.certNumber}`
+          : `Token #${tokenId}`;
+      return {
+        tokenId,
+        label: `${cert} · ${vault.label}`,
+        priceUsd: priceUsdcFromOrder(order),
+      };
+    });
+  }, [asks, listingsBatchMetadata]);
+
+  const tradeOwnedItems = useMemo((): CollectionTradeCertItem[] => {
+    return owned.rows.map((row) => ({
+      tokenId: row.tokenId,
+      label: `${row.certLabel} · ${row.vaultLabel}`,
+    }));
+  }, [owned.rows]);
+
+  const tradePanel = (
+    <CollectionDetailTradePanel
+      buyItems={tradeBuyItems}
+      ownedItems={tradeOwnedItems}
+      lowestAskUsd={lowestAskUsd}
+      highestBidUsd={highestBidUsd}
+      lastSaleUsd={market.gradeAwareExternalUsd}
+      askCount={asks.length}
+      bidCount={collectionBids.length}
+      onBuy={handleTradeBuy}
+      onBid={handleTradeBid}
+      onSell={handleTradeSell}
+      buyDisabled={asks.length === 0}
+      sellDisabled={owned.rows.length === 0}
+    />
+  );
+
+  /** Select your card — SSOT Line 1 with grade. */
+  const chooseCopyLine1 =
+    formatAssetDetailLine1(headline.collectionHeadlineParts, {
+      grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
+    }) || headline.collectionHeadlineDisplayTitle;
+  /** Shared omit-grade title for checkout shells that put grade on the copy line. */
   const chooseCopyTitle =
-    headline.collectionHeadlineDisplayTitle ||
-    formatAssetDetailLine1(headline.collectionHeadlineParts);
-  const chooseCopyGradeLine = useMemo(() => {
-    const grade = comp.gradeScore?.trim();
-    if (!grade) return null;
-    const label = /^\d/.test(grade) ? `PSA ${grade}` : grade;
-    return `${label} · Gem Mint`;
-  }, [comp.gradeScore]);
+    formatAssetDetailLine1(headline.collectionHeadlineParts, { omitGrade: true }) ||
+    headline.collectionHeadlineDisplayTitle;
+  const checkoutGradeOnly = useMemo(() => {
+    const raw =
+      market.gradeAwareTierLabel?.trim() ||
+      (comp.gradeScore?.trim()
+        ? /^\d/.test(comp.gradeScore.trim())
+          ? `PSA ${comp.gradeScore.trim()}`
+          : comp.gradeScore.trim()
+        : null);
+    return raw || null;
+  }, [comp.gradeScore, market.gradeAwareTierLabel]);
+  /** Bid modal `#tkb-copy` — Card.html often shows grade + mint label. */
+  const chooseCopyGradeLine = checkoutGradeOnly
+    ? `${checkoutGradeOnly} · Gem Mint`
+    : null;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -300,12 +484,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     headlineMeta: headline.collectionHeadlineMetaStrip,
     similarPanel,
     detailsPanel: renderHeroDetailsTabs(),
-    highestBidUsd,
-    lowestAskUsd,
-    onPlaceBid: listingModal.openSetLevelBid,
-    placeBidDisabled: false,
-    onBuyLowestAsk: openBuyFloor,
-    buyDisabled: asks.length === 0,
   });
 
   return (
@@ -353,7 +531,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           mobileMarketTabs={mobileScrollPanel}
           showOrderBook={showOrderBook}
           onShowOrderBookChange={setShowOrderBook}
-          marketsDockTradePanel={false}
+          marketsDockTradePanel
+          tradePanel={tradePanel}
           listingCount={asks.length}
           showListingSummary={false}
           priceChart={collectionDualPriceChart}
@@ -365,7 +544,10 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       <CollectionMobileTradeBar
         lowestAskUsd={lowestAskUsd}
         onBuy={openBuyFloor}
-        onBid={listingModal.openSetLevelBid}
+        onBid={() => {
+          setBidPresetUsd(null);
+          listingModal.openSetLevelBid();
+        }}
         buyDisabled={asks.length === 0}
         bidDisabled={false}
       />
@@ -379,8 +561,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       <CollectionChooseCopyModal
         open={orderBookAskPicker?.side === "ask"}
         onClose={() => setOrderBookAskPicker(null)}
-        collectionTitle={chooseCopyTitle}
-        itemSetLine={headline.headlineSetLine}
+        collectionTitle={chooseCopyLine1}
+        itemMetaLine={headline.collectionHeadlineMetaStrip}
         coverImageUrl={collectionCoverUrl}
         price={orderBookAskPicker?.price ?? 0}
         orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
@@ -402,6 +584,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         }
         collectionTitle={chooseCopyTitle}
         collectionMeta={headline.collectionHeadlineMetaStrip}
+        collectionGradeLine={checkoutGradeOnly}
         collectionKey={collectionKey}
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}
@@ -429,10 +612,14 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         collectionBids={collectionBids}
         askUsd={lowestAskUsd}
         highestBidUsd={highestBidUsd}
+        initialBidUsd={bidPresetUsd}
         connectedAddress={address}
         buyBusy={listingModal.buyFlow.buyBusy}
         buyErr={listingModal.buyFlow.buyErr}
-        onClose={listingModal.closeDetail}
+        onClose={() => {
+          setBidPresetUsd(null);
+          listingModal.closeDetail();
+        }}
         onFulfillBuy={() => void listingModal.buyFlow.handleFulfillAsk()}
         onBidPlaced={() => {
           invalidateCollection();
@@ -441,6 +628,98 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           invalidateCollection();
         }}
       />
+
+      <CollectionChooseOwnedModal
+        open={chooseOwnedOpen}
+        onClose={() => setChooseOwnedOpen(false)}
+        collectionTitle={chooseCopyTitle}
+        rows={owned.rows}
+        onConfirm={(tokenId) => {
+          setChooseOwnedOpen(false);
+          setListConfirmOpen(false);
+          setListTokenId(tokenId);
+        }}
+      />
+
+      {listConfirmOpen &&
+      listTokenId != null &&
+      listPricePreset != null &&
+      Number(listPricePreset) > 0 ? (
+        <CollectionListConfirmModal
+          open
+          tokenId={listTokenId}
+          priceUsd={Number(listPricePreset)}
+          imageUrl={
+            owned.rows.find((r) => r.tokenId === listTokenId)?.imageUrl ??
+            collectionCoverUrl
+          }
+          assetTitle={chooseCopyTitle}
+          headlineParts={headline.collectionHeadlineParts}
+          headlineGrade={headline.headlineGrade ?? market.gradeAwareTierLabel}
+          headlineMeta={headline.collectionHeadlineMetaStrip}
+          certLabel={
+            owned.rows.find((r) => r.tokenId === listTokenId)?.certLabel ??
+            `Token #${listTokenId}`
+          }
+          vaultLabel={
+            owned.rows.find((r) => r.tokenId === listTokenId)?.vaultLabel ??
+            "Tokenable Vault"
+          }
+          collectionKey={collectionKey}
+          collectionBids={collectionBids}
+          onClose={() => {
+            setListConfirmOpen(false);
+            setListTokenId(null);
+            setListPricePreset(null);
+          }}
+          onListed={() => {
+            setListConfirmOpen(false);
+            setListTokenId(null);
+            setListPricePreset(null);
+            invalidateCollection();
+            void owned.refetch();
+          }}
+          onMatchedSale={() => {
+            setListConfirmOpen(false);
+            setListTokenId(null);
+            setListPricePreset(null);
+            invalidateCollection();
+            void owned.refetch();
+          }}
+        />
+      ) : listTokenId != null ? (
+        <ListRwaModal
+          shell="sheet"
+          tokenId={listTokenId}
+          assetTitle={chooseCopyTitle}
+          headlineParts={headline.collectionHeadlineParts}
+          headlineGrade={headline.headlineGrade ?? market.gradeAwareTierLabel}
+          collectionKey={collectionKey}
+          collectionBids={collectionBids}
+          initialPriceUsdc={listPricePreset}
+          marketValueUsd={market.gradeAwareExternalUsd}
+          copyVariant="default"
+          onClose={() => {
+            setListTokenId(null);
+            setListPricePreset(null);
+            setListConfirmOpen(false);
+          }}
+          onListed={() => {
+            setListTokenId(null);
+            setListPricePreset(null);
+            setListConfirmOpen(false);
+            invalidateCollection();
+            void owned.refetch();
+          }}
+          onMatchedSale={() => {
+            setListTokenId(null);
+            setListPricePreset(null);
+            setListConfirmOpen(false);
+            invalidateCollection();
+            void owned.refetch();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

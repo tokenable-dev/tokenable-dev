@@ -547,6 +547,36 @@ export class RwaTokenAdminService {
   }
 
   /**
+   * Idempotent burn for redeem receipt finalize — skips when `rwa_tokens.burned_at`
+   * is already set. Admin burn panel still uses `burnTokenOnChain` (throws if burned).
+   */
+  async ensureBurnedForRedeem(
+    tokenId: number,
+    chainId: SupportedChainId,
+  ): Promise<{ txHash: string | null; alreadyBurned: boolean; cancelledOrderHashes: string[] }> {
+    const contract = this.rwaContractAddress(chainId);
+    if (!contract) {
+      throw new BadRequestException('RWA contract not configured');
+    }
+    const tid = Math.floor(Number(tokenId));
+    if (!Number.isFinite(tid) || tid < 0) {
+      throw new BadRequestException('Invalid tokenId');
+    }
+    const existing = await this.rwaTokenRepo.findOne({
+      where: { tokenContract: contract, tokenId: String(tid) },
+    });
+    if (existing?.burnedAt) {
+      return {
+        txHash: existing.burnTxHash,
+        alreadyBurned: true,
+        cancelledOrderHashes: [],
+      };
+    }
+    const result = await this.burnTokenOnChain(tid, chainId);
+    return { ...result, alreadyBurned: false };
+  }
+
+  /**
    * Executes "Redeem Request -> Execute admin burn -> Mark asset as redeemed"
    * (the physical vault release itself is a separate ops step — see
    * VaultService.confirmVaultRelease / confirmRedemptionRelease below).

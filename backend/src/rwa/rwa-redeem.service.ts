@@ -4,10 +4,13 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Interface, id as ethersId, getAddress } from 'ethers';
 import { randomUUID } from 'crypto';
+import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
@@ -17,10 +20,15 @@ import {
 } from '../blockchain/chain-config.service';
 import { PlatformFeeWalletService } from '../blockchain/platform-fee-wallet.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
+import { RwaTokenOwnerIndexService } from '../blockchain/rwa-token-owner-index.service';
 import { KycService } from '../kyc/kyc.service';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
+import { RwaTokenAdminService } from '../marketplace/collections/rwa-token-admin.service';
 import { RwaTokenRegistryService } from '../marketplace/collections/rwa-token-registry.service';
+import { Order, OrderStatus } from '../marketplace/entities/order.entity';
+import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfolio-daily-snapshot.service';
 import { VaultService } from '../vault/vault.service';
+import type { VaultRedemption } from '../vault/entities/vault-redemption.entity';
 import {
   RedeemBatchCustodyDto,
   RedeemBatchRequestDto,
@@ -49,6 +57,8 @@ const QUOTE_PIN_MAX_ENTRIES = 500;
  */
 @Injectable()
 export class RwaRedeemService {
+  private readonly logger = new Logger(RwaRedeemService.name);
+
   /**
    * Recently issued estimates, keyed by token set + destination.
    * Payment verification accepts a payment matching any unexpired quote so a
@@ -73,6 +83,11 @@ export class RwaRedeemService {
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    @InjectRepository(Order)
+    private readonly orderRepo: Repository<Order>,
+    private readonly rwaTokenAdmin: RwaTokenAdminService,
   ) {}
 
   private static quotePinKey(
@@ -400,6 +415,9 @@ export class RwaRedeemService {
       items: prepared,
     });
 
+    /* FE blocks listed redeem; cancel any leftover ASKs so listed badge dies immediately. */
+    await this.cancelActiveOrdersForTokens(contract, tokenIds);
+
     const custodyWalletAddress =
       await this.chainWriter.getCustodyWalletAddress(chainId);
 
@@ -478,6 +496,8 @@ export class RwaRedeemService {
       ]),
     );
 
+    const priorOwners = new Set<string>();
+
     for (const row of pending) {
       const tokenIdStr = await this.vault.getTokenIdForRedemption(row.id);
       if (!tokenIdStr) {
@@ -499,6 +519,13 @@ export class RwaRedeemService {
         await this.vault.markCustodyReceived({
           redemptionId: row.id,
           custodyTxHash: txHash,
+        });
+        await this.recordOwnerAfterCustodyConfirm({
+          tokenContract: rwa,
+          tokenId,
+          custodyWallet,
+          priorOwner: row.ownerWalletAddress,
+          priorOwners,
         });
         continue;
       }
@@ -528,6 +555,13 @@ export class RwaRedeemService {
         redemptionId: row.id,
         custodyTxHash: txHash,
       });
+      await this.recordOwnerAfterCustodyConfirm({
+        tokenContract: rwa,
+        tokenId,
+        custodyWallet,
+        priorOwner: row.ownerWalletAddress,
+        priorOwners,
+      });
     }
 
     const updated = await this.vault.findRedemptionsByBatchId(batchId, chainId);
@@ -536,6 +570,18 @@ export class RwaRedeemService {
       throw new BadRequestException(
         'Not all NFTs in this batch are in custody yet',
       );
+    }
+
+    if (priorOwners.size > 0) {
+      void this.portfolioSnapshots
+        .refreshCurrentSlotSnapshots([...priorOwners], chainId)
+        .catch((e) => {
+          this.logger.warn(
+            `refreshCurrentSlotSnapshots after redeem custody failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
     }
 
     if (pending.length > 0) {
@@ -557,6 +603,67 @@ export class RwaRedeemService {
         custodyTxHash: r.custodyTxHash,
       })),
     };
+  }
+
+  /**
+   * Immediate My Assets drop after NFT is in custody — do not wait for
+   * Transfer-log poll. Poll remains a heal backstop.
+   */
+  private async recordOwnerAfterCustodyConfirm(params: {
+    tokenContract: string;
+    tokenId: number;
+    custodyWallet: string;
+    priorOwner: string;
+    priorOwners: Set<string>;
+  }): Promise<void> {
+    const prior = params.priorOwner?.trim().toLowerCase();
+    if (prior) params.priorOwners.add(prior);
+    try {
+      await this.ownerIndex.recordOwner(
+        params.tokenContract,
+        params.tokenId,
+        params.custodyWallet,
+      );
+    } catch (e) {
+      this.logger.warn(
+        `recordOwner after redeem custody failed token=#${params.tokenId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  }
+
+  /** Cancel ACTIVE marketplace orders for tokens entering redeem (listed badge SSOT). */
+  private async cancelActiveOrdersForTokens(
+    tokenContract: string,
+    tokenIds: number[],
+  ): Promise<void> {
+    const contract = tokenContract.trim().toLowerCase();
+    const variants = new Set<string>();
+    for (const tokenId of tokenIds) {
+      const raw = String(Math.floor(tokenId));
+      variants.add(raw);
+      let i = 0;
+      while (i < raw.length - 1 && raw[i] === '0') i++;
+      variants.add(raw.slice(i));
+    }
+    if (variants.size === 0) return;
+
+    const activeOrders = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.token_contract) = :contract', { contract })
+      .andWhere('o.token_id IN (:...variants)', { variants: [...variants] })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .getMany();
+    if (activeOrders.length === 0) return;
+
+    for (const order of activeOrders) {
+      order.status = OrderStatus.CANCELLED;
+      await this.orderRepo.save(order);
+    }
+    this.logger.log(
+      `Redeem pay: cancelled ${activeOrders.length} active order(s) for token(s) ${tokenIds.join(',')}`,
+    );
   }
 
   private async verifyNftTransferredToCustody(params: {
@@ -680,8 +787,9 @@ export class RwaRedeemService {
   }
 
   /**
-   * User confirms physical receipt for a paid batch → status `completed`.
-   * Requires every card in the batch to have a tracking number (all vaults shipped).
+   * User confirms physical receipt for a paid batch → on-chain burn (if needed)
+   * then status `completed`. Requires every card in the batch to have a tracking
+   * number (all vaults shipped).
    */
   async confirmReceipt(
     user: User,
@@ -697,19 +805,6 @@ export class RwaRedeemService {
     }
     if (rows.some((r) => r.refundStatus !== 'none' || r.status === 'refunded')) {
       throw new BadRequestException('This redeem batch was refunded');
-    }
-
-    if (rows.every((r) => r.status === 'completed')) {
-      return {
-        paymentBatchId: batchId,
-        status: 'completed' as const,
-        alreadyCompleted: true,
-        redemptions: rows.map((r) => ({
-          id: r.id,
-          status: r.status,
-          vaultReleasedAt: r.vaultReleasedAt,
-        })),
-      };
     }
 
     const eligibleStatuses = new Set([
@@ -730,7 +825,10 @@ export class RwaRedeemService {
     }
 
     const needsNotify = rows.some((r) => r.status !== 'completed');
-    const saved = await this.vault.markUserReceiptConfirmed(rows, { via: 'user' });
+    const saved = await this.finalizeReceiptWithBurn(rows, chainId, {
+      via: 'user',
+    });
+
     if (needsNotify) {
       void this.notifications
         .notifyRedeemCompleted({
@@ -741,16 +839,80 @@ export class RwaRedeemService {
         })
         .catch(() => undefined);
     }
+
+    const alreadyCompleted =
+      !needsNotify && saved.every((r) => r.status === 'completed');
     return {
       paymentBatchId: batchId,
       status: 'completed' as const,
-      alreadyCompleted: false,
+      alreadyCompleted,
       redemptions: saved.map((r) => ({
         id: r.id,
         status: r.status,
         vaultReleasedAt: r.vaultReleasedAt,
+        burnTxHash: r.burnTxHash,
+        burnedAt: r.burnedAt,
       })),
     };
+  }
+
+  /**
+   * Shared by user confirm-received and FedEx auto-receipt:
+   * burn each NFT still active on-chain, then mark `completed`.
+   */
+  async finalizeReceiptWithBurn(
+    rows: VaultRedemption[],
+    chainId: SupportedChainId,
+    opts: { via: 'user' | 'auto' },
+  ): Promise<VaultRedemption[]> {
+    await this.ensureBatchTokensBurned(rows, chainId);
+    // Reload after burn so burnTxHash / status reflect DB (burn → burned).
+    const batchId = rows[0]?.paymentBatchId;
+    const fresh =
+      batchId != null
+        ? await this.vault.findRedemptionsByBatchId(batchId, chainId)
+        : rows;
+    const incomplete = fresh.filter((r) => r.status !== 'completed');
+    return this.vault.markUserReceiptConfirmed(
+      incomplete.length ? incomplete : fresh,
+      opts,
+    );
+  }
+
+  /** Burn every token in the batch that is not yet burned (idempotent). */
+  private async ensureBatchTokensBurned(
+    rows: VaultRedemption[],
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    for (const row of rows) {
+      const tokenIdStr = await this.vault.getTokenIdForRedemption(row.id);
+      if (!tokenIdStr || !/^\d+$/.test(tokenIdStr)) {
+        throw new BadRequestException(
+          `Cannot resolve NFT tokenId for redemption ${row.id} — burn blocked`,
+        );
+      }
+      const tokenId = Number(tokenIdStr);
+      try {
+        const result = await this.rwaTokenAdmin.ensureBurnedForRedeem(
+          tokenId,
+          chainId,
+        );
+        if (!result.alreadyBurned) {
+          this.logger.log(
+            `Redeem receipt auto-burned token=#${tokenId} tx=${result.txHash} redemption=${row.id}`,
+          );
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Redeem receipt burn failed token=#${tokenId} redemption=${row.id}: ${msg}`,
+        );
+        if (err instanceof BadRequestException) throw err;
+        throw new InternalServerErrorException(
+          `Failed to burn token #${tokenId} after redeem receipt: ${msg}`,
+        );
+      }
+    }
   }
 
   async listMyRedemptions(

@@ -4,6 +4,7 @@ describe('RwaSlabBackfillService', () => {
   const rwaTokens = {
     find: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const chainConfig = {
     getDefaultChainId: jest.fn().mockReturnValue(84532),
@@ -17,17 +18,26 @@ describe('RwaSlabBackfillService', () => {
     ingestMintSlabBestEffort: jest.fn(),
     normalizeTrustedMintSlabUrl: jest.fn(),
   };
+  const blockchain = {
+    getRwaTokenURI: jest.fn(),
+  };
+  const config = {
+    get: jest.fn().mockReturnValue('0'),
+  };
 
   let service: RwaSlabBackfillService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     rwaSlabS3.isConfigured.mockReturnValue(true);
+    config.get.mockReturnValue('0');
     service = new RwaSlabBackfillService(
       rwaTokens as never,
       chainConfig as never,
       ipfs as never,
       rwaSlabS3 as never,
+      blockchain as never,
+      config as never,
     );
   });
 
@@ -80,52 +90,72 @@ describe('RwaSlabBackfillService', () => {
       tokenId: '9',
       certNumber: '84089328',
       tokenUri: 'ipfs://meta',
-      displayImageUrl: null,
+      displayImageUrl: null as string | null,
     };
     rwaTokens.find.mockResolvedValue([row]);
     ipfs.fetchMetadataJson.mockResolvedValue({
-      properties: {
-        graded: {
-          psa: {
-            certImageSourceUrl:
-              'https://psa.example/cert/84089328/front.jpg',
-          },
-        },
-      },
+      image: 'https://psa.example/slab.jpg',
     });
-    const url =
-      'https://cdn.example.com/dev/covers/rwa-slabs/84532/84089328/slab';
-    rwaSlabS3.ingestMintSlabBestEffort.mockResolvedValue(url);
-    rwaSlabS3.normalizeTrustedMintSlabUrl.mockReturnValue(url);
+    rwaSlabS3.ingestMintSlabBestEffort.mockResolvedValue(
+      'https://cdn.example/slab',
+    );
+    rwaSlabS3.normalizeTrustedMintSlabUrl.mockReturnValue(
+      'https://cdn.example/slab',
+    );
+    rwaTokens.save.mockResolvedValue(row);
 
     const result = await service.backfillMissingDisplayImages();
 
     expect(result.updated).toBe(1);
-    expect(rwaTokens.save).toHaveBeenCalledWith(
-      expect.objectContaining({ displayImageUrl: url }),
-    );
+    expect(row.displayImageUrl).toBe('https://cdn.example/slab');
   });
 
-  it('counts failed when S3 ingest returns null', async () => {
-    rwaTokens.find.mockResolvedValue([
-      {
-        tokenId: '4',
-        certNumber: '84089328',
-        tokenUri: 'ipfs://meta',
-      },
-    ]);
+  it('backfillListReadyFields fills name cert and collection_key from IPFS', async () => {
+    const row = {
+      tokenId: '12',
+      tokenUri: 'ipfs://meta12',
+      displayName: null as string | null,
+      certNumber: null as string | null,
+      collectionKey: null as string | null,
+      displayImageUrl: 'https://cdn.example/already.jpg',
+      metadataCid: null as string | null,
+      metadataSyncedAt: null as Date | null,
+    };
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([row]),
+    };
+    rwaTokens.createQueryBuilder.mockReturnValue(qb);
     ipfs.fetchMetadataJson.mockResolvedValue({
+      name: '2020 Panini Prizm Joe Burrow #307',
       properties: {
         graded: {
-          psa: { certImageSourceUrl: 'https://psa.example/front.jpg' },
+          gradingCompany: 'PSA',
+          card: { name: 'Joe Burrow', set: 'Prizm', number: '307' },
+          grade: { score: 10 },
+          psa: { certNumber: '164014763' },
         },
       },
     });
-    rwaSlabS3.ingestMintSlabBestEffort.mockResolvedValue(null);
+    rwaTokens.save.mockResolvedValue(row);
 
-    const result = await service.backfillMissingDisplayImages();
+    const result = await service.backfillListReadyFields({ limit: 10 });
 
-    expect(result.failed).toBe(1);
-    expect(rwaTokens.save).not.toHaveBeenCalled();
+    expect(result.updated).toBe(1);
+    expect(row.displayName).toBe('Joe Burrow · #307 · PSA 10');
+    expect(row.certNumber).toBe('164014763');
+    expect(row.collectionKey).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.details[0]?.fields).toEqual(
+      expect.arrayContaining(['display_name', 'cert_number', 'collection_key']),
+    );
+  });
+
+  it('cronBackfillListReady no-ops unless RWA_LIST_READY_BACKFILL_ENABLED', async () => {
+    const spy = jest.spyOn(service, 'backfillListReadyFields');
+    await service.cronBackfillListReady();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

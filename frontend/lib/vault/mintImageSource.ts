@@ -9,6 +9,13 @@ export type MintImageSource =
   | "cardhedger_catalog"
   | "tokenable_placeholder";
 
+/** Matches `POST /rwa/upload` + PSA analyze file filters. */
+export const SLAB_UPLOAD_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp";
+
+/** Short UI hint under Upload Slab / card image pickers. */
+export const SLAB_UPLOAD_FORMAT_HINT =
+  "JPEG, PNG, or WebP · HEIC not supported";
+
 const CARDHEDGER_PLACEHOLDER_PATH_RE =
   /(?:card[_-]?hedge(?:r)?[_-]?(?:logo|default|placeholder)|default[_-]?card|no[_-]?image|missing[_-]?image|placeholder[_-]?card)/i;
 
@@ -99,6 +106,14 @@ export function resolveSelfVaultMintImageSelection(input: {
 
   if (typeof input.userImage === "string" && input.userImage.trim()) {
     const userUrl = input.userImage.trim();
+    /* data: thumbs are UI-only until converted to a File for multipart upload. */
+    if (userUrl.startsWith("data:")) {
+      return {
+        useUserFile: false,
+        source: "user_upload",
+        previewUrl: userUrl,
+      };
+    }
     return {
       imageUrl: userUrl,
       useUserFile: false,
@@ -136,5 +151,23 @@ export function mintImageSourceLabel(source: MintImageSource): string {
       return "Catalog representative";
     case "tokenable_placeholder":
       return "Tokenable default";
+  }
+}
+
+/** Convert a draft/preview data URL into a File for `POST /rwa/upload`. */
+export async function fileFromImageDataUrl(
+  dataUrl: string,
+  filename = "slab.jpg",
+): Promise<File | null> {
+  const raw = dataUrl.trim();
+  if (!raw.startsWith("data:")) return null;
+  try {
+    const res = await fetch(raw);
+    const blob = await res.blob();
+    if (!blob.size) return null;
+    const type = blob.type || "image/jpeg";
+    return new File([blob], filename, { type });
+  } catch {
+    return null;
   }
 }

@@ -109,6 +109,18 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     column: 'card_number',
     fix: 'maintenance/add_vault_submission_item_display_fields.sql',
   },
+  {
+    kind: 'column',
+    table: 'bulk_mint_job_items',
+    column: 'display_name',
+    fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',
+  },
+  {
+    kind: 'column',
+    table: 'bulk_mint_job_items',
+    column: 'collection_key',
+    fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',
+  },
 ];
 
 export function formatSchemaAssertFailure(missing: SchemaRequirement[]): string {

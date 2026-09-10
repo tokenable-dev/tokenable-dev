@@ -802,6 +802,19 @@
   line-height: 1.5;
 }
 
+.sell-flow-upload-hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: rgba(17, 17, 17, 0.42);
+  text-align: center;
+}
+
+.sell-flow-page .sell-flow-upload-hint {
+  color: rgba(17, 17, 17, 0.42);
+}
+
 .sell-flow-cards-section {
   margin-top: 28px;
 }

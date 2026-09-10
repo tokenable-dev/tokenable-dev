@@ -26,10 +26,7 @@ type KindConfig = {
 
 function formatUsd(priceUsdc?: number | null): string | null {
   if (priceUsdc == null || !Number.isFinite(priceUsdc) || priceUsdc <= 0) return null;
-  return priceUsdc.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return Math.round(priceUsdc).toLocaleString("en-US");
 }
 
 export function actionCompleteConfig(

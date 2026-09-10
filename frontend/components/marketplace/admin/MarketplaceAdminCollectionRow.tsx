@@ -455,7 +455,7 @@ export function MarketplaceAdminCollectionRow({
             </summary>
             <p className={`mt-3 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
               Removes snapshots, orders, rwa_tokens rows, and the collection row.
-              On-chain NFTs are not burned. Type the collection key to confirm.
+              On-chain RWAs are not burned. Type the collection key to confirm.
             </p>
             <input
               type="text"
@@ -472,7 +472,7 @@ export function MarketplaceAdminCollectionRow({
               onClick={() => {
                 if (
                   !window.confirm(
-                    "Delete this collection from the marketplace? Listings and snapshots for this bucket are removed. NFTs stay in wallets and the mint registry (portfolio is not wiped).",
+                    "Delete this collection from the marketplace? Listings and snapshots for this bucket are removed. RWAs stay in wallets and the mint registry (portfolio is not wiped).",
                   )
                 ) {
                   return;

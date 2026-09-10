@@ -94,7 +94,7 @@ describe('RwaAssetResolveService', () => {
     expect(rwaTokenRepo.update).toHaveBeenCalledWith(
       { tokenContract: '0xrwa', tokenId: '117' },
       expect.objectContaining({
-        displayName: '2020 Panini Prizm Joe Burrow #307',
+        displayName: 'Joe Burrow · PSA 10',
       }),
     );
   });
@@ -132,7 +132,7 @@ describe('RwaAssetResolveService', () => {
     expect(rwaTokenRepo.update).toHaveBeenCalledWith(
       { tokenContract: '0xrwa', tokenId: '108' },
       expect.objectContaining({
-        displayName: '2020 Panini Prizm Joe Burrow #307',
+        displayName: 'Joe Burrow · PSA 10',
         tokenUri: 'ipfs://QmOnChain108',
       }),
     );

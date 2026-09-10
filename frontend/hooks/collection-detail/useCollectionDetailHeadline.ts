@@ -337,11 +337,15 @@ export function useCollectionDetailHeadline(params: {
       (typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : null);
 
     return out.map((row) => {
-      const href = marketsHrefForDetailRow(row.id, row.value, {
-        categoryBadge: collectionCategoryBadge,
-        gradeScore,
-        grader,
-      });
+      const href = marketsHrefForDetailRow(
+        row.id,
+        row.filterValue?.trim() || row.value,
+        {
+          categoryBadge: collectionCategoryBadge,
+          gradeScore,
+          grader,
+        },
+      );
       return href ? { ...row, href } : row;
     });
   }, [

@@ -13,6 +13,7 @@ export function SellFlowYourCardsSection({
   onToggleConfirm,
   onToggleAllConfirmed,
   onRemove,
+  allowCertDirectInput = false,
 }: {
   variant: Variant;
   cards: SellFlowCard[];
@@ -21,11 +22,16 @@ export function SellFlowYourCardsSection({
   onToggleConfirm: (index: number) => void;
   onToggleAllConfirmed: (confirmed: boolean) => void;
   onRemove: (index: number) => void;
+  allowCertDirectInput?: boolean;
 }) {
   const selectAllLabel = allConfirmed ? "Deselect all" : "Select all";
 
   const confirmRowLabel =
     variant === "partner" ? "Cert matches this card" : "Confirm this is your card";
+
+  const emptyHint = allowCertDirectInput
+    ? "Upload a slab or enter a cert number to get started."
+    : "Upload a slab to get started.";
 
   return (
     <div className="sell-flow-cards-section">
@@ -51,7 +57,7 @@ export function SellFlowYourCardsSection({
           <div className="sell-flow-cards-empty">
             No cards yet.
             <br />
-            Upload a slab or enter a cert number to get started.
+            {emptyHint}
           </div>
         ) : (
           <ul className="sell-flow-cards-list">

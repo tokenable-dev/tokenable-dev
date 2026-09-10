@@ -26,7 +26,7 @@ const SECONDS_PER_DAY = 24 * 60 * 60;
 
 export const TOKEN_BID_DURATION_DAYS = [1, 3, 7, 14, 30, 60, 90, 180] as const;
 export type TokenBidDurationDays = (typeof TOKEN_BID_DURATION_DAYS)[number];
-export const TOKEN_BID_DEFAULT_DURATION_DAYS: TokenBidDurationDays = 7;
+export const TOKEN_BID_DEFAULT_DURATION_DAYS: TokenBidDurationDays = 30;
 /** Place-a-bid modal chips (Card.html #tkb-expiry). */
 export const TOKEN_BID_UI_DURATION_DAYS = [1, 7, 30] as const satisfies readonly TokenBidDurationDays[];
 

@@ -37,7 +37,6 @@ function metricsStripProps(market: CollectionDetailMarketSlice, coverImageUrl?: 
     changePeriod: market.gradeAwareChangeResult,
     gradeLabel: market.gradeAwareTierLabel,
     tradeVolumeUsdc: market.heroTapeStats.volume1yUsdc,
-    median30dUsd: market.heroTapeStats.median30dUsd,
     velocityPct: market.heroTapeStats.velocityPct,
     tradeVolumeLoading: market.heroTapeLoading,
     marketCapUsd: market.marketCapComputation?.usd ?? null,
@@ -55,13 +54,8 @@ export function buildCollectionDetailMarketsSlots(input: {
   headlineMeta?: string | null;
   similarPanel?: ReactNode;
   detailsPanel?: ReactNode;
-  highestBidUsd?: number | null;
-  lowestAskUsd?: number | null;
-  onPlaceBid?: () => void;
-  placeBidDisabled?: boolean;
-  onBuyLowestAsk?: () => void;
-  buyDisabled?: boolean;
 }): {
+  /** Desktop: null — hero nests inside `#chart-card`. */
   marketsPriceMetricsStrip: ReactNode;
   collectionDualPriceChart: ReactNode;
   collectionDualPriceChartMobile: ReactNode;
@@ -78,27 +72,24 @@ export function buildCollectionDetailMarketsSlots(input: {
     headlineMeta,
     similarPanel,
     detailsPanel,
-    highestBidUsd,
-    lowestAskUsd,
-    onPlaceBid,
-    placeBidDisabled,
-    onBuyLowestAsk,
-    buyDisabled,
   } = input;
   const chartProps = market.chartProps as CollectionDualPriceChartProps;
   const metricsProps = metricsStripProps(market, coverImageUrl);
-  const renderMetricsStrip = () => (
+  const renderHero = (embedInChart: boolean) => (
     <CollectionDetailMetricsStrip
       {...metricsProps}
       headlineTitle={headlineTitle}
       headlineParts={headlineParts}
       headlineMeta={headlineMeta}
-      lowestAskUsd={lowestAskUsd}
-      highestBidUsd={highestBidUsd}
-      onBuyLowestAsk={onBuyLowestAsk}
-      onPlaceBid={onPlaceBid}
-      buyDisabled={buyDisabled}
-      bidDisabled={placeBidDisabled}
+      embedInChart={embedInChart}
+    />
+  );
+
+  const collectionDualPriceChart = (
+    <CollectionDetailPriceChart
+      chartProps={chartProps}
+      gradeChart={market.gradeChart}
+      heroSlot={renderHero(true)}
     />
   );
 
@@ -107,6 +98,7 @@ export function buildCollectionDetailMarketsSlots(input: {
       chartProps={chartProps}
       gradeChart={market.gradeChart}
       mobileLayout
+      heroSlot={renderHero(true)}
     />
   );
 
@@ -118,10 +110,8 @@ export function buildCollectionDetailMarketsSlots(input: {
   );
 
   return {
-    marketsPriceMetricsStrip: renderMetricsStrip(),
-    collectionDualPriceChart: (
-      <CollectionDetailPriceChart chartProps={chartProps} gradeChart={market.gradeChart} />
-    ),
+    marketsPriceMetricsStrip: null,
+    collectionDualPriceChart,
     collectionDualPriceChartMobile,
     collectionOrderBook: (
       <CollectionUnifiedOrderBook {...collectionOrderBookProps} defaultTab="trades" />
@@ -129,7 +119,6 @@ export function buildCollectionDetailMarketsSlots(input: {
     collectionOrderBookMobile,
     mobileScrollPanel: (
       <CollectionDetailMobileScrollPanel
-        statBlock={renderMetricsStrip()}
         chartPanel={collectionDualPriceChartMobile}
         similarPanel={similarPanel}
         orderBookStack={collectionOrderBookMobile}

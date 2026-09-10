@@ -7,20 +7,51 @@ import {
   type PsaAnalyzeResult,
 } from "@/lib/core";
 import type { SupportedChainId } from "@/lib/chains/types";
+import { formatCardDisplayName } from "@/lib/marketplace/cardDisplayName";
 import {
   buildGradedCardMetadata,
   buildMintOpenSeaAttributes,
 } from "@/lib/vault/buildMintMetadata";
 import { MINT_FORM_INITIAL_STATE } from "@/lib/vault/mintFormConstants";
-import { resolveSelfVaultMintImageSelection } from "@/lib/vault/mintImageSource";
+import { resolveMintPsaGradeLabel, ensureMintFormHasPsaScore } from "@/lib/vault/resolveMintPsaGradeLabel";
+import { resolveSelfVaultMintImageSelection, fileFromImageDataUrl } from "@/lib/vault/mintImageSource";
 import type { GradedCardFormState } from "@/types/gradedCard";
+
+/** List-ready title — SSOT Line 1 (`Name · # · Grade`). Never writes `Raw`. */
+function mintDisplayNameFromForm(
+  form: GradedCardFormState,
+  cert: string,
+  analyze?: PsaAnalyzeResult | null,
+): string {
+  const grade = resolveMintPsaGradeLabel({
+    score: form.grade.score || analyze?.psa.gradeScore,
+    gradeLabel: analyze?.psa.gradeLabel,
+    gradeDescription: analyze?.psa.gradeDescription,
+  });
+  const { line1 } = formatCardDisplayName(
+    {
+      cardName: form.card.name || form.name || null,
+      cardNumber: form.card.number || null,
+      grade,
+      year: form.card.year || null,
+      setName: form.card.set || null,
+      language: null,
+      variant: null,
+    },
+    { mode: "line1", omitGrade: !grade },
+  );
+  return line1.trim() || form.name.trim() || `PSA #${cert}`;
+}
 
 /** Build mint form state from a fresh PSA analyze result (cert-lookup path). */
 export function gradedFormFromPsaAnalyze(r: PsaAnalyzeResult): GradedCardFormState {
   const scoreStr =
     r.psa.gradeScore != null
       ? String(r.psa.gradeScore)
-      : (r.psa.gradeLabel?.replace(/[^\d.]/g, "") ?? "");
+      : (resolveMintPsaGradeLabel({
+            gradeLabel: r.psa.gradeLabel,
+            gradeDescription: r.psa.gradeDescription,
+          })?.replace(/^PSA\s+/i, "") ?? "");
   const fmt = (n: number) => n.toLocaleString("en-US");
   const name = r.psa.cardNameHint?.trim() || `PSA CERT #${r.psa.certNumber ?? ""}`;
   return {
@@ -57,14 +88,45 @@ export function gradedFormFromPsaAnalyze(r: PsaAnalyzeResult): GradedCardFormSta
   };
 }
 
+/** Prefer draft `card.grade` over a 2nd cert-only PSA analyze. */
+function applyPreferredMintGrade(
+  form: GradedCardFormState,
+  preferred: number | string | null | undefined,
+): GradedCardFormState {
+  if (preferred == null) return form;
+  const label = resolveMintPsaGradeLabel({ score: preferred });
+  if (!label) return form;
+  const score = label.replace(/^PSA\s+/i, "").trim();
+  if (!score) return form;
+  return {
+    ...form,
+    grade: { ...form.grade, score },
+  };
+}
+
 /**
  * Self-vault mint for one cert — upload IPFS → POST /rwa/mint with
- * deliveryMode=direct (NFT lands in the user's wallet; no admin deliver).
+ * deliveryMode=direct (RWA lands in the user's wallet; no admin deliver).
+ *
+ * Mint image: PSA official slab when available; otherwise the user's slab
+ * upload (`userImage` / `userImageDataUrl`); else Cardhedger / Tokenable placeholder.
  */
 export async function mintSellFlowCardByCert(input: {
   cert: string;
   recipientAddress: string;
   chainId: SupportedChainId;
+  /**
+   * Draft card grade from add-card (1st PSA/OCR). Authoritative for mint
+   * display_name / IPFS — do not rely on a 2nd cert-only analyze for score.
+   */
+  preferredGrade?: number | string | null;
+  /** Original slab File from Upload — used only when PSA has no cert slab URL. */
+  userImage?: File | null;
+  /**
+   * Draft/localStorage thumb (`data:…`) when the original File is gone (refresh).
+   * Converted to a File so mint does not fall through to Tokenable placeholder.
+   */
+  userImageDataUrl?: string | null;
 }): Promise<{ cert: string; tokenId: number; txHash: string }> {
   const cert = input.cert.trim();
   if (!/^\d{7,10}$/.test(cert)) {
@@ -77,22 +139,41 @@ export async function mintSellFlowCardByCert(input: {
   }
 
   const analyze = await analyzePsaByCertNumber(cert);
-  const form = gradedFormFromPsaAnalyze(analyze);
+  let form = gradedFormFromPsaAnalyze(analyze);
+  form = applyPreferredMintGrade(form, input.preferredGrade);
+  form = ensureMintFormHasPsaScore(form, analyze);
   if (!form.grade.certNumber.trim()) {
-    form.grade.certNumber = cert;
+    form = {
+      ...form,
+      grade: { ...form.grade, certNumber: cert },
+    };
   }
 
+  let userImage: File | null =
+    input.userImage instanceof File ? input.userImage : null;
+  if (!userImage && input.userImageDataUrl?.trim()) {
+    userImage = await fileFromImageDataUrl(
+      input.userImageDataUrl,
+      `slab-${cert}.jpg`,
+    );
+  }
+
+  const displayName = mintDisplayNameFromForm(form, cert, analyze);
+
   const data = new FormData();
-  data.append("name", form.name || `PSA CERT #${cert}`);
+  // IPFS `name` must match portfolio Line 1 (`Name · # · PSA 10`), not bare card name.
+  data.append("name", displayName || form.name || `PSA CERT #${cert}`);
   data.append("description", form.description.trim() || "No description");
 
   const mintImage = resolveSelfVaultMintImageSelection({
     analyze,
     certNumber: form.grade.certNumber || cert,
-    userImage: null,
+    userImage,
   });
   if (mintImage.imageUrl) {
     data.append("imageUrl", mintImage.imageUrl);
+  } else if (mintImage.useUserFile && userImage instanceof File) {
+    data.append("image", userImage);
   }
 
   const meta = buildGradedCardMetadata(form, analyze);
@@ -120,6 +201,8 @@ export async function mintSellFlowCardByCert(input: {
     certNumber: form.grade.certNumber.trim() || cert,
     chainId: input.chainId,
     deliveryMode: "direct",
+    displayName,
+    collectionKey: uploadResult.collectionKey,
     displayImageUrl: uploadResult.displayImageUrl,
     displayImageBackUrl: uploadResult.displayImageBackUrl,
   });

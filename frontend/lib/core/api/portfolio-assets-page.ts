@@ -10,6 +10,9 @@ import type { PortfolioMarketBatchItem } from "./portfolio";
 
 export const PORTFOLIO_ASSETS_PAGE_MAX = 50;
 
+/** First My Assets metadata batch — smaller than max so cold paint finishes sooner. */
+export const PORTFOLIO_ASSETS_FIRST_PAINT = 24;
+
 export type PortfolioAssetsPageMetadataItem = {
   tokenId: number;
   tokenURI: string | null;
@@ -28,10 +31,14 @@ export type PortfolioAssetsPageResponse = {
   holdings: PortfolioHoldingBatchItem[];
 };
 
+const PORTFOLIO_ASSETS_PAGE_TIMEOUT_MS = 45_000;
+
 export async function postPortfolioAssetsPage(body: {
   walletAddress: string;
   /** Omit or pass [] to let the server resolve owned tokens from DB and return page 1. */
   tokenIds?: number[];
+  /** Fast path: ownedTokenIds only (no metadata / market). */
+  ownedIdsOnly?: boolean;
 }): Promise<PortfolioAssetsPageResponse> {
   const tokenIds = [
     ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
@@ -43,11 +50,18 @@ export async function postPortfolioAssetsPage(body: {
     );
   }
 
-  const payload: { walletAddress: string; tokenIds?: number[] } = {
+  const payload: {
+    walletAddress: string;
+    tokenIds?: number[];
+    ownedIdsOnly?: boolean;
+  } = {
     walletAddress: body.walletAddress,
   };
   if (tokenIds.length > 0) {
     payload.tokenIds = tokenIds;
+  }
+  if (body.ownedIdsOnly) {
+    payload.ownedIdsOnly = true;
   }
 
   const res = await backendFetch(
@@ -56,6 +70,7 @@ export async function postPortfolioAssetsPage(body: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      timeoutMs: PORTFOLIO_ASSETS_PAGE_TIMEOUT_MS,
     },
   );
   if (!res.ok) {

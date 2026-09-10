@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -74,9 +75,18 @@ export class RwaController {
   @UseInterceptors(
     FileInterceptor('image', {
       limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (_, file, cb) => {
-        const allowed = ['image/jpeg', 'image/jpg', 'image/png'];
-        cb(null, allowed.includes(file.mimetype));
+      fileFilter: (_req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (allowed.includes(file.mimetype)) {
+          cb(null, true);
+          return;
+        }
+        cb(
+          new BadRequestException(
+            'Image must be JPEG, PNG, or WebP. HEIC and other formats are not supported — convert or re-export and try again.',
+          ) as unknown as Error,
+          false,
+        );
       },
     }),
   )

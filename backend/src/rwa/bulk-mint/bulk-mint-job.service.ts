@@ -25,6 +25,7 @@ import {
   type PsaCertRecord,
 } from '../../psa/psa-public-api.service';
 import { VaultService } from '../../vault/vault.service';
+import { collectionKeyFromGradedMetadata } from '../../marketplace/utils/bucket-key.util';
 import { PinataService } from '../pinata/pinata.service';
 import { readRwaMintPlaceholderPng } from '../rwa-mint-placeholder.util';
 import {
@@ -616,6 +617,9 @@ export class BulkMintJobService {
       const metadataCid = await this.pinata.uploadMetadata(metadata);
       const tokenUri = `ipfs://${metadataCid}`;
       const vaultRef = VaultService.computeVaultRef(item.certNumber);
+      const collectionKey = collectionKeyFromGradedMetadata(
+        metadata as unknown as Record<string, unknown>,
+      );
 
       await this.itemRepo.update(
         { id: item.id },
@@ -625,6 +629,8 @@ export class BulkMintJobService {
           vaultRef,
           slabDisplayImageUrl,
           slabDisplayImageBackUrl,
+          displayName: name.trim() || `PSA #${item.certNumber}`,
+          collectionKey,
           errorMessage: null,
         },
       );
@@ -824,6 +830,8 @@ export class BulkMintJobService {
           vaultPartnerId: job.partnerId,
           ownerWallet: mintTo,
           deliveryMode: 'direct',
+          displayName:
+            r.item.displayName?.trim() || `PSA #${r.item.certNumber}`,
           displayImageUrl,
           displayImageBackUrl,
         });
@@ -888,6 +896,8 @@ export class BulkMintJobService {
           tokenURI: r.item.tokenUri!,
           txHash,
           certNumber: r.item.certNumber,
+          displayName:
+            r.item.displayName?.trim() || `PSA #${r.item.certNumber}`,
           displayImageUrl: this.rwaSlabS3.normalizeTrustedMintSlabUrl(
             r.item.slabDisplayImageUrl,
             job.chainId,
@@ -900,6 +910,7 @@ export class BulkMintJobService {
             r.item.certNumber,
             'back',
           ),
+          collectionKey: r.item.collectionKey?.trim().toLowerCase() || null,
           settlementPolicy: 'self_vault_hold',
           vaultPartnerId: job.partnerId,
           ownerWallet: mintTo,

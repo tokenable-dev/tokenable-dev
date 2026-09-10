@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Contract, Wallet, ZeroHash } from 'ethers';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { ChainConfigService } from './chain-config.service';
+import { BlockchainService } from './blockchain.service';
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
 import { withRpcProviderCall } from './rpc-retry.util';
 
@@ -36,6 +37,7 @@ export class RwaChainWriterService {
     private readonly config: ConfigService,
     private readonly chainConfig: ChainConfigService,
     private readonly ownerIndex: RwaTokenOwnerIndexService,
+    private readonly blockchain: BlockchainService,
   ) {}
 
   private withSignerLock<T>(
@@ -207,6 +209,7 @@ export class RwaChainWriterService {
           tokenId,
           recipient,
         );
+        this.blockchain.invalidateTokensByOwnerCache(recipient, chainId);
 
         return { tokenId, txHash: receipt.hash };
       }, { label: 'mintTo' }),
@@ -282,6 +285,7 @@ export class RwaChainWriterService {
         const contractAddr = this.chainConfig.getRwaAddress(chainId);
         for (let i = 0; i < tokenIds.length; i++) {
           await this.ownerIndex.recordOwner(contractAddr, tokenIds[i], tos[i]);
+          this.blockchain.invalidateTokensByOwnerCache(tos[i], chainId);
         }
 
         return { tokenIds, txHash: receipt.hash };
@@ -351,6 +355,7 @@ export class RwaChainWriterService {
           tid,
           recipient,
         );
+        this.blockchain.invalidateTokensByOwnerCache(recipient, chainId);
         return { txHash: receipt.hash };
       } catch (e) {
         if (e instanceof InternalServerErrorException) throw e;

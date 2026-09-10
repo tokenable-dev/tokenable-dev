@@ -17,7 +17,12 @@ import {
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
-import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+import {
+  normalizePsaCertDigits,
+  pickCollectionPsaCertNumber,
+  psaCertNumberFromCollectionRow,
+  type ListingPsaCertHit,
+} from '../utils/collection-row.util';
 import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
   cardIdFromPsaCertLookup,
@@ -210,7 +215,9 @@ export class CollectionComponentsService {
     }
     const cert = psaCertNumberFromGradedMeta(meta);
     const certCol = row.psaCertNumber?.trim() || '';
-    const certDirty = Boolean(cert && cert !== certCol);
+    // Only seed the column when empty — multi-slab buckets have distinct certs;
+    // overwriting on every mint thrashs Cardhedger cert lookups.
+    const certDirty = Boolean(cert && !certCol);
     if (dirty || certDirty) {
       await this.collectionRepo.update(
         { collectionKey: key },
@@ -459,7 +466,11 @@ export class CollectionComponentsService {
     return true;
   }
 
-  /** 활성 ask 메타에서 단일 cert → `psa_cert_number` 컬럼 (충돌 시 미저장). */
+  /**
+   * Active ask metadata → `psa_cert_number`.
+   * Buckets can have many slabs (many certs). Keep the stored cert when it is
+   * still listed; otherwise store the floor ask's cert. Never skip on conflict.
+   */
   async ensurePsaCertNumberFromListings(
     collectionKey: string,
     opts?: { schedulePsaRefresh?: boolean; chainId?: SupportedChainId },
@@ -472,7 +483,7 @@ export class CollectionComponentsService {
 
     const colC = row.psaCertNumber?.trim() || '';
     const asks = await this.activeListingsForCollection(k, opts?.chainId);
-    const certs = new Set<string>();
+    const hits: ListingPsaCertHit[] = [];
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
@@ -482,26 +493,26 @@ export class CollectionComponentsService {
         );
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const c = psaCertNumberFromGradedMeta(meta);
-        if (c) certs.add(c);
+        if (c) {
+          hits.push({
+            cert: c,
+            considerationAmount: String(o.considerationAmount ?? '0'),
+          });
+        }
       } catch {
         /* skip */
       }
     }
 
-    if (certs.size > 1) {
-      this.logger.warn(
-        `Collection ${k}: conflicting PSA cert numbers across active listings; not updating`,
-      );
+    const chosen = pickCollectionPsaCertNumber(hits, colC);
+    if (!chosen) return;
+    if (normalizePsaCertDigits(colC) === normalizePsaCertDigits(chosen)) {
       return;
     }
-    if (certs.size === 0) return;
-
-    const only = [...certs][0];
-    if (colC === only) return;
 
     await this.collectionRepo.update(
       { collectionKey: k },
-      { psaCertNumber: only },
+      { psaCertNumber: chosen },
     );
   }
 

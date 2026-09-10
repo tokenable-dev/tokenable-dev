@@ -21,12 +21,21 @@ describe('portfolioSnapshotCanPriceHoldings', () => {
     ).toBe(true);
   });
 
-  it('returns true when grade strip has psa10', () => {
+  it('returns true when grade strip has psa10 and gradeScore is known', () => {
+    expect(
+      portfolioSnapshotCanPriceHoldings(
+        bundle({ gradePrices: { psa10: 100, psa9: null, raw: null } }),
+        10,
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when grade strip exists but gradeScore is missing', () => {
     expect(
       portfolioSnapshotCanPriceHoldings(
         bundle({ gradePrices: { psa10: 100, psa9: null, raw: null } }),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('returns false for empty series', () => {

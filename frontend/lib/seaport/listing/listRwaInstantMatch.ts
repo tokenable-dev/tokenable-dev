@@ -557,6 +557,7 @@ export async function cancelListingWithRetryAndVerify(
 export async function invalidateListingQueries(
   deps: ListRwaInstantMatchDeps,
   created: Order,
+  opts?: { ownershipMoved?: boolean },
 ): Promise<void> {
   const colKey =
     orderCollectionKey(created) ||
@@ -566,6 +567,7 @@ export async function invalidateListingQueries(
     collectionKey: colKey || null,
     address: deps.address || null,
     tokenId: deps.tokenId,
+    portfolioWallets: opts?.ownershipMoved ? [deps.address] : undefined,
   });
 }
 

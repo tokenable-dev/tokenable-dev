@@ -11,6 +11,7 @@ import {
   type VaultRedemptionStatus,
 } from '../vault/entities/vault-redemption.entity';
 import { VaultService } from '../vault/vault.service';
+import { RwaRedeemService } from './rwa-redeem.service';
 import { fedExBaseUrl, fedExTruthy } from './shipping/fedex-api.util';
 import { FedExTrackClient } from './shipping/fedex-track.client';
 import {
@@ -53,6 +54,7 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
     private readonly vault: VaultService,
     private readonly notifications: NotificationsService,
     private readonly dataSource: DataSource,
+    private readonly redeem: RwaRedeemService,
     @InjectRepository(VaultRedemption)
     private readonly redemptions: Repository<VaultRedemption>,
   ) {}
@@ -345,10 +347,19 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
       if (!gate.ok) continue;
 
       const incomplete = allRows.filter((r) => r.status !== 'completed');
-      await this.vault.markUserReceiptConfirmed(
-        incomplete.length ? incomplete : allRows,
-        { via: 'auto' },
-      );
+      try {
+        await this.redeem.finalizeReceiptWithBurn(
+          incomplete.length ? incomplete : allRows,
+          chainId as SupportedChainId,
+          { via: 'auto' },
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Redeem auto-receipt burn/complete failed batch=${batchId}: ${msg}`,
+        );
+        continue;
+      }
       autoConfirmedBatches += 1;
 
       void this.notifications

@@ -215,7 +215,7 @@ export async function adminReturnRedeemNft(id: string): Promise<{
   );
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(adminErrorMessage(body, "Failed to return NFT"));
+    throw new Error(adminErrorMessage(body, "Failed to return RWA"));
   }
   return res.json();
 }

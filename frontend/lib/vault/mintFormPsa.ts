@@ -26,7 +26,7 @@ export function computePsaLocksFromResult(
   const scoreStr =
     r.psa.gradeScore != null
       ? String(r.psa.gradeScore)
-      : (r.psa.gradeLabel?.replace(/[^\d.]/g, "") ?? "");
+      : (r.psa.gradeLabel?.match(/\b(\d{1,2}(?:\.\d+)?)\b/)?.[1] ?? "");
   const hasScore =
     Boolean(scoreStr.trim()) || Boolean(r.psa.gradeLabel?.trim());
   return {

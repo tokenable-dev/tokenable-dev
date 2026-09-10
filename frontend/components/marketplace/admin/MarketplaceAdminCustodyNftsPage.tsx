@@ -21,8 +21,8 @@ export function MarketplaceAdminCustodyNftsPage() {
   return (
     <>
       <MarketplaceAdminPageHeader
-        title="Custody NFTs"
-        subtitle={`Vault mints on ${chain.label} land in that chain's custody wallet first. Deliver each NFT to the depositor's Tokenable primary linked wallet when ready. Switch network in the top bar to manage another chain.`}
+        title="Custody RWAs"
+        subtitle={`Vault mints on ${chain.label} land in that chain's custody wallet first. Deliver each RWA to the depositor's Tokenable primary linked wallet when ready. Switch network in the top bar to manage another chain.`}
       />
 
       {custodyWallet ? (
@@ -35,22 +35,22 @@ export function MarketplaceAdminCustodyNftsPage() {
       ) : null}
 
       {query.isLoading ? (
-        <p className="text-base text-zinc-700">Loading custody NFTs…</p>
+        <p className="text-base text-zinc-700">Loading custody RWAs…</p>
       ) : query.isError ? (
         <p className="text-base text-red-600" role="alert">
           {query.error instanceof Error
             ? query.error.message
-            : "Failed to load custody NFTs"}
+            : "Failed to load custody RWAs"}
         </p>
       ) : items.length === 0 ? (
         <p className="text-base text-zinc-700">
-          No NFTs are currently held in custody on {chain.label}. New vault mints
+          No RWAs are currently held in custody on {chain.label}. New vault mints
           will appear here until delivered to users.
         </p>
       ) : (
         <div className={ADMIN_LIST}>
           <p className={ADMIN_COUNT}>
-            {items.length} NFT{items.length === 1 ? "" : "s"} awaiting delivery on{" "}
+            {items.length} RWA{items.length === 1 ? "" : "s"} awaiting delivery on{" "}
             {chain.shortLabel}
           </p>
           {items.map((row) => (

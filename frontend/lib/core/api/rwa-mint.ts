@@ -70,6 +70,10 @@ export async function mintRwaViaBackend(input: {
    * direct: mint to recipientAddress (self vault).
    */
   deliveryMode?: "custody" | "direct";
+  /** List title — persisted on rwa_tokens.display_name at mint. */
+  displayName?: string | null;
+  /** Marketplace bucket from upload — persisted on rwa_tokens.collection_key. */
+  collectionKey?: string | null;
   /** From POST /rwa/upload when S3 slab cache succeeded. */
   displayImageUrl?: string | null;
   displayImageBackUrl?: string | null;

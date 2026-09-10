@@ -9,9 +9,10 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.05);
   --azure: rgb(26, 111, 255);
-  --pos: var(--text-positive-default);
-  --neg: var(--background-danger-default);
-  --danger: var(--background-danger-default);
+  /* Card.html `:root` — chart % / bid-ask polarity (exact, not DS alias drift). */
+  --pos: rgb(0, 200, 100);
+  --neg: #f5332c;
+  --danger: #f5332c;
   --warn: var(--background-warning-default);
   --t1: rgba(255, 255, 255, 0.95);
   --t2: rgba(255, 255, 255, 0.7);
@@ -347,7 +348,7 @@
 
 .collection-detail-page .cd-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 372px;
   gap: clamp(20px, 3vw, 40px);
   align-items: start;
 }
@@ -363,14 +364,22 @@
   grid-column: 1;
 }
 
-/* Hero is a sibling ABOVE the grid (Card.html). Collapse wrapper nodes
-   so `#hero-bar`’s sticky containing block is `.cd-hero-sticky-scope` (hero +
-   chart/listings) — a short parent stops sticky from pinning to the viewport. */
+/* Hero ABOVE grid: collapse wrappers so sticky scope is tall enough.
+   When hero nests inside `#chart-card`, keep normal block layout. */
 .collection-detail-page .cd-hero-sticky-scope > .cd-metrics-strip,
 .collection-detail-page .cd-hero-sticky-scope > .cd-mobile-scroll__stat,
-.collection-detail-page .cd-hero-sticky-scope .cd-metrics-strip,
-.collection-detail-page .cd-hero-sticky-scope .cd-stat-main {
+.collection-detail-page .cd-hero-sticky-scope > .cd-metrics-strip:not(.cd-metrics-strip--embed),
+.collection-detail-page .cd-hero-sticky-scope .cd-metrics-strip:not(.cd-metrics-strip--embed) .cd-stat-main:not(.cd-stat-main--embedded) {
   display: contents;
+}
+
+.collection-detail-page .cd-chart-panel .cd-metrics-strip,
+.collection-detail-page .cd-chart-panel .cd-stat-main--embedded,
+.collection-detail-page .cd-metrics-strip--embed,
+.collection-detail-page .cd-stat-main--embedded {
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Pin probe for mobile condensed hero — must stay 0-height forever.
@@ -405,14 +414,27 @@
   flex: 0 0 auto;
 }
 
+/* Design-30: hero + stats + chart share one notch — height is content-driven. */
+.collection-detail-page .cd-detail-grid__chart:has(.cd-chart-panel--with-hero) {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
 .collection-detail-page .cd-detail-grid__chart > * {
   flex: 1 1 auto;
   min-height: 0;
 }
 
+.collection-detail-page .cd-detail-grid__chart:has(.cd-chart-panel--with-hero) > * {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
 .collection-detail-page .cd-detail-grid__orderbook {
-  height: 376px;
-  max-height: 376px;
+  /* Card.html `#trades-card` height */
+  height: 394px;
+  max-height: 394px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -430,7 +452,7 @@
   min-width: 0;
   flex: 0 0 auto;
   position: sticky;
-  top: calc(64px + var(--bar-h, 0px) + 12px);
+  top: calc(64px + 12px);
   z-index: 2;
 }
 
@@ -451,12 +473,9 @@
   align-self: start;
   width: 100%;
   z-index: 2;
-  /*
-   * Sit under GNB, then under the condensed hero once it pins (`--bar-h`).
-   * Expanded hero is in-flow (not sticky) so do not reserve ~182px here.
-   */
-  top: calc(64px + var(--bar-h, 0px) + 12px);
-  max-height: calc(100vh - 64px - var(--bar-h, 0px) - 24px);
+  /* Sit under GNB only — condensed sticky hero is removed. */
+  top: calc(64px + 12px);
+  max-height: calc(100vh - 64px - 24px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -483,6 +502,154 @@
      fights wheel scroll (hero warps / page feels stuck under the cursor). */
   transition: box-shadow 0.16s ease;
   overflow-anchor: none;
+}
+
+/* Design-30: hero lives inside `#chart-card` — flat header, border only. */
+.cd-hero-bar--embed {
+  padding: 10px 0 28px;
+  margin-bottom: 8px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px 44px;
+}
+
+/*
+ * Nudge only image + title/price (first flex row).
+ * Do not pad the whole `#hero-bar` — `#hero-stats` (Mkt cap…) stays put.
+ */
+.cd-hero-bar--embed > .cd-hero-bar__thumb-btn,
+.cd-hero-bar--embed > .cd-hero-bar__thumb--empty {
+  margin-left: 28px;
+}
+
+@media (min-width: 1141px) {
+  .cd-hero-bar--embed > .cd-hero-bar__thumb-btn,
+  .cd-hero-bar--embed > .cd-hero-bar__thumb--empty {
+    margin-left: 36px;
+  }
+}
+
+/* Card.html `#hero-head` — no divider between title and price (gap only). */
+.cd-hero-bar--embed .cd-hero-bar__head,
+.cd-hero-bar--embed #hero-head {
+  min-width: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/*
+ * Markets `.card__img`: 0.72 frame + object-fill.
+ * Width sized to roughly match title→price column height.
+ */
+.cd-hero-bar--embed .cd-hero-bar__thumb-btn,
+.cd-hero-bar--embed .cd-hero-bar__thumb--empty {
+  flex: 0 0 100px;
+  width: 100px;
+  max-width: 100px;
+  min-width: 100px;
+  height: auto;
+  aspect-ratio: 0.72;
+  align-self: flex-start;
+  position: relative;
+  display: block;
+  background: #111113;
+  border-radius: 0;
+  overflow: hidden;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5));
+}
+
+.cd-hero-bar--embed .cd-hero-bar__thumb-btn:hover {
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5)) brightness(1.04);
+}
+
+.cd-hero-bar--embed #hero-img.cd-hero-bar__thumb,
+.cd-hero-bar--embed .cd-hero-bar__thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+  object-position: center;
+  filter: saturate(1.05) contrast(1.04);
+}
+
+/* Card.html `#hero-mid` — sits beside fixed-frame image. */
+.cd-hero-bar--embed .cd-hero-bar__mid,
+.cd-hero-bar--embed #hero-mid {
+  flex: 1 1 300px;
+  min-width: 0;
+  gap: 16px;
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+/* Card.html `#hero-title` — exact spacing above meta. */
+.cd-hero-bar--embed .cd-hero-bar__title,
+.cd-hero-bar--embed #hero-title {
+  margin: 0 0 8px;
+  font-size: clamp(17px, 1.8vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  max-width: none;
+  white-space: normal;
+}
+
+/* Card.html `#hero-meta` — subtitle directly under title, muted variant. */
+.cd-hero-bar--embed .cd-hero-bar__meta,
+.cd-hero-bar--embed #hero-meta {
+  margin: 0;
+  font-size: 15px;
+  line-height: normal;
+  letter-spacing: 0.01em;
+  color: var(--t2);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  max-width: none;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__lastlbl,
+.cd-hero-bar--embed #hero-lastlbl {
+  font-size: 15px;
+  letter-spacing: 0.16em;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__price {
+  font-size: clamp(26px, 2.8vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* Card.html `#hero-chg` — 15px inline; period is muted text, not a pill. */
+.cd-hero-bar--embed .cd-hero-bar__chg,
+.cd-hero-bar--embed #hero-chg,
+.cd-hero-bar--embed .cd-hero-bar__price-row .cd-chart-panel__chg {
+  display: inline;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  gap: 0;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__price-row .cd-hero-bar__period {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--t3);
+  letter-spacing: 0;
 }
 
 .cd-hero-bar__stuck-title,
@@ -585,7 +752,7 @@
 }
 
 .cd-hero-bar__title-sep {
-  color: var(--t3);
+  color: #fff;
   font-weight: 600;
 }
 
@@ -647,12 +814,20 @@
 
 .cd-hero-bar__lastlbl,
 #hero-lastlbl {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--t3);
   line-height: 1.2;
+}
+
+.cd-hero-bar__price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .cd-hero-bar__price {
@@ -662,7 +837,7 @@
   letter-spacing: -0.03em;
   color: #fff;
   line-height: 1.05;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .cd-hero-bar__price--muted {
@@ -675,8 +850,99 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
   flex-wrap: wrap;
+}
+
+.cd-hero-bar__price-row .cd-hero-bar__chg {
+  margin-top: 0;
+}
+
+.cd-hero-bar__chg-val {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--t2);
+}
+
+.cd-hero-bar__chg-val--up {
+  color: var(--pos);
+}
+
+.cd-hero-bar__chg-val--down {
+  color: var(--neg);
+}
+
+.cd-hero-bar__period {
+  color: var(--t3);
+  font-weight: 600;
+}
+
+/* Design-30 `#hero-stats` — full-width wrap row inside `#hero-bar` */
+.cd-hero-stats,
+#hero-stats {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 16px 0 30px;
+}
+
+@media (min-width: 1141px) {
+  .cd-hero-stats,
+  #hero-stats {
+    padding-left: 35px;
+  }
+}
+
+.cd-hero-stats__grid,
+#hero-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px 24px;
+  height: auto;
+  max-width: 640px;
+}
+
+@media (max-width: 560px) {
+  .cd-hero-stats__grid,
+  #hero-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.cd-hero-stats__cell {
+  height: auto;
+  display: block;
+  min-width: 0;
+}
+
+.cd-hero-stats__lbl {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--t2);
+  margin: 0 0 3px;
+}
+
+.cd-hero-stats__val,
+.cd-hero-stats__val.mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: normal;
+  letter-spacing: normal;
+  color: #fff;
+  margin: 0;
+}
+
+/* Card.html: `#hero-bar.is-stuck #hero-stats` */
+.cd-hero-bar.is-stuck .cd-hero-stats,
+.cd-hero-bar.is-stuck #hero-stats {
+  display: none;
 }
 
 .cd-hero-bar__change-tag.tk-tag {
@@ -698,7 +964,8 @@
   align-items: center;
 }
 
-.cd-hero-bar__period {
+/* Pill period only outside embed price row (legacy / stuck chrome). */
+.cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__period {
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
@@ -1021,7 +1288,9 @@
   padding: 0 12px !important;
 }
 
-/* Mobile hero — Card.html ≤1024 (`display: contents` grid) */
+/* Mobile hero — Card.html grid placement (title beside image).
+   Breakpoint stays ≤1023 to match our detail-grid collapse (Card.html uses 1140
+   because that mock collapses the whole page earlier). */
 @media (max-width: 1023px) {
   .cd-hero-bar {
     /* Expanded hero scrolls with the page; only `.is-stuck` is fixed. */
@@ -1029,11 +1298,20 @@
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 18px;
-    row-gap: 20px;
+    row-gap: 14px;
     align-items: center;
     box-shadow: none;
     padding: 16px;
-    gap: 20px 18px;
+    gap: 14px 18px;
+  }
+
+  /* Card.html mobile: stats span full hero-bar grid width */
+  .cd-hero-bar .cd-hero-stats,
+  .cd-hero-bar #hero-stats {
+    grid-column: 1 / -1;
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 0;
   }
 
   .cd-hero-bar__stuck-title,
@@ -1050,27 +1328,32 @@
     display: contents !important;
   }
 
+  /* Card.html: title sits beside image (not full-width above). */
   .cd-hero-bar__head,
   #hero-head {
-    grid-column: 1 / -1 !important;
+    grid-column: 2 !important;
     grid-row: 1 !important;
-    padding-bottom: 12px !important;
+    align-self: start !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
   }
 
   .cd-hero-bar__thumb-btn,
   .cd-hero-bar__thumb--empty {
     grid-column: 1 !important;
-    grid-row: 2 !important;
-    align-self: center !important;
+    grid-row: 1 / span 2 !important;
+    align-self: start !important;
     justify-self: start;
     position: relative !important;
-    width: 115px !important;
-    min-width: 115px !important;
-    max-width: 115px !important;
+    width: 100px !important;
+    min-width: 100px !important;
+    max-width: 100px !important;
     height: auto !important;
     aspect-ratio: 0.72 !important;
     margin: 0 !important;
     overflow: hidden;
+    background: #111113;
+    border-radius: 0;
   }
 
   #hero-img.cd-hero-bar__thumb,
@@ -1082,13 +1365,14 @@
     max-width: none !important;
     object-fit: fill !important;
     object-position: center;
+    filter: saturate(1.05) contrast(1.04);
   }
 
   .cd-hero-bar__thumb--empty {
     aspect-ratio: 0.72 !important;
     height: auto !important;
-    width: 115px !important;
-    max-width: 115px !important;
+    width: 100px !important;
+    max-width: 100px !important;
   }
 
   .cd-hero-bar__priceblock,
@@ -1097,10 +1381,10 @@
     grid-row: 2 !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-end !important;
-    justify-content: center !important;
-    text-align: right !important;
-    gap: 0 !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    text-align: left !important;
+    gap: 6px !important;
     padding: 0 !important;
     min-width: 0 !important;
   }
@@ -1113,8 +1397,8 @@
   #hero-priceblock #hero-chg,
   .cd-hero-bar__priceblock .cd-hero-bar__chg {
     display: flex !important;
-    justify-content: flex-end !important;
-    margin-top: 12px !important;
+    justify-content: flex-start !important;
+    margin-top: 8px !important;
   }
 
   .cd-hero-bar__secondary,
@@ -1336,10 +1620,11 @@
     height: auto !important;
   }
 
+  /* Card.html ≤600 — title wraps; meta densifies. */
   .cd-hero-bar__title,
   #hero-title {
-    font-size: 17px !important;
-    white-space: nowrap !important;
+    font-size: 16px !important;
+    white-space: normal !important;
   }
 
   .cd-hero-bar__meta,
@@ -1825,8 +2110,273 @@
 .cd-chart-panel__title {
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 24px;
+  font-size: 16px;
   color: #fff;
+}
+
+.cd-chart-panel--with-hero .cd-chart-panel__header {
+  margin-bottom: 12px;
+}
+
+.cd-chart-panel--with-hero .cd-chart-panel__body--card-html {
+  height: 300px;
+  min-height: 300px;
+  max-height: 300px;
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+/* ── Card.html `#tk-trade` ──────────────────────────────────────────────── */
+
+.cd-trade-panel {
+  background: #191919;
+  border-radius: 16px;
+  padding: 6px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  /* Never grow for warnings / tab content differences. */
+  overflow: hidden;
+}
+
+.cd-trade-panel__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0 -18px 18px;
+  padding: 0 18px;
+  flex: 0 0 auto;
+}
+
+.cd-trade-panel__tab {
+  flex: 1;
+  background: none;
+  border: 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--t3);
+  padding: 14px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.cd-trade-panel__tab--on {
+  font-weight: 700;
+  color: #fff;
+  border-bottom-color: var(--azure, #1a6fff);
+}
+
+/* Stack Buy/Bid/Sell bodies — height = tallest tab, never changes on switch. */
+.cd-trade-panel__bodies {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto);
+  min-width: 0;
+}
+
+.cd-trade-panel__body {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  z-index: 1;
+}
+
+.cd-trade-panel__body--off {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Card.html buy/sell cert row + 1/N chevrons */
+.cd-trade-panel__cert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cd-trade-panel__cert-label {
+  font-size: 13px;
+  color: var(--t2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-trade-panel__cert-nav {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cd-trade-panel__cert-idx {
+  font-size: 13px;
+  color: var(--t2);
+}
+
+.cd-trade-panel__cert-chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.cd-trade-panel__cert-chev:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.cd-trade-panel__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 14px;
+  background: #0e0e0e;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.cd-trade-panel__field-lbl {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--t2);
+}
+
+.cd-trade-panel__lock {
+  margin-left: auto;
+  color: var(--t3);
+  flex-shrink: 0;
+}
+
+.cd-trade-panel__field-val {
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cd-trade-panel__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.cd-trade-panel__meta-pos {
+  color: var(--pos);
+}
+
+.cd-trade-panel__meta-muted {
+  color: var(--t3);
+}
+
+.cd-trade-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cd-trade-panel__row-lbl {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--t2);
+}
+
+.cd-trade-panel__row-val {
+  font-size: 14px;
+  color: var(--t3);
+}
+
+/* Card.html `.tt-adj` — 40×40 bordered steppers, centered $ value */
+.cd-trade-panel__adj {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 14px;
+  background: #0e0e0e;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.cd-trade-panel__adj .cd-trade-panel__field-lbl {
+  flex: 0 0 auto;
+}
+
+.cd-trade-panel__adj-btn {
+  width: 40px;
+  height: 40px;
+  margin-left: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--t2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.cd-trade-panel__adj-btn:first-of-type {
+  margin-left: auto;
+}
+
+.cd-trade-panel__adj-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cd-trade-panel__adj-val {
+  min-width: 96px;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cd-trade-panel__adj-input {
+  width: 96px;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  background: none;
+  outline: none;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  font-family: var(--font-mono);
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.cd-trade-panel__adj-input::placeholder {
+  color: var(--t3);
+  font-weight: 600;
+}
+
+.cd-trade-panel__cta.tk-btn,
+.cd-trade-panel__cta {
+  height: 52px;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .cd-chart-panel__chg {
@@ -1868,7 +2418,7 @@
 .cd-period-toolbar {
   display: inline-flex;
   align-items: center;
-  gap: 0;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
@@ -1895,6 +2445,11 @@
 .cd-period--active {
   background: var(--azure);
   color: #fff;
+}
+
+.cd-period:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* Fallback drawable area before desktop fixed height kicks in */
@@ -2761,13 +3316,12 @@
 }
 
 /*
- * Order book split-scroll (design HTML / Card.html `#tab-offers`):
+ * Order book split-scroll (Card.html `#tab-offers`):
  * asks pane | fixed spread | bids pane — equal pane heights, independent scroll.
- * One-sided books keep both halves (empty is compact, aligned to the spread).
  */
 .collection-detail-page .cd-ob-book {
-  --ob-neg: var(--background-danger-default);
-  --ob-pos: var(--text-positive-default);
+  --ob-neg: #f5332c;
+  --ob-pos: rgb(0, 200, 100);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2856,8 +3410,9 @@
   overflow-anchor: none;
   touch-action: pan-y;
   background: #191919;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  /* Card.html `.ob-scroll` — Hyperliquid-style hidden scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .collection-detail-page .cd-ob-book-pane__scroll-inner {
@@ -2872,12 +3427,9 @@
 }
 
 .collection-detail-page .cd-ob-book-pane__scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.collection-detail-page .cd-ob-book-pane__scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 6px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Rows hug the spread; lists are only as tall as their rows (not stretched to 100%). */
@@ -2896,27 +3448,27 @@
   z-index: 3;
 }
 
-/* Design HTML mid strip — `$price ↓` | Spread $X */
+/* Design HTML mid strip — Card.html `.ob-spread` */
 .collection-detail-page .cd-ob-book-center__strip {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  height: 35px;
-  min-height: 35px;
-  padding: 0 16px;
+  padding: 8px 16px;
   margin: 0;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.02);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
 }
 
-/* Tabs — Card.html trades/listings header (`padding:0 16px` bar · `16px` per tab) */
+/* Tabs — Card.html trades/listings header */
 .collection-detail-page .cd-ob-tabs {
   padding: 0 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent;
 }
 
 .collection-detail-page .cd-sidebar-details .cd-ob-tabs {
@@ -2959,20 +3511,29 @@
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* Trades tab — Card.html `#tab-trades` */
+/* Trades tab — Card.html `#tab-trades` / `#trades-scroll` */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: 0.85fr 1.55fr 0.9fr 1.15fr;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
   align-items: center;
-  padding: 7px 20px;
+  height: 26px;
+  min-height: 0;
+  padding: 0 16px;
+  line-height: 1;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #191919;
+  box-sizing: border-box;
 }
 
 .collection-detail-page .cd-ob-trades-hdr span {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--t3);
+  color: rgba(255, 255, 255, 0.66);
+  font-weight: 400;
 }
 
 .collection-detail-page .cd-ob-trades-hdr span:last-child {
@@ -2987,6 +3548,7 @@
   overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .collection-detail-page .cd-ob-trades-scroll::-webkit-scrollbar {
@@ -2997,9 +3559,18 @@
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: 0.85fr 1.55fr 0.9fr 1.15fr;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
   align-items: center;
-  padding: 3px 20px;
+  height: 26px;
+  min-height: 0;
+  padding: 0 16px;
+  line-height: 1;
+  box-sizing: border-box;
+  transition: background 0.1s;
+}
+
+.collection-detail-page .cd-ob-trades-row:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .collection-detail-page .cd-ob-trades-price,
@@ -3009,18 +3580,19 @@
 .collection-detail-page .cd-ob-trades-time {
   font-family: var(--font-mono);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 400 !important;
   min-width: 0;
+  line-height: 1;
 }
 
 .collection-detail-page .cd-ob-trades-price--up {
   color: var(--pos);
-  font-weight: 400;
+  font-weight: 400 !important;
 }
 
 .collection-detail-page .cd-ob-trades-price--down {
-  color: rgb(245, 51, 44);
-  font-weight: 700;
+  color: #f5332c;
+  font-weight: 400 !important;
 }
 
 .collection-detail-page .cd-ob-trades-side,
@@ -3033,17 +3605,10 @@
   white-space: nowrap;
 }
 
-/* Nudge Side slightly right (header + cells stay aligned). */
-.collection-detail-page .cd-ob-trades-hdr span:nth-child(2),
-.collection-detail-page .cd-ob-trades-side {
-  margin-left: 4px;
-}
-
-/* Source header + cells — nudge left vs Side/Time (keep header/cells aligned). */
+/* Card.html: Source column nudge — `#trades-scroll > div > span:nth-child(3){padding-left:16px}` */
 .collection-detail-page .cd-ob-trades-hdr span:nth-child(3),
 .collection-detail-page .cd-ob-trades-source {
-  margin-left: -26px;
-  padding-left: 12px;
+  padding-left: 16px;
   text-align: left;
   justify-self: start;
   justify-content: flex-start;
@@ -3077,14 +3642,15 @@
   color: var(--t3);
 }
 
-/* Offers tab — Price / Qty / Total (design HTML `.cols` 1fr 1fr 1fr) */
+/* Offers tab — Card.html `.ob-cols` */
 .collection-detail-page .cd-ob-book-hdr {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   align-items: center;
-  padding: 6px 16px;
-  position: relative;
+  padding: 9px 16px 5px;
+  position: sticky;
+  top: 0;
   flex: none;
   z-index: 4;
   background: #191919;
@@ -3169,7 +3735,7 @@
 }
 
 .collection-detail-page .cd-ob-book-row--bid .cd-ob-book-row__grid {
-  background: rgba(0, 200, 100, 0.04);
+  background: transparent;
 }
 
 .collection-detail-page .cd-ob-book-row--selected .cd-ob-book-row__grid {
@@ -3196,13 +3762,16 @@
   padding: 0 16px;
 }
 
+/* Card.html `.ob-row .bar` — both sides grow from the right */
 .collection-detail-page .cd-ob-book-row__depth {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  height: 26px;
+  top: 1px;
+  bottom: 1px;
+  height: auto;
+  right: 0;
+  left: auto;
   pointer-events: none;
-  border-radius: 0;
+  border-radius: 2px;
   transition: width 0.15s ease;
 }
 
@@ -3213,9 +3782,9 @@
 }
 
 .collection-detail-page .cd-ob-book-row__depth--bid {
-  left: 0;
-  right: auto;
-  background: rgba(0, 200, 100, 0.18);
+  right: 0;
+  left: auto;
+  background: rgba(0, 200, 100, 0.13);
 }
 
 .collection-detail-page .cd-ob-book-row__price {
@@ -3671,6 +4240,19 @@
     padding: 0;
   }
 
+  /* Card.html `#tab-trades{padding-top:14px;padding-bottom:14px}` */
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-trades-hdr),
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-trades-scroll),
+  .collection-detail-page
+    .cd-detail-grid__orderbook
+    .cd-ob-body:has(.cd-ob-trades-empty) {
+    padding: 14px 0;
+  }
+
   .collection-detail-page .cd-detail-grid__orderbook .cd-ob-trades-scroll {
     flex: 1 1 auto;
     min-height: 0;
@@ -3690,9 +4272,14 @@
     height: 100%;
   }
 
-  /* Card.html — sidebar is order book + details only (no trade dock) */
+  .collection-detail-page .cd-detail-grid__chart .cd-chart-panel--with-hero.cd-notch {
+    height: auto;
+  }
+
+  /* Card.html — trade dock above order book in the right rail */
   .collection-detail-page .cd-sidebar-trade {
-    display: none;
+    display: block;
+    flex: none;
   }
 
   .collection-detail-page .cd-sidebar-details {
@@ -3774,7 +4361,10 @@
   justify-content: center;
   padding: 0;
   overflow: hidden;
-  background: rgba(6, 6, 12, 0.72);
+  z-index: 245;
+  background: rgba(6, 6, 14, 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .cd-listing-prov__panel,
@@ -3791,23 +4381,65 @@
   max-width: 440px;
 }
 
+/* Card.html `#tk-buy .tkbuy-sheet` */
 .cd-listing-checkout__panel--sheet {
-  background: #141418;
+  background: #191919;
   border-radius: 20px 20px 0 0;
   width: 460px;
   max-width: 100%;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow-y: auto;
-  padding: 0 20px calc(18px + env(safe-area-inset-bottom));
+  padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6);
   animation: cd-choose-up 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
   box-sizing: border-box;
 }
 
-@media (max-width: 520px) {
+/* Card.html `#tk-buy` / `#tk-choose` — desktop centered dialog */
+@media (min-width: 769px) {
+  .cd-listing-checkout--sheet {
+    align-items: center !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+  }
+
   .cd-listing-checkout__panel--sheet {
-    width: 100%;
-    border-radius: 16px 16px 0 0;
+    border-radius: 18px !important;
+    max-height: 88vh;
+    animation: cd-choose-fade 0.2s ease !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  .cd-listing-checkout--sheet .cd-choose-copy__grab {
+    display: none !important;
+  }
+
+  .cd-choose-copy {
+    align-items: center !important;
+    padding: 20px !important;
+  }
+
+  .cd-choose-copy__sheet {
+    border-radius: 18px !important;
+    max-height: 86vh;
+    animation: cd-choose-fade 0.2s ease !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  }
+
+  .cd-choose-copy__grab {
+    display: none !important;
+  }
+}
+
+@keyframes cd-choose-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -3825,26 +4457,27 @@
 }
 
 .cd-listing-checkout--sheet .cd-listing-checkout__head {
-  padding: 4px 0 12px;
-  margin-bottom: 0;
+  padding: 0;
+  margin-bottom: 20px;
 }
 
 .cd-listing-checkout--sheet .cd-listing-checkout__title {
-  font-size: 19px;
+  font-size: 20px;
 }
 
 .cd-listing-checkout--sheet .cd-listing-checkout__close {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  clip-path: none;
-  filter: none;
-  font-size: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
+  background: #191919;
+  clip-path: var(--pixel-notch-lg);
+  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7));
+  font-size: 20px;
 }
 
 .cd-listing-checkout--sheet .cd-listing-checkout__close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: #191919;
+  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7)) brightness(1.08);
 }
 
 .cd-listing-prov__title,
@@ -4323,10 +4956,16 @@ button.cd-listing-orderbook__thumb-link {
   margin-bottom: 18px;
 }
 
+@media (max-width: 520px) {
+  .cd-listing-checkout__panel--sheet {
+    border-radius: 16px 16px 0 0;
+  }
+}
+
 .cd-listing-checkout__item-thumb {
   flex: none;
   width: 50px;
-  background: linear-gradient(180deg, #101018, #08080e);
+  background: linear-gradient(180deg, #0e0e0e, #08080e);
   padding: 5px;
 }
 
@@ -4382,8 +5021,7 @@ button.cd-listing-orderbook__thumb-link {
 .cd-listing-checkout__row {
   display: flex;
   justify-content: space-between;
-  /* Match wallet strip inset (`padding: 12px 14px`) so key/value align. */
-  padding: 9px 14px;
+  padding: 9px 0;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--t2);
@@ -4391,15 +5029,18 @@ button.cd-listing-orderbook__thumb-link {
 
 .cd-listing-checkout__row--total {
   align-items: baseline;
-  padding: 14px 14px 18px;
+  padding: 14px 0 18px;
   font-weight: 700;
   font-size: 15px;
   color: #fff;
 }
 
 .cd-listing-checkout__row--total span:last-child {
+  font-family: var(--font-sans);
   font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  color: #fff;
 }
 
 .cd-listing-checkout__error {
@@ -4795,10 +5436,16 @@ button.cd-listing-orderbook__thumb-link {
   to { transform: translateY(0); }
 }
 
+@keyframes cd-choose-bob {
+  0%,
+  100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
 .cd-choose-copy {
   position: fixed;
   inset: 0;
-  z-index: 210;
+  z-index: 240;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -4838,17 +5485,6 @@ button.cd-listing-orderbook__thumb-link {
   flex: none;
 }
 
-.cd-choose-copy__head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.cd-choose-copy__head-title .tk-badge {
-  flex: none;
-}
-
 .cd-choose-copy__title {
   margin: 0;
   font-family: var(--font-sans);
@@ -4857,8 +5493,7 @@ button.cd-listing-orderbook__thumb-link {
   color: #fff;
 }
 
-.cd-choose-copy__close,
-.cd-choose-copy__zoom {
+.cd-choose-copy__close {
   width: 34px;
   height: 34px;
   border: 0;
@@ -4875,8 +5510,7 @@ button.cd-listing-orderbook__thumb-link {
   padding: 0;
 }
 
-.cd-choose-copy__close:hover,
-.cd-choose-copy__zoom:hover {
+.cd-choose-copy__close:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
@@ -4894,7 +5528,7 @@ button.cd-listing-orderbook__thumb-link {
   font-weight: 600;
   font-size: 15px;
   color: #fff;
-  --cd-line1-lh: 1.3;
+  line-height: 1.3;
 }
 
 .cd-choose-copy__item-sub {
@@ -4917,15 +5551,36 @@ button.cd-listing-orderbook__thumb-link {
 
 .cd-choose-copy__fsel {
   flex: 1;
+  width: 100%;
   height: 34px;
-  background: var(--ink-2, #0e0e0e);
+  background-color: var(--ink-2, #0e0e0e);
   color: var(--t2);
   border: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   border-radius: 8px;
+  font-family: var(--font-mono);
   font-size: 11px;
-  padding: 0 10px;
+  padding: 0 28px 0 10px;
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.cd-choose-copy__empty {
+  margin: 12px 0;
+  font-size: 12px;
+  color: var(--t3);
+  text-align: center;
+}
+
+.cd-choose-copy__scrollwrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .cd-choose-copy__scroll {
@@ -4933,6 +5588,34 @@ button.cd-listing-orderbook__thumb-link {
   padding: 0 20px;
   flex: 1;
   min-height: 0;
+  max-height: min(60vh, 602px);
+  scrollbar-width: thin;
+}
+
+.cd-choose-copy__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 52px;
+  pointer-events: none;
+  background: linear-gradient(to top, #141418, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  transition: opacity 0.2s;
+}
+
+.cd-choose-copy__fade--hide {
+  opacity: 0;
+}
+
+.cd-choose-copy__fade svg {
+  width: 20px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.55);
+  animation: cd-choose-bob 1.4s ease-in-out infinite;
 }
 
 .cd-choose-copy__auto {
@@ -4956,7 +5639,10 @@ button.cd-listing-orderbook__thumb-link {
   background: rgba(26, 111, 255, 0.14);
 }
 
-.cd-choose-copy__auto-body { flex: 1; min-width: 0; }
+.cd-choose-copy__auto-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .cd-choose-copy__auto-title {
   display: block;
@@ -4973,12 +5659,13 @@ button.cd-listing-orderbook__thumb-link {
   margin-top: 2px;
 }
 
+/* Card.html `.tkc-row` — radio | Cert # | vault pill */
 .cd-choose-copy__row {
   display: grid;
-  grid-template-columns: 44px 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 12px;
   margin-bottom: 8px;
   cursor: pointer;
   border-radius: 12px;
@@ -4991,43 +5678,24 @@ button.cd-listing-orderbook__thumb-link {
   box-shadow: inset 0 0 0 1.5px rgba(26, 111, 255, 0.55);
 }
 
-.cd-choose-copy__thumb {
-  width: 44px;
-  height: 60px;
-  border-radius: 4px;
-  object-fit: contain;
-  object-position: center;
-  padding: 3px;
-  box-sizing: border-box;
-  display: block;
-  background: #0c0c12;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.cd-choose-copy__thumb--empty { display: block; }
-
-.cd-choose-copy__row-body { min-width: 0; }
-
 .cd-choose-copy__cert {
-  display: block;
+  min-width: 0;
   font-size: 14px;
   font-weight: 700;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.cd-choose-copy__vault {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.cd-choose-copy__vault-pill {
+  justify-self: end;
   font-size: 11px;
-  margin-top: 3px;
-}
-
-.cd-choose-copy__vault-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: none;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
 .cd-choose-copy__radio {
@@ -5044,14 +5712,14 @@ button.cd-listing-orderbook__thumb-link {
 
 .cd-choose-copy__row--sel .cd-choose-copy__radio,
 .cd-choose-copy__auto--sel .cd-choose-copy__radio {
-  border-color: var(--azure);
+  border-color: var(--azure, #1a6fff);
 }
 
 .cd-choose-copy__radio-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--azure);
+  background: var(--azure, #1a6fff);
 }
 
 .cd-choose-copy__foot {
@@ -5070,158 +5738,202 @@ button.cd-listing-orderbook__thumb-link {
   justify-content: center;
 }
 
-.cd-choose-copy-lb {
-  position: fixed;
-  inset: 0;
-  z-index: 230;
-  display: flex;
-  flex-direction: column;
-  background: rgba(4, 5, 10, 0.96);
-}
-
-.cd-choose-copy-lb__top {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px 18px;
-  flex: none;
-}
-
-.cd-choose-copy-lb__counter {
-  font-size: 12px;
-  color: var(--t2);
-}
-
-.cd-choose-copy-lb__stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-  padding: 8px;
-}
-
-.cd-choose-copy-lb__img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  object-position: center;
-  display: block;
-  transition: transform 0.18s;
-  cursor: zoom-in;
-  border-radius: 0;
-}
-
-.cd-choose-copy-lb__img--zoom {
-  transform: scale(2);
-  cursor: zoom-out;
-}
-
-.cd-choose-copy-lb__missing {
-  font-size: 13px;
-  color: var(--t3);
-}
-
-.cd-choose-copy-lb__nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.cd-choose-copy-lb__nav:hover { background: rgba(255, 255, 255, 0.2); }
-.cd-choose-copy-lb__nav--prev { left: 12px; }
-.cd-choose-copy-lb__nav--next { right: 12px; }
-
-.cd-choose-copy-lb__faces {
-  display: flex;
-  gap: 4px;
-  justify-content: center;
-  padding: 0 12px;
-  flex: none;
-}
-
-.cd-choose-copy-lb__ftab {
-  flex: 1;
-  max-width: 120px;
-  height: 30px;
-  border: 0;
-  background: transparent;
-  color: var(--t3);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 7px;
-}
-
-.cd-choose-copy-lb__ftab.is-on {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.cd-choose-copy-lb__strip {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  padding: 12px;
-  overflow-x: auto;
-  flex: none;
-}
-
-.cd-choose-copy-lb__strip img,
-.cd-choose-copy-lb__strip-empty {
-  width: 38px;
-  height: 52px;
-  object-fit: contain;
-  object-position: center;
-  border-radius: 3px;
-  opacity: 0.45;
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  border: 0;
-  padding: 2px;
-  box-sizing: border-box;
-  display: block;
-  background: #0c0c12;
-}
-
-.cd-choose-copy-lb__strip img.is-on,
-.cd-choose-copy-lb__strip-empty.is-on {
-  opacity: 1;
-  box-shadow: 0 0 0 2px var(--azure);
-}
-
-.cd-choose-copy-lb__foot {
-  padding: 12px 18px calc(18px + env(safe-area-inset-bottom));
-  flex: none;
-}
-
-.cd-choose-copy-lb__foot .cd-choose-copy__cta {
-  max-width: 460px;
-  margin: 0 auto;
-  height: 48px !important;
-  min-height: 48px !important;
-  display: flex;
-}
-
 @media (max-width: 520px) {
   .cd-choose-copy__sheet {
     width: 100%;
     border-radius: 16px 16px 0 0;
   }
+}
+
+/* ── List confirm (Card.html #tk-bidconf sell) ───────────────────────────── */
+
+.cd-list-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(6, 6, 12, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.cd-list-confirm__sheet {
+  width: 400px;
+  max-width: 100%;
+  background: #141418;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+.cd-list-confirm__top {
+  padding: 22px 22px 18px;
+  position: relative;
+}
+
+.cd-list-confirm__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cd-list-confirm__close:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cd-list-confirm__title {
+  margin: 0 34px 14px 0;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.cd-list-confirm__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cd-list-confirm__thumb {
+  flex: none;
+  width: 40px;
+  height: 56px;
+  background: #0c0c12;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cd-list-confirm__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cd-list-confirm__item-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.cd-list-confirm__item-title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-list-confirm__item-sub {
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 2px;
+}
+
+.cd-list-confirm__card {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0 8px;
+}
+
+.cd-list-confirm__card-lbl {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--t2);
+}
+
+.cd-list-confirm__card-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 2px;
+}
+
+.cd-list-confirm__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+}
+
+.cd-list-confirm__row-lbl {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.cd-list-confirm__row-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cd-list-confirm__row-val--warn {
+  color: var(--warn, #f3701e);
+}
+
+.cd-list-confirm__row-val--pos {
+  color: var(--pos, #00c864);
+}
+
+.cd-list-confirm__error {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: #f5332c;
+  line-height: 1.4;
+}
+
+.cd-list-confirm__bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 22px 20px;
+  background: #0d0d0f;
+}
+
+.cd-list-confirm__cta.tk-btn,
+.cd-list-confirm__cta {
+  width: 100%;
+  height: 50px;
+  margin-top: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.cd-list-confirm__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+  font-size: 10.5px;
+  color: var(--t3);
+  text-align: center;
+}
+
+.cd-list-confirm__foot b {
+  color: var(--t2);
+  font-weight: 700;
+}
+
+.cd-list-confirm__foot-dot {
+  opacity: 0.4;
 }

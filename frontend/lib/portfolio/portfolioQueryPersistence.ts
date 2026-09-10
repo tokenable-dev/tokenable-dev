@@ -13,7 +13,7 @@ import type { PortfolioAssetsPageResponse } from "@/lib/core/api/portfolio-asset
 import { activeRqChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
-const SCHEMA = 4;
+const SCHEMA = 5;
 /** Paint-time cache TTL — matches marketplace list persistence. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 const LS_PREFIX = "tokenable.rq.portfolio.v1.";

@@ -20,8 +20,8 @@ Pinned JSON uses OpenSea-compatible fields. **`metadata.image` is an HTTPS URL o
 |-------|------|----------|-------------|
 | `name` | string | Yes | Token name |
 | `description` | string | Yes | Token description |
-| `image` | file | No* | JPEG/PNG image file (max 10 MB) |
-| `imageUrl` | string | No* | External image URL |
+| `image` | file | No* | JPEG / PNG / WebP image file (max 10 MB). Unsupported types fail the request (not silently dropped). |
+| `imageUrl` | string | No* | External image URL (PSA cert slab, user HTTPS, or catalog). Priority when no file: PSA → user URL → Cardhedger → Tokenable placeholder |
 | `attributes` | string | No | JSON string — `[{"trait_type": "...", "value": "..."}]` |
 | `gradedMetadata` | string | No | JSON — `{ graded, … }` from Vault PSA analyze (**PSA 10 required**) |
 
@@ -40,11 +40,14 @@ Pinned JSON uses OpenSea-compatible fields. **`metadata.image` is an HTTPS URL o
   "imageCid": "Qm...",
   "metadata": { },
   "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab",
-  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab-back"
+  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/84089328/slab-back",
+  "collectionKey": "a1b2c3…64hex"
 }
 ```
 
 `displayImageUrl` / `displayImageBackUrl` are set when catalog S3 is configured (`CATALOG_COVER_S3_*`). The mint image is pinned to IPFS; the front is copied to S3 `/slab`. If PSA metadata includes a back URL (`certImageBackUrl`), it is copied to `/slab-back`. If S3 ingest fails, upload still succeeds and the corresponding field is `null`.
+
+`collectionKey` is the deterministic marketplace bucket from graded metadata (same as listing). Pass it to mint so `rwa_tokens.collection_key` is set without a post-mint IPFS sync. Null when graded identity is incomplete.
 
 ---
 
@@ -77,7 +80,9 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
   "certNumber": "83179580",
   "deliveryMode": "custody",
   "displayImageUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab",
-  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab-back"
+  "displayImageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab-back",
+  "displayName": "2020 Panini Prizm Joe Burrow #307",
+  "collectionKey": "a1b2c3…64hex"
 }
 ```
 
@@ -89,8 +94,10 @@ Platform-signed on-chain mint. Default: custody wallet (admin delivers later). S
 | `deliveryMode` | No | `custody` (default) or `direct` (self vault — mint to `recipientAddress`; **active marketplace partner wallet + company Origin address required**) |
 | `displayImageUrl` | No | Pass through from upload response. Stored on `rwa_tokens.display_image_url` only when the URL matches the platform S3 **front** key for this `certNumber` + chain. Spoofed URLs are ignored (mint still succeeds). |
 | `displayImageBackUrl` | No | Same for the **back** key (`…/slab-back`). |
+| `displayName` | No | Portfolio list title → `rwa_tokens.display_name` (defaults to `PSA #{cert}`). |
+| `collectionKey` | No | From upload → `rwa_tokens.collection_key` for snapshot price joins. |
 
-**Mint paths that set `display_image_url`:** sell/custody upload+mint (Phase 1), partner bulk mint prepare+commit (Phase 2), vault submission admin mint, P2P listing create (optional `displayImageUrl` / `imageUrl`). Legacy rows: admin `POST /marketplace/admin/rwa-slab/backfill-display-images` (Phase 3).
+**Mint paths that set list fields:** sell/custody upload+mint, partner bulk mint prepare+commit, vault submission admin mint. See `docs/architecture/portfolio-list-materialization.md`. Legacy slab images: admin `POST /marketplace/admin/rwa-slab/backfill-display-images`.
 
 **Local QA (upload prep, no on-chain mint):**
 
@@ -163,7 +170,7 @@ Pay-first multi-card redeem. Client transfers USDC to `PLATFORM_FEE_RECIPIENT`, 
 }
 ```
 
-**Response includes** `paymentBatchId`, `paymentReceivedUsdcMicros`, `custodyWalletAddress` (`RWA_CUSTODY_WALLET_ADDRESS`), `nextStep: "transfer_nfts_to_custody"`.
+**Response includes** `paymentBatchId`, `paymentReceivedUsdcMicros`, `custodyWalletAddress` (`RWA_CUSTODY_WALLET_ADDRESS`), `nextStep: "transfer_nfts_to_custody"`. Also cancels any leftover ACTIVE marketplace asks for the paid tokenIds (FE already blocks listed redeem; this clears the listed badge SSOT).
 
 Payment uniqueness is enforced by `vault_redeem_payment_claims.payment_tx_hash` (PRIMARY KEY). Batch row creation runs in a single DB transaction so a failed card rolls back the claim and all sibling rows.
 
@@ -175,7 +182,7 @@ Early withdrawal uses `vault_cycles.deposited_at` vs `PSA_VAULT_EARLY_WITHDRAWAL
 
 **Guard:** `JwtAuthGuard` · **Header:** `x-tokenable-chain-id`
 
-After the buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALLET_ADDRESS`, post transfer hashes for tokens still needing confirmation. Backend verifies Transfer logs + current `ownerOf` == custody, then marks each row `in_custody`. Tokens **already** owned by custody on-chain (partial resume after wallet cancel) are accepted without a new tx — `transfers` may be `[]` when every outstanding NFT is already at custody. **No partial advance** — any token still in the user wallet without a matching transfer → 400. When `allInCustody=true`, the redeem UI may show Preparing.
+After the buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALLET_ADDRESS`, post transfer hashes for tokens still needing confirmation. Backend verifies Transfer logs + current `ownerOf` == custody, then marks each row `in_custody` and sets `rwa_tokens.owner_wallet` to the custody address immediately (My Assets does not wait on Transfer-index poll). Tokens **already** owned by custody on-chain (partial resume after wallet cancel) are accepted without a new tx — `transfers` may be `[]` when every outstanding NFT is already at custody. **No partial advance** — any token still in the user wallet without a matching transfer → 400. When `allInCustody=true`, the redeem UI may show Preparing.
 
 ```json
 {
@@ -188,15 +195,19 @@ After the buyer **user-signs** ERC-721 `safeTransferFrom` into `RWA_CUSTODY_WALL
 
 The backend never pulls NFTs from the buyer. PSA Vault and Partner Self Vault share this custody intake; shipping provider differs later.
 
-**Ops after custody:** Admin sets **tracking per vault shipment** (and optional **carrier**) → user In transit. User confirms receipt via `confirm-received` → Done (`completed`). Burn / confirm-release may still follow for ops. Admin refunds (USDC + NFT return) until a tracking number is set — see `docs/api/marketplace-admin.md` Redeems.
+**Ops after custody:** Admin sets **tracking per vault shipment** (and optional **carrier**) → user In transit. User confirms receipt via `confirm-received` → backend **auto-burns** the NFT(s) then marks Done (`completed`). FedEx auto-receipt uses the same burn → completed path. Admin `POST /admin/.../burn` remains for edge cases. Admin refunds (USDC + NFT return) until a tracking number is set — see `docs/api/marketplace-admin.md` Redeems.
 
 ### `POST /api/rwa/redeem-batch/:batchId/confirm-received`
 
 **Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-User tap **I've received my cards**, or **Mark this shipment received** on the last (or only) shipment — both call this endpoint. Sandbox all-1s tracking (`111111111111`) is treated as FedEx Delivered on poll; auto-receipt still waits `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` (local default 5 min) before `completed`. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`. Sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via=user`. Idempotent if already completed.
+User tap **I've received my cards**, or **Mark this shipment received** on the last (or only) shipment — both call this endpoint. Sandbox all-1s tracking (`111111111111`) is treated as FedEx Delivered on poll; auto-receipt still waits `REDEEM_AUTO_RECEIPT_GRACE_SECONDS` (local default 5 min) before `completed`. Batch must belong to the active chain. Requires every row in the payment batch to have a `tracking_number`, and status ∈ `in_custody` | `burned` | `vault_release_pending` | `completed`.
 
-**FedEx Track auto-receipt (server cron):** when `FEDEX_TRACK_ENABLED=true`, Nest polls `POST /track/v1/trackingnumbers` for open redeem rows with FedEx (or empty) `tracking_carrier`. On Delivered (`ACTUAL_DELIVERY` / status `DL`) it sets `carrier_delivered_at` and emits `RD_RECEIVED_REMINDER`. After `REDEEM_AUTO_RECEIPT_GRACE_DAYS` (default **3**) from the latest delivery in the batch, cron auto-confirms receipt (`receipt_confirmed_via=auto` → `completed`) so settlement can proceed without the user returning to tap the button. Non-FedEx carriers (UPS/DHL) still require the user tap. Apply `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql` on existing DBs.
+**Before** flipping rows to `completed`, the backend burns each linked NFT that is not already burned (`RwaTokenAdminService.ensureBurnedForRedeem` → on-chain `adminBurn` + `completeRedemptionBurn`). Burn failure blocks completion (auto-receipt cron logs and retries next poll). Idempotent: already-burned tokens are skipped; already-completed batches still heal any missing burn then return `alreadyCompleted`.
+
+Then sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via=user`.
+
+**FedEx Track auto-receipt (server cron):** when `FEDEX_TRACK_ENABLED=true`, Nest polls `POST /track/v1/trackingnumbers` for open redeem rows with FedEx (or empty) `tracking_carrier`. On Delivered (`ACTUAL_DELIVERY` / status `DL`) it sets `carrier_delivered_at` and emits `RD_RECEIVED_REMINDER`. After `REDEEM_AUTO_RECEIPT_GRACE_DAYS` (default **3**) from the latest delivery in the batch, cron auto-confirms receipt (`receipt_confirmed_via=auto` → burn → `completed`) so settlement can proceed without the user returning to tap the button. Non-FedEx carriers (UPS/DHL) still require the user tap. Apply `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql` on existing DBs.
 
 **Local sandbox (Test keys):** Track lookup runs, but dummy numbers like `111111111` never come back Delivered from FedEx. On `apis-sandbox.fedex.com` the poll **treats all-1s tracking (6–15 digits) as delivered** so grace → auto-receipt can be tested (`FEDEX_TRACK_SANDBOX_ONES_DELIVERED=0` to disable). Production (`https://apis.fedex.com`) only stamps from a real Track Delivered. `POST /api/marketplace/admin/fedex/track/poll-redeems` runs the same path. `trackingnumbers-probe` does not write DB.
 

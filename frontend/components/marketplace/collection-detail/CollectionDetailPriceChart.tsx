@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { CollectionDualPriceChart } from "@/components/marketplace/collection-dual-price-chart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
@@ -46,27 +47,36 @@ function windowChange(
   };
 }
 
+/**
+ * Card.html `#chart-card` — optional embedded hero + price history + chart.
+ */
 export function CollectionDetailPriceChart({
   chartProps,
   gradeChart,
   mobileLayout = false,
+  heroSlot,
 }: {
   chartProps: CollectionDualPriceChartProps;
   gradeChart: GradeChartSlice;
   /** Card.html mobile scroll column — show header + full-height chart. */
   mobileLayout?: boolean;
+  /** Design-30: `#hero-bar` + `#hero-stats` nest inside the chart notch. */
+  heroSlot?: ReactNode;
 }) {
   const change = useMemo(
     () => windowChange(chartProps.externalRollingUsd, gradeChart.chartDays),
     [chartProps.externalRollingUsd, gradeChart.chartDays],
   );
+  const withHero = heroSlot != null;
 
   return (
     <div
       className={`cd-chart-panel cd-notch${
         mobileLayout ? " cd-chart-panel--embed" : ""
-      }`}
+      }${withHero ? " cd-chart-panel--with-hero" : ""}`}
+      id="chart-card"
     >
+      {withHero ? <div className="cd-chart-panel__hero">{heroSlot}</div> : null}
       <div
         className={`cd-chart-panel__header${
           mobileLayout ? "" : " max-lg:hidden"

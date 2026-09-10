@@ -66,4 +66,28 @@ export class MintRwaDto {
   @IsOptional()
   @IsString()
   displayImageBackUrl?: string;
+
+  /**
+   * List title for My Assets — stored on rwa_tokens.display_name at mint.
+   * Prefer the same name used in upload metadata (`name` field).
+   */
+  @ApiPropertyOptional({
+    description: 'Display name for portfolio list (rwa_tokens.display_name)',
+    example: '2020 Panini Prizm Joe Burrow #307',
+  })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+
+  /**
+   * From POST /rwa/upload `collectionKey` — stored on rwa_tokens for snapshot
+   * price joins without waiting for on-mint IPFS sync.
+   */
+  @ApiPropertyOptional({
+    description: 'Marketplace collection_key (64-char hex) from upload',
+    example: 'a1b2c3d4e5f6…',
+  })
+  @IsOptional()
+  @IsString()
+  collectionKey?: string;
 }

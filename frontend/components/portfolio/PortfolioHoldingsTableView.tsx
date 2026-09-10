@@ -137,7 +137,9 @@ export function PortfolioHoldingsTableView({
               </td>
               <td data-label="Mkt Price" className="pf-col-num-cell">
                 <span className="tkl-mono pf-table-mkt">
-                  {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
+                  {valuesPending && row.currentPrice == null
+                    ? "…"
+                    : formatUsdCompact(row.currentPrice)}
                   {pnl ? (
                     <span
                       className={`pf-mkt-dir${

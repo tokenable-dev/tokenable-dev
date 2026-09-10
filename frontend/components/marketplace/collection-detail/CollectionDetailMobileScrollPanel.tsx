@@ -4,26 +4,29 @@ import type { ReactNode } from "react";
 
 /**
  * Collection detail mobile — Card.html column order:
- * hero → chart → rail (book + details) → similar (listings removed).
+ * chart-card (hero + price history) → rail (book + details) → similar.
  */
 export function CollectionDetailMobileScrollPanel({
-  statBlock,
   chartPanel,
   similarPanel,
   orderBookStack,
   detailsPanel,
+  /** @deprecated Hero nests inside chart-card; kept optional for callers. */
+  statBlock,
 }: {
-  statBlock: ReactNode;
   chartPanel: ReactNode;
   similarPanel?: ReactNode;
   orderBookStack: ReactNode;
   detailsPanel?: ReactNode;
+  statBlock?: ReactNode;
 }) {
   return (
     <div className="cd-mobile-scroll cd-hero-sticky-scope flex w-full min-w-0 flex-col overflow-visible lg:hidden">
-      <section className="cd-mobile-scroll__stat w-full min-w-0" aria-label="Market summary">
-        {statBlock}
-      </section>
+      {statBlock != null ? (
+        <section className="cd-mobile-scroll__stat w-full min-w-0" aria-label="Market summary">
+          {statBlock}
+        </section>
+      ) : null}
 
       <section className="cd-mobile-scroll__chart w-full min-w-0" aria-label="Price chart">
         {chartPanel}

@@ -17,7 +17,7 @@ export default function AdminP2pPage() {
   });
 
   async function onRefund(id: string) {
-    if (!confirm("Arbiter refund buyer USDC and burn custody NFT?")) return;
+    if (!confirm("Arbiter refund buyer USDC and burn custody RWA?")) return;
     setBusyId(id);
     setError(null);
     try {

@@ -46,6 +46,7 @@ import {
   type RedeemShipTo,
 } from "@/lib/core/api/rwa-redeem";
 import { getPartnerMe } from "@/lib/core/api/marketplace-partner-me";
+import { invalidateAfterRedeemCustody } from "@/lib/core/invalidation";
 import {
   listShippingAddresses,
   upsertDefaultShippingAddress,
@@ -823,7 +824,7 @@ export function useRedeemFlow() {
   const finishCustodyTransfers = useCallback(
     async (pending: RedeemCustodyPending) => {
       if (!address || !publicClient) {
-        throw new Error("Connect your wallet to finish NFT transfers.");
+        throw new Error("Connect your wallet to finish RWA transfers.");
       }
       const custodyWallet = getAddress(pending.custodyWalletAddress);
       const userWallet = getAddress(address);
@@ -898,7 +899,7 @@ export function useRedeemFlow() {
       });
       if (!custody.allInCustody) {
         throw new Error(
-          "Not all NFTs are in custody yet. Keep confirming until every card is transferred.",
+          "Not all RWAs are in custody yet. Keep confirming until every card is transferred.",
         );
       }
 
@@ -917,7 +918,7 @@ export function useRedeemFlow() {
     if (!custodyPending) return;
     if (!runAccessGate()) return;
     if (!isConnected || !address) {
-      setError("Connect your wallet to finish transferring NFTs into custody.");
+      setError("Connect your wallet to finish transferring RWAs into custody.");
       return;
     }
     setBusy(true);
@@ -925,8 +926,8 @@ export function useRedeemFlow() {
     try {
       const result = await finishCustodyTransfers(custodyPending);
       setPayPhase(null);
-      await queryClient.invalidateQueries({
-        queryKey: ["rwa", "redemptions", "mine"],
+      await invalidateAfterRedeemCustody(queryClient, {
+        portfolioWallets: [address],
       });
       setBusy(false);
       setSuccessCount(result.transferred || custodyPending.tokenIds.length);
@@ -945,7 +946,7 @@ export function useRedeemFlow() {
       const mapped = mapWalletError(e);
       if (mapped.code === "USER_REJECTED") {
         setError(
-          "You cancelled the NFT transfer. Your USDC payment is already recorded — confirm again in your wallet to finish moving cards into custody.",
+          "You cancelled the RWA transfer. Your USDC payment is already recorded — confirm again in your wallet to finish moving cards into custody.",
         );
         return;
       }
@@ -954,7 +955,7 @@ export function useRedeemFlow() {
           ? mapped.message
           : e instanceof Error
             ? e.message
-            : "Could not finish NFT custody transfer.",
+            : "Could not finish RWA custody transfer.",
       );
     }
   }, [
@@ -1092,8 +1093,8 @@ export function useRedeemFlow() {
       await finishCustodyTransfers(pending);
       setPayPhase(null);
 
-      await queryClient.invalidateQueries({
-        queryKey: ["rwa", "redemptions", "mine"],
+      await invalidateAfterRedeemCustody(queryClient, {
+        portfolioWallets: [address],
       });
 
       setBusy(false);
@@ -1112,7 +1113,7 @@ export function useRedeemFlow() {
       if (mapped.code === "USER_REJECTED") {
         setError(
           paymentRecorded
-            ? "You cancelled the NFT transfer. Your USDC payment is already recorded — use Finish NFT transfers below (do not pay again)."
+            ? "You cancelled the RWA transfer. Your USDC payment is already recorded — use Finish RWA transfers below (do not pay again)."
             : paymentSent
               ? "You cancelled after the USDC payment was sent. Do not pay again — reload this page to resume with the same payment."
               : "You cancelled the wallet request. No payment was completed — try again when ready.",
@@ -1156,8 +1157,8 @@ export function useRedeemFlow() {
       clearRedeemDraft();
       clearRedeemShipmentReceived(paymentBatchId);
       clearRedeemCustodyPending();
-      void queryClient.invalidateQueries({
-        queryKey: ["rwa", "redemptions", "mine"],
+      void invalidateAfterRedeemCustody(queryClient, {
+        portfolioWallets: [address],
       });
       setStep("done");
       router.replace(buildRedeemStatusHref("done", paymentBatchId));
@@ -1170,7 +1171,7 @@ export function useRedeemFlow() {
     } finally {
       setBusy(false);
     }
-  }, [paymentBatchId, chainId, queryClient, router]);
+  }, [paymentBatchId, chainId, queryClient, router, address]);
 
   return useMemo(
     () => ({

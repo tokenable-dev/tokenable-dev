@@ -138,7 +138,7 @@ function RedeemCardLine({
           disabled={busy}
           onClick={onReturnNft}
         >
-          Return NFT
+          Return RWA
         </button>
       ) : null}
     </li>
@@ -435,7 +435,7 @@ function RedeemOrderCard({
             disabled={busy}
             onClick={onRefundFull}
           >
-            Full refund (USDC + all NFTs)
+            Full refund (USDC + all RWAs)
           </button>
         </div>
       ) : null}
@@ -480,7 +480,7 @@ export function MarketplaceAdminRedeemsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Redeems"
-        subtitle="Each payment batch is one order. Tracking is per vault shipment (PSA / each Partner). Memo and USDC refund are order-level. Return NFT is per card. Any tracking locks refunds."
+        subtitle="Each payment batch is one order. Tracking is per vault shipment (PSA / each Partner). Memo and USDC refund are order-level. Return RWA is per card. Any tracking locks refunds."
         actions={
           <button
             type="button"

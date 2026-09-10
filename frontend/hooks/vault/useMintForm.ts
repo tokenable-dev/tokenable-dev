@@ -12,6 +12,7 @@ import {
   syncRwaTokenAfterMint,
 } from "@/lib/core";
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
+import { formatCardDisplayName } from "@/lib/marketplace/cardDisplayName";
 import {
   buildGradedCardMetadata,
   buildMintOpenSeaAttributes,
@@ -21,6 +22,7 @@ import {
   type MintFormStep,
 } from "@/lib/vault/mintFormConstants";
 import { resolveSelfVaultMintImageSelection } from "@/lib/vault/mintImageSource";
+import { resolveMintPsaGradeLabel, ensureMintFormHasPsaScore } from "@/lib/vault/resolveMintPsaGradeLabel";
 import { validateMintForm } from "@/lib/vault/validateMintForm";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
 import { useAppChain } from "@/providers/AppChainProvider";
@@ -201,8 +203,32 @@ export function useMintForm() {
         if (normalizeWalletAddress(recipientAddress) !== primaryAddress) {
           throw new Error("Mint must use your Privy account wallet.");
         }
+        const mintForm = ensureMintFormHasPsaScore(form, psa.lastAnalyze);
+        const mintGrade = resolveMintPsaGradeLabel({
+          score: mintForm.grade.score || psa.lastAnalyze?.psa.gradeScore,
+          gradeLabel: psa.lastAnalyze?.psa.gradeLabel,
+          gradeDescription: psa.lastAnalyze?.psa.gradeDescription,
+        });
+        const { line1: mintDisplayName } = formatCardDisplayName(
+          {
+            cardName: mintForm.card.name || mintForm.name || null,
+            cardNumber: mintForm.card.number || null,
+            grade: mintGrade,
+            year: mintForm.card.year || null,
+            setName: mintForm.card.set || null,
+            language: null,
+            variant: null,
+          },
+          { mode: "line1", omitGrade: !mintGrade },
+        );
+        const listTitle =
+          mintDisplayName.trim() ||
+          mintForm.name.trim() ||
+          `PSA #${mintForm.grade.certNumber.trim() || psa.lastAnalyze?.psa.certNumber?.trim() || ""}`;
+
         const data = new FormData();
-        data.append("name", form.name);
+        // IPFS `name` must match portfolio Line 1 — on-mint sync copies this into display_name.
+        data.append("name", listTitle);
         data.append("description", form.description.trim() || "No description");
         const mintImage = resolveSelfVaultMintImageSelection({
           analyze: psa.lastAnalyze,
@@ -215,7 +241,7 @@ export function useMintForm() {
           data.append("image", form.image);
         }
 
-        const meta = buildGradedCardMetadata(form, psa.lastAnalyze);
+        const meta = buildGradedCardMetadata(mintForm, psa.lastAnalyze);
         data.append(
           "gradedMetadata",
           JSON.stringify({
@@ -227,9 +253,9 @@ export function useMintForm() {
               psa: meta.psa,
               ...(meta.cardhedger ? { cardhedger: meta.cardhedger } : {}),
             },
-            attributes: buildMintOpenSeaAttributes(form),
+            attributes: buildMintOpenSeaAttributes(mintForm),
             external_url:
-              form.verification.certUrl ||
+              mintForm.verification.certUrl ||
               psa.lastAnalyze?.psa.certVerifyUrl ||
               undefined,
           }),
@@ -242,13 +268,15 @@ export function useMintForm() {
         // wrote into properties.graded.psa.certNumber so the on-chain vaultRef the
         // backend derives stays stable across this card's future vault cycles.
         const certNumber =
-          form.grade.certNumber.trim() || psa.lastAnalyze?.psa.certNumber?.trim() || "";
+          mintForm.grade.certNumber.trim() || psa.lastAnalyze?.psa.certNumber?.trim() || "";
 
         const mintResult = await mintRwaViaBackend({
           recipientAddress: primaryAddress,
           tokenURI: uploadResult.tokenURI,
           certNumber,
           chainId,
+          displayName: listTitle || `PSA #${certNumber}`,
+          collectionKey: uploadResult.collectionKey,
           displayImageUrl: uploadResult.displayImageUrl,
           displayImageBackUrl: uploadResult.displayImageBackUrl,
         });

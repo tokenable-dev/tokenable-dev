@@ -99,7 +99,11 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
     const id = Math.floor(tokenId);
     if (!Number.isFinite(id) || id < 0) return null;
 
-    await this.rwaTokenRegistry.syncTokenFromChain(id, null, chainId);
+    const collectionKey = await this.rwaTokenRegistry.syncTokenFromChain(
+      id,
+      null,
+      chainId,
+    );
     if (mintedTo) {
       const contract = this.contract.target;
       if (typeof contract === 'string') {
@@ -107,8 +111,8 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.logger.log(
-      `MintEventListenerService: synced rwa_tokens for #${id} chain=${chainId ?? 'default'} (collection deferred to first listing)`,
+      `MintEventListenerService: synced rwa_tokens for #${id} chain=${chainId ?? 'default'} key=${collectionKey ?? 'none'}`,
     );
-    return null;
+    return collectionKey;
   }
 }

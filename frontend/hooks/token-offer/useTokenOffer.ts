@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,19 +36,9 @@ import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 
-/** Digits + optional one decimal place (e.g. `3.5`). Strips commas / extra dots. */
+/** Digits only (whole dollars). Strips commas / decimals / other chars. */
 export function sanitizeTokenBidPriceInput(raw: string): string {
-  const cleaned = raw.replace(/,/g, "").replace(/[^0-9.]/g, "");
-  const dot = cleaned.indexOf(".");
-  if (dot < 0) return cleaned;
-  const intPart = cleaned.slice(0, dot).replace(/\./g, "");
-  const frac = cleaned
-    .slice(dot + 1)
-    .replace(/\./g, "")
-    .replace(/[^0-9]/g, "")
-    .slice(0, 1);
-  if (cleaned.endsWith(".") && frac === "") return `${intPart}.`;
-  return frac ? `${intPart}.${frac}` : intPart;
+  return raw.replace(/,/g, "").replace(/[^0-9]/g, "");
 }
 
 /** `0` = unlimited. Restore to `1` with the backend env cap. */
@@ -71,6 +61,8 @@ export function useTokenOffer(input: {
   collectionBids: Order[];
   connectedAddress?: `0x${string}` | string | null;
   bidToReplace?: Order | null;
+  /** Prefill from trade panel / Card.html `#tt-bid-v`. */
+  initialPriceUsdc?: number | null;
   onPlaced?: (order: Order) => void;
   onPurchaseFilled?: () => void;
   onInstantBuyFillUsdc?: (usdc: number) => void;
@@ -82,6 +74,7 @@ export function useTokenOffer(input: {
     collectionBids,
     connectedAddress,
     bidToReplace = null,
+    initialPriceUsdc = null,
     onPlaced,
     onPurchaseFilled,
     onInstantBuyFillUsdc,
@@ -118,6 +111,13 @@ export function useTokenOffer(input: {
   const [errorMsg, setErrorMsg] = useState("");
   const [lastOutcome, setLastOutcome] = useState<"instant" | "bid" | null>(null);
   const [hintError, setHintError] = useState<string | null>(null);
+
+  // Seed from trade panel once per mount / preset change (until user edits).
+  useEffect(() => {
+    if (priceTouchedRef.current) return;
+    if (initialPriceUsdc == null || !(initialPriceUsdc > 0)) return;
+    setPrice(String(Math.round(initialPriceUsdc)));
+  }, [initialPriceUsdc]);
 
   const myBidsQuery = useQuery({
     queryKey: rq.portfolioBids(address ?? "", chainId),
@@ -200,8 +200,7 @@ export function useTokenOffer(input: {
   const priceInUnits = useMemo(() => {
     if (!priceOk) return null;
     try {
-      // Prefer the sanitized input string so one-decimal amounts stay exact in micros.
-      const normalized = sanitizeTokenBidPriceInput(price).replace(/\.$/, "");
+      const normalized = sanitizeTokenBidPriceInput(price);
       if (!normalized) return null;
       return parseUnits(normalized, 6);
     } catch {
@@ -276,8 +275,10 @@ export function useTokenOffer(input: {
 
   const walletSignerMissing = Boolean(address) && !signSeaportOrder;
 
-  const invalidateAfter = async () => {
-    await invalidateAfterCriteriaBid(queryClient, collectionKey);
+  const invalidateAfter = async (portfolioWallets?: Array<string | null | undefined>) => {
+    await invalidateAfterCriteriaBid(queryClient, collectionKey, {
+      portfolioWallets,
+    });
   };
 
   const durationSeconds = tokenBidDurationSeconds(durationDays);
@@ -357,7 +358,7 @@ export function useTokenOffer(input: {
         if (paid != null) onInstantBuyFillUsdc?.(paid);
         // Flip to success before cache refresh so limit/policy UI cannot flash.
         setStep("success");
-        await invalidateAfter();
+        await invalidateAfter([address, listing?.offerer]);
         onPurchaseFilled?.();
       } catch (e: unknown) {
         setErrorMsg(mapWalletError(e).message);

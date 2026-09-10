@@ -38,6 +38,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { BuyerListingAlertService } from '../buyer-listing-alert/buyer-listing-alert.service';
 import { VaultService } from '../../vault/vault.service';
 import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
+import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
 import {
   backfillAskTokenIdFromParameters,
@@ -85,6 +86,7 @@ export class OrdersService {
     private readonly buyerListingAlerts: BuyerListingAlertService,
     private readonly vault: VaultService,
     private readonly selfVaultSettlements: SelfVaultSettlementService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
   ) {}
 
   private async withListingDisplay(
@@ -1301,6 +1303,11 @@ export class OrdersService {
           saved.updatedAt ?? new Date(),
           chainId,
         );
+        await this.recordBuyerOwnershipAfterSettle({
+          tokenContract: saved.tokenContract,
+          tokenId: resolveFulfilledAskTokenId(saved),
+          buyerWallet: buyerAddress,
+        });
         // Don't block the fulfill HTTP response on chart RPC — client has a fetch timeout.
         void this.refreshChartsAfterHoldingsMove(
           [buyerAddress, saved.offerer],
@@ -1322,6 +1329,10 @@ export class OrdersService {
               `notifyTradeSettled (fulfillOrder) failed: ${e instanceof Error ? e.message : String(e)}`,
             );
           });
+      } else {
+        this.logger.warn(
+          `fulfillOrder ask ${orderHash.slice(0, 10)}…: missing buyerAddress — owner_wallet/holdings not updated until Transfer poll`,
+        );
       }
     } else if (
       !isCriteriaCollectionBidOrder(saved) &&
@@ -1369,6 +1380,11 @@ export class OrdersService {
           saved.updatedAt ?? new Date(),
           chainId,
         );
+        await this.recordBuyerOwnershipAfterSettle({
+          tokenContract: saved.tokenContract,
+          tokenId: saved.tokenId,
+          buyerWallet: buyerAddress,
+        });
         void this.refreshChartsAfterHoldingsMove(
           [buyerAddress, saved.offerer],
           chainId,
@@ -1505,6 +1521,11 @@ export class OrdersService {
       ask.updatedAt ?? new Date(),
       chainId,
     );
+    await this.recordBuyerOwnershipAfterSettle({
+      tokenContract: ask.tokenContract,
+      tokenId: ask.tokenId,
+      buyerWallet: bid.offerer,
+    });
 
     void this.refreshChartsAfterHoldingsMove(
       [bid.offerer, ask.offerer],
@@ -1624,6 +1645,31 @@ export class OrdersService {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(
         `marketplace buy cost basis seed failed for token #${tid}: ${msg}`,
+      );
+    }
+  }
+
+  /**
+   * Immediate My Assets ownership after Seaport settle — do not wait for
+   * Transfer-log poll (can be 1–2+ minutes). Poll remains a heal backstop.
+   */
+  private async recordBuyerOwnershipAfterSettle(params: {
+    tokenContract: string;
+    tokenId: string | number | null | undefined;
+    buyerWallet: string | null | undefined;
+  }): Promise<void> {
+    const buyer = params.buyerWallet?.trim().toLowerCase();
+    const tid =
+      params.tokenId != null ? String(params.tokenId).trim() : '';
+    const contract = params.tokenContract?.trim();
+    if (!buyer || !tid || !contract) return;
+    try {
+      await this.ownerIndex.recordOwner(contract, tid, buyer);
+    } catch (e) {
+      this.logger.warn(
+        `recordOwner after settle failed token=#${tid}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
       );
     }
   }

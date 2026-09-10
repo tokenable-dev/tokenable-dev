@@ -4,12 +4,13 @@ import {
   AXIS_LABEL_MOBILE,
   CHART_DAY_SEC,
   COLLECTION_DETAIL_AXIS_LABEL,
-  COLLECTION_DETAIL_CHART_AREA_GRADIENT,
   COLLECTION_DETAIL_CHART_DATE_FONT,
-  COLLECTION_DETAIL_CHART_LINE,
   COLLECTION_DETAIL_CHART_MARK_FONT,
   COLLECTION_DETAIL_CHART_MONO,
+  COLLECTION_DETAIL_GRID_LINE,
   COLLECTION_DETAIL_LINE_WIDTH,
+  collectionDetailChartAreaGradient,
+  collectionDetailChartLineColor,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
   LIVE_MARKET_LINE,
@@ -31,9 +32,18 @@ import type { MergedExternalChartData } from "./types";
 
 type ChartXy = [number, number];
 
+/** Card.html: `last.v >= first.v` → green line. */
+function cardHtmlWindowUp(data: ChartXy[]): boolean {
+  if (data.length === 0) return true;
+  const first = data[0]![1];
+  const last = data[data.length - 1]![1];
+  return last >= first;
+}
+
 function cardHtmlDecorateLine(
   seriesItem: LineSeriesOption,
   data: ChartXy[],
+  lineColor: string,
 ): LineSeriesOption {
   if (data.length === 0) return seriesItem;
   let hi = data[0]!;
@@ -70,12 +80,12 @@ function cardHtmlDecorateLine(
       coord: lo,
       symbol: "circle",
       symbolSize: 7,
-      itemStyle: { color: "rgba(150,170,210,0.9)", borderWidth: 0 },
+      itemStyle: { color: "rgba(255,255,255,0.55)", borderWidth: 0 },
       label: {
         show: true,
         formatter: `Low ${formatCardHtmlTooltipUsd(lo[1])}`,
         position: "bottom",
-        color: "rgba(200,214,240,0.95)",
+        color: "rgba(255,255,255,0.55)",
         fontWeight: 600,
         fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
         fontFamily: COLLECTION_DETAIL_CHART_MONO,
@@ -92,7 +102,7 @@ function cardHtmlDecorateLine(
       params.dataIndex === lastIdx ? 8 : 0,
     itemStyle: {
       color: "#fff",
-      borderColor: COLLECTION_DETAIL_CHART_LINE,
+      borderColor: lineColor,
       borderWidth: 2,
     },
     emphasis: {
@@ -100,7 +110,7 @@ function cardHtmlDecorateLine(
       scale: false,
       itemStyle: {
         color: "#fff",
-        borderColor: COLLECTION_DETAIL_CHART_LINE,
+        borderColor: lineColor,
         borderWidth: 2,
       },
     },
@@ -149,9 +159,16 @@ export function buildCollectionDualPriceChartOption(input: {
   } = input;
 
   const isCardHtml = colorTheme === "collection-detail";
-  const lineColor = isCardHtml ? COLLECTION_DETAIL_CHART_LINE : LIVE_MARKET_LINE;
+
+  const polaritySeries: ChartXy[] = merged.extIsPolyline
+    ? merged.externalSeries
+    : [];
+  const windowUp = isCardHtml ? cardHtmlWindowUp(polaritySeries) : true;
+  const lineColor = isCardHtml
+    ? collectionDetailChartLineColor(windowUp)
+    : LIVE_MARKET_LINE;
   const areaGradient = isCardHtml
-    ? COLLECTION_DETAIL_CHART_AREA_GRADIENT
+    ? collectionDetailChartAreaGradient(windowUp)
     : LIVE_MARKET_AREA_GRADIENT;
   const lineWidth = isCardHtml ? COLLECTION_DETAIL_LINE_WIDTH : LIVE_LINE_WIDTH;
 
@@ -181,22 +198,34 @@ export function buildCollectionDualPriceChartOption(input: {
       emphasis: { focus: "series" },
     };
     series.push(
-      isCardHtml ? cardHtmlDecorateLine(line, merged.externalSeries) : line,
+      isCardHtml
+        ? cardHtmlDecorateLine(line, merged.externalSeries, lineColor)
+        : line,
     );
   }
   if (externalFlatSeries.length) {
+    const flatColor = isCardHtml
+      ? collectionDetailChartLineColor(true)
+      : lineColor;
+    const flatArea = isCardHtml
+      ? collectionDetailChartAreaGradient(true)
+      : areaGradient;
     const flat: LineSeriesOption = {
       name: externalRefLineTag,
       type: "line",
       data: externalFlatSeries,
       showSymbol: false,
       smooth: false,
-      lineStyle: { color: lineColor, width: lineWidth, type: "solid" },
-      itemStyle: { color: lineColor },
-      areaStyle: { color: areaGradient },
+      lineStyle: { color: flatColor, width: lineWidth, type: "solid" },
+      itemStyle: { color: flatColor },
+      areaStyle: { color: flatArea },
       emphasis: { focus: "series" },
     };
-    series.push(isCardHtml ? cardHtmlDecorateLine(flat, externalFlatSeries) : flat);
+    series.push(
+      isCardHtml
+        ? cardHtmlDecorateLine(flat, externalFlatSeries, flatColor)
+        : flat,
+    );
   }
 
   const extentDaysCeil =
@@ -344,7 +373,12 @@ export function buildCollectionDualPriceChartOption(input: {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { show: false },
+      splitLine: isCardHtml
+        ? {
+            show: true,
+            lineStyle: { color: COLLECTION_DETAIL_GRID_LINE, width: 1 },
+          }
+        : { show: false },
       axisLabel: {
         show: !isCardHtml,
         color: axisLabelColor,

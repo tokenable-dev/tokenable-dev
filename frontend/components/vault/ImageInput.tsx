@@ -2,6 +2,10 @@
 
 import { useRef, useEffect, useState } from "react";
 import { TkButton, TkInput } from "@/components/ds";
+import {
+  SLAB_UPLOAD_ACCEPT,
+  SLAB_UPLOAD_FORMAT_HINT,
+} from "@/lib/vault/mintImageSource";
 
 type ImageMode = "file" | "fileOrUrl";
 
@@ -105,7 +109,7 @@ export function ImageInput({
           <input
             ref={inputRef}
             type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
+            accept={SLAB_UPLOAD_ACCEPT}
             onChange={handleFileChange}
             className="hidden"
           />
@@ -120,7 +124,8 @@ export function ImageInput({
                   Upload photo
                 </TkButton>
                 <span className="max-w-sm text-xs font-medium leading-relaxed text-white/35 sm:text-xs">
-                  Upload a front photo of your PSA graded card (PSA 1–10 or AUTH). *PNG, JPG or WEBP
+                  Upload a front photo of your PSA graded card (PSA 1–10 or AUTH).{" "}
+                  {SLAB_UPLOAD_FORMAT_HINT}
                 </span>
               </span>
             </button>

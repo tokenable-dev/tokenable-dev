@@ -258,26 +258,25 @@ function finitePositiveUsd(n: number | null | undefined): boolean {
 
 /**
  * Snapshot can fill My Assets USD without a live mint-preview.
- * Unmatched Cardhedger (e.g. Master Ball cert attached to Reverse Foil, then Variety-gated)
- * with no grade strip is a blank row until mint-preview runs.
+ * Matched catalog preview is enough; grade-strip alone needs a resolvable gradeScore
+ * (thin stubs without PSA score must still hit mint-preview).
  */
 export function portfolioSnapshotCanPriceHoldings(
   series: CollectionMarketSeries | null | undefined,
+  gradeScore?: number | null,
 ): boolean {
   if (!series) return false;
   const preview = series.cardhedgerPreview;
   if (preview?.matched && preview.card) return true;
   const gp = series.gradePrices;
-  if (
+  const hasStrip = Boolean(
     finitePositiveUsd(gp?.psa10) ||
-    finitePositiveUsd(gp?.psa9) ||
-    finitePositiveUsd(gp?.raw)
-  ) {
-    return true;
-  }
-  return Boolean(
-    series.allGradePrices?.some((e) => finitePositiveUsd(e.priceUsd)),
+      finitePositiveUsd(gp?.psa9) ||
+      finitePositiveUsd(gp?.raw) ||
+      series.allGradePrices?.some((e) => finitePositiveUsd(e.priceUsd)),
   );
+  if (!hasStrip) return false;
+  return gradeScore != null && Number.isFinite(gradeScore);
 }
 
 /**

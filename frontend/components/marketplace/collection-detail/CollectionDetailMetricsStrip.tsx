@@ -8,6 +8,7 @@ import { CollectionDetailStatMain } from "./CollectionDetailStatMain";
 
 /**
  * Card.html hero — title/meta live inside `#hero-bar` via StatMain.
+ * Buy/Bid/Sell are in the right rail (`#tk-trade`), not the hero.
  */
 export function CollectionDetailMetricsStrip({
   headlineTitle,
@@ -20,19 +21,13 @@ export function CollectionDetailMetricsStrip({
   changeLoading,
   changePeriod,
   gradeLabel,
-  median30dUsd,
   tradeVolumeUsdc,
   velocityPct,
   tradeVolumeLoading,
   marketCapUsd,
   psaPopulationMetrics,
   totalPopulation,
-  lowestAskUsd,
-  highestBidUsd,
-  onBuyLowestAsk,
-  onPlaceBid,
-  buyDisabled,
-  bidDisabled,
+  embedInChart = false,
 }: {
   headlineTitle?: string | null;
   headlineParts?: AssetDetailHeadlineParts | null;
@@ -44,24 +39,17 @@ export function CollectionDetailMetricsStrip({
   changeLoading: boolean;
   changePeriod?: ReferencePercentChangeResult | null;
   gradeLabel?: string | null;
-  median30dUsd?: number | null;
   tradeVolumeUsdc: number | null;
   velocityPct?: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
-  lowestAskUsd?: number | null;
-  highestBidUsd?: number | null;
-  onBuyLowestAsk?: () => void;
-  onPlaceBid?: () => void;
-  buyDisabled?: boolean;
-  bidDisabled?: boolean;
+  embedInChart?: boolean;
 }) {
   return (
-    <div className="cd-metrics-strip">
+    <div className={`cd-metrics-strip${embedInChart ? " cd-metrics-strip--embed" : ""}`}>
       <CollectionDetailStatMain
-        stuckTitle={headlineTitle?.trim() || null}
         headlineTitle={headlineTitle}
         headlineParts={headlineParts}
         headlineMeta={headlineMeta}
@@ -72,7 +60,6 @@ export function CollectionDetailMetricsStrip({
         changeLoading={changeLoading}
         changePeriod={changePeriod}
         gradeLabel={gradeLabel ?? "PSA 10"}
-        median30dUsd={median30dUsd}
         tradeVolumeUsdc={tradeVolumeUsdc}
         velocityPct={velocityPct}
         tradeVolumeLoading={tradeVolumeLoading}
@@ -80,12 +67,7 @@ export function CollectionDetailMetricsStrip({
         formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}
         psaPopulationMetrics={psaPopulationMetrics}
         totalPopulation={totalPopulation}
-        lowestAskUsd={lowestAskUsd}
-        highestBidUsd={highestBidUsd}
-        onBuyLowestAsk={onBuyLowestAsk}
-        onPlaceBid={onPlaceBid}
-        buyDisabled={buyDisabled}
-        bidDisabled={bidDisabled}
+        embedInChart={embedInChart}
       />
     </div>
   );

@@ -59,11 +59,24 @@ export class PortfolioAssetsPageService {
     walletAddress: string,
     tokenIds: number[] | undefined,
     chainId?: SupportedChainId,
+    ownedIdsOnly = false,
   ): Promise<PortfolioAssetsPageResponse> {
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const wallet = walletAddress.trim().toLowerCase();
 
     const ownedTokenIds = await this.resolveOwnedTokenIds(wallet, chain);
+
+    if (ownedIdsOnly) {
+      return {
+        ownedTokenIds,
+        metadataItems: [],
+        collectionKeys: {},
+        marketItems: [],
+        mintPreviews: {},
+        holdings: [],
+      };
+    }
+
     const ownedSet = new Set(ownedTokenIds);
 
     const requested = [
@@ -129,16 +142,26 @@ export class PortfolioAssetsPageService {
     return { ...result, ownedTokenIds };
   }
 
-  /** DB owner index first; RPC ownerOf scan only when index is not ready and DB is empty. */
+  /**
+   * DB owner index first. When the index is ready, never block My Assets on
+   * registry heal (that scan can take tens of seconds) — heal runs in the
+   * background. RPC ownerOf only when index is not ready and DB is empty.
+   */
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
   ): Promise<number[]> {
-    await this.blockchain.healOwnerRegistryIfIncomplete(chainId);
-    const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    if (await this.ownerIndex.isIndexReady(chainId)) {
+    const indexReady = await this.ownerIndex.isIndexReady(chainId);
+    if (indexReady) {
+      void this.blockchain
+        .healOwnerRegistryIfIncomplete(chainId)
+        .catch(() => undefined);
+      const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
       return this.sortOwnedNewestFirst(fromDb);
     }
+
+    await this.blockchain.healOwnerRegistryIfIncomplete(chainId);
+    const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
     if (fromDb.length > 0) {
       return this.sortOwnedNewestFirst(fromDb);
     }

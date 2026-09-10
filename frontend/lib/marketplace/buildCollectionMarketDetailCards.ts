@@ -7,8 +7,7 @@ import {
 } from "@/lib/marketplace/bucketKey";
 import {
   displayVariantIfNotSetDuplicate,
-  formatCardDisplaySetLabel,
-  resolveCardDisplaySetName,
+  stripLeadingTcgFranchiseFromSetDisplay,
 } from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
@@ -61,17 +60,20 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
+  /*
+   * Details Set = expansion only (one source). Prefer Cardhedger `setName`,
+   * else PSA/set line. Do not merge Brand franchise onto catalog expansion.
+   * Strip year (own row) + TCG franchise / language prefix (`One Piece`, …).
+   * `filterValue` keeps the year-stripped set line for Markets `set=` links.
+   */
   const setLineRaw =
     headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
-  const setName = resolveCollectionSetFacetLabelFromLine(setLineRaw);
+  const setSourceRaw = ch?.setName?.trim() || setLineRaw;
+  const setName = resolveCollectionSetFacetLabelFromLine(setSourceRaw);
   const setDisplay = setName
-    ? formatCardDisplaySetLabel(
-        resolveCardDisplaySetName(
-          toCardDisplayCase(setName),
-          ch?.setName?.trim() ?? null,
-        ),
-      )
+    ? stripLeadingTcgFranchiseFromSetDisplay(toCardDisplayCase(setName))
     : "";
+  const setFilterValue = resolveCollectionSetFacetLabelFromLine(setLineRaw);
 
   const variantStr = displayVariantIfNotSetDuplicate(
     resolveCollectionComponentVariant(comp, marketPreview?.card?.variant),
@@ -134,6 +136,9 @@ export function buildCollectionMarketDetailCards(params: {
       id: "set",
       label: "Set",
       value: setDisplay,
+      ...(setFilterValue
+        ? { filterValue: toCardDisplayCase(setFilterValue) }
+        : {}),
     });
   }
 
@@ -188,7 +193,7 @@ export function buildCollectionMarketDetailCards(params: {
   return rows.map((row) => ({
     ...row,
     value:
-      row.id === "cert" || row.id === "card-number"
+      row.id === "cert" || row.id === "card-number" || row.id === "set"
         ? row.value
         : toCardDisplayCase(row.value),
   }));

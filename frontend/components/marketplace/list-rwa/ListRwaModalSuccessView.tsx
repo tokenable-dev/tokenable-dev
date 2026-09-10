@@ -32,9 +32,9 @@ export function ListRwaModalSuccessView({
   const net =
     Number.isFinite(priceNum) && priceNum > 0
       ? isSelfVaultHold
-        ? (priceNum * 0.95).toFixed(2)
+        ? String(Math.round(priceNum * 0.95))
         : fee > 0
-          ? (priceNum * (1 - fee / 100)).toFixed(2)
+          ? String(Math.round(priceNum * (1 - fee / 100)))
           : null
       : null;
   const priceUsdc = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null;

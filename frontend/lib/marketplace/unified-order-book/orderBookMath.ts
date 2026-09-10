@@ -62,19 +62,14 @@ export function priceUsdcFromOrder(o: Order): number {
 }
 
 export function formatOrderBookPriceUsdc(n: number): string {
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  if (!Number.isFinite(n)) return "—";
+  return Math.round(n).toLocaleString("en-US");
 }
 
-/** USDC book prices — keep cents (7.1 stays 7.1, not 7). */
+/** USDC book prices — whole dollars only. */
 export function formatOrderBookUsdAmount(n: number): string {
   if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return Math.round(n).toLocaleString("en-US");
 }
 
 /** Card.html order-book Price column. */
@@ -172,10 +167,7 @@ export function formatOrderBookTotalUsdc(n: number): string {
   if (abs < 1000) {
     return `$${formatOrderBookUsdAmount(abs)}`;
   }
-  const trim = (v: number) => {
-    const s = v >= 100 ? v.toFixed(0) : v.toFixed(1);
-    return s.replace(/\.0$/, "");
-  };
+  const trim = (v: number) => String(Math.round(v));
   if (abs >= 1_000_000_000) return `$${trim(abs / 1_000_000_000)}b`;
   if (abs >= 1_000_000) return `$${trim(abs / 1_000_000)}m`;
   return `$${trim(abs / 1000)}k`;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Order, RwaMetadata } from "@/lib/core";
-import { TkBadge, TkButton } from "@/components/ds";
+import { TkButton } from "@/components/ds";
 import {
   formatListingUsdc,
   listingGalleryImages,
@@ -11,12 +11,17 @@ import {
   listingVerificationTiles,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatOrderBookPriceUsdc } from "@/lib/marketplace/unified-order-book";
-import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 
 const FILTER_THRESHOLD = 8;
 
 function vaultAccent(tone: "psa" | "partner"): string {
-  return tone === "psa" ? "#5B9AFF" : "var(--pos)";
+  return tone === "psa" ? "#5B9AFF" : "#00C350";
+}
+
+/** Card.html vault chip — first word only (`PSA`, `Tokenable`). */
+function vaultShortCode(label: string): string {
+  const first = label.trim().split(/\s+/)[0] ?? label;
+  return first || "Vault";
 }
 
 function createdMs(order: Order): number {
@@ -78,20 +83,14 @@ function pickSoonestPsa(rows: CopyRow[]): CopyRow | null {
   return psa[0] ?? rows[0] ?? null;
 }
 
-function ZoomIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <line x1="16.5" y1="16.5" x2="21" y2="21" />
-    </svg>
-  );
-}
-
+/**
+ * Card.html `#tk-choose` — Select your card sheet after Buy now / ask row.
+ */
 export function CollectionChooseCopyModal({
   open,
   onClose,
   collectionTitle,
-  itemSetLine,
+  itemMetaLine,
   coverImageUrl,
   price,
   orders,
@@ -101,8 +100,11 @@ export function CollectionChooseCopyModal({
   open: boolean;
   onClose: () => void;
   collectionTitle: string;
-  /** Card.html `#tkc-sub` prefix: `2023 · 151 EN` */
-  itemSetLine?: string | null;
+  /**
+   * Line 2 SSOT — `{Year} · {Set} {Language} · {Variant}`.
+   * Ask price is appended in the modal.
+   */
+  itemMetaLine?: string | null;
   coverImageUrl?: string | null;
   price: number;
   orders: Order[];
@@ -121,56 +123,44 @@ export function CollectionChooseCopyModal({
 
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
   const [autoSel, setAutoSel] = useState(false);
-  const [sort, setSort] = useState<"rec" | "new" | "vault">("rec");
-  const [vaultFilter, setVaultFilter] = useState<"all" | "psa" | "partner">("all");
-  const [lbOpen, setLbOpen] = useState(false);
-  const [lbIdx, setLbIdx] = useState(0);
-  const [lbFace, setLbFace] = useState<"front" | "back">("front");
-  const [lbZoom, setLbZoom] = useState(false);
+  /** Card.html `#tkc-vfilter` — default Vault · All. */
+  const [vaultFilter, setVaultFilter] = useState<"all" | "psa" | "tkb">("all");
+  const [fadeHidden, setFadeHidden] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const showFilters = allRows.length > FILTER_THRESHOLD;
-
-  const vaultOptions = useMemo(() => {
-    const hasPsa = allRows.some((r) => r.vaultTone === "psa");
-    const hasPartner = allRows.some((r) => r.vaultTone === "partner");
-    return { hasPsa, hasPartner };
-  }, [allRows]);
+  /** Card.html: auto-pick row only when many copies. */
+  const showAutoPick = allRows.length > FILTER_THRESHOLD;
 
   const visibleRows = useMemo(() => {
     let list = [...allRows];
-    if (vaultFilter === "psa") list = list.filter((r) => r.vaultTone === "psa");
-    if (vaultFilter === "partner") list = list.filter((r) => r.vaultTone === "partner");
-    if (sort === "vault") {
-      list.sort((a, b) => a.vaultLabel.localeCompare(b.vaultLabel) || createdMs(a.order) - createdMs(b.order));
-    } else if (sort === "new") {
-      list.sort((a, b) => createdMs(b.order) - createdMs(a.order));
-    } else {
-      list.sort((a, b) => createdMs(a.order) - createdMs(b.order));
+    if (vaultFilter === "psa") {
+      list = list.filter((r) => r.vaultTone === "psa");
+    } else if (vaultFilter === "tkb") {
+      list = list.filter((r) => r.vaultTone === "partner");
     }
+    list.sort((a, b) => createdMs(a.order) - createdMs(b.order));
     return list;
-  }, [allRows, sort, vaultFilter]);
+  }, [allRows, vaultFilter]);
 
   useEffect(() => {
     if (!open) return;
     setAutoSel(false);
-    setSort("rec");
     setVaultFilter("all");
-    setLbOpen(false);
     const sorted = [...orders].sort((a, b) => createdMs(a) - createdMs(b));
     setSelectedHash(sorted[0]?.orderHash ?? null);
   }, [open, price, orders]);
 
   useEffect(() => {
     if (!open) return;
+    if (autoSel) return;
+    if (visibleRows.some((r) => r.order.orderHash === selectedHash)) return;
+    setSelectedHash(visibleRows[0]?.order.orderHash ?? null);
+  }, [open, visibleRows, selectedHash, autoSel]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (lbOpen) {
-          setLbOpen(false);
-          return;
-        }
-        onClose();
-      }
-      if (!lbOpen) return;
+      if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -179,18 +169,38 @@ export function CollectionChooseCopyModal({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose, lbOpen, allRows.length]);
+  }, [open, onClose]);
+
+  const updateFade = () => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const atBottom =
+      sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4 ||
+      sc.scrollHeight <= sc.clientHeight + 4;
+    setFadeHidden(atBottom);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(updateFade, 40);
+    return () => window.clearTimeout(t);
+  }, [open, visibleRows.length, showAutoPick, autoSel, vaultFilter]);
 
   if (!open || allRows.length === 0 || typeof document === "undefined") {
     return null;
   }
 
   const priceLabel = formatOrderBookPriceUsdc(price);
-  const subParts = [itemSetLine?.trim() || null, "Gem Mint"].filter(Boolean);
-  const itemSub = subParts.join(" · ");
+  const askLabel = `Ask $${priceLabel.replace(/\.\d+$/, "")}`;
+  /** SSOT Line 2 + ask — never invent variant like “Gem Mint”. */
+  const itemSub = [itemMetaLine?.trim() || null, askLabel]
+    .filter(Boolean)
+    .join(" · ");
 
   const selected =
-    visibleRows.find((r) => r.order.orderHash === selectedHash) ?? visibleRows[0] ?? allRows[0]!;
+    visibleRows.find((r) => r.order.orderHash === selectedHash) ??
+    visibleRows[0] ??
+    allRows[0]!;
 
   const confirmToken = (): number | null => {
     const pick = autoSel ? pickSoonestPsa(allRows) : selected;
@@ -205,106 +215,101 @@ export function CollectionChooseCopyModal({
     onConfirm(tokenId);
   };
 
-  const openLightbox = (hash: string, face: "front" | "back" = "front") => {
-    const idx = allRows.findIndex((r) => r.order.orderHash === hash);
-    const row = allRows[idx >= 0 ? idx : 0];
-    setLbIdx(idx >= 0 ? idx : 0);
-    setLbFace(face === "back" && row?.back ? "back" : "front");
-    setLbZoom(false);
-    setLbOpen(true);
-  };
-
-  const lbRow = allRows[lbIdx] ?? allRows[0]!;
-  const lbSrc = lbFace === "back" && lbRow.back ? lbRow.back : lbRow.front;
-
   return createPortal(
-    <>
+    <div
+      className="cd-choose-copy"
+      id="tk-choose"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className="cd-choose-copy"
-        role="presentation"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+        className="cd-choose-copy__sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cd-choose-copy-title"
       >
-        <div
-          className="cd-choose-copy__sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Select your card"
-        >
-          <div className="cd-choose-copy__grab" aria-hidden />
-          <div className="cd-choose-copy__head">
-            <div className="cd-choose-copy__head-title">
-              <h2 id="cd-choose-copy-title" className="cd-choose-copy__title">
-                Select your card
-              </h2>
-              <TkBadge>{`$${priceLabel}`}</TkBadge>
+        <div className="cd-choose-copy__grab" aria-hidden />
+        <div className="cd-choose-copy__head">
+          <h2 id="cd-choose-copy-title" className="cd-choose-copy__title">
+            Select your card
+          </h2>
+          <button
+            type="button"
+            className="cd-choose-copy__close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="cd-choose-copy__fixed">
+          <div className="cd-choose-copy__item">
+            <div className="cd-choose-copy__item-title">{collectionTitle}</div>
+            <div className="cd-choose-copy__item-sub tkl-mono" id="tkc-sub">
+              {itemSub}
             </div>
-            <button
-              type="button"
-              className="cd-choose-copy__close"
-              aria-label="Close"
-              onClick={onClose}
+          </div>
+          <p className="cd-choose-copy__ctx tkl-mono" id="tk-choose-ctx">
+            {allRows.length} card{allRows.length === 1 ? "" : "s"} at this price
+          </p>
+          {/* Card.html `#tkc-filterbar` — vault filter only (sort select is hidden). */}
+          <div className="cd-choose-copy__filters" id="tkc-filterbar">
+            <select
+              id="tkc-vfilter"
+              className="cd-choose-copy__fsel tkl-mono"
+              value={vaultFilter}
+              onChange={(e) => {
+                setAutoSel(false);
+                setVaultFilter(e.target.value as "all" | "psa" | "tkb");
+              }}
+              aria-label="Filter by vault"
             >
-              ×
-            </button>
+              <option value="all">Vault · All</option>
+              <option value="psa">PSA Vault</option>
+              <option value="tkb">TKB Vault</option>
+            </select>
           </div>
+        </div>
 
-          <div className="cd-choose-copy__fixed">
-            <div className="cd-choose-copy__item">
-              <div className={`cd-choose-copy__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-                {collectionTitle}
-              </div>
-              <div className="cd-choose-copy__item-sub tkl-mono">{itemSub}</div>
-            </div>
-            <p className="cd-choose-copy__ctx tkl-mono">
-              {allRows.length} card{allRows.length === 1 ? "" : "s"} at this price
-            </p>
-            {showFilters ? (
-              <div className="cd-choose-copy__filters">
-                <select
-                  className="cd-choose-copy__fsel tkl-mono"
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as "rec" | "new" | "vault")}
-                  aria-label="Sort copies"
-                >
-                  <option value="rec">Sort · Recommended</option>
-                  <option value="new">Newest listed</option>
-                  <option value="vault">Vault</option>
-                </select>
-                <select
-                  className="cd-choose-copy__fsel tkl-mono"
-                  value={vaultFilter}
-                  onChange={(e) => setVaultFilter(e.target.value as "all" | "psa" | "partner")}
-                  aria-label="Filter by vault"
-                >
-                  <option value="all">Vault · All</option>
-                  {vaultOptions.hasPsa ? <option value="psa">PSA Vault</option> : null}
-                  {vaultOptions.hasPartner ? <option value="partner">Tokenable Vault</option> : null}
-                </select>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="cd-choose-copy__scroll">
-            {showFilters ? (
+        <div className="cd-choose-copy__scrollwrap">
+          <div
+            className="cd-choose-copy__scroll"
+            id="tkc-scroll"
+            ref={scrollRef}
+            onScroll={updateFade}
+          >
+            {showAutoPick ? (
               <button
                 type="button"
                 className={`cd-choose-copy__auto${autoSel ? " cd-choose-copy__auto--sel" : ""}`}
                 onClick={() => setAutoSel(true)}
               >
                 <span className="cd-choose-copy__radio" aria-hidden>
-                  {autoSel ? <span className="cd-choose-copy__radio-dot" /> : null}
+                  {autoSel ? (
+                    <span className="cd-choose-copy__radio-dot" />
+                  ) : null}
                 </span>
                 <span className="cd-choose-copy__auto-body">
                   <span className="cd-choose-copy__auto-title">Any card</span>
-                  <span className="cd-choose-copy__auto-sub tkl-mono">PSA Vault, soonest ship</span>
+                  <span className="cd-choose-copy__auto-sub tkl-mono">
+                    PSA Vault, soonest ship
+                  </span>
                 </span>
               </button>
             ) : null}
 
+            {visibleRows.length === 0 ? (
+              <p className="cd-choose-copy__empty tkl-mono">
+                No cards in this vault
+              </p>
+            ) : null}
+
             {visibleRows.map((row) => {
-              const selectedRow = !autoSel && row.order.orderHash === selected.order.orderHash;
+              const selectedRow =
+                !autoSel && row.order.orderHash === selected.order.orderHash;
               const accent = vaultAccent(row.vaultTone);
               return (
                 <div
@@ -324,112 +329,60 @@ export function CollectionChooseCopyModal({
                     }
                   }}
                 >
-                  {row.front ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img className="cd-choose-copy__thumb" src={row.front} alt="" />
-                  ) : (
-                    <span className="cd-choose-copy__thumb cd-choose-copy__thumb--empty" />
-                  )}
-                  <span className="cd-choose-copy__row-body">
-                    <span className="cd-choose-copy__cert tkl-mono">Cert #{row.cert}</span>
-                    <span className="cd-choose-copy__vault tkl-mono" style={{ color: accent }}>
-                      <span className="cd-choose-copy__vault-dot" style={{ background: accent }} aria-hidden />
-                      {row.vaultLabel}
-                    </span>
+                  <span className="cd-choose-copy__radio" aria-hidden>
+                    {selectedRow ? (
+                      <span className="cd-choose-copy__radio-dot" />
+                    ) : null}
                   </span>
-                  <button
-                    type="button"
-                    className="cd-choose-copy__zoom"
-                    aria-label="View card front and back"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openLightbox(row.order.orderHash);
+                  <span className="cd-choose-copy__cert tkl-mono">
+                    Cert #{row.cert}
+                  </span>
+                  <span
+                    className="cd-choose-copy__vault-pill tkl-mono"
+                    style={{
+                      color: accent,
+                      background: `${accent}22`,
                     }}
                   >
-                    <ZoomIcon />
-                  </button>
-                  <span className="cd-choose-copy__radio" aria-hidden>
-                    {selectedRow ? <span className="cd-choose-copy__radio-dot" /> : null}
+                    {vaultShortCode(row.vaultLabel)}
                   </span>
                 </div>
               );
             })}
           </div>
-
-          <div className="cd-choose-copy__foot">
-            <TkButton
-              type="button"
-              variant="primary"
-              size="sm"
-              className="cd-choose-copy__cta"
-              onClick={handleConfirm}
+          <div
+            className={`cd-choose-copy__fade${fadeHidden ? " cd-choose-copy__fade--hide" : ""}`}
+            id="tkc-fade"
+            aria-hidden
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              Buy
-            </TkButton>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </div>
+        </div>
+
+        <div className="cd-choose-copy__foot">
+          <TkButton
+            type="button"
+            variant="primary"
+            size="sm"
+            className="cd-choose-copy__cta"
+            id="tk-choose-go"
+            disabled={!autoSel && visibleRows.length === 0}
+            onClick={handleConfirm}
+          >
+            Buy
+          </TkButton>
         </div>
       </div>
-
-      {lbOpen ? (
-        <div className="cd-choose-copy-lb" role="dialog" aria-modal="true" aria-label="Card copy">
-          <div className="cd-choose-copy-lb__top">
-            <span className="cd-choose-copy-lb__counter tkl-mono">
-              Cert #{lbRow.cert}
-            </span>
-          </div>
-          <div className="cd-choose-copy-lb__stage">
-            {lbSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                className={`cd-choose-copy-lb__img${lbZoom ? " cd-choose-copy-lb__img--zoom" : ""}`}
-                src={lbSrc}
-                alt={`Cert #${lbRow.cert} ${lbFace}`}
-                onClick={() => setLbZoom((z) => !z)}
-              />
-            ) : (
-              <span className="cd-choose-copy-lb__missing tkl-mono">
-                No slab photo for this cert
-              </span>
-            )}
-          </div>
-          <div className="cd-choose-copy-lb__faces">
-            <button
-              type="button"
-              className={`cd-choose-copy-lb__ftab${lbFace === "front" ? " is-on" : ""}`}
-              onClick={() => {
-                setLbFace("front");
-                setLbZoom(false);
-              }}
-            >
-              Front
-            </button>
-            <button
-              type="button"
-              className={`cd-choose-copy-lb__ftab${lbFace === "back" ? " is-on" : ""}`}
-              disabled={!lbRow.back}
-              onClick={() => {
-                if (!lbRow.back) return;
-                setLbFace("back");
-                setLbZoom(false);
-              }}
-            >
-              Back
-            </button>
-          </div>
-          <div className="cd-choose-copy-lb__foot">
-            <TkButton
-              type="button"
-              variant="primary"
-              size="sm"
-              className="cd-choose-copy__cta"
-              onClick={() => setLbOpen(false)}
-            >
-              Close
-            </TkButton>
-          </div>
-        </div>
-      ) : null}
-    </>,
+    </div>,
     document.body,
   );
 }

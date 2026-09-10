@@ -10,9 +10,9 @@ export function VaultEmptyDashboardView() {
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
       </div>
-      <div className="vault-empty-state__title">Send a card to the vault to start selling</div>
+      <div className="vault-empty-state__title">Vault cards to start selling</div>
       <Link href="/sell/flow" className="vault-empty-state__cta tk-btn tk-btn--primary">
-        Sell
+        Go to Vault
       </Link>
     </div>
   );

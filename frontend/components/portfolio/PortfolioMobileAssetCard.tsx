@@ -124,7 +124,9 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
               <span className="pf-mobile-asset-card__label">Mkt Price</span>
               <span className="pf-mobile-asset-card__val pf-mobile-asset-card__val--mkt tkl-mono">
                 <span>
-                  {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
+                  {valuesPending && row.currentPrice == null
+                    ? "…"
+                    : formatUsdCompact(row.currentPrice)}
                   {pnl ? (
                     <span
                       className={`pf-mkt-dir${

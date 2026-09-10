@@ -474,7 +474,7 @@ export function mapMatchError(
   }
 
   if (message === GENERIC_CONTRACT) {
-    return `${message} For instant match: confirm the buyer still has USDC + Seaport approval, your NFT is approved for Seaport, listing/bid are active, and Merkle set matches.`;
+    return `${message} For instant match: confirm the buyer still has USDC + Seaport approval, your RWA is approved for Seaport, listing/bid are active, and Merkle set matches.`;
   }
 
   return message;

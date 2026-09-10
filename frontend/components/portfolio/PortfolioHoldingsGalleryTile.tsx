@@ -129,7 +129,9 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         <div className="pf-gtile__price-row">
           <div className="pf-gtile__price-main card__price-row">
             <span className="card__price pf-gtile__mkt tkl-mono" title="Market price">
-              {valuesPending ? "…" : formatUsdCompact(row.currentPrice)}
+              {valuesPending && row.currentPrice == null
+                ? "…"
+                : formatUsdCompact(row.currentPrice)}
               {hasVal && pnl ? (
                 <span
                   className={`pf-mkt-dir${

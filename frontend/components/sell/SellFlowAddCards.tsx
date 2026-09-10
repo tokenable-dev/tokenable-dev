@@ -2,6 +2,11 @@
 
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
+import {
+  SLAB_UPLOAD_ACCEPT,
+  SLAB_UPLOAD_FORMAT_HINT,
+} from "@/lib/vault/mintImageSource";
+import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
 import { SellFlowCertProgress } from "./SellFlowCertProgress";
 import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 
@@ -20,6 +25,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
   const {
     cards,
     maxCards,
+    showCertDirectInput,
     certInput,
     setCertInput,
     certError,
@@ -61,7 +67,9 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
         </div>
         <h1 className="sell-flow-h1">Add your cards</h1>
         <p className="sell-flow-sub">
-          Scan the QR on the slab or type the cert number. We’ll pull the card details from PSA.
+          {showCertDirectInput
+            ? "Upload a photo of the slab or type the cert number. We’ll pull the card details from PSA."
+            : "Upload a photo of the slab. We’ll pull the card details from PSA."}
         </p>
 
         <div className="sell-flow-glass sell-flow-glass--cards-input">
@@ -81,61 +89,25 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
           <input
             ref={slabInputRef}
             type="file"
-            accept="image/*"
+            accept={SLAB_UPLOAD_ACCEPT}
             capture="environment"
             className="sr-only"
             aria-hidden
             tabIndex={-1}
             onChange={(e) => void onSlabFile(e.target.files?.[0] ?? null)}
           />
+          <p className="sell-flow-upload-hint tkl-mono">{SLAB_UPLOAD_FORMAT_HINT}</p>
 
-          <div className="sell-flow-or">
-            <div className="sell-flow-or__line" />
-            <span className="sell-flow-or__label tkl-mono">OR</span>
-            <div className="sell-flow-or__line" />
-          </div>
-
-          <label className="sell-flow-cert-label" htmlFor="sell-flow-cert">
-            Cert number
-          </label>
-          <div className="sell-flow-cert-row">
-            <input
-              id="sell-flow-cert"
-              className={`sell-flow-cert-input tkl-mono${certError ? " sell-flow-cert-input--error" : ""}`}
-              type="text"
-              inputMode="numeric"
-              placeholder="e.g. 12345678"
-              autoComplete="off"
-              disabled={busy}
+          {showCertDirectInput ? (
+            <SellFlowCertDirectInput
               value={certInput}
-              aria-invalid={Boolean(certError)}
-              aria-describedby={certError ? "cert-error" : undefined}
-              onChange={(e) => setCertInput(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void lookupCert();
-                }
-              }}
+              onChange={setCertInput}
+              onLookup={() => void lookupCert()}
+              busy={busy}
+              error={certError}
             />
-            <TkButton
-              type="button"
-              variant="primary"
-              className="sell-flow-lookup-btn"
-              disabled={busy}
-              onClick={() => void lookupCert()}
-            >
-              {lookupBusy ? (
-                <>
-                  <span className="sell-flow-spinner" aria-hidden />
-                  Looking up
-                </>
-              ) : (
-                "Look up"
-              )}
-            </TkButton>
-          </div>
-          {/* Sell-Flow.html: progress under the cert row, error below that */}
+          ) : null}
+
           <SellFlowCertProgress active={lookupBusy} tone="light" />
           {certError ? (
             <p className="sell-flow-cert-error" id="cert-error" role="alert">
@@ -152,6 +124,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
           onToggleConfirm={toggleConfirm}
           onToggleAllConfirmed={setAllConfirmed}
           onRemove={removeCard}
+          allowCertDirectInput={showCertDirectInput}
         />
 
         <div className="sell-flow-cards-cta">

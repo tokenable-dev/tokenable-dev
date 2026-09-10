@@ -684,21 +684,23 @@ export function PortfolioPageView({
     portfolioDataEnabled,
   );
 
-  /** Live mark-to-market — sum of priced visible rows (not daily snapshot). */
-  const livePortfolioValue = useMemo(
-    () =>
-      visibleAssetRows.reduce(
-        (sum, row) =>
-          row.currentPrice != null && Number.isFinite(row.currentPrice)
-            ? sum + row.currentPrice
-            : sum,
-        0,
-      ),
-    [visibleAssetRows],
-  );
+  /** Live mark-to-market — sum of priced visible rows; null when none priced yet. */
+  const livePortfolioValue = useMemo(() => {
+    let sum = 0;
+    let any = false;
+    for (const row of visibleAssetRows) {
+      if (row.currentPrice != null && Number.isFinite(row.currentPrice)) {
+        sum += row.currentPrice;
+        any = true;
+      }
+    }
+    return any ? sum : null;
+  }, [visibleAssetRows]);
 
   const assetsSectionLoading = idsLoading || assetsPage.isLoading;
-  const portfolioValuePending = assetsSectionLoading || valuesPending;
+  /** Keep hero skeleton only until at least one mark is known (partial sum OK). */
+  const portfolioValuePending =
+    assetsSectionLoading || (valuesPending && livePortfolioValue == null);
 
   usePortfolioLoadPerf({
     enabled: portfolioDataEnabled,
@@ -720,7 +722,7 @@ export function PortfolioPageView({
     portfolioViewedFiredRef.current = true;
     trackEvent("portfolio_viewed", {
       total_assets: tokenIds.filter((id) => !hiddenSet.has(id)).length,
-      total_value: livePortfolioValue,
+      total_value: livePortfolioValue ?? 0,
     });
   }, [
     user,

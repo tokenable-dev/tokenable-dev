@@ -190,23 +190,13 @@ export function formatTickYearOrMonthLabel(tSec: number, rangeStartSec: number):
   return d.toLocaleDateString("en-US", { month: "short" });
 }
 
-/** Axis label without `$` — `900`, `1k`, `2k`, `1.5k`, `3M`. */
+/** Axis label without `$` — `900`, `1k`, `2k`, `3M` (whole units only). */
 export function formatYAxisLabelPlain(value: number): string {
   if (!Number.isFinite(value)) return "—";
   const n = Math.round(value);
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) {
-    const m = n / 1_000_000;
-    return Number.isInteger(m) || Math.abs(m - Math.round(m)) < 1e-6
-      ? `${Math.round(m)}M`
-      : `${m.toFixed(1)}M`;
-  }
-  if (abs >= 1000) {
-    const k = n / 1000;
-    return Number.isInteger(k) || Math.abs(k - Math.round(k)) < 1e-6
-      ? `${Math.round(k)}k`
-      : `${k.toFixed(1)}k`;
-  }
+  if (abs >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
+  if (abs >= 1000) return `${Math.round(n / 1000)}k`;
   return String(n);
 }
 

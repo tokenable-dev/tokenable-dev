@@ -152,7 +152,7 @@ Key facts:
 
 | | |
 |---|---|
-| **Documentation** | `docs/api/marketplace.md` (portfolio section) |
+| **Documentation** | `docs/api/marketplace.md` (portfolio section), `docs/architecture/portfolio-list-materialization.md` |
 | **Implementation** | `backend/src/marketplace/portfolio/` |
 | **Database table** | `portfolio_daily_snapshots`, `portfolio_holdings` |
 
@@ -161,6 +161,10 @@ Key facts:
 - Snapshots are **write-once** (never overwritten)
 - Portfolio **hero value + 24h change** use snapshot series only (not live sum)
 - Per-asset **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark
+- List shells are **PostgreSQL-only** on assets-page (`allowExternal: false`); incomplete rows heal via shared background queue / admin backfill — see materialization doc (scale: no per-user IPFS fan-out)
+- Seaport fulfill/match writes `owner_wallet` + buy cost basis immediately; Transfer-index poll is heal only. Listed badge = active ASK from `orders` (no denormalized list price on `rwa_tokens`)
+- Redeem custody confirm moves `owner_wallet` to custody immediately; burn clears ownership; deliver/NFT-return already `recordOwner` via chain writer
+- List marks: snapshot join first; mint-preview only when that token cannot be priced from snapshot + grade
 - Hidden holdings are off-chain UI preferences; NFT stays in wallet
 - Accept-offer deep link: `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`) — see `docs/architecture/seaport-accept-offer.md`
 

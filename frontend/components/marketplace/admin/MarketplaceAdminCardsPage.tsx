@@ -11,11 +11,13 @@ import { useAppStore, selectWallet } from "@/store";
 import { AdminBurnTokenPanel } from "./AdminBurnTokenPanel";
 import {
   ADMIN_ARTICLE,
+  ADMIN_BTN_SECONDARY,
   ADMIN_COUNT,
   ADMIN_LIST,
   ADMIN_SEGMENT,
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
+  ADMIN_TEXT_MUTED,
 } from "./adminUi";
 import { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
@@ -29,9 +31,12 @@ const CARD_TABS: { value: CardsTab; label: string }[] = [
 
 export function MarketplaceAdminCardsPage() {
   const [tab, setTab] = useState<CardsTab>("active");
+  const [certListOpen, setCertListOpen] = useState(false);
+  const [certCopyFlash, setCertCopyFlash] = useState(false);
   const { chain } = useAppChain();
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
-  const { query, updateMutation, previewMetadataImage, uploadSlabImage } = useMarketplaceAdminCards();
+  const { query, updateMutation, previewMetadataImage, uploadSlabImage } =
+    useMarketplaceAdminCards();
   const { burningTokenId, burnToken } = useAdminBurnToken(
     isConnected && address ? address : undefined,
   );
@@ -61,7 +66,33 @@ export function MarketplaceAdminCardsPage() {
         .filter((k): k is string => Boolean(k?.trim())),
     [visibleItems],
   );
-  const { byKey: snapshotByKey } = useAdminCollectionMarketSnapshots(collectionKeys);
+  const { byKey: snapshotByKey } =
+    useAdminCollectionMarketSnapshots(collectionKeys);
+
+  const certNumbers = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const row of items) {
+      const cert = row.certNumber?.trim();
+      if (!cert || seen.has(cert)) continue;
+      seen.add(cert);
+      out.push(cert);
+    }
+    return out;
+  }, [items]);
+
+  const certListText = certNumbers.join("\n");
+
+  const copyCertNumbers = async () => {
+    if (!certListText) return;
+    try {
+      await navigator.clipboard.writeText(certListText);
+      setCertCopyFlash(true);
+      window.setTimeout(() => setCertCopyFlash(false), 1600);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <>
@@ -84,24 +115,67 @@ export function MarketplaceAdminCardsPage() {
       ) : null}
 
       <div className={`${ADMIN_ARTICLE} mb-6`}>
-        <div className={ADMIN_SEGMENT}>
-          {CARD_TABS.map((t) => {
-            const count = t.value === "burned" ? burnedItems.length : activeItems.length;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setTab(t.value)}
-                className={
-                  tab === t.value ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN
-                }
-              >
-                {t.label}
-                <span className="ml-1 tabular-nums text-zinc-500">({count})</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className={ADMIN_SEGMENT}>
+            {CARD_TABS.map((t) => {
+              const count =
+                t.value === "burned" ? burnedItems.length : activeItems.length;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setTab(t.value)}
+                  className={
+                    tab === t.value
+                      ? ADMIN_SEGMENT_BTN_ACTIVE
+                      : ADMIN_SEGMENT_BTN
+                  }
+                >
+                  {t.label}
+                  <span className="ml-1 tabular-nums text-zinc-500">
+                    ({count})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={query.isLoading || items.length === 0}
+            onClick={() => setCertListOpen((v) => !v)}
+          >
+            {certListOpen ? "Hide cert numbers" : "List cert numbers"}
+          </button>
         </div>
+
+        {certListOpen ? (
+          <div className="mt-4 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className={ADMIN_COUNT}>
+                {certNumbers.length} unique PSA cert
+                {certNumbers.length === 1 ? "" : "s"} in registry
+              </p>
+              <button
+                type="button"
+                className={ADMIN_BTN_SECONDARY}
+                disabled={certNumbers.length === 0}
+                onClick={() => void copyCertNumbers()}
+              >
+                {certCopyFlash ? "Copied" : "Copy all"}
+              </button>
+            </div>
+            {certNumbers.length === 0 ? (
+              <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>
+                No cert numbers on registry rows yet.
+              </p>
+            ) : (
+              <pre className="max-h-64 overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-3 font-mono text-xs leading-relaxed text-zinc-800 whitespace-pre-wrap">
+                {certListText}
+              </pre>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {query.isLoading ? (

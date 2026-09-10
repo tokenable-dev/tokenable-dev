@@ -6,7 +6,6 @@ import {
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
   formatAssetDetailHeadlineText,
-  resolveCardDisplayGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -154,7 +153,7 @@ export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): { titleBlock: string; gradeLine: string; certLabel: string } {
-  const grade = trust.gradeLine?.trim() || resolveCardDisplayGrade(null);
+  const grade = trust.gradeLine?.trim() || "";
   return {
     titleBlock: formatAssetDetailHeadlineText(parts, { grade }) || "—",
     gradeLine: "",

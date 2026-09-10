@@ -68,6 +68,26 @@ async function _invalidateAllCollections(qc: QueryClient): Promise<void> {
   await qc.invalidateQueries({ queryKey: ["marketplace-collection"] });
 }
 
+/** Drop My Assets localStorage paint + RQ bootstrap after ownership moved. */
+async function clearPortfolioOwnedCaches(
+  qc: QueryClient,
+  wallets?: Array<string | null | undefined>,
+): Promise<void> {
+  const list = [
+    ...new Set(
+      (wallets ?? [])
+        .map((w) => w?.trim().toLowerCase())
+        .filter((w): w is string => Boolean(w)),
+    ),
+  ];
+  if (list.length === 0) return;
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page-bootstrap"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page"] });
+  for (const w of list) {
+    clearPortfolioBundle(w);
+  }
+}
+
 // ── Public domain invalidators ─────────────────────────────────────────────
 // These can be composed by scenario functions or called directly for simple cases.
 
@@ -141,6 +161,7 @@ export async function invalidateAfterCollectionUpdate(
 export async function invalidateAfterCriteriaBid(
   qc: QueryClient,
   key: string,
+  opts?: { portfolioWallets?: Array<string | null | undefined> },
 ): Promise<void> {
   await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
   await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
@@ -156,6 +177,7 @@ export async function invalidateAfterCriteriaBid(
   await qc.invalidateQueries({
     predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === "readContract",
   });
+  await clearPortfolioOwnedCaches(qc, opts?.portfolioWallets);
 }
 
 /**
@@ -213,10 +235,16 @@ export async function invalidateAfterRwaMint(
  * After a fulfillment, listing, or cancel on the RWA detail page.
  *
  * RWA detail buy/list flows — order, asset, collection market queries.
+ * Pass `portfolioWallets` after ownership moves (buyer + seller) so My Assets
+ * does not wait on Transfer-index poll.
  */
 export async function invalidateAfterRwaDetail(
   qc: QueryClient,
-  input: { tokenId: number; collectionKeyForMatch: string | null },
+  input: {
+    tokenId: number;
+    collectionKeyForMatch: string | null;
+    portfolioWallets?: Array<string | null | undefined>;
+  },
 ): Promise<void> {
   const { tokenId, collectionKeyForMatch } = input;
 
@@ -239,6 +267,8 @@ export async function invalidateAfterRwaDetail(
     await _invalidateCollectionSnapshots(qc);
     await _invalidatePortfolioMarketBatch(qc);
   }
+
+  await clearPortfolioOwnedCaches(qc, input.portfolioWallets);
 }
 
 /**
@@ -253,6 +283,8 @@ export async function invalidateAfterListing(
     collectionKey?: string | null;
     address?: string | null;
     tokenId?: number;
+    /** Seller sold via instant match — drop My Assets paint for wallet(s). */
+    portfolioWallets?: Array<string | null | undefined>;
   } = {},
 ): Promise<void> {
   await _invalidateOrdersAll(qc);
@@ -281,6 +313,7 @@ export async function invalidateAfterListing(
   if (opts.address) {
     await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
+  await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
 }
 
 /**
@@ -315,6 +348,8 @@ export async function invalidateAfterAcceptOffer(
   opts: {
     collectionKey?: string | null;
     address?: string | null;
+    /** Buyer wallet (bid offerer) — ownership moved here. */
+    buyerAddress?: string | null;
     tokenId?: number;
     userId?: string | null;
   },
@@ -322,6 +357,7 @@ export async function invalidateAfterAcceptOffer(
   await invalidateAfterListing(qc, opts);
   await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
   await invalidateMarketplaceNotifications(qc, opts.userId);
+  await clearPortfolioOwnedCaches(qc, [opts.address, opts.buyerAddress]);
 }
 
 /**
@@ -382,6 +418,20 @@ export async function invalidateAfterBurn(
   await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
   await _invalidatePortfolioDailySnapshots(qc, address);
+  await clearPortfolioOwnedCaches(qc, [address]);
+}
+
+/**
+ * After redeem pay→custody (or resume custody / confirm-received).
+ * My Assets must drop custody-held tokens without waiting on Transfer poll.
+ */
+export async function invalidateAfterRedeemCustody(
+  qc: QueryClient,
+  opts: { portfolioWallets?: Array<string | null | undefined> },
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["rwa", "redemptions", "mine"] });
+  await _invalidateOrdersAll(qc);
+  await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
 }
 
 /**

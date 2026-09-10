@@ -6,7 +6,6 @@ import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
-import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 import { shortenWalletAddress } from "@/lib/wallet/walletMenuDisplay";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
@@ -17,19 +16,24 @@ import {
 
 function formatBidInputDisplay(raw: string): string {
   if (!raw) return "";
-  const trailingDot = raw.endsWith(".");
-  const [intRaw, fracRaw] = raw.split(".");
-  const intDigits = (intRaw ?? "").replace(/[^0-9]/g, "");
-  if (!intDigits && !trailingDot && !(fracRaw && fracRaw.length > 0)) return "";
-  const intNum = intDigits === "" ? 0 : parseInt(intDigits, 10);
-  const intFmt = Number.isFinite(intNum)
-    ? intNum.toLocaleString("en-US")
-    : intDigits;
-  if (trailingDot && (!fracRaw || fracRaw.length === 0)) return `${intFmt}.`;
-  if (raw.includes(".")) return `${intFmt}.${(fracRaw ?? "").slice(0, 1)}`;
-  return intFmt;
+  const intDigits = raw.replace(/[^0-9]/g, "");
+  if (!intDigits) return "";
+  const intNum = parseInt(intDigits, 10);
+  return Number.isFinite(intNum) ? intNum.toLocaleString("en-US") : intDigits;
 }
 
+/** Card.html `tkbF` — `$9,000.00`. */
+function formatCheckoutUsd(n: number): string {
+  if (!(n > 0) || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Card.html `#tkb-bid` — Place a bid body inside `#tk-buy`.
+ */
 export function CollectionListingBidCheckout({
   collectionKey,
   tokenId,
@@ -40,6 +44,7 @@ export function CollectionListingBidCheckout({
   highestBidUsd,
   connectedAddress,
   bidToReplace,
+  initialPriceUsdc,
   onPlaced,
   onPurchaseFilled,
   onHeaderTitleChange,
@@ -56,6 +61,8 @@ export function CollectionListingBidCheckout({
   highestBidUsd?: number | null;
   connectedAddress?: string;
   bidToReplace?: Order | null;
+  /** Prefill Your bid from `#tk-trade` ±1% control. */
+  initialPriceUsdc?: number | null;
   onPlaced?: () => void;
   onPurchaseFilled?: () => void;
   onHeaderTitleChange?: (title: string) => void;
@@ -73,6 +80,7 @@ export function CollectionListingBidCheckout({
     collectionBids,
     connectedAddress,
     bidToReplace,
+    initialPriceUsdc,
     onPlaced: () => onPlaced?.(),
     onPurchaseFilled: () => onPurchaseFilled?.(),
   });
@@ -101,39 +109,33 @@ export function CollectionListingBidCheckout({
     return null;
   }, [highestBidUsd, bookHighestBid]);
 
-  const listedHint = useMemo(() => {
+  /** Card.html `#tkb-bidhint` — listed / highest, or connect prompt. */
+  const marketHint = useMemo(() => {
+    if (!bid.isConnected) {
+      if (askDisplayUsd != null) {
+        return `Listed at $${formatCheckoutUsd(askDisplayUsd)} · connect wallet to bid`;
+      }
+      return "Connect wallet to bid";
+    }
     const parts: string[] = [];
     if (askDisplayUsd != null) {
-      parts.push(`Listed at $${formatTradeTicketUsdcPrice(askDisplayUsd)}`);
+      parts.push(`Listed at $${formatCheckoutUsd(askDisplayUsd)}`);
     }
     if (highestDisplayUsd != null) {
-      parts.push(`Highest offer $${formatTradeTicketUsdcPrice(highestDisplayUsd)}`);
+      parts.push(`Highest offer $${formatCheckoutUsd(highestDisplayUsd)}`);
     }
-    if (parts.length === 0) {
-      return "No active listing · connect wallet to bid";
-    }
-    if (!bid.isConnected) {
-      return `${parts[0]} · connect wallet to bid`;
-    }
+    if (parts.length === 0) return "Enter a bid amount to continue.";
     return parts.join(" · ");
-  }, [
-    askDisplayUsd,
-    highestDisplayUsd,
-    bid.isConnected,
-  ]);
+  }, [bid.isConnected, askDisplayUsd, highestDisplayUsd]);
 
   const hintText =
-    bid.policyHint.tone === "error"
-      ? bid.policyHint.text
-      : !bid.isConnected
-        ? listedHint
-        : bid.policyHint.text;
+    bid.policyHint.tone === "error" ? bid.policyHint.text : marketHint;
   const hintTone = bid.policyHint.tone === "error" ? "error" : "muted";
 
   const showSuccess = bid.step === "success";
   const placedBidLabel = useMemo(() => {
     if (!Number.isFinite(bid.priceUsdc) || bid.priceUsdc <= 0) return null;
-    return formatTradeTicketUsdcPrice(bid.priceUsdc);
+    return formatCheckoutUsd(bid.priceUsdc);
   }, [bid.priceUsdc]);
   const expiryLabel = tokenBidDurationOptionLabel(bid.durationDays);
 
@@ -169,13 +171,17 @@ export function CollectionListingBidCheckout({
         : `Your bid is live for ${expiryLabel}.`;
 
     return (
-      <div className="cd-listing-checkout__done">
+      <div className="cd-listing-checkout__done" id="tkb-done">
         <div className="cd-listing-checkout__done-icon" aria-hidden>
           <span>&#10003;</span>
         </div>
-        <div className="cd-listing-checkout__done-title">{doneTitle}</div>
+        <div className="cd-listing-checkout__done-title" id="tkb-donetitle">
+          {doneTitle}
+        </div>
         {doneMsg ? (
-          <p className="cd-listing-checkout__done-msg">{doneMsg}</p>
+          <p className="cd-listing-checkout__done-msg" id="tkb-donemsg">
+            {doneMsg}
+          </p>
         ) : null}
         {instant ? (
           <div className="cd-listing-checkout__done-status">
@@ -199,6 +205,7 @@ export function CollectionListingBidCheckout({
               variant="primary"
               size="sm"
               className="cd-listing-checkout__done-primary"
+              id="tkb-cta"
               href="/portfolio?tab=assets"
               onClick={onDone}
             >
@@ -220,97 +227,114 @@ export function CollectionListingBidCheckout({
   }
 
   return (
-    <>
-      <label className="cd-listing-checkout__label" htmlFor="cd-listing-bid-amt">
-        Your bid
-      </label>
+    <div id="tkb-form">
+      <div id="tkb-bid">
+        <label className="cd-listing-checkout__label" htmlFor="tkb-bidamt">
+          Your bid
+        </label>
 
-      <div className="cd-listing-checkout__bid-stats" aria-label="Market context">
-        <div className="cd-listing-checkout__bid-stat">
-          <div className="cd-listing-checkout__bid-stat-label tkl-mono">Ask price</div>
-          <div className="cd-listing-checkout__bid-stat-value">
-            {askDisplayUsd != null ? formatUsdListing(askDisplayUsd) : "—"}
+        <div className="cd-listing-checkout__bid-stats" aria-label="Market context">
+          <div className="cd-listing-checkout__bid-stat">
+            <div className="cd-listing-checkout__bid-stat-label tkl-mono">
+              Ask price
+            </div>
+            <div className="cd-listing-checkout__bid-stat-value">
+              {askDisplayUsd != null ? formatUsdListing(askDisplayUsd) : "—"}
+            </div>
+          </div>
+          <div className="cd-listing-checkout__bid-stat">
+            <div className="cd-listing-checkout__bid-stat-label tkl-mono">
+              Highest bid
+            </div>
+            <div className="cd-listing-checkout__bid-stat-value cd-listing-checkout__bid-stat-value--pos">
+              {highestDisplayUsd != null
+                ? formatUsdListing(highestDisplayUsd)
+                : "—"}
+            </div>
           </div>
         </div>
-        <div className="cd-listing-checkout__bid-stat">
-          <div className="cd-listing-checkout__bid-stat-label tkl-mono">Highest bid</div>
-          <div className="cd-listing-checkout__bid-stat-value cd-listing-checkout__bid-stat-value--pos">
-            {highestDisplayUsd != null ? formatUsdListing(highestDisplayUsd) : "—"}
-          </div>
-        </div>
-      </div>
 
-      <div className="cd-listing-checkout__bid-input-wrap">
-        <span className="cd-listing-checkout__bid-prefix" aria-hidden>
-          $
-        </span>
-        <input
-          ref={inputRef}
-          id="cd-listing-bid-amt"
-          className="cd-listing-checkout__bid-input"
-          type="text"
-          inputMode="decimal"
-          placeholder="0"
-          value={formatBidInputDisplay(bid.price)}
-          disabled={bid.busy}
-          onChange={(e) => bid.setPriceDigits(e.target.value)}
-        />
-      </div>
-      {hintText ? (
+        <div className="cd-listing-checkout__bid-input-wrap">
+          <span className="cd-listing-checkout__bid-prefix" aria-hidden>
+            $
+          </span>
+          <input
+            ref={inputRef}
+            id="tkb-bidamt"
+            className="cd-listing-checkout__bid-input"
+            type="text"
+            inputMode="numeric"
+            placeholder="0"
+            value={formatBidInputDisplay(bid.price)}
+            disabled={bid.busy}
+            onChange={(e) => bid.setPriceDigits(e.target.value)}
+          />
+        </div>
+
         <div
           className={
             hintTone === "error"
               ? "cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--error"
               : "cd-listing-checkout__bid-hint"
           }
+          id="tkb-bidhint"
         >
           {hintText}
         </div>
-      ) : (
-        <div className="cd-listing-checkout__bid-hint cd-listing-checkout__bid-hint--spacer" />
-      )}
 
-      <div className="cd-listing-checkout__label">Valid for</div>
-      <div
-        className="cd-listing-checkout__expiry"
-        role="radiogroup"
-        aria-label="Valid for"
-      >
-        {TOKEN_BID_UI_DURATION_DAYS.map((days) => {
-          const on = bid.durationDays === days;
-          return (
-            <button
-              key={days}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={bid.busy}
-              className={
-                on
-                  ? "cd-listing-checkout__expiry-opt cd-listing-checkout__expiry-opt--on"
-                  : "cd-listing-checkout__expiry-opt"
-              }
-              onClick={() => bid.setDurationDays(days)}
-            >
-              {tokenBidDurationOptionLabel(days)}
-            </button>
-          );
-        })}
+        <div className="cd-listing-checkout__label">Valid for</div>
+        <div
+          className="cd-listing-checkout__expiry"
+          id="tkb-expiry"
+          role="radiogroup"
+          aria-label="Valid for"
+        >
+          {TOKEN_BID_UI_DURATION_DAYS.map((days) => {
+            const on = bid.durationDays === days;
+            return (
+              <button
+                key={days}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={bid.busy}
+                data-exp={tokenBidDurationOptionLabel(days)}
+                className={
+                  on
+                    ? "cd-listing-checkout__expiry-opt cd-listing-checkout__expiry-opt--on tkb-exp on"
+                    : "cd-listing-checkout__expiry-opt tkb-exp"
+                }
+                onClick={() => bid.setDurationDays(days)}
+              >
+                {tokenBidDurationOptionLabel(days)}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {!bid.isConnected ? (
-        <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected">
+        <div
+          className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected"
+          id="tkb-disc"
+        >
           <span className="cd-listing-checkout__wallet-dot" aria-hidden />
           <span>No wallet connected.</span>
         </div>
       ) : bid.address ? (
-        <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
+        <div
+          className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected"
+          id="tkb-conn"
+        >
           <span className="cd-listing-checkout__wallet-id">
             <span className="cd-listing-checkout__wallet-icon" aria-hidden />
             <span className="tkl-mono">{shortenWalletAddress(bid.address)}</span>
           </span>
           {bid.balanceUsdc != null ? (
-            <span className="cd-listing-checkout__wallet-balance tkl-mono">
+            <span
+              className="cd-listing-checkout__wallet-balance tkl-mono"
+              id="tkb-bal"
+            >
               {bid.balanceUsdc.toLocaleString("en-US")} USDC
             </span>
           ) : null}
@@ -322,6 +346,7 @@ export function CollectionListingBidCheckout({
         variant="primary"
         size="sm"
         className="cd-listing-checkout__cta"
+        id="tkb-action"
         disabled={
           bid.busy ||
           (Boolean(bid.address) &&
@@ -331,6 +356,10 @@ export function CollectionListingBidCheckout({
       >
         {bid.ctaLabel}
       </TkButton>
-    </>
+
+      <p className="cd-listing-checkout__fine tkl-mono" id="tkb-foot">
+        No bid fee.
+      </p>
+    </div>
   );
 }

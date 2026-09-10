@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
+import {
+  SLAB_UPLOAD_ACCEPT,
+  SLAB_UPLOAD_FORMAT_HINT,
+} from "@/lib/vault/mintImageSource";
+import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
 import { SellFlowCertProgress } from "./SellFlowCertProgress";
 import { SellFlowPartnerDoneModal } from "./SellFlowPartnerDoneModal";
 import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
@@ -18,11 +23,12 @@ function ScanIcon() {
   );
 }
 
-/** Partner-Add-Cards.html — partner vault bulk scan + mint. */
+/** Partner-Add-Cards.html — partner vault bulk upload + mint. */
 export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
   const {
     cards,
     maxCards,
+    showCertDirectInput,
     certInput,
     setCertInput,
     certError,
@@ -66,9 +72,11 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
           </nav>
 
           <div className="sell-flow-eyebrow">Tokenable Vault</div>
-          <h1 className="sell-flow-h1">Scan the cards you want to list</h1>
+          <h1 className="sell-flow-h1">Upload the cards you want to list</h1>
           <p className="sell-flow-sub sell-flow-sub--partner">
-            Scan the slab QR or type the cert number. Cards stay in your vault.
+            {showCertDirectInput
+              ? "Upload a photo of the slab or type the cert number. Cards stay in your vault."
+              : "Upload a photo of the slab. Cards stay in your vault."}
           </p>
 
           <div className="sell-flow-glass sell-flow-glass--partner-input">
@@ -85,63 +93,29 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             <input
               ref={slabInputRef}
               type="file"
-              accept="image/*"
+              accept={SLAB_UPLOAD_ACCEPT}
               capture="environment"
               className="sr-only"
               aria-hidden
               tabIndex={-1}
               onChange={(e) => void onSlabFile(e.target.files?.[0] ?? null)}
             />
+            <p className="sell-flow-upload-hint tkl-mono">{SLAB_UPLOAD_FORMAT_HINT}</p>
 
-            <div className="sell-flow-or sell-flow-or--partner">
-              <div className="sell-flow-or__line" />
-              <span className="sell-flow-or__label tkl-mono">OR</span>
-              <div className="sell-flow-or__line" />
-            </div>
-
-            <label className="sell-flow-partner-cert-label" htmlFor="sell-flow-partner-cert">
-              Cert number
-            </label>
-            <div className="sell-flow-cert-row">
-              <input
-                id="sell-flow-partner-cert"
-                className="sell-flow-partner-cert-input tkl-mono"
-                type="text"
-                inputMode="numeric"
-                placeholder="e.g. 12345678"
-                autoComplete="off"
-                disabled={busy}
+            {showCertDirectInput ? (
+              <SellFlowCertDirectInput
                 value={certInput}
-                onChange={(e) =>
-                  setCertInput(e.target.value.replace(/[^\d]/g, "").slice(0, 10))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void lookupCert();
-                  }
-                }}
+                onChange={setCertInput}
+                onLookup={() => void lookupCert()}
+                busy={busy}
+                error={certError}
+                partner
               />
-              <TkButton
-                type="button"
-                variant="primary"
-                className="sell-flow-lookup-btn sell-flow-partner-btn--primary"
-                disabled={busy}
-                onClick={() => void lookupCert()}
-              >
-                {lookupBusy ? (
-                  <>
-                    <span className="sell-flow-spinner" aria-hidden />
-                    Looking up
-                  </>
-                ) : (
-                  "Look up"
-                )}
-              </TkButton>
-            </div>
+            ) : null}
+
             <SellFlowCertProgress active={lookupBusy} tone="light" />
             {certError ? (
-              <p className="sell-flow-partner-cert-error" role="alert">
+              <p className="sell-flow-partner-cert-error" id="cert-error" role="alert">
                 {certError}
               </p>
             ) : null}
@@ -155,6 +129,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             onToggleConfirm={toggleConfirm}
             onToggleAllConfirmed={setAllConfirmed}
             onRemove={removeCard}
+            allowCertDirectInput={showCertDirectInput}
           />
 
           {mintStatus ? (

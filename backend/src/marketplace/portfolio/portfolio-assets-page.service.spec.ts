@@ -74,6 +74,8 @@ describe('PortfolioAssetsPageService', () => {
           imageBackUrl: null,
         },
       ],
+      metaSource: { db: 1, ipfs: 0, onChain: 0, empty: 0 },
+      needsHeal: [],
     });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({
@@ -121,6 +123,8 @@ describe('PortfolioAssetsPageService', () => {
           imageBackUrl: null,
         },
       ],
+      metaSource: { db: 0, ipfs: 1, onChain: 0, empty: 0 },
+      needsHeal: [42],
     });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
@@ -141,8 +145,25 @@ describe('PortfolioAssetsPageService', () => {
     expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
   });
 
+  it('returns ownedTokenIds only when ownedIdsOnly is set', async () => {
+    const result = await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(result.ownedTokenIds).toEqual([42, 41]);
+    expect(result.metadataItems).toEqual([]);
+    expect(rwaAssetResolve.batchPortfolioMetadata).not.toHaveBeenCalled();
+  });
+
   it('loads first page from DB when tokenIds omitted', async () => {
-    rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({ items: [] });
+    rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
+      items: [],
+      metaSource: { db: 0, ipfs: 0, onChain: 0, empty: 0 },
+      needsHeal: [],
+    });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
     collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
@@ -154,12 +175,11 @@ describe('PortfolioAssetsPageService', () => {
     );
 
     expect(ownerIndex.getTokenIdsByOwner).toHaveBeenCalled();
-    expect(blockchain.healOwnerRegistryIfIncomplete).toHaveBeenCalledWith(
-      11155111,
-    );
+    expect(ownerIndex.isIndexReady).toHaveBeenCalled();
     expect(rwaAssetResolve.batchPortfolioMetadata).toHaveBeenCalledWith(
       [42, 41],
       11155111,
+      { allowExternal: false },
     );
     expect(result.ownedTokenIds).toEqual([42, 41]);
   });

@@ -193,6 +193,7 @@ export class PortfolioController {
       body.walletAddress,
       body.tokenIds,
       chainId,
+      Boolean(body.ownedIdsOnly),
     );
   }
 

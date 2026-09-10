@@ -41,8 +41,8 @@ Charizard ex · 199/165
 | Token | Rule |
 | --- | --- |
 | Card name | As-is from source (proper case). |
-| Number | Drop `#` and `-`; uppercase Latin (`#OP13-118` → `OP13118`). Pokemon-style `199/165` stays. Numeric → 3-digit pad (`085`). |
-| Grade | `PSA 10`, `BGS 9.5`, etc. **Ungraded → `Raw`.** Slot is **never empty**. |
+| Number | Drop `#` only; keep hyphens; uppercase Latin (`#OP13-118` → `OP13-118`). Pokemon-style `199/165` stays. Numeric → 3-digit pad (`085`). |
+| Grade | `PSA 10`, `BGS 9.5`, etc. **Unknown grade → omit the slot (never show `Raw`).** |
 | Year | 4-digit. Omit if unknown. |
 | Set | Expansion name. TCG franchise / category prefixes (`One Piece`, `Pokemon`) and a leading language token are stripped on Line 2 and the breadcrumb — they are not part of the expansion. Sports set names stay as-is. |
 | Language | Short code (`EN`, `JP`, …). Omit if unknown. |
@@ -122,9 +122,9 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | --- | --- |
 | Card name | `psaSubject`, listing title, bucket `cardName`, Cardhedger preview |
 | Number | `components.cardNumber`, preview `card.cardNumber` → `formatHeadlineCardNumber` |
-| Grade | `gradeScore` + grader, `psaGradeLabel`, RWA metadata → **`Raw` if missing** |
+| Grade | `gradeScore` + grader, `psaGradeLabel`, RWA metadata → **omit if missing (never `Raw`)** |
 | Year | `components.year`, set line prefix, displayLabel |
-| Set | PSA `psaBrand` as stored (never mutated). **Display:** catalog expansion prefer, then omit the TCG series slot (`Word & Word` after franchise/language when an expansion follows). Not a named-series list. |
+| Set | Source text as stored (never mutated). **Details Set row / Line 2:** expansion only — pick one source (prefer Cardhedger `setName`, else set line), strip year + TCG franchise/language prefix. Do **not** re-merge Brand franchise onto the catalog expansion. |
 | Language | `components.language`, preview `market`, corpus inference → **short code** |
 | Variant | `components.variant`, PSA variety, Cardhedger variant. **Display:** omit on Line 2 only when Variety restates the expansion (`shouldHideDuplicateVariant`). Phrase-in-set is not enough if leftover expansion identity remains (e.g. Reverse Holo must stay on 151). Stored `psaVariety` is unchanged. |
 
@@ -137,7 +137,7 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | `frontend/lib/marketplace/cardDisplayName.ts` | New SSOT formatters + modes |
 | `frontend/lib/marketplace/assetDetailHeadline.ts` | Delegates Line 1/2 to SSOT; re-exports helpers |
 | `frontend/lib/markets/marketsCollectionTitle.ts` | Line 1 ` · ` join; grade via SSOT |
-| `frontend/hooks/collection-detail/useCollectionDetailHeadline.ts` | Language short codes; grade defaults `Raw` |
+| `frontend/hooks/collection-detail/useCollectionDetailHeadline.ts` | Language short codes; unknown grade omits slot |
 | `frontend/components/marketplace/marketplace-shared/AssetDetailHeadlineTitle.tsx` | Renders SSOT Line 1 as one string with end ellipsis |
 | `backend/src/marketplace/utils/card-display-name.util.spec.ts` | Unit tests (imports frontend SSOT) |
 | `backend/jest.config.ts` | `@/*` → frontend for cross-package tests |
@@ -148,7 +148,9 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 - [x] `assetDetailHeadline.ts` delegates formatting to SSOT
 - [x] `marketsCollectionTitle.ts` uses SSOT Line 1/2 join rules
 - [x] Language short codes in headline pipeline
-- [x] Grade defaults to `Raw` in formatters
+- [x] Unknown grade omits the Line 1 slot (never renders `Raw`)
+- [x] On-mint `rwa_tokens` sync rebuilds Line 1 from `properties.graded` (never clobber with bare IPFS `name`)
+- [x] Self-vault mint writes Line 1 into both IPFS `name` and `displayName`
 - [x] `AssetDetailHeadlineTitle` renders grade on Line 1 except Certificate of Ownership (`includeGrade={false}`)
 - [x] Collection detail language → short codes via `formatCardDisplayLanguageShort`
 - [x] Grade badge removal (Phase 2) — detail outline chip, Markets/Watchlist row, portfolio holdings, RWA header badges, Top 100
@@ -197,8 +199,8 @@ Use when validating a release after display-name work.
 ### Fixture cards (manual)
 
 1. Pokemon EN SIR — `Charizard ex · 199/165 · PSA 10` / `2023 · 151 EN · Special Illustration Rare`
-2. One Piece — `Monkey D. Luffy · OP13118 · PSA 10` / breadcrumb `OP13 Carrying On His Will (JP)` / hero meta `2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art`
-3. Raw card — grade `Raw`
+2. One Piece — `Monkey D. Luffy · OP13-118 · PSA 10` / breadcrumb `OP13 Carrying On His Will (JP)` / hero meta `2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art`
+3. Missing grade — Line 1 is `{Name} · {Number}` only (no `Raw`)
 4. Missing variant — Line 2 without third segment
 5. Missing language — Line 2 without language token
 

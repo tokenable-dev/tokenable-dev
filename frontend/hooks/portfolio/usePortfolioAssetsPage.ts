@@ -22,14 +22,21 @@ import {
   readPortfolioBundle,
   readPortfolioBffLoadedCount,
 } from "@/lib/portfolio/portfolioQueryPersistence";
-import { portfolioSnapshotCanPriceHoldings } from "@/lib/portfolio/portfolioAssetMeta";
+import {
+  gradeScoreFromMetadata,
+  portfolioSnapshotCanPriceHoldings,
+} from "@/lib/portfolio/portfolioAssetMeta";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import type { RwaMetadata } from "@/lib/core";
+import {
+  PORTFOLIO_ASSETS_FIRST_PAINT,
+  PORTFOLIO_ASSETS_PAGE_MAX,
+} from "@/lib/core/api/portfolio-assets-page";
 
 const EMPTY_MINT: Record<number, CollectionMarketPreview | undefined> = {};
 
-/** Default My Assets page size — matches backend `PORTFOLIO_ASSETS_PAGE_MAX`. */
-export const PORTFOLIO_ASSETS_PAGE_SIZE = 50;
+/** Load-more step — matches backend `PORTFOLIO_ASSETS_PAGE_MAX`. */
+export const PORTFOLIO_ASSETS_PAGE_SIZE = PORTFOLIO_ASSETS_PAGE_MAX;
 
 function emptyAccumulated() {
   return {
@@ -77,7 +84,9 @@ function mergePageIntoAccumulated(
 }
 
 /**
- * My Assets BFF — DB-backed wallet bootstrap + incremental tokenId pages.
+ * My Assets BFF — fast owned-ids bootstrap, then incremental metadata pages.
+ * localStorage paints instantly on refresh; cold visits get shells as soon as
+ * ownedTokenIds return (DB list-ready metadata fills next — IPFS only for stubs).
  */
 export function usePortfolioAssetsPage(input: {
   address: string | undefined;
@@ -89,17 +98,19 @@ export function usePortfolioAssetsPage(input: {
 
   const fetchedTokenIdsRef = useRef<Set<number>>(new Set());
   const bootstrapDoneRef = useRef(false);
+  const hadPaintCacheRef = useRef(false);
   const [fetchGeneration, setFetchGeneration] = useState(0);
   const [ownedTokenIds, setOwnedTokenIds] = useState<number[]>([]);
   const [accumulated, setAccumulated] = useState(emptyAccumulated);
-  const [bffLoadedCount, setBffLoadedCount] = useState(PORTFOLIO_ASSETS_PAGE_SIZE);
+  const [bffLoadedCount, setBffLoadedCount] = useState(PORTFOLIO_ASSETS_FIRST_PAINT);
 
   const resetForWallet = () => {
     fetchedTokenIdsRef.current = new Set();
     bootstrapDoneRef.current = false;
+    hadPaintCacheRef.current = false;
     setOwnedTokenIds([]);
     setAccumulated(emptyAccumulated());
-    setBffLoadedCount(PORTFOLIO_ASSETS_PAGE_SIZE);
+    setBffLoadedCount(PORTFOLIO_ASSETS_FIRST_PAINT);
     setFetchGeneration((g) => g + 1);
   };
 
@@ -113,13 +124,14 @@ export function usePortfolioAssetsPage(input: {
       resetForWallet();
       return;
     }
-    // Instant paint from cache — server bootstrap still runs to pick up new mints.
+    // Instant paint from cache — server ids bootstrap still runs to pick up new mints.
+    hadPaintCacheRef.current = bundle.tokenIds.length > 0;
     const restored = accumulatedFromPortfolioBundle(bundle);
     fetchedTokenIdsRef.current = new Set(restored.fetchedTokenIds);
     bootstrapDoneRef.current = bundle.tokenIds.length > 0;
     setOwnedTokenIds(bundle.tokenIds);
     setBffLoadedCount(
-      readPortfolioBffLoadedCount(address, chainId, PORTFOLIO_ASSETS_PAGE_SIZE),
+      readPortfolioBffLoadedCount(address, chainId, PORTFOLIO_ASSETS_FIRST_PAINT),
     );
     setAccumulated({
       metadataByToken: new Map(
@@ -141,39 +153,40 @@ export function usePortfolioAssetsPage(input: {
   }, [address, chainId]);
 
   const {
-    data: bootstrapData,
-    isFetching: bootstrapFetching,
-    isFetched: bootstrapFetched,
+    data: ownedIdsData,
+    isFetching: ownedIdsFetching,
+    isFetched: ownedIdsFetched,
+    isError: ownedIdsError,
+    isSuccess: ownedIdsSuccess,
   } = useQuery({
     queryKey: rq.portfolioAssetsPageBootstrap(address ?? "", chainId),
-    queryFn: () => postPortfolioAssetsPage({ walletAddress: address! }),
-    // Always sync ownedTokenIds from DB — localStorage / RQ hydrate must not freeze the list after mint.
+    queryFn: () =>
+      postPortfolioAssetsPage({
+        walletAddress: address!,
+        ownedIdsOnly: true,
+      }),
     enabled: Boolean(address && enabled),
     staleTime: 0,
     refetchOnMount: "always",
+    retry: 2,
   });
 
   useEffect(() => {
-    if (!bootstrapFetched || !bootstrapData) return;
-    bootstrapDoneRef.current = true;
-    const serverIds = bootstrapData.ownedTokenIds ?? [];
-    setOwnedTokenIds(serverIds);
+    if (!ownedIdsFetched) return;
 
-    primeRwaMetadataCache(
-      bootstrapData.metadataItems.map((it) => ({
-        tokenId: it.tokenId,
-        metadata: it.metadata,
-        imageUrl: it.imageUrl,
-      })),
-    );
-
-    for (const id of bootstrapData.metadataItems.map((it) => it.tokenId)) {
-      fetchedTokenIdsRef.current.add(id);
+    // Network failure: keep localStorage paint — never flash a false empty wallet.
+    if (ownedIdsError || !ownedIdsSuccess || !ownedIdsData) {
+      if (hadPaintCacheRef.current || ownedTokenIds.length > 0) {
+        bootstrapDoneRef.current = true;
+      }
+      return;
     }
 
-    setAccumulated((prev) => mergePageIntoAccumulated(prev, bootstrapData));
+    bootstrapDoneRef.current = true;
+    const serverIds = ownedIdsData.ownedTokenIds ?? [];
+    setOwnedTokenIds(serverIds);
     setFetchGeneration((g) => g + 1);
-  }, [bootstrapFetched, bootstrapData]);
+  }, [ownedIdsFetched, ownedIdsSuccess, ownedIdsError, ownedIdsData, ownedTokenIds.length]);
 
   const loadedTokenIds = useMemo(() => {
     return ownedTokenIds.slice(0, Math.max(0, bffLoadedCount));
@@ -200,6 +213,7 @@ export function usePortfolioAssetsPage(input: {
       pendingTokenIds.length > 0 &&
       bootstrapDoneRef.current,
     staleTime: 120_000,
+    retry: 2,
   });
 
   useEffect(() => {
@@ -210,8 +224,6 @@ export function usePortfolioAssetsPage(input: {
     }
 
     if (pageData) {
-      // Do not clobber ownedTokenIds from incremental page cache — bootstrap owns the list.
-
       primeRwaMetadataCache(
         pageData.metadataItems.map((it) => ({
           tokenId: it.tokenId,
@@ -278,7 +290,7 @@ export function usePortfolioAssetsPage(input: {
     return m;
   }, [accumulated.marketItems]);
 
-  const isFetching = bootstrapFetching || pageFetching;
+  const isFetching = ownedIdsFetching || pageFetching;
 
   const serverKeysReady =
     loadedTokenIds.length === 0 ||
@@ -294,6 +306,7 @@ export function usePortfolioAssetsPage(input: {
         if (!ck) return true;
         return !portfolioSnapshotCanPriceHoldings(
           seriesByCollectionKey.get(ck),
+          gradeScoreFromMetadata(a.metadata),
         );
       })
       .map((a) => a.tokenId);
@@ -306,7 +319,11 @@ export function usePortfolioAssetsPage(input: {
     seriesByCollectionKey,
   ]);
 
-  const { data: deferredMintPreviews } = useQuery({
+  const {
+    data: deferredMintPreviews,
+    isFetching: mintPreviewFetching,
+    isFetched: mintPreviewFetched,
+  } = useQuery({
     queryKey: rq.marketMintPreviews(address ?? "", unmatchedTokenIds, chainId),
     queryFn: () => postBatchMintMarketPreviews(unmatchedTokenIds),
     enabled:
@@ -395,11 +412,18 @@ export function usePortfolioAssetsPage(input: {
     unmatchedTokenIds,
   ]);
 
+  const mintPreviewsPending =
+    unmatchedTokenIds.length > 0 &&
+    (mintPreviewFetching || !mintPreviewFetched);
+
   const valuesPending =
     Boolean(address) &&
     enabled &&
     loadedTokenIds.length > 0 &&
-    (isFetching || pendingTokenIds.length > 0 || !serverKeysReady);
+    (isFetching ||
+      pendingTokenIds.length > 0 ||
+      !serverKeysReady ||
+      mintPreviewsPending);
 
   /** Section skeleton only until owned token ids are known; cards fill in-place. */
   const isLoading = false;
@@ -408,7 +432,8 @@ export function usePortfolioAssetsPage(input: {
     enabled &&
     Boolean(address) &&
     ownedTokenIds.length === 0 &&
-    (bootstrapFetching || !bootstrapFetched);
+    !hadPaintCacheRef.current &&
+    (ownedIdsFetching || !ownedIdsFetched);
 
   const loadMoreAssets = useCallback(() => {
     if (loadedTokenIds.length >= ownedTokenIds.length) return;
@@ -418,7 +443,7 @@ export function usePortfolioAssetsPage(input: {
   }, [loadedTokenIds.length, ownedTokenIds.length]);
 
   const isLoadingMoreAssets =
-    pageFetching && pendingTokenIds.length > 0 && !bootstrapFetching;
+    pageFetching && pendingTokenIds.length > 0 && !ownedIdsFetching;
 
   return {
     ownedTokenIds,

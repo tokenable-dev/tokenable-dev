@@ -7,6 +7,7 @@ import {
   pickRwaAssetDisplayImageRef,
   psaCertNumberFromGradedMeta,
 } from '../marketplace/utils/collection-image.util';
+import { resolveRegistryDisplayName } from '../marketplace/utils/rwa-list-display-name.util';
 import { BlockchainService } from './blockchain.service';
 import { ChainConfigService, type SupportedChainId } from './chain-config.service';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
@@ -448,9 +449,13 @@ export class RwaAssetResolveService {
     } = { metadataSyncedAt: new Date() };
     let dirty = false;
 
-    const name =
-      typeof metadata?.name === 'string' ? metadata.name.trim() : '';
-    if (name && !row?.displayName?.trim()) {
+    const name = resolveRegistryDisplayName(metadata);
+    const current = row?.displayName?.trim() || '';
+    const currentLooksIncomplete =
+      !current ||
+      /\bRaw\b/i.test(current) ||
+      (!/[·•]/.test(current) && !/\bPSA\s+/i.test(current));
+    if (name && currentLooksIncomplete && name !== current) {
       patch.displayName = name;
       dirty = true;
     }

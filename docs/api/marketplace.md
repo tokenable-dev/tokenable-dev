@@ -252,15 +252,17 @@ Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). Rejects bid
 
 | Query | Required | Description |
 |-------|----------|-------------|
-| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price |
+| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price **and** writes `rwa_tokens.owner_wallet` immediately (My Assets does not wait on Transfer-index poll) |
+
+Transfer-log indexer remains a heal backstop. Listed badge stays **orders-table SSOT** (active ASK join) — no `listed_ask_usd` column on `rwa_tokens`.
 
 ---
 
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
-Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
+Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`). Also sets `rwa_tokens.owner_wallet` to `bid.offerer` immediately.
 
-Seller **take-offer** flows (Edit price primary; Accept offer secondary) are specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep links: `/portfolio?setprice=` (Edit price) and `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid`. Edit-price instant match that fails on buyer USDC keeps the ask at the set price.
+Seller **take-offer** flows (Edit price primary; Accept offer secondary) are specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep links: `/portfolio?setprice=` (Edit price) and `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid` (clears My Assets localStorage for seller + buyer). Edit-price instant match that fails on buyer USDC keeps the ask at the set price.
 
 **Body:** `FulfillMatchedPairDto`
 
@@ -558,10 +560,11 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 **My Assets BFF** — one request per page of tokenIds (max **50**, matches frontend `PORTFOLIO_ASSETS_PAGE_SIZE`).
 
-**Body:** `{ walletAddress, tokenIds? }`
+**Body:** `{ walletAddress, tokenIds?, ownedIdsOnly? }`
 
-- Omit **`tokenIds`** on first load — server reads owned tokens from the DB owner index (`rwa_tokens.owner_wallet` / transfer index) and returns the first page plus the full **`ownedTokenIds`** list.
-- Include **`tokenIds`** on load-more / incremental fetches (must be a subset of the caller's owned tokens).
+- **`ownedIdsOnly: true`** — returns **`ownedTokenIds` only** (empty metadata/market/holdings). Used for cold first paint so card shells appear before IPFS/metadata.
+- Omit **`tokenIds`** (and leave `ownedIdsOnly` false) — server reads owned tokens from the DB owner index and returns the first page plus the full **`ownedTokenIds`** list.
+- Include **`tokenIds`** on load-more / incremental fetches (must be a subset of the caller's owned tokens). Frontend cold path: ids-only → then metadata for the first **24** tokens, then load-more in steps of 50.
 
 **Response:**
 
@@ -578,19 +581,17 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 Server-side pipeline (DB-first, parallel where possible):
 
-1. **`ownedTokenIds`** — heal incomplete `rwa_tokens` vs on-chain `totalMinted` if needed, then DB owner index (newest-first); RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
-2. **Metadata** — `batchPortfolioMetadata`: graded NFT JSON from registry `token_uri` (IPFS, URI-deduped). **Owner-index stubs** (no `token_uri`) fall back to on-chain `tokenURI` + IPFS, then heal empty `display_name` / `token_uri` / `cert_number` on `rwa_tokens`. Slab images prefer DB `display_image_url`. Detail pages still use full `batchRwaMetadata`.
+1. **`ownedTokenIds`** — DB owner index (newest-first). When the index is **ready**, registry heal runs in the **background** (never blocks My Assets). RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
+2. **Metadata** — `batchPortfolioMetadata` with **`allowExternal: false`**: PostgreSQL only (list stubs + DB slab URLs). Incomplete tokens are listed in `needsHeal` and filled by a **process-wide** background queue (concurrency 2, max 400) — not one IPFS fan-out per concurrent user. Daily snapshot may pass `allowExternal: true`. Ops: `POST …/admin/rwa-slab/backfill-list-ready` + optional `RWA_LIST_READY_BACKFILL_ENABLED=1`. See `docs/architecture/portfolio-list-materialization.md`.
 3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
 4. **Market** — preload `collection_market_snapshots` (full table price index, TTL) in parallel with metadata / holdings / `rwa_tokens.collection_key`, then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
 5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
 
-**UI:** Frontend renders owned-token shells as soon as `ownedTokenIds` arrive; images/names/prices fill in-place. The holdings section is not blocked on the full BFF round-trip. Bootstrap always refetches on mount (`ownedTokenIds` is never frozen from localStorage / React Query hydrate).
+**UI:** Frontend restores localStorage paint on refresh. Cold visits: `ownedIdsOnly` → shells → first-page metadata. Bootstrap network errors keep the paint cache (no false empty wallet). `mintPreviews` stays `{}` on this endpoint — client follow-up only for tokens the snapshot cannot price (no matched preview **and** no grade strip with a resolvable PSA grade). Snapshot-priced tiles paint immediately; unpriced siblings may show `…` until mint-preview returns. Hero uses a partial live sum (avoids `$0` when no marks yet).
 
-**`mintPreviews` is always `{}`** — the client loads Cardhedger mint-previews in a follow-up request for tokens without snapshot prices.
+**Cache:** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). **`ownedTokenIds` and holdings** are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`.
 
-**Cache (Phase 3):** L1 in-process + optional Redis L2 (`REDIS_URL`) keyed by `chainId + wallet + tokenIds hash`. TTL default **90s** (`PORTFOLIO_ASSETS_PAGE_CACHE_TTL_MS`). **`ownedTokenIds` and holdings** are always read fresh from DB on cache hit. Disable with `PORTFOLIO_ASSETS_PAGE_CACHE_ENABLED=false`. `perfLog` includes `cache: memory|redis|miss` when `PERF_LOG=true`.
-
-Honors `x-tokenable-chain-id`. Portfolio UI uses this instead of separate `rwa/metadata/batch`, `token-collection-keys`, `portfolio-market-batch`, and `mint-previews` calls per page.
+Honors `x-tokenable-chain-id`.
 
 ### `POST /api/marketplace/portfolio/holdings/batch`
 

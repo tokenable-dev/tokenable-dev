@@ -12,6 +12,8 @@ export interface UploadRwaResult {
   /** Platform S3 slab URL when configured at upload time; pass to mint. */
   displayImageUrl?: string | null;
   displayImageBackUrl?: string | null;
+  /** Marketplace bucket from graded upload metadata — pass to mint. */
+  collectionKey?: string | null;
 }
 
 export async function uploadRwaMetadata(

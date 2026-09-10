@@ -15,7 +15,6 @@ import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketp
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useAccount } from "wagmi";
 import { useAppStore } from "@/store";
-import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import {
   formatListingUsdc,
   listingAssetTitle,
@@ -25,6 +24,15 @@ import {
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { shortenWalletAddress } from "@/lib/wallet/walletMenuDisplay";
 import { CollectionListingBidCheckout } from "./CollectionListingBidCheckout";
+
+/** Card.html `tkbF` — `$9,000.00`. */
+function formatCheckoutUsd(n: number): string {
+  if (!(n > 0) || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export function CollectionListingCheckoutModal({
   open,
@@ -40,6 +48,7 @@ export function CollectionListingCheckoutModal({
   collectionBids = [],
   askUsd,
   highestBidUsd,
+  initialBidUsd,
   connectedAddress,
   buyBusy,
   buyErr,
@@ -66,6 +75,8 @@ export function CollectionListingCheckoutModal({
   askUsd?: number | null;
   /** Collection highest bid for bid modal Highest bid card. */
   highestBidUsd?: number | null;
+  /** Prefill bid amount from trade panel. */
+  initialBidUsd?: number | null;
   connectedAddress?: string;
   buyBusy: boolean;
   buyErr: string | null;
@@ -135,7 +146,7 @@ export function CollectionListingCheckoutModal({
     if (!listing || mode !== "buy") return null;
     try {
       // Buyer pays listed consideration only. Platform fee is taken from seller proceeds
-      // (computeFeeSplit), not added on top for the buyer.
+      // (computeFeeSplit), not added on top for the buyer. Card.html `tkBuyRender`: fee=0.
       const totalUnits = BigInt(listing.considerationAmount);
       const itemUsd = Number(totalUnits) / 1_000_000;
       return { itemUsd, totalUsd: itemUsd };
@@ -147,7 +158,7 @@ export function CollectionListingCheckoutModal({
   const payLabel = useMemo(() => {
     if (buyBusy) return "Processing…";
     if (!isConnected) return "Connect wallet";
-    if (buyPricing) return `Pay $${formatTradeTicketUsdcPrice(buyPricing.totalUsd)}`;
+    if (buyPricing) return `Pay $${formatCheckoutUsd(buyPricing.totalUsd)}`;
     return "Buy";
   }, [buyBusy, isConnected, buyPricing]);
 
@@ -157,19 +168,26 @@ export function CollectionListingCheckoutModal({
 
   const hasLiveAsk = isLiveAskListing(listing);
   const tiles = listingVerificationTiles(metadata);
-  /** Card.html #tkb-copy — buy: cert + vault (grade lives on the title). */
+  /** Card.html #tkb-copy — buy: `PSA 10 · Cert … · Vaulted`. */
+  const gradeForCopy =
+    collectionGradeLine?.trim() ||
+    (tiles.gradedBy !== "—" ? tiles.gradedBy : null);
   const itemSub =
     mode === "buy" && hasLiveAsk
       ? [
+          gradeForCopy,
           tiles.certNumber !== "—" ? `Cert ${tiles.certNumber}` : null,
           "Vaulted",
         ]
           .filter(Boolean)
           .join(" · ")
       : mode === "bid"
-        ? collectionMeta?.trim() ||
-          collectionGradeLine?.trim() ||
-          ""
+        ? [
+            collectionGradeLine?.trim() || null,
+            collectionMeta?.trim() || null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         : [
             collectionMeta?.trim() || null,
             ...(hasLiveAsk
@@ -186,7 +204,7 @@ export function CollectionListingCheckoutModal({
             .filter(Boolean)
             .join(" · ");
   const price = listing ? formatListingUsdc(listing.considerationAmount) : "—";
-  /** Buy: collection title without grade (Card.html #tk-buy). Bid: same fallback. */
+  /** Buy: name · number only (Card.html #tk-buy). Bid: same fallback. */
   const title =
     collectionTitle?.trim() ||
     (resolvedTokenId != null
@@ -196,8 +214,7 @@ export function CollectionListingCheckoutModal({
     const n = Number(price.replace(/,/g, ""));
     if (!Number.isFinite(n)) return price;
     return n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     });
   })();
 
@@ -220,13 +237,17 @@ export function CollectionListingCheckoutModal({
     resolvedTokenId == null;
   const merkleFailed = merkleEmpty && merkleQuery.isError;
 
+  const itemUsd =
+    buyPricing?.itemUsd ??
+    (Number.isFinite(Number(priceLabel.replace(/,/g, "")))
+      ? Number(priceLabel.replace(/,/g, ""))
+      : 0);
+  const totalUsd = buyPricing?.totalUsd ?? itemUsd;
+
   return createPortal(
     <div
-      className={
-        mode === "bid"
-          ? "cd-listing-checkout cd-listing-checkout--sheet"
-          : "cd-listing-checkout"
-      }
+      className="cd-listing-checkout cd-listing-checkout--sheet"
+      id="tk-buy"
       role="dialog"
       aria-modal="true"
       aria-labelledby="cd-listing-checkout-title"
@@ -234,16 +255,7 @@ export function CollectionListingCheckoutModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        className={
-          mode === "bid"
-            ? "cd-listing-checkout__panel cd-listing-checkout__panel--sheet"
-            : "cd-listing-checkout__panel cd-notch"
-        }
-      >
-        {mode === "bid" ? (
-          <div className="cd-choose-copy__grab" aria-hidden />
-        ) : null}
+      <div className="cd-listing-checkout__panel cd-listing-checkout__panel--sheet notch tkbuy-sheet">
         <div className="cd-listing-checkout__head">
           <h2 id="cd-listing-checkout-title" className="cd-listing-checkout__title">
             {mode === "buy"
@@ -258,7 +270,7 @@ export function CollectionListingCheckoutModal({
             aria-label="Close"
             onClick={onClose}
           >
-            ×
+            ✕
           </button>
         </div>
 
@@ -271,22 +283,15 @@ export function CollectionListingCheckoutModal({
           </div>
           <div className="cd-listing-checkout__item-meta">
             <div
-              className={
-                mode === "bid"
-                  ? "cd-listing-checkout__item-title cd-listing-checkout__item-title--one-line tkl-mono"
-                  : `cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`
-              }
-              title={mode === "bid" ? title : undefined}
+              className={`cd-listing-checkout__item-title ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+              title={title}
             >
               {title}
             </div>
             <div
-              className={`cd-listing-checkout__item-sub${
-                mode === "buy" || mode === "bid"
-                  ? " cd-listing-checkout__item-sub--copy tkl-mono"
-                  : ""
-              }${mode === "bid" ? " cd-listing-checkout__item-sub--one-line" : ""}`}
-              title={mode === "bid" && itemSub ? itemSub : undefined}
+              className="cd-listing-checkout__item-sub cd-listing-checkout__item-sub--copy tkl-mono"
+              id="tkb-copy"
+              title={itemSub || undefined}
             >
               {itemSub}
             </div>
@@ -294,7 +299,7 @@ export function CollectionListingCheckoutModal({
         </div>
 
         {mode === "buy" && buyComplete ? (
-          <div className="cd-listing-checkout__done">
+          <div className="cd-listing-checkout__done" id="tkb-done">
             <div className="cd-listing-checkout__done-icon" aria-hidden>
               <span>&#10003;</span>
             </div>
@@ -329,34 +334,38 @@ export function CollectionListingCheckoutModal({
             </div>
           </div>
         ) : mode === "buy" && listing ? (
-          <>
-            <div className="cd-listing-checkout__rows">
+          <div id="tkb-form">
+            <div id="tkb-review" className="cd-listing-checkout__rows">
               <div className="cd-listing-checkout__row">
                 <span>Item price</span>
-                <span className="tkl-mono">
-                  ${formatTradeTicketUsdcPrice((buyPricing?.itemUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
+                <span className="tkl-mono" id="tkb-item">
+                  ${formatCheckoutUsd(itemUsd)}
                 </span>
               </div>
               <div className="cd-listing-checkout__row cd-listing-checkout__row--total">
                 <span>Total</span>
-                <span>
-                  ${formatTradeTicketUsdcPrice((buyPricing?.totalUsd ?? Number(priceLabel.replace(/,/g, ""))) || 0)}
-                </span>
+                <span id="tkb-total">${formatCheckoutUsd(totalUsd)}</span>
               </div>
             </div>
 
             {!isConnected ? (
-              <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected">
+              <div
+                className="cd-listing-checkout__wallet cd-listing-checkout__wallet--disconnected"
+                id="tkb-disc"
+              >
                 <span className="cd-listing-checkout__wallet-dot" aria-hidden />
                 <span>No wallet connected.</span>
               </div>
             ) : walletAddress ? (
-              <div className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected">
+              <div
+                className="cd-listing-checkout__wallet cd-listing-checkout__wallet--connected"
+                id="tkb-conn"
+              >
                 <span className="cd-listing-checkout__wallet-id">
                   <span className="cd-listing-checkout__wallet-icon" aria-hidden />
                   <span className="tkl-mono">{shortenWalletAddress(walletAddress)}</span>
                 </span>
-                <span className="cd-listing-checkout__wallet-balance tkl-mono">
+                <span className="cd-listing-checkout__wallet-balance tkl-mono" id="tkb-bal">
                   {Number(usdcBalanceFormatted).toLocaleString("en-US")} USDC
                 </span>
               </div>
@@ -370,16 +379,18 @@ export function CollectionListingCheckoutModal({
             <TkButton
               type="button"
               variant="primary"
+              size="sm"
               className="cd-listing-checkout__cta"
-              disabled={buyBusy}
+              id="tkb-action"
+              disabled={buyBusy || !(totalUsd > 0)}
               onClick={handlePay}
             >
               {payLabel}
             </TkButton>
-            <p className="cd-listing-checkout__fine tkl-mono">
+            <p className="cd-listing-checkout__fine tkl-mono" id="tkb-foot">
               Stays in the vault.
             </p>
-          </>
+          </div>
         ) : merklePending ? (
           <p className="cd-listing-checkout__fine tkl-mono">Loading collection…</p>
         ) : merkleFailed ? (
@@ -401,6 +412,7 @@ export function CollectionListingCheckoutModal({
             listedPriceLabel={hasLiveAsk ? priceLabel : null}
             askUsd={askUsd}
             highestBidUsd={highestBidUsd}
+            initialPriceUsdc={initialBidUsd}
             connectedAddress={connectedAddress}
             onHeaderTitleChange={setBidHeaderTitle}
             onPlaced={() => onBidPlaced?.()}

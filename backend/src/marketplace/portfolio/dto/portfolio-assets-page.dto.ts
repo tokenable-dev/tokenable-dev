@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -33,4 +34,13 @@ export class PortfolioAssetsPageDto {
   @IsInt({ each: true })
   @Min(0, { each: true })
   tokenIds?: number[];
+
+  @ApiProperty({
+    description:
+      'true면 ownedTokenIds만 반환 (메타데이터/시장 생략). My Assets 첫 페인트용.',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  ownedIdsOnly?: boolean;
 }

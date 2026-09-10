@@ -32,7 +32,8 @@ export class MarketplaceCollection {
   coverImageUrl: string | null;
 
   /**
-   * Canonical PSA cert from active listing metadata (single value; conflicts skipped).
+   * Representative PSA cert for Cardhedger/search (floor ask when many slabs;
+   * kept stable while that cert remains listed).
    * Not duplicated in `components` on new writes.
    */
   @Index()

@@ -31,15 +31,17 @@ flowchart LR
 
   subgraph redeem ["Redemption Phase"]
     Request["User pays USDC + redeem-batch<br/>POST /rwa/redeem-batch"]
-    Burn["Admin burns NFT<br/>POST /admin/.../burn"]
-    Release["Admin releases physical card<br/>POST /admin/.../confirm-release"]
+    Custody["User transfers NFT → custody<br/>POST /rwa/redeem-batch/:id/custody"]
+    Ship["Ops sets tracking"]
+    Receipt["User (or FedEx auto) confirms receipt<br/>POST /rwa/redeem-batch/:id/confirm-received"]
+    Burn["Backend auto adminBurn<br/>(before status=completed)"]
   end
 
   Ship --> Verify --> Upload --> BackendMint
   BackendMint --> Hold --> AdminDeliver --> Own
   BackendMint -->|"self vault deliveryMode=direct"| Own
   Own --> List --> Buy
-  Own --> Request --> Burn --> Release
+  Own --> Request --> Custody --> Ship --> Receipt --> Burn
 ```
 
 ---
@@ -173,6 +175,8 @@ Mitigation:
 
 Admin **collection delete** must not drop `rwa_tokens` rows. Those rows are the mint registry and portfolio owner index (`owner_wallet`). Delete only clears `collection_key` (unlink from the marketplace bucket). A past wipe is healed on portfolio load when `COUNT(rwa_tokens) < totalMinted`.
 
+**My Assets list paint:** mint/upload/buy/redeem writers keep `rwa_tokens` list-ready (`display_*`, `cert_number`, `owner_wallet`, `collection_key` when known). Portfolio `assets-page` reads PostgreSQL only (`allowExternal: false`); see `docs/architecture/portfolio-list-materialization.md`.
+
 `rwa_tokens.settlement_policy` is **nullable**. Transfer-index owner stubs leave it `NULL` (custody unknown). Only `recordMintResult` sets `standard` (PSA vault) or `self_vault_hold` (partner/self vault). Listing APIs treat `NULL` as unknown — never default to PSA.
 
 Maintenance SQL (existing DBs): `add_vault_cycles_mint_attempt.sql`, `nullable_rwa_tokens_settlement_policy.sql`.
@@ -188,7 +192,7 @@ User-facing flow (product copy: **Redeem**, route `/portfolio/redeem`):
 5. Mid-transfer abandonment (wallet cancel / close tab): Portfolio shows **Redeeming — finish transfer** → **Finish transfer** → `/portfolio/redeem?view=resume` (Finish NFT transfers; no second USDC). Also works from `/portfolio/redeem?view=preparing` if cards are still `ownership_verified`. Hydrate from open redemptions + optional `sessionStorage`; custody address from `GET /rwa/redeem/custody-wallet`
 6. Holdings show **Redeeming — preparing** for `in_custody` without tracking (and **finish transfer** while `ownership_verified`). Cards already transferred to custody are still listed on Portfolio as redeeming rows (from `GET /rwa/redemptions/mine`), with Set price blocked · **View status** → Preparing
 7. Admin sets **tracking per vault shipment** (`psa_vault` / `partner:<id>`) on the payment batch → that shipment shows **On the way**; when any shipment is tracked the user surface advances to **In transit** with one box per vault (Redeem.html). Carrier is editable on Admin Redeems (including after tracking is set). Refunds lock after any tracking is set.
-8. When **all** vault shipments have tracking, the user can tap **I've received my cards** → `POST /rwa/redeem-batch/:batchId/confirm-received` → status `completed` (**Done** / H1 **Delivered** / portfolio “In your possession”). **FedEx Track cron** (`FEDEX_TRACK_ENABLED`) stamps `carrier_delivered_at` on Track Delivered (sandbox all-1s dummies like `111111111` are treated as delivered), reminds via `RD_RECEIVED_REMINDER`, then after grace auto-confirms (`receipt_confirmed_via=auto`) so users who never return still close the redeem for settlement. Burn / confirm-release may still follow for ops. Portfolio **Redeem** tab keeps completed orders under **Completed** history (`GET /rwa/redemptions/mine` still returns them).
+8. When **all** vault shipments have tracking, the user can tap **I've received my cards** → `POST /rwa/redeem-batch/:batchId/confirm-received`. Backend **auto-burns** each NFT still active on-chain (`adminBurn` via custody / current owner), then sets status `completed` (**Done** / H1 **Delivered** / portfolio “In your possession”). **FedEx Track cron** (`FEDEX_TRACK_ENABLED`) stamps `carrier_delivered_at` on Track Delivered (sandbox all-1s dummies like `111111111` are treated as delivered), reminds via `RD_RECEIVED_REMINDER`, then after grace auto-confirms (`receipt_confirmed_via=auto`) through the same burn → `completed` path so users who never return still close the redeem and free the cert for re-mint. Portfolio **Redeem** tab keeps completed orders under **Completed** history (`GET /rwa/redemptions/mine` still returns them). Admin `POST /admin/.../burn` remains available for ops/edge cases.
 
 **Refunds (admin):** allowed until a `tracking_number` is set (blocked after burn/completed). USDC refund is **once per payment batch** (stored micros; never recompute) — not once per redemption row. Return custody NFTs via custody signer (per card). UI: `/marketplace/admin/redeems` (batch header shows paid amount + refund actions).
 

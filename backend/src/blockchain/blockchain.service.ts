@@ -157,6 +157,23 @@ export class BlockchainService {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
+  /**
+   * Drop tokens-by-owner cache after mint/transfer/burn so portfolio daily
+   * snapshots and other callers do not reuse a pre-mint id list (TTL was 120s).
+   */
+  invalidateTokensByOwnerCache(
+    walletAddress?: string | null,
+    chainId?: SupportedChainId,
+  ): void {
+    const chain = chainId ?? this.chainConfig.getDefaultChainId();
+    const wallet = walletAddress?.trim().toLowerCase() ?? '';
+    if (wallet && ETH_ADDRESS.test(wallet)) {
+      this.ttlCache.delete(TOKENS_BY_OWNER_CACHE_NS, `${chain}:${wallet}`);
+      return;
+    }
+    this.ttlCache.clearNamespace(TOKENS_BY_OWNER_CACHE_NS);
+  }
+
   async getRwaTokensByOwner(
     address: string,
     chainId?: SupportedChainId,
@@ -183,21 +200,26 @@ export class BlockchainService {
         normalized,
         chain,
       );
-      if (await this.ownerIndex.isIndexReady(chain)) {
-        return fromDb;
+      const indexReady = await this.ownerIndex.isIndexReady(chain);
+      if (indexReady) {
+        return { tokenIds: fromDb, cacheable: true };
       }
+      // During backfill / rapid multi-mint, DB grows every mint — do not cache.
       if (fromDb.length > 0) {
-        return fromDb;
+        return { tokenIds: fromDb, cacheable: false };
       }
-      return this.scanRwaTokensByOwner(normalized, chain);
+      const scanned = await this.scanRwaTokensByOwner(normalized, chain);
+      return { tokenIds: scanned, cacheable: false };
     })()
-      .then((tokenIds) => {
-        this.ttlCache.set(
-          TOKENS_BY_OWNER_CACHE_NS,
-          cacheKey,
-          tokenIds,
-          TOKENS_BY_OWNER_CACHE_TTL_MS,
-        );
+      .then(({ tokenIds, cacheable }) => {
+        if (cacheable) {
+          this.ttlCache.set(
+            TOKENS_BY_OWNER_CACHE_NS,
+            cacheKey,
+            tokenIds,
+            TOKENS_BY_OWNER_CACHE_TTL_MS,
+          );
+        }
         return tokenIds;
       })
       .finally(() => {

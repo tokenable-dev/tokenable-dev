@@ -74,6 +74,14 @@ export class BulkMintJobItem {
   @Column({ name: 'slab_display_image_back_url', type: 'text', nullable: true })
   slabDisplayImageBackUrl!: string | null;
 
+  /** Prepared card title — written to rwa_tokens.display_name at mint. */
+  @Column({ name: 'display_name', type: 'varchar', length: 512, nullable: true })
+  displayName!: string | null;
+
+  /** Prepared marketplace bucket — written to rwa_tokens.collection_key at mint. */
+  @Column({ name: 'collection_key', type: 'varchar', length: 64, nullable: true })
+  collectionKey!: string | null;
+
   @Column({ name: 'sort_index', type: 'int', default: 0 })
   sortIndex!: number;
 

@@ -11,7 +11,7 @@ function money(n: number): string {
 }
 
 function parsePriceInput(raw: string): number {
-  const n = Number(String(raw).replace(/[^0-9.]/g, ""));
+  const n = Number(String(raw).replace(/[^0-9]/g, ""));
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 

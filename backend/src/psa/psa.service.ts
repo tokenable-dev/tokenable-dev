@@ -137,37 +137,17 @@ export interface PsaAnalyzeResult {
   psaCertImages?: { front?: string; back?: string };
 }
 
-async function probeCertImageUrlReachable(url: string): Promise<boolean> {
-  try {
-    const headers = { 'User-Agent': 'TokenableBackend/1.0 (PSA image probe)' };
-    const head = await fetch(url, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(10_000),
-      headers,
-    });
-    if (head.ok) return true;
-    const get = await fetch(url, {
-      method: 'GET',
-      headers: { ...headers, Range: 'bytes=0-2047' },
-      signal: AbortSignal.timeout(12_000),
-    });
-    return get.ok;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Cardhedger OCR / missing-image fallbacks must stay inside the browser + nginx
  * budgets. Default Cardhedger retries (20s × 4) stack past the 25s FE timeout
  * when the upstream hangs on empty catalog images.
  */
-const CARDHEDGER_OCR_TIMEOUT_MS = 12_000;
-const CARDHEDGER_OCR_MAX_RETRIES = 1;
-const CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS = 10_000;
+const CARDHEDGER_OCR_TIMEOUT_MS = 10_000;
+const CARDHEDGER_OCR_MAX_RETRIES = 0;
+const CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS = 8_000;
 const CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES = 0;
 /** Wall-clock cap for catalog/image enrich after PSA returns no slab photo. */
-const PSA_ANALYZE_IMAGE_FALLBACK_BUDGET_MS = 15_000;
+const PSA_ANALYZE_IMAGE_FALLBACK_BUDGET_MS = 8_000;
 
 @Injectable()
 export class PsaService {
@@ -487,9 +467,10 @@ export class PsaService {
   }
 
   private async encodeSlabForCardhedgerOcr(image: Buffer): Promise<string> {
+    /* Smaller payload → faster Cardhedger OCR upload; label text still readable. */
     const jpg = await sharp(image)
-      .resize({ width: 1800, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 85 })
+      .resize({ width: 1400, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 78 })
       .toBuffer();
     return jpg.toString('base64');
   }
@@ -1507,14 +1488,8 @@ export class PsaService {
       const back = fromGetImages.back ?? fromCertBody.back;
 
       if (front || back) {
-        if (front) {
-          const ok = await probeCertImageUrlReachable(front);
-          if (!ok) {
-            this.logger.warn(
-              `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
-            );
-          }
-        }
+        /* Trust PSA CDN URLs — reachability probe used to add up to ~20s and we
+         * kept the URL even when the probe failed. */
         psaCertImages = {
           ...(front ? { front } : {}),
           ...(back ? { back } : {}),
@@ -1601,7 +1576,7 @@ export class PsaService {
     }
 
     // If we have a cardId but still no imageUrl, fetch via card-details as a fallback
-    if (cardhedgerMint?.cardId && !cardhedgerMint.imageUrl) {
+    if (cardhedgerMint?.cardId && !cardhedgerMint.imageUrl && imageBuffer == null) {
       const img = await this.fetchCardhedgerCatalogImageByCardId(
         cardhedgerMint.cardId,
       );
@@ -1611,8 +1586,14 @@ export class PsaService {
     }
 
     // PSA cert metadata OK but no official slab URL → Cardhedger catalog image for mint.
-    // Bound wall-clock time: empty Cardhedger images used to stack multi-minute retries.
-    if (selectedCert && apiLookupSuccess && !psaCertImages?.front) {
+    // When the client already uploaded a slab (`imageBuffer`), mint prefers that upload
+    // over catalog art — skip slow enrich / visual search (was a common analyze timeout).
+    if (
+      selectedCert &&
+      apiLookupSuccess &&
+      !psaCertImages?.front &&
+      imageBuffer == null
+    ) {
       const before = cardhedgerMint;
       cardhedgerMint = await this.withAnalyzeImageFallbackBudget(
         this.enrichCardhedgerMintWhenPsaSlabMissing(
@@ -1624,46 +1605,15 @@ export class PsaService {
         before,
         'enrichCardhedgerMintWhenPsaSlabMissing',
       );
-    }
-
-    // If still no catalog image, try additional sources (image passed in via imageBuffer param)
-    // imageBuffer is available in the outer analyze scope via the passed-in image
-    if (!cardhedgerMint?.imageUrl && imageBuffer != null) {
-      // 1) Pokemon TCG API — works best for Pokemon cards (free, official images)
-      const isPokemon =
-        /pokemon/i.test(String(psaParsed.setHint ?? '')) ||
-        /pokemon/i.test(String(psaParsed.cardNameHint ?? ''));
-      if (isPokemon) {
-        const ptcgImg = await this.tryPokemonTcgCardImage(
-          String(psaParsed.cardNameHint ?? ''),
-          String(psaParsed.cardNumberHint ?? ''),
-          String(psaParsed.year ?? ''),
-        );
-        if (ptcgImg) {
-          cardhedgerMint = {
-            matchConfidence: 'approximate',
-            ...(cardhedgerMint ?? {}),
-            imageUrl: ptcgImg,
-          };
-        }
-      }
-
-      // 2) Cardhedger image-search — visual matching (fail-fast; often hangs when no match)
-      if (!cardhedgerMint?.imageUrl) {
-        const mintBeforeSearch = cardhedgerMint;
-        const chImgSearchUrl = await this.withAnalyzeImageFallbackBudget(
-          this.tryCardhedgerImageSearch(imageBuffer),
-          null,
-          'tryCardhedgerImageSearch',
-        );
-        if (chImgSearchUrl) {
-          cardhedgerMint = {
-            matchConfidence: 'approximate',
-            ...(mintBeforeSearch ?? {}),
-            imageUrl: chImgSearchUrl,
-          };
-        }
-      }
+    } else if (
+      imageBuffer != null &&
+      selectedCert &&
+      apiLookupSuccess &&
+      !psaCertImages?.front
+    ) {
+      this.logger.debug(
+        `Skipping catalog image enrich — client slab upload present (cert=${selectedCert})`,
+      );
     }
 
     let certVerifyUrl: string | undefined;
@@ -1704,115 +1654,5 @@ export class PsaService {
     };
 
     return result;
-  }
-
-  /**
-   * Cardhedger visual image-search: pass PSA slab image buffer → get best-matching catalog image.
-   * Returns the matched card's `image` URL, or null if not found / not configured.
-   */
-  private async tryCardhedgerImageSearch(
-    imageBuffer: Buffer,
-  ): Promise<string | null> {
-    try {
-      this.cardhedgerService.assertConfigured();
-    } catch {
-      return null;
-    }
-    try {
-      const jpg = await sharp(imageBuffer)
-        .resize({ width: 1200, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 80 })
-        .toBuffer();
-      const b64 = `data:image/jpeg;base64,${jpg.toString('base64')}`;
-      const raw = await this.cardhedgerService.forwardJson(
-        'POST',
-        '/v1/cards/image-search',
-        {
-          body: { image_base64: b64 },
-          timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
-          maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
-        },
-      );
-      const cards = Array.isArray((raw as { cards?: unknown[] })?.cards)
-        ? ((raw as { cards: unknown[] }).cards ?? [])
-        : [];
-      const first = cards[0] as Record<string, unknown> | undefined;
-      const imgRaw =
-        typeof first?.image === 'string' && first.image.trim()
-          ? first.image.trim()
-          : null;
-      const img = imgRaw ? normalizeImageUrl(imgRaw) : null;
-      if (img)
-        this.logger.log(
-          `Cardhedger image-search found catalog image: ${img.slice(0, 80)}`,
-        );
-      return img;
-    } catch (e) {
-      this.logger.warn(
-        `Cardhedger image-search failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Pokemon TCG API: search by card name + number (+ optional year) for high-quality official images.
-   * Returns `images.large` URL or null.
-   * Docs: https://pokemontcg.io/
-   */
-  private async tryPokemonTcgCardImage(
-    cardName: string,
-    cardNumber: string,
-    year?: string,
-  ): Promise<string | null> {
-    if (!cardName) return null;
-    try {
-      const name = cardName.replace(/"/g, '').trim();
-      const num = cardNumber.replace(/^#/, '').replace(/"/g, '').trim();
-      const parts: string[] = [`name:"${name}"`];
-      if (num) parts.push(`number:${num}`);
-      const q = encodeURIComponent(parts.join(' '));
-      const url = `https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=20&select=id,name,number,set,images`;
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'TokenableBackend/1.0' },
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!res.ok) return null;
-      const body = (await res.json()) as { data?: unknown[] };
-      const cards = body.data ?? [];
-      if (cards.length === 0) return null;
-
-      // Filter by year if available (match card set release year)
-      const targetYear = year ? String(year).trim() : null;
-      const scored = cards
-        .filter(
-          (c): c is Record<string, unknown> =>
-            typeof c === 'object' && c != null,
-        )
-        .map((c) => {
-          const setObj = c.set as Record<string, unknown> | undefined;
-          const releaseDate =
-            typeof setObj?.releaseDate === 'string' ? setObj.releaseDate : '';
-          const cardYear = releaseDate.slice(0, 4);
-          const yearScore = targetYear && cardYear === targetYear ? 100 : 0;
-          const numMatch = num && String(c.number ?? '') === num ? 50 : 0;
-          return { c, score: yearScore + numMatch };
-        })
-        .sort((a, b) => b.score - a.score);
-
-      const best = scored[0]?.c;
-      const images = best?.images as Record<string, string> | undefined;
-      const img = images?.large ?? images?.small ?? null;
-      if (img)
-        this.logger.log(
-          `Pokemon TCG API found image for "${name} #${num}": ${img.slice(0, 80)}`,
-        );
-      return img ?? null;
-    } catch (e) {
-      this.logger.warn(
-        `Pokemon TCG API lookup failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      return null;
-    }
   }
 }

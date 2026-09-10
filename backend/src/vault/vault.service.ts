@@ -499,6 +499,8 @@ export class VaultService {
     vaultPartnerId?: string | null;
     /** On-chain mint recipient (indexed for portfolio owner lookup). */
     ownerWallet?: string | null;
+    /** Snapshot price join key — set at mint when graded identity is known. */
+    collectionKey?: string | null;
   }): Promise<void> {
     const cycle = await this.cycles.findOne({ where: { id: params.cycleId } });
     if (!cycle) {
@@ -519,6 +521,7 @@ export class VaultService {
     await this.cycles.save(cycle);
 
     const vaultRef = VaultService.computeVaultRef(params.certNumber);
+    const displayName = params.displayName?.trim() || null;
     const settlementPolicy =
       params.settlementPolicy === 'self_vault_hold'
         ? 'self_vault_hold'
@@ -527,6 +530,19 @@ export class VaultService {
       settlementPolicy === 'self_vault_hold'
         ? params.vaultPartnerId?.trim() || null
         : null;
+    const collectionKey =
+      params.collectionKey?.trim().toLowerCase() || null;
+
+    if (displayName) {
+      const asset = await this.assets.findOne({
+        where: { id: cycle.vaultAssetId },
+      });
+      if (asset && !asset.displayName?.trim()) {
+        asset.displayName = displayName;
+        await this.assets.save(asset);
+      }
+    }
+
     await this.rwaTokens
       .createQueryBuilder()
       .insert()
@@ -536,9 +552,10 @@ export class VaultService {
         tokenId: params.tokenId,
         certNumber: VaultService.normalizeCert(params.certNumber),
         tokenUri: params.tokenURI,
-        displayName: params.displayName?.trim() || null,
+        displayName,
         displayImageUrl: params.displayImageUrl?.trim() || null,
         displayImageBackUrl: params.displayImageBackUrl?.trim() || null,
+        collectionKey,
         vaultCycleId: cycle.id,
         vaultRef,
         settlementPolicy,
@@ -553,6 +570,7 @@ export class VaultService {
           'display_name',
           'display_image_url',
           'display_image_back_url',
+          ...(collectionKey ? (['collection_key'] as const) : []),
           'vault_cycle_id',
           'vault_ref',
           'settlement_policy',
@@ -1057,9 +1075,20 @@ export class VaultService {
     let redemption = await this.redemptions
       .createQueryBuilder('r')
       .where('r.vault_cycle_id = :cycleId', { cycleId: cycle.id })
-      .andWhere("r.status NOT IN ('completed', 'failed', 'cancelled')")
+      .andWhere("r.status NOT IN ('completed', 'failed', 'cancelled', 'refunded')")
       .orderBy('r.requested_at', 'DESC')
       .getOne();
+
+    if (!redemption) {
+      // Heal path: receipt already completed before burn (legacy) — update that row
+      // instead of inserting a duplicate redemption.
+      redemption = await this.redemptions
+        .createQueryBuilder('r')
+        .where('r.vault_cycle_id = :cycleId', { cycleId: cycle.id })
+        .andWhere("r.status NOT IN ('failed', 'cancelled', 'refunded')")
+        .orderBy('r.requested_at', 'DESC')
+        .getOne();
+    }
 
     if (!redemption) {
       redemption = this.redemptions.create({
@@ -1070,7 +1099,10 @@ export class VaultService {
       });
     }
 
-    redemption.status = 'burned';
+    // Keep `completed` if receipt was already confirmed; otherwise move to burned.
+    if (redemption.status !== 'completed') {
+      redemption.status = 'burned';
+    }
     redemption.burnTxHash = params.burnTxHash;
     redemption.burnedAt = now;
     await this.redemptions.save(redemption);

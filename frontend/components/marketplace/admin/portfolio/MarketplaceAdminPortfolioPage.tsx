@@ -15,7 +15,7 @@ const COST_BASIS_ROWS = [
   {
     source: "vault_delivery",
     label: "Vault delivery",
-    detail: "Seeded when admin delivers custody NFT — mark USD at deliver time.",
+    detail: "Seeded when admin delivers custody RWA — mark USD at deliver time.",
   },
   {
     source: "marketplace_buy",
@@ -117,9 +117,9 @@ export function MarketplaceAdminPortfolioPage() {
         <AdminSectionTitle title="Operator checklist" />
         <ul className="mt-3 list-disc space-y-2 pl-5">
           <li>
-            Deliver custody NFTs from{" "}
+            Deliver custody RWAs from{" "}
             <Link href="/marketplace/admin/custody-nfts" className={ADMIN_LINK}>
-              Custody NFTs
+              Custody RWAs
             </Link>{" "}
             — seeds <code className="font-mono text-xs">vault_delivery</code> cost basis.
           </li>

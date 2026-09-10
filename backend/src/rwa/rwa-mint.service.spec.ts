@@ -132,6 +132,45 @@ describe('RwaMintService', () => {
     );
   });
 
+  it('defaults displayName to PSA #cert when omitted', async () => {
+    await service.mintForUser(user, baseDto, chainId);
+
+    expect(vault.beginMintAttempt).toHaveBeenCalledWith(
+      'cycle-1',
+      expect.objectContaining({ displayName: 'PSA #83179580' }),
+    );
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ displayName: 'PSA #83179580' }),
+    );
+  });
+
+  it('persists client displayName on mint', async () => {
+    await service.mintForUser(
+      user,
+      { ...baseDto, displayName: '  2020 Prizm Joe Burrow #307  ' },
+      chainId,
+    );
+
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayName: '2020 Prizm Joe Burrow #307',
+      }),
+    );
+  });
+
+  it('persists client collectionKey on mint', async () => {
+    const key = 'a'.repeat(64);
+    await service.mintForUser(
+      user,
+      { ...baseDto, collectionKey: key },
+      chainId,
+    );
+
+    expect(vault.recordMintResult).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionKey: key }),
+    );
+  });
+
   it('ignores untrusted displayImageUrl without failing mint', async () => {
     rwaSlabS3.normalizeTrustedMintSlabUrl.mockReturnValueOnce(null);
 

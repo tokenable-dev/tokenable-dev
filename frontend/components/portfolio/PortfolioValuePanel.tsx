@@ -39,7 +39,8 @@ export function PortfolioValuePanel({
   partnerRedeemHref,
 }: {
   totalsPending: boolean;
-  totalValue: number;
+  /** Null when no holding has a resolvable mark yet (avoid hero `$0` flash). */
+  totalValue: number | null;
   dailyPnlUsd: number | null;
   dailyPnlPct: number | null;
   /** Partner portfolio — Redeem requests lives in this value row. */

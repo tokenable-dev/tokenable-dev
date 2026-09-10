@@ -13,10 +13,14 @@ function makeService(): RwaChainWriterService {
     recordOwner: jest.fn().mockResolvedValue(undefined),
     recordBurn: jest.fn().mockResolvedValue(undefined),
   };
+  const blockchain = {
+    invalidateTokensByOwnerCache: jest.fn(),
+  };
   return new RwaChainWriterService(
     new ConfigService({}),
     {} as ChainConfigService,
     ownerIndex as never,
+    blockchain as never,
   );
 }
 

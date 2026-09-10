@@ -4,15 +4,11 @@ import type { ReactNode } from "react";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
- * Collection detail desktop — two independent columns:
+ * Collection detail desktop — Card.html `#card-detail-grid`:
  *
- *   [ Chart ]              [ Trades + Order book ]
- *   [ Similar items ]      [ Details + Pop ]
- *
- * Columns stack separately so the right column (Trades → Details) does not
- * reflow the left column (Chart → Similar).
- *
- * Sticky `#hero-bar` must sit in a tall parent that also includes this grid.
+ *   [ chart-card (hero + price history) ]   [ tk-trade ]
+ *   [ Similar items ]                       [ trades-card ]
+ *                                           [ Details + Pop ]
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,
@@ -32,6 +28,7 @@ export function CollectionOverviewMarketsClusterDesktop({
   belowCover?: ReactNode;
 }) {
   const hasMetrics = chartMetricsRow != null;
+  const showTrade = marketsDockTradePanel && tradePanel != null;
 
   return (
     <div className="relative hidden w-full min-w-0 max-w-full overflow-visible lg:block cd-markets-cluster">
@@ -56,7 +53,13 @@ export function CollectionOverviewMarketsClusterDesktop({
               ) : null}
             </div>
 
-            <div className="cd-detail-grid__col cd-detail-grid__col--right rail-slot min-w-0">
+            <div className="cd-detail-grid__col cd-detail-grid__col--right rail-slot detail-rail min-w-0">
+              {showTrade ? (
+                <div className="cd-detail-grid__trade cd-sidebar-trade min-w-0 shrink-0">
+                  {withFlushProp(tradePanel)}
+                </div>
+              ) : null}
+
               <div className="cd-detail-grid__orderbook min-w-0">
                 <div className="cd-sidebar-orderbook flex h-full min-h-0 w-full flex-col overflow-hidden">
                   <div className="flex h-full min-h-0 w-full flex-col">
@@ -65,21 +68,14 @@ export function CollectionOverviewMarketsClusterDesktop({
                 </div>
               </div>
 
-              {belowCover != null || marketsDockTradePanel ? (
+              {belowCover != null ? (
                 <div
                   className="cd-detail-grid__details min-w-0"
                   aria-label="Collection details"
                 >
-                  {belowCover != null ? (
-                    <div className="cd-sidebar-details flex min-w-0 flex-col">
-                      {belowCover}
-                    </div>
-                  ) : null}
-                  {marketsDockTradePanel ? (
-                    <div className="cd-sidebar-trade min-w-0 shrink-0">
-                      {withFlushProp(tradePanel)}
-                    </div>
-                  ) : null}
+                  <div className="cd-sidebar-details flex min-w-0 flex-col">
+                    {belowCover}
+                  </div>
                 </div>
               ) : null}
             </div>

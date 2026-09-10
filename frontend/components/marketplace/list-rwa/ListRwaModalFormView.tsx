@@ -230,10 +230,7 @@ export function ListRwaModalFormView({
                     />
                     <span className="text-[12px] text-zinc-200">
                       <span className="mr-2 font-mono tabular-nums text-mint">
-                        {usdc.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
+                        {Math.round(usdc).toLocaleString("en-US")}{" "}
                         USDC
                       </span>
                       Buyer{" "}

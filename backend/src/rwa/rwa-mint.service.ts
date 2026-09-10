@@ -111,10 +111,12 @@ export class RwaMintService {
     // "Vault Deposit -> Verify deposit -> Create asset record" — reserves the
     // physical asset's cycle before spending gas on-chain. Throws if this
     // cert already has an open (non-redeemed) cycle.
+    const displayNameEarly = dto.displayName?.trim() || `PSA #${certNumber}`;
     const { cycle } = await this.vault.reserveCycleForDeposit({
       certNumber,
       chainId,
       depositedByUserId: user.id,
+      displayName: displayNameEarly,
     });
 
     await this.vaultSubmissions.attachCycleForCert({
@@ -139,6 +141,8 @@ export class RwaMintService {
       certNumber,
       'back',
     );
+    const displayName = displayNameEarly;
+    const collectionKey = dto.collectionKey?.trim().toLowerCase() || null;
 
     // Persist intent before gas — redeploy mid-mint can then heal from this row.
     await this.vault.beginMintAttempt(cycle.id, {
@@ -148,6 +152,7 @@ export class RwaMintService {
       vaultPartnerId,
       ownerWallet: mintToAddress,
       deliveryMode,
+      displayName,
       displayImageUrl,
       displayImageBackUrl,
     });
@@ -182,8 +187,10 @@ export class RwaMintService {
         tokenURI,
         txHash,
         certNumber,
+        displayName,
         displayImageUrl,
         displayImageBackUrl,
+        collectionKey,
         settlementPolicy,
         vaultPartnerId,
         ownerWallet: mintToAddress,
@@ -197,6 +204,9 @@ export class RwaMintService {
       throw err;
     }
     await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
+    // Owner list grows on every mint — drop tokens-by-owner cache before
+    // post-mint portfolio snapshot (otherwise rapid multi-mint freezes card_count).
+    this.blockchain.invalidateTokensByOwnerCache(mintToAddress, chainId);
 
     if (deliveryMode === 'direct') {
       this.schedulePostMintPortfolioWork(recipient, tokenId, chainId);

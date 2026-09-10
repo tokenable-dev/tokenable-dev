@@ -60,6 +60,16 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
         { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
         config,
         rwaTokenRegistry as never,
+        { recordOwner: jest.fn().mockResolvedValue(undefined) } as never,
+        { refreshCurrentSlotSnapshots: jest.fn().mockResolvedValue(undefined) } as never,
+        { createQueryBuilder: jest.fn() } as never,
+        {
+          ensureBurnedForRedeem: jest.fn().mockResolvedValue({
+            txHash: null,
+            alreadyBurned: true,
+            cancelledOrderHashes: [],
+          }),
+        } as never,
       ),
       vault,
       partners,
@@ -369,15 +379,31 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
 });
 
 describe('RwaRedeemService.confirmReceipt', () => {
-  function makeConfirmService(vault: {
-    findRedemptionsByBatchId: jest.Mock;
-    markUserReceiptConfirmed: jest.Mock;
-  }) {
+  function makeConfirmService(
+    vault: {
+      findRedemptionsByBatchId: jest.Mock;
+      markUserReceiptConfirmed: jest.Mock;
+      getTokenIdForRedemption?: jest.Mock;
+    },
+    rwaTokenAdmin: {
+      ensureBurnedForRedeem: jest.Mock;
+    } = {
+      ensureBurnedForRedeem: jest.fn().mockResolvedValue({
+        txHash: '0xburn',
+        alreadyBurned: false,
+        cancelledOrderHashes: [],
+      }),
+    },
+  ) {
+    const vaultWithToken = {
+      getTokenIdForRedemption: jest.fn().mockResolvedValue('42'),
+      ...vault,
+    };
     return new RwaRedeemService(
       {} as never,
       {} as never,
       {} as never,
-      vault as never,
+      vaultWithToken as never,
       {} as never,
       {} as never,
       {} as never,
@@ -385,6 +411,10 @@ describe('RwaRedeemService.confirmReceipt', () => {
       { notifyRedeemCompleted: jest.fn().mockResolvedValue(undefined) } as never,
       { get: () => undefined } as never,
       { ensureFromChain: jest.fn().mockResolvedValue(undefined) } as never,
+      { recordOwner: jest.fn().mockResolvedValue(undefined) } as never,
+      { refreshCurrentSlotSnapshots: jest.fn().mockResolvedValue(undefined) } as never,
+      { createQueryBuilder: jest.fn() } as never,
+      rwaTokenAdmin as never,
     );
   }
 
@@ -410,33 +440,56 @@ describe('RwaRedeemService.confirmReceipt', () => {
       ]),
       markUserReceiptConfirmed: jest.fn(),
     };
+    const admin = {
+      ensureBurnedForRedeem: jest.fn(),
+    };
     await expect(
-      makeConfirmService(vault).confirmReceipt(user, 'batch-1', 11155111),
+      makeConfirmService(vault, admin).confirmReceipt(user, 'batch-1', 11155111),
     ).rejects.toThrow(/tracking number/);
     expect(vault.markUserReceiptConfirmed).not.toHaveBeenCalled();
+    expect(admin.ensureBurnedForRedeem).not.toHaveBeenCalled();
   });
 
-  it('marks completed when all tracked', async () => {
+  it('burns then marks completed when all tracked', async () => {
     const rows = [
       {
         id: 'a',
+        paymentBatchId: 'batch-1',
         requestedByUserId: 'user-1',
         refundStatus: 'none',
         status: 'in_custody',
         trackingNumber: '1ZAAA',
         vaultReleasedAt: null,
+        burnTxHash: null,
+        burnedAt: null,
       },
       {
         id: 'b',
+        paymentBatchId: 'batch-1',
         requestedByUserId: 'user-1',
         refundStatus: 'none',
         status: 'in_custody',
         trackingNumber: '1ZBBB',
         vaultReleasedAt: null,
+        burnTxHash: null,
+        burnedAt: null,
       },
     ];
+    const burnedRows = rows.map((r) => ({
+      ...r,
+      status: 'burned',
+      burnTxHash: '0xburn',
+      burnedAt: new Date('2026-08-06T00:00:00Z'),
+    }));
     const vault = {
-      findRedemptionsByBatchId: jest.fn().mockResolvedValue(rows),
+      findRedemptionsByBatchId: jest
+        .fn()
+        .mockResolvedValueOnce(rows)
+        .mockResolvedValue(burnedRows),
+      getTokenIdForRedemption: jest
+        .fn()
+        .mockResolvedValueOnce('10')
+        .mockResolvedValueOnce('11'),
       markUserReceiptConfirmed: jest.fn().mockImplementation(async (r) =>
         r.map((row: { id: string }) => ({
           ...row,
@@ -445,16 +498,105 @@ describe('RwaRedeemService.confirmReceipt', () => {
         })),
       ),
     };
-    const result = await makeConfirmService(vault).confirmReceipt(
+    const admin = {
+      ensureBurnedForRedeem: jest.fn().mockResolvedValue({
+        txHash: '0xburn',
+        alreadyBurned: false,
+        cancelledOrderHashes: [],
+      }),
+    };
+    const result = await makeConfirmService(vault, admin).confirmReceipt(
       user,
       'batch-1',
       11155111,
     );
     expect(result.status).toBe('completed');
     expect(result.alreadyCompleted).toBe(false);
-    expect(vault.markUserReceiptConfirmed).toHaveBeenCalledWith(rows, {
+    expect(admin.ensureBurnedForRedeem).toHaveBeenCalledTimes(2);
+    expect(admin.ensureBurnedForRedeem).toHaveBeenCalledWith(10, 11155111);
+    expect(admin.ensureBurnedForRedeem).toHaveBeenCalledWith(11, 11155111);
+    expect(vault.markUserReceiptConfirmed).toHaveBeenCalledWith(burnedRows, {
       via: 'user',
     });
+  });
+});
+
+describe('RwaRedeemService.confirmCustodyTransfers ownership', () => {
+  it('writes owner_wallet to custody immediately after confirm', async () => {
+    const ownerIndex = {
+      recordOwner: jest.fn().mockResolvedValue(undefined),
+    };
+    const portfolioSnapshots = {
+      refreshCurrentSlotSnapshots: jest.fn().mockResolvedValue(undefined),
+    };
+    const custody = '0xcccccccccccccccccccccccccccccccccccccccc';
+    const userWallet = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const row = {
+      id: 'r1',
+      requestedByUserId: 'user-1',
+      refundStatus: 'none',
+      status: 'ownership_verified',
+      ownerWalletAddress: userWallet,
+      custodyTxHash: null,
+    };
+    const vault = {
+      findRedemptionsByBatchId: jest
+        .fn()
+        .mockResolvedValueOnce([row])
+        .mockResolvedValueOnce([{ ...row, status: 'in_custody', custodyTxHash: '0xabc' }]),
+      getTokenIdForRedemption: jest.fn().mockResolvedValue('42'),
+      markCustodyReceived: jest.fn().mockResolvedValue({
+        ...row,
+        status: 'in_custody',
+        custodyTxHash: '0xabc',
+      }),
+      emitRedeemCustodyNotifications: jest.fn().mockResolvedValue(undefined),
+    };
+    const blockchain = {
+      getRwaTokenOwner: jest.fn().mockResolvedValue(custody),
+    };
+    const chainConfig = {
+      getRwaAddress: () => '0xrwa',
+    };
+    const chainWriter = {
+      getCustodyWalletAddress: jest.fn().mockResolvedValue(custody),
+    };
+    const svc = new RwaRedeemService(
+      {} as never,
+      blockchain as never,
+      chainConfig as never,
+      vault as never,
+      {} as never,
+      {} as never,
+      chainWriter as never,
+      { assertApprovedForCustody: jest.fn().mockResolvedValue(undefined) } as never,
+      {} as never,
+      { get: () => undefined } as never,
+      {} as never,
+      ownerIndex as never,
+      portfolioSnapshots as never,
+      { createQueryBuilder: jest.fn() } as never,
+      {
+        ensureBurnedForRedeem: jest.fn().mockResolvedValue({
+          txHash: null,
+          alreadyBurned: true,
+          cancelledOrderHashes: [],
+        }),
+      } as never,
+    );
+
+    await svc.confirmCustodyTransfers(
+      { id: 'user-1' } as never,
+      'batch-1',
+      { transfers: [] },
+      11155111,
+    );
+
+    expect(ownerIndex.recordOwner).toHaveBeenCalledWith('0xrwa', 42, custody);
+    expect(portfolioSnapshots.refreshCurrentSlotSnapshots).toHaveBeenCalledWith(
+      [userWallet],
+      11155111,
+    );
   });
 });
 

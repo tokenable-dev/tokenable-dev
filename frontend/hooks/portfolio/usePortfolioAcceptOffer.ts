@@ -205,6 +205,7 @@ export function usePortfolioAcceptOffer(input: {
         tokenId: modal.tokenId,
         collectionKey: modal.listing?.collectionKey ?? modal.bid.collectionKey,
         address,
+        buyerAddress: modal.bid.offerer,
         userId,
       });
       setModal(null);

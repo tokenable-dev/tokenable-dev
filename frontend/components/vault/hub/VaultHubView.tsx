@@ -49,7 +49,14 @@ export function VaultHubView() {
 
   return (
     <>
-      <VaultHubHeader showSubmitCta={viewState === "active"} />
+      <VaultHubHeader
+        showSubmitCta={viewState === "active"}
+        title={
+          viewState === "empty"
+            ? "Get paid atomically (instantly) on all sales"
+            : undefined
+        }
+      />
       {viewState === "loading" ? <VaultHubActivityLoading /> : null}
       {viewState === "empty" ? <VaultEmptyDashboardView /> : null}
       {viewState === "active" ? <VaultActiveDashboardView /> : null}

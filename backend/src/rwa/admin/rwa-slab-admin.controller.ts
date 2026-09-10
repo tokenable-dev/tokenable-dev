@@ -72,6 +72,25 @@ export class RwaSlabAdminController {
     });
   }
 
+  @Post('backfill-list-ready')
+  @ApiOperation({
+    summary:
+      'Backfill incomplete list fields (display_name, cert, collection_key, slab image) from token_uri/IPFS — ops only, not the portfolio hot path',
+  })
+  async backfillListReady(
+    @Req() req: Request,
+    @Body() body: AdminRwaSlabBackfillDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.backfill.backfillListReadyFields({
+      limit: body.limit,
+      dryRun: body.dryRun,
+      chainId,
+    });
+  }
+
   @Post(':tokenId/image')
   @ApiOperation({
     summary:

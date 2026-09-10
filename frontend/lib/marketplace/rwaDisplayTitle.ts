@@ -10,6 +10,9 @@ export function stripGradeQualifierFromDisplayName(raw: string): string {
   s = s.replace(new RegExp(`[\\s·•,]+${qualifier}\\s*$`, "i"), "").trim();
   s = s.replace(/\s+PSA\s+\d+(?:\.\d+)?\s*$/i, "").trim();
   s = s.replace(new RegExp(`[\\s·•]+PSA\\s+\\d+(?:\\.\\d+)?\\s*$`, "i"), "").trim();
+  // Never leave a leaked `· Raw` placeholder from older mint display_name bugs.
+  s = s.replace(/\s*[·•]\s*Raw\s*$/i, "").trim();
+  s = s.replace(/\s+Raw\s*$/i, "").trim();
   return s.length > 0 ? s : raw.trim();
 }
 
@@ -32,7 +35,11 @@ export function displayAssetNameFromMetadata(
   const hasStructuredGrade =
     (typeof psa?.gradeLabel === "string" && psa.gradeLabel.trim().length > 0) ||
     (typeof psa?.gradeScore === "number" && Number.isFinite(psa.gradeScore)) ||
-    (typeof grade?.score === "number" && Number.isFinite(grade.score));
+    (typeof psa?.gradeScore === "string" &&
+      /^\d{1,2}(?:\.\d+)?$/.test(psa.gradeScore.trim())) ||
+    (typeof grade?.score === "number" && Number.isFinite(grade.score)) ||
+    (typeof grade?.score === "string" &&
+      /^\d{1,2}(?:\.\d+)?$/.test(grade.score.trim()));
 
   if (!hasStructuredGrade) {
     return stripGradeQualifierFromDisplayName(raw) || fallback;

@@ -43,8 +43,9 @@ export function useRwaDetailBuyFlow(input: {
     await invalidateAfterRwaDetail(queryClient, {
       tokenId,
       collectionKeyForMatch,
+      portfolioWallets: [address, activeAskListing?.offerer],
     });
-  }, [queryClient, tokenId, collectionKeyForMatch]);
+  }, [queryClient, tokenId, collectionKeyForMatch, address, activeAskListing?.offerer]);
 
   const handleFulfillAsk = useCallback(
     async (overrideAsk?: Order | null) => {

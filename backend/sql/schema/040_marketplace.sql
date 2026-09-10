@@ -41,7 +41,7 @@ COMMENT ON TABLE marketplace_collections IS
 COMMENT ON COLUMN marketplace_collections.components IS
   'Bucket fields + mint enrichments (cardhedgerCardId, listingDisplayTitle, PSA mirrors, …).';
 COMMENT ON COLUMN marketplace_collections.psa_cert_number IS
-  'Canonical PSA cert for active listings in this bucket.';
+  'Representative PSA cert for the bucket (stable while listed; else floor ask).';
 COMMENT ON COLUMN marketplace_collections.market_parallel_key IS
   'Indexed parallel facet (base or PSA Variety slug). Pricing in collection_market_snapshots.';
 COMMENT ON COLUMN marketplace_collections.review_status IS

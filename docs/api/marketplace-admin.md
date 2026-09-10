@@ -340,14 +340,23 @@ curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/backfill-display-images` | Copy slab images to S3 for `rwa_tokens` missing `display_image_url` (reads IPFS metadata for HTTPS source) |
+| POST | `/backfill-list-ready` | Fill incomplete list fields (`display_name`, `cert_number`, `collection_key`, slab image) from `token_uri`/IPFS — ops only |
 | POST | `/:tokenId/image` | Multipart `file` + `face` (`front` \| `back`) — admin All cards register missing slab photos onto S3 |
 
-Body: `{ "limit": 50, "dryRun": false }` (optional; `limit` 1–500, default 50).
+Body: `{ "limit": 50, "dryRun": false }` (optional; `limit` 1–500 for images, list-ready capped at 200 server-side, default 40–50).
 
-Per-row outcomes: `updated` · `skipped` (`no_cert_number`, `no_token_uri`, `no_https_image_source`, `s3_not_configured`) · `failed` (`metadata_fetch_failed`, `s3_ingest_failed`) · `dry_run`. Safe to re-run.
+Per-row outcomes: `updated` · `skipped` · `failed` · `dry_run`. Safe to re-run.
+
+**Scale:** My Assets never calls these on the request path. Enable optional cron with `RWA_LIST_READY_BACKFILL_ENABLED=1` (batch 40 / 5 min). See `docs/architecture/portfolio-list-materialization.md`.
 
 ```bash
 curl -X POST "$API/marketplace/admin/rwa-slab/backfill-display-images" \
+  -H "Cookie: marketplace_admin_session=…" \
+  -H "x-tokenable-chain-id: 84532" \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 100, "dryRun": true}'
+
+curl -X POST "$API/marketplace/admin/rwa-slab/backfill-list-ready" \
   -H "Cookie: marketplace_admin_session=…" \
   -H "x-tokenable-chain-id: 84532" \
   -H "Content-Type: application/json" \

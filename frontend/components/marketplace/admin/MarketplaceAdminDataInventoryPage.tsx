@@ -638,7 +638,7 @@ export function MarketplaceAdminDataInventoryPage() {
                   "삭제: rwa_tokens, orders, collections, vault, portfolio, watchlist, bulk mint, P2P, redeems…\n\n" +
                   "유지: users, wallets, KYC, admins, partners\n\n" +
                   ".env의 CHAIN_*_RWA_ADDRESS / NEXT_PUBLIC_CHAIN_*_RWA를 새 프록시로 바꾼 뒤 backend/frontend를 재시작한 다음 실행하세요.\n\n" +
-                  "개발/스테이징 전용. 온체인 NFT는 번되지 않습니다.",
+                  "개발/스테이징 전용. 온체인 RWA는 번되지 않습니다.",
               );
               if (!ok) return;
               const password = window.prompt("초기화 비밀번호를 입력하세요:");

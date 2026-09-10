@@ -454,7 +454,7 @@ export function MarketplaceAdminBulkMintPage() {
           `Ready to mint: ${readyCount}\n` +
           `Retry list: ${listRetryCount}\n` +
           `On-chain mint TX ≈ ${Math.ceil(readyCount / 50) || 0} (chunks of 50).\n` +
-          `NFTs mint to the company wallet; asks are signed server-side.`,
+          `RWAs mint to the company wallet; asks are signed server-side.`,
       )
     ) {
       return;

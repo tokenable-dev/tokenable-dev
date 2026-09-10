@@ -20,7 +20,10 @@ import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import type { KycStatus } from "@/lib/auth";
-import { isKycComplete } from "@/lib/auth/accountAccess";
+import {
+  canUseSellCertDirectInput,
+  isKycComplete,
+} from "@/lib/auth/accountAccess";
 import {
   formatPsaAnalyzeError,
   isPsaRateLimitError,
@@ -189,6 +192,8 @@ export function useSellFlow() {
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
   const mintLockRef = useRef(false);
+  /** Session-only slab Files by cert — used for mint when PSA has no official slab. */
+  const slabFileByCertRef = useRef<Map<string, File>>(new Map());
   const localHydrateDoneRef = useRef(false);
   const hydrateDoneRef = useRef(false);
 
@@ -429,6 +434,7 @@ export function useSellFlow() {
       r: PsaAnalyzeResult,
       certFallback: string,
       uploadPreviewDataUrl?: string | null,
+      slabFile?: File | null,
     ) => {
       const built = cardFromAnalyze(r, certFallback, uploadPreviewDataUrl);
       if ("error" in built) {
@@ -442,6 +448,9 @@ export function useSellFlow() {
       if (cards.some((c) => c.cert === built.cert)) {
         setCertError("That card is already in your list.");
         return false;
+      }
+      if (slabFile) {
+        slabFileByCertRef.current.set(built.cert, slabFile);
       }
       setCards((prev) => {
         const next = [...prev, built];
@@ -515,8 +524,12 @@ export function useSellFlow() {
       lookupLockRef.current = true;
       setLookupBusy(true);
       try {
-        const uploadPreview = await fileToThumbDataUrl(file);
-        const r = await analyzePsaSlab(file);
+        const uploadPreviewPromise = fileToThumbDataUrl(file);
+        const analyzePromise = analyzePsaSlab(file);
+        const [uploadPreview, r] = await Promise.all([
+          uploadPreviewPromise,
+          analyzePromise,
+        ]);
         const cert = r.psa.certNumber?.trim() ?? "";
         if (!cert) {
           setCertError(
@@ -529,7 +542,7 @@ export function useSellFlow() {
           setCertError(taken);
           return;
         }
-        addCardFromResult(r, cert, uploadPreview);
+        addCardFromResult(r, cert, uploadPreview, file);
       } catch (e) {
         if (isPsaRateLimitError(e)) {
           setCertError(
@@ -570,6 +583,10 @@ export function useSellFlow() {
 
   const removeCard = useCallback((index: number) => {
     setCards((prev) => {
+      const removed = prev[index];
+      if (removed?.cert) {
+        slabFileByCertRef.current.delete(removed.cert);
+      }
       const next = prev.filter((_, i) => i !== index);
       writeSellFlowDraftCards(next);
       writeSellFlowProgress({ step: "cards" });
@@ -667,7 +684,14 @@ export function useSellFlow() {
             cert: card.cert,
             recipientAddress,
             chainId,
+            preferredGrade: card.grade,
+            userImage: slabFileByCertRef.current.get(card.cert) ?? null,
+            userImageDataUrl:
+              typeof card.img === "string" && card.img.startsWith("data:")
+                ? card.img
+                : null,
           });
+          slabFileByCertRef.current.delete(card.cert);
           succeeded.push({
             cert: result.cert,
             name: card.name,
@@ -769,6 +793,7 @@ export function useSellFlow() {
     vaultChoice,
     cards,
     maxCards: MAX_CARDS,
+    showCertDirectInput: canUseSellCertDirectInput(user),
     certInput,
     setCertInput,
     certError,
