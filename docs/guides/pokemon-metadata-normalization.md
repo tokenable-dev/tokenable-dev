@@ -102,13 +102,20 @@ Do not merge these concepts.
 
 ### Cardhedger set vocabulary evidence
 
-| Pokémon set code | Canonical Tokenable set | Cardhedger `row.set` (observed) | Evidence | Mapping status |
-| ---------------- | ----------------------- | ------------------------------- | -------- | -------------- |
-| SV2a | Pokémon Card 151 | `2023 Pokemon Japanese Scarlet & Violet 151` (live API); fixtures also used `Pokemon Japanese 151` | Live card-search 2026-09-10 + resolve fixtures | **confirmed** (search phrase `Pokemon Japanese 151`; set match uses token coverage) |
-| SV1S | Scarlet ex | No reliable dedicated set string from probes (`SV1S Pikachu` / `Scarlet ex` returned unrelated sets) | Live probes | **pending** — no phrase map |
-| SV1V | Violet ex | Same — no reliable dedicated set | Live probes | **pending** — no phrase map |
-| SV-P | Promo | e.g. `2023 Pokemon Japanese SV-P Promos` | Live probe `Pokemon SV-P` | **pending** — do not auto-map; existing promo aliases remain |
-| SVP | Promo | e.g. `… Scarlet & Violet Black Star Promos` | Live probe black-star alias | **pending** — existing SVP aliases remain |
+| Set code | Canonical set name | Observed Cardhedger `row.set` | Search phrase candidate | Evidence count | Status |
+| -------- | ------------------ | ----------------------------- | ----------------------- | -------------: | ------ |
+| SV2a | Pokémon Card 151 | `2023 Pokemon Japanese Scarlet & Violet 151` | `Pokemon Japanese 151` | 5+ staging + fixtures | **CONFIRMED** (shadow + production phrase map) |
+| M2 | Inferno X | `2025 Pokemon Japanese Inferno X` | `Pokemon Japanese Inferno X` | V2.3 set-search + staging Mega Charizard X ex 116 | **IMPLEMENTED-SHADOW** (V2.4) |
+| M2a | Mega Dream EX | `2025 Pokemon Japanese Mega Dream EX` | `Pokemon Japanese Mega Dream EX` | V2.3 set-search + staging Mega Gengar ex 240 | **IMPLEMENTED-SHADOW** (V2.4) |
+| SV1S | Scarlet ex | — | — | 0 | **UNKNOWN** |
+| SV1V | Violet ex | — | — | 0 | **UNKNOWN** |
+| SV-P | Promo (JP) | `2023/2024 Pokemon Japanese SV-P Promos`; 2025 often `… Scarlet & Violet Promos` | `Pokemon Japanese SV-P Promos` | multi-year probes | **CANDIDATE** — not implemented |
+| SVP | Promo (EN Black Star) | `2023/2024/2025 Pokemon Scarlet & Violet Black Star Promos` | `Pokemon Scarlet Violet Black Star Promos` | multi-year + staging Pikachu 190 | **CANDIDATE** — not implemented |
+
+**Do not** treat `SV-P` and `SVP` as the same Cardhedger vocabulary.  
+**Do not** search raw set code `M2` (collides with sports card numbers).
+
+Shadow phrase map (`pokemon-cardhedger-set-phrase.util.ts`) currently implements: **SV2a, M2, M2a** only. Legacy production resolver is unchanged.
 
 **Live JP 151 Reverse Foil probe (read-only):**
 
@@ -298,3 +305,64 @@ NOT READY — insufficient evaluated sample
 ```
 
 Do **not** enable production cutover. Next: durable `develop` deploy of shadow code, keep staging flag on, grow real SV2a+ diversity and/or confirm phrases from observed `row.set` evidence before mapping other codes.
+
+---
+
+## V2.3 Cardhedger set vocabulary discovery
+
+Read-only investigation **2026-09-10** (staging Cardhedger API via existing backend auth). **No phrase-map code changes.** Production matching unchanged.
+
+### legacyOnlyCandidate cases (7)
+
+| setCode | card | legacy card_id | Cardhedger `row.set` | `row.variant` |
+| ------- | ---- | -------------- | -------------------- | ------------- |
+| M2 | Mega Charizard X ex 116 | `1759154235951x249681693062288480` | `2025 Pokemon Japanese Inferno X` | Base |
+| M2a | Mega Gengar ex 240 | `1765743129501x182611139206225950` | `2025 Pokemon Japanese Mega Dream EX` | Base |
+| SVP | Pikachu 190 | `1763951954787x840887315467792900` | `2024 Pokemon Scarlet & Violet Black Star Promos` | Base |
+| (none — Category B) | Umbreon V 085 | `1746801588115x866012808812673900` | `2021 Pokemon Japanese Sword & Shield Eevee Heroes` | Base |
+| (none — Category B) | Umbreon VMAX 095 | `1746801575081x586111977839343500` | `2021 Pokemon Japanese Sword & Shield Eevee Heroes` | Base |
+| (none — Category B) | FA/Gengar 074 | `1690767144318x232310659149515870` | `2022 Pokemon Japanese Dark Phantasma` | Full Art |
+| (none — Category B) | FA/Gengar VMAX 157 | `1664334902745x413368462090247360` | `2021 Pokemon Fusion Strike` | Full Art |
+
+### Findings summary
+
+- **M2 ≠ M2a** in Cardhedger (`Inferno X` vs `Mega Dream EX`).
+- Raw search `M2 Inferno X` is **REJECTED** as a strategy (sports collisions).
+- **SV-P ≠ SVP** (`Japanese SV-P Promos` vs EN `Scarlet & Violet Black Star Promos`).
+- Korean SV-P Ditto 173: no reliable Cardhedger hit in probes → coverage gap.
+- Eevee Heroes / Dark Phantasma / Fusion Strike: Cardhedger vocabulary exists; Tokenable failed to emit a mapped `setCode` (normalization Category B), not missing Cardhedger sets.
+- Phrase map file **not** updated in V2.3 — implement candidates in a separate review task.
+
+### Mapping recommendation (do not implement yet)
+
+| Set code | Cardhedger phrase | Recommendation | Reason |
+| -------- | ----------------- | -------------- | ------ |
+| SV2a | `Pokemon Japanese 151` | keep CONFIRMED | already live |
+| M2 | `Pokemon Japanese Inferno X` | implement after review | consistent `row.set` + set-search |
+| M2a | `Pokemon Japanese Mega Dream EX` | implement after review | distinct from M2; consistent |
+| SVP | `Pokemon Scarlet Violet Black Star Promos` | implement carefully / reuse aliases | multi-year family; EN Black Star |
+| SV-P | `Pokemon Japanese SV-P Promos` | defer or gated | year split + 2025 rename + KR gap |
+| SV1S / SV1V | — | leave UNKNOWN | no reliable evidence |
+| Eevee Heroes etc. | n/a (need setCode first) | fix normalization extract | Category B |
+
+### V2.3 recommendation
+
+```text
+MAPPING CANDIDATES READY — separate implementation review required
+```
+
+---
+
+## V2.4 — M2 / M2a shadow phrase implementation
+
+Implemented in **normalized shadow only** (not production cutover):
+
+| setCode | Canonical setName | Cardhedger search phrase |
+| ------- | ----------------- | ------------------------ |
+| SV2a | Pokémon Card 151 | `Pokemon Japanese 151` (unchanged) |
+| M2 | Inferno X | `Pokemon Japanese Inferno X` |
+| M2a | Mega Dream EX | `Pokemon Japanese Mega Dream EX` |
+
+Still **not** implemented: SVP, SV-P, SV1S, SV1V. Category B sets (Eevee Heroes, Dark Phantasma, Fusion Strike) remain unmapped pending setCode extraction work.
+
+Legacy Cardhedger resolver, persisted `cardhedgerCardId`, mint/IPFS/collection identity: **unchanged**.

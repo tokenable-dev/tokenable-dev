@@ -50,6 +50,18 @@ describe('pokemon-cardhedger-set-phrase', () => {
     );
   });
 
+  it('maps M2 / M2a → Cardhedger Inferno X / Mega Dream EX (not raw codes)', () => {
+    expect(pokemonCardhedgerPrimarySetPhrase('M2')).toBe(
+      'Pokemon Japanese Inferno X',
+    );
+    expect(pokemonCardhedgerPrimarySetPhrase('m2a')).toBe(
+      'Pokemon Japanese Mega Dream EX',
+    );
+    expect(lookupPokemonCardhedgerSetPhrase('M2')?.primaryPhrase).not.toBe(
+      'M2',
+    );
+  });
+
   it('does not invent phrases for SV1S / SV1V / SV-P / SVP', () => {
     expect(pokemonCardhedgerPrimarySetPhrase('SV1S')).toBeNull();
     expect(pokemonCardhedgerPrimarySetPhrase('SV1V')).toBeNull();
@@ -184,6 +196,194 @@ describe('V2.1 shadow validation matrix', () => {
         }).skipReason,
       ).toBe('insufficient_set_phrase');
     }
+  });
+
+  it('M2 — Inferno X phrase, Base match, rejects wrong set/number/name', () => {
+    const pokemon = {
+      game: 'pokemon' as const,
+      language: 'JP',
+      setCode: 'M2',
+      setName: 'Inferno X',
+      cardName: 'Mega Charizard X ex',
+      cardNumber: '116',
+      setKind: 'expansion' as const,
+    };
+    const plan = buildPokemonNormalizedCardhedgerQueries({
+      pokemon,
+      psaVariety: 'MEGA ULTRA RARE',
+    });
+    expect(plan.setPhrase).toBe('Pokemon Japanese Inferno X');
+    expect(plan.queries[0]).toBe(
+      'Mega Charizard X ex 116 Pokemon Japanese Inferno X',
+    );
+    expect(plan.queries.some((q) => /\bM2\b/.test(q))).toBe(false);
+
+    const rows = [
+      {
+        card_id: 'm2-charizard-116',
+        name: 'Mega Charizard X EX',
+        set: '2025 Pokemon Japanese Inferno X',
+        number: '116',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-set',
+        name: 'Mega Charizard X EX',
+        set: '2025 Pokemon Japanese Mega Dream EX',
+        number: '116',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-number',
+        name: 'Mega Charizard X EX',
+        set: '2025 Pokemon Japanese Inferno X',
+        number: '013',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-name',
+        name: 'Mega Sharpedo EX',
+        set: '2025 Pokemon Japanese Inferno X',
+        number: '116',
+        variant: 'Base',
+      },
+    ];
+    const pick = pickPokemonNormalizedShadowCandidate(
+      [{ query: plan.queries[0]!, cards: rows }],
+      {
+        cardName: pokemon.cardName,
+        cardNumber: pokemon.cardNumber,
+        setPhrase: plan.setPhrase!,
+        psaVariety: 'MEGA ULTRA RARE',
+      },
+    );
+    expect(pick?.cardId).toBe('m2-charizard-116');
+    expect(pick?.verified).toBe(true);
+    expect(pick?.variant).toBe('Base');
+
+    expect(
+      scorePokemonNormalizedShadowCandidate(
+        rows[1]!,
+        {
+          cardName: pokemon.cardName,
+          cardNumber: pokemon.cardNumber,
+          setPhrase: plan.setPhrase!,
+          psaVariety: 'MEGA ULTRA RARE',
+        },
+        'q',
+      )?.verified,
+    ).toBe(false);
+    expect(
+      scorePokemonNormalizedShadowCandidate(
+        rows[2]!,
+        {
+          cardName: pokemon.cardName,
+          cardNumber: pokemon.cardNumber,
+          setPhrase: plan.setPhrase!,
+          psaVariety: 'MEGA ULTRA RARE',
+        },
+        'q',
+      )?.verified,
+    ).toBe(false);
+    expect(
+      scorePokemonNormalizedShadowCandidate(
+        rows[3]!,
+        {
+          cardName: pokemon.cardName,
+          cardNumber: pokemon.cardNumber,
+          setPhrase: plan.setPhrase!,
+          psaVariety: 'MEGA ULTRA RARE',
+        },
+        'q',
+      )?.verified,
+    ).toBe(false);
+  });
+
+  it('M2a — Mega Dream EX phrase, Base match, rejects wrong set/number/name', () => {
+    const pokemon = {
+      game: 'pokemon' as const,
+      language: 'JP',
+      setCode: 'M2a',
+      setName: 'Mega Dream EX',
+      cardName: 'Mega Gengar ex',
+      cardNumber: '240',
+      setKind: 'expansion' as const,
+    };
+    const plan = buildPokemonNormalizedCardhedgerQueries({
+      pokemon,
+      psaVariety: 'SPECIAL ART RARE',
+    });
+    expect(plan.setPhrase).toBe('Pokemon Japanese Mega Dream EX');
+    expect(plan.queries[0]).toBe(
+      'Mega Gengar ex 240 Pokemon Japanese Mega Dream EX',
+    );
+    expect(plan.queries.some((q) => /\bM2a\b/i.test(q))).toBe(false);
+
+    const rows = [
+      {
+        card_id: 'm2a-gengar-240',
+        name: 'Mega Gengar EX',
+        set: '2025 Pokemon Japanese Mega Dream EX',
+        number: '240',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-set-inferno',
+        name: 'Mega Gengar EX',
+        set: '2025 Pokemon Japanese Inferno X',
+        number: '240',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-number',
+        name: 'Mega Gengar EX',
+        set: '2025 Pokemon Japanese Mega Dream EX',
+        number: '230',
+        variant: 'Base',
+      },
+      {
+        card_id: 'wrong-name',
+        name: 'Mega Dragonite EX',
+        set: '2025 Pokemon Japanese Mega Dream EX',
+        number: '240',
+        variant: 'Base',
+      },
+    ];
+    const pick = pickPokemonNormalizedShadowCandidate(
+      [{ query: plan.queries[0]!, cards: rows }],
+      {
+        cardName: pokemon.cardName,
+        cardNumber: pokemon.cardNumber,
+        setPhrase: plan.setPhrase!,
+        psaVariety: 'SPECIAL ART RARE',
+      },
+    );
+    expect(pick?.cardId).toBe('m2a-gengar-240');
+    expect(pick?.verified).toBe(true);
+
+    for (const bad of [rows[1]!, rows[2]!, rows[3]!]) {
+      expect(
+        scorePokemonNormalizedShadowCandidate(
+          bad,
+          {
+            cardName: pokemon.cardName,
+            cardNumber: pokemon.cardNumber,
+            setPhrase: plan.setPhrase!,
+            psaVariety: 'SPECIAL ART RARE',
+          },
+          'q',
+        )?.verified,
+      ).toBe(false);
+    }
+
+    expect(
+      comparePokemonShadowOutcome({
+        legacyId: 'm2a-gengar-240',
+        legacyVerified: true,
+        shadowId: pick!.cardId,
+        shadowVerified: true,
+      }),
+    ).toBe('same');
   });
 
   it('marks legacyOnlyCandidate when skip is insufficient_set_phrase but legacy verified', () => {

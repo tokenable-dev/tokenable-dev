@@ -25,6 +25,15 @@ const POKEMON_CARDHEDGER_SET_PHRASES: Record<
     // Existing Tokenable alias — keep for compatibility, not primary search.
     aliasPhrases: ['Scarlet Violet 151'],
   },
+  // V2.3 evidence (staging card-details + set-search): do not search raw "M2".
+  M2: {
+    setCode: 'M2',
+    primaryPhrase: 'Pokemon Japanese Inferno X',
+  },
+  M2A: {
+    setCode: 'M2a',
+    primaryPhrase: 'Pokemon Japanese Mega Dream EX',
+  },
 };
 
 function setCodeKey(raw: string | null | undefined): string {
@@ -45,7 +54,7 @@ export function lookupPokemonCardhedgerSetPhrase(
 
 /**
  * Primary Cardhedger search phrase for a set code, or null when unknown.
- * Unknown codes (SV1S, SV1V, SV-P, …) return null — do not invent.
+ * Unknown codes (SV1S, SV1V, SV-P, SVP, …) return null — do not invent.
  */
 export function pokemonCardhedgerPrimarySetPhrase(
   setCode: string | null | undefined,

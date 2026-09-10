@@ -27,6 +27,22 @@ describe('pokemon-set-code.catalog', () => {
     expect(e?.series).toBeUndefined();
     expect(e?.setName).toBeUndefined();
   });
+
+  it('maps M2 / M2a canonical display names (not Cardhedger phrases)', () => {
+    expect(lookupPokemonSetCodeCatalog('M2')).toMatchObject({
+      setCode: 'M2',
+      setName: 'Inferno X',
+      setKind: 'expansion',
+      market: 'JP',
+    });
+    expect(lookupPokemonSetCodeCatalog('M2a')).toMatchObject({
+      setCode: 'M2a',
+      setName: 'Mega Dream EX',
+    });
+    expect(lookupPokemonSetCodeCatalog('M2')?.setName).not.toBe(
+      'Pokemon Japanese Inferno X',
+    );
+  });
 });
 
 describe('normalizePokemonMetadata', () => {
@@ -191,5 +207,14 @@ describe('extractPokemonSetCodeFromBrand', () => {
     expect(
       extractPokemonSetCodeFromBrand('POKEMON JAPANESE SV2a-POKEMON CARD 151'),
     ).toBe('SV2a');
+  });
+
+  it('extracts M2 / M2a from hyphenated Brand', () => {
+    expect(
+      extractPokemonSetCodeFromBrand('POKEMON JAPANESE M2-INFERNO X'),
+    ).toBe('M2');
+    expect(
+      extractPokemonSetCodeFromBrand('POKEMON JAPANESE M2a-MEGA DREAM EX'),
+    ).toBe('M2a');
   });
 });

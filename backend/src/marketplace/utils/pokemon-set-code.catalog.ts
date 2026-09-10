@@ -50,6 +50,19 @@ const POKEMON_SET_CODE_CATALOG: Record<string, PokemonSetCodeCatalogEntry> = {
     setKind: 'promo',
     market: 'EN',
   },
+  // JP Mega Evolution expansions — canonical display names from PSA Brand labels.
+  M2: {
+    setCode: 'M2',
+    setName: 'Inferno X',
+    setKind: 'expansion',
+    market: 'JP',
+  },
+  M2A: {
+    setCode: 'M2a',
+    setName: 'Mega Dream EX',
+    setKind: 'expansion',
+    market: 'JP',
+  },
 };
 
 /** Normalize a raw code token for catalog lookup (`sv2a` → `SV2A`, `sv-p` → `SV-P`). */
