@@ -132,6 +132,10 @@ export function buildGradedCardMetadata(
       ...(l.status === "success" && { certNumber: l.certNumber }),
       ...(l.status === "error" && { message: l.message }),
     };
+    const pokemon = lastAnalyze.normalized?.pokemon;
+    if (pokemon && pokemon.game === "pokemon") {
+      metadata.normalized = { pokemon };
+    }
   }
 
   return metadata;

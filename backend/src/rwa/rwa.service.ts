@@ -21,6 +21,7 @@ import {
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
 import { collectionKeyFromGradedMetadata } from '../marketplace/utils/bucket-key.util';
+import { attachPokemonNormalizedToGraded } from '../marketplace/utils/pokemon-metadata-normalize.util';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
 import { readRwaMintPlaceholderPng } from './rwa-mint-placeholder.util';
 import {
@@ -261,6 +262,9 @@ export class RwaService {
         metadata.properties.graded = {
           ...parsedGraded.graded,
         };
+        attachPokemonNormalizedToGraded(
+          metadata.properties.graded as Record<string, unknown>,
+        );
       }
       if (parsedGraded.attributes?.length) {
         metadata.attributes = [

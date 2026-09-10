@@ -34,6 +34,7 @@
 - [Privy Wallet Funding](guides/privy-wallet-funding.md)
 - [Performance Instrumentation](guides/performance-instrumentation.md)
 - [Cardhedger PSA Variety](guides/cardhedger-psa-variety.md)
+- [Pokémon Metadata Normalization (V1)](guides/pokemon-metadata-normalization.md)
 - [Analytics](guides/analytics.md)
 - [Networking](guides/networking.md)
 - [Troubleshooting](guides/troubleshooting.md)

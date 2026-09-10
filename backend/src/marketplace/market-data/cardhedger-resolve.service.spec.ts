@@ -18,6 +18,7 @@ function serviceWithMocks(
   cardMatchFirst: boolean,
   metrics?: CardhedgerMetricsService,
   getCardRowByCert: jest.Mock = jest.fn().mockResolvedValue({ row: null }),
+  pokemonNormalizedShadow = false,
 ): CardhedgerResolveService {
   const cardhedger = {
     assertConfigured: () => undefined,
@@ -34,6 +35,7 @@ function serviceWithMocks(
           cardMatchFirst,
           mintPreviewSkipComps: false,
           certPricePilotCompare: false,
+          pokemonNormalizedShadow,
         };
       }
       if (key === 'marketplace.cardhedgerResolveMatchFirstPilotLog') {
@@ -264,6 +266,7 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
             cardMatchFirst: false,
             mintPreviewSkipComps: false,
             certPricePilotCompare: false,
+            pokemonNormalizedShadow: false,
           };
         }
         if (key === 'marketplace.cardhedgerResolveMatchFirstPilotLog') {
@@ -448,6 +451,144 @@ describe('CardhedgerResolveService — PSA Variety vs Cardhedger catalog variant
     );
 
     expect(result.row).toBeNull();
+  });
+
+  it('shadow mode logs comparison but keeps production Reverse Foil pick', async () => {
+    const Logger = require('@nestjs/common').Logger as typeof import('@nestjs/common').Logger;
+    const loggerLog = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') return gengarSearchBody;
+      return {};
+    });
+    const svc = serviceWithMocks(
+      forwardJson,
+      false,
+      {
+        recordResolvePath: jest.fn(),
+        recordResolvePath2Pilot: jest.fn(),
+      } as unknown as CardhedgerMetricsService,
+      jest.fn().mockResolvedValue({ row: null }),
+      true,
+    );
+
+    const col = gengarCol({
+      psaVariety: 'REVERSE HOLO',
+      marketParallelKey: 'reverse_holo',
+    });
+    (col.components as Record<string, unknown>).normalizedPokemon = {
+      game: 'pokemon',
+      language: 'JP',
+      setCode: 'SV2a',
+      setName: 'Pokémon Card 151',
+      cardName: 'Gengar',
+      cardNumber: '094',
+      variant: 'Reverse Holo',
+      setKind: 'expansion',
+    };
+
+    const result = await svc.resolveCardForCollection(col);
+
+    expect(result.row?.card_id).toBe('1694044201512x180824829158223720');
+    expect(result.row?.variant).toBe('Reverse Foil');
+
+    const shadowLogs = loggerLog.mock.calls
+      .map((c) => String(c[0] ?? ''))
+      .filter((s) => s.includes('cardhedger_pokemon_normalized_shadow'));
+    expect(shadowLogs.length).toBeGreaterThanOrEqual(1);
+    const payload = JSON.parse(shadowLogs[shadowLogs.length - 1]!) as {
+      outcome: string;
+      legacy: { cardId: string; verified: boolean };
+      shadow: { cardId: string; verified: boolean };
+      normalized: { setPhrase: string; variantPhrase: string };
+    };
+    expect(payload.legacy.cardId).toBe('1694044201512x180824829158223720');
+    expect(payload.shadow.cardId).toBe('1694044201512x180824829158223720');
+    expect(payload.outcome).toBe('same');
+    expect(payload.normalized.setPhrase).toBe('Pokemon Japanese 151');
+    expect(payload.normalized.variantPhrase).toBe('Reverse Foil');
+    expect(JSON.stringify(payload)).not.toMatch(/"cert"/);
+
+    loggerLog.mockRestore();
+  });
+
+  it('conflict outcome still returns legacy production id only', async () => {
+    const Logger = require('@nestjs/common').Logger as typeof import('@nestjs/common').Logger;
+    const loggerLog = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    // Legacy search returns Reverse Foil; shadow queries return only Master Ball
+    // so shadow verification fails variety for REVERSE HOLO → legacy_only,
+    // then a second scenario: force conflict by returning different verified rows.
+    const reverseOnly = {
+      cards: [gengarSearchBody.cards[1]],
+    };
+    const masterAsGengarWrong = {
+      cards: [
+        {
+          ...gengarSearchBody.cards[1],
+          card_id: 'shadow-conflict-id',
+          description: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
+          variant: 'Reverse Foil',
+        },
+      ],
+    };
+
+    let searchCalls = 0;
+    const forwardJson = jest.fn(async (_method, path) => {
+      if (path === '/v1/cards/card-search') {
+        searchCalls += 1;
+        // First call(s) = production resolve; later = shadow
+        if (searchCalls <= 4) return reverseOnly;
+        return masterAsGengarWrong;
+      }
+      return {};
+    });
+
+    const recordPokemonNormalizedShadow = jest.fn();
+    const svc = serviceWithMocks(
+      forwardJson,
+      false,
+      {
+        recordResolvePath: jest.fn(),
+        recordResolvePath2Pilot: jest.fn(),
+        recordPokemonNormalizedShadow,
+      } as unknown as CardhedgerMetricsService,
+      jest.fn().mockResolvedValue({ row: null }),
+      true,
+    );
+
+    const col = gengarCol({
+      psaVariety: 'REVERSE HOLO',
+      marketParallelKey: 'reverse_holo',
+    });
+    (col.components as Record<string, unknown>).normalizedPokemon = {
+      game: 'pokemon',
+      setCode: 'SV2a',
+      cardName: 'Gengar',
+      cardNumber: '094',
+      setKind: 'expansion',
+    };
+
+    const result = await svc.resolveCardForCollection(col);
+    expect(result.row?.card_id).toBe('1694044201512x180824829158223720');
+
+    const shadowLogs = loggerLog.mock.calls
+      .map((c) => String(c[0] ?? ''))
+      .filter((s) => s.includes('cardhedger_pokemon_normalized_shadow'));
+    expect(shadowLogs.length).toBeGreaterThanOrEqual(1);
+    const payload = JSON.parse(shadowLogs[shadowLogs.length - 1]!);
+    // Production never switches even if shadow differs
+    expect(result.row?.card_id).not.toBe('shadow-conflict-id');
+    expect(recordPokemonNormalizedShadow).toHaveBeenCalled();
+    expect(['same', 'conflict', 'legacy_only', 'shadow_only']).toContain(
+      payload.outcome,
+    );
+
+    loggerLog.mockRestore();
   });
 });
 

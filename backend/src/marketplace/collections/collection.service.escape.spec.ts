@@ -104,4 +104,40 @@ describe('CollectionService.searchComponentsFromGradedMeta', () => {
     expect(out.gradingCompany).toBe('PSA');
     expect(out.cardNumber).toBe('199/165');
   });
+
+  it('mirrors normalized Pokémon projection when Brand encodes SV2a', () => {
+    const out = CollectionService.searchComponentsFromGradedMeta({
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          gradeScore: '10',
+          psa: {
+            cardNameHint: 'Gengar',
+            setHint: 'POKEMON JAPANESE SV2a-POKEMON CARD 151',
+            cardNumberHint: '094',
+            Variety: 'REVERSE HOLO',
+            category: 'Pokemon',
+          },
+          card: {
+            name: 'Gengar',
+            set: 'POKEMON JAPANESE SV2a-POKEMON CARD 151',
+            number: '094',
+          },
+        },
+      },
+    });
+    expect(out.psaBrand).toBe('POKEMON JAPANESE SV2a-POKEMON CARD 151');
+    expect(out.normalizedPokemon).toMatchObject({
+      game: 'pokemon',
+      language: 'JP',
+      setCode: 'SV2a',
+      setName: 'Pokémon Card 151',
+      series: 'Scarlet & Violet',
+      cardName: 'Gengar',
+      cardNumber: '094',
+      variant: 'Reverse Holo',
+      setKind: 'expansion',
+    });
+    expect(out.language).toBe('JP');
+  });
 });

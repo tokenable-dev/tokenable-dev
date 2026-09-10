@@ -53,12 +53,26 @@ import type { MarketplaceCollection } from '../entities/marketplace-collection.e
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
 import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
+import {
+  buildPokemonCardhedgerShadowTelemetry,
+  buildPokemonNormalizedCardhedgerQueries,
+  comparePokemonShadowOutcome,
+  pickPokemonNormalizedShadowCandidate,
+} from '../utils/pokemon-cardhedger-normalized-shadow.util';
+import {
+  normalizePokemonMetadata,
+  type PokemonNormalizedMetadata,
+} from '../utils/pokemon-metadata-normalize.util';
 
 /**
  * `POST /v1/cards/card-search` — slightly larger page so niche Brand/Subject lines still surface
  * a usable row after broader PSA-derived queries.
  */
 const CARDHEDGER_CARD_SEARCH_PAGE_SIZE = 35;
+
+/** Fail-fast budget for observation-only Pokémon shadow searches. */
+const POKEMON_NORMALIZED_SHADOW_TIMEOUT_MS = 8_000;
+const POKEMON_NORMALIZED_SHADOW_MAX_RETRIES = 0;
 
 /**
  * Return type of resolveCardForCollection — shared with CardhedgerMarketDataService
@@ -1180,11 +1194,32 @@ export class CardhedgerResolveService {
         cacheKey,
       );
       if (cached) {
+        // Shadow is observational: still compare on cache hits so staging
+        // traffic is counted even when production resolve is cached.
+        if (this.cardhedgerFeatureFlags().pokemonNormalizedShadow) {
+          try {
+            await this.runPokemonNormalizedShadow(col, cached.result);
+          } catch (e) {
+            this.logger.debug(
+              `pokemon normalized shadow skipped: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          }
+        }
         return cached.result;
       }
     }
 
     const result = await this.resolveCardForCollectionUncached(col);
+
+    if (this.cardhedgerFeatureFlags().pokemonNormalizedShadow) {
+      try {
+        await this.runPokemonNormalizedShadow(col, result);
+      } catch (e) {
+        this.logger.debug(
+          `pokemon normalized shadow skipped: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
 
     if (cacheKey) {
       this.ttlCache.set(
@@ -1613,5 +1648,160 @@ export class CardhedgerResolveService {
       );
       return null;
     }
+  }
+
+  /**
+   * Observation-only: compare legacy production resolve vs normalized Pokémon queries.
+   * Never writes cardhedgerCardId or mutates `production`.
+   */
+  private async runPokemonNormalizedShadow(
+    col: MarketplaceCollection | null,
+    production: ResolvedCard,
+  ): Promise<void> {
+    const q = this.buildCollectionQuery(col);
+    const collectionKey = String(col?.collectionKey ?? '').toLowerCase();
+    const pokemon = this.readNormalizedPokemonFromCollection(col);
+
+    const plan = buildPokemonNormalizedCardhedgerQueries({
+      pokemon,
+      psaVariety: q.psaVariety,
+    });
+
+    const legacyId =
+      typeof production.row?.card_id === 'string'
+        ? production.row.card_id.trim()
+        : null;
+    const legacyVerified =
+      production.confidence === 'verified' && Boolean(legacyId);
+    const legacyRow =
+      production.row && typeof production.row === 'object'
+        ? (production.row as Record<string, unknown>)
+        : null;
+
+    const emit = (input: {
+      outcome: Parameters<
+        typeof buildPokemonCardhedgerShadowTelemetry
+      >[0]['outcome'];
+      shadowId: string | null;
+      shadowVerified: boolean;
+      shadowQuery: string | null;
+      shadowRow?: Record<string, unknown> | null;
+    }) => {
+      this.metrics?.recordPokemonNormalizedShadow?.(input.outcome);
+      const telemetry = buildPokemonCardhedgerShadowTelemetry({
+        collectionKey,
+        pokemon,
+        year: q.psaYear,
+        psaVariety: q.psaVariety,
+        plan,
+        legacy: {
+          cardId: legacyId,
+          query: production.query || q.query || null,
+          verified: legacyVerified,
+          confidence: production.confidence ?? null,
+          row: legacyRow,
+        },
+        shadow: {
+          cardId: input.shadowId,
+          query: input.shadowQuery,
+          verified: input.shadowVerified,
+          confidence: input.shadowVerified ? 'verified' : null,
+          row: input.shadowRow ?? null,
+        },
+        outcome: input.outcome,
+      });
+      this.logger.log(JSON.stringify(telemetry));
+    };
+
+    if (plan.skipReason || plan.queries.length === 0 || !plan.setPhrase) {
+      emit({
+        outcome: 'skipped',
+        shadowId: null,
+        shadowVerified: false,
+        shadowQuery: null,
+      });
+      return;
+    }
+
+    const pages: Array<{
+      query: string;
+      cards: Array<Record<string, unknown>>;
+    }> = [];
+    for (const searchQuery of plan.queries) {
+      try {
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-search',
+          {
+            body: {
+              search: searchQuery,
+              page: 1,
+              page_size: CARDHEDGER_CARD_SEARCH_PAGE_SIZE,
+            },
+            timeoutMs: POKEMON_NORMALIZED_SHADOW_TIMEOUT_MS,
+            maxRetries: POKEMON_NORMALIZED_SHADOW_MAX_RETRIES,
+          },
+        );
+        const cards = this.parseCardRows(body) as Array<
+          Record<string, unknown>
+        >;
+        pages.push({ query: searchQuery, cards });
+      } catch (e) {
+        this.logger.debug(
+          `pokemon shadow card-search failed key=${collectionKey} q=${searchQuery}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    const shadow = pickPokemonNormalizedShadowCandidate(pages, {
+      cardName: String(pokemon?.cardName ?? q.cardName),
+      cardNumber: String(pokemon?.cardNumber ?? q.cardNumber),
+      setPhrase: plan.setPhrase,
+      psaVariety: q.psaVariety,
+    });
+
+    const shadowId = shadow?.cardId ?? null;
+    const shadowVerified = Boolean(shadow?.verified && shadowId);
+    const shadowRow =
+      shadow && pages.length > 0
+        ? pages
+            .flatMap((p) => p.cards)
+            .find((r) => String(r.card_id ?? '').trim() === shadowId) ?? null
+        : null;
+
+    const outcome = comparePokemonShadowOutcome({
+      legacyId,
+      legacyVerified,
+      shadowId,
+      shadowVerified,
+    });
+
+    emit({
+      outcome,
+      shadowId,
+      shadowVerified,
+      shadowQuery: shadow?.query ?? plan.queries[0] ?? null,
+      shadowRow,
+    });
+  }
+
+  private readNormalizedPokemonFromCollection(
+    col: MarketplaceCollection | null,
+  ): PokemonNormalizedMetadata | null {
+    const raw = col?.components?.normalizedPokemon;
+    if (raw && typeof raw === 'object') {
+      const np = raw as Record<string, unknown>;
+      if (np.game === 'pokemon') return np as PokemonNormalizedMetadata;
+    }
+    // Pre-V1 inventory: derive observation-only (never persisted here).
+    const q = this.buildCollectionQuery(col);
+    return normalizePokemonMetadata({
+      brand: q.psaBrand,
+      setHint: q.cardSet || q.psaBrand,
+      cardName: q.cardName,
+      cardNumber: q.cardNumber,
+      variety: q.psaVariety,
+      subject: q.psaSubject,
+    });
   }
 }

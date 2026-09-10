@@ -83,7 +83,9 @@ MoonPay / Add funds: frontend Dockerfile + `deploy.yml` bake `NEXT_PUBLIC_PRIVY_
 git clone https://github.com/<org>/tokenable-dev.git /home/ubuntu/app
 ```
 
-Create `/home/ubuntu/.env.production.backend` with all backend secrets:
+Create `/home/ubuntu/.env.production.backend` with all backend secrets.
+
+**Pokémon Cardhedger shadow (staging only):** on **Dev EC2** you may set `CARDHEDGER_POKEMON_NORMALIZED_SHADOW=1` for observation-only normalized matching telemetry. Leave it unset or `0` on **Prod EC2** (`main`). Never enable it as a production cutover switch — legacy resolve remains the returned identity until a separate human-reviewed cutover.
 
 ```env
 # Privy (required)

@@ -152,6 +152,10 @@ PSA_PUBLIC_API_TOKENS=token1,token2
 
 # Cardhedger
 CARDHEDGER_API_KEY=your_cardhedger_key
+# Pokémon normalized matcher — observation only (default off).
+# Staging (Dev EC2): may be CARDHEDGER_POKEMON_NORMALIZED_SHADOW=1
+# Production: must remain disabled / unset / 0
+# CARDHEDGER_POKEMON_NORMALIZED_SHADOW=0
 
 # Admin console
 MARKETPLACE_ADMIN_USERNAME=skyand

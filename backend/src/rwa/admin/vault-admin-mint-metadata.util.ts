@@ -4,6 +4,7 @@ import {
   resolveCardhedgerMintImageUrl,
   resolveRemoteMintImageUrl,
 } from '../rwa-mint-image.util';
+import { attachPokemonNormalizedToGraded } from '../../marketplace/utils/pokemon-metadata-normalize.util';
 
 function cardhedgerMetaWithoutCatalogImage(
   mint: PsaAnalyzeResult['cardhedgerMint'],
@@ -57,50 +58,58 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
     params.analyze.cardhedgerMint,
   );
 
-  const gradedMetadata = JSON.stringify({
-    graded: {
-      gradingCompany: 'PSA',
+  const graded: Record<string, unknown> = {
+    gradingCompany: 'PSA',
+    gradeScore,
+    gradeLabel,
+    gradeDescription,
+    psa: {
+      certNumber: psa.certNumber?.trim() || cert,
       gradeScore,
       gradeLabel,
       gradeDescription,
-      psa: {
-        certNumber: psa.certNumber?.trim() || cert,
-        gradeScore,
-        gradeLabel,
-        gradeDescription,
-        cardNameHint: psa.cardNameHint?.trim() || null,
-        year: psa.year?.trim() || null,
-        setHint: psa.setHint?.trim() || null,
-        cardNumberHint: psa.cardNumberHint?.trim() || null,
-        category: psa.category?.trim() || null,
-        labelType: psa.labelType?.trim() || null,
-        totalPopulation: psa.totalPopulation ?? null,
-        populationHigher: psa.populationHigher ?? null,
-        autographGrade: psa.autographGrade?.trim() || null,
-        certVerifyUrl:
-          psa.certVerifyUrl?.trim() ||
-          `https://www.psacard.com/cert/${cert}`,
-        ...(psaSlabUrl ? { certImageSourceUrl: psaSlabUrl } : {}),
-        ...(params.analyze.psaCertImages?.back?.trim()
-          ? { certImageBackUrl: params.analyze.psaCertImages.back.trim() }
-          : {}),
-        ...(psa.varietyHint?.trim()
-          ? { Variety: psa.varietyHint.trim() }
-          : {}),
-      },
-      card: {
-        name: psa.cardNameHint?.trim() || name,
-        year: psa.year?.trim() || null,
-        set: psa.setHint?.trim() || null,
-        number: psa.cardNumberHint?.trim() || null,
-      },
-      verification: {
-        certUrl:
-          psa.certVerifyUrl?.trim() ||
-          `https://www.psacard.com/cert/${cert}`,
-      },
-      ...(cardhedger ? { cardhedger } : {}),
+      cardNameHint: psa.cardNameHint?.trim() || null,
+      year: psa.year?.trim() || null,
+      setHint: psa.setHint?.trim() || null,
+      cardNumberHint: psa.cardNumberHint?.trim() || null,
+      category: psa.category?.trim() || null,
+      labelType: psa.labelType?.trim() || null,
+      totalPopulation: psa.totalPopulation ?? null,
+      populationHigher: psa.populationHigher ?? null,
+      autographGrade: psa.autographGrade?.trim() || null,
+      certVerifyUrl:
+        psa.certVerifyUrl?.trim() ||
+        `https://www.psacard.com/cert/${cert}`,
+      ...(psaSlabUrl ? { certImageSourceUrl: psaSlabUrl } : {}),
+      ...(params.analyze.psaCertImages?.back?.trim()
+        ? { certImageBackUrl: params.analyze.psaCertImages.back.trim() }
+        : {}),
+      ...(psa.varietyHint?.trim()
+        ? { Variety: psa.varietyHint.trim() }
+        : {}),
     },
+    card: {
+      name: psa.cardNameHint?.trim() || name,
+      year: psa.year?.trim() || null,
+      set: psa.setHint?.trim() || null,
+      number: psa.cardNumberHint?.trim() || null,
+    },
+    verification: {
+      certUrl:
+        psa.certVerifyUrl?.trim() ||
+        `https://www.psacard.com/cert/${cert}`,
+    },
+    ...(cardhedger ? { cardhedger } : {}),
+  };
+
+  if (params.analyze.normalized?.pokemon) {
+    graded.normalized = { pokemon: params.analyze.normalized.pokemon };
+  } else {
+    attachPokemonNormalizedToGraded(graded);
+  }
+
+  const gradedMetadata = JSON.stringify({
+    graded,
     attributes: [
       { trait_type: 'Grading Company', value: 'PSA' },
       ...(gradeScore != null

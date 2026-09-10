@@ -66,6 +66,21 @@ export interface PsaAnalyzeResult {
   };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };
+  /** Pokémon V1 normalized projection — copied into `graded.normalized.pokemon` at mint. */
+  normalized?: {
+    pokemon?: {
+      game: "pokemon";
+      language?: string;
+      series?: string;
+      setName?: string;
+      setCode?: string;
+      cardName?: string;
+      cardNumber?: string;
+      variant?: string;
+      rarity?: string;
+      setKind?: "expansion" | "promo" | "unknown";
+    } | null;
+  };
 }
 
 /** 슬랩 앞면 필수 — OCR 후 PSA 공식 메타 병합 */

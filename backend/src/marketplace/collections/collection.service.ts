@@ -34,6 +34,11 @@ import {
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
+  applyPokemonNormalizedToComponents,
+  extractPokemonNormalizedFromMeta,
+  normalizePokemonMetadataFromGraded,
+} from '../utils/pokemon-metadata-normalize.util';
+import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
 } from '../utils/collection-label.util';
@@ -479,6 +484,14 @@ export class CollectionService {
     );
     compRecord.marketParallelKey = parallelKey;
 
+    let pokemonNorm = extractPokemonNormalizedFromMeta(coverMeta);
+    if (!pokemonNorm && gradedSrc && typeof gradedSrc === 'object') {
+      pokemonNorm = normalizePokemonMetadataFromGraded(
+        gradedSrc as Record<string, unknown>,
+      );
+    }
+    applyPokemonNormalizedToComponents(compRecord, pokemonNorm);
+
     const insertResult = await this.collectionRepo
       .createQueryBuilder()
       .insert()
@@ -520,6 +533,10 @@ export class CollectionService {
       await this.components.mergePsaSpecIdFromCertIfMissing(
         collectionKey,
         psaCert,
+        meta,
+      );
+      await this.components.mergeNormalizedPokemonFromMetaIfMissing(
+        collectionKey,
         meta,
       );
       await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, meta);
@@ -956,6 +973,12 @@ export class CollectionService {
     }
     const listing = extractListingDisplayTitleFromMeta(meta);
     if (listing) out.listingDisplayTitle = listing;
+    const pokemon =
+      extractPokemonNormalizedFromMeta(meta) ??
+      (graded
+        ? normalizePokemonMetadataFromGraded(graded as Record<string, unknown>)
+        : null);
+    applyPokemonNormalizedToComponents(out, pokemon);
     return out;
   }
 

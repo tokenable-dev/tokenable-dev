@@ -25,6 +25,11 @@ import {
 } from '../utils/collection-row.util';
 import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
+  applyPokemonNormalizedToComponents,
+  extractPokemonNormalizedFromMeta,
+  normalizePokemonMetadataFromGraded,
+} from '../utils/pokemon-metadata-normalize.util';
+import {
   cardIdFromPsaCertLookup,
   catalogRowTrustedForMarketData,
 } from '../utils/card-match.util';
@@ -966,6 +971,41 @@ export class CollectionComponentsService {
           ...comp,
           listingDisplayTitle: t,
         } as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Duplicate-key race: mirror `graded.normalized.pokemon` when missing.
+   * Fills `language` / `rarity` only when those component fields are empty.
+   */
+  async mergeNormalizedPokemonFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!dbRow) return;
+    const comp = { ...(dbRow.components as Record<string, unknown>) };
+    const existing = comp.normalizedPokemon;
+    if (existing && typeof existing === 'object') return;
+
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
+    const pokemon =
+      extractPokemonNormalizedFromMeta(meta) ??
+      (graded ? normalizePokemonMetadataFromGraded(graded) : null);
+    if (!pokemon) return;
+
+    applyPokemonNormalizedToComponents(comp, pokemon);
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
   }

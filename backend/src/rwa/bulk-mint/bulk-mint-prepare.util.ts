@@ -2,6 +2,7 @@ import type { MintImageSource } from '../rwa-mint-image.util';
 import type { PsaCertRecord } from '../../psa/psa-public-api.service';
 import { parseGradeFromPsaCertRecord } from '../../psa/psa-public-api.service';
 import type { RwaMetadata } from '../interfaces/rwa-metadata.interface';
+import { attachPokemonNormalizedToGraded } from '../../marketplace/utils/pokemon-metadata-normalize.util';
 
 /**
  * Build OpenSea-style graded metadata + display name from a PSA GetByCertNumber body.
@@ -61,6 +62,7 @@ export function buildBulkMintMetadataFromPsaCert(params: {
       setHint: brand || null,
       cardNumberHint: cardNumber || null,
       variety: variety || null,
+      ...(variety ? { Variety: variety } : {}),
       category: String(psaCert.Category ?? '').trim() || null,
       labelType: String(psaCert.LabelType ?? '').trim() || null,
       totalPopulation:
@@ -91,6 +93,8 @@ export function buildBulkMintMetadataFromPsaCert(params: {
       number: cardNumber || null,
     },
   };
+
+  attachPokemonNormalizedToGraded(graded as Record<string, unknown>);
 
   const metadata: RwaMetadata = {
     name,

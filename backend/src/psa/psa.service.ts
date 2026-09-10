@@ -20,6 +20,10 @@ import {
   primaryCardNumber,
 } from '../marketplace/utils/card-match.util';
 import { normalizeImageUrl } from '../marketplace/utils/collection-image.util';
+import {
+  normalizePokemonMetadata,
+  type PokemonNormalizedMetadata,
+} from '../marketplace/utils/pokemon-metadata-normalize.util';
 import { resolveCardhedgerMintImageUrl } from '../rwa/rwa-mint-image.util';
 import {
   psaCertVerifyUrl,
@@ -135,6 +139,13 @@ export interface PsaAnalyzeResult {
   };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
+  /**
+   * Additive Pokémon V1 projection — copied into `graded.normalized.pokemon` at mint.
+   * Does not alter Cardhedger matching inputs.
+   */
+  normalized?: {
+    pokemon?: PokemonNormalizedMetadata | null;
+  };
 }
 
 /**
@@ -1652,6 +1663,18 @@ export class PsaService {
       ...(cardhedgerMint != null ? { cardhedgerMint } : {}),
       ...(psaCertImages ? { psaCertImages } : {}),
     };
+
+    const pokemonNormalized = normalizePokemonMetadata({
+      brand: psaParsed.setHint,
+      setHint: psaParsed.setHint,
+      category: psaParsed.category,
+      subject: psaParsed.cardNameHint,
+      cardNumber: psaParsed.cardNumberHint,
+      variety: psaParsed.varietyHint,
+    });
+    if (pokemonNormalized) {
+      result.normalized = { pokemon: pokemonNormalized };
+    }
 
     return result;
   }

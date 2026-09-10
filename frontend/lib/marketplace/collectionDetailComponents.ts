@@ -75,6 +75,23 @@ export interface CollectionComponents {
   trendingSlabImageUrl?: string | null;
   /** PSA cert number hint — present when at least one listing in this bucket has a cert. */
   psaCertNumber?: string | null;
+
+  /**
+   * Mirror of `graded.normalized.pokemon` from IPFS mint metadata (Pokémon V1).
+   * Additive — does not replace `psaBrand` / `cardSet` / Cardhedger fields.
+   */
+  normalizedPokemon?: {
+    game: "pokemon";
+    language?: string;
+    series?: string;
+    setName?: string;
+    setCode?: string;
+    cardName?: string;
+    cardNumber?: string;
+    variant?: string;
+    rarity?: string;
+    setKind?: "expansion" | "promo" | "unknown";
+  } | null;
 }
 
 /**
@@ -193,6 +210,30 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const psaCertNumber = strOrNull(r.psaCertNumber);
   if (psaCertNumber !== undefined) out.psaCertNumber = psaCertNumber;
+
+  if (r.normalizedPokemon && typeof r.normalizedPokemon === "object") {
+    const np = r.normalizedPokemon as Record<string, unknown>;
+    if (np.game === "pokemon") {
+      out.normalizedPokemon = {
+        game: "pokemon",
+        ...(str(np.language) ? { language: str(np.language) } : {}),
+        ...(str(np.series) ? { series: str(np.series) } : {}),
+        ...(str(np.setName) ? { setName: str(np.setName) } : {}),
+        ...(str(np.setCode) ? { setCode: str(np.setCode) } : {}),
+        ...(str(np.cardName) ? { cardName: str(np.cardName) } : {}),
+        ...(str(np.cardNumber) ? { cardNumber: str(np.cardNumber) } : {}),
+        ...(str(np.variant) ? { variant: str(np.variant) } : {}),
+        ...(str(np.rarity) ? { rarity: str(np.rarity) } : {}),
+        ...(np.setKind === "expansion" ||
+        np.setKind === "promo" ||
+        np.setKind === "unknown"
+          ? { setKind: np.setKind }
+          : {}),
+      };
+    } else if (r.normalizedPokemon === null) {
+      out.normalizedPokemon = null;
+    }
+  }
 
   return out;
 }

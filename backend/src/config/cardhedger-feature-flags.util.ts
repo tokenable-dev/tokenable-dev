@@ -28,6 +28,11 @@ export interface CardhedgerFeatureFlags {
   dailyPriceDeltaImportEnabled: boolean;
   /** Opt-in: CSV daily-price-export (Elite/Enterprise only). */
   dailyPriceExportCsvEnabled: boolean;
+  /**
+   * Opt-in: Pokémon normalized Cardhedger matching shadow evaluation.
+   * Observation only — never changes production cardhedgerCardId.
+   */
+  pokemonNormalizedShadow: boolean;
 }
 
 function envTruthy(raw: string | undefined): boolean {
@@ -83,6 +88,9 @@ export function readCardhedgerFeatureFlags(
     ),
     dailyPriceExportCsvEnabled: envTruthy(
       env.CARDHEDGER_DAILY_EXPORT_CSV_ENABLED,
+    ),
+    pokemonNormalizedShadow: envTruthy(
+      env.CARDHEDGER_POKEMON_NORMALIZED_SHADOW,
     ),
   };
 }

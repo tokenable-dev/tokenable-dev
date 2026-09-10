@@ -187,6 +187,7 @@ export async function mintSellFlowCardByCert(input: {
         verification: meta.verification,
         psa: meta.psa,
         ...(meta.cardhedger ? { cardhedger: meta.cardhedger } : {}),
+        ...(meta.normalized ? { normalized: meta.normalized } : {}),
       },
       attributes: buildMintOpenSeaAttributes(form),
       external_url:

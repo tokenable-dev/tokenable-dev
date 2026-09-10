@@ -18,6 +18,7 @@ describe('readCardhedgerFeatureFlags', () => {
       priceSubscribeEnabled: false,
       dailyPriceDeltaImportEnabled: false,
       dailyPriceExportCsvEnabled: false,
+      pokemonNormalizedShadow: false,
     });
   });
 
@@ -33,6 +34,7 @@ describe('readCardhedgerFeatureFlags', () => {
         CARDHEDGER_CERT_PRICE_PILOT_COMPARE: '1',
         CARDHEDGER_PRICE_WEBHOOK_ENABLED: '1',
         CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED: 'true',
+        CARDHEDGER_POKEMON_NORMALIZED_SHADOW: '1',
       }),
     ).toEqual({
       fmvBatchEnabled: true,
@@ -46,6 +48,7 @@ describe('readCardhedgerFeatureFlags', () => {
       priceSubscribeEnabled: false,
       dailyPriceDeltaImportEnabled: true,
       dailyPriceExportCsvEnabled: false,
+      pokemonNormalizedShadow: true,
     });
   });
 

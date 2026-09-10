@@ -25,6 +25,15 @@ export type ResolvePath =
 
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
+/** Pokémon normalized Cardhedger shadow outcomes (observation-only). */
+export type PokemonNormalizedShadowMetricOutcome =
+  | 'same'
+  | 'both_fail'
+  | 'legacy_only'
+  | 'shadow_only'
+  | 'conflict'
+  | 'skipped';
+
 export type IdentityCacheLayer = 'l1' | 'l2';
 
 /** Result of a sampled cache-vs-DB drift check on {@link readOrResolve}. */
@@ -97,6 +106,8 @@ interface MetricsBucket {
     matchFirstOn: ResolvePath2PilotBucket;
     matchFirstOff: ResolvePath2PilotBucket;
   };
+  /** Observation-only Pokémon normalized shadow outcome counts. */
+  pokemonNormalizedShadow: Record<PokemonNormalizedShadowMetricOutcome, number>;
   /** Cumulative ms the circuit was in OPEN state within this window. */
   circuitOpenDurationMs: number;
   identityCacheHits: Record<IdentityCacheLayer, number>;
@@ -189,6 +200,8 @@ export interface CardhedgerMetricsSnapshot {
   /** Cumulative ms circuit was OPEN in the current window (includes ongoing open period). */
   circuitOpenDurationMs: number;
   upstream: CardhedgerUpstreamMetricsSnapshot;
+  /** Aggregation-friendly Pokémon shadow outcome counts (flag-gated callers only). */
+  pokemonNormalizedShadow: Record<PokemonNormalizedShadowMetricOutcome, number>;
   windowStartedAt: number;
 }
 
@@ -275,6 +288,16 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
     bucket.attempts++;
     if (input.success) bucket.success++;
     bucket.latencyMsTotal += Math.max(0, Math.floor(input.durationMs));
+  }
+
+  /**
+   * Observation-only Pokémon normalized vs legacy Cardhedger shadow outcome.
+   * Does not affect production cardhedgerCardId selection.
+   */
+  recordPokemonNormalizedShadow(
+    outcome: PokemonNormalizedShadowMetricOutcome,
+  ): void {
+    this.current.pokemonNormalizedShadow[outcome]++;
   }
 
   /**
@@ -539,6 +562,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       batchReductionRatioAvg,
       circuitOpenDurationMs,
       upstream: this.buildUpstreamSnapshot(b),
+      pokemonNormalizedShadow: { ...b.pokemonNormalizedShadow },
       windowStartedAt: b.startedAt,
     };
   }
@@ -573,11 +597,15 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
 
   private flush(): void {
     const snap = this.getSnapshot();
+    const shadowTotal = (
+      Object.values(snap.pokemonNormalizedShadow) as number[]
+    ).reduce((s, v) => s + v, 0);
     const idle =
       snap.resolveTotal === 0 &&
       snap.batchReductionCount === 0 &&
       snap.circuitOpenDurationMs === 0 &&
-      snap.upstream.total === 0;
+      snap.upstream.total === 0 &&
+      shadowTotal === 0;
 
     this.current = this.freshBucket();
     this.circuitOpenSince =
@@ -607,6 +635,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
           snap.batchReductionRatioAvg != null
             ? Number(snap.batchReductionRatioAvg.toFixed(2))
             : null,
+        pokemonNormalizedShadow: snap.pokemonNormalizedShadow,
         upstreamTotal: snap.upstream.total,
         upstreamSuccess: snap.upstream.success,
         upstreamErrors: snap.upstream.errors,
@@ -717,6 +746,20 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private freshPokemonNormalizedShadow(): Record<
+    PokemonNormalizedShadowMetricOutcome,
+    number
+  > {
+    return {
+      same: 0,
+      both_fail: 0,
+      legacy_only: 0,
+      shadow_only: 0,
+      conflict: 0,
+      skipped: 0,
+    };
+  }
+
   private freshBucket(): MetricsBucket {
     return {
       startedAt: Date.now(),
@@ -736,6 +779,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       batchReducedTotal: 0,
       batchReductionCount: 0,
       resolvePath2Pilot: this.freshResolvePath2Pilot(),
+      pokemonNormalizedShadow: this.freshPokemonNormalizedShadow(),
       circuitOpenDurationMs: 0,
       identityCacheHits: { l1: 0, l2: 0 },
       identityCacheMisses: { l1: 0, l2: 0 },

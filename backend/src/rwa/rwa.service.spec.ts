@@ -151,6 +151,62 @@ describe('RwaService.uploadToIpfs', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(pinata.fetchImageBufferFromUrl).not.toHaveBeenCalled();
   });
+
+  it('attaches graded.normalized.pokemon on IPFS upload for JP 151 / SV2a', async () => {
+    pinata.fetchImageBufferFromUrl.mockResolvedValue({
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      mimeType: 'image/jpeg',
+      extension: 'jpg',
+    });
+    const brand = 'POKEMON JAPANESE SV2a-POKEMON CARD 151';
+    const pokemonGraded = JSON.stringify({
+      graded: {
+        gradingCompany: 'PSA',
+        grade: { score: 10 },
+        card: { name: 'Gengar', set: brand, number: '094' },
+        psa: {
+          certNumber: '84089328',
+          setHint: brand,
+          cardNameHint: 'Gengar',
+          cardNumberHint: '094',
+          Variety: 'REVERSE HOLO',
+          category: 'Pokemon',
+        },
+        cardhedger: { cardId: 'ch-legacy-keep' },
+      },
+    });
+
+    const result = await service.uploadToIpfs(
+      {
+        name: 'Gengar',
+        description: 'Test',
+        imageUrl: 'https://psa.example/front.jpg',
+        gradedMetadata: pokemonGraded,
+      },
+      84532,
+    );
+
+    const graded = result.metadata.properties?.graded as Record<string, unknown>;
+    expect(graded.normalized).toEqual({
+      pokemon: {
+        game: 'pokemon',
+        language: 'JP',
+        series: 'Scarlet & Violet',
+        setName: 'Pokémon Card 151',
+        setCode: 'SV2a',
+        cardName: 'Gengar',
+        cardNumber: '094',
+        variant: 'Reverse Holo',
+        setKind: 'expansion',
+      },
+    });
+    expect((graded.card as { set: string }).set).toBe(brand);
+    expect((graded.psa as { setHint: string }).setHint).toBe(brand);
+    expect((graded.psa as { Variety: string }).Variety).toBe('REVERSE HOLO');
+    expect((graded.cardhedger as { cardId: string }).cardId).toBe(
+      'ch-legacy-keep',
+    );
+  });
 });
 
 describe('RwaService.checkCertAvailability', () => {
