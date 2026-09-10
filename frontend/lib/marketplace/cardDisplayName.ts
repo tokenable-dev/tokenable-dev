@@ -4,7 +4,10 @@
  */
 
 import { displayEditionLanguage } from "@/lib/marketplace/collectionEditionLanguage";
-import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
+import {
+  formatHeadlineCardNumber,
+  splitTcgCollectorNumber,
+} from "@/lib/marketplace/collectionFullDetailsTitle";
 
 export const CARD_DISPLAY_GRADE_RAW = "Raw";
 
@@ -41,6 +44,8 @@ export type FormatCardDisplayNameOptions = {
   mode?: CardDisplayNameMode;
   /** Drop set segment on Line 2 (rare; default keeps full `{Year} · {Set} {Lang} · {Variant}`). */
   omitSetOnLine2?: boolean;
+  /** Breadcrumb set node (cleaned) — when present, Line 2 drops matching set. */
+  breadcrumbSetName?: string | null;
   /** Asset detail hero: Line 1 is `{Name} · {Number}` — grade lives below the title. */
   omitGrade?: boolean;
 };
@@ -57,12 +62,12 @@ export function joinCardDisplaySegments(
 
 /**
  * Normalize a grade label for Line 1.
- * Tokenable never shows `Raw` — empty/unknown omits the grade segment instead.
- * Catalog surfaces that previously relied on a Raw placeholder now omit grade.
+ * Spec: grade slot is never empty — unknown / empty / explicit `Raw` → `Raw`.
+ * Certificate of Ownership and similar surfaces pass `omitGrade` to hide the slot.
  */
 export function resolveCardDisplayGrade(raw: string | null | undefined): string {
   const t = (raw ?? "").trim();
-  if (!t || isCardDisplayRawGrade(t)) return "";
+  if (!t || isCardDisplayRawGrade(t)) return CARD_DISPLAY_GRADE_RAW;
   return t;
 }
 
@@ -74,6 +79,24 @@ export function stripTrailingRawGradeLabel(raw: string | null | undefined): stri
     .replace(/\s*[·•]\s*Raw\s*$/i, "")
     .replace(/\s+Raw\s*$/i, "")
     .trim();
+}
+
+/** Details KV — Card.html uses full names (`English`), not short codes. */
+export function formatCardDisplayLanguageLong(
+  raw: string | null | undefined,
+): string | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  const short = formatCardDisplayLanguageShort(t);
+  if (short === "EN") return "English";
+  if (short === "JP") return "Japanese";
+  if (short === "KR") return "Korean";
+  if (short === "CN") return "Chinese";
+  const normalized = displayEditionLanguage(t);
+  if (normalized && /^(English|Japanese|Korean|Chinese)\b/.test(normalized)) {
+    return normalized.split(" · ")[0] ?? normalized;
+  }
+  return normalized || t;
 }
 
 /** Long or raw catalog tokens → short codes (`EN`, `JP`, …). Unknown → null. */
@@ -120,21 +143,138 @@ export function stripCategoryPrefixFromSet(
   return set;
 }
 
-function stripLeadingYearToken(raw: string): string {
-  return raw
-    .replace(/^\d{4}\s*·\s*/, "")
-    .replace(/^\d{4}\s+/, "")
+
+
+const BREADCRUMB_SET_LANGUAGE_TOKEN =
+  /^(japanese|english|korean|chinese|jp|ja|en|eng|kr|ko|cn|zh)$/i;
+
+/** PSA Brand noise: `SV2a-POKEMON CARD 151` → keep expansion (`151`). */
+const BREADCRUMB_SET_NOISE_TOKEN = /^cards?$/i;
+
+/**
+ * Breadcrumb-only set-name cleaning: drop category / franchise / language /
+ * catalog set codes / PSA "Card" noise so the set-name segment is expansion only.
+ */
+function cleanBreadcrumbSetNode(
+  setDisplay: string,
+  categoryLabel: string,
+  languageShort: string | null,
+): string {
+  let spaced = setDisplay
+    .replace(/-/g, " ")
+    .replace(/\s*&\s*/g, " & ")
+    .replace(/\s+/g, " ")
     .trim();
+  if (!spaced) return "";
+
+  if (categoryLabel) {
+    const catPhrase = new RegExp(
+      `(?:^|\\s)${escapeRegExp(categoryLabel)}(?:\\s|$)`,
+      "ig",
+    );
+    spaced = spaced.replace(catPhrase, " ").replace(/\s+/g, " ").trim();
+  }
+
+  const rawTokens = spaced.split(/\s+/).filter(Boolean);
+  const tokens: string[] = [];
+  for (let i = 0; i < rawTokens.length; i++) {
+    const t = rawTokens[i] ?? "";
+    const next = rawTokens[i + 1] ?? "";
+    if (/^one$/i.test(t) && /^piece$/i.test(next)) {
+      i += 1;
+      continue;
+    }
+    if (/^pok[eé]mon$/i.test(t)) continue;
+    if (/^\d{4}$/.test(t)) continue;
+    if (isCatalogSetCodeToken(t)) continue;
+    if (BREADCRUMB_SET_LANGUAGE_TOKEN.test(t)) continue;
+    if (BREADCRUMB_SET_NOISE_TOKEN.test(t)) continue;
+    if (
+      /^\((japanese|english|korean|chinese|jp|ja|en|eng|kr|ko|cn|zh)\)$/i.test(t)
+    ) {
+      continue;
+    }
+    if (
+      languageShort &&
+      new RegExp(`^\\(${escapeRegExp(languageShort)}\\)$`, "i").test(t)
+    ) {
+      continue;
+    }
+    let withoutParen = t.replace(
+      /\((japanese|english|korean|chinese|jp|ja|en|eng|kr|ko|cn|zh)\)$/i,
+      "",
+    );
+    if (languageShort) {
+      withoutParen = withoutParen.replace(
+        new RegExp(`\\(${escapeRegExp(languageShort)}\\)$`, "i"),
+        "",
+      );
+    }
+    if (!withoutParen || BREADCRUMB_SET_LANGUAGE_TOKEN.test(withoutParen)) {
+      continue;
+    }
+    tokens.push(withoutParen);
+  }
+
+  // Drop TCG era/series (`Sword & Shield …`) only when an expansion remains.
+  const dropped = dropLeadingAmpersandSeries(tokens);
+  const finalTokens =
+    dropped && dropped.length > 0 ? dropped : tokens;
+
+  return formatCardDisplaySetLabel(finalTokens.join(" "));
 }
 
 /**
- * Collection-detail breadcrumb current node:
- * `{Set} ({Language})` — no year. Language omitted when unknown.
+ * Display-only expansion name for Details Set + breadcrumb set-name segment:
+ * strip category / franchise / language / catalog set codes / PSA `Card` noise.
+ */
+export function formatDetailExpansionSetName(params: {
+  setName?: string | null;
+  setLine?: string | null;
+  categoryLabel?: string | null;
+  language?: string | null;
+}): string {
+  const cat = params.categoryLabel?.trim() || "";
+  const lang =
+    formatCardDisplayLanguageShort(params.language) ??
+    params.language?.trim() ??
+    "";
+  const raw = params.setName?.trim() || params.setLine?.trim() || "";
+  if (!raw) return "";
+  return cleanBreadcrumbSetNode(raw, cat, lang || null);
+}
+
+/**
+ * First catalog set-code token in a Brand / set string (`SV2a`, `OP13`, …).
+ */
+export function extractCatalogSetCodeFromDisplay(
+  raw: string | null | undefined,
+): string {
+  const spaced = (raw ?? "").replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  if (!spaced) return "";
+  for (const token of spaced.split(/\s+/)) {
+    if (isCatalogSetCodeToken(token)) {
+      return formatCardDisplaySetLabel(token);
+    }
+  }
+  return "";
+}
+
+/**
+ * Collection-detail breadcrumb current (final) node:
+ * `{SetCode} {SetName} ({Language})`
+ *
+ * - Set code uppercase, no `#`, no invented hyphens.
+ * - Language parenthetical short code only; omit when unknown.
+ * - No year / card name / card number.
+ * - Category prefix already stripped from set name via {@link formatDetailExpansionSetName}.
  */
 export function formatDetailBreadcrumbTrail(params: {
   year?: string | null;
   setLine?: string | null;
   setName?: string | null;
+  setCode?: string | null;
+  cardNumber?: string | null;
   categoryLabel?: string | null;
   language?: string | null;
 }): string {
@@ -144,25 +284,30 @@ export function formatDetailBreadcrumbTrail(params: {
     params.language?.trim() ??
     "";
 
-  let set = params.setName?.trim() || "";
-  if (!set) {
-    const fromLine = params.setLine?.trim() || "";
-    if (fromLine) {
-      const stripped = cat
-        ? stripCategoryPrefixFromSet(fromLine, cat)
-        : fromLine;
-      set = stripLeadingYearToken(stripped);
-    }
-  } else if (cat) {
-    set = stripLeadingYearToken(stripCategoryPrefixFromSet(set, cat));
-  }
+  const setName = formatDetailExpansionSetName({
+    setName: params.setName,
+    setLine: params.setLine,
+    categoryLabel: cat,
+    language: lang || null,
+  });
+  const setCode =
+    formatCardDisplaySetLabel(params.setCode) ||
+    extractCatalogSetCodeFromDisplay(params.setLine) ||
+    extractCatalogSetCodeFromDisplay(params.setName) ||
+    "";
 
-  if (!set) return "";
-  set = formatCardDisplaySetLabel(stripLeadingTcgSeriesFromSetDisplay(set));
-  if (lang && !new RegExp(`\\(${escapeRegExp(lang)}\\)\\s*$`, "i").test(set)) {
-    return `${set} (${lang})`;
+  let node = "";
+  if (setCode && setName) {
+    const nameWithoutCode = setName
+      .replace(new RegExp(`^${escapeRegExp(setCode)}\\b\\s*`, "i"), "")
+      .trim();
+    node = nameWithoutCode ? `${setCode} ${nameWithoutCode}` : setCode;
+  } else {
+    node = setCode || setName;
   }
-  return set;
+  if (!node) return "";
+  if (lang) return `${node} (${lang})`;
+  return node;
 }
 
 function escapeRegExp(s: string): string {
@@ -290,6 +435,23 @@ export function stripLeadingTcgSeriesFromSetDisplay(
   const dropped = dropLeadingAmpersandSeries(rest);
   if (!dropped?.length) return formatCardDisplaySetLabel(raw);
   return formatCardDisplaySetLabel([...lang, ...dropped].join(" "));
+}
+
+/** Brand / set line `Scarlet & Violet 151` → `Scarlet & Violet` when an expansion remains. */
+export function extractLeadingTcgSeriesFromSetDisplay(
+  setDisplay: string | null | undefined,
+): string | null {
+  const raw = (setDisplay ?? "").trim();
+  if (!raw) return null;
+  const tokens = raw.replace(/\s*&\s*/g, " & ").split(/\s+/).filter(Boolean);
+  while (tokens[0] && /^\d{4}$/.test(tokens[0])) tokens.shift();
+  const prefix = takeTcgFranchiseLanguagePrefix(tokens);
+  const rest = prefix ? tokens.slice(prefix.length) : tokens;
+  const dropped = dropLeadingAmpersandSeries(rest);
+  if (!dropped?.length || dropped.length >= rest.length) return null;
+  const seriesTokens = rest.slice(0, rest.length - dropped.length);
+  const label = formatCardDisplaySetLabel(seriesTokens.join(" "));
+  return label || null;
 }
 
 /**
@@ -506,15 +668,20 @@ export function formatCardDisplayLine1(
   parts: CardDisplayNameParts,
   opts?: { abbrev?: boolean; omitGrade?: boolean },
 ): string {
-  const grade = resolveCardDisplayGrade(parts.grade);
   const name = stripTrailingRawGradeLabel(parts.cardName) || "";
-  const number = formatHeadlineCardNumber(parts.cardNumber) ?? "";
+  const number =
+    splitTcgCollectorNumber(parts.cardNumber).number ??
+    formatHeadlineCardNumber(parts.cardNumber) ??
+    "";
+
+  if (opts?.omitGrade) {
+    return joinCardDisplaySegments([name, number]);
+  }
+
+  const grade = resolveCardDisplayGrade(parts.grade);
 
   if (opts?.abbrev) {
     return joinCardDisplaySegments([name, grade]);
-  }
-  if (opts?.omitGrade || !grade) {
-    return joinCardDisplaySegments([name, number]);
   }
 
   return joinCardDisplaySegments([name, number, grade]);
@@ -524,10 +691,31 @@ export function formatCardDisplayLine2(
   parts: CardDisplayNameParts,
   opts?: {
     omitSet?: boolean;
+    /**
+     * When breadcrumb already shows this set name (cleaned), drop the set
+     * chunk from Line 2 so Year / Variant stay high-signal.
+     */
+    breadcrumbSetName?: string | null;
   },
 ): string {
   const year = parts.year?.trim() || "";
-  const setChunk = opts?.omitSet
+  let omitSet = Boolean(opts?.omitSet);
+  if (!omitSet && opts?.breadcrumbSetName?.trim()) {
+    const line2Set = formatCardDisplaySetLabel(
+      stripLeadingTcgFranchiseFromSetDisplay(parts.setName ?? "") ||
+        parts.setName,
+    );
+    const crumbSet = formatCardDisplaySetLabel(opts.breadcrumbSetName);
+    if (
+      line2Set &&
+      crumbSet &&
+      normalizeSetContainmentKey(line2Set) ===
+        normalizeSetContainmentKey(crumbSet)
+    ) {
+      omitSet = true;
+    }
+  }
+  const setChunk = omitSet
     ? ""
     : formatLine2SetLanguageChunk(parts.setName, parts.language);
   const variant = displayVariantIfNotSetDuplicate(
@@ -536,6 +724,63 @@ export function formatCardDisplayLine2(
     { language: parts.language },
   );
   return joinCardDisplaySegments([year, setChunk, variant]);
+}
+
+/**
+ * List-level collision resolver.
+ * When multiple rows share the same Line 1, append the smallest differentiator
+ * (Variant → Year → Set) to colliding rows only.
+ */
+export function resolveCardDisplayLine1Collisions(
+  items: Array<{ id: string; parts: CardDisplayNameParts }>,
+  opts?: { abbrev?: boolean; omitGrade?: boolean },
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const groups = new Map<string, typeof items>();
+
+  for (const item of items) {
+    const base = formatCardDisplayLine1(item.parts, opts);
+    out.set(item.id, base);
+    const list = groups.get(base);
+    if (list) list.push(item);
+    else groups.set(base, [item]);
+  }
+
+  for (const [base, group] of groups) {
+    if (group.length < 2) continue;
+
+    const pick = (
+      kind: "variant" | "year" | "set",
+    ): Map<string, string> | null => {
+      const values = new Map<string, string>();
+      for (const item of group) {
+        let v = "";
+        if (kind === "variant") v = (item.parts.variant ?? "").trim();
+        else if (kind === "year") v = (item.parts.year ?? "").trim();
+        else {
+          v = formatCardDisplaySetLabel(
+            stripLeadingTcgFranchiseFromSetDisplay(item.parts.setName ?? "") ||
+              item.parts.setName,
+          );
+        }
+        if (!v) return null;
+        values.set(item.id, v);
+      }
+      const unique = new Set(values.values());
+      if (unique.size < group.length) return null;
+      return values;
+    };
+
+    const diffs =
+      pick("variant") ?? pick("year") ?? pick("set") ?? null;
+    if (!diffs) continue;
+    for (const item of group) {
+      const d = diffs.get(item.id);
+      if (d) out.set(item.id, joinCardDisplaySegments([base, d]));
+    }
+  }
+
+  return out;
 }
 
 export function formatCardDisplayName(
@@ -560,6 +805,7 @@ export function formatCardDisplayName(
   const line2 = needsLine2
     ? formatCardDisplayLine2(parts, {
         omitSet: opts.omitSetOnLine2,
+        breadcrumbSetName: opts.breadcrumbSetName,
       })
     : null;
 

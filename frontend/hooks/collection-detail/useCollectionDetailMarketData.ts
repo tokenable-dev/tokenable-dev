@@ -155,7 +155,8 @@ export function useCollectionDetailMarketData(params: {
 
   const chartExternalRollingUsd = gradeChart.chartExternalRollingUsd;
   const jtHistOk = chartExternalRollingUsd.length >= 2;
-  const chartExternalWindowDays = gradeChart.chartDays;
+  const chartExternalWindowDays =
+    gradeChart.chartDays >= 10000 ? null : gradeChart.chartDays;
   const chartExternalLegend =
     marketSeries?.spotPriceBasis === "psa_estimate"
       ? `PSA Estimate · ${gradeChart.activeGrade}`

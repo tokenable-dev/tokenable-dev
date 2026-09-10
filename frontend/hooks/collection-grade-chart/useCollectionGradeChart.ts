@@ -20,6 +20,7 @@ import {
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   COLLECTION_GRADE_CHART_DEFAULT_DAYS,
+  gradeSeriesRequestDays,
   type CollectionGradeChartDays,
   filterCollectionUsdPointsByDays,
 } from "@/lib/marketplace/collection-grade-chart/constants";
@@ -133,7 +134,11 @@ export function useCollectionGradeChart(input: {
   const gradeSeriesQuery = useQuery({
     queryKey: rq.collectionGradeSeries(collectionKey, activeGrade, chartDays),
     queryFn: () =>
-      getCollectionGradePriceSeries(collectionKey, activeGrade, chartDays),
+      getCollectionGradePriceSeries(
+        collectionKey,
+        activeGrade,
+        gradeSeriesRequestDays(chartDays),
+      ),
     enabled:
       marketSeriesEnabled &&
       !marketSeriesLoading &&

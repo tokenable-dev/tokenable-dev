@@ -141,7 +141,7 @@ export function buildAssetDetailHeadlineParts(input: {
   };
 }
 
-/** Title line: `{Card name} · {Number} · {Grade}` — unknown grade omits the slot (never `Raw`). */
+/** Title line: `{Card name} · {Number} · {Grade}` — unknown grade shows `Raw`. */
 export function formatAssetDetailLine1(
   parts: AssetDetailHeadlineParts,
   opts?: { grade?: string | null; omitGrade?: boolean },
@@ -156,10 +156,11 @@ export function formatAssetDetailLine1(
 /** Meta line: `{Year} · {Set} {Language} · {Variant}`. */
 export function formatCardDisplayMeta(
   parts: AssetDetailHeadlineParts,
-  opts?: { omitSet?: boolean },
+  opts?: { omitSet?: boolean; breadcrumbSetName?: string | null },
 ): string {
   return formatCardDisplayLine2(toDisplayParts(parts), {
     omitSet: opts?.omitSet,
+    breadcrumbSetName: opts?.breadcrumbSetName,
   });
 }
 

@@ -19,7 +19,9 @@ import { formatReferenceChangePeriodShort } from "@/lib/market/priceChangePeriod
 import { RwaImageLightbox } from "@/components/common";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
+  formatAssetDetailLine1,
   formatCardDisplayHoverTitle,
+  formatCardDisplayMeta,
   resolveCardDisplayGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
@@ -85,7 +87,7 @@ function heroTitleName(nameRaw: string, cardNumber: string): string {
   return stripped || nameRaw;
 }
 
-/** Card.html `#hero-title` — name + number (white) + grade; separators muted. */
+/** SSOT Line 1 — `{Name} · {Number} · {Grade}` (`formatAssetDetailLine1`). */
 function CollectionHeroTitle({
   parts,
   grade,
@@ -97,52 +99,75 @@ function CollectionHeroTitle({
   className?: string;
   id?: string;
 }) {
-  const nameRaw = parts.cardName?.trim() || "";
   const cardNumber =
     formatHeadlineCardNumber(parts.cardNumber)?.trim() ||
     parts.cardNumber?.trim() ||
     "";
-  const name = heroTitleName(nameRaw, cardNumber);
+  const cleaned: AssetDetailHeadlineParts = {
+    ...parts,
+    cardName: heroTitleName(parts.cardName?.trim() || "", cardNumber),
+  };
+  const line1 = formatAssetDetailLine1(cleaned, { grade });
+  const hover = formatCardDisplayHoverTitle(cleaned, { grade });
+  const segments = line1
+    .split(/\s*·\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   const gradeText = resolveCardDisplayGrade(grade);
-  const hover = formatCardDisplayHoverTitle(parts, { grade });
 
   return (
-    <h1 className={className} id={id} title={hover}>
-      {name ? <span className="cd-hero-bar__title-name">{name}</span> : null}
-      {cardNumber ? (
-        <>
-          <span className="cd-hero-bar__title-sep" aria-hidden>
-            {" · "}
+    <h1 className={className} id={id} title={hover || line1}>
+      {segments.map((seg, i) => {
+        const isGrade =
+          Boolean(gradeText) &&
+          i === segments.length - 1 &&
+          seg.toLowerCase() === gradeText.toLowerCase();
+        return (
+          <span key={`${i}-${seg}`}>
+            {i > 0 ? (
+              <span className="cd-hero-bar__title-sep" aria-hidden>
+                {" · "}
+              </span>
+            ) : null}
+            {isGrade ? (
+              <strong className="cd-hero-bar__title-grade">{seg}</strong>
+            ) : (
+              <span
+                className={
+                  i === 0
+                    ? "cd-hero-bar__title-name"
+                    : "cd-hero-bar__title-num"
+                }
+              >
+                {seg}
+              </span>
+            )}
           </span>
-          <span className="cd-hero-bar__title-num">{cardNumber}</span>
-        </>
-      ) : null}
-      {gradeText ? (
-        <>
-          <span className="cd-hero-bar__title-sep" aria-hidden>
-            {" · "}
-          </span>
-          <strong className="cd-hero-bar__title-grade">{gradeText}</strong>
-        </>
-      ) : null}
+        );
+      })}
     </h1>
   );
 }
 
 function HeroMeta({
+  parts,
   meta,
   gradeLabel,
   cardNumber,
   cardName,
 }: {
+  parts?: AssetDetailHeadlineParts | null;
   meta: string | null;
   gradeLabel: string;
   cardNumber?: string | null;
   cardName?: string | null;
 }) {
-  if (!meta) return null;
+  /* SSOT Line 2 — `{Year} · {Set} {Language} · {Variant}` */
+  const ssot = parts ? formatCardDisplayMeta(parts).trim() : "";
+  const raw = ssot || meta?.trim() || "";
+  if (!raw) return null;
   const text = stripHeroTitleDupesFromMeta(
-    meta,
+    raw,
     gradeLabel,
     cardNumber,
     cardName,
@@ -153,6 +178,7 @@ function HeroMeta({
     .split(/\s*·\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
+  const variant = parts?.variety?.trim() || "";
   if (segments.length <= 1) {
     return (
       <div className="cd-hero-bar__meta" id="hero-meta">
@@ -161,21 +187,158 @@ function HeroMeta({
     );
   }
 
-  const lead = segments.slice(0, -1).join(" · ");
-  const tail = segments[segments.length - 1]!;
+  const last = segments[segments.length - 1]!;
+  const muteLast =
+    Boolean(variant) && last.toLowerCase() === variant.toLowerCase();
+  const lead = muteLast
+    ? segments.slice(0, -1).join(" · ")
+    : segments.join(" · ");
+  const tail = muteLast ? last : null;
 
   return (
     <div className="cd-hero-bar__meta" id="hero-meta">
       {lead}
-      {" · "}
-      <span className="cd-hero-bar__meta-variant">{tail}</span>
+      {tail ? (
+        <>
+          {" · "}
+          <span className="cd-hero-bar__meta-variant">{tail}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+type HeroStatCell = { label: string; value: string };
+
+function HeroStatsCells({
+  cells,
+  labelClass,
+  valueClass,
+}: {
+  cells: HeroStatCell[];
+  labelClass: string;
+  valueClass: string;
+}) {
+  return (
+    <>
+      {cells.map((cell) => (
+        <div key={cell.label} className="cd-hero-stats__cell">
+          <div className={labelClass}>{cell.label}</div>
+          <div className={valueClass}>{cell.value}</div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function buildHeroStatCells(input: {
+  formatMarketCap: (n: number | null | undefined) => string;
+  marketCapUsd: number | null;
+  volumeDisplay: string;
+  velocityDisplay: string;
+  popValue: string;
+  gemRateLabel: string;
+}): HeroStatCell[] {
+  return [
+    { label: "Mkt cap", value: input.formatMarketCap(input.marketCapUsd) },
+    { label: "Vol 1Yr", value: input.volumeDisplay },
+    { label: "Velocity", value: input.velocityDisplay },
+    { label: "Pop", value: input.popValue },
+    { label: "Gem rate", value: input.gemRateLabel },
+  ];
+}
+
+function resolveHeroStatCells(input: {
+  formatMarketCap: (n: number | null | undefined) => string;
+  marketCapUsd: number | null;
+  tradeVolumeUsdc: number | null;
+  tradeVolumeLoading: boolean;
+  velocityPct?: number | null;
+  psaPopulationMetrics?: PsaPopulationMetrics | null;
+  totalPopulation?: number | null;
+}): HeroStatCell[] {
+  const popMetrics = input.psaPopulationMetrics ?? {
+    gradeLabel: "PSA 10",
+    gradePop: null,
+    totalPsaPop: input.totalPopulation ?? null,
+    psa10Pop: null,
+  };
+  const popValue =
+    popMetrics.gradePop != null
+      ? formatPsaPopulationCount(popMetrics.gradePop)
+      : input.totalPopulation != null
+        ? formatPsaPopulationCount(input.totalPopulation)
+        : "—";
+  const gemRateLabel = formatGemRatePercent(
+    computeGemRatePct(
+      popMetrics.psa10Pop,
+      popMetrics.totalPsaPop ?? input.totalPopulation,
+    ),
+  );
+  const volumeDisplay =
+    input.tradeVolumeLoading && input.tradeVolumeUsdc == null
+      ? "—"
+      : input.tradeVolumeUsdc == null
+        ? "—"
+        : formatUsdCompact(input.tradeVolumeUsdc);
+  const velocityDisplay =
+    input.tradeVolumeLoading &&
+    input.velocityPct == null &&
+    input.marketCapUsd == null
+      ? "—"
+      : formatVelocityPercent(input.velocityPct);
+  return buildHeroStatCells({
+    formatMarketCap: input.formatMarketCap,
+    marketCapUsd: input.marketCapUsd,
+    volumeDisplay,
+    velocityDisplay,
+    popValue,
+    gemRateLabel,
+  });
+}
+
+/** Card.html `#md-panel` — 5 stats under the chart on ≤1140px. */
+export function CollectionHeroMdPanel({
+  tradeVolumeUsdc,
+  tradeVolumeLoading,
+  marketCapUsd,
+  formatMarketCap,
+  psaPopulationMetrics,
+  totalPopulation,
+  velocityPct,
+}: {
+  tradeVolumeUsdc: number | null;
+  tradeVolumeLoading: boolean;
+  marketCapUsd: number | null;
+  formatMarketCap: (n: number | null | undefined) => string;
+  psaPopulationMetrics?: PsaPopulationMetrics | null;
+  totalPopulation?: number | null;
+  velocityPct?: number | null;
+}) {
+  const cells = resolveHeroStatCells({
+    formatMarketCap,
+    marketCapUsd,
+    tradeVolumeUsdc,
+    tradeVolumeLoading,
+    velocityPct,
+    psaPopulationMetrics,
+    totalPopulation,
+  });
+  return (
+    <div className="cd-hero-md-panel" id="md-panel">
+      <div className="cd-hero-md-panel__row">
+        <HeroStatsCells
+          cells={cells}
+          labelClass="cd-hero-md-panel__lbl"
+          valueClass="cd-hero-md-panel__val mono"
+        />
+      </div>
     </div>
   );
 }
 
 /**
- * Card.html `#hero-bar` + `#hero-stats` (design-30):
- * image | mid(title+meta · last price) then 5-col stats.
+ * Card.html `#hero-bar` then sibling `#hero-stats` (inside `#chart-card`).
  * Buy / Bid / Sell live in the right rail (`#tk-trade`), not in the hero.
  */
 export function CollectionDetailStatMain({
@@ -223,26 +386,6 @@ export function CollectionDetailStatMain({
   const title = headlineTitle?.trim() || null;
   const meta = headlineMeta?.trim() || null;
 
-  const popMetrics = psaPopulationMetrics ?? {
-    gradeLabel: "PSA 10",
-    gradePop: null,
-    totalPsaPop: totalPopulation ?? null,
-    psa10Pop: null,
-  };
-  const popValue =
-    popMetrics.gradePop != null
-      ? formatPsaPopulationCount(popMetrics.gradePop)
-      : totalPopulation != null
-        ? formatPsaPopulationCount(totalPopulation)
-        : "—";
-  /** Gem rate = PSA Pop (PSA 10) ÷ Total Pop. */
-  const gemRateLabel = formatGemRatePercent(
-    computeGemRatePct(
-      popMetrics.psa10Pop,
-      popMetrics.totalPsaPop ?? totalPopulation,
-    ),
-  );
-
   const changeTone =
     changePct != null && Number.isFinite(changePct)
       ? referenceChangeTone(changePct)
@@ -252,16 +395,15 @@ export function CollectionDetailStatMain({
       ? formatChangeTag(changePct)
       : null;
 
-  const volumeDisplay =
-    tradeVolumeLoading && tradeVolumeUsdc == null
-      ? "—"
-      : tradeVolumeUsdc == null
-        ? "—"
-        : formatUsdCompact(tradeVolumeUsdc);
-  const velocityDisplay =
-    tradeVolumeLoading && velocityPct == null && marketCapUsd == null
-      ? "—"
-      : formatVelocityPercent(velocityPct);
+  const statCells = resolveHeroStatCells({
+    formatMarketCap,
+    marketCapUsd,
+    tradeVolumeUsdc,
+    tradeVolumeLoading,
+    velocityPct,
+    psaPopulationMetrics,
+    totalPopulation,
+  });
 
   return (
     <div
@@ -314,6 +456,7 @@ export function CollectionDetailStatMain({
                 </h1>
               )}
               <HeroMeta
+                parts={headlineParts}
                 meta={meta}
                 gradeLabel={gradeLabel}
                 cardNumber={headlineParts?.cardNumber}
@@ -377,32 +520,14 @@ export function CollectionDetailStatMain({
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Card.html: `#hero-stats` is a child of `#hero-bar` (full-width wrap row). */}
-        <div className="cd-hero-stats" id="hero-stats">
-          <div className="cd-hero-stats__grid" id="hero-stats-grid">
-            <div className="cd-hero-stats__cell">
-              <div className="cd-hero-stats__lbl">Mkt cap</div>
-              <div className="cd-hero-stats__val mono">
-                {formatMarketCap(marketCapUsd)}
-              </div>
-            </div>
-            <div className="cd-hero-stats__cell">
-              <div className="cd-hero-stats__lbl">Vol 1Yr</div>
-              <div className="cd-hero-stats__val mono">{volumeDisplay}</div>
-            </div>
-            <div className="cd-hero-stats__cell">
-              <div className="cd-hero-stats__lbl">Velocity</div>
-              <div className="cd-hero-stats__val mono">{velocityDisplay}</div>
-            </div>
-            <div className="cd-hero-stats__cell">
-              <div className="cd-hero-stats__lbl">Pop</div>
-              <div className="cd-hero-stats__val mono">{popValue}</div>
-            </div>
-            <div className="cd-hero-stats__cell">
-              <div className="cd-hero-stats__lbl">Gem rate</div>
-              <div className="cd-hero-stats__val mono">{gemRateLabel}</div>
+          <div className="cd-hero-stats" id="hero-stats">
+            <div className="cd-hero-stats__grid" id="hero-stats-grid">
+              <HeroStatsCells
+                cells={statCells}
+                labelClass="cd-hero-stats__lbl"
+                valueClass="cd-hero-stats__val mono"
+              />
             </div>
           </div>
         </div>

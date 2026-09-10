@@ -26,6 +26,7 @@ export type TkNoteProps = {
   onClose?: () => void;
   /** Whole note activates (toast → same as notification navigate). */
   onActivate?: () => void;
+  children?: React.ReactNode;
 };
 
 function CloseGlyph() {
@@ -50,6 +51,7 @@ export function TkNote({
   actions,
   onClose,
   onActivate,
+  children,
 }: TkNoteProps) {
   return (
     <div
@@ -77,6 +79,7 @@ export function TkNote({
       <div className="tk-note__body">
         {title ? <p className="tk-note__title">{title}</p> : null}
         {message ? <p className="tk-note__msg">{message}</p> : null}
+        {children}
         {actions && actions.length > 0 ? (
           <div className="tk-note__actions">
             {actions.map((a) => (

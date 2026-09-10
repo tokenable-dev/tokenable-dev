@@ -211,6 +211,35 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
       ).toBe(brand);
     });
 
+    it('Case C2 — SVP EN Black Star Promos canonical setName', () => {
+      const brand = 'POKEMON SVP BLACK STAR PROMOS';
+      const { metadata } = buildBulkMintMetadataFromPsaCert({
+        certNumber: '90000013',
+        psaCert: {
+          CertNumber: '90000013',
+          Subject: 'Pikachu',
+          Brand: brand,
+          CardNumber: '190',
+          Category: 'Pokemon',
+          CardGrade: '10',
+        },
+        imageUrl: 'https://example.com/svp.jpg',
+      });
+      expect(
+        extractPokemonNormalizedFromMeta(
+          metadata as unknown as Record<string, unknown>,
+        ),
+      ).toMatchObject({
+        game: 'pokemon',
+        setCode: 'SVP',
+        series: 'Scarlet & Violet',
+        setName: 'Scarlet & Violet Black Star Promos',
+        setKind: 'promo',
+        cardName: 'Pikachu',
+        cardNumber: '190',
+      });
+    });
+
     it('Case D — SV-P promo without invented series/setName', () => {
       const brand = 'POKEMON JAPANESE SV-P';
       const { metadata } = buildBulkMintMetadataFromPsaCert({
@@ -321,7 +350,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
   });
 
   describe('non-Pokémon + fill-if-empty', () => {
-    it('One Piece / sports → no normalized block on IPFS', () => {
+    it('One Piece Brand JAPANESE → graded.normalized.language JP (no pokemon block)', () => {
       const { metadata } = buildBulkMintMetadataFromPsaCert({
         certNumber: '90000007',
         psaCert: {
@@ -340,7 +369,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
       ).toBeNull();
       expect(
         (metadata.properties!.graded as Record<string, unknown>).normalized,
-      ).toBeUndefined();
+      ).toEqual({ language: 'JP' });
     });
 
     it('does not overwrite existing components.language / rarity', () => {
@@ -363,6 +392,28 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
         setCode: 'SV2a',
         language: 'JP',
       });
+    });
+
+    it('backfills missing language onto an existing partial projection', () => {
+      const components: Record<string, unknown> = {
+        normalizedPokemon: {
+          game: 'pokemon',
+          setCode: 'SV2a',
+          setName: 'Pokémon Card 151',
+        },
+      };
+      applyPokemonNormalizedToComponents(components, {
+        game: 'pokemon',
+        language: 'JP',
+        setCode: 'SV2a',
+        setName: 'Pokémon Card 151',
+        setKind: 'expansion',
+      });
+      expect(components.normalizedPokemon).toMatchObject({
+        language: 'JP',
+        setCode: 'SV2a',
+      });
+      expect(components.language).toBe('JP');
     });
   });
 });

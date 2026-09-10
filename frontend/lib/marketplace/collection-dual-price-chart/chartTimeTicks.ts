@@ -72,7 +72,61 @@ export function formatCardHtmlHoverWhen(tSec: number): string {
   return `${MON[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
 }
 
-/** Tick density + formatter for Card.html collection Price history. */
+/**
+ * Card.html `dlab` — X-axis at 3 anchors.
+ * ≤30d: `Jan 26`; ≤180d: `Jan`; ≤365d: `Jan '26`; else year.
+ */
+export function formatCardHtmlPeriodAxisLabel(
+  tSec: number,
+  windowDays: number | null,
+): string {
+  const dt = new Date(tSec * 1000);
+  const win =
+    windowDays != null && Number.isFinite(windowDays) && windowDays > 0
+      ? windowDays
+      : 365;
+  if (win <= 30) return `${MON[dt.getMonth()]} ${dt.getDate()}`;
+  if (win <= 180) return MON[dt.getMonth()] ?? "";
+  if (win <= 365) {
+    return `${MON[dt.getMonth()]} '${String(dt.getFullYear()).slice(2)}`;
+  }
+  return String(dt.getFullYear());
+}
+
+/**
+ * Collection-detail x-axis: calendar day of each of the three ticks.
+ * Include `'YY` when the window spans more than one calendar year (All).
+ */
+export function formatCardHtmlThreeTickDayLabel(
+  tSec: number,
+  rangeStartSec: number,
+  rangeEndSec: number,
+): string {
+  const dt = new Date(tSec * 1000);
+  const md = `${MON[dt.getMonth()]} ${dt.getDate()}`;
+  const y0 = new Date(rangeStartSec * 1000).getFullYear();
+  const y1 = new Date(rangeEndSec * 1000).getFullYear();
+  if (y0 !== y1) return `${md} '${String(dt.getFullYear()).slice(2)}`;
+  return md;
+}
+
+/** Three x-axis timestamps — period start, midpoint, period end. */
+export function cardHtmlPeriodAxisTickMs(
+  tMinSec: number,
+  tMaxSec: number,
+): number[] {
+  const a = tMinSec * 1000;
+  const b = tMaxSec * 1000;
+  if (!(b > a)) return [a, a, a];
+  const span = b - a;
+  return [0, 0.5, 1].map((f) => a + span * f);
+}
+
+/** Card.html y-axis — `$9,000`. */
+export function formatCardHtmlYAxisUsd(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return `$${Math.round(value).toLocaleString("en-US")}`;
+}
 export function roughTickConfigCardHtml(windowDays: number | null): {
   minIntervalMs: number;
   splitNumber: number;

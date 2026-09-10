@@ -51,6 +51,44 @@ export function isPortfolioBundleFresh(savedAt: number): boolean {
   return Date.now() - savedAt < TTL_MS;
 }
 
+/** Keep a just-painted marketplace buy when a stale persist/BFF row has no price yet. */
+export function mergeHoldingRowsPreferLiveBuy(
+  incoming: PortfolioHoldingBatchItem[],
+  painted: PortfolioHoldingBatchItem[] | undefined,
+): PortfolioHoldingBatchItem[] {
+  const out = new Map<number, PortfolioHoldingBatchItem>();
+  for (const h of painted ?? []) {
+    out.set(h.tokenId, h);
+  }
+  for (const h of incoming) {
+    const prev = out.get(h.tokenId);
+    const paintedBuy =
+      prev?.costBasisSource === "marketplace_buy" &&
+      prev.costBasisUsd != null &&
+      Number.isFinite(prev.costBasisUsd);
+    const incomingPriced =
+      h.costBasisUsd != null &&
+      Number.isFinite(h.costBasisUsd) &&
+      (h.costBasisSource === "marketplace_buy" || h.costBasisSource === "manual");
+    if (paintedBuy && !incomingPriced) continue;
+    out.set(h.tokenId, h);
+  }
+  return [...out.values()];
+}
+
+export function paintedMarketplaceBuyTokenIds(
+  holdings: PortfolioHoldingBatchItem[] | undefined,
+): number[] {
+  return (holdings ?? [])
+    .filter(
+      (h) =>
+        h.costBasisSource === "marketplace_buy" &&
+        h.costBasisUsd != null &&
+        Number.isFinite(h.costBasisUsd),
+    )
+    .map((h) => h.tokenId);
+}
+
 export function readPortfolioBundle(
   address: string,
   chainId: number,
@@ -68,6 +106,56 @@ export function readPortfolioBundle(
   } catch {
     return null;
   }
+}
+
+/** Instant My Assets cost basis after an ask fill (before holdings refetch). */
+export function upsertPortfolioMarketplaceBuy(input: {
+  address: string;
+  chainId: number;
+  tokenId: number;
+  costBasisUsd: number;
+}): void {
+  cancelPersistPortfolioAccumulated();
+  cancelSchedulePortfolioPersist();
+  const address = input.address.trim().toLowerCase();
+  if (!address) return;
+  const usd = Number(input.costBasisUsd);
+  if (!Number.isFinite(usd) || usd < 0) return;
+  const holding: PortfolioHoldingBatchItem = {
+    tokenId: input.tokenId,
+    hidden: false,
+    costBasisUsd: usd,
+    costBasisSource: "marketplace_buy",
+    acquiredAt: new Date().toISOString(),
+  };
+  const existing = readPortfolioBundle(address, input.chainId);
+  if (!existing) {
+    writePortfolioBundle({
+      address,
+      chainId: input.chainId,
+      tokenIds: [input.tokenId],
+      bffLoadedCount: 24,
+      fetchedTokenIds: [],
+      metadataItems: [],
+      collectionKeys: {},
+      marketItems: [],
+      holdings: [holding],
+      mintPreviews: {},
+      unmatchedMintTokenIds: [],
+    });
+    return;
+  }
+  writePortfolioBundle({
+    ...existing,
+    tokenIds: [
+      input.tokenId,
+      ...existing.tokenIds.filter((id) => id !== input.tokenId),
+    ],
+    holdings: [
+      holding,
+      ...existing.holdings.filter((h) => h.tokenId !== input.tokenId),
+    ],
+  });
 }
 
 export function writePortfolioBundle(
@@ -96,6 +184,8 @@ export function clearPortfolioBundle(
   address: string,
   chainId?: number,
 ): void {
+  cancelPersistPortfolioAccumulated();
+  cancelSchedulePortfolioPersist();
   if (typeof window === "undefined") return;
   const addr = address.trim().toLowerCase();
   if (!addr) return;
@@ -223,7 +313,7 @@ function configurePortfolioQueryDefaults(queryClient: QueryClient): void {
   queryClient.setQueryDefaults(["orders", "by-offerer"], {
     staleTime: marketplaceRqPolicy.ordersStaleMs,
     gcTime: oneDay,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
   });
 }
@@ -258,11 +348,10 @@ export function hydratePortfolioQueries(queryClient: QueryClient): void {
         queryKey: ["cardhedger-mint-previews", chainId, address],
       });
     }
-    if (ageMs > marketplaceRqPolicy.ordersStaleMs) {
-      void queryClient.invalidateQueries({
-        queryKey: rq.ordersByOfferer(address, "ask", chainId),
-      });
-    }
+    void queryClient.invalidateQueries({
+      queryKey: rq.ordersByOfferer(address, "ask", chainId),
+      refetchType: "all",
+    });
   }
 }
 
@@ -359,12 +448,19 @@ function flushPortfolioWallet(
   const fetchedTokenIds = [...fetchedSet].sort((a, b) => a - b);
   const existing = readPortfolioBundle(address, chainId);
 
-  const resolvedTokenIds =
+  const baseTokenIds =
     bootstrapPage?.ownedTokenIds?.length
       ? bootstrapPage.ownedTokenIds
       : tokenIds.length > 0
         ? tokenIds
         : (existing?.tokenIds ?? []);
+  const resolvedTokenIds = [
+    ...new Set([...baseTokenIds, ...paintedMarketplaceBuyTokenIds(existing?.holdings)]),
+  ];
+  const holdingsMerged = mergeHoldingRowsPreferLiveBuy(
+    holdings,
+    existing?.holdings,
+  );
 
   let mintPreviews: Record<number, CollectionMarketPreview> =
     existing?.mintPreviews ?? {};
@@ -397,7 +493,7 @@ function flushPortfolioWallet(
     metadataItems,
     collectionKeys,
     marketItems: [...marketByKey.values()],
-    holdings,
+    holdings: holdingsMerged,
     mintPreviews,
     unmatchedMintTokenIds,
     dailySnapshots: daily ?? existing?.dailySnapshots,
@@ -409,6 +505,12 @@ function flushPortfolioFromQueryClient(queryClient: QueryClient): void {
   for (const { address, chainId } of collectPortfolioWallets(queryClient)) {
     flushPortfolioWallet(queryClient, address, chainId);
   }
+}
+
+function cancelSchedulePortfolioPersist(): void {
+  if (persistTimer == null) return;
+  clearTimeout(persistTimer);
+  persistTimer = null;
 }
 
 function schedulePortfolioPersist(queryClient: QueryClient): void {
@@ -443,6 +545,12 @@ export function subscribePortfolioPersistence(
 
 let persistAccumulatedTimer: ReturnType<typeof setTimeout> | null = null;
 
+export function cancelPersistPortfolioAccumulated(): void {
+  if (persistAccumulatedTimer == null) return;
+  clearTimeout(persistAccumulatedTimer);
+  persistAccumulatedTimer = null;
+}
+
 /** Merge hook-local accumulated state into the persisted bundle (mint previews, page size). */
 export function persistPortfolioAccumulated(input: {
   address: string;
@@ -456,8 +564,9 @@ export function persistPortfolioAccumulated(input: {
   holdings: PortfolioHoldingBatchItem[];
   mintPreviews: Record<number, CollectionMarketPreview>;
   unmatchedMintTokenIds: number[];
+  ordersAsk?: OrderListItem[];
 }): void {
-  if (persistAccumulatedTimer != null) clearTimeout(persistAccumulatedTimer);
+  cancelPersistPortfolioAccumulated();
   persistAccumulatedTimer = setTimeout(() => {
     persistAccumulatedTimer = null;
     const address = input.address.trim().toLowerCase();
@@ -465,17 +574,25 @@ export function persistPortfolioAccumulated(input: {
     writePortfolioBundle({
       address,
       chainId: input.chainId,
-      tokenIds: input.tokenIds,
+      tokenIds: [
+        ...new Set([
+          ...input.tokenIds,
+          ...paintedMarketplaceBuyTokenIds(existing?.holdings),
+        ]),
+      ],
       bffLoadedCount: input.bffLoadedCount,
       fetchedTokenIds: input.fetchedTokenIds,
       metadataItems: input.metadataItems,
       collectionKeys: input.collectionKeys,
       marketItems: input.marketItems,
-      holdings: input.holdings,
+      holdings: mergeHoldingRowsPreferLiveBuy(
+        input.holdings,
+        existing?.holdings,
+      ),
       mintPreviews: input.mintPreviews,
       unmatchedMintTokenIds: input.unmatchedMintTokenIds,
       dailySnapshots: existing?.dailySnapshots,
-      ordersAsk: existing?.ordersAsk,
+      ordersAsk: input.ordersAsk ?? existing?.ordersAsk,
     });
   }, 400);
 }

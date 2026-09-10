@@ -26,9 +26,15 @@ import {
 import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
   applyPokemonNormalizedToComponents,
+  applyPrintLanguageToComponents,
   extractPokemonNormalizedFromMeta,
+  extractPokemonSetCodeFromBrand,
+  normalizePokemonMetadata,
   normalizePokemonMetadataFromGraded,
+  printLanguageHintsFromComponents,
+  printLanguageHintsFromGraded,
 } from '../utils/pokemon-metadata-normalize.util';
+import { pokemonCardhedgerPrimarySetPhrase } from '../utils/pokemon-cardhedger-set-phrase.util';
 import {
   cardIdFromPsaCertLookup,
   catalogRowTrustedForMarketData,
@@ -976,8 +982,8 @@ export class CollectionComponentsService {
   }
 
   /**
-   * Duplicate-key race: mirror `graded.normalized.pokemon` when missing.
-   * Fills `language` / `rarity` only when those component fields are empty.
+   * Duplicate-key race / legacy rows: mirror `graded.normalized.pokemon` and
+   * backfill missing `language` even when a partial projection already exists.
    */
   async mergeNormalizedPokemonFromMetaIfMissing(
     collectionKey: string,
@@ -990,18 +996,100 @@ export class CollectionComponentsService {
     if (!dbRow) return;
     const comp = { ...(dbRow.components as Record<string, unknown>) };
     const existing = comp.normalizedPokemon;
-    if (existing && typeof existing === 'object') return;
+    const existingLang =
+      (existing &&
+      typeof existing === 'object' &&
+      typeof (existing as { language?: unknown }).language === 'string'
+        ? String((existing as { language?: string }).language).trim()
+        : '') ||
+      (typeof comp.language === 'string' ? comp.language.trim() : '');
 
     const props = meta.properties as Record<string, unknown> | undefined;
     const graded = (props?.graded ?? meta.graded) as
       | Record<string, unknown>
       | undefined;
-    const pokemon =
-      extractPokemonNormalizedFromMeta(meta) ??
-      (graded ? normalizePokemonMetadataFromGraded(graded) : null);
-    if (!pokemon) return;
+    const extracted = extractPokemonNormalizedFromMeta(meta);
+    const fromGraded = graded
+      ? normalizePokemonMetadataFromGraded(graded)
+      : null;
 
+    // Full projection missing, or language still unknown → apply / backfill.
+    if (existing && typeof existing === 'object' && existingLang) return;
+
+    applyPokemonNormalizedToComponents(comp, extracted);
+    applyPokemonNormalizedToComponents(comp, fromGraded);
+    applyPrintLanguageToComponents(
+      comp,
+      graded
+        ? printLanguageHintsFromGraded(graded)
+        : printLanguageHintsFromComponents(comp),
+    );
+    const nextLang =
+      typeof comp.language === 'string' ? comp.language.trim() : '';
+    if (
+      !extracted &&
+      !fromGraded &&
+      nextLang === existingLang
+    ) {
+      return;
+    }
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Legacy / mint-gap rows: if language is still missing, re-run normalize from
+   * stored PSA component fields (+ Cardhedger set phrase) and backfill.
+   */
+  async ensureNormalizedPokemonLanguageIfMissing(
+    collectionKey: string,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!dbRow) return;
+    const comp = { ...(dbRow.components as Record<string, unknown>) };
+    const existing = comp.normalizedPokemon;
+    const existingLang =
+      (existing &&
+      typeof existing === 'object' &&
+      typeof (existing as { language?: unknown }).language === 'string'
+        ? String((existing as { language?: string }).language).trim()
+        : '') ||
+      (typeof comp.language === 'string' ? comp.language.trim() : '');
+    if (existingLang) return;
+
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const brand = str(comp.psaBrand) || str(comp.cardSet);
+    const setCodeFromComp =
+      existing &&
+      typeof existing === 'object' &&
+      typeof (existing as { setCode?: unknown }).setCode === 'string'
+        ? String((existing as { setCode?: string }).setCode).trim()
+        : '';
+    const setCode =
+      setCodeFromComp || extractPokemonSetCodeFromBrand(brand) || null;
+    const pokemon = normalizePokemonMetadata({
+      brand,
+      setHint: str(comp.cardSet) || brand,
+      category: str(comp.psaCategory),
+      subject: str(comp.psaSubject) || str(comp.cardName),
+      cardNumber: str(comp.cardNumber),
+      variety: str(comp.psaVariety) || str(comp.variant),
+      cardhedgerSet: pokemonCardhedgerPrimarySetPhrase(setCode),
+    });
     applyPokemonNormalizedToComponents(comp, pokemon);
+    applyPrintLanguageToComponents(comp, {
+      ...printLanguageHintsFromComponents(comp),
+      cardhedgerSet: pokemonCardhedgerPrimarySetPhrase(setCode),
+    });
+    if (typeof comp.language !== 'string' || !comp.language.trim()) return;
+
     await this.collectionRepo.update(
       { collectionKey: key },
       {

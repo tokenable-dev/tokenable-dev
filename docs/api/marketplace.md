@@ -45,7 +45,7 @@ Register a Seaport order (ask or card-level bid/offer) off-chain.
 }
 ```
 
-For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). **An active ask is not required** — Place Bid uses a minted (or previously traded) token in the bucket as the Seaport consideration id (`GET …/bid-anchor-tokens`). Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). **An active ask is not required** — Place Bid uses a minted (or previously traded) token in the bucket as the Seaport consideration id (`GET …/bid-anchor-tokens`). If the bid amount is **greater than or equal to** a live ask in the same collection (including the bidder’s own listing), the API rejects with `409` and `BID_CROSSES_ASK` — the client must fulfill that ask at the listed price instead of posting a bid. Collection-detail Bid tab shows **Buy now** (not Place bid) when the typed amount meets or exceeds that live floor. Active bids per wallet per collection are **unlimited** (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0`; set to `1` to restore the old cap). Collection criteria bids (itemType `4`) are rejected. Token bids expire after a buyer-chosen **1 / 3 / 7 / 14 / 30 / 60 / 90 / 180 day** window (Seaport `endTime − startTime`). Default in the Place Bid UI is **7 days**. Other durations are rejected.
 
 ---
 
@@ -182,7 +182,7 @@ In-app events (Notifications spec **v2 2026-08** — Email/Telegram/Web push del
 
 **Not yet emitted (domain missing):** `SELLER_STRIKE` / `SELLER_SUSPENDED`, `PARTNER_SLA_WARN` / `PARTNER_SLA_BREACH`, admin ops inbox (`ADMIN_*`).
 
-**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel`. The signed-in app chrome polls `GET /marketplace/notifications` about every **15s** while the tab is active (`refetchIntervalInBackground: false`). Toasts fire only for unread items that arrive **while this tab is visible** and are **fresh** (~90s). Login, tab-focus catch-up, and background-tab backlog stay in the inbox (badge/drawer) — they are not toasted. Click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
+**Client UX:** The notifications drawer and ephemeral **toasts** (`NotificationToastsHost`, `.tk-note`) share the same title/body/`href`/`ctaLabel` for inbox events. Collection-detail **Buy now / Place bid / List for sale** success uses the same host with Card.html `#tk-toast` copy (Purchased / Bid placed / Listed). The signed-in app chrome polls `GET /marketplace/notifications` about every **15s** while the tab is active (`refetchIntervalInBackground: false`). Toasts fire only for unread items that arrive **while this tab is visible** and are **fresh** (~90s). Login, tab-focus catch-up, and background-tab backlog stay in the inbox (badge/drawer) — they are not toasted. Click / CTA uses the same navigation as the drawer (including Add funds → MoonPay).
 
 ---
 
@@ -611,7 +611,9 @@ Honors `x-tokenable-chain-id`.
 
 **Marketplace buy seed:** after ask fulfill (`PATCH …/fulfill?buyerAddress=`) or matched-pair fulfill, the backend seeds `marketplace_buy` from the ask USDC price for the buyer wallet. Manual rows are skipped.
 
-**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark.
+**Client paint after buy:** the buyer’s My Assets localStorage bundle is **not** wiped on ask fill. The fill USDC is written immediately (`marketplace_buy`) so **Purchase price** shows before holdings refetch. Stale assets-page / persist writes must not replace a painted `marketplace_buy` with a null cost. Seller paint cache is still cleared (they no longer own the token).
+
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys and after `PUT …/cost-basis` (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or `manual` value.
 
 ---
 

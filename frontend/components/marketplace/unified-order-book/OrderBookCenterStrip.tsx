@@ -4,6 +4,7 @@ import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collection
 import { orderBookRowValueCls } from "@/components/marketplace/price-metrics-strip/theme";
 import {
   formatCollectionDetailBookPriceUsdc,
+  formatCollectionDetailSpreadLabel,
   type BookCenterModel,
 } from "@/lib/marketplace/unified-order-book";
 
@@ -16,7 +17,7 @@ export function OrderBookCenterStrip({
   model,
   collectionDetail,
   asksEmptyBidsLive,
-  bidsEmptyAsksLive,
+  bidsEmptyAsksLive: _bidsEmptyAsksLive,
   bestBidUsdc,
   bestAskUsdc,
 }: {
@@ -57,18 +58,16 @@ export function OrderBookCenterStrip({
 
   /* Card.html `.ob-spread` — left is best ask (or best bid if no asks) + ↓; right is spread. */
   if (collectionDetail) {
-    const oneSided = Boolean(asksEmptyBidsLive || bidsEmptyAsksLive);
-    const leftUsd = asksEmptyBidsLive ? bestBidUsdc : bestAskUsdc;
-    const hasLiveSpread =
-      !oneSided &&
-      bestAskUsdc != null &&
-      bestBidUsdc != null &&
-      Number.isFinite(bestAskUsdc) &&
-      Number.isFinite(bestBidUsdc) &&
-      bestAskUsdc > bestBidUsdc;
-    const spreadLabel = hasLiveSpread
-      ? `Spread ${formatCollectionDetailBookPriceUsdc(bestAskUsdc - bestBidUsdc)}`
-      : "No live spread";
+    const ask =
+      bestAskUsdc != null && Number.isFinite(bestAskUsdc) && bestAskUsdc > 0
+        ? bestAskUsdc
+        : null;
+    const bid =
+      bestBidUsdc != null && Number.isFinite(bestBidUsdc) && bestBidUsdc > 0
+        ? bestBidUsdc
+        : null;
+    const leftUsd = asksEmptyBidsLive ? bid : ask;
+    const spreadLabel = formatCollectionDetailSpreadLabel(ask, bid);
 
     return (
       <div className="cd-ob-book-center__strip">
@@ -79,7 +78,13 @@ export function OrderBookCenterStrip({
             ↓
           </span>
         </span>
-        <span className="cd-ob-book-center__spread">{spreadLabel}</span>
+        <span
+          className={`cd-ob-book-center__spread${
+            spreadLabel === "No live spread" ? " cd-ob-book-center__spread--muted" : ""
+          }`}
+        >
+          {spreadLabel}
+        </span>
       </div>
     );
   }

@@ -41,7 +41,7 @@ function TradesColumnHeader({
         <span>Price</span>
         <span>Side</span>
         <span>Source</span>
-        <span>Time</span>
+        <span>Date</span>
       </div>
     );
   }

@@ -649,6 +649,7 @@ export class CollectionsController {
         k,
         chainId,
       );
+      await this.collectionService.ensureNormalizedPokemonLanguageIfMissing(k);
       col = await this.collectionService.findOne(k);
     }
 

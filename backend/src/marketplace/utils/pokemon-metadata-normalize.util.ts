@@ -52,6 +52,129 @@ const LANG_FROM_BRAND: Array<{ re: RegExp; code: string }> = [
 
 const SHORT_LANG = /^(EN|JP|KR|CN|FR|DE|IT|ES)$/i;
 
+export type PrintLanguageHints = {
+  language?: string | null;
+  brand?: string | null;
+  setHint?: string | null;
+  category?: string | null;
+  variety?: string | null;
+  cardhedgerSet?: string | null;
+};
+
+/**
+ * PSA has no Language key. Infer a short code from Brand / Category / Variety
+ * (and optional Cardhedger set / catalog market). Works for every TCG — not
+ * Pokémon-only. Omit rather than invent English.
+ */
+export function inferPrintLanguageFromHints(
+  input: PrintLanguageHints,
+  catalogMarket?: string | null,
+): string | undefined {
+  const blobs = [
+    input.language,
+    input.brand,
+    input.setHint,
+    input.category,
+    input.variety,
+    input.cardhedgerSet,
+  ]
+    .map(trimStr)
+    .filter(Boolean);
+
+  for (const blob of blobs) {
+    if (SHORT_LANG.test(blob)) return blob.toUpperCase();
+    for (const { re, code } of LANG_FROM_BRAND) {
+      if (re.test(blob)) return code;
+    }
+  }
+
+  const market = trimStr(catalogMarket);
+  if (market && SHORT_LANG.test(market)) return market.toUpperCase();
+
+  return undefined;
+}
+
+export function printLanguageHintsFromGraded(
+  graded: Record<string, unknown> | null | undefined,
+): PrintLanguageHints {
+  if (!graded || typeof graded !== 'object') return {};
+  const psa =
+    graded.psa && typeof graded.psa === 'object'
+      ? (graded.psa as Record<string, unknown>)
+      : {};
+  const card =
+    graded.card && typeof graded.card === 'object'
+      ? (graded.card as Record<string, unknown>)
+      : {};
+  const ch =
+    graded.cardhedger && typeof graded.cardhedger === 'object'
+      ? (graded.cardhedger as Record<string, unknown>)
+      : {};
+  const normalized =
+    graded.normalized && typeof graded.normalized === 'object'
+      ? (graded.normalized as Record<string, unknown>)
+      : {};
+  const pokemon =
+    normalized.pokemon && typeof normalized.pokemon === 'object'
+      ? (normalized.pokemon as Record<string, unknown>)
+      : {};
+  return {
+    language:
+      trimStr(normalized.language) ||
+      trimStr(pokemon.language) ||
+      trimStr(ch.market) ||
+      trimStr(card.market) ||
+      null,
+    brand: trimStr(psa.brand) || trimStr(psa.Brand) || trimStr(psa.setHint),
+    setHint: trimStr(psa.setHint) || trimStr(card.set),
+    category: trimStr(psa.category) || trimStr(psa.Category),
+    variety:
+      trimStr(psa.Variety) ||
+      trimStr(psa.variety) ||
+      trimStr(psa.varietyHint) ||
+      trimStr(card.variant),
+    cardhedgerSet:
+      trimStr(ch.set) || trimStr(ch.setName) || trimStr(card.set) || null,
+  };
+}
+
+/** Fill `components.language` when missing (Pokémon and other TCG). */
+export function applyPrintLanguageToComponents(
+  components: Record<string, unknown>,
+  hints: PrintLanguageHints,
+  catalogMarket?: string | null,
+): void {
+  if (trimStr(components.language)) return;
+  const lang = inferPrintLanguageFromHints(
+    {
+      ...hints,
+      language: hints.language || trimStr(components.language) || null,
+    },
+    catalogMarket,
+  );
+  if (lang) components.language = lang;
+}
+
+/**
+ * Persist TCG print language on `graded.normalized.language` (alongside
+ * optional `normalized.pokemon`). Does not invent English.
+ */
+export function attachPrintLanguageToGraded(
+  graded: Record<string, unknown>,
+): string | undefined {
+  const prev =
+    graded.normalized && typeof graded.normalized === 'object'
+      ? { ...(graded.normalized as Record<string, unknown>) }
+      : {};
+  if (trimStr(prev.language)) {
+    return trimStr(prev.language);
+  }
+  const lang = inferPrintLanguageFromHints(printLanguageHintsFromGraded(graded));
+  if (!lang) return undefined;
+  graded.normalized = { ...prev, language: lang };
+  return lang;
+}
+
 /** PSA / Brand set-code tokens: SV2a, SV1S, SV-P, SVP, SWSH045, … */
 const SET_CODE_TOKEN =
   /\b([A-Z]{1,4}-?[A-Z]?\d{0,3}[A-Z]?|[A-Z]{2,4}\d+[A-Z]?)\b/gi;
@@ -74,19 +197,11 @@ function looksLikePokemon(input: NormalizePokemonMetadataInput): boolean {
   return false;
 }
 
-function resolveLanguage(input: NormalizePokemonMetadataInput): string | undefined {
-  const explicit = trimStr(input.language);
-  if (explicit) {
-    if (SHORT_LANG.test(explicit)) return explicit.toUpperCase();
-    for (const { re, code } of LANG_FROM_BRAND) {
-      if (re.test(explicit)) return code;
-    }
-  }
-  const brandBlob = [input.brand, input.setHint].map(trimStr).join(' ');
-  for (const { re, code } of LANG_FROM_BRAND) {
-    if (re.test(brandBlob)) return code;
-  }
-  return undefined;
+function resolveLanguage(
+  input: NormalizePokemonMetadataInput,
+  catalogMarket?: string | null,
+): string | undefined {
+  return inferPrintLanguageFromHints(input, catalogMarket);
 }
 
 /**
@@ -198,14 +313,14 @@ export function normalizePokemonMetadata(
 
   const out: PokemonNormalizedMetadata = { game: 'pokemon' };
 
-  const language = resolveLanguage(input);
-  if (language) out.language = language;
-
   if (cardName) out.cardName = cardName;
   if (cardNumber) out.cardNumber = cardNumber.replace(/^#/, '');
 
   const setCode = extractPokemonSetCodeFromBrand(brand);
   const catalog = setCode ? lookupPokemonSetCodeCatalog(setCode) : null;
+
+  const language = resolveLanguage(input, catalog?.market ?? null);
+  if (language) out.language = language;
 
   if (catalog) {
     out.setCode = catalog.setCode;
@@ -246,6 +361,10 @@ export function normalizePokemonMetadataFromGraded(
     graded.card && typeof graded.card === 'object'
       ? (graded.card as Record<string, unknown>)
       : {};
+  const ch =
+    graded.cardhedger && typeof graded.cardhedger === 'object'
+      ? (graded.cardhedger as Record<string, unknown>)
+      : {};
   return normalizePokemonMetadata({
     brand: trimStr(psa.brand) || trimStr(psa.Brand) || trimStr(psa.setHint),
     setHint: trimStr(psa.setHint),
@@ -261,8 +380,17 @@ export function normalizePokemonMetadataFromGraded(
       trimStr(psa.variety) ||
       trimStr(psa.varietyHint) ||
       trimStr(card.variant),
-    language: opts?.language,
-    cardhedgerSet: opts?.cardhedgerSet,
+    language:
+      opts?.language ||
+      trimStr(ch.market) ||
+      trimStr(card.market) ||
+      null,
+    cardhedgerSet:
+      opts?.cardhedgerSet ||
+      trimStr(ch.set) ||
+      trimStr(ch.setName) ||
+      trimStr(card.set) ||
+      null,
   });
 }
 
@@ -304,18 +432,51 @@ export function extractPokemonNormalizedFromMeta(
 
 /**
  * Mirror `graded.normalized.pokemon` onto collection `components`.
- * Fills `language` / `rarity` only when those component fields are empty.
+ * Fills `language` / `rarity` (and other missing projection fields) without
+ * wiping an existing normalizedPokemon block.
  */
 export function applyPokemonNormalizedToComponents(
   components: Record<string, unknown>,
   pokemon: PokemonNormalizedMetadata | null | undefined,
 ): void {
   if (!pokemon || pokemon.game !== 'pokemon') return;
-  components.normalizedPokemon = pokemon;
-  if (!trimStr(components.language) && pokemon.language) {
-    components.language = pokemon.language;
+
+  const prev = components.normalizedPokemon;
+  if (prev && typeof prev === 'object') {
+    const p = { ...(prev as PokemonNormalizedMetadata) };
+    if (!trimStr(p.language) && pokemon.language) p.language = pokemon.language;
+    if (!trimStr(p.rarity) && pokemon.rarity) p.rarity = pokemon.rarity;
+    if (!trimStr(p.series) && pokemon.series) p.series = pokemon.series;
+    if (!trimStr(p.setName) && pokemon.setName) p.setName = pokemon.setName;
+    if (!trimStr(p.setCode) && pokemon.setCode) p.setCode = pokemon.setCode;
+    if (!trimStr(p.cardName) && pokemon.cardName) p.cardName = pokemon.cardName;
+    if (!trimStr(p.cardNumber) && pokemon.cardNumber) {
+      p.cardNumber = pokemon.cardNumber;
+    }
+    if (!trimStr(p.variant) && pokemon.variant) p.variant = pokemon.variant;
+    if (!p.setKind && pokemon.setKind) p.setKind = pokemon.setKind;
+    components.normalizedPokemon = p;
+  } else {
+    components.normalizedPokemon = pokemon;
   }
-  if (!trimStr(components.rarity) && pokemon.rarity) {
-    components.rarity = pokemon.rarity;
+
+  const np = components.normalizedPokemon as PokemonNormalizedMetadata;
+  if (!trimStr(components.language) && np.language) {
+    components.language = np.language;
   }
+  if (!trimStr(components.rarity) && np.rarity) {
+    components.rarity = np.rarity;
+  }
+}
+
+export function printLanguageHintsFromComponents(
+  components: Record<string, unknown>,
+): PrintLanguageHints {
+  return {
+    language: trimStr(components.language) || null,
+    brand: trimStr(components.psaBrand) || trimStr(components.cardSet),
+    setHint: trimStr(components.cardSet) || trimStr(components.psaBrand),
+    category: trimStr(components.psaCategory),
+    variety: trimStr(components.psaVariety) || trimStr(components.variant),
+  };
 }

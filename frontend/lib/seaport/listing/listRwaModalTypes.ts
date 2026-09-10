@@ -42,7 +42,7 @@ export interface ListRwaModalProps {
   headlineGrade?: string | null;
   onClose: () => void;
   onMatchedSale?: () => void;
-  onListed?: (tokenId: number) => void;
+  onListed?: (tokenId: number, created: Order) => void;
   initialPriceUsdc?: string | null;
   existingAskOrder?: Order | null;
   existingAskOrderHash?: string | null;

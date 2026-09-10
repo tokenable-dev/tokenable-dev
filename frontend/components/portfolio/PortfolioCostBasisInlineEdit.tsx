@@ -98,7 +98,7 @@ export function PortfolioCostBasisInlineEdit({
     if (skipBlurRef.current) return;
     // Mobile: keep editing until Apply / Cancel (blur would fire before the tap).
     if (layout === "mobile") return;
-    cancel();
+    void commit();
   };
 
   const handleSubmit = (e: FormEvent) => {

@@ -4,13 +4,12 @@ import {
   AXIS_LABEL_MOBILE,
   CHART_DAY_SEC,
   COLLECTION_DETAIL_AXIS_LABEL,
+  COLLECTION_DETAIL_AZURE,
   COLLECTION_DETAIL_CHART_DATE_FONT,
   COLLECTION_DETAIL_CHART_MARK_FONT,
   COLLECTION_DETAIL_CHART_MONO,
-  COLLECTION_DETAIL_GRID_LINE,
   COLLECTION_DETAIL_LINE_WIDTH,
   collectionDetailChartAreaGradient,
-  collectionDetailChartLineColor,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
   LIVE_MARKET_LINE,
@@ -27,17 +26,27 @@ import {
   formatYAxisLabelPlain,
   roughTickConfigByWindowDays,
   roughTickConfigCardHtml,
+  formatCardHtmlThreeTickDayLabel,
+  cardHtmlPeriodAxisTickMs,
 } from "./chartTimeTicks";
 import type { MergedExternalChartData } from "./types";
 
 type ChartXy = [number, number];
 
-/** Card.html: `last.v >= first.v` → green line. */
-function cardHtmlWindowUp(data: ChartXy[]): boolean {
-  if (data.length === 0) return true;
-  const first = data[0]![1];
-  const last = data[data.length - 1]![1];
-  return last >= first;
+function seriesMedianUsd(data: ChartXy[]): number | null {
+  const vs = data
+    .map((p) => p[1])
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+  if (vs.length === 0) return null;
+  const mid = Math.floor(vs.length / 2);
+  return vs.length % 2 === 1 ? vs[mid]! : (vs[mid - 1]! + vs[mid]!) / 2;
+}
+
+function markSide(coordX: number, tMinMs: number, tMaxMs: number): "left" | "right" {
+  const span = tMaxMs - tMinMs;
+  if (!(span > 0)) return "right";
+  return coordX > tMinMs + span * 0.7 ? "left" : "right";
 }
 
 function cardHtmlDecorateLine(
@@ -46,60 +55,120 @@ function cardHtmlDecorateLine(
   lineColor: string,
 ): LineSeriesOption {
   if (data.length === 0) return seriesItem;
-  let hi = data[0]!;
-  let lo = data[0]!;
+  const first = data[0]!;
+  const last = data[data.length - 1]!;
+  let hi = first;
+  let lo = first;
   for (const p of data) {
     if (p[1] > hi[1]) hi = p;
     if (p[1] < lo[1]) lo = p;
   }
-  const first = data[0]!;
-  const lastIdx = data.length - 1;
+  const median = seriesMedianUsd(data);
+  const tMin = first[0];
+  const tMax = last[0];
 
-  const marks: NonNullable<LineSeriesOption["markPoint"]>["data"] = [
-    {
+  const marks: NonNullable<LineSeriesOption["markPoint"]>["data"] = [];
+  if (hi[1] !== last[1]) {
+    marks.push({
       name: "high",
       coord: hi,
       symbol: "circle",
-      symbolSize: 7,
-      itemStyle: { color: "rgba(255,255,255,0.92)", borderWidth: 0 },
+      symbolSize: 6.4,
+      itemStyle: { color: "rgba(255,255,255,0.75)", borderWidth: 0 },
       label: {
         show: true,
         formatter: `High ${formatCardHtmlTooltipUsd(hi[1])}`,
-        position: "top",
-        color: "#fff",
+        position: markSide(hi[0], tMin, tMax),
+        color: "rgba(255,255,255,0.6)",
         fontWeight: 600,
         fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
         fontFamily: COLLECTION_DETAIL_CHART_MONO,
-        distance: 10,
+        distance: 8,
       },
+    });
+  }
+  marks.push({
+    name: "low",
+    coord: lo,
+    symbol: "circle",
+    symbolSize: 6.4,
+    itemStyle: { color: "rgba(255,255,255,0.4)", borderWidth: 0 },
+    label: {
+      show: true,
+      formatter: `Low ${formatCardHtmlTooltipUsd(lo[1])}`,
+      position: "bottom",
+      color: "rgba(255,255,255,0.42)",
+      fontWeight: 600,
+      fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
+      fontFamily: COLLECTION_DETAIL_CHART_MONO,
+      distance: 8,
+    },
+  });
+  marks.push({
+    name: "now",
+    coord: last,
+    symbol: "circle",
+    symbolSize: 8,
+    itemStyle: {
+      color: "#fff",
+      borderColor: lineColor,
+      borderWidth: 2,
+    },
+    label: {
+      show: true,
+      formatter: formatCardHtmlTooltipUsd(last[1]),
+      /* Inside the plot (Card.html pill overlays the line end — do not steal grid.right). */
+      position: "left",
+      backgroundColor: lineColor,
+      color: "#fff",
+      fontWeight: 800,
+      fontSize: 12,
+      fontFamily: COLLECTION_DETAIL_CHART_MONO,
+      padding: [5, 9],
+      borderRadius: 5,
+      distance: 10,
+      overflow: "none",
+    },
+  });
+
+  const markLineData: NonNullable<LineSeriesOption["markLine"]>["data"] = [
+    {
+      yAxis: last[1],
+      lineStyle: {
+        type: [4, 4],
+        color: "rgba(26,111,255,0.5)",
+        width: 1,
+      },
+      label: { show: false },
     },
   ];
-  if (hi[0] !== lo[0] || hi[1] !== lo[1]) {
-    marks.push({
-      name: "low",
-      coord: lo,
-      symbol: "circle",
-      symbolSize: 7,
-      itemStyle: { color: "rgba(255,255,255,0.55)", borderWidth: 0 },
+  if (median != null && Number.isFinite(median)) {
+    markLineData.push({
+      yAxis: median,
+      lineStyle: {
+        type: [5, 4],
+        color: "rgba(255,255,255,0.45)",
+        width: 1,
+      },
       label: {
         show: true,
-        formatter: `Low ${formatCardHtmlTooltipUsd(lo[1])}`,
-        position: "bottom",
-        color: "rgba(255,255,255,0.55)",
+        formatter: `Median ${formatCardHtmlTooltipUsd(median)}`,
+        position: "middle",
+        backgroundColor: "#191919",
+        color: "rgba(255,255,255,0.72)",
         fontWeight: 600,
-        fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
+        fontSize: 11,
         fontFamily: COLLECTION_DETAIL_CHART_MONO,
-        distance: 10,
+        padding: [2, 4],
       },
     });
   }
 
   return {
     ...seriesItem,
-    showSymbol: true,
+    showSymbol: false,
     symbol: "circle",
-    symbolSize: (_value: unknown, params: { dataIndex?: number }) =>
-      params.dataIndex === lastIdx ? 8 : 0,
+    symbolSize: 9,
     itemStyle: {
       color: "#fff",
       borderColor: lineColor,
@@ -118,17 +187,14 @@ function cardHtmlDecorateLine(
       silent: true,
       symbol: "none",
       animation: false,
+      clip: false,
       label: { show: false },
-      lineStyle: {
-        type: [4, 4],
-        color: "rgba(255,255,255,0.14)",
-        width: 1,
-      },
-      data: [{ yAxis: first[1] }],
+      data: markLineData,
     },
     markPoint: {
       silent: true,
       animation: false,
+      clip: false,
       label: {
         fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
         fontWeight: 600,
@@ -159,16 +225,9 @@ export function buildCollectionDualPriceChartOption(input: {
   } = input;
 
   const isCardHtml = colorTheme === "collection-detail";
-
-  const polaritySeries: ChartXy[] = merged.extIsPolyline
-    ? merged.externalSeries
-    : [];
-  const windowUp = isCardHtml ? cardHtmlWindowUp(polaritySeries) : true;
-  const lineColor = isCardHtml
-    ? collectionDetailChartLineColor(windowUp)
-    : LIVE_MARKET_LINE;
+  const lineColor = isCardHtml ? COLLECTION_DETAIL_AZURE : LIVE_MARKET_LINE;
   const areaGradient = isCardHtml
-    ? collectionDetailChartAreaGradient(windowUp)
+    ? collectionDetailChartAreaGradient()
     : LIVE_MARKET_AREA_GRADIENT;
   const lineWidth = isCardHtml ? COLLECTION_DETAIL_LINE_WIDTH : LIVE_LINE_WIDTH;
 
@@ -204,11 +263,9 @@ export function buildCollectionDualPriceChartOption(input: {
     );
   }
   if (externalFlatSeries.length) {
-    const flatColor = isCardHtml
-      ? collectionDetailChartLineColor(true)
-      : lineColor;
+    const flatColor = isCardHtml ? COLLECTION_DETAIL_AZURE : lineColor;
     const flatArea = isCardHtml
-      ? collectionDetailChartAreaGradient(true)
+      ? collectionDetailChartAreaGradient()
       : areaGradient;
     const flat: LineSeriesOption = {
       name: externalRefLineTag,
@@ -276,16 +333,19 @@ export function buildCollectionDualPriceChartOption(input: {
     ? "var(--font-sans), Inter, system-ui, sans-serif"
     : undefined;
 
+  const xSpanMs =
+    merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) * 1000 : 0;
+
   return {
     backgroundColor: "transparent",
-    animation: !compactTab,
-    animationDuration: compactTab ? 0 : 250,
+    animation: isCardHtml ? false : !compactTab,
+    animationDuration: isCardHtml || compactTab ? 0 : 250,
     textStyle: {
       color: axisLabelColor,
       fontFamily: axisFontFamily ?? "ui-sans-serif, system-ui, sans-serif",
     },
     grid: isCardHtml
-      ? { left: 16, right: 16, top: 30, bottom: 28, containLabel: false }
+      ? { left: 16, right: 16, top: 22, bottom: 20, containLabel: false }
       : compactTab
       ? {
           left: 38,
@@ -312,55 +372,99 @@ export function buildCollectionDualPriceChartOption(input: {
             }
           : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
-      { type: "inside", xAxisIndex: 0, filterMode: "none" },
-      { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
-    ],
-    xAxis: {
-      type: "time",
-      min: merged.tMin * 1000,
-      max: merged.tMax * 1000,
-      ...(useCoarseTimeTicks
-        ? {
-            minInterval: roughTick.minIntervalMs,
-            splitNumber: isCardHtml ? 2 : roughTick.splitNumber,
-          }
-        : {}),
-      axisLine: { show: false },
-      axisTick: { show: false },
-      splitLine: { show: false },
-      axisLabel: {
-        color: axisLabelColor,
-        fontSize: isCardHtml ? COLLECTION_DETAIL_CHART_DATE_FONT : axisLabelSize,
-        fontFamily: isCardHtml ? COLLECTION_DETAIL_CHART_MONO : axisFontFamily,
-        hideOverlap: true,
-        showMinLabel: isCardHtml ? true : undefined,
-        showMaxLabel: isCardHtml ? true : undefined,
-        margin: isMobileChart ? 12 : 10,
-        padding: [4, 0, 0, isMobileChart ? 6 : 4],
-        rich: isYearView
+      {
+        type: "inside" as const,
+        xAxisIndex: 0,
+        filterMode: "none" as const,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: false,
+        preventDefaultMouseMove: true,
+        ...(xSpanMs > 0
           ? {
-              year: {
-                color: axisLabelColor,
-                fontWeight: 700,
-                fontSize: axisLabelSize,
-              },
+              minValueSpan: Math.min(
+                2 * CHART_DAY_SEC * 1000,
+                xSpanMs * 0.05,
+              ),
             }
-          : undefined,
-        formatter: (value: number) => {
-          const tSec = Math.floor(value / 1000);
-          if (isCardHtml) {
-            return roughTick.formatter(tSec);
-          }
-          if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec);
-          if (isYearView) return formatTickYearOrMonthLabel(tSec, merged.tMin);
-          return roughTick.formatter(tSec);
-        },
+          : {}),
       },
-    },
+    ],
+    xAxis: isCardHtml
+      ? {
+          /* value (ms), not time — ECharts 6 TimeScale.leveledFormat crashes on customValues. */
+          type: "value" as const,
+          min: merged.tMin * 1000,
+          max: merged.tMax * 1000,
+          splitNumber: 2,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: {
+            color: axisLabelColor,
+            fontSize: COLLECTION_DETAIL_CHART_DATE_FONT,
+            fontFamily: COLLECTION_DETAIL_CHART_MONO,
+            hideOverlap: false,
+            showMinLabel: true,
+            showMaxLabel: true,
+            alignMinLabel: "left" as const,
+            alignMaxLabel: "right" as const,
+            customValues: cardHtmlPeriodAxisTickMs(merged.tMin, merged.tMax),
+            margin: isMobileChart ? 12 : 10,
+            padding: [4, 0, 0, isMobileChart ? 6 : 4],
+            formatter: (value: number) =>
+              formatCardHtmlThreeTickDayLabel(
+                Math.floor(value / 1000),
+                merged.tMin,
+                merged.tMax,
+              ),
+          },
+        }
+      : {
+          type: "time" as const,
+          min: merged.tMin * 1000,
+          max: merged.tMax * 1000,
+          ...(useCoarseTimeTicks
+            ? {
+                minInterval: roughTick.minIntervalMs,
+                splitNumber: roughTick.splitNumber,
+              }
+            : {}),
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: {
+            color: axisLabelColor,
+            fontSize: axisLabelSize,
+            fontFamily: axisFontFamily,
+            hideOverlap: true,
+            showMinLabel: true,
+            showMaxLabel: true,
+            margin: isMobileChart ? 12 : 10,
+            padding: [4, 0, 0, isMobileChart ? 6 : 4],
+            rich: isYearView
+              ? {
+                  year: {
+                    color: axisLabelColor,
+                    fontWeight: 700,
+                    fontSize: axisLabelSize,
+                  },
+                }
+              : undefined,
+            formatter: (value: number) => {
+              const tSec = Math.floor(value / 1000);
+              if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec);
+              if (isYearView) return formatTickYearOrMonthLabel(tSec, merged.tMin);
+              return roughTick.formatter(tSec);
+            },
+          },
+        },
     yAxis: {
       type: "value",
+      position: isCardHtml ? "right" : "left",
       min,
       max,
+      splitNumber: isCardHtml ? 3 : undefined,
       ...(interval != null ? { interval } : {}),
       name: isYearView ? "USD" : undefined,
       nameLocation: "end",
@@ -373,12 +477,7 @@ export function buildCollectionDualPriceChartOption(input: {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: isCardHtml
-        ? {
-            show: true,
-            lineStyle: { color: COLLECTION_DETAIL_GRID_LINE, width: 1 },
-          }
-        : { show: false },
+      splitLine: { show: false },
       axisLabel: {
         show: !isCardHtml,
         color: axisLabelColor,
@@ -389,10 +488,12 @@ export function buildCollectionDualPriceChartOption(input: {
         align: "right",
         margin: isMobileChart ? 10 : 8,
         padding: [0, 0, isMobileChart ? 4 : 2, 0],
-        formatter: (value: number) =>
-          isCardHtml || isYearView
+        formatter: (value: number) => {
+          if (isCardHtml) return "";
+          return isYearView
             ? formatYAxisLabelPlain(value)
-            : formatYAxisLabelCompact(value),
+            : formatYAxisLabelCompact(value);
+        },
       },
     },
     tooltip: {
@@ -408,11 +509,13 @@ export function buildCollectionDualPriceChartOption(input: {
           type: isCardHtml ? "solid" : "dashed",
         },
       },
-      backgroundColor: isCardHtml ? "var(--ink-2, #0e0e0e)" : "rgba(10,10,12,0.95)",
-      borderWidth: isCardHtml ? 0 : 1,
-      borderColor: isCardHtml ? "transparent" : "rgba(255,255,255,0.10)",
+      backgroundColor: isCardHtml ? "#1c1e26" : "rgba(10,10,12,0.95)",
+      borderWidth: 1,
+      borderColor: isCardHtml
+        ? "rgba(255,255,255,0.09)"
+        : "rgba(255,255,255,0.10)",
       extraCssText: isCardHtml
-        ? "filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.5));padding:12px 15px;border-radius:0;white-space:nowrap;"
+        ? "border-radius:8px;box-shadow:0 8px 24px -8px rgba(0,0,0,0.7);padding:7px 10px;white-space:nowrap;"
         : undefined,
       position: isCardHtml
         ? (
@@ -423,7 +526,7 @@ export function buildCollectionDualPriceChartOption(input: {
             size: { contentSize: number[] },
           ) => [
             pos[0] - size.contentSize[0] / 2,
-            pos[1] - size.contentSize[1] - 10,
+            pos[1] - size.contentSize[1] - 12,
           ]
         : undefined,
       textStyle: { color: "#f4f4f5", fontSize: isCardHtml ? 12 : 11 },
@@ -449,14 +552,15 @@ export function buildCollectionDualPriceChartOption(input: {
               ? formatCardHtmlHoverWhen(t)
               : formatHoverWhen(t)
             : "";
-        const priceColor = isCardHtml ? "var(--pos, #00C864)" : lineColor;
+        if (isCardHtml) {
+          return [
+            `<div style="font-family:${COLLECTION_DETAIL_CHART_MONO};font-size:13px;font-weight:800;color:#fff;">${formatCardHtmlTooltipUsd(e as number | null)}</div>`,
+            `<div style="font-family:${COLLECTION_DETAIL_CHART_MONO};font-size:11px;color:rgba(255,255,255,0.52);margin-top:2px;">${when}</div>`,
+          ].join("");
+        }
         return [
-          `<div style="color:rgba(255,255,255,0.55);font-size:${isCardHtml ? 12 : 10}px;margin-bottom:${isCardHtml ? 8 : 6}px;font-family:var(--font-mono),monospace">${when}</div>`,
-          `<div style="display:flex;justify-content:space-between;align-items:center;gap:${isCardHtml ? 20 : 16}px"><span style="color:${isCardHtml ? "rgba(255,255,255,0.82)" : "#e4e4e7"};font-size:${isCardHtml ? 14 : 12}px;font-family:${isCardHtml ? "var(--font-sans),sans-serif" : "inherit"}">Live Market Price</span><span style="color:${priceColor};font-weight:500;font-size:${isCardHtml ? 15 : 12}px;font-family:var(--font-mono),monospace">${
-            isCardHtml
-              ? formatCardHtmlTooltipUsd(e as number | null)
-              : formatTooltipUsd(e as number | null)
-          }</span></div>`,
+          `<div style="color:rgba(255,255,255,0.55);font-size:10px;margin-bottom:6px;font-family:var(--font-mono),monospace">${when}</div>`,
+          `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><span style="color:#e4e4e7;font-size:12px;">Live Market Price</span><span style="color:${lineColor};font-weight:500;font-size:12px;font-family:var(--font-mono),monospace">${formatTooltipUsd(e as number | null)}</span></div>`,
         ].join("");
       },
     },

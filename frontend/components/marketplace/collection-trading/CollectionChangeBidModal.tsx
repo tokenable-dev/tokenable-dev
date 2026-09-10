@@ -99,6 +99,7 @@ export function CollectionChangeBidModal({
             collectionKey={collectionKey}
             tokenId={tokenId}
             listing={listing}
+            collectionAsks={activeAsks}
             collectionBids={collectionBids}
             listedPriceLabel={listedLabel}
             connectedAddress={connectedAddress}

@@ -308,10 +308,6 @@ export function PortfolioCertificateView({
                   <div className="hist-d">{n.detail}</div>
                 </div>
               ))}
-              <p className="note">
-                Only verified Tokenable transactions enter this history; unverified
-                external or private sales stay as market comps.
-              </p>
             </div>
           )}
 

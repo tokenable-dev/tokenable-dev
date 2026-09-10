@@ -5,9 +5,19 @@ export type AppToast = {
   id: string;
   tone: TkNoteTone;
   title: string;
-  message: string;
+  message?: string;
+  /** Card.html trade toast — white 600 card name (optionally wrapped by lead/trail). */
+  cardTitle?: string | null;
+  lead?: string | null;
+  trail?: string | null;
+  /** Green mono line (e.g. In vault · Cert). */
+  accentLine?: string | null;
+  /** Muted second line (e.g. You receive $X · after 5% fee). */
+  mutedLine?: string | null;
   href?: string | null;
   ctaLabel?: string | null;
+  /** Card.html inline link in the note body instead of a filled action chip. */
+  ctaInline?: boolean;
   /** When set, activating marks this inbox row read. */
   notificationId?: string;
   addFunds?: boolean;
@@ -64,9 +74,15 @@ export const useToastStore = create<ToastStore>((set, get) => ({
       id,
       tone: input.tone,
       title: input.title,
-      message: input.message,
+      message: input.message ?? "",
+      cardTitle: input.cardTitle,
+      lead: input.lead,
+      trail: input.trail,
+      accentLine: input.accentLine,
+      mutedLine: input.mutedLine,
       href: input.href,
       ctaLabel: input.ctaLabel,
+      ctaInline: input.ctaInline,
       notificationId: input.notificationId,
       addFunds: input.addFunds,
       durationMs: input.durationMs ?? DEFAULT_DURATION_MS,

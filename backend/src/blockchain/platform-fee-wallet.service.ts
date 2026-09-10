@@ -129,6 +129,13 @@ export class PlatformFeeWalletService {
         );
       }
 
+      if (to === from) {
+        this.logger.log(
+          `Skip platform-fee USDC self-transfer (${params.amountMicros} already at ${from})`,
+        );
+        return { txHash: `skipped-self:${from}`, from };
+      }
+
       const usdc = this.chainConfig.getUsdcAddress(chainId);
       const token = new Contract(usdc, ERC20_ABI, wallet);
       const amount = BigInt(params.amountMicros);

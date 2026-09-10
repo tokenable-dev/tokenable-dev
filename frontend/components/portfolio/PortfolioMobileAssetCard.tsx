@@ -110,7 +110,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
                 valueUsd={cost}
                 editable
                 saving={savingCostBasis}
-                onSave={(usd) => void onSaveCostBasis(row.tokenId, usd)}
+                onSave={(usd) => onSaveCostBasis(row.tokenId, usd)}
               />
             ) : (
               <div className="pf-mobile-asset-card__row">

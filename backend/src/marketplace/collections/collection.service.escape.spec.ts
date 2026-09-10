@@ -105,6 +105,34 @@ describe('CollectionService.searchComponentsFromGradedMeta', () => {
     expect(out.cardNumber).toBe('199/165');
   });
 
+  it('mirrors language JP when Brand omits "Japanese" but set code is JP-market', () => {
+    const out = CollectionService.searchComponentsFromGradedMeta({
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          gradeScore: '10',
+          psa: {
+            cardNameHint: 'Gengar',
+            setHint: 'POKEMON SV2a-POKEMON CARD 151',
+            cardNumberHint: '094',
+            category: 'Pokemon',
+          },
+          card: {
+            name: 'Gengar',
+            set: 'POKEMON SV2a-POKEMON CARD 151',
+            number: '094',
+          },
+        },
+      },
+    });
+    expect(out.normalizedPokemon).toMatchObject({
+      game: 'pokemon',
+      language: 'JP',
+      setCode: 'SV2a',
+    });
+    expect(out.language).toBe('JP');
+  });
+
   it('mirrors normalized Pokémon projection when Brand encodes SV2a', () => {
     const out = CollectionService.searchComponentsFromGradedMeta({
       properties: {
@@ -139,5 +167,31 @@ describe('CollectionService.searchComponentsFromGradedMeta', () => {
       setKind: 'expansion',
     });
     expect(out.language).toBe('JP');
+  });
+
+  it('infers JP from One Piece PSA Brand without a Pokémon projection', () => {
+    const out = CollectionService.searchComponentsFromGradedMeta({
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          gradeScore: '10',
+          psa: {
+            cardNameHint: 'Nami',
+            Brand: 'ONE PIECE JAPANESE OP05-AWAKENING OF THE NEW ERA',
+            setHint: 'ONE PIECE JAPANESE OP05-AWAKENING OF THE NEW ERA',
+            cardNumberHint: '001',
+            category: 'ONE PIECE',
+          },
+          card: {
+            name: 'Nami',
+            set: 'ONE PIECE JAPANESE OP05-AWAKENING OF THE NEW ERA',
+            number: '001',
+          },
+        },
+      },
+    });
+    expect(out.normalizedPokemon).toBeUndefined();
+    expect(out.language).toBe('JP');
+    expect(out.psaBrand).toContain('ONE PIECE JAPANESE');
   });
 });

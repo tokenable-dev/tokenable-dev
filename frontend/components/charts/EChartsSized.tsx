@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import type { EChartsOption } from "echarts";
 import { useElementSize } from "@/hooks/useElementSize";
 
@@ -21,6 +22,8 @@ type EChartsSizedProps = {
 /**
  * Mount ECharts only after the container has non-zero dimensions
  * (prevents "[ECharts] Can't get DOM width or height" on flex/hidden tabs).
+ * Stay mounted if size briefly hits 0 — unmount+dataZoom dispose crashes ECharts 6
+ * (`__ec_inner_*` on roam records).
  */
 export function EChartsSized({
   option,
@@ -28,7 +31,12 @@ export function EChartsSized({
   chartKey,
   minHeight = 200,
 }: EChartsSizedProps) {
-  const { ref, width, height, ready } = useElementSize();
+  const { ref, width, height } = useElementSize();
+  const [canDraw, setCanDraw] = useState(false);
+
+  useEffect(() => {
+    if (width > 8 && height > 8) setCanDraw(true);
+  }, [width, height]);
 
   return (
     <div
@@ -36,14 +44,15 @@ export function EChartsSized({
       className={className ?? "h-full min-h-0 w-full"}
       style={{ minHeight }}
     >
-      {ready ? (
+      {canDraw ? (
         <ReactECharts
           key={chartKey}
           option={option}
           notMerge
           lazyUpdate
           autoResize
-          style={{ width, height }}
+          opts={{ renderer: "canvas" }}
+          style={{ width: "100%", height: "100%", minHeight }}
         />
       ) : null}
     </div>

@@ -171,7 +171,7 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 2. Read `Seaport.getCounter(offerer)` for nonce
 3. Build Seaport order: offer = ERC-721, consideration = USDC
    - **standard:** seller + platform fee (~5%)
-   - **self_vault_hold:** single consideration = 100% USDC to `PLATFORM_FEE_RECIPIENT` (no $0 seller line)
+   - **self_vault_hold:** single consideration = 100% USDC to `PLATFORM_FEE_RECIPIENT` (no $0 seller line). Valid even when the seller wallet is that same address (fee/custody key used as MetaMask).
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table (backend rejects self-vault asks that are not full-platform-take)
 

@@ -188,6 +188,7 @@ describe('RwaService.uploadToIpfs', () => {
 
     const graded = result.metadata.properties?.graded as Record<string, unknown>;
     expect(graded.normalized).toEqual({
+      language: 'JP',
       pokemon: {
         game: 'pokemon',
         language: 'JP',
@@ -206,6 +207,44 @@ describe('RwaService.uploadToIpfs', () => {
     expect((graded.cardhedger as { cardId: string }).cardId).toBe(
       'ch-legacy-keep',
     );
+  });
+
+  it('fills language JP from catalog.market when Brand omits Japanese', async () => {
+    pinata.fetchImageBufferFromUrl.mockResolvedValue({
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      mimeType: 'image/jpeg',
+      extension: 'jpg',
+    });
+    const brand = 'POKEMON SV2a-POKEMON CARD 151';
+    const pokemonGraded = JSON.stringify({
+      graded: {
+        gradingCompany: 'PSA',
+        grade: { score: 10 },
+        card: { name: 'Gengar', set: brand, number: '094' },
+        psa: {
+          certNumber: '80265535',
+          setHint: brand,
+          cardNameHint: 'Gengar',
+          cardNumberHint: '094',
+          category: 'Pokemon',
+        },
+      },
+    });
+
+    const result = await service.uploadToIpfs(
+      {
+        name: 'Gengar',
+        description: 'Test',
+        imageUrl: 'https://psa.example/front.jpg',
+        gradedMetadata: pokemonGraded,
+      },
+      84532,
+    );
+
+    const graded = result.metadata.properties?.graded as Record<string, unknown>;
+    expect(
+      (graded.normalized as { pokemon: { language: string } }).pokemon.language,
+    ).toBe('JP');
   });
 });
 

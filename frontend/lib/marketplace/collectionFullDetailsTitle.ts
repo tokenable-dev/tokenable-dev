@@ -127,6 +127,68 @@ export function formatHeadlineCardNumber(raw: string | undefined | null): string
 }
 
 /**
+ * TCG catalog ids are often `OP13-118` / `ST01-009` (set code + collector #).
+ * Line 1 and Details Card number use `number`; set code stays on Line 2 / breadcrumb.
+ */
+export function splitTcgCollectorNumber(raw: string | null | undefined): {
+  full: string | null;
+  setCode: string | null;
+  number: string | null;
+} {
+  const full = formatHeadlineCardNumber(raw);
+  if (!full) return { full: null, setCode: null, number: null };
+
+  const compound = /^([A-Za-z][A-Za-z0-9]{1,7})-(\d{1,4}[A-Za-z]?)$/i.exec(full);
+  if (compound) {
+    const setCode = normalizeHeadlineCardNumberToken(compound[1]);
+    const number =
+      formatHeadlineCardNumber(compound[2]) ?? compound[2].toUpperCase();
+    return { full, setCode, number };
+  }
+  return { full, setCode: null, number: full };
+}
+
+/** Card.html Details Card number — `#199 / 165` or `#118`. */
+export function formatDetailsCardNumber(raw: string | null | undefined): string {
+  const n = String(raw ?? "")
+    .trim()
+    .replace(/#/g, "")
+    .replace(/\s+/g, " ");
+  if (!n) return "";
+  const slash = /^(\d+)\s*\/\s*(\d+)$/.exec(n);
+  if (slash) {
+    return `#${Number(slash[1])} / ${Number(slash[2])}`;
+  }
+  if (/^\d+$/.test(n)) {
+    return `#${Number(n)}`;
+  }
+  return `#${n}`;
+}
+
+const DETAILS_CARD_NAME_SUFFIX =
+  /^(ex|gx|v|vmax|vstar|lvx|mega|tag)$/i;
+
+/** Card.html Card name — `Charizard` linked, `ex` plain. */
+export function splitDetailsCardName(full: string): {
+  character: string;
+  suffix: string | null;
+} {
+  const t = full.trim().replace(/\s+/g, " ");
+  if (!t) return { character: "", suffix: null };
+  const parts = t.split(" ");
+  if (parts.length < 2) return { character: t, suffix: null };
+  const lastRaw = parts[parts.length - 1]!.replace(/\./g, "");
+  if (!DETAILS_CARD_NAME_SUFFIX.test(lastRaw)) {
+    return { character: t, suffix: null };
+  }
+  let suffix = toCardDisplayCase(parts[parts.length - 1]!);
+  if (/^ex$/i.test(lastRaw)) suffix = "ex";
+  if (/^gx$/i.test(lastRaw)) suffix = "gx";
+  const character = parts.slice(0, -1).join(" ").trim();
+  return { character: character || t, suffix: suffix || null };
+}
+
+/**
  * Pull a collector number out of a listing / catalog title when `components.cardNumber` is missing.
  * Prefers `#199/165`, `199/165`, `#OP13-118` — never a 4-digit year.
  */

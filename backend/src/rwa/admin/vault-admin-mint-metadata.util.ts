@@ -4,7 +4,7 @@ import {
   resolveCardhedgerMintImageUrl,
   resolveRemoteMintImageUrl,
 } from '../rwa-mint-image.util';
-import { attachPokemonNormalizedToGraded } from '../../marketplace/utils/pokemon-metadata-normalize.util';
+import { attachPokemonNormalizedToGraded, attachPrintLanguageToGraded } from '../../marketplace/utils/pokemon-metadata-normalize.util';
 
 function cardhedgerMetaWithoutCatalogImage(
   mint: PsaAnalyzeResult['cardhedgerMint'],
@@ -106,6 +106,15 @@ export function buildVaultAdminMintUploadFromAnalyze(params: {
     graded.normalized = { pokemon: params.analyze.normalized.pokemon };
   } else {
     attachPokemonNormalizedToGraded(graded);
+  }
+  if (params.analyze.normalized?.language) {
+    const prev =
+      graded.normalized && typeof graded.normalized === 'object'
+        ? { ...(graded.normalized as Record<string, unknown>) }
+        : {};
+    graded.normalized = { ...prev, language: params.analyze.normalized.language };
+  } else {
+    attachPrintLanguageToGraded(graded);
   }
 
   const gradedMetadata = JSON.stringify({

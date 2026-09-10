@@ -194,7 +194,7 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
 | POST | `/api/marketplace/collections/:key/admin/delete` | Delete marketplace bucket + snapshots + orders. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
 
-New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
+New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Later listings/sales do not replace an existing cover (admin uploads stay). Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
 
 ---
 

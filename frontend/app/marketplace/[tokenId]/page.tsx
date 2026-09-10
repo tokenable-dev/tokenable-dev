@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { postTokenCollectionKeysByTokenIds, rq } from "@/lib/core";
 
-/** Legacy `/marketplace/[tokenId]` — redirect into collection detail + listing modal. */
+/** Legacy `/marketplace/[tokenId]` — redirect into collection detail trade panel. */
 export default function RwaDetailRedirectPage() {
   const params = useParams();
   const router = useRouter();

@@ -7,14 +7,8 @@
   min-height: 100%;
 }
 
-/*
- * Markets.html `.wrap` / `.mk-shell` — full viewport width with side gutters only.
- * Global `.tkl-wrap` caps at 1240px which shrinks the 5-col grid vs the HTML prototype.
- */
-.markets-page .tkl-wrap {
-  max-width: none;
-  width: 100%;
-}
+/* Markets.html `.wrap` / `.mk-shell` — 1240px so the 5-col card art matches
+   the prototype size (full-bleed stretches cards too wide on large screens). */
 
 .markets-page__header {
   padding-top: 32px;
@@ -979,13 +973,20 @@
 
 /* ── Results grid ─────────────────────────────────────────────────────────── */
 
-/* Fixed column counts per breakpoint rather than auto-fill, so the card art
-   stays large enough to read. Shared spec with .watchlist-grid. */
+/* Fixed column counts per breakpoint · 5 desktop / 3 tablet / 2 phone —
+   rather than auto-fill, so the card art stays large enough to read.
+   Shared spec with Markets.html `.grid4` and `.watchlist-grid`. */
 .markets-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 22px;
   row-gap: 32px;
+}
+
+@media (min-width: 1600px) {
+  .markets-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .markets-grid--tail {
@@ -1082,14 +1083,34 @@
 
 .markets-grid .card__body {
   padding: 0 0 4px;
-  gap: 8px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.markets-grid .card__title,
+.markets-grid .card__price,
+.markets-grid .card__sub,
+.markets-grid .card__per {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
   min-width: 0;
 }
 
 .markets-grid .card__title {
-  font-size: 18px;
-  font-weight: 600;
-  --cd-line1-lh: 1.2;
+  --cd-line1-lh: 1.25;
+}
+
+.markets-grid .card__price,
+.markets-grid .card__sub,
+.markets-grid .card__per {
+  max-width: none;
 }
 
 .markets-grid .card__grade {
@@ -1107,42 +1128,44 @@
   font-weight: 400;
 }
 
-/* Markets.html price / change / period */
+/* Price · change · period on one row; name stays its own line. Same type size. */
 .markets-grid .card__price-row,
 .markets-grid .card__foot {
+  flex-direction: row;
   align-items: baseline;
+  flex-wrap: nowrap;
   gap: 2px 8px;
-  margin-top: 2px;
+  margin-top: 0;
+  overflow: hidden;
 }
 
-.markets-grid .card__price {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
+.markets-grid .card__price,
 .markets-grid .card__sub {
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 1;
+  flex: 0 1 auto;
+  width: auto;
+}
+
+.markets-grid .card__sub-glyph {
+  font-size: 8px;
 }
 
 .markets-grid .card__per {
-  font-size: 12px;
-  font-weight: 600;
+  margin-left: 6px;
   color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
   .markets-grid .card__body {
     padding: 0 0 4px;
-    gap: 8px;
+    gap: 4px;
   }
 
-  .markets-grid .card__title {
-    display: block;
-    font-size: 13px;
-    --cd-line1-lh: 1.3;
+  .markets-grid .card__title,
+  .markets-grid .card__price,
+  .markets-grid .card__sub,
+  .markets-grid .card__per {
+    font-size: 12px;
+    --cd-line1-lh: 1.25;
   }
 }
 
@@ -1297,12 +1320,15 @@
   }
 
   .markets-grid .card__body {
-    gap: 6px;
+    gap: 4px;
   }
 
-  .markets-grid .card__title {
-    font-size: 13px;
-    --cd-line1-lh: 1.3;
+  .markets-grid .card__title,
+  .markets-grid .card__price,
+  .markets-grid .card__sub,
+  .markets-grid .card__per {
+    font-size: 12px;
+    --cd-line1-lh: 1.25;
   }
 
   .markets-grid .card__meta {
@@ -1322,23 +1348,9 @@
     font-size: 10px;
   }
 
-  .markets-grid .card__price {
-    font-size: 15px;
-    min-width: 0;
-  }
-
-  .markets-grid .card__sub {
-    font-size: 12px;
-    flex-shrink: 1;
-  }
-
-  .markets-grid .card__per {
-    font-size: 10px;
-  }
-
   .markets-grid .card__price-row,
   .markets-grid .card__foot {
-    gap: 2px 4px;
+    gap: 2px 6px;
     margin-top: 0;
   }
 

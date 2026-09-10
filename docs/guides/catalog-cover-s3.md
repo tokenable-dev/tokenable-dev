@@ -15,7 +15,7 @@ When a collection row is first created (`ensureCollectionForListing` **or** admi
 3. Persist the **S3 public URL** as `coverImageUrl`.
 4. If S3 is not configured, or download/upload fails: fall back to the top remote Cardhedger/TCG URL so create/listing still succeeds.
 5. Admin can always replace the cover via URL paste or local file upload (same S3 overwrite model).
-6. Re-running admin create for the same cert upgrades an existing too-small S3 cover via the same ingest path.
+6. Once `coverImageUrl` is set, **listing, sale, and re-running create-from-cert do not replace it**. Automatic “upgrade if better” used to overwrite admin covers with Cardhedger/TCG originals (same S3 `/cover` key, or a higher-scoring catalog URL). Fill-if-empty still runs when the cover is missing. Explicit admin `upgradeIfBetter` may replace a **too-small** S3 thumb; an adequate existing S3 cover stays.
 
 ## Object key (overwrite model)
 

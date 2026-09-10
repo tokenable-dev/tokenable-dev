@@ -18,6 +18,8 @@ Self-vault mints (`deliveryMode=direct`) persist `rwa_tokens.settlement_policy =
 
 Ask create stamps `parameters._settlementPolicy`. On fulfill, ledger creation uses that stamp, `rwa_tokens.settlement_policy`, or the full-platform-take consideration shape (so resales still get a row if lookup is flaky).
 
+The seller wallet may be the same as `PLATFORM_FEE_RECIPIENT` (dev custody / fee key imported in MetaMask). That is still a valid full-platform-take ask — USDC already lands in the fee wallet. Do not reject `recipient === offerer` after the recipient has been verified as the fee wallet.
+
 **Disable / tuning:** `SELF_VAULT_AUTO_PAYOUT_CRON=0` turns the cron off; `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` overrides the delay (default `300`).
 
 **Admin UI:** `/marketplace/admin/self-vault-payouts` — **Needs action** = `status=open` (`pending_confirm` | `confirmed`) on the active chain. Same token with multiple open rows shows **Sale N of M**. Pay early, reject, or wait for auto. Repair: **Backfill missing sales**. APIs: `GET/POST /api/marketplace/admin/self-vault-settlements…` (admin session).

@@ -4,7 +4,14 @@ import { useEffect, useMemo, useRef } from "react";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { cardDisplayPartsFromAssetDetail } from "@/lib/marketplace/assetDetailHeadline";
+import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
+import {
+  buildMarketsCollectionHeadlineParts,
+  gradeLabelFromComp,
+} from "@/lib/markets/marketsCollectionTitle";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { cn } from "@/lib/ds/cn";
 
 export function MarketsCollectionGrid({
@@ -43,6 +50,21 @@ export function MarketsCollectionGrid({
     }
   }, [collections]);
 
+  const titleByCollectionKey = useMemo(() => {
+    return resolveCardDisplayLine1Collisions(
+      collections.map((collection) => {
+        const comp = parseCollectionComponents(collection.components);
+        return {
+          id: collection.collectionKey,
+          parts: cardDisplayPartsFromAssetDetail(
+            buildMarketsCollectionHeadlineParts({ collection, comp }),
+            gradeLabelFromComp(comp),
+          ),
+        };
+      }),
+    );
+  }, [collections]);
+
   return (
     <div className="markets-grid">
       {collections.map((collection, index) => {
@@ -71,6 +93,7 @@ export function MarketsCollectionGrid({
               position={index}
               onBeforeNavigate={onBeforeNavigate}
               showCatalogSubtitle={showCatalogSubtitle}
+              titleOverride={titleByCollectionKey.get(collection.collectionKey)}
             />
           </div>
         );

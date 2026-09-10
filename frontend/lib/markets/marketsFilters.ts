@@ -15,6 +15,7 @@ import {
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { bucketCardNameForDisplay, bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
+import { extractLeadingTcgSeriesFromSetDisplay } from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionSlabSetLine } from "@/lib/marketplace/slabDisplayTitle";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
@@ -233,6 +234,14 @@ function normalizeFacetToken(raw: string): string {
     .trim();
 }
 
+/** Card.html `set=151 EN` vs Markets facet `151` / `151 English`. */
+function setFacetNeedles(raw: string): string[] {
+  const n = normalizeFacetToken(stripLeadingYearFromSetLine(raw));
+  if (!n) return [];
+  const stripped = n.replace(/\s+(en|jp|kr|english|japanese)$/i, "").trim();
+  return stripped && stripped !== n ? [n, stripped] : [n];
+}
+
 /**
  * Canonical set label for Details KV + Markets `set=` facet — year stripped (Year is its own row).
  */
@@ -348,8 +357,36 @@ export function collectionMatchesSetFilters(
       .join(" "),
   );
   if (!hay) return false;
+  return selected.some((needle) =>
+    setFacetNeedles(needle).some((n) => n.length > 0 && hay.includes(n)),
+  );
+}
+
+export function collectionMatchesSeriesFilters(
+  collection: MarketplaceCollectionSummary,
+  selected: readonly string[],
+): boolean {
+  if (selected.length === 0) return true;
+  const comp = parseCollectionComponents(collection.components);
+  const hay = normalizeFacetToken(
+    [
+      comp.normalizedPokemon?.series,
+      extractLeadingTcgSeriesFromSetDisplay(bucketCardSetForDisplay(comp)),
+      extractLeadingTcgSeriesFromSetDisplay(resolveCollectionSlabSetLine(comp)),
+      extractLeadingTcgSeriesFromSetDisplay(comp.cardSetDisplay),
+      extractLeadingTcgSeriesFromSetDisplay(comp.cardSet),
+      extractLeadingTcgSeriesFromSetDisplay(collection.displayLabel),
+      bucketCardSetForDisplay(comp),
+      resolveCollectionSlabSetLine(comp),
+      collection.displayLabel,
+      collection.queryUsed,
+    ]
+      .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+      .join(" "),
+  );
+  if (!hay) return false;
   return selected.some((needle) => {
-    const n = normalizeFacetToken(stripLeadingYearFromSetLine(needle));
+    const n = normalizeFacetToken(needle);
     return n.length > 0 && hay.includes(n);
   });
 }
@@ -365,6 +402,7 @@ export function applyMarketsListingFilters(
     vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
     vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
     characters?: readonly string[];
+    series?: readonly string[];
     sets?: readonly string[];
     yearMin?: string;
     yearMax?: string;
@@ -386,6 +424,7 @@ export function applyMarketsListingFilters(
       return false;
     }
     if (!collectionMatchesCharacterFilters(c, opts.characters ?? [])) return false;
+    if (!collectionMatchesSeriesFilters(c, opts.series ?? [])) return false;
     if (!collectionMatchesSetFilters(c, opts.sets ?? [])) return false;
     if (!collectionMatchesYearRange(c, opts.yearMin ?? "", opts.yearMax ?? "")) {
       return false;

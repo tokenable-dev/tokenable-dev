@@ -1,15 +1,13 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getMarketplaceCollectionDetail, rq, marketplaceRqPolicy } from "@/lib/core";
-import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
-import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
-import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
+import { invalidateAfterCollectionUpdate } from "@/lib/core/invalidation";
+import type { BookRowSelection, TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 import { useCollectionDetailHeadline } from "./useCollectionDetailHeadline";
-import { useCollectionDetailInvalidation } from "./useCollectionDetailInvalidation";
 import { useCollectionDetailListings } from "./useCollectionDetailListings";
 import { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";
 import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
@@ -39,25 +37,21 @@ export type CollectionDetailLoadedProps = CollectionDetailPageModel & {
 export function useCollectionDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { address } = useAppStore(useShallow(selectWallet));
   const raw = params.collectionKey;
   const rawCollectionKey = Array.isArray(raw) ? raw[0] : raw;
   const collectionKey =
     typeof rawCollectionKey === "string" ? decodeURIComponent(rawCollectionKey) : "";
 
-  const [sellModalOpen, setSellModalOpen] = useState(false);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
-  const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
   const [orderBookAskPicker, setOrderBookAskPicker] = useState<BookRowSelection | null>(null);
   useCollectionDetailMobile();
-  const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
     v: number;
   } | null>(null);
   const [showOrderBook, setShowOrderBook] = useState(false);
-  const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
-  const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
   const chainId = activeRqChainId();
   const { data, isLoading, isError, error } = useQuery({
@@ -114,25 +108,9 @@ export function useCollectionDetailPage() {
     enabled: hasCollection,
   });
 
-  const invalidateCollection = useCollectionDetailInvalidation(collectionKey);
-
-  const presetPriceFromBook = useMemo(() => {
-    if (bookSelection == null) return null;
-    return bookSelection.price.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }, [bookSelection]);
-
-  const listPricePresetUsdc = useMemo(() => {
-    if (bookSelection?.side !== "bid") return null;
-    return presetPriceFromBook;
-  }, [bookSelection, presetPriceFromBook]);
-
-  const preferredBidOrderHash = useMemo(() => {
-    if (bookSelection?.side !== "bid" || !bookSelection.orders.length) return null;
-    return bookSelection.orders[0]?.orderHash ?? null;
-  }, [bookSelection]);
+  const invalidateCollection = useCallback(() => {
+    void invalidateAfterCollectionUpdate(queryClient, collectionKey);
+  }, [queryClient, collectionKey]);
 
   const status: CollectionDetailPageStatus = !collectionKey
     ? "invalid"
@@ -153,16 +131,7 @@ export function useCollectionDetailPage() {
       asks,
       collectionBids,
       selectedLevelKey: orderBookAskPicker?.levelKey ?? null,
-      onSelectLevel: (sel) => {
-        if (sel.side === "bid") return;
-        if (sel.side === "ask") {
-          setOrderBookAskPicker(sel);
-          return;
-        }
-        setBookSelection(sel);
-        setTradeFlow("buy");
-        setTradeDockOpen(true);
-      },
+      onSelectLevel: () => {},
       lastTradePriceUsdc: market.orderBookLastSaleUsdc,
       tapeFills: market.orderBookTapeFills,
       tapeLoading: market.platformTradesLoading,
@@ -203,25 +172,12 @@ export function useCollectionDetailPage() {
     collectionBids,
     listings,
     invalidateCollection,
-    presetPriceFromBook,
-    listPricePresetUsdc,
-    preferredBidOrderHash,
     collectionOrderBookProps,
-    sellModalOpen,
-    setSellModalOpen,
     tradeCelebration,
     setTradeCelebration,
-    bookSelection,
     orderBookAskPicker,
     setOrderBookAskPicker,
-    aiInsightComingSoonOpen,
-    setAiInsightComingSoonOpen,
     showOrderBook,
     setShowOrderBook,
-    tradeFlow,
-    setTradeFlow,
-    tradeDockOpen,
-    setTradeDockOpen,
-    setSessionFillPoint,
   };
 }

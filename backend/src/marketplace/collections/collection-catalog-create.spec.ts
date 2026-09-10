@@ -83,6 +83,7 @@ describe('CollectionService.createCatalogCollectionFromPsaCert', () => {
       mergeCardhedgerCardIdFromMetaIfMissing: jest.fn(),
       mergeListingDisplayTitleFromMetaIfMissing: jest.fn(),
       mergeTrendingSlabMetaFromMetaIfMissing: jest.fn(),
+      mergeNormalizedPokemonFromMetaIfMissing: jest.fn(),
       mergePsaSpecIdFromCertIfMissing: jest.fn(),
       ensurePsaSpecPopulationFromApi: jest.fn().mockResolvedValue(undefined),
     };

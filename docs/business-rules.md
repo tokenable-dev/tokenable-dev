@@ -97,6 +97,7 @@ Bids are **token offers** on a specific card (`tokenId`), not collection-wide cr
 - Max **1 active offer** per wallet per `collectionKey` (same collection, any tokenId)
 - Offers expire after a buyer-chosen window of **1, 3, 7, 14, 30, 60, 90, or 180 days** (Seaport `endTime`). Default is **7 days**.
 - Collection **Place a Bid** works with or without an active ask. Floor listing → that `tokenId`; otherwise a minted token in the collection. If the collection has no vaulted tokens yet, bid is unavailable.
+- A bid that is **≥ the collection’s live lowest ask** (same floor as the Buy tab, Card.html `bid >= ASK`) switches the Bid tab CTA to **Buy now**. Click fills that lowest live ask at the listed price (`BID_CROSSES_ASK`), including the bidder’s own listing — same treatment as any other ask.
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
 
@@ -109,7 +110,7 @@ Sellers take a card-level token offer primarily by **Edit price** (set ask → i
 - **Accept-offer fails** (buyer unfunded): leave the **existing** ask active and **unchanged**; invalidate the dead bid (same notifications)
 - Successful fill clears the ask because the NFT is sold
 - Notifications for new bids target owners of an **active ask on that `tokenId`**, not all collection sellers
-- Notification CTA **Edit price** deep-links to `/portfolio?setprice={tokenId}` (opens Set/Edit price drawer)
+- **Edit price** on My Assets / Certificate must show the **new** ask immediately (React Query + paint-time `ordersAsk` cache). Do not keep the previous listing price after a successful replace.
 - Spec: [seaport-accept-offer.md](architecture/seaport-accept-offer.md)
 
 ### BR-9: USDC-Only Settlement
@@ -141,6 +142,7 @@ A new `marketplace_collections` row created on first ask **or** via admin catalo
 
 - Sellers may still create/manage asks while pending
 - Home / Markets / public collection lists only show `review_status = active`
+- Collection `coverImageUrl` is not replaced on later listings or sales once it is set. Admin cover upload/URL is the replace path.
 - Admin approves (`active`) or rejects (`rejected`) from Marketplace Admin → Collections
 - Existing rows default to `active` so legacy catalog stays public
 - Catalog-only collections (no mint / ask yet) are visible on Markets after Approve — list SQL treats rows with no orders and no `rwa_tokens` as chain-global

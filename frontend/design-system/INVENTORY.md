@@ -78,7 +78,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Card grid | `MarketsCollectionGrid` + `CollectibleCard` | `components/markets/MarketsCollectionGrid.tsx`, `components/collectibles/CollectibleCard.tsx` |
 | Page compose | `MarketsPage` | `components/markets/MarketsPage.tsx` |
 
-**CSS:** `frontend/styles/tokenable-markets.css` (grid 6/5/3/3/2 — do not regress)
+**CSS:** `frontend/styles/tokenable-markets.css` (grid 5/3/3/2 — Markets.html `.grid4`; wrap 1240px for card size)
 
 **Facets wired (client-side):** category chips on the slim bar; set / price / grade / vault live in **More filters**. Sort menu: price, newest, population (no Top gainers; no Clear/Done/check chrome). Year deferred until backend supports them.
 
@@ -103,17 +103,17 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Breadcrumb | `.breadcrumb` | `CollectionDetailBreadcrumb` | `components/marketplace/collection-detail/CollectionDetailBreadcrumb.tsx` |
 | Metrics / price band | `.notch` stat tiles | `CollectionPriceMetricsStrip` | `buildCollectionDetailMarketsSlots.tsx` |
 | Chart + periods | `.tk-period`, Price history | `CollectionDetailPriceChart` | `components/marketplace/collection-detail/CollectionDetailPriceChart.tsx` |
-| Listings grid | `.notch` listing cards | `CollectionDetailListingsGrid` + `CollectionRwaCard` (Buy-only) | `components/marketplace/collection-detail/*` |
-| Set-level bid | Sticky hero + mobile trade bar | `CollectionDetailStatMain` / `CollectionMobileTradeBar` | `CollectionDetailStatMain.tsx` |
-| Mobile trade bar | `#ob-bottom-bar` | `CollectionMobileTradeBar` (Buy now / Place bid) | `CollectionMobileTradeBar.tsx` |
-| Listing checkout | `#tk-prov` | `CollectionListingCheckoutModal` | `CollectionListingCheckoutModal.tsx` |
+| Trade ticket | `#tk-trade` | `CollectionDetailTradePanel` | `CollectionDetailTradePanel.tsx` — Buy / Bid / Sell (direct Privy) |
+| Set-level bid | Sticky hero + mobile trade bar | `CollectionDetailStatMain` / `CollectionMobileTradeBar` | `CollectionDetailStatMain.tsx` — hero synced to Card.html ds-32: 150px contain + drop-shadow, title `clamp(17–24)`, meta 15px/`--t2`, price `clamp(26–38)`/800, Last price 15px/`0.16em` |
+| Mobile trade bar | `#ob-bottom-bar` | `CollectionMobileTradeBar` (Buy $price / Bid #12305e / Sell white) | `CollectionMobileTradeBar.tsx` — Card.html ds-32: 52px · 700 · Buy `#2f6bff` flex:1 · Bid `#12305e` 26% · Sell `#fff`/`#2f6bff` 26% |
+| Change bid | `#tkb-bid` | `CollectionListingBidCheckout` (portfolio) | `CollectionListingBidCheckout.tsx` |
 | Trades / order book | sidebar `.notch` | `CollectionUnifiedOrderBook` | `components/marketplace/unified-order-book/*` |
-| Details / PSA tabs | tab row | `CollectionHeroDetailsTabs` | `components/marketplace/collection-hero/*` |
+| Details / PSA tabs | tab row + KV | `CollectionHeroDetailsTabs` + `CollectionDetailsKvCard` | Card.html ds-32: 110×1fr, value right, row 32px, attr-link → brand-400 |
 | Overview layout | `card-detail-grid` | `CollectionOverviewBoard` | `components/marketplace/collection-overview/*` |
 
 **CSS:** `frontend/styles/tokenable-collection-detail.css`
 
-**Fees:** bid checkout fine print uses `feePercent()` from `platformFee.ts` (not hardcoded 5%).
+**Fees:** change-bid checkout fine print uses `feePercent()` from `platformFee.ts` (not hardcoded 5%).
 
 **Existing route:** `app/marketplace/collections/[collectionKey]/page.tsx`
 
@@ -237,11 +237,11 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 ## RWA token detail — (Phase 9) — **Done** (page tree removed)
 
-`/marketplace/[tokenId]` redirects to collection detail + `?listing=`. Listing/buy lives on collection checkout.
+`/marketplace/[tokenId]` redirects to collection detail + `?listing=`. Buy/bid/sell on collection uses the trade panel (`#tk-trade`); portfolio Set/Edit price still uses `ListRwaModal`.
 
-**CSS:** `frontend/styles/tokenable-rwa-detail.css` (ListRwaModal `tk-price` sheet; imported from portfolio + collection layouts)
+**CSS:** `frontend/styles/tokenable-rwa-detail.css` (ListRwaModal `tk-price` sheet; imported from portfolio layouts)
 
-**Kept:** `RwaDetailListModalHost`, `rwa-detail/theme`, `PsaVaultOutlineTag`, `useRwaDetailBuyFlow`, `useRwaDetailMetadata`
+**Kept:** `RwaDetailListModalHost`, `rwa-detail/theme`, `PsaVaultOutlineTag`, `useRwaDetailMetadata`
 
 ---
 

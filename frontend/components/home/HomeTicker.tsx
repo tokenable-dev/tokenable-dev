@@ -84,7 +84,7 @@ export function HomeTicker() {
       <span className="home-ticker__label">
         <span className="home-ticker__dot" aria-hidden />
         <span className="mono home-ticker__label-text">
-          Indices 1Y<span className="home-ticker__label-full"> return</span>
+          Indices 1Y<span className="home-ticker__label-full"> % Chg.</span>
         </span>
       </span>
       <div className="home-ticker__viewport">

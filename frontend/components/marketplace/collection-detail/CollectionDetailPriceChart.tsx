@@ -23,6 +23,7 @@ const PERIOD_LABELS: Record<number, string> = {
   90: "3M",
   180: "6M",
   365: "1Y",
+  99999: "All",
 };
 
 function windowChange(
@@ -38,11 +39,10 @@ function windowChange(
   if (!(first > 0)) return null;
   const pc = ((last - first) / first) * 100;
   const up = pc >= 0;
-  const winLbl = PERIOD_LABELS[days] ?? `${days}d`;
-  const mag = Math.abs(pc).toFixed(1);
+    const winLbl = PERIOD_LABELS[days] ?? (days >= 10000 ? "All" : `${days}d`);
   return {
     arrow: up ? "▲" : "▼",
-    rest: `${up ? "+" : ""}${mag}% · ${winLbl}`,
+    rest: `${up ? "+" : ""}${pc.toFixed(1)}% · ${winLbl}`,
     up,
   };
 }
@@ -55,6 +55,7 @@ export function CollectionDetailPriceChart({
   gradeChart,
   mobileLayout = false,
   heroSlot,
+  mdPanel,
 }: {
   chartProps: CollectionDualPriceChartProps;
   gradeChart: GradeChartSlice;
@@ -62,6 +63,8 @@ export function CollectionDetailPriceChart({
   mobileLayout?: boolean;
   /** Design-30: `#hero-bar` + `#hero-stats` nest inside the chart notch. */
   heroSlot?: ReactNode;
+  /** Card.html `#md-panel` — stats under the chart on narrow viewports. */
+  mdPanel?: ReactNode;
 }) {
   const change = useMemo(
     () => windowChange(chartProps.externalRollingUsd, gradeChart.chartDays),
@@ -77,39 +80,42 @@ export function CollectionDetailPriceChart({
       id="chart-card"
     >
       {withHero ? <div className="cd-chart-panel__hero">{heroSlot}</div> : null}
-      <div
-        className={`cd-chart-panel__header${
-          mobileLayout ? "" : " max-lg:hidden"
-        }`}
-      >
-        <div className="cd-chart-panel__head-left">
-          <span className="cd-chart-panel__title">Price history</span>
-          {change ? (
-            <span
-              className={`cd-chart-panel__chg tkl-mono${
-                change.up ? " cd-chart-panel__chg--up" : " cd-chart-panel__chg--down"
-              }`}
-            >
-              <span className="cd-chg-glyph" aria-hidden>
-                {change.arrow}
-              </span>{" "}
-              {change.rest}
-            </span>
-          ) : null}
+      <div className="cd-chart-panel__plot">
+        <div
+          className={`cd-chart-panel__header${
+            mobileLayout ? "" : " max-lg:hidden"
+          }`}
+        >
+          <div className="cd-chart-panel__head-left">
+            <span className="cd-chart-panel__title">Price history</span>
+            {change ? (
+              <span
+                className={`cd-chart-panel__chg tkl-mono${
+                  change.up ? " cd-chart-panel__chg--up" : " cd-chart-panel__chg--down"
+                }`}
+              >
+                <span className="cd-chg-glyph" aria-hidden>
+                  {change.arrow}
+                </span>{" "}
+                {change.rest}
+              </span>
+            ) : null}
+          </div>
+          <CollectionDetailChartPeriodToolbar
+            chartDays={gradeChart.chartDays}
+            onChartDaysChange={gradeChart.setChartDays}
+            disabled={gradeChart.gradeChartLoading}
+          />
         </div>
-        <CollectionDetailChartPeriodToolbar
-          chartDays={gradeChart.chartDays}
-          onChartDaysChange={gradeChart.setChartDays}
-          disabled={gradeChart.gradeChartLoading}
-        />
-      </div>
-      <div className="cd-chart-panel__body cd-chart-panel__body--card-html">
-        <CollectionDualPriceChart
-          {...chartProps}
-          chartToolbar={null}
-          embedInMobileTab={false}
-          colorTheme="collection-detail"
-        />
+        <div className="cd-chart-panel__body cd-chart-panel__body--card-html">
+          <CollectionDualPriceChart
+            {...chartProps}
+            chartToolbar={null}
+            embedInMobileTab={false}
+            colorTheme="collection-detail"
+          />
+        </div>
+        {mdPanel}
       </div>
     </div>
   );

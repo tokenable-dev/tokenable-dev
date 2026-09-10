@@ -1,6 +1,7 @@
 import {
   attachPokemonNormalizedToGraded,
   extractPokemonSetCodeFromBrand,
+  inferPrintLanguageFromHints,
   normalizePokemonMetadata,
 } from './pokemon-metadata-normalize.util';
 import { lookupPokemonSetCodeCatalog } from './pokemon-set-code.catalog';
@@ -19,6 +20,19 @@ describe('pokemon-set-code.catalog', () => {
   it('maps SV1S and SV1V', () => {
     expect(lookupPokemonSetCodeCatalog('SV1S')?.setName).toBe('Scarlet ex');
     expect(lookupPokemonSetCodeCatalog('SV1V')?.setName).toBe('Violet ex');
+  });
+
+  it('maps SVP canonical Black Star Promos (not Cardhedger phrase)', () => {
+    expect(lookupPokemonSetCodeCatalog('SVP')).toMatchObject({
+      setCode: 'SVP',
+      series: 'Scarlet & Violet',
+      setName: 'Scarlet & Violet Black Star Promos',
+      setKind: 'promo',
+      market: 'EN',
+    });
+    expect(lookupPokemonSetCodeCatalog('SVP')?.setName).not.toBe(
+      'Pokemon Scarlet Violet Black Star Promos',
+    );
   });
 
   it('maps SV-P as promo without inventing series', () => {
@@ -67,6 +81,39 @@ describe('normalizePokemonMetadata', () => {
     });
   });
 
+  it('SV2a without Brand "Japanese" still gets JP from catalog.market', () => {
+    const out = normalizePokemonMetadata({
+      brand: 'POKEMON SV2a-POKEMON CARD 151',
+      subject: 'Gengar',
+      cardNumber: '094',
+    });
+    expect(out).toMatchObject({
+      game: 'pokemon',
+      language: 'JP',
+      setCode: 'SV2a',
+      setName: 'Pokémon Card 151',
+    });
+  });
+
+  it('reads language from Variety / Cardhedger set phrase', () => {
+    expect(
+      normalizePokemonMetadata({
+        brand: 'POKEMON SWORD & SHIELD',
+        variety: 'JAPANESE',
+        subject: 'Pikachu',
+        cardNumber: '001',
+      })?.language,
+    ).toBe('JP');
+    expect(
+      normalizePokemonMetadata({
+        brand: 'POKEMON 151',
+        cardhedgerSet: 'Pokemon Japanese 151',
+        subject: 'Mew',
+        cardNumber: '151',
+      })?.language,
+    ).toBe('JP');
+  });
+
   it('SV1S Scarlet ex', () => {
     const out = normalizePokemonMetadata({
       brand: 'POKEMON JAPANESE SV1S-SCARLET EX',
@@ -97,6 +144,53 @@ describe('normalizePokemonMetadata', () => {
       series: 'Scarlet & Violet',
       setKind: 'expansion',
     });
+  });
+
+  it('SVP EN Black Star Promos — setKind promo with canonical setName', () => {
+    const cases = [
+      { subject: 'Pikachu', cardNumber: '190' },
+      { subject: 'Snorlax', cardNumber: '51' },
+      { subject: 'Charmander', cardNumber: '44' },
+      { subject: 'Eevee', cardNumber: '173' },
+      { subject: 'Mewtwo', cardNumber: '52' },
+    ];
+    for (const c of cases) {
+      const out = normalizePokemonMetadata({
+        brand: 'POKEMON SVP BLACK STAR PROMOS',
+        subject: c.subject,
+        cardNumber: c.cardNumber,
+      });
+      expect(out).toMatchObject({
+        game: 'pokemon',
+        language: 'EN',
+        setCode: 'SVP',
+        series: 'Scarlet & Violet',
+        setName: 'Scarlet & Violet Black Star Promos',
+        setKind: 'promo',
+        cardName: c.subject,
+        cardNumber: c.cardNumber,
+      });
+    }
+  });
+
+  it('SV1V Miraidon ex fixtures normalize without requiring Cardhedger phrase', () => {
+    for (const cardNumber of ['94', '102', '106', '37']) {
+      const out = normalizePokemonMetadata({
+        brand: 'POKEMON JAPANESE SV1V-VIOLET EX',
+        subject: 'Miraidon ex',
+        cardNumber,
+      });
+      expect(out).toMatchObject({
+        game: 'pokemon',
+        language: 'JP',
+        setCode: 'SV1V',
+        setName: 'Violet ex',
+        series: 'Scarlet & Violet',
+        setKind: 'expansion',
+        cardName: 'Miraidon ex',
+        cardNumber,
+      });
+    }
   });
 
   it('SV-P promo — setKind promo, no invented series', () => {
@@ -130,7 +224,7 @@ describe('normalizePokemonMetadata', () => {
     });
   });
 
-  it('non-Pokémon card → null', () => {
+  it('non-Pokémon card → null (language is inferred separately)', () => {
     expect(
       normalizePokemonMetadata({
         brand: 'ONE PIECE JAPANESE OP13',
@@ -216,5 +310,25 @@ describe('extractPokemonSetCodeFromBrand', () => {
     expect(
       extractPokemonSetCodeFromBrand('POKEMON JAPANESE M2a-MEGA DREAM EX'),
     ).toBe('M2a');
+  });
+});
+
+describe('inferPrintLanguageFromHints', () => {
+  it('maps One Piece Brand JAPANESE → JP', () => {
+    expect(
+      inferPrintLanguageFromHints({
+        brand: 'ONE PIECE JAPANESE OP05-AWAKENING OF THE NEW ERA',
+        category: 'ONE PIECE',
+      }),
+    ).toBe('JP');
+  });
+
+  it('does not invent English for sports Brand without a language word', () => {
+    expect(
+      inferPrintLanguageFromHints({
+        brand: '2023 TOPPS CHROME',
+        category: 'BASEBALL',
+      }),
+    ).toBeUndefined();
   });
 });

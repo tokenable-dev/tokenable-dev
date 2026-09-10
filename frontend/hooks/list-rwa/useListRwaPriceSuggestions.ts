@@ -27,6 +27,7 @@ import {
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { countableTapeFills } from "@/lib/market/tradesVolume";
+import { bestAskFromRows } from "@/lib/marketplace/unified-order-book";
 
 const SUGGESTIONS_TRADE_LIMIT = 8;
 
@@ -186,10 +187,10 @@ export function useListRwaPriceSuggestions(input: {
   ]);
 
   const lowestAskUsd = useMemo(() => {
-    const floor = collectionSnapshot?.marketStats?.floor;
-    if (floor != null && Number.isFinite(floor) && floor > 0) return floor;
-    return null;
-  }, [collectionSnapshot?.marketStats?.floor]);
+    // Live Tokenable asks only — snapshot `marketStats.floor` is a historical
+    // listing-pool p10 (includes fulfilled asks) and must not fill this slot.
+    return bestAskFromRows(collectionDetail?.listings ?? []);
+  }, [collectionDetail?.listings]);
 
   const lastTokenableTradeUsd = useMemo(() => {
     const v = collectionSnapshot?.lastTokenableTradeUsdc;

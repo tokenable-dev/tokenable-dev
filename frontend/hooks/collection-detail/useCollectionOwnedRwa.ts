@@ -23,6 +23,7 @@ export type CollectionOwnedRwaRow = {
 
 /**
  * Wallet-owned tokens in a marketplace collection — for List for sale.
+ * Callers hide copies that already have an active ask.
  */
 export function useCollectionOwnedRwa(collectionKey: string) {
   const { address } = useAccount();

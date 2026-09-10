@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useRef } from "react";
 import {
   ORDER_BOOK_TRADES_FOUR_COL_GRID,
   orderBookColEndCls,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/marketplace/unified-order-book";
 import { TRADES_TAPE_FLUSH_ROW_CLASS, TRADES_TAPE_SCROLL_HEIGHT_CLASS } from "@/lib/marketplace/unified-order-book/tradesTapeTableChrome";
 import { TradesSourceCell } from "./TradeSourceMark";
+import { OrderBookScrollFades, useOrderBookScrollFades } from "./OrderBookScrollFades";
 
 const TRADES_GRID_LEGACY =
   "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
@@ -55,6 +56,8 @@ const TradesTapeRow = memo(function TradesTapeRow({
       ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
       : side.label;
 
+  const priceText = `$${formatTradesTapePriceUsdc(row.priceUsdc)}`;
+
   return (
     <div
       className={`${rowGridClass} ${
@@ -71,8 +74,9 @@ const TradesTapeRow = memo(function TradesTapeRow({
             ? priceClass
             : `min-w-0 truncate ${orderBookTradesPriceDataColCls} ${priceClass}`
         }
+        title={collectionDetail ? priceText : undefined}
       >
-        {formatTradesTapePriceUsdc(row.priceUsdc)}
+        {collectionDetail ? priceText : formatTradesTapePriceUsdc(row.priceUsdc)}
       </span>
       {flush ? (
         <>
@@ -82,7 +86,7 @@ const TradesTapeRow = memo(function TradesTapeRow({
                 ? "cd-ob-trades-side"
                 : `min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`
             }
-            title={side.title}
+            title={side.title ?? sideLabel}
           >
             {sideLabel}
           </span>
@@ -158,8 +162,13 @@ export function TradesTapeScrollList({
   const scrollHeightClass =
     maxHeightClass ?? (flush ? TRADES_TAPE_SCROLL_HEIGHT_CLASS : "");
 
-  return (
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const tapeKey = tapeFills.map((row) => row.orderHash).join(",");
+  const fades = useOrderBookScrollFades(scrollRef, [tapeKey, collectionDetail]);
+
+  const list = (
     <div
+      ref={collectionDetail ? scrollRef : undefined}
       className={[
         collectionDetail
           ? "cd-ob-trades-scroll min-h-0 flex-1"
@@ -181,6 +190,15 @@ export function TradesTapeScrollList({
           rowGridClass={rowGridClass}
         />
       ))}
+    </div>
+  );
+
+  if (!collectionDetail) return list;
+
+  return (
+    <div className="cd-ob-trades-fade-host">
+      {list}
+      <OrderBookScrollFades showTop={fades.showTop} showBot={fades.showBot} />
     </div>
   );
 }

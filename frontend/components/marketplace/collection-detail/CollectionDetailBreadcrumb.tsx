@@ -17,13 +17,17 @@ export function CollectionDetailBreadcrumb({
       <Link href="/markets">Markets</Link>
       {category ? (
         <>
-          <span className="cd-breadcrumb__sep">/</span>
+          <span className="cd-breadcrumb__sep" aria-hidden>
+            /
+          </span>
           <span className="cd-breadcrumb__mid">{category}</span>
         </>
       ) : null}
       {trail ? (
         <>
-          <span className="cd-breadcrumb__sep">/</span>
+          <span className="cd-breadcrumb__sep" aria-hidden>
+            /
+          </span>
           <span className="cd-breadcrumb__current">{trail}</span>
         </>
       ) : null}

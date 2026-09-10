@@ -14,6 +14,7 @@ import {
   resolveRwaHeadlineGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
 
 export { formatPortfolioGradeLabel, formatPortfolioGradeSubtitle } from "@/lib/portfolio/portfolioAssetMeta";
@@ -86,14 +87,30 @@ export function resolvePortfolioHoldingsHeadlines(
   metadataByTokenId: Map<number, RwaMetadata | null>,
 ): Map<number, PortfolioHoldingsHeadline> {
   const out = new Map<number, PortfolioHoldingsHeadline>();
+  const collisionItems: Array<{
+    id: string;
+    parts: ReturnType<typeof cardDisplayPartsFromAssetDetail>;
+  }> = [];
+
   for (const row of rows) {
     const meta = metadataByTokenId.get(row.tokenId) ?? null;
     const identity = listPriceSheetIdentity(meta, row.tokenId, row.name);
+    collisionItems.push({
+      id: String(row.tokenId),
+      parts: cardDisplayPartsFromAssetDetail(identity.parts, identity.grade),
+    });
     out.set(row.tokenId, {
       ...identity,
       line1: identity.line1 || row.name,
       hover: identity.hover || identity.line1 || row.name,
     });
+  }
+
+  const collided = resolveCardDisplayLine1Collisions(collisionItems);
+  for (const row of rows) {
+    const next = collided.get(String(row.tokenId));
+    const cur = out.get(row.tokenId);
+    if (next && cur) out.set(row.tokenId, { ...cur, line1: next });
   }
   return out;
 }

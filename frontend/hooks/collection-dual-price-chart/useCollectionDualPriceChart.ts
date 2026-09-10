@@ -29,7 +29,11 @@ export function useCollectionDualPriceChart(input: {
     colorTheme = "default",
   } = input;
 
-  const nowSec = Math.floor(Date.now() / 1000);
+  const seriesLen = externalRollingUsd?.length ?? 0;
+  const nowSec = useMemo(
+    () => Math.floor(Date.now() / 1000),
+    [externalWindowDays, seriesLen, colorTheme],
+  );
 
   const merged = useMemo(
     () =>

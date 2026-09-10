@@ -168,7 +168,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
               currentPriceUsd={row.currentPrice}
               editable
               saving={savingCostBasis}
-              onSave={(usd) => void onSaveCostBasis(row.tokenId, usd)}
+              onSave={(usd) => onSaveCostBasis(row.tokenId, usd)}
             />
           ) : cost != null ? (
             <span className="pf-cost-hover-line tkl-mono">

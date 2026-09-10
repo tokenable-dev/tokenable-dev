@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  COLLECTION_GRADE_CHART_ALL_DAYS,
   COLLECTION_GRADE_CHART_DAYS_OPTIONS,
   type CollectionGradeChartDays,
 } from "@/lib/marketplace/collection-grade-chart/constants";
@@ -10,6 +11,7 @@ const PERIOD_LABELS: Record<CollectionGradeChartDays, string> = {
   90: "3M",
   180: "6M",
   365: "1Y",
+  [COLLECTION_GRADE_CHART_ALL_DAYS]: "All",
 };
 
 export function CollectionDetailChartPeriodToolbar({

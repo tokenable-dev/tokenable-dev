@@ -101,7 +101,7 @@ Locked query params:
 | Post-list instant match + keep-ask on funding fail | `runPostListInstantMatch` in `listRwaInstantMatch.ts` (`isBuyerFundingMatchFailure`) |
 | Token offer + listing match | `frontend/lib/seaport/fulfillment/runCriteriaMatch.ts`, `criteriaMatch.ts` |
 | Matched pair API | `POST /api/marketplace/orders/fulfill-matched-pair` |
-| Bid fulfill clears sibling **asks** only | `OrdersService.fulfillOrder` / `fulfillMatchedPair` (other token bids stay on the book) |
+| Instant fill when bid ≥ live ask | `fetchCrossingAskForBid` / `OrdersService.assertTokenBidDoesNotCrossAsk` (`BID_CROSSES_ASK`). Includes the bidder’s own listing. Bid tab CTA → **Buy now**. |
 | Orders book | `orders` table / marketplace orders API |
 | Portfolio Accept modal + deep link | `usePortfolioAcceptOffer`, `PortfolioAcceptOfferModal`, `/portfolio?acceptBid=&tokenId=` |
 | Notifications UI | `NotificationsDrawer` + `useMarketplaceNotifications` |

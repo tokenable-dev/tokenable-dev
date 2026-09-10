@@ -77,6 +77,8 @@ export function CollectionUnifiedOrderBook({
     mobileEmbed,
     askLevels: collectionDetailLevels.askLevels,
     bidLevels: collectionDetailLevels.bidLevels,
+    bestAskUsdc: book.bestAskUsdc,
+    bestBidUsdc: book.bestBidUsdc,
     bookCenterModel: book.bookCenterModel,
     bidCount: book.bidRows.length,
     askCount: book.askRows.length,

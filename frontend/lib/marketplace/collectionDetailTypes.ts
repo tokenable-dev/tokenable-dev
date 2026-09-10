@@ -10,4 +10,8 @@ export interface CollectionDetailCard {
   filterValue?: string;
   /** Card.html attr-link → `/markets?…` when this facet is filterable. */
   href?: string | null;
+  /**
+   * Card.html Card name — linked character + unlinked TCG suffix (`ex`, `VMAX`, …).
+   */
+  suffix?: string;
 }

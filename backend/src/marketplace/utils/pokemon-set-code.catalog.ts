@@ -47,6 +47,8 @@ const POKEMON_SET_CODE_CATALOG: Record<string, PokemonSetCodeCatalogEntry> = {
   },
   SVP: {
     setCode: 'SVP',
+    series: 'Scarlet & Violet',
+    setName: 'Scarlet & Violet Black Star Promos',
     setKind: 'promo',
     market: 'EN',
   },

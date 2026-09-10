@@ -13,6 +13,10 @@ import {
 } from "@/lib/core";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
+import {
+  BidCrossesLiveAskError,
+  fetchCrossingAskForBid,
+} from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 import type { useWriteContract } from "wagmi";
@@ -102,6 +106,15 @@ export async function submitTokenBid(input: {
 
   if (mode === "replace" && !oldOrderHash) {
     throw new Error("oldOrderHash required for replace");
+  }
+
+  const crossing = await fetchCrossingAskForBid({
+    collectionKey,
+    bidder: address,
+    bidUnits,
+  });
+  if (crossing) {
+    throw new BidCrossesLiveAskError(crossing);
   }
 
   const days = resolveTokenBidDurationDays(durationDays);

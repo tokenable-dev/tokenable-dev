@@ -224,6 +224,29 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
 .tk-note--danger{background:linear-gradient(180deg,rgba(245,51,44,0.1),rgba(245,51,44,0.03)),#191919;box-shadow:inset 0 0 0 1px rgba(245,51,44,0.28),0 6px 20px 0 rgba(0,0,0,0.45)}
 .tk-note--danger::before{background:#F5332C}
 .tk-note--danger .tk-note__icon{background:rgba(245,51,44,0.16);color:#ff6b7a}
+.tk-note--clickable{cursor:pointer}
+
+/* Card.html `#tk-toast` — one type scale for every toast (trade + inbox). */
+.tk-toast-host{position:fixed;right:24px;top:74px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;pointer-events:none}
+.tk-toast-host .tk-note{min-width:320px;max-width:420px;width:min(420px,calc(100vw - 48px));box-sizing:border-box;pointer-events:auto;animation:tk-toast-in 0.22s var(--ease-standard);font-family:var(--font-sans)}
+.tk-toast-host .tk-note__title{white-space:normal;overflow-wrap:anywhere;font-family:var(--font-sans);font-size:15px;font-weight:600;line-height:1.35;color:#fff}
+.tk-toast-host .tk-note__msg,.tk-toast-host .tk-toast-copy,.tk-toast-host .tk-toast-copy__line,.tk-toast-host .tk-toast-copy__card,.tk-toast-host .tk-toast-copy__accent,.tk-toast-host .tk-toast-copy__muted,.tk-toast-host .tk-toast-copy__link,.tk-toast-host .tk-note__action{font-family:var(--font-sans);font-size:14px;line-height:1.45}
+.tk-toast-copy{margin:0}
+.tk-toast-copy__line{margin:0;color:#a7a9ac;overflow-wrap:anywhere}
+.tk-toast-copy__card{color:#fff;font-weight:600}
+.tk-toast-copy__accent{margin:0;color:#3ee68a;overflow-wrap:anywhere}
+.tk-toast-copy__muted{margin:0;color:rgba(255,255,255,0.6);overflow-wrap:anywhere}
+.tk-toast-copy__link{appearance:none;border:0;background:transparent;padding:0;margin:6px 0 0;display:inline-block;color:#5b9aff;font-weight:600;cursor:pointer}
+.tk-toast-copy__link:hover{color:#8bb4ff}
+.tk-toast-host .tk-note__action{font-weight:600}
+@keyframes tk-toast-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:768px){
+  .tk-toast-host{left:16px;right:16px;top:64px;align-items:stretch}
+  .tk-toast-host .tk-note{min-width:0;max-width:none;width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .tk-toast-host .tk-note{animation:none}
+}
 
 /* ---------- Dialog — chunky pixel modal ---------- */
 .tk-dialog__overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;animation:tk-dialog-fade var(--duration-base) var(--ease-standard)}

@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import { CollectionDetailMetricsStrip } from "./CollectionDetailMetricsStrip";
+import { CollectionHeroMdPanel } from "./CollectionDetailStatMain";
 import { CollectionDetailPriceChart } from "./CollectionDetailPriceChart";
 import { CollectionDetailMobileScrollPanel } from "./CollectionDetailMobileScrollPanel";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
+import { formatMarketCapUsd } from "@/lib/market";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
 export type CollectionDetailMarketSlice = Pick<
@@ -85,11 +87,24 @@ export function buildCollectionDetailMarketsSlots(input: {
     />
   );
 
+  const chartMdPanel = (
+    <CollectionHeroMdPanel
+      tradeVolumeUsdc={metricsProps.tradeVolumeUsdc}
+      tradeVolumeLoading={metricsProps.tradeVolumeLoading}
+      marketCapUsd={metricsProps.marketCapUsd}
+      formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}
+      psaPopulationMetrics={metricsProps.psaPopulationMetrics}
+      totalPopulation={metricsProps.totalPopulation}
+      velocityPct={metricsProps.velocityPct}
+    />
+  );
+
   const collectionDualPriceChart = (
     <CollectionDetailPriceChart
       chartProps={chartProps}
       gradeChart={market.gradeChart}
       heroSlot={renderHero(true)}
+      mdPanel={chartMdPanel}
     />
   );
 
@@ -99,6 +114,7 @@ export function buildCollectionDetailMarketsSlots(input: {
       gradeChart={market.gradeChart}
       mobileLayout
       heroSlot={renderHero(true)}
+      mdPanel={chartMdPanel}
     />
   );
 

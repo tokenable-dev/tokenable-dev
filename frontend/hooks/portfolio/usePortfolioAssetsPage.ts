@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   postBatchMintMarketPreviews,
   postPortfolioAssetsPage,
+  postPortfolioHoldingsBatch,
   rq,
   type CollectionMarketSeries,
+  type OrderListItem,
   type CollectionMarketPreview,
   type CollectionMarketStats,
   type PortfolioHoldingBatchItem,
@@ -18,7 +20,9 @@ import {
 } from "@/lib/marketplace";
 import {
   accumulatedFromPortfolioBundle,
+  mergeHoldingRowsPreferLiveBuy,
   persistPortfolioAccumulated,
+  paintedMarketplaceBuyTokenIds,
   readPortfolioBundle,
   readPortfolioBffLoadedCount,
 } from "@/lib/portfolio/portfolioQueryPersistence";
@@ -69,10 +73,12 @@ function mergePageIntoAccumulated(
     marketByKey.set(it.collectionKey.toLowerCase(), it);
   }
 
-  const holdingsByToken = new Map(prev.holdingsByToken);
-  for (const h of pageData.holdings) {
-    holdingsByToken.set(h.tokenId, h);
-  }
+  const holdingsByToken = new Map(
+    mergeHoldingRowsPreferLiveBuy(
+      pageData.holdings,
+      [...prev.holdingsByToken.values()],
+    ).map((h) => [h.tokenId, h]),
+  );
 
   return {
     metadataByToken,
@@ -95,6 +101,7 @@ export function usePortfolioAssetsPage(input: {
 }) {
   const { address, enabled, listingCollectionKeyByToken } = input;
   const chainId = activeRqChainId();
+  const queryClient = useQueryClient();
 
   const fetchedTokenIdsRef = useRef<Set<number>>(new Set());
   const bootstrapDoneRef = useRef(false);
@@ -184,9 +191,12 @@ export function usePortfolioAssetsPage(input: {
 
     bootstrapDoneRef.current = true;
     const serverIds = ownedIdsData.ownedTokenIds ?? [];
-    setOwnedTokenIds(serverIds);
+    const paintedBuys = paintedMarketplaceBuyTokenIds(
+      readPortfolioBundle(address ?? "", chainId)?.holdings,
+    );
+    setOwnedTokenIds([...new Set([...serverIds, ...paintedBuys])]);
     setFetchGeneration((g) => g + 1);
-  }, [ownedIdsFetched, ownedIdsSuccess, ownedIdsError, ownedIdsData, ownedTokenIds.length]);
+  }, [ownedIdsFetched, ownedIdsSuccess, ownedIdsError, ownedIdsData, ownedTokenIds.length, address, chainId]);
 
   const loadedTokenIds = useMemo(() => {
     return ownedTokenIds.slice(0, Math.max(0, bffLoadedCount));
@@ -196,6 +206,32 @@ export function usePortfolioAssetsPage(input: {
     void fetchGeneration;
     return loadedTokenIds.filter((id) => !fetchedTokenIdsRef.current.has(id));
   }, [loadedTokenIds, fetchGeneration]);
+
+  const holdingsLiveIds = loadedTokenIds;
+  const { data: holdingsLive } = useQuery({
+    queryKey: rq.portfolioHoldings(address ?? "", holdingsLiveIds, chainId),
+    queryFn: () => postPortfolioHoldingsBatch(address!, holdingsLiveIds),
+    enabled:
+      Boolean(address && enabled) &&
+      holdingsLiveIds.length > 0 &&
+      ownedIdsFetched &&
+      ownedIdsSuccess,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  useEffect(() => {
+    const items = holdingsLive?.items;
+    if (!items?.length) return;
+    setAccumulated((prev) => ({
+      ...prev,
+      holdingsByToken: new Map(
+        mergeHoldingRowsPreferLiveBuy(items, [
+          ...prev.holdingsByToken.values(),
+        ]).map((h) => [h.tokenId, h]),
+      ),
+    }));
+  }, [holdingsLive]);
 
   const {
     data: pageData,
@@ -397,6 +433,9 @@ export function usePortfolioAssetsPage(input: {
       holdings: [...accumulated.holdingsByToken.values()],
       mintPreviews: accumulated.mintPreviews,
       unmatchedMintTokenIds: unmatchedTokenIds,
+      ordersAsk: queryClient.getQueryData<OrderListItem[]>(
+        rq.ordersByOfferer(address, "ask", chainId),
+      ),
     });
   }, [
     address,
@@ -410,6 +449,7 @@ export function usePortfolioAssetsPage(input: {
     accumulated.metadataByToken,
     accumulated.mintPreviews,
     unmatchedTokenIds,
+    queryClient,
   ]);
 
   const mintPreviewsPending =
@@ -434,6 +474,26 @@ export function usePortfolioAssetsPage(input: {
     ownedTokenIds.length === 0 &&
     !hadPaintCacheRef.current &&
     (ownedIdsFetching || !ownedIdsFetched);
+
+  const applyCostBasis = useCallback(
+    (tokenId: number, costBasisUsd: number) => {
+      const usd = Number(costBasisUsd);
+      if (!Number.isFinite(usd) || usd < 0) return;
+      setAccumulated((prev) => {
+        const holdingsByToken = new Map(prev.holdingsByToken);
+        const prevRow = holdingsByToken.get(tokenId);
+        holdingsByToken.set(tokenId, {
+          tokenId,
+          hidden: prevRow?.hidden ?? false,
+          costBasisUsd: usd,
+          costBasisSource: "manual",
+          acquiredAt: prevRow?.acquiredAt ?? new Date().toISOString(),
+        });
+        return { ...prev, holdingsByToken };
+      });
+    },
+    [],
+  );
 
   const loadMoreAssets = useCallback(() => {
     if (loadedTokenIds.length >= ownedTokenIds.length) return;
@@ -466,5 +526,6 @@ export function usePortfolioAssetsPage(input: {
     hasMoreAssets: loadedTokenIds.length < ownedTokenIds.length,
     loadMoreAssets,
     isLoadingMoreAssets,
+    applyCostBasis,
   };
 }

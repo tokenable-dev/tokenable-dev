@@ -70,6 +70,7 @@ function filtersFromState(input: {
   priceMax: string;
   gradeFilters: Set<MarketsGradeFilterId>;
   characters: string[];
+  series: string[];
   sets: string[];
   yearMin: string;
   yearMax: string;
@@ -81,6 +82,7 @@ function filtersFromState(input: {
     priceMax: input.priceMax,
     grades: [...input.gradeFilters],
     characters: input.characters,
+    series: input.series,
     sets: input.sets,
     yearMin: input.yearMin,
     yearMax: input.yearMax,
@@ -113,6 +115,7 @@ export default function MarketsPage() {
     new Set(),
   );
   const [characters, setCharacters] = useState(urlFilters.characters);
+  const [series, setSeries] = useState(urlFilters.series);
   const [sets, setSets] = useState(urlFilters.sets);
   const [yearMin, setYearMin] = useState(urlFilters.yearMin);
   const [yearMax, setYearMax] = useState(urlFilters.yearMax);
@@ -126,6 +129,7 @@ export default function MarketsPage() {
   const deferredGradeFilters = useDeferredValue(gradeFilters);
   const deferredVaultFilters = useDeferredValue(vaultFilters);
   const deferredCharacters = useDeferredValue(characters);
+  const deferredSeries = useDeferredValue(series);
   const deferredSets = useDeferredValue(sets);
   const deferredYearMin = useDeferredValue(yearMin);
   const deferredYearMax = useDeferredValue(yearMax);
@@ -139,6 +143,7 @@ export default function MarketsPage() {
     setPriceMax(urlFilters.priceMax);
     setGradeFilters(new Set(urlFilters.grades));
     setCharacters(urlFilters.characters);
+    setSeries(urlFilters.series);
     setSets(urlFilters.sets);
     setYearMin(urlFilters.yearMin);
     setYearMax(urlFilters.yearMax);
@@ -157,6 +162,7 @@ export default function MarketsPage() {
       priceMax,
       gradeFilters,
       characters,
+      series,
       sets,
       yearMin,
       yearMax,
@@ -178,6 +184,7 @@ export default function MarketsPage() {
     priceMax,
     gradeFilters,
     characters,
+    series,
     sets,
     yearMin,
     yearMax,
@@ -224,6 +231,7 @@ export default function MarketsPage() {
 
   const clearDetailFacets = useCallback(() => {
     setCharacters([]);
+    setSeries([]);
     setSets([]);
     setYearMin("");
     setYearMax("");
@@ -336,6 +344,7 @@ export default function MarketsPage() {
       vaultFilters: deferredVaultFilters,
       vaultKindsByKey,
       characters: deferredCharacters,
+      series: deferredSeries,
       sets: deferredSets,
       yearMin: deferredYearMin,
       yearMax: deferredYearMax,
@@ -350,6 +359,7 @@ export default function MarketsPage() {
     deferredVaultFilters,
     vaultKindsByKey,
     deferredCharacters,
+    deferredSeries,
     deferredSets,
     deferredYearMin,
     deferredYearMax,
@@ -377,6 +387,14 @@ export default function MarketsPage() {
           setCharacters((prev) => prev.filter((_, idx) => idx !== i)),
       });
     }
+    for (const [i, name] of series.entries()) {
+      chips.push({
+        key: `series:${name}`,
+        label: name,
+        onClear: () =>
+          setSeries((prev) => prev.filter((_, idx) => idx !== i)),
+      });
+    }
     if (yearMin || yearMax) {
       const label =
         yearMin && yearMax && yearMin === yearMax
@@ -392,7 +410,7 @@ export default function MarketsPage() {
       });
     }
     return chips;
-  }, [characters, yearMin, yearMax]);
+  }, [characters, series, yearMin, yearMax]);
 
   useMarketsInfiniteScroll({
     sentinelRef: loadMoreSentinelRef,

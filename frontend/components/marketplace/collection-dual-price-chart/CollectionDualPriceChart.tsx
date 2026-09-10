@@ -196,8 +196,10 @@ export function CollectionDualPriceChart({
         }
       >
         <EChartsSized
-          chartKey={merged.fixedWindowDays ?? "auto"}
           option={chartOption}
+          chartKey={
+            cardHtmlDetail ? `${merged.tMin}-${merged.tMax}` : undefined
+          }
           minHeight={chartMinHeight}
           className={
             cardHtmlDetail

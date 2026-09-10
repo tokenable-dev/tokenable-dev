@@ -10,7 +10,17 @@
  *  - Scenario functions (export) — composite invalidation for a user action
  */
 import type { QueryClient } from "@tanstack/react-query";
-import { clearPortfolioBundle } from "@/lib/portfolio/portfolioQueryPersistence";
+import {
+  clearPortfolioBundle,
+  upsertPortfolioMarketplaceBuy,
+} from "@/lib/portfolio/portfolioQueryPersistence";
+import {
+  orderToActiveAskListItem,
+  type Order,
+  type OrderListItem,
+} from "./api/orders";
+import type { PortfolioAssetsPageResponse } from "./api/portfolio-assets-page";
+import type { PortfolioHoldingBatchItem } from "./api/portfolio";
 import { rq } from "./queryKeys";
 
 // ── Internal atomic helpers ────────────────────────────────────────────────
@@ -72,6 +82,7 @@ async function _invalidateAllCollections(qc: QueryClient): Promise<void> {
 async function clearPortfolioOwnedCaches(
   qc: QueryClient,
   wallets?: Array<string | null | undefined>,
+  opts?: { skipBundleClear?: Array<string | null | undefined> },
 ): Promise<void> {
   const list = [
     ...new Set(
@@ -83,9 +94,74 @@ async function clearPortfolioOwnedCaches(
   if (list.length === 0) return;
   await qc.invalidateQueries({ queryKey: ["portfolio-assets-page-bootstrap"] });
   await qc.invalidateQueries({ queryKey: ["portfolio-assets-page"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-holdings"] });
+  const skip = new Set(
+    (opts?.skipBundleClear ?? [])
+      .map((w) => w?.trim().toLowerCase())
+      .filter((w): w is string => Boolean(w)),
+  );
   for (const w of list) {
-    clearPortfolioBundle(w);
+    if (!skip.has(w)) clearPortfolioBundle(w);
   }
+}
+
+function patchCachesAfterMarketplaceBuy(
+  qc: QueryClient,
+  input: {
+    wallet: string;
+    tokenId: number;
+    costBasisUsd: number;
+    chainId: number;
+  },
+): void {
+  const usd = Number(input.costBasisUsd);
+  if (!Number.isFinite(usd) || usd < 0) return;
+  const tokenId = Math.floor(Number(input.tokenId));
+  if (!Number.isFinite(tokenId) || tokenId < 0) return;
+  const item: PortfolioHoldingBatchItem = {
+    tokenId,
+    hidden: false,
+    costBasisUsd: usd,
+    costBasisSource: "marketplace_buy",
+    acquiredAt: new Date().toISOString(),
+  };
+  const wallet = input.wallet.trim().toLowerCase();
+  qc.setQueriesData<{ items: PortfolioHoldingBatchItem[] }>(
+    {
+      queryKey: ["portfolio-holdings", input.chainId, wallet],
+    },
+    (old) => {
+      const prev = old?.items ?? [];
+      return {
+        items: [...prev.filter((h) => h.tokenId !== tokenId), item],
+      };
+    },
+  );
+  const patchPageHoldings = (old: PortfolioAssetsPageResponse | undefined) => {
+    if (!old) return old;
+    return {
+      ...old,
+      ownedTokenIds: [
+        tokenId,
+        ...old.ownedTokenIds.filter((id) => id !== tokenId),
+      ],
+      holdings: [...old.holdings.filter((h) => h.tokenId !== tokenId), item],
+    };
+  };
+  qc.setQueriesData<PortfolioAssetsPageResponse>(
+    { queryKey: ["portfolio-assets-page", wallet, input.chainId] },
+    patchPageHoldings,
+  );
+  qc.setQueriesData<PortfolioAssetsPageResponse>(
+    { queryKey: ["portfolio-assets-page-bootstrap", wallet, input.chainId] },
+    patchPageHoldings,
+  );
+  upsertPortfolioMarketplaceBuy({
+    address: input.wallet,
+    chainId: input.chainId,
+    tokenId,
+    costBasisUsd: usd,
+  });
 }
 
 // ── Public domain invalidators ─────────────────────────────────────────────
@@ -136,8 +212,6 @@ export async function invalidateCollection(
 
 /**
  * After a collection admin action (cover update, component change, etc.).
- *
- * Replaces: `useCollectionDetailInvalidation` (inline logic)
  */
 export async function invalidateAfterCollectionUpdate(
   qc: QueryClient,
@@ -244,6 +318,13 @@ export async function invalidateAfterRwaDetail(
     tokenId: number;
     collectionKeyForMatch: string | null;
     portfolioWallets?: Array<string | null | undefined>;
+    /** Ask fill — paint My Assets purchase price immediately. */
+    marketplaceBuy?: {
+      wallet: string;
+      tokenId: number;
+      costBasisUsd: number;
+      chainId: number;
+    };
   },
 ): Promise<void> {
   const { tokenId, collectionKeyForMatch } = input;
@@ -268,7 +349,59 @@ export async function invalidateAfterRwaDetail(
     await _invalidatePortfolioMarketBatch(qc);
   }
 
-  await clearPortfolioOwnedCaches(qc, input.portfolioWallets);
+  await clearPortfolioOwnedCaches(qc, input.portfolioWallets, {
+    skipBundleClear: input.marketplaceBuy
+      ? [input.marketplaceBuy.wallet]
+      : [],
+  });
+  if (input.marketplaceBuy) {
+    patchCachesAfterMarketplaceBuy(qc, input.marketplaceBuy);
+  }
+}
+
+/**
+ * Instant paint after create/replace ask — do not wait for by-offerer refetch.
+ * Drops the replaced hash and any other active ask on the same token+offerer.
+ */
+export function patchCachesAfterAskListed(
+  qc: QueryClient,
+  created: Order,
+  opts?: { oldOrderHash?: string | null },
+): void {
+  if ((created.side ?? "ask") !== "ask") return;
+  const createdHash = created.orderHash.trim().toLowerCase();
+  const oldHash = opts?.oldOrderHash?.trim().toLowerCase() ?? "";
+  const tokenKey = String(created.tokenId);
+  const offerer = created.offerer.trim().toLowerCase();
+  const item = orderToActiveAskListItem(created);
+
+  qc.setQueriesData<OrderListItem[]>(
+    { queryKey: ["orders", "by-offerer"] },
+    (old) => {
+      const prev = old ?? [];
+      const next = prev.filter((o) => {
+        const h = o.orderHash.trim().toLowerCase();
+        if (h === createdHash) return false;
+        if (oldHash && h === oldHash) return false;
+        if (
+          String(o.tokenId) === tokenKey &&
+          (o.side ?? "ask") === "ask" &&
+          o.status === "active" &&
+          (o.offerer?.trim().toLowerCase() ?? "") === offerer
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (created.status === "active") next.unshift(item);
+      return next;
+    },
+  );
+
+  const tokenId = Number(created.tokenId);
+  if (Number.isFinite(tokenId) && tokenId >= 0) {
+    qc.setQueryData(rq.orderByToken(tokenId), created);
+  }
 }
 
 /**
@@ -314,6 +447,13 @@ export async function invalidateAfterListing(
     await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
   await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
+}
+
+/** After the owner edits My Assets cost basis. */
+export async function invalidateAfterCostBasisEdit(
+  qc: QueryClient,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["portfolio-holdings"] });
 }
 
 /**

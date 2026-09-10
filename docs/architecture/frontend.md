@@ -14,8 +14,8 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
-| Trading | `collection-trading/`, `collection-detail/` (listing bid checkout) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
-| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailBuyFlow`, `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
+| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
+| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
@@ -51,16 +51,13 @@ frontend/
 │   ├── vault/                     # MintForm (/vault/submit); self-vault sell reuses mint APIs
 │   ├── auth/
 │   └── marketplace/
-│       ├── collection-detail/
+│       ├── collection-detail/     # trade panel, order book, similar items
 │       ├── collection-overview/
 │       ├── collection-hero/
 │       ├── collection-dual-price-chart/
 │       ├── price-metrics-strip/
 │       ├── unified-order-book/
 │       ├── collection-trading/
-│       ├── collection-trading/
-│       ├── collection-detail/     # listing checkout + card offer bid
-│       ├── collection-listings/
 │       ├── rwa-detail/
 │       ├── rwa-detail-asset-panel/
 │       ├── list-rwa/
@@ -94,7 +91,7 @@ frontend/
 
 `next.config.ts` redirects legacy **`/exchange` → `/markets`**.
 
-`/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (collection listing checkout). The old token-detail page tree is gone; `RwaDetailListModalHost` remains for portfolio Set/Edit price.
+`/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). The old token-detail page tree is gone; `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
 
 ---
 
@@ -142,15 +139,17 @@ Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
 
 PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts` and Card.html `#hero-title` / `#hero-meta`:
-**Hero title** = `{Card name} · {Number}`; **Hero meta** = `{Year} · {Set} {Language} · {Variant}` (grade is shown below the title, not on Line 1). Full mint strings stay for search/hover only — not as hero/tile titles. Title case (not ALL CAPS).
+**Hero title** = SSOT Line 1 `{Card name} · {Number} · {Grade}`. **Hero meta** = SSOT Line 2 `{Year} · {Set} {Language} · {Variant}` (`formatCardDisplayName` / `formatCardDisplayMeta`). Full mint strings stay for search/hover only. Title case (not ALL CAPS).
 
-Collection detail layout mirrors `Tokenable-with design system-30/Card.html`: sticky `#hero-bar` with title/meta inside (`#hero-mid`), Ask/Bid + market metrics columns; Buy / Bid / Sell live in the right-rail `#tk-trade` ticket (cert carousel on Buy/Sell, locked You pay / ± bid & list price, no platform-fee net row). `1.35fr / 1fr` grid (Price history + **Similar items** left; Trades/Order book + Details/Pop. rail right). Trades **View all** expands the panel inline (`.tk-expanded` / Show less) — no right drawer. Left ask listings table is not rendered (asks live in Order book). Mobile (`≤1023`): Card.html hero grid — image | title+meta, then price; Buy/Bid in fixed `#ob-bottom-bar`; sticky condense on scroll (title · price, no thumb). Column order: chart → rail → similar.
+**Price history** (`#chart-card` / Card.html `#tk-chart`): azure `rgb(26,111,255)` line + fill, High/Low dots, centered Median dash with `#191919` label, current-price azure pill on the right, exactly three x ticks (period start day, midpoint day, period end day; All uses first/last data days), hover tooltip is price then date (`#1c1e26` card). Periods 1M / 3M / 6M / 1Y / All set the data window. Wheel zooms the x-axis around the pointer inside that window (does not change the period tab); drag pans. Clicking a period resets the zoom.
+
+**Collection detail layout** (Card.html `#card-detail-grid`): one CSS grid, five cells. Chart-card spans the trade + trades rows so its bottom lines up with `#trades-card`. Similar items and Details share the next row (equal height). Gap `20px` rows / `32px` columns; right column `372px`.
 
 **Hero population metrics:** Gem rate = PSA 10 Pop ÷ Total PSA Pop. **Volume 1Y** and **Velocity 1Y** are always shown in the UI (never `Volume 6M` etc.). Internally the longest coverable window among **1M / 3M / 6M / 12M** (priority 12M→6M→3M→1M; Cardhedger comps ~100) is selected; raw period volume is annualized (×1 / ×2 / ×4 / ×12). UI Volume = normalized 1Y notional. Velocity = normalized 1Y volume ÷ market cap × 100. Market cap never scaled. No “Est.” Under 30d coverage both **—**. **30D Median** prefers comps/fills in the last 30 days; if that window is empty, the same median uses the next larger span (60d → 90d → 180d → 365d → all tape) so a single nearby sale still populates the metric.
 
 **Markets grid titles** (`buildMarketsCollectionTitle` in `lib/markets/marketsCollectionTitle.ts`) use the catalog one-liner — `Year Set #Number CardName [Variant]` — matching Card.html `card__title` / search results. Collection detail hero keeps Display name + meta strip separately (`AssetDetailHeadlineTitle`); do not reuse the tile formatter on the detail page.
 
-**Collection detail order book** (Price / Qty / Total; Card.html `#tab-offers` four layouts): **All** — asks pane + `$price ↓` / `Spread $X` strip + bids pane. **Bids only** — compact “No cards for sale yet” (Place a bid + Notify me) + `$bestBid` / **No live spread** + bids. **Asks only** — asks + `$bestAsk ↓` / **No live spread** + “No bids yet” (Place a bid). **None** — hide header/panes/spread; tall “No market yet” (List yours + Place a bid) and note **Vaulted cards can be listed here.** Depth bar = level Total ÷ side max Total; ask hover **Buy**. Palette `--ob-neg` `#F5332C` / `--ob-pos` `rgb(0,200,100)`. Same-price asks open Card.html `#tk-choose`: bottom sheet **Select your card**, rows are Cert + vault, CTA **Buy**; **Any card** + sort/vault filters when more than 8 copies.
+**Collection detail order book** (Price / Qty / Total; Card.html `#tab-offers` four layouts): **All** — asks pane + `$bestAsk ↓` / `Spread $X` strip + bids pane. **Bids only** — compact “No cards for sale yet” (Place a bid + Notify me) + `$bestBid` / **No live spread** + bids (bids fill remaining height). **Asks only** — asks fill remaining height + `$bestAsk ↓` / **No live spread** + compact “No bids yet” (Place a bid). **None** — hide header/panes/spread; tall “No market yet” (List yours + Place a bid) and note **Vaulted cards can be listed here.** Live spread = best ask USDC − best bid USDC when both exist and ask > bid; token bids use `offer[0].startAmount`, not NFT `considerationAmount`. Overflow panes/trades use Card.html `.ob-fade` chevrons. The Trades/Listings rail is a fixed 394px (`#trades-card`) and must not resize. Depth bar = level Total ÷ side max Total; ask hover **Buy**. Palette `--ob-neg` `#F5332C` / `--ob-pos` `rgb(0,200,100)`. Same-price asks open Card.html `#tk-choose`: bottom sheet **Select your card**, rows are Cert + vault, CTA **Buy**; **Any card** + sort/vault filters when more than 8 copies.
 
 ## Design system buttons (`TkButton`)
 
@@ -189,9 +188,9 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 
 1. **BFF bootstrap** — `POST /marketplace/portfolio/assets-page` with **wallet only** (no client token list). Server reads **`ownedTokenIds`** from the DB owner index and returns the first **50** tokens' metadata, collection keys, market snapshots, and holdings in **one** round-trip. **No** `GET /blockchain/rwa/tokens/:address`.
 2. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
-3. **Holdings prefs** — included in the assets-page BFF for the loaded page (hide + cost basis). No separate holdings batch for the visible grid.
+3. **Holdings prefs** — included in the assets-page BFF for the loaded page (hide + cost basis). A live `POST …/holdings/batch` still refreshes purchase price on the visible grid (`refetchOnMount: always`). After an ask fill, the client paints `marketplace_buy` from the fill USDC immediately and does not let a stale BFF/persist row wipe it.
 **Prices** — snapshot marks from assets-page BFF (DB); Cardhedger mint-previews load in a **follow-up** request for tokens without snapshot prices. Gallery sparklines come from snapshot series. Hero **Portfolio value** sums live marks on loaded visible rows; **24h P/L chip** uses daily snapshots. Missing snapshots enqueue background refresh. Catalog / 30D median / similar-item / Top 100 cards drop cents via `formatUsdCompact` (`$39.99` → `$39`). On-platform asks, bids, and listed sales keep cents via `formatUsdListing`.
-5. **Browser cache** — `PortfolioQueryPersistence` mirrors markets: localStorage paint cache (24h TTL) for owned token list, assets-page payload, daily snapshots, listings, and mint previews. Refresh shows cached UI immediately; stale data refetches in the background.
+5. **Browser cache** — `PortfolioQueryPersistence` mirrors markets: localStorage paint cache (24h TTL) for owned token list, assets-page payload, daily snapshots, listings, and mint previews. Refresh shows cached UI immediately; listings then refetch (`orders/by-offerer`, `refetchType: all`) so Edit price is not stuck on the paint-time ask. After Set/Edit price, `patchCachesAfterAskListed` writes the new ask into that cache before invalidation. The assets-page persist path copies live `ordersAsk` from React Query (it must not rewrite the previous listing).
 6. **Load more** — next `assets-page` call for the next 50 tokenIds only
 7. **Perf RUM (Phase 3)** — `usePortfolioLoadPerf` emits `portfolio/tokenIds-ready`, `assets-ready`, `prices-ready` when `localStorage.PERF_LOG=1` (see `lib/perf/`)
 
@@ -234,14 +233,15 @@ Collection Details KV values deep-link to `/markets` using the Card.html / `mark
 |-------|---------|
 | `cat` | Category path(s); pipe-joined multi = OR (e.g. `sports/baseball` and `tcg/pokemon`) |
 | `character` | Card name facet (pipe-joined multi) |
-| `set` | Set facet |
+| `series` | TCG era / block (e.g. `Scarlet & Violet`) |
+| `set` | Set facet (same labels as Markets set chips) |
 | `year_min` / `year_max` | Year range |
 | `grade` | e.g. `PSA 10` (pipe-joined) |
 | `price_min` / `price_max`, `sort` | Default sort is `high_price`. `pct_change_high` (alias `gainers` = Top gainers) still works from URLs (landing Top movers → View all) but is not in the Markets sort menu. `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Just vaulted → View all** → `/markets?sort=newest`. |
 
-Linkable Details rows: Card name, Category, Set, Year, Grade, Grader. Card number / Variant / Language stay plain text (no Markets facet yet). Series is not linked — no `series` field in collection components.
+Linkable Details rows: Card name (character only), Category, Series, Set, Year, Grade, Grader. Values are right-aligned; links use Card.html dotted `brand-400` underline (no ↗). Card number / Set code / Variant / Language stay plain text (no Markets facet). Grade / grader URLs omit `cat` (`?grade=PSA%2010`); other rows keep the collection category.
 
-**Set facet sync:** Markets `set=` uses year-stripped PSA/set lines (`resolveCollectionSetFacetLabel`). Details **Set** display is expansion-only (franchise prefix stripped; prefer Cardhedger `setName` when present) and links with `filterValue` (year-stripped set line) so Markets facets still match. Set / grade / price are edited in **More filters** (not the slim bar). Chosen sets and `sort` persist in the URL so deep-links from Details stay aligned.
+**Set facet sync:** Markets `set=` uses the same year-stripped labels as More filters (`resolveCollectionSetFacetLabel`). Details **Set** display is expansion-only; the link uses that facet string. `set=151 EN` (Card.html) still matches via a trailing language strip. Chosen sets, `series`, `character`, and `sort` persist in the URL.
 
 **Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCatalogSearch` (`GET /marketplace/search`) so **minted cards (cert / name)** appear above **collections**. Digit-only `q` of **7+** digits prefix-matches `rwa_tokens.cert_number`; shorter digits match token id, exact cert, or `#123` in the display name (same 7-digit floor as collection cert search). The search page shows cert-match rows first (`SearchCertMatches`), then the collection grid. Both use SSOT Line 1 + Line 2 titles (`formatSearchCardHitDisplay` / `showCatalogSubtitle` on `CollectibleCard`). Text search does **not** match `psaBrand`. Enter on a typeahead row opens that card or collection; View all / Enter with no highlight goes to `/search`. Card hits use the token slab image (PSA CloudFront allowed) and hydrate grade/name from collection components or IPFS metadata when the token was never listed.
 

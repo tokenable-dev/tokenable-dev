@@ -54,8 +54,8 @@ const FAQ_GROUPS: FaqGroup[] = [
         a: "No meaningful ones · trades settle instantly on-platform. Any blockchain network cost is minimal and passed through, not a Tokenable markup.",
       },
       {
-        q: "What does “Choose your copy” mean?",
-        a: "When several identical-grade cards are listed at the same price, you pick the exact copy · each has its own cert number, vault and seller. Same price, but you choose the individual card.",
+        q: "What does “Choose your card” mean?",
+        a: "When several cards with the same name and grade are listed at the same price, you pick the individual card · each has its own cert number, vault and seller. Same price, but you choose the card you want.",
       },
     ],
   },

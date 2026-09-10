@@ -35,8 +35,11 @@ import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.ut
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
   applyPokemonNormalizedToComponents,
+  applyPrintLanguageToComponents,
   extractPokemonNormalizedFromMeta,
   normalizePokemonMetadataFromGraded,
+  printLanguageHintsFromComponents,
+  printLanguageHintsFromGraded,
 } from '../utils/pokemon-metadata-normalize.util';
 import {
   buildCollectionDisplayLabel,
@@ -484,13 +487,24 @@ export class CollectionService {
     );
     compRecord.marketParallelKey = parallelKey;
 
-    let pokemonNorm = extractPokemonNormalizedFromMeta(coverMeta);
-    if (!pokemonNorm && gradedSrc && typeof gradedSrc === 'object') {
-      pokemonNorm = normalizePokemonMetadataFromGraded(
-        gradedSrc as Record<string, unknown>,
-      );
-    }
-    applyPokemonNormalizedToComponents(compRecord, pokemonNorm);
+    // Prefer re-normalize from PSA/Cardhedger raw fields so catalog.market /
+    // variety / Cardhedger set can fill language even when mint stored a
+    // partial `graded.normalized.pokemon` without it.
+    const extractedPokemon = extractPokemonNormalizedFromMeta(coverMeta);
+    const gradedPokemon =
+      gradedSrc && typeof gradedSrc === 'object'
+        ? normalizePokemonMetadataFromGraded(
+            gradedSrc as Record<string, unknown>,
+          )
+        : null;
+    applyPokemonNormalizedToComponents(compRecord, extractedPokemon);
+    applyPokemonNormalizedToComponents(compRecord, gradedPokemon);
+    applyPrintLanguageToComponents(
+      compRecord,
+      gradedSrc && typeof gradedSrc === 'object'
+        ? printLanguageHintsFromGraded(gradedSrc as Record<string, unknown>)
+        : printLanguageHintsFromComponents(compRecord),
+    );
 
     const insertResult = await this.collectionRepo
       .createQueryBuilder()
@@ -539,6 +553,8 @@ export class CollectionService {
         collectionKey,
         meta,
       );
+      // Fill cover only when the row has none. Never replace an admin (or
+      // create-time) cover on later listings / sales.
       await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, meta);
     } else if (this.identity.isEnabled()) {
       // Await so cache + DB are warm before snapshot cold_start / admin refresh.
@@ -973,12 +989,18 @@ export class CollectionService {
     }
     const listing = extractListingDisplayTitleFromMeta(meta);
     if (listing) out.listingDisplayTitle = listing;
-    const pokemon =
-      extractPokemonNormalizedFromMeta(meta) ??
-      (graded
-        ? normalizePokemonMetadataFromGraded(graded as Record<string, unknown>)
-        : null);
-    applyPokemonNormalizedToComponents(out, pokemon);
+    const extractedPokemon = extractPokemonNormalizedFromMeta(meta);
+    const gradedPokemon = graded
+      ? normalizePokemonMetadataFromGraded(graded as Record<string, unknown>)
+      : null;
+    applyPokemonNormalizedToComponents(out, extractedPokemon);
+    applyPokemonNormalizedToComponents(out, gradedPokemon);
+    applyPrintLanguageToComponents(
+      out,
+      graded
+        ? printLanguageHintsFromGraded(graded as Record<string, unknown>)
+        : printLanguageHintsFromComponents(out),
+    );
     return out;
   }
 
@@ -1647,6 +1669,14 @@ export class CollectionService {
     return this.components.ensureListingDisplayTitleFromListings(
       collectionKey,
       chainId,
+    );
+  }
+
+  async ensureNormalizedPokemonLanguageIfMissing(
+    collectionKey: string,
+  ): Promise<void> {
+    return this.components.ensureNormalizedPokemonLanguageIfMissing(
+      collectionKey,
     );
   }
 

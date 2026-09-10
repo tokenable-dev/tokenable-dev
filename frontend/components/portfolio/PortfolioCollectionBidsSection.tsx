@@ -12,6 +12,7 @@ import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectio
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
+import { stripTrailingRawGradeLabel } from "@/lib/marketplace/cardDisplayName";
 
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
 
@@ -127,10 +128,10 @@ export function PortfolioCollectionBidsSection({
     const rows = [...bids];
     rows.sort((a, b) => {
       const labelA =
-        collectionMetaByKey.get(a.collectionKey)?.displayLabel ??
+        stripTrailingRawGradeLabel(collectionMetaByKey.get(a.collectionKey)?.displayLabel) ||
         a.collectionKey.replace(/^ch:/, "");
       const labelB =
-        collectionMetaByKey.get(b.collectionKey)?.displayLabel ??
+        stripTrailingRawGradeLabel(collectionMetaByKey.get(b.collectionKey)?.displayLabel) ||
         b.collectionKey.replace(/^ch:/, "");
       const listingsA =
         listingsByCollectionKey?.get(a.collectionKey) ??
@@ -271,7 +272,8 @@ export function PortfolioCollectionBidsSection({
           {sortedBids.map((bid, index) => {
             const meta = collectionMetaByKey.get(bid.collectionKey);
             const label =
-              meta?.displayLabel ?? bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
+              stripTrailingRawGradeLabel(meta?.displayLabel) ||
+              bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
             const book =
               bidsByCollectionKey?.get(bid.collectionKey) ??
               bidsByCollectionKey?.get(bid.collectionKey.toLowerCase());

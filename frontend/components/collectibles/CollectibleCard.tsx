@@ -27,7 +27,8 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 type CardSub = {
   glyph?: string;
-  label: string;
+  pctLabel: string;
+  period: string;
   tone: "up" | "down" | "muted" | "accent";
 };
 
@@ -60,10 +61,10 @@ function formatChangeSub(
   periodLabel?: string,
 ): CardSub {
   if (changeLoading) {
-    return { label: "…", tone: "muted" };
+    return { pctLabel: "…", period: "", tone: "muted" };
   }
   if (changePct == null || !Number.isFinite(changePct)) {
-    return { label: "—", tone: "muted" };
+    return { pctLabel: "—", period: "", tone: "muted" };
   }
   const tone = referenceChangeTone(changePct);
   const window = periodLabel?.trim() || formatCardChangePeriod(snapshot);
@@ -71,7 +72,8 @@ function formatChangeSub(
   const glyph = tone === "down" ? "\u25BC" : "\u25B2";
   return {
     glyph,
-    label: `${pct} \u00b7 ${window}`,
+    pctLabel: pct,
+    period: window,
     tone: tone === "down" ? "down" : "up",
   };
 }
@@ -88,6 +90,7 @@ export const CollectibleCard = memo(function CollectibleCard({
   shell = "wrap",
   position,
   showCatalogSubtitle = false,
+  titleOverride,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
@@ -101,12 +104,15 @@ export const CollectibleCard = memo(function CollectibleCard({
   position?: number;
   /** Search results — Line 2 `{Year} · {Set} {Language} · {Variant}` under Line 1. */
   showCatalogSubtitle?: boolean;
+  /** List-level collision resolver can append the smallest differentiator. */
+  titleOverride?: string;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
   const grade = gradeLabelFromComp(comp);
-  const title = buildMarketsCollectionTitle({ collection, comp });
+  const title =
+    titleOverride?.trim() || buildMarketsCollectionTitle({ collection, comp });
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
   const catalogSubtitle = showCatalogSubtitle
     ? buildMarketsCollectionMeta({ collection, comp })
@@ -171,7 +177,8 @@ export const CollectibleCard = memo(function CollectibleCard({
                 {sub.glyph}
               </span>
             ) : null}
-            {sub.label}
+            {sub.pctLabel}
+            {sub.period ? <span className="card__per">{sub.period}</span> : null}
           </span>
         </div>
       </div>

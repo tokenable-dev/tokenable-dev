@@ -15,6 +15,7 @@ import type {
 } from "@/lib/portfolio/portfolioBidTypes";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { activeRqChainId } from "@/lib/chains";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 
 const PORTFOLIO_USDC_DECIMALS = 1_000_000;
 
@@ -92,10 +93,14 @@ export function usePortfolioMyBids(address: string | undefined) {
         collectionKeysSig.map(async (key) => {
           try {
             const detail = await getMarketplaceCollectionDetailOrNull(key);
+            const collection = detail?.collection ?? null;
             map.set(key, {
-              displayLabel:
-                detail?.collection?.displayLabel?.trim() ||
-                key.replace(/^ch:/, "").slice(0, 48),
+              displayLabel: collection
+                ? buildMarketsCollectionTitle({
+                    collection,
+                    comp: collection.components,
+                  })
+                : key.replace(/^ch:/, "").slice(0, 48),
               imageUrl: detail
                 ? pickCollectionDetailDisplayImageUrl(detail)
                 : null,

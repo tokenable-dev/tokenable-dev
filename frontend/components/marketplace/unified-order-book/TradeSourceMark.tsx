@@ -23,7 +23,7 @@ export function TradesSourceCell({
 }) {
   return (
     <div
-      className={`flex w-full min-w-0 items-center ${
+      className={`flex w-full min-w-0 items-center overflow-hidden ${
         collectionDetail ? "justify-start" : "justify-center"
       }${className ? ` ${className}` : ""}`}
     >
@@ -48,8 +48,10 @@ export function TradeSourceMark({
     : compact
       ? SOURCE_TEXT_CLASS_COMPACT
       : SOURCE_TEXT_CLASS;
-  const sharedCls = `inline-flex min-w-0 max-w-full items-center ${
-    collectionDetail ? "justify-start text-left" : "justify-center"
+  const sharedCls = `min-w-0 max-w-full overflow-hidden ${
+    collectionDetail
+      ? "block w-full truncate text-left"
+      : "inline-flex items-center justify-center"
   }${className ? ` ${className}` : ""}`;
 
   if (source.href) {
@@ -57,7 +59,7 @@ export function TradeSourceMark({
       <button
         type="button"
         className={`${sharedCls} cursor-pointer bg-transparent p-0 ${textCls} hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/40 ring-offset-2 ring-offset-zinc-950`}
-        title={source.title}
+        title={source.label}
         aria-label={source.title ?? `Open sold listing on ${source.label}`}
         onClick={() => openExternalSaleListing(source.href!)}
       >
@@ -67,7 +69,7 @@ export function TradeSourceMark({
   }
 
   return (
-    <span className={`${sharedCls} ${textCls}`} title={source.title}>
+    <span className={`${sharedCls} ${textCls}`} title={source.label}>
       {source.label}
     </span>
   );

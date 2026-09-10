@@ -2,7 +2,10 @@ import type { MintImageSource } from '../rwa-mint-image.util';
 import type { PsaCertRecord } from '../../psa/psa-public-api.service';
 import { parseGradeFromPsaCertRecord } from '../../psa/psa-public-api.service';
 import type { RwaMetadata } from '../interfaces/rwa-metadata.interface';
-import { attachPokemonNormalizedToGraded } from '../../marketplace/utils/pokemon-metadata-normalize.util';
+import {
+  attachPokemonNormalizedToGraded,
+  attachPrintLanguageToGraded,
+} from '../../marketplace/utils/pokemon-metadata-normalize.util';
 
 /**
  * Build OpenSea-style graded metadata + display name from a PSA GetByCertNumber body.
@@ -95,6 +98,7 @@ export function buildBulkMintMetadataFromPsaCert(params: {
   };
 
   attachPokemonNormalizedToGraded(graded as Record<string, unknown>);
+  attachPrintLanguageToGraded(graded as Record<string, unknown>);
 
   const metadata: RwaMetadata = {
     name,

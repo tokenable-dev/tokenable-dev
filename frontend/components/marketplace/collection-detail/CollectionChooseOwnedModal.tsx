@@ -76,7 +76,7 @@ export function CollectionChooseOwnedModal({
           <div className="cd-choose-copy__item">
             <div className="cd-choose-copy__item-title">{collectionTitle}</div>
             <div className="cd-choose-copy__item-sub tkl-mono">
-              {rows.length} owned
+              {rows.length} unlisted
             </div>
           </div>
         </div>

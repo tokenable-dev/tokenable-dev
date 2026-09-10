@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { catalogCoverSearchFromCollection } from "@/lib/marketplace/catalogCoverSearch";
@@ -18,22 +17,21 @@ import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleBut
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import { CollectionChooseCopyModal } from "./CollectionChooseCopyModal";
 import { CollectionChooseOwnedModal } from "./CollectionChooseOwnedModal";
-import { CollectionListConfirmModal } from "./CollectionListConfirmModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveCollectionPsaPopulationPanelData } from "@/lib/market/psaPopulationByGrade";
 import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
-import { useCollectionListingModal } from "@/hooks/collection-detail/useCollectionListingModal";
-import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal";
+import { useCollectionTradeDirectActions } from "@/hooks/collection-detail/useCollectionTradeDirectActions";
 import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
 import { CollectionSimilarItemsSection } from "./CollectionSimilarItemsSection";
-import { CollectionDetailTradePanel } from "./CollectionDetailTradePanel";
-import type { CollectionTradeCertItem } from "./CollectionDetailTradePanel";
 import {
-  buildCollectionDetailMarketsSlots,
-} from "./buildCollectionDetailMarketsSlots";
+  CollectionDetailTradePanel,
+  type CollectionDetailTradeTab,
+  type CollectionTradeCertItem,
+} from "./CollectionDetailTradePanel";
+import { buildCollectionDetailMarketsSlots } from "./buildCollectionDetailMarketsSlots";
 import {
   bestAskFromRows,
   bestBidFromRows,
@@ -45,22 +43,14 @@ import {
   listingVaultBadge,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
+import { pickLowestActiveAsk, sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { Order } from "@/lib/core";
-
-const ListRwaModal = dynamic(
-  () =>
-    import("@/components/marketplace/list-rwa/ListRwaModal").then((m) => ({
-      default: m.ListRwaModal,
-    })),
-  { ssr: false },
-);
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
   const {
     collectionKey,
     router,
-    address,
     data,
     headline,
     market,
@@ -142,24 +132,103 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     return next;
   }, [listings.batchMetadata, existingCoverUrl, collectionCoverUrl]);
 
-  const listingModal = useCollectionListingModal({
+  const owned = useCollectionOwnedRwa(collectionKey);
+
+  const tradeCardTitle = useMemo(
+    () =>
+      formatAssetDetailLine1(headline.collectionHeadlineParts, {
+        grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
+      }) || headline.collectionHeadlineDisplayTitle,
+    [
+      headline.collectionHeadlineParts,
+      headline.headlineGrade,
+      headline.collectionHeadlineDisplayTitle,
+      market.gradeAwareTierLabel,
+    ],
+  );
+
+  const certNumberForToken = useCallback(
+    (tokenId: number): string | null => {
+      const packed = listingsBatchMetadata?.get(tokenId);
+      const tiles = listingVerificationTiles(packed?.metadata ?? null);
+      if (tiles.certNumber && tiles.certNumber !== "—") return tiles.certNumber;
+      const ownedRow = owned.rows.find((row) => row.tokenId === tokenId);
+      const fromOwned = ownedRow?.certLabel.match(/(\d{5,})/);
+      return fromOwned?.[1] ?? null;
+    },
+    [listingsBatchMetadata, owned.rows],
+  );
+
+  const tradeDirect = useCollectionTradeDirectActions({
     collectionKey,
     askMap: listings.askMap,
-    batchMetadata: listingsBatchMetadata,
-    address,
-    onInvalidate: invalidateCollection,
+    collectionBids,
+    toastCardTitle: tradeCardTitle,
+    certNumberForToken,
+    onInvalidate: () => {
+      invalidateCollection();
+      void owned.refetch();
+    },
   });
 
-  const owned = useCollectionOwnedRwa(collectionKey);
-  const [bidPresetUsd, setBidPresetUsd] = useState<number | null>(null);
   const [listPricePreset, setListPricePreset] = useState<string | null>(null);
-  const [listTokenId, setListTokenId] = useState<number | null>(null);
   const [chooseOwnedOpen, setChooseOwnedOpen] = useState(false);
-  /** Card.html `#tk-bidconf` — confirm list from trade Sell (price already set). */
-  const [listConfirmOpen, setListConfirmOpen] = useState(false);
+  const [tradeFocus, setTradeFocus] = useState<{
+    seq: number;
+    tab: CollectionDetailTradeTab;
+    buyTokenId?: number | null;
+    sellTokenId?: number | null;
+    bidUsd?: number | null;
+  }>({ seq: 0, tab: "buy" });
+
+  const focusTrade = useCallback(
+    (next: {
+      tab: CollectionDetailTradeTab;
+      buyTokenId?: number | null;
+      sellTokenId?: number | null;
+      bidUsd?: number | null;
+    }) => {
+      setTradeFocus((prev) => ({ ...next, seq: prev.seq + 1 }));
+    },
+    [],
+  );
+
+  const listedOwnedIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const o of asks) {
+      if (o.status !== "active") continue;
+      const tid = Number(o.tokenId);
+      if (Number.isFinite(tid) && tid >= 0) ids.add(tid);
+    }
+    for (const [tid, o] of listings.askMap) {
+      if (o.status === "active") ids.add(tid);
+    }
+    return ids;
+  }, [asks, listings.askMap]);
+
+  const listableOwnedRows = useMemo(
+    () => owned.rows.filter((row) => !listedOwnedIds.has(row.tokenId)),
+    [owned.rows, listedOwnedIds],
+  );
 
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const listingQuery = searchParams.get("listing")?.trim() ?? "";
+  const checkoutQuery = searchParams.get("checkout")?.trim() ?? "";
   const { runTradeAccessGate } = useTradeAccessGate(pathname || `/marketplace/collections/${collectionKey}`);
+
+  useEffect(() => {
+    if (!listingQuery && !checkoutQuery) return;
+    const tokenId = /^\d+$/.test(listingQuery) ? Number(listingQuery) : null;
+    if (checkoutQuery === "bid") {
+      focusTrade({ tab: "bid", buyTokenId: tokenId });
+    } else if (checkoutQuery === "list") {
+      focusTrade({ tab: "sell", sellTokenId: tokenId });
+    } else {
+      focusTrade({ tab: "buy", buyTokenId: tokenId });
+    }
+    router.replace(pathname || `/marketplace/collections/${collectionKey}`);
+  }, [listingQuery, checkoutQuery, focusTrade, pathname, router, collectionKey]);
   const {
     active: listingAlertActive,
     pending: listingAlertPending,
@@ -186,7 +255,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     toggleListingAlert,
   ]);
 
-  const openBuyCheckoutForToken = useCallback(
+  /** Trade Buy — selected cert → Privy fulfill (no checkout sheet). */
+  const handleTradeBuy = useCallback(
     (tokenId: number) => {
       const listing = listings.askMap.get(tokenId);
       if (!listing || listing.status !== "active") return;
@@ -196,20 +266,47 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         price: priceUsdc > 0 ? priceUsdc : undefined,
         collection_id: collectionKey,
       });
-      listingModal.openListing(tokenId, "buy");
+      runTradeAccessGate(() => {
+        void tradeDirect.buyToken(tokenId);
+      });
     },
-    [listings.askMap, collectionKey, listingModal.openListing],
+    [listings.askMap, collectionKey, runTradeAccessGate, tradeDirect.buyToken],
+  );
+
+  const handleTradeBid = useCallback(
+    (priceUsd: number) => {
+      if (!(priceUsd > 0)) return;
+      runTradeAccessGate(() => {
+        void tradeDirect.placeBid(priceUsd);
+      });
+    },
+    [runTradeAccessGate, tradeDirect.placeBid],
+  );
+
+  const handleTradeSell = useCallback(
+    (tokenId: number, priceUsd: number) => {
+      if (!(priceUsd > 0)) return;
+      if (listedOwnedIds.has(tokenId)) return;
+      runTradeAccessGate(() => {
+        void tradeDirect.listForSale(tokenId, priceUsd);
+      });
+    },
+    [
+      listedOwnedIds,
+      runTradeAccessGate,
+      tradeDirect.listForSale,
+    ],
   );
 
   /**
-   * Card.html `tkBuy`: one ask at the price → checkout; 2+ → `#tk-choose`.
+   * Order-book ask click: 1 copy → Privy fulfill; 2+ → choose-copy, then fulfill.
    */
   const openBuyForAskOrders = useCallback(
     (orders: Order[], priceUsd: number) => {
       const active = orders.filter((o) => o.status === "active");
       if (active.length === 0) return;
       if (active.length === 1) {
-        openBuyCheckoutForToken(Number(active[0]!.tokenId));
+        handleTradeBuy(Number(active[0]!.tokenId));
         return;
       }
       const price = priceUsd > 0 ? priceUsd : priceUsdcFromOrder(active[0]!);
@@ -220,27 +317,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         orders: active,
       });
     },
-    [openBuyCheckoutForToken, setOrderBookAskPicker],
-  );
-
-  /** Trade Buy / bid-meets-ask — group by the selected ask's price level. */
-  const handleTradeBuy = useCallback(
-    (tokenId: number) => {
-      const listing = listings.askMap.get(tokenId);
-      if (!listing || listing.status !== "active") return;
-      const price = priceUsdcFromOrder(listing);
-      const key = priceLevelKey(price);
-      const atPrice = [...listings.askMap.values()].filter((o) => {
-        if (o.status !== "active") return false;
-        try {
-          return priceLevelKey(priceUsdcFromOrder(o)) === key;
-        } catch {
-          return false;
-        }
-      });
-      openBuyForAskOrders(atPrice, price);
-    },
-    [listings.askMap, openBuyForAskOrders],
+    [handleTradeBuy, setOrderBookAskPicker],
   );
 
   const openListFlow = useCallback(
@@ -248,23 +325,36 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       const preset =
         priceUsd != null && priceUsd > 0 ? String(Math.round(priceUsd)) : null;
       setListPricePreset(preset);
-      setListConfirmOpen(false);
       if (tokenId != null && tokenId >= 0) {
-        setListTokenId(tokenId);
+        if (preset) {
+          handleTradeSell(tokenId, Number(preset));
+          setListPricePreset(null);
+          return;
+        }
+        focusTrade({ tab: "sell", sellTokenId: tokenId });
         return;
       }
-      const rows = owned.rows;
+      const rows = listableOwnedRows;
       if (rows.length === 0) {
-        router.push("/sell");
+        if (owned.rows.length === 0) router.push("/sell");
         return;
       }
       if (rows.length === 1) {
-        setListTokenId(rows[0]!.tokenId);
+        if (preset) {
+          handleTradeSell(rows[0]!.tokenId, Number(preset));
+          setListPricePreset(null);
+          return;
+        }
+        focusTrade({ tab: "sell", sellTokenId: rows[0]!.tokenId });
         return;
       }
-      setChooseOwnedOpen(true);
+      if (preset) {
+        setChooseOwnedOpen(true);
+        return;
+      }
+      focusTrade({ tab: "sell" });
     },
-    [owned.rows, router],
+    [listableOwnedRows, owned.rows.length, router, focusTrade, handleTradeSell],
   );
 
   const handleOrderBookSelectLevel = useCallback(
@@ -283,12 +373,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       ...collectionOrderBookProps,
       onSelectLevel: handleOrderBookSelectLevel,
       onPlaceBid: () => {
-        setBidPresetUsd(null);
-        listingModal.openSetLevelBid();
+        focusTrade({ tab: "bid" });
       },
       onListYours: () => {
         runTradeAccessGate(() => {
-          openListFlow(null);
+          focusTrade({ tab: "sell" });
         });
       },
       listingAlertActive,
@@ -298,12 +387,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [
       collectionOrderBookProps,
       handleOrderBookSelectLevel,
-      listingModal.openSetLevelBid,
+      focusTrade,
       listingAlertActive,
       listingAlertPending,
       handleToggleListingAlert,
       runTradeAccessGate,
-      openListFlow,
     ],
   );
 
@@ -316,72 +404,37 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [asks],
   );
 
-  const openBuyFloor = () => {
-    const active = [...listings.askMap.values()].filter(
-      (o) => o.status === "active",
-    );
-    if (active.length === 0) return;
-    active.sort((a, b) => {
-      try {
-        const pa = BigInt(a.considerationAmount);
-        const pb = BigInt(b.considerationAmount);
-        if (pa === pb) return Number(a.tokenId) - Number(b.tokenId);
-        return pa < pb ? -1 : 1;
-      } catch {
-        return 0;
-      }
-    });
-    let floorAmt: bigint;
-    try {
-      floorAmt = BigInt(active[0]!.considerationAmount);
-    } catch {
-      return;
+  const openBuyFloor = useCallback(() => {
+    const floor = pickLowestActiveAsk([...listings.askMap.values()]);
+    if (!floor) return;
+    handleTradeBuy(Number(floor.tokenId));
+  }, [listings.askMap, handleTradeBuy]);
+
+  const defaultMobileBidUsd = useMemo(() => {
+    const top = highestBidUsd != null && highestBidUsd > 0 ? highestBidUsd : 0;
+    const last =
+      market.gradeAwareExternalUsd != null && market.gradeAwareExternalUsd > 0
+        ? market.gradeAwareExternalUsd
+        : lowestAskUsd != null && lowestAskUsd > 0
+          ? lowestAskUsd
+          : top;
+    if (top > 0) return Math.round(top * 1.01);
+    if (last > 0) return Math.round(last);
+    return 0;
+  }, [highestBidUsd, lowestAskUsd, market.gradeAwareExternalUsd]);
+
+  const defaultMobileSellUsd = useMemo(() => {
+    if (lowestAskUsd != null && lowestAskUsd > 0) {
+      return Math.round(lowestAskUsd * 0.99);
     }
-    const floorOrders = active.filter((o) => {
-      try {
-        return BigInt(o.considerationAmount) === floorAmt;
-      } catch {
-        return false;
-      }
-    });
-    if (floorOrders.length === 0) return;
-    openBuyForAskOrders(floorOrders, priceUsdcFromOrder(floorOrders[0]!));
-  };
-
-  const handleTradeBid = useCallback(
-    (priceUsd: number) => {
-      setBidPresetUsd(priceUsd > 0 ? priceUsd : null);
-      listingModal.openSetLevelBid();
-    },
-    [listingModal.openSetLevelBid],
-  );
-
-  const handleTradeSell = useCallback(
-    (tokenId: number, priceUsd: number) => {
-      runTradeAccessGate(() => {
-        const preset =
-          priceUsd > 0 ? String(Math.round(priceUsd)) : null;
-        setListPricePreset(preset);
-        setListTokenId(tokenId);
-        setListConfirmOpen(true);
-      });
-    },
-    [runTradeAccessGate],
-  );
+    if (market.gradeAwareExternalUsd != null && market.gradeAwareExternalUsd > 0) {
+      return Math.round(market.gradeAwareExternalUsd);
+    }
+    return 0;
+  }, [lowestAskUsd, market.gradeAwareExternalUsd]);
 
   const tradeBuyItems = useMemo((): CollectionTradeCertItem[] => {
-    const active = asks.filter((o) => o.status === "active");
-    const sorted = [...active].sort((a, b) => {
-      try {
-        const pa = BigInt(a.considerationAmount);
-        const pb = BigInt(b.considerationAmount);
-        if (pa === pb) return Number(a.tokenId) - Number(b.tokenId);
-        return pa < pb ? -1 : 1;
-      } catch {
-        return 0;
-      }
-    });
-    return sorted.map((order: Order) => {
+    return sortActiveAsksLowestFirst(asks).map((order: Order) => {
       const tokenId = Number(order.tokenId);
       const packed = listingsBatchMetadata?.get(tokenId);
       const tiles = listingVerificationTiles(packed?.metadata ?? null);
@@ -399,11 +452,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   }, [asks, listingsBatchMetadata]);
 
   const tradeOwnedItems = useMemo((): CollectionTradeCertItem[] => {
-    return owned.rows.map((row) => ({
+    return listableOwnedRows.map((row) => ({
       tokenId: row.tokenId,
       label: `${row.certLabel} · ${row.vaultLabel}`,
     }));
-  }, [owned.rows]);
+  }, [listableOwnedRows]);
 
   const tradePanel = (
     <CollectionDetailTradePanel
@@ -417,34 +470,27 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       onBuy={handleTradeBuy}
       onBid={handleTradeBid}
       onSell={handleTradeSell}
-      buyDisabled={asks.length === 0}
-      sellDisabled={owned.rows.length === 0}
+      buyDisabled={asks.length === 0 || tradeDirect.busy != null}
+      bidDisabled={tradeDirect.busy != null}
+      sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
+      buyBusy={tradeDirect.busy === "buy"}
+      bidBusy={tradeDirect.busy === "bid"}
+      sellBusy={tradeDirect.busy === "sell"}
+      focusSeq={tradeFocus.seq}
+      focusTab={tradeFocus.tab}
+      focusBuyTokenId={tradeFocus.buyTokenId}
+      focusSellTokenId={tradeFocus.sellTokenId}
+      focusBidUsd={tradeFocus.bidUsd}
     />
   );
 
-  /** Select your card — SSOT Line 1 with grade. */
   const chooseCopyLine1 =
     formatAssetDetailLine1(headline.collectionHeadlineParts, {
       grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
     }) || headline.collectionHeadlineDisplayTitle;
-  /** Shared omit-grade title for checkout shells that put grade on the copy line. */
   const chooseCopyTitle =
     formatAssetDetailLine1(headline.collectionHeadlineParts, { omitGrade: true }) ||
     headline.collectionHeadlineDisplayTitle;
-  const checkoutGradeOnly = useMemo(() => {
-    const raw =
-      market.gradeAwareTierLabel?.trim() ||
-      (comp.gradeScore?.trim()
-        ? /^\d/.test(comp.gradeScore.trim())
-          ? `PSA ${comp.gradeScore.trim()}`
-          : comp.gradeScore.trim()
-        : null);
-    return raw || null;
-  }, [comp.gradeScore, market.gradeAwareTierLabel]);
-  /** Bid modal `#tkb-copy` — Card.html often shows grade + mint label. */
-  const chooseCopyGradeLine = checkoutGradeOnly
-    ? `${checkoutGradeOnly} · Gem Mint`
-    : null;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -545,11 +591,28 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         lowestAskUsd={lowestAskUsd}
         onBuy={openBuyFloor}
         onBid={() => {
-          setBidPresetUsd(null);
-          listingModal.openSetLevelBid();
+          if (!(defaultMobileBidUsd > 0)) return;
+          handleTradeBid(defaultMobileBidUsd);
         }}
-        buyDisabled={asks.length === 0}
-        bidDisabled={false}
+        onSell={() => {
+          const rows = listableOwnedRows;
+          if (rows.length === 0) {
+            if (owned.rows.length === 0) router.push("/sell");
+            return;
+          }
+          if (!(defaultMobileSellUsd > 0)) {
+            openListFlow(null);
+            return;
+          }
+          if (rows.length === 1) {
+            handleTradeSell(rows[0]!.tokenId, defaultMobileSellUsd);
+            return;
+          }
+          openListFlow(defaultMobileSellUsd);
+        }}
+        buyDisabled={asks.length === 0 || tradeDirect.busy != null}
+        bidDisabled={!(defaultMobileBidUsd > 0) || tradeDirect.busy != null}
+        sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
       />
 
       <TradeCelebrationModal
@@ -569,63 +632,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         batchMetadata={listingsBatchMetadata}
         onConfirm={(tokenId) => {
           setOrderBookAskPicker(null);
-          openBuyCheckoutForToken(tokenId);
-        }}
-      />
-
-      <CollectionListingCheckoutModal
-        open={listingModal.checkout === "buy"}
-        mode="buy"
-        tokenId={listingModal.selectedTokenId}
-        listing={listingModal.selectedListing}
-        metadata={listingModal.selectedPrefetch?.metadata ?? null}
-        imageUrl={
-          listingModal.selectedPrefetch?.imageUrl ?? collectionCoverUrl
-        }
-        collectionTitle={chooseCopyTitle}
-        collectionMeta={headline.collectionHeadlineMetaStrip}
-        collectionGradeLine={checkoutGradeOnly}
-        collectionKey={collectionKey}
-        connectedAddress={address}
-        buyBusy={listingModal.buyFlow.buyBusy}
-        buyErr={listingModal.buyFlow.buyErr}
-        buyComplete={listingModal.buyComplete}
-        onClose={listingModal.closeDetail}
-        onFulfillBuy={() => {
-          runTradeAccessGate(() => {
-            void listingModal.buyFlow.handleFulfillAsk();
-          });
-        }}
-      />
-
-      <CollectionListingCheckoutModal
-        open={listingModal.checkout === "bid"}
-        mode="bid"
-        tokenId={listingModal.selectedTokenId}
-        listing={listingModal.selectedListing}
-        metadata={listingModal.selectedPrefetch?.metadata ?? null}
-        imageUrl={collectionCoverUrl}
-        collectionTitle={chooseCopyTitle}
-        collectionMeta={headline.collectionHeadlineMetaStrip}
-        collectionGradeLine={chooseCopyGradeLine}
-        collectionKey={collectionKey}
-        collectionBids={collectionBids}
-        askUsd={lowestAskUsd}
-        highestBidUsd={highestBidUsd}
-        initialBidUsd={bidPresetUsd}
-        connectedAddress={address}
-        buyBusy={listingModal.buyFlow.buyBusy}
-        buyErr={listingModal.buyFlow.buyErr}
-        onClose={() => {
-          setBidPresetUsd(null);
-          listingModal.closeDetail();
-        }}
-        onFulfillBuy={() => void listingModal.buyFlow.handleFulfillAsk()}
-        onBidPlaced={() => {
-          invalidateCollection();
-        }}
-        onPurchaseFilled={() => {
-          invalidateCollection();
+          handleTradeBuy(tokenId);
         }}
       />
 
@@ -633,93 +640,19 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         open={chooseOwnedOpen}
         onClose={() => setChooseOwnedOpen(false)}
         collectionTitle={chooseCopyTitle}
-        rows={owned.rows}
+        rows={listableOwnedRows}
         onConfirm={(tokenId) => {
           setChooseOwnedOpen(false);
-          setListConfirmOpen(false);
-          setListTokenId(tokenId);
+          const preset = listPricePreset != null ? Number(listPricePreset) : NaN;
+          if (Number.isFinite(preset) && preset > 0) {
+            setListPricePreset(null);
+            handleTradeSell(tokenId, preset);
+            return;
+          }
+          setListPricePreset(null);
+          focusTrade({ tab: "sell", sellTokenId: tokenId });
         }}
       />
-
-      {listConfirmOpen &&
-      listTokenId != null &&
-      listPricePreset != null &&
-      Number(listPricePreset) > 0 ? (
-        <CollectionListConfirmModal
-          open
-          tokenId={listTokenId}
-          priceUsd={Number(listPricePreset)}
-          imageUrl={
-            owned.rows.find((r) => r.tokenId === listTokenId)?.imageUrl ??
-            collectionCoverUrl
-          }
-          assetTitle={chooseCopyTitle}
-          headlineParts={headline.collectionHeadlineParts}
-          headlineGrade={headline.headlineGrade ?? market.gradeAwareTierLabel}
-          headlineMeta={headline.collectionHeadlineMetaStrip}
-          certLabel={
-            owned.rows.find((r) => r.tokenId === listTokenId)?.certLabel ??
-            `Token #${listTokenId}`
-          }
-          vaultLabel={
-            owned.rows.find((r) => r.tokenId === listTokenId)?.vaultLabel ??
-            "Tokenable Vault"
-          }
-          collectionKey={collectionKey}
-          collectionBids={collectionBids}
-          onClose={() => {
-            setListConfirmOpen(false);
-            setListTokenId(null);
-            setListPricePreset(null);
-          }}
-          onListed={() => {
-            setListConfirmOpen(false);
-            setListTokenId(null);
-            setListPricePreset(null);
-            invalidateCollection();
-            void owned.refetch();
-          }}
-          onMatchedSale={() => {
-            setListConfirmOpen(false);
-            setListTokenId(null);
-            setListPricePreset(null);
-            invalidateCollection();
-            void owned.refetch();
-          }}
-        />
-      ) : listTokenId != null ? (
-        <ListRwaModal
-          shell="sheet"
-          tokenId={listTokenId}
-          assetTitle={chooseCopyTitle}
-          headlineParts={headline.collectionHeadlineParts}
-          headlineGrade={headline.headlineGrade ?? market.gradeAwareTierLabel}
-          collectionKey={collectionKey}
-          collectionBids={collectionBids}
-          initialPriceUsdc={listPricePreset}
-          marketValueUsd={market.gradeAwareExternalUsd}
-          copyVariant="default"
-          onClose={() => {
-            setListTokenId(null);
-            setListPricePreset(null);
-            setListConfirmOpen(false);
-          }}
-          onListed={() => {
-            setListTokenId(null);
-            setListPricePreset(null);
-            setListConfirmOpen(false);
-            invalidateCollection();
-            void owned.refetch();
-          }}
-          onMatchedSale={() => {
-            setListTokenId(null);
-            setListPricePreset(null);
-            setListConfirmOpen(false);
-            invalidateCollection();
-            void owned.refetch();
-          }}
-        />
-      ) : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes
 import { OrderBookCenterStrip } from "./OrderBookCenterStrip";
 import { OrderBookDepthLevelRow } from "./OrderBookDepthLevelRow";
 import { OrderBookEmptyPanel } from "./OrderBookEmptyPanel";
+import { OrderBookScrollFades, useOrderBookScrollFades } from "./OrderBookScrollFades";
 
 function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; collectionDetail?: boolean }) {
   if (collectionDetail) {
@@ -232,6 +233,7 @@ function OrderBookSplitScrollPane({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
+  const fades = useOrderBookScrollFades(scrollRef, [scrollKey, hug, pinToBottom]);
 
   useLayoutEffect(() => {
     const scrollEl = scrollRef.current;
@@ -287,6 +289,7 @@ function OrderBookSplitScrollPane({
           {children}
         </div>
       </div>
+      <OrderBookScrollFades showTop={fades.showTop} showBot={fades.showBot} />
     </div>
   );
 }
@@ -299,6 +302,8 @@ export function OrderBookBookTab({
   mobileEmbed,
   askLevels,
   bidLevels,
+  bestAskUsdc,
+  bestBidUsdc,
   bookCenterModel,
   bidCount,
   askCount,
@@ -318,6 +323,8 @@ export function OrderBookBookTab({
   mobileEmbed?: boolean;
   askLevels: OrderBookDepthLevel[];
   bidLevels: OrderBookDepthLevel[];
+  bestAskUsdc: number | null;
+  bestBidUsdc: number | null;
   bookCenterModel: BookCenterModel;
   bidCount: number;
   askCount: number;
@@ -440,12 +447,8 @@ export function OrderBookBookTab({
                 collectionDetail
                 asksEmptyBidsLive={asksEmptyBidsLive}
                 bidsEmptyAsksLive={bidsEmptyAsksLive}
-                bestBidUsdc={bidLevels[0]?.price ?? null}
-                bestAskUsdc={
-                  askLevels.length > 0
-                    ? Math.min(...askLevels.map((l) => l.price))
-                    : null
-                }
+                bestBidUsdc={bestBidUsdc}
+                bestAskUsdc={bestAskUsdc}
               />
             </div>
             {bidsEmptyAsksLive ? (

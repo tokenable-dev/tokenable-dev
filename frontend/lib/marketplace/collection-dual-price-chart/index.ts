@@ -17,6 +17,10 @@ export {
 export {
   formatCardHtmlAxisLabel,
   formatCardHtmlHoverWhen,
+  formatCardHtmlPeriodAxisLabel,
+  formatCardHtmlThreeTickDayLabel,
+  formatCardHtmlYAxisUsd,
+  cardHtmlPeriodAxisTickMs,
   formatHoverWhen,
   formatTickDate,
   formatTickShortMdYear,

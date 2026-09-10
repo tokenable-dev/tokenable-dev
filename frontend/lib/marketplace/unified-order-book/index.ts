@@ -17,6 +17,7 @@ export {
   cmpBidByPriceDesc,
   formatOrderBookPriceUsdc,
   formatCollectionDetailBookPriceUsdc,
+  formatCollectionDetailSpreadLabel,
   formatOrderBookTotalUsdc,
   formatTradesTapePriceUsdc,
   formatTapeDate,

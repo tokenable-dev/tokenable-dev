@@ -8,6 +8,7 @@ import {
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { getOrderByHash, getRwaSettlementPolicy, rq } from "@/lib/core";
+import { patchCachesAfterAskListed } from "@/lib/core/invalidation";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -60,13 +61,18 @@ export function useListRwaModal({
   signSeaportOrderRef.current = signSeaportOrder;
   const queryClient = useQueryClient();
 
-  const { data: existingAskFetched } = useQuery({
+  const existingAskQuery = useQuery({
     queryKey: rq.orderDetail(existingAskOrderHash ?? ""),
     queryFn: () => getOrderByHash(existingAskOrderHash!),
     enabled: Boolean(existingAskOrderHash?.trim()) && !existingAskOrder,
     staleTime: 15_000,
   });
+  const existingAskFetched = existingAskQuery.data;
   const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
+  const waitingOnExistingAsk =
+    Boolean(existingAskOrderHash?.trim()) &&
+    !existingAskOrder &&
+    existingAskQuery.isPending;
 
   const { data: settlementPolicyData } = useQuery({
     queryKey: ["rwa-settlement-policy", chainId, String(tokenId)],
@@ -255,6 +261,14 @@ export function useListRwaModal({
       setErrorMsg("Network not ready. Try again.");
       return;
     }
+    if (waitingOnExistingAsk) {
+      setErrorMsg("Loading your current listing. Try again in a moment.");
+      return;
+    }
+    if (existingAskOrderHash?.trim() && !isReplaceListing) {
+      setErrorMsg("Could not load the live listing to update. Refresh and try again.");
+      return;
+    }
 
     setErrorMsg("");
     setSuccessMeta(null);
@@ -307,7 +321,10 @@ export function useListRwaModal({
           });
         }
 
-        onListed?.(tokenId);
+        patchCachesAfterAskListed(queryClient, created, {
+          oldOrderHash: resolvedExistingAsk.orderHash,
+        });
+        onListed?.(tokenId, created);
         setSuccessMeta({
           ...meta,
           collectionUnderReview: created.reviewStatus === "pending_review",
@@ -368,7 +385,8 @@ export function useListRwaModal({
         });
       }
 
-      onListed?.(tokenId);
+      patchCachesAfterAskListed(queryClient, createdFinal);
+      onListed?.(tokenId, createdFinal);
       setSuccessMeta({
         ...meta,
         collectionUnderReview: createdFinal.reviewStatus === "pending_review",

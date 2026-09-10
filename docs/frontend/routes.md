@@ -25,7 +25,7 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Redirects to `/vault/submit` |
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
-| `/portfolio/assets/[tokenId]` | `app/portfolio/assets/[tokenId]/page.tsx` | Certificate of Ownership (`PortfolioAsset.html`) |
+| `/portfolio/assets/[tokenId]` | `app/portfolio/assets/[tokenId]/page.tsx` | Certificate of Ownership (`PortfolioAsset.html`). Footer **Set price** / **Edit price** uses the same `ListRwaModal` sheet as My Assets (keep open until Done; Edit includes **Cancel listing**). |
 | `/partner/portfolio` | `app/partner/portfolio/page.tsx` | Partner portfolio (same holdings UI) |
 | `/partner/portfolio/assets/[tokenId]` | `app/partner/portfolio/assets/[tokenId]/page.tsx` | Partner certificate of ownership |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
@@ -36,8 +36,8 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 | `/signup` | `app/signup/page.tsx` | Redirects to `/login` |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
 | `/site-access/verify` | `app/site-access/verify/route.ts` | Route handler for gate cookie (if used) |
-| `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Legacy redirect → collection detail + `?listing=` |
-| `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection — order book, dual chart, AI insight, listings |
+| `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Legacy redirect → collection detail + `?listing=` (trade panel) |
+| `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection — trade panel, order book, dual chart |
 | `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
 | `/marketplace/admin` | `app/marketplace/admin/page.tsx` | Admin — **Overview** (platform KPIs, funnel, ops metrics) |
 | `/marketplace/admin/users` | `app/marketplace/admin/users/page.tsx` | Admin — user support & lifecycle |

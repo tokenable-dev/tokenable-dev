@@ -85,7 +85,9 @@ export function CollectionPsaPopulationPanel({
             >
               {row.label}
             </span>
-            <span className="cd-psa-panel__count">
+            <span
+              className={`cd-psa-panel__count${isHighlight ? " cd-psa-panel__count--active" : ""}`}
+            >
               {count != null ? formatPsaPopulationCount(count) : "—"}
             </span>
             <span className="cd-psa-panel__pct">

@@ -20,6 +20,7 @@ import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import {
   PORTFOLIO_USDC_DECIMALS,
   buildPortfolioPricedRows,
+  listingByTokenIdFromAsks,
 } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
@@ -34,7 +35,7 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
-import { invalidateAfterListing } from "@/lib/core/invalidation";
+import { invalidateAfterCostBasisEdit, invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -238,6 +239,7 @@ export function PortfolioPageView({
     costBasisByTokenId,
     acquiredAtByTokenId,
     hiddenSet,
+    applyCostBasis,
   } = assetsPage;
 
   const metadataByTokenId = useMemo(() => {
@@ -260,18 +262,10 @@ export function PortfolioPageView({
     [allOrders, portfolioAddress],
   );
 
-  const listingByTokenId = useMemo(() => {
-    const m = new Map<number, { priceUsd: number; orderHash: string }>();
-    for (const o of myActiveListings) {
-      const tid = Number(o.tokenId);
-      if (!Number.isFinite(tid)) continue;
-      m.set(tid, {
-        priceUsd: Number(o.price) / PORTFOLIO_USDC_DECIMALS,
-        orderHash: o.orderHash,
-      });
-    }
-    return m;
-  }, [myActiveListings]);
+  const listingByTokenId = useMemo(
+    () => listingByTokenIdFromAsks(myActiveListings),
+    [myActiveListings],
+  );
 
   const fulfilledOrders = useMemo(
     () =>
@@ -349,13 +343,13 @@ export function PortfolioPageView({
   );
 
   const saveCostBasis = async (tokenId: number, costBasisUsd: number) => {
-    if (!signerAddress) return;
+    const wallet = portfolioAddress ?? signerAddress;
+    if (!wallet) return;
     setSavingCostBasisTokenId(tokenId);
     try {
-      await putPortfolioCostBasis(signerAddress, tokenId, costBasisUsd);
-      await queryClient.invalidateQueries({
-        queryKey: rq.portfolioHoldings(signerAddress, tokenIds, activeRqChainId()),
-      });
+      await putPortfolioCostBasis(wallet, tokenId, costBasisUsd);
+      applyCostBasis(tokenId, costBasisUsd);
+      await invalidateAfterCostBasisEdit(queryClient);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Failed to save cost basis");
       throw err;
@@ -989,11 +983,26 @@ export function PortfolioPageView({
             void refetchActiveOrders();
           }}
           onClose={() => setListModal(null)}
-          onListed={() => {
+          onListed={(tid, created) => {
+            if (created) {
+              const priceUsd =
+                Number(created.considerationAmount) / PORTFOLIO_USDC_DECIMALS;
+              setListModal((m) =>
+                m && m.tokenId === tid
+                  ? {
+                      ...m,
+                      existingAskOrderHash: created.orderHash,
+                      listedPriceUsd: Number.isFinite(priceUsd)
+                        ? priceUsd
+                        : m.listedPriceUsd,
+                    }
+                  : m,
+              );
+            }
             void invalidateAfterListing(queryClient, {
               collectionKey: listModal.collectionKey,
               address: signerAddress ?? portfolioAddress,
-              tokenId: listModal.tokenId,
+              tokenId: tid ?? listModal.tokenId,
             });
             void refetchActiveOrders();
             // Keep sheet open so DS-4 complete state can render; Done closes via onClose.

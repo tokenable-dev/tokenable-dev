@@ -60,7 +60,8 @@ function psaVarietyFromMintMeta(meta: Record<string, unknown>): string {
 
 /**
  * Collection cover: Cardhedger / TCG → catalog S3 (when configured).
- * Set at collection create; upgraded when a higher-scoring catalog URL is resolved.
+ * Set at collection create. Existing covers are not replaced on listing/sale
+ * (admin upload must stick). Explicit admin `upgradeIfBetter` may still replace.
  */
 @Injectable()
 export class CollectionCoverService {
@@ -248,19 +249,24 @@ export class CollectionCoverService {
   }
 
   /**
-   * Persist cover when missing, or replace when a higher-scoring catalog URL is
-   * resolved. If the existing cover is our S3 object but too small (Cardhedger
-   * thumb), re-ingest the best candidate.
+   * Fill a missing cover from catalog meta.
+   * Listing/sale must not pass `replaceExisting` — that overwrote admin covers
+   * (S3 `/cover` bytes or URL) with Cardhedger/TCG “original” art.
+   * Admin `upgradeIfBetter` may pass `{ replaceExisting: true }`.
    */
   async upgradeCoverFromMetaIfBetter(
     collectionKey: string,
     meta: Record<string, unknown>,
+    opts?: { replaceExisting?: boolean },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const row = await this.findOne(k);
     if (!row) return null;
 
     const current = row.coverImageUrl?.trim() ?? '';
+    if (current && !opts?.replaceExisting) {
+      return current;
+    }
     const ranked = await this.resolveRankedCatalogImageUrlsFromMeta(meta);
     if (ranked.length === 0) return current || null;
 
@@ -281,7 +287,9 @@ export class CollectionCoverService {
             existing.height,
           );
         } catch {
-          shouldReingest = true;
+          // Keep the current object. A fetch blip used to re-ingest Cardhedger
+          // over the same S3 key and undo admin uploads.
+          shouldReingest = false;
         }
       }
       if (shouldReingest) {
@@ -298,6 +306,9 @@ export class CollectionCoverService {
             }`,
           );
         }
+      }
+      if (current && ourKey) {
+        return current;
       }
     }
 
@@ -428,7 +439,9 @@ export class CollectionCoverService {
       return { coverImageUrl: prev || null, upgraded: false };
     }
 
-    const after = await this.upgradeCoverFromMetaIfBetter(k, meta);
+    const after = await this.upgradeCoverFromMetaIfBetter(k, meta, {
+      replaceExisting: true,
+    });
     const next = after?.trim() ?? prev;
     return {
       coverImageUrl: next || null,

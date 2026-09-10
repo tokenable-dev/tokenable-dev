@@ -165,6 +165,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     return {
       priceUsd: Number(found.considerationAmount) / PORTFOLIO_USDC_DECIMALS,
       orderHash: found.orderHash,
+      order: found,
     };
   }, [ordersQuery.data, wallet.portfolioAddress]);
 

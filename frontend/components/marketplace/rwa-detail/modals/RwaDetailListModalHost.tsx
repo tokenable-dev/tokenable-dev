@@ -47,7 +47,7 @@ export function RwaDetailListModalHost({
   onRequestCancelListing?: () => void;
   onMatchedSale?: () => void;
   onClose: () => void;
-  onListed: () => void;
+  onListed: (tokenId?: number, created?: Order) => void;
 }) {
   if (!open) return null;
 

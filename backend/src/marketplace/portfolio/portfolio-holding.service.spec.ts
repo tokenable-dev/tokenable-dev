@@ -170,12 +170,12 @@ describe('PortfolioHoldingService', () => {
     expect(row?.costBasisSource).toBe(PortfolioCostBasisSource.MANUAL);
   });
 
-  it('overwrites vault_delivery with marketplace_buy seed', async () => {
-    await service.seedVaultDeliveryCostBasis(WALLET, 13, 1000);
-    await service.seedMarketplaceBuyCostBasis(WALLET, 13, 900);
+  it('overwrites a previous marketplace_buy with a newer fill price', async () => {
+    await service.seedMarketplaceBuyCostBasis(WALLET, 14, 500);
+    await service.seedMarketplaceBuyCostBasis(WALLET, 14, 888);
 
-    const row = rows.get(13);
-    expect(row?.costBasisUsd).toBe(900);
+    const row = rows.get(14);
+    expect(row?.costBasisUsd).toBe(888);
     expect(row?.costBasisSource).toBe(PortfolioCostBasisSource.MARKETPLACE_BUY);
   });
 

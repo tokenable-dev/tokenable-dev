@@ -14,6 +14,7 @@ import {
   shouldHideDuplicateVariant,
   resolveCardDisplayGrade,
   stripCategoryPrefixFromSet,
+  resolveCardDisplayLine1Collisions,
 } from "@/lib/marketplace/cardDisplayName";
 import {
   buildAssetDetailHeadlineParts,
@@ -30,10 +31,10 @@ describe("cardDisplayName SSOT", () => {
     expect(joinCardDisplaySegments([])).toBe("");
   });
 
-  it("resolveCardDisplayGrade never returns Raw", () => {
-    expect(resolveCardDisplayGrade(null)).toBe("");
-    expect(resolveCardDisplayGrade("  ")).toBe("");
-    expect(resolveCardDisplayGrade("Raw")).toBe("");
+  it("resolveCardDisplayGrade returns Raw for empty or unknown grades", () => {
+    expect(resolveCardDisplayGrade(null)).toBe("Raw");
+    expect(resolveCardDisplayGrade("  ")).toBe("Raw");
+    expect(resolveCardDisplayGrade("Raw")).toBe("Raw");
     expect(resolveCardDisplayGrade("PSA 10")).toBe("PSA 10");
   });
 
@@ -49,7 +50,7 @@ describe("cardDisplayName SSOT", () => {
     expect(formatCardDisplayLanguageShort("")).toBeNull();
   });
 
-  it("formats Line 1 and omits unknown grade instead of Raw", () => {
+  it("formats Line 1 with Raw for unknown grade", () => {
     const line1 = formatCardDisplayLine1({
       cardName: "Charizard ex",
       cardNumber: "199/165",
@@ -59,7 +60,7 @@ describe("cardDisplayName SSOT", () => {
       language: null,
       variant: null,
     });
-    expect(line1).toBe("Charizard ex · 199/165");
+    expect(line1).toBe("Charizard ex · 199/165 · Raw");
     expect(
       formatCardDisplayLine1({
         cardName: "Kobe Bryant",
@@ -70,7 +71,7 @@ describe("cardDisplayName SSOT", () => {
         language: null,
         variant: null,
       }),
-    ).toBe("Kobe Bryant");
+    ).toBe("Kobe Bryant · Raw");
   });
 
   it("omits grade on asset-detail Line 1", () => {
@@ -168,7 +169,7 @@ describe("cardDisplayName SSOT", () => {
     expect(line2).toBe("2023 · 151 EN · Special Illustration Rare");
   });
 
-  it("formats One Piece Line 1 with uppercase number token", () => {
+  it("formats One Piece Line 1 with collector number only (set code stays on Line 2)", () => {
     const line1 = formatCardDisplayLine1({
       cardName: "Monkey D. Luffy",
       cardNumber: "#OP13-118",
@@ -178,7 +179,18 @@ describe("cardDisplayName SSOT", () => {
       language: null,
       variant: null,
     });
-    expect(line1).toBe("Monkey D. Luffy · OP13-118 · PSA 10");
+    expect(line1).toBe("Monkey D. Luffy · 118 · PSA 10");
+    expect(
+      formatCardDisplayLine1({
+        cardName: "Monkey D. Luffy",
+        cardNumber: "ST01-009",
+        grade: "PSA 10",
+        year: null,
+        setName: null,
+        language: null,
+        variant: null,
+      }),
+    ).toBe("Monkey D. Luffy · 009 · PSA 10");
     expect(
       formatCardDisplayLine1({
         cardName: "Pikachu",
@@ -208,6 +220,115 @@ describe("cardDisplayName SSOT", () => {
     expect(line1).toBe("Charizard ex · PSA 10");
   });
 
+  it("resolves Line 1 list collisions with the smallest differentiator", () => {
+    const collisionItems = [
+      {
+        id: "sir",
+        parts: {
+          cardName: "Charizard ex",
+          cardNumber: "199/165",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon 151",
+          language: "EN",
+          variant: "Special Illustration Rare",
+        },
+      },
+      {
+        id: "hyper",
+        parts: {
+          cardName: "Charizard ex",
+          cardNumber: "199/165",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon 151",
+          language: "EN",
+          variant: "Hyper Rare",
+        },
+      },
+      {
+        id: "pikachu",
+        parts: {
+          cardName: "Pikachu",
+          cardNumber: "025",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon 151",
+          language: "EN",
+          variant: null,
+        },
+      },
+    ];
+    const resolved = resolveCardDisplayLine1Collisions(collisionItems);
+    expect(resolved.get("sir")).toBe(
+      "Charizard ex · 199/165 · PSA 10 · Special Illustration Rare",
+    );
+    expect(resolved.get("hyper")).toBe(
+      "Charizard ex · 199/165 · PSA 10 · Hyper Rare",
+    );
+    expect(resolved.get("pikachu")).toBe("Pikachu · 025 · PSA 10");
+  });
+
+  it("falls back to year then set for Line 1 collisions", () => {
+    const byYear = resolveCardDisplayLine1Collisions([
+      {
+        id: "2022",
+        parts: {
+          cardName: "Pikachu",
+          cardNumber: "001",
+          grade: "PSA 10",
+          year: "2022",
+          setName: "Pokemon Promo",
+          language: "EN",
+          variant: null,
+        },
+      },
+      {
+        id: "2023",
+        parts: {
+          cardName: "Pikachu",
+          cardNumber: "001",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon Promo",
+          language: "EN",
+          variant: null,
+        },
+      },
+    ]);
+    expect(byYear.get("2022")).toBe("Pikachu · 001 · PSA 10 · 2022");
+    expect(byYear.get("2023")).toBe("Pikachu · 001 · PSA 10 · 2023");
+
+    const bySet = resolveCardDisplayLine1Collisions([
+      {
+        id: "151",
+        parts: {
+          cardName: "Pikachu",
+          cardNumber: "025",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon 151",
+          language: "EN",
+          variant: null,
+        },
+      },
+      {
+        id: "promo",
+        parts: {
+          cardName: "Pikachu",
+          cardNumber: "025",
+          grade: "PSA 10",
+          year: "2023",
+          setName: "Pokemon Promo",
+          language: "EN",
+          variant: null,
+        },
+      },
+    ]);
+    expect(bySet.get("151")).toBe("Pikachu · 025 · PSA 10 · 151");
+    expect(bySet.get("promo")).toBe("Pikachu · 025 · PSA 10 · Promo");
+  });
+
   it("stripCategoryPrefixFromSet removes duplicate category", () => {
     expect(
       stripCategoryPrefixFromSet(
@@ -217,12 +338,13 @@ describe("cardDisplayName SSOT", () => {
     ).toBe("2025 · Op13-Carrying On His Will");
   });
 
-  it("formatDetailBreadcrumbTrail is Set (Language) without year", () => {
+  it("formatDetailBreadcrumbTrail is SetCode Set (Language) without year", () => {
     expect(
       formatDetailBreadcrumbTrail({
         setLine: "2025 One Piece OP13 Carrying On His Will",
         categoryLabel: "One Piece",
         language: "JP",
+        cardNumber: "OP13-118",
       }),
     ).toBe("OP13 Carrying On His Will (JP)");
     expect(
@@ -230,11 +352,21 @@ describe("cardDisplayName SSOT", () => {
         setName: "OP13 Carrying On His Will",
         categoryLabel: "One Piece",
         language: null,
+        cardNumber: "OP13-118",
       }),
     ).toBe("OP13 Carrying On His Will");
+    expect(
+      formatDetailBreadcrumbTrail({
+        setLine: "2023 POKEMON JAPANESE SV2a-POKEMON CARD 151",
+        setCode: "SV2a",
+        categoryLabel: "Pokemon",
+        language: "JP",
+        cardNumber: "006",
+      }),
+    ).toBe("SV2a 151 (JP)");
   });
 
-  it("Line 2 always keeps set even when breadcrumb also shows set", () => {
+  it("Line 2 omits set when breadcrumb already shows it", () => {
     const parts = {
       cardName: null,
       cardNumber: null,
@@ -247,6 +379,15 @@ describe("cardDisplayName SSOT", () => {
     expect(formatCardDisplayLine2(parts)).toBe(
       "2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art",
     );
+    expect(
+      formatCardDisplayLine2(parts, {
+        breadcrumbSetName: "OP13 Carrying On His Will",
+      }),
+    ).toBe("2025 · Red Manga Alternate Art");
+    expect(formatCardDisplayName(parts, {
+      mode: "line1+line2",
+      breadcrumbSetName: "OP13 Carrying On His Will",
+    }).line2).toBe("2025 · Red Manga Alternate Art");
   });
 
   it("Line 1 excludes variant (variant is Line 2 only)", () => {
@@ -358,7 +499,7 @@ describe("cardDisplayName SSOT", () => {
         categoryLabel: "Pokemon",
         language: "JP",
       }),
-    ).toBe("Japanese Eevee Heroes (JP)");
+    ).toBe("Eevee Heroes (JP)");
   });
 
   it("hides Line 2 variant when it is a set-name phrase", () => {
@@ -572,7 +713,7 @@ describe("cardDisplayName SSOT", () => {
     ).toBe("PSA 10");
   });
 
-  it("Details Set row shows expansion only — no franchise merge", () => {
+  it("Details Set / Card number split One Piece compound ids", () => {
     const baseComp = {
       cardSet: "2025 One Piece Carrying On His Will",
       psaBrand: "2025 One Piece Carrying On His Will",
@@ -589,9 +730,14 @@ describe("cardDisplayName SSOT", () => {
       headlineSetLine: "2025 One Piece Carrying On His Will",
       collectionCategoryBadge: "One Piece",
     });
-    const setCatalog = withCatalog.find((r) => r.id === "set");
-    expect(setCatalog?.value).toBe("OP13 Carrying On His Will");
-    expect(setCatalog?.filterValue).toBe("One Piece Carrying On His Will");
+    expect(withCatalog.find((r) => r.id === "set")?.value).toBe(
+      "Carrying On His Will",
+    );
+    expect(withCatalog.find((r) => r.id === "set")?.filterValue).toBe(
+      "One Piece Carrying On His Will",
+    );
+    expect(withCatalog.find((r) => r.id === "set-code")).toBeUndefined();
+    expect(withCatalog.find((r) => r.id === "card-number")?.value).toBe("#118");
 
     const fromLine = buildCollectionMarketDetailCards({
       key: "test-key",
@@ -605,5 +751,74 @@ describe("cardDisplayName SSOT", () => {
     const setLine = fromLine.find((r) => r.id === "set");
     expect(setLine?.value).toBe("Carrying On His Will");
     expect(setLine?.filterValue).toBe("One Piece Carrying On His Will");
+  });
+
+  it("Details Series from normalizedPokemon (no Set code row)", () => {
+    const rows = buildCollectionMarketDetailCards({
+      key: "test-key",
+      hasCollection: true,
+      marketPreview: null,
+      comp: {
+        cardNumber: "6",
+        cardSet: "POKEMON JAPANESE SV2a-POKEMON CARD 151",
+        psaBrand: "POKEMON JAPANESE SV2a-POKEMON CARD 151",
+        normalizedPokemon: {
+          game: "pokemon",
+          series: "Scarlet & Violet",
+          setName: "Pokémon Card 151",
+          setCode: "SV2a",
+          cardNumber: "6",
+        },
+      } as CollectionComponents,
+      headlineCardNumberToken: "006",
+      headlineSetLine: "POKEMON JAPANESE SV2a-POKEMON CARD 151",
+      collectionCategoryBadge: "Pokemon",
+      languageLabel: "JP",
+    });
+    expect(rows.find((r) => r.id === "series")?.value).toBe("Scarlet & Violet");
+    expect(rows.find((r) => r.id === "set")?.value).toBe("151");
+    expect(rows.find((r) => r.id === "set-code")).toBeUndefined();
+    expect(rows.find((r) => r.id === "card-number")?.value).toBe("#6");
+    expect(rows.find((r) => r.id === "language")?.value).toBe("Japanese");
+  });
+
+  it("Details Language omitted when unknown (no English default)", () => {
+    const rows = buildCollectionMarketDetailCards({
+      key: "test-key",
+      hasCollection: true,
+      marketPreview: null,
+      comp: {
+        cardSet: "2023 Panini Prizm",
+      } as CollectionComponents,
+      headlineCardNumberToken: "001",
+      headlineSetLine: "2023 Panini Prizm",
+      collectionCategoryBadge: "NBA",
+      languageLabel: null,
+    });
+    expect(rows.find((r) => r.id === "language")).toBeUndefined();
+  });
+
+  it("Details Card number matches Card.html printed / set size", () => {
+    const rows = buildCollectionMarketDetailCards({
+      key: "test-key",
+      hasCollection: true,
+      marketPreview: null,
+      comp: {
+        cardNumber: "199/165",
+        normalizedPokemon: {
+          game: "pokemon",
+          series: "Scarlet & Violet",
+          setName: "151",
+          cardNumber: "199/165",
+        },
+      } as CollectionComponents,
+      headlineCardNumberToken: "199/165",
+      headlineSetLine: "2023 Pokemon 151 EN",
+      collectionCategoryBadge: "Pokemon",
+      languageLabel: "EN",
+    });
+    expect(rows.find((r) => r.id === "card-number")?.value).toBe("#199 / 165");
+    expect(rows.find((r) => r.id === "language")?.value).toBe("English");
+    expect(rows.find((r) => r.id === "series")?.value).toBe("Scarlet & Violet");
   });
 });

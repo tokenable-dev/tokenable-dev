@@ -6,9 +6,11 @@ import { withFlushProp } from "../utils/withFlushProp";
 /**
  * Collection detail desktop — Card.html `#card-detail-grid`:
  *
- *   [ chart-card (hero + price history) ]   [ tk-trade ]
- *   [ Similar items ]                       [ trades-card ]
- *                                           [ Details + Pop ]
+ *   [ hero | Buy/Bid/Sell ]
+ *   [ price history | Trades ]
+ *   [ Similar items | Details + Pop ]
+ *
+ * Shared CSS grid rows; chart-card subgrids hero onto the trade row.
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,

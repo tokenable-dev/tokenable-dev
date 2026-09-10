@@ -167,7 +167,7 @@ Do not merge these services. Each row is the **writer**; others call into it.
 | Vault cycle / redemption rows | `VaultService` | called from mint + redeem | Physical-card state machine only |
 | Redeem fees + USDC verify | `RwaRedeemService` + `RedeemShippingFeeCalculator` | `POST /api/rwa/redeem-batch` | Keep fee math here |
 | Redeem admin (tracking, refund, burn trigger) | `RedeemsAdminService` | `/api/marketplace/admin/redeems*` | State / ops; not fee quotes |
-| Catalog cover URL | `CollectionCoverService` | admin cover upload / ingest | Writes `marketplace_collections.coverImageUrl` |
+| Catalog cover URL | `CollectionCoverService` | admin cover upload / ingest; listing fills only if missing | Writes `marketplace_collections.coverImageUrl` |
 | Cover object bytes | `CatalogCoverS3Service` | used by cover + avatars | S3 put only |
 | Slab / display image | `RwaSlabS3Service` | mint + slab backfill | Distinct from catalog cover |
 | PSA received mail | `PsaReceivedMailService` | cron | Ingest + arrival reviews |

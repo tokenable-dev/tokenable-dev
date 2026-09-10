@@ -53,6 +53,7 @@ describe('buildBulkMintMetadataFromPsaCert', () => {
       number: '094',
     });
     expect(graded.normalized).toEqual({
+      language: 'JP',
       pokemon: {
         game: 'pokemon',
         language: 'JP',

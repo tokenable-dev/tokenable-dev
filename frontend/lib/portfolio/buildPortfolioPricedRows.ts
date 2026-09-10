@@ -21,6 +21,43 @@ import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes"
 
 const USDC_DECIMALS = 1_000_000;
 
+/** Newest active ask per token. Last-write-wins would keep the oldest when the API is DESC. */
+export function listingByTokenIdFromAsks(
+  listings: Array<{
+    tokenId: string | number;
+    price: string;
+    orderHash: string;
+    status?: string;
+    side?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    id?: number;
+  }>,
+): Map<number, { priceUsd: number; orderHash: string }> {
+  const ranked = new Map<
+    number,
+    { priceUsd: number; orderHash: string; rank: number }
+  >();
+  for (const o of listings) {
+    if (o.status && o.status !== "active") continue;
+    if (o.side && o.side !== "ask") continue;
+    const tid = Number(o.tokenId);
+    if (!Number.isFinite(tid)) continue;
+    const ts = Date.parse(o.updatedAt || o.createdAt || "");
+    const rank = Number.isFinite(ts) ? ts : o.id ?? 0;
+    const prev = ranked.get(tid);
+    if (prev && prev.rank >= rank) continue;
+    const priceUsd = Number(o.price) / USDC_DECIMALS;
+    if (!Number.isFinite(priceUsd)) continue;
+    ranked.set(tid, { priceUsd, orderHash: o.orderHash, rank });
+  }
+  const m = new Map<number, { priceUsd: number; orderHash: string }>();
+  for (const [tid, v] of ranked) {
+    m.set(tid, { priceUsd: v.priceUsd, orderHash: v.orderHash });
+  }
+  return m;
+}
+
 export function buildPortfolioPricedRows(input: {
   assets: OwnedAsset[];
   listingByTokenId: Map<number, { priceUsd: number; orderHash: string }>;

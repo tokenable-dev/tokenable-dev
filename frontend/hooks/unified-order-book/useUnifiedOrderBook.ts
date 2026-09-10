@@ -58,16 +58,18 @@ export function useUnifiedOrderBook({
 
   const askLevels = useMemo(() => buildAskDepthLevels(askRows), [askRows]);
   const bidLevels = useMemo(() => buildBidDepthLevels(bidRows), [bidRows]);
+  const bestAskUsdc = useMemo(() => bestAskFromRows(askRows), [askRows]);
+  const bestBidUsdc = useMemo(() => bestBidFromRows(bidRows), [bidRows]);
 
   const bookCenterModel = useMemo(
     () =>
       buildOrderBookCenterModel({
         lastTradePriceUsdc,
         lastTradeSide,
-        bestAskUsdc: bestAskFromRows(askRows),
-        bestBidUsdc: bestBidFromRows(bidRows),
+        bestAskUsdc,
+        bestBidUsdc,
       }),
-    [lastTradePriceUsdc, lastTradeSide, askRows, bidRows],
+    [lastTradePriceUsdc, lastTradeSide, bestAskUsdc, bestBidUsdc],
   );
 
   const depthMax = compact ? "max-h-[72px]" : "max-h-[100px]";
@@ -82,6 +84,8 @@ export function useUnifiedOrderBook({
     bidRows,
     askLevels,
     bidLevels,
+    bestAskUsdc,
+    bestBidUsdc,
     bookCenterModel,
     depthMax,
     depthClass,

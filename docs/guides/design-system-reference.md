@@ -68,7 +68,7 @@ Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `g
 | `tokenable-markets.css` | `app/markets/layout.tsx` |
 | `tokenable-watchlist.css` | `app/watchlist/layout.tsx` |
 | `tokenable-collection-detail.css` | `app/marketplace/collections/[collectionKey]/layout.tsx` |
-| `tokenable-rwa-detail.css` | ListRwaModal Set/Edit price sheet — `app/portfolio/layout.tsx`, `app/partner/portfolio/layout.tsx`, collection-detail layout |
+| `tokenable-rwa-detail.css` | ListRwaModal Set/Edit price sheet — `app/portfolio/layout.tsx`, `app/partner/portfolio/layout.tsx` |
 | `tokenable-portfolio.css` + `tokenable-portfolio-redeem.css` | `app/portfolio/layout.tsx` / `app/partner/portfolio/layout.tsx` |
 | `tokenable-vault.css` | `app/vault/layout.tsx` |
 | `tokenable-sell-flow.css` | `app/sell/layout.tsx` |
@@ -241,7 +241,7 @@ Import from `@/components/ds`:
 | `TkIconButton` | `tk-iconbtn--*` | Icon-only controls |
 | `TkInput`, `TkField` | `tk-input`, `tk-field` | Forms |
 | `TkDialog` | `tk-dialog` | Center modal — confirm / result (Feedback-States Dialog: title, body, foot) |
-| `TkNote` | `tk-note` / `tk-note--positive\|warning\|danger\|brand` | Inline banners + ephemeral toasts (`NotificationToastsHost`) |
+| `TkNote` | `tk-note` / `tk-note--positive\|warning\|danger\|brand` | Inline banners + ephemeral toasts (`NotificationToastsHost`). Toasts share one type scale: title **15px / 600 / sans**, body lines and CTAs **14px / sans** (no per-toast font or size). Long titles wrap; they do not stay on one line. |
 | `TkActionSheet` | `tk-sheet-*` | Portfolio list/bid/sell — drawer / bottom sheet |
 | `TkStepper` | `tk-stepper` / `--dark` `--light` / `--horizontal` `--vertical` | Shared progress (vault, ship, refund). States `done` `current` `todo` `rejected`. Do not reuse `VaultStepper` for new flows. |
 | `TkTabs`, `TkTable`, `TkTag`, `TkCard`, … | matching `tk-*` | See showcase page |

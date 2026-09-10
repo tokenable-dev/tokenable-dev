@@ -9,6 +9,7 @@ import {
 } from "@/lib/core";
 import { rq } from "@/lib/core/queryKeys";
 import { activeRqChainId } from "@/lib/chains";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 
 export type SimilarCollectionItem = {
   collectionKey: string;
@@ -40,7 +41,10 @@ function toItems(
     const snap = snapByKey.get(key);
     return {
       collectionKey: row.collectionKey,
-      displayLabel: row.displayLabel,
+      displayLabel: buildMarketsCollectionTitle({
+        collection: row,
+        comp: row.components,
+      }),
       imageUrl: row.displayImageUrl ?? row.coverImageUrl ?? null,
       lastPriceUsd: pickLastPriceUsd(snap),
       changePct:

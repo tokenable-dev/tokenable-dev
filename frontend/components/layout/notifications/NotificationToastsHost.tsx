@@ -15,7 +15,7 @@ import {
 } from "@/lib/notifications/activateNotification";
 import type { NotificationIcon } from "@/lib/notifications/notifications";
 import { useAuthStore } from "@/store/authStore";
-import { useToastStore } from "@/store/toastStore";
+import { useToastStore, type AppToast } from "@/store/toastStore";
 
 function ToastIcon({ icon }: { icon: NotificationIcon }) {
   if (icon === "check") {
@@ -63,6 +63,35 @@ function isLiveToastCandidate(createdAt: string, now = Date.now()): boolean {
   const t = Date.parse(createdAt);
   if (!Number.isFinite(t)) return false;
   return now - t <= TOAST_FRESH_MS;
+}
+
+function toastHasRichCopy(toast: AppToast): boolean {
+  return Boolean(
+    toast.cardTitle?.trim() ||
+      toast.lead?.trim() ||
+      toast.trail?.trim() ||
+      toast.accentLine?.trim() ||
+      toast.mutedLine?.trim(),
+  );
+}
+
+function activateToast(
+  toast: AppToast,
+  opts: {
+    markRead: (id: string) => void;
+    dismiss: (id: string) => void;
+    startFunding: (addr: string | undefined) => void;
+    walletAddress: string | undefined;
+    router: { push: (href: string) => void };
+  },
+) {
+  if (toast.notificationId) opts.markRead(toast.notificationId);
+  opts.dismiss(toast.id);
+  if (toast.addFunds) {
+    void opts.startFunding(opts.walletAddress);
+    return;
+  }
+  if (toast.href) opts.router.push(toast.href);
 }
 
 export function NotificationToastsHost() {
@@ -145,50 +174,75 @@ export function NotificationToastsHost() {
     }
   }, [inboxEnabled, items, isLoading, isFetching, userId, push, visEpoch]);
 
-  if (!inboxEnabled || !mounted || toasts.length === 0) return null;
+  if (!mounted || toasts.length === 0) return null;
+  if (!inboxEnabled && toasts.every((t) => t.notificationId)) return null;
 
   return createPortal(
     <div className="tk-toast-host" aria-live="polite">
       {toasts.map((toast) => {
         const itemIcon =
           items.find((i) => i.id === toast.notificationId)?.icon ?? "check";
+        const runActivate = () =>
+          activateToast(toast, {
+            markRead,
+            dismiss,
+            startFunding,
+            walletAddress,
+            router,
+          });
+        const rich = toastHasRichCopy(toast);
         return (
           <TkNote
             key={toast.id}
             tone={toast.tone}
             title={toast.title}
-            message={toast.message}
+            message={rich ? undefined : toast.message}
             icon={<ToastIcon icon={itemIcon} />}
             onClose={() => dismiss(toast.id)}
-            onActivate={() => {
-              if (toast.notificationId) markRead(toast.notificationId);
-              dismiss(toast.id);
-              if (toast.addFunds) {
-                void startFunding(walletAddress);
-                return;
-              }
-              if (toast.href) router.push(toast.href);
-            }}
+            onActivate={toast.ctaInline ? undefined : runActivate}
             actions={
-              toast.ctaLabel
+              toast.ctaLabel && !toast.ctaInline
                 ? [
                     {
                       label: toast.ctaLabel,
                       variant: toast.tone,
-                      onClick: () => {
-                        if (toast.notificationId) markRead(toast.notificationId);
-                        dismiss(toast.id);
-                        if (toast.addFunds) {
-                          void startFunding(walletAddress);
-                          return;
-                        }
-                        if (toast.href) router.push(toast.href);
-                      },
+                      onClick: runActivate,
                     },
                   ]
                 : undefined
             }
-          />
+          >
+            {rich ? (
+              <div className="tk-toast-copy">
+                {toast.lead || toast.cardTitle || toast.trail ? (
+                  <p className="tk-toast-copy__line">
+                    {toast.lead}
+                    {toast.cardTitle?.trim() ? (
+                      <span className="tk-toast-copy__card">
+                        {toast.cardTitle.trim()}
+                      </span>
+                    ) : null}
+                    {toast.trail}
+                  </p>
+                ) : null}
+                {toast.accentLine?.trim() ? (
+                  <p className="tk-toast-copy__accent">{toast.accentLine.trim()}</p>
+                ) : null}
+                {toast.mutedLine?.trim() ? (
+                  <p className="tk-toast-copy__muted">{toast.mutedLine.trim()}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {toast.ctaInline && toast.ctaLabel ? (
+              <button
+                type="button"
+                className="tk-toast-copy__link"
+                onClick={runActivate}
+              >
+                {toast.ctaLabel}
+              </button>
+            ) : null}
+          </TkNote>
         );
       })}
     </div>,

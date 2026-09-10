@@ -9,6 +9,7 @@ import {
 } from './pokemon-cardhedger-normalized-shadow.util';
 import {
   lookupPokemonCardhedgerSetPhrase,
+  pokemonCardhedgerMintSetMatchPhrases,
   pokemonCardhedgerPrimarySetPhrase,
 } from './pokemon-cardhedger-set-phrase.util';
 import { cardhedgerSetAliasTokens } from './cardhedger-search-alias.util';
@@ -62,11 +63,33 @@ describe('pokemon-cardhedger-set-phrase', () => {
     );
   });
 
-  it('does not invent phrases for SV1S / SV1V / SV-P / SVP', () => {
+  it('maps SVP / SV1V → Cardhedger phrases (not canonical display names)', () => {
+    expect(pokemonCardhedgerPrimarySetPhrase('SVP')).toBe(
+      'Pokemon Scarlet Violet Black Star Promos',
+    );
+    expect(pokemonCardhedgerPrimarySetPhrase('SV1V')).toBe(
+      'Pokemon Japanese Scarlet & Violet Violet EX',
+    );
+    expect(lookupPokemonCardhedgerSetPhrase('SVP')?.primaryPhrase).not.toBe(
+      'Scarlet & Violet Black Star Promos',
+    );
+    expect(lookupPokemonCardhedgerSetPhrase('SV1V')?.primaryPhrase).not.toBe(
+      'Violet ex',
+    );
+  });
+
+  it('defers Cardhedger phrases for SV1S / SV-P (intentional)', () => {
     expect(pokemonCardhedgerPrimarySetPhrase('SV1S')).toBeNull();
-    expect(pokemonCardhedgerPrimarySetPhrase('SV1V')).toBeNull();
     expect(pokemonCardhedgerPrimarySetPhrase('SV-P')).toBeNull();
-    expect(pokemonCardhedgerPrimarySetPhrase('SVP')).toBeNull();
+  });
+
+  it('mint set-match phrases exclude canonical setName (SV1S safety)', () => {
+    const phrases = pokemonCardhedgerMintSetMatchPhrases({
+      setCode: 'SV1S',
+      cardSetHint: 'POKEMON JAPANESE SV1S-SCARLET EX',
+    });
+    expect(phrases).toEqual(['POKEMON JAPANESE SV1S-SCARLET EX']);
+    expect(phrases.some((p) => /^Scarlet ex$/i.test(p))).toBe(false);
   });
 
   it('preserves existing SV2a alias tokens in cardhedger-search-alias', () => {
@@ -183,8 +206,8 @@ describe('V2.1 shadow validation matrix', () => {
     expect(reverse?.varietyMatched).toBe(false);
   });
 
-  it('Case C/D/E — SV1S / SV1V / SV-P / SVP skip without invented phrases', () => {
-    for (const setCode of ['SV1S', 'SV1V', 'SV-P', 'SVP']) {
+  it('Case C/D — SV1S / SV-P skip without invented phrases (deferred)', () => {
+    for (const setCode of ['SV1S', 'SV-P']) {
       expect(
         buildPokemonNormalizedCardhedgerQueries({
           pokemon: {
@@ -195,6 +218,94 @@ describe('V2.1 shadow validation matrix', () => {
           },
         }).skipReason,
       ).toBe('insufficient_set_phrase');
+    }
+  });
+
+  it('SVP — Black Star Promos phrase + representative card fixtures', () => {
+    const fixtures = [
+      { cardName: 'Pikachu', cardNumber: '190', year: '2024' },
+      { cardName: 'Snorlax', cardNumber: '51', year: '2023' },
+      { cardName: 'Charmander', cardNumber: '44', year: '2023' },
+      { cardName: 'Eevee', cardNumber: '173', year: '2025' },
+      { cardName: 'Mewtwo', cardNumber: '52', year: '2023' },
+    ];
+    for (const f of fixtures) {
+      const pokemon = {
+        game: 'pokemon' as const,
+        language: 'EN',
+        series: 'Scarlet & Violet',
+        setName: 'Scarlet & Violet Black Star Promos',
+        setCode: 'SVP',
+        cardName: f.cardName,
+        cardNumber: f.cardNumber,
+        setKind: 'promo' as const,
+      };
+      const plan = buildPokemonNormalizedCardhedgerQueries({ pokemon });
+      expect(plan.skipReason).toBeUndefined();
+      expect(plan.setPhrase).toBe('Pokemon Scarlet Violet Black Star Promos');
+      expect(plan.queries[0]).toBe(
+        `${f.cardName} ${f.cardNumber} Pokemon Scarlet Violet Black Star Promos`,
+      );
+      expect(plan.queries.some((q) => /\bSVP\b/i.test(q))).toBe(false);
+
+      const row = {
+        card_id: `svp-${f.cardNumber}`,
+        name: f.cardName,
+        set: `${f.year} Pokemon Scarlet & Violet Black Star Promos`,
+        number: f.cardNumber,
+        variant: 'Base',
+      };
+      const pick = pickPokemonNormalizedShadowCandidate(
+        [{ query: plan.queries[0]!, cards: [row] }],
+        {
+          cardName: f.cardName,
+          cardNumber: f.cardNumber,
+          setPhrase: plan.setPhrase!,
+        },
+      );
+      expect(pick?.cardId).toBe(row.card_id);
+      expect(pick?.setMatched).toBe(true);
+    }
+  });
+
+  it('SV1V — Violet EX phrase + Miraidon ex fixtures', () => {
+    for (const cardNumber of ['94', '102', '106', '37']) {
+      const pokemon = {
+        game: 'pokemon' as const,
+        language: 'JP',
+        series: 'Scarlet & Violet',
+        setName: 'Violet ex',
+        setCode: 'SV1V',
+        cardName: 'Miraidon ex',
+        cardNumber,
+        setKind: 'expansion' as const,
+      };
+      const plan = buildPokemonNormalizedCardhedgerQueries({ pokemon });
+      expect(plan.setPhrase).toBe(
+        'Pokemon Japanese Scarlet & Violet Violet EX',
+      );
+      expect(plan.queries[0]).toBe(
+        `Miraidon ex ${cardNumber} Pokemon Japanese Scarlet & Violet Violet EX`,
+      );
+      expect(plan.queries.some((q) => /\bSV1V\b/i.test(q))).toBe(false);
+
+      const row = {
+        card_id: `sv1v-miraidon-${cardNumber}`,
+        name: 'Miraidon EX',
+        set: '2023 Pokemon Japanese Scarlet & Violet Violet EX',
+        number: cardNumber,
+        variant: 'Base',
+      };
+      const pick = pickPokemonNormalizedShadowCandidate(
+        [{ query: plan.queries[0]!, cards: [row] }],
+        {
+          cardName: 'Miraidon ex',
+          cardNumber,
+          setPhrase: plan.setPhrase!,
+        },
+      );
+      expect(pick?.cardId).toBe(row.card_id);
+      expect(pick?.setMatched).toBe(true);
     }
   });
 
@@ -389,18 +500,19 @@ describe('V2.1 shadow validation matrix', () => {
   it('marks legacyOnlyCandidate when skip is insufficient_set_phrase but legacy verified', () => {
     const pokemon = {
       game: 'pokemon' as const,
-      setCode: 'SVP',
-      cardName: 'Pikachu',
-      cardNumber: '190',
+      setCode: 'SV1S',
+      setName: 'Scarlet ex',
+      cardName: 'Koraidon ex',
+      cardNumber: '103',
     };
     const plan = buildPokemonNormalizedCardhedgerQueries({ pokemon });
     expect(plan.skipReason).toBe('insufficient_set_phrase');
     const telemetry = buildPokemonCardhedgerShadowTelemetry({
-      collectionKey: 'svp-pikachu',
+      collectionKey: 'sv1s-koraidon',
       pokemon,
       plan,
       legacy: {
-        cardId: 'legacy-svp-id',
+        cardId: 'legacy-sv1s-id',
         query: 'legacy',
         verified: true,
         confidence: 'verified',
@@ -414,7 +526,7 @@ describe('V2.1 shadow validation matrix', () => {
       outcome: 'skipped',
     });
     expect(telemetry.legacyOnlyCandidate).toBe(true);
-    expect(telemetry.normalized.setCode).toBe('SVP');
+    expect(telemetry.normalized.setCode).toBe('SV1S');
     expect(telemetry.normalized.setPhrase).toBeNull();
   });
 

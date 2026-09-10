@@ -44,6 +44,9 @@ export function mergeExternalChartSeries(
     const anchorSec = extRolling.length > 0 ? extRolling[extRolling.length - 1]!.t : nowSec;
     tMin = anchorSec - externalWindowDays! * CHART_DAY_SEC;
     tMax = Math.max(anchorSec, nowSec) + 6 * CHART_HOUR_SEC;
+  } else if (stretchToWindow && extRolling.length > 0) {
+    tMin = extRolling[0]!.t;
+    tMax = Math.max(extRolling[extRolling.length - 1]!.t, tMin + 60);
   } else {
     const extForSmart = extRolling.length > 0 ? extRolling : [];
     const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * CHART_DAY_SEC);

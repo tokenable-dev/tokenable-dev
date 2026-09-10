@@ -21,6 +21,7 @@ import {
 } from "@/lib/marketplace/bucketKey";
 import {
   leadingYearFromSetLine,
+  splitDetailsCardName,
   toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
@@ -214,7 +215,10 @@ export function useCollectionDetailHeadline(params: {
     () =>
       formatDetailBreadcrumbTrail({
         setLine: headlineSetLine,
-        setName: collectionHeadlineParts.setName,
+        setName:
+          comp.normalizedPokemon?.setName?.trim() ||
+          collectionHeadlineParts.setName,
+        setCode: comp.normalizedPokemon?.setCode?.trim() || null,
         categoryLabel: collectionCategoryBadge,
         language: headlineLanguageLabel,
       }),
@@ -223,13 +227,14 @@ export function useCollectionDetailHeadline(params: {
       headlineSetLine,
       collectionCategoryBadge,
       headlineLanguageLabel,
+      comp.normalizedPokemon?.setName,
+      comp.normalizedPokemon?.setCode,
     ],
   );
 
-  const collectionHeadlineMetaStrip = useMemo(
-    () => formatCardDisplayMeta(collectionHeadlineParts) || null,
-    [collectionHeadlineParts],
-  );
+  const collectionHeadlineMetaStrip = useMemo(() => {
+    return formatCardDisplayMeta(collectionHeadlineParts) || null;
+  }, [collectionHeadlineParts]);
 
   const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;
@@ -282,6 +287,7 @@ export function useCollectionDetailHeadline(params: {
         headlineCardNumberToken,
         headlineSetLine,
         collectionCategoryBadge,
+        languageLabel: headlineLanguageLabel,
       }),
     [
       key,
@@ -291,6 +297,7 @@ export function useCollectionDetailHeadline(params: {
       headlineCardNumberToken,
       headlineSetLine,
       collectionCategoryBadge,
+      headlineLanguageLabel,
     ],
   );
 
@@ -299,11 +306,13 @@ export function useCollectionDetailHeadline(params: {
   const heroDetailsKvRows = useMemo((): CollectionDetailCard[] => {
     const player = collectionHeadlineCardName?.trim();
     const priority = [
+      "category",
+      "series",
+      "set",
+      "set-code",
       "card-number",
       "variant",
-      "set",
       "year",
-      "category",
       "grade",
       "grader",
       "language",
@@ -311,10 +320,12 @@ export function useCollectionDetailHeadline(params: {
     const byId = new Map(collectionMarketDetailCards.map((c) => [c.id, c]));
     const out: CollectionDetailCard[] = [];
     if (player) {
+      const split = splitDetailsCardName(toCardDisplayCase(player));
       out.push({
         id: "character",
         label: "Card name",
-        value: toCardDisplayCase(player),
+        value: split.character,
+        ...(split.suffix ? { suffix: split.suffix } : {}),
       });
     }
     for (const id of priority) {

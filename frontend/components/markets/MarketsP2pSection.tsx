@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { listP2pListings, type P2pListing } from "@/lib/core/api/p2p";
 import { activeRqChainId } from "@/lib/chains";
+import { stripTrailingRawGradeLabel } from "@/lib/marketplace/cardDisplayName";
 
 function formatUsdc(atomic: string): string {
   const n = Number(atomic) / 1e6;
@@ -12,11 +13,12 @@ function formatUsdc(atomic: string): string {
 }
 
 function P2pCard({ listing }: { listing: P2pListing }) {
+  const displayName = stripTrailingRawGradeLabel(listing.displayName);
   return (
     <Link href={`/p2p/listings/${listing.id}`} className="mk-p2p-card">
       <div className="mk-p2p-card__badge">P2P · Physical delivery</div>
       <div className="mk-p2p-card__name">
-        {listing.displayName || `PSA #${listing.certNumber}`}
+        {displayName || `PSA #${listing.certNumber}`}
       </div>
       <div className="mk-p2p-card__cert">Cert {listing.certNumber}</div>
       <div className="mk-p2p-card__price">${formatUsdc(listing.priceUsdc)} USDC</div>

@@ -22,12 +22,21 @@ Charizard ex · 199/165 · PSA 10
 2023 · 151 EN · Special Illustration Rare
 ```
 
-Example (collection detail / markets):
+Example (collection detail hero):
 
 ```
 Charizard ex · 199/165 · PSA 10
 2023 · 151 EN · Special Illustration Rare
 ```
+
+One Piece compound catalog ids split — set code is not repeated on Line 1:
+
+```
+Monkey D. Luffy · 118 · PSA 10
+2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art
+```
+
+Same two-line SSOT as lists. Details KV still lists Set / Language / Variant as their own rows.
 
 Example (portfolio Certificate of Ownership):
 
@@ -41,8 +50,8 @@ Charizard ex · 199/165
 | Token | Rule |
 | --- | --- |
 | Card name | As-is from source (proper case). |
-| Number | Drop `#` only; keep hyphens; uppercase Latin (`#OP13-118` → `OP13-118`). Pokemon-style `199/165` stays. Numeric → 3-digit pad (`085`). |
-| Grade | `PSA 10`, `BGS 9.5`, etc. **Unknown grade → omit the slot (never show `Raw`).** |
+| Number | Collector number only. Drop `#`. Pokemon `199/165` stays. Numeric → 3-digit pad (`085`). TCG compound ids (`OP13-118`, `ST01-009`) **split**: set code belongs on Line 2 / breadcrumb, Line 1 is `118`. |
+| Grade | `PSA 10`, `BGS 9.5`, etc. **Unknown / empty / legacy `Raw` grade → `Raw` on Line 1.** Certificate of Ownership and similar surfaces explicitly omit grade. |
 | Year | 4-digit. Omit if unknown. |
 | Set | Expansion name. TCG franchise / category prefixes (`One Piece`, `Pokemon`) and a leading language token are stripped on Line 2 and the breadcrumb — they are not part of the expansion. Sports set names stay as-is. |
 | Language | Short code (`EN`, `JP`, …). Omit if unknown. |
@@ -79,15 +88,48 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 
 **Variant, set, year, and language belong on Line 2 (subtitle / meta)** — never append variant to Line 1.
 
+When a list contains multiple rows with the same Line 1, call
+`resolveCardDisplayLine1Collisions` at the list parent. It appends the smallest
+available differentiator to colliding rows only: Variant → Year → Set.
+
 ---
 
 ## 4. Collection-detail breadcrumb
 
-- Breadcrumb: `Markets / {Category} / {Set} ({Language})` (navigation only — **not** card name).
-- Example: `Markets / One Piece / OP13 Carrying On His Will (JP)`.
-- Strip category prefix from the set node. Do **not** put year on the breadcrumb.
-- Language in parentheses when known; omit the `(XX)` suffix when unknown.
-- Line 2 is always full: `{Year} · {Set} {Language} · {Variant}` (language token omitted when unknown). `{Set}` is the expansion only — same franchise strip as the breadcrumb node (`One Piece OP13 …` → `OP13 …`).
+- Breadcrumb: `Markets / {Category} / {SetCode} {SetName} ({Language})` (navigation only — **not** card name).
+- Example (JP 151): `Markets / Pokemon / SV2a 151 (JP)`.
+- Example (One Piece): `Markets / One Piece / OP13 Carrying On His Will (JP)`.
+- **Language source** (breadcrumb **and** Details Language share `headlineLanguageLabel`):
+  1. `components.language` (incl. mirrored `normalizedPokemon.language`)
+  2. else Cardhedger preview `card.market`
+  3. else infer from Brand/set/title corpus (CJK script or `JAPANESE` / `KOREAN` / … in PSA-style Latin copy)
+  4. then map to `JP` / `KR` / `EN` / `CN` via `formatCardDisplayLanguageShort`
+  - **Never invent English.** Unknown → omit breadcrumb `(XX)` and omit the Details Language row.
+- **Breadcrumb-only trail** (`formatDetailBreadcrumbTrail`):
+  - Set-name segment strips category / franchise / catalog set codes / language / PSA `Card` noise.
+  - Re-append catalog set code before the cleaned set name when known.
+  - Re-append language only as a trailing `(JP)` / `(KR)` / `(EN)` / `(CN)` when known.
+  - Do **not** put year or card number on the breadcrumb.
+
+## 4b. Collection-detail Details KV
+
+Order: Card name → Category → Series → Set → Set code (when known) → Card number → Variant → Year → Grade → Grader → Language.
+
+| Row | Source |
+| --- | --- |
+| Card name | Character linked (`Charizard ↗`); TCG suffix (`ex`) unlinked |
+| Category | Category badge, linked |
+| Series | `normalizedPokemon.series`, else `Word & Word` slot from the set line. Omitted when unknown. |
+| Set | cleaned expansion (`formatDetailExpansionSetName`) |
+| Set code | `normalizedPokemon.setCode`, else a catalog token from the set line (`SV2a`, `OP13`). Omitted when unknown. Unlinked. |
+| Card number | Card.html `#199 / 165` (or `#118`). Prefer a `printed/set` token when stored. |
+| Variant | Display variant when not a set duplicate |
+| Year | Linked |
+| Grade | Numeric score (`10`), linked |
+| Grader | `PSA`, linked |
+| Language | Full name (`English` / `Japanese`). Pokémon Latin catalogs may default English. Omit when unknown. |
+
+- Detail Line 2 (hero subtitle) is always `{Year} · {Set} {Language} · {Variant}` (language token omitted when unknown). Do not drop the set from the hero because the breadcrumb already shows it.
 
 ---
 
@@ -122,10 +164,10 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 | --- | --- |
 | Card name | `psaSubject`, listing title, bucket `cardName`, Cardhedger preview |
 | Number | `components.cardNumber`, preview `card.cardNumber` → `formatHeadlineCardNumber` |
-| Grade | `gradeScore` + grader, `psaGradeLabel`, RWA metadata → **omit if missing (never `Raw`)** |
+| Grade | `gradeScore` + grader, `psaGradeLabel`, RWA metadata → **`Raw` if missing / empty / unknown** unless the surface explicitly passes `omitGrade` |
 | Year | `components.year`, set line prefix, displayLabel |
 | Set | Source text as stored (never mutated). **Details Set row / Line 2:** expansion only — pick one source (prefer Cardhedger `setName`, else set line), strip year + TCG franchise/language prefix. Do **not** re-merge Brand franchise onto the catalog expansion. |
-| Language | `components.language`, preview `market`, corpus inference → **short code** |
+| Language | `components.language`, `graded.normalized.language`, preview `market`, corpus inference → **short code** |
 | Variant | `components.variant`, PSA variety, Cardhedger variant. **Display:** omit on Line 2 only when Variety restates the expansion (`shouldHideDuplicateVariant`). Phrase-in-set is not enough if leftover expansion identity remains (e.g. Reverse Holo must stay on 151). Stored `psaVariety` is unchanged. |
 
 ### Phase 1 scope (this change)
@@ -148,14 +190,14 @@ Markets / watchlist / portfolio list rows show **Line 1 only** on the main title
 - [x] `assetDetailHeadline.ts` delegates formatting to SSOT
 - [x] `marketsCollectionTitle.ts` uses SSOT Line 1/2 join rules
 - [x] Language short codes in headline pipeline
-- [x] Unknown grade omits the Line 1 slot (never renders `Raw`)
+- [x] Unknown grade renders `Raw` on Line 1
 - [x] On-mint `rwa_tokens` sync rebuilds Line 1 from `properties.graded` (never clobber with bare IPFS `name`)
 - [x] Self-vault mint writes Line 1 into both IPFS `name` and `displayName`
 - [x] `AssetDetailHeadlineTitle` renders grade on Line 1 except Certificate of Ownership (`includeGrade={false}`)
 - [x] Collection detail language → short codes via `formatCardDisplayLanguageShort`
 - [x] Grade badge removal (Phase 2) — detail outline chip, Markets/Watchlist row, portfolio holdings, RWA header badges, Top 100
-- [x] Breadcrumb §4 — `Markets / Category / {Set} ({Language})`
-- [x] Detail Line 2 — full `{Year} · {Set} {Language} · {Variant}` (no set omit)
+- [x] Breadcrumb §4 — `Markets / Category / {SetCode} {SetName} ({Language})`
+- [x] Detail Line 2 — `{Year} · {Set} {Language} · {Variant}` with set omitted when breadcrumb already shows it
 - [x] Surface-by-surface mode wiring (Phase 5) — markets/watchlist Line 1, search Line 2 meta, portfolio Line 1
 - [x] Line 1 strict (Phase 6) — no variant on main title; variant on Line 2 only
 - [x] Truncation CSS (Phase 7) — full Line 1 end ellipsis; hero Line 2 end-truncate
@@ -185,7 +227,7 @@ Use when validating a release after display-name work.
 
 | # | Check | Pass? |
 | --- | --- | --- |
-| 1 | Collection breadcrumb is `Markets / {Category} / {Set} ({Lang})` — no year | |
+| 1 | Collection breadcrumb is `Markets / {Category} / {SetCode} {SetName} ({Lang})` — no year / card number | |
 | 2 | Collection / Markets Line 1 is name + number + grade | |
 | 3 | Certificate of Ownership Line 1 is name + number only; grade is below | |
 | 4 | List Line 1 uses ` · ` between name, number, grade | |
@@ -199,8 +241,8 @@ Use when validating a release after display-name work.
 ### Fixture cards (manual)
 
 1. Pokemon EN SIR — `Charizard ex · 199/165 · PSA 10` / `2023 · 151 EN · Special Illustration Rare`
-2. One Piece — `Monkey D. Luffy · OP13-118 · PSA 10` / breadcrumb `OP13 Carrying On His Will (JP)` / hero meta `2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art`
-3. Missing grade — Line 1 is `{Name} · {Number}` only (no `Raw`)
+2. One Piece — `Monkey D. Luffy · 118 · PSA 10` / breadcrumb `OP13 Carrying On His Will (JP)` / hero meta `2025 · OP13 Carrying On His Will JP · Red Manga Alternate Art`
+3. Missing grade — Line 1 is `{Name} · {Number} · Raw`
 4. Missing variant — Line 2 without third segment
 5. Missing language — Line 2 without language token
 

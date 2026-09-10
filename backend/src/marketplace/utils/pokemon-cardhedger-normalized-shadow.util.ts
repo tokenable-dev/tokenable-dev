@@ -1,5 +1,5 @@
 /**
- * V2 Pokémon Cardhedger matching — shadow evaluation helpers (pure).
+ * Normalized Pokémon Cardhedger shadow helpers (pure).
  * Observation only: never writes cardhedgerCardId or changes production picks.
  */
 
@@ -9,7 +9,10 @@ import {
   primaryCardNumber,
 } from './card-match.util';
 import { cardhedgerRowMatchesPsaVariety } from './cardhedger-psa-variety.util';
-import { pokemonCardhedgerPrimarySetPhrase } from './pokemon-cardhedger-set-phrase.util';
+import {
+  pokemonCardhedgerPrimarySetPhrase,
+  setMatchedAgainstPhrase,
+} from './pokemon-cardhedger-set-phrase.util';
 import type { PokemonNormalizedMetadata } from './pokemon-metadata-normalize.util';
 import { psaVarietyIsPokemonRarityLabel } from '../../psa/psa-variety-catalog.util';
 
@@ -19,9 +22,6 @@ export type PokemonCardhedgerShadowOutcome =
   | 'legacy_only'
   | 'shadow_only'
   | 'conflict';
-
-/** @deprecated Prefer PokemonCardhedgerShadowOutcome */
-export type PokemonShadowOutcome = PokemonCardhedgerShadowOutcome;
 
 export type PokemonNormalizedShadowSkipReason =
   | 'not_pokemon'
@@ -195,27 +195,6 @@ function nameMatched(wantName: string, rowName: string): boolean {
   if (got.includes(want) || want.includes(got)) return true;
   const words = want.match(/[a-z0-9]+/g) ?? [];
   return words.length > 0 && words.every((w) => got.includes(w));
-}
-
-function setMatchedAgainstPhrase(
-  wantPhrase: string,
-  rowSet: string,
-): boolean {
-  const want = normalizeForExactCatalogMatch(wantPhrase);
-  const got = normalizeForExactCatalogMatch(rowSet);
-  if (!want || !got) return false;
-  if (got.includes(want) || want.includes(got)) return true;
-  // Live Cardhedger often uses longer set strings, e.g.
-  // "2023 Pokemon Japanese Scarlet & Violet 151" vs search phrase
-  // "Pokemon Japanese 151". Tokenize the original phrase (spaces intact).
-  const tokens = String(wantPhrase)
-    .toLowerCase()
-    .match(/[a-z0-9]+/g)
-    ?.filter(
-      (t) => t.length >= 2 && !/^(?:19|20)\d{2}$/.test(t) && t !== 'pokemon',
-    ) ?? [];
-  if (tokens.length === 0) return false;
-  return tokens.every((t) => got.includes(t));
 }
 
 function yearFromRow(row: Record<string, unknown>): string | null {
@@ -444,11 +423,4 @@ export function buildPokemonCardhedgerShadowTelemetry(input: {
   }
 
   return telemetry;
-}
-
-/** @deprecated Prefer buildPokemonCardhedgerShadowTelemetry */
-export function buildPokemonNormalizedShadowLog(
-  input: PokemonCardhedgerShadowTelemetry,
-): PokemonCardhedgerShadowTelemetry {
-  return input;
 }

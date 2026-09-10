@@ -3,11 +3,6 @@ import {
   formatPsaGradedByDisplay,
   psaGradePolicyInputFromGraded,
 } from "@/lib/market/psaGradePolicy";
-import {
-  buildRwaAssetDetailHeadlineParts,
-  formatCardDisplayHoverTitle,
-  resolveRwaHeadlineGrade,
-} from "@/lib/marketplace/assetDetailHeadline";
 import { uriNeedsBackendResolve } from "@/lib/marketplace/mediaUriResolve";
 import {
   buildRwaDetailMobileTrustView,
@@ -78,23 +73,6 @@ export function formatListingUsdc(amount: string): string {
   }
 }
 
-export function shortenWallet(addr: string | undefined): string {
-  const s = (addr ?? "").trim().toLowerCase();
-  if (!s.startsWith("0x") || s.length < 12) return "—";
-  return `${s.slice(0, 6)}…${s.slice(-4)}`;
-}
-
-export function listingAssetTitle(
-  metadata: RwaMetadata | null,
-  tokenId: number,
-): string {
-  const parts = buildRwaAssetDetailHeadlineParts(metadata, `#${tokenId}`);
-  const grade = resolveRwaHeadlineGrade(metadata);
-  return (
-    formatCardDisplayHoverTitle(parts, { grade }) || `Token #${tokenId}`
-  );
-}
-
 export function listingVerificationTiles(metadata: RwaMetadata | null): {
   gradedBy: string;
   certNumber: string;
@@ -146,33 +124,6 @@ export function listingVaultBadge(
     return { label: tokenLabel, tone: "partner", title: addr };
   }
   return { label: "—", tone: "psa", title: addr };
-}
-
-/** Desktop listing / prov sticky — Card.html vault badge. */
-export function listingSellerVerifiedLabel(
-  listing: {
-    sellerDisplayName?: string | null;
-    vaultLabel?: string | null;
-    settlementPolicy?: "standard" | "self_vault_hold" | null;
-    offerer?: string;
-    parameters?: { offerer?: string };
-  } | null,
-): { label: string; title?: string; tone: "psa" | "partner" } {
-  const badge = listingVaultBadge(listing);
-  return { label: badge.label, title: badge.title, tone: badge.tone };
-}
-
-/** Mobile orderbook row — Card.html vault badge. */
-export function listingVerifiedCollectorLabel(
-  listing: {
-    sellerDisplayName?: string | null;
-    vaultLabel?: string | null;
-    settlementPolicy?: "standard" | "self_vault_hold" | null;
-    offerer?: string;
-    parameters?: { offerer?: string };
-  } | null,
-): { label: string; title?: string; tone: "psa" | "partner" } {
-  return listingVaultBadge(listing);
 }
 
 function normalizeListingImageUrl(raw: string): string {
@@ -251,17 +202,4 @@ export function listingGalleryImages(
   }
 
   return items;
-}
-
-export function listingImageFaces(
-  metadata: RwaMetadata | null,
-  fallbackImageUrl?: string | null,
-): { front: string | null; back: string | null } {
-  const gallery = listingGalleryImages(metadata, fallbackImageUrl);
-  const front = gallery.find((g) => g.label === "Front")?.src ?? null;
-  const back = gallery.find((g) => g.label === "Back")?.src ?? null;
-  return {
-    front: front?.trim() ? front.trim() : null,
-    back: back?.trim() ? back.trim() : null,
-  };
 }

@@ -22,6 +22,11 @@ import {
   resolveCollectionSlabSetLine,
 } from "@/lib/marketplace/slabDisplayTitle";
 
+type MarketsCollectionTitleCollection = Pick<
+  MarketplaceCollectionSummary,
+  "collectionKey" | "displayLabel"
+>;
+
 export function gradeLabelFromComp(comp: CollectionComponents): string {
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
@@ -36,7 +41,7 @@ export function gradeLabelFromComp(comp: CollectionComponents): string {
 }
 
 export function buildMarketsCollectionHeadlineParts(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): AssetDetailHeadlineParts {
   const { collection, comp } = params;
@@ -85,7 +90,7 @@ export function formatMarketsCollectionTileTitle(
 }
 
 function collectionDisplayLabelFallback(
-  collection: MarketplaceCollectionSummary,
+  collection: MarketsCollectionTitleCollection,
 ): string {
   const dl =
     typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
@@ -94,7 +99,7 @@ function collectionDisplayLabelFallback(
 
 /** Markets / home / search / watchlist — Line 1 only. */
 export function buildMarketsCollectionTitle(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
@@ -109,7 +114,7 @@ export function buildMarketsCollectionTitle(params: {
  * No middots and no grade (PSA 10) so the marquee labels stay short.
  */
 export function buildHomeTickerCollectionTitle(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
@@ -122,7 +127,7 @@ export function buildHomeTickerCollectionTitle(params: {
 
 /** GNB search / self-contained surfaces — full Line 2 under Line 1 title. */
 export function buildMarketsCollectionSearchMeta(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
@@ -131,7 +136,7 @@ export function buildMarketsCollectionSearchMeta(params: {
 
 /** Meta under tile titles — `{Year} · {Set} {Language} · {Variant}`. */
 export function buildMarketsCollectionMeta(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
@@ -140,7 +145,7 @@ export function buildMarketsCollectionMeta(params: {
 
 /** Single-line hover / search — self-contained Line 1 + Line 2. */
 export function buildMarketsCollectionHoverTitle(params: {
-  collection: MarketplaceCollectionSummary;
+  collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);

@@ -49,6 +49,8 @@ export type MarketsUrlFilters = {
   grades: MarketsGradeFilterId[];
   /** Card.html `character` — card / character name facet */
   characters: string[];
+  /** Card.html `series` — era / block (e.g. Scarlet & Violet). */
+  series: string[];
   /** Card.html `set` */
   sets: string[];
   yearMin: string;
@@ -63,6 +65,7 @@ export function emptyMarketsUrlFilters(): MarketsUrlFilters {
     priceMax: "",
     grades: [],
     characters: [],
+    series: [],
     sets: [],
     yearMin: "",
     yearMax: "",
@@ -157,7 +160,9 @@ export function categoryBadgeToFilterId(
 ): CollectionCategoryFilterId {
   const t = String(badge ?? "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
   if (!t) return "all";
   if (t.includes("pokemon") || t.includes("ポケ")) return "pokemon";
   if (t.includes("one piece") || t.includes("onepiece") || t.includes("ワンピース")) {
@@ -198,6 +203,7 @@ export function parseMarketsUrlFilters(
     priceMax: params.get("price_max")?.trim() ?? "",
     grades,
     characters: splitPipe(params.get("character")),
+    series: splitPipe(params.get("series")),
     sets: splitPipe(params.get("set")),
     yearMin: params.get("year_min")?.trim() ?? "",
     yearMax: params.get("year_max")?.trim() ?? "",
@@ -222,6 +228,9 @@ export function serializeMarketsUrlFilters(
 
   const character = joinPipe(filters.characters);
   if (character) p.set("character", character);
+
+  const series = joinPipe(filters.series);
+  if (series) p.set("series", series);
 
   const set = joinPipe(filters.sets);
   if (set) p.set("set", set);
@@ -249,6 +258,7 @@ export function marketsHrefFromFilters(
     categories: filters.categories ?? fromLegacy,
     grades: filters.grades ?? base.grades,
     characters: filters.characters ?? base.characters,
+    series: filters.series ?? base.series,
     sets: filters.sets ?? base.sets,
   };
   const qs = serializeMarketsUrlFilters(merged).toString();
@@ -278,8 +288,11 @@ function categoriesFromDetailCtx(
 
 /**
  * Card.html Details attr-links → `/markets?…`
- * Linkable: Card name, Category, Set, Year, Grade, Grader.
- * Not linked: Card number, Variant, Language (no Markets facet yet).
+ * Linkable: Card name, Category, Series, Set, Year, Grade, Grader.
+ * Not linked: Card number, Set code, Variant, Language (no Markets facet).
+ *
+ * Grade / grader omit `cat` (Card.html `?grade=PSA%2010`). Other rows keep
+ * the collection category so Markets chips match the card you left.
  */
 export function marketsHrefForDetailRow(
   rowId: string,
@@ -303,6 +316,11 @@ export function marketsHrefForDetailRow(
         categories: id === "all" ? [] : [id],
       });
     }
+    case "series":
+      return marketsHrefFromFilters({
+        categories,
+        series: [v],
+      });
     case "set":
       return marketsHrefFromFilters({
         categories,
@@ -323,7 +341,6 @@ export function marketsHrefForDetailRow(
       if (!score) return null;
       const grade = `${grader} ${score}` as MarketsGradeFilterId;
       return marketsHrefFromFilters({
-        categories,
         grades: [grade],
       });
     }
@@ -332,19 +349,16 @@ export function marketsHrefForDetailRow(
       if (score) {
         const grade = `${v} ${score}` as MarketsGradeFilterId;
         return marketsHrefFromFilters({
-          categories,
           grades: [grade],
         });
       }
       if (/^psa$/i.test(v)) {
         return marketsHrefFromFilters({
-          categories,
           grades: ["PSA 10", "PSA 9"],
         });
       }
       if (/^bgs$/i.test(v)) {
         return marketsHrefFromFilters({
-          categories,
           grades: ["BGS Pristine", "BGS 10", "BGS 9.5"],
         });
       }

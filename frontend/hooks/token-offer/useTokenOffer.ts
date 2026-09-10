@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,7 +16,12 @@ import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useSeaportOrderSigner } from "@/lib/privy";
 import { mapWalletError } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
-import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
+import {
+  askPriceMicros,
+  BidCrossesLiveAskError,
+  fetchCrossingAskForBid,
+  pickCrossingAskForBid,
+} from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { isLiveAskListing } from "@/lib/marketplace/collectionListingModalHelpers";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
@@ -58,6 +63,8 @@ export function useTokenOffer(input: {
   collectionKey: string;
   tokenId: string | number;
   listing: Order;
+  /** Active collection asks — used so stub listings still detect a live floor. */
+  collectionAsks?: Order[];
   collectionBids: Order[];
   connectedAddress?: `0x${string}` | string | null;
   bidToReplace?: Order | null;
@@ -71,6 +78,7 @@ export function useTokenOffer(input: {
     collectionKey,
     tokenId,
     listing,
+    collectionAsks = [],
     collectionBids,
     connectedAddress,
     bidToReplace = null,
@@ -208,17 +216,30 @@ export function useTokenOffer(input: {
     }
   }, [priceOk, price]);
 
-  const crossesAsk =
-    hasListedAsk && priceOk && priceInUnits != null && priceInUnits >= askMicros;
+  const bookCrossingAsk = useMemo(() => {
+    if (priceInUnits == null) return null;
+    return pickCrossingAskForBid(
+      [...collectionAsks, listing],
+      address ?? "",
+      priceInUnits,
+    );
+  }, [collectionAsks, listing, address, priceInUnits]);
+
+  const crossesAsk = bookCrossingAsk != null;
+  const fillUnits = bookCrossingAsk
+    ? askPriceMicros(bookCrossingAsk)
+    : priceInUnits;
   const insufficientFunds =
     priceOk &&
-    priceInUnits != null &&
+    fillUnits != null &&
     usdcBalRaw != null &&
-    (usdcBalRaw as bigint) < priceInUnits;
+    (usdcBalRaw as bigint) < fillUnits;
 
+  const fillUsdc =
+    fillUnits != null ? Number(formatUnits(fillUnits, 6)) : priceUsdc;
   const shortfallUsdc =
     insufficientFunds && balanceUsdc != null
-      ? Math.max(0, priceUsdc - balanceUsdc)
+      ? Math.max(0, fillUsdc - balanceUsdc)
       : 0;
 
   const ctaMode: TokenOfferCtaMode = useMemo(() => {
@@ -335,35 +356,54 @@ export function useTokenOffer(input: {
       return;
     }
 
-    if (crossesAsk) {
+    const buyAsk = async (ask: Order) => {
       setStep("buying");
-      try {
-        await ensureAccountWalletReady();
-        const paid = await runCollectionInstantAskPurchase({
-          ask: listing,
-          address,
-          publicClient,
-          writeContractAsync,
-          chainId,
-        });
-        setLastOutcome("instant");
-        const purchasePrice = paid ?? askUsdc;
-        const purchaseFee = Math.round(purchasePrice * 0.05 * 100) / 100;
-        trackEvent("purchase_completed", {
-          card_id: String(tokenIdNorm),
-          price: purchasePrice,
-          fee: purchaseFee,
-          net_amount: Math.round(purchasePrice * 0.95 * 100) / 100,
-        });
-        if (paid != null) onInstantBuyFillUsdc?.(paid);
-        // Flip to success before cache refresh so limit/policy UI cannot flash.
-        setStep("success");
-        await invalidateAfter([address, listing?.offerer]);
-        onPurchaseFilled?.();
-      } catch (e: unknown) {
-        setErrorMsg(mapWalletError(e).message);
-        setStep("error");
+      await ensureAccountWalletReady();
+      const paid = await runCollectionInstantAskPurchase({
+        ask,
+        address: address as Address,
+        publicClient,
+        writeContractAsync,
+        chainId,
+      });
+      setLastOutcome("instant");
+      const purchasePrice = paid ?? Number(formatUnits(askPriceMicros(ask), 6));
+      const purchaseFee = Math.round(purchasePrice * 0.05 * 100) / 100;
+      trackEvent("purchase_completed", {
+        card_id: String(tokenIdNorm),
+        price: purchasePrice,
+        fee: purchaseFee,
+        net_amount: Math.round(purchasePrice * 0.95 * 100) / 100,
+      });
+      if (paid != null) onInstantBuyFillUsdc?.(paid);
+      setStep("success");
+      await invalidateAfter([address, ask.offerer]);
+      onPurchaseFilled?.();
+    };
+
+    try {
+      const liveCrossing = await fetchCrossingAskForBid({
+        collectionKey,
+        bidder: address,
+        bidUnits: priceInUnits,
+      });
+      if (liveCrossing) {
+        const askUnits = askPriceMicros(liveCrossing);
+        if (usdcBalRaw != null && (usdcBalRaw as bigint) < askUnits) {
+          await handleAddFunds();
+          return;
+        }
+        try {
+          await buyAsk(liveCrossing);
+        } catch (e: unknown) {
+          setErrorMsg(mapWalletError(e).message);
+          setStep("error");
+        }
+        return;
       }
+    } catch (e: unknown) {
+      setErrorMsg(mapWalletError(e).message);
+      setStep("error");
       return;
     }
 
@@ -414,6 +454,15 @@ export function useTokenOffer(input: {
       await invalidateAfter();
       onPlaced?.(result.order);
     } catch (e: unknown) {
+      if (e instanceof BidCrossesLiveAskError) {
+        try {
+          await buyAsk(e.ask);
+        } catch (buyErr: unknown) {
+          setErrorMsg(mapWalletError(buyErr).message);
+          setStep("error");
+        }
+        return;
+      }
       setErrorMsg(mapWalletError(e).message);
       setStep("error");
     }
@@ -430,7 +479,7 @@ export function useTokenOffer(input: {
           : ctaMode === "blocked"
             ? "Maximum bids reached"
             : crossesAsk
-              ? "Buy at listed price"
+              ? "Buy now"
               : "Place bid";
 
   return {

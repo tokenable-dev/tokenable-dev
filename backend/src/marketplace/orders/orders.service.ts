@@ -49,6 +49,10 @@ import {
   resolveFulfilledAskTokenId,
 } from '../utils/platform-tape.util';
 import { tokenBidWindowIsValid } from '../utils/token-bid-duration.util';
+import {
+  BID_CROSSES_ASK_MESSAGE,
+  pickCrossingAskForBid,
+} from './bid-crosses-ask.util';
 
 /** Seaport v1.5 — same canonical address used by the frontend. */
 const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
@@ -193,6 +197,7 @@ export class OrdersService {
           bidCollectionKey,
           chainId,
         );
+        await this.assertTokenBidDoesNotCrossAsk(dto, bidCollectionKey);
       } else if (itemType === 4) {
         throw new BadRequestException(
           'Collection criteria bids are no longer supported. Place a bid on a specific card instead.',
@@ -469,6 +474,7 @@ export class OrdersService {
     if (!newCollectionKey) {
       throw new BadRequestException('collectionKey is required for token bids');
     }
+    await this.assertTokenBidDoesNotCrossAsk(dto, newCollectionKey);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -672,6 +678,51 @@ export class OrdersService {
     }
   }
 
+  /**
+   * A bid at or above another wallet's live ask must buy that ask, not rest on the book.
+   */
+  private async assertTokenBidDoesNotCrossAsk(
+    dto: CreateOrderDto,
+    bidCollectionKey: string,
+  ): Promise<void> {
+    let bidMicros: bigint;
+    try {
+      bidMicros = BigInt(
+        String(dto.parameters.offer?.[0]?.startAmount ?? '').trim(),
+      );
+    } catch {
+      throw new BadRequestException('Bid offer amount is invalid');
+    }
+    if (bidMicros <= 0n) return;
+
+    const key = bidCollectionKey.trim().toLowerCase();
+    const tokenId = String(dto.tokenId ?? '').trim();
+    const collectionAsks = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.collection_key) = :key', { key })
+      .getMany();
+    const tokenAsks =
+      tokenId.length > 0
+        ? await this.orderRepo.find({
+            where: {
+              status: OrderStatus.ACTIVE,
+              side: OrderSide.ASK,
+              tokenId,
+            },
+          })
+        : [];
+    const crossing = pickCrossingAskForBid(
+      [...collectionAsks, ...tokenAsks],
+      dto.parameters.offerer,
+      bidMicros,
+    );
+    if (crossing) {
+      throw new ConflictException(BID_CROSSES_ASK_MESSAGE);
+    }
+  }
+
   /** Token offer: offer USDC, consideration ERC721 for a specific tokenId. */
   private assertValidTokenBid(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
@@ -766,17 +817,10 @@ export class OrdersService {
         'Self-vault hold consideration must be ERC20 USDC',
       );
     }
+    // Seller may be PLATFORM_FEE_RECIPIENT (custody key in MetaMask) — that is still a valid full-platform-take ask.
     if (only.recipient.toLowerCase() !== feeRecipient) {
       throw new BadRequestException(
         `Self-vault hold consideration recipient must be the platform fee wallet (${feeRecipient})`,
-      );
-    }
-    if (
-      only.recipient.toLowerCase() ===
-      String(dto.parameters.offerer ?? '').toLowerCase()
-    ) {
-      throw new BadRequestException(
-        'Self-vault hold asks cannot pay the seller on-chain',
       );
     }
     const amount = BigInt(only.startAmount);

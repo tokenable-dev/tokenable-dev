@@ -94,6 +94,29 @@ export interface OrderListItem {
   considerationRecipients: string[];
 }
 
+/** Paint-time portfolio listings cache — same fields as `orderToListItem` on the API. */
+export function orderToActiveAskListItem(o: Order): OrderListItem {
+  return {
+    id: o.id,
+    orderHash: o.orderHash,
+    tokenId: String(o.tokenId),
+    collectionKey: o.collectionKey ?? null,
+    price: o.considerationAmount,
+    side: o.side === "bid" ? "bid" : "ask",
+    status: o.status,
+    createdAt: o.createdAt,
+    endTime: o.endTime,
+    updatedAt: o.updatedAt,
+    offerer: o.offerer,
+    sellerDisplayName: o.sellerDisplayName ?? null,
+    tokenContract: o.tokenContract,
+    considerationToken: o.considerationToken,
+    settlementPolicy: o.settlementPolicy ?? null,
+    vaultLabel: o.vaultLabel ?? null,
+    considerationRecipients: [],
+  };
+}
+
 export interface CreateOrderPayload {
   parameters: SeaportOrderParameters;
   signature: string;
@@ -276,8 +299,13 @@ export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
     timeoutMs: CREATE_ORDER_FETCH_TIMEOUT_MS,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Failed to create order" }));
-    throw new Error((err as { message: string }).message ?? "Failed to create order");
+    const err = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(err.message)
+      ? err.message.join(" ")
+      : err.message ?? "Failed to create order";
+    throw new Error(msg);
   }
   return res.json() as Promise<Order>;
 }

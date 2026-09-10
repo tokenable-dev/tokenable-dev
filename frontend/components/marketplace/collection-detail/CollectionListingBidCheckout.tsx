@@ -38,6 +38,7 @@ export function CollectionListingBidCheckout({
   collectionKey,
   tokenId,
   listing,
+  collectionAsks = [],
   collectionBids,
   listedPriceLabel,
   askUsd,
@@ -53,6 +54,8 @@ export function CollectionListingBidCheckout({
   collectionKey: string;
   tokenId: string | number;
   listing: Order;
+  /** Live asks in the bucket (not the stub listing). */
+  collectionAsks?: Order[];
   collectionBids: Order[];
   listedPriceLabel: string | null;
   /** Collection lowest ask — Card.html Ask price card (overrides listing when set). */
@@ -77,6 +80,7 @@ export function CollectionListingBidCheckout({
     collectionKey,
     tokenId,
     listing,
+    collectionAsks,
     collectionBids,
     connectedAddress,
     bidToReplace,

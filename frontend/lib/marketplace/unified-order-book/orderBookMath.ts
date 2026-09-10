@@ -1,5 +1,6 @@
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
+import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import type { BookCenterModel } from "./types";
 
 export const MAX_ORDER_BOOK_TAPE_ROWS = 50;
@@ -58,7 +59,18 @@ export function orderBookMobileEmbedTabBodyHeightPx(
 export const ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS = "h-[196px]";
 
 export function priceUsdcFromOrder(o: Order): number {
-  return Number(o.considerationAmount) / 1_000_000;
+  if (o.side === "bid") {
+    try {
+      const n = Number(formatUnits(bidUsdcAmount(o), 6));
+      if (Number.isFinite(n) && n > 0) return n;
+    } catch {
+      /* fall through to considerationAmount */
+    }
+  }
+  const listed = o as Order & { price?: string };
+  const raw = o.considerationAmount ?? listed.price;
+  const n = Number(raw) / 1_000_000;
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function formatOrderBookPriceUsdc(n: number): string {
@@ -78,6 +90,28 @@ export function formatCollectionDetailBookPriceUsdc(n: number): string {
   return `$${formatOrderBookUsdAmount(n)}`;
 }
 
+/**
+ * Card.html `#ob-spread-r` — live only when both sides exist and ask is above bid.
+ * One-sided or crossed book → `No live spread`.
+ */
+export function formatCollectionDetailSpreadLabel(
+  bestAskUsdc: number | null | undefined,
+  bestBidUsdc: number | null | undefined,
+): string {
+  if (
+    bestAskUsdc != null &&
+    bestBidUsdc != null &&
+    Number.isFinite(bestAskUsdc) &&
+    Number.isFinite(bestBidUsdc) &&
+    bestAskUsdc > 0 &&
+    bestBidUsdc > 0 &&
+    bestAskUsdc > bestBidUsdc
+  ) {
+    return `Spread ${formatCollectionDetailBookPriceUsdc(bestAskUsdc - bestBidUsdc)}`;
+  }
+  return "No live spread";
+}
+
 /** Trades tape — whole dollars only (no cents). */
 export function formatTradesTapePriceUsdc(n: number): string {
   return n.toLocaleString("en-US", {
@@ -94,6 +128,13 @@ export function cmpAskByPriceThenToken(a: Order, b: Order): number {
 }
 
 export function cmpBidByPriceDesc(a: Order, b: Order): number {
+  try {
+    const pa = bidUsdcAmount(a);
+    const pb = bidUsdcAmount(b);
+    if (pa !== pb) return pa > pb ? -1 : 1;
+  } catch {
+    /* fall through */
+  }
   const pa = BigInt(a.considerationAmount);
   const pb = BigInt(b.considerationAmount);
   if (pa !== pb) return pa > pb ? -1 : 1;
@@ -104,11 +145,12 @@ export function priceLevelKey(p: number): number {
   return Math.round(p * 1_000_000) / 1_000_000;
 }
 
+/** Trades Date column — `Jun 11, 2026`. */
 export function formatTapeDate(tSec: number): string {
   return new Date(tSec * 1000).toLocaleString("en-US", {
     year: "numeric",
     month: "short",
-    day: "2-digit",
+    day: "numeric",
   });
 }
 
@@ -235,21 +277,21 @@ export function buildBidDepthLevels(bidRows: Order[]): OrderBookDepthLevel[] {
 }
 
 export function bestAskFromRows(askRows: Order[]): number | null {
-  if (!askRows.length) return null;
-  return Math.min(...askRows.map((o) => priceUsdcFromOrder(o)));
+  let min = Infinity;
+  for (const o of askRows) {
+    if (o.status && o.status !== "active") continue;
+    const p = priceUsdcFromOrder(o);
+    if (!Number.isFinite(p) || !(p > 0)) continue;
+    if (p < min) min = p;
+  }
+  return min !== Infinity ? min : null;
 }
 
 export function bestBidFromRows(bidRows: Order[]): number | null {
   if (!bidRows.length) return null;
   let max = -Infinity;
   for (const b of bidRows) {
-    let display = priceUsdcFromOrder(b);
-    try {
-      const offer0 = b.parameters?.offer?.[0];
-      if (offer0?.startAmount) display = Number(formatUnits(BigInt(offer0.startAmount), 6));
-    } catch {
-      /* keep */
-    }
+    const display = priceUsdcFromOrder(b);
     if (display > max) max = display;
   }
   return Number.isFinite(max) && max > 0 ? max : null;
@@ -265,15 +307,9 @@ export function buildOrderBookCenterModel(input: {
   const fmtUsd = (n: number) => formatOrderBookUsdAmount(n);
 
   const spreadSecondary =
-    bestAskUsdc != null &&
-    bestBidUsdc != null &&
-    Number.isFinite(bestAskUsdc) &&
-    Number.isFinite(bestBidUsdc) &&
-    bestAskUsdc > bestBidUsdc
-      ? `Spread $${fmtUsd(bestAskUsdc - bestBidUsdc)}`
-      : bestAskUsdc != null || bestBidUsdc != null
-        ? "No live spread"
-        : null;
+    bestAskUsdc != null || bestBidUsdc != null
+      ? formatCollectionDetailSpreadLabel(bestAskUsdc, bestBidUsdc)
+      : null;
 
   if (lastTradePriceUsdc != null && Number.isFinite(lastTradePriceUsdc) && lastTradePriceUsdc > 0) {
     return {

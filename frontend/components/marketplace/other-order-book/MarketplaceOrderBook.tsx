@@ -64,7 +64,7 @@ export function MarketplaceOrderBook({
       <div className="px-4 py-3 border-b border-gray-800/90 flex items-center justify-between gap-2">
         <div>
           <h3 className={`font-bold text-white tracking-wide ${isFull ? "text-sm" : "text-xs"}`}>
-            Order book
+            Listings
           </h3>
           <p className={`text-gray-500 mt-0.5 ${isFull ? "text-xs" : "text-[10px]"}`}>
             {subtitle}

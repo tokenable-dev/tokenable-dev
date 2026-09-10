@@ -42,7 +42,14 @@ function DetailsBody({
                 }`}
               >
                 <dt className="cd-details-kv__label">{row.label}</dt>
-                <dd className="cd-details-kv__value" title={row.value}>
+                <dd
+                  className="cd-details-kv__value"
+                  title={
+                    row.suffix
+                      ? `${row.value} ${row.suffix}`
+                      : row.value
+                  }
+                >
                   {href ? (
                     <Link
                       href={href}
@@ -50,13 +57,13 @@ function DetailsBody({
                       title={`Browse Markets for ${row.value}`}
                     >
                       <span className="cd-details-kv__attr-text">{row.value}</span>
-                      <span className="cd-details-kv__attr-arrow" aria-hidden>
-                        ↗
-                      </span>
                     </Link>
                   ) : (
-                    row.value
+                    <span className="cd-details-kv__attr-text">{row.value}</span>
                   )}
+                  {row.suffix ? (
+                    <span className="cd-details-kv__suffix">{row.suffix}</span>
+                  ) : null}
                 </dd>
               </div>
             );

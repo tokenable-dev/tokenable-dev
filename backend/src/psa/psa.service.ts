@@ -21,9 +21,16 @@ import {
 } from '../marketplace/utils/card-match.util';
 import { normalizeImageUrl } from '../marketplace/utils/collection-image.util';
 import {
+  extractPokemonSetCodeFromBrand,
+  inferPrintLanguageFromHints,
   normalizePokemonMetadata,
   type PokemonNormalizedMetadata,
 } from '../marketplace/utils/pokemon-metadata-normalize.util';
+import {
+  pokemonCardhedgerMintSetMatchPhrases,
+  pokemonCardhedgerPrimarySetPhrase,
+  setMatchedAgainstPhrase,
+} from '../marketplace/utils/pokemon-cardhedger-set-phrase.util';
 import { resolveCardhedgerMintImageUrl } from '../rwa/rwa-mint-image.util';
 import {
   psaCertVerifyUrl,
@@ -140,11 +147,12 @@ export interface PsaAnalyzeResult {
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
   /**
-   * Additive Pokémon V1 projection — copied into `graded.normalized.pokemon` at mint.
-   * Does not alter Cardhedger matching inputs.
+   * Additive projections copied into IPFS `graded.normalized` at mint.
+   * `pokemon` is Pokémon-only. `language` is TCG-common (Brand/Category word match).
    */
   normalized?: {
     pokemon?: PokemonNormalizedMetadata | null;
+    language?: string;
   };
 }
 
@@ -640,6 +648,8 @@ export class PsaService {
       cardNumber: string;
       cardSet?: string;
       psaVariety?: string | null;
+      /** PSA category — used to detect Pokémon for stricter set+name verification. */
+      category?: string | null;
     },
     opts?: { allowApproximate?: boolean; failFast?: boolean },
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
@@ -658,6 +668,25 @@ export class PsaService {
       primaryCardNumber(hints.cardNumber),
     );
     if (!cardNameWant && !cardNumWant && !cardSetWant) return undefined;
+
+    /**
+     * Mint runs before `result.normalized.pokemon` is attached. Detect Pokémon from the
+     * same PSA fields used later by `normalizePokemonMetadata` so we can require
+     * number+set+name without changing non-Pokémon mint softness.
+     */
+    const pokemonNormalized = normalizePokemonMetadata({
+      brand: hints.cardSet,
+      setHint: hints.cardSet,
+      category: hints.category,
+      subject: hints.cardName,
+      cardNumber: hints.cardNumber,
+      variety: hints.psaVariety,
+    });
+    const isPokemon = pokemonNormalized != null;
+    const pokemonSetPhrases = pokemonCardhedgerMintSetMatchPhrases({
+      setCode: pokemonNormalized?.setCode,
+      cardSetHint: hints.cardSet,
+    });
 
     const body = await this.cardhedgerService.forwardJson(
       'POST',
@@ -705,13 +734,22 @@ export class PsaService {
           return { id, score: 0, verified: false };
         }
 
-        let score = 0;
-        const numMatch = Boolean(cardNumWant && num && cardNumWant === num);
-        const setMatch = Boolean(
-          cardSetWant &&
-          set &&
-          (set.includes(cardSetWant) || cardSetWant.includes(set)),
-        );
+        const rowSetRaw = String(row.set ?? '');
+        const setMatch = isPokemon
+          ? pokemonSetPhrases.some((phrase) =>
+              setMatchedAgainstPhrase(phrase, rowSetRaw),
+            )
+          : Boolean(
+              cardSetWant &&
+                set &&
+                (set.includes(cardSetWant) || cardSetWant.includes(set)),
+            );
+
+        // Pokémon: never score a wrong-set row (blocks approximate fail-open).
+        if (isPokemon && !setMatch) {
+          return { id, score: 0, verified: false };
+        }
+
         // Fuzzy name match: all normalized words in cardNameWant appear in desc
         const nameWords = cardNameWant
           ? (cardNameWant.match(/[a-z0-9]+/g) ?? [])
@@ -720,20 +758,24 @@ export class PsaService {
           nameWords.length > 0 && nameWords.every((w) => desc.includes(w));
         const nameExactMatch = Boolean(
           cardNameWant &&
-          desc &&
-          (desc.includes(cardNameWant) || cardNameWant.includes(desc)),
+            desc &&
+            (desc.includes(cardNameWant) || cardNameWant.includes(desc)),
         );
         const nameMatch = nameExactMatch || nameFuzzyMatch;
 
+        let score = 0;
+        const numMatch = Boolean(cardNumWant && num && cardNumWant === num);
         if (numMatch) score += 100;
         if (setMatch) score += 60;
         if (nameMatch) score += 50;
         if (yearWant && rowYear && yearWant === rowYear) score += 40;
 
-        // verified = number must match AND at least one of (set OR name) must match
-        // This is more robust than requiring all three, because PSA and Cardhedger
-        // use different set name conventions (e.g. "POKEMON JAPANESE BASIC" vs "Pokemon Japanese Base Set")
-        const verified = numMatch && (setMatch || nameMatch);
+        // Pokémon: number AND set AND name (align with collection/shadow).
+        // Non-Pokémon: keep historic softness — number AND (set OR name) — because
+        // sports PSA set strings often diverge from Cardhedger catalog sets.
+        const verified = isPokemon
+          ? Boolean(numMatch && setMatch && nameMatch)
+          : Boolean(numMatch && (setMatch || nameMatch));
 
         return { id, score, verified };
       })
@@ -908,6 +950,7 @@ export class PsaService {
               ? psaParsed.setHint.trim()
               : undefined,
           psaVariety: psaParsed.varietyHint,
+          category: psaParsed.category,
         },
         { allowApproximate: true, failFast: true },
       );
@@ -1545,6 +1588,7 @@ export class PsaService {
               ? psaParsed.setHint.trim()
               : undefined,
           psaVariety: psaParsed.varietyHint,
+          category: psaParsed.category,
         });
         if (cardhedgerMint) {
           cardhedgerMint = { ...cardhedgerMint, ...cardhedgerMintPriceFields };
@@ -1577,6 +1621,7 @@ export class PsaService {
                 ? psaParsed.setHint.trim()
                 : undefined,
             psaVariety: psaParsed.varietyHint,
+            category: psaParsed.category,
           });
         } catch (e) {
           this.logger.warn(
@@ -1671,9 +1716,23 @@ export class PsaService {
       subject: psaParsed.cardNameHint,
       cardNumber: psaParsed.cardNumberHint,
       variety: psaParsed.varietyHint,
+      cardhedgerSet: pokemonCardhedgerPrimarySetPhrase(
+        extractPokemonSetCodeFromBrand(psaParsed.setHint) ?? null,
+      ),
     });
-    if (pokemonNormalized) {
-      result.normalized = { pokemon: pokemonNormalized };
+    const printLanguage =
+      pokemonNormalized?.language ??
+      inferPrintLanguageFromHints({
+        brand: psaParsed.setHint,
+        setHint: psaParsed.setHint,
+        category: psaParsed.category,
+        variety: psaParsed.varietyHint,
+      });
+    if (pokemonNormalized || printLanguage) {
+      result.normalized = {
+        ...(pokemonNormalized ? { pokemon: pokemonNormalized } : {}),
+        ...(printLanguage ? { language: printLanguage } : {}),
+      };
     }
 
     return result;
