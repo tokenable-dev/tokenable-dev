@@ -366,3 +366,17 @@ Implemented in **normalized shadow only** (not production cutover):
 Still **not** implemented: SVP, SV-P, SV1S, SV1V. Category B sets (Eevee Heroes, Dark Phantasma, Fusion Strike) remain unmapped pending setCode extraction work.
 
 Legacy Cardhedger resolver, persisted `cardhedgerCardId`, mint/IPFS/collection identity: **unchanged**.
+
+### V2.4 staging shadow window (post-deploy `911a217`)
+
+```text
+Pokémon-related unique: 31
+evaluated: 7   (SV2a=5, M2=1, M2a=1) — all same
+skipped: 24
+conflicts: 0
+```
+
+M2 representative: `MEGA CHARIZARD X ex 116 Pokemon Japanese Inferno X` → same id as legacy.  
+M2a representative: `MEGA GENGAR ex 240 Pokemon Japanese Mega Dream EX` → same id as legacy.
+
+**Production readiness:** insufficient sample for M2/M2a (n=1 each). Implementation success ≠ production cutover confidence.
