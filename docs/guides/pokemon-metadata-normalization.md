@@ -264,6 +264,23 @@ None among evaluated rows. Many unmapped / promo mint paths had legacy unverifie
 - Shadow telemetry logged only; no evidence of shadow id write
 - No IPFS / mint / collection-key changes performed for this validation
 
+### Skip analysis (first staging window — Pokémon-related unique keys)
+
+All 26 Pokémon skips were `insufficient_set_phrase` (no confirmed Cardhedger phrase for the normalized `setCode`, or no extractable mapped code). Fail-closed retained.
+
+| Bucket | Count (approx) | Notes |
+|--------|---------------:|-------|
+| SV2a | 0 skipped / 4 evaluated | Only mapped set |
+| SV-P | 11 | Code present; phrase unmapped; mostly legacy unverified in window |
+| SVP | 1 | Code present; phrase unmapped; **legacy verified** → `legacyOnlyCandidate` |
+| M2 | 1 | Code present; unmapped; **legacy verified** → candidate |
+| M2a | 1 | Code present; unmapped; **legacy verified** → candidate |
+| unknown | 12 | No mapped setCode (Eevee Heroes, M-P, older JP, etc.); mix of legacy verified / fail |
+
+**legacy_only_candidate** (diagnostic flag, outcome still `skipped`): SVP Pikachu 190, M2 Mega Charizard X ex, M2a Mega Gengar ex, Eevee Heroes Umbreon V/VMAX, Dark Phantasma / Fusion Strike Gengar FA lines, etc. — legacy found an id; shadow did not search because phrase map is incomplete.
+
+No phrase mappings were added for SV1S / SV1V / SV-P / SVP / M2 / M2a in this task.
+
 ### Ops note
 
 Shadow code ships via normal CI: push `develop` → ECR → Dev EC2 `tokenable-backend`. Do **not** hot-load `dist/` for ongoing validation.
