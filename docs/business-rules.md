@@ -89,21 +89,25 @@ Self-vault minted tokens (`settlement_policy = self_vault_hold`) settle differen
 4. **Seller payout** — admin `execute-payout` any time (auto-confirms if needed), **or** cron auto confirm+payout ~**5 minutes** after that sale’s fulfill (`SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS`, default 300). Reject skips payout.
 5. **Bid-only fulfill** (`fulfill_bid` when offer is below ask) is **blocked** for these tokens — match against a full-platform-take ask instead
 
-### BR-8a: Card-Level Offers (Bids)
+### BR-8a: Offers (Bids)
 
-Bids are **token offers** on a specific card (`tokenId`), not collection-wide criteria bids.
+Collection **Place a Bid** is a **criteria collection offer** (Seaport itemType 4): USDC for any minted copy in that bucket’s Merkle set. Card-level **token offers** (specific `tokenId`, itemType 2) still exist (token page / replace of an existing token bid).
 
-- Collection **Offers** order book includes active token offers (and any legacy criteria bids still on the book)
-- Max **1 active offer** per wallet per `collectionKey` (same collection, any tokenId)
+- Collection **Offers** order book includes active token offers and collection criteria bids
+- Max **1 active offer** per wallet per `collectionKey` is **not** the default (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0` means unlimited)
 - Offers expire after a buyer-chosen window of **1, 3, 7, 14, 30, 60, 90, or 180 days** (Seaport `endTime`). Default is **7 days**.
-- Collection **Place a Bid** works with or without an active ask. Floor listing → that `tokenId`; otherwise a minted token in the collection. If the collection has no vaulted tokens yet, bid is unavailable.
-- A bid that is **≥ the collection’s live lowest ask** (same floor as the Buy tab, Card.html `bid >= ASK`) switches the Bid tab CTA to **Buy now**. Click fills that lowest live ask at the listed price (`BID_CROSSES_ASK`), including the bidder’s own listing — same treatment as any other ask.
+- Collection Place Bid works with or without an active ask. If the collection has no minted tokens yet, bid is unavailable.
+- A bid that is **≥ the collection’s live lowest ask** switches the Bid tab CTA to **Buy now** (`BID_CROSSES_ASK`), including the bidder’s own listing.
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
+- A new mint after a criteria bid was signed changes the Merkle root — that bid cannot fill the new copy until the buyer re-places the bid. Listing an **already minted** copy does not change the root.
 
 ### BR-8b: Take Token Offer (Edit price primary)
 
-Sellers take a card-level token offer primarily by **Edit price** (set ask → instant match). Accept-offer without re-signing the ask remains a secondary path.
+Sellers take a resting offer primarily by **Edit price / list** (set ask → instant match). Accept-offer without re-signing the ask remains a secondary path.
+
+- Seaport bids are **FULL_OPEN** with a fixed USDC offer that must be fully consumed. Listing **below** a fillable bid signs the ask **at the bid USDC** (seller price improvement) so `matchAdvancedOrders` does not revert on leftover offer amount.
+- Collection Sell of any minted copy can fill a **criteria** collection bid. A **token** offer only fills that `tokenId`.
 
 - Settlement is Seaport atomic fill/match; bid funds are not escrowed in advance
 - **Edit price → instant match fails** because the buyer is unfunded (USDC balance/allowance): **keep the ask at the price just set**; invalidate the dead bid (`invalidate-dead-bid`). Instant-only auto-cancel does not apply for those funding failures. Ask owner and bidder both get inbox notifications.

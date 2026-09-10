@@ -3,7 +3,7 @@
 ADR for Vault/Seaport: sellers take a token offer via **Edit price** (primary) or Accept offer (secondary), with clear failure rules for unfunded bids.
 
 **Status:** Shipped (Phases B–F) + funding-fail keep-ask (2026-07-30)  
-**Last updated:** 2026-07-30  
+**Last updated:** 2026-09-10  
 **Channel:** Vault / Seaport only (not P2P escrow)
 
 ---
@@ -42,8 +42,9 @@ Sellers can settle against a specific incoming **token offer**. Bid USDC is **no
 
 ### Offer type (P0)
 
-- **In scope:** card-level **token offers** (`tokenId` specific), per BR-8a.
-- **Out of scope for first ship:** collection criteria / Merkle bids (Phase 6+ if needed).
+- **Collection Place Bid:** criteria collection offer (Merkle over minted token ids in the bucket).
+- **Card-level token offers** remain in scope for a specific `tokenId`.
+- Instant match after list / Edit price: crossing **token bids on that tokenId** and **collection criteria bids**. If the typed ask is cheaper than the fillable bid, the ask is signed at the **bid** USDC (FULL_OPEN leftover USDC would otherwise revert).
 
 ### Who gets notified
 

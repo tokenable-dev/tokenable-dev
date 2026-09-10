@@ -187,14 +187,12 @@ function cardHtmlDecorateLine(
       silent: true,
       symbol: "none",
       animation: false,
-      clip: false,
       label: { show: false },
       data: markLineData,
     },
     markPoint: {
       silent: true,
       animation: false,
-      clip: false,
       label: {
         fontSize: COLLECTION_DETAIL_CHART_MARK_FONT,
         fontWeight: 600,

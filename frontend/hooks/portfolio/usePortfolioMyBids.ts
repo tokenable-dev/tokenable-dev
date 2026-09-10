@@ -23,8 +23,7 @@ function orderToPortfolioBidRow(o: OrderListItem): PortfolioBidRow | null {
   const collectionKey = String(o.collectionKey ?? "").trim().toLowerCase();
   if (!collectionKey || o.side !== "bid") return null;
   const tokenId = String(o.tokenId ?? "").trim();
-  // Legacy collection criteria bids used tokenId "0" — hide from Active Bids.
-  if (!tokenId || tokenId === "0") return null;
+  if (!tokenId) return null;
   const priceUsdc = Number(o.price) / PORTFOLIO_USDC_DECIMALS;
   if (!Number.isFinite(priceUsdc)) return null;
   return {

@@ -1,6 +1,8 @@
 import type { Order } from "@/lib/core";
+import { formatUnits, parseUnits } from "viem";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 
 /** Caps each marketplace HTTP call during instant-match so step 4 cannot hang forever. */
 export function matchFlowHttpSignal(): AbortSignal | undefined {
@@ -44,15 +46,34 @@ export function resolveMatchCollectionKey(
   const c = orderCollectionKey(existingAsk ?? undefined);
   let fromBid = "";
   for (const x of bids ?? []) {
-    if (x.status === "active" && isCriteriaCollectionBid(x)) {
-      const k = orderCollectionKey(x);
-      if (k) {
-        fromBid = k;
-        break;
-      }
+    if (x.status !== "active") continue;
+    if (!isCriteriaCollectionBid(x) && !isTokenBidOrder(x)) continue;
+    const k = orderCollectionKey(x);
+    if (k) {
+      fromBid = k;
+      break;
     }
   }
   return a || b || c || fromBid || undefined;
+}
+
+/**
+ * List at the resting bid when the typed ask is cheaper so FULL_OPEN match
+ * consumes the whole USDC offer (one signature; leftover bid USDC would revert).
+ */
+export function askUsdcToMatchCrossingBid(
+  typedUsdc: string,
+  bidMicros: bigint,
+): string {
+  const typed = typedUsdc.trim();
+  if (bidMicros <= BigInt(0)) return typed;
+  try {
+    const tm = parseUnits(typed, 6);
+    if (bidMicros > tm) return formatUnits(bidMicros, 6);
+  } catch {
+    /* keep typed */
+  }
+  return typed;
 }
 
 export function listModalAssetLabel(tokenId: number, assetTitle?: string | null): string {

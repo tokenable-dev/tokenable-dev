@@ -26,6 +26,7 @@ import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading
 import { isLiveAskListing } from "@/lib/marketplace/collectionListingModalHelpers";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
+  submitCollectionCriteriaBid,
   submitTokenBid,
   TOKEN_BID_DEFAULT_DURATION_DAYS,
   isTokenBidDurationDays,
@@ -37,6 +38,7 @@ import {
   isPrivyFiatOnrampFeatureEnabled,
   usePrivyFiatOnramp,
 } from "@/hooks/wallet/usePrivyFiatOnramp";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
@@ -106,7 +108,9 @@ export function useTokenOffer(input: {
   const isReplaceBid =
     bidToReplace != null &&
     bidToReplace.status === "active" &&
-    isTokenBidOrder(bidToReplace);
+    (isTokenBidOrder(bidToReplace) || isCriteriaCollectionBid(bidToReplace));
+  const replaceIsCriteria =
+    Boolean(bidToReplace) && isCriteriaCollectionBid(bidToReplace!);
 
   const [price, setPrice] = useState("");
   const [durationDays, setDurationDays] = useState<TokenBidDurationDays>(
@@ -428,21 +432,36 @@ export function useTokenOffer(input: {
       const selectedDurationDays = resolveTokenBidDurationDays(
         durationDaysRef.current,
       );
-      const result = await submitTokenBid({
-        collectionKey,
-        tokenId: tokenIdNorm,
-        address,
-        publicClient,
-        signSeaportOrder,
-        writeContractAsync,
-        bidUnits: priceInUnits,
-        counter: counter as bigint,
-        usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
-        chainId,
-        durationDays: selectedDurationDays,
-        mode: isReplaceBid ? "replace" : "create",
-        oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
-      });
+      const result = replaceIsCriteria
+        ? await submitCollectionCriteriaBid({
+            collectionKey,
+            address,
+            publicClient,
+            signSeaportOrder,
+            writeContractAsync,
+            bidUnits: priceInUnits,
+            counter: counter as bigint,
+            usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
+            chainId,
+            durationDays: selectedDurationDays,
+            mode: isReplaceBid ? "replace" : "create",
+            oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
+          })
+        : await submitTokenBid({
+            collectionKey,
+            tokenId: tokenIdNorm,
+            address,
+            publicClient,
+            signSeaportOrder,
+            writeContractAsync,
+            bidUnits: priceInUnits,
+            counter: counter as bigint,
+            usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
+            chainId,
+            durationDays: selectedDurationDays,
+            mode: isReplaceBid ? "replace" : "create",
+            oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
+          });
       setLastOutcome("bid");
       trackEvent("bid_submitted", {
         card_id: String(tokenIdNorm),

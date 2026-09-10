@@ -7,6 +7,7 @@ import {
 } from "@/constants/contracts";
 import {
   createOrder,
+  getMerkleEligibleTokenIds,
   replaceBidApi,
   type CreateOrderPayload,
   type Order,
@@ -17,6 +18,7 @@ import {
   BidCrossesLiveAskError,
   fetchCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
+import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 import type { useWriteContract } from "wagmi";
@@ -26,6 +28,7 @@ const ZERO_BYTES32 =
 const ZERO_ADDRESS = zeroAddress;
 const ITEM_ERC20 = 1;
 const ITEM_ERC721 = 2;
+const ITEM_ERC721_WITH_CRITERIA = 4;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
 export const TOKEN_BID_DURATION_DAYS = [1, 3, 7, 14, 30, 60, 90, 180] as const;
@@ -251,6 +254,215 @@ export async function submitTokenBid(input: {
     signature,
     tokenContract: rwaAddress,
     tokenId: tokenIdStr,
+    considerationToken: usdcAddress,
+    considerationAmount: str(bidUnits),
+  };
+
+  const order =
+    mode === "replace" && oldOrderHash
+      ? await replaceBidApi({
+          callerAddress: address,
+          oldOrderHash,
+          order: payload,
+        })
+      : await createOrder(payload);
+
+  return { order, outcome: "bid" };
+}
+
+/**
+ * Collection Place Bid: USDC for any minted token in the bucket (Seaport
+ * ERC721_WITH_CRITERIA). A token offer cannot be filled by a different copy.
+ */
+export async function submitCollectionCriteriaBid(input: {
+  collectionKey: string;
+  address: Address;
+  publicClient: PublicClient;
+  signSeaportOrder: SignSeaportOrderFn;
+  writeContractAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
+  bidUnits: bigint;
+  counter: bigint;
+  usdcAllowanceRaw: bigint | undefined;
+  chainId: SupportedChainId;
+  durationDays: TokenBidDurationDays;
+  mode?: "create" | "replace";
+  oldOrderHash?: string;
+}): Promise<TokenBidSubmitResult> {
+  const {
+    collectionKey,
+    address,
+    publicClient,
+    signSeaportOrder,
+    writeContractAsync,
+    bidUnits,
+    counter,
+    usdcAllowanceRaw,
+    chainId,
+    durationDays,
+    mode = "create",
+    oldOrderHash,
+  } = input;
+
+  const { rwaAddress, usdcAddress } = getChainContracts(chainId);
+
+  if (mode === "replace" && !oldOrderHash) {
+    throw new Error("oldOrderHash required for replace");
+  }
+
+  const crossing = await fetchCrossingAskForBid({
+    collectionKey,
+    bidder: address,
+    bidUnits,
+  });
+  if (crossing) {
+    throw new BidCrossesLiveAskError(crossing);
+  }
+
+  const merkle = await getMerkleEligibleTokenIds(collectionKey, {
+    bypassCache: true,
+  });
+  const ids = (merkle.tokenIds ?? []).map((x) =>
+    BigInt(normalizeDecimalTokenId(x)),
+  );
+  if (ids.length === 0) {
+    throw new Error("No card in this collection to bid on yet.");
+  }
+  const rootHex = new SeaportMerkleTree(ids).getHexRoot();
+  const rootBn = BigInt(rootHex);
+
+  const days = resolveTokenBidDurationDays(durationDays);
+  const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
+
+  const [now, allowanceLoaded] = await Promise.all([
+    getChainTimestampSec(publicClient),
+    usdcAllowanceRaw !== undefined
+      ? Promise.resolve(usdcAllowanceRaw)
+      : publicClient.readContract({
+          address: usdcAddress,
+          abi: USDC_ABI,
+          functionName: "allowance",
+          args: [address, SEAPORT_ADDRESS],
+        }),
+  ]);
+  const endTime = now + BigInt(tokenBidDurationSeconds(days));
+  const needsUsdcApprove = allowanceLoaded < bidUnits;
+  const usdcApproveGasPromise = needsUsdcApprove
+    ? gasWithCapFast(
+        publicClient,
+        {
+          address: usdcAddress,
+          abi: USDC_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, maxUint256],
+          account: address,
+        },
+        GAS_FALLBACK.erc20Approve,
+      )
+    : Promise.resolve(null as bigint | null);
+
+  const orderMessage = {
+    offerer: address,
+    zone: ZERO_ADDRESS,
+    offer: [
+      {
+        itemType: ITEM_ERC20,
+        token: usdcAddress,
+        identifierOrCriteria: BigInt(0),
+        startAmount: bidUnits,
+        endAmount: bidUnits,
+      },
+    ],
+    consideration: [
+      {
+        itemType: ITEM_ERC721_WITH_CRITERIA,
+        token: rwaAddress,
+        identifierOrCriteria: rootBn,
+        startAmount: BigInt(1),
+        endAmount: BigInt(1),
+        recipient: address,
+      },
+    ],
+    orderType: 0,
+    startTime: now,
+    endTime: endTime,
+    zoneHash: ZERO_BYTES32,
+    salt: salt,
+    conduitKey: ZERO_BYTES32,
+    counter: counter,
+  };
+
+  const signature = await signSeaportOrder(orderMessage, address);
+
+  if (needsUsdcApprove) {
+    const allowanceAfterSign = await publicClient.readContract({
+      address: usdcAddress,
+      abi: USDC_ABI,
+      functionName: "allowance",
+      args: [address, SEAPORT_ADDRESS],
+    });
+    if (allowanceAfterSign < bidUnits) {
+      const gasApprove =
+        (await usdcApproveGasPromise) ??
+        (await gasWithCapFast(
+          publicClient,
+          {
+            address: usdcAddress,
+            abi: USDC_ABI,
+            functionName: "approve",
+            args: [SEAPORT_ADDRESS, maxUint256],
+            account: address,
+          },
+          GAS_FALLBACK.erc20Approve,
+        ));
+      await writeContractAsync({
+        address: usdcAddress,
+        abi: USDC_ABI,
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, maxUint256],
+        chainId,
+        gas: gasApprove,
+      });
+    }
+  }
+
+  const str = (v: unknown): string => String(v);
+  const payload: CreateOrderPayload = {
+    side: "bid",
+    collectionKey,
+    parameters: {
+      offerer: str(orderMessage.offerer),
+      zone: str(ZERO_ADDRESS),
+      zoneHash: ZERO_BYTES32,
+      startTime: str(now),
+      endTime: str(endTime),
+      orderType: 0,
+      offer: [
+        {
+          itemType: ITEM_ERC20,
+          token: usdcAddress,
+          identifierOrCriteria: "0",
+          startAmount: str(bidUnits),
+          endAmount: str(bidUnits),
+        },
+      ],
+      consideration: [
+        {
+          itemType: ITEM_ERC721_WITH_CRITERIA,
+          token: rwaAddress,
+          identifierOrCriteria: rootHex,
+          startAmount: "1",
+          endAmount: "1",
+          recipient: address,
+        },
+      ],
+      totalOriginalConsiderationItems: 1,
+      salt: str(salt),
+      conduitKey: ZERO_BYTES32,
+      counter: str(counter),
+    },
+    signature,
+    tokenContract: rwaAddress,
+    tokenId: "0",
     considerationToken: usdcAddress,
     considerationAmount: str(bidUnits),
   };

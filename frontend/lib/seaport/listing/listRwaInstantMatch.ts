@@ -41,7 +41,7 @@ import {
   type MatchFailureCode,
   type MatchWriteContractAsync,
 } from "@/lib/seaport/fulfillment/runCriteriaMatch";
-import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
+import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   getChainTimestampSec,
@@ -65,6 +65,50 @@ export type ListRwaInstantMatchDeps = {
   queryClient: QueryClient;
   chainId: SupportedChainId;
 };
+
+/**
+ * Seaport FULL_OPEN (orderType 0) bids offer a fixed USDC amount that must be
+ * fully consumed. An ask cheaper than the bid leaves leftover USDC on the bid
+ * offer → matchAdvancedOrders reverts. An ask above the bid cannot be paid.
+ * Re-sign the ask at the bid’s USDC so the pair can settle (seller listed at
+ * or below the bid; fill price is the bid).
+ */
+async function alignListingToBidOffer(
+  deps: ListRwaInstantMatchDeps,
+  listing: Order,
+  bid: Order,
+): Promise<Order> {
+  const askAm = askGrossUsdcMicros(listing);
+  const bidAm = bidUsdcAmount(bid);
+  if (askAm === bidAm) return listing;
+  if (!deps.address || !deps.publicClient) {
+    throw new Error("Wallet not ready to match this listing to the bid.");
+  }
+  const signOrder = deps.getSignSeaportOrder();
+  if (!signOrder) {
+    throw new Error(
+      "Wallet signer not ready — unlock your wallet so the listing can be set to the bid price.",
+    );
+  }
+  const priceUsdc = formatUnits(bidAm, 6);
+  const n = Number(priceUsdc);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error("Invalid bid amount");
+  }
+  return submitAskListingOrder({
+    tokenId: deps.tokenId,
+    priceUsdc,
+    address: deps.address,
+    publicClient: deps.publicClient,
+    signSeaportOrder: signOrder,
+    writeContractAsync: deps.writeContractAsync as Parameters<
+      typeof submitAskListingOrder
+    >[0]["writeContractAsync"],
+    chainId: deps.chainId,
+    mode: "replace",
+    oldOrderHash: listing.orderHash,
+  });
+}
 
 async function resolveCollectionKeyForMatch(
   deps: ListRwaInstantMatchDeps,
@@ -113,7 +157,7 @@ async function tryMatchAfterListing(
 
   const isCrossingTokenBid = (b: Order) => {
     if (b.status !== "active" || !isTokenBidOrder(b)) return false;
-    if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+    if (tokenBidTargetTokenId(b) !== tokenIdNorm) return false;
     return bidUsdcAmount(b) >= askAm;
   };
 
@@ -208,27 +252,7 @@ async function tryMatchAfterListing(
               oldOrderHash: listing.orderHash,
             });
           }
-          if (askGrossUsdcMicros(listing) > bidUsdcAmount(bid)) {
-            const signOrder = deps.getSignSeaportOrder();
-            if (!signOrder) {
-              lastErr =
-                "Wallet signer not ready — unlock your wallet, then change the list price to the bid or try again.";
-              continue;
-            }
-            listing = await submitAskListingOrder({
-              tokenId: deps.tokenId,
-              priceUsdc: formatUnits(bidUsdcAmount(bid), 6),
-              address: deps.address,
-              publicClient: deps.publicClient,
-              signSeaportOrder: signOrder,
-              writeContractAsync: deps.writeContractAsync as Parameters<
-                typeof submitAskListingOrder
-              >[0]["writeContractAsync"],
-              chainId: deps.chainId,
-              mode: "replace",
-              oldOrderHash: listing.orderHash,
-            });
-          }
+          listing = await alignListingToBidOffer(deps, listing, bid);
 
           await runTokenBidMatch({
             address: deps.address,
@@ -330,27 +354,7 @@ async function tryMatchAfterListing(
             oldOrderHash: listing.orderHash,
           });
         }
-        if (askGrossUsdcMicros(listing) > bidUsdcAmount(bid)) {
-          const signOrder = deps.getSignSeaportOrder();
-          if (!signOrder) {
-            lastErr =
-              "Wallet signer not ready — unlock your wallet, then change the list price to the bid or try again.";
-            continue;
-          }
-          listing = await submitAskListingOrder({
-            tokenId: deps.tokenId,
-            priceUsdc: formatUnits(bidUsdcAmount(bid), 6),
-            address: deps.address,
-            publicClient: deps.publicClient,
-            signSeaportOrder: signOrder,
-            writeContractAsync: deps.writeContractAsync as Parameters<
-              typeof submitAskListingOrder
-            >[0]["writeContractAsync"],
-            chainId: deps.chainId,
-            mode: "replace",
-            oldOrderHash: listing.orderHash,
-          });
-        }
+        listing = await alignListingToBidOffer(deps, listing, bid);
 
         await runCriteriaMatch({
           address: deps.address,
@@ -434,7 +438,7 @@ export async function shouldRunInstantMatchAfterList(
   const crossesToken = (rows: Order[]) =>
     rows.some((b) => {
       if (b.status !== "active" || !isTokenBidOrder(b)) return false;
-      if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+      if (tokenBidTargetTokenId(b) !== tokenIdNorm) return false;
       return bidUsdcAmount(b) >= askAm;
     });
 
@@ -485,7 +489,8 @@ async function enrichMetaWithBuyerFundingCheck(
     const bid = await getOrderByHash(meta.failedBidOrderHash, {
       signal: matchFlowHttpSignal(),
     });
-    if (bid.status !== "active" || !isTokenBidOrder(bid)) return meta;
+    if (bid.status !== "active") return meta;
+    if (!isTokenBidOrder(bid) && !isCriteriaCollectionBid(bid)) return meta;
     const { usdcAddress } = getChainContracts(deps.chainId);
     const ready = await checkBuyerUsdcReadyForBid(
       deps.publicClient,

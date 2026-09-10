@@ -42,6 +42,7 @@ import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-inde
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
 import {
   backfillAskTokenIdFromParameters,
+  CRITERIA_TOKEN_SENTINEL,
   isCriteriaCollectionBidOrder,
   isDeadTokenBidFunding,
   isTokenBidOrder,
@@ -199,9 +200,19 @@ export class OrdersService {
         );
         await this.assertTokenBidDoesNotCrossAsk(dto, bidCollectionKey);
       } else if (itemType === 4) {
-        throw new BadRequestException(
-          'Collection criteria bids are no longer supported. Place a bid on a specific card instead.',
+        this.assertValidCriteriaBid(dto, chainId);
+        const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
+        if (!bidCollectionKey) {
+          throw new BadRequestException(
+            'collectionKey is required for collection bids',
+          );
+        }
+        await this.assertActiveTokenBidLimit(
+          dto.parameters.offerer,
+          bidCollectionKey,
+          chainId,
         );
+        await this.assertTokenBidDoesNotCrossAsk(dto, bidCollectionKey);
       } else {
         throw new BadRequestException(
           'Token bids require consideration itemType 2 (ERC721)',
@@ -463,16 +474,20 @@ export class OrdersService {
     }
 
     const cons = dto.parameters.consideration?.[0];
-    if (!cons || Number(cons.itemType) !== 2) {
+    const itemType = Number(cons?.itemType);
+    if (itemType === 2) {
+      this.assertValidTokenBid(dto, chainId);
+    } else if (itemType === 4) {
+      this.assertValidCriteriaBid(dto, chainId);
+    } else {
       throw new BadRequestException(
-        'Only token bids (itemType 2) can be replaced',
+        'Only token bids (itemType 2) or collection criteria bids (itemType 4) can be replaced',
       );
     }
-    this.assertValidTokenBid(dto, chainId);
 
     const newCollectionKey = dto.collectionKey?.trim().toLowerCase();
     if (!newCollectionKey) {
-      throw new BadRequestException('collectionKey is required for token bids');
+      throw new BadRequestException('collectionKey is required for bids');
     }
     await this.assertTokenBidDoesNotCrossAsk(dto, newCollectionKey);
 
@@ -483,8 +498,14 @@ export class OrdersService {
       if (!old) {
         throw new NotFoundException(`Order not found: ${oldOrderHash}`);
       }
-      if (!isTokenBidOrder(old)) {
-        throw new BadRequestException('Only token bids can be replaced');
+      if (itemType === 2) {
+        if (!isTokenBidOrder(old)) {
+          throw new BadRequestException('Only token bids can be replaced');
+        }
+      } else if (!isCriteriaCollectionBidOrder(old)) {
+        throw new BadRequestException(
+          'Only collection criteria bids can be replaced with a criteria bid',
+        );
       }
       if (old.status !== OrderStatus.ACTIVE) {
         throw new BadRequestException(`Order is already ${old.status}`);
@@ -492,13 +513,15 @@ export class OrdersService {
       if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
         throw new BadRequestException('Only the offerer can replace this bid');
       }
-      if (
-        normalizeDecimalTokenId(String(old.tokenId)) !==
-        normalizeDecimalTokenId(String(dto.tokenId))
-      ) {
-        throw new BadRequestException(
-          'New bid tokenId must match the bid being replaced',
-        );
+      if (itemType === 2) {
+        if (
+          normalizeDecimalTokenId(String(old.tokenId)) !==
+          normalizeDecimalTokenId(String(dto.tokenId))
+        ) {
+          throw new BadRequestException(
+            'New bid tokenId must match the bid being replaced',
+          );
+        }
       }
       const oldKey = old.collectionKey?.trim().toLowerCase();
       if (!oldKey || oldKey !== newCollectionKey) {
@@ -704,15 +727,17 @@ export class OrdersService {
       .andWhere('LOWER(o.collection_key) = :key', { key })
       .getMany();
     const tokenAsks =
-      tokenId.length > 0
-        ? await this.orderRepo.find({
-            where: {
-              status: OrderStatus.ACTIVE,
-              side: OrderSide.ASK,
-              tokenId,
-            },
-          })
-        : [];
+      Number(dto.parameters.consideration?.[0]?.itemType) === 4
+        ? []
+        : tokenId.length > 0
+          ? await this.orderRepo.find({
+              where: {
+                status: OrderStatus.ACTIVE,
+                side: OrderSide.ASK,
+                tokenId,
+              },
+            })
+          : [];
     const crossing = pickCrossingAskForBid(
       [...collectionAsks, ...tokenAsks],
       dto.parameters.offerer,
@@ -763,6 +788,60 @@ export class OrdersService {
     ) {
       throw new BadRequestException(
         'Bid consideration identifierOrCriteria must match tokenId',
+      );
+    }
+    const window = tokenBidWindowIsValid({
+      startTimeSec: Number(p.startTime),
+      endTimeSec: Number(p.endTime),
+      nowSec: Date.now() / 1000,
+    });
+    if (!window.ok) {
+      throw new BadRequestException(window.reason);
+    }
+  }
+
+  /** Collection offer: USDC for any minted token in the bucket (Merkle criteria). */
+  private assertValidCriteriaBid(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): void {
+    const p = dto.parameters;
+    const offer = p.offer?.[0];
+    const cons = p.consideration?.[0];
+    if (!offer || !cons) {
+      throw new BadRequestException(
+        'Bid order must include offer and consideration items',
+      );
+    }
+    if (Number(offer.itemType) !== 1) {
+      throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
+    }
+    if (Number(cons.itemType) !== 4) {
+      throw new BadRequestException(
+        'Collection bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
+      );
+    }
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
+    if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
+      throw new BadRequestException(
+        `Bid offer token must match USDC for chain ${chainId}`,
+      );
+    }
+    if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
+      throw new BadRequestException(
+        'Bid consideration token must match tokenContract',
+      );
+    }
+    const root = String(cons.identifierOrCriteria ?? '').trim();
+    if (!root || root === '0') {
+      throw new BadRequestException(
+        'Collection bid requires a Merkle root in identifierOrCriteria',
+      );
+    }
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid) || tid !== CRITERIA_TOKEN_SENTINEL) {
+      throw new BadRequestException(
+        'Collection bids must use tokenId 0 (criteria sentinel)',
       );
     }
     const window = tokenBidWindowIsValid({

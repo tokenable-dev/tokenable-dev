@@ -19,11 +19,11 @@ import {
 import { mapWalletError } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
-import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
+import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
-import { orderCollectionKey } from "@/lib/seaport/listing/listRwaModalUtils";
+import { askUsdcToMatchCrossingBid, orderCollectionKey } from "@/lib/seaport/listing/listRwaModalUtils";
 import {
   invalidateListingQueries,
   runPostListInstantMatch,
@@ -94,7 +94,7 @@ export function useListRwaModal({
     const rows = collectionBids.filter((b) => {
       if (b.status !== "active") return false;
       if (isTokenBidOrder(b)) {
-        return normalizeDecimalTokenId(b.tokenId) === tokenIdNorm;
+        return tokenBidTargetTokenId(b) === tokenIdNorm;
       }
       return isCriteriaCollectionBid(b);
     });
@@ -137,7 +137,7 @@ export function useListRwaModal({
     const rows = collectionBids.filter((b) => {
       if (b.status !== "active") return false;
       if (isTokenBidOrder(b)) {
-        if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+        if (tokenBidTargetTokenId(b) !== tokenIdNorm) return false;
         return bidUsdcAmount(b) >= askMicrosFromPrice;
       }
       if (!isCriteriaCollectionBid(b)) return false;
@@ -277,11 +277,21 @@ export function useListRwaModal({
       // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.
       await ensureAccountWalletReady();
 
+      const typedPrice = price.trim();
+      const matchBid = preferredBidForMatch
+        ? crossingBidsForInstantSale.find(
+            (b) => String(b.orderHash) === preferredBidForMatch,
+          ) ?? crossingBidsForInstantSale[0]
+        : crossingBidsForInstantSale[0];
+      const priceUsdc = matchBid
+        ? askUsdcToMatchCrossingBid(typedPrice, bidUsdcAmount(matchBid))
+        : typedPrice;
+
       if (isReplaceListing && resolvedExistingAsk) {
         setStep("submitting");
         let created = await submitAskListingOrder({
           tokenId,
-          priceUsdc: price.trim(),
+          priceUsdc,
           address: address as Address,
           publicClient,
           signSeaportOrder,
@@ -346,7 +356,7 @@ export function useListRwaModal({
 
       let createdFinal = await submitAskListingOrder({
         tokenId,
-        priceUsdc: price.trim(),
+        priceUsdc,
         address: address as Address,
         publicClient,
         signSeaportOrder,

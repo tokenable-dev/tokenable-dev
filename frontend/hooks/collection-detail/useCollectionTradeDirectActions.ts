@@ -9,7 +9,6 @@ import {
 } from "wagmi";
 import { parseUnits, formatUnits, type Address } from "viem";
 import {
-  getCollectionBidAnchorTokenIds,
   getOrderByHash,
   getRwaSettlementPolicy,
   type Order,
@@ -24,7 +23,7 @@ import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWallet
 import { useSeaportOrderSigner } from "@/lib/privy";
 import { mapWalletError } from "@/lib/network";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
-import { submitTokenBid, TOKEN_BID_DEFAULT_DURATION_DAYS } from "@/lib/seaport/orders/submitTokenBid";
+import { submitCollectionCriteriaBid, TOKEN_BID_DEFAULT_DURATION_DAYS } from "@/lib/seaport/orders/submitTokenBid";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
   askPriceMicros,
@@ -33,7 +32,7 @@ import {
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
-import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
+import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
@@ -41,7 +40,7 @@ import {
   runPostListInstantMatch,
   type ListRwaInstantMatchDeps,
 } from "@/lib/seaport/listing/listRwaInstantMatch";
-import { orderCollectionKey } from "@/lib/seaport/listing/listRwaModalUtils";
+import { orderCollectionKey, askUsdcToMatchCrossingBid } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import {
   SEAPORT_ADDRESS,
@@ -121,40 +120,6 @@ export function useCollectionTradeDirectActions(input: {
     }),
     [toastCardTitle, certNumberForToken],
   );
-
-  const resolveBidTokenId = useCallback(async (): Promise<number | null> => {
-    const asks = [...askMap.values()].filter((o) => o.status === "active");
-    asks.sort((a, b) => {
-      try {
-        const pa = BigInt(a.considerationAmount);
-        const pb = BigInt(b.considerationAmount);
-        if (pa === pb) return Number(a.tokenId) - Number(b.tokenId);
-        return pa < pb ? -1 : 1;
-      } catch {
-        return Number(a.tokenId) - Number(b.tokenId);
-      }
-    });
-    const floor = asks[0];
-    if (floor?.tokenId != null) {
-      const tid = Number(floor.tokenId);
-      if (Number.isFinite(tid) && tid >= 0) return tid;
-    }
-    const fromBids = collectionBids
-      .map((o) => Number(o.tokenId))
-      .filter((n) => Number.isFinite(n) && n >= 0)
-      .sort((a, b) => a - b);
-    if (fromBids[0] != null) return fromBids[0];
-    try {
-      const snap = await getCollectionBidAnchorTokenIds(collectionKey);
-      const ids = [...(snap.tokenIds ?? [])]
-        .map(Number)
-        .filter((n) => Number.isFinite(n) && n >= 0)
-        .sort((a, b) => a - b);
-      return ids[0] ?? null;
-    } catch {
-      return null;
-    }
-  }, [askMap, collectionBids, collectionKey]);
 
   const buyToken = useCallback(
     async (tokenId: number, toastMeta?: CollectionTradeToastMeta) => {
@@ -312,10 +277,6 @@ export function useCollectionTradeDirectActions(input: {
           return;
         }
 
-        const tokenId = await resolveBidTokenId();
-        if (tokenId == null) {
-          throw new Error("No card in this collection to bid on yet.");
-        }
         await ensureAccountWalletReady();
         const [counter, usdcAllowanceRaw, usdcBalRaw] = await Promise.all([
           publicClient.readContract({
@@ -343,9 +304,8 @@ export function useCollectionTradeDirectActions(input: {
           );
         }
         try {
-          await submitTokenBid({
+          await submitCollectionCriteriaBid({
             collectionKey,
-            tokenId,
             address: address as Address,
             publicClient,
             signSeaportOrder,
@@ -374,7 +334,7 @@ export function useCollectionTradeDirectActions(input: {
           throw e;
         }
         trackEvent("bid_submitted", {
-          card_id: String(tokenId),
+          card_id: collectionKey,
           bid_amount: priceUsd,
         });
         await invalidateAfterCriteriaBid(queryClient, collectionKey, {
@@ -402,7 +362,6 @@ export function useCollectionTradeDirectActions(input: {
       address,
       busy,
       signSeaportOrder,
-      resolveBidTokenId,
       ensureAccountWalletReady,
       usdcAddress,
       collectionKey,
@@ -432,7 +391,7 @@ export function useCollectionTradeDirectActions(input: {
         return;
       }
       setBusy("sell");
-      const priceUsdc = String(Math.round(priceUsd));
+      const typedUsdc = String(Math.round(priceUsd));
       try {
         await ensureAccountWalletReady();
         const settlementPolicy = (
@@ -443,6 +402,31 @@ export function useCollectionTradeDirectActions(input: {
             "Vault custody is unknown for this token — refresh and try again.",
           );
         }
+
+        const tokenIdNorm = normalizeDecimalTokenId(tokenId);
+        const typedMicros = parseUnits(typedUsdc, 6);
+        const topRows = collectionBids.filter((b) => {
+          if (b.status !== "active") return false;
+          if (isTokenBidOrder(b)) {
+            return tokenBidTargetTokenId(b) === tokenIdNorm;
+          }
+          return isCriteriaCollectionBid(b);
+        });
+        topRows.sort((a, b) => {
+          const da = bidUsdcAmount(a);
+          const db = bidUsdcAmount(b);
+          if (da > db) return -1;
+          if (da < db) return 1;
+          return 0;
+        });
+        const crossing = topRows.filter((b) => bidUsdcAmount(b) >= typedMicros);
+        const matchBid = crossing[0];
+        const priceUsdc = matchBid
+          ? askUsdcToMatchCrossingBid(typedUsdc, bidUsdcAmount(matchBid))
+          : typedUsdc;
+        const askMicros = parseUnits(priceUsdc, 6);
+        const top = topRows[0];
+        const preferredExact = topRows.find((b) => bidUsdcAmount(b) === askMicros);
 
         let created = await submitAskListingOrder({
           tokenId,
@@ -465,25 +449,6 @@ export function useCollectionTradeDirectActions(input: {
             /* keep created */
           }
         }
-
-        const tokenIdNorm = normalizeDecimalTokenId(tokenId);
-        const askMicros = parseUnits(priceUsdc, 6);
-        const topRows = collectionBids.filter((b) => {
-          if (b.status !== "active") return false;
-          if (isTokenBidOrder(b)) {
-            return normalizeDecimalTokenId(b.tokenId) === tokenIdNorm;
-          }
-          return isCriteriaCollectionBid(b);
-        });
-        topRows.sort((a, b) => {
-          const da = bidUsdcAmount(a);
-          const db = bidUsdcAmount(b);
-          if (da > db) return -1;
-          if (da < db) return 1;
-          return 0;
-        });
-        const top = topRows[0];
-        const preferredExact = topRows.find((b) => bidUsdcAmount(b) === askMicros);
 
         const instantMatchDeps: ListRwaInstantMatchDeps = {
           tokenId,
