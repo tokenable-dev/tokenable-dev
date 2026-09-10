@@ -380,3 +380,60 @@ M2 representative: `MEGA CHARIZARD X ex 116 Pokemon Japanese Inferno X` → same
 M2a representative: `MEGA GENGAR ex 240 Pokemon Japanese Mega Dream EX` → same id as legacy.
 
 **Production readiness:** insufficient sample for M2/M2a (n=1 each). Implementation success ≠ production cutover confidence.
+
+---
+
+## V2.5 — Expanded staging validation (no new mappings)
+
+Validation-only window. Phrase map unchanged:
+
+```text
+SV2a → Pokemon Japanese 151
+M2   → Pokemon Japanese Inferno X
+M2a  → Pokemon Japanese Mega Dream EX
+```
+
+### Inventory ceiling (marketplace collections)
+
+| Set | Distinct staging collections | Target evaluations | Achieved |
+| --- | ---------------------------: | -----------------: | -------: |
+| SV2a | 5 | 10+ | **5** (inventory max) |
+| M2 | 1 | 5+ | **1** (inventory max) |
+| M2a | 1 | 5+ | **1** (inventory max) |
+
+No synthetic telemetry or DB inserts were used.
+
+### Outcome distribution (unique Pokémon-related keys)
+
+| Set | Evaluated | Same | Both fail | Legacy only | Shadow only | Conflict | Skipped |
+| --- | --------: | ---: | --------: | ----------: | ----------: | -------: | ------: |
+| SV2a | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
+| M2 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| M2a | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+
+`same/evaluated` = 100% for each mapped set; denominators remain small (especially M2/M2a).
+
+### Variant coverage observed
+
+- **SV2a:** Reverse Holo (Gengar 094), Master Ball Reverse Holo (Gengar 094, Pikachu 025), Special Art Rare / Base finish (Charizard ex 201, Mew ex 205)
+- **M2:** Mega Ultra Rare → Cardhedger Base (Mega Charizard X ex 116)
+- **M2a:** Special Art Rare → Cardhedger Base (Mega Gengar ex 240)
+
+### Collision / verification notes (read-only Cardhedger probes)
+
+- Phrase-only searches return many candidates; **number + set token coverage + name + variety** remain required.
+- Same number across sets (e.g. `116`) resolves to different cards per set (Inferno Charizard vs Mega Dream Pawniard) — name/set checks prevent cross-set collapse.
+- Within SV2a, Reverse Foil vs Master Ball for Gengar 094 remain distinct Cardhedger IDs; staging shadow `same` matches those distinct IDs.
+- EN `Pokemon Scarlet & Violet 151` appears in broad searches; Japanese phrase + token coverage continues to prefer JP 151 rows for staging JP cards.
+
+### Remaining limitations
+
+- Cannot reach M2/M2a 5+ or SV2a 10+ without more real staging cards.
+- SVP / SV-P still skipped (unmapped by design).
+- Category B unknowns unchanged.
+
+### V2.5 recommendation
+
+```text
+NOT READY — insufficient staging evidence
+```
