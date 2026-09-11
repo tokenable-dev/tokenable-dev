@@ -8,11 +8,32 @@ export type OrderListItem = {
   collectionKey: string | null;
   /** Raw USDC micros string (same as DB `consideration_amount`) */
   price: string;
+  /**
+   * Actual USDC micros settled when known (sell-into-bid may differ from ask list price).
+   * Falls back to `price` when absent.
+   */
+  settlementPrice?: string;
   side: 'ask' | 'bid';
   status: OrderStatus;
   createdAt: string;
+  /** Unix ISO timestamp for order expiry (Seaport endTime). */
+  endTime?: string;
   updatedAt?: string;
   offerer: string;
+  /** Buyer wallet recorded on ask fill (`parameters._filledByBuyer`). */
+  filledByBuyer?: string | null;
+  /** Paired counterparty order hash when matched (`_matchedBidOrderHash` / `_matchedAskOrderHash`). */
+  matchedOrderHash?: string | null;
+  /** Active consignment partner display name when offerer matches. */
+  sellerDisplayName?: string | null;
+  /** Tokenable RWA ERC-721. */
+  tokenContract?: string | null;
+  /** Payment token (USDC). */
+  considerationToken?: string | null;
+  /** Token custody — `self_vault_hold` vs PSA. Null on bids. */
+  settlementPolicy?: 'standard' | 'self_vault_hold' | null;
+  /** "PSA Vault" or "{partner} vault" from token custody, not seller identity. */
+  vaultLabel?: string | null;
   /** Distinct `consideration[].recipient` for analytics (e.g. unique traders) */
   considerationRecipients: string[];
 };
@@ -41,20 +62,47 @@ function considerationRecipientsFromParams(
   return out;
 }
 
-export function orderToListItem(o: Order): OrderListItem {
+export function orderToListItem(
+  o: Order,
+  sellerDisplayName?: string | null,
+): OrderListItem {
   const side = o.side === OrderSide.BID ? 'bid' : 'ask';
+  const params = (o.parameters ?? {}) as Record<string, unknown>;
+  const settlementRaw = params['_settlementAmount'];
+  const settlementPrice =
+    typeof settlementRaw === 'string' && settlementRaw.trim()
+      ? settlementRaw.trim()
+      : undefined;
+  const filledBy =
+    typeof params['_filledByBuyer'] === 'string'
+      ? params['_filledByBuyer'].trim().toLowerCase()
+      : null;
+  const matched =
+    (typeof params['_matchedBidOrderHash'] === 'string' &&
+      params['_matchedBidOrderHash'].trim()) ||
+    (typeof params['_matchedAskOrderHash'] === 'string' &&
+      params['_matchedAskOrderHash'].trim()) ||
+    null;
+
   return {
     id: o.id,
     orderHash: o.orderHash,
     tokenId: String(o.tokenId),
     collectionKey: o.collectionKey,
     price: o.considerationAmount,
+    settlementPrice,
     side,
     status: o.status,
     createdAt:
       o.createdAt instanceof Date
         ? o.createdAt.toISOString()
         : String(o.createdAt),
+    endTime:
+      o.endTime instanceof Date
+        ? o.endTime.toISOString()
+        : o.endTime != null
+          ? String(o.endTime)
+          : undefined,
     updatedAt:
       o.updatedAt instanceof Date
         ? o.updatedAt.toISOString()
@@ -62,6 +110,11 @@ export function orderToListItem(o: Order): OrderListItem {
           ? String(o.updatedAt)
           : undefined,
     offerer: o.offerer,
+    filledByBuyer: filledBy || null,
+    matchedOrderHash: matched || null,
+    sellerDisplayName: sellerDisplayName ?? null,
+    tokenContract: o.tokenContract,
+    considerationToken: o.considerationToken,
     considerationRecipients: considerationRecipientsFromParams(o.parameters),
   };
 }

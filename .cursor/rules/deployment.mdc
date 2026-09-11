@@ -1,0 +1,59 @@
+---
+description: Deployment and infrastructure rules for CI/CD, Docker, and EC2
+globs: [".github/**/*", "docker-compose*", "*/Dockerfile", "nginx/**/*"]
+alwaysApply: false
+---
+
+# Deployment Rules
+
+## Required Reading
+
+Before modifying deployment config, read:
+- `docs/guides/deployment.md` — full EC2 + CI/CD guide
+- `.github/workflows/deploy.yml` — current pipeline
+
+## CI/CD
+
+1. `develop` branch deploys to dev EC2. `main` branch deploys to prod EC2. Do not change this mapping.
+
+2. Both frontend and backend are built from the same commit — they must be deployed together.
+
+3. `NEXT_PUBLIC_*` env vars are baked into the frontend Docker image at build time. Changing them requires a new build + deploy (updating EC2 env file alone is not enough).
+
+4. `API_PROXY_TARGET=http://backend:4000` must always be passed as a Docker build arg for the frontend — or Next.js SSR `/api` requests will fail with 502.
+
+5. Images are tagged with both the branch name (rolling) and the commit SHA (immutable).
+
+## Docker
+
+6. The base compose file is `docker-compose.yml`. `docker-compose.ec2.yml` adds EC2-specific overlays.
+
+7. Backend secrets go in `/home/ubuntu/.env.production.backend` on EC2. Never in the repo.
+
+8. Use `--force-recreate --remove-orphans` on deployment to ensure fresh containers.
+
+## Database
+
+9. Never run bootstrap SQL on a database that already has tables. It will fail or corrupt data.
+
+10. After bootstrap: set `TYPEORM_SYNC=false` in the backend env and redeploy.
+
+11. Production schema changes require numbered migration files. Never rely on `TYPEORM_SYNC=true` in production.
+
+## GitHub Secrets
+
+12. `NEXT_PUBLIC_*` secrets that change the frontend bundle require a workflow re-run after updating the secret.
+
+13. Keep `DEV_EC2_*` and `PROD_EC2_*` secrets separate. Never mix environments.
+
+## Nginx
+
+14. `nginx.conf` handles HTTP + ACME challenge (Let's Encrypt). `nginx.tls.conf` handles HTTPS.
+
+15. Nginx proxies `/api` → `backend:4000` and `/` → `frontend:3000`. This mapping must not change.
+
+## Health Check
+
+16. Verify deployments with `curl -sS https://<domain>/api/health` after every deploy.
+
+17. If the health check fails: check `docker logs tokenable-backend --tail=100` first.

@@ -1,0 +1,61 @@
+---
+description: Testing rules and conventions
+globs: ["**/*.spec.ts", "**/*.test.ts", "contracts/test/**/*"]
+alwaysApply: false
+---
+
+# Testing Rules
+
+## Required Reading
+
+Before writing tests, read:
+- `docs/testing.md` — full testing strategy and test file locations
+
+## Backend Tests (Jest)
+
+1. Unit tests cover pure logic: parsers, utilities, service methods with mocked dependencies.
+
+2. Integration tests use real DB via test containers or an in-memory TypeORM setup.
+
+3. Mock external services (PSA, Cardhedger, Pinata, Privy) at the module level using `{ provide: TOKEN, useValue: mockService }`.
+
+4. Test file naming: `{name}.spec.ts` adjacent to the implementation file.
+
+5. Use `describe` + `it` (not `test`) for readability. Nest `describe` blocks by method name.
+
+6. Always test the error paths, not just the happy path. Especially: 429 rate limits, missing roles, vault cycle conflicts.
+
+7. For PSA token pool tests: mock the token pool array and verify rotation + block behavior.
+
+## Contract Tests (Hardhat/Chai)
+
+8. All contract tests in `contracts/test/TokenableRWA.test.ts`.
+
+9. Every new external function must have at least:
+   - Success case
+   - Access control failure (unauthorized caller)
+   - Input validation failures (zero address, empty string, etc.)
+
+10. Test the full lifecycle: mint → transfer → burn → re-mint. This catches vaultRef slot bugs.
+
+11. Test upgrades: deploy v1, upgrade to v2, verify state is preserved and new functions work.
+
+12. Do not test Solidity internals or OpenZeppelin standard library behavior.
+
+## Type Checking as Test
+
+13. Running `pnpm exec tsc --noEmit` is the minimum bar for "tests pass" — do this always.
+
+14. TypeScript type errors must be fixed before submitting code — do not use `@ts-ignore` except in stubs.
+
+## CI
+
+15. `backend-ci.yml` runs on every PR affecting `backend/**`. Tests must pass before merge.
+
+16. The legacy log ban check must also pass (no forbidden log patterns).
+
+## Coverage
+
+17. Coverage is not enforced numerically, but every new service method should have a corresponding test.
+
+18. Prioritize testing: vault lifecycle flows, PSA rate limit logic, auth session parsing, any logic with branches.

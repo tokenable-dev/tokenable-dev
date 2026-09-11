@@ -3,96 +3,250 @@
 **Source:** `frontend/`  
 **Framework:** Next.js 16, React 19, App Router
 
-## Directory Map
+## Feature layout
+
+Marketplace UI is organized into **feature folders** with matching `hooks/` and `lib/marketplace/` modules. Import the file that owns the symbol (`@/components/collectibles/CollectibleCard`). Keep barrels only where they have real fan-in (`lib/core`, `components/ds`, `lib/chains`, `lib/market`, `lib/privy`).
+
+| Area | Components | Hooks / lib |
+|------|------------|-------------|
+| Markets / exchange | `markets/`, `markets-ui/` | `hooks/markets/`, `lib/markets/` |
+| Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` — market-series and platform trades fetch in parallel once the slab grade is known from collection components; alternate-grade series waits until the default snapshot is present. Grid cards (`CollectibleCard`) and order-book depth/tape rows are `memo`’d; catalog S3/CloudFront covers in the flat frame use `next/image`. |
+| Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
+| Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
+| Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
+| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
+| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
+| Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
+| Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
+| Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
+| Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-*.ts` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
+| Auth / profile | `auth/`, `layout/header/wallet/` | `lib/privy/PrivySessionBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
+| Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
+
+Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment). Privy embedded-wallet prompts take their title from the order shape (`lib/privy/signing.ts`): listing / offer / collection bid — not a single hardcoded bid label. User transactions wait for 1 confirmation with **250ms** receipt polling (`waitForUserTxReceipt`) so Privy/MetaMask confirmations are not stalled by viem’s default 4s HTTP poll. Gas estimation is capped at 200ms before a conservative fallback so the wallet prompt opens sooner.
+
+---
+
+## Directory map (high level)
 
 ```
 frontend/
-├── app/                           # Next.js App Router
-│   ├── layout.tsx                 # Root layout — HTML shell, fonts, providers
-│   ├── providers.tsx              # QueryClient + Wagmi + Auth + Wallet providers
-│   ├── page.tsx                   # / — Landing page (Market Indexes)
-│   ├── exchange/page.tsx          # /exchange — Collection hub with category filter
-│   ├── markets/page.tsx           # /markets — Market indexes view (alias)
-│   ├── vault/page.tsx             # /vault — Mint / RWA registration entry
-│   ├── portfolio/                 # /portfolio — Owned assets + daily value chart (09:00 KST snapshots)
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── profile/page.tsx           # /profile — User profile & wallet settings
-│   ├── login/page.tsx             # /login — Auth entry
-│   ├── signup/page.tsx            # /signup — Registration
-│   ├── auth/callback/page.tsx     # /auth/callback — Google OAuth callback redirect
-│   └── marketplace/
-│       ├── [tokenId]/             # /marketplace/[tokenId] — Token detail
-│       │   ├── layout.tsx
-│       │   └── page.tsx
-│       ├── other-listings/        # /marketplace/other-listings — Unmatched listings
-│       │   └── page.tsx
-│       └── collections/
-│           └── [collectionKey]/   # /marketplace/collections/[collectionKey]
-│               ├── layout.tsx     #   Collection order book + chart UI
-│               └── page.tsx
+├── app/                           # Next.js App Router (see frontend/routes.md)
+│   ├── page.tsx                   # Landing + Market Indexes
+│   ├── markets/                   # Collection list (+ top100 sub-routes)
+│   ├── marketplace/               # Token redirect, collections, admin
+│   ├── portfolio/
+│   ├── vault/
+│   ├── watchlist/
+│   ├── profile/, login/, signup/
+│   ├── auth/                      # OAuth callback, reset-password
+│   └── site-access/               # Staging gate UI
 │
 ├── components/
-│   ├── common/                    # GradedMetadataPanel, RwaImageZoom, …
+│   ├── layout/                    # AppHeader, HeaderNav
 │   ├── landing/                   # MarketIndexes
-│   ├── layout/                    # AppHeader
-│   ├── marketplace/               # Order book, charts, trade modals, collection panels
-│   ├── vault/                     # MintForm, ImageInput, GradedCardSection
-│   └── wallet/                    # WalletConnect
+│   ├── markets/                   # MarketsPage, Top100, TopMovers sections
+│   ├── portfolio/
+│   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
+│   ├── vault/                     # MintForm (/vault/submit); self-vault sell reuses mint APIs
+│   ├── auth/
+│   └── marketplace/
+│       ├── collection-detail/     # trade panel, order book, similar items
+│       ├── collection-overview/
+│       ├── collection-hero/
+│       ├── collection-dual-price-chart/
+│       ├── price-metrics-strip/
+│       ├── unified-order-book/
+│       ├── collection-trading/
+│       ├── rwa-detail/
+│       ├── rwa-detail-asset-panel/
+│       ├── list-rwa/
+│       ├── markets-ui/
+│       └── admin/                 # Backoffice shell, overview, users, collections, price sync
 │
-├── providers/
-│   ├── AuthProvider.tsx           # Session fetch + global auth state
-│   ├── MarketplaceQueryPersistence.tsx
-│   └── WalletDataProvider.tsx
-│
-├── store/
-│   ├── index.ts                   # useAppStore — wallet address, USDC balance, refresh
-│   └── authStore.ts               # useAuthStore — user, login, logout
+├── hooks/                         # Feature-scoped hooks
 │
 ├── lib/
-│   ├── auth/                      # fetchAuthMe, logoutAuth
-│   ├── core/                      # api.ts (getApiUrl), queryKeys.ts (rq.*)
-│   ├── market/                    # Price tier utils, index helpers, chart utils (13 files)
-│   ├── marketplace/               # bucketKey, mediaUri, queryPersistence, …
-│   ├── network/                   # chainGas, ensureSepolia, walletError
-│   ├── portfolio/                 # History & reference-price utilities
-│   └── seaport/
-│       ├── constants.ts / merkle.ts / eip712Uint.ts
-│       ├── orders/                # bidUsdc, fulfillAskListing, platformFee, submitAskListing, …
-│       ├── criteria/              # criteriaMatch, collectionCriteriaRoot,
-│       │                          #   matchAdvancedOrdersArgs, tryMatchCriteriaBidAgainstBook,
-│       │                          #   useCollectionMerkleRootHex
-│       └── fulfillment/           # runCriteriaMatch
+│   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
+│   ├── auth/                      # Session helpers (syncPrivySession, signOut, refreshPrivyAuthSession)
+│   ├── privy/                     # Privy config, PrivyAppProviders, PrivySessionBridge, launchers, signing
+│   ├── chains/                    # Multi-chain registry (Sepolia / Ethereum), types, Seaport addresses
+│   ├── perf/                      # Client-side perf instrumentation (index.ts, PerfObservers.tsx)
+│   ├── market/                    # Pricing tiers, chart utils
+│   ├── markets/                   # Top 100 / Top Movers copy, routing, sort
+│   ├── marketplace/               # bucketKey, headlines, order book math, …
+│   ├── seaport/                   # orders/, criteria/, fulfillment/, listing/
+│   ├── portfolio/
+│   └── vault/
 │
-├── config/wagmi.ts                # Wagmi chain & connector config
-├── constants/                     # ABI JSON + contract address helpers
-│   ├── abis/                      # tokenableRwa.abi.ts, usdc.abi.ts, seaport.abi.ts
-│   └── contracts.ts               # RWA_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, …
-├── hooks/                         # useMarketplaceCollectionsInfinite,
-│                                  # useResolvedMediaUrl, useUserAssets
-└── types/
-    └── gradedCard.ts
+├── providers/                     # AppChainProvider, PrivyAuthBridge, PrivySignInLauncher, PrivyWalletLauncher, WalletDataProvider, …
+├── store/                         # authStore, useAppStore
+├── lib/privy/config.ts            # Privy + wagmi config (canonical)
+└── constants/                     # ABIs + contract addresses
 ```
 
-## Global Providers Chain
+---
+
+## Redirects
+
+`next.config.ts` redirects legacy **`/exchange` → `/markets`**. First paint (`app/markets/loading.tsx` + `MarketsPage` shell) uses the same `MarketsGridSkeleton` tile pulse as load-more — no “Loading markets…” copy, P2P loading band, or snapshot progress bar. P2P listings render only after the query has rows.
+
+`/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). The old token-detail page tree is gone; `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
+
+---
+
+## Global providers chain
+
+Auth is managed by **Privy**. The provider tree is mounted via `PrivyAppProviders` (`lib/privy/PrivyAppProviders.tsx`):
 
 ```
 RootLayout
-└── Providers (providers.tsx)
-    ├── WagmiProvider (config/wagmi.ts)
-    ├── QueryClientProvider
-    ├── AuthProvider         ← fetches /api/auth/session on mount
-    ├── WalletDataProvider   ← syncs wallet address + USDC balance to Zustand
-    └── MarketplaceQueryPersistence
+└── PrivyAppProviders (lib/privy/PrivyAppProviders.tsx)
+    └── PrivyProvider  (@privy-io/react-auth)
+        └── QueryClientProvider
+            ├── PerfObservers  (lib/perf/PerfObservers.tsx — null-render, observes query/route/page-load)
+            └── WagmiProvider  (@privy-io/wagmi)
+                ├── MarketplaceQueryPersistence
+                ├── PrivySignInLauncher  (global openSignIn() trigger)
+                ├── PrivyWalletLauncher (global openConnectWallet() trigger)
+                ├── PrivySessionBridge  (syncs Privy token → Tokenable cookie on auth change)
+                ├── AccountWalletAligner (activates the account wallet in wagmi — embedded unless the backend primary is external)
+                └── AuthProvider
+                    └── AppChainProvider  (active chain context from x-tokenable-chain-id)
+                        └── WalletDataProvider
+                            └── {children}
 ```
 
-## API Client Pattern
+`PrivyAppProviders` is a no-op (returns children directly) when `NEXT_PUBLIC_PRIVY_APP_ID` is unset.
+
+**Login modal look:** auth stays Privy SDK. Visual tokens are aligned with `Tokenable-with design system-17/Login.html` via `buildPrivyClientConfig().appearance` (`theme` `#141414`, accent `#1A6FFF`, empty header/message, GNB wordmark) and `--privy-*` CSS variables on `body` in `app/globals.css`. Unofficial CSS also enlarges the modal logo, adds Login.html’s orbiting edge highlight, and centers Privy’s default mobile bottom-sheet as a floating card (≤440px). Layout/steps remain Privy’s (not a custom Login.html clone).
+
+---
+
+## API client pattern
 
 ```ts
-// frontend/lib/core/api.ts
+// frontend/lib/core/api.ts + lib/core/api/* (split by domain)
 getApiUrl()
-// → browser: window.location.origin + "/api"  (when NEXT_PUBLIC_API_URL is unset)
-// → SSR:    process.env.INTERNAL_API_URL       (docker-compose sets this)
+// → browser: window.location.origin + "/api"
+// → SSR:    process.env.INTERNAL_API_URL
 ```
 
-All data-fetching functions accept the base URL as a parameter and use `fetch` + TanStack Query. Query keys are co-located in `frontend/lib/core/queryKeys.ts` as `rq.*` constants.
+In local development, `app/api/[...path]/route.ts` proxies all `/api/*` requests to the NestJS backend (auto-detected at port 4100 or 4000). The proxy strips `content-encoding` and `content-length` from backend responses so the browser does not attempt to re-decompress already-decompressed gzip bodies.
+
+Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
+
+When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
+
+PSA display titles follow the planner Display name rule in `lib/marketplace/assetDetailHeadline.ts` and Card.html `#hero-title` / `#hero-meta`:
+**Hero title** = SSOT Line 1 `{Card name} · {Number} · {Grade}`. **Hero meta** = SSOT Line 2 `{Year} · {Set} {Language} · {Variant}` (`formatCardDisplayName` / `formatCardDisplayMeta`). Full mint strings stay for search/hover only. Title case (not ALL CAPS).
+
+**Price history** (`#chart-card` / Card.html `#tk-chart`): azure `rgb(26,111,255)` line + fill, High/Low dots, centered Median dash with `#191919` label, current-price azure pill on the right, exactly three x ticks (period start day, midpoint day, period end day; All uses first/last data days), hover tooltip is price then date (`#1c1e26` card). Periods 1M / 3M / 6M / 1Y / All set the data window. Wheel zooms the x-axis around the pointer inside that window (does not change the period tab); drag pans. Clicking a period resets the zoom.
+
+**Collection detail layout** (Card.html `#card-detail-grid`): one CSS grid, five cells. Chart-card spans the trade + trades rows so its bottom lines up with `#trades-card`. Similar items and Details share the next row (equal height). Gap `20px` rows / `32px` columns; right column `372px`.
+
+**Hero population metrics:** Gem rate = PSA 10 Pop ÷ Total PSA Pop. **Volume 1Y** and **Velocity 1Y** are always shown in the UI (never `Volume 6M` etc.). Internally the longest coverable window among **1M / 3M / 6M / 12M** (priority 12M→6M→3M→1M; Cardhedger comps ~100) is selected; raw period volume is annualized (×1 / ×2 / ×4 / ×12). UI Volume = normalized 1Y notional. Velocity = normalized 1Y volume ÷ market cap × 100. Market cap never scaled. No “Est.” Under 30d coverage both **—**. **30D Median** prefers comps/fills in the last 30 days; if that window is empty, the same median uses the next larger span (60d → 90d → 180d → 365d → all tape) so a single nearby sale still populates the metric.
+
+**Markets grid titles** (`buildMarketsCollectionTitle` in `lib/markets/marketsCollectionTitle.ts`) use the catalog one-liner — `Year Set #Number CardName [Variant]` — matching Card.html `card__title` / search results. Collection detail hero keeps Display name + meta strip separately (`AssetDetailHeadlineTitle`); do not reuse the tile formatter on the detail page.
+
+**Collection detail order book** (Price / Qty / Total; Card.html `#tab-offers` four layouts): **All** — asks pane + `$bestAsk ↓` / `Spread $X` strip + bids pane. **Bids only** — compact “No cards for sale yet” (Place a bid + Notify me) + `$bestBid` / **No live spread** + bids (bids fill remaining height). **Asks only** — asks fill remaining height + `$bestAsk ↓` / **No live spread** + compact “No bids yet” (Place a bid). **None** — hide header/panes/spread; tall “No market yet” (List yours + Place a bid) and note **Vaulted cards can be listed here.** Live spread = best ask USDC − best bid USDC when both exist and ask > bid; token bids use `offer[0].startAmount`, not NFT `considerationAmount`. Overflow panes/trades use Card.html `.ob-fade` chevrons. The Trades/Listings rail is a fixed 394px (`#trades-card`) and must not resize. Depth bar = level Total ÷ side max Total; ask hover **Buy**. Palette `--ob-neg` `#F5332C` / `--ob-pos` `rgb(0,200,100)`. Same-price asks open Card.html `#tk-choose`: bottom sheet **Select your card**, rows are Cert + vault, CTA **Buy**; **Any card** + sort/vault filters when more than 8 copies.
+
+## Design system buttons (`TkButton`)
+
+DS variants already own chrome: `ghost` has an inset 1px outline; `primary` / `subtle` / `neutral` use top+bottom bevel shadows + pixel-notch `clip-path`.
+
+**Do not** add a second `border` or `box-shadow` on the same control via a feature class — it stacks as a double top edge (especially on `:hover`, where `.tk-btn--*:hover` can beat a single custom class).
+
+Rules:
+1. Prefer layout-only `className` (width / height / flex) and an unmodified DS variant.
+2. For a custom outline skin, use compound selectors (`.my-btn.tk-btn`, `:hover`, `:active`) that **fully replace** `box-shadow`, `border`, `clip-path`, and `transform`.
+3. Prefer `variant="ghost"` (already `clip-path: none`) when you need a quiet outline, then restyle color — don’t layer outline CSS on `subtle`.
+
+See also the comment in `styles/tokenable-ds-bridge.css`.
+
+## Header auth
+
+Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk-wallet.js` (`HeaderWalletMenu`, `HeaderMobileWalletSection`). Privy still owns login/logout/session (`useLogin`, `completeSignOut` → `useLogout`); the dropdown is Tokenable product nav only.
+
+`HeaderAuthControls` renders:
+
+- Skeleton while Privy + Tokenable session init (`usePrivyInitGate` — if Privy never becomes `ready`, e.g. `POST auth.privy.io/api/v1/sessions` 500, falls back to Sign up after ~5s instead of an infinite skeleton)
+- `TkButton` **Sign up** → `useLogin()` when logged out
+- `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in
+
+`PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
+
+**Settings** (`/settings`, Settings.html parity): side-nav sections for Profile, Notifications, Wallet and balance, Addresses, Identity, Legal, Security. Wired today: display name (`PATCH /auth/profile`), avatar upload (`POST /auth/avatar` → S3), email notification + marketing prefs (stored; delivery TBD), shipping address book CRUD (`/user/shipping-addresses`; default prefills PSA vault return address on `/sell/shipping`, else Partner Origin; address search via `AddressSearchField` + Places proxy), USDC + Add funds (MoonPay), linked wallet link/unlink/export, KYC → `/kyc`, sign out + delete account (delete clears Privy too). Honest “Coming soon” stubs: Telegram bot, server web-push, payment methods, multi-device sessions, 2FA, agreement document pages, consent audit log. Legacy `/profile` redirects here.
+
+Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
+
+Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before.
+
+## Portfolio My Assets loading
+
+`/portfolio` uses `usePortfolioAssetsPage` (DB bootstrap + pagination) and `usePortfolioActiveOrders` (listings):
+
+1. **BFF bootstrap** — `POST /marketplace/portfolio/assets-page` with **wallet only** (no client token list). Server reads **`ownedTokenIds`** from the DB owner index and returns the first **50** tokens' metadata, collection keys, market snapshots, and holdings in **one** round-trip. **No** `GET /blockchain/rwa/tokens/:address`.
+2. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
+3. **Holdings prefs** — included in the assets-page BFF for the loaded page (hide + cost basis). A live `POST …/holdings/batch` still refreshes purchase price on the visible grid (`refetchOnMount: always`). After an ask fill, the client paints `marketplace_buy` from the fill USDC immediately and does not let a stale BFF/persist row wipe it.
+**Prices** — snapshot marks from assets-page BFF (DB); Cardhedger mint-previews load in a **follow-up** request for tokens without snapshot prices. Gallery sparklines come from snapshot series. Hero **Portfolio value** sums live marks on loaded visible rows; **24h P/L chip** uses daily snapshots. Missing snapshots enqueue background refresh. Catalog / 30D median / similar-item / Top 100 cards drop cents via `formatUsdCompact` (`$39.99` → `$39`). On-platform asks, bids, and listed sales keep cents via `formatUsdListing`.
+5. **Browser cache** — `PortfolioQueryPersistence` mirrors markets: localStorage paint cache (24h TTL) for owned token list, assets-page payload, daily snapshots, listings, and mint previews. Refresh shows cached UI immediately; listings then refetch (`orders/by-offerer`, `refetchType: all`) so Edit price is not stuck on the paint-time ask. After Set/Edit price, `patchCachesAfterAskListed` writes the new ask into that cache before invalidation. The assets-page persist path copies live `ordersAsk` from React Query (it must not rewrite the previous listing).
+6. **Load more** — next `assets-page` call for the next 50 tokenIds only
+7. **Perf RUM (Phase 3)** — `usePortfolioLoadPerf` emits `portfolio/tokenIds-ready`, `assets-ready`, `prices-ready` when `localStorage.PERF_LOG=1` (see `lib/perf/`)
+
+Summary holdings count still uses the full owned id list. Chart totals come from daily snapshots, not from summing every row. After mint, buy, or hide, React Query invalidates `portfolio-daily-snapshots` so the open Portfolio page refetches the recaptured slot.
+
+## Multi-chain support
+
+`lib/chains/` resolves chain definitions and contract addresses from `NEXT_PUBLIC_CHAIN_{id}_*` env vars. Active chain context is provided by `AppChainProvider`. The active chain ID is sent to the backend via the `x-tokenable-chain-id` request header.
+
+Supported chains: **Ethereum Sepolia** (11155111, default), **Ethereum mainnet** (1). Only chains with all three env vars (`NEXT_PUBLIC_CHAIN_{id}_RPC_URL`, `_RWA`, `_USDC`) configured are offered in the UI.
+
+## Performance instrumentation (`lib/perf/`)
+
+Toggle at runtime via `localStorage` — no rebuild required:
+
+```js
+localStorage.setItem('PERF_LOG', '1');
+localStorage.setItem('PERF_THRESHOLD_MS', '100'); // optional, default 200ms
+location.reload();
+```
+
+`PerfObservers` (mounted once in `PrivyAppProviders`) tracks:
+- **React Query fetches** — logs query label + duration on success/error
+- **Route transitions** — logs `from → to` path + duration on link click
+- **Initial page load** — Navigation Timing API (TTFB, DOMContentLoaded, loadEventEnd)
+
+Output is JSON via `console.log`, parseable in DevTools or piped to a CLI.
+
+---
+
+## Feature flags (UI)
+
+Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin previews live under `/marketplace/admin/markets` (tabbed).
+
+### Markets URL filters (Details → Markets)
+
+Collection Details KV values deep-link to `/markets` using the Card.html / `markets-nav.js` query contract (`lib/markets/marketsUrlFilters.ts`):
+
+| Param | Meaning |
+|-------|---------|
+| `cat` | Category path(s); pipe-joined multi = OR (e.g. `sports/baseball` and `tcg/pokemon`) |
+| `character` | Card name facet (pipe-joined multi) |
+| `series` | TCG era / block (e.g. `Scarlet & Violet`) |
+| `set` | Set facet (same labels as Markets set chips) |
+| `year_min` / `year_max` | Year range |
+| `grade` | e.g. `PSA 10` (pipe-joined) |
+| `price_min` / `price_max`, `sort` | Default sort is `high_price`. `pct_change_high` (alias `gainers` = Top gainers) still works from URLs (landing Top movers → View all) but is not in the Markets sort menu. `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Just vaulted → View all** → `/markets?sort=newest`. |
+
+Linkable Details rows: Card name (character only), Category, Series, Set, Year, Grade, Grader. Values are right-aligned; links use Card.html dotted `brand-400` underline (no ↗). Card number / Set code / Variant / Language stay plain text (no Markets facet). Grade / grader URLs omit `cat` (`?grade=PSA%2010`); other rows keep the collection category.
+
+**Set facet sync:** Markets `set=` uses the same year-stripped labels as More filters (`resolveCollectionSetFacetLabel`). Details **Set** display is expansion-only; the link uses that facet string. `set=151 EN` (Card.html) still matches via a trailing language strip. Chosen sets, `series`, `character`, and `sort` persist in the URL.
+
+**Collection search:** GNB search submits to `/search?q=` (`buildCollectionSearchHref`). Typeahead uses `useMarketplaceCatalogSearch` (`GET /marketplace/search`) so **minted cards (cert / name)** appear above **collections**. Digit-only `q` of **7+** digits prefix-matches `rwa_tokens.cert_number`; shorter digits match token id, exact cert, or `#123` in the display name (same 7-digit floor as collection cert search). The search page shows cert-match rows first (`SearchCertMatches`), then the collection grid. Both use SSOT Line 1 + Line 2 titles (`formatSearchCardHitDisplay` / `showCatalogSubtitle` on `CollectibleCard`). Text search does **not** match `psaBrand`. Enter on a typeahead row opens that card or collection; View all / Enter with no highlight goes to `/search`. Card hits use the token slab image (PSA CloudFront allowed) and hydrate grade/name from collection components or IPFS metadata when the token was never listed.
+
+**Admin + local `next dev` CPU:** `/marketplace/admin/*` (and other `shouldHideAppChrome` routes) skip GNB/footer. Inbox polling (`useMarketplaceNotifications`) and `useActivePartner` / `GET partner-me` are disabled on those routes **and** when the browser tab is hidden. Otherwise the hidden header still polled `/api/marketplace/notifications` every ~15s and Turbopack kept recompiling the API proxy.
+
+**Fonts:** `app/layout.tsx` loads Inter **400/500/600/700/800** and JetBrains Mono **400/500/600/700**. Do not add unused weights (300 was unused). Privy stays on the root provider — do not lazy-unmount it.
+
+**CSS + Turbopack:** `app/globals.css` only pulls DS + layout + shared card/secondary sheets. Heavy route CSS (`tokenable-vault`, `sell-flow`, `collection-detail`, …) is imported from the owning route layout so admin / home compiles do not reprocess ~25k lines of unrelated CSS. See [design-system-reference.md](../guides/design-system-reference.md) § CSS bundle.

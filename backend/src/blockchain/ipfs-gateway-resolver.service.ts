@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
 
 type CacheEntry<T> = { value: T; expiresAtMs: number };
 
@@ -110,7 +111,9 @@ export class IpfsGatewayResolverService {
       throw new Error('Unsupported tokenURI for IPFS metadata fetch');
     }
 
+    const _t0 = perfNow();
     const json = await this.fetchJsonFromIpfsSubpath(subpath);
+    perfLog('ipfs', 'fetchMetadata', elapsedMs(_t0), { subpath: subpath.slice(0, 64) });
     this.metadataByKey.set(key, {
       value: json,
       expiresAtMs: now + this.cacheTtlMs(),
@@ -167,10 +170,12 @@ export class IpfsGatewayResolverService {
     }
 
     const hosts = this.getGatewayHosts();
+    const _t0 = perfNow();
     for (const host of hosts) {
       const url = `https://${host}/ipfs/${subpath}`;
       const ok = await this.urlIsReachable(url);
       if (ok) {
+        perfLog('ipfs', 'resolveImage', elapsedMs(_t0), { host, subpath: subpath.slice(0, 64) });
         this.httpsByImageKey.set(key, {
           value: url,
           expiresAtMs: now + this.cacheTtlMs(),
@@ -220,6 +225,7 @@ export class IpfsGatewayResolverService {
     const maxAttempts = 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const res = await fetch(url, {
+        signal: AbortSignal.timeout(15_000),
         headers: isJson ? { Accept: 'application/json' } : undefined,
       });
       if (res.ok) {

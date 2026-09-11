@@ -1,0 +1,68 @@
+/* Maps next/font variables into DS token stacks + prototype layout aliases. */
+
+:root:root {
+  /* Match index.html — out-specify design-system/tokens/base.css regardless of load order. */
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "SF Mono",
+    Menlo, monospace;
+}
+
+:root {
+  --ink: #0e0e0e;
+  --ink-2: #0e0e0e;
+  --surf: #141414;
+  --surf-2: #111111;
+  --line: rgba(255, 255, 255, 0.08);
+  /* Primary accent / CTA / links — `#1A6FFF`. Eyebrows use `--eyebrow`, not this. */
+  --azure: var(--accent-azure);
+  /* Page eyebrows only — not Neutral buttons (`--brand-400` / `#977DFF`). */
+  --eyebrow: #5b9aff;
+  /* Vaulting / stepper progress — not price-gain `--pos`. */
+  --progress-current: #4cde4c;
+  --progress-done: #0f3b24;
+  --pos: var(--text-positive-default);
+  --neg: var(--background-danger-default);
+  --amber: var(--background-warning-default);
+  --amber-bg: var(--background-warning-tertiary);
+  --amber-border: var(--border-warning-tertiary);
+  --warn: var(--background-warning-default);
+  --t1: rgba(255, 255, 255, 0.95);
+  --t2: var(--text-default-secondary);
+  --t3: var(--text-default-tertiary);
+}
+
+.mono,
+.tkl-mono {
+  font-family: var(--font-mono);
+  font-synthesis: none;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tk-ds-surface {
+  background: var(--ink);
+  color: var(--t1);
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-btn,
+  .tk-dialog,
+  .tk-sheet-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/*
+ * TkButton chrome rule:
+ * DS variants already own border/shadow (ghost inset outline; primary/subtle
+ * top+bottom bevels; pixel-notch clip-path). Feature CSS must not ADD a second
+ * border/box-shadow on top. If a screen needs a custom outline skin, use
+ * compound selectors `.my-btn.tk-btn`, `:hover`, `:active` that fully replace
+ * box-shadow/border/clip-path/transform — or keep className layout-only and
+ * use an unmodified DS variant.
+ */

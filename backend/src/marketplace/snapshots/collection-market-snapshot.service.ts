@@ -2,8 +2,12 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  TTL_CACHE_PROVIDER,
+  type TtlCacheProvider,
+} from '../../common/cache/ttl-cache.interface';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
-import { CollectionService } from '../collections/collection.service';
+import { CollectionEnrichmentService } from '../collections/collection-enrichment.service';
 import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { MARKET_NM_HISTORY_MAX_DAYS } from '../utils/market-grade-strip.util';
@@ -17,7 +21,12 @@ import type {
   SnapshotRefreshReason,
 } from '../utils/market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
-import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
+import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+
+const PRICE_INDEX_NS = 'collection-market-snapshots:price-index';
+const PRICE_INDEX_KEY = 'all';
+/** Default 30s — long enough to coalesce portfolio/list reads, short enough after upserts. */
+const PRICE_INDEX_TTL_DEFAULT_MS = 30_000;
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -30,16 +39,18 @@ export class CollectionMarketSnapshotService {
     string,
     Promise<CollectionMarketSnapshot | null>
   >();
+  private priceIndexInflight: Promise<Map<string, CollectionMarketSnapshot>> | null =
+    null;
 
   constructor(
     @InjectRepository(CollectionMarketSnapshot)
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
-    @Inject(forwardRef(() => CollectionService))
-    private readonly collectionService: CollectionService,
+    private readonly collectionEnrichment: CollectionEnrichmentService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {}
 
   staleAfterSec(): number {
@@ -73,7 +84,50 @@ export class CollectionMarketSnapshotService {
       .createQueryBuilder('s')
       .where('s.collection_key IN (:...keys)', { keys })
       .getMany();
-    return new Map(rows.map((r) => [r.collectionKey, r]));
+    return new Map(rows.map((r) => [r.collectionKey.toLowerCase(), r]));
+  }
+
+  priceIndexTtlMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS') ??
+        String(PRICE_INDEX_TTL_DEFAULT_MS),
+    );
+    if (!Number.isFinite(raw) || raw < 1_000) return PRICE_INDEX_TTL_DEFAULT_MS;
+    return Math.min(Math.floor(raw), 300_000);
+  }
+
+  /**
+   * All collection snapshot rows, keyed by lowercase collection_key.
+   * Shared by portfolio My Assets so prices do not wait on a second keyed SELECT
+   * after token listing / metadata.
+   */
+  async getPriceIndex(): Promise<Map<string, CollectionMarketSnapshot>> {
+    const cached = this.ttlCache.get<Map<string, CollectionMarketSnapshot>>(
+      PRICE_INDEX_NS,
+      PRICE_INDEX_KEY,
+    );
+    if (cached) return cached;
+    if (this.priceIndexInflight) return this.priceIndexInflight;
+
+    this.priceIndexInflight = this.loadPriceIndex().finally(() => {
+      this.priceIndexInflight = null;
+    });
+    return this.priceIndexInflight;
+  }
+
+  invalidatePriceIndex(): void {
+    this.ttlCache.delete(PRICE_INDEX_NS, PRICE_INDEX_KEY);
+  }
+
+  private async loadPriceIndex(): Promise<
+    Map<string, CollectionMarketSnapshot>
+  > {
+    const rows = await this.snapshotRepo.find();
+    const map = new Map(
+      rows.map((r) => [r.collectionKey.toLowerCase(), r] as const),
+    );
+    this.ttlCache.set(PRICE_INDEX_NS, PRICE_INDEX_KEY, map, this.priceIndexTtlMs());
+    return map;
   }
 
   isRowStale(row: CollectionMarketSnapshot | null | undefined): boolean {
@@ -99,19 +153,27 @@ export class CollectionMarketSnapshotService {
     const extLen = row.externalUsdJson?.length ?? 0;
     if (extLen >= 2) return true;
 
+    const headline = row.headlineUsd;
+    if (
+      typeof headline === 'number' &&
+      Number.isFinite(headline) &&
+      headline > 0
+    ) {
+      return true;
+    }
+
+    const psa10 =
+      row.psa10Usd ??
+      (row.gradePricesJson as { psa10?: number | null } | null)?.psa10;
+    if (typeof psa10 === 'number' && Number.isFinite(psa10) && psa10 > 0) {
+      return true;
+    }
+
     const card = row.previewJson.card;
     const matched = Boolean(row.previewJson.matched && card);
     if (matched) {
       const top = card?.topPrice;
       if (typeof top === 'number' && Number.isFinite(top) && top > 0) {
-        return true;
-      }
-      const headline = row.headlineUsd;
-      if (
-        typeof headline === 'number' &&
-        Number.isFinite(headline) &&
-        headline > 0
-      ) {
         return true;
       }
     }
@@ -153,42 +215,62 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const started = Date.now();
     try {
-      const allowPsaUpstream = psaPublicApiAllowedForSnapshotReason(
-        reason,
-        this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
-      );
-      await this.collectionService.refreshPsaPublicSnapshotForCollection(key, {
-        allowUpstream: allowPsaUpstream,
-      });
-      let col = await this.collectionService.findOne(key);
-      if (col) {
-        await this.collectionService.auditCardhedgerCardIdExact(key, {
+      // Mint-only PSA policy: never call PSA Public API during snapshot refresh.
+      void reason;
+      if (await this.collectionEnrichment.findOne(key)) {
+        await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
+          key,
+        );
+        await this.collectionEnrichment.auditCardhedgerCardIdExact(key, {
           clearOnMismatch: true,
         });
-        await this.collectionService.ensureMintParallelVarietyFromListings(key);
-        col = await this.collectionService.findOne(key);
-      }
-      if (col) {
-        col =
-          await this.collectionService.mergePsaSnapshotIntoComponentsFromDb(
-            col,
+
+        // Cert-based card ID resolution: if cardhedgerCardId is still empty
+        // after the audit, try listing mint metadata then details-by-certs.
+        const colForCert = await this.collectionEnrichment.findOne(key);
+        const certMissingId = !(
+          (colForCert?.components as Record<string, unknown> | null)
+            ?.cardhedgerCardId
+        );
+        if (certMissingId) {
+          await this.collectionEnrichment.ensureCardhedgerCardIdFromListings(
+            key,
           );
+        }
+        const colAfterListings = certMissingId
+          ? await this.collectionEnrichment.findOne(key)
+          : colForCert;
+        const stillMissingId = !(
+          (colAfterListings?.components as Record<string, unknown> | null)
+            ?.cardhedgerCardId
+        );
+        const certNumber = colAfterListings
+          ? psaCertNumberFromCollectionRow(colAfterListings)
+          : null;
+        if (certNumber && stillMissingId) {
+          const certResolved =
+            await this.cardMarketData.tryResolveCardIdByCert(certNumber, {
+              collection: colAfterListings,
+            });
+          if (certResolved?.cardId) {
+            await this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
+              key,
+              certResolved.cardId,
+              certResolved.query,
+            );
+          } else if (certResolved?.certDescription) {
+            // card: null but CardHedger returned a well-formatted description.
+            // Store it as cardhedgerSearchQuery so the text-search path uses it
+            // as a high-priority query on this and future snapshot refreshes.
+            void this.collectionEnrichment.writeCardhedgerSearchQueryFromCert(
+              key,
+              certResolved.certDescription,
+            );
+          }
+        }
       }
-      const comps = (col?.components ?? null) as Record<string, unknown> | null;
-      const psaEstimateRaw = comps?.psaEstimateUsd;
-      const psaEstimateUsd =
-        typeof psaEstimateRaw === 'number'
-          ? Number.isFinite(psaEstimateRaw) && psaEstimateRaw > 0
-            ? psaEstimateRaw
-            : null
-          : typeof psaEstimateRaw === 'string'
-            ? Number(
-                psaEstimateRaw
-                  .replace(/,/g, '')
-                  .replace(/\$/g, '')
-                  .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
-              )
-            : null;
+      const col = await this.collectionEnrichment.findOne(key);
+      const psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
         col,
@@ -205,9 +287,7 @@ export class CollectionMarketSnapshotService {
         historyTier,
         preview,
         historyPoints: history.points,
-        psaEstimateUsd: Number.isFinite(psaEstimateUsd as number)
-          ? (psaEstimateUsd as number)
-          : null,
+        psaEstimateUsd,
       });
 
       const row = await this.upsertPayload(payload);
@@ -221,6 +301,23 @@ export class CollectionMarketSnapshotService {
           durationMs: Date.now() - started,
         }),
       );
+
+      const persistId = String(
+        preview.card?.id ?? payload.cardhedgerCardId ?? '',
+      ).trim();
+      const storedId = String(
+        (col?.components as Record<string, unknown> | null)?.cardhedgerCardId ??
+          '',
+      ).trim();
+      if (preview.matched && persistId && !storedId) {
+        await this.collectionEnrichment.writeCardhedgerIdFromResolvedSearch(
+          key,
+          persistId,
+          preview.matchConfidence ?? 'approximate',
+          preview.searchQuery ?? null,
+        );
+      }
+
       return row;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -262,6 +359,7 @@ export class CollectionMarketSnapshotService {
     };
 
     await this.snapshotRepo.upsert(entity, ['collectionKey']);
+    this.invalidatePriceIndex();
     const saved = await this.findByKey(payload.collectionKey);
     if (!saved) {
       throw new Error(
@@ -286,6 +384,7 @@ export class CollectionMarketSnapshotService {
           lastRefreshError: message.slice(0, 2000),
         },
       );
+      this.invalidatePriceIndex();
       return;
     }
     await this.snapshotRepo.upsert(
@@ -297,6 +396,7 @@ export class CollectionMarketSnapshotService {
       },
       ['collectionKey'],
     );
+    this.invalidatePriceIndex();
   }
 
   /**
@@ -341,5 +441,24 @@ export class CollectionMarketSnapshotService {
     }
     if (!this.onDemandEnabled()) return existing;
     return this.refreshSnapshot(key, reason);
+  }
+
+  private psaEstimateUsdFromComponents(
+    components: Record<string, unknown> | null | undefined,
+  ): number | null {
+    const raw = components?.psaEstimateUsd;
+    if (typeof raw === 'number') {
+      return Number.isFinite(raw) && raw > 0 ? raw : null;
+    }
+    if (typeof raw === 'string') {
+      const n = Number(
+        raw
+          .replace(/,/g, '')
+          .replace(/\$/g, '')
+          .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+      );
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    return null;
   }
 }

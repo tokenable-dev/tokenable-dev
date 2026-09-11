@@ -20,10 +20,15 @@ export function isSeaportOrderActiveAt(o: Order, chainNowSec: bigint): boolean {
   return start <= chainNowSec && chainNowSec < end;
 }
 
+const timestampCache = new WeakMap<PublicClient, { at: number; ts: bigint }>();
+
 export async function getChainTimestampSec(
   publicClient: PublicClient,
 ): Promise<bigint> {
+  const cached = timestampCache.get(publicClient);
+  if (cached && Date.now() - cached.at < 2_000) return cached.ts;
   const b = await publicClient.getBlock({ blockTag: "latest" });
+  timestampCache.set(publicClient, { at: Date.now(), ts: b.timestamp });
   return b.timestamp;
 }
 

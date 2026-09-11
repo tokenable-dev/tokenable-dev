@@ -2,6 +2,7 @@ import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
 } from "@/lib/marketplace/bucketKey";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export function leadingYearFromSetLine(setLineRaw: string): number | null {
   const m = /^\s*(\d{4})\b/.exec(setLineRaw);
@@ -10,24 +11,90 @@ export function leadingYearFromSetLine(setLineRaw: string): number | null {
   return y >= 1880 && y <= 2100 ? y : null;
 }
 
+/** Set label for Details KV — year is its own row, so drop a leading catalog year prefix. */
+export function stripLeadingYearFromSetLine(setLineRaw: string): string {
+  const trimmed = setLineRaw.trim();
+  if (!trimmed) return "";
+  const y = leadingYearFromSetLine(trimmed);
+  if (y == null) return trimmed;
+  const stripped = trimmed.replace(new RegExp(`^\\s*${y}\\b\\s*`), "").trim();
+  return stripped || trimmed;
+}
+
+/** Canonical set facet label from a resolved set line (Details + Markets `set=`). */
+export function resolveCollectionSetFacetLabelFromLine(
+  setLineRaw: string | null | undefined,
+): string {
+  const raw = setLineRaw?.trim() ?? "";
+  if (!raw) return "";
+  return stripLeadingYearFromSetLine(raw);
+}
+
 /** Title-style card name for the hero (e.g. `PIKACHU/GREY FELT HAT` → `Pikachu Grey Felt Hat`). */
 export function formatCardNameForHeadline(raw: string): string {
-  return raw
+  return toCardDisplayCase(raw);
+}
+
+/**
+ * User-facing card copy — prefer title case over ALL CAPS.
+ * Mixed-case tokens (`SV2a`, `Charizard`) stay as-is; ALL-CAPS words are title-cased.
+ */
+export function toCardDisplayCase(value: string | null | undefined): string {
+  if (value == null) return "";
+  const t = String(value).trim().replace(/\s+/g, " ");
+  if (!t) return "";
+
+  const acronyms = new Set([
+    "psa",
+    "dna",
+    "bgs",
+    "sgc",
+    "cgc",
+    "tag",
+    "ex",
+    "gx",
+    "v",
+    "vmax",
+    "vstar",
+    "en",
+    "jp",
+    "kr",
+    "sir",
+    "sar",
+    "ur",
+    "hr",
+    "bsp",
+  ]);
+
+  const mapPart = (part: string): string => {
+    if (!part) return part;
+    if (/[a-z]/.test(part)) return part;
+    const lower = part.toLowerCase();
+    if (acronyms.has(lower)) {
+      if (lower === "v") return "V";
+      if (lower === "vmax") return "VMAX";
+      if (lower === "vstar") return "VSTAR";
+      return lower.toUpperCase();
+    }
+    if (/^#\d/.test(part)) return part;
+    if (/^#[A-Za-z0-9]/.test(part)) return normalizeHeadlineCardNumberToken(part);
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  };
+
+  return t
     .replace(/\/+/g, " ")
     .replace(/[_]+/g, " ")
-    .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => {
-      const lower = w.toLowerCase();
-      if (lower === "psa" || lower === "dna") return lower.toUpperCase();
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
+    .map((w) =>
+      w.includes("-") ? w.split("-").map(mapPart).join(" ") : mapPart(w),
+    )
     .join(" ");
 }
 
 /**
- * Collapse whitespace and uppercase — unified card copy on collection list + collection hero/details.
+ * @deprecated Prefer {@link toCardDisplayCase} for user-facing titles.
+ * Kept for admin / legacy call sites that still want ALL CAPS.
  */
 export function toCardDisplayUppercase(value: string | null | undefined): string {
   if (value == null) return "";
@@ -35,20 +102,136 @@ export function toCardDisplayUppercase(value: string | null | undefined): string
   return t.length === 0 ? "" : t.toLocaleUpperCase("en-US");
 }
 
-/** Padded `#085` when numeric; otherwise `#` + trimmed token. */
+/** Uppercase Latin letters in catalog card numbers (`op13-118` → `OP13-118`). */
+export function normalizeHeadlineCardNumberToken(token: string): string {
+  return token.replace(/[a-z]/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Display card number: drop `#`, keep hyphens, uppercase Latin
+ * (`#op13-118` → `OP13-118`). Pure numeric → zero-padded 3 digits (`85` → `085`).
+ * Pokemon-style `199/165` stays.
+ */
 export function formatHeadlineCardNumber(raw: string | undefined | null): string | null {
   const n = String(raw ?? "")
     .trim()
-    .replace(/^#/, "");
+    .replace(/#/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!n) return null;
   if (/^\d+$/.test(n)) {
     const v = parseInt(n, 10);
-    if (Number.isFinite(v) && v >= 0) return `#${String(v).padStart(3, "0")}`;
+    if (Number.isFinite(v) && v >= 0) return String(v).padStart(3, "0");
+  }
+  return normalizeHeadlineCardNumberToken(n);
+}
+
+/**
+ * TCG catalog ids are often `OP13-118` / `ST01-009` (set code + collector #).
+ * Line 1 and Details Card number use `number`; set code stays on Line 2 / breadcrumb.
+ */
+export function splitTcgCollectorNumber(raw: string | null | undefined): {
+  full: string | null;
+  setCode: string | null;
+  number: string | null;
+} {
+  const full = formatHeadlineCardNumber(raw);
+  if (!full) return { full: null, setCode: null, number: null };
+
+  const compound = /^([A-Za-z][A-Za-z0-9]{1,7})-(\d{1,4}[A-Za-z]?)$/i.exec(full);
+  if (compound) {
+    const setCode = normalizeHeadlineCardNumberToken(compound[1]);
+    const number =
+      formatHeadlineCardNumber(compound[2]) ?? compound[2].toUpperCase();
+    return { full, setCode, number };
+  }
+  return { full, setCode: null, number: full };
+}
+
+/** Card.html Details Card number — `#199 / 165` or `#118`. */
+export function formatDetailsCardNumber(raw: string | null | undefined): string {
+  const n = String(raw ?? "")
+    .trim()
+    .replace(/#/g, "")
+    .replace(/\s+/g, " ");
+  if (!n) return "";
+  const slash = /^(\d+)\s*\/\s*(\d+)$/.exec(n);
+  if (slash) {
+    return `#${Number(slash[1])} / ${Number(slash[2])}`;
+  }
+  if (/^\d+$/.test(n)) {
+    return `#${Number(n)}`;
   }
   return `#${n}`;
 }
 
-export function yearFromComponents(components: Record<string, unknown>): number | null {
+const DETAILS_CARD_NAME_SUFFIX =
+  /^(ex|gx|v|vmax|vstar|lvx|mega|tag)$/i;
+
+/** Card.html Card name — `Charizard` linked, `ex` plain. */
+export function splitDetailsCardName(full: string): {
+  character: string;
+  suffix: string | null;
+} {
+  const t = full.trim().replace(/\s+/g, " ");
+  if (!t) return { character: "", suffix: null };
+  const parts = t.split(" ");
+  if (parts.length < 2) return { character: t, suffix: null };
+  const lastRaw = parts[parts.length - 1]!.replace(/\./g, "");
+  if (!DETAILS_CARD_NAME_SUFFIX.test(lastRaw)) {
+    return { character: t, suffix: null };
+  }
+  let suffix = toCardDisplayCase(parts[parts.length - 1]!);
+  if (/^ex$/i.test(lastRaw)) suffix = "ex";
+  if (/^gx$/i.test(lastRaw)) suffix = "gx";
+  const character = parts.slice(0, -1).join(" ").trim();
+  return { character: character || t, suffix: suffix || null };
+}
+
+/**
+ * Pull a collector number out of a listing / catalog title when `components.cardNumber` is missing.
+ * Prefers `#199/165`, `199/165`, `#OP13-118` — never a 4-digit year.
+ */
+export function extractCardNumberFromDisplayText(
+  raw: string | null | undefined,
+): string | null {
+  const t = String(raw ?? "").trim();
+  if (!t) return null;
+  const slash = /#?(\d{1,3}\s*\/\s*\d{1,3})\b/.exec(t);
+  if (slash) return formatHeadlineCardNumber(slash[1].replace(/\s+/g, ""));
+  const op = /\b(OP\d{1,2}-?\d{2,4})\b/i.exec(t);
+  if (op) return formatHeadlineCardNumber(op[1]);
+  const hashedAlnum = /#([A-Za-z]{1,4}\d{2,6}[A-Za-z]?)\b/.exec(t);
+  if (hashedAlnum) return formatHeadlineCardNumber(hashedAlnum[1]);
+  const hashedNum = /#(\d{1,4})\b/.exec(t);
+  if (hashedNum) {
+    const token = hashedNum[1];
+    if (/^\d{4}$/.test(token)) {
+      const y = Number(token);
+      if (y >= 1880 && y <= 2100) return null;
+    }
+    return formatHeadlineCardNumber(token);
+  }
+  return peelTrailingCollectorNumber(t).cardNumber;
+}
+
+/** `Master Ball Reverse Holo · 094` → text + `094`. Does not peel years. */
+export function peelTrailingCollectorNumber(raw: string | null | undefined): {
+  text: string;
+  cardNumber: string | null;
+} {
+  const t = String(raw ?? "").trim();
+  if (!t) return { text: "", cardNumber: null };
+  const m = /^(.*?)(?:\s*[·•]\s*|\s+)#?(\d{2,3})$/.exec(t);
+  if (!m) return { text: t, cardNumber: null };
+  const rest = m[1].trim();
+  const token = m[2];
+  if (!rest) return { text: t, cardNumber: null };
+  if (/^\d{4}$/.test(token)) return { text: t, cardNumber: null };
+  return { text: rest, cardNumber: formatHeadlineCardNumber(token) };
+}
+
+export function yearFromComponents(components: CollectionComponents): number | null {
   const yearRaw = components.year;
   if (typeof yearRaw === "number" && Number.isFinite(yearRaw)) {
     const y = yearRaw;
@@ -67,7 +250,7 @@ export function yearFromComponents(components: Record<string, unknown>): number 
  */
 export function buildCollectionHeadlineMetaStrip(params: {
   setLine: string | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   marketPreview?: {
     card?: {
       setName?: string | null;
@@ -86,8 +269,8 @@ export function buildCollectionHeadlineMetaStrip(params: {
     (params.marketPreview?.card?.variant?.trim() ?? "");
   const setType = params.marketPreview?.card?.setType?.trim() ?? "";
   const listingTitle =
-    typeof params.comp["listingDisplayTitle"] === "string"
-      ? String(params.comp["listingDisplayTitle"]).trim()
+    typeof params.comp.listingDisplayTitle === "string"
+      ? params.comp.listingDisplayTitle.trim()
       : "";
   /** NFT `name` is canonical for this bucket — skip Cardhedger `setType` (often a second full set name). */
   const skipCatalogSetTypeEcho = listingTitle.length > 0;
@@ -127,7 +310,7 @@ function tagFragmentContainedInLine(fragment: string, lineRaw: string): boolean 
 }
 
 /** Prefer IPFS display name, formatted for reading when it looks like a bucket slug. */
-export function formatCollectionHeroCardTitle(comp: Record<string, unknown>): string {
+export function formatCollectionHeroCardTitle(comp: CollectionComponents): string {
   const raw = bucketCardNameForDisplay(comp).trim();
   if (!raw) return "";
   const looksSlug =

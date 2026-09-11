@@ -18,8 +18,6 @@ export function MintForm() {
     return (
       <MintFormSuccessView
         txHash={mint.result.txHash}
-        waitingForReceipt={mint.waitingForReceipt}
-        receipt={mint.receipt}
         onReset={mint.resetForm}
       />
     );
@@ -27,8 +25,12 @@ export function MintForm() {
 
   return (
     <>
-      <div className="rounded-2xl border border-gray-800 bg-[#0a0e14]/80 p-6 sm:p-8 transition-all duration-200">
-        <form onSubmit={mint.handleSubmit} className="space-y-6">
+      <div className="vault-form-panel transition-all duration-200">
+        <form
+          onSubmit={mint.handleSubmit}
+          className="space-y-6"
+          aria-busy={mint.isProcessing}
+        >
           <GradedCardSection
             gradingCompany={mint.form.gradingCompany}
             card={mint.form.card}
@@ -48,13 +50,21 @@ export function MintForm() {
             slotAfterHero={
               <div className="space-y-4">
                 <MintFormMintActions
-                  isConnected={mint.isConnected}
+                  isWalletReady={mint.isWalletReady}
+                  isWalletActivating={mint.isWalletActivating}
+                  isWalletAwaitingPrivy={mint.isWalletAwaitingPrivy}
+                  hasAccountWallet={mint.hasAccountWallet}
+                  walletActivateBusy={mint.walletActivateBusy}
+                  walletActivateError={mint.walletActivateError}
+                  onActivateAccountWallet={() => void mint.activateAccountWallet()}
                   showMintReady={psa.showMintReady}
                   isProcessing={mint.isProcessing}
                   showPsaAnalyzeOverlay={psa.showPsaAnalyzeOverlay}
                   psaInputMode={psa.psaInputMode}
                   step={mint.step}
                   errorMsg={mint.errorMsg}
+                  certTakenMessage={mint.certTakenMessage}
+                  certTakenChecking={mint.certTakenChecking}
                 />
 
                 <MintFormMintImageSection
@@ -68,11 +78,20 @@ export function MintForm() {
                 />
 
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && mint.errors.image && (
-                  <p className="text-xs text-red-400">{mint.errors.image}</p>
+                  <p className="text-xs text-neg">{mint.errors.image}</p>
                 )}
                 {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && mint.errors.name && (
-                  <p className="text-xs text-red-400">{mint.errors.name}</p>
+                  <p className="text-xs text-neg">{mint.errors.name}</p>
                 )}
+                {!SHOW_VAULT_COLLAPSIBLE_SECTIONS &&
+                  psa.lastAnalyze?.psa.cardNameHint?.trim() && (
+                    <p className="text-xs leading-relaxed text-gray-500">
+                      Listing title uses the PSA slab label:{" "}
+                      <span className="text-gray-400">
+                        {psa.lastAnalyze.psa.cardNameHint.trim()}
+                      </span>
+                    </p>
+                  )}
 
                 {psa.psaRateLimitAlert && (
                   <div
@@ -87,7 +106,7 @@ export function MintForm() {
 
                 {psa.analyzeError && !psa.psaRateLimitAlert && (
                   <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
-                    <p className="text-xs text-red-400 break-words">{psa.analyzeError}</p>
+                    <p className="text-xs text-neg break-words">{psa.analyzeError}</p>
                   </div>
                 )}
 

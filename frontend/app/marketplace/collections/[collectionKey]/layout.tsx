@@ -1,4 +1,5 @@
 import { CollectionDetailsScrollScope } from "./CollectionDetailsScrollScope";
+import "@/styles/tokenable-collection-detail.css";
 
 export default function CollectionDetailLayout({
   children,

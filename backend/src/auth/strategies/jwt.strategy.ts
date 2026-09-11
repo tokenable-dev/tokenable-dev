@@ -5,6 +5,7 @@ import { Request } from 'express';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
+import { userMayAuthenticate } from '../auth-session.util';
 
 type JwtPayload = { sub: string; email: string };
 
@@ -27,7 +28,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   async validate(payload: JwtPayload): Promise<User> {
     const user = await this.users.findById(payload.sub);
-    if (!user) throw new UnauthorizedException();
+    if (!user || !userMayAuthenticate(user)) {
+      throw new UnauthorizedException();
+    }
     return user;
   }
 }

@@ -2,19 +2,24 @@
 
 import type { ReactNode } from "react";
 import {
-  GradientOutlineFrame,
-  VAULT_OUTLINE_PAD_CLASS,
-} from "@/components/ui/GradientOutlineFrame";
-
-/** Active Photo / Cert # tab — plain black fill inside gradient rim (matches inactive tab height). */
-const vaultTabActiveInnerClass =
-  "block w-full rounded-[7px] border-0 bg-black px-3 py-2.5 text-xs font-semibold leading-none text-mint transition-colors sm:text-sm";
+  TkButton,
+  TkCheckbox,
+  TkField,
+  TkInput,
+  TkSelect,
+} from "@/components/ds";
+import { cn } from "@/lib/ds/cn";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
-const inputClass =
-  "w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+const vaultTabClass = (active: boolean) =>
+  cn(
+    "min-w-0 flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm",
+    active
+      ? "border border-[rgba(26,111,255,0.4)] bg-[rgba(26,111,255,0.08)] text-white"
+      : "border border-transparent text-white/40 hover:text-white",
+  );
 
 function lockedHint(locked: boolean): string | undefined {
   return locked ? "Set by PSA analysis and cannot be edited" : undefined;
@@ -46,9 +51,9 @@ interface GradedCardSectionProps {
   certLookupBusy?: boolean;
   /** Cert mode: a PSA lookup already succeeded (soften Look up vs Mint). */
   certLookupHasResult?: boolean;
-  /** Render between slab/cert hero and the collapsible card & PSA fields (e.g. mint preview + Mint CTA) */
+  /** Render between slab/cert hero and the collapsible card and PSA fields (e.g. mint preview + Mint CTA) */
   slotAfterHero?: ReactNode;
-  /** When false, hides the Card & PSA details accordion (form state still updates from PSA). */
+  /** When false, hides the Card and PSA details accordion (form state still updates from PSA). */
   showCardPsaDetailsPanel?: boolean;
 }
 
@@ -90,8 +95,9 @@ function PsaSlabUploadHero({
             Optional: PSA cert URL
           </span>
         </summary>
-        <input
+        <TkInput
           type="url"
+          className="mt-2"
           value={verification.certUrl}
           onChange={(e) =>
             onVerificationChange({ ...verification, certUrl: e.target.value })
@@ -99,7 +105,6 @@ function PsaSlabUploadHero({
           placeholder="https://www.psacard.com/cert/…"
           disabled={Boolean(L?.certUrl)}
           title={lockedHint(Boolean(L?.certUrl))}
-          className={`${inputClass} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
         />
       </details>
     </section>
@@ -140,11 +145,9 @@ function PsaCertLookupHero({
         Cert lookup
       </label>
       <div className="space-y-4 rounded-xl bg-gray-900/35 p-4 ring-1 ring-white/[0.06]">
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-400">
-            Cert # <span className="text-red-400">*</span>
-          </p>
-          <input
+        <TkField label="Cert # *" htmlFor="psa-cert-hero-number">
+          <TkInput
+            id="psa-cert-hero-number"
             type="text"
             inputMode="numeric"
             autoComplete="off"
@@ -153,12 +156,11 @@ function PsaCertLookupHero({
             placeholder="7–10 digit PSA cert number"
             disabled={Boolean(L?.certNumber)}
             title={lockedHint(Boolean(L?.certNumber))}
-            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs text-gray-500">Cert URL (optional)</label>
-          <input
+        </TkField>
+        <TkField label="Cert URL (optional)" htmlFor="psa-cert-hero-url">
+          <TkInput
+            id="psa-cert-hero-url"
             type="url"
             value={verification.certUrl}
             onChange={(e) =>
@@ -167,9 +169,8 @@ function PsaCertLookupHero({
             placeholder="https://www.psacard.com/cert/…"
             disabled={Boolean(L?.certUrl)}
             title={lockedHint(Boolean(L?.certUrl))}
-            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
-        </div>
+        </TkField>
         {subduedLookup ? (
           <button
             type="button"
@@ -178,20 +179,18 @@ function PsaCertLookupHero({
             title="Clear PSA result so you can change the cert # or URL, then press Look up."
             className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 px-3 text-xs font-medium text-zinc-500 transition hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-zinc-300 disabled:opacity-40"
           >
-            Clear & edit cert
+            Clear and edit cert
           </button>
         ) : (
-          <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-            <button
-              type="button"
-              onClick={() => onCertLookup()}
-              disabled={certLookupBusy || !hasHint}
-              className="w-full rounded-[11px] border-0 !bg-black py-3 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
-              style={{ backgroundColor: "#000000" }}
-            >
-              {certLookupBusy ? "Looking up…" : "Look up"}
-            </button>
-          </GradientOutlineFrame>
+          <TkButton
+            type="button"
+            variant="primary"
+            className="w-full justify-center"
+            onClick={() => onCertLookup()}
+            disabled={certLookupBusy || !hasHint}
+          >
+            {certLookupBusy ? "Looking up…" : "Look up"}
+          </TkButton>
         )}
       </div>
     </section>
@@ -226,64 +225,28 @@ export function GradedCardSection({
     <div className="space-y-6 transition-opacity duration-200">
       {setMode && (
         <div
-          className="flex items-center gap-1 rounded-xl bg-gray-900/60 p-1 ring-1 ring-white/[0.06]"
+          className="flex items-center gap-1 rounded-xl bg-[#141414] p-1 ring-1 ring-white/[0.06]"
           role="tablist"
           aria-label="PSA data source"
         >
-          {mode === "slab" ? (
-            <GradientOutlineFrame
-              className="min-w-0 flex-1 overflow-hidden"
-              roundedClass="rounded-lg"
-              padClass={VAULT_OUTLINE_PAD_CLASS}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                onClick={() => setMode("slab")}
-                className={vaultTabActiveInnerClass}
-              >
-                Photo
-              </button>
-            </GradientOutlineFrame>
-          ) : (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={false}
-              onClick={() => setMode("slab")}
-              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
-            >
-              Photo
-            </button>
-          )}
-          {mode === "cert" ? (
-            <GradientOutlineFrame
-              className="min-w-0 flex-1 overflow-hidden"
-              roundedClass="rounded-lg"
-              padClass={VAULT_OUTLINE_PAD_CLASS}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                onClick={() => setMode("cert")}
-                className={vaultTabActiveInnerClass}
-              >
-                Cert #
-              </button>
-            </GradientOutlineFrame>
-          ) : (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={false}
-              onClick={() => setMode("cert")}
-              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
-            >
-              Cert #
-            </button>
-          )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "slab"}
+            onClick={() => setMode("slab")}
+            className={vaultTabClass(mode === "slab")}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "cert"}
+            onClick={() => setMode("cert")}
+            className={vaultTabClass(mode === "cert")}
+          >
+            Cert #
+          </button>
         </div>
       )}
 
@@ -314,7 +277,7 @@ export function GradedCardSection({
         className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
       >
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
-          <span>Card &amp; PSA details</span>
+          <span>Card and PSA details</span>
           <svg
             className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
             fill="none"
@@ -331,140 +294,124 @@ export function GradedCardSection({
           </svg>
         </summary>
         <div className="space-y-6 border-t border-gray-700/40 px-4 pb-5 pt-4">
-      {/* Card Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Card Name</label>
-        <input
+      <TkField
+        label="Card Name"
+        htmlFor="vault-card-name"
+        hint="Must match the card name printed on your PSA slab label (Subject line)."
+      >
+        <TkInput
+          id="vault-card-name"
           type="text"
           value={card.name}
           onChange={(e) => onCardChange({ ...card, name: e.target.value })}
           placeholder="e.g. Pikachu Van Gogh"
           disabled={Boolean(L?.cardName)}
           title={lockedHint(Boolean(L?.cardName))}
-          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
         />
-      </div>
+      </TkField>
 
-      {/* Grading Company + Grade — side by side like the image */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Grading Company
-          </label>
-          <div
-            className="flex items-center justify-between bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-3 text-sm text-white cursor-default"
+        <TkField label="Grading Company">
+          <TkInput
+            type="text"
+            value="PSA"
+            readOnly
             title={L?.gradingCompany ? lockedHint(true) : undefined}
+          />
+        </TkField>
+        <TkField label="Grade" htmlFor="vault-grade-score">
+          <TkSelect
+            id="vault-grade-score"
+            value={grade.score}
+            onChange={(e) => onGradeChange({ score: e.target.value })}
+            disabled={Boolean(L?.score)}
+            title={lockedHint(Boolean(L?.score))}
           >
-            <span>PSA</span>
-            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Grade</label>
-          <div className="relative">
-            <select
-              value={grade.score}
-              onChange={(e) => onGradeChange({ score: e.target.value })}
-              disabled={Boolean(L?.score)}
-              title={lockedHint(Boolean(L?.score))}
-              className={`${inputClass} appearance-none pr-10 disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              <option value="">Select grade</option>
-              <option value="10">10 - Gem Mint</option>
-              <option value="9">9 - Mint</option>
-              <option value="8.5">8.5 - NM-MT+</option>
-              <option value="8">8 - NM-MT</option>
-              <option value="7.5">7.5 - Near Mint+</option>
-              <option value="7">7 - Near Mint</option>
-              <option value="6.5">6.5 - EX-MT+</option>
-              <option value="6">6 - EX-MT</option>
-              <option value="5.5">5.5 - Excellent+</option>
-              <option value="5">5 - Excellent</option>
-              <option value="4.5">4.5 - VG-EX+</option>
-              <option value="4">4 - VG-EX</option>
-              <option value="3.5">3.5 - VG+</option>
-              <option value="3">3 - VG</option>
-              <option value="2.5">2.5 - Good+</option>
-              <option value="2">2 - Good</option>
-              <option value="1.5">1.5 - Fair</option>
-              <option value="1">1 - Poor</option>
-            </select>
-            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </div>
-        </div>
+            <option value="">Select grade</option>
+            <option value="10">10 - Gem Mint</option>
+            <option value="9">9 - Mint</option>
+            <option value="8.5">8.5 - NM-MT+</option>
+            <option value="8">8 - NM-MT</option>
+            <option value="7.5">7.5 - Near Mint+</option>
+            <option value="7">7 - Near Mint</option>
+            <option value="6.5">6.5 - EX-MT+</option>
+            <option value="6">6 - EX-MT</option>
+            <option value="5.5">5.5 - Excellent+</option>
+            <option value="5">5 - Excellent</option>
+            <option value="4.5">4.5 - VG-EX+</option>
+            <option value="4">4 - VG-EX</option>
+            <option value="3.5">3.5 - VG+</option>
+            <option value="3">3 - VG</option>
+            <option value="2.5">2.5 - Good+</option>
+            <option value="2">2 - Good</option>
+            <option value="1.5">1.5 - Fair</option>
+            <option value="1">1 - Poor</option>
+          </TkSelect>
+        </TkField>
       </div>
 
-      {/* Cert Number — hidden in cert-only mode (entered in hero) */}
       {mode === "slab" && (
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Cert Number</label>
-          <input
+        <TkField label="Cert Number" htmlFor="vault-cert-number">
+          <TkInput
+            id="vault-cert-number"
             type="text"
             value={grade.certNumber}
             onChange={(e) => onGradeChange({ certNumber: e.target.value })}
             placeholder="PSA Certification Number"
             disabled={Boolean(L?.certNumber)}
             title={lockedHint(Boolean(L?.certNumber))}
-            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
           />
-        </div>
+        </TkField>
       )}
 
-      {/* Player, Year, Set, Card Number */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Player / Character
-          </label>
-          <input
+        <TkField label="Player / Character" htmlFor="vault-player">
+          <TkInput
+            id="vault-player"
             type="text"
             value={card.player}
             onChange={(e) => onCardChange({ ...card, player: e.target.value })}
             placeholder="e.g. Shohei Ohtani"
             disabled={Boolean(L?.player)}
             title={lockedHint(Boolean(L?.player))}
-            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
-          <input
+        </TkField>
+        <TkField label="Year" htmlFor="vault-year">
+          <TkInput
+            id="vault-year"
             type="text"
             value={card.year}
             onChange={(e) => onCardChange({ ...card, year: e.target.value })}
             placeholder="e.g. 2023"
             disabled={Boolean(L?.year)}
             title={lockedHint(Boolean(L?.year))}
-            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Set / Series</label>
-          <input
+        </TkField>
+        <TkField label="Set / Series" htmlFor="vault-set">
+          <TkInput
+            id="vault-set"
             type="text"
             value={card.set}
             onChange={(e) => onCardChange({ ...card, set: e.target.value })}
             placeholder="e.g. Topps Chrome"
             disabled={Boolean(L?.set)}
             title={lockedHint(Boolean(L?.set))}
-            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Card Number</label>
-          <input
+        </TkField>
+        <TkField label="Card Number" htmlFor="vault-card-number">
+          <TkInput
+            id="vault-card-number"
             type="text"
             value={card.number}
             onChange={(e) => onCardChange({ ...card, number: e.target.value })}
             placeholder="e.g. 1"
             disabled={Boolean(L?.number)}
             title={lockedHint(Boolean(L?.number))}
-            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
           />
-        </div>
+        </TkField>
       </div>
 
-      {/* PSA-specific extra fields (inside Card & PSA panel) */}
+      {/* PSA-specific extra fields (inside Card and PSA panel) */}
       {hasCompany && (
         <CompanySpecificBlock
           company="PSA"
@@ -500,25 +447,24 @@ function CompanySpecificBlock({
 
   return (
     <div className="rounded-lg border border-gray-700/35 bg-gray-900/25 p-3 sm:p-4">
-      <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-gray-500">
-        {company} — population &amp; extras
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+        {company} — population and extras
       </p>
 
       {company === "PSA" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Qualifier</label>
-            <select
+          <TkField label="Qualifier" htmlFor="vault-psa-qualifier">
+            <TkSelect
+              id="vault-psa-qualifier"
               value={String(get("qualifier"))}
               onChange={(e) => set("qualifier", e.target.value)}
-              className={inputClass}
             >
               <option value="">—</option>
               <option value="OC">OC (Off-Center)</option>
               <option value="MC">MC (Miscut)</option>
               <option value="ST">ST (Stained)</option>
-            </select>
-          </div>
+            </TkSelect>
+          </TkField>
           <InputField
             label="Autograph Grade"
             value={String(get("autographGrade"))}
@@ -567,19 +513,18 @@ function CompanySpecificBlock({
           <InputField label="Corners Subgrade" value={String(get("corners", ""))} onChange={(v) => set("corners", v)} />
           <InputField label="Edges Subgrade" value={String(get("edges", ""))} onChange={(v) => set("edges", v)} />
           <InputField label="Surface Subgrade" value={String(get("surface", ""))} onChange={(v) => set("surface", v)} />
-          <div className="sm:col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Label Type</label>
-            <select
+          <TkField className="sm:col-span-2" label="Label Type" htmlFor="vault-bgs-label">
+            <TkSelect
+              id="vault-bgs-label"
               value={String(get("labelType"))}
               onChange={(e) => set("labelType", e.target.value)}
-              className={inputClass}
             >
               <option value="">—</option>
               <option value="Black Label">Black Label</option>
               <option value="Pristine">Pristine</option>
               <option value="Gold">Gold</option>
-            </select>
-          </div>
+            </TkSelect>
+          </TkField>
         </div>
       )}
 
@@ -635,13 +580,14 @@ function InputField({
   optional?: boolean;
   locked?: boolean;
 }) {
+  const id = `vault-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5">
-        {label}
-        {optional && <span className="text-gray-600 ml-1">(optional)</span>}
-      </label>
-      <input
+    <TkField
+      label={optional ? `${label} (optional)` : label}
+      htmlFor={id}
+    >
+      <TkInput
+        id={id}
         type={type}
         value={value}
         disabled={locked}
@@ -654,9 +600,8 @@ function InputField({
             onChange(e.target.value);
           }
         }}
-        className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
       />
-    </div>
+    </TkField>
   );
 }
 
@@ -670,14 +615,10 @@ function CheckField({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-mint focus:ring-mint"
-      />
-      <span className="text-sm text-gray-300">{label}</span>
-    </label>
+    <TkCheckbox
+      label={label}
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+    />
   );
 }

@@ -1,4 +1,5 @@
 import type { CollectionGradePrices, CollectionMarketPreview, CollectionUsdPoint } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   catalogSpotUsdFromMarketPreview,
 } from "@/lib/market";
@@ -6,11 +7,37 @@ import { marketHistoryTierFromComponents } from "@/lib/market";
 import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
 import {
   MARKET_PRICE_CHANGE_LAG_SEC,
+  referenceHistoryCoversFullYear,
   type ReferencePercentChangeResult,
 } from "@/lib/market/priceChangePeriod";
 
-/** Catalog reference for marketplace/portfolio (currently Cardhedger-backed). */
-export type ExternalMarketPriceSource = "cardhedger";
+/** Catalog reference for marketplace/portfolio (Cardhedger or PSA Estimate fallback). */
+export type ExternalMarketPriceSource =
+  | "cardhedger"
+  | "cardhedger_fmv"
+  | "cardhedger_estimate"
+  | "cardhedger_comps"
+  | "psa_estimate";
+
+export function externalMarketPriceSourceLabel(
+  source: ExternalMarketPriceSource | null | undefined,
+): string | null {
+  if (source === "psa_estimate") return "PSA Estimate";
+  if (source === "cardhedger_fmv") return "Cardhedger FMV";
+  if (source === "cardhedger_estimate") return "Cardhedger Estimate";
+  if (source === "cardhedger_comps") return "Cardhedger Comps";
+  return null;
+}
+
+function priceSourceFromPreview(
+  preview: CollectionMarketPreview | null | undefined,
+): ExternalMarketPriceSource | null {
+  const raw = preview?.card?.priceSource;
+  if (raw === "cardhedger_fmv") return "cardhedger_fmv";
+  if (raw === "cardhedger_estimate") return "cardhedger_estimate";
+  if (raw === "cardhedger_comps") return "cardhedger_comps";
+  return null;
+}
 
 export type ResolvedExternalMarketUsd = {
   usd: number | null;
@@ -20,12 +47,11 @@ export type ResolvedExternalMarketUsd = {
 };
 
 /**
- * Minimum 30-day sales required before trusting a Cardhedger preview price.
- * Must match CARDHEDGER_MIN_RELIABLE_SALES_30D / CARDHEDGER_MIN_VERIFIED_SALES_30D on the backend.
+ * Minimum 30-day sales required before trusting a Cardhedger preview price as "high reliability".
+ * Must match CARDHEDGER_MIN_VERIFIED_SALES_30D on the backend (default 1).
  * NOTE: Cardhedger's `sales30d` is total-card (all grades), not PSA-10-specific.
- * A conservative threshold prevents stale catalog prices on thinly-traded rare cards.
  */
-export const EXTERNAL_PRICE_MIN_SALES_30D = 5;
+export const EXTERNAL_PRICE_MIN_SALES_30D = 1;
 
 function finitePositive(n: number | null | undefined): number | null {
   if (n == null || !Number.isFinite(n) || n <= 0) return null;
@@ -73,18 +99,21 @@ export function resolveExternalMarketUsd(params: {
   gradePrices: CollectionGradePrices | null | undefined;
   gradeScore: number | null | undefined;
   /** When set, picks PSA_10 history tier for spot (same as chart). */
-  components?: Record<string, unknown> | null;
+  components?: CollectionComponents | null;
+  /** Materialized snapshot spot basis from market-series bundle. */
+  spotPriceBasis?: string | null;
 }): ResolvedExternalMarketUsd {
   const tier = marketHistoryTierFromComponents(params.components ?? null);
   const preview =
     params.marketPreview?.matched && params.marketPreview.card
       ? params.marketPreview
       : null;
-  const poke = catalogSpotUsdFromMarketPreview(preview, tier);
-  if (poke != null) {
+  const catalogSpotUsd = catalogSpotUsdFromMarketPreview(preview, tier);
+  if (catalogSpotUsd != null) {
+    const explicitSource = priceSourceFromPreview(params.marketPreview);
     return {
-      usd: poke,
-      source: "cardhedger",
+      usd: catalogSpotUsd,
+      source: explicitSource ?? "cardhedger",
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };
   }
@@ -96,8 +125,21 @@ export function resolveExternalMarketUsd(params: {
       : null,
   );
   if (strip != null) {
-    return { usd: strip, source: "cardhedger" };
+    const compEstimate = finitePositive(params.components?.psaEstimateUsd);
+    const isPsaEstimate =
+      params.spotPriceBasis === "psa_estimate" ||
+      (preview == null && compEstimate != null && Math.abs(compEstimate - strip) < 0.01);
+    return {
+      usd: strip,
+      source: isPsaEstimate ? "psa_estimate" : "cardhedger",
+    };
   }
+
+  const compEstimate = finitePositive(params.components?.psaEstimateUsd);
+  if (compEstimate != null) {
+    return { usd: compEstimate, source: "psa_estimate" };
+  }
+
   return { usd: null, source: null };
 }
 
@@ -197,25 +239,52 @@ export function percentChangeReferenceBestWindow(
     points,
     MARKET_PRICE_CHANGE_LAG_SEC,
   );
-  const historyCovers1y = spanSec >= MARKET_PRICE_CHANGE_LAG_SEC;
+  const historyCovers1y = referenceHistoryCoversFullYear(spanSec);
   if (lag1y != null && historyCovers1y) {
     return {
       pct: lag1y.pct,
       isFullYear: true,
       windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+      marketChangeWindow: "365d",
       refUsd: lag1y.refUsd,
       refAtSec: lag1y.refAtSec,
     };
+  }
+
+  if (historyCovers1y && lag1y == null) {
+    const lagSpan = referenceLagAnchorFromPoints(points, spanSec);
+    if (lagSpan != null) {
+      return {
+        pct: lagSpan.pct,
+        isFullYear: true,
+        windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+        marketChangeWindow: "365d",
+        refUsd: lagSpan.refUsd,
+        refAtSec: lagSpan.refAtSec,
+      };
+    }
   }
 
   const lagSpan = referenceLagAnchorFromPoints(points, spanSec);
   const pct =
     lagSpan?.pct ?? percentChangeFromUsdPoints(points);
 
+  const days = Math.max(1, Math.round(spanSec / 86_400));
+
   return {
     pct,
     isFullYear: false,
     windowSec: spanSec,
+    marketChangeWindow:
+      days >= 300
+        ? "365d"
+        : days >= 150
+          ? "180d"
+          : days >= 60
+            ? "90d"
+            : days >= 21
+              ? "30d"
+              : "7d",
     refUsd: lagSpan?.refUsd ?? null,
     refAtSec: lagSpan?.refAtSec ?? null,
   };

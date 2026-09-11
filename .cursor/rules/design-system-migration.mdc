@@ -1,0 +1,34 @@
+---
+description: Design system UI work — use design-system-reference.md (migration phases 0–10 are Done)
+globs:
+  - "frontend/**"
+  - "docs/guides/design-system-reference.md"
+  - "frontend/design-system/**"
+---
+
+# Design system (UI / layout / styling)
+
+When the task involves **UI, layout, styling, or visual redesign** of the Tokenable frontend:
+
+1. Read **`docs/guides/design-system-reference.md`** — tokens, components, CSS import order, prototype sync, checklist.
+2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
+3. For layout reference, open the matching HTML in **`Tokenable-with design system-5/`** (see `frontend/design-system/PROTOTYPES.md`) — **do not** import or paste that HTML into React.
+4. Use committed DS CSS from **`frontend/design-system/`** (`tk-*` classes) via `components/ds/*` wrappers.
+5. Migration phases 0–10 are **Done** — do not create new phase docs; extend the reference + INVENTORY instead.
+6. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
+
+## Hard rules
+
+- No `dangerouslySetInnerHTML` from prototype HTML.
+- No `support.js` / `x-dc` in Next.js.
+- Preserve hooks, API clients, Privy/Seaport logic — **skin swap only** unless the task is functional.
+- Two modal patterns: **`ds/Dialog`** (center) vs **`ds/ActionSheet`** (portfolio actions: right drawer / mobile bottom sheet).
+- Do not commit `Tokenable-with design system-5/uploads/` or `screenshots/`.
+
+## Canonical paths
+
+| Asset | Path |
+|-------|------|
+| DS CSS | `frontend/design-system/styles.css` |
+| **Ongoing reference** | `docs/guides/design-system-reference.md` |
+| Public DS images | `frontend/public/assets/ds/` |

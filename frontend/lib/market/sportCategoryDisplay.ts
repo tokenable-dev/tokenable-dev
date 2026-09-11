@@ -6,9 +6,12 @@
  * badges should read **Pokemon**, not a second TCG label beside Pokémon copy.
  */
 
-/** PSA / Cardhedger / mint metadata → unified Pokémon badge label. */
+/** PSA / Cardhedger / mint metadata → Pokémon (not generic TCG — One Piece also uses TCG). */
 const POKEMON_TCG_CATEGORY_PATTERNS: ReadonlyArray<RegExp> = [
   /^pok[eé]mon(\s+cards?)?$/i,
+];
+
+const GENERIC_TCG_CATEGORY_PATTERNS: ReadonlyArray<RegExp> = [
   /^tcg(\s+cards?)?$/i,
   /^tcgcard(s)?$/i,
   /^trading\s+card(\s+game)?(\s+cards?)?$/i,
@@ -50,13 +53,21 @@ export function isSportCategoryLeagueDisplayLabel(label: string): boolean {
   return LEAGUE_ABBREVS.has(label.trim().toUpperCase());
 }
 
-/** True when upstream category is Pokémon / generic TCG (not sports). */
+/** True when upstream category is Pokémon (not generic TCG). */
 export function isPokemonTcgCategoryLabel(raw: string | null | undefined): boolean {
   const t = String(raw ?? "")
     .trim()
     .replace(/\s+/g, " ");
   if (!t) return false;
   return POKEMON_TCG_CATEGORY_PATTERNS.some((re) => re.test(t));
+}
+
+export function isGenericTcgCategoryLabel(raw: string | null | undefined): boolean {
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!t) return false;
+  return GENERIC_TCG_CATEGORY_PATTERNS.some((re) => re.test(t));
 }
 
 export function formatSportCategoryDisplayLabel(
@@ -68,6 +79,7 @@ export function formatSportCategoryDisplayLabel(
   if (!t) return "";
 
   if (isPokemonTcgCategoryLabel(t)) return "Pokemon";
+  if (isGenericTcgCategoryLabel(t)) return "TCG";
 
   const upper = t.toUpperCase();
   if (LEAGUE_ABBREVS.has(upper)) return upper;

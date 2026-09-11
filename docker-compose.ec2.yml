@@ -1,9 +1,31 @@
 # EC2 전용 — 레포의 backend/.env.production 에 쓰지 않고 홈의 시크릿 파일 사용
 # ~/.env.production.backend: DATABASE_*, JWT_*, CORS_ORIGIN (comma list: IP + https domain),
-#   FRONTEND_URL, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_ID/SECRET, COOKIE_SECURE, etc.
+#   FRONTEND_URL, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_ID/SECRET, COOKIE_SECURE,
+#   PRIVY_APP_ID, PRIVY_APP_SECRET (same App ID as GitHub NEXT_PUBLIC_PRIVY_APP_ID),
+#   REDIS_URL=redis://redis:6379 (identity cache L2; omit → L1-only per pod),
+#   SITE_ACCESS_ENABLED=true, SITE_ACCESS_PASSWORD=717171,
+#   SITE_ACCESS_SECRET=<random 32+ chars — backend + frontend both load via env_file below>,
+#   SITE_ACCESS_SESSION_SECONDS=3600 (optional), etc.
 # 사용법:
 #   docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d
+#
+# 메모리 상한: 단일 EC2(t3.medium 4GB 기준)에서 한 컨테이너의 폭주가
+# 이웃(특히 Postgres)을 OOM 으로 밀어내지 않도록 컨테이너별 상한을 둔다.
+# 인스턴스를 키우면 이 값들도 함께 조정할 것.
 services:
   backend:
     env_file:
       - /home/ubuntu/.env.production.backend
+    mem_limit: 1536m
+  frontend:
+    env_file:
+      - /home/ubuntu/.env.production.backend
+    mem_limit: 768m
+  postgres:
+    mem_limit: 1024m
+  redis:
+    mem_limit: 256m
+    # maxmemory + LRU: 캐시가 커져도 mem_limit OOM kill 대신 오래된 키를 밀어냄
+    command: redis-server --appendonly yes --maxmemory 192mb --maxmemory-policy allkeys-lru
+  nginx:
+    mem_limit: 128m

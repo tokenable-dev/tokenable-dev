@@ -1,18 +1,54 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { getMarketplaceCollectionsPage, rq, marketplaceRqPolicy } from "@/lib/core";
+import {
+  getMarketplaceCollectionsPage,
+  rq,
+  marketplaceApiRetryDelay,
+  marketplaceRqPolicy,
+} from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 
-export function useMarketplaceCollectionsInfinite() {
+/**
+ * First Markets grid page. Further pages use the same size via infinite scroll.
+ */
+export const MARKETS_COLLECTIONS_PAGE_SIZE = 50;
+
+/** Matches backend `searchSummaries` cap. */
+const SEARCH_PAGE_SIZE = 40;
+
+export function useMarketplaceCollectionsInfinite(opts?: {
+  enabled?: boolean;
+  /** Server-side collection text search (`GET …/collections?q=`). */
+  q?: string | null;
+}) {
+  const chainId = activeRqChainId();
+  const q = String(opts?.q ?? "").trim();
+  const isSearch = q.length > 0;
+
   return useInfiniteQuery({
-    queryKey: rq.collectionsMarketplace(),
-    queryFn: ({ pageParam }) =>
-      getMarketplaceCollectionsPage({
-        cursor: pageParam as string | null,
-        limit: 30,
-      }),
+    queryKey: isSearch
+      ? rq.collectionsSearch(chainId, q)
+      : [...rq.collectionsMarketplace(chainId), MARKETS_COLLECTIONS_PAGE_SIZE],
+    queryFn: async ({ pageParam }) => {
+      const pack = await getMarketplaceCollectionsPage({
+        q: isSearch ? q : undefined,
+        cursor: isSearch ? undefined : (pageParam as string | null),
+        limit: isSearch ? SEARCH_PAGE_SIZE : MARKETS_COLLECTIONS_PAGE_SIZE,
+      });
+      return {
+        items: Array.isArray(pack?.items) ? pack.items.filter(Boolean) : [],
+        nextCursor: pack?.nextCursor ?? null,
+      };
+    },
     initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.nextCursor,
+    getNextPageParam: (last) =>
+      isSearch ? undefined : (last?.nextCursor ?? undefined),
+    enabled: opts?.enabled ?? true,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: marketplaceRqPolicy.apiQueryRetry,
+    retryDelay: marketplaceApiRetryDelay,
   });
 }

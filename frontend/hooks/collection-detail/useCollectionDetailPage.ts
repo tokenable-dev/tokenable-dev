@@ -1,24 +1,28 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { getMarketplaceCollectionDetail } from "@/lib/core";
-import { isMarketplaceAdminWallet } from "@/lib/marketplace";
-import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
-import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
-import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
+import { getMarketplaceCollectionDetail, rq, marketplaceRqPolicy } from "@/lib/core";
+import { invalidateAfterCollectionUpdate } from "@/lib/core/invalidation";
+import type { BookRowSelection, TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 import { useCollectionDetailHeadline } from "./useCollectionDetailHeadline";
-import { useCollectionDetailInvalidation } from "./useCollectionDetailInvalidation";
 import { useCollectionDetailListings } from "./useCollectionDetailListings";
 import { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";
 import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
 import { useAppStore, selectWallet } from "@/store";
-import { parseCollectionDetailComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
+import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
+import { activeRqChainId } from "@/lib/chains";
 
-export type CollectionDetailPageStatus = "invalid" | "loading" | "error" | "ready";
+export type CollectionDetailPageStatus =
+  | "invalid"
+  | "loading"
+  | "not_created"
+  | "fetch_error"
+  | "ready";
 
 export type CollectionDetailPageModel = ReturnType<typeof useCollectionDetailPage>;
 
@@ -33,34 +37,34 @@ export type CollectionDetailLoadedProps = CollectionDetailPageModel & {
 export function useCollectionDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { address } = useAppStore(useShallow(selectWallet));
   const raw = params.collectionKey;
   const rawCollectionKey = Array.isArray(raw) ? raw[0] : raw;
   const collectionKey =
     typeof rawCollectionKey === "string" ? decodeURIComponent(rawCollectionKey) : "";
 
-  const [sellModalOpen, setSellModalOpen] = useState(false);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
-  const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
+  const [orderBookAskPicker, setOrderBookAskPicker] = useState<BookRowSelection | null>(null);
   useCollectionDetailMobile();
-  const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
     v: number;
   } | null>(null);
   const [showOrderBook, setShowOrderBook] = useState(false);
-  const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
-  const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
+  const chainId = activeRqChainId();
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["marketplace-collection", collectionKey],
+    queryKey: rq.collectionDetail(collectionKey, chainId),
     queryFn: () => getMarketplaceCollectionDetail(collectionKey),
-    enabled: collectionKey.length > 0,
+    enabled: collectionKey.length > 0 && looksLikeCollectionKey(collectionKey),
+    staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 
   const comp = useMemo(
-    () => parseCollectionDetailComponents(data?.collection?.components),
+    () => parseCollectionComponents(data?.collection?.components),
     [data?.collection?.components],
   );
 
@@ -70,9 +74,7 @@ export function useCollectionDetailPage() {
     key: collectionKey,
     comp,
     hasCollection,
-    collectionComponents: data?.collection?.components as
-      | Record<string, unknown>
-      | undefined,
+    collectionComponents: data?.collection?.components,
     detailLoading: isLoading,
     detailError: isError,
     hasDetailData: Boolean(data),
@@ -87,6 +89,7 @@ export function useCollectionDetailPage() {
     pokeTierLabel: market.pokeTierLabel,
     displayLabel: data?.collection?.displayLabel,
     hasCollection,
+    activeGradeLabel: market.gradeAwareTierLabel,
   });
 
   const asks = useMemo(
@@ -105,44 +108,21 @@ export function useCollectionDetailPage() {
     enabled: hasCollection,
   });
 
-  const invalidateCollection = useCollectionDetailInvalidation(collectionKey);
-
-  const listingTokenIdsForAdmin = useMemo(() => {
-    const ids: number[] = [];
-    for (const o of asks) {
-      const id = Number(o.tokenId);
-      if (Number.isFinite(id)) ids.push(id);
-    }
-    return ids;
-  }, [asks]);
-
-  const isCoverAdmin = isMarketplaceAdminWallet(address);
-
-  const presetPriceFromBook = useMemo(() => {
-    if (bookSelection == null) return null;
-    return bookSelection.price.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }, [bookSelection]);
-
-  const listPricePresetUsdc = useMemo(() => {
-    if (bookSelection?.side !== "bid") return null;
-    return presetPriceFromBook;
-  }, [bookSelection, presetPriceFromBook]);
-
-  const preferredBidOrderHash = useMemo(() => {
-    if (bookSelection?.side !== "bid" || !bookSelection.orders.length) return null;
-    return bookSelection.orders[0]?.orderHash ?? null;
-  }, [bookSelection]);
+  const invalidateCollection = useCallback(() => {
+    void invalidateAfterCollectionUpdate(queryClient, collectionKey);
+  }, [queryClient, collectionKey]);
 
   const status: CollectionDetailPageStatus = !collectionKey
     ? "invalid"
-    : isLoading
-      ? "loading"
-      : isError || !data || !data.collection
-        ? "error"
-        : "ready";
+    : !looksLikeCollectionKey(collectionKey)
+      ? "invalid"
+      : isLoading
+        ? "loading"
+        : isError || !data
+          ? "fetch_error"
+          : !data.collection
+            ? "not_created"
+            : "ready";
 
   const collectionOrderBookProps = useMemo(() => {
     if (!data?.collection) return null;
@@ -150,24 +130,33 @@ export function useCollectionDetailPage() {
       collectionKey: data.collection.collectionKey,
       asks,
       collectionBids,
-      selectedLevelKey: bookSelection?.levelKey ?? null,
-      onSelectLevel: (sel) => {
-        setBookSelection(sel);
-        setTradeFlow("buy");
-        setTradeDockOpen(true);
-      },
+      selectedLevelKey: orderBookAskPicker?.levelKey ?? null,
+      onSelectLevel: () => {},
       lastTradePriceUsdc: market.orderBookLastSaleUsdc,
       tapeFills: market.orderBookTapeFills,
       tapeLoading: market.platformTradesLoading,
+      tapeError: market.platformTradesError,
+      tapeErrorMessage:
+        market.platformTradesErrorDetail instanceof Error
+          ? market.platformTradesErrorDetail.message
+          : market.platformTradesError
+            ? "Failed to load trades"
+            : null,
+      connectedAddress: address,
+      onInvalidate: invalidateCollection,
     });
   }, [
     data?.collection,
     asks,
     collectionBids,
-    bookSelection?.levelKey,
+    orderBookAskPicker?.levelKey,
     market.orderBookLastSaleUsdc,
     market.orderBookTapeFills,
     market.platformTradesLoading,
+    market.platformTradesError,
+    market.platformTradesErrorDetail,
+    address,
+    invalidateCollection,
   ]);
 
   return {
@@ -183,25 +172,12 @@ export function useCollectionDetailPage() {
     collectionBids,
     listings,
     invalidateCollection,
-    listingTokenIdsForAdmin,
-    isCoverAdmin,
-    presetPriceFromBook,
-    listPricePresetUsdc,
-    preferredBidOrderHash,
     collectionOrderBookProps,
-    sellModalOpen,
-    setSellModalOpen,
     tradeCelebration,
     setTradeCelebration,
-    bookSelection,
-    aiInsightComingSoonOpen,
-    setAiInsightComingSoonOpen,
+    orderBookAskPicker,
+    setOrderBookAskPicker,
     showOrderBook,
     setShowOrderBook,
-    tradeFlow,
-    setTradeFlow,
-    tradeDockOpen,
-    setTradeDockOpen,
-    setSessionFillPoint,
   };
 }

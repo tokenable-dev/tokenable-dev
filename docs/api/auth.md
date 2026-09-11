@@ -2,76 +2,62 @@
 
 **Controller:** `backend/src/auth/auth.controller.ts`  
 **Base path:** `/api/auth`  
-**Swagger tag:** `auth`
+**Swagger tags:** `auth`, `privy-auth`
 
-Authentication uses **Google OAuth 2.0**. After the callback, the backend issues a JWT as an `HttpOnly` cookie (`access_token`). Protected routes accept either the cookie or `Authorization: Bearer <token>`.
+Authentication is handled exclusively by **Privy**. After Privy login, the backend issues a JWT as an `HttpOnly` cookie (`access_token`). Protected routes accept either the cookie or `Authorization: Bearer <token>`.
 
----
-
-## Routes
-
-### `GET /api/auth/google`
-
-Initiates Google OAuth. Passport redirects the browser to Google.
-
-- **Guard:** `AuthGuard('google')`
-- **Response:** `302` redirect to Google
+> **Legacy Google OAuth and email/password routes have been removed.** SMTP mail + verification-token services were deleted with them (Privy-only).
 
 ---
 
-### `GET /api/auth/google/callback`
+## Active endpoints
 
-Google OAuth callback. Issues JWT cookie and redirects to the frontend.
+### `POST /api/auth/privy/session`
 
-- **Guard:** `AuthGuard('google')`
-- **Cookie set:** `access_token` (HttpOnly, maxAge 7 days)
-  - `Secure` flag: `true` when `FRONTEND_URL` starts with `https://` or `COOKIE_SECURE=true`
-- **Redirect:** `{FRONTEND_URL}/auth/callback?ok=1`
-- **Side effect:** Queues verification email if user's email is not yet verified
+Exchange a Privy access token for a Tokenable session cookie.
 
----
+Called automatically by `PrivySessionBridge` after every Privy authentication event. Clients do not call this directly.
 
-### `GET /api/auth/verify-email`
-
-Handles the email-verification link sent to the user's inbox.
-
-| Query param | Required | Description |
-|-------------|----------|-------------|
-| `token` | Yes | One-time verification token |
-
-- **Response:** Redirects to `{FRONTEND_URL}/?email_verify=ok` or `?email_verify=invalid`
-
----
-
-### `POST /api/auth/send-verification-email`
-
-Resends the verification email.
-
-- **Guard:** `JwtAuthGuard` (cookie or Bearer)
-- **Response:** `200 { ok: true }`
+- **Header:** `Authorization: Bearer <privy_access_token>` — the short-lived JWT from Privy `getAccessToken()`
+- **On success:**
+  - Verifies the Privy token via JWKS (or `PRIVY_JWT_VERIFICATION_KEY` PEM key if set)
+  - Fetches the Privy user profile (embedded wallet, linked accounts, email, name)
+  - Upserts a `users` row keyed on `privy_id` (or email for existing legacy accounts)
+  - Syncs all wallet addresses from the Privy profile to `user_wallets`
+  - Syncs all linked auth providers to `user_auth_providers`
+  - Sets an `access_token` HttpOnly cookie (7-day default; see `JWT_EXPIRES_SEC`)
+  - Returns `{ user: { id, email, privyId, walletAddress, kycStatus, wallets, ... } }`
+- **Errors:**
+  - `400 Bad Request` — Privy not configured, or profile is invalid
+  - `401 Unauthorized` — Token signature invalid or expired
 
 ---
 
 ### `GET /api/auth/session`
 
-Returns the current session user. Never returns `401`; unauthenticated requests get `{ user: null }`.
+Returns the current session user. Never returns `401`.
 
 ```json
 // authenticated
-{ "user": { "id": "...", "email": "...", "name": "...", "walletAddress": "0x...", ... } }
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "privyId": "did:privy:...",
+    "walletAddress": "0x...",
+    "kycStatus": "none|pending|approved|rejected",
+    "wallets": [...],
+    "name": "...",
+    "pictureUrl": "...",
+    "marketingEmailsOptIn": false,
+    "emailNotificationsEnabled": true,
+    "emailNotifPrefs": { "trades": true, "bids": true, "price": true, "vault": true }
+  }
+}
 
 // unauthenticated
 { "user": null }
 ```
-
----
-
-### `GET /api/auth/me`
-
-Returns the current user. Returns `401` when unauthenticated.
-
-- **Guard:** `JwtAuthGuard`
-- **Response:** Same user shape as `session.user`
 
 ---
 
@@ -83,31 +69,153 @@ Clears the `access_token` cookie.
 
 ---
 
-### `POST /api/auth/wallet`
+### `PATCH /api/auth/profile`
 
-Links an Ethereum wallet address to the authenticated account. The address is normalized to EIP-55 checksum format.
+Update display name and notification / marketing preferences for the authenticated user.
 
 - **Guard:** `JwtAuthGuard`
-- **Request body:** `LinkWalletDto`
+- **Body (all optional):**
+  - `name` — display name (1–200 chars)
+  - `marketingEmailsOptIn` — boolean
+  - `emailNotificationsEnabled` — master switch for category email prefs
+  - `emailNotifPrefs` — `{ trades?, bids?, price?, vault? }` booleans
+- **Response:** `{ user: … }` (same shape as session; includes the new preference fields)
+- **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`.
 
-```json
-{ "address": "0xYourEthereumAddress" }
-```
+### `POST /api/auth/avatar`
 
-- **Response:**
+Upload a custom profile avatar (Settings → Profile). Uses the same S3 bucket / public base as catalog covers.
 
-```json
-{ "id": "...", "walletAddress": "0x...", "walletLinkedAt": "2024-01-01T00:00:00.000Z" }
-```
+- **Guard:** `JwtAuthGuard`
+- **Body:** `multipart/form-data` field `file` (JPEG / PNG / WebP, max 8MB)
+- **Object key:** `{CATALOG_COVER_S3_PREFIX}user-avatars/{userId}/avatar` (overwrite-stable; under cover IAM scope)
+- **Response:** `{ user: … }` with updated `pictureUrl` (includes `?v=` cache-bust)
+- **Errors:** `503` if S3 not configured or IAM denies PutObject; `400` for bad type/size
+- **Env:** same as catalog covers; optional `USER_AVATAR_S3_PREFIX` override (requires matching IAM)
 
 ---
 
-### `DELETE /api/auth/wallet`
+### Shipping addresses (`/api/user/shipping-addresses`)
 
-Unlinks the wallet address from the authenticated account.
+Saved ship-to book for vault redeem / physical withdrawal, and the **default** used to prefill PSA vault return address on `/sell/shipping`. Controller: `user-shipping-addresses.controller.ts` (registered on `AuthModule`).
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/api/user/shipping-addresses/autocomplete?q=` | Suggestions (`{ enabled, suggestions }`). Google Places when `GOOGLE_PLACES_API_KEY` is set; otherwise a small mock in non-production. |
+| GET | `/api/user/shipping-addresses/place?placeId=` | Fill fields (`line1`/`city`/`region`/`postal`/`country`/`phoneDial`). `blocked` for TH/RU/BY. |
+| `GET` | `/api/user/shipping-addresses` | `{ addresses: [...] }` |
+| `POST` | `/api/user/shipping-addresses` | Create (max 10). First address or `isDefault: true` becomes default. |
+| `PATCH` | `/api/user/shipping-addresses/:id` | Update fields / `isDefault` |
+| `POST` | `/api/user/shipping-addresses/:id/default` | Set default |
+| `DELETE` | `/api/user/shipping-addresses/:id` | Delete; promotes another default if needed |
+
+All require `JwtAuthGuard`. Address shape matches redeem `shipTo` (`name`, `line1`, `line2`, `city`, `region`, `postal`, `country`=`us|ca|intl`, `phone`) plus `label` and `isDefault`. Redeem’s “Save this address…” checkbox upserts the **default** address here (same fields / form UI as Settings). PSA shipping (`useSellShipping`) prefills Return Address from `isDefault` (else first saved row), then Partner Origin if the address book is empty.
+
+Address search (Redeem, Settings, Partner origin) is one extra line on `ShippingAddressFormFields` / partner origin — not the HTML `tk-address.js` runtime. Key stays server-side.
+
+---
+
+### `POST /api/auth/delete-account`
+
+Permanently delete the authenticated account. Clears the session cookie.
 
 - **Guard:** `JwtAuthGuard`
-- **Response:** `{ "walletAddress": null }`
+- **Response:** `204 No Content`
+- **Side effects:** Deletes `users` row; `user_wallets`, `user_shipping_addresses`, `user_watchlist`, `user_auth_providers`, and `user_kyc_events` cascade. Client should also clear the Privy session (`completeSignOut`) so a new account is not immediately recreated.
+
+---
+
+## Marketplace Admin Auth
+
+Marketplace admin has a **separate** auth system (not Privy):
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/marketplace/admin/auth/session` | Check admin session |
+| `POST /api/marketplace/admin/auth/login` | Login with username/password |
+| `POST /api/marketplace/admin/auth/logout` | Logout |
+
+Admin credentials are stored in `marketplace_admins` table. Default dev: `skyand` / `071725` (override with `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD`).
+
+---
+
+## Authentication Flow
+
+```
+User → Privy login (email/Google/Apple/wallet)
+     → Frontend PrivySessionBridge calls getAccessToken()
+     → POST /api/auth/privy/session (Bearer privy_token)
+     → PrivyService.verifyAccessToken() — JWKS or PEM key
+     → fetchUser(privyId) → parsePrivyUserProfile()
+     → UserService.findOrCreateFromPrivy()
+       → upsert users by privy_id or email
+       → syncPrivyWallets() → user_wallets
+       → syncPrivyIdentity() → user_auth_providers
+     → issueAccessToken() — JWT cookie (7 days)
+     → return { user: AuthUser }
+```
+
+### Wallet sync behavior
+
+On every `POST /auth/privy/session`:
+- Embedded Privy wallets are marked `wallet_kind = 'embedded'`
+- External wallets (MetaMask etc.) are marked `wallet_kind = 'external'`
+- External wallets are listed **first** (wallet-first identity)
+- First wallet linked becomes `is_primary = true`
+- Wallets removed from Privy are soft-removed (`source = 'privy_sync'` only)
+
+### Primary wallet
+
+`users.wallet_address` = denormalized primary (first linked). `user_wallets.is_primary` = canonical primary per user. Multiple users can share the same wallet address.
+
+### Wagmi wallet alignment (frontend)
+
+`AccountWalletAligner` (`useEnsureAccountWalletActive`) picks the wagmi active wallet on every page load. Two rules keep browser extensions out of that path:
+
+- **External wallets are only activated when the backend has confirmed them as `is_primary`.** `useWallets()` also lists extensions that this origin already has a live `eth_accounts` grant for, and `@privy-io/wagmi` silently reconnects them — activating one would open MetaMask for a Google/email user who never asked for it.
+- **Pre-sync guesses are embedded-only.** `pickPrimaryPrivyWallet()` returns the embedded wallet or nothing; it never falls back to `wallets[0]`.
+
+`WalletDataProvider` keeps the account wallet on the app-selected chain:
+
+- Prefer Privy `ConnectedWallet.switchChain(chainId)` so approve/sign UIs show Polygon (etc.), not a stale Sepolia provider.
+- Fall back to wagmi `switchChain` / EIP-1193 only when needed.
+- Network prompts run only when the connected address equals the backend primary (never for a silently reconnected extension).
+
+`useEnsureAccountWalletReady` / listing flows call the same sync before approve + Seaport sign.
+
+---
+
+## Access gates (frontend)
+
+| Level | Requirement | Used for |
+|-------|-------------|----------|
+| 0 | None | Browse markets |
+| 1 | Signed in + linked wallet | Trade (`useTradeAccessGate`) |
+| 2 | Level 1 + KYC approved | Sell / vault (`useSellAccessGate`) |
+
+Gates open modals in sequence: sign-in → connect-wallet → KYC.
+
+---
+
+## KYC
+
+Stored on `users.kyc_status`: `none` | `pending` | `approved` | `rejected`.
+
+Provider: **Sumsub** (`kyc_provider = 'sumsub'`). Applicant id: `users.kyc_external_id`.
+
+Audit trail in `user_kyc_events` (append-only). Updated via:
+- `POST /api/webhooks/sumsub` — Sumsub `applicantReviewed` / pending events (HMAC)
+- `UserService.updateKycStatus()` (admin action)
+- Admin UI: `/marketplace/admin/users` — KYC fields, event log, `POST …/users/:id/kyc` override
+
+User-facing flow:
+- `GET /api/kyc/status` — JWT
+- `POST /api/kyc/access-token` — JWT; creates applicant + WebSDK token
+- Frontend `/kyc` — Sumsub WebSDK 2.0
+
+Product gates (Level 2): vault ship / mint and physical redeem require `kyc_status = approved`. Signup, Markets buy/bid, and list-for-sale do not. Server enforces KYC on mint + `POST /api/rwa/redeem-batch`.
+
+See [guides/sumsub-kyc.md](../guides/sumsub-kyc.md).
 
 ---
 
@@ -115,9 +223,15 @@ Unlinks the wallet address from the authenticated account.
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | Public URL — must match Google Console (`{host}/api/auth/google/callback`) |
-| `FRONTEND_URL` | Frontend base URL used for redirects and cookie Secure flag |
-| `JWT_SECRET` | JWT signing secret |
-| `COOKIE_SECURE` | Optional override: `true` / `false` |
+| `PRIVY_APP_ID` | Privy App ID — same as `NEXT_PUBLIC_PRIVY_APP_ID` |
+| `PRIVY_APP_SECRET` | Privy server secret — required |
+| `PRIVY_JWT_VERIFICATION_KEY` | Optional PEM public key — skips JWKS fetch |
+| `JWT_SECRET` | Session JWT signing |
+| `JWT_EXPIRES_SEC` | Session TTL (default: 604800 = 7 days) |
+| `SUMSUB_APP_TOKEN` | Sumsub app token (server only) |
+| `SUMSUB_SECRET_KEY` | Sumsub API + webhook HMAC (server only) |
+| `SUMSUB_LEVEL_NAME` | Sumsub verification level name |
+| `SUMSUB_WEBHOOK_SECRET` | Optional webhook-only secret |
+| `SUMSUB_BASE_URL` | Optional Sumsub API base (default `https://api.sumsub.com`) |
+| `FRONTEND_URL` | Used for redirects and cookie Secure flag |
+| `COOKIE_SECURE` | Override: `true` forces Secure cookie |

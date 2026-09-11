@@ -1,22 +1,63 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { CollectionService } from './collection.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
 import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
 import {
   type GradePriceStrip,
   type UsdPoint,
+  referenceChangeWithBestWindow,
+  referenceLagAnchorFromPoints,
 } from '../utils/collection-market.util';
+import {
+  pickHomeTickerKeys,
+  pickHomeTopMoverKeys,
+  pickJustVaultedKeys,
+  uniqueKeysInOrder,
+  HOME_MOVERS_LAG_90D_SEC,
+} from '../utils/collection-home-feed.util';
+import type { CollectionSummary } from './collection.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
+import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
+import {
+  cardhedgerRawSalesToTapeRows,
+  computeCollectionTradesVolumeStats,
+  mergePlatformAndCardhedgerTape,
+  type CollectionTradesVolumeStats,
+  type PlatformTapeFillRow,
+} from '../utils/collection-tape-merge.util';
+import { CARDHEDGER_COMPS_HISTORY_RAW_COUNT } from '../market-data/cardhedger-pricing.service';
 import {
   resolveFulfilledAskTokenId,
   resolvePlatformTapeFill,
 } from '../utils/platform-tape.util';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import type {
+  CollectionGradeCatalogEntry,
+} from '../utils/cardhedger-grade-catalog.util';
+import {
+  catalogFromAllPricesRows,
+  catalogFromPricesByGradeMap,
+  catalogPriceForSlabGrade,
+  collectionGradeLabelFromHistoryTier,
+} from '../utils/cardhedger-grade-catalog.util';
+import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
+import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
+import {
+  buildMaterializedSnapshotPayload,
+  filterExternalUsdForChartWindow,
+} from '../utils/market-snapshot-normalize.util';
+import { nmHistoryDaysForBundleWindow } from '../utils/market-grade-strip.util';
+import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 
 export type PriceHistoryDuration =
   | '7d'
@@ -70,6 +111,14 @@ export interface CollectionMarketBundle {
   marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
+  /** comps | latest_sale | catalog | psa_estimate — materialized snapshot spot basis. */
+  spotPriceBasis?: string | null;
+  /** All Cardhedger grade slots (PSA, BGS, SGC, …) for chart grade picker. */
+  allGradePrices: CollectionGradeCatalogEntry[];
+  /** This collection slab's Cardhedger grade label (e.g. `PSA 8`). */
+  collectionGrade: string | null;
+  /** Internal tier key stored on snapshot (`PSA_8`, `PSA_AUTH`, …). */
+  historyTier: string | null;
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
   cardhedgerPreview: MarketCollectionPreview;
@@ -78,14 +127,24 @@ export interface CollectionMarketBundle {
   reliabilityScore?: number;
 }
 
-/** Fulfilled listing (ask) — tape row for collection order book. */
-export interface PlatformTapeFillRow {
-  t: number;
-  priceUsdc: number;
-  tokenId: string;
-  orderHash: string;
-  tapeAggressor: 'buy' | 'sell';
+export interface CollectionGradePriceSeries {
+  collectionKey: string;
+  grade: string;
+  cardhedgerCardId: string | null;
+  points: UsdPoint[];
+  days: number;
 }
+
+export interface CollectionGradeCatalogResponse {
+  collectionKey: string;
+  cardhedgerCardId: string | null;
+  collectionGrade: string | null;
+  historyTier: string | null;
+  grades: CollectionGradeCatalogEntry[];
+  source: 'snapshot' | 'live';
+}
+
+export type { CollectionTradesVolumeStats, PlatformTapeFillRow } from '../utils/collection-tape-merge.util';
 
 function tapeAggressorFromOrderParameters(
   parameters: Record<string, unknown>,
@@ -93,6 +152,35 @@ function tapeAggressorFromOrderParameters(
   const s = parameters['_tapeFillSide'];
   if (s === 'sell') return 'sell';
   return 'buy';
+}
+
+/** Row can serve list/detail bundle reads (preview and/or materialized grade strip). */
+function rowHasMaterializedListPrices(
+  row: CollectionMarketSnapshot,
+): boolean {
+  if (row.previewJson) return true;
+  const headline = row.headlineUsd;
+  if (typeof headline === 'number' && Number.isFinite(headline) && headline > 0) {
+    return true;
+  }
+  const gp = row.gradePricesJson as GradePriceStrip | null | undefined;
+  if (gp?.psa10 != null && Number.isFinite(gp.psa10) && gp.psa10 > 0) {
+    return true;
+  }
+  if (gp?.psa9 != null && Number.isFinite(gp.psa9) && gp.psa9 > 0) {
+    return true;
+  }
+  if (gp?.raw != null && Number.isFinite(gp.raw) && gp.raw > 0) {
+    return true;
+  }
+  if (
+    typeof row.psa10Usd === 'number' &&
+    Number.isFinite(row.psa10Usd) &&
+    row.psa10Usd > 0
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function emptyMarketBundle(
@@ -107,6 +195,9 @@ function emptyMarketBundle(
     marketChangeWindow: window,
     marketChangeSource: 'none',
     gradePrices: { psa10: null, psa9: null, raw: null },
+    allGradePrices: [],
+    collectionGrade: null,
+    historyTier: null,
     externalUsd: [],
     platformUsd,
     cardhedgerPreview: {
@@ -119,18 +210,31 @@ function emptyMarketBundle(
   };
 }
 
+export type HomeMarketplaceFeed = {
+  topMovers: CollectionSummary[];
+  justVaulted: CollectionSummary[];
+  ticker: CollectionSummary[];
+  snapshots: CollectionListSnapshot[];
+};
+
 @Injectable()
 export class CollectionMarketService {
   private readonly logger = new Logger(CollectionMarketService.name);
+  private readonly homeFeedCache = new Map<
+    number,
+    { at: number; payload: HomeMarketplaceFeed }
+  >();
 
   constructor(
     private readonly collectionService: CollectionService,
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     private readonly snapshotService: CollectionMarketSnapshotService,
     private readonly snapshotRead: CollectionMarketSnapshotReadService,
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    private readonly cardhedgerMarket: CardhedgerMarketDataService,
   ) {}
 
   private touchAndMaybeRefreshStale(
@@ -145,10 +249,13 @@ export class CollectionMarketService {
 
   /**
    * Materialized snapshot read — platform trades always from orders DB.
+   * Collection detail / Markets list overlays live Cardhedger when the row is thin.
+   * Portfolio holdings use {@link batchPortfolioMarketData} (snapshot-only, no overlay).
    */
   async getCollectionMarketBundle(
     collectionKey: string,
     priceHistoryDuration: PriceHistoryDuration = '365d',
+    chainId?: SupportedChainId,
   ): Promise<CollectionMarketBundle> {
     const key = collectionKey.toLowerCase();
     const window: PriceHistoryDuration = [
@@ -162,7 +269,7 @@ export class CollectionMarketService {
       ? priceHistoryDuration
       : '365d';
 
-    const { platformUsd } = await this.platformTradesForApi(key);
+    const { platformUsd } = await this.platformTradesForApi(key, undefined, chainId);
     let row = await this.snapshotService.findByKey(key);
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
@@ -173,27 +280,357 @@ export class CollectionMarketService {
         )) ?? row;
     }
 
-    if (!row?.previewJson) {
-      return emptyMarketBundle(key, platformUsd, window);
+    let bundle: CollectionMarketBundle;
+    if (!row || !rowHasMaterializedListPrices(row)) {
+      bundle = emptyMarketBundle(key, platformUsd, window);
+    } else {
+      const stale = this.snapshotService.isRowStale(row);
+      const preview = row.previewJson;
+      const needsHistoryRefresh =
+        preview != null &&
+        preview.matched !== true &&
+        (row.externalUsdJson?.length ?? 0) < 2;
+      this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
+      bundle = this.snapshotRead.buildBundleFromRow(
+        row,
+        window,
+        platformUsd,
+      ).bundle;
     }
 
-    const stale = this.snapshotService.isRowStale(row);
-    this.touchAndMaybeRefreshStale(key, stale);
-    return this.snapshotRead.buildBundleFromRow(row, window, platformUsd).bundle;
+    return this.overlayLiveCardhedgerWhenThin(bundle, key, window);
   }
 
-  private usdcContractAddressLower(): string {
-    const raw = this.config.get<string>('USDC_CONTRACT_ADDRESS');
-    if (raw && String(raw).trim()) {
-      return String(raw).trim().toLowerCase();
+  /**
+   * Collection row for market reads — back-fill `cardhedgerCardId` from active listing
+   * metadata when missing (same side effect as visiting collection detail once).
+   */
+  private async collectionForMarketRead(
+    key: string,
+  ): Promise<MarketplaceCollection | null> {
+    let col = await this.collectionService.findOne(key);
+    if (!col) return null;
+
+    let storedId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (!storedId) {
+      const updated =
+        await this.collectionService.ensureCardhedgerCardIdFromListings(key);
+      if (updated) {
+        this.snapshotScheduler.enqueue(key, 'stale_swr');
+        col = (await this.collectionService.findOne(key)) ?? col;
+        storedId = String(col.components?.cardhedgerCardId ?? '').trim();
+      }
     }
-    return '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238';
+
+    if (!storedId && col.psaCertNumber?.trim()) {
+      try {
+        const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+          col.psaCertNumber.trim(),
+          { collection: col },
+        );
+        if (resolved?.cardId) {
+          await this.collectionService.mergeComponentsForMintBootstrap(key, {
+            cardhedgerCardId: resolved.cardId,
+            cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+            ...(resolved.query
+              ? { cardhedgerSearchQuery: resolved.query }
+              : {}),
+          });
+          this.snapshotScheduler.enqueue(key, 'stale_swr');
+          col = (await this.collectionService.findOne(key)) ?? col;
+        }
+      } catch (e) {
+        this.logger.debug(
+          `cert cardhedger resolve skipped key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    return col;
   }
 
-  private isUsdcConsiderationToken(token: string | null | undefined): boolean {
+  /**
+   * Materialized snapshots can lag behind collection detail (PSA estimate only) while
+   * live Cardhedger + listing metadata already have comps. Overlay matches detail UX.
+   */
+  private async overlayLiveCardhedgerWhenThin(
+    bundle: CollectionMarketBundle,
+    key: string,
+    window: PriceHistoryDuration,
+  ): Promise<CollectionMarketBundle> {
+    const thin =
+      bundle.spotPriceBasis === 'psa_estimate' ||
+      bundle.cardhedgerPreview?.matched !== true ||
+      (bundle.marketChangePct == null &&
+        (bundle.externalUsd?.length ?? 0) < 2);
+    if (!thin) return bundle;
+
+    const col = await this.collectionForMarketRead(key);
+    if (!col) return bundle;
+
+    if (!this.cardhedgerMarket.isConfigured()) {
+      return enrichListBundleFromCollection(bundle, col);
+    }
+
+    const fromStoredId = await this.overlayFromStoredCatalogId(
+      bundle,
+      col,
+      window,
+    ).catch((e) => {
+      this.logger.debug(
+        `stored catalog overlay failed key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    });
+    if (fromStoredId) return fromStoredId;
+
+    try {
+      const historyTier = marketHistoryTierFromComponents(col.components);
+      const maxCalendarDays = nmHistoryDaysForBundleWindow(window);
+      const { preview, history } = await this.cardhedgerMarket.getBundledCardData(
+        col,
+        {
+          tier: historyTier,
+          period: '1y',
+          maxCalendarDays,
+          maxRequests: 4,
+          includeComps: false,
+        },
+      );
+
+      const payload = buildMaterializedSnapshotPayload({
+        collectionKey: key,
+        historyTier,
+        preview,
+        historyPoints: history.points,
+        psaEstimateUsd: psaEstimateUsdFromComponents(col.components),
+      });
+
+      const liveWorthUsing =
+        preview.matched === true ||
+        (history.points?.length ?? 0) >= 2 ||
+        (payload.spotPriceBasis != null &&
+          payload.spotPriceBasis !== 'psa_estimate');
+      if (!liveWorthUsing) {
+        return enrichListBundleFromCollection(bundle, col);
+      }
+
+      return mergeLiveCardhedgerOverlay(bundle, window, historyTier, {
+        gradePrices: payload.gradePricesJson ?? bundle.gradePrices,
+        spotPriceBasis: payload.spotPriceBasis,
+        cardhedgerPreview: preview,
+        externalUsdFull: payload.externalUsdJson ?? [],
+        categoryLabel: payload.categoryLabel,
+        snapshotStale: bundle.snapshotStale ?? true,
+      });
+    } catch (e) {
+      this.logger.debug(
+        `live cardhedger overlay failed key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return enrichListBundleFromCollection(bundle, col);
+    }
+  }
+
+  /**
+   * Direct Cardhedger reads by resolved catalog id (stored id is re-checked against
+   * PSA Variety — a cert-lookup Reverse Foil id must not overlay a Master Ball slab).
+   */
+  private async overlayFromStoredCatalogId(
+    bundle: CollectionMarketBundle,
+    col: MarketplaceCollection,
+    window: PriceHistoryDuration,
+  ): Promise<CollectionMarketBundle | null> {
+    const resolved = await this.cardhedgerMarket.resolveCardForCollection(col);
+    const cardId = String(resolved.row?.card_id ?? '').trim();
+    if (!cardId) return null;
+
+    const historyTier = marketHistoryTierFromComponents(col.components);
+    const slabGrade =
+      collectionGradeLabelFromHistoryTier(historyTier) || 'PSA 10';
+    const maxDays = nmHistoryDaysForBundleWindow(window);
+
+    const [catalogGrades, points] = await Promise.all([
+      this.cardhedgerMarket.getGradeCatalogForCardId(cardId),
+      this.cardhedgerMarket.getGradePriceSeriesByCardId(
+        cardId,
+        slabGrade,
+        maxDays,
+      ),
+    ]);
+
+    const catalogPrice = catalogPriceForSlabGrade(catalogGrades, slabGrade);
+    const hasHistory = points.length >= 2;
+    if (
+      (catalogPrice == null || !(catalogPrice > 0)) &&
+      !hasHistory
+    ) {
+      return null;
+    }
+
+    const gradePrices: GradePriceStrip = { ...bundle.gradePrices };
+    if (catalogPrice != null && catalogPrice > 0) {
+      if (historyTier === 'PSA_9') gradePrices.psa9 = catalogPrice;
+      else gradePrices.psa10 = catalogPrice;
+    }
+
+    const spotPrice =
+      catalogPrice != null && catalogPrice > 0
+        ? catalogPrice
+        : points.length > 0
+          ? points[points.length - 1]!.v
+          : null;
+
+    const preview = previewFromStoredCatalogOverlay({
+      col,
+      cardId,
+      catalogGrades,
+      historyTier,
+      spotPrice,
+    });
+
+    return mergeLiveCardhedgerOverlay(bundle, window, historyTier, {
+      gradePrices,
+      spotPriceBasis: 'latest_sale',
+      cardhedgerPreview: preview,
+      externalUsdFull: points,
+      categoryLabel: preview.card?.setName ?? null,
+      snapshotStale: bundle.snapshotStale ?? true,
+      allGradePrices: catalogGrades,
+    });
+  }
+
+  /**
+   * Live Cardhedger catalog — all graders / grades for the matched card.
+   */
+  async getCollectionGradeCatalog(
+    collectionKey: string,
+    opts?: { preferLive?: boolean },
+  ): Promise<CollectionGradeCatalogResponse> {
+    const key = collectionKey.toLowerCase();
+    const col = await this.collectionService.findOne(key);
+    if (!col) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+    const historyTier = marketHistoryTierFromComponents(col.components);
+    const collectionGrade = collectionGradeLabelFromHistoryTier(historyTier);
+    const cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+
+    if (opts?.preferLive && cardId) {
+      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      if (grades.length > 0) {
+        return {
+          collectionKey: key,
+          cardhedgerCardId: cardId,
+          collectionGrade,
+          historyTier,
+          grades,
+          source: 'live',
+        };
+      }
+    }
+
+    const row = await this.snapshotService.findByKey(key);
+    const preview = row?.previewJson;
+    if (preview?.card?.pricesByGrade) {
+      return {
+        collectionKey: key,
+        cardhedgerCardId:
+          preview.card.id?.trim() || cardId || null,
+        collectionGrade,
+        historyTier,
+        grades: catalogFromPricesByGradeMap(preview.card.pricesByGrade),
+        source: 'snapshot',
+      };
+    }
+
+    if (cardId) {
+      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      return {
+        collectionKey: key,
+        cardhedgerCardId: cardId,
+        collectionGrade,
+        historyTier,
+        grades,
+        source: 'live',
+      };
+    }
+
+    return {
+      collectionKey: key,
+      cardhedgerCardId: null,
+      collectionGrade,
+      historyTier,
+      grades: [],
+      source: 'snapshot',
+    };
+  }
+
+  /**
+   * Price history for any Cardhedger grade label (PSA 10, BGS 9.5, Ungraded, …).
+   */
+  async getCollectionGradePriceSeries(
+    collectionKey: string,
+    gradeLabel: string,
+    daysRaw?: number,
+  ): Promise<CollectionGradePriceSeries> {
+    const key = collectionKey.toLowerCase();
+    const grade = String(gradeLabel ?? '').trim();
+    if (!grade) {
+      throw new BadRequestException('grade query parameter is required');
+    }
+    const days = Math.min(
+      365,
+      Math.max(1, Math.floor(Number(daysRaw ?? 365) || 365)),
+    );
+
+    const col = await this.collectionService.findOne(key);
+    if (!col) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+
+    let cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (!cardId) {
+      const row = await this.snapshotService.findByKey(key);
+      cardId = String(row?.previewJson?.card?.id ?? '').trim();
+    }
+    if (!cardId) {
+      const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+        col.psaCertNumber?.trim() ?? '',
+        { collection: col },
+      );
+      cardId = String(resolved?.cardId ?? '').trim();
+    }
+
+    const points = cardId
+      ? await this.cardhedgerMarket.getGradePriceSeriesByCardId(
+          cardId,
+          grade,
+          days,
+        )
+      : [];
+
+    return {
+      collectionKey: key,
+      grade,
+      cardhedgerCardId: cardId || null,
+      points,
+      days,
+    };
+  }
+
+  private usdcContractAddressLower(chainId?: SupportedChainId): string {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    return this.chainConfig.getUsdcAddress(resolved).toLowerCase();
+  }
+
+  private isUsdcConsiderationToken(
+    token: string | null | undefined,
+    chainId?: SupportedChainId,
+  ): boolean {
     if (!token || !String(token).trim()) return false;
     return (
-      String(token).trim().toLowerCase() === this.usdcContractAddressLower()
+      String(token).trim().toLowerCase() ===
+      this.usdcContractAddressLower(chainId)
     );
   }
 
@@ -206,11 +643,14 @@ export class CollectionMarketService {
     }
   }
 
-  private classifyUsdcConsideration(o: Order): {
+  private classifyUsdcConsideration(
+    o: Order,
+    chainId?: SupportedChainId,
+  ): {
     usd: number | null;
     skip: 'none' | 'non_usdc' | 'invalid_amount';
   } {
-    if (!this.isUsdcConsiderationToken(o.considerationToken)) {
+    if (!this.isUsdcConsiderationToken(o.considerationToken, chainId)) {
       return { usd: null, skip: 'non_usdc' };
     }
     const v = this.usdcMicrosToNumber(o.considerationAmount);
@@ -218,8 +658,12 @@ export class CollectionMarketService {
     return { usd: v, skip: 'none' };
   }
 
-  private usdcPriceFromOrder(o: Order, label: string): number | null {
-    const { usd, skip } = this.classifyUsdcConsideration(o);
+  private usdcPriceFromOrder(
+    o: Order,
+    label: string,
+    chainId?: SupportedChainId,
+  ): number | null {
+    const { usd, skip } = this.classifyUsdcConsideration(o, chainId);
     if (skip === 'non_usdc') {
       this.logger.warn(
         `collection market stats: skipping non-USDC order (${label}) orderHash=${o.orderHash} token=${o.considerationToken}`,
@@ -248,27 +692,179 @@ export class CollectionMarketService {
     );
   }
 
-  async platformTradesForApi(collectionKey: string): Promise<{
+  async platformTradesForApi(
+    collectionKey: string,
+    opts?: { bootstrapTokenId?: number; cardhedgerGrade?: string },
+    chainId?: SupportedChainId,
+  ): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
+    volume: CollectionTradesVolumeStats;
   }> {
     const k = collectionKey.toLowerCase();
-    /** Fulfilled asks + collection bids — newest-first scan cap, then chart/tape trim. */
-    const rows = await this.orderRepo.find({
-      where: {
-        collectionKey: k,
-        status: OrderStatus.FULFILLED,
-      },
-      order: { updatedAt: 'DESC' },
-      take: this.platformTradesScanMax(),
-    });
+    const { platformUsd, platformTrades } =
+      await this.buildPlatformTradesForKey(k, chainId);
+
+    let cardhedgerTrades: PlatformTapeFillRow[] = [];
+    try {
+      let col = await this.collectionService.findOne(k);
+      const bootstrapTokenId = opts?.bootstrapTokenId;
+      if (
+        !col &&
+        bootstrapTokenId != null &&
+        Number.isFinite(bootstrapTokenId) &&
+        bootstrapTokenId >= 0
+      ) {
+        const ensured = await this.collectionService.ensureCollectionForListing(
+          String(Math.floor(bootstrapTokenId)),
+          chainId,
+        );
+        if (ensured?.trim().toLowerCase() === k) {
+          col = await this.collectionService.findOne(k);
+        }
+      }
+
+      // ── Lazy cardId enrichment ─────────────────────────────────────────────
+      // Persist cert → cardId when missing so later pricing paths can reuse it.
+      if (col && !col.components?.cardhedgerCardId && col.psaCertNumber?.trim()) {
+        try {
+          const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+            col.psaCertNumber.trim(),
+            { collection: col },
+          );
+          if (resolved?.cardId) {
+            await this.collectionService.mergeComponentsForMintBootstrap(k, {
+              cardhedgerCardId: resolved.cardId,
+              cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+              ...(resolved.query ? { cardhedgerSearchQuery: resolved.query } : {}),
+            });
+            col = await this.collectionService.findOne(k);
+            this.logger.log(
+              `platform-trades: lazy cardId enrichment for ${k} → ${resolved.cardId}`,
+            );
+          } else if (resolved?.certDescription) {
+            await this.collectionService.mergeComponentsForMintBootstrap(k, {
+              cardhedgerSearchQuery: resolved.certDescription,
+            });
+            col = await this.collectionService.findOne(k);
+          }
+        } catch (e) {
+          this.logger.debug(
+            `platform-trades: cert-lookup skipped for ${k}: ${String(e)}`,
+          );
+        }
+      }
+
+      const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
+      const tier = marketHistoryTierFromComponents(col?.components);
+      const compsOpts = cardhedgerGrade
+        ? {
+            gradeLabel: cardhedgerGrade,
+            rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+          }
+        : { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT };
+      const comps = await this.cardhedgerMarket.getCompsSnapshotForTradesTape(
+        col,
+        compsOpts,
+      );
+      cardhedgerTrades = cardhedgerRawSalesToTapeRows(
+        comps.rawSales,
+        comps.cardId,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `platform-trades: Cardhedger comps skipped for ${k}: ${msg}`,
+      );
+    }
+
+    const merged = mergePlatformAndCardhedgerTape(
+      platformTrades,
+      cardhedgerTrades,
+    );
+    const volume = computeCollectionTradesVolumeStats(merged);
+
+    return { platformUsd, trades: merged, volume };
+  }
+
+  /**
+   * Trades tape for a single RWA token — no marketplace_collections row required.
+   * Platform fills for this tokenId + Cardhedger comps from mint metadata (cert → cardId).
+   */
+  async rwaTradesForApi(
+    tokenId: number,
+    opts?: { cardhedgerGrade?: string },
+    chainId?: SupportedChainId,
+  ): Promise<{
+    platformUsd: UsdPoint[];
+    trades: PlatformTapeFillRow[];
+    volume: CollectionTradesVolumeStats;
+  }> {
+    const id = Math.floor(Number(tokenId));
+    if (!Number.isFinite(id) || id < 0) {
+      throw new BadRequestException('Invalid token id');
+    }
+
+    const { platformUsd, platformTrades } =
+      await this.buildPlatformTradesForTokenId(id, chainId);
+
+    let cardhedgerTrades: PlatformTapeFillRow[] = [];
+    try {
+      const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
+      const compsOpts = cardhedgerGrade
+        ? {
+            gradeLabel: cardhedgerGrade,
+            rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+            chainId,
+          }
+        : { rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT, chainId };
+      const comps = await this.cardhedgerMarket.getCompsSnapshotForTokenId(
+        id,
+        compsOpts,
+      );
+      cardhedgerTrades = cardhedgerRawSalesToTapeRows(
+        comps.rawSales,
+        comps.cardId,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`rwa-trades: Cardhedger comps skipped for #${id}: ${msg}`);
+    }
+
+    const merged = mergePlatformAndCardhedgerTape(
+      platformTrades,
+      cardhedgerTrades,
+    );
+    const volume = computeCollectionTradesVolumeStats(merged);
+
+    return { platformUsd, trades: merged, volume };
+  }
+
+  /** Platform-only fulfilled orders (chart platform series + tape platform rows). */
+  private async buildPlatformTradesForKey(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{
+    platformUsd: UsdPoint[];
+    platformTrades: PlatformTapeFillRow[];
+  }> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.platformTradesScanMax())
+      .getMany();
     const validNewestFirst: {
       order: Order;
       tokenId: string;
       priceUsdc: number;
     }[] = [];
     for (const o of rows) {
-      const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades');
+      const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades', resolved);
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;
       validNewestFirst.push({
@@ -282,33 +878,107 @@ export class CollectionMarketService {
       t: Math.floor(o.updatedAt.getTime() / 1000),
       v: priceUsdc,
     }));
-    const recent = chronological.slice(-80);
-    const trades: PlatformTapeFillRow[] = [...recent].reverse().map(
-      ({ order: o, tokenId, priceUsdc }) => ({
+    const platformTrades: PlatformTapeFillRow[] = [...chronological]
+      .reverse()
+      .map(({ order: o, tokenId, priceUsdc }) => ({
         t: Math.floor(o.updatedAt.getTime() / 1000),
         priceUsdc,
         tokenId,
         orderHash: o.orderHash,
         tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
-      }),
-    );
-    return { platformUsd, trades };
+        source: 'platform' as const,
+      }));
+    return { platformUsd, platformTrades };
+  }
+
+  /** Fulfilled on-platform sales for one RWA token (collection row optional). */
+  private async buildPlatformTradesForTokenId(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<{
+    platformUsd: UsdPoint[];
+    platformTrades: PlatformTapeFillRow[];
+  }> {
+    const tid = String(Math.floor(tokenId));
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id = :tid', { tid })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.platformTradesScanMax())
+      .getMany();
+    const validNewestFirst: {
+      order: Order;
+      tokenId: string;
+      priceUsdc: number;
+    }[] = [];
+    for (const o of rows) {
+      const priceUsdc = this.usdcPriceFromOrder(o, 'rwa-trades', resolved);
+      const fill = resolvePlatformTapeFill(o, priceUsdc);
+      if (!fill) continue;
+      if (fill.tokenId !== tid) continue;
+      validNewestFirst.push({
+        order: o,
+        tokenId: fill.tokenId,
+        priceUsdc: fill.priceUsdc,
+      });
+    }
+    const chronological = [...validNewestFirst].reverse();
+    const platformUsd: UsdPoint[] = chronological.map(({ order: o, priceUsdc }) => ({
+      t: Math.floor(o.updatedAt.getTime() / 1000),
+      v: priceUsdc,
+    }));
+    const platformTrades: PlatformTapeFillRow[] = [...chronological]
+      .reverse()
+      .map(({ order: o, tokenId: rowTokenId, priceUsdc }) => ({
+        t: Math.floor(o.updatedAt.getTime() / 1000),
+        priceUsdc,
+        tokenId: rowTokenId,
+        orderHash: o.orderHash,
+        tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
+        source: 'platform' as const,
+      }));
+    return { platformUsd, platformTrades };
+  }
+
+  async getActiveListingUsdcPrices(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
+    const key = collectionKey.toLowerCase();
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const asks =
+      await this.collectionService.activeListingsForCollection(key, resolved);
+    const prices: number[] = [];
+    for (const o of asks) {
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
+      if (skip === 'none' && usd != null && usd > 0) prices.push(usd);
+    }
+    return prices;
   }
 
   async getCollectionMarketStats(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<CollectionMarketStatsResponse> {
     const key = collectionKey.toLowerCase();
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const col = await this.collectionService.findOne(key);
-    const expectedUsdc = this.usdcContractAddressLower();
+    const expectedUsdc = this.usdcContractAddressLower(resolved);
 
     const prices: number[] = [];
-    const asks = await this.collectionService.activeListingsForCollection(key);
+    const asks = await this.collectionService.activeListingsForCollection(
+      key,
+      resolved,
+    );
     let askNonUsdc = 0;
     let askInvalidAmount = 0;
     let poolFromActiveAsks = 0;
     for (const o of asks) {
-      const { usd, skip } = this.classifyUsdcConsideration(o);
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
       if (skip === 'non_usdc') {
         askNonUsdc++;
         continue;
@@ -322,20 +992,21 @@ export class CollectionMarketService {
     }
 
     let poolFromFulfilledAsks = 0;
-    const fulfilled = await this.orderRepo.find({
-      where: {
-        collectionKey: key,
-        status: OrderStatus.FULFILLED,
-        side: OrderSide.ASK,
-      },
-      order: { updatedAt: 'DESC' },
-      take: this.marketStatsFulfilledScanMax(),
-    });
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const fulfilled = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key })
+      .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(this.marketStatsFulfilledScanMax())
+      .getMany();
     let fulfilledSkippedToken = 0;
     let fulfilledNonUsdc = 0;
     let fulfilledInvalidAmount = 0;
     for (const o of fulfilled) {
-      const { usd, skip } = this.classifyUsdcConsideration(o);
+      const { usd, skip } = this.classifyUsdcConsideration(o, resolved);
       if (skip === 'non_usdc') {
         fulfilledNonUsdc++;
         continue;
@@ -384,42 +1055,37 @@ export class CollectionMarketService {
       });
     }
 
-    const statsLog = JSON.stringify({
-      msg: 'collection_market_stats',
-      collectionKey: key,
-      marketplaceCollectionRow: Boolean(col),
-      referenceCardhedgerCardIdPresent: Boolean(chid),
-      usdcAddressExpectedLower: expectedUsdc,
-      activeAskRowsDb: asks.length,
-      poolFromActiveAsks,
-      activeAskSkippedNonUsdc: askNonUsdc,
-      activeAskSkippedInvalidAmount: askInvalidAmount,
-      fulfilledAskRowsDb: fulfilled.length,
-      poolFromFulfilledAsks,
-      fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
-      fulfilledSkippedNonUsdc: fulfilledNonUsdc,
-      fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
-      usdcObservationCount: rawPoolN,
-      sampleSize: stats.sampleSize,
-      isReliable: stats.isReliable,
-      unreliableReason,
-      ...(diagOn && rawPoolN === 0
-        ? {
-            globalActiveAskTotal,
-            globalActiveAskRowsWithNullCollectionKey:
-              globalActiveAskNullKeyCount,
-          }
-        : {}),
-    });
-    const shouldDebugOnly =
-      !diagOn &&
-      (unreliableReason === 'no_order_rows_for_collection_key' ||
-        unreliableReason === 'no_usdc_prices_after_filter' ||
-        unreliableReason === 'sample_below_min_reliable(5)');
-    if (shouldDebugOnly) {
-      this.logger.debug(statsLog);
-    } else {
-      this.logger.log(statsLog);
+    // Hot path: skip per-collection stats noise unless MARKETPLACE_PIPELINE_DIAG=1.
+    if (diagOn) {
+      this.logger.log(
+        JSON.stringify({
+          msg: 'collection_market_stats',
+          collectionKey: key,
+          marketplaceCollectionRow: Boolean(col),
+          referenceCardhedgerCardIdPresent: Boolean(chid),
+          usdcAddressExpectedLower: expectedUsdc,
+          activeAskRowsDb: asks.length,
+          poolFromActiveAsks,
+          activeAskSkippedNonUsdc: askNonUsdc,
+          activeAskSkippedInvalidAmount: askInvalidAmount,
+          fulfilledAskRowsDb: fulfilled.length,
+          poolFromFulfilledAsks,
+          fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
+          fulfilledSkippedNonUsdc: fulfilledNonUsdc,
+          fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
+          usdcObservationCount: rawPoolN,
+          sampleSize: stats.sampleSize,
+          isReliable: stats.isReliable,
+          unreliableReason,
+          ...(rawPoolN === 0
+            ? {
+                globalActiveAskTotal,
+                globalActiveAskRowsWithNullCollectionKey:
+                  globalActiveAskNullKeyCount,
+              }
+            : {}),
+        }),
+      );
     }
 
     return {
@@ -445,6 +1111,7 @@ export class CollectionMarketService {
   async batchListSnapshots(
     collectionKeys: string[],
     priceHistoryDuration: PriceHistoryDuration = '365d',
+    chainId?: SupportedChainId,
   ): Promise<{ items: CollectionListSnapshot[] }> {
     const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(
       0,
@@ -452,50 +1119,194 @@ export class CollectionMarketService {
     );
     const window = priceHistoryDuration;
 
-    const snapshotMap = await this.snapshotService.findByKeys(keys);
-    const missing: string[] = [];
-    for (const key of keys) {
-      const row = snapshotMap.get(key);
-      if (!(await this.snapshotService.isUsableForRead(row, key))) {
-        missing.push(key);
-      }
-    }
-    if (missing.length > 0 && this.snapshotService.onDemandEnabled()) {
-      for (const k of missing) {
-        this.snapshotScheduler.enqueue(k, 'cold_start');
-      }
-    }
-
+    /** Same bundle path as `GET …/market-series` (collection detail chart). */
+    const LIST_SNAPSHOT_BATCH_CONCURRENCY = 8;
     const items: CollectionListSnapshot[] = [];
-    for (const key of keys) {
-      try {
-        const row = snapshotMap.get(key);
-        const stats = await this.getCollectionMarketStats(key).catch(() => null);
-        if (row?.previewJson) {
-          const stale = this.snapshotService.isRowStale(row);
-          this.touchAndMaybeRefreshStale(key, stale);
-          const { platformUsd } = await this.platformTradesForApi(key);
-          const bundle = this.snapshotRead.buildBundleFromRow(
-            row,
-            window,
-            platformUsd,
-          ).bundle;
-          items.push(bundleToListSnapshot(bundle, stats));
-          continue;
-        }
-        items.push(emptyListSnapshot(key, window));
-      } catch (e) {
-        this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
-        items.push(emptyListSnapshot(key, window));
-      }
+
+    for (let i = 0; i < keys.length; i += LIST_SNAPSHOT_BATCH_CONCURRENCY) {
+      const chunk = keys.slice(i, i + LIST_SNAPSHOT_BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (key) => {
+          try {
+            const [stats, bundle] = await Promise.all([
+              this.getCollectionMarketStats(key, chainId).catch(() => null),
+              this.getCollectionMarketBundle(key, window, chainId),
+            ]);
+            return bundleToListSnapshot(bundle, stats);
+          } catch (e) {
+            this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
+            return emptyListSnapshot(key, window);
+          }
+        }),
+      );
+      items.push(...chunkResults);
     }
     return { items };
   }
 
+  /**
+   * Home ticker + Top movers + Just vaulted in one round-trip.
+   * Ranks from materialized snapshots (same 90d / 1Y rules as the previous
+   * client walk) and returns only the displayed collections.
+   */
+  async getHomeFeed(chainId?: SupportedChainId): Promise<HomeMarketplaceFeed> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const cached = this.homeFeedCache.get(resolved);
+    if (cached && Date.now() - cached.at < 30_000) {
+      return cached.payload;
+    }
+
+    const metas =
+      await this.collectionService.listActiveCollectionKeysWithCreatedAt(
+        resolved,
+      );
+    const allKeys = metas.map((m) => m.collectionKey);
+    const snapByKey = await this.listSnapshotsFromMaterializedRows(allKeys);
+
+    const rankRows = allKeys.map((collectionKey) => {
+      const snap = snapByKey.get(collectionKey);
+      const spark = snap?.sparklineUsd ?? [];
+      const pct90d =
+        spark.length >= 2
+          ? (referenceLagAnchorFromPoints(spark, HOME_MOVERS_LAG_90D_SEC)
+              ?.pct ?? null)
+          : null;
+      const bundled = snap?.marketChangePct;
+      const changePct =
+        bundled != null && Number.isFinite(bundled)
+          ? bundled
+          : spark.length >= 2
+            ? (referenceChangeWithBestWindow(spark).pct ?? null)
+            : null;
+      return { collectionKey, pct90d, changePct };
+    });
+
+    const topMoverKeys = pickHomeTopMoverKeys(rankRows);
+    const tickerKeys = pickHomeTickerKeys(
+      rankRows.map((r) => ({
+        collectionKey: r.collectionKey,
+        changePct: r.changePct,
+      })),
+    );
+    const justVaultedKeys = pickJustVaultedKeys(
+      metas.map((m) => ({
+        collectionKey: m.collectionKey,
+        createdAtMs: m.createdAt.getTime(),
+      })),
+    );
+
+    const ordered = uniqueKeysInOrder([
+      topMoverKeys,
+      justVaultedKeys,
+      tickerKeys,
+    ]);
+    const summaries = await this.collectionService.listSummariesByKeys(
+      ordered,
+      resolved,
+    );
+    const summaryByKey = new Map(
+      summaries.map((s) => [s.collectionKey.toLowerCase(), s] as const),
+    );
+    const pick = (keys: string[]) =>
+      keys
+        .map((k) => summaryByKey.get(k))
+        .filter((s): s is CollectionSummary => s != null);
+
+    const snapshots = ordered
+      .map((k) => snapByKey.get(k))
+      .filter((s): s is CollectionListSnapshot => s != null);
+
+    const payload: HomeMarketplaceFeed = {
+      topMovers: pick(topMoverKeys),
+      justVaulted: pick(justVaultedKeys),
+      ticker: pick(tickerKeys),
+      snapshots,
+    };
+    this.homeFeedCache.set(resolved, { at: Date.now(), payload });
+    return payload;
+  }
+
+  private async listSnapshotsFromMaterializedRows(
+    collectionKeys: string[],
+  ): Promise<Map<string, CollectionListSnapshot>> {
+    const out = new Map<string, CollectionListSnapshot>();
+    const CHUNK = 400;
+    for (let i = 0; i < collectionKeys.length; i += CHUNK) {
+      const chunk = collectionKeys.slice(i, i + CHUNK);
+      const rowMap = await this.snapshotService.findByKeys(chunk);
+      for (const row of rowMap.values()) {
+        const key = row.collectionKey.toLowerCase();
+        if (!rowHasMaterializedListPrices(row)) continue;
+        const bundle = this.snapshotRead.buildBundleFromRow(row, 'max', [])
+          .bundle;
+        out.set(key, bundleToListSnapshot(bundle, null));
+      }
+    }
+    return out;
+  }
+
+  getSnapshotPriceIndex(): Promise<Map<string, CollectionMarketSnapshot>> {
+    return this.snapshotService.getPriceIndex();
+  }
+
+  /**
+   * Join collection keys to an already-loaded snapshot price index (no extra SELECT).
+   */
+  portfolioMarketItemsFromIndex(
+    collectionKeys: string[],
+    rowMap: Map<string, CollectionMarketSnapshot>,
+    priceHistoryDuration: PriceHistoryDuration = '365d',
+  ): Array<{
+    collectionKey: string;
+    stats: CollectionMarketStatsResponse | null;
+    series: CollectionMarketBundle | null;
+  }> {
+    const d = this.normalizePriceHistoryDuration(priceHistoryDuration);
+    const keys = [
+      ...new Set(
+        collectionKeys
+          .map((k) =>
+            String(k ?? '')
+              .trim()
+              .toLowerCase(),
+          )
+          .filter((k) => k.length > 0),
+      ),
+    ];
+    const onDemand = this.snapshotService.onDemandEnabled();
+
+    return keys.map((key) => {
+      const row = rowMap.get(key);
+      if (!row || !rowHasMaterializedListPrices(row)) {
+        if (onDemand) {
+          this.snapshotScheduler.enqueue(key, 'cold_start');
+        }
+        return {
+          collectionKey: key,
+          stats: null,
+          series: emptyMarketBundle(key, [], d),
+        };
+      }
+      const stale = this.snapshotService.isRowStale(row);
+      this.touchAndMaybeRefreshStale(key, stale);
+      return {
+        collectionKey: key,
+        stats: null,
+        series: this.snapshotRead.buildBundleFromRow(row, d, []).bundle,
+      };
+    });
+  }
+
+  /**
+   * Portfolio holdings price read — snapshot table only.
+   * Does not call Cardhedger, order-pool stats, or platform tape on the request.
+   * Missing/stale keys are enqueued for background refresh.
+   */
   async batchPortfolioMarketData(
     collectionKeys: string[],
     opts: {
       priceHistoryDuration?: PriceHistoryDuration;
+      chainId?: SupportedChainId;
     } = {},
   ): Promise<{
     items: Array<{
@@ -504,18 +1315,9 @@ export class CollectionMarketService {
       series: CollectionMarketBundle | null;
     }>;
   }> {
-    const windowRaw = opts.priceHistoryDuration ?? '365d';
-    const d: PriceHistoryDuration = [
-      '7d',
-      '30d',
-      '90d',
-      '180d',
-      '365d',
-      'max',
-    ].includes(windowRaw)
-      ? windowRaw
-      : 'max';
-
+    const d = this.normalizePriceHistoryDuration(
+      opts.priceHistoryDuration ?? '365d',
+    );
     const keys = [
       ...new Set(
         collectionKeys
@@ -528,31 +1330,25 @@ export class CollectionMarketService {
       ),
     ].slice(0, 60);
 
-    const PORTFOLIO_BATCH_CONCURRENCY = 8;
-    const items: Array<{
-      collectionKey: string;
-      stats: CollectionMarketStatsResponse | null;
-      series: CollectionMarketBundle | null;
-    }> = [];
+    const rowMap = await this.snapshotService.getPriceIndex();
+    return {
+      items: this.portfolioMarketItemsFromIndex(keys, rowMap, d),
+    };
+  }
 
-    for (let i = 0; i < keys.length; i += PORTFOLIO_BATCH_CONCURRENCY) {
-      const chunk = keys.slice(i, i + PORTFOLIO_BATCH_CONCURRENCY);
-      const chunkResults = await Promise.all(
-        chunk.map(async (key) => {
-          try {
-            const [stats, series] = await Promise.all([
-              this.getCollectionMarketStats(key).catch(() => null),
-              this.getCollectionMarketBundle(key, d).catch(() => null),
-            ]);
-            return { collectionKey: key, stats, series };
-          } catch {
-            return { collectionKey: key, stats: null, series: null };
-          }
-        }),
-      );
-      items.push(...chunkResults);
-    }
-    return { items };
+  private normalizePriceHistoryDuration(
+    windowRaw: string,
+  ): PriceHistoryDuration {
+    return [
+      '7d',
+      '30d',
+      '90d',
+      '180d',
+      '365d',
+      'max',
+    ].includes(windowRaw)
+      ? (windowRaw as PriceHistoryDuration)
+      : '365d';
   }
 }
 
@@ -563,8 +1359,13 @@ export interface CollectionListSnapshot {
   marketChangeWindow: MarketChangeWindowLabel;
   marketChangeIsFullYear?: boolean;
   marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
+  spotPriceBasis?: string | null;
+  /** Same Cardhedger preview as collection detail `market-series`. */
+  cardhedgerPreview?: MarketCollectionPreview;
   sparklineUsd: UsdPoint[];
   marketStats: CollectionMarketStatsResponse | null;
   lastTokenableTradeUsdc: number | null;
@@ -592,6 +1393,167 @@ function emptyListSnapshot(
   };
 }
 
+function psaEstimateUsdFromComponents(
+  components: Record<string, unknown> | null | undefined,
+): number | null {
+  const raw = components?.psaEstimateUsd;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }
+  if (typeof raw === 'string') {
+    const n = Number(
+      raw
+        .replace(/,/g, '')
+        .replace(/\$/g, '')
+        .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+    );
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
+function gradeStripHasPositiveUsd(gp: GradePriceStrip): boolean {
+  return (
+    (gp.psa10 != null && gp.psa10 > 0) ||
+    (gp.psa9 != null && gp.psa9 > 0) ||
+    (gp.raw != null && gp.raw > 0)
+  );
+}
+
+/** Apply live Cardhedger catalog + history onto a materialized bundle (list/detail parity). */
+function mergeLiveCardhedgerOverlay(
+  bundle: CollectionMarketBundle,
+  window: PriceHistoryDuration,
+  historyTier: string,
+  input: {
+    gradePrices: GradePriceStrip;
+    spotPriceBasis: string | null | undefined;
+    cardhedgerPreview: MarketCollectionPreview;
+    externalUsdFull: UsdPoint[];
+    categoryLabel?: string | null;
+    snapshotStale?: boolean;
+    allGradePrices?: CollectionGradeCatalogEntry[];
+  },
+): CollectionMarketBundle {
+  const change = referenceChangeWithBestWindow(input.externalUsdFull);
+  return {
+    ...bundle,
+    categoryLabel: input.categoryLabel ?? bundle.categoryLabel,
+    marketChangePct: change.pct,
+    marketChangeWindow: change.window,
+    marketChangeIsFullYear: change.isFullYear,
+    marketChangeSpanSec: change.spanSec,
+    marketChangeRefUsd: change.refUsd ?? undefined,
+    marketChangeRefAtSec: change.refAtSec ?? undefined,
+    marketChangeSource:
+      change.pct != null
+        ? historyTier === 'NEAR_MINT'
+          ? 'cardhedger_nm'
+          : 'cardhedger_graded'
+        : bundle.marketChangeSource,
+    gradePrices: input.gradePrices,
+    spotPriceBasis: input.spotPriceBasis ?? bundle.spotPriceBasis,
+    cardhedgerPreview: input.cardhedgerPreview,
+    externalUsd: filterExternalUsdForChartWindow(input.externalUsdFull, window),
+    allGradePrices:
+      input.allGradePrices != null && input.allGradePrices.length > 0
+        ? input.allGradePrices
+        : bundle.allGradePrices,
+    snapshotStale: input.snapshotStale ?? bundle.snapshotStale ?? true,
+  };
+}
+
+function previewFromStoredCatalogOverlay(params: {
+  col: MarketplaceCollection;
+  cardId: string;
+  catalogGrades: CollectionGradeCatalogEntry[];
+  historyTier: string;
+  spotPrice: number | null;
+}): MarketCollectionPreview {
+  const { col, cardId, catalogGrades, historyTier, spotPrice } = params;
+  const comp = col.components ?? {};
+  const tierU = String(historyTier ?? '').trim().toUpperCase();
+  const pricesByGrade: Record<string, number> = {};
+  for (const e of catalogGrades) {
+    if (e.priceUsd != null && e.priceUsd > 0) {
+      pricesByGrade[e.grade] = e.priceUsd;
+    }
+  }
+  const mkBand = (v: number | null) =>
+    v != null && v > 0
+      ? {
+          avg: v,
+          low: v,
+          high: v,
+          lastUpdated: null,
+          saleCount: null,
+          approxSaleCount: null,
+          avg1d: null,
+          avg7d: null,
+          avg30d: null,
+          median3d: null,
+          median7d: null,
+          median30d: null,
+        }
+      : null;
+
+  return {
+    enabled: true,
+    searchQuery: col.displayLabel ?? '',
+    matched: true,
+    matchConfidence: 'verified',
+    card: {
+      id: cardId,
+      name: String(comp.cardName ?? col.displayLabel ?? ''),
+      cardNumber: String(comp.cardNumber ?? ''),
+      setName: String(comp.cardSet ?? ''),
+      setSlug: null,
+      image: null,
+      tcgplayerId: null,
+      currency: 'USD',
+      market: null,
+      lastUpdated: null,
+      topPrice: spotPrice,
+      totalSaleCount: null,
+      hasGraded: true,
+      gradedTiersAvailable: Object.keys(pricesByGrade),
+      pricesByGrade,
+      spotPriceBasis: 'catalog',
+      ebayNearMint: null,
+      tcgplayerNearMint: null,
+      ebayPsa10: tierU === 'PSA_10' ? mkBand(spotPrice) : null,
+      ebayPsa9: tierU === 'PSA_9' ? mkBand(spotPrice) : null,
+    },
+  };
+}
+
+/**
+ * When the materialized snapshot row is missing or thin, mirror collection detail by
+ * surfacing slab `psaEstimateUsd` on the list bundle grade strip.
+ */
+function enrichListBundleFromCollection(
+  bundle: CollectionMarketBundle,
+  col: { components: Record<string, unknown> } | null,
+): CollectionMarketBundle {
+  if (!col || gradeStripHasPositiveUsd(bundle.gradePrices)) return bundle;
+  const psaEst = psaEstimateUsdFromComponents(col.components);
+  if (psaEst == null) return bundle;
+
+  const tier = String(
+    marketHistoryTierFromComponents(col.components),
+  ).toUpperCase();
+  const gradePrices: GradePriceStrip =
+    tier === 'PSA_9'
+      ? { ...bundle.gradePrices, psa9: psaEst }
+      : { ...bundle.gradePrices, psa10: psaEst };
+
+  return {
+    ...bundle,
+    gradePrices,
+    spotPriceBasis: bundle.spotPriceBasis ?? 'psa_estimate',
+  };
+}
+
 function bundleToListSnapshot(
   bundle: CollectionMarketBundle,
   marketStats: CollectionMarketStatsResponse | null,
@@ -608,8 +1570,12 @@ function bundleToListSnapshot(
     marketChangeWindow: bundle.marketChangeWindow,
     marketChangeIsFullYear: bundle.marketChangeIsFullYear,
     marketChangeSpanSec: bundle.marketChangeSpanSec,
+    marketChangeRefUsd: bundle.marketChangeRefUsd ?? null,
+    marketChangeRefAtSec: bundle.marketChangeRefAtSec ?? null,
     marketChangeSource: bundle.marketChangeSource,
     gradePrices: bundle.gradePrices,
+    spotPriceBasis: bundle.spotPriceBasis ?? null,
+    cardhedgerPreview: bundle.cardhedgerPreview,
     sparklineUsd: spark,
     marketStats,
     lastTokenableTradeUsdc:

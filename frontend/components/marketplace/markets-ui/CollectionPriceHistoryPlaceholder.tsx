@@ -22,7 +22,7 @@ export function CollectionPriceHistoryPlaceholder({
         aria-hidden
       />
       <div className="text-center px-3 pt-3 pb-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Price (USDC)
         </p>
         <p className="text-[10px] text-gray-600 mt-0.5">Historical chart — coming soon</p>

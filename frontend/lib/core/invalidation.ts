@@ -1,0 +1,592 @@
+/**
+ * Centralized React Query invalidation layer.
+ *
+ * Rule: ALL invalidateQueries calls must originate from this file.
+ * Call sites import the appropriate scenario function; they do NOT construct
+ * raw queryKey arrays for invalidation.
+ *
+ * Layers:
+ *  - Atomic helpers (internal)  — single domain, single concern
+ *  - Scenario functions (export) — composite invalidation for a user action
+ */
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  clearPortfolioBundle,
+  upsertPortfolioMarketplaceBuy,
+} from "@/lib/portfolio/portfolioQueryPersistence";
+import {
+  orderToActiveAskListItem,
+  type Order,
+  type OrderListItem,
+} from "./api/orders";
+import type { PortfolioAssetsPageResponse } from "./api/portfolio-assets-page";
+import type { PortfolioHoldingBatchItem } from "./api/portfolio";
+import { rq } from "./queryKeys";
+
+// ── Internal atomic helpers ────────────────────────────────────────────────
+// Kept private so callers always use the semantic scenario functions below.
+
+/** All `orders` cache entries (prefix covers every order sub-key). */
+async function _invalidateOrdersAll(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["orders"] });
+}
+
+/** All `rwa-tokens` cache entries (prefix match — no address required). */
+async function _invalidateRwaTokensAll(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
+}
+
+/** All `rwa-metadata-batch` cache entries. */
+async function _invalidateRwaMetadataBatch(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
+}
+
+/** All `cardhedger-mint-previews` cache entries. */
+async function _invalidateMintPreviews(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
+}
+
+/** All `collection-snapshots` cache entries (prefix). */
+async function _invalidateCollectionSnapshots(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["collection-snapshots"] });
+}
+
+/** All `portfolio-market-batch` cache entries (prefix). */
+async function _invalidatePortfolioMarketBatch(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["portfolio-market-batch"] });
+}
+
+/** Portfolio value chart (`GET …/portfolio/daily/:wallet`). Prefix when address unknown. */
+async function _invalidatePortfolioDailySnapshots(
+  qc: QueryClient,
+  address?: string | null,
+): Promise<void> {
+  if (address?.trim()) {
+    await qc.invalidateQueries({
+      queryKey: ["portfolio-daily-snapshots", address.trim().toLowerCase()],
+    });
+    return;
+  }
+  await qc.invalidateQueries({ queryKey: ["portfolio-daily-snapshots"] });
+}
+
+/**
+ * ALL `marketplace-collection` entries (1-element prefix — covers every collection).
+ * Use only when the exact collection key is unknown or when all collections must refresh.
+ */
+async function _invalidateAllCollections(qc: QueryClient): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection"] });
+}
+
+/** Drop My Assets localStorage paint + RQ bootstrap after ownership moved. */
+async function clearPortfolioOwnedCaches(
+  qc: QueryClient,
+  wallets?: Array<string | null | undefined>,
+  opts?: { skipBundleClear?: Array<string | null | undefined> },
+): Promise<void> {
+  const list = [
+    ...new Set(
+      (wallets ?? [])
+        .map((w) => w?.trim().toLowerCase())
+        .filter((w): w is string => Boolean(w)),
+    ),
+  ];
+  if (list.length === 0) return;
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page-bootstrap"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-holdings"] });
+  const skip = new Set(
+    (opts?.skipBundleClear ?? [])
+      .map((w) => w?.trim().toLowerCase())
+      .filter((w): w is string => Boolean(w)),
+  );
+  for (const w of list) {
+    if (!skip.has(w)) clearPortfolioBundle(w);
+  }
+}
+
+function patchCachesAfterMarketplaceBuy(
+  qc: QueryClient,
+  input: {
+    wallet: string;
+    tokenId: number;
+    costBasisUsd: number;
+    chainId: number;
+  },
+): void {
+  const usd = Number(input.costBasisUsd);
+  if (!Number.isFinite(usd) || usd < 0) return;
+  const tokenId = Math.floor(Number(input.tokenId));
+  if (!Number.isFinite(tokenId) || tokenId < 0) return;
+  const item: PortfolioHoldingBatchItem = {
+    tokenId,
+    hidden: false,
+    costBasisUsd: usd,
+    costBasisSource: "marketplace_buy",
+    acquiredAt: new Date().toISOString(),
+  };
+  const wallet = input.wallet.trim().toLowerCase();
+  qc.setQueriesData<{ items: PortfolioHoldingBatchItem[] }>(
+    {
+      queryKey: ["portfolio-holdings", input.chainId, wallet],
+    },
+    (old) => {
+      const prev = old?.items ?? [];
+      return {
+        items: [...prev.filter((h) => h.tokenId !== tokenId), item],
+      };
+    },
+  );
+  const patchPageHoldings = (old: PortfolioAssetsPageResponse | undefined) => {
+    if (!old) return old;
+    return {
+      ...old,
+      ownedTokenIds: [
+        tokenId,
+        ...old.ownedTokenIds.filter((id) => id !== tokenId),
+      ],
+      holdings: [...old.holdings.filter((h) => h.tokenId !== tokenId), item],
+    };
+  };
+  qc.setQueriesData<PortfolioAssetsPageResponse>(
+    { queryKey: ["portfolio-assets-page", wallet, input.chainId] },
+    patchPageHoldings,
+  );
+  qc.setQueriesData<PortfolioAssetsPageResponse>(
+    { queryKey: ["portfolio-assets-page-bootstrap", wallet, input.chainId] },
+    patchPageHoldings,
+  );
+  upsertPortfolioMarketplaceBuy({
+    address: input.wallet,
+    chainId: input.chainId,
+    tokenId,
+    costBasisUsd: usd,
+  });
+}
+
+// ── Public domain invalidators ─────────────────────────────────────────────
+// These can be composed by scenario functions or called directly for simple cases.
+
+/**
+ * Invalidate all active orders.
+ * The `["orders"]` prefix covers every order sub-key
+ * (`ordersActive`, `orderByToken`, `orderDetail`, `ordersByTokenBatch`).
+ */
+export async function invalidateOrders(qc: QueryClient): Promise<void> {
+  await _invalidateOrdersAll(qc);
+}
+
+/**
+ * Invalidate a single RWA token's resolved asset metadata and activity feed.
+ * Does NOT invalidate the wallet token list or batch metadata; use a scenario
+ * function for that.
+ */
+export async function invalidateRwaAsset(
+  qc: QueryClient,
+  tokenId: number,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.rwaActivity(tokenId) });
+}
+
+/**
+ * Invalidate all data for a single collection
+ * (detail, all market-series durations, platform trades, merkle set).
+ * Also refreshes the global collections list.
+ */
+export async function invalidateCollection(
+  qc: QueryClient,
+  key: string,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  // Prefix covers every duration variant of collectionMarketSeries(key, *)
+  await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+  await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+  await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
+}
+
+// ── Scenario invalidators (exported) ──────────────────────────────────────
+// One function per distinct user action that requires cache invalidation.
+
+/**
+ * After a collection admin action (cover update, component change, etc.).
+ */
+export async function invalidateAfterCollectionUpdate(
+  qc: QueryClient,
+  key: string,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+  // Prefix — invalidates all cached durations for this collection's series
+  await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
+  await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+  await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
+}
+
+/**
+ * After a criteria bid is placed or cancelled for a collection.
+ * Refreshes broader scope than a simple collection update because bids affect
+ * order book state, RWA ownership, and all market series.
+ *
+ */
+export async function invalidateAfterCriteriaBid(
+  qc: QueryClient,
+  key: string,
+  opts?: { portfolioWallets?: Array<string | null | undefined> },
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+  // Broad prefix — refreshes ALL collections' market series after a bid event
+  await qc.invalidateQueries({ queryKey: ["collection-market-series"] });
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+  await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+  await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  // Invalidate on-chain readContract results (wagmi cache) for this collection
+  await qc.invalidateQueries({
+    predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === "readContract",
+  });
+  await clearPortfolioOwnedCaches(qc, opts?.portfolioWallets);
+}
+
+/**
+ * After mint tx: refresh portfolio/token caches only (no collection bootstrap).
+ */
+export async function invalidateAfterRwaMintTx(
+  qc: QueryClient,
+  input: { tokenId: number; address?: string | null },
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(input.tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(input.tokenId) });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateMintPreviews(qc);
+  await _invalidatePortfolioMarketBatch(qc);
+  await _invalidatePortfolioDailySnapshots(qc, input.address);
+  await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
+  // Owned-token list must not stay frozen on localStorage / bootstrap cache.
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page-bootstrap"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-assets-page"] });
+
+  if (input.address?.trim()) {
+    clearPortfolioBundle(input.address);
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
+  }
+}
+
+/**
+ * After mint bootstrap (legacy): refresh token lists, collection trades, and price snapshots.
+ * @deprecated Collection is created on first listing — use {@link invalidateAfterRwaMintTx}.
+ */
+export async function invalidateAfterRwaMint(
+  qc: QueryClient,
+  input: { tokenId: number; collectionKey: string; address?: string | null },
+): Promise<void> {
+  const key = input.collectionKey.toLowerCase();
+
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(input.tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(input.tokenId) });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateMintPreviews(qc);
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+  await _invalidateCollectionSnapshots(qc);
+  await _invalidatePortfolioMarketBatch(qc);
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
+
+  if (input.address?.trim()) {
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
+  }
+}
+
+/**
+ * After a fulfillment, listing, or cancel on the RWA detail page.
+ *
+ * RWA detail buy/list flows — order, asset, collection market queries.
+ * Pass `portfolioWallets` after ownership moves (buyer + seller) so My Assets
+ * does not wait on Transfer-index poll.
+ */
+export async function invalidateAfterRwaDetail(
+  qc: QueryClient,
+  input: {
+    tokenId: number;
+    collectionKeyForMatch: string | null;
+    portfolioWallets?: Array<string | null | undefined>;
+    /** Ask fill — paint My Assets purchase price immediately. */
+    marketplaceBuy?: {
+      wallet: string;
+      tokenId: number;
+      costBasisUsd: number;
+      chainId: number;
+    };
+  },
+): Promise<void> {
+  const { tokenId, collectionKeyForMatch } = input;
+
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: rq.orderByToken(tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.rwaActivity(tokenId) });
+  await qc.invalidateQueries({ queryKey: ["rwa-token-trades", tokenId] });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  // Prefix — refreshes all cached collection entries (detail + market)
+  await _invalidateAllCollections(qc);
+  await _invalidatePortfolioDailySnapshots(qc);
+
+  if (collectionKeyForMatch) {
+    await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKeyForMatch] });
+    // Prefix — all durations for this collection
+    await qc.invalidateQueries({ queryKey: ["collection-market-series", collectionKeyForMatch] });
+    await qc.invalidateQueries({ queryKey: ["collection-platform-trades", collectionKeyForMatch] });
+    await _invalidateCollectionSnapshots(qc);
+    await _invalidatePortfolioMarketBatch(qc);
+  }
+
+  await clearPortfolioOwnedCaches(qc, input.portfolioWallets, {
+    skipBundleClear: input.marketplaceBuy
+      ? [input.marketplaceBuy.wallet]
+      : [],
+  });
+  if (input.marketplaceBuy) {
+    patchCachesAfterMarketplaceBuy(qc, input.marketplaceBuy);
+  }
+}
+
+/**
+ * Instant paint after create/replace ask — do not wait for by-offerer refetch.
+ * Drops the replaced hash and any other active ask on the same token+offerer.
+ */
+export function patchCachesAfterAskListed(
+  qc: QueryClient,
+  created: Order,
+  opts?: { oldOrderHash?: string | null },
+): void {
+  if ((created.side ?? "ask") !== "ask") return;
+  const createdHash = created.orderHash.trim().toLowerCase();
+  const oldHash = opts?.oldOrderHash?.trim().toLowerCase() ?? "";
+  const tokenKey = String(created.tokenId);
+  const offerer = created.offerer.trim().toLowerCase();
+  const item = orderToActiveAskListItem(created);
+
+  qc.setQueriesData<OrderListItem[]>(
+    { queryKey: ["orders", "by-offerer"] },
+    (old) => {
+      const prev = old ?? [];
+      const next = prev.filter((o) => {
+        const h = o.orderHash.trim().toLowerCase();
+        if (h === createdHash) return false;
+        if (oldHash && h === oldHash) return false;
+        if (
+          String(o.tokenId) === tokenKey &&
+          (o.side ?? "ask") === "ask" &&
+          o.status === "active" &&
+          (o.offerer?.trim().toLowerCase() ?? "") === offerer
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (created.status === "active") next.unshift(item);
+      return next;
+    },
+  );
+
+  const tokenId = Number(created.tokenId);
+  if (Number.isFinite(tokenId) && tokenId >= 0) {
+    qc.setQueryData(rq.orderByToken(tokenId), created);
+  }
+}
+
+/**
+ * After a listing is created (post-match or instant match flow).
+ * `collectionKey` and `address` are optional — provide when known.
+ *
+ * Replaces: `invalidateListingQueries` in `listRwaInstantMatch.ts`
+ */
+export async function invalidateAfterListing(
+  qc: QueryClient,
+  opts: {
+    collectionKey?: string | null;
+    address?: string | null;
+    tokenId?: number;
+    /** Seller sold via instant match — drop My Assets paint for wallet(s). */
+    portfolioWallets?: Array<string | null | undefined>;
+  } = {},
+): Promise<void> {
+  await _invalidateOrdersAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateMintPreviews(qc);
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
+  await _invalidateCollectionSnapshots(qc);
+  await _invalidatePortfolioDailySnapshots(qc, opts.address);
+  // Broad prefix — all collection details (new listing changes market depth)
+  await _invalidateAllCollections(qc);
+  await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+  await qc.invalidateQueries({ queryKey: ["portfolio-activity"] });
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+
+  if (opts.tokenId != null && Number.isFinite(opts.tokenId) && opts.tokenId >= 0) {
+    await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(opts.tokenId) });
+    await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(opts.tokenId) });
+  }
+
+  if (opts.collectionKey) {
+    const key = opts.collectionKey.toLowerCase();
+    await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+    await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+    await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+  }
+  if (opts.address) {
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
+  }
+  await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
+}
+
+/** After the owner edits My Assets cost basis. */
+export async function invalidateAfterCostBasisEdit(
+  qc: QueryClient,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["portfolio-holdings"] });
+}
+
+/**
+ * Marketplace notifications inbox (`rq.marketplaceNotifications`).
+ * Pass `userId` when known; otherwise invalidate the whole prefix.
+ */
+export async function invalidateMarketplaceNotifications(
+  qc: QueryClient,
+  userId?: string | null,
+  chainId?: number | null,
+): Promise<void> {
+  if (userId?.trim() && chainId != null) {
+    await qc.invalidateQueries({
+      queryKey: rq.marketplaceNotifications(userId.trim(), chainId),
+    });
+    return;
+  }
+  if (userId?.trim()) {
+    await qc.invalidateQueries({
+      queryKey: ["marketplace-notifications", userId.trim()],
+    });
+    return;
+  }
+  await qc.invalidateQueries({ queryKey: ["marketplace-notifications"] });
+}
+
+/**
+ * After seller accept-offer settle (ask untouched until success; then book + inventory move).
+ */
+export async function invalidateAfterAcceptOffer(
+  qc: QueryClient,
+  opts: {
+    collectionKey?: string | null;
+    address?: string | null;
+    /** Buyer wallet (bid offerer) — ownership moved here. */
+    buyerAddress?: string | null;
+    tokenId?: number;
+    userId?: string | null;
+  },
+): Promise<void> {
+  await invalidateAfterListing(qc, opts);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+  await invalidateMarketplaceNotifications(qc, opts.userId);
+  await clearPortfolioOwnedCaches(qc, [opts.address, opts.buyerAddress]);
+}
+
+/**
+ * After a dead token bid is invalidated (underfunded / expired).
+ * Orders book + inbox so sellers stop seeing the dead offer.
+ */
+export async function invalidateAfterDeadBid(
+  qc: QueryClient,
+  userId?: string | null,
+): Promise<void> {
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+  await invalidateMarketplaceNotifications(qc, userId);
+}
+
+/**
+ * After an individual order (ask or criteria bid) is cancelled from the
+ * owned-RWA list modal. Refreshes orders + the specific collection depth.
+ */
+export async function invalidateAfterOrderCancel(
+  qc: QueryClient,
+  collectionKey: string,
+): Promise<void> {
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
+}
+
+/**
+ * After a new listing is created from the collection listing modal.
+ * Refreshes orders, collection state (depth + merkle), and the owned-RWA
+ * list for this specific wallet + collection so the modal re-renders.
+ */
+export async function invalidateAfterCollectionListing(
+  qc: QueryClient,
+  collectionKey: string,
+  addr: string,
+): Promise<void> {
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
+  await qc.invalidateQueries({ queryKey: rq.merkleSet(collectionKey) });
+  await qc.invalidateQueries({
+    queryKey: rq.collectionOwnedRwa(addr.toLowerCase(), collectionKey),
+  });
+}
+
+/**
+ * After a token is burned (transferred to the burn address).
+ * Refreshes all wallet token lists, metadata batches, orders, and the
+ * portfolio daily-value snapshot for the wallet.
+ */
+export async function invalidateAfterBurn(
+  qc: QueryClient,
+  address: string,
+): Promise<void> {
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
+  await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
+  await _invalidatePortfolioDailySnapshots(qc, address);
+  await clearPortfolioOwnedCaches(qc, [address]);
+}
+
+/**
+ * After redeem pay→custody (or resume custody / confirm-received).
+ * My Assets must drop custody-held tokens without waiting on Transfer poll.
+ */
+export async function invalidateAfterRedeemCustody(
+  qc: QueryClient,
+  opts: { portfolioWallets?: Array<string | null | undefined> },
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["rwa", "redemptions", "mine"] });
+  await _invalidateOrdersAll(qc);
+  await _invalidateRwaTokensAll(qc);
+  await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
+}
+
+/**
+ * Targeted refresh between match-retry rounds in the instant-match flow.
+ * Refreshes only the collection detail and merkle set — not the full listing scope.
+ *
+ * Replaces: inline invalidation blocks inside `listRwaInstantMatch.ts` retry loop
+ * and `runPostListInstantMatch`.
+ */
+export async function invalidateForMatchRetry(
+  qc: QueryClient,
+  key: string,
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+  await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+  await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
+}

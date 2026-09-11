@@ -1,29 +1,45 @@
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 import type { CollectionMarketPreview } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   bucketCardSetForDisplay,
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
-  displayEditionLanguage,
-  inferLanguageFromCorpus,
-  inferLanguageFromLatinPokemonRegion,
-} from "@/lib/marketplace/collectionEditionLanguage";
+  displayVariantIfNotSetDuplicate,
+  extractCatalogSetCodeFromDisplay,
+  extractLeadingTcgSeriesFromSetDisplay,
+  formatCardDisplayLanguageLong,
+  formatCardDisplayLanguageShort,
+  formatCardDisplaySetLabel,
+  formatDetailExpansionSetName,
+} from "@/lib/marketplace/cardDisplayName";
+import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
+import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
+  formatDetailsCardNumber,
   leadingYearFromSetLine,
-  toCardDisplayUppercase,
+  splitTcgCollectorNumber,
+  toCardDisplayCase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { resolveCollectionSetFacetLabel } from "@/lib/markets/marketsFilters";
 
 export function buildCollectionMarketDetailCards(params: {
   key: string;
   hasCollection: boolean;
   marketPreview: CollectionMarketPreview | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   headlineCardNumberToken: string | null | undefined;
   headlineSetLine: string | null;
   collectionCategoryBadge: string | null | undefined;
+  /**
+   * Same language token as breadcrumb (`JP` / `EN` / `English`).
+   * Details KV renders the long form (`English`). Unknown → omit, unless
+   * Latin Pokémon catalog copy can default to English.
+   */
+  languageLabel?: string | null;
 }): CollectionDetailCard[] {
   const {
     key,
@@ -33,38 +49,84 @@ export function buildCollectionMarketDetailCards(params: {
     headlineCardNumberToken,
     headlineSetLine,
     collectionCategoryBadge,
+    languageLabel,
   } = params;
 
   if (!key.trim() || !hasCollection) return [];
   const ch = marketPreview?.card ?? null;
+  const np = comp.normalizedPokemon ?? null;
 
   const rows: CollectionDetailCard[] = [];
 
-  const cardNumRaw =
-    headlineCardNumberToken?.trim() ||
-    (typeof comp.cardNumber === "string" && comp.cardNumber.trim()
+  const cardNumCandidates = [
+    np?.cardNumber?.trim() || "",
+    headlineCardNumberToken?.trim() || "",
+    typeof comp.cardNumber === "string" && comp.cardNumber.trim()
       ? comp.cardNumber.trim()
-      : "");
-  if (cardNumRaw) {
-    rows.push({
-      id: "card-number",
-      label: "Card Number",
-      value: headlineCardNumberToken?.trim() || cardNumRaw,
-    });
-  }
+      : "",
+  ].filter(Boolean);
+  const cardNumRaw =
+    cardNumCandidates.find((s) => s.includes("/")) ||
+    cardNumCandidates[0] ||
+    "";
+  const splitNum = splitTcgCollectorNumber(cardNumRaw);
 
-  const variantStr =
-    (typeof comp.variant === "string" && comp.variant.trim()
-      ? comp.variant.trim()
-      : "") || (marketPreview?.card?.variant?.trim() ?? "");
-  if (variantStr) {
-    rows.push({
-      id: "variant",
-      label: "Variant",
-      value: variantStr,
-    });
-  }
+  /*
+   * Details Set = expansion only (one source). Prefer normalized / Cardhedger
+   * setName, else PSA/set line. Strip year + franchise / set-code / language.
+   * `filterValue` is the same string Markets set chips use (`set=`).
+   */
+  const setLineRaw =
+    headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
+  const setSourceRaw =
+    np?.setName?.trim() || ch?.setName?.trim() || setLineRaw;
+  const setFilterValue = resolveCollectionSetFacetLabel(comp);
 
+  const listingLine = listingDisplayTitleFromComp(comp);
+  let lang = languageLabel?.trim() || "";
+  if (!lang) {
+    const raw = resolveCollectionDisplayLanguage({
+      comp,
+      marketPreview,
+      corpusLines: [
+        listingLine,
+        headlineSetLine,
+        ch?.setName,
+        ch?.name,
+        bucketCardSetForDisplay(comp),
+      ],
+      includeDefaultEnglish: Boolean(collectionCategoryBadge?.toLowerCase().includes("pokemon")),
+    });
+    if (raw) lang = raw.trim();
+  }
+  const langLong = formatCardDisplayLanguageLong(lang) || lang;
+  const langShort = formatCardDisplayLanguageShort(lang) ?? lang;
+
+  const setDisplay = formatDetailExpansionSetName({
+    setName: setSourceRaw,
+    setLine: setLineRaw,
+    categoryLabel: collectionCategoryBadge,
+    language: langShort,
+  });
+
+  const series =
+    np?.series?.trim() ||
+    extractLeadingTcgSeriesFromSetDisplay(setLineRaw) ||
+    extractLeadingTcgSeriesFromSetDisplay(setSourceRaw) ||
+    "";
+
+  const variantStr = displayVariantIfNotSetDuplicate(
+    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant),
+    setDisplay,
+    {
+      psaBrand: comp.psaBrand ?? bucketCardSetForDisplay(comp),
+      language: resolveCollectionDisplayLanguage({
+        comp,
+        marketPreview,
+        corpusLines: [headlineSetLine, ch?.setName, bucketCardSetForDisplay(comp)],
+      }),
+    },
+  );
   const cat = collectionCategoryBadge?.trim();
   if (cat) {
     rows.push({
@@ -74,40 +136,60 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  const gradeStr = typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : "";
-  if (gradeStr) {
+  if (series) {
     rows.push({
-      id: "grade",
-      label: "Grade",
-      value: gradeStr,
+      id: "series",
+      label: "Series",
+      value: series,
     });
   }
 
-  const grader = bucketGradingCompanyForDisplay(comp).trim();
-  if (grader) {
-    rows.push({
-      id: "grader",
-      label: "Grader",
-      value: grader,
-    });
-  }
-
-  const setName =
-    headlineSetLine?.trim() || bucketCardSetForDisplay(comp).trim();
-  if (setName) {
+  if (setDisplay) {
     rows.push({
       id: "set",
       label: "Set",
-      value: setName,
+      value: setDisplay,
+      ...(setFilterValue
+        ? { filterValue: toCardDisplayCase(setFilterValue) }
+        : {}),
+    });
+  }
+
+  const setCode =
+    formatCardDisplaySetLabel(np?.setCode) ||
+    extractCatalogSetCodeFromDisplay(setSourceRaw) ||
+    extractCatalogSetCodeFromDisplay(setLineRaw);
+  if (setCode) {
+    rows.push({
+      id: "set-code",
+      label: "Set code",
+      value: setCode,
+    });
+  }
+
+  if (splitNum.number) {
+    rows.push({
+      id: "card-number",
+      label: "Card number",
+      value: formatDetailsCardNumber(
+        cardNumRaw.includes("/") ? cardNumRaw : splitNum.number,
+      ),
+    });
+  }
+
+  if (variantStr) {
+    rows.push({
+      id: "variant",
+      label: "Variant",
+      value: variantStr,
     });
   }
 
   const yrFromComp = yearFromComponents(comp);
   let yr: number | null = yrFromComp;
   if (yr == null) {
-    const listingLineEarly = listingDisplayTitleFromComp(comp);
     const setCandidates = [
-      listingLineEarly,
+      listingLine,
       headlineSetLine?.trim(),
       ch?.setName?.trim(),
       bucketCardSetForDisplay(comp).trim(),
@@ -129,44 +211,41 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  const listingLine = listingDisplayTitleFromComp(comp);
-  const fromComp =
-    typeof comp.language === "string" && comp.language.trim()
-      ? comp.language.trim()
-      : null;
-  const fromMarket = ch?.market?.trim() ?? null;
-
-  const corpus = [
-    listingLine,
-    headlineSetLine,
-    ch?.setName,
-    ch?.name,
-    bucketCardSetForDisplay(comp),
-  ]
-    .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
-    .join(" ");
-
-  let lang: string | null = null;
-  if (fromComp) lang = displayEditionLanguage(fromComp) ?? fromComp;
-  if (!lang && fromMarket) lang = displayEditionLanguage(fromMarket) ?? fromMarket;
-  if (!lang) lang = inferLanguageFromCorpus(corpus);
-  if (!lang) lang = inferLanguageFromLatinPokemonRegion(corpus);
-  if (!lang && ch != null && !/[\u3000-\u9fff\uac00-\ud7af]/.test(corpus)) {
-    lang = "English";
+  const gradeStr = typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : "";
+  if (gradeStr) {
+    rows.push({
+      id: "grade",
+      label: "Grade",
+      value: gradeStr,
+    });
   }
-  if (lang === "English" && /\bindonesia(?:n)?\b/i.test(corpus)) {
-    lang = "English · Indonesian (card)";
+
+  const grader = bucketGradingCompanyForDisplay(comp).trim();
+  if (grader) {
+    rows.push({
+      id: "grader",
+      label: "Grader",
+      value: grader,
+    });
   }
-  if (lang) {
+
+  if (langLong) {
     rows.push({
       id: "language",
       label: "Language",
-      value: lang,
+      value: langLong,
     });
   }
 
   return rows.map((row) => ({
     ...row,
-    value: toCardDisplayUppercase(row.value),
+    value:
+      row.id === "card-number" ||
+      row.id === "set" ||
+      row.id === "set-code" ||
+      row.id === "language" ||
+      row.id === "grade"
+        ? row.value
+        : toCardDisplayCase(row.value),
   }));
 }

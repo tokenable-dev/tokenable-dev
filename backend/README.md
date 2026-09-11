@@ -5,24 +5,30 @@ pnpm install
 pnpm start:dev
 ```
 
-- API: [http://localhost:4000/api](http://localhost:4000/api) · Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
-- Env: `backend/.env` (Postgres, RPC, Pinata, OAuth, etc.)
+- API: [http://localhost:4100/api](http://localhost:4100/api) (local dev default — see [local-setup.md](../docs/guides/local-setup.md))
+- Swagger: [http://localhost:4100/api/docs](http://localhost:4100/api/docs)
+- Env: `backend/.env` (Postgres, **Redis** `REDIS_URL`, RPC, Pinata, OAuth, Cardhedger, PSA, …)
+- Infra: `docker compose up -d postgres redis` (Redis = identity cache L2 on host port **6380**)
 
-**Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/README.md](../docs/README.md)**.
+**Database:** 17 TypeORM entities; production DDL in **`sql/schema/`**. See **[sql/README.md](./sql/README.md)** and **[../docs/architecture/database.md](../docs/architecture/database.md)**.
 
-**Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections + **materialized snapshots** (`marketplace/collections/*`, `collection_market_snapshots` table). Matching is **wallet-signed Seaport only**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · DB: **[../docs/architecture/database.md](../docs/architecture/database.md)**.
+**Marketplace:** Seaport off-chain order book, collections + **materialized snapshots**, portfolio daily cron, **user watchlist**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)**.
 
-**Card Hedge:** optional **`CARDHEDGER_API_KEY`**. Public HTTP: **`GET /api/cardhedger/indexes`** (dashboard indexes). All other Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
+**Cardhedger:**
+- **`/api/cardhedger/v1/*`** — full upstream proxy (API key injected server-side)
+- **Top 100 / Top Movers** — `/api/cardhedger/top100/*`, `/api/cardhedger/top-movers`
+- **Price webhooks** — `POST /api/webhooks/cardhedger/price-updates`
+- **Admin ops** — `/api/admin/cardhedger/*`, `/api/admin/cardhedger/price-subscriptions/*`
+- Internal server-to-server calls from PSA, collections, snapshot workers
 
-**PSA spec scraper (clean collection covers):** headless Chromium pulls the **card-only** image (`https://d1htnxwo4o0jhw.cloudfront.net/spec/{specId}/*.jpg`) off Cloudflare-protected PSA spec pages. See **[`docs/api/psa.md` — PSA spec scraper](../docs/api/psa.md#psa-spec-page-scraper-collection-covers)** for failure modes and env vars (`PSA_SPEC_NAV_TIMEOUT_MS`, `PSA_SPEC_SCRAPER_PROXY`, `PSA_SPEC_COVER_ALLOW_FALLBACK`, etc.). Defaults: 120s nav / 45s image wait. Cache: 24h success / 1h failure (override `PSA_SPEC_NEGATIVE_CACHE_MS`).
+**Card Ladder indexes:** **`GET /api/cardladder/indexes`** — landing dashboard (Playwright + cache).
 
-```bash
-# one-time per machine (~100MB) — MUST run from backend/ after cloning or upgrading playwright-core
-pnpm run install:browsers
-# equivalent: pnpm exec playwright-core install chromium
-# Do NOT use `pnpm exec playwright install` unless you add the full `playwright` package.
-```
+**Auth:** Google OAuth + email/password + wallet link (signature challenge). See **[../docs/api/auth.md](../docs/api/auth.md)**.
 
-Quick manual check: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
+**Site access:** optional staging gate — **`SITE_ACCESS_ENABLED`**. See **[../docs/api/site-access.md](../docs/api/site-access.md)**.
 
-> **Docker:** the production `Dockerfile` installs browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` and runs `playwright-core install --with-deps chromium` with **`CI` unset for that step** so the download is not skipped when `CI=true` elsewhere. Local dev: `pnpm run install:browsers`.
+**Collection covers:** **`CollectionCoverService`** picks the best catalog URL (Pokémon TCG `large` preferred over Cardhedger; Bubble `/resize` demoted when present) at first listing and upgrades on later listings when a higher-scoring URL is found.
+
+> **Docker:** the production `Dockerfile` installs Playwright browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`. Local dev: `pnpm run install:browsers`.
+
+**Vault module:** not implemented — inbound custody/mint orchestration is planned separately.

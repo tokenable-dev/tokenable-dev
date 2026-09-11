@@ -1,0 +1,2011 @@
+/* Portfolio Redeem — selection mode + /portfolio/redeem flow (design system-5) */
+
+.pf-holdings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pf-redeem-toolbar-btn.tk-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  background: rgba(26, 111, 255, 0.16) !important;
+  color: #5b9aff !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+.pf-redeem-toolbar-btn.tk-btn:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.24) !important;
+  color: #7eb6ff !important;
+  filter: none !important;
+}
+
+.pf-redeem-toolbar-btn.tk-btn:disabled {
+  opacity: 0.45 !important;
+}
+
+.pf-redeem-hint {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  background: rgba(26, 111, 255, 0.06);
+  border-radius: 10px;
+  line-height: 1.5;
+}
+
+.pf-redeem-hint--err {
+  color: #ff8a8a;
+  background: rgba(255, 80, 80, 0.08);
+}
+
+.pf-redeem-chk-cell {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-chk-cell--mobile {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  margin: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.pf-mobile-asset-card {
+  position: relative;
+}
+
+.pf-mobile-asset-card--select {
+  padding-left: 4px;
+}
+
+.pf-mobile-asset-card--selected {
+  outline: 1px solid rgba(26, 111, 255, 0.45);
+  background: rgba(26, 111, 255, 0.04);
+}
+
+.pf-holdings-row--selected td {
+  background: rgba(26, 111, 255, 0.04);
+}
+
+.pf-redeem-chk {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--azure, #1A6FFF);
+  cursor: pointer;
+}
+
+.pf-redeem-chk:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.pf-redeem-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.pf-redeem-badge--redeeming {
+  background: rgba(26, 111, 255, 0.22);
+  color: #8ec2ff;
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.55);
+}
+
+.pf-redeem-badge--transit {
+  background: rgba(243, 112, 30, 0.14);
+  color: rgb(243, 112, 30);
+}
+
+.pf-redeem-badge--possession {
+  background: rgba(0, 195, 80, 0.12);
+  color: #00c350;
+}
+
+.pf-table-actions--dim {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pf-table-actions--status {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.pf-table-actions--preparing {
+  gap: 8px;
+}
+
+.pf-table-actions__status {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-table-actions__status-link {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--azure, #1A6FFF);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-table-actions__status-link:hover {
+  color: #fff;
+}
+
+.pf-table-actions__status-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--azure, #1A6FFF);
+  color: #fff;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-table-actions__status-btn:hover {
+  filter: brightness(1.08);
+}
+
+.pf-table-actions--full .pf-table-actions__status-btn {
+  width: 100%;
+  height: 44px;
+}
+
+.pf-holdings-row--transit {
+  opacity: 0.6;
+}
+
+.pf-holdings-row--possession {
+  opacity: 0.72;
+}
+
+.pf-mobile-asset-card--transit {
+  opacity: 0.6;
+}
+
+.pf-mobile-asset-card--possession {
+  opacity: 0.72;
+}
+
+.pf-redeem-batch-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 14px clamp(16px, 4vw, 40px) calc(14px + env(safe-area-inset-bottom));
+  background: rgba(14, 14, 14, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.pf-redeem-batch-bar__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pf-redeem-batch-bar__left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pf-redeem-batch-bar__count {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.pf-redeem-batch-bar__err {
+  font-size: 12px;
+  color: #ff8a8a;
+}
+
+.pf-redeem-batch-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-redeem-batch-bar__cancel.tk-btn {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+.pf-redeem-batch-bar__cancel.tk-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  filter: none !important;
+}
+
+.pf-redeem-batch-bar__go.tk-btn {
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 22px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: var(--azure, #1A6FFF) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+}
+
+.pf-redeem-batch-bar__go.tk-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.pf-redeem-batch-bar__go.tk-btn:disabled {
+  opacity: 0.4 !important;
+  pointer-events: none;
+}
+
+.portfolio-page--redeem-select {
+  padding-bottom: 96px;
+}
+
+/* Redeem flow page */
+.pf-redeem-page {
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 4vw, 40px) 100px;
+  color: #fff;
+  box-sizing: border-box;
+  /* Avoid horizontal jump when a tall quote adds/removes the page scrollbar */
+  scrollbar-gutter: stable;
+}
+
+.pf-redeem-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.pf-redeem-crumb a {
+  color: var(--azure, #1A6FFF);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.pf-redeem-crumb a:hover {
+  color: #fff;
+}
+
+.pf-redeem-crumb__sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.pf-redeem-crumb__current {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 1024px) {
+  .pf-redeem-crumb {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-page {
+    padding-top: 24px;
+  }
+
+  .pf-redeem-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pf-redeem-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Headers — Redeem.html `.eyebrow` / h1 / sub */
+.pf-redeem-eyebrow {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--azure, #1A6FFF);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-eyebrow {
+    display: none;
+  }
+}
+
+.pf-redeem-h1 {
+  margin: 10px 0 6px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-weight: 700;
+  font-size: clamp(26px, 3.2vw, 38px);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.pf-redeem-sub {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+}
+
+.pf-redeem-sub--prep {
+  margin-bottom: 20px;
+}
+
+.pf-redeem-batch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #191919;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.pf-redeem-batch-head__label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+}
+
+.pf-redeem-batch-head__id {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.pf-redeem-batch-head__scope {
+  text-align: right;
+}
+
+/* Shared ship-to form — Redeem.html + Settings Addresses (`.tk-ship-form`) */
+.tk-ship-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.pf-redeem-form.tk-ship-form,
+.pf-redeem-panel .tk-ship-form {
+  margin-bottom: 28px;
+}
+
+.tk-ship-form__section {
+  margin-bottom: 24px;
+}
+
+.tk-ship-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.tk-ship-form__row > .tk-ship-form__section {
+  margin-bottom: 24px;
+  min-width: 0;
+}
+
+.tk-ship-form .tk-field {
+  gap: 0;
+}
+
+.tk-ship-form .tk-field__label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.tk-ship-form .tk-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px !important;
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+  font-family: var(--font-sans, system-ui, sans-serif) !important;
+  font-size: 15px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tk-ship-form .tk-input::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.tk-ship-form .tk-input:hover:not(:disabled) {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.tk-ship-form .tk-input:focus {
+  border-color: var(--azure, #1A6FFF) !important;
+  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15) !important;
+}
+
+.tk-ship-form .tk-ship-form__mono {
+  font-family: var(--font-mono, ui-monospace, monospace) !important;
+}
+
+.tk-ship-form__phone-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+
+/* Higher specificity than `.tk-ship-form .tk-select-wrap { width:100% }` */
+.tk-ship-form .tk-ship-form__phone-row .tk-select-wrap.tk-ship-form__dial {
+  width: 148px;
+  flex: 0 0 148px;
+  max-width: 148px;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .tk-ship-form .tk-ship-form__phone-row .tk-select-wrap.tk-ship-form__dial {
+    width: 118px;
+    flex-basis: 118px;
+    max-width: 118px;
+  }
+}
+
+.tk-ship-form .tk-ship-form__phone-row .tk-ship-form__dial-select {
+  width: 100%;
+  min-width: 0;
+  padding-right: 34px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tk-ship-form .tk-ship-form__phone-row .tk-ship-form__phone-national {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.tk-ship-form__street {
+  margin-bottom: 10px !important;
+}
+
+.tk-ship-form__apt {
+  margin-top: 0;
+}
+
+.tk-ship-form .tk-select-wrap {
+  width: 100%;
+}
+
+.tk-ship-form .tk-select-wrap svg {
+  right: 16px;
+  width: 12px;
+  height: 12px;
+  color: #888;
+}
+
+.tk-ship-form select.tk-input {
+  padding-right: 40px !important;
+  cursor: pointer;
+}
+
+/* Native checkbox — Redeem.html `.cbx` */
+.tk-ship-cbx,
+.pf-redeem-cbx {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--t2);
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.tk-ship-cbx input,
+.pf-redeem-cbx input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--azure, #1A6FFF);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tk-ship-cbx input:disabled,
+.pf-redeem-cbx input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tk-ship-form__note {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+.tk-ship-form__note strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.pf-redeem-summary {
+  margin-bottom: 28px;
+  border-radius: 16px;
+  background: #191919;
+  padding: 20px;
+}
+
+.pf-redeem-summary--compact {
+  padding: 16px 20px;
+}
+
+.pf-redeem-hint-below {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .tk-ship-form__row,
+  .pf-redeem-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pf-redeem-summary__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pf-redeem-summary__thumbs {
+  display: flex;
+  align-items: center;
+}
+
+.pf-redeem-summary__thumb {
+  width: 30px;
+  height: 42px;
+  background: #0e0e0e;
+  border-radius: 5px;
+  padding: 2px;
+  border: 1px solid #191919;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pf-redeem-summary__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-summary__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-summary__count {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.pf-redeem-summary__sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.52);
+  margin-top: 2px;
+}
+
+.pf-redeem-summary__toggle {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--azure, #1A6FFF);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 9px 16px;
+  border-radius: 8px;
+}
+
+.pf-redeem-summary__list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.pf-redeem-summary__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #191919;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.pf-redeem-summary__row-thumb {
+  width: 52px;
+  height: 74px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0e0e0e;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-summary__row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-summary__row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-summary__row-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pf-redeem-summary__row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pf-redeem-chip {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pf-redeem-chip--vault {
+  background: rgba(26, 111, 255, 0.12);
+  color: #5b9aff;
+}
+
+.pf-redeem-summary__row-cert {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.pf-redeem-summary__trash {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-summary__trash:hover {
+  color: #ff8a8a;
+  background: rgba(255, 80, 80, 0.1);
+}
+
+.pf-redeem-cost,
+.pf-redeem-shipto,
+.pf-redeem-shipment,
+.pf-redeem-next,
+.pf-redeem-paybox {
+  border-radius: 16px;
+  background: #191919;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-quote {
+  transition:
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.pf-redeem-quote--done {
+  min-height: 0;
+}
+
+.pf-redeem-quote__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pf-redeem-quote__label,
+.pf-redeem-quote .pf-redeem-cost__title {
+  margin: 0;
+}
+
+.pf-redeem-quote__badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.pf-redeem-quote__badge--idle {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pf-redeem-quote__badge--loading {
+  background: rgba(26, 111, 255, 0.14);
+  color: #5b9aff;
+}
+
+.pf-redeem-quote__badge--done {
+  background: rgba(0, 200, 100, 0.14);
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-quote__badge--stale {
+  background: rgba(243, 112, 30, 0.14);
+  color: #f3701e;
+}
+
+.pf-redeem-quote__stage {
+  margin-top: 14px;
+}
+
+.pf-redeem-quote__body {
+  display: block;
+}
+
+.pf-redeem-quote__body--loading {
+  margin-top: 4px;
+}
+
+.pf-redeem-quote__body--result {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-redeem-quote,
+  .pf-redeem-quote__badge,
+  .pf-redeem-quote__bar-fill {
+    transition: none !important;
+  }
+}
+
+.pf-redeem-quote__intro {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+}
+
+.pf-redeem-quote__stale-note {
+  margin: 0 0 14px;
+  background: rgba(243, 112, 30, 0.08);
+  border: 1px solid rgba(243, 112, 30, 0.2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.pf-redeem-quote__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pf-redeem-quote__sk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+}
+
+.pf-redeem-quote__sk-row--total {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 14px;
+}
+
+.pf-redeem-quote__sk-chip {
+  display: block;
+  height: 12px;
+  width: 46%;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: pf-redeem-shimmer 1.1s ease-in-out infinite;
+}
+
+.pf-redeem-quote__sk-chip--sm {
+  width: 22%;
+}
+
+.pf-redeem-quote__sk-chip--md {
+  width: 38%;
+}
+
+.pf-redeem-quote__sk-chip--lg {
+  width: 28%;
+  height: 14px;
+}
+
+@keyframes pf-redeem-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.pf-redeem-quote__loading,
+.pf-redeem-quote__loading-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-redeem-quote__loading-copy {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pf-redeem-quote-btn.tk-btn {
+  width: 100%;
+  height: 48px !important;
+  min-height: 48px !important;
+  font-size: 15px !important;
+}
+
+.pf-redeem-quote__spin {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--azure, #1A6FFF);
+  animation: pf-redeem-spin 0.7s linear infinite;
+}
+
+@keyframes pf-redeem-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pf-redeem-quote__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.pf-redeem-quote__bar-fill {
+  height: 100%;
+  background: var(--azure, #1A6FFF);
+  transition: width 220ms linear;
+}
+
+.pf-redeem-quote__continue {
+  width: 100%;
+}
+
+.pf-redeem-cost__inner {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.pf-redeem-cost__shipment {
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-quote__body--result .pf-redeem-cost__copy {
+  margin-top: 12px;
+}
+
+.pf-redeem-cost__shipment-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-cost__shipment-count {
+  color: rgba(255, 255, 255, 0.52);
+  font-weight: 500;
+}
+
+.pf-redeem-shipto--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pf-redeem-edit-btn.tk-btn {
+  height: 38px;
+  font-size: 13px;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.pf-redeem-error {
+  color: #ff8a8a;
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.pf-redeem-cost__title,
+.pf-redeem-shipment__title,
+.pf-redeem-next__title {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-cost .pf-redeem-cost__title,
+.pf-redeem-shipto .pf-redeem-cost__title,
+.pf-redeem-paybox .pf-redeem-cost__title {
+  margin-bottom: 6px;
+}
+
+.pf-redeem-paybox .pf-redeem-cost__copy {
+  margin-top: 10px;
+}
+
+.pf-redeem-cost__copy,
+.pf-redeem-shipment__copy {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+
+.pf-redeem-cost__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 14px;
+}
+
+.pf-redeem-cost__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  color: #fff;
+}
+
+.pf-redeem-cost__line--item {
+  padding: 5px 0;
+}
+
+.pf-redeem-cost__label {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+  font-family: var(--font-sans, inherit);
+}
+
+.pf-redeem-cost__val {
+  font-weight: 600;
+  color: #fff;
+}
+
+.pf-redeem-cost__line--total {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 14px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pf-redeem-cost__line--total .pf-redeem-cost__val {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.pf-redeem-shipto__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-shipto__muted {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-redeem-banner__icon--pos {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-prep-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 13.5px;
+  color: #fff;
+}
+
+.pf-redeem-status-pill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.pf-redeem-status-pill--warn {
+  background: rgba(243, 112, 30, 0.14);
+  color: #f3701e;
+}
+
+.pf-redeem-status-pill--pos {
+  background: rgba(0, 200, 100, 0.14);
+  color: #00c864;
+}
+
+.pf-redeem-shipment__head {
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.pf-redeem-track-link {
+  color: var(--azure, #1A6FFF);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.pf-redeem-track-link:hover {
+  text-decoration: underline;
+}
+
+.pf-redeem-ship-received {
+  width: 100%;
+  height: 42px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+.pf-redeem-flag {
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-sans, inherit);
+  font-size: 11.5px;
+  font-weight: 600;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.pf-redeem-flag:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pf-redeem-flag--reported,
+.pf-redeem-flag:disabled {
+  background: rgba(245, 51, 44, 0.16);
+  color: #ff6b7a;
+  cursor: default;
+}
+
+.pf-redeem-report-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: rgba(0, 0, 0, 0.66);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.pf-redeem-report-modal {
+  width: 460px;
+  max-width: 100%;
+  background: #191919;
+  border-radius: 16px;
+  padding: 26px;
+}
+
+.pf-redeem-report-modal__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-report-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.pf-redeem-report-modal__meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-report-modal__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.pf-redeem-report-modal__opt {
+  width: 100%;
+  height: 46px;
+  font-size: 14px;
+}
+
+.pf-redeem-report-modal__note {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pf-redeem-report-modal__close {
+  width: 100%;
+  height: 42px;
+  font-size: 14px;
+}
+
+.pf-redeem-shipto__body {
+  font-size: 14px;
+  color: #fff;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pf-redeem-paybox__copy {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.pf-redeem-paybox__bal {
+  color: var(--pos, rgb(0, 200, 100));
+  margin-left: 6px;
+}
+
+.pf-redeem-paybox__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+}
+
+.pf-redeem-shipment__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.pf-redeem-shipment__meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pf-redeem-shipment__k {
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-sans, inherit);
+}
+
+.pf-redeem-shipment__delivered,
+.pf-redeem-shipment__auto {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  text-align: right;
+}
+
+.pf-redeem-shipment__auto {
+  color: var(--azure, #1A6FFF);
+}
+
+.pf-redeem-shipment--delivered {
+  box-shadow: inset 0 0 0 1px rgba(0, 200, 100, 0.22);
+}
+
+.pf-redeem-next__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pf-redeem-next__step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 0;
+  font-size: 13.5px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+.pf-redeem-next__num {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  min-width: 1ch;
+}
+
+.pf-redeem-next__num--done {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-banner {
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.pf-redeem-banner__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--azure, #1A6FFF);
+}
+
+.pf-redeem-banner strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.pf-redeem-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--t2);
+}
+
+.pf-redeem-banner--pos {
+  background: rgba(0, 200, 100, 0.08);
+  border: 1px solid rgba(0, 200, 100, 0.25);
+}
+
+.pf-redeem-banner--pos .pf-redeem-banner__icon,
+.pf-redeem-banner--pos > svg {
+  color: rgb(0, 200, 100);
+}
+
+.pf-redeem-banner--center {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 0;
+}
+
+.pf-redeem-banner--center > svg {
+  margin-bottom: 14px;
+}
+
+.pf-redeem-banner--center strong {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.pf-redeem-banner--center p {
+  max-width: 400px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pf-redeem-primary {
+  width: 100%;
+  height: 52px;
+}
+
+.pf-redeem-primary--busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0.92;
+}
+
+.pf-redeem-primary--busy .pf-redeem-quote__spin {
+  border-color: rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+}
+
+.pf-redeem-shipment .pf-redeem-shipment__title {
+  margin-bottom: 14px;
+}
+
+.pf-redeem-cancel-btn.tk-btn {
+  margin-bottom: 12px;
+}
+
+.pf-redeem-hint-below--prep {
+  margin-bottom: 20px;
+}
+
+.pf-redeem-primary-link {
+  display: block;
+  text-decoration: none;
+  margin-top: 10px;
+}
+
+.pf-redeem-primary-link--prep {
+  margin-top: 0;
+}
+
+/* Portfolio Redeem tab — in-progress + completed history */
+.pf-redeem-progress {
+  padding-top: 8px;
+}
+
+.pf-redeem-progress__section {
+  margin-bottom: 28px;
+}
+
+.pf-redeem-progress__section-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.pf-redeem-progress__intro {
+  margin: 0 0 18px;
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pf-redeem-progress__orders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pf-redeem-progress__order {
+  border-radius: 16px;
+  padding: 16px 18px;
+  background: #191919;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-progress__order-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pf-redeem-progress__order-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+}
+
+.pf-redeem-progress__order-meta {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-progress__status-link {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azure);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pf-redeem-progress__status-link:hover {
+  text-decoration: underline;
+}
+
+.pf-redeem-progress__cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-redeem-progress__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pf-redeem-progress__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-progress__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pf-redeem-progress__card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pf-redeem-progress__card-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Step 1 access gate — shipping a physical card needs a verified owner */
+.pf-redeem-gate {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #191919;
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-gate--loading {
+  min-height: 148px;
+}
+
+.pf-redeem-gate__icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: rgba(26, 111, 255, 0.12);
+  color: var(--azure, #1A6FFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-gate__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-gate__title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.pf-redeem-gate__copy {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--t2);
+}
+
+.pf-redeem-gate__sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pf-redeem-gate__cta {
+  height: 46px;
+  padding: 0 22px;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+.pf-redeem-verified {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 22px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(0, 200, 100);
+}
+
+/* Transit shipment contents — searchable manifest for up to 50 cards */
+.pf-redeem-contents {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pf-redeem-contents__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pf-redeem-contents__tog {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pf-redeem-contents__caret {
+  transition: transform 0.15s;
+}
+
+.pf-redeem-contents__caret--open {
+  transform: rotate(90deg);
+}
+
+.pf-redeem-contents__slip {
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--azure, #1A6FFF);
+  font-family: var(--font-sans, inherit);
+  font-size: 12px;
+  font-weight: 600;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pf-redeem-contents__slip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pf-redeem-contents__slip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pf-redeem-contents__panel {
+  margin-top: 12px;
+}
+
+.pf-redeem-contents__search {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-contents__search::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.pf-redeem-contents__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+.pf-redeem-contents__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.pf-redeem-contents__row + .pf-redeem-contents__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pf-redeem-contents__thumb {
+  width: 32px;
+  height: 45px;
+  flex-shrink: 0;
+  background: #0e0e0e;
+  border-radius: 5px;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-contents__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pf-redeem-contents__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-contents__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.pf-redeem-contents__meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.pf-redeem-contents__meta .pf-redeem-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.pf-redeem-contents__grade {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pf-redeem-contents__cert {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.pf-redeem-contents__empty {
+  padding: 16px 12px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pf-redeem-contents__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Done — shipping out closes the online side, but it isn't a one-way door */
+.pf-redeem-return {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #191919;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.pf-redeem-return__icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(26, 111, 255, 0.12);
+  color: var(--azure, #1A6FFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-redeem-return__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-redeem-return__body strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.pf-redeem-return__body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--t2);
+}
+
+.pf-redeem-return__link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azure, #1A6FFF);
+  text-decoration: none;
+}
+
+.pf-redeem-return__link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .pf-redeem-summary__head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .pf-redeem-summary__meta {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+
+  /* Pay ship-to + Edit — stack so Edit is not squeezed (Ship-From-Vault ≤768) */
+  .pf-redeem-shipto--row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .pf-redeem-edit-btn.tk-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pf-redeem-gate,
+  .pf-redeem-return {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* The icon is decoration — on a phone the copy needs the full width */
+  .pf-redeem-gate__icon,
+  .pf-redeem-return__icon {
+    display: none;
+  }
+
+  .pf-redeem-gate__cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Label above value beats a squeezed two-column row */
+  .pf-redeem-shipment__meta > div {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pf-redeem-contents__bar {
+    gap: 8px;
+  }
+
+  .pf-redeem-contents__slip {
+    flex: 1 1 auto;
+  }
+
+  .pf-redeem-contents__list {
+    max-height: 320px;
+  }
+
+  .pf-redeem-contents__row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pf-redeem-contents__info {
+    flex: 1 1 calc(100% - 100px);
+  }
+
+  .pf-redeem-flag {
+    margin-left: auto;
+  }
+
+  .pf-redeem-report-scrim {
+    padding: 16px;
+    align-items: flex-end;
+  }
+
+  .pf-redeem-report-modal {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 22px 18px
+      max(22px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .pf-redeem-primary,
+  .pf-redeem-ship-received {
+    width: 100%;
+  }
+}

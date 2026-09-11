@@ -21,7 +21,7 @@ const SEAPORT_INVALID_TIME_ABI = [
 ] as const;
 
 const SEAPORT_INVALID_TIME_SHORT =
-  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the NFT or place a new collection bid, then try again.";
+  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the RWA or place a new collection bid, then try again.";
 
 function extractRevertHexData(err: unknown): Hex | null {
   let cur: unknown = err;
@@ -78,6 +78,7 @@ export type WalletErrorCode =
   | "TIMEOUT"
   | "NONCE"
   | "RATE_LIMIT"
+  | "LISTING_COLLECTION"
   | "REVERT"
   | "UNKNOWN";
 
@@ -239,7 +240,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "INSUFFICIENT_FUNDS",
       message:
-        "Not enough ETH for gas. Add Sepolia ETH to your wallet and try again.",
+        "Not enough native token for gas. Add funds on the selected network and try again.",
     };
   }
 
@@ -250,14 +251,31 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   ) {
     return {
       code: "NETWORK_MISMATCH",
-      message: "Wrong network. Switch to Sepolia in your wallet and try again.",
+      message: "Wrong network. Switch to the app network in the header and try again.",
+    };
+  }
+
+  if (/could not create a marketplace collection|could not resolve marketplace collection/i.test(lower)) {
+    return {
+      code: "LISTING_COLLECTION",
+      message:
+        "This token could not be grouped into a marketplace collection. Check graded metadata on IPFS and try listing again.",
+    };
+  }
+
+  if (/api request timed out/i.test(lower)) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "The server took too long to respond. Your on-chain action may still have succeeded — refresh Portfolio before trying again.",
     };
   }
 
   if (/timeout|timed out|time out|deadline/i.test(lower)) {
     return {
       code: "TIMEOUT",
-      message: "Transaction timed out. Try again.",
+      message:
+        "Confirmation timed out. Your purchase may still have gone through — check Portfolio or the explorer before trying again.",
     };
   }
 
@@ -312,7 +330,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "NETWORK_MISMATCH",
       message:
-        "RPC returned no contract data. Confirm you are on Sepolia and that USDC / Seaport addresses match this app’s config.",
+        "RPC returned no contract data. Confirm the header network matches your wallet and that USDC / Seaport addresses are configured for this chain.",
     };
   }
 

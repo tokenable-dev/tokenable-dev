@@ -4,7 +4,7 @@ export type MintFormStep = "idle" | "uploading" | "minting" | "success" | "error
 
 export type PsaInputMode = "slab" | "cert";
 
-/** Sell page: hide Mint image / Asset listing / Card & PSA accordions. */
+/** Sell page: hide Mint image / Asset listing / Card and PSA accordions. */
 export const SHOW_VAULT_COLLAPSIBLE_SECTIONS = false;
 
 export const MINT_FORM_INITIAL_STATE: GradedCardFormState = {

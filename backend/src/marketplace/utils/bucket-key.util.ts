@@ -263,7 +263,13 @@ export function extractOrDiagnoseBucketComponents(
   const psaVarietyRaw = String(
     psa?.variety ?? psa?.Variety ?? '',
   ).trim();
-  out.marketParallelKey = marketParallelKeyFromPsaVariety(psaVarietyRaw);
+  const brandOrSet = String(
+    psa?.brand ?? psa?.Brand ?? psa?.setHint ?? rawSetMerged,
+  ).trim();
+  out.marketParallelKey = marketParallelKeyFromPsaVariety(
+    psaVarietyRaw,
+    brandOrSet,
+  );
 
   const year = normalizeYearLike((card as Record<string, unknown> | undefined)?.year) ??
     normalizeYearLike((psa as Record<string, unknown> | undefined)?.year);
@@ -327,4 +333,14 @@ export function computeMarketBucketKey(
     ...(components.variantType ? { variantType: components.variantType } : {}),
   });
   return createHash('sha256').update(payload, 'utf8').digest('hex');
+}
+
+/** Marketplace bucket for a graded mint — null when identity is incomplete. */
+export function collectionKeyFromGradedMetadata(
+  meta: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!meta || typeof meta !== 'object') return null;
+  const comp = extractBucketComponentsFromMetadata(meta);
+  if (!comp) return null;
+  return computeMarketBucketKey(comp).toLowerCase();
 }

@@ -1,11 +1,25 @@
 # develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
 #
 # Required Repository secrets / variables (Secrets 우선, Variables 폴백)
-#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS    (필수)
-#   NEXT_PUBLIC_USDC_CONTRACT_ADDRESS   (필수)
-#   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
+#   Sepolia (11155111) — 필수
+#     NEXT_PUBLIC_CHAIN_11155111_RPC_URL
+#     NEXT_PUBLIC_CHAIN_11155111_RWA
+#     NEXT_PUBLIC_CHAIN_11155111_USDC
+#   NEXT_PUBLIC_PRIVY_APP_ID            (필수, Privy 로그인·지갑 — Dashboard App ID)
+#   NEXT_PUBLIC_DEFAULT_CHAIN_ID        (선택, 기본 11155111 — Sepolia-only)
+#   MoonPay / Add funds (선택; develop 빌드는 sandbox 기본값 적용)
+#     NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT
+#     NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET
+#     NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID
+#     NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT
+#     NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK  (sandbox only)
+#   Ethereum mainnet (1) — 선택, 세 값 모두 있을 때만 UI에 노출
+#     NEXT_PUBLIC_CHAIN_1_RPC_URL / _RWA / _USDC
+#   Polygon mainnet (137) — 선택, internal-dev 네트워크 전환용 (세 값 모두 필요)
+#     NEXT_PUBLIC_CHAIN_137_RPC_URL / _RWA / _USDC
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
 #   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
+#   NEXT_PUBLIC_GA_MEASUREMENT_ID      (선택, GA4 `G-XXXXXXXXXX` — 페이지뷰 추적)
 #   NEXT_PUBLIC_API_URL - 비우면 브라우저는 same-origin /api (Nginx→Nest 권장)
 #   CI에서 프론트 이미지 빌드 시 API_PROXY_TARGET=http://backend:4000 고정 (레포 deploy.yml)
 #   ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
@@ -50,16 +64,38 @@ jobs:
         run: |
           set -euo pipefail
           # Secrets 우선; 없으면 동일 이름의 Repository Variables 폴백
-          RWA="${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"
-          USDC="${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"
-          RPC="${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"
-          if [ -z "$RWA" ];  then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$USDC" ]; then USDC="${{ vars.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$RPC" ];  then RPC="${{ vars.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"; fi
+          CHAIN_11155111_RPC="${{ secrets.NEXT_PUBLIC_CHAIN_11155111_RPC_URL }}"
+          CHAIN_11155111_RWA="${{ secrets.NEXT_PUBLIC_CHAIN_11155111_RWA }}"
+          CHAIN_11155111_USDC="${{ secrets.NEXT_PUBLIC_CHAIN_11155111_USDC }}"
+          if [ -z "$CHAIN_11155111_RPC" ];  then CHAIN_11155111_RPC="${{ vars.NEXT_PUBLIC_CHAIN_11155111_RPC_URL }}"; fi
+          if [ -z "$CHAIN_11155111_RWA" ];  then CHAIN_11155111_RWA="${{ vars.NEXT_PUBLIC_CHAIN_11155111_RWA }}"; fi
+          if [ -z "$CHAIN_11155111_USDC" ]; then CHAIN_11155111_USDC="${{ vars.NEXT_PUBLIC_CHAIN_11155111_USDC }}"; fi
 
-          if [ -z "$RWA" ];  then echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
-          if [ -z "$USDC" ]; then echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
-          if [ -z "$RPC" ];  then echo "::error::NEXT_PUBLIC_ALCHEMY_RPC_URL 가 비어 있습니다."; exit 1; fi
+          PRIVY="${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}"
+          if [ -z "$PRIVY" ]; then PRIVY="${{ vars.NEXT_PUBLIC_PRIVY_APP_ID }}"; fi
+
+          DEFAULT_CHAIN="${{ secrets.NEXT_PUBLIC_DEFAULT_CHAIN_ID }}"
+          if [ -z "$DEFAULT_CHAIN" ]; then DEFAULT_CHAIN="${{ vars.NEXT_PUBLIC_DEFAULT_CHAIN_ID }}"; fi
+          if [ -z "$DEFAULT_CHAIN" ]; then DEFAULT_CHAIN="11155111"; fi
+
+          if [ -z "$CHAIN_11155111_RPC" ];  then echo "::error::NEXT_PUBLIC_CHAIN_11155111_RPC_URL 가 비어 있습니다."; exit 1; fi
+          if [ -z "$CHAIN_11155111_RWA" ];  then echo "::error::NEXT_PUBLIC_CHAIN_11155111_RWA 가 비어 있습니다."; exit 1; fi
+          if [ -z "$CHAIN_11155111_USDC" ]; then echo "::error::NEXT_PUBLIC_CHAIN_11155111_USDC 가 비어 있습니다."; exit 1; fi
+          if [ -z "$PRIVY" ]; then echo "::error::NEXT_PUBLIC_PRIVY_APP_ID 가 비어 있습니다."; exit 1; fi
+
+          CHAIN_1_RPC="${{ secrets.NEXT_PUBLIC_CHAIN_1_RPC_URL }}"
+          CHAIN_1_RWA="${{ secrets.NEXT_PUBLIC_CHAIN_1_RWA }}"
+          CHAIN_1_USDC="${{ secrets.NEXT_PUBLIC_CHAIN_1_USDC }}"
+          if [ -z "$CHAIN_1_RPC" ];  then CHAIN_1_RPC="${{ vars.NEXT_PUBLIC_CHAIN_1_RPC_URL }}"; fi
+          if [ -z "$CHAIN_1_RWA" ];  then CHAIN_1_RWA="${{ vars.NEXT_PUBLIC_CHAIN_1_RWA }}"; fi
+          if [ -z "$CHAIN_1_USDC" ]; then CHAIN_1_USDC="${{ vars.NEXT_PUBLIC_CHAIN_1_USDC }}"; fi
+
+          CHAIN_137_RPC="${{ secrets.NEXT_PUBLIC_CHAIN_137_RPC_URL }}"
+          CHAIN_137_RWA="${{ secrets.NEXT_PUBLIC_CHAIN_137_RWA }}"
+          CHAIN_137_USDC="${{ secrets.NEXT_PUBLIC_CHAIN_137_USDC }}"
+          if [ -z "$CHAIN_137_RPC" ];  then CHAIN_137_RPC="${{ vars.NEXT_PUBLIC_CHAIN_137_RPC_URL }}"; fi
+          if [ -z "$CHAIN_137_RWA" ];  then CHAIN_137_RWA="${{ vars.NEXT_PUBLIC_CHAIN_137_RWA }}"; fi
+          if [ -z "$CHAIN_137_USDC" ]; then CHAIN_137_USDC="${{ vars.NEXT_PUBLIC_CHAIN_137_USDC }}"; fi
 
           # Platform fee — 선택값 (없으면 빈값 그대로 build-arg 로 넘어가 런타임에 fee=0)
           FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
@@ -67,19 +103,82 @@ jobs:
           if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
           if [ -z "$FEE_BPS" ];  then FEE_BPS="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"; fi
 
+          GA_ID="${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"
+          if [ -z "$GA_ID" ]; then GA_ID="${{ vars.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"; fi
+
+          # MoonPay funding — Secrets/Variables first; develop defaults to Sepolia sandbox.
+          FUNDING_ENV="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT }}"
+          if [ -z "$FUNDING_ENV" ]; then FUNDING_ENV="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT }}"; fi
+          FUNDING_ONRAMP_TESTNET="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET }}"
+          if [ -z "$FUNDING_ONRAMP_TESTNET" ]; then FUNDING_ONRAMP_TESTNET="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET }}"; fi
+          FUNDING_CHAIN="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID }}"
+          if [ -z "$FUNDING_CHAIN" ]; then FUNDING_CHAIN="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID }}"; fi
+          FUNDING_AMOUNT="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT }}"
+          if [ -z "$FUNDING_AMOUNT" ]; then FUNDING_AMOUNT="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT }}"; fi
+          FUNDING_SKIP_READY="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK }}"
+          if [ -z "$FUNDING_SKIP_READY" ]; then FUNDING_SKIP_READY="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK }}"; fi
+
+          if [ -z "$FUNDING_ENV" ]; then
+            if [ "${{ github.ref_name }}" = "main" ]; then FUNDING_ENV="production"; else FUNDING_ENV="sandbox"; fi
+          fi
+          if [ -z "$FUNDING_CHAIN" ]; then FUNDING_CHAIN="$DEFAULT_CHAIN"; fi
+          if [ -z "$FUNDING_AMOUNT" ]; then FUNDING_AMOUNT="50"; fi
+          if [ -z "$FUNDING_ONRAMP_TESTNET" ] && [ "${{ github.ref_name }}" != "main" ]; then
+            FUNDING_ONRAMP_TESTNET="true"
+          fi
+          # Never bake skip-readiness into main/production images.
+          if [ "${{ github.ref_name }}" = "main" ]; then FUNDING_SKIP_READY=""; fi
+
           EXTRA_BUILD_ARGS=()
           API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
           if [ -n "$API_URL" ]; then
             EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_API_URL=$API_URL")
           fi
+          if [ -n "$GA_ID" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=$GA_ID")
+          fi
+          if [ -n "$FUNDING_ONRAMP_TESTNET" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=$FUNDING_ONRAMP_TESTNET")
+          fi
+          if [ -n "$FUNDING_SKIP_READY" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK=$FUNDING_SKIP_READY")
+          fi
+
+          CHAIN_1_BUILD_ARGS=()
+          if [ -n "$CHAIN_1_RPC" ] && [ -n "$CHAIN_1_RWA" ] && [ -n "$CHAIN_1_USDC" ]; then
+            CHAIN_1_BUILD_ARGS+=(
+              --build-arg "NEXT_PUBLIC_CHAIN_1_RPC_URL=$CHAIN_1_RPC"
+              --build-arg "NEXT_PUBLIC_CHAIN_1_RWA=$CHAIN_1_RWA"
+              --build-arg "NEXT_PUBLIC_CHAIN_1_USDC=$CHAIN_1_USDC"
+            )
+          fi
+
+          CHAIN_137_BUILD_ARGS=()
+          if [ -n "$CHAIN_137_RPC" ] && [ -n "$CHAIN_137_RWA" ] && [ -n "$CHAIN_137_USDC" ]; then
+            CHAIN_137_BUILD_ARGS+=(
+              --build-arg "NEXT_PUBLIC_CHAIN_137_RPC_URL=$CHAIN_137_RPC"
+              --build-arg "NEXT_PUBLIC_CHAIN_137_RWA=$CHAIN_137_RWA"
+              --build-arg "NEXT_PUBLIC_CHAIN_137_USDC=$CHAIN_137_USDC"
+            )
+          fi
+
+          echo "Funding build: env=$FUNDING_ENV chain=$FUNDING_CHAIN onramp_testnet=${FUNDING_ONRAMP_TESTNET:-false} skip_ready=${FUNDING_SKIP_READY:-false}"
+          echo "Optional chains: eth=$([ -n "${CHAIN_1_BUILD_ARGS[*]:-}" ] && echo yes || echo no) polygon=$([ -n "${CHAIN_137_BUILD_ARGS[*]:-}" ] && echo yes || echo no)"
 
           docker build \
             "${EXTRA_BUILD_ARGS[@]}" \
-            --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
-            --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
-            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL="$RPC" \
+            --build-arg NEXT_PUBLIC_CHAIN_11155111_RPC_URL="$CHAIN_11155111_RPC" \
+            --build-arg NEXT_PUBLIC_CHAIN_11155111_RWA="$CHAIN_11155111_RWA" \
+            --build-arg NEXT_PUBLIC_CHAIN_11155111_USDC="$CHAIN_11155111_USDC" \
+            --build-arg NEXT_PUBLIC_DEFAULT_CHAIN_ID="$DEFAULT_CHAIN" \
+            --build-arg NEXT_PUBLIC_PRIVY_APP_ID="$PRIVY" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT="$FUNDING_ENV" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID="$FUNDING_CHAIN" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT="$FUNDING_AMOUNT" \
+            "${CHAIN_1_BUILD_ARGS[@]}" \
+            "${CHAIN_137_BUILD_ARGS[@]}" \
             --build-arg API_PROXY_TARGET=http://backend:4000 \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
@@ -130,6 +229,9 @@ jobs:
             git checkout develop
             git pull origin develop
 
+            # Idempotent schema patches (must run before backend restart).
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+
             # 시크릿은 docker-compose.ec2.yml → /home/ubuntu/.env.production.backend 만 사용 (~/app/backend 에 touch 불필요)
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
@@ -168,6 +270,8 @@ jobs:
             git fetch origin
             git checkout main
             git pull origin main
+
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
