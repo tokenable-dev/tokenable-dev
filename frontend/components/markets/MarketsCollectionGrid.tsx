@@ -14,6 +14,26 @@ import {
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { cn } from "@/lib/ds/cn";
 
+/** Same tile pulse as load-more — first paint and `/markets` route fallback. */
+export function MarketsGridSkeleton({
+  count = 8,
+  className,
+}: {
+  count?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("markets-grid", className)} aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={`markets-skel-${i}`}
+          className="markets-tail-skeleton aspect-[3/4] rounded-2xl bg-[var(--surf)]"
+        />
+      ))}
+    </div>
+  );
+}
+
 export function MarketsCollectionGrid({
   collections,
   snapshotByKey,

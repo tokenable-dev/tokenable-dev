@@ -226,7 +226,7 @@ Then sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via
 
 **Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(vault_redemptions.chain_id, vault_cycles.chain_id)`), excluding `failed` / `cancelled` — for portfolio badges and redeem status surfaces, including **`completed`** (Redeem tab history).
+Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(vault_redemptions.chain_id, vault_cycles.chain_id)`), excluding `failed` / `cancelled` — for portfolio badges and redeem status surfaces, including **`completed`** (Redeem tab history). Each row’s `tokenId` is the `rwa_tokens` copy whose PSA cert matches the cycle’s `vault_assets` row — not every token that happens to share `vault_cycle_id`.
 
 **Query:** `tokenIds` (optional CSV of numeric token IDs)
 
@@ -241,7 +241,7 @@ Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(va
 
 **Guard:** none · `x-tokenable-chain-id` **required** when `tokenIds` is set
 
-When `tokenIds` is set, the estimate first runs a **redeemability check** (`VaultService.assertTokensRedeemable`): token must exist in `rwa_tokens` (decimal `token_id` compared with leading zeros stripped, so `40` matches `040`), not be burned, and its vault cycle (if any) must be `minted`. If the registry row is missing, the API **syncs that token from chain** (`1..totalMinted` on TokenableRWA — not `0..total-1`) and retries, so a card that is already in the wallet is not blocked by a stale boot scan. Tokens missing a cycle but with a cert on file pass (backfilled at pay). This surfaces blockers at "Calculate" time — **before** any USDC moves.
+When `tokenIds` is set, the estimate first runs a **redeemability check** (`VaultService.assertTokensRedeemable`): token must exist in `rwa_tokens` (decimal `token_id` compared with leading zeros stripped, so `40` matches `040`), not be burned, and its vault cycle (if any) must be `minted` **unless this copy’s cert does not belong to that cycle’s vault asset** (stale shared `vault_cycle_id` from a sibling redeem — that copy stays redeemable). If the registry row is missing, the API **syncs that token from chain** (`1..totalMinted` on TokenableRWA — not `0..total-1`) and retries, so a card that is already in the wallet is not blocked by a stale boot scan. Tokens missing a cycle but with a cert on file pass (backfilled at pay). This surfaces blockers at "Calculate" time — **before** any USDC moves.
 
 Estimates may group tokens into **multiple shipments** (one USDC total):
 

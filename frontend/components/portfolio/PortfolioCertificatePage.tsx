@@ -19,6 +19,10 @@ import {
   certNumberFromMetadata,
   writeRedeemDraft,
 } from "@/lib/portfolio/redeemDraft";
+import {
+  clearRedeemCustodyPending,
+  readRedeemCustodyPending,
+} from "@/lib/portfolio/redeemCustodyPending";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
 import {
   formatRedeemCardLine1FromMetadata,
@@ -72,7 +76,15 @@ export function PortfolioCertificatePage({
       router.push(data.redeemBadge.statusHref);
       return;
     }
-    if (!data.isOwner || data.listed) return;
+    if (!data.isOwner) return;
+    const leftoverCustody = readRedeemCustodyPending();
+    if (
+      leftoverCustody &&
+      leftoverCustody.chainId === chainId &&
+      !leftoverCustody.tokenIds.includes(tokenId)
+    ) {
+      clearRedeemCustodyPending();
+    }
     writeRedeemDraft({
       chainId,
       savedAt: Date.now(),

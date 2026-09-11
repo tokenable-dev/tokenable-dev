@@ -58,6 +58,27 @@ function decimalTokenIdLookupKeys(raw: string): string[] {
 }
 
 /**
+ * One physical cert per cycle. Sibling copies that share a stale
+ * `vault_cycle_id` must not inherit that cycle's redemption.
+ */
+const RWA_TOKEN_ON_CYCLE_CERT_JOIN = `
+  t.vault_cycle_id = c.id
+  AND (
+    UPPER(TRIM(t.cert_number)) = UPPER(TRIM(a.external_cert_number))
+    OR (
+      (t.cert_number IS NULL OR TRIM(t.cert_number) = '')
+      AND NOT EXISTS (
+        SELECT 1 FROM rwa_tokens t2
+        WHERE t2.vault_cycle_id = c.id
+          AND t2.cert_number IS NOT NULL
+          AND TRIM(t2.cert_number) <> ''
+          AND UPPER(TRIM(t2.cert_number)) = UPPER(TRIM(a.external_cert_number))
+      )
+    )
+  )
+`;
+
+/**
  * Operational source of truth for the Tokenable asset lifecycle:
  *
  *   VaultAsset (physical card, permanent)
@@ -1195,6 +1216,14 @@ export class VaultService {
         ? await this.cycles.find({ where: { id: In(cycleIds) } })
         : [];
     const cycleById = new Map(cycles.map((c) => [c.id, c]));
+    const assetIds = [
+      ...new Set(cycles.map((c) => c.vaultAssetId).filter(Boolean)),
+    ];
+    const assets =
+      assetIds.length > 0
+        ? await this.assets.find({ where: { id: In(assetIds) } })
+        : [];
+    const assetById = new Map(assets.map((a) => [a.id, a]));
 
     for (const tokenId of ids) {
       const token = byNorm.get(normalizeDecimalTokenId(tokenId));
@@ -1218,6 +1247,18 @@ export class VaultService {
       }
       const cycle = cycleById.get(token.vaultCycleId);
       if (cycle && cycle.status !== 'minted') {
+        const asset = assetById.get(cycle.vaultAssetId);
+        const tokenCert = token.certNumber?.trim();
+        const assetCert = asset?.externalCertNumber?.trim();
+        if (
+          tokenCert &&
+          assetCert &&
+          VaultService.normalizeCert(tokenCert) !==
+            VaultService.normalizeCert(assetCert)
+        ) {
+          /* Stale shared cycle from another physical card — this copy can redeem. */
+          continue;
+        }
         throw new ConflictException(
           `Token #${tokenId} is not redeemable right now (vault status: ${cycle.status})`,
         );
@@ -1367,7 +1408,8 @@ export class VaultService {
     const qb = this.redemptions
       .createQueryBuilder('r')
       .innerJoin(VaultCycle, 'c', 'c.id = r.vault_cycle_id')
-      .innerJoin(RwaToken, 't', 't.vault_cycle_id = c.id')
+      .innerJoin(VaultAsset, 'a', 'a.id = c.vault_asset_id')
+      .innerJoin(RwaToken, 't', RWA_TOKEN_ON_CYCLE_CERT_JOIN)
       .where('r.requested_by_user_id = :userId', { userId })
       .andWhere("r.status NOT IN ('failed', 'cancelled')")
       .andWhere('COALESCE(r.chain_id, c.chain_id) = :chainId', { chainId })
@@ -1818,11 +1860,13 @@ export class VaultService {
     return this.redemptions.save(row);
   }
 
-  /** Token id for a redemption via vault_cycle → rwa_tokens. */
+  /** Token id for a redemption via vault_cycle → the cert-matching rwa_tokens row. */
   async getTokenIdForRedemption(redemptionId: string): Promise<string | null> {
     const row = await this.redemptions
       .createQueryBuilder('r')
-      .innerJoin(RwaToken, 't', 't.vault_cycle_id = r.vault_cycle_id')
+      .innerJoin(VaultCycle, 'c', 'c.id = r.vault_cycle_id')
+      .innerJoin(VaultAsset, 'a', 'a.id = c.vault_asset_id')
+      .innerJoin(RwaToken, 't', RWA_TOKEN_ON_CYCLE_CERT_JOIN)
       .where('r.id = :id', { id: redemptionId })
       .select('t.token_id', 'tokenId')
       .getRawOne<{ tokenId: string }>();

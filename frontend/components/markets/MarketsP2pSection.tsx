@@ -36,16 +36,7 @@ export function MarketsP2pSection() {
   });
 
   const items = q.data ?? [];
-  if (q.isPending) {
-    return (
-      <section className="tkl-wrap mk-p2p-section">
-        <h2 className="mk-p2p-section__title">P2P listings</h2>
-        <p className="mk-p2p-section__sub">Loading…</p>
-      </section>
-    );
-  }
-
-  if (!items.length) return null;
+  if (q.isPending || !items.length) return null;
 
   return (
     <section className="tkl-wrap mk-p2p-section">

@@ -273,7 +273,10 @@ async function resolvePendingCustody(input: {
 }): Promise<RedeemCustodyPending | null> {
   const session = readRedeemCustodyPending();
   if (session && session.chainId === input.chainId) {
-    return session;
+    const wanted = new Set(input.tokenIds);
+    if (session.tokenIds.some((id) => wanted.has(id))) {
+      return session;
+    }
   }
 
   const rows = await getMyRedemptions(input.chainId, input.tokenIds);

@@ -23,7 +23,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Auth / profile | `auth/`, `layout/header/wallet/` | `lib/privy/PrivySessionBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
-Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment). User transactions wait for 1 confirmation with **250ms** receipt polling (`waitForUserTxReceipt`) so Privy/MetaMask confirmations are not stalled by viem’s default 4s HTTP poll. Gas estimation is capped at 200ms before a conservative fallback so the wallet prompt opens sooner.
+Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment). Privy embedded-wallet prompts take their title from the order shape (`lib/privy/signing.ts`): listing / offer / collection bid — not a single hardcoded bid label. User transactions wait for 1 confirmation with **250ms** receipt polling (`waitForUserTxReceipt`) so Privy/MetaMask confirmations are not stalled by viem’s default 4s HTTP poll. Gas estimation is capped at 200ms before a conservative fallback so the wallet prompt opens sooner.
 
 ---
 
@@ -89,7 +89,7 @@ frontend/
 
 ## Redirects
 
-`next.config.ts` redirects legacy **`/exchange` → `/markets`**.
+`next.config.ts` redirects legacy **`/exchange` → `/markets`**. First paint (`app/markets/loading.tsx` + `MarketsPage` shell) uses the same `MarketsGridSkeleton` tile pulse as load-more — no “Loading markets…” copy, P2P loading band, or snapshot progress bar. P2P listings render only after the query has rows.
 
 `/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). The old token-detail page tree is gone; `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
 

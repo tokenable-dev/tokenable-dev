@@ -158,6 +158,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       !found ||
       found.status !== "active" ||
       (found.side ?? "ask") !== "ask" ||
+      Number(found.tokenId) !== tokenId ||
       (found.offerer?.trim().toLowerCase() ?? "") !== addr
     ) {
       return null;
@@ -167,7 +168,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       orderHash: found.orderHash,
       order: found,
     };
-  }, [ordersQuery.data, wallet.portfolioAddress]);
+  }, [ordersQuery.data, wallet.portfolioAddress, tokenId]);
 
   const gradeLabel = useMemo(() => {
     if (!metadata) return undefined;

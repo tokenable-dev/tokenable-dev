@@ -54,7 +54,7 @@ Charizard ex · 199/165
 | Grade | `PSA 10`, `BGS 9.5`, etc. **Unknown / empty / legacy `Raw` grade → `Raw` on Line 1.** Certificate of Ownership and similar surfaces explicitly omit grade. |
 | Year | 4-digit. Omit if unknown. |
 | Set | Expansion name. TCG franchise / category prefixes (`One Piece`, `Pokemon`) and a leading language token are stripped on Line 2 and the breadcrumb — they are not part of the expansion. Sports set names stay as-is. |
-| Language | Short code (`EN`, `JP`, …). Omit if unknown. |
+| Language | Short code (`EN`, `JP`, …) **after** the set name (`151 EN`, `Svp Sv Black Star Promo EN`). If a short code leaked into the middle of the set string, move it to the end. Omit if unknown. |
 | Variant | Parallel / art / rarity descriptor. Omit the `· {Variant}` segment if none. |
 
 - **Grade is text on Line 1 — not a separate badge.**

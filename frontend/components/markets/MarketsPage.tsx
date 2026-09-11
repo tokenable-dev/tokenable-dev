@@ -48,7 +48,10 @@ import {
 import { MarketsFilterBar } from "./MarketsFilterBar";
 import { MarketsPageHeader } from "./MarketsPageHeader";
 import { MarketsP2pSection } from "./MarketsP2pSection";
-import { MarketsCollectionGrid } from "./MarketsCollectionGrid";
+import {
+  MarketsCollectionGrid,
+  MarketsGridSkeleton,
+} from "./MarketsCollectionGrid";
 import { SearchCertMatches } from "@/components/search/SearchCertMatches";
 import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
@@ -252,7 +255,6 @@ export default function MarketsPage() {
   const {
     data: colPages,
     isPending: colInitialPending,
-    isFetching: colFetching,
     isError: colLoadError,
     error: colError,
     fetchNextPage,
@@ -458,7 +460,7 @@ export default function MarketsPage() {
             : undefined
         }
       />
-      {isSearchMode ? null : <MarketsP2pSection />}
+      {isSearchMode || showLoadingShell ? null : <MarketsP2pSection />}
 
       {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) &&
       !showLoadingShell &&
@@ -545,33 +547,10 @@ export default function MarketsPage() {
       ) : null}
 
       <div className="tkl-wrap markets-results-section">
-        {showMarketSnapshotLoadingBar ? (
-          <div className="markets-snapshot-loading" role="status" aria-live="polite" aria-busy="true">
-            <p className="mb-2 text-center text-xs text-[var(--t2)] sm:text-left">
-              Loading listing pool stats and charts…
-            </p>
-            <div className="markets-snapshot-loading__bar" aria-hidden>
-              <div className="markets-snapshot-loading__fill" />
-            </div>
-          </div>
-        ) : null}
-
         {showLoadingShell ? (
-          <div className="space-y-5">
-            <p className="text-center text-sm text-[var(--t2)]" role="status" aria-live="polite">
-              Loading collections and listings…
-              {colFetching || ordersQuery.isFetching
-                ? " (waiting for backend)"
-                : ""}
-            </p>
-            <div className="markets-grid">
-              {[...Array(8)].map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-[3/4] animate-pulse rounded-2xl bg-[var(--surf)]"
-                />
-              ))}
-            </div>
+          <div role="status" aria-live="polite" aria-busy="true">
+            <span className="sr-only">Loading markets</span>
+            <MarketsGridSkeleton />
           </div>
         ) : isSearchMode &&
           sortedForRank.length === 0 &&
@@ -644,17 +623,10 @@ export default function MarketsPage() {
                 />
 
                 {isFetchingNextPage ? (
-                  <div className="markets-grid markets-grid--tail" aria-hidden>
-                    {Array.from(
-                      { length: Math.min(4, MARKETS_COLLECTIONS_PAGE_SIZE) },
-                      (_, i) => (
-                        <div
-                          key={`markets-tail-skel-${i}`}
-                          className="markets-tail-skeleton aspect-[3/4] rounded-2xl bg-[var(--surf)]"
-                        />
-                      ),
-                    )}
-                  </div>
+                  <MarketsGridSkeleton
+                    count={Math.min(4, MARKETS_COLLECTIONS_PAGE_SIZE)}
+                    className="markets-grid--tail"
+                  />
                 ) : null}
 
                 {hasNextPage ? (

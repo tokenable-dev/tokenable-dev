@@ -104,7 +104,8 @@ describe('VaultService.assertAvailableForNewCycle (chain-scoped)', () => {
 describe('VaultService.assertTokensRedeemable', () => {
   function makeRedeemableService(
     tokens: Array<Partial<RwaToken>>,
-    cycles: Array<{ id: string; status: string }> = [],
+    cycles: Array<{ id: string; status: string; vaultAssetId?: string }> = [],
+    assets: Array<{ id: string; externalCertNumber: string }> = [],
   ) {
     const rwaTokens = {
       find: jest.fn(() => Promise.resolve(tokens)),
@@ -112,8 +113,11 @@ describe('VaultService.assertTokensRedeemable', () => {
     const cyclesRepo = {
       find: jest.fn(() => Promise.resolve(cycles)),
     } as unknown as Repository<VaultCycle>;
+    const assetsRepo = {
+      find: jest.fn(() => Promise.resolve(assets)),
+    } as unknown as Repository<VaultAsset>;
     return new VaultService(
-      {} as Repository<VaultAsset>,
+      assetsRepo,
       cyclesRepo,
       {} as Repository<VaultRedemption>,
       {} as never,
@@ -165,9 +169,27 @@ describe('VaultService.assertTokensRedeemable', () => {
     await expect(
       makeRedeemableService(
         [{ tokenId: '49', burnedAt: null, vaultCycleId: 'c1' }],
-        [{ id: 'c1', status: 'redemption_requested' }],
+        [{ id: 'c1', status: 'redemption_requested', vaultAssetId: 'a1' }],
+        [{ id: 'a1', externalCertNumber: '137244794' }],
       ).assertTokensRedeemable(contract, ['49']),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('allows a sibling copy that inherited another card’s redeeming cycle', async () => {
+    await expect(
+      makeRedeemableService(
+        [
+          {
+            tokenId: '50',
+            burnedAt: null,
+            vaultCycleId: 'c1',
+            certNumber: '161820328',
+          },
+        ],
+        [{ id: 'c1', status: 'redemption_requested', vaultAssetId: 'a1' }],
+        [{ id: 'a1', externalCertNumber: '137244794' }],
+      ).assertTokensRedeemable(contract, ['50']),
+    ).resolves.toBeUndefined();
   });
 
   it('passes a healthy minted token', async () => {

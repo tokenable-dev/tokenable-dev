@@ -620,25 +620,51 @@ export function displayVariantIfNotSetDuplicate(
   return t;
 }
 
+/**
+ * Short language codes that leaked into a set string (`Svp EN Sv …`).
+ * Full words (`English`) stay — sports names can include them.
+ */
+const SET_LANGUAGE_SHORT_TOKEN = /^(en|eng|jp|ja|kr|ko|cn|zh)$/i;
+
+function pullShortLanguageTokensFromSet(setDisplay: string): {
+  set: string;
+  extractedLang: string | null;
+} {
+  const tokens = setDisplay.split(/\s+/).filter(Boolean);
+  let extractedLang: string | null = null;
+  const kept: string[] = [];
+  for (const t of tokens) {
+    if (!SET_LANGUAGE_SHORT_TOKEN.test(t)) {
+      kept.push(t);
+      continue;
+    }
+    extractedLang = formatCardDisplayLanguageShort(t) ?? extractedLang;
+  }
+  return {
+    set: formatCardDisplaySetLabel(kept.join(" ")),
+    extractedLang,
+  };
+}
+
 function formatLine2SetLanguageChunk(
   setName: string | null | undefined,
   language: string | null | undefined,
 ): string {
   const raw = (setName ?? "").trim();
   const expansion = stripLeadingTcgFranchiseFromSetDisplay(raw);
-  const set = formatCardDisplaySetLabel(
+  const setBase = formatCardDisplaySetLabel(
     expansion || stripLeadingTcgSeriesFromSetDisplay(raw),
   );
-  const lang = formatCardDisplayLanguageShort(language) ?? language?.trim() ?? "";
+  const pulled = pullShortLanguageTokensFromSet(setBase);
+  const lang =
+    formatCardDisplayLanguageShort(language) ??
+    language?.trim() ??
+    pulled.extractedLang ??
+    "";
+  const set = pulled.set;
   if (!set && !lang) return "";
   if (!lang) return set;
   if (!set) return lang;
-  const setLower = set.toLowerCase();
-  const langLower = lang.toLowerCase();
-  if (setLower.endsWith(` ${langLower}`) || setLower.includes(` ${langLower} `)) {
-    return set;
-  }
-  if (setLower.endsWith(langLower)) return set;
   return `${set} ${lang}`;
 }
 

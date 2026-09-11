@@ -336,13 +336,13 @@ export function PortfolioCertificateView({
                 disabled={
                   d.redeemBadge
                     ? false
-                    : !d.isOwner || !d.canSign || d.listed
+                    : !d.isOwner || !d.canSign
                 }
                 title={
                   d.redeemBadge
                     ? d.redeemBadge.label
                     : d.listed
-                      ? "Cancel the listing before redeeming"
+                      ? "Listing is cancelled when you pay to redeem"
                       : !d.isOwner
                         ? "Only the owner can redeem"
                         : undefined

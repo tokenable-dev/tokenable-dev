@@ -571,6 +571,7 @@ export async function invalidateAfterRedeemCustody(
 ): Promise<void> {
   await qc.invalidateQueries({ queryKey: ["rwa", "redemptions", "mine"] });
   await _invalidateOrdersAll(qc);
+  await _invalidateRwaTokensAll(qc);
   await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
 }
 

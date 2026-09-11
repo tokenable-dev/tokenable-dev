@@ -207,9 +207,6 @@ export function isRedeemEligible(row: {
   activeListingOrderHash: string | null;
   redeemStatus?: string | null;
 }): boolean {
-  const listed =
-    row.listPriceUsd != null && row.activeListingOrderHash != null;
-  if (listed) return false;
   if (isRedeemInFlight(row.redeemStatus)) return false;
   if (row.redeemStatus === "completed") return false;
   return true;

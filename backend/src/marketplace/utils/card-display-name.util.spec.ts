@@ -169,6 +169,21 @@ describe("cardDisplayName SSOT", () => {
     expect(line2).toBe("2023 · 151 EN · Special Illustration Rare");
   });
 
+  it("moves a mid-set language code to after the set name", () => {
+    const line2 = formatCardDisplayLine2({
+      cardName: "Pikachu Grey Felt Hat",
+      cardNumber: "085",
+      grade: "PSA 10",
+      year: "2023",
+      setName: "Svp EN Sv Black Star Promo",
+      language: "EN",
+      variant: "Pokemon X Van Gogh",
+    });
+    expect(line2).toBe(
+      "2023 · Svp Sv Black Star Promo EN · Pokemon X Van Gogh",
+    );
+  });
+
   it("formats One Piece Line 1 with collector number only (set code stays on Line 2)", () => {
     const line1 = formatCardDisplayLine1({
       cardName: "Monkey D. Luffy",
