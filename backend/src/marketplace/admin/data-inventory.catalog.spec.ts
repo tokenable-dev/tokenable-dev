@@ -19,7 +19,6 @@ describe('data-inventory.catalog', () => {
   it('covers core accumulated stores', () => {
     const tables = new Set(DATA_STORE_CATALOG.map((s) => s.table));
     expect(tables.has('collection_market_snapshots')).toBe(true);
-    expect(tables.has('card_top100_daily_snapshots')).toBe(true);
     expect(tables.has('portfolio_daily_snapshots')).toBe(true);
     expect(tables.has('cardhedger_price_delta_import_runs')).toBe(true);
     expect(tables.has('vault_submissions')).toBe(true);

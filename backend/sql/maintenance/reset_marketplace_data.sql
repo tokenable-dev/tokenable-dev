@@ -1,5 +1,7 @@
--- Wipe marketplace + vault transactional data for a fresh chain redeploy or site relaunch.
--- Does NOT delete users, admins, partners, or Cardhedger infra audit tables (top100, delta runs).
+-- Full wipe of marketplace + vault transactional data (every network).
+-- Prefer admin Data inventory → reset one RWA address when only one contract
+-- should be thrown away. This script is the all-networks fallback.
+-- Does NOT delete users, admins, partners, or Cardhedger infra audit tables (delta runs).
 --
 -- Run AFTER on-chain adminBurn for all live tokens on the *old* contract if you will
 -- re-mint the same PSA certs while that contract is still the active RWA address
@@ -15,8 +17,6 @@
 BEGIN;
 
 TRUNCATE TABLE marketplace_notifications RESTART IDENTITY CASCADE;
-TRUNCATE TABLE p2p_orders RESTART IDENTITY CASCADE;
-TRUNCATE TABLE p2p_listings RESTART IDENTITY CASCADE;
 TRUNCATE TABLE bulk_mint_job_items RESTART IDENTITY CASCADE;
 TRUNCATE TABLE bulk_mint_jobs RESTART IDENTITY CASCADE;
 TRUNCATE TABLE portfolio_holdings RESTART IDENTITY CASCADE;

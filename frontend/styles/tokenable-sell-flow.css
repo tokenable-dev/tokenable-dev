@@ -288,13 +288,14 @@
   line-height: 1.65;
 }
 
+/* Choose-Vault-Individual.html / Sell-Flow.html `.eyebrow` — page font is Inter. */
 .sell-flow-eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--eyebrow);
+  color: var(--azure);
   margin-bottom: 14px;
 }
 
@@ -579,17 +580,35 @@
   height: 18px;
 }
 
+/* In flow under the consent card. Sticky overlapped the terms while scrolling. */
 .sell-flow-reg-cta {
-  position: sticky;
-  bottom: 0;
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   margin-top: 28px;
-  padding: 16px 0 20px;
-  background: linear-gradient(180deg, rgba(14, 14, 14, 0) 0%, var(--ink, #0e0e0e) 40%);
-  z-index: 5;
+  padding: 0 0 20px;
+  background: none;
+  z-index: auto;
 }
 
+/* Choose-Vault-Individual.html #reg-continue + #tk-flowbtn (≥641px max 360px). Left-aligned. */
 .sell-flow-reg-cta .tk-btn {
   width: 100%;
+  height: 52px;
+  font-size: 15px;
+  align-self: stretch;
+}
+
+@media (min-width: 641px) {
+  .sell-flow-reg-cta .tk-btn {
+    width: auto;
+    min-width: 200px;
+    max-width: 360px;
+    align-self: flex-start;
+    margin-left: 0;
+    margin-right: auto;
+  }
 }
 
 .sell-flow-gate-hint {
@@ -1017,47 +1036,7 @@
   margin: 0 auto;
 }
 
-.sell-flow-partner-crumb {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  margin-bottom: 18px;
-  color: var(--t3);
-}
-
-.sell-flow-partner-crumb a {
-  color: var(--t3);
-  text-decoration: none;
-}
-
-.sell-flow-partner-crumb a:hover {
-  color: var(--azure);
-}
-
-.sell-flow-partner-crumb__link {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: rgba(17, 17, 17, 0.45);
-  cursor: pointer;
-}
-
-.sell-flow-partner-crumb__link:hover {
-  color: var(--azure);
-}
-
-.sell-flow-partner-crumb__sep {
-  margin: 0 8px;
-  color: rgba(17, 17, 17, 0.35);
-}
-
-.sell-flow-partner-crumb__current {
-  color: #18181b;
-}
-
 @media (max-width: 1024px) {
-  .sell-flow-partner-crumb,
   .sell-ship-crumb {
     display: none !important;
   }
@@ -1157,13 +1136,6 @@
 
 .sell-flow-page .sell-flow-partner-btn--ghost:hover:not(:disabled) {
   background: #d2d2db !important;
-}
-
-.sell-flow-page .sell-flow-partner-btn--primary {
-  box-shadow: none !important;
-  filter: none !important;
-  clip-path: none !important;
-  border-radius: 12px !important;
 }
 
 .sell-flow-partner-done-overlay {
@@ -1512,6 +1484,11 @@
   min-width: 0;
 }
 
+/* Ship is step 2. Don't paint the connector onward as if PSA is in progress. */
+.sell-ship-steps .tk-stepper__conn--current {
+  background: var(--tk-step-track);
+}
+
 .sell-ship-step {
   display: flex;
   flex-direction: column;
@@ -1829,14 +1806,18 @@ button.sell-ship-step--btn:focus-visible {
   background: rgba(255, 255, 255, 0.04);
   color: #fff;
   box-shadow: none;
-  transform: none;
+  filter: none;
+  transform: none !important;
+  scale: 1;
 }
 
 .sell-ship-outline-btn.tk-btn:active,
 .sell-ship-outline-btn:active {
   background: rgba(255, 255, 255, 0.06);
   box-shadow: none;
-  transform: none;
+  filter: none;
+  transform: none !important;
+  scale: 1;
 }
 
 .sell-ship-outline-btn--ok.tk-btn,
@@ -1856,13 +1837,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-ship-outline-btn--sm {
   height: 36px;
   padding: 0 14px;
-}
-
-.sell-ship-outline-btn--link {
-  height: 38px;
-  padding: 0 18px;
-  color: var(--azure);
-  border-color: rgba(26, 111, 255, 0.3);
 }
 
 .sell-ship-divider {
@@ -2167,11 +2141,24 @@ button.sell-ship-step--btn:focus-visible {
   text-decoration: line-through;
 }
 
+/* Same sizing as .sell-flow-reg-cta Continue: full width ≤640px, left-aligned max 360px above. */
 .sell-ship-continue {
-  height: 54px !important;
+  height: 52px !important;
   width: 100%;
-  font-size: 16px !important;
+  font-size: 15px !important;
   justify-content: center;
+  align-self: stretch;
+}
+
+@media (min-width: 641px) {
+  .sell-ship-continue {
+    width: auto;
+    min-width: 200px;
+    max-width: 360px;
+    align-self: flex-start;
+    margin-left: 0;
+    margin-right: auto;
+  }
 }
 
 .sell-ship-continue:disabled {
@@ -2192,6 +2179,19 @@ button.sell-ship-step--btn:focus-visible {
   align-items: center;
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.sell-ship-track-back,
+.sell-ship-track-back:hover,
+.sell-ship-track-back:active,
+.sell-ship-track-back:focus-visible {
+  margin-bottom: 0;
+  transform: none !important;
+  scale: 1 !important;
+  zoom: 1;
+  filter: none !important;
+  box-shadow: none !important;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .sell-ship-track-box--locked {
@@ -2297,47 +2297,25 @@ button.sell-ship-step--btn:focus-visible {
   text-decoration: underline;
 }
 
+/* Same sizing as Continue / Register tracking: full width ≤640px, left-aligned max 360px above. */
 .sell-ship-confirm {
-  height: 54px !important;
+  height: 52px !important;
   width: 100%;
   font-size: 15px !important;
   font-weight: 600;
   justify-content: center;
-  /* PSA-Shipping.html .btn.btn--primary */
-  background: #1A6FFF !important;
-  color: #fff !important;
-  box-shadow:
-    inset 0 0 0 3px rgba(0, 0, 20, 0.5),
-    inset 0 0 0 1px rgba(80, 160, 255, 0.6),
-    inset 0 3px 0 0 rgba(80, 170, 255, 0.7),
-    inset 0 -3px 0 0 rgba(0, 0, 50, 0.4) !important;
-  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.55)) !important;
-  clip-path: polygon(
-    0 6px,
-    4px 2px,
-    8px 0,
-    calc(100% - 8px) 0,
-    calc(100% - 4px) 2px,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 4px) calc(100% - 2px),
-    calc(100% - 8px) 100%,
-    8px 100%,
-    4px calc(100% - 2px),
-    0 calc(100% - 6px)
-  );
-  border-radius: 0;
-  transition: filter 0.12s, transform 0.12s;
+  align-self: stretch;
 }
 
-.sell-ship-confirm:hover:not(:disabled):not(.sell-ship-confirm--done) {
-  filter: drop-shadow(5px 5px 0 rgba(26, 111, 255, 0.65)) !important;
-  transform: translate(-1px, -1px);
-  background: #1A6FFF !important;
-}
-
-.sell-ship-confirm:active:not(:disabled):not(.sell-ship-confirm--done) {
-  transform: translate(1px, 1px);
+@media (min-width: 641px) {
+  .sell-ship-confirm {
+    width: auto;
+    min-width: 200px;
+    max-width: 360px;
+    align-self: flex-start;
+    margin-left: 0;
+    margin-right: auto;
+  }
 }
 
 .sell-ship-confirm:disabled {
@@ -2391,60 +2369,6 @@ button.sell-ship-step--btn:focus-visible {
   font-weight: 700;
 }
 
-.sell-ship-success {
-  background: rgba(0, 200, 100, 0.08);
-  border: 1px solid rgba(0, 200, 100, 0.2);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 12px;
-}
-
-.sell-ship-success__title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--pos);
-}
-
-.sell-ship-success__copy {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.6;
-  padding-left: 30px;
-}
-
-.sell-ship-success__copy strong {
-  color: #fff;
-}
-
-.sell-ship-success__row {
-  padding-left: 30px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.sell-ship-change-tracking {
-  margin-left: 30px;
-}
-
-.sell-ship-success__summary {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.sell-ship-back-cards {
-  height: 46px !important;
-  width: 100%;
-  font-size: 14px !important;
-}
 
 .sell-ship-edit-cards {
   appearance: none;
@@ -2677,6 +2601,11 @@ button.sell-ship-step--btn:focus-visible {
   --amber: #f3701e;
   color: #18181b;
   background: #f5f5f7;
+  /* Choose-Vault-Individual.html body is Inter. That page also breaks
+     --font-mono, so eyebrows and labels inherit Inter — match that. */
+  font-family: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
   /* Bleed past page gutters so the shell ink doesn’t frame the flow */
   margin-left: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px)));
   margin-right: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px)));
@@ -2699,16 +2628,15 @@ button.sell-ship-step--btn:focus-visible {
 
 /* Light canvas typography — body copy stays regular; headings stay extra-bold */
 .sell-flow-page .sell-flow-h1 {
+  font-family: var(--font-sans);
   font-weight: 800;
 }
 
-.sell-flow-page .sell-flow-eyebrow,
 .sell-flow-page .sell-ship-panel__eyebrow {
   font-weight: 700;
 }
 
 .sell-flow-page .sell-flow-id-title,
-.sell-flow-page .sell-flow-consent-title,
 .sell-flow-page .sell-flow-cards-title,
 .sell-flow-page .sell-flow-vault-opt__title,
 .sell-flow-page .sell-flow-vault-sec-h,
@@ -2745,8 +2673,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-package-sync__copy,
 .sell-flow-page .sell-ship-check__text,
 .sell-flow-page .sell-ship-package-row__meta,
-.sell-flow-page .sell-ship-success__copy,
-.sell-flow-page .sell-ship-success__summary,
 .sell-flow-page .sell-ship-howto__sub,
 .sell-flow-page .sell-ship-howto__copy,
 .sell-flow-page .sell-ship-howto__list,
@@ -2768,12 +2694,9 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-step__label--on,
 .sell-flow-page .sell-ship-crumb,
 .sell-flow-page .sell-ship-crumb__here,
-.sell-flow-page .sell-flow-partner-crumb,
-.sell-flow-page .sell-flow-partner-crumb__link,
 .sell-flow-page .sell-ship-banner__title,
 .sell-flow-page .sell-ship-return__fields .tk-field__label,
 .sell-flow-page .sell-ship-track-box .tk-field__label,
-.sell-flow-page .sell-ship-back-cards,
 .sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__label {
   font-weight: 500;
 }
@@ -2824,11 +2747,14 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-flow-status-chip,
 .sell-flow-page .sell-flow-vault-pill {
+  font-family: var(--font-sans);
   font-weight: 600;
 }
 
 .sell-flow-page .sell-flow-eyebrow {
-  color: var(--eyebrow);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--azure, #1a6fff);
 }
 
 .sell-flow-page .sell-flow-sub,
@@ -2850,9 +2776,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-vault-faq p,
 .sell-flow-page .sell-flow-vault-hint,
 .sell-flow-page .sell-flow-partner-footnote,
-.sell-flow-page .sell-flow-partner-crumb,
-.sell-flow-page .sell-flow-partner-crumb__link,
-.sell-flow-page .sell-flow-partner-crumb__sep,
 .sell-flow-page .sell-ship-info,
 .sell-flow-page .sell-ship-package-row__meta,
 .sell-flow-page .sell-ship-package-sync__copy,
@@ -3026,30 +2949,6 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b;
 }
 
-/* PSA-Shipping.html #tracking-success — dark copy on light green, not white */
-.sell-flow-page .sell-ship-success__copy {
-  color: #18181b;
-}
-
-.sell-flow-page .sell-ship-success__copy strong {
-  color: #18181b;
-}
-
-.sell-flow-page .sell-ship-success__summary {
-  color: #18181b;
-}
-
-.sell-flow-page .sell-ship-success__title {
-  color: var(--pos, rgb(0, 200, 100));
-}
-
-.sell-flow-page .sell-ship-outline-btn--link,
-.sell-flow-page .sell-ship-outline-btn--link:hover {
-  color: var(--azure, #1A6FFF) !important;
-  border-color: rgba(26, 111, 255, 0.3) !important;
-  background: #fff !important;
-}
-
 .sell-flow-page .sell-ship-confirm--done,
 .sell-flow-page .sell-ship-confirm--done:hover,
 .sell-flow-page .sell-ship-confirm--done:active {
@@ -3186,6 +3085,11 @@ button.sell-ship-step--btn:focus-visible {
   border-bottom-color: rgba(17, 17, 17, 0.08);
 }
 
+/* Choose-Vault-Individual.html #reg-step2 title: 18px / 700 */
+.sell-flow-page .sell-flow-consent-title {
+  font-weight: 700;
+}
+
 /* Choose-Vault-Individual.html — master row only: 14px / 700 / #18181B */
 .sell-flow-page .sell-flow-consent-row--master .sell-flow-consent-strong {
   font-size: 14px;
@@ -3204,7 +3108,6 @@ button.sell-ship-step--btn:focus-visible {
   box-shadow: inset 0 0 0 1.5px var(--azure);
 }
 
-.sell-flow-page .sell-flow-reg-cta,
 .sell-flow-page .sell-flow-cards-cta {
   background: linear-gradient(
     180deg,
@@ -3231,6 +3134,13 @@ button.sell-ship-step--btn:focus-visible {
   background: #fff !important;
   color: #18181b !important;
   box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.16) !important;
+  filter: none !important;
+}
+
+.sell-flow-page .sell-ship-outline-btn.tk-btn:hover,
+.sell-flow-page .sell-ship-outline-btn.tk-btn:active {
+  transform: none !important;
+  scale: 1 !important;
   filter: none !important;
 }
 
@@ -3418,15 +3328,6 @@ button.sell-ship-step--btn:focus-visible {
   background: #d2d2db !important;
 }
 
-.sell-flow-page .tk-btn.sell-flow-partner-btn--primary {
-  box-shadow: none !important;
-  filter: none !important;
-  clip-path: none !important;
-  border-radius: 12px !important;
-}
-
-/* Sell-Flow.html light canvas — flat rounded CTAs (no pixel clip on flex rows) */
-.sell-flow-page .sell-flow-ship-btn,
 .sell-flow-page .sell-flow-draft-btn,
 .sell-flow-page .sell-flow-lookup-btn,
 .sell-flow-page .sell-flow-id-cta {
@@ -3437,19 +3338,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-flow-ship-btn {
-  background: var(--brand-500, #1A6FFF) !important;
-  box-shadow: none !important;
   white-space: nowrap;
-}
-
-.sell-flow-page .sell-flow-ship-btn:hover:not(:disabled) {
-  background: #2e80ff !important;
-  transform: none !important;
-}
-
-.sell-flow-page .sell-flow-ship-btn:active:not(:disabled) {
-  background: #1A6FFF !important;
-  transform: none !important;
 }
 
 @media (max-width: 640px) {
@@ -3580,29 +3469,6 @@ button.sell-ship-step--btn:focus-visible {
     outline: none;
   }
 
-  .sell-flow-page .sell-ship-back-cards {
-    appearance: none;
-    border: 0;
-    background: transparent !important;
-    box-shadow: none !important;
-    filter: none !important;
-    clip-path: none !important;
-    height: auto !important;
-    width: auto !important;
-    min-height: 0;
-    padding: 12px 0 !important;
-    justify-content: flex-start !important;
-    color: var(--azure, #1A6FFF) !important;
-    font-size: 14px !important;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .sell-flow-page .sell-ship-back-cards:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
 }
 
 .sell-ship-carrier-trigger {

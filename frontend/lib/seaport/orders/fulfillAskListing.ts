@@ -1,14 +1,19 @@
 import type { Address, Hash, PublicClient } from "viem";
 import { maxUint256 } from "viem";
-import { fulfillOrderApi, type Order } from "@/lib/core";
+import { fulfillOrderApi, invalidateUnownedAskApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
   USDC_ABI,
+  TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
-import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "./fulfillOrderArgs";
+import {
+  FULFILL_EXTRA_DATA,
+  fulfillSeaportOrderArgs,
+  requireSeaportOrderFilled,
+} from "./fulfillOrderArgs";
 
 function askPriceMicros(o: Order): bigint {
   try {
@@ -58,8 +63,31 @@ export async function fulfillAskListingOrder(params: {
   chainId: number;
 }): Promise<void> {
   const { ask, address, publicClient, writeContractAsync, chainId } = params;
-  const { usdcAddress } = getChainContracts(chainId as SupportedChainId);
+  const { usdcAddress, rwaAddress } = getChainContracts(chainId as SupportedChainId);
   const payUnits = askPriceMicros(ask);
+  const tokenIdBn = BigInt(String(ask.tokenId ?? "0"));
+
+  const onChainOwner = await publicClient.readContract({
+    address: rwaAddress,
+    abi: TOKENABLE_RWA_APPROVE_ABI,
+    functionName: "ownerOf",
+    args: [tokenIdBn],
+  });
+  if (onChainOwner.toLowerCase() !== String(ask.offerer).toLowerCase()) {
+    try {
+      await invalidateUnownedAskApi(ask.orderHash, address);
+    } catch {
+      /* book cleanup is best-effort */
+    }
+    if (onChainOwner.toLowerCase() === address.toLowerCase()) {
+      throw new Error(
+        "You already own this card in the connected wallet. The other wallet’s listing was removed because it could not be filled.",
+      );
+    }
+    throw new Error(
+      "This listing is no longer valid — the seller no longer holds the card. It was removed from the book. Refresh and try again.",
+    );
+  }
 
   let allowance = await publicClient.readContract({
     address: usdcAddress,
@@ -119,6 +147,15 @@ export async function fulfillAskListingOrder(params: {
   const receipt = await waitForUserTxReceipt(publicClient, fulfillTx);
   if (receipt.status === "reverted") {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
+  }
+  try {
+    await requireSeaportOrderFilled(publicClient, ask.orderHash);
+  } catch (e) {
+    console.warn(
+      "[fulfillAskListing] getOrderStatus not filled after a successful receipt — still settling the book",
+      ask.orderHash,
+      e,
+    );
   }
 
   // On-chain buy already succeeded. Don't fail the UX if the indexer/API stalls

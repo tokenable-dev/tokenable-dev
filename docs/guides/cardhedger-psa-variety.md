@@ -184,7 +184,9 @@ PSA Brand is **`ONE PIECE JAPANESE PROMOS`**, Variety **`Championship 2024-Top P
 
 Official pipeline is still **cert → `details-by-certs` → Variety gate → `/v1/cards/comps`**. For this cert Cardhedger already returns the right catalog row (`OP13-118` / `variant: "Red Manga"`) and PSA 10 comps exist. Tokenable used to **reject that row** because PSA Variety is **`RED MANGA ALTERNATE ART`** while the catalog string is only **`Red Manga`**. Sibling rows **`Alternate Art`**, **`Manga`**, and **`Base`** are different `card_id`s and must not steal comps.
 
-**수정:** leftover PSA `alternate`/`art` maps to Cardhedger **`Red Manga` only** (requires both `red` and `manga` on `variant`). Do not treat this label as a Pokémon rarity Base slot (unlike SAR).
+**수정:** leftover PSA `alternate`/`art` maps to Cardhedger **`Red Manga`** when PSA also says `RED`, and to **`Manga`** when PSA is only `MANGA ALTERNATE ART` (cert `141842670` Sabo OP13-120). `red` must stay aligned so the two manga parallels do not steal each other’s comps. Sibling **`Alternate Art`** is still rejected.
+
+Catalog create / cover search must treat PSA checklist `#120` as compatible with Cardhedger `OP13-120` (`catalogTcgPrefixedNumberCompatible`). Exact string equality used to skip every OP13 hit, so `details-by-certs` `card: null` left the collection with no `cardId`, cover, or snapshot price.
 
 **Comps are empty after a correct match.** Tokenable already calls `POST /v1/cards/comps` with that Championship `card_id` + `grade: "PSA 10"`. Cardhedger returns **404** `No sales data found for this card and grade`. `prices-by-card` / `all-prices-by-card` are also `[]`. Cert `prices-by-cert` still has `card: null` because GemRate `universal_gemrate_id` is empty — sales never land on this overlay row.
 

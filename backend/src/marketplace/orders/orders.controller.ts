@@ -251,6 +251,27 @@ export class OrdersController {
     );
   }
 
+  /** Ask whose offerer no longer owns the NFT — cancel after on-chain ownerOf proof */
+  @ApiOperation({
+    summary: 'Unowned ask 무효화',
+    description:
+      'Cancel an active ask when ownerOf(tokenId) is not the listing offerer (stale book). Idempotent.',
+  })
+  @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
+  @Patch('orders/:hash/invalidate-unowned-ask')
+  invalidateUnownedAsk(
+    @Param('hash') hash: string,
+    @Query() query: InvalidateDeadBidQueryDto,
+    @Headers(CHAIN_ID_HEADER) chainIdHeader?: string,
+  ): Promise<Order> {
+    const chainId = this.chainConfig.resolveChainId(chainIdHeader);
+    return this.ordersService.invalidateUnownedAsk(
+      hash,
+      query.callerAddress,
+      chainId,
+    );
+  }
+
   /** 단일 주문 체결 처리 (on-chain fulfill 후) */
   @ApiOperation({ summary: '주문 체결 표시' })
   @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })

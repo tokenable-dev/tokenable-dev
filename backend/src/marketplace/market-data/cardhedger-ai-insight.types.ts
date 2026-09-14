@@ -246,17 +246,10 @@ export interface AiInsightPopulationContext {
   hasCompleteByGrade: boolean;
 }
 
-export interface AiInsightTop100RankContext {
-  rank: number;
-  category: string;
-  rankChange30d: number | null;
-}
-
 export interface AiInsightEnrichmentContext {
   platform: AiInsightPlatformContext;
   watchlistCount: number;
   psaCertSnapshot: Record<string, unknown> | null;
-  top100Rank: AiInsightTop100RankContext | null;
   listingGradeScore: string | null;
 }
 

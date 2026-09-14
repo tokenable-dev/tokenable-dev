@@ -1216,17 +1216,6 @@ export function buildAiInsightSections(
     };
   }
 
-  const top100 = enrichment.top100Rank;
-  if (top100) {
-    sections.marketRank = {
-      dataSources: ['db:card_top100_daily_snapshots'],
-      rank: top100.rank,
-      category: top100.category,
-      rankChange30d: top100.rankChange30d,
-      percentile: Math.round(((101 - top100.rank) / 100) * 100),
-    };
-  }
-
   const opportunity = opportunityScore(input);
   if (opportunity) {
     sections.opportunity = {

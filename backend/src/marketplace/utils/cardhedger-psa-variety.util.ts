@@ -397,15 +397,16 @@ export function cardhedgerRowMatchesPsaVariety(
       return true;
     }
     /**
-     * PSA One Piece manga AA: `RED MANGA ALTERNATE ART`.
-     * Cardhedger files that print as `variant: "Red Manga"` (not `Alternate Art`).
+     * PSA One Piece manga AA: `RED MANGA ALTERNATE ART` / `MANGA ALTERNATE ART`.
+     * Cardhedger files those prints as `Red Manga` / `Manga` (not `Alternate Art`).
      * Leftover `alternate`/`art` is the PSA rarity line, not the regular AA row.
+     * Keep `red` aligned so standard Manga does not steal Red Manga pricing.
      */
     if (
       leftoverIdentity.every((t) => t === 'alternate' || t === 'art') &&
       leftoverIdentity.length > 0 &&
       variantTokens.includes('manga') &&
-      variantTokens.includes('red')
+      psaTokens.has('red') === variantTokens.includes('red')
     ) {
       return true;
     }

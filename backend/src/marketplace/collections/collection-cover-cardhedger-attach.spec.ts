@@ -217,6 +217,70 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     );
   });
 
+  it('attaches One Piece Manga AA via search when cert card is null (PSA 120 vs OP13-120)', async () => {
+    const forwardJson = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: [
+          {
+            cert_info: {
+              cert: '141842670',
+              description:
+                '2025 One Piece Japanese OP13-Carrying on His Will Sabo Manga Alternate Art 120',
+            },
+            card: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        cards: [
+          {
+            card_id: 'ch_aa',
+            description: 'Sabo 2025 One Piece Carrying On His Will Alternate Art',
+            number: 'OP13-120',
+            variant: 'Alternate Art',
+            image: 'https://cdn.example.com/aa.jpg',
+          },
+          {
+            card_id: 'ch_manga',
+            description: 'Sabo 2025 One Piece Carrying On His Will Manga',
+            number: 'OP13-120',
+            variant: 'Manga',
+            image: 'https://cdn.example.com/manga.jpg',
+          },
+          {
+            card_id: 'ch_red',
+            description: 'Sabo 2025 One Piece Carrying On His Will Red Manga',
+            number: 'OP13-120',
+            variant: 'Red Manga',
+            image: 'https://cdn.example.com/red.jpg',
+          },
+        ],
+      });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '141842670',
+            subject: 'Sabo',
+            cardNameHint: 'Sabo',
+            cardNumberHint: '120',
+            variety: 'MANGA ALTERNATE ART',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '141842670');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBe('ch_manga');
+    expect(ch.imageUrl).toBe('https://cdn.example.com/manga.jpg');
+  });
+
   it('returns meta unchanged when Cardhedger is not configured', async () => {
     const cardhedger = {
       assertConfigured: jest.fn(() => {

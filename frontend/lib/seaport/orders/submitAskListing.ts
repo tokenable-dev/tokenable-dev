@@ -65,7 +65,7 @@ export async function submitAskListingOrder(params: {
   const priceInUnits = parseUnits(priceUsdc, 6);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const [settlementPolicy, now, counter, alreadyAll] = await Promise.all([
+  const [settlementPolicy, now, counter, alreadyAll, onChainOwner] = await Promise.all([
     params.settlementPolicy
       ? Promise.resolve(params.settlementPolicy)
       : getRwaSettlementPolicy(tokenIdStr).then((r) => {
@@ -89,7 +89,20 @@ export async function submitAskListingOrder(params: {
       functionName: "isApprovedForAll",
       args: [address, SEAPORT_ADDRESS],
     }),
+    publicClient.readContract({
+      address: rwaAddress,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "ownerOf",
+      args: [tokenIdBn],
+    }),
   ]);
+  if (onChainOwner.toLowerCase() !== address.toLowerCase()) {
+    const short = (w: string) =>
+      w.length >= 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : w;
+    throw new Error(
+      `Connected wallet ${short(address)} does not own this card on-chain (owner is ${short(onChainOwner)}). Switch to that wallet to list — a failed buy does not move ownership.`,
+    );
+  }
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
 
   if (!alreadyAll) {

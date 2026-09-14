@@ -9,8 +9,8 @@ import {
   extractGradedSlabBackCandidate,
 } from "@/lib/marketplace/rwa-detail/rwaDetailMetadata";
 import {
+  COLLECTION_TRADE_SELF_VAULT_LABEL,
   PSA_VAULT_LABEL,
-  TOKENABLE_VAULT_LABEL,
 } from "@/lib/marketplace/vaultCustodyLabel";
 
 /** Placeholder ask so Place Bid can run without an active listing (RWA + collection). */
@@ -95,7 +95,7 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
-/** Vault badge for listing cards / orderbook — `PSA Vault` / `Tokenable Vault`. */
+/** Vault badge for listing cards / orderbook — `PSA Vault` / `TOKN Vault`. */
 export function listingVaultBadge(
   listing: {
     sellerDisplayName?: string | null;
@@ -108,7 +108,7 @@ export function listingVaultBadge(
   if (!listing) return { label: "—", tone: "psa" };
   const addr = listing.offerer || listing.parameters?.offerer;
   if (listing.settlementPolicy === "self_vault_hold") {
-    return { label: TOKENABLE_VAULT_LABEL, tone: "partner", title: addr };
+    return { label: COLLECTION_TRADE_SELF_VAULT_LABEL, tone: "partner", title: addr };
   }
   if (listing.settlementPolicy === "standard") {
     return { label: PSA_VAULT_LABEL, tone: "psa", title: addr };
@@ -119,7 +119,7 @@ export function listingVaultBadge(
       return { label: PSA_VAULT_LABEL, tone: "psa", title: addr };
     }
     if (/^tokenable(\s+vault)?$/i.test(tokenLabel) || /^tkb(\s+vault)?$/i.test(tokenLabel)) {
-      return { label: TOKENABLE_VAULT_LABEL, tone: "partner", title: addr };
+      return { label: COLLECTION_TRADE_SELF_VAULT_LABEL, tone: "partner", title: addr };
     }
     return { label: tokenLabel, tone: "partner", title: addr };
   }

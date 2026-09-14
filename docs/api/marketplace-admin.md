@@ -160,7 +160,7 @@ Full deposit/redeem audit history for a physical asset (PSA cert).
 
 **Base:** `/api/marketplace/admin/users`
 
-**Admin UI:** `/marketplace/admin/users` (Korean table) → detail `/marketplace/admin/users/:id`. Partner approve from user detail uses `POST /marketplace/admin/partners` (wallet-keyed; no `userId` on partners). Strike / restrict / suspend controls are UI stubs only.
+**Admin UI:** `/marketplace/admin/users` (Korean table) → detail `/marketplace/admin/users/:id`. Partner approve / Origin / mint key live on user detail (`POST/PATCH /marketplace/admin/partners`, wallet-keyed; no `userId` on partners). Strike / restrict / suspend controls are UI stubs only.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -187,7 +187,7 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 |--------|------|-------------|
 | GET | `/api/marketplace/collections?reviewStatus=` | Public: always `active`. Admin: `pending_review` \| `active` \| `rejected` \| `all` |
 | GET | `/api/marketplace/collections/admin/review-counts` | Admin counts by status |
-| POST | `/api/marketplace/collections/admin/create-from-cert` | Create catalog collection from PSA cert (no mint/ask). Body `{ certNumber }`. Resolves Cardhedger `card_id` into `components.cardhedgerCardId` (cert lookup + search fallback) and catalog image → S3 when configured. Starts `pending_review`. |
+| POST | `/api/marketplace/collections/admin/create-from-cert` | Create catalog collection from PSA cert (no mint/ask). Body `{ certNumber }`. Resolves Cardhedger `card_id` into `components.cardhedgerCardId` (cert lookup + search fallback) and catalog image → S3 when configured. Starts `pending_review`. Collection Place Bid is allowed with an empty merkle set; the bid is not fillable until a copy is minted and the buyer re-signs. |
 | POST | `/api/marketplace/collections/:key/admin/review` | Set `{ reviewStatus }` |
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
@@ -450,7 +450,8 @@ Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; sam
 | GET | `/data-inventory` | All `public` tables + catalog metadata — row counts (`pg_class.reltuples` when > 0; exact `COUNT(*)` when the estimate is 0), freshness. `totals.rowCountsEstimated` is always `true`. Uncatalogued tables appear under domain `other`. |
 | GET | `/data-inventory/schema` | Live columns + PK/UK/FK from Postgres, plus documented logical joins for the admin schema map. |
 | GET | `/data-inventory/tables/:table/rows?page=&pageSize=` | Paginated raw rows (`pageSize` 1–200). Sensitive columns (`password`, `secret`, `private_key`, …) redacted. |
-| POST | `/data-inventory/reset-for-new-contract` | **Dev/staging only** (`NODE_ENV !== production`). Body `{ password }` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Same wipe as `sql/maintenance/reset_marketplace_data.sql`: truncates marketplace + vault transactional tables; **keeps** users, admins, partners, Cardhedger infra audit. Use after manually updating `CHAIN_*_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_*_RWA` to a newly deployed proxy. Does **not** burn on-chain NFTs. |
+| GET | `/data-inventory/reset-targets` | Configured networks and their current `CHAIN_{id}_RWA_ADDRESS`. Each address is a separate marketplace. |
+| POST | `/data-inventory/reset-for-new-contract` | **Dev/staging only** (`NODE_ENV !== production`). Body `{ password, chainId, tokenContract }`. `password` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Deletes rows for that RWA address only (tokens, orders, holdings, linked vault cycles, and catalog rows no other contract still uses). Other networks, users, admins, partners, and Cardhedger audit tables stay. If `tokenContract` is the address currently configured for `chainId`, also clears that chain’s notifications, portfolio snapshots, bulk-mint jobs, and unminted vault cycles. Reset the current address **before** swapping `CHAIN_*_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_*_RWA` so the new address starts as an empty marketplace. Does **not** burn on-chain NFTs. Full all-network wipe remains `sql/maintenance/reset_marketplace_data.sql`. |
 
 Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only while the browser tab is visible (paused when hidden).
 

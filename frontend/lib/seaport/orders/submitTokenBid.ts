@@ -19,6 +19,7 @@ import {
   fetchCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
+import { collectionCriteriaSignLeafIds } from "@/lib/seaport/criteria/collectionCriteriaRoot";
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 import type { useWriteContract } from "wagmi";
@@ -272,7 +273,9 @@ export async function submitTokenBid(input: {
 
 /**
  * Collection Place Bid: USDC for any minted token in the bucket (Seaport
- * ERC721_WITH_CRITERIA). A token offer cannot be filled by a different copy.
+ * ERC721_WITH_CRITERIA). Empty merkle (catalog-only) signs a sentinel leaf so
+ * the bid can rest on the book; it is not fillable until the buyer re-signs
+ * after the first mint. A token offer cannot be filled by a different copy.
  */
 export async function submitCollectionCriteriaBid(input: {
   collectionKey: string;
@@ -321,12 +324,10 @@ export async function submitCollectionCriteriaBid(input: {
   const merkle = await getMerkleEligibleTokenIds(collectionKey, {
     bypassCache: true,
   });
-  const ids = (merkle.tokenIds ?? []).map((x) =>
+  const mintedIds = (merkle.tokenIds ?? []).map((x) =>
     BigInt(normalizeDecimalTokenId(x)),
   );
-  if (ids.length === 0) {
-    throw new Error("No card in this collection to bid on yet.");
-  }
+  const ids = collectionCriteriaSignLeafIds(mintedIds);
   const rootHex = new SeaportMerkleTree(ids).getHexRoot();
   const rootBn = BigInt(rootHex);
 

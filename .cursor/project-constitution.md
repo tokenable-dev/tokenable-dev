@@ -173,7 +173,7 @@ Any time you change how a subsystem works, update the corresponding `docs/` file
 | `backend/src/vault/` | Physical card vault DB state machine |
 | `backend/src/blockchain/` | All on-chain reads and writes |
 | `backend/src/psa/` | PSA slab OCR, cert lookup, rate-limited API pool |
-| `backend/src/cardhedger/` | Pricing data pipeline, Top 100, proxy |
+| `backend/src/cardhedger/` | Pricing data pipeline, proxy |
 | `backend/src/marketplace/` | Orders, collections, snapshots, portfolio, watchlist, admin |
 | `frontend/lib/privy/` | Privy config, session bridge, signing |
 | `frontend/lib/seaport/` | Order building, signing, fulfillment |

@@ -32,7 +32,7 @@ export const DATA_INVENTORY_DOMAINS: {
     id: 'markets',
     label: '시세·Cardhedger',
     summary:
-      '컬렉션 시세 스냅샷, Top 100, 야간 델타 임포트 — 워커가 갱신. 히스토리 테이블은 덮어쓰지 않음.',
+      '컬렉션 시세 스냅샷, 야간 델타 임포트 — 워커가 갱신. 히스토리 테이블은 덮어쓰지 않음.',
   },
   {
     id: 'portfolio',
@@ -43,7 +43,7 @@ export const DATA_INVENTORY_DOMAINS: {
   {
     id: 'trading',
     label: '거래',
-    summary: 'Seaport 오프체인 주문과 P2P 에스크로 정산 기록.',
+    summary: 'Seaport 오프체인 주문과 체결 테이프.',
   },
   {
     id: 'people',
@@ -114,8 +114,8 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     domain: 'catalog',
     label: '위탁 파트너',
     description: '회사 표시명 + 파트너 민트/리스팅용 핫월렛.',
-    howAccumulated: 'Partners 페이지에서 어드민 CRUD.',
-    adminPagePath: '/marketplace/admin/partners',
+    howAccumulated: 'Users 상세에서 파트너 승인·CRUD.',
+    adminPagePath: '/marketplace/admin/users',
   },
   {
     id: 'collection_market_snapshots',
@@ -127,17 +127,6 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     howAccumulated:
       '델타 임포트 또는 컬렉션 조회 시 스냅샷 워커가 upsert. 컬렉션당 히스토리 행은 없음(제자리 갱신).',
     adminPagePath: '/marketplace/admin/collections',
-  },
-  {
-    id: 'card_top100_daily_snapshots',
-    table: 'card_top100_daily_snapshots',
-    domain: 'markets',
-    label: 'Top 100 일별 스냅샷',
-    description:
-      'Cardhedger Top 100 — KST 날짜 × 카테고리 × 등급당 1행. cards_json에 최대 100장.',
-    howAccumulated:
-      '일일 크론(KST). 매일 새 행, 이전 날짜는 히스토리 API용으로 유지.',
-    adminPagePath: '/marketplace/admin/markets?tab=top100',
   },
   {
     id: 'cardhedger_price_delta_import_runs',
@@ -222,24 +211,6 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     howAccumulated:
       '리스팅/비드 시 생성, 체결·취소·만료 시 상태 갱신.',
     adminPagePath: '/marketplace/admin',
-  },
-  {
-    id: 'p2p_orders',
-    table: 'p2p_orders',
-    domain: 'trading',
-    label: 'P2P 에스크로 주문',
-    description: 'P2P 리스팅 정산 — 구매자, 아비터 환불 경로.',
-    howAccumulated: 'P2P 구매 시 생성, settle/refund 시 상태 전환.',
-    adminPagePath: '/marketplace/admin/p2p',
-  },
-  {
-    id: 'p2p_listings',
-    table: 'p2p_listings',
-    domain: 'trading',
-    label: 'P2P 리스팅',
-    description: 'P2P 에스크로용 판매자 리스팅(Seaport ask와 별개).',
-    howAccumulated: '판매자 생성, 판매·취소 시 종료.',
-    adminPagePath: '/marketplace/admin/p2p',
   },
   {
     id: 'users',
@@ -371,8 +342,8 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     domain: 'catalog',
     label: '파트너 Origin 주소',
     description: '파트너당 1개 — FedEx Rate 출발지.',
-    howAccumulated: 'Partners 페이지에서 저장.',
-    adminPagePath: '/marketplace/admin/partners',
+    howAccumulated: 'Users 상세 Origin 패널에서 저장.',
+    adminPagePath: '/marketplace/admin/users',
   },
   {
     id: 'rwa_owner_index_cursors',

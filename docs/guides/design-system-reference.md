@@ -41,7 +41,7 @@ Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azu
 3. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
 4. Matching HTML prototype (reference only): `Tokenable Design System/` for tokens; screen HTML in `Tokenable-with design system-*` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
 
-**Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge. Admin backoffice: `http://localhost:3000/dev/admin-ui`.
+**Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge.
 
 ---
 
@@ -73,7 +73,7 @@ Do **not** barrel route sheets (vault, sell, admin, portfolio, …) back into `g
 | `tokenable-vault.css` | `app/vault/layout.tsx` |
 | `tokenable-sell-flow.css` | `app/sell/layout.tsx` |
 | `tokenable-faq.css` | `app/faq/layout.tsx` |
-| `tokenable-admin.css` | `app/marketplace/admin/layout.tsx` (+ `app/dev/layout.tsx`) |
+| `tokenable-admin.css` | `app/marketplace/admin/layout.tsx` |
 | `tokenable-settings.css` | `app/settings/layout.tsx` |
 | `tokenable-partner.css` | `app/partner/layout.tsx` |
 | `tokenable-partner-origin.css` | `PartnerCompanyAddressRequiredModal` |
@@ -193,7 +193,7 @@ Some surfaces deliberately **do not** use `tk-btn` / dark pixel chrome:
 
 | Area | Path | Style |
 |------|------|--------|
-| **Marketplace admin** | `frontend/app/marketplace/admin/*`, `components/marketplace/admin/adminUi.ts` | Light zinc Tailwind — see Admin UI below. **QA:** `/dev/admin-ui` |
+| **Marketplace admin** | `frontend/app/marketplace/admin/*`, `components/marketplace/admin/adminUi.ts` | Light zinc Tailwind — see Admin UI below. Spot-check on `/marketplace/admin` |
 | **Filter chips / tabs** | e.g. `MarketsFilterBar`, order book rows, chart period toolbars | Domain-specific `<button>` + page CSS — not primary CTAs |
 | **Header / wallet** | `TkHeader`, `HeaderWalletMenuPanel` | GNB-specific classes (`gnb-*`, wallet menu CSS). Primary nav: Markets / Portfolio / **Sell** (`/sell` → hub `/vault`) |
 
@@ -208,13 +208,13 @@ Separate from pixel `tk-btn`. All new admin chrome should import constants from 
 | `ADMIN_LINK` / `ADMIN_LINK_SM` | In-page and section header links |
 | `ADMIN_INPUT` / `ADMIN_INPUT_DANGER` | Forms, destructive confirm fields |
 | `ADMIN_PANEL_DANGER` / `PANEL_DANGER_DARK` | Danger zone `<details>` |
-| `ADMIN_EMBEDDED_DARK` | Top 100 / movers preview inside light pages |
+| `ADMIN_EMBEDDED_DARK` | Dark market widgets inside light admin pages |
 | `ADMIN_NAV_LINK` / `NAV_LINK_ACTIVE` | Sidebar navigation |
 | `ADMIN_STAT_CARD` | Secondary stat / explainer tiles |
 
 Brand colors use `var(--brand-500)` / `var(--brand-600)` so token updates propagate.
 
-**Visual QA:** `http://localhost:3000/dev/admin-ui` (`AdminUiShowcase.tsx`)
+Admin chrome QA: spot-check live pages under `/marketplace/admin` (no separate showcase route).
 
 New user-facing CTAs on marketplace routes should still use **`TkButton`** unless there is a documented reason.
 
@@ -224,7 +224,7 @@ New user-facing CTAs on marketplace routes should still use **`TkButton`** unles
 |---------|-----|---------|
 | **`TkButton`** | Primary / secondary CTAs, modals, forms | Home hero, List RWA, auth modals |
 | **`TkButton decorative`** | Non-interactive label inside a parent `Link` | Watchlist card Buy/Bid |
-| **Domain CTA wrapper** | `TkButton` + layout/height only | `RwaDetailGradientButton`, `PortfolioAssetCardCta` |
+| **Domain CTA wrapper** | `TkButton` + layout/height only | `RwaDetailGradientButton` |
 | **`adminUi.ts`** | Admin backoffice only | `/marketplace/admin/*` |
 | **raw `<button>` + page CSS** | Chips, tabs, period toolbars, order book | `MarketsFilterBar`, `pf-period` |
 | **GNB / wallet** | Header connect + wallet menu | `HeaderAuthControls` (`tk-btn--gnb` on `TkButton`) |

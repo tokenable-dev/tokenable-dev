@@ -11,7 +11,7 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { listingVerificationTiles } from "@/lib/marketplace/collectionListingModalHelpers";
-import { TOKENABLE_VAULT_LABEL } from "@/lib/marketplace/vaultCustodyLabel";
+import { COLLECTION_TRADE_SELF_VAULT_LABEL } from "@/lib/marketplace/vaultCustodyLabel";
 
 export type CollectionOwnedRwaRow = {
   tokenId: number;
@@ -65,7 +65,7 @@ export function useCollectionOwnedRwa(collectionKey: string) {
               tiles.certNumber !== "—"
                 ? `Cert. ${tiles.certNumber}`
                 : `Token #${tokenId}`,
-            vaultLabel: TOKENABLE_VAULT_LABEL,
+            vaultLabel: COLLECTION_TRADE_SELF_VAULT_LABEL,
           };
         })
         .sort((a, b) => b.tokenId - a.tokenId);

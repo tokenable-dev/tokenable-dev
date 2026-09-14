@@ -14,13 +14,13 @@ sql/
 │   ├── 020_vault.sql             # vault_assets/cycles/redemptions + sell-flow submissions
 │   ├── 030_rwa_tokens.sql        # on-chain mint registry
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
-│   ├── 045_p2p.sql               # P2P listings + payment-escrow orders
+│   ├── 045_p2p.sql               # LEGACY — not in bootstrap; historical DBs only
 │   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
 │   ├── 060_admin.sql             # marketplace_admins
 │   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
 │   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
 │   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
-│   ├── 070_cardhedger.sql        # Cardhedger infra + top100 snapshots
+│   ├── 070_cardhedger.sql        # Cardhedger pricing infra
 │   └── 900_triggers.sql          # updated_at triggers
 ├── seed/
 │   ├── marketplace-admin.sql     # default admin credentials (dev/staging)
@@ -62,7 +62,7 @@ sql/
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
 | **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
 | **Existing prod after code pull** | Run `backend/sql/scripts/apply-deploy-maintenance.sh` (also in CI deploy), or apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
-| **Site relaunch (keep users)** | Admin **Data inventory → Reset DB for new contract**, or `maintenance/reset_marketplace_data.sql`. Run `node scripts/burn-all-rwa-tokens.mjs` first only if re-minting same PSA certs on a contract that still has live tokens |
+| **Site relaunch (keep users)** | Admin **Data inventory → 이 컨트랙트만 초기화** (one RWA address; other networks stay). `maintenance/reset_marketplace_data.sql` still wipes every network. Run `node scripts/burn-all-rwa-tokens.mjs` first only if re-minting same PSA certs on a contract that still has live tokens |
 | **Review / audit** | Read `schema/*.sql` — one file per domain |
 
 ### Bootstrap (recommended)
@@ -93,7 +93,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql
 ```
 
-Optional (safe to re-run) — restores/adds order + P2P indexes used by chain-scoped reads:
+Optional (safe to re-run) — restores/adds order indexes used by chain-scoped reads:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -122,7 +122,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f backend/sql/maintenance/add_vault_cycles_chain_id.sql
 ```
 
-Backfills legacy cycles (P2P-linked rows from `p2p_listings.chain_id`, the rest as Sepolia) and replaces the partial unique index `uq_vault_cycles_one_open_per_asset` with `(vault_asset_id, chain_id)`. **`synchronize` alone will not replace the partial index.**
+Backfills legacy cycles (optional join to legacy `p2p_listings.chain_id` if present, else Sepolia) and replaces the partial unique index `uq_vault_cycles_one_open_per_asset` with `(vault_asset_id, chain_id)`. **`synchronize` alone will not replace the partial index.**
 
 ### Reset marketplace data only
 
@@ -159,7 +159,6 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 | `cardhedger_price_delta_checkpoints` | Delta poll checkpoint (singleton) |
 | `cardhedger_daily_price_export_runs` | Nightly CSV export audit |
 | `cardhedger_price_delta_import_runs` | Delta import run audit |
-| `card_top100_daily_snapshots` | Daily Top 100 rank snapshots |
 
 Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/database.md)**
 

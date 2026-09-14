@@ -14,7 +14,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
-| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
+| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` — catalog-only collections accept Place Bid (sentinel merkle); fill after first mint + buyer re-sign |
 | RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
@@ -33,7 +33,7 @@ Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, f
 frontend/
 ├── app/                           # Next.js App Router (see frontend/routes.md)
 │   ├── page.tsx                   # Landing + Market Indexes
-│   ├── markets/                   # Collection list (+ top100 sub-routes)
+│   ├── markets/                   # Collection list
 │   ├── marketplace/               # Token redirect, collections, admin
 │   ├── portfolio/
 │   ├── vault/
@@ -45,7 +45,7 @@ frontend/
 ├── components/
 │   ├── layout/                    # AppHeader, HeaderNav
 │   ├── landing/                   # MarketIndexes
-│   ├── markets/                   # MarketsPage, Top100, TopMovers sections
+│   ├── markets/                   # MarketsPage, filter bar, collection grid
 │   ├── portfolio/
 │   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
 │   ├── vault/                     # MintForm (/vault/submit); self-vault sell reuses mint APIs
@@ -64,7 +64,7 @@ frontend/
 │       ├── markets-ui/
 │       └── admin/                 # Backoffice shell, overview, users, collections, price sync
 │
-├── hooks/                         # Feature-scoped hooks
+├── hooks/                         # Feature-scoped hooks — see `frontend/hooks/README.md`
 │
 ├── lib/
 │   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
@@ -73,7 +73,7 @@ frontend/
 │   ├── chains/                    # Multi-chain registry (Sepolia / Ethereum), types, Seaport addresses
 │   ├── perf/                      # Client-side perf instrumentation (index.ts, PerfObservers.tsx)
 │   ├── market/                    # Pricing tiers, chart utils
-│   ├── markets/                   # Top 100 / Top Movers copy, routing, sort
+│   ├── markets/                   # Markets sort / URL filters
 │   ├── marketplace/               # bucketKey, headlines, order book math, …
 │   ├── seaport/                   # orders/, criteria/, fulfillment/, listing/
 │   ├── portfolio/
@@ -89,9 +89,9 @@ frontend/
 
 ## Redirects
 
-`next.config.ts` redirects legacy **`/exchange` → `/markets`**. First paint (`app/markets/loading.tsx` + `MarketsPage` shell) uses the same `MarketsGridSkeleton` tile pulse as load-more — no “Loading markets…” copy, P2P loading band, or snapshot progress bar. P2P listings render only after the query has rows.
+`next.config.ts` redirects legacy **`/exchange` → `/markets`**. First paint (`app/markets/loading.tsx` + `MarketsPage` shell) uses the same `MarketsGridSkeleton` tile pulse as load-more — no “Loading markets…” copy or snapshot progress bar.
 
-`/marketplace/[tokenId]` is a client redirect to `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). The old token-detail page tree is gone; `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
+Canonical listing URL is `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). Search, notifications, and admin card links use that path. `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
 
 ---
 
@@ -174,7 +174,7 @@ Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk
 - `TkButton` **Sign up** → `useLogin()` when logged out
 - `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in
 
-`PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
+`PrivyUserPill` remains for profile fallback and wallet-mismatch flows — not in the main GNB.
 
 **Settings** (`/settings`, Settings.html parity): side-nav sections for Profile, Notifications, Wallet and balance, Addresses, Identity, Legal, Security. Wired today: display name (`PATCH /auth/profile`), avatar upload (`POST /auth/avatar` → S3), email notification + marketing prefs (stored; delivery TBD), shipping address book CRUD (`/user/shipping-addresses`; default prefills PSA vault return address on `/sell/shipping`, else Partner Origin; address search via `AddressSearchField` + Places proxy), USDC + Add funds (MoonPay), linked wallet link/unlink/export, KYC → `/kyc`, sign out + delete account (delete clears Privy too). Honest “Coming soon” stubs: Telegram bot, server web-push, payment methods, multi-device sessions, 2FA, agreement document pages, consent audit log. Legacy `/profile` redirects here.
 
@@ -189,7 +189,7 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 1. **BFF bootstrap** — `POST /marketplace/portfolio/assets-page` with **wallet only** (no client token list). Server reads **`ownedTokenIds`** from the DB owner index and returns the first **50** tokens' metadata, collection keys, market snapshots, and holdings in **one** round-trip. **No** `GET /blockchain/rwa/tokens/:address`.
 2. **Listings** — `GET /marketplace/orders/by-offerer?side=ask` (this wallet’s active asks only). Does **not** load `GET /marketplace/orders` (global book, ~20k cap).
 3. **Holdings prefs** — included in the assets-page BFF for the loaded page (hide + cost basis). A live `POST …/holdings/batch` still refreshes purchase price on the visible grid (`refetchOnMount: always`). After an ask fill, the client paints `marketplace_buy` from the fill USDC immediately and does not let a stale BFF/persist row wipe it.
-**Prices** — snapshot marks from assets-page BFF (DB); Cardhedger mint-previews load in a **follow-up** request for tokens without snapshot prices. Gallery sparklines come from snapshot series. Hero **Portfolio value** sums live marks on loaded visible rows; **24h P/L chip** uses daily snapshots. Missing snapshots enqueue background refresh. Catalog / 30D median / similar-item / Top 100 cards drop cents via `formatUsdCompact` (`$39.99` → `$39`). On-platform asks, bids, and listed sales keep cents via `formatUsdListing`.
+**Prices** — snapshot marks from assets-page BFF (DB); Cardhedger mint-previews load in a **follow-up** request for tokens without snapshot prices. Gallery sparklines come from snapshot series. Hero **Portfolio value** sums live marks on loaded visible rows; **24h P/L chip** uses daily snapshots. Missing snapshots enqueue background refresh. Catalog / 30D median / similar-item cards drop cents via `formatUsdCompact` (`$39.99` → `$39`). On-platform asks, bids, and listed sales keep cents via `formatUsdListing`.
 5. **Browser cache** — `PortfolioQueryPersistence` mirrors markets: localStorage paint cache (24h TTL) for owned token list, assets-page payload, daily snapshots, listings, and mint previews. Refresh shows cached UI immediately; listings then refetch (`orders/by-offerer`, `refetchType: all`) so Edit price is not stuck on the paint-time ask. After Set/Edit price, `patchCachesAfterAskListed` writes the new ask into that cache before invalidation. The assets-page persist path copies live `ordersAsk` from React Query (it must not rewrite the previous listing).
 6. **Load more** — next `assets-page` call for the next 50 tokenIds only
 7. **Perf RUM (Phase 3)** — `usePortfolioLoadPerf` emits `portfolio/tokenIds-ready`, `assets-ready`, `prices-ready` when `localStorage.PERF_LOG=1` (see `lib/perf/`)
@@ -223,7 +223,7 @@ Output is JSON via `console.log`, parseable in DevTools or piped to a CLI.
 
 ## Feature flags (UI)
 
-Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin previews live under `/marketplace/admin/markets` (tabbed).
+None currently gate Markets catalog widgets. Admin home landing preview lives under `/marketplace/admin/markets`.
 
 ### Markets URL filters (Details → Markets)
 

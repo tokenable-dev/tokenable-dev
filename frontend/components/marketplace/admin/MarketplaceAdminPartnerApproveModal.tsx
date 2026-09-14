@@ -13,6 +13,7 @@ import {
 } from "./adminUi";
 
 const ETH_ADDR = /^0x[a-fA-F0-9]{40}$/;
+const PK = /^(0x)?[a-fA-F0-9]{64}$/;
 
 export function MarketplaceAdminPartnerApproveModal({
   open,
@@ -32,16 +33,19 @@ export function MarketplaceAdminPartnerApproveModal({
   onSubmit: (input: {
     displayName: string;
     walletAddress: string;
+    privateKey?: string;
   }) => Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setDisplayName(initialDisplayName?.trim() ?? "");
     setWalletAddress(initialWalletAddress?.trim() ?? "");
+    setPrivateKey("");
     setError(null);
   }, [open, initialDisplayName, initialWalletAddress]);
 
@@ -51,6 +55,7 @@ export function MarketplaceAdminPartnerApproveModal({
     setError(null);
     const name = displayName.trim();
     const wallet = walletAddress.trim();
+    const pk = privateKey.trim();
     if (!name) {
       setError("회사 표시명을 입력하세요");
       return;
@@ -59,8 +64,16 @@ export function MarketplaceAdminPartnerApproveModal({
       setError("유효한 이더리움 지갑 주소(0x…)가 필요합니다");
       return;
     }
+    if (pk && !PK.test(pk)) {
+      setError("Private key는 32-byte hex여야 합니다 (선택)");
+      return;
+    }
     try {
-      await onSubmit({ displayName: name, walletAddress: wallet });
+      await onSubmit({
+        displayName: name,
+        walletAddress: wallet,
+        ...(pk ? { privateKey: pk } : {}),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "승인에 실패했습니다");
     }
@@ -99,8 +112,8 @@ export function MarketplaceAdminPartnerApproveModal({
         </div>
 
         <p className={`mt-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-          파트너는 자체 보관 — PSA 입고를 거치지 않습니다. 대량 민팅·리스팅은
-          파트너 모듈에서 진행합니다
+          파트너는 자체 보관(PSA 입고 없음). Origin·키는 승인 후 이 유저 상세에서
+          설정하고, 대량 민트는 Partner bulk mint에서 진행합니다.
         </p>
 
         <div className="mt-5 space-y-4">
@@ -133,6 +146,21 @@ export function MarketplaceAdminPartnerApproveModal({
             <p className={`mt-1.5 text-xs ${ADMIN_TEXT_MUTED}`}>
               판매 대금(USDC) 수령 지갑
             </p>
+          </div>
+          <div>
+            <label className={ADMIN_LABEL} htmlFor="partner-approve-pk">
+              Private key (선택 · bulk mint용)
+            </label>
+            <input
+              id="partner-approve-pk"
+              className={ADMIN_INPUT_MONO}
+              type="password"
+              autoComplete="off"
+              value={privateKey}
+              onChange={(e) => setPrivateKey(e.target.value)}
+              placeholder="0x… (나중에 유저 상세에서 추가 가능)"
+              disabled={busy}
+            />
           </div>
         </div>
 

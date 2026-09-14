@@ -1,11 +1,11 @@
-export { usePortfolioAssetsPage, PORTFOLIO_ASSETS_PAGE_SIZE } from "./usePortfolioAssetsPage";
+/** Portfolio holdings, bids, redeem, certificate, and load perf. */
+export { usePortfolioAssetsPage } from "./usePortfolioAssetsPage";
 export { usePortfolioActiveOrders } from "./usePortfolioActiveOrders";
 export { usePortfolioListingCollectionKeys } from "./usePortfolioListingCollectionKeys";
 export { usePortfolioDailyChart } from "./usePortfolioDailyChart";
 export { usePortfolioHoldingActions } from "./usePortfolioHoldingActions";
 export { usePortfolioMyBids } from "./usePortfolioMyBids";
 export { usePortfolioBidActions } from "./usePortfolioBidActions";
-export { usePortfolioAcceptOffer } from "./usePortfolioAcceptOffer";
 export { usePortfolioCollectionTopBids } from "./usePortfolioCollectionTopBids";
 export { usePortfolioLoadPerf } from "./usePortfolioLoadPerf";
 export { useMyRedemptions } from "./useMyRedemptions";

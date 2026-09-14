@@ -9,7 +9,6 @@ export type CardhedgerUpstreamOperation =
   | 'portfolio_snapshot'
   | 'resolve'
   | 'pricing_preview'
-  | 'top100_cron'
   | 'psa_analyze'
   | 'ai_insight'
   | 'collection_market'

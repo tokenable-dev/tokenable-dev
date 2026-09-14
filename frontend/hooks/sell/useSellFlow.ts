@@ -33,6 +33,7 @@ import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWallet
 import {
   draftCardsFromSubmissionItems,
   bindSellFlowToUser,
+  consumeSellFlowResumeCards,
   readSellFlowDraftCards,
   readSellFlowProgress,
   clearSellSubmissionPublicId,
@@ -222,13 +223,22 @@ export function useSellFlow() {
     const q = searchParams.get("vault");
     const prefillsVault: SellVaultChoice | null =
       q === "self" || q === "psa" ? q : null;
+    const resumeCards = consumeSellFlowResumeCards() && localCards.length > 0;
     setCards(localCards);
-    setVaultChoice(prefillsVault);
-    setScreen("register");
-    writeSellFlowProgress({
-      step: "register",
-      vaultChoice: prefillsVault,
-    });
+    if (resumeCards) {
+      const saved = readSellFlowProgress().vaultChoice;
+      const choice: SellVaultChoice = saved === "self" ? "self" : "psa";
+      setVaultChoice(choice);
+      setScreen("cards");
+      writeSellFlowProgress({ step: "cards", vaultChoice: choice });
+    } else {
+      setVaultChoice(prefillsVault);
+      setScreen("register");
+      writeSellFlowProgress({
+        step: "register",
+        vaultChoice: prefillsVault,
+      });
+    }
     setConsents({ ...EMPTY_CONSENTS });
     try {
       localStorage.removeItem(CONSENTS_KEY);
@@ -379,7 +389,10 @@ export function useSellFlow() {
     router.push("/kyc");
   }, [router]);
 
-  /** After consents: resume cards if vault already chosen, else Choose vault. */
+  /**
+   * Register Continue → vault, unless `?vault=` already prefilled a choice
+   * (then cards). Back from vault clears that choice so Continue cannot skip.
+   */
   const goToVault = useCallback(() => {
     if (!canContinueRegister) return;
     if (vaultChoice === "self" || vaultChoice === "psa") {
@@ -400,18 +413,17 @@ export function useSellFlow() {
   }, [canContinueRegister, vaultChoice]);
 
   const goToRegister = useCallback(() => {
-    writeSellFlowProgress({ step: "register" });
+    setVaultChoice(null);
+    writeSellFlowProgress({ step: "register", vaultChoice: null });
     setScreen("register");
     window.scrollTo(0, 0);
   }, []);
 
   const goBackToVaultChoice = useCallback(() => {
-    if (!canContinueRegister) return;
-    setVaultChoice(null);
-    writeSellFlowProgress({ step: "vault", vaultChoice: null });
+    writeSellFlowProgress({ step: "vault" });
     setScreen("vault");
     window.scrollTo(0, 0);
-  }, [canContinueRegister]);
+  }, []);
 
   const selectVault = useCallback((choice: SellVaultChoice) => {
     setVaultChoice(choice);
@@ -452,12 +464,8 @@ export function useSellFlow() {
       if (slabFile) {
         slabFileByCertRef.current.set(built.cert, slabFile);
       }
-      setCards((prev) => {
-        const next = [...prev, built];
-        writeSellFlowDraftCards(next);
-        writeSellFlowProgress({ step: "cards" });
-        return next;
-      });
+      // Session-only until Save as draft. Refresh drops unsaved adds.
+      setCards((prev) => [...prev, built]);
       setCertInput("");
       setCertError(null);
       return true;
@@ -561,23 +569,19 @@ export function useSellFlow() {
   );
 
   const toggleConfirm = useCallback((index: number) => {
-    setCards((prev) => {
-      const next = prev.map((c, i) =>
+    setCards((prev) =>
+      prev.map((c, i) =>
         i === index ? { ...c, confirmed: !c.confirmed } : c,
-      );
-      writeSellFlowDraftCards(next);
-      return next;
-    });
+      ),
+    );
   }, []);
 
   const setAllConfirmed = useCallback((confirmed: boolean) => {
     setCards((prev) => {
       if (prev.length === 0) return prev;
-      const next = prev.map((c) =>
+      return prev.map((c) =>
         c.confirmed === confirmed ? c : { ...c, confirmed },
       );
-      writeSellFlowDraftCards(next);
-      return next;
     });
   }, []);
 
@@ -587,10 +591,7 @@ export function useSellFlow() {
       if (removed?.cert) {
         slabFileByCertRef.current.delete(removed.cert);
       }
-      const next = prev.filter((_, i) => i !== index);
-      writeSellFlowDraftCards(next);
-      writeSellFlowProgress({ step: "cards" });
-      return next;
+      return prev.filter((_, i) => i !== index);
     });
   }, []);
 

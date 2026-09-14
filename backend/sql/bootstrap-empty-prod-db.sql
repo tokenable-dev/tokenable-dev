@@ -18,7 +18,6 @@ BEGIN;
 \ir schema/020_vault.sql
 \ir schema/030_rwa_tokens.sql
 \ir schema/040_marketplace.sql
-\ir schema/045_p2p.sql
 \ir schema/046_self_vault_settlements.sql
 \ir schema/050_portfolio.sql
 \ir schema/060_admin.sql
@@ -38,11 +37,9 @@ BEGIN
      OR to_regclass('public.collection_market_snapshots') IS NULL
      OR to_regclass('public.orders') IS NULL
      OR to_regclass('public.portfolio_daily_snapshots') IS NULL
-     OR to_regclass('public.p2p_listings') IS NULL
      OR to_regclass('public.vault_assets') IS NULL
      OR to_regclass('public.marketplace_partners') IS NULL
-     OR to_regclass('public.bulk_mint_jobs') IS NULL
-     OR to_regclass('public.card_top100_daily_snapshots') IS NULL THEN
+     OR to_regclass('public.bulk_mint_jobs') IS NULL THEN
     RAISE EXCEPTION 'bootstrap incomplete — expected core tables missing';
   END IF;
 END $$;

@@ -407,7 +407,7 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'View listing',
-        href: `/marketplace/${encodeURIComponent(tidNorm)}`,
+        href: this.collectionListingHref(ask.collectionKey, tidNorm),
       },
     });
   }
@@ -546,7 +546,10 @@ export class NotificationsService {
           cardLabel,
           imageUrl,
           ctaLabel: 'View purchase',
-          href: `/marketplace/${encodeURIComponent(tidNorm)}`,
+          href: this.collectionListingHref(
+            ask.collectionKey ?? bid.collectionKey,
+            tidNorm,
+          ),
         },
       });
     }
@@ -604,9 +607,8 @@ export class NotificationsService {
         cardLabel,
         imageUrl,
         ctaLabel: 'Re-bid',
-        href: tidNorm
-          ? `/marketplace/${encodeURIComponent(tidNorm)}`
-          : '/portfolio?tab=bids',
+        href: this.collectionListingHref(bid.collectionKey, tidNorm) ??
+          '/portfolio?tab=bids',
       },
     });
   }
@@ -1416,6 +1418,8 @@ export class NotificationsService {
     const payload = (row.payload ?? {}) as NotificationListItem['payload'];
     const tokenId =
       typeof payload.tokenId === 'string' ? payload.tokenId : '';
+    const collectionKey =
+      typeof payload.collectionKey === 'string' ? payload.collectionKey : '';
     const imageUrl =
       typeof payload.imageUrl === 'string' && payload.imageUrl.trim()
         ? payload.imageUrl.trim()
@@ -1443,6 +1447,7 @@ export class NotificationsService {
       eventKey,
       event,
       tokenId,
+      collectionKey,
       noEditCta,
       payloadHref,
       payloadCta,
@@ -1475,6 +1480,7 @@ export class NotificationsService {
     eventKey: string;
     event: string;
     tokenId: string;
+    collectionKey: string;
     noEditCta: boolean;
     payloadHref: string | null;
     payloadCta: string | null;
@@ -1484,6 +1490,7 @@ export class NotificationsService {
       eventKey,
       event,
       tokenId,
+      collectionKey,
       noEditCta,
       payloadHref,
       payloadCta,
@@ -1492,9 +1499,7 @@ export class NotificationsService {
     const setPriceHref = tokenId
       ? `/portfolio?tab=assets&setprice=${encodeURIComponent(tokenId)}`
       : null;
-    const marketplaceHref = tokenId
-      ? `/marketplace/${encodeURIComponent(tokenId)}`
-      : null;
+    const marketplaceHref = this.collectionListingHref(collectionKey, tokenId);
     const submissionHref = submissionPublicId
       ? `/vault/submissions/${encodeURIComponent(submissionPublicId)}`
       : null;
@@ -1602,5 +1607,20 @@ export class NotificationsService {
     }
 
     return { href: payloadHref, ctaLabel: payloadCta };
+  }
+
+  /** Canonical listing deep link — collection detail with optional token focus. */
+  private collectionListingHref(
+    collectionKey: string | null | undefined,
+    tokenId: string | null | undefined,
+  ): string | null {
+    const key = collectionKey?.trim();
+    if (!key) return null;
+    const base = `/marketplace/collections/${encodeURIComponent(key)}`;
+    const tid = tokenId?.trim();
+    if (tid && tid !== '0') {
+      return `${base}?listing=${encodeURIComponent(tid)}`;
+    }
+    return base;
   }
 }

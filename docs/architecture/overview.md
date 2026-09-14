@@ -30,7 +30,7 @@ flowchart TB
 3. **NestJS** validates via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
 4. **PostgreSQL** (TypeORM) persists **22+ application tables** — see [database.md](./database.md).
 5. **Ethereum RPC** (Sepolia testnet or mainnet) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.
-6. **Cardhedger API** is called from snapshot workers, identity/cert resolution, `/api/cardhedger/v1/*` proxy, Top 100 / Top Movers services, and portfolio capture — not on every marketplace chart/list GET.
+6. **Cardhedger API** is called from snapshot workers, identity/cert resolution, `/api/cardhedger/v1/*` proxy, and portfolio capture — not on every marketplace chart/list GET.
 7. **Redis** (optional L2) backs the collection **identity cache** (`components.cardhedgerCardId`). Without `REDIS_URL`, L1 in-process cache only.
 8. **PSA Public API** (six upstream methods — see [api/psa.md](../api/psa.md)) verifies certs, slab images, spec population, and optional order/submission progress. A **multi-token pool** (`PSA_PUBLIC_API_TOKENS`) rotates across free API tokens.
 9. **Pinata** stores IPFS metadata and images.
@@ -59,7 +59,7 @@ Local development omits Nginx; the frontend dev server proxies `/api` to the bac
 | `VaultModule` | Physical card vault lifecycle DB orchestration (`VaultService`) — `vault_assets`, `vault_cycles`, `vault_redemptions` |
 | `BlockchainModule` | Multi-chain RPC reads + IPFS gateway resolver; `RwaChainWriterService` (minter + custody signing) |
 | `PsaModule` | Slab OCR, analyze-by-cert, PSA Public API 6-method proxy |
-| `CardhedgerModule` | Upstream HTTP client + `/api/cardhedger/v1/*` proxy, Top 100, Top Movers |
+| `CardhedgerModule` | Upstream HTTP client + `/api/cardhedger/v1/*` proxy |
 | `CardhedgerPriceInfraModule` | Price webhooks, nightly delta import, subscription admin |
 | `CardhedgerAdminModule` | Ops health + Prometheus scrape |
 | `CardladderModule` | Landing market indexes scrape + cache |

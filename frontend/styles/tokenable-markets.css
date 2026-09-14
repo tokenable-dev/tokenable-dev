@@ -1064,8 +1064,8 @@
 .markets-grid .card__img .fav {
   pointer-events: auto;
   top: 8px;
-  left: 8px;
-  right: auto;
+  right: 8px;
+  left: auto;
 }
 
 /* Markets.html `.fav` is 32×32 (not the shared 40px fav-btn) */
@@ -1175,26 +1175,6 @@
   padding-bottom: 56px;
 }
 
-.markets-results-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 0 0 22px;
-}
-
-.markets-results-bar__count {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t2);
-}
-
-.markets-results-bar__count b {
-  color: #fff;
-}
-
 .markets-load-more {
   display: flex;
   justify-content: center;
@@ -1227,21 +1207,12 @@
   box-shadow: 0 0 0 2px rgba(26, 111, 255, 0.6) !important;
 }
 
-.markets-preview-sections {
-  margin-bottom: 40px;
-}
 
-.markets-preview-sections__grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 32px;
-}
+
+
 
 @media (min-width: 1024px) {
-  .markets-preview-sections__grid--dual {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
-  }
+  
 }
 
 .markets-orphan-card {
@@ -1322,8 +1293,8 @@
 
   .markets-grid .card__img .fav {
     top: 6px;
-    left: 6px;
-    right: auto;
+    right: 6px;
+    left: auto;
   }
 
   .markets-grid .card__img .fav button,
@@ -1358,110 +1329,6 @@
 
 .markets-tab-panel-enter {
   animation: markets-tab-panel-enter 220ms ease-out both;
-}
-
-/* P2P listings band (Markets.html / MarketsP2pSection) */
-.mk-p2p-section {
-  padding: 40px 0 0;
-  box-sizing: border-box;
-  width: 100%;
-}
-
-.mk-p2p-section__head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.mk-p2p-section__title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 18px;
-  color: #fff;
-}
-
-.mk-p2p-section__sub {
-  margin: 6px 0 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-  line-height: 1.45;
-}
-
-.mk-p2p-section__cta {
-  font-size: 14px;
-  color: var(--azure);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.mk-p2p-section__cta:hover {
-  text-decoration: underline;
-}
-
-.mk-p2p-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.mk-p2p-card {
-  display: block;
-  text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #191919;
-  padding: 16px;
-  transition: border-color 0.15s;
-}
-
-.mk-p2p-card:hover {
-  border-color: var(--azure);
-}
-
-.mk-p2p-card__badge {
-  display: inline-block;
-  margin-bottom: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--azure);
-}
-
-.mk-p2p-card__name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1.35;
-}
-
-.mk-p2p-card__cert {
-  margin-top: 4px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.mk-p2p-card__price {
-  margin-top: 12px;
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-}
-
-@media (max-width: 880px) {
-  .mk-p2p-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 881px) and (max-width: 1040px) {
-  .mk-p2p-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 /* Search result group heading — DS Heading 24/600 */

@@ -1,4 +1,4 @@
--- Cardhedger pricing infra + Top 100 snapshots
+-- Cardhedger pricing infra
 -- Entities: backend/src/cardhedger/entities/*.ts
 
 CREATE TABLE IF NOT EXISTS cardhedger_price_subscriptions (
@@ -79,24 +79,3 @@ COMMENT ON COLUMN cardhedger_price_delta_import_runs.delta_matched_collection_co
 COMMENT ON COLUMN cardhedger_price_delta_import_runs.catalog_fallback_count IS
   'Collections refreshed via catalog sync when delta feed had no catalog overlap.';
 
-CREATE TABLE IF NOT EXISTS card_top100_daily_snapshots (
-  id serial PRIMARY KEY,
-  snapshot_date_kst date NOT NULL,
-  category varchar(64) NOT NULL,
-  grade varchar(32) NOT NULL,
-  cards_json jsonb NOT NULL,
-  total_pages int NOT NULL DEFAULT 0,
-  fetched_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT card_top100_daily_snapshots_date_category_grade_uq
-    UNIQUE (snapshot_date_kst, category, grade)
-);
-
-CREATE INDEX IF NOT EXISTS idx_card_top100_daily_snapshots_date
-  ON card_top100_daily_snapshots (snapshot_date_kst);
-
-CREATE INDEX IF NOT EXISTS idx_card_top100_daily_snapshots_category
-  ON card_top100_daily_snapshots (category);
-
-COMMENT ON TABLE card_top100_daily_snapshots IS
-  'Daily Top 100 rank snapshots per category and grade (KST calendar date).';

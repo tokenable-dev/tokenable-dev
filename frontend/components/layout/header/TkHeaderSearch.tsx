@@ -24,6 +24,10 @@ import {
 import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
+import {
+  collectionDetailHref,
+  resolveCollectionDetailHref,
+} from "@/lib/marketplace/collectionBrowseContext";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -381,17 +385,17 @@ export function TkHeaderSearch({
     closeAll();
   }
 
-  function navigateHit(hit: SearchHit) {
+  async function navigateHit(hit: SearchHit) {
     trackEvent("search_performed", {
       query: liveQuery(),
       results_count: hits.length,
     });
     if (hit.kind === "card") {
-      router.push(`/marketplace/${encodeURIComponent(hit.card.tokenId)}`);
-    } else {
       router.push(
-        `/marketplace/collections/${encodeURIComponent(hit.collection.collectionKey)}`,
+        await resolveCollectionDetailHref(hit.card.tokenId, hit.card.collectionKey),
       );
+    } else {
+      router.push(collectionDetailHref(hit.collection.collectionKey));
     }
     closeAll();
   }

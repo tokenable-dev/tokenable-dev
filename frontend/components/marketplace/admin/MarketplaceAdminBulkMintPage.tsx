@@ -480,15 +480,16 @@ export function MarketplaceAdminBulkMintPage() {
       />
 
       <p className={`mb-6 text-sm ${ADMIN_TEXT_SECONDARY}`}>
-        Register the company wallet first under{" "}
+        Approve the company as a partner on{" "}
         <a
           className="font-medium text-[var(--brand-500)] hover:underline"
-          href="/marketplace/admin/partners"
+          href="/marketplace/admin/users"
         >
-          Partners
-        </a>
-        . Markets show the company display name; sale proceeds go to that wallet via
-        Seaport. Use job history and inventory below for Listed vs Sold.
+          Users
+        </a>{" "}
+        (user detail → 파트너 승인, then add Origin / mint key). Markets show the
+        company display name; sale proceeds go to that wallet via Seaport. Use job
+        history and inventory below for Listed vs Sold.
       </p>
 
       <section className={`${ADMIN_ARTICLE} mb-6 space-y-4`}>

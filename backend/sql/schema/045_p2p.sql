@@ -1,6 +1,6 @@
--- P2P listings + payment-escrow orders
--- Entities: backend/src/marketplace/entities/p2p-listing.entity.ts
---           p2p-order.entity.ts
+-- LEGACY (removed from app 2026-09): kept for historical DBs only.
+-- Not included in bootstrap-empty-prod-db.sql. Do not extend.
+-- Former P2P listings + payment-escrow orders (entities deleted).
 
 CREATE TABLE IF NOT EXISTS p2p_listings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

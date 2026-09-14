@@ -64,16 +64,30 @@ export class DataInventoryController {
     );
   }
 
+  @Get('reset-targets')
+  @ApiOperation({
+    summary:
+      '[Dev/staging] Configured RWA addresses that can be wiped independently',
+  })
+  listResetTargets(@Req() req: Request) {
+    this.admin.assertAdminSession(req);
+    return this.inventory.listResetTargets();
+  }
+
   @Post('reset-for-new-contract')
   @ApiOperation({
     summary:
-      '[Dev/staging only] Wipe marketplace + vault DB rows after redeploying RWA (keeps users/admins/partners)',
+      '[Dev/staging only] Wipe one RWA contract’s marketplace/vault rows (keeps users/admins/partners and other contracts)',
   })
   resetForNewContract(
     @Req() req: Request,
     @Body() body: AdminDataInventoryResetDto,
   ) {
     this.admin.assertAdminSession(req);
-    return this.inventory.resetForNewContract(body.password);
+    return this.inventory.resetForNewContract(
+      body.password,
+      body.chainId,
+      body.tokenContract,
+    );
   }
 }

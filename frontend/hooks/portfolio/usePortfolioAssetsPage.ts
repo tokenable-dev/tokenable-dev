@@ -40,7 +40,7 @@ import {
 const EMPTY_MINT: Record<number, CollectionMarketPreview | undefined> = {};
 
 /** Load-more step — matches backend `PORTFOLIO_ASSETS_PAGE_MAX`. */
-export const PORTFOLIO_ASSETS_PAGE_SIZE = PORTFOLIO_ASSETS_PAGE_MAX;
+const PORTFOLIO_ASSETS_PAGE_SIZE = PORTFOLIO_ASSETS_PAGE_MAX;
 
 function emptyAccumulated() {
   return {
@@ -191,6 +191,7 @@ export function usePortfolioAssetsPage(input: {
 
     bootstrapDoneRef.current = true;
     const serverIds = ownedIdsData.ownedTokenIds ?? [];
+    // Recent marketplace_buy paint only — stale cost-basis rows must not resurrect sold cards.
     const paintedBuys = paintedMarketplaceBuyTokenIds(
       readPortfolioBundle(address ?? "", chainId)?.holdings,
     );

@@ -126,12 +126,6 @@ SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300
 # PARTNER_VAULT_SHIPPING_INTL_USD=39.99
 # Soft stub for some unsupported packaging lanes; KR→KR hard-fails (no stub).
 
-# P2P payment escrow (after `cd contracts && pnpm deploy:escrow:sepolia`)
-# CHAIN_11155111_PAYMENT_ESCROW_ADDRESS=0x...
-# PAYMENT_ESCROW_ARBITER_PRIVATE_KEY=   # defaults to RWA_OWNER_PRIVATE_KEY
-P2P_NO_SHIP_CRON=1
-P2P_AUTO_RELEASE_CRON=1
-
 # IPFS
 PINATA_JWT=your_pinata_jwt
 PINATA_GATEWAY=your_gateway.mypinata.cloud
@@ -173,7 +167,6 @@ MARKETPLACE_ADMIN_DB_RESET_PASSWORD=3009
 
 # Background workers — off in local dev unless you are testing them
 # MARKET_SNAPSHOT_CRON_ENABLED=false          # Cardhedger 15-min refresh (default: prod only)
-# CARD_TOP100_CRON_ENABLED=false              # Cardhedger daily top-100 (default: prod only)
 # CARDLADDER_INDEXES_PREWARM_ENABLED=false    # Playwright scrape on boot (default: prod only)
 # IDENTITY_RECONCILIATION_ENABLED=false       # 3-min cache repair loop (default: prod only)
 # RWA_OWNER_INDEX_ENABLED=0                   # Transfer log index + poll (enable in prod/staging)

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
 import {
@@ -13,6 +12,14 @@ import { SellFlowPartnerDoneModal } from "./SellFlowPartnerDoneModal";
 import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 
 type Flow = ReturnType<typeof useSellFlow>;
+
+function BackChevron() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
 
 function ScanIcon() {
   return (
@@ -47,6 +54,8 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     removeCard,
     continueToSelfMint,
     goBackToVaultChoice,
+    saveDraft,
+    draftSavedFlash,
     resetPartnerAddCards,
   } = flow;
 
@@ -57,27 +66,18 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     <>
       <section className="sell-flow-screen sell-flow-screen--partner">
         <div className="sell-flow-col sell-flow-col--partner">
-          <nav className="sell-flow-partner-crumb" aria-label="Breadcrumb">
-            <Link href="/vault">Sell</Link>
-            <span className="sell-flow-partner-crumb__sep" aria-hidden>
-              ›
-            </span>
-            <button type="button" className="sell-flow-partner-crumb__link" onClick={goBackToVaultChoice}>
-              Choose a vault
-            </button>
-            <span className="sell-flow-partner-crumb__sep" aria-hidden>
-              ›
-            </span>
-            <span className="sell-flow-partner-crumb__current">Tokenable Vault</span>
-          </nav>
+          <button
+            type="button"
+            className="sell-flow-btn-back"
+            onClick={goBackToVaultChoice}
+            disabled={mintBusy}
+          >
+            <BackChevron />
+            Back
+          </button>
 
           <div className="sell-flow-eyebrow">Tokenable Vault</div>
-          <h1 className="sell-flow-h1">Upload the cards you want to list</h1>
-          <p className="sell-flow-sub sell-flow-sub--partner">
-            {showCertDirectInput
-              ? "Upload a photo of the slab or type the cert number. Cards stay in your vault."
-              : "Upload a photo of the slab. Cards stay in your vault."}
-          </p>
+          <h1 className="sell-flow-h1">Add your cards</h1>
 
           <div className="sell-flow-glass sell-flow-glass--partner-input">
             <TkButton
@@ -148,10 +148,10 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
               type="button"
               variant="subtle"
               className="sell-flow-partner-back sell-flow-partner-btn--ghost"
-              disabled={mintBusy}
-              onClick={goBackToVaultChoice}
+              disabled={mintBusy || cards.length === 0}
+              onClick={() => saveDraft()}
             >
-              Back
+              {draftSavedFlash ? "Saved" : "Save as draft"}
             </TkButton>
             <TkButton
               type="button"

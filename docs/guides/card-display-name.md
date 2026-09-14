@@ -195,7 +195,7 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 - [x] Self-vault mint writes Line 1 into both IPFS `name` and `displayName`
 - [x] `AssetDetailHeadlineTitle` renders grade on Line 1 except Certificate of Ownership (`includeGrade={false}`)
 - [x] Collection detail language → short codes via `formatCardDisplayLanguageShort`
-- [x] Grade badge removal (Phase 2) — detail outline chip, Markets/Watchlist row, portfolio holdings, RWA header badges, Top 100
+- [x] Grade badge removal (Phase 2) — detail outline chip, Markets/Watchlist row, portfolio holdings, RWA header badges
 - [x] Breadcrumb §4 — `Markets / Category / {SetCode} {SetName} ({Language})`
 - [x] Detail Line 2 — `{Year} · {Set} {Language} · {Variant}` with set omitted when breadcrumb already shows it
 - [x] Surface-by-surface mode wiring (Phase 5) — markets/watchlist Line 1, search Line 2 meta, portfolio Line 1

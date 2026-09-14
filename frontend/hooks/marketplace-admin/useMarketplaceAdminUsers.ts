@@ -6,7 +6,6 @@ import {
   deleteAdminUserWallet,
   deleteAdminUserWatchlistItem,
   getAdminUserDetail,
-  getAdminUserStats,
   getAdminUsers,
   patchAdminUser,
   postAdminForceVerifyEmail,
@@ -21,14 +20,6 @@ import {
 } from "@/lib/core";
 
 export const ADMIN_USERS_PAGE_SIZE = 30;
-
-export function useMarketplaceAdminUserStats() {
-  return useQuery({
-    queryKey: rq.adminUserStats(),
-    queryFn: () => getAdminUserStats(),
-    staleTime: 60_000,
-  });
-}
 
 export function useMarketplaceAdminUserDetail(
   userId: string | null,
@@ -76,7 +67,6 @@ export function useMarketplaceAdminUsers(params: {
   });
 
   const invalidateUsers = async () => {
-    await qc.invalidateQueries({ queryKey: rq.adminUserStats() });
     await qc.invalidateQueries({ queryKey: ["admin-users-list"] });
     await qc.invalidateQueries({ queryKey: ["admin-user-detail"] });
     await qc.invalidateQueries({ queryKey: rq.adminMarketplacePartners });

@@ -219,7 +219,6 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | `/vault/submit/shipping` | redirect → `/vault/submit` |
 | `/vault/submissions/[id]` | `VaultDetailDesignView` — Vault-Detail.html A~H (scenario query + live shipment) |
 | `/vault/list` | redirect → `/portfolio` |
-| `/sell/p2p` | P2P list flow (separate) |
 
 **CSS:** `frontend/styles/tokenable-vault.css` (includes `.sell-router`); sell flow + shipping in `tokenable-sell-flow.css`
 
@@ -249,11 +248,11 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 | Surface | Notes |
 |---------|--------|
-| Login / signup | `PrivyAuthEntryPage` + DS auth card |
+| Login / signup | Header Sign up + `openSignIn` → Privy modal |
 | Profile | `app/profile/page.tsx` — `TkButton`, `TkTag`, secondary panels |
 | Site access | `SiteAccessClient` — `TkField` / `TkInput` / `TkButton` |
 | Auth modals | `TkDialog` — delete account, KYC, wallet mismatch |
-| Admin | `adminUi.ts` + `/dev/admin-ui` showcase; light shell; brand via `--brand-500` |
+| Admin | `adminUi.ts`; light shell; brand via `--brand-500` |
 
 **CSS:** `frontend/styles/tokenable-secondary.css`
 
@@ -268,13 +267,12 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | `/marketplace/admin/collections` | `MarketplaceAdminCollectionsPage` | Bucket admin, delete |
 | `/marketplace/admin/cards` | `MarketplaceAdminCardsPage` | RWA registry, burn |
 | `/marketplace/admin/custody-nfts` | `MarketplaceAdminCustodyNftsPage` | Deliver vaulted cards |
-| `/marketplace/admin/markets` | `MarketplaceAdminMarketsPage` | Home / Top 100 / movers preview |
+| `/marketplace/admin/markets` | `MarketplaceAdminMarketsPage` | Home landing preview |
 | `/marketplace/admin/portfolio` | `MarketplaceAdminPortfolioPage` | Snapshots, cost basis ops |
 | `/marketplace/admin/price-webhooks` | `MarketplaceAdminPriceWebhooksPage` | Cardhedger delta import |
 | `/marketplace/admin/contract-roles` | `MarketplaceAdminContractRolesPage` | On-chain roles |
 | `/marketplace/admin/vault` | `MarketplaceAdminVaultPage` | PSA API tooling |
 | `/marketplace/admin/vault/submissions` | `MarketplaceAdminVaultSubmissionsPage` | Sell-flow package ops (pipeline, arrive, approve/reject) |
-| `/dev/admin-ui` | `AdminUiShowcase` | Admin UI contract (not production) |
 
 **Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`, `frontend/styles/tokenable-admin.css` (sidebar chrome from `admin/` HTML)
 
@@ -291,7 +289,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 **Gate:** `PartnerGate` via `GET /marketplace/partners/me`  
 **API:** `GET/PATCH …/partners/me/redeems…` (writes same `vault_redemptions` tracking as admin)  
-**Admin Origin:** `/marketplace/admin/partners` → Origin expand panel (`AdminPartnerOriginPanel`) uses admin GET/PUT company-address  
+**Admin Origin:** `/marketplace/admin/users/:id` → 파트너 vault panel (`AdminPartnerOriginPanel`) uses admin GET/PUT company-address  
 **CSS:** `tokenable-partner.css` (underline tabs + ≤1100 card meta; ≤640 stack CTAs + bottom-sheet modal)  
 **Sell router:** partners → `/partner/add-cards` via `resolveSellRouterDestinationAsync`
 
@@ -299,7 +297,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 
 ## ds-13 Phase 6 — Partner ↔ Admin SoT (done)
 
-- Admin Partners Origin panel (`AdminPartnerOriginPanel`) via admin company-address GET/PUT
+- Admin user-detail Origin panel (`AdminPartnerOriginPanel`) via admin company-address GET/PUT
 - Admin Redeems locked tracking shows carrier + shared-SoT note
 - Terminology: Partner vault (not Self vault) in admin partner docs/UI
 

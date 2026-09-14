@@ -168,9 +168,10 @@
   white-space: nowrap;
 }
 
-/* JetBrains ▲▼ sit in the full em-square, so they look larger than the digits. */
+/* JetBrains ▲▼ fill the em-square, so scale them below the 11px digits. */
 .home-ticker__item-glyph {
-  font-size: 8px;
+  display: inline-block;
+  font-size: 7px;
   line-height: 1;
   transform: translateY(-0.5px);
 }
@@ -254,17 +255,6 @@
     rgba(3, 3, 8, 0.3) 54%,
     rgba(3, 3, 8, 0.96) 100%
   );
-}
-
-.home-hero__fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-  height: 180px;
-  pointer-events: none;
-  background: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.7) 45%, transparent 100%);
 }
 
 .home-hero__canvas-host {
@@ -548,18 +538,47 @@
   color: #2e80ff;
 }
 
+/* index.html Browse all markets — .btn.btn--primary + inline size/glow */
 .home-hero__browse-btn.tk-btn {
-  height: 56px;
-  padding: 0 32px;
+  height: 60px;
+  width: 280px;
+  padding: 0;
   font-size: 16px;
   font-weight: 700;
   align-self: flex-start;
+  color: #fff;
+  background: #1a6fff;
+  box-shadow:
+    0 10px 30px rgba(26, 111, 255, 0.55),
+    inset 0 0 0 3px rgba(0, 0, 20, 0.5),
+    inset 0 0 0 1px rgba(80, 160, 255, 0.6),
+    inset 0 3px 0 0 rgba(80, 170, 255, 0.7),
+    inset 0 -3px 0 0 rgba(0, 0, 50, 0.4);
+  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.55));
 }
 
-.home-hero__browse-btn .home-hero__browse-link-arrow {
-  font-family: var(--font-mono);
-  font-size: 18px;
-  line-height: 1;
+.home-hero__browse-btn.tk-btn--primary:hover {
+  background: #2e80ff;
+  box-shadow:
+    0 10px 30px rgba(26, 111, 255, 0.55),
+    inset 0 0 0 3px rgba(0, 0, 20, 0.5),
+    inset 0 0 0 1px rgba(80, 160, 255, 0.6),
+    inset 0 3px 0 0 rgba(80, 170, 255, 0.7),
+    inset 0 -3px 0 0 rgba(0, 0, 50, 0.4);
+  filter: drop-shadow(6px 6px 0 rgba(26, 111, 255, 0.65));
+  transform: translate(-2px, -2px);
+}
+
+.home-hero__browse-btn.tk-btn--primary:active {
+  background: #1a6fff;
+  box-shadow:
+    0 10px 30px rgba(26, 111, 255, 0.55),
+    inset 0 0 0 3px rgba(0, 0, 20, 0.5),
+    inset 0 0 0 1px rgba(80, 160, 255, 0.6),
+    inset 0 3px 0 0 rgba(80, 170, 255, 0.7),
+    inset 0 -3px 0 0 rgba(0, 0, 50, 0.4);
+  filter: drop-shadow(2px 2px 0 rgba(26, 111, 255, 0.4));
+  transform: translate(2px, 2px);
 }
 
 .home-hero__search-btn-arrow {
@@ -591,47 +610,6 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
   margin-top: 5px;
-}
-
-.home-hero__scroll {
-  position: absolute;
-  bottom: 26px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  pointer-events: none;
-}
-
-.home-hero__scroll-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: var(--text-default-tertiary);
-}
-
-.home-hero__scroll-line {
-  width: 1px;
-  height: 40px;
-  background: linear-gradient(rgba(255, 255, 255, 0.4), transparent);
-  animation: tkCue 2.2s ease-in-out infinite;
-  transform-origin: top center;
-}
-
-@keyframes tkCue {
-  0%,
-  100% {
-    opacity: 0.25;
-    transform: scaleY(0.5);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scaleY(1);
-  }
 }
 
 .home-hero__reveal {
@@ -754,7 +732,8 @@
     flex-shrink: 0;
   }
 
-  .home-hero__cta > .tk-btn {
+  .home-hero__cta > .tk-btn,
+  .home-hero__browse-btn.tk-btn {
     width: 100%;
     box-sizing: border-box;
   }
@@ -769,12 +748,7 @@
     text-align: center;
   }
 
-  .home-hero__scroll {
-    display: none;
-  }
-
-  .home-hero__vignette,
-  .home-hero__fade {
+  .home-hero__vignette {
     display: none;
   }
 
@@ -1970,12 +1944,6 @@
   .home-hero__reveal--3 {
     animation: none !important;
     opacity: 1;
-    transform: none;
-  }
-
-  .home-hero__scroll-line {
-    animation: none !important;
-    opacity: 0.5;
     transform: none;
   }
 

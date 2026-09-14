@@ -93,10 +93,6 @@ export function PortfolioCertificateView({
         </Link>
 
         <div className="cert">
-          <span className="cbrk tl" aria-hidden />
-          <span className="cbrk tr" aria-hidden />
-          <span className="cbrk bl" aria-hidden />
-          <span className="cbrk br" aria-hidden />
           <div className="cert-head">
             <span className="cert-title">◆ Certificate of Ownership</span>
             {d.explorerUrl ? (
@@ -171,8 +167,9 @@ export function PortfolioCertificateView({
                 {joinCardDisplaySegments([d.titleName, d.titleNumber])}
               </div>
               <div className="subj-meta">
-                {d.setLine ? <div>{d.setLine}</div> : null}
-                {d.idLine ? <div>{d.idLine}</div> : null}
+                {d.setLine && d.idLine && !d.setLine.endsWith(d.idLine)
+                  ? `${d.setLine} · ${d.idLine}`
+                  : d.setLine || d.idLine || null}
               </div>
               <div className="subj-grade">
                 {d.gradeChip ? <span className="g">{d.gradeChip}</span> : null}

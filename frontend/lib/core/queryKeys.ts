@@ -317,17 +317,6 @@ export const rq = {
 
   // ── CardHedger ─────────────────────────────────────────────────────────────
 
-  /** List of available Top 100 categories (discovered daily from CardHedger). */
-  cardhedgerTop100Categories: () => ["cardhedger-top100-categories"] as const,
-  /** Cached daily Top 100 snapshot by category. */
-  cardhedgerTop100: (category: string) =>
-    ["cardhedger-top100", category] as const,
-  /** Recent daily Top 100 snapshots for day-over-day comparison. */
-  cardhedgerTop100History: (category: string, limit: number) =>
-    ["cardhedger-top100-history", category, limit] as const,
-  /** Cached top movers (weekly gain) by category — 1h server TTL. */
-  cardhedgerTopMovers: (category: string, count: number) =>
-    ["cardhedger-top-movers", category, count] as const,
   /** Single catalog cover resolve by search string. */
   cardhedgerCatalogCover: (search: string) =>
     ["cardhedger-catalog-cover", search] as const,
@@ -372,7 +361,7 @@ export const marketplaceRqPolicy = {
   rwaTokensStaleMs: 60_000,
   metadataBatchStaleMs: 5 * 60_000,
   /** Cardhedger-backed queries (mint batch, portfolio batch, market-series) share this freshness window */
-  /** Cardhedger catalog snapshots (top100, top-movers) — align with server 1h cache where applicable. */
+  /** Cardhedger catalog/cover queries — align with server cache where applicable. */
   cardhedgerStaleMs: 60 * 60_000,
   /** Keep resolved Cardhedger payloads in memory while navigating (matches marketplace bundle gc pattern) */
   cardhedgerGcMs: 24 * 60 * 60 * 1000,

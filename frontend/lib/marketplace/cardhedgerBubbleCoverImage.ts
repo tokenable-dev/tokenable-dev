@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 import type { CardhedgerSearchCard } from "@/lib/core/api/cardhedger";
-import { resolveTop100ImageUrl } from "@/lib/markets/top100CardDisplay";
+
+/** Protocol-relative Bubble CDN URLs → https. */
+export function resolveCardhedgerImageUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  return raw;
+}
 
 /**
  * Cardhedger Bubble CDN `/resize` assets are narrower than standard TCG art.
@@ -48,7 +54,7 @@ export function collectionCoverImageStyle(
  * not eBay graded slab photos.
  */
 export function scoreCardhedgerCatalogCoverUrl(url: string | null | undefined): number {
-  const u = resolveTop100ImageUrl(url ?? null);
+  const u = resolveCardhedgerImageUrl(url ?? null);
   if (!u) return -1;
   try {
     const { hostname, pathname } = new URL(u);
@@ -68,7 +74,7 @@ export function scoreCardhedgerCatalogCoverUrl(url: string | null | undefined): 
 
 /** Best Bubble catalog cover from card-search hits (requires score ≥ 70). */
 export function normalizeCatalogCoverUrl(url: string): string {
-  return resolveTop100ImageUrl(url)?.trim().toLowerCase() ?? "";
+  return resolveCardhedgerImageUrl(url)?.trim().toLowerCase() ?? "";
 }
 
 export function pickCardhedgerCatalogCoverUrl(
@@ -79,7 +85,7 @@ export function pickCardhedgerCatalogCoverUrl(
   let best: string | null = null;
   let bestScore = -1;
   for (const card of cards) {
-    const url = resolveTop100ImageUrl(card.image ?? null);
+    const url = resolveCardhedgerImageUrl(card.image ?? null);
     if (!url) continue;
     const normalized = normalizeCatalogCoverUrl(url);
     if (exclude?.has(normalized)) continue;

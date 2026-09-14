@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Suspense,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -47,20 +46,16 @@ import {
 } from "@/lib/markets/marketsUrlFilters";
 import { MarketsFilterBar } from "./MarketsFilterBar";
 import { MarketsPageHeader } from "./MarketsPageHeader";
-import { MarketsP2pSection } from "./MarketsP2pSection";
 import {
   MarketsCollectionGrid,
   MarketsGridSkeleton,
 } from "./MarketsCollectionGrid";
 import { SearchCertMatches } from "@/components/search/SearchCertMatches";
-import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import {
   buildBrowseEntriesFromSummaries,
   saveCollectionBrowseContext,
 } from "@/lib/marketplace/collectionBrowseContext";
-import { CardTop100Section } from "./CardTop100Section";
-import { TopMoversSection } from "./TopMoversSection";
 import { AppPageState } from "@/components/ui/AppPageState";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
@@ -452,48 +447,7 @@ export default function MarketsPage() {
 
   return (
     <div className="markets-page">
-      <MarketsPageHeader
-        searchQuery={isSearchMode ? searchQ : undefined}
-        resultCount={
-          isSearchMode && !showLoadingShell
-            ? filteredSorted.length + searchCards.length
-            : undefined
-        }
-      />
-      {isSearchMode || showLoadingShell ? null : <MarketsP2pSection />}
-
-      {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) &&
-      !showLoadingShell &&
-      !isSearchMode ? (
-        <div className="tkl-wrap markets-preview-sections">
-          <div
-            className={
-              TOP_CARDS_UI_ENABLED && TOP_MOVERS_UI_ENABLED
-                ? "markets-preview-sections__grid markets-preview-sections__grid--dual"
-                : "markets-preview-sections__grid"
-            }
-          >
-            {TOP_CARDS_UI_ENABLED ? (
-              <Suspense
-                fallback={
-                  <div className="h-64 animate-pulse rounded-2xl bg-[var(--surf)]" />
-                }
-              >
-                <CardTop100Section variant="preview" />
-              </Suspense>
-            ) : null}
-            {TOP_MOVERS_UI_ENABLED ? (
-              <Suspense
-                fallback={
-                  <div className="h-64 animate-pulse rounded-2xl bg-[var(--surf)]" />
-                }
-              >
-                <TopMoversSection />
-              </Suspense>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <MarketsPageHeader searchQuery={isSearchMode ? searchQ : undefined} />
 
       {showMainChrome ? (
         <MarketsFilterBar
@@ -582,13 +536,6 @@ export default function MarketsPage() {
         ) : (
           <>
             {isSearchMode ? <SearchCertMatches cards={searchCards} /> : null}
-            {isSearchMode ? null : (
-            <div className="markets-results-bar">
-              <span className="markets-results-bar__count">
-                <b>{filteredSorted.length.toLocaleString("en-US")}</b> results
-              </span>
-            </div>
-            )}
             {filteredSorted.length === 0 ? (
               sortedForRank.length > 0 ? (
               <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">

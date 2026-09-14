@@ -13,7 +13,7 @@
 ALTER TABLE vault_cycles
   ADD COLUMN IF NOT EXISTS chain_id integer;
 
--- Backfill from the minted NFT's chain when a P2P listing recorded it.
+-- Backfill from legacy p2p_listings.chain_id when present (feature removed; table may still exist).
 UPDATE vault_cycles c
 SET chain_id = p.chain_id
 FROM rwa_tokens t

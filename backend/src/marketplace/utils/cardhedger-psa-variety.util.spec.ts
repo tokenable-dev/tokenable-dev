@@ -302,6 +302,35 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
     ).toBe(false);
   });
 
+  it('maps PSA Manga Alternate Art to Cardhedger Manga, not Red Manga or Alternate Art', () => {
+    const manga = {
+      variant: 'Manga',
+      description: 'Sabo 2025 One Piece Carrying On His Will Manga',
+      name: 'Sabo',
+      set: '2025 One Piece Carrying On His Will',
+      number: 'OP13-120',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(manga, 'MANGA ALTERNATE ART')).toBe(
+      true,
+    );
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        { ...manga, variant: 'Red Manga' },
+        'MANGA ALTERNATE ART',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          ...manga,
+          variant: 'Alternate Art',
+          description: 'Sabo 2025 One Piece Carrying On His Will Alternate Art',
+        },
+        'MANGA ALTERNATE ART',
+      ),
+    ).toBe(false);
+  });
+
   it('maps PSA Red Manga Alternate Art to Cardhedger Red Manga, not Alternate Art or Base', () => {
     const redManga = {
       variant: 'Red Manga',

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
+import { TkDialog } from "@/components/ds/Dialog";
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useSellShipping } from "@/hooks/sell/useSellShipping";
@@ -130,6 +131,7 @@ function BackChevron() {
 export function SellShippingView() {
   const ship = useSellShipping();
   const router = useRouter();
+  const [trackingConfirmOpen, setTrackingConfirmOpen] = useState(false);
 
   if (!ship.ready) {
     return (
@@ -172,7 +174,9 @@ export function SellShippingView() {
           </nav>
 
           <div className="sell-ship-header">
-            <div className="sell-flow-eyebrow">Ship to PSA</div>
+            {ship.panel === "track" ? null : (
+              <div className="sell-flow-eyebrow">Ship to PSA</div>
+            )}
             <h1 className="sell-flow-h1">Ship to PSA</h1>
             <p className="sell-flow-sub">
               After intake, cards are stored at PSA Vault and appear in your portfolio.
@@ -368,17 +372,15 @@ export function SellShippingView() {
           ) : (
             <div className="sell-ship-panel">
               <div className="sell-ship-track-top">
-                <TkButton
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="sell-ship-outline-btn sell-ship-outline-btn--sm"
+                  className="sell-flow-btn-back sell-ship-track-back"
                   onClick={ship.goToPack}
                   disabled={ship.confirmed}
                 >
                   <BackChevron />
                   Back
-                </TkButton>
+                </button>
                 <span className="sell-ship-panel__eyebrow sell-ship-panel__eyebrow--inline">
                   Step 2b · Register tracking
                 </span>
@@ -660,26 +662,14 @@ export function SellShippingView() {
                 <TkButton
                   type="button"
                   variant="primary"
-                  className={`sell-ship-confirm${ship.confirmed ? " sell-ship-confirm--done" : ""}`}
+                  className="sell-ship-confirm"
                   disabled={!ship.canConfirm}
-                  onClick={ship.confirmShipment}
+                  onClick={() => {
+                    if (ship.beginConfirm()) setTrackingConfirmOpen(true);
+                  }}
                 >
-                  {ship.confirmed ? (
-                    <>
-                      <CheckIcon size={16} />{" "}
-                      {ship.isTrackingEdit ? "Tracking updated" : "Shipment confirmed"}
-                    </>
-                  ) : ship.confirming ? (
-                    <>
-                      <span className="sell-flow-spinner" aria-hidden />{" "}
-                      {ship.isTrackingEdit ? "Updating…" : "Confirming…"}
-                    </>
-                  ) : (
-                    <>
-                      {ship.isTrackingEdit ? "Update tracking" : "Confirm shipment"}{" "}
-                      <ArrowRightIcon />
-                    </>
-                  )}
+                  {ship.isTrackingEdit ? "Update tracking" : "Confirm shipment"}{" "}
+                  <ArrowRightIcon />
                 </TkButton>
                 {!ship.packageReady && !ship.confirmed ? (
                   <p className="sell-ship-gate-hint">
@@ -706,56 +696,45 @@ export function SellShippingView() {
                 Customs clearance may add several days and is outside our control.
               </div>
 
-              {ship.confirmed ? (
-                <div className="sell-ship-success">
-                  <div className="sell-ship-success__title">
-                    <CheckIcon size={20} />
-                    <span>
-                      {ship.isTrackingEdit
-                        ? "Tracking updated successfully"
-                        : "Tracking registered successfully"}
-                    </span>
-                  </div>
-                  <p className="sell-ship-success__copy">
-                    Your card is now <strong>In Transit to PSA</strong>. We&rsquo;ll notify you when PSA
-                    confirms your card.
-                  </p>
-                  <div className="sell-ship-success__row">
-                    <span className="sell-ship-success__summary">{ship.trackingSummary}</span>
-                    {ship.trackUrl ? (
-                      <a
-                        href={ship.trackUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="sell-ship-outline-btn sell-ship-outline-btn--link"
-                      >
-                        Track Package →
-                      </a>
-                    ) : null}
-                  </div>
-                  <TkButton
-                    type="button"
-                    variant="subtle"
-                    className="sell-ship-change-tracking"
-                    onClick={ship.beginChangeTracking}
-                  >
-                    Change Tracking
-                  </TkButton>
-                </div>
-              ) : null}
-
-              <button
-                type="button"
-                className="sell-ship-back-cards"
-                onClick={ship.backToCards}
-                disabled={ship.confirmed}
-              >
-                {ship.isTrackingEdit ? "Back to package" : "Back to Card Details"}
-              </button>
             </div>
           )}
         </section>
       </div>
+      <TkDialog
+        open={trackingConfirmOpen}
+        dismissible={!ship.confirming}
+        onClose={() => {
+          if (!ship.confirming) setTrackingConfirmOpen(false);
+        }}
+        title="Confirm tracking number?"
+        description={`Is ${ship.trackingPreview} the correct tracking number?`}
+        footer={
+          <div className="flex flex-col gap-2 w-full">
+            <TkButton
+              variant="primary"
+              size="sm"
+              className="w-full justify-center"
+              disabled={ship.confirming || !ship.trackingPreview}
+              onClick={() => {
+                void ship.confirmShipment().then((ok) => {
+                  if (ok === false) setTrackingConfirmOpen(false);
+                });
+              }}
+            >
+              {ship.confirming ? "Confirming…" : "Yes, that's correct"}
+            </TkButton>
+            <TkButton
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center"
+              disabled={ship.confirming}
+              onClick={() => setTrackingConfirmOpen(false)}
+            >
+              Cancel
+            </TkButton>
+          </div>
+        }
+      />
     </VaultAuthGate>
   );
 }

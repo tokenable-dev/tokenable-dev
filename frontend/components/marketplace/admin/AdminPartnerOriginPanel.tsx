@@ -91,6 +91,7 @@ export function AdminPartnerOriginPanel({
         queryKey: rq.adminPartnerCompanyAddress(partnerId),
       });
       void qc.invalidateQueries({ queryKey: rq.adminMarketplacePartners });
+      void qc.invalidateQueries({ queryKey: ["admin-user-detail"] });
     },
     onError: (e: Error) => setFormError(e.message),
   });

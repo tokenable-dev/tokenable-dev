@@ -302,6 +302,14 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     };
   }
 
+  if (/incorrect owner/i.test(lower)) {
+    return {
+      code: "REVERT",
+      message:
+        "This listing is no longer valid — the seller no longer holds the card. Refresh the collection and try again.",
+    };
+  }
+
   if (/execution reverted|revert|reverted|requirement failed/i.test(lower)) {
     const walked = walkCollectErrorText(err);
     const detail =

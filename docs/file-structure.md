@@ -121,7 +121,7 @@ backend/src/
 │   ├── cardhedger.service.ts   # forwardJson upstream client
 │   ├── cardhedger.module.ts
 │   ├── cardhedger-price-infra.module.ts
-│   ├── controllers/            # proxy, top100, top-movers, catalog, webhook
+│   ├── controllers/            # proxy, catalog, webhook
 │   ├── entities/               # price infra TypeORM entities
 │   └── admin/
 │       └── CardhedgerAdminModule  # /api/admin/cardhedger/*
@@ -157,7 +157,6 @@ backend/src/
     ├── snapshots/
     ├── portfolio/
     ├── watchlist/
-    ├── p2p/
     ├── partners/
     └── notifications/
 ```
@@ -185,31 +184,28 @@ frontend/
 │   ├── page.tsx            # Landing page
 │   ├── globals.css
 │   ├── providers.tsx       # Root provider tree
-│   ├── login/              # /login → PrivyAuthEntryPage
-│   ├── signup/             # /signup → /login
 │   ├── vault/              # /vault hub, /vault/submit mint, /vault/submissions/[id]
-│   ├── sell/               # /sell router, /sell/flow, /sell/shipping, /sell/p2p
+│   ├── sell/               # /sell router, /sell/flow, /sell/shipping
 │   ├── portfolio/          # /portfolio
 │   ├── profile/            # /profile
 │   ├── watchlist/          # /watchlist
-│   ├── markets/            # /markets, /markets/top100/...
+│   ├── markets/            # /markets
 │   ├── marketplace/
 │   │   ├── collections/    # /marketplace/collections/[collectionKey]
-│   │   ├── [tokenId]/      # legacy redirect → collection + listing modal
 │   │   ├── other-listings/ # /marketplace/other-listings
 │   │   └── admin/          # /marketplace/admin/* (all admin pages)
 │   │       ├── custody-nfts/
 │   │       └── vault/
 │   ├── site-access/        # Staging gate entry
-│   └── dev/privy/          # Dev-only Privy features lab
+│   └── dev/design-system/  # DS visual QA
 │
 ├── components/             # React components
-│   ├── auth/               # PrivyAuthEntryPage, HeaderAuthModals, DeleteAccountSettings
+│   ├── auth/               # HeaderAuthModals, KYC / wallet mismatch, gated links
 │   ├── charts/             # EChartsSized reusable chart wrapper
 │   ├── collectibles/         # CollectibleCard (shared DS marketplace tile)
 │   ├── home/                 # Home page sections (hero, ticker, grid4, features)
 │   ├── layout/             # TkHeader, TkFooter, header/*
-│   ├── markets/            # Markets page, Top 100, filter bar
+│   ├── markets/            # Markets page, filter bar
 │   ├── marketplace/
 │   │   ├── admin/          # All admin page components
 │   │   ├── collection-detail/
@@ -218,7 +214,7 @@ frontend/
 │   │   └── ...
 │   ├── network/            # NetworkSwitcher
 │   ├── portfolio/
-│   ├── privy/              # PrivyUserPill, PrivyFeaturesLab
+│   ├── privy/              # PrivyUserPill
 │   ├── ui/                 # Shared UI primitives
 │   ├── sell/               # SellFlow*, SellShipping*, SellRouterView
 │   └── vault/              # hub/, detail/, mint-form/, VaultShell, VaultStepper

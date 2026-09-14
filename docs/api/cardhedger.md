@@ -3,7 +3,7 @@
 Cardhedger is integrated in **three layers**:
 
 1. **HTTP proxy** — frontend calls `/api/cardhedger/v1/*`; backend injects `CARDHEDGER_API_KEY`
-2. **First-party services** — Top 100, Top Movers, snapshot workers, identity resolution
+2. **First-party services** — snapshot workers, identity resolution
 3. **Price infra** — webhooks, subscriptions, nightly delta import (admin)
 
 **Env:** `CARDHEDGER_API_KEY` (required), optional `CARDHEDGER_BASE_URL`
@@ -29,30 +29,7 @@ Mirrors Cardhedger OpenAPI (`backend/src/api-1.json`). Key endpoints used by the
 | POST | `/api/cardhedger/v1/cards/card-fmv` | Card FMV |
 | … | … | See Swagger `/api/docs` tag `cardhedger` |
 
-### Top 100 (daily snapshot)
 
-**Controller:** `card-top100.controller.ts`  
-**Base:** `/api/cardhedger/top100`
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/cardhedger/top100/categories` | Available categories |
-| GET | `/api/cardhedger/top100/:category` | Today's rank list (PSA 10 default) |
-| GET | `/api/cardhedger/top100/:category/history` | Historical snapshot dates |
-| POST | `/api/cardhedger/top100/:category/refresh` | Force refresh (admin wallet query) |
-| POST | `/api/cardhedger/top100/refresh-all` | Refresh all categories |
-| POST | `/api/cardhedger/top100/discover-categories` | Discover new categories from upstream |
-
-Data persisted in **`card_top100_daily_snapshots`** (one row per KST date × category × grade).
-
-### Top Movers (cached proxy)
-
-**Controller:** `card-top-movers.controller.ts`
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/cardhedger/top-movers` | Cached top movers (`?count`, `?category`) |
-| POST | `/api/cardhedger/top-movers/refresh` | Invalidate cache |
 
 ### Catalog routes manifest
 
@@ -121,7 +98,7 @@ Market-data logic lives under `marketplace/market-data/`. `CardhedgerMarketDataS
 
 Tables: `cardhedger_price_subscriptions`, `cardhedger_price_delta_checkpoints`, `cardhedger_daily_price_export_runs`, `cardhedger_price_delta_import_runs`.
 
-Flags default **off**. Do **not** `DROP` these tables in cleanup or maintenance — live market reads stay on `collection_market_snapshots` / `card_top100_daily_snapshots`. `reset_marketplace_data.sql` may `TRUNCATE` subscriptions only. Locked by `cardhedger-price-infra-tables.spec.ts`.
+Flags default **off**. Do **not** `DROP` these tables in cleanup or maintenance — live market reads stay on `collection_market_snapshots`. `reset_marketplace_data.sql` may `TRUNCATE` subscriptions only. Locked by `cardhedger-price-infra-tables.spec.ts`.
 
 ---
 
@@ -165,7 +142,7 @@ These do **not** change the cert → resolve → `/comps` pipeline unless set. L
 | `CARDHEDGER_DAILY_PRICE_DELTA_IMPORT_ENABLED` | Nightly `price-updates` import |
 | `CARDHEDGER_DAILY_EXPORT_CSV_ENABLED` | Daily CSV export (Elite/Enterprise) |
 
-Live Markets/Portfolio prices still read **`collection_market_snapshots`** (and Top 100 reads **`card_top100_daily_snapshots`**). Those tables are not gated. Infra tables are not dropped while this module exists.
+Live Markets/Portfolio prices still read **`collection_market_snapshots`**. Those tables are not gated. Infra tables are not dropped while this module exists.
 
 `GET /api/admin/cardhedger/price-subscriptions/status` stays on `CardhedgerAdminModule` so Overview / Price sync still load when workers are off. Webhook + subscribe + manual delta routes exist only when an infra flag is on.
 
@@ -173,4 +150,3 @@ Live Markets/Portfolio prices still read **`collection_market_snapshots`** (and 
 
 ## UI feature flags
 
-Public Top 100 / Top Movers sections may be disabled in the frontend via `lib/markets/top100Copy.ts` while admin preview remains on **`/marketplace/admin/markets`** (tabbed: home landing, Top 100, Cardhedger movers).

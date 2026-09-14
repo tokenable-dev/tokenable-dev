@@ -194,6 +194,7 @@ export class CollectionService {
    */
   async createCatalogCollectionFromPsaCert(
     certNumberRaw: string,
+    chainId?: SupportedChainId,
   ): Promise<CatalogCollectionCreateResult> {
     const certNumber = certNumberRaw.trim();
     if (!/^\d{7,10}$/.test(certNumber)) {
@@ -249,6 +250,7 @@ export class CollectionService {
       step: 'createCatalogCollectionFromPsaCert',
       catalogSource: 'admin_psa_cert',
       linkRwaToken: false,
+      chainId,
     });
     if (!result) {
       throw new BadRequestException(
@@ -506,6 +508,7 @@ export class CollectionService {
         : printLanguageHintsFromComponents(compRecord),
     );
 
+    const tokenContract = this.rwaAddressForChain(opts.chainId);
     const insertResult = await this.collectionRepo
       .createQueryBuilder()
       .insert()
@@ -522,6 +525,7 @@ export class CollectionService {
         marketParallelKey: parallelKey,
         bucketKeyVersion: BUCKET_KEY_VERSION,
         reviewStatus: 'pending_review',
+        tokenContract,
       })
       .orIgnore()
       .execute();
@@ -553,9 +557,6 @@ export class CollectionService {
         collectionKey,
         meta,
       );
-      // Fill cover only when the row has none. Never replace an admin (or
-      // create-time) cover on later listings / sales.
-      await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, meta);
     } else if (this.identity.isEnabled()) {
       // Await so cache + DB are warm before snapshot cold_start / admin refresh.
       if (opts.catalogSource === 'admin_psa_cert' && ch.cardId) {
@@ -568,6 +569,10 @@ export class CollectionService {
         await this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
       }
     }
+
+    // Fill-if-empty even when orIgnore reports a false insert (Postgres
+    // identifiers can be non-empty on conflict). Never replaces an existing cover.
+    await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, coverMeta);
 
     await this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
       allowUpstream: true,
@@ -649,10 +654,19 @@ export class CollectionService {
     return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
   }
 
+  private rwaAddressForChain(chainId?: SupportedChainId): string | null {
+    if (chainId == null) return null;
+    try {
+      return this.chainConfig.getRwaAddress(chainId);
+    } catch {
+      return null;
+    }
+  }
+
   /**
-   * Collections visible for the selected chain:
-   * - have orders or rwa_tokens on that chain's RWA contract, OR
-   * - catalog-only (no orders / rwa_tokens on any chain) — admin-created before mint.
+   * This contract's marketplace: an order/token on this RWA address, or a
+   * catalog row stamped with that address. Unstamped drafts are not shown —
+   * they are not a live marketplace for a new contract.
    */
   private chainScopedCollectionSql(rwaContract: string): string {
     return `(
@@ -666,16 +680,7 @@ export class CollectionService {
         WHERE LOWER(t.collection_key) = LOWER(c.collection_key)
           AND LOWER(t.token_contract) = :rwaContract
       )
-      OR (
-        NOT EXISTS (
-          SELECT 1 FROM orders o2
-          WHERE LOWER(o2.collection_key) = LOWER(c.collection_key)
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM rwa_tokens t2
-          WHERE LOWER(t2.collection_key) = LOWER(c.collection_key)
-        )
-      )
+      OR LOWER(c.token_contract) = :rwaContract
     )`;
   }
 
@@ -1692,6 +1697,23 @@ export class CollectionService {
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
       .andWhere('o.side = :side', { side: OrderSide.ASK })
       .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .andWhere(
+        `(
+          NOT EXISTS (
+            SELECT 1 FROM rwa_tokens t
+            WHERE t.token_id = o.token_id
+              AND LOWER(t.token_contract) = LOWER(o.token_contract)
+              AND t.owner_wallet IS NOT NULL
+              AND btrim(t.owner_wallet) <> ''
+          )
+          OR EXISTS (
+            SELECT 1 FROM rwa_tokens t
+            WHERE t.token_id = o.token_id
+              AND LOWER(t.token_contract) = LOWER(o.token_contract)
+              AND LOWER(t.owner_wallet) = LOWER(o.offerer)
+          )
+        )`,
+      )
       .orderBy('o.created_at', 'ASC')
       .take(this.collectionActiveOrdersCap())
       .getMany();

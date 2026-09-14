@@ -5,7 +5,6 @@ import { CardhedgerDailyPriceExportRun } from '../../cardhedger/entities/cardhed
 import { CardhedgerPriceDeltaCheckpoint } from '../../cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerPriceDeltaImportRun } from '../../cardhedger/entities/cardhedger-price-delta-import-run.entity';
 import { CardhedgerPriceSubscription } from '../../cardhedger/entities/cardhedger-price-subscription.entity';
-import { CardTop100DailySnapshot } from '../../cardhedger/entities/card-top100-snapshot.entity';
 import { BulkMintJobItem } from '../../rwa/entities/bulk-mint-job-item.entity';
 import { BulkMintJob } from '../../rwa/entities/bulk-mint-job.entity';
 import { UserModule } from '../../user/user.module';
@@ -23,9 +22,8 @@ import { MarketplaceNotificationsModule } from '../notifications/marketplace-not
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { MarketplacePartner } from '../entities/marketplace-partner.entity';
+import { MarketplacePartnerAddress } from '../entities/marketplace-partner-address.entity';
 import { Order } from '../entities/order.entity';
-import { P2pListing } from '../entities/p2p-listing.entity';
-import { P2pOrder } from '../entities/p2p-order.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from '../entities/portfolio-holding.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -63,13 +61,11 @@ import { RedeemsAdminService } from './redeems-admin.service';
       BulkMintJob,
       BulkMintJobItem,
       MarketplacePartner,
-      CardTop100DailySnapshot,
+      MarketplacePartnerAddress,
       CardhedgerPriceDeltaImportRun,
       CardhedgerPriceDeltaCheckpoint,
       CardhedgerPriceSubscription,
       CardhedgerDailyPriceExportRun,
-      P2pOrder,
-      P2pListing,
       VaultAsset,
       VaultCycle,
       VaultRedemption,

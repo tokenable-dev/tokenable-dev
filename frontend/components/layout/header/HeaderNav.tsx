@@ -53,7 +53,8 @@ export const HEADER_NAV_ITEMS = [
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
   const hrefPath = stripQueryAndHash(href);
   if (hrefPath === "/markets") return isMarketsPrimaryNavActive(pathname);
-  if (hrefPath === "/sell") return isSellPrimaryNavActive(pathname);
+  // Sell item points at the hub (`/vault`) but stays active through `/sell/flow` and `/sell/shipping`.
+  if (hrefPath === "/sell" || hrefPath === "/vault") return isSellPrimaryNavActive(pathname);
   if (hrefPath === "/portfolio") return isPortfolioRoute(pathname);
   if (hrefPath === "/partner/shipments") {
     return pathname?.startsWith("/partner/shipments") ?? false;

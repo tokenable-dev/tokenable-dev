@@ -111,13 +111,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         description: "Confirm and record seller USDC after self-vault sales",
       },
       {
-        href: "/marketplace/admin/partners",
-        label: "Partners",
-        icon: "handshake",
-        prefix: "/marketplace/admin/partners",
-        description: "Company wallets for consignment mint and list",
-      },
-      {
         href: "/marketplace/admin/bulk-mint",
         label: "Partner bulk mint",
         icon: "upload",
@@ -135,7 +128,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         label: "Markets preview",
         icon: "store",
         prefix: "/marketplace/admin/markets",
-        description: "Home landing, Top 100, Cardhedger movers",
+        description: "Home landing rankings preview",
       },
       {
         href: "/marketplace/admin/price-webhooks",
@@ -169,13 +162,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         icon: "key",
         prefix: "/marketplace/admin/contract-roles",
         description: "MINTER / BURNER on TokenableRWA",
-      },
-      {
-        href: "/marketplace/admin/p2p",
-        label: "P2P escrow",
-        icon: "arrow-left-right",
-        prefix: "/marketplace/admin/p2p",
-        description: "Orders, arbiter refund",
       },
     ],
   },
@@ -228,10 +214,6 @@ export function isAdminNavItemActive(
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-/** Legacy top-100 card detail + old tab URLs still highlight Markets preview. */
 export function isAdminMarketsPreviewActive(pathname: string): boolean {
-  if (pathname.startsWith("/marketplace/admin/markets")) return true;
-  if (pathname.startsWith("/marketplace/admin/top100")) return true;
-  if (pathname.startsWith("/marketplace/admin/top-movers")) return true;
-  return false;
+  return pathname.startsWith("/marketplace/admin/markets");
 }

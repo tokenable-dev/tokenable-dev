@@ -348,6 +348,28 @@ export async function invalidateDeadBidApi(
   return res.json() as Promise<Order>;
 }
 
+/** Cancel an ask when on-chain ownerOf is not the listing offerer. Idempotent. */
+export async function invalidateUnownedAskApi(
+  orderHash: string,
+  callerAddress: string,
+): Promise<Order> {
+  const sp = new URLSearchParams();
+  sp.set("callerAddress", callerAddress);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/${orderHash}/invalidate-unowned-ask?${sp.toString()}`,
+    { method: "PATCH" },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: "Failed to invalidate stale listing",
+    }));
+    throw new Error(
+      (err as { message: string }).message ?? "Failed to invalidate stale listing",
+    );
+  }
+  return res.json() as Promise<Order>;
+}
+
 /** After on-chain matchAdvancedOrders */
 export async function fulfillMatchedPairApi(
   body: {

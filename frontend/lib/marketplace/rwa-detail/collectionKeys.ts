@@ -1,3 +1,5 @@
+import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
+
 export function resolveRwaDetailCollectionKeyForMatch(input: {
   listingCollectionKey?: string | null;
   fromCollectionParam: string;
@@ -28,5 +30,5 @@ export function resolveRwaDetailCollectionKeyForRedirect(input: {
 
 export function rwaDetailCollectionHref(collectionKeyForRedirect: string | null): string | null {
   if (!collectionKeyForRedirect) return null;
-  return `/marketplace/collections/${encodeURIComponent(collectionKeyForRedirect)}`;
+  return collectionDetailHref(collectionKeyForRedirect);
 }

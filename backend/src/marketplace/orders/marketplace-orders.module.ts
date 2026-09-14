@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { VaultModule } from '../../vault/vault.module';
 import { Order } from '../entities/order.entity';
-import { P2pListing } from '../entities/p2p-listing.entity';
 import { MarketplaceCollectionsModule } from '../collections/marketplace-collections.module';
 import { MarketplacePartnersModule } from '../partners/marketplace-partners.module';
 import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
@@ -15,7 +14,7 @@ import { OrdersService } from './orders.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, P2pListing]),
+    TypeOrmModule.forFeature([Order]),
     MarketplaceCollectionsModule,
     MarketplacePortfolioModule,
     MarketplacePartnersModule,

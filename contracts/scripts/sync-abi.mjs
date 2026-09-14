@@ -28,8 +28,3 @@ syncAbi(
   'TOKENABLE_RWA_ABI',
 );
 
-syncAbi(
-  'artifacts/contracts/TokenablePaymentEscrow.sol/TokenablePaymentEscrow.json',
-  '../backend/src/blockchain/abis/tokenable-payment-escrow.abi.ts',
-  'TOKENABLE_PAYMENT_ESCROW_ABI',
-);

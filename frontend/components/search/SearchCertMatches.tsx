@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { MarketplaceSearchCardHit } from "@/lib/core";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
-import { useMemo } from "react";
+import { useMemo, type MouseEvent } from "react";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { assetDetailHeadlineHasContent } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  collectionDetailHref,
+  resolveCollectionDetailHref,
+} from "@/lib/marketplace/collectionBrowseContext";
 import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
 
 export function SearchCertMatches({ cards }: { cards: MarketplaceSearchCardHit[] }) {
+  const router = useRouter();
   const urls = useMemo(() => cards.map((c) => c.imageUrl).filter(Boolean) as string[], [cards]);
   const { map } = useResolvedMediaUrlMap(urls, { enabled: urls.length > 0 });
 
@@ -27,9 +33,22 @@ export function SearchCertMatches({ cards }: { cards: MarketplaceSearchCardHit[]
       {cards.map((card) => {
         const img = card.imageUrl ? (map.get(card.imageUrl) ?? card.imageUrl) : null;
         const display = formatSearchCardHitDisplay(card);
-        const href = `/marketplace/${encodeURIComponent(card.tokenId)}`;
+        const key = card.collectionKey?.trim();
+        const href = key
+          ? collectionDetailHref(key, { listingTokenId: card.tokenId })
+          : null;
+        const onClick = async (e: MouseEvent<HTMLAnchorElement>) => {
+          if (href) return;
+          e.preventDefault();
+          router.push(await resolveCollectionDetailHref(card.tokenId, card.collectionKey));
+        };
         return (
-          <Link key={card.tokenId} href={href} className="srch-cert-match">
+          <Link
+            key={card.tokenId}
+            href={href ?? "#"}
+            onClick={onClick}
+            className="srch-cert-match"
+          >
             <span className="srch-cert-match__thumb">
               {img ? (
                 // eslint-disable-next-line @next/next/no-img-element

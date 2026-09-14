@@ -13,6 +13,7 @@ import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import {
   FULFILL_EXTRA_DATA,
   fulfillSeaportOrderArgs,
+  requireSeaportOrderFilled,
 } from "../orders/fulfillOrderArgs";
 import {
   explainSeaportOrderInactive,
@@ -190,6 +191,7 @@ export async function acceptTokenOffer(params: {
         `Seaport fulfill reverted (tx ${hash}). The buyer may lack USDC or Seaport allowance. Your listing was not changed.`,
       );
     }
+    await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
     await fulfillOrderApi(bid.orderHash, bid.offerer);
     return { mode: "fulfill_bid" };

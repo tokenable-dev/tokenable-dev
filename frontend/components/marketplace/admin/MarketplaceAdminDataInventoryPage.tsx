@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useMarketplaceAdminDataInventory,
   useMarketplaceAdminDataInventoryRows,
   useMarketplaceAdminResetForNewContract,
+  useMarketplaceAdminResetTargets,
 } from "@/hooks/marketplace-admin/useMarketplaceAdminDataInventory";
 import type {
   DataInventoryDomainId,
@@ -76,8 +77,6 @@ const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Wired product tables — empty does not mean drop. */
 const KEEP_IF_EMPTY = new Set([
-  "p2p_listings",
-  "p2p_orders",
   "self_vault_settlements",
   "cardhedger_price_subscriptions",
   "cardhedger_daily_price_export_runs",
@@ -459,7 +458,7 @@ function StaleStoresPanel({ stores }: { stores: DataStoreInventoryRow[] }) {
                   </td>
                   <td className={`py-2 pr-3 ${ADMIN_TEXT_SECONDARY}`}>
                     {keep
-                      ? "기능 테이블 — 유지 (P2P·시세·PSA 메일 등)"
+                      ? "기능 테이블 — 유지 (시세·PSA 메일 등)"
                       : store.domain === "other"
                         ? "카탈로그 없음 — 레거시 후보"
                         : "확인 후 결정 (코어일 수 있음)"}
@@ -533,7 +532,10 @@ function GlanceTile({
 export function MarketplaceAdminDataInventoryPage() {
   const { data, isLoading, isError, error, refetch, isFetching } =
     useMarketplaceAdminDataInventory();
+  const resetTargets = useMarketplaceAdminResetTargets();
   const resetMutation = useMarketplaceAdminResetForNewContract();
+  const [resetChainId, setResetChainId] = useState<number | null>(null);
+  const [resetAddress, setResetAddress] = useState("");
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState<
@@ -604,7 +606,7 @@ export function MarketplaceAdminDataInventoryPage() {
     markets: {
       title: "시세 도메인 행 수",
       meaning:
-        "시세 스냅샷·Top 100·델타 임포트 등 Cardhedger 시세 도메인만 합산합니다.",
+        "시세 스냅샷·델타 임포트 등 Cardhedger 시세 도메인만 합산합니다.",
     },
     other: {
       title: "기타 테이블 행 수",
@@ -622,22 +624,89 @@ export function MarketplaceAdminDataInventoryPage() {
     setGlanceKey((prev) => (prev === key ? null : key));
   };
 
+  useEffect(() => {
+    const first = resetTargets.data?.[0];
+    if (!first || resetChainId != null) return;
+    setResetChainId(first.chainId);
+    setResetAddress(first.rwaAddress);
+  }, [resetTargets.data, resetChainId]);
+
+  const selectedResetTarget = resetTargets.data?.find(
+    (t) => t.chainId === resetChainId,
+  );
+  const resetAddressMatchesConfigured =
+    selectedResetTarget != null &&
+    resetAddress.trim().toLowerCase() ===
+      selectedResetTarget.rwaAddress.toLowerCase();
+
   return (
     <>
       <MarketplaceAdminPageHeader
         title="데이터 인벤토리"
-        subtitle="상단 스키마 맵에서 테이블·키·연결을 보고, 아래에서 행 수와 실제 데이터를 조회합니다."
-        actions={
+        subtitle="상단 스키마 맵에서 테이블·키·연결을 보고, 아래에서 행 수와 실제 데이터를 조회합니다. 마켓 데이터는 컨트랙트 주소별로 갈라집니다."
+      />
+
+      <div className={`${ADMIN_ARTICLE} mb-5`}>
+        <p className="text-sm font-semibold text-zinc-900">
+          컨트랙트별 DB 초기화 (dev)
+        </p>
+        <p className={`mt-1 text-xs leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
+          네트워크를 고른 뒤 그 RWA 주소의 마켓만 지웁니다. 다른 네트워크,
+          사용자, 어드민, 파트너는 유지됩니다. 지금 env에 있는 주소를 지운 다음
+          새 CA를 넣으면 그 주소는 빈 마켓으로 시작합니다. 온체인 NFT는 번되지
+          않습니다.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-zinc-700">
+            네트워크
+            <select
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+              value={resetChainId ?? ""}
+              disabled={!resetTargets.data?.length || resetMutation.isPending}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setResetChainId(id);
+                const target = resetTargets.data?.find((t) => t.chainId === id);
+                if (target) setResetAddress(target.rwaAddress);
+              }}
+            >
+              {(resetTargets.data ?? []).map((t) => (
+                <option key={t.chainId} value={t.chainId}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
+            지울 컨트랙트 주소
+            <input
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 font-mono text-sm"
+              value={resetAddress}
+              spellCheck={false}
+              disabled={resetMutation.isPending}
+              onChange={(e) => setResetAddress(e.target.value)}
+            />
+          </label>
           <button
             type="button"
             className={ADMIN_BTN_DANGER}
-            disabled={resetMutation.isPending}
+            disabled={
+              resetMutation.isPending ||
+              resetChainId == null ||
+              !/^0x[a-fA-F0-9]{40}$/.test(resetAddress.trim())
+            }
             onClick={() => {
+              if (resetChainId == null) return;
+              const address = resetAddress.trim();
+              const network = selectedResetTarget?.label ?? String(resetChainId);
+              const chainWide = resetAddressMatchesConfigured
+                ? "이 주소는 현재 env 주소라서 이 네트워크의 알림, 포트폴리오 차트, 미민트 볼트 사이클, 벌크 민트도 같이 지웁니다."
+                : "예전 주소만 지웁니다. 지금 env 주소의 알림·차트·미민트 사이클은 유지됩니다.";
               const ok = window.confirm(
-                "새 RWA 컨트랙트용으로 마켓·볼트 DB를 초기화할까요?\n\n" +
-                  "삭제: rwa_tokens, orders, collections, vault, portfolio, watchlist, bulk mint, P2P, redeems…\n\n" +
-                  "유지: users, wallets, KYC, admins, partners\n\n" +
-                  ".env의 CHAIN_*_RWA_ADDRESS / NEXT_PUBLIC_CHAIN_*_RWA를 새 프록시로 바꾼 뒤 backend/frontend를 재시작한 다음 실행하세요.\n\n" +
+                `${network} 컨트랙트 ${address} 의 마켓 데이터를 지울까요?\n\n` +
+                  "삭제: 이 주소의 토큰, 오더, 홀딩, 연결된 볼트 사이클. 다른 네트워크에 남은 컬렉션이 없으면 그 카탈로그도 삭제.\n\n" +
+                  `${chainWide}\n\n` +
+                  "유지: 다른 네트워크, users, wallets, KYC, admins, partners.\n\n" +
                   "개발/스테이징 전용. 온체인 RWA는 번되지 않습니다.",
               );
               if (!ok) return;
@@ -650,16 +719,20 @@ export function MarketplaceAdminDataInventoryPage() {
               setResetError(null);
               setResetMessage(null);
               void resetMutation
-                .mutateAsync(password.trim())
+                .mutateAsync({
+                  password: password.trim(),
+                  chainId: resetChainId,
+                  tokenContract: address,
+                })
                 .then((r) => {
-                  const wiped = Object.entries(r.rowCountsBefore)
+                  const wiped = Object.entries(r.deletedCounts)
                     .filter(([, n]) => n > 0)
                     .map(([t, n]) => `${t}=${n}`)
                     .slice(0, 12)
                     .join(", ");
                   setResetMessage(
-                    `초기화 완료 — ${r.truncatedTables.length}개 테이블 truncate` +
-                      (wiped ? ` (이전 행: ${wiped})` : ""),
+                    `초기화 완료 — ${r.tokenContract}` +
+                      (wiped ? ` (삭제: ${wiped})` : " (지울 행 없음)"),
                   );
                 })
                 .catch((e) => {
@@ -667,12 +740,18 @@ export function MarketplaceAdminDataInventoryPage() {
                 });
             }}
           >
-            {resetMutation.isPending
-              ? "초기화 중…"
-              : "새 컨트랙트용 DB 초기화 (dev)"}
+            {resetMutation.isPending ? "초기화 중…" : "이 컨트랙트만 초기화"}
           </button>
-        }
-      />
+        </div>
+        {!resetAddressMatchesConfigured && selectedResetTarget ? (
+          <p className={`mt-2 text-xs ${ADMIN_TEXT_META}`}>
+            현재 {selectedResetTarget.label} 주소는{" "}
+            <span className="font-mono">{selectedResetTarget.rwaAddress}</span>
+            입니다. 새 마켓으로 바꾸려면 이 주소를 먼저 지운 다음 env CA를
+            교체하세요.
+          </p>
+        ) : null}
+      </div>
 
       <div className="mb-5">
         <AdminDataInventorySchemaMap />
@@ -918,7 +997,7 @@ export function MarketplaceAdminDataInventoryPage() {
                 컬럼은 마스킹됩니다.
               </li>
               <li>
-                <strong>추가만 하는(append-only)</strong> 테이블(Top 100
+                <strong>추가만 하는(append-only)</strong> 테이블(시세 감사
                 스냅샷, 델타 임포트 로그, KYC 이벤트)은 날짜·이벤트마다 행이
                 늘어나고 히스토리가 남습니다.
               </li>

@@ -42,7 +42,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
     removeCard,
     saveDraft,
     continueToShipping,
-    goToVault,
+    goBackToVaultChoice,
     vaultChoice,
   } = flow;
 
@@ -55,7 +55,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
         <button
           type="button"
           className="sell-flow-btn-back"
-          onClick={goToVault}
+          onClick={goBackToVaultChoice}
           disabled={mintBusy}
         >
           <BackChevron />

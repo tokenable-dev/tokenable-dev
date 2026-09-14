@@ -1,3 +1,4 @@
+/** Collection PDP: page model, trade actions, mobile layout, market data. */
 export { useCollectionDetailPage } from "./useCollectionDetailPage";
 export type {
   CollectionDetailPageStatus,

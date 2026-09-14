@@ -318,11 +318,13 @@ export class CollectionsController {
   async adminCreateCatalogCollectionFromCert(
     @Req() req: Request,
     @Body() body: AdminCreateCatalogCollectionDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     try {
       return await this.collectionService.createCatalogCollectionFromPsaCert(
         body.certNumber,
+        this.chainConfig.resolveChainId(chainHeader),
       );
     } catch (e) {
       if (e instanceof BadRequestException) throw e;

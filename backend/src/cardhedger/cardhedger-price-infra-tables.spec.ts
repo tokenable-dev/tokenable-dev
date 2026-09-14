@@ -61,7 +61,7 @@ describe('Cardhedger price infra tables', () => {
     }
   });
 
-  it('marketplace reset truncates subscriptions only — not audit or top100', () => {
+  it('marketplace reset truncates subscriptions only — not audit tables', () => {
     const sql = readFileSync(
       join(sqlRoot, 'maintenance/reset_marketplace_data.sql'),
       'utf8',
@@ -76,7 +76,6 @@ describe('Cardhedger price infra tables', () => {
     expect(sql).not.toMatch(
       /TRUNCATE TABLE cardhedger_daily_price_export_runs/i,
     );
-    expect(sql).not.toMatch(/TRUNCATE TABLE card_top100_daily_snapshots/i);
     expect(dropTableTargets(sql)).toEqual([]);
   });
 });

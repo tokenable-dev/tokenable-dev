@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   bannerCardLabel,
   bindSellFlowToUser,
-  CARRIER_LABELS,
-  CARRIER_TRACK_URLS,
   clearSellFlowDraftLocal,
   confirmedSellCards,
   draftCardsFromSubmissionItems,
@@ -14,6 +12,7 @@ import {
   PSA_PACK_CHECKLIST,
   PSA_SHIP_TO_PLAIN,
   readSellFlowDraftCards,
+  markSellFlowResumeCards,
   readSellFlowProgress,
   readSellSubmissionPublicId,
   clearSellSubmissionPublicId,
@@ -191,7 +190,7 @@ export function useSellShipping() {
   const [returnEditing, setReturnEditing] = useState(true);
   const [returnTouched, setReturnTouched] = useState(false);
   const [trackingTouched, setTrackingTouched] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const confirmed = false;
   const [confirming, setConfirming] = useState(false);
   const [packageReady, setPackageReady] = useState(false);
   const [packageSyncing, setPackageSyncing] = useState(false);
@@ -202,6 +201,7 @@ export function useSellShipping() {
   const progressPersistReady = useRef(false);
   const packageCardsRef = useRef<SellDraftCard[]>([]);
   const isTrackingEditRef = useRef(false);
+  const confirmingRef = useRef(false);
 
   const persistPackage = useCallback(async (packageCards: SellDraftCard[]) => {
     if (isTrackingEditRef.current) return true;
@@ -587,79 +587,78 @@ export function useSellShipping() {
     [cards, confirmed, persistPackage, router],
   );
 
-  const confirmShipment = useCallback(() => {
-    if (!canConfirm) {
-      setTrackingTouched(true);
-      setReturnTouched(true);
-      if (!isSellReturnAddressComplete(returnAddress)) {
-        setReturnEditing(true);
-      }
-      return;
+  const beginConfirm = useCallback(() => {
+    if (canConfirm) return true;
+    setTrackingTouched(true);
+    setReturnTouched(true);
+    if (!isSellReturnAddressComplete(returnAddress)) {
+      setReturnEditing(true);
     }
+    return false;
+  }, [canConfirm, returnAddress]);
+
+  const confirmShipment = useCallback(async () => {
+    if (confirmingRef.current) return null;
+    if (!canConfirm) return false;
+    confirmingRef.current = true;
     const cleaned = trackingNumber.replace(/\s+/g, "").toUpperCase();
     setConfirming(true);
-    void (async () => {
-      try {
-        let publicId = readSellSubmissionPublicId();
+    try {
+      let publicId = readSellSubmissionPublicId();
 
-        if (isTrackingEditRef.current) {
-          if (!publicId) {
-            throw new Error("Missing package id for tracking update");
-          }
-          const shipped = await registerVaultSubmissionTracking(publicId, {
-            carrier,
-            trackingNumber: cleaned,
-            shipDate,
-          });
-          publicId = shipped.publicId;
-          writeSellFlowProgress({
-            carrier,
-            shipDate,
-            trackingNumber: cleaned,
-            returnAddress,
-            vaultChoice: "psa",
-          });
-          setConfirmed(true);
-          const dest =
-            editReturnPath ??
-            `/vault/submissions/${encodeURIComponent(publicId)}`;
-          window.setTimeout(() => {
-            router.push(dest);
-          }, 900);
-          return;
+      if (isTrackingEditRef.current) {
+        if (!publicId) {
+          throw new Error("Missing package id for tracking update");
         }
-
-        // Refresh package then register tracking → in_transit.
-        const draft = await upsertAwaitingShipmentPackage(cards);
-        publicId = draft.publicId;
-        writeSellSubmissionPublicId(publicId);
-        setPackageReady(true);
-        setPackageSyncError(null);
-
         const shipped = await registerVaultSubmissionTracking(publicId, {
           carrier,
           trackingNumber: cleaned,
           shipDate,
         });
         publicId = shipped.publicId;
-        writeSellSubmissionPublicId(publicId);
-        clearSellFlowDraftLocal();
-        // Keep last return as fallback when Settings has no default address.
         writeSellFlowProgress({
+          carrier,
+          shipDate,
+          trackingNumber: cleaned,
           returnAddress,
           vaultChoice: "psa",
         });
-        setConfirmed(true);
-        window.setTimeout(() => {
-          router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
-        }, 1200);
-      } catch (err) {
-        setPackageSyncError(syncErrorMessage(err));
-        window.alert(syncErrorMessage(err));
-      } finally {
-        setConfirming(false);
+        router.push(
+          editReturnPath ??
+            `/vault/submissions/${encodeURIComponent(publicId)}`,
+        );
+        return true;
       }
-    })();
+
+      // Refresh package then register tracking → in_transit.
+      const draft = await upsertAwaitingShipmentPackage(cards);
+      publicId = draft.publicId;
+      writeSellSubmissionPublicId(publicId);
+      setPackageReady(true);
+      setPackageSyncError(null);
+
+      const shipped = await registerVaultSubmissionTracking(publicId, {
+        carrier,
+        trackingNumber: cleaned,
+        shipDate,
+      });
+      publicId = shipped.publicId;
+      writeSellSubmissionPublicId(publicId);
+      clearSellFlowDraftLocal();
+      // Keep last return as fallback when Settings has no default address.
+      writeSellFlowProgress({
+        returnAddress,
+        vaultChoice: "psa",
+      });
+      router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
+      return true;
+    } catch (err) {
+      setPackageSyncError(syncErrorMessage(err));
+      window.alert(syncErrorMessage(err));
+      confirmingRef.current = false;
+      setConfirming(false);
+      return false;
+    }
   }, [
     canConfirm,
     carrier,
@@ -670,24 +669,6 @@ export function useSellShipping() {
     shipDate,
     trackingNumber,
   ]);
-
-  const beginChangeTracking = useCallback(() => {
-    setConfirmed(false);
-    setIsTrackingEdit(true);
-    isTrackingEditRef.current = true;
-    setPanel("track");
-    setTrackingTouched(false);
-  }, []);
-
-  const trackUrl = confirmed
-    ? `${CARRIER_TRACK_URLS[carrier]}${encodeURIComponent(
-        trackingNumber.replace(/\s+/g, "").toUpperCase(),
-      )}`
-    : null;
-
-  const trackingSummary = confirmed
-    ? `${CARRIER_LABELS[carrier]} · ${trackingNumber.replace(/\s+/g, "").toUpperCase()}`
-    : "";
 
   return {
     ready,
@@ -740,23 +721,23 @@ export function useSellShipping() {
     confirming,
     bannerLabel,
     shipSublabel,
-    trackUrl,
-    trackingSummary,
+    trackingPreview: trackingNumber.replace(/\s+/g, "").toUpperCase(),
     toggleCheck,
     copyAddress,
     onDownloadSlip,
     goToTrack,
     goToPack,
     removeCard,
+    beginConfirm,
     confirmShipment,
-    beginChangeTracking,
     backToCards: () => {
       if (confirmed) return;
       if (isTrackingEditRef.current && editReturnPath) {
         router.push(editReturnPath);
         return;
       }
-      writeSellFlowProgress({ step: "cards" });
+      writeSellFlowProgress({ step: "cards", vaultChoice: "psa" });
+      markSellFlowResumeCards();
       router.push("/sell/flow");
     },
   };

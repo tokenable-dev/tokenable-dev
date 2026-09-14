@@ -1,6 +1,8 @@
 /** Buyer-facing custody labels (match backend partner-vault-label.util). */
 export const PSA_VAULT_LABEL = "PSA Vault";
 export const TOKENABLE_VAULT_LABEL = "Tokenable Vault";
+/** Collection detail Buy / Bid / Sell cert line (Card.html). */
+export const COLLECTION_TRADE_SELF_VAULT_LABEL = "TOKN Vault";
 
 export type VaultCustodyPolicy = "standard" | "self_vault_hold";
 

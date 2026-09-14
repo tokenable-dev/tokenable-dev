@@ -13,6 +13,7 @@ import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
+import { requireSeaportOrderFilled } from "../orders/fulfillOrderArgs";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
@@ -270,6 +271,8 @@ export async function runCriteriaMatch(params: {
       `Seaport match reverted on-chain (tx ${hash}). Simulation may differ from execution; check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
+  await requireSeaportOrderFilled(publicClient, listing.orderHash);
+  await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
   /** Listing modal must not hang if the indexer/API stalls after a successful match on-chain. */
   const FULFILL_MS = 38_000;
@@ -407,6 +410,8 @@ export async function runTokenBidMatch(params: {
       `Seaport match reverted on-chain (tx ${hash}). Check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
+  await requireSeaportOrderFilled(publicClient, listing.orderHash);
+  await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
   const FULFILL_MS = 38_000;
   const fulfillAbort = new AbortController();

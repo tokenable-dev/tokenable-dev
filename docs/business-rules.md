@@ -96,11 +96,13 @@ Collection **Place a Bid** is a **criteria collection offer** (Seaport itemType 
 - Collection **Offers** order book includes active token offers and collection criteria bids
 - Max **1 active offer** per wallet per `collectionKey` is **not** the default (`MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=0` means unlimited)
 - Offers expire after a buyer-chosen window of **1, 3, 7, 14, 30, 60, 90, or 180 days** (Seaport `endTime`). Default is **7 days**.
-- Collection Place Bid works with or without an active ask. If the collection has no minted tokens yet, bid is unavailable.
-- A bid that is **≥ the collection’s live lowest ask** switches the Bid tab CTA to **Buy now** (`BID_CROSSES_ASK`), including the bidder’s own listing.
+- Collection Place Bid works with or without an active ask, including catalog-only collections (admin create-from-cert, no mint yet). An empty Merkle set is signed with a sentinel leaf so the bid can rest on the book. That bid cannot fill until the buyer re-places after the first copy is minted (Seaport binds the root at sign time; wildcard criteria is not used — it would match any RWA on the contract). Listing the first copy does not fail instant-match because of those pending bids.
+- A bid that is **≥ the collection’s live lowest ask** switches the Bid tab CTA to **Buy now** (`BID_CROSSES_ASK`), including the bidder’s own listing. Buy now **fulfills the ask at the listing price** (not the typed bid). The listing wallet must still own the NFT on-chain; stale asks are dropped from the book.
+- If the connected buyer **already** `ownerOf` the NFT, Buy now must not look like a failed sale: remove the stale ask, heal `owner_wallet`, and tell the user they already own it. A successful fulfill receipt still settles the book even when `getOrderStatus` misses.
+- A **reverted** `fulfillOrder` / `matchAdvancedOrders` tx must not mark the ask fulfilled or rewrite `owner_wallet`. `PATCH …/orders/:hash/fulfill` requires Seaport filled **or**, for asks, `ownerOf` already equal to the buyer. List from the wallet that `ownerOf` returns; a leftover ask from another wallet is cancelled so the true owner can list.
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
-- A new mint after a criteria bid was signed changes the Merkle root — that bid cannot fill the new copy until the buyer re-places the bid. Listing an **already minted** copy does not change the root.
+- A new mint after a criteria bid was signed changes the Merkle root — that bid cannot fill the new copy until the buyer re-places the bid. The same applies when the first mint replaces a catalog sentinel root. Listing an **already minted** copy does not change the root.
 
 ### BR-8b: Take Token Offer (Edit price primary)
 

@@ -27,6 +27,7 @@ import {
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 import { MarketplaceAdminPartnerApproveModal } from "./MarketplaceAdminPartnerApproveModal";
+import { MarketplaceAdminUserPartnerPanel } from "./MarketplaceAdminUserPartnerPanel";
 import { MarketplaceAdminUserManagePanel } from "./MarketplaceAdminUserRow";
 
 function comingSoon() {
@@ -80,6 +81,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
       mode: "create" | "reactivate" | "revoke";
       displayName?: string;
       walletAddress?: string;
+      privateKey?: string;
       partnerId?: string;
     }) => {
       if (input.mode === "revoke") {
@@ -93,6 +95,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
         return patchAdminMarketplacePartner(input.partnerId, {
           isActive: true,
           displayName: input.displayName,
+          ...(input.privateKey ? { privateKey: input.privateKey } : {}),
         });
       }
       if (!input.displayName?.trim() || !input.walletAddress?.trim()) {
@@ -102,6 +105,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
         displayName: input.displayName.trim(),
         walletAddress: input.walletAddress.trim(),
         isActive: true,
+        ...(input.privateKey ? { privateKey: input.privateKey } : {}),
       });
     },
     onSuccess: async () => {
@@ -120,6 +124,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
   const onApprovePartner = async (input: {
     displayName: string;
     walletAddress: string;
+    privateKey?: string;
   }) => {
     setPartnerBusy(true);
     setActionMsg(null);
@@ -129,12 +134,14 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
           mode: "reactivate",
           partnerId: inactivePartner.id,
           displayName: input.displayName,
+          privateKey: input.privateKey,
         });
       } else {
         await partnerMutation.mutateAsync({
           mode: "create",
           displayName: input.displayName,
           walletAddress: input.walletAddress,
+          privateKey: input.privateKey,
         });
       }
       setPartnerModalOpen(false);
@@ -294,6 +301,15 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
               <p className={`mt-3 text-sm ${ADMIN_TEXT_SECONDARY}`}>{actionMsg}</p>
             ) : null}
           </section>
+
+          {detail.partner ? (
+            <MarketplaceAdminUserPartnerPanel
+              partner={detail.partner}
+              onChanged={async () => {
+                await detailQuery.refetch();
+              }}
+            />
+          ) : null}
 
           <section className="mt-5">
             <h3 className="mb-3 text-sm font-semibold text-zinc-900">활동</h3>

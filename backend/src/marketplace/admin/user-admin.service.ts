@@ -16,6 +16,7 @@ import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { UserService } from '../../user/user.service';
 import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
 import { MarketplacePartner } from '../entities/marketplace-partner.entity';
+import { MarketplacePartnerAddress } from '../entities/marketplace-partner-address.entity';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import type {
   AdminUpdateUserDto,
@@ -49,6 +50,8 @@ export type AdminUserPartnerInfo = {
   displayName: string;
   walletAddress: string;
   isActive: boolean;
+  hasPrivateKey: boolean;
+  hasCompanyAddress: boolean;
 };
 
 export type AdminUserSummary = {
@@ -205,6 +208,8 @@ export class UserAdminService {
     private readonly kycEventsRepo: Repository<UserKycEvent>,
     @InjectRepository(MarketplacePartner)
     private readonly partnersRepo: Repository<MarketplacePartner>,
+    @InjectRepository(MarketplacePartnerAddress)
+    private readonly partnerAddressesRepo: Repository<MarketplacePartnerAddress>,
     @InjectRepository(VaultCycle)
     private readonly vaultCyclesRepo: Repository<VaultCycle>,
     private readonly users: UserService,
@@ -626,6 +631,17 @@ export class UserAdminService {
       })
       .getMany();
 
+    const addressPartnerIds = new Set(
+      partners.length === 0
+        ? []
+        : (
+            await this.partnerAddressesRepo.find({
+              select: ['partnerId'],
+              where: { partnerId: In(partners.map((p) => p.id)) },
+            })
+          ).map((a) => a.partnerId),
+    );
+
     // Prefer active partner when multiple wallets match (rare).
     for (const p of partners) {
       const addr = p.walletAddress.trim().toLowerCase();
@@ -638,6 +654,8 @@ export class UserAdminService {
         displayName: p.displayName,
         walletAddress: p.walletAddress,
         isActive: p.isActive,
+        hasPrivateKey: Boolean(p.encryptedPrivateKey?.trim()),
+        hasCompanyAddress: addressPartnerIds.has(p.id),
       });
     }
     return out;

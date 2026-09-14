@@ -9,13 +9,15 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.05);
   --azure: rgb(26, 111, 255);
-  --pos: var(--text-positive-default);
-  --neg: var(--background-danger-default);
-  --warn: var(--background-warning-default);
+  --pos: rgb(0, 200, 100);
+  --neg: #f5332c;
+  --warn: #f3701e;
   --t1: rgba(255, 255, 255, 0.95);
   --t2: rgba(255, 255, 255, 0.7);
   --t3: rgba(255, 255, 255, 0.52);
   color: var(--t1);
+  /* Tailwind preflight sets html { line-height: 1.5 }. This page matches PortfolioAsset.html (normal). */
+  line-height: normal;
 }
 .pa-page a {
   color: inherit;
@@ -134,37 +136,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 30px 80px rgba(0, 0, 0, 0.6);
   padding: 28px 26px 24px;
-}
-.pa-page .cbrk {
-  position: absolute;
-  width: 15px;
-  height: 15px;
-  border: 2px solid rgba(255, 255, 255, 0.28);
-  pointer-events: none;
-}
-.pa-page .cbrk.tl {
-  top: 11px;
-  left: 11px;
-  border-right: 0;
-  border-bottom: 0;
-}
-.pa-page .cbrk.tr {
-  top: 11px;
-  right: 11px;
-  border-left: 0;
-  border-bottom: 0;
-}
-.pa-page .cbrk.bl {
-  bottom: 11px;
-  left: 11px;
-  border-right: 0;
-  border-top: 0;
-}
-.pa-page .cbrk.br {
-  bottom: 11px;
-  right: 11px;
-  border-left: 0;
-  border-top: 0;
 }
 .pa-page .hair {
   border-top: 1px dashed rgba(255, 255, 255, 0.14);
@@ -367,10 +338,10 @@
 .pa-page .subj-name {
   font-family: var(--font-sans);
   font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: #fff;
-  line-height: 1.05;
+  line-height: 1.2;
 }
 .pa-page .subj-meta {
   font-family: var(--font-mono);
@@ -379,7 +350,6 @@
   color: var(--t2);
   margin-top: 7px;
   line-height: 1.5;
-  text-transform: none;
 }
 .pa-page .subj-grade {
   display: flex;
@@ -424,7 +394,6 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
 }
 .pa-page .stub-k {
   font-family: var(--font-mono);
@@ -818,15 +787,10 @@
     flex-direction: column;
     text-align: center;
     align-items: center;
-    margin: 34px 0;
   }
   .pa-page .showcase {
     flex: 0 0 auto;
     max-width: 220px;
-  }
-  .pa-page .subj-name {
-    width: 100%;
-    max-width: 280px;
   }
   .pa-page .subj-grade {
     justify-content: center;

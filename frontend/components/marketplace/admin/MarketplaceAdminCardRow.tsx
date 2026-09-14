@@ -21,6 +21,7 @@ import {
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
 
 export function MarketplaceAdminCardRow({
   row,
@@ -239,12 +240,18 @@ export function MarketplaceAdminCardRow({
         <div className="min-w-0 flex-1 space-y-5">
           <div className="space-y-3">
             <h3 className="text-lg font-semibold text-zinc-900 sm:text-xl">
-              <Link
-                href={`/marketplace/${row.tokenId}`}
-                className={ADMIN_LINK}
-              >
-                Token #{row.tokenId}
-              </Link>
+              {row.collectionKey ? (
+                <Link
+                  href={collectionDetailHref(row.collectionKey, {
+                    listingTokenId: row.tokenId,
+                  })}
+                  className={ADMIN_LINK}
+                >
+                  Token #{row.tokenId}
+                </Link>
+              ) : (
+                <span>Token #{row.tokenId}</span>
+              )}
             </h3>
             <p className={`font-mono text-sm ${ADMIN_TEXT_META}`}>
               Cert {row.certNumber ?? "—"}

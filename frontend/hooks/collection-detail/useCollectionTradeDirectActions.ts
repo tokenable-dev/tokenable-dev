@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useAccount,
   usePublicClient,
@@ -9,8 +9,11 @@ import {
 } from "wagmi";
 import { parseUnits, formatUnits, type Address } from "viem";
 import {
+  getMerkleEligibleTokenIds,
   getOrderByHash,
   getRwaSettlementPolicy,
+  rq,
+  marketplaceRqPolicy,
   type Order,
 } from "@/lib/core";
 import {
@@ -102,6 +105,25 @@ export function useCollectionTradeDirectActions(input: {
   signSeaportOrderRef.current = signSeaportOrder;
 
   const [busy, setBusy] = useState<CollectionTradeBusy>(null);
+
+  const { data: merkleSet } = useQuery({
+    queryKey: rq.merkleSet(collectionKey),
+    queryFn: () => getMerkleEligibleTokenIds(collectionKey),
+    enabled: collectionKey.length > 0,
+    staleTime: marketplaceRqPolicy.merkleSetStaleMs,
+  });
+  const mintedTokenIds = merkleSet?.tokenIds ?? [];
+  const hasMintedCopies = mintedTokenIds.length > 0;
+
+  const ownCriteriaBid = useMemo(() => {
+    if (!address) return undefined;
+    const mine = collectionBids.filter((b) => {
+      if (b.status !== "active") return false;
+      if (!isCriteriaCollectionBid(b)) return false;
+      return b.offerer.toLowerCase() === address.toLowerCase();
+    });
+    return mine[0];
+  }, [address, collectionBids]);
 
   const matchWrite = useMemo(
     () =>
@@ -315,7 +337,8 @@ export function useCollectionTradeDirectActions(input: {
             usdcAllowanceRaw: usdcAllowanceRaw as bigint,
             chainId,
             durationDays: TOKEN_BID_DEFAULT_DURATION_DAYS,
-            mode: "create",
+            mode: ownCriteriaBid ? "replace" : "create",
+            oldOrderHash: ownCriteriaBid?.orderHash,
           });
         } catch (e: unknown) {
           if (e instanceof BidCrossesLiveAskError) {
@@ -343,9 +366,11 @@ export function useCollectionTradeDirectActions(input: {
         onInvalidate();
         pushToast({
           tone: "positive",
-          title: "Bid placed",
-          message: `Your bid of ${moneyLabel(priceUsd)} is live.`,
-          durationMs: 3000,
+          title: ownCriteriaBid ? "Bid updated" : "Bid placed",
+          message: !hasMintedCopies
+            ? `Your bid of ${moneyLabel(priceUsd)} is on the book. Update it after the first copy is listed so a seller can fill it.`
+            : `Your bid of ${moneyLabel(priceUsd)} is live.`,
+          durationMs: 4000,
         });
       } catch (e: unknown) {
         pushToast({
@@ -371,6 +396,8 @@ export function useCollectionTradeDirectActions(input: {
       onInvalidate,
       pushToast,
       resolveToastMeta,
+      ownCriteriaBid,
+      hasMintedCopies,
     ],
   );
 

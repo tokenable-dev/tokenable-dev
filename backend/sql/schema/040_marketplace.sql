@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS marketplace_collections (
   market_parallel_key varchar(96) NOT NULL DEFAULT 'base',
   bucket_key_version smallint NOT NULL DEFAULT 2,
   review_status varchar(32) NOT NULL DEFAULT 'active',
+  token_contract varchar(42),
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT marketplace_collections_bucket_key_version_check
     CHECK (bucket_key_version >= 1),
@@ -46,6 +47,8 @@ COMMENT ON COLUMN marketplace_collections.market_parallel_key IS
   'Indexed parallel facet (base or PSA Variety slug). Pricing in collection_market_snapshots.';
 COMMENT ON COLUMN marketplace_collections.review_status IS
   'pending_review | active | rejected. New inserts are pending_review; Markets lists active only.';
+COMMENT ON COLUMN marketplace_collections.token_contract IS
+  'RWA address this catalog was created for. Public/admin lists also match orders and tokens on that address.';
 
 CREATE TABLE IF NOT EXISTS collection_market_snapshots (
   collection_key varchar(64) PRIMARY KEY,

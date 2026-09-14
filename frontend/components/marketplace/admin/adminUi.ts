@@ -29,7 +29,7 @@ export const ADMIN_PANEL =
 export const ADMIN_STAT_CARD =
   "rounded-lg border border-zinc-200 bg-zinc-50/80 px-4 py-3";
 
-/** Wrap dark-themed market widgets (Top 100, Top Movers) inside light admin pages. */
+/** Wrap dark-themed market widgets (e.g. home preview) inside light admin pages. */
 export const ADMIN_EMBEDDED_DARK =
   "overflow-hidden rounded-lg border border-zinc-300 bg-zinc-950 p-4 text-white shadow-sm sm:p-6";
 

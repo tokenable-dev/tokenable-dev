@@ -28,7 +28,6 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
-import { P2pListing } from '../entities/p2p-listing.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
@@ -63,6 +62,14 @@ const ERC20_BALANCE_ALLOWANCE_ABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
 ] as const;
 
+const ERC721_OWNER_OF_ABI = [
+  'function ownerOf(uint256 tokenId) view returns (address)',
+] as const;
+
+const SEAPORT_ORDER_STATUS_ABI = [
+  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
+] as const;
+
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
 function normalizeDecimalTokenId(raw: string): string {
   const s = String(raw ?? '').trim();
@@ -79,8 +86,6 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
-    @InjectRepository(P2pListing)
-    private readonly p2pListings: Repository<P2pListing>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
@@ -228,19 +233,12 @@ export class OrdersService {
         dto.tokenContract,
         String(dto.tokenId),
       );
-
-      const p2pActive = await this.p2pListings.count({
-        where: {
-          tokenContract: dto.tokenContract.toLowerCase(),
-          tokenId: String(dto.tokenId),
-          status: In(['P2P_MINTED_TK', 'P2P_LISTED', 'SOLD']),
-        },
-      });
-      if (p2pActive > 0) {
-        throw new BadRequestException(
-          `Token #${dto.tokenId} is a P2P listing — Seaport asks are not allowed`,
-        );
-      }
+      await this.assertAskOffererOwnsToken(dto, chainId);
+      await this.cancelActiveAskIfOffererUnowned(
+        dto.tokenContract,
+        String(dto.tokenId),
+        chainId,
+      );
 
       const existing = await this.orderRepo.findOne({
         where: {
@@ -382,6 +380,7 @@ export class OrdersService {
     }
     this.assertValidAskListing(dto, chainId);
     await this.assertAskSettlementPolicy(dto, chainId);
+    await this.assertAskOffererOwnsToken(dto, chainId);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -851,6 +850,175 @@ export class OrdersService {
     });
     if (!window.ok) {
       throw new BadRequestException(window.reason);
+    }
+  }
+
+  private async readOnChainRwaOwner(
+    tokenContract: string,
+    tokenId: string,
+    chainId: SupportedChainId,
+  ): Promise<string> {
+    const tid = Number(normalizeDecimalTokenId(tokenId));
+    if (!Number.isFinite(tid) || tid < 0) {
+      throw new BadRequestException(`Invalid tokenId ${tokenId}`);
+    }
+    const expected = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    if (tokenContract.toLowerCase() !== expected) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const nft = new Contract(expected, ERC721_OWNER_OF_ABI, provider);
+    try {
+      const owner = String(await nft.ownerOf(tid)).trim().toLowerCase();
+      if (!owner || owner === '0x0000000000000000000000000000000000000000') {
+        throw new BadRequestException(`RWA #${tid} has no on-chain owner`);
+      }
+      return owner;
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/nonexistent token|invalid token|owner query for nonexistent/i.test(msg)) {
+        throw new BadRequestException(`RWA #${tid} does not exist on chain`);
+      }
+      this.logger.warn(`ownerOf #${tid} failed: ${msg.slice(0, 180)}`);
+      throw new ServiceUnavailableException(
+        'Could not verify on-chain NFT ownership — try again',
+      );
+    }
+  }
+
+  private async assertAskOffererOwnsToken(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const owner = await this.readOnChainRwaOwner(
+      dto.tokenContract,
+      String(dto.tokenId),
+      chainId,
+    );
+    const offerer = dto.parameters.offerer.trim().toLowerCase();
+    if (owner !== offerer) {
+      throw new BadRequestException(
+        `Cannot list token #${dto.tokenId}: connected wallet does not own this card on-chain (owner is ${owner})`,
+      );
+    }
+  }
+
+  /**
+   * Drop a leftover ask whose offerer no longer owns the NFT so the current
+   * on-chain owner can list. Does not cancel a live ask from the current owner.
+   */
+  private async cancelActiveAskIfOffererUnowned(
+    tokenContract: string,
+    tokenId: string,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const tidRaw = String(tokenId);
+    const tidNorm = normalizeDecimalTokenId(tidRaw);
+    const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+    const existing = await this.orderRepo.findOne({
+      where: {
+        tokenContract,
+        tokenId: In(tidVariants),
+        status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
+      },
+    });
+    if (!existing) return;
+    const owner = await this.readOnChainRwaOwner(
+      tokenContract,
+      tidNorm || tidRaw,
+      chainId,
+    );
+    if (owner === existing.offerer.toLowerCase()) return;
+    existing.status = OrderStatus.CANCELLED;
+    existing.parameters = {
+      ...(existing.parameters ?? {}),
+      _unownedAsk: true,
+      _onChainOwner: owner,
+      _unownedAskReason: 'supersede_by_onchain_owner',
+      _unownedAskAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `cancelActiveAskIfOffererUnowned ${existing.orderHash.slice(0, 10)}… owner=${owner.slice(0, 10)}… offerer=${existing.offerer.slice(0, 10)}…`,
+    );
+    await this.orderRepo.save(existing);
+    await this.ownerIndex.recordOwner(existing.tokenContract, existing.tokenId, owner);
+  }
+
+  /**
+   * Never mark the book fulfilled (or move owner_wallet) unless Seaport consumed
+   * the order. A reverted fulfillOrder tx must not look like a sale.
+   */
+  private async assertSeaportOrderFilledOnChain(
+    orderHash: string,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const seaport = new Contract(
+      SEAPORT_ADDRESS,
+      SEAPORT_ORDER_STATUS_ABI,
+      provider,
+    );
+    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
+    try {
+      const result = (await seaport.getOrderStatus(hash)) as [
+        boolean,
+        boolean,
+        bigint,
+        bigint,
+      ];
+      const isCancelled = Boolean(result[1]);
+      const filled = BigInt(result[2]);
+      const size = BigInt(result[3]);
+      if (isCancelled || size === 0n || filled < size) {
+        throw new BadRequestException(
+          'On-chain Seaport fill was not found for this order — listing and ownership were not updated',
+        );
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `getOrderStatus ${hash.slice(0, 10)}… failed: ${msg.slice(0, 180)}`,
+      );
+      throw new ServiceUnavailableException(
+        'Could not verify on-chain Seaport fill — try again',
+      );
+    }
+  }
+
+  /**
+   * Ask fill: Seaport getOrderStatus, or NFT already with the buyer (receipt
+   * succeeded / hash lookup missed). Never treat a still-seller-owned token as sold.
+   */
+  private async assertOrderSettledForFulfill(
+    order: Order,
+    buyerAddress: string | undefined,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    try {
+      await this.assertSeaportOrderFilledOnChain(order.orderHash, chainId);
+      return;
+    } catch (e) {
+      if (!(e instanceof BadRequestException)) throw e;
+      if ((order.side ?? OrderSide.ASK) !== OrderSide.ASK) throw e;
+      const buyer = buyerAddress?.trim().toLowerCase();
+      if (!buyer) throw e;
+      const owner = await this.readOnChainRwaOwner(
+        order.tokenContract,
+        String(order.tokenId),
+        chainId,
+      );
+      if (owner === buyer && owner !== order.offerer.toLowerCase()) {
+        this.logger.log(
+          `fulfillOrder ${order.orderHash.slice(0, 10)}… settled via ownerOf buyer (getOrderStatus miss)`,
+        );
+        return;
+      }
+      throw e;
     }
   }
 
@@ -1333,6 +1501,49 @@ export class OrdersService {
   }
 
   /**
+   * Drop an ask whose offerer no longer owns the NFT (Seaport would revert
+   * `ERC721: transfer from incorrect owner`). Idempotent. Anyone may report;
+   * ownership is proven on-chain.
+   */
+  async invalidateUnownedAsk(
+    orderHash: string,
+    callerAddress: string,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
+    const order = await this.findByHash(orderHash);
+    if (order.status !== OrderStatus.ACTIVE) {
+      return order;
+    }
+    if ((order.side ?? OrderSide.ASK) !== OrderSide.ASK) {
+      throw new BadRequestException('Only ask listings can be invalidated as unowned');
+    }
+    const owner = await this.readOnChainRwaOwner(
+      order.tokenContract,
+      String(order.tokenId),
+      chainId,
+    );
+    if (owner === order.offerer.toLowerCase()) {
+      throw new BadRequestException(
+        'Listing wallet still owns this token on-chain',
+      );
+    }
+    order.status = OrderStatus.CANCELLED;
+    order.parameters = {
+      ...(order.parameters ?? {}),
+      _unownedAsk: true,
+      _onChainOwner: owner,
+      _unownedAskBy: callerAddress.toLowerCase(),
+      _unownedAskAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `invalidateUnownedAsk ${orderHash.slice(0, 10)}… owner=${owner.slice(0, 10)}… offerer=${order.offerer.slice(0, 10)}… by ${callerAddress.slice(0, 10)}…`,
+    );
+    const saved = await this.orderRepo.save(order);
+    await this.ownerIndex.recordOwner(order.tokenContract, order.tokenId, owner);
+    return saved;
+  }
+
+  /**
    * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
    * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
    */
@@ -1346,6 +1557,12 @@ export class OrdersService {
     if (order.status !== OrderStatus.ACTIVE) {
       throw new BadRequestException(`Order is already ${order.status}`);
     }
+
+    await this.assertOrderSettledForFulfill(
+      order,
+      buyerAddress,
+      chainId ?? this.chainConfig.getDefaultChainId(),
+    );
 
     // Self-vault hold: block fee-less bid-only fulfills (seller would get 100% USDC).
     if (
@@ -1546,6 +1763,10 @@ export class OrdersService {
     ) {
       throw new BadRequestException('Both orders must be active');
     }
+
+    const fillChain = chainId ?? this.chainConfig.getDefaultChainId();
+    await this.assertSeaportOrderFilledOnChain(ask.orderHash, fillChain);
+    await this.assertSeaportOrderFilledOnChain(bid.orderHash, fillChain);
 
     const consBid = bid.parameters.consideration?.[0];
     const bidItemType = Number(consBid?.itemType);

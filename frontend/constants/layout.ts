@@ -40,6 +40,5 @@ export function shouldHideAppChrome(
   if (pathname === "/sell") return true;
   if (pathname.startsWith("/marketplace/admin")) return true;
   if (pathname.startsWith("/dev/design-system")) return true;
-  if (pathname.startsWith("/dev/admin-ui")) return true;
   return false;
 }

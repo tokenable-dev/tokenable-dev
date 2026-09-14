@@ -94,24 +94,6 @@ Key facts:
 - Collection bucket (`collection_key`) is created on **first ask listing**, not at mint
 - Sellers take token offers via **Edit price** (primary) or Accept offer (`docs/architecture/seaport-accept-offer.md`); Edit-price funding fail **keeps** the new ask; Accept-offer funding fail leaves the prior ask unchanged
 - Token-bid notifications go only to the **active ask owner** on that `tokenId` (`marketplace_notifications`)
-- Active P2P custody tokens cannot create Seaport asks
-
----
-
-### P2P Payment Escrow
-
-| | |
-|---|---|
-| **Documentation** | `docs/architecture/p2p-payment-escrow.md`, `docs/api/p2p.md` |
-| **Contract** | `contracts/contracts/TokenablePaymentEscrow.sol` |
-| **Backend** | `backend/src/marketplace/p2p/`, `backend/src/blockchain/payment-escrow-writer.service.ts` |
-| **Frontend** | `frontend/app/p2p/`, `frontend/app/sell/p2p/`, `frontend/components/markets/MarketsP2pSection.tsx` |
-| **Database tables** | `p2p_listings`, `p2p_orders` |
-| **Required reading before changes** | `docs/architecture/p2p-payment-escrow.md` |
-
-Key facts:
-- NFT stays in custody; USDC held in `TokenablePaymentEscrow` until confirm / timeout / arbiter refund
-- Deploy: `cd contracts && pnpm deploy:escrow:sepolia` then set `CHAIN_{id}_PAYMENT_ESCROW_ADDRESS`
 
 ---
 

@@ -75,10 +75,18 @@ export type DataInventorySchemaResponse = {
   edges: DataInventorySchemaEdge[];
 };
 
+export type AdminMarketplaceResetTarget = {
+  chainId: number;
+  label: string;
+  rwaAddress: string;
+};
+
 export type AdminMarketplaceResetResult = {
-  truncatedTables: string[];
+  tokenContract: string;
+  chainId: number;
+  wipedConfiguredContract: boolean;
+  deletedCounts: Record<string, number>;
   skippedMissingTables: string[];
-  rowCountsBefore: Record<string, number>;
 };
 
 export type AdminDataInventoryRowsResult = {
@@ -134,16 +142,28 @@ export async function getAdminDataInventoryTableRows(
   return res.json() as Promise<AdminDataInventoryRowsResult>;
 }
 
-/** Dev/staging only — wipe marketplace/vault after RWA redeploy (keeps users). */
-export async function postAdminResetForNewContract(
-  password: string,
-): Promise<AdminMarketplaceResetResult> {
+export async function getAdminResetTargets(): Promise<
+  AdminMarketplaceResetTarget[]
+> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/data-inventory/reset-targets`,
+  );
+  if (!res.ok) await parseAdminError(res, "Failed to load reset targets");
+  return res.json() as Promise<AdminMarketplaceResetTarget[]>;
+}
+
+/** Dev/staging only — wipe one RWA contract's marketplace rows (keeps users and other contracts). */
+export async function postAdminResetForNewContract(input: {
+  password: string;
+  chainId: number;
+  tokenContract: string;
+}): Promise<AdminMarketplaceResetResult> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/data-inventory/reset-for-new-contract`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(input),
     },
   );
   if (!res.ok) {

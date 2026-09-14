@@ -16,7 +16,6 @@ pnpm start:dev
 
 **Cardhedger:**
 - **`/api/cardhedger/v1/*`** — full upstream proxy (API key injected server-side)
-- **Top 100 / Top Movers** — `/api/cardhedger/top100/*`, `/api/cardhedger/top-movers`
 - **Price webhooks** — `POST /api/webhooks/cardhedger/price-updates`
 - **Admin ops** — `/api/admin/cardhedger/*`, `/api/admin/cardhedger/price-subscriptions/*`
 - Internal server-to-server calls from PSA, collections, snapshot workers

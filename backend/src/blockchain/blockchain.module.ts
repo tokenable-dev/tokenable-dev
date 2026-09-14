@@ -9,7 +9,6 @@ import { RwaAssetResolveService } from './rwa-asset-resolve.service';
 import { RwaChainWriterService } from './rwa-chain-writer.service';
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
 import { RwaTransferIndexListenerService } from './rwa-transfer-index-listener.service';
-import { PaymentEscrowWriterService } from './payment-escrow-writer.service';
 import { PlatformFeeWalletService } from './platform-fee-wallet.service';
 import { ethersProviderFactory } from './providers/ethers-provider.factory';
 import { tokenableRwaFactory } from './providers/tokenable-rwa.factory';
@@ -26,7 +25,6 @@ import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
     RwaChainWriterService,
     RwaTokenOwnerIndexService,
     RwaTransferIndexListenerService,
-    PaymentEscrowWriterService,
     PlatformFeeWalletService,
     ethersProviderFactory,
     tokenableRwaFactory,
@@ -38,7 +36,6 @@ import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
     RwaAssetResolveService,
     RwaChainWriterService,
     RwaTokenOwnerIndexService,
-    PaymentEscrowWriterService,
     PlatformFeeWalletService,
     TOKENABLE_RWA_CONTRACT,
     ChainConfigService,

@@ -6,7 +6,7 @@ A decentralized marketplace for graded-card RWAs on **Polygon mainnet** (137) an
 
 ## Project Description
 
-Full-stack marketplace for graded-card RWAs on Polygon (Amoy testnet + mainnet): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External market references come from the **Cardhedger** API (catalog, mint previews, PSA-10 price history, AI insights, Top 100 / Top Movers) — proxied through the Nest backend. Landing **Market Indexes** use **Card Ladder** scrape + cache.
+Full-stack marketplace for graded-card RWAs on Polygon (Amoy testnet + mainnet): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External market references come from the **Cardhedger** API (catalog, mint previews, PSA-10 price history, AI insights) — proxied through the Nest backend. Landing **Market Indexes** use **Card Ladder** scrape + cache.
 
 ### What users see today
 
@@ -14,12 +14,11 @@ Full-stack marketplace for graded-card RWAs on Polygon (Amoy testnet + mainnet):
 |------|--------|
 | **Landing (`/`)** | Hero + **Market Indexes** (Card Ladder aggregates / sparklines per category). |
 | **Markets (`/markets`)** | All collections (including zero listings), sorted by pool pricing; category chips; grid/list view; **Trending** strip. Legacy `/exchange` redirects here. |
-| **Markets Top 100 (`/markets/top100`)** | Cardhedger-backed daily sales rank (PSA 10); category tabs; card detail pages. |
 | **Collection detail (`/marketplace/collections/[key]`)** | Order book, dual price chart, listing strip, Cardhedger AI insight, schema/identifiers. |
 | **Portfolio (`/portfolio`)** | Holdings with listing vs unlisted distinction, daily value chart, hide holdings, reference vs on-platform pricing. |
 | **Watchlist (`/watchlist`)** | Saved collections (JWT). |
 | **Vault / mint (`/vault`)** | PSA-oriented graded metadata → IPFS → on-chain mint (Vault inbound workflow is planned separately). |
-| **Marketplace admin (`/marketplace/admin/*`)** | Separate admin login — collections, cards, Top 100 preview, Top Movers preview, price webhooks. |
+| **Marketplace admin (`/marketplace/admin/*`)** | Separate admin login — collections, cards, markets preview, price webhooks. |
 | **Site access (`/site-access`)** | Optional staging gate when `SITE_ACCESS_ENABLED=true`. |
 
 Trading remains non-custodial until settlement; criteria bids cover Merkle-eligible token sets per collection key.
@@ -40,7 +39,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 
 - **Node.js 22+** / **TypeScript**
 - **NestJS 11** — REST API, Swagger under `/api/docs`
-- **Cardhedger** — Live card/game pricing, mint previews, Top 100, Top Movers, `/api/cardhedger/v1/*` proxy (`CARDHEDGER_API_KEY` required)
+- **Cardhedger** — Live card/game pricing, mint previews, `/api/cardhedger/v1/*` proxy (`CARDHEDGER_API_KEY` required)
 - **PSA Public API** — Cert lookup + slab OCR (`PSA_PUBLIC_API_TOKEN`)
 - **Pinata** — IPFS pinning for RWA metadata/images
 - **PostgreSQL + TypeORM** — 17 entities / ~17 tables ([docs/architecture/database.md](docs/architecture/database.md))

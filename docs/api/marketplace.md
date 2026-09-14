@@ -154,6 +154,16 @@ Marks an **active token bid** cancelled when it is proven dead on-chain (buyer U
 
 See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
 
+### `PATCH /api/marketplace/orders/:hash/invalidate-unowned-ask`
+
+Marks an **active ask** cancelled when `ownerOf(tokenId)` is not the listing `offerer` (NFT moved after list, or listed from a wallet that never held it). Seaport would revert `ERC721: transfer from incorrect owner`. **Idempotent**. Anyone may report; the backend re-checks on-chain.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `callerAddress` | Yes | Wallet that attempted buy / reported the stale listing |
+
+Collection order books also hide asks whose `rwa_tokens.owner_wallet` is set and differs from `offerer`.
+
 ---
 
 ### `GET /api/marketplace/notifications`
@@ -248,7 +258,7 @@ Created automatically when a `self_vault_hold` ask is fulfilled (or matched) —
 
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 
-Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). Rejects bid-only fulfill for `self_vault_hold` tokens.
+Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). **Requires Seaport `getOrderStatus` to show the order filled** — a reverted wallet tx must not flip listing status or `owner_wallet`. Rejects bid-only fulfill for `self_vault_hold` tokens.
 
 | Query | Required | Description |
 |-------|----------|-------------|
@@ -260,7 +270,7 @@ Transfer-log indexer remains a heal backstop. Listed badge stays **orders-table 
 
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
-Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`). Also sets `rwa_tokens.owner_wallet` to `bid.offerer` immediately.
+Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Both hashes must be filled on Seaport first. Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`). Also sets `rwa_tokens.owner_wallet` to `bid.offerer` immediately.
 
 Seller **take-offer** flows (Edit price primary; Accept offer secondary) are specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep links: `/portfolio?setprice=` (Edit price) and `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid` (clears My Assets localStorage for seller + buyer). Edit-price instant match that fails on buyer USDC keeps the ask at the set price.
 
@@ -411,7 +421,7 @@ Rows matching both facets are ranked above single-facet hits, then by active lis
 
 ### `GET /api/marketplace/collections/:key/merkle-set`
 
-Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this collection, not just active asks).
+Returns minted token ids eligible for the collection Merkle tree (not only active asks). Empty on catalog-only collections (admin create-from-cert). Place Bid still signs a sentinel root; fill requires minted ids and a re-signed bid.
 
 | Query | Description |
 |-------|-------------|
@@ -419,7 +429,7 @@ Returns all tokenIds eligible for the Merkle tree (all minted RWAs in this colle
 
 ### `GET /api/marketplace/collections/:key/bid-anchor-tokens`
 
-Minted or previously traded token ids in this bucket. Used by Place Bid when there is **no live ask**. Does not require a listing.
+Minted or previously traded token ids in this bucket (token-offer anchors). Collection Place Bid uses merkle-set, not this list.
 
 ---
 

@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
-import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
   usePortfolioDailyChart,
   usePortfolioBidActions,
@@ -93,9 +92,6 @@ export function PortfolioPageView({
   const { runSellAccessGate } = useSellAccessGate(portfolioBase);
   const wallet = useLinkedPortfolioWallet();
   const { connectedAddress, isConnected } = wallet;
-  const portfolioMismatchPromptEnabled =
-    authInitialized && Boolean(user) && wallet.hasLinkedWallet;
-  usePortfolioWalletMismatchPrompt(portfolioMismatchPromptEnabled);
   const portfolioAddress = wallet.portfolioAddress;
   const portfolioDataEnabled =
     authInitialized &&

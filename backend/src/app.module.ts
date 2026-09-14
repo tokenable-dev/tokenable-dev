@@ -42,7 +42,6 @@ import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-s
 import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { UserBuyerListingAlert } from './marketplace/entities/user-buyer-listing-alert.entity';
-import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
 import { CardhedgerPriceDeltaCheckpoint } from './cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerDailyPriceExportRun } from './cardhedger/entities/cardhedger-daily-price-export-run.entity';
@@ -60,8 +59,6 @@ import { MarketplacePartner } from './marketplace/entities/marketplace-partner.e
 import { MarketplacePartnerAddress } from './marketplace/entities/marketplace-partner-address.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
 import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
-import { P2pListing } from './marketplace/entities/p2p-listing.entity';
-import { P2pOrder } from './marketplace/entities/p2p-order.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 import { SelfVaultSettlement } from './marketplace/entities/self-vault-settlement.entity';
 import { VaultModule } from './vault/vault.module';
@@ -143,7 +140,6 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           PortfolioHolding,
           UserWatchlist,
           UserBuyerListingAlert,
-          CardTop100DailySnapshot,
           CardhedgerPriceSubscription,
           CardhedgerPriceDeltaCheckpoint,
           CardhedgerDailyPriceExportRun,
@@ -161,8 +157,6 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           VaultPsaVaultedReview,
           BulkMintJob,
           BulkMintJobItem,
-          P2pListing,
-          P2pOrder,
           MarketplaceNotification,
           SelfVaultSettlement,
         ],

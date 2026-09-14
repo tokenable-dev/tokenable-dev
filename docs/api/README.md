@@ -34,8 +34,6 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 | `marketplace-admin` | `marketplace/collections/rwa-token-admin.controller.ts` | `/api/marketplace/admin/rwa-tokens` |
 | `marketplace-admin` | `rwa/admin/bulk-mint-admin.controller.ts` | `/api/marketplace/admin/bulk-mint` |
 | `cardhedger` | `cardhedger/controllers/cardhedger-proxy.controller.ts` | `/api/cardhedger/v1` |
-| `cardhedger` | `cardhedger/controllers/card-top100.controller.ts` | `/api/cardhedger/top100` |
-| `cardhedger` | `cardhedger/controllers/card-top-movers.controller.ts` | `/api/cardhedger/top-movers` |
 | `cardhedger` | `cardhedger/controllers/cardhedger-catalog.controller.ts` | `/api/cardhedger` |
 | `webhooks` | `cardhedger/controllers/cardhedger-price-webhook.controller.ts` | `/api/webhooks/cardhedger` |
 | `admin` | `cardhedger/admin/cardhedger-admin.controller.ts` | `/api/admin/cardhedger` |
@@ -202,7 +200,7 @@ Full ops guide: [marketplace-admin.md](../guides/marketplace-admin.md).
 
 ## Cardhedger
 
-See **[cardhedger.md](./cardhedger.md)** for full proxy path list, Top 100, Top Movers, and price subscription admin.
+See **[cardhedger.md](./cardhedger.md)** for full proxy path list and price subscription admin.
 
 ---
 

@@ -2,7 +2,6 @@ import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
-import { CardTop100DailySnapshot } from '../../cardhedger/entities/card-top100-snapshot.entity';
 import { PsaModule } from '../../psa/psa.module';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import { CardhedgerAiInsightEnrichmentService } from './cardhedger-ai-insight-enrichment.service';
@@ -17,7 +16,7 @@ import { CardhedgerMintService } from './cardhedger-mint.service';
 /** Cardhedger resolve, preview, comps, and mint previews for marketplace pricing. */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserWatchlist, CardTop100DailySnapshot]),
+    TypeOrmModule.forFeature([UserWatchlist]),
     CardhedgerModule,
     BlockchainModule,
     forwardRef(() => PsaModule),

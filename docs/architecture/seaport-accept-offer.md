@@ -4,7 +4,7 @@ ADR for Vault/Seaport: sellers take a token offer via **Edit price** (primary) o
 
 **Status:** Shipped (Phases B–F) + funding-fail keep-ask (2026-07-30)  
 **Last updated:** 2026-09-10  
-**Channel:** Vault / Seaport only (not P2P escrow)
+**Channel:** Vault / Seaport only
 
 ---
 
@@ -42,7 +42,7 @@ Sellers can settle against a specific incoming **token offer**. Bid USDC is **no
 
 ### Offer type (P0)
 
-- **Collection Place Bid:** criteria collection offer (Merkle over minted token ids in the bucket).
+- **Collection Place Bid:** criteria collection offer (Merkle over minted token ids in the bucket). Catalog-only buckets (no minted leaves) still accept a collection bid signed over a sentinel leaf; it is not fillable until the buyer re-signs after the first mint. Instant match ignores those pending-inventory bids so the first list succeeds.
 - **Card-level token offers** remain in scope for a specific `tokenId`.
 - Instant match after list / Edit price: crossing **token bids on that tokenId** and **collection criteria bids**. If the typed ask is cheaper than the fillable bid, the ask is signed at the **bid** USDC (FULL_OPEN leftover USDC would otherwise revert).
 
@@ -84,7 +84,8 @@ Locked query params:
 ### List / Change price
 
 - **Edit price** is the path to take a lower bid (set ask to offer, attempt fill).
-- Instant match after Edit price / list must consider **crossing token bids** on that `tokenId` (not only collection criteria bids). Buyer-funding failure → keep ask, `invalidate-dead-bid` (seller + bidder inbox), remove offer from the book.
+- Instant match after list / Edit price: crossing **token bids** on that `tokenId` (not only collection criteria bids). Buyer-funding failure → keep ask, `invalidate-dead-bid` (seller + bidder inbox), remove offer from the book.
+- **Buy now** from collection Bid tab (typed bid ≥ live ask) fulfills that ask at the **listing** price. Preflight: `ownerOf` must equal the ask offerer; otherwise the ask is invalidated (`invalidate-unowned-ask`) and no Seaport tx is sent. After a mined tx, `getOrderStatus` must show filled before `PATCH …/fulfill` updates the book / `owner_wallet`. A revert does not transfer the NFT.
 - Sell ticket copy may surface the top bid as a suggestion; seller still confirms the price.
 
 ---
@@ -107,8 +108,6 @@ Locked query params:
 | Portfolio Accept modal + deep link | `usePortfolioAcceptOffer`, `PortfolioAcceptOfferModal`, `/portfolio?acceptBid=&tokenId=` |
 | Notifications UI | `NotificationsDrawer` + `useMarketplaceNotifications` |
 | RQ invalidation | `invalidateAfterAcceptOffer`, `invalidateAfterDeadBid`, `invalidateMarketplaceNotifications` |
-
-P2P (`TokenablePaymentEscrow`) is **out of scope**.
 
 ---
 

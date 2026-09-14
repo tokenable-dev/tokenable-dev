@@ -66,7 +66,7 @@ Cycles are chain-scoped in both DB and API:
 
 - Partial unique index `uq_vault_cycles_one_open_per_asset_chain` on `(vault_asset_id, chain_id)` where status is open
 - `VaultService.assertAvailableForNewCycle(cert, chainId)` / `reserveCycleForDeposit({ chainId })` filter by `chain_id`
-- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-batch`, bulk-mint, P2P listing create) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
+- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-batch`, bulk-mint) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
 
 ```
 vault_cycles (uuid id PK)
@@ -135,7 +135,7 @@ Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/v
 
 **PSA → Live:** Gmail **Items Vaulted** (“now secured in your PSA Vault”, same subject as arrival) → `PsaVaultedMailService` auto mint & deliver (`vault_psa_vaulted_reviews`, `minted_via = auto`). Ops can also use **Mint queue** manual **Mint & deliver**. Incomplete/unmatched mail stays **Pending** on Mint queue for retry; partial mint retries preserve prior successful certs in `mint_results`. Item → `completed` (Live in portfolio).
 
-**Sell-flow draft resume:** Add-cards progress is **localStorage only** (no `status=draft` package rows). Entering `/sell/shipping` **upserts confirmed cards** as `awaiting_shipment` (first durable write; Hub shows Add tracking). Confirm tracking → `in_transit`.
+**Sell-flow draft resume:** Add-cards progress is **localStorage only** (no `status=draft` package rows). The card list is written when **Save as draft** is clicked (or when continuing to shipping / after a partner mint) — slab upload, cert lookup, confirm, and remove stay in memory until then. Entering `/sell/shipping` **upserts confirmed cards** as `awaiting_shipment` (first durable write; Hub shows Add tracking). Confirm tracking asks in a modal whether the entered number is correct, then registers → `in_transit` and opens the submission page (no inline success flash). A fresh `/sell/flow` visit always opens seller terms. Back from shipping reopens add-cards once; Back from add-cards returns to vault choice (same step, not a skip). Back from vault clears the saved choice so the next Continue does not jump to add-cards.
 
 ---
 

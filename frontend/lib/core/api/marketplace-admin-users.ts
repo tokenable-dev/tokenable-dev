@@ -47,6 +47,8 @@ export type AdminUserPartnerInfo = {
   displayName: string;
   walletAddress: string;
   isActive: boolean;
+  hasPrivateKey: boolean;
+  hasCompanyAddress: boolean;
 };
 
 export type AdminUserSummary = {

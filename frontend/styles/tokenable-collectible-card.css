@@ -59,8 +59,8 @@
 .card__img .fav {
   position: absolute;
   top: 8px;
-  left: 8px;
-  right: auto;
+  right: 8px;
+  left: auto;
   z-index: 15;
 }
 

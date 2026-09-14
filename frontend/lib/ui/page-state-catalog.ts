@@ -10,8 +10,6 @@ export type AppPageStateKind =
   | "markets_load_failed"
   | "section_load_failed"
   | "watchlist_load_failed"
-  | "top100_invalid_card"
-  | "top100_load_failed"
   | "portfolio_crash"
   | "markets_crash"
   | "app_crash"
@@ -64,7 +62,6 @@ export const PAGE_STATE_CATALOG: Record<AppPageStateKind, AppPageStateDefinition
     message:
       "We could not reach the marketplace API. Check your connection and try again, or come back in a moment.",
     primaryAction: { label: "Browse Markets", href: "/markets", variant: "primary" },
-    secondaryAction: { label: "Try again", variant: "neutral" },
   },
   asset_not_found: {
     icon: "search",
@@ -97,19 +94,6 @@ export const PAGE_STATE_CATALOG: Record<AppPageStateKind, AppPageStateDefinition
     title: "Could not load watchlist",
     message: "We could not load your saved collections. Check your connection and try again.",
     primaryAction: { label: "Browse Markets", href: "/markets", variant: "primary" },
-    secondaryAction: { label: "Try again", variant: "neutral" },
-  },
-  top100_invalid_card: {
-    icon: "warning",
-    title: "Invalid card",
-    message: "The card ID in this URL is not valid.",
-    primaryAction: { label: "Back to Markets", href: "/markets", variant: "primary" },
-  },
-  top100_load_failed: {
-    icon: "offline",
-    title: "Could not load card data",
-    message: "We could not load pricing and chart data for this card. Try again in a moment.",
-    primaryAction: { label: "Back to Markets", href: "/markets", variant: "primary" },
     secondaryAction: { label: "Try again", variant: "neutral" },
   },
   portfolio_crash: {

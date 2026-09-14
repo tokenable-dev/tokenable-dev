@@ -43,7 +43,7 @@ Do **not** call upstream APIs once per user request for asset lists. That fans o
 |--------|--------|----------|
 | `POST /rwa/upload` + `POST /rwa/mint` | upload `collectionKey` → `recordMintResult` | name, images, cert, owner, settlement, collection_key when known |
 | Admin / partner bulk mint | same | same |
-| Seaport fulfill / match | `OrdersService` → `recordOwner` + `seedMarketplaceBuyCostBasis` | **immediate** `owner_wallet` + holdings; Transfer poll is heal only |
+| Seaport fulfill / match | `OrdersService` → `recordOwner` + `seedMarketplaceBuyCostBasis` | **immediate** `owner_wallet` + holdings **only after** Seaport `getOrderStatus` shows filled; Transfer poll is heal only |
 | Transfer index poll | `RwaTransferIndexListenerService` | `owner_wallet` heal / external transfers |
 | Ask list / cancel | `orders` table | Listed badge = active ASK join (no denormalized list price on `rwa_tokens`) |
 | Redeem custody confirm | `RwaRedeemService` → `recordOwner(custody)` | **immediate** drop from My Assets; Transfer poll is heal |
@@ -98,5 +98,6 @@ curl -X POST "$API/marketplace/admin/rwa-slab/backfill-list-ready" \
 4. Concurrent portfolio opens do not multiply IPFS calls (shared heal queue).
 5. After Seaport buy/accept-offer: buyer appears in My Assets without waiting for Transfer poll; listed badge follows orders cancel/fulfill.
 6. After redeem custody confirm: token leaves My Assets immediately (`owner_wallet` → custody); burn clears ownership; re-vault mint is list-ready; FE clears portfolio caches on redeem/burn.
-7. Snapshot-priced tiles show USD while siblings still await mint-preview (no global blank). Hero avoids `$0` when no marks yet (`—` / skeleton).
-8. Manual smoke: mint → cold portfolio → buy → redeem custody → burn (ownership + listed badge + caches).
+7. My Assets tiles follow **current** `owner_wallet`, not leftover `portfolio_holdings` / localStorage `marketplace_buy` rows from a past wallet. Optimistic buy paint lasts a few minutes only.
+8. Snapshot-priced tiles show USD while siblings still await mint-preview (no global blank). Hero avoids `$0` when no marks yet (`—` / skeleton).
+9. Manual smoke: mint → cold portfolio → buy → redeem custody → burn (ownership + listed badge + caches).

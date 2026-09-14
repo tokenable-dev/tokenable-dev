@@ -65,6 +65,7 @@ function CollectionDetailPageContent() {
             onClick: () => detail.router.refresh(),
             variant: "primary",
           }}
+          secondaryAction={null}
           details={showDetails ? formatErrorDetails(detail.error) : null}
         />
       </CollectionDetailStateShell>

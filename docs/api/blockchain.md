@@ -181,14 +181,14 @@ The backend resolves the target chain from the `x-tokenable-chain-id` request he
 | `DEFAULT_CHAIN_ID` | Default chain when header absent (default `11155111`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |
 
-Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header must never return another chain’s mints.
+Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header — or putting a new RWA address in env — must never return another contract’s mints. A new address is an empty marketplace; wipe the previous address in admin Data inventory first so that chain’s inbox, charts, and open vault cycles do not carry over.
 
-Collection detail orderbook and market reads (`GET /marketplace/collections/:key`, `…/stats`, `…/platform-trades`, `…/market-series`, `GET /marketplace/rwa/:tokenId/trades`, portfolio/market batch snapshots) also filter by that chain’s RWA `token_contract` and USDC address. Shared `collection_key` / Cardhedger snapshots stay cross-chain by design.
+Collection detail orderbook and market reads (`GET /marketplace/collections/:key`, `…/stats`, `…/platform-trades`, `…/market-series`, `GET /marketplace/rwa/:tokenId/trades`, portfolio/market batch snapshots) also filter by that chain’s RWA `token_contract` and USDC address. Public and admin collection lists include a card only when this contract has an order or token, or the catalog row is stamped with this RWA address (`marketplace_collections.token_contract`). Unstamped drafts with no activity are leftover catalogs, not a live marketplace.
 
 `portfolio_daily_snapshots` are unique on `(wallet_address, snapshot_date_kst, chain_id)`. The 09:00 KST cron captures each configured chain separately; `GET /marketplace/portfolio/daily/:wallet` returns history for the request chain only.
 
 Admin platform analytics (`GET /marketplace/admin/analytics`) scopes mints / orders / GMV / holdings / snapshot counts to the request chain. Users, watchlist, and collection catalog totals remain global.
 
-Collection bootstrap (`ensureCollectionForListing`), mint-previews, on-mint sync, and P2P create/list honor `x-tokenable-chain-id` (or the order’s `token_contract`). Snapshot refresh discovery / daily prewarm only consider activity on configured RWA contracts.
+Collection bootstrap (`ensureCollectionForListing`), mint-previews, and on-mint sync honor `x-tokenable-chain-id` (or the order’s `token_contract`). Snapshot refresh discovery / daily prewarm only consider activity on configured RWA contracts.
 
 Public app users are locked to Sepolia (`PUBLIC_APP_CHAIN_ID = 11155111`). The network switcher is internal/dev-only. Vault open cycles remain global per PSA cert — a cert with an open Sepolia vault submission cannot be reminted on Polygon until that cycle closes.

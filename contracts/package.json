@@ -10,8 +10,6 @@
     "deploy:rwa:sepolia": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network sepolia",
     "deploy:rwa:polygon": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network polygon",
     "deploy:rwa:mainnet": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network mainnet",
-    "deploy:escrow:sepolia": "hardhat run scripts/deploy-payment-escrow.ts --network sepolia",
-    "test:escrow": "hardhat test test/TokenablePaymentEscrow.test.ts",
     "upgrade:rwa:sepolia": "hardhat run scripts/upgrade-tokenable-rwa.ts --network sepolia",
     "upgrade:rwa:polygon": "hardhat run scripts/upgrade-tokenable-rwa.ts --network polygon",
     "upgrade:rwa:mainnet": "hardhat run scripts/upgrade-tokenable-rwa.ts --network mainnet",

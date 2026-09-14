@@ -16,7 +16,6 @@ The marketplace domain is organized into **ten submodules** (folders under `mark
 | `marketplace/portfolio/` | Daily wallet snapshots + `portfolio_holdings.hidden_at` |
 | `marketplace/watchlist/` | Per-user saved collections |
 | `marketplace/admin/` | Marketplace admin auth (username/password, separate from `users`) |
-| `marketplace/p2p/` | Custody P2P listings + payment escrow orders |
 | `marketplace/partners/` | Partner wallets / origin address for self-vault |
 | `marketplace/notifications/` | In-app inbox (bid / trade / vault / price) |
 
@@ -37,7 +36,7 @@ Cross-cutting:
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, helmet, compression, CORS, ValidationPipe, Swagger, perf logger
-├── app.module.ts            # Root — TypeORM (36 entities), ScheduleModule, EventEmitter, CacheModule
+├── app.module.ts            # Root — TypeORM (34 entities), ScheduleModule, EventEmitter, CacheModule
 │
 ├── config/
 │   ├── app.config.ts
@@ -75,7 +74,6 @@ backend/src/
 │   ├── blockchain.service.ts
 │   ├── rwa-chain-writer.service.ts
 │   ├── chain-config.service.ts
-│   ├── payment-escrow-writer.service.ts
 │   └── ipfs-gateway-resolver.service.ts
 │
 ├── psa/                     # Slab OCR, analyze-by-cert, PSA Public API
@@ -99,12 +97,11 @@ backend/src/
     ├── snapshots/
     ├── portfolio/
     ├── watchlist/
-    ├── p2p/
     ├── partners/
     └── notifications/
 ```
 
-**Entities (TypeORM):** `app.module.ts` registers **36** classes (users + shipping + wallets + KYC, vault lifecycle including PSA arrival/vaulted reviews and redeem payment claims, marketplace core, P2P, notifications, self-vault settlements, portfolio/watchlist/buyer alerts, partners + bulk mint, Cardhedger price infra, `RwaOwnerIndexCursor`). Table list: [database.md](./database.md).
+**Entities (TypeORM):** `app.module.ts` registers **34** classes (users + shipping + wallets + KYC, vault lifecycle including PSA arrival/vaulted reviews and redeem payment claims, marketplace core, notifications, self-vault settlements, portfolio/watchlist/buyer alerts, partners + bulk mint, Cardhedger price infra, `RwaOwnerIndexCursor`). Table list: [database.md](./database.md).
 
 ---
 

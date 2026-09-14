@@ -205,6 +205,8 @@ export const SELL_SHIPMENT_KEY = "tk_sell_shipment";
 export const SELL_SUBMISSION_PUBLIC_ID_KEY = "tk_sell_submission_public_id";
 /** In-progress UI step + shipping form fields (survives refresh / tab close). Card drafts are local-only until shipping. */
 export const SELL_FLOW_PROGRESS_KEY = "tk_sell_flow_progress";
+/** One-shot: shipping Back should reopen add-cards, not the terms screen. */
+const SELL_FLOW_RESUME_CARDS_KEY = "tk_sell_flow_resume_cards";
 /** Which Tokenable user owns the current browser sell draft (prevents cross-account leaks). */
 const SELL_FLOW_OWNER_KEY = "tk_sell_flow_owner";
 /** Bump only to drop offline-only fake In Transit shipments (not card drafts). */
@@ -483,6 +485,25 @@ export function readSellFlowProgress(): SellFlowProgress {
     });
   } catch {
     return defaultSellFlowProgress();
+  }
+}
+
+export function markSellFlowResumeCards() {
+  try {
+    sessionStorage.setItem(SELL_FLOW_RESUME_CARDS_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True once per shipping Back. Cleared immediately so a refresh starts at terms. */
+export function consumeSellFlowResumeCards(): boolean {
+  try {
+    const on = sessionStorage.getItem(SELL_FLOW_RESUME_CARDS_KEY) === "1";
+    if (on) sessionStorage.removeItem(SELL_FLOW_RESUME_CARDS_KEY);
+    return on;
+  } catch {
+    return false;
   }
 }
 

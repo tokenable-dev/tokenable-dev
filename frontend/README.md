@@ -14,7 +14,6 @@ pnpm dev
 |-------|---------|
 | `/` | Landing + Card Ladder market indexes |
 | `/markets` | Collection list / exchange (legacy `/exchange` redirects here) |
-| `/markets/top100/card/[cardId]` | Top 100 card detail |
 | `/portfolio` | Holdings + daily chart |
 | `/watchlist` | Saved collections (login required) |
 | `/vault` | PSA mint wizard (IPFS + on-chain mint) |

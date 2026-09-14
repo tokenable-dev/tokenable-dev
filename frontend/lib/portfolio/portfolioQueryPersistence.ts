@@ -13,7 +13,9 @@ import type { PortfolioAssetsPageResponse } from "@/lib/core/api/portfolio-asset
 import { activeRqChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
-const SCHEMA = 5;
+const SCHEMA = 6;
+/** Keep a just-bought tile only until owner_wallet index catches up. */
+const OPTIMISTIC_BUY_MAX_AGE_MS = 3 * 60 * 1000;
 /** Paint-time cache TTL — matches marketplace list persistence. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 const LS_PREFIX = "tokenable.rq.portfolio.v1.";
@@ -78,15 +80,20 @@ export function mergeHoldingRowsPreferLiveBuy(
 
 export function paintedMarketplaceBuyTokenIds(
   holdings: PortfolioHoldingBatchItem[] | undefined,
+  now = Date.now(),
+  maxAgeMs = OPTIMISTIC_BUY_MAX_AGE_MS,
 ): number[] {
   return (holdings ?? [])
-    .filter(
-      (h) =>
-        h.costBasisSource === "marketplace_buy" &&
-        h.costBasisUsd != null &&
-        Number.isFinite(h.costBasisUsd),
-    )
-    .map((h) => h.tokenId);
+    .filter((h) => {
+      if (h.costBasisSource !== "marketplace_buy") return false;
+      if (h.costBasisUsd == null || !Number.isFinite(h.costBasisUsd)) return false;
+      const acquired = h.acquiredAt ? Date.parse(h.acquiredAt) : NaN;
+      if (!Number.isFinite(acquired)) return false;
+      const age = now - acquired;
+      return age >= 0 && age < maxAgeMs;
+    })
+    .map((h) => h.tokenId)
+    .filter((id) => Number.isFinite(id) && id > 0);
 }
 
 export function readPortfolioBundle(
@@ -455,12 +462,16 @@ function flushPortfolioWallet(
         ? tokenIds
         : (existing?.tokenIds ?? []);
   const resolvedTokenIds = [
-    ...new Set([...baseTokenIds, ...paintedMarketplaceBuyTokenIds(existing?.holdings)]),
+    ...new Set([
+      ...baseTokenIds,
+      ...paintedMarketplaceBuyTokenIds(existing?.holdings),
+    ]),
   ];
+  const owned = new Set(resolvedTokenIds);
   const holdingsMerged = mergeHoldingRowsPreferLiveBuy(
     holdings,
     existing?.holdings,
-  );
+  ).filter((h) => owned.has(h.tokenId));
 
   let mintPreviews: Record<number, CollectionMarketPreview> =
     existing?.mintPreviews ?? {};
@@ -571,15 +582,17 @@ export function persistPortfolioAccumulated(input: {
     persistAccumulatedTimer = null;
     const address = input.address.trim().toLowerCase();
     const existing = readPortfolioBundle(address, input.chainId);
+    const tokenIds = [
+      ...new Set([
+        ...input.tokenIds,
+        ...paintedMarketplaceBuyTokenIds(existing?.holdings),
+      ]),
+    ];
+    const owned = new Set(tokenIds);
     writePortfolioBundle({
       address,
       chainId: input.chainId,
-      tokenIds: [
-        ...new Set([
-          ...input.tokenIds,
-          ...paintedMarketplaceBuyTokenIds(existing?.holdings),
-        ]),
-      ],
+      tokenIds,
       bffLoadedCount: input.bffLoadedCount,
       fetchedTokenIds: input.fetchedTokenIds,
       metadataItems: input.metadataItems,
@@ -588,7 +601,7 @@ export function persistPortfolioAccumulated(input: {
       holdings: mergeHoldingRowsPreferLiveBuy(
         input.holdings,
         existing?.holdings,
-      ),
+      ).filter((h) => owned.has(h.tokenId)),
       mintPreviews: input.mintPreviews,
       unmatchedMintTokenIds: input.unmatchedMintTokenIds,
       dailySnapshots: existing?.dailySnapshots,

@@ -13,6 +13,7 @@ import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { stripTrailingRawGradeLabel } from "@/lib/marketplace/cardDisplayName";
+import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
 
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
 
@@ -23,10 +24,6 @@ const BIDS_SORT_OPTIONS = [
   { key: "ask", label: "Ask price" },
   { key: "expires", label: "Expires" },
 ] as const;
-
-function collectionHref(collectionKey: string) {
-  return `/marketplace/collections/${encodeURIComponent(collectionKey)}`;
-}
 
 function isOutbidByBook(
   bidPriceUsdc: number,
@@ -303,11 +300,10 @@ export function PortfolioCollectionBidsSection({
               <tr key={bid.orderHash} className={rowClass || undefined}>
                 <td data-label="Card">
                   <Link
-                    href={
-                      bid.tokenId && bid.tokenId !== "0"
-                        ? `/marketplace/${encodeURIComponent(bid.tokenId)}`
-                        : collectionHref(bid.collectionKey)
-                    }
+                    href={collectionDetailHref(bid.collectionKey, {
+                      listingTokenId:
+                        bid.tokenId && bid.tokenId !== "0" ? bid.tokenId : null,
+                    })}
                     className="pf-table-card-cell"
                   >
                     <div className="pf-table-thumb pf-table-thumb--lg">

@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Order, OrderListItem } from "@/lib/core";
+import {
+  collectionDetailHref,
+  resolveCollectionDetailHref,
+} from "@/lib/marketplace/collectionBrowseContext";
 
 export type OrderBookRow = Order | OrderListItem;
 
@@ -11,6 +16,57 @@ function priceUsdc(o: OrderBookRow): number {
     return Number(o.considerationAmount) / 1_000_000;
   }
   return Number((o as OrderListItem).price) / 1_000_000;
+}
+
+function orderCollectionKey(o: OrderBookRow): string | null {
+  const raw = "collectionKey" in o ? o.collectionKey : null;
+  const key = typeof raw === "string" ? raw.trim() : "";
+  return key || null;
+}
+
+function ListingLink({
+  order,
+  tokenId,
+  className,
+  children,
+}: {
+  order: OrderBookRow;
+  tokenId: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const key = orderCollectionKey(order);
+  if (key) {
+    return (
+      <Link
+        href={collectionDetailHref(key, { listingTokenId: tokenId })}
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={busy}
+      onClick={() => {
+        void (async () => {
+          setBusy(true);
+          try {
+            router.push(await resolveCollectionDetailHref(tokenId, null));
+          } finally {
+            setBusy(false);
+          }
+        })();
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
 /** 마켓플레이스 — 매도(ask) 호가를 거래소 식으로 나열 */
@@ -88,10 +144,11 @@ export function MarketplaceOrderBook({
           rows.map(({ order, price, tokenId }) => {
             const depth = price / maxPrice;
             return (
-              <Link
+              <ListingLink
                 key={order.orderHash}
-                href={`/marketplace/${tokenId}`}
-                className={`relative flex items-center rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors group ${
+                order={order}
+                tokenId={tokenId}
+                className={`relative flex w-full items-center rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors group text-left ${
                   isFull ? "min-h-[44px]" : ""
                 }`}
               >
@@ -111,7 +168,7 @@ export function MarketplaceOrderBook({
                     #{tokenId}
                   </span>
                 </div>
-              </Link>
+              </ListingLink>
             );
           })
         )}

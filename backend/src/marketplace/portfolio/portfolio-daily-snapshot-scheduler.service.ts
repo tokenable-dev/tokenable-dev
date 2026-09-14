@@ -51,7 +51,7 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
   /**
    * Daily capture at 09:20 KST for all on-chain holders + tracked zero-card
    * wallets. Staggered after the 09:00 collection-market prewarm so the three
-   * daily jobs (prewarm → portfolio → top100) don't contend for DB/RPC/upstream
+   * daily jobs (prewarm → portfolio) don't contend for DB/RPC/upstream
    * quota at the same instant. Snapshot slots are keyed by KST date, so the
    * shifted time lands in the same daily slot.
    */

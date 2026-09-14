@@ -8,12 +8,11 @@ import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.mo
 import { MarketplaceBuyerListingAlertModule } from './buyer-listing-alert/marketplace-buyer-listing-alert.module';
 import { MarketplaceWatchlistModule } from './watchlist/marketplace-watchlist.module';
 import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
-import { MarketplaceP2pModule } from './p2p/marketplace-p2p.module';
 import { MarketplaceNotificationsModule } from './notifications/marketplace-notifications.module';
 import { SelfVaultSettlementModule } from './settlement/self-vault-settlement.module';
 
 /**
- * Marketplace domain — orders, collections, materialized snapshots, portfolio, Cardhedger market data, P2P.
+ * Marketplace domain — orders, collections, materialized snapshots, portfolio, Cardhedger market data.
  */
 @Module({
   imports: [
@@ -26,7 +25,6 @@ import { SelfVaultSettlementModule } from './settlement/self-vault-settlement.mo
     MarketplaceBuyerListingAlertModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
-    MarketplaceP2pModule,
     MarketplaceNotificationsModule,
     SelfVaultSettlementModule,
   ],
@@ -40,7 +38,6 @@ import { SelfVaultSettlementModule } from './settlement/self-vault-settlement.mo
     MarketplaceBuyerListingAlertModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
-    MarketplaceP2pModule,
     MarketplaceNotificationsModule,
     SelfVaultSettlementModule,
   ],

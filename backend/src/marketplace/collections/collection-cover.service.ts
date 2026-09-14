@@ -11,6 +11,7 @@ import {
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
 } from '../utils/cardhedger-psa-variety.util';
+import { catalogTcgPrefixedNumberCompatible } from '../utils/card-match.util';
 import {
   isHttpOrHttpsUrl,
   normalizeImageUrl,
@@ -547,7 +548,10 @@ export class CollectionCoverService {
         if (!bestFirst) bestFirst = row;
         const rowNum = norm(String(row.number ?? '')).replace(/^#/, '');
         const rowDesc = norm(String(row.description ?? row.name ?? ''));
-        const numOk = !wantNum || rowNum === wantNum;
+        const numOk =
+          !wantNum ||
+          rowNum === wantNum ||
+          catalogTcgPrefixedNumberCompatible(cardNumber, String(row.number ?? ''));
         const nameOk =
           wantNameWords.length === 0 ||
           wantNameWords.every((w) => rowDesc.includes(w));
@@ -699,7 +703,13 @@ export class CollectionCoverService {
           const rowNum = normNum(String(row.number ?? ''));
           const rowDesc = normStr(String(row.description ?? row.name ?? ''));
           const rowSet = normStr(String(row.set ?? ''));
-          const numOk = !wantNum || rowNum === wantNum;
+          const numOk =
+            !wantNum ||
+            rowNum === wantNum ||
+            catalogTcgPrefixedNumberCompatible(
+              cardNumber,
+              String(row.number ?? ''),
+            );
           const nameOk =
             wantNameWords.length === 0 ||
             wantNameWords.every((w) => rowDesc.includes(w));

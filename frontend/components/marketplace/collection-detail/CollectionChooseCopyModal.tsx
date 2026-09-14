@@ -18,7 +18,7 @@ function vaultAccent(tone: "psa" | "partner"): string {
   return tone === "psa" ? "#5B9AFF" : "#00C350";
 }
 
-/** Card.html vault chip — first word only (`PSA`, `Tokenable`). */
+/** Card.html vault chip — first word only (`PSA`, `TOKN`). */
 function vaultShortCode(label: string): string {
   const first = label.trim().split(/\s+/)[0] ?? label;
   return first || "Vault";

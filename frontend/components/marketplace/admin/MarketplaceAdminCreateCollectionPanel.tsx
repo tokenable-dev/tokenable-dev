@@ -71,7 +71,9 @@ export function MarketplaceAdminCreateCollectionPanel({
         No mint or listing required. Looks up the cert on PSA, pulls a Cardhedger
         catalog image into S3 when available, creates a marketplace bucket as{" "}
         <span className="font-medium">Pending review</span>, then you Approve for
-        Markets. You can also upload a cover manually on the row below.
+        Markets. Bids can be placed before any copy is minted; sellers can fill
+        only after a card is minted and the bidder updates that offer. You can
+        also upload a cover manually on the row below.
       </p>
 
       <form

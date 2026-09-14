@@ -9,7 +9,7 @@ export type CollectionDetailTradeTab = "buy" | "bid" | "sell";
 /** One selectable copy in Buy / Sell cert carousels (Card.html `#tk-trade`). */
 export type CollectionTradeCertItem = {
   tokenId: number;
-  /** e.g. `Cert. 64950960 · Tokenable Vault` */
+  /** e.g. `Cert. 64950960 · TOKN Vault` */
   label: string;
   /** Buy tab: ask price for this listing. */
   priceUsd?: number;
@@ -131,7 +131,7 @@ function CertCarousel({
 
 /**
  * Card.html `#tk-trade` — Buy | Bid | Sell ticket on the detail rail.
- * Panel height is locked (all tab bodies stacked); no warning rows.
+ * Inactive tabs are taken out of flow so loading copy cannot stretch the box.
  */
 export function CollectionDetailTradePanel({
   buyItems = [],

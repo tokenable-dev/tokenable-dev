@@ -31,6 +31,7 @@ import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import {
   bidMerkleRootMatchesCollection,
   fetchMerkleSnapshotForMatch,
+  isPendingInventoryCollectionBid,
 } from "@/lib/seaport/criteria/collectionCriteriaRoot";
 import {
   runCriteriaMatch,
@@ -316,6 +317,19 @@ async function tryMatchAfterListing(
     const candidates = orderMatchCandidates(merkleOk, deps.preferredBidForMatch);
 
     if (candidates.length === 0) {
+      // Catalog / empty-set bids sign a sentinel root — not fillable until the
+      // buyer re-signs. Listing should still succeed (same as “no crossing bid”).
+      if (
+        pricedBids.length > 0 &&
+        pricedBids.every((b) => isPendingInventoryCollectionBid(b))
+      ) {
+        lastMeta = {
+          matched: false,
+          reasonCode: undefined,
+          hint: undefined,
+        };
+        break;
+      }
       lastMeta = {
         matched: false,
         reasonCode: "merkle_mismatch",

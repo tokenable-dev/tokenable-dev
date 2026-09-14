@@ -23,7 +23,6 @@ export function HomeHero() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="home-hero__bg" src={ASSETS.home.heroBg} alt="" />
       <div className="home-hero__vignette" aria-hidden />
-      <div className="home-hero__fade" aria-hidden />
       <HomeHeroSlabCarousel heroRef={heroRef} mobileSlotRef={mobileSlotRef} />
 
       <div className="home-hero__content">
@@ -50,10 +49,7 @@ export function HomeHero() {
 
           <div className="home-hero__cta home-hero__reveal home-hero__reveal--2">
             <TkButton href="/markets" variant="primary" className="home-hero__browse-btn">
-              Browse all markets{" "}
-              <span className="home-hero__browse-link-arrow" aria-hidden>
-                ↗
-              </span>
+              Browse all markets
             </TkButton>
           </div>
 
@@ -77,11 +73,6 @@ export function HomeHero() {
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="home-hero__scroll" aria-hidden>
-        <span className="home-hero__scroll-label">Scroll</span>
-        <span className="home-hero__scroll-line" />
       </div>
     </section>
   );

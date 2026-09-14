@@ -64,6 +64,39 @@ export function readCollectionBrowseContext(): CollectionBrowseContext | null {
   }
 }
 
-export function collectionDetailHref(collectionKey: string): string {
-  return `/marketplace/collections/${encodeURIComponent(collectionKey)}`;
+/** Canonical marketplace listing URL (collection detail, optional copy focus). */
+export function collectionDetailHref(
+  collectionKey: string,
+  opts?: { listingTokenId?: string | number | null; checkout?: string | null },
+): string {
+  const base = `/marketplace/collections/${encodeURIComponent(collectionKey)}`;
+  const qs = new URLSearchParams();
+  const tid =
+    opts?.listingTokenId != null ? String(opts.listingTokenId).trim() : "";
+  if (tid && tid !== "0") qs.set("listing", tid);
+  const checkout = opts?.checkout?.trim();
+  if (checkout) qs.set("checkout", checkout);
+  const q = qs.toString();
+  return q ? `${base}?${q}` : base;
+}
+
+/**
+ * Prefer known collectionKey; otherwise resolve via mint registry.
+ * Falls back to `/markets` when the token has no bucket.
+ */
+export async function resolveCollectionDetailHref(
+  tokenId: string | number,
+  collectionKey?: string | null,
+): Promise<string> {
+  const key = collectionKey?.trim();
+  if (key) return collectionDetailHref(key, { listingTokenId: tokenId });
+
+  const idNum = Number(tokenId);
+  if (!Number.isFinite(idNum) || idNum < 0) return "/markets";
+
+  const { postTokenCollectionKeysByTokenIds } = await import("@/lib/core");
+  const map = await postTokenCollectionKeysByTokenIds([idNum]);
+  const resolved = map[idNum]?.trim();
+  if (resolved) return collectionDetailHref(resolved, { listingTokenId: tokenId });
+  return "/markets";
 }

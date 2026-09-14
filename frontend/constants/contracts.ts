@@ -139,6 +139,13 @@ export const TOKENABLE_RWA_APPROVE_ABI = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "", type: "address" }],
   },
+  {
+    name: "ownerOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
 ] as const;
 
 // ─── USDC ABI ─────────────────────────────────────────────────────────────────
@@ -256,6 +263,18 @@ export const SEAPORT_ABI = [
       { name: "fulfillerConduitKey", type: "bytes32" },
     ],
     outputs: [{ name: "fulfilled", type: "bool" }],
+  },
+  {
+    name: "getOrderStatus",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "orderHash", type: "bytes32" }],
+    outputs: [
+      { name: "isValidated", type: "bool" },
+      { name: "isCancelled", type: "bool" },
+      { name: "totalFilled", type: "uint256" },
+      { name: "totalSize", type: "uint256" },
+    ],
   },
 ] as const;
 

@@ -2,9 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
+import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
 import {
   clearKycReturnTo,
@@ -52,7 +54,10 @@ export default function KycPage() {
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
   const initialized = useAuthStore((s) => s.initialized);
+  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const setUser = useAuthStore((s) => s.setUser);
+  const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -69,12 +74,39 @@ export default function KycPage() {
   const bootingRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollAttemptsRef = useRef(0);
+  const guestPrompted = useRef(false);
 
   useEffect(() => {
-    if (!loading && initialized && !user) {
-      router.replace("/login");
+    if (
+      shouldDeferGuestSignIn({
+        authInitialized: initialized,
+        authLoading: loading,
+        user,
+        privyReady,
+        privyAuthenticated,
+        privySessionSyncing,
+      }) ||
+      guestPrompted.current
+    ) {
+      return;
     }
-  }, [user, loading, initialized, router]);
+    guestPrompted.current = true;
+    openSignIn({ returnTo: "/kyc" });
+    router.replace("/");
+  }, [
+    initialized,
+    loading,
+    user,
+    privyReady,
+    privyAuthenticated,
+    privySessionSyncing,
+    openSignIn,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (user) guestPrompted.current = false;
+  }, [user]);
 
   const stopStatusPoll = useCallback(() => {
     if (pollTimerRef.current) {

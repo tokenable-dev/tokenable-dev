@@ -16,14 +16,13 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
 | `/marketplace/admin/data-inventory` | **데이터 인벤토리** | Schema map (PK/UK/FK + logical joins) at the top, then all `public` tables — **estimated** row counts (`reltuples`; exact COUNT only when the estimate is 0), how each table is written, paginated raw row browser (browse still uses exact COUNT) |
 | `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
-| `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, legacy KYC/wallet tools below |
+| `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, Origin/key/rename, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, register missing slab front/back to S3, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
 | `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | One row per sale (`order_hash`); resales before auto-pay show as Sale N of M. Pay early (~95% USDC) or wait ~5 min; reject to skip |
-| `/marketplace/admin/partners` | **Partners** | Company display name + wallet for Self vault; optional encrypted PK for consignment mint & list |
 | `/marketplace/admin/bulk-mint` | **Partner bulk mint** | Excel cert+price → PSA prepare → mint to company wallet + Seaport list (Listed/Sold). Any admin session for now |
-| `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
+| `/marketplace/admin/markets` | **Markets preview** | Home landing (90d top movers + just vaulted) |
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
 | `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
@@ -32,9 +31,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/vault/submissions` | **Submissions** | Sell-flow packages (ready-to-ship → PSA → mint) — mark arrived, approve/reject; legacy draft tile only if any remain |
 | `/marketplace/admin/vault` | **Vault / PSA** | Mint-only PSA tools (`analyze-by-cert`, slab OCR). Raw Public API proxies disabled |
 
-Legacy redirects: `/marketplace/admin/analytics` → Overview; `/top100` and `/top-movers` → `/markets?tab=…`.
-
-Nested admin route: `/marketplace/admin/top100/card/[cardId]` — Top 100 card detail (admin routing).
+Legacy redirects: `/marketplace/admin/analytics` → Overview.
 
 ---
 
@@ -83,7 +80,7 @@ Pattern: **Page → Component → Hook → API** (same as the rest of the fronte
 app/marketplace/admin/
   layout.tsx              → MarketplaceAdminGate (session + shell)
   page.tsx                → MarketplaceAdminOverviewPage
-  analytics/page.tsx      → MarketplaceAdminAnalyticsPage
+  analytics/page.tsx      → redirect → Overview
   users/page.tsx          → MarketplaceAdminUsersPage
   users/[id]/page.tsx     → MarketplaceAdminUserDetailPage
   …
@@ -189,7 +186,7 @@ Requires `GA4_PROPERTY_ID` + service account JSON. `Ga4AnalyticsService` support
 
 ### Users
 
-Korean list UI (`전체 유저` / `플래그·제한` stub). Filters: KYC, account status (restricted/suspended empty until schema exists), role (partner vs individual via wallet ∩ `marketplace_partners`). Row navigates to `/marketplace/admin/users/:id` (UUID). Detail: **파트너 승인** modal (`displayName` + wallet → `POST /partners`) or **파트너 해제** (`PATCH isActive: false`); strike / 계정 제한 / 판매 정지 buttons alert “준비 중”. Legacy KYC/wallet/delete tools remain on the detail page footer. Display short id `U-` + first 5 hex of UUID is cosmetic only.
+Korean list UI (`전체 유저` / `플래그·제한` stub). Filters: KYC, account status (restricted/suspended empty until schema exists), role (partner vs individual via wallet ∩ `marketplace_partners`). Row navigates to `/marketplace/admin/users/:id` (UUID). Detail: **파트너 승인** modal (`displayName` + wallet + optional mint PK → `POST /partners`) or **파트너 해제** (`PATCH isActive: false`); active partners get vault panel (rename / Origin / key add-rotate). Strike / 계정 제한 / 판매 정지 buttons alert “준비 중”. Legacy KYC/wallet/delete tools remain on the detail page footer. Display short id `U-` + first 5 hex of UUID is cosmetic only.
 
 | Method | Path |
 |--------|------|
@@ -219,7 +216,7 @@ List/detail enrichment: `role`, `partner`, `custodyCardCount` (minted vault cycl
 |--------|------|
 | `GET` | `/marketplace/collections?reviewStatus=pending_review\|active\|rejected\|all` (admin cookie) |
 | `GET` | `/marketplace/collections/admin/review-counts` |
-| `POST` | `/marketplace/collections/admin/create-from-cert` body `{ certNumber }` — catalog create without mint |
+| `POST` | `/marketplace/collections/admin/create-from-cert` body `{ certNumber }` — catalog create without mint (PSA + Cardhedger only). Starts `pending_review`. Place Bid works after Approve; fill needs a minted copy and a re-signed bid. |
 | `POST` | `/marketplace/collections/:key/admin/review` body `{ reviewStatus }` |
 | `POST` | `/marketplace/collections/:key/admin/cover` |
 | `POST` | `/marketplace/collections/:key/admin/cover/upload` |

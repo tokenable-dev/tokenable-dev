@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrderSide, OrderStatus } from '../entities/order.entity';
 
@@ -39,16 +40,14 @@ describe('OrdersService ownership after settle', () => {
   const chainConfig = {
     getDefaultChainId: jest.fn().mockReturnValue(84532),
     getRwaAddress: jest.fn().mockReturnValue('0xrwa'),
+    createJsonRpcProvider: jest.fn(),
   };
-  const p2pListings = {};
-
   let service: OrdersService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     service = new OrdersService(
       orderRepo as never,
-      p2pListings as never,
       config as never,
       collectionService as never,
       chainConfig as never,
@@ -61,6 +60,11 @@ describe('OrdersService ownership after settle', () => {
       selfVaultSettlements as never,
       ownerIndex as never,
     );
+    (
+      service as unknown as {
+        assertSeaportOrderFilledOnChain: () => Promise<void>;
+      }
+    ).assertSeaportOrderFilledOnChain = jest.fn().mockResolvedValue(undefined);
   });
 
   it('fulfillOrder ask writes owner_wallet for buyer immediately', async () => {
@@ -140,5 +144,116 @@ describe('OrdersService ownership after settle', () => {
       '7',
       '0xbuyer000000000000000000000000000000002',
     );
+  });
+
+  it('fulfillOrder ask settles when ownerOf is the buyer after a Seaport status miss', async () => {
+    const ask = {
+      id: '1',
+      orderHash: '0xask',
+      status: OrderStatus.ACTIVE,
+      side: OrderSide.ASK,
+      tokenContract: '0xRwa',
+      tokenId: '42',
+      considerationAmount: '1000000',
+      offerer: '0xSeller00000000000000000000000000000001',
+      parameters: {
+        offer: [{ itemType: 2, identifier: '42' }],
+        consideration: [{ itemType: 1, startAmount: '1000000' }],
+      },
+      updatedAt: new Date(),
+    };
+    orderRepo.findOne.mockResolvedValue({ ...ask });
+    orderRepo.save.mockImplementation(async (o: typeof ask) => o);
+    (
+      service as unknown as { assertSeaportOrderFilledOnChain: jest.Mock }
+    ).assertSeaportOrderFilledOnChain.mockRejectedValue(
+      new BadRequestException('On-chain Seaport fill was not found'),
+    );
+    (
+      service as unknown as {
+        readOnChainRwaOwner: () => Promise<string>;
+      }
+    ).readOnChainRwaOwner = jest
+      .fn()
+      .mockResolvedValue('0xbuyer000000000000000000000000000000001');
+
+    await service.fulfillOrder(
+      '0xask',
+      '0xBuyer000000000000000000000000000000001',
+      11155111,
+    );
+
+    expect(ownerIndex.recordOwner).toHaveBeenCalledWith(
+      '0xRwa',
+      '42',
+      '0xbuyer000000000000000000000000000000001',
+    );
+  });
+
+  it('fulfillOrder does not write owner_wallet when Seaport did not fill', async () => {
+    const ask = {
+      id: '1',
+      orderHash: '0xask',
+      status: OrderStatus.ACTIVE,
+      side: OrderSide.ASK,
+      tokenContract: '0xRwa',
+      tokenId: '42',
+      considerationAmount: '1000000',
+      offerer: '0xSeller00000000000000000000000000000001',
+      parameters: {
+        offer: [{ itemType: 2, identifier: '42' }],
+      },
+    };
+    orderRepo.findOne.mockResolvedValue({ ...ask });
+    (
+      service as unknown as { assertSeaportOrderFilledOnChain: jest.Mock }
+    ).assertSeaportOrderFilledOnChain.mockRejectedValue(
+      new Error('On-chain Seaport fill was not found'),
+    );
+
+    await expect(
+      service.fulfillOrder(
+        '0xask',
+        '0xBuyer000000000000000000000000000000001',
+        11155111,
+      ),
+    ).rejects.toThrow(/not found/);
+
+    expect(ownerIndex.recordOwner).not.toHaveBeenCalled();
+    expect(orderRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('cancels a leftover ask when the listing wallet is not the on-chain owner', async () => {
+    const leftover = {
+      orderHash: '0xstale',
+      status: OrderStatus.ACTIVE,
+      side: OrderSide.ASK,
+      offerer: '0x2925a6fa34c2cf44b3d2857777d7a301077211f7',
+      tokenId: '3',
+      tokenContract: '0xrwa',
+      parameters: {},
+    };
+    orderRepo.findOne.mockResolvedValue(leftover);
+    orderRepo.save.mockImplementation(async (o: typeof leftover) => o);
+    (
+      service as unknown as {
+        readOnChainRwaOwner: (c: string, t: string, chain: number) => Promise<string>;
+      }
+    ).readOnChainRwaOwner = jest
+      .fn()
+      .mockResolvedValue('0xc85b1530f8e272647c15f4100582d14a2d452256');
+
+    await (
+      service as unknown as {
+        cancelActiveAskIfOffererUnowned: (
+          c: string,
+          t: string,
+          chain: number,
+        ) => Promise<void>;
+      }
+    ).cancelActiveAskIfOffererUnowned('0xrwa', '3', 11155111);
+
+    expect(leftover.status).toBe(OrderStatus.CANCELLED);
+    expect(orderRepo.save).toHaveBeenCalled();
   });
 });

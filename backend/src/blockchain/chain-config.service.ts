@@ -31,7 +31,7 @@ export class ChainConfigService {
   }
 
   /**
-   * Chain-sensitive writes (mint / upload / redeem / bulk-mint / P2P vault).
+   * Chain-sensitive writes (mint / upload / redeem / bulk-mint).
    * Never silently fall back to DEFAULT_CHAIN_ID — a missing header would
    * reserve a Sepolia vault cycle while the UI shows Polygon (or vice versa).
    */
@@ -126,18 +126,6 @@ export class ChainConfigService {
     if (fromMap && ADDR.test(fromMap)) return fromMap;
     throw new BadRequestException(
       `USDC contract not configured for chain ${chainId}`,
-    );
-  }
-
-  /** TokenablePaymentEscrow — optional until deployed for the chain. */
-  getPaymentEscrowAddress(chainId: SupportedChainId): string {
-    const fromMap = this.config
-      .get<string>(`CHAIN_${chainId}_PAYMENT_ESCROW_ADDRESS`)
-      ?.trim()
-      .toLowerCase();
-    if (fromMap && ADDR.test(fromMap)) return fromMap;
-    throw new BadRequestException(
-      `Payment escrow not configured for chain ${chainId} — set CHAIN_${chainId}_PAYMENT_ESCROW_ADDRESS`,
     );
   }
 

@@ -81,7 +81,6 @@ function baseInput(
         CardGrade: '10',
         IsValidRequest: true,
       },
-      top100Rank: null,
       listingGradeScore: '10',
     },
     components: {
@@ -138,8 +137,7 @@ describe('buildAiInsightSections', () => {
           },
           watchlistCount: 0,
           psaCertSnapshot: null,
-          top100Rank: null,
-          listingGradeScore: null,
+              listingGradeScore: null,
         },
       }),
     );
