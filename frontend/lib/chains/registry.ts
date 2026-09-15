@@ -128,7 +128,7 @@ const DEV_FALLBACK: Record<
     usdcAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
   },
   11155111: {
-    rpcUrl: "https://rpc.sepolia.org",
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
     rwaAddress: "0x0000000000000000000000000000000000000000",
     usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   },
@@ -143,8 +143,8 @@ const BROWSER_PUBLIC_RPC: Record<SupportedChainId, readonly string[]> = {
   1: ["https://cloudflare-eth.com", "https://ethereum.publicnode.com"],
   137: ["https://polygon-rpc.com", "https://polygon-bor.publicnode.com"],
   11155111: [
-    "https://rpc.sepolia.org",
     "https://ethereum-sepolia-rpc.publicnode.com",
+    "https://sepolia.drpc.org",
   ],
 };
 

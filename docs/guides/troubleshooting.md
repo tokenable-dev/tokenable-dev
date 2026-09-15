@@ -98,6 +98,26 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 
 ---
 
+## Backend log spam: `JsonRpcProvider failed to detect network … retry in 1s`
+
+**Symptom:** Nest stdout floods that line about once per second. `/api/health` still returns 200. Owner-index backfill may still print every ~60s.
+
+**Cause:** ethers `JsonRpcProvider` could not complete `eth_chainId`. It retries **every 1s** by design. Local `CHAIN_11155111_RPC_URL` pointed at Alchemy after the monthly CU cap → 429. `RWA_OWNER_INDEX_ENABLED=1` keeps creating RPC calls (and used to leak a new provider per pass).
+
+**Fix:** Use `https://ethereum-sepolia-rpc.publicnode.com` in `backend/.env` (`CHAIN_11155111_RPC_URL`). Do **not** use `https://rpc.sepolia.org` — that host now returns Apache **404**. Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Code uses `{ staticNetwork: true }` plus a cached provider so a dead RPC does not print this loop.
+
+---
+
+## Owner index: `server response 404 Not Found` at `rpc.sepolia.org`
+
+**Symptom:** After switching off Alchemy, Nest logs `Owner index backfill failed` / `Transfer log poll failed` with HTML `404 Not Found` from Apache on `rpc.sepolia.org`.
+
+**Cause:** That public URL is no longer a JSON-RPC endpoint.
+
+**Fix:** Set `CHAIN_11155111_RPC_URL` (and frontend `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`) to `https://ethereum-sepolia-rpc.publicnode.com`, then restart backend (and frontend if you changed `.env`). Update the same key on EC2 `.env.production.frontend` / `.env.production.backend` if those still point at `rpc.sepolia.org`.
+
+---
+
 ## Markets / collection click — Alchemy CORS + 429 in the browser console
 
 **Symptom:** Console shows `Access to fetch at 'https://eth-sepolia.g.alchemy.com/…' … blocked by CORS` and `429 (Too Many Requests)`. Collection detail may still load from the API; wallet/wagmi calls fail loudly.
@@ -106,7 +126,7 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 
 **Fix (code):** Frontend wagmi prefers public RPCs when the configured URL looks like Alchemy/Infura (`getBrowserRpcUrls`). Redeploy the frontend after this change.
 
-**Fix (ops):** Keep Alchemy on **backend** `CHAIN_*_RPC_URL` only. For `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` use a public endpoint (e.g. `https://rpc.sepolia.org` or `https://ethereum-sepolia-rpc.publicnode.com`), then rebuild the frontend image. Rotate the Alchemy key if it was exposed in the client bundle.
+**Fix (ops):** Keep Alchemy on **backend** `CHAIN_*_RPC_URL` only if the key still has CU. For `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` use `https://ethereum-sepolia-rpc.publicnode.com`, then rebuild the frontend image. Rotate the Alchemy key if it was exposed in the client bundle.
 
 ---
 

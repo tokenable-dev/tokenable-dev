@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JsonRpcProvider } from 'ethers';
 
@@ -10,7 +10,9 @@ export const CHAIN_ID_HEADER = 'x-tokenable-chain-id';
 const ADDR = /^0x[a-fA-F0-9]{40}$/i;
 
 @Injectable()
-export class ChainConfigService {
+export class ChainConfigService implements OnModuleDestroy {
+  private readonly providers = new Map<SupportedChainId, JsonRpcProvider>();
+
   constructor(private readonly config: ConfigService) {}
 
   getDefaultChainId(): SupportedChainId {
@@ -130,13 +132,24 @@ export class ChainConfigService {
   }
 
   /**
-   * JsonRpcProvider with an explicit chain id — skips eth_chainId polling on boot.
-   * Without this, ethers logs "failed to detect network" and retries every 1s when
-   * the RPC is slow, blocked, or not enabled on the provider dashboard.
+   * Cached JsonRpcProvider. `staticNetwork: true` is required — passing chainId
+   * alone still lets ethers poll `eth_chainId` and log
+   * "failed to detect network … retry in 1s" forever on 429 / dead RPC.
    */
   createJsonRpcProvider(chainId?: SupportedChainId): JsonRpcProvider {
     const id = chainId ?? this.getDefaultChainId();
+    const existing = this.providers.get(id);
+    if (existing) return existing;
     const rpcUrl = this.getRpcUrl(id);
-    return new JsonRpcProvider(rpcUrl, id);
+    const provider = new JsonRpcProvider(rpcUrl, id, { staticNetwork: true });
+    this.providers.set(id, provider);
+    return provider;
+  }
+
+  onModuleDestroy(): void {
+    for (const provider of this.providers.values()) {
+      provider.destroy();
+    }
+    this.providers.clear();
   }
 }
