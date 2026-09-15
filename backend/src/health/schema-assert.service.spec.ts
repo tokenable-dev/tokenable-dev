@@ -16,6 +16,39 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes vault_submissions.token_contract', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'vault_submissions' &&
+          r.column === 'token_contract',
+      ),
+    ).toBe(true);
+  });
+
+  it('REQUIRED_SCHEMA includes portfolio_daily_snapshots.token_contract', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'portfolio_daily_snapshots' &&
+          r.column === 'token_contract',
+      ),
+    ).toBe(true);
+  });
+
+  it('REQUIRED_SCHEMA includes marketplace_collections.token_contract', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'marketplace_collections' &&
+          r.column === 'token_contract',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes vault_cycles.mint_attempt (mint crash recovery)', () => {
     expect(
       REQUIRED_SCHEMA.some(

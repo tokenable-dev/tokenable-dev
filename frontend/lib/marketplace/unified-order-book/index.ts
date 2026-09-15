@@ -20,6 +20,7 @@ export {
   formatCollectionDetailSpreadLabel,
   formatOrderBookTotalUsdc,
   formatTradesTapePriceUsdc,
+  formatCollectionDetailTapeDate,
   formatTapeDate,
   formatTapeTimeFull,
   priceUsdcFromOrder,

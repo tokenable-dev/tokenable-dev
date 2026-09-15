@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -11,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CHAIN_ID_HEADER } from '../blockchain/chain-config.service';
 import type { User } from '../user/entities/user.entity';
 import {
   RegisterVaultShipmentDto,
@@ -27,8 +29,11 @@ export class VaultSubmissionsController {
 
   @Get()
   @ApiOperation({ summary: 'List my vault sell-flow submissions' })
-  listMine(@Req() req: Request & { user: User }) {
-    return this.submissions.listForUser(req.user.id);
+  listMine(
+    @Req() req: Request & { user: User },
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.submissions.listForUser(req.user.id, chainHeader);
   }
 
   // Static paths before `:idOrPublicId` so `draft` is never treated as a public id.
@@ -40,8 +45,9 @@ export class VaultSubmissionsController {
   upsertDraft(
     @Req() req: Request & { user: User },
     @Body() dto: UpsertVaultSubmissionDraftDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.submissions.upsertDraft(req.user.id, dto);
+    return this.submissions.upsertDraft(req.user.id, dto, chainHeader);
   }
 
   @Post(':idOrPublicId/packing-slip')
@@ -49,8 +55,13 @@ export class VaultSubmissionsController {
   packingSlip(
     @Req() req: Request & { user: User },
     @Param('idOrPublicId') idOrPublicId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.submissions.markPackingSlipDownloaded(req.user.id, idOrPublicId);
+    return this.submissions.markPackingSlipDownloaded(
+      req.user.id,
+      idOrPublicId,
+      chainHeader,
+    );
   }
 
   @Post(':idOrPublicId/tracking')
@@ -59,8 +70,14 @@ export class VaultSubmissionsController {
     @Req() req: Request & { user: User },
     @Param('idOrPublicId') idOrPublicId: string,
     @Body() dto: RegisterVaultShipmentDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.submissions.registerTracking(req.user.id, idOrPublicId, dto);
+    return this.submissions.registerTracking(
+      req.user.id,
+      idOrPublicId,
+      dto,
+      chainHeader,
+    );
   }
 
   @Patch(':idOrPublicId/draft')
@@ -71,11 +88,16 @@ export class VaultSubmissionsController {
     @Req() req: Request & { user: User },
     @Param('idOrPublicId') idOrPublicId: string,
     @Body() dto: UpsertVaultSubmissionDraftDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.submissions.upsertDraft(req.user.id, {
-      ...dto,
-      publicId: idOrPublicId,
-    });
+    return this.submissions.upsertDraft(
+      req.user.id,
+      {
+        ...dto,
+        publicId: idOrPublicId,
+      },
+      chainHeader,
+    );
   }
 
   @Get(':idOrPublicId')
@@ -83,7 +105,8 @@ export class VaultSubmissionsController {
   getOne(
     @Req() req: Request & { user: User },
     @Param('idOrPublicId') idOrPublicId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.submissions.getForUser(req.user.id, idOrPublicId);
+    return this.submissions.getForUser(req.user.id, idOrPublicId, chainHeader);
   }
 }

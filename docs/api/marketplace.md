@@ -339,6 +339,8 @@ Batch fetches list-row snapshots from **materialized** `collection_market_snapsh
 
 Returns collection detail + active listings + collection bids + representative image URL.
 
+Response is served from Postgres. Optional RPC/IPFS backfills (cert / Cardhedger id / pop / display title) run in the background and must not delay this response.
+
 Ask listings include `sellerDisplayName` (partner company when the offerer wallet is a partner) plus `settlementPolicy` and `vaultLabel` from the **token** (`self_vault_hold` → `Tokenable Vault`, otherwise `PSA Vault`). Unknown custody returns null fields — never defaults to PSA. A partner selling a PSA-vaulted card still shows **PSA Vault** on the listing badge.
 
 Collection **Place a Bid** does not require an active ask. With no listings, the offer attaches to a minted token in the collection.
@@ -509,7 +511,7 @@ Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** —
 
 ### `GET /api/marketplace/portfolio/daily/:wallet`
 
-Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per chain**. Read path backfills **only** if today's slot row is missing for the request chain (does not overwrite existing rows, including a recapture that finishes while the GET backfill is still pricing). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row. Snapshot totals skip tokens with no Cardhedger mark — a newly minted card can appear in My Assets before it adds to Portfolio value.
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`) **per configured RWA address**. Read path backfills **only** if today's slot row is missing for that address (a previous contract's row on the same chain does not count, and is not overwritten). After a holding change (direct mint, custody deliver, marketplace fill, hide/unhide, burn), the backend **overwrites today's slot** so the Portfolio value chart updates without waiting for the next cron. GET itself never recaptures an existing row. Snapshot totals skip tokens with no Cardhedger mark — a newly minted card can appear in My Assets before it adds to Portfolio value.
 
 Requires `x-tokenable-chain-id` (falls back to `DEFAULT_CHAIN_ID`).
 

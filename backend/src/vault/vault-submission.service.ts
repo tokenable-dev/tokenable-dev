@@ -8,6 +8,10 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, LessThan, Repository } from 'typeorm';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../blockchain/chain-config.service';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import {
   RegisterVaultShipmentDto,
@@ -56,7 +60,20 @@ export class VaultSubmissionService {
     @InjectRepository(VaultPsaVaultedReview)
     private readonly vaultedReviews: Repository<VaultPsaVaultedReview>,
     private readonly notifications: NotificationsService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
+
+  private scope(chainHeader?: string): {
+    chainId: SupportedChainId;
+    tokenContract: string;
+  } {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return { chainId, tokenContract: this.chainConfig.getRwaAddress(chainId) };
+  }
+
+  private configuredTokenContracts(): string[] {
+    return this.chainConfig.listConfiguredRwaAddresses();
+  }
 
   private static normalizeCert(cert: string): string {
     return cert.trim().toUpperCase();
@@ -103,7 +120,10 @@ export class VaultSubmissionService {
    * finished the ship step (tracking registered) or is further along at PSA.
    * Global across users — the physical slab cannot be in two vault paths.
    */
-  async assertCertAvailableForSelfVault(certNumber: string): Promise<void> {
+  async assertCertAvailableForSelfVault(
+    certNumber: string,
+    chainId?: number,
+  ): Promise<void> {
     const cert = VaultSubmissionService.normalizeCert(certNumber);
     if (!cert) {
       throw new BadRequestException('certNumber is required');
@@ -117,6 +137,13 @@ export class VaultSubmissionService {
       .addSelect('s.public_id', 'publicId')
       .where('i.cert_number = :cert', { cert })
       .andWhere("s.status <> 'cancelled'")
+      .andWhere('lower(s.token_contract) = :tokenContract', {
+        tokenContract: this.chainConfig.getRwaAddress(
+          this.chainConfig.resolveChainId(
+            chainId != null ? String(chainId) : undefined,
+          ),
+        ),
+      })
       .getRawMany<{
         itemStatus: string;
         submissionStatus: string;
@@ -257,38 +284,54 @@ export class VaultSubmissionService {
     };
   }
 
-  async listForUser(userId: string) {
+  async listForUser(userId: string, chainHeader?: string) {
+    const { tokenContract } = this.scope(chainHeader);
     const rows = await this.submissions.find({
-      where: { userId },
+      where: { userId, tokenContract },
       relations: { items: true },
       order: { updatedAt: 'DESC' },
     });
     return rows.map((r) => this.toDto(r));
   }
 
-  async getForUser(userId: string, idOrPublicId: string) {
-    const sub = await this.findOwned(userId, idOrPublicId);
+  async getForUser(userId: string, idOrPublicId: string, chainHeader?: string) {
+    const sub = await this.findOwned(userId, idOrPublicId, chainHeader);
     return this.toDto(sub);
   }
 
-  private async findOwned(userId: string, idOrPublicId: string): Promise<VaultSubmission> {
+  private async findOwned(
+    userId: string,
+    idOrPublicId: string,
+    chainHeader?: string,
+  ): Promise<VaultSubmission> {
     const key = idOrPublicId.trim();
     const byPublic = await this.submissions.findOne({
       where: { publicId: key.toUpperCase(), userId },
       relations: { items: true },
     });
-    if (byPublic) return byPublic;
 
     const uuidLike =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         key,
       );
+    const { tokenContract } = this.scope(chainHeader);
+    const matches = (row: VaultSubmission) =>
+      (row.tokenContract ?? '').toLowerCase() === tokenContract;
+
+    if (byPublic) {
+      if (!matches(byPublic)) throw new NotFoundException('Submission not found');
+      return byPublic;
+    }
+
     if (uuidLike) {
       const byId = await this.submissions.findOne({
         where: { id: key, userId },
         relations: { items: true },
       });
-      if (byId) return byId;
+      if (byId) {
+        if (!matches(byId)) throw new NotFoundException('Submission not found');
+        return byId;
+      }
     }
     throw new NotFoundException('Submission not found');
   }
@@ -299,7 +342,11 @@ export class VaultSubmissionService {
    * New rows are created as `awaiting_shipment` (never `draft`).
    * Legacy `draft` rows are still accepted and upgraded when cards are confirmed.
    */
-  async upsertDraft(userId: string, dto: UpsertVaultSubmissionDraftDto) {
+  async upsertDraft(
+    userId: string,
+    dto: UpsertVaultSubmissionDraftDto,
+    chainHeader?: string,
+  ) {
     const cards = dto.cards ?? [];
     if (cards.length === 0) {
       throw new BadRequestException(
@@ -312,6 +359,8 @@ export class VaultSubmissionService {
       );
     }
 
+    const { chainId, tokenContract } = this.scope(chainHeader);
+
     return this.submissions.manager.transaction(async (em) => {
       let sub: VaultSubmission | null = null;
       if (dto.publicId?.trim()) {
@@ -321,18 +370,23 @@ export class VaultSubmissionService {
           where: { publicId: dto.publicId.trim().toUpperCase(), userId },
           lock: { mode: 'pessimistic_write' },
         });
-        // Finished/cancelled package id left in the browser — ignore it.
-        if (sub && !['draft', 'awaiting_shipment'].includes(sub.status)) {
+        // Finished/cancelled, or a package from a previous RWA — ignore it.
+        if (
+          sub &&
+          (!['draft', 'awaiting_shipment'].includes(sub.status) ||
+            (sub.tokenContract ?? '').toLowerCase() !== tokenContract)
+        ) {
           sub = null;
         }
       }
       if (!sub) {
-        // Prefer open shipping package; fall back to legacy draft to upgrade.
+        // Prefer open shipping package on this contract; fall back to legacy draft.
         sub = await em
           .createQueryBuilder(VaultSubmission, 's')
           .setLock('pessimistic_write')
           .where('s.user_id = :userId', { userId })
           .andWhere("s.status = 'awaiting_shipment'")
+          .andWhere('lower(s.token_contract) = :tokenContract', { tokenContract })
           .orderBy('s.updated_at', 'DESC')
           .getOne();
         if (!sub) {
@@ -341,6 +395,7 @@ export class VaultSubmissionService {
             .setLock('pessimistic_write')
             .where('s.user_id = :userId', { userId })
             .andWhere("s.status = 'draft'")
+            .andWhere('lower(s.token_contract) = :tokenContract', { tokenContract })
             .orderBy('s.updated_at', 'DESC')
             .getOne();
         }
@@ -351,6 +406,8 @@ export class VaultSubmissionService {
         sub = em.create(VaultSubmission, {
           publicId,
           userId,
+          chainId,
+          tokenContract,
           status: 'awaiting_shipment',
         });
         sub = await em.save(sub);
@@ -406,17 +463,26 @@ export class VaultSubmissionService {
     };
   }
 
-  async markPackingSlipDownloaded(userId: string, idOrPublicId: string) {
-    const sub = await this.findOwned(userId, idOrPublicId);
+  async markPackingSlipDownloaded(
+    userId: string,
+    idOrPublicId: string,
+    chainHeader?: string,
+  ) {
+    const sub = await this.findOwned(userId, idOrPublicId, chainHeader);
     if (!sub.packingSlipDownloadedAt) {
       sub.packingSlipDownloadedAt = new Date();
       await this.submissions.save(sub);
     }
-    return this.getForUser(userId, sub.id);
+    return this.getForUser(userId, sub.id, chainHeader);
   }
 
-  async registerTracking(userId: string, idOrPublicId: string, dto: RegisterVaultShipmentDto) {
-    const sub = await this.findOwned(userId, idOrPublicId);
+  async registerTracking(
+    userId: string,
+    idOrPublicId: string,
+    dto: RegisterVaultShipmentDto,
+    chainHeader?: string,
+  ) {
+    const sub = await this.findOwned(userId, idOrPublicId, chainHeader);
     // Normal path is awaiting_shipment; draft kept for legacy pre-ship rows.
     if (!['draft', 'awaiting_shipment', 'in_transit'].includes(sub.status)) {
       throw new BadRequestException(`Cannot register tracking while status is ${sub.status}`);
@@ -447,7 +513,7 @@ export class VaultSubmissionService {
       }
     }
 
-    return this.getForUser(userId, sub.id);
+    return this.getForUser(userId, sub.id, chainHeader);
   }
 
   /**
@@ -458,6 +524,7 @@ export class VaultSubmissionService {
     userId: string;
     certNumber: string;
     cycleId: string;
+    chainId?: SupportedChainId;
   }): Promise<void> {
     const cert = VaultSubmissionService.normalizeCert(params.certNumber);
     const item = await this.items
@@ -467,6 +534,11 @@ export class VaultSubmissionService {
       .andWhere('i.cert_number = :cert', { cert })
       .andWhere("s.status NOT IN ('cancelled')")
       .andWhere("i.status NOT IN ('completed', 'rejected', 'failed')")
+      .andWhere('lower(s.token_contract) = :tokenContract', {
+        tokenContract: this.chainConfig.getRwaAddress(
+          params.chainId ?? this.chainConfig.getDefaultChainId(),
+        ),
+      })
       .orderBy('s.updated_at', 'DESC')
       .getOne();
 
@@ -510,11 +582,12 @@ export class VaultSubmissionService {
    * Flat queue of cards at PSA waiting for ops mint → user wallet (Live).
    * Includes item status `reviewing` or `approved` on `psa_reviewing` packages.
    */
-  async listAdminMintQueue(params?: { q?: string }) {
+  async listAdminMintQueue(params?: { q?: string; chainHeader?: string }) {
     // No QueryBuilder joins — TypeORM 0.3 throws `databaseName` on join+orderBy
     // for these entities (see adminList). Two plain finds keep the path reliable.
+    const { tokenContract } = this.scope(params?.chainHeader);
     const packages = await this.submissions.find({
-      where: { status: 'psa_reviewing' },
+      where: { status: 'psa_reviewing', tokenContract },
       order: { updatedAt: 'DESC' },
       take: 200,
     });
@@ -579,11 +652,13 @@ export class VaultSubmissionService {
     return rows;
   }
 
-  async adminCounts() {
+  async adminCounts(chainHeader?: string) {
+    const { tokenContract } = this.scope(chainHeader);
     const rows = await this.submissions
       .createQueryBuilder('s')
       .select('s.status', 'status')
       .addSelect('COUNT(*)', 'count')
+      .where('lower(s.token_contract) = :tokenContract', { tokenContract })
       .groupBy('s.status')
       .getRawMany<{ status: VaultSubmissionStatus; count: string }>();
     const counts: Record<string, number> = {
@@ -603,11 +678,13 @@ export class VaultSubmissionService {
     return counts;
   }
 
-  async adminList(params: { status?: string; q?: string }) {
+  async adminList(params: { status?: string; q?: string; chainHeader?: string }) {
     // Avoid leftJoinAndSelect + orderBy — TypeORM 0.3 throws
     // `Cannot read properties of undefined (reading 'databaseName')` on this path.
+    const { tokenContract } = this.scope(params.chainHeader);
     const qb = this.submissions
       .createQueryBuilder('s')
+      .where('lower(s.token_contract) = :tokenContract', { tokenContract })
       .orderBy('s.updated_at', 'DESC')
       .take(200);
 
@@ -757,12 +834,17 @@ export class VaultSubmissionService {
     if (normalized.length === 0) {
       return { matchedCerts: [], unmatchedCerts: [], packages: [] };
     }
+    const contracts = this.configuredTokenContracts();
+    if (contracts.length === 0) {
+      return { matchedCerts: [], unmatchedCerts: normalized, packages: [] };
+    }
 
     const items = await this.items
       .createQueryBuilder('it')
       .innerJoinAndSelect('it.submission', 's')
       .where('it.cert_number IN (:...certs)', { certs: normalized })
       .andWhere("s.status IN ('in_transit', 'awaiting_shipment')")
+      .andWhere('lower(s.token_contract) IN (:...contracts)', { contracts })
       .getMany();
 
     const matchedCerts = [

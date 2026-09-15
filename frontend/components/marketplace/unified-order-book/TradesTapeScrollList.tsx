@@ -15,6 +15,7 @@ import {
 } from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
+  formatCollectionDetailTapeDate,
   formatTapeDate,
   formatTapeTimeFull,
   formatTradesTapePriceUsdc,
@@ -44,17 +45,24 @@ const TradesTapeRow = memo(function TradesTapeRow({
   rowGridClass: string;
 }) {
   const side = tapeSideDisplay(row);
-  const source = tapeSourceDisplay(row);
+  const rawSource = tapeSourceDisplay(row);
+  const source =
+    collectionDetail && rawSource.label === "Tokenable"
+      ? { ...rawSource, label: "TOKN", title: "Tokenable" }
+      : rawSource;
   const priceTone = tradesTapePriceCompareTone(row.priceUsdc, nextPriceUsdc);
   const priceClass = collectionDetail
     ? priceTone === "down"
       ? "cd-ob-trades-price cd-ob-trades-price--down"
       : "cd-ob-trades-price cd-ob-trades-price--up"
     : tradesTapePriceClassName(priceTone);
-  const sideLabel =
-    collectionDetail && !side.label.includes(" ")
-      ? side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
-      : side.label;
+  const sideLabel = collectionDetail
+    ? row.source === "cardhedger"
+      ? side.label.includes(" ")
+        ? side.label
+        : side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
+      : "Sale"
+    : side.label;
 
   const priceText = `$${formatTradesTapePriceUsdc(row.priceUsdc)}`;
 
@@ -110,7 +118,7 @@ const TradesTapeRow = memo(function TradesTapeRow({
             }
             title={formatTapeTimeFull(row.t)}
           >
-            {formatTapeDate(row.t)}
+            {collectionDetail ? formatCollectionDetailTapeDate(row.t) : formatTapeDate(row.t)}
           </span>
         </>
       ) : (

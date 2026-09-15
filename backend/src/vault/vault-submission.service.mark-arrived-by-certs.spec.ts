@@ -29,6 +29,11 @@ describe('VaultSubmissionService.markArrivedByCerts', () => {
       { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
       { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
       { notifySellerSubmissionReceived: jest.fn() } as never,
+      {
+        resolveChainId: () => 11155111,
+        getRwaAddress: () => '0x1111111111111111111111111111111111111111',
+        listConfiguredRwaAddresses: () => ['0x1111111111111111111111111111111111111111'],
+      } as never,
     );
     service.adminMarkArrived = jest.fn(
       opts.markArrivedImpl ?? (async (id: string) => ({ id })),

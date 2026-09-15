@@ -59,7 +59,7 @@ export function TradeSourceMark({
       <button
         type="button"
         className={`${sharedCls} cursor-pointer bg-transparent p-0 ${textCls} hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/40 ring-offset-2 ring-offset-zinc-950`}
-        title={source.label}
+        title={source.title ?? source.label}
         aria-label={source.title ?? `Open sold listing on ${source.label}`}
         onClick={() => openExternalSaleListing(source.href!)}
       >
@@ -69,7 +69,7 @@ export function TradeSourceMark({
   }
 
   return (
-    <span className={`${sharedCls} ${textCls}`} title={source.label}>
+    <span className={`${sharedCls} ${textCls}`} title={source.title ?? source.label}>
       {source.label}
     </span>
   );

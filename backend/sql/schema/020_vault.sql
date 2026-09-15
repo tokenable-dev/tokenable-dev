@@ -191,6 +191,8 @@ CREATE TABLE IF NOT EXISTS vault_submissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id varchar(32) NOT NULL,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  chain_id integer,
+  token_contract varchar(42),
   status varchar(32) NOT NULL DEFAULT 'draft',
   carrier varchar(32),
   tracking_number varchar(128),
@@ -214,11 +216,16 @@ CREATE TABLE IF NOT EXISTS vault_submissions (
 
 CREATE INDEX IF NOT EXISTS idx_vault_submissions_user_id ON vault_submissions (user_id);
 CREATE INDEX IF NOT EXISTS idx_vault_submissions_user_status ON vault_submissions (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_vault_submissions_token_contract
+  ON vault_submissions (lower(token_contract))
+  WHERE token_contract IS NOT NULL;
 
 COMMENT ON TABLE vault_submissions IS
   'User sell-flow package: multi-card submission from draft through PSA transit (pre vault_cycles mint).';
 COMMENT ON COLUMN vault_submissions.public_id IS
   'Human-facing id e.g. SUB-20260728-12345 — shown in UI breadcrumbs.';
+COMMENT ON COLUMN vault_submissions.token_contract IS
+  'RWA address this package was created for. Lists only return the address configured for the request chain.';
 
 CREATE TABLE IF NOT EXISTS vault_submission_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

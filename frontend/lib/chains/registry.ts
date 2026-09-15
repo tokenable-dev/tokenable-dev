@@ -134,6 +134,39 @@ const DEV_FALLBACK: Record<
   },
 };
 
+/**
+ * Public RPCs for browser wagmi / wallet_addEthereumChain.
+ * Shared Alchemy/Infura keys in NEXT_PUBLIC_* are burned by every visitor (429),
+ * and rate-limit responses often look like CORS in DevTools.
+ */
+const BROWSER_PUBLIC_RPC: Record<SupportedChainId, readonly string[]> = {
+  1: ["https://cloudflare-eth.com", "https://ethereum.publicnode.com"],
+  137: ["https://polygon-rpc.com", "https://polygon-bor.publicnode.com"],
+  11155111: [
+    "https://rpc.sepolia.org",
+    "https://ethereum-sepolia-rpc.publicnode.com",
+  ],
+};
+
+/** API-key RPCs that must not be every browser client's primary endpoint. */
+function isSharedApiKeyRpc(url: string): boolean {
+  return /alchemy\.com\/v2\/|infura\.io\/v3\//i.test(url);
+}
+
+/**
+ * Ordered RPC URLs for browser clients (wagmi, wallet network add).
+ * Shared Alchemy/Infura keys go last so quota exhaustion does not spam 429/CORS.
+ */
+export function getBrowserRpcUrls(chainId: SupportedChainId): string[] {
+  const configured = readRpcUrl(chainId)?.trim();
+  const publics = [...BROWSER_PUBLIC_RPC[chainId]];
+  if (!configured) return publics;
+  if (isSharedApiKeyRpc(configured)) {
+    return [...publics.filter((u) => u !== configured), configured];
+  }
+  return [configured, ...publics.filter((u) => u !== configured)];
+}
+
 export function getChainContracts(chainId: SupportedChainId): ChainContracts {
   const rpcUrl = readRpcUrl(chainId);
   const rwaAddress = readRwaAddress(chainId);

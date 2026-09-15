@@ -14,6 +14,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FILES=(
   maintenance/add_vault_submission_item_display_fields.sql
   maintenance/add_vault_cycles_mint_attempt.sql
+  maintenance/add_marketplace_collections_token_contract.sql
+  maintenance/add_vault_submissions_token_contract.sql
+  maintenance/add_portfolio_daily_snapshots_token_contract.sql
   maintenance/nullable_rwa_tokens_settlement_policy.sql
   maintenance/drop_legacy_unused_tables.sql
 )

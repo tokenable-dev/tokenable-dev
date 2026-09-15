@@ -1,4 +1,6 @@
 import type { AppChainDefinition } from "@/lib/chains";
+import { getBrowserRpcUrls } from "@/lib/chains/registry";
+import type { SupportedChainId } from "@/lib/chains/types";
 
 const CHAIN_ID_HEX = (chainId: number) => `0x${chainId.toString(16)}`;
 
@@ -12,14 +14,12 @@ type Eip1193Provider = {
 };
 
 function addChainParams(chain: AppChainDefinition) {
-  const rpc =
-    chain.viemChain.rpcUrls.default.http[0] ??
-    chain.viemChain.rpcUrls.public?.http?.[0];
+  const rpcUrls = getBrowserRpcUrls(chain.id as SupportedChainId);
   return {
     chainId: CHAIN_ID_HEX(chain.id),
     chainName: chain.label,
     nativeCurrency: chain.viemChain.nativeCurrency,
-    rpcUrls: rpc ? [rpc] : [],
+    rpcUrls,
     blockExplorerUrls: [chain.explorerBaseUrl],
   };
 }

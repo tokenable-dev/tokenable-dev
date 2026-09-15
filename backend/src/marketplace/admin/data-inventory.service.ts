@@ -325,8 +325,14 @@ export class DataInventoryService {
         } else if (!(await this.tableExists('bulk_mint_job_items'))) {
           skippedMissingTables.push('bulk_mint_job_items');
         }
-        await note('portfolio_daily_snapshots', 'chain_id = $1', [chain]);
       }
+
+      await note(
+        'portfolio_daily_snapshots',
+        `lower(token_contract) = $1
+         OR ($2::boolean AND chain_id = $3 AND token_contract IS NULL)`,
+        [addr, wipedConfiguredContract, chain],
+      );
 
       await note(
         'self_vault_settlements',
@@ -373,6 +379,18 @@ export class DataInventoryService {
           );
         }
         await note('vault_cycles', cycleSql, cycleParams, 'vault_cycles c');
+      }
+
+      if (await has('vault_submissions')) {
+        const stamped = await this.deleteReturningCount(
+          manager,
+          'vault_submissions',
+          `lower(token_contract) = $1
+           OR ($2::boolean AND token_contract IS NULL)`,
+          [addr, wipedConfiguredContract],
+        );
+        deletedCounts.vault_submissions =
+          (deletedCounts.vault_submissions ?? 0) + stamped;
       }
 
       if (

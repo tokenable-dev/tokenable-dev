@@ -978,7 +978,7 @@
 
 .cd-hero-bar--embed .cd-hero-stats,
 .cd-hero-bar--embed #hero-stats {
-  margin-top: 0;
+  margin-top: 20px;
   flex: 0 0 auto;
 }
 
@@ -1013,11 +1013,14 @@
   color: #fff;
 }
 
+/* Card.html `#hero-stats-grid`: content-sized cells, not five equal columns.
+   Mkt cap / Vol stay wide for full dollars; Velocity / Pop / Gem rate stay tight. */
 .cd-hero-stats__grid,
 #hero-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 36px;
   height: auto;
   width: 100%;
   max-width: none;
@@ -1026,14 +1029,20 @@
 @media (max-width: 560px) {
   .cd-hero-stats__grid,
   #hero-stats-grid {
-    grid-template-columns: repeat(3, 1fr);
+    gap: 16px 28px;
   }
 }
 
 .cd-hero-stats__cell {
   height: auto;
   display: block;
+  flex: 0 0 auto;
   min-width: 0;
+  max-width: 100%;
+}
+
+.cd-hero-stats__cell:nth-child(-n + 2) .cd-hero-stats__val {
+  font-variant-numeric: tabular-nums;
 }
 
 .cd-hero-stats__lbl {
@@ -2874,15 +2883,17 @@
   color: #fff;
 }
 
+/* Card.html `#similar-row`: 5-up on desktop, 2-up at ≤1140px. */
 .cd-similar-items__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 20px;
 }
 
-@media (min-width: 1024px) {
-  .collection-detail-page .cd-similar-items__grid {
-    grid-template-columns: repeat(4, 1fr);
+@media (max-width: 1140px) {
+  .collection-detail-page .cd-similar-items__grid,
+  .cd-similar-items__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2910,7 +2921,7 @@
   transform: translateY(-4px);
 }
 
-/* Markets `.card__img` parity: fixed 0.72 frame, never intrinsic image size. */
+/* Card.html similar tile: 0.72 frame, cover (crop) so the card box stays the slot. */
 .cd-si-card__media {
   position: relative;
   width: 100%;
@@ -2937,7 +2948,7 @@
   width: 100%;
   height: 100%;
   max-width: none;
-  object-fit: fill;
+  object-fit: cover !important;
   object-position: center;
   filter: saturate(1.05) contrast(1.04);
 }
@@ -3000,11 +3011,6 @@
   color: var(--t3);
 }
 
-@media (max-width: 560px) {
-  .cd-similar-items__grid {
-    grid-template-columns: 1fr 1fr !important;
-  }
-}
 
 /* ── Details KV rows (Card.html ds-32 `#tab-details`) ─────────────────────── */
 
@@ -3985,8 +3991,8 @@
 /* Trades tab — Card.html `#tab-trades` / `#trades-scroll` */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.1fr);
-  column-gap: 10px;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
+  column-gap: 8px;
   align-items: center;
   height: 26px;
   min-height: 0;
@@ -4001,11 +4007,11 @@
 }
 
 .collection-detail-page .cd-ob-trades-hdr span {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--t3);
   font-weight: 400;
   min-width: 0;
   overflow: hidden;
@@ -4015,6 +4021,7 @@
 
 .collection-detail-page .cd-ob-trades-hdr span:last-child {
   text-align: right;
+  padding-right: 4px;
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
@@ -4036,8 +4043,8 @@
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.1fr);
-  column-gap: 10px;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
+  column-gap: 8px;
   align-items: center;
   height: 26px;
   min-height: 0;
@@ -4100,6 +4107,9 @@
 
 .collection-detail-page .cd-ob-trades-side {
   white-space: nowrap;
+  letter-spacing: -0.03em;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* Card.html: Source column nudge — `#trades-scroll > div > span:nth-child(3){padding-left:16px}` */
@@ -4125,6 +4135,7 @@
   text-align: right;
   justify-self: end;
   white-space: nowrap;
+  padding-right: 4px;
   font-variant-numeric: tabular-nums;
 }
 

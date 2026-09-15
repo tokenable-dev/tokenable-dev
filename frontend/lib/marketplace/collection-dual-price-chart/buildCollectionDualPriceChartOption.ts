@@ -153,7 +153,11 @@ function cardHtmlDecorateLine(
       label: {
         show: true,
         formatter: `Median ${formatCardHtmlTooltipUsd(median)}`,
+        // Card.html: text sits on the dash (middle baseline), chart fill covers the line.
         position: "middle",
+        distance: 0,
+        align: "center",
+        verticalAlign: "middle",
         backgroundColor: "#191919",
         color: "rgba(255,255,255,0.72)",
         fontWeight: 600,

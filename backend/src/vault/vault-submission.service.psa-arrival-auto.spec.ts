@@ -46,6 +46,11 @@ describe('VaultSubmissionService.maybeAutoConfirmPsaArrivalReview', () => {
       arrivalReviews as never,
       { findOne: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
       { notifySellerSubmissionReceived: jest.fn() } as never,
+      {
+        resolveChainId: () => 11155111,
+        getRwaAddress: () => '0x1111111111111111111111111111111111111111',
+        listConfiguredRwaAddresses: () => ['0x1111111111111111111111111111111111111111'],
+      } as never,
     );
     service.findOpenPackagesByCerts = jest.fn(async () => ({
       matchedCerts: ['148872613'],

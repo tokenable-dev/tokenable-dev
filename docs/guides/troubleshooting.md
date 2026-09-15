@@ -98,6 +98,28 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 
 ---
 
+## Markets / collection click — Alchemy CORS + 429 in the browser console
+
+**Symptom:** Console shows `Access to fetch at 'https://eth-sepolia.g.alchemy.com/…' … blocked by CORS` and `429 (Too Many Requests)`. Collection detail may still load from the API; wallet/wagmi calls fail loudly.
+
+**Cause:** `NEXT_PUBLIC_CHAIN_*_RPC_URL` embeds an Alchemy API key in the JS bundle. Every visitor shares that key. When the quota is exhausted, Alchemy returns 429 **without** CORS headers — the browser reports CORS, but the real error is rate limiting.
+
+**Fix (code):** Frontend wagmi prefers public RPCs when the configured URL looks like Alchemy/Infura (`getBrowserRpcUrls`). Redeploy the frontend after this change.
+
+**Fix (ops):** Keep Alchemy on **backend** `CHAIN_*_RPC_URL` only. For `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` use a public endpoint (e.g. `https://rpc.sepolia.org` or `https://ethereum-sepolia-rpc.publicnode.com`), then rebuild the frontend image. Rotate the Alchemy key if it was exposed in the client bundle.
+
+---
+
+## Collection detail — "Could not load collection" / nginx 504 (no login needed)
+
+**Symptom:** Markets list works; opening a collection shows the load-failed state or hangs. Privy login is irrelevant.
+
+**Cause:** `GET /api/marketplace/collections/:key` used to **await** on-chain `tokenURI` + IPFS backfills on every read. When backend Alchemy is rate-limited, those retries run past nginx’s gateway timeout → **504**. Related endpoints (`market-series`, `stats`) stay fast because they only hit Postgres/Cardhedger.
+
+**Fix (code):** Detail returns DB rows immediately. RPC/IPFS backfills run in the background and early-return when `cardhedgerCardId` / `psaCertNumber` / pop / title are already stamped. Redeploy the backend.
+
+---
+
 ## Frontend API calls return 401
 
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).

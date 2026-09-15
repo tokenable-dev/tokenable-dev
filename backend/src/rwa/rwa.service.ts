@@ -335,7 +335,7 @@ export class RwaService {
     }
 
     try {
-      await this.vaultSubmissions.assertCertAvailableForSelfVault(trimmed);
+      await this.vaultSubmissions.assertCertAvailableForSelfVault(trimmed, chainId);
     } catch (e) {
       if (e instanceof BadRequestException) {
         const body = e.getResponse();

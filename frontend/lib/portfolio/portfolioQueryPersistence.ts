@@ -10,7 +10,8 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import type { PortfolioAssetsPageResponse } from "@/lib/core/api/portfolio-assets-page";
-import { activeRqChainId } from "@/lib/chains";
+import { activeRqChainId, getChainContracts, SUPPORTED_CHAIN_IDS } from "@/lib/chains";
+import type { SupportedChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
 const SCHEMA = 6;
@@ -45,8 +46,14 @@ export type PersistedPortfolioBundle = {
   ordersAsk?: OrderListItem[];
 };
 
+function portfolioRwaKey(chainId: number): string {
+  if (!SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId)) return "unknown";
+  const rwa = getChainContracts(chainId as SupportedChainId).rwaAddress.trim().toLowerCase();
+  return rwa || "unknown";
+}
+
 function lsKey(address: string, chainId: number): string {
-  return `${LS_PREFIX}${chainId}.${address.trim().toLowerCase()}`;
+  return `${LS_PREFIX}${chainId}.${portfolioRwaKey(chainId)}.${address.trim().toLowerCase()}`;
 }
 
 export function isPortfolioBundleFresh(savedAt: number): boolean {

@@ -41,7 +41,7 @@
 | `vault_cycles` | One deposit-to-redemption window per asset **per chain** (`chain_id`); statuses include `minting` + `mint_attempt` JSON for crash recovery; at most one open cycle per (asset, chain) — mirrors the per-contract `activeTokenIdByVaultRef` invariant | `vault/entities/vault-cycle.entity.ts` |
 | `vault_redemptions` | Per-card redeem state machine + denormalized fee/payment/custody/refund/tracking fields (`carrier_delivered_at`, `receipt_confirmed_via` for FedEx Track auto-receipt) | `vault/entities/vault-redemption.entity.ts` |
 | `vault_redeem_payment_claims` | Ledger: unique `payment_tx_hash` → one `payment_batch_id` (batch total micros). Referenced by paid `vault_redemptions.payment_tx_hash` | `vault/entities/vault-redeem-payment-claim.entity.ts` |
-| `vault_submissions` | Sell-flow shipping package (awaiting_shipment → PSA; add-cards is local) | `vault/entities/vault-submission.entity.ts` |
+| `vault_submissions` | Sell-flow shipping package for one RWA (`token_contract`; unstamped leftovers are hidden) | `vault/entities/vault-submission.entity.ts` |
 | `vault_submission_items` | Per-cert rows; optional FK to `vault_cycles` after mint | `vault/entities/vault-submission-item.entity.ts` |
 | `vault_psa_arrival_reviews` | PSA “Items Received” mail (Gmail poll / admin) | `vault/entities/vault-psa-arrival-review.entity.ts` |
 | `vault_psa_vaulted_reviews` | PSA “Items Vaulted” mail → mint/deliver review | `vault/entities/vault-psa-vaulted-review.entity.ts` |
@@ -62,7 +62,7 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per chain** (`chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
+| `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per RWA** (`token_contract` + `chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
 | `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
@@ -228,12 +228,13 @@ pending_deposit
 
 | Column / constraint | Notes |
 |---------------------|-------|
-| `(wallet_address, snapshot_date_kst, chain_id)` | Unique — one mark-to-market row per wallet per KST day **per chain** |
+| `(wallet_address, snapshot_date_kst, chain_id, token_contract)` | Unique — one mark-to-market row per wallet per KST day **per RWA address** |
 | `chain_id` | EIP-155 id of the RWA contract marked in the row (`CHECK > 0`) |
+| `token_contract` | RWA address marked in the row. Reads ignore a different address and unstamped leftovers from a previous contract |
 | `snapshot_at` | Usually 09:00 Asia/Seoul for that `snapshot_date_kst` |
 | `total_value_usd` / `card_count` | Wallet totals on that chain (hidden holdings excluded). Cron writes 09:00 KST; mint/fill/deliver/hide/burn overwrite today's slot |
 
-Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA address), not a separate `chain_id` column. Snapshots store `chain_id` explicitly because they aggregate across many token ids.
+Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA address). Snapshots store both `chain_id` and `token_contract` so a new RWA on the same chain does not reuse the previous contract's chart or 24h P/L.
 
 **Existing DBs:** run `backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql` — do not rely on TypeORM synchronize to drop the old `(wallet, date)` unique.
 
@@ -274,6 +275,8 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_marketplace_collections_token_contract.sql` | Existing DBs: `marketplace_collections.token_contract` + backfill from orders/tokens |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
+| `maintenance/add_portfolio_daily_snapshots_token_contract.sql` | Existing DBs: `portfolio_daily_snapshots.token_contract`; unique includes the RWA address. Unstamped rows are not read |
+| `maintenance/add_vault_submissions_token_contract.sql` | Existing DBs: `vault_submissions.token_contract` + backfill from linked mints. Unstamped packages stay hidden |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order indexes for chain-scoped reads |
 | `maintenance/drop_card_top100_daily_snapshots.sql` | Existing DBs: drop legacy Top 100 snapshot table |
 | `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
@@ -304,7 +307,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 |----------|---------|
 | `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | Scan minted token ids **1..totalMinted** → `rwa_tokens` (TokenableRWA is 1-based) |
 | `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | Recompute active ask `collection_key` (v2). Listing `ensureCollectionForListing` also rewrites that token’s live ask when the key changes (e.g. Variety-as-set-name now hashes as `base`). |
-| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | Snapshot refresh PSA cert mirror (`always` to enable) |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | Ignored. Snapshot refresh never calls PSA |
 | `MARKET_SNAPSHOT_*` | Snapshot worker tuning |
 | `PORTFOLIO_SNAPSHOT_*` | Portfolio cron tuning |
 | `REDIS_URL` | Identity cache L2 |

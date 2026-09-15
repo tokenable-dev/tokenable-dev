@@ -33,6 +33,7 @@ sql/
 │   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
 │   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
 │   ├── add_collection_review_status.sql
+│   ├── add_marketplace_collections_token_contract.sql  # existing DBs: catalog RWA address
 │   ├── add_portfolio_daily_snapshot_chain_id.sql
 │   ├── add_vault_cycles_chain_id.sql
 │   ├── add_vault_cycles_mint_attempt.sql       # minting status + mint_attempt JSON (crash recovery)

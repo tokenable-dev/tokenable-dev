@@ -8,6 +8,7 @@ import { VaultThumb } from "@/components/vault/VaultThumb";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
 import { listVaultSubmissions } from "@/lib/core/api/vault-submissions";
 import { rq } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { useAuthStore } from "@/store/authStore";
 import {
   buildVaultHubRowsFromSubmissions,
@@ -255,7 +256,7 @@ export function useVaultHubSubmissions() {
   const user = useAuthStore((s) => s.user);
 
   return useQuery({
-    queryKey: rq.vaultSubmissions(),
+    queryKey: rq.vaultSubmissions(activeRqChainId()),
     queryFn: listVaultSubmissions,
     staleTime: 10_000,
     enabled: Boolean(user),

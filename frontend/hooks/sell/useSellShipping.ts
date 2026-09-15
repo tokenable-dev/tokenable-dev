@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   bannerCardLabel,
+  bindSellFlowToContract,
   bindSellFlowToUser,
   clearSellFlowDraftLocal,
   confirmedSellCards,
@@ -230,7 +231,9 @@ export function useSellShipping() {
     let cancelled = false;
     void (async () => {
       setBootMessage("Loading shipping…");
-      bindSellFlowToUser(userId ?? null);
+      const wiped =
+        bindSellFlowToUser(userId ?? null) || bindSellFlowToContract();
+      if (wiped && userId) bindSellFlowToUser(userId);
       let localCards = userId ? readSellFlowDraftCards() : [];
       let progress = readSellFlowProgress();
       isTrackingEditRef.current = false;

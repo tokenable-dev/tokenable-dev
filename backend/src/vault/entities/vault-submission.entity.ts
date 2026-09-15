@@ -31,6 +31,18 @@ export class VaultSubmission {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
+  /** Chain this package was created for. NULL = pre-contract-stamp leftover. */
+  @Column({ name: 'chain_id', type: 'int', nullable: true })
+  chainId: number | null;
+
+  /**
+   * RWA address this package belongs to. User/admin lists only return the
+   * address configured for the request chain. NULL leftovers are hidden.
+   */
+  @Index()
+  @Column({ name: 'token_contract', type: 'varchar', length: 42, nullable: true })
+  tokenContract: string | null;
+
   /** Prefer awaiting_shipment on create; `draft` remains for legacy rows only. */
   @Column({ type: 'varchar', length: 32, default: 'draft' })
   status: VaultSubmissionStatus;

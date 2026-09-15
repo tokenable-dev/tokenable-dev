@@ -103,6 +103,11 @@ export class PortfolioDailySnapshotService {
     return chainId ?? this.chainConfig.getDefaultChainId();
   }
 
+  /** Configured RWA for this chain. Snapshot reads ignore any other address. */
+  private tokenContractFor(chainId: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(chainId);
+  }
+
   ownerScanConcurrency(): number {
     const raw = Number(
       this.config.get<string>('PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY') ??
@@ -129,7 +134,11 @@ export class PortfolioDailySnapshotService {
     if (!wallet) return [];
     const resolved = this.resolveChain(chainId);
     return this.snapshotRepo.find({
-      where: { walletAddress: wallet, chainId: resolved },
+      where: {
+        walletAddress: wallet,
+        chainId: resolved,
+        tokenContract: this.tokenContractFor(resolved),
+      },
       order: { snapshotAt: 'DESC' },
       take: Math.max(2, Math.min(120, Math.floor(limit))),
     });
@@ -144,7 +153,11 @@ export class PortfolioDailySnapshotService {
     if (!wallet) return;
     const resolved = this.resolveChain(chainId);
     const count = await this.snapshotRepo.count({
-      where: { walletAddress: wallet, chainId: resolved },
+      where: {
+        walletAddress: wallet,
+        chainId: resolved,
+        tokenContract: this.tokenContractFor(resolved),
+      },
     });
     if (count > 0) return;
     await this.captureDailySnapshot(wallet, new Date(), resolved);
@@ -176,17 +189,19 @@ export class PortfolioDailySnapshotService {
     const resolved = this.resolveChain(chainId);
 
     const slot = resolveKstDailySnapshotSlot(reference);
+    const tokenContract = this.tokenContractFor(resolved);
     const existing = await this.snapshotRepo.findOne({
       where: {
         walletAddress: wallet,
         snapshotDateKst: slot.snapshotDateKst,
         chainId: resolved,
+        tokenContract,
       },
-      select: ['walletAddress', 'snapshotDateKst', 'chainId'],
+      select: ['walletAddress', 'snapshotDateKst', 'chainId', 'tokenContract'],
     });
     if (existing) return;
 
-    const guardKey = `${wallet}:${resolved}`;
+    const guardKey = `${wallet}:${resolved}:${tokenContract}`;
     const nowMs = Date.now();
     const last = this.fallbackGuardMsByWalletChain.get(guardKey) ?? 0;
     if (nowMs - last < PortfolioDailySnapshotService.FALLBACK_GUARD_MS) return;
@@ -298,14 +313,16 @@ export class PortfolioDailySnapshotService {
     const resolved = this.resolveChain(chainId);
     const totals = await this.computeWalletTotals(wallet, resolved);
     const slot = resolveKstDailySnapshotSlot(capturedAt);
+    const tokenContract = this.tokenContractFor(resolved);
     if (opts?.overwrite === false) {
       const existing = await this.snapshotRepo.findOne({
         where: {
           walletAddress: wallet,
           snapshotDateKst: slot.snapshotDateKst,
           chainId: resolved,
+          tokenContract,
         },
-        select: ['walletAddress', 'snapshotDateKst', 'chainId'],
+        select: ['walletAddress', 'snapshotDateKst', 'chainId', 'tokenContract'],
       });
       if (existing) return existing;
     }
@@ -315,6 +332,7 @@ export class PortfolioDailySnapshotService {
         walletAddress: wallet,
         snapshotDateKst: slot.snapshotDateKst,
         chainId: resolved,
+        tokenContract,
       },
     });
   }
@@ -512,6 +530,9 @@ export class PortfolioDailySnapshotService {
       .createQueryBuilder('s')
       .select('DISTINCT s.wallet_address', 'wallet')
       .where('s.chain_id = :chainId', { chainId })
+      .andWhere('lower(s.token_contract) = :tokenContract', {
+        tokenContract: this.tokenContractFor(chainId),
+      })
       .getRawMany<{ wallet: string }>();
     for (const row of historical) {
       const w = normalizeWalletAddress(row.wallet);
@@ -650,11 +671,12 @@ export class PortfolioDailySnapshotService {
         walletAddress: wallet,
         snapshotDateKst: slot.snapshotDateKst,
         chainId,
+        tokenContract: this.tokenContractFor(chainId),
         snapshotAt: slot.snapshotAt,
         totalValueUsd: totals.totalValueUsd,
         cardCount: totals.cardCount,
       },
-      ['walletAddress', 'snapshotDateKst', 'chainId'],
+      ['walletAddress', 'snapshotDateKst', 'chainId', 'tokenContract'],
     );
   }
 

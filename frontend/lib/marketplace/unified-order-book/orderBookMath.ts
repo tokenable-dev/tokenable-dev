@@ -145,6 +145,15 @@ export function priceLevelKey(p: number): number {
   return Math.round(p * 1_000_000) / 1_000_000;
 }
 
+/** Collection detail Date column — Card.html `06.11.26`. */
+export function formatCollectionDetailTapeDate(tSec: number): string {
+  const d = new Date(tSec * 1000);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${mm}.${dd}.${yy}`;
+}
+
 /** Trades Date column — `Jun 11, 2026`. */
 export function formatTapeDate(tSec: number): string {
   return new Date(tSec * 1000).toLocaleString("en-US", {

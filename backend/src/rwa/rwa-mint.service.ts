@@ -100,7 +100,10 @@ export class RwaMintService {
         user.id,
       );
       vaultPartnerId = partner.partnerId;
-      await this.vaultSubmissions.assertCertAvailableForSelfVault(certNumber);
+      await this.vaultSubmissions.assertCertAvailableForSelfVault(
+        certNumber,
+        chainId,
+      );
     }
 
     // The on-chain vaultRef MUST be derived from the permanent physical-asset
@@ -123,6 +126,7 @@ export class RwaMintService {
       userId: user.id,
       certNumber,
       cycleId: cycle.id,
+      chainId,
     });
 
     const custodyWallet = await this.chainWriter.getCustodyWalletAddress(chainId);
@@ -293,6 +297,7 @@ export class RwaMintService {
     await this.vaultSubmissions.attachCycleForCert({
       userId: user.id,
       certNumber: params.certNumber,
+      chainId,
       cycleId: params.cycleId,
     });
 

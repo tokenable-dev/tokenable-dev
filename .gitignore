@@ -11,6 +11,9 @@ frontend/.env
 frontend/.env.local
 contracts/.env
 
+# Deploy env files must never be committed (real files live on EC2 — see deploy/README.md)
+deploy/*.env
+
 # 빌드 결과물
 .next
 dist

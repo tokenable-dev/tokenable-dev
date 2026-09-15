@@ -3,6 +3,8 @@ import {
   joinCardDisplaySegments,
 } from "@/lib/marketplace/cardDisplayName";
 import type { PsaAnalyzeResult } from "@/lib/core";
+import { activeRqChainId, getChainContracts, SUPPORTED_CHAIN_IDS } from "@/lib/chains";
+import type { SupportedChainId } from "@/lib/chains";
 
 export type SellCardDisplaySource = {
   cert?: string | null;
@@ -209,6 +211,8 @@ export const SELL_FLOW_PROGRESS_KEY = "tk_sell_flow_progress";
 const SELL_FLOW_RESUME_CARDS_KEY = "tk_sell_flow_resume_cards";
 /** Which Tokenable user owns the current browser sell draft (prevents cross-account leaks). */
 const SELL_FLOW_OWNER_KEY = "tk_sell_flow_owner";
+/** RWA address the draft was started against. A new contract must not resume the old package. */
+const SELL_FLOW_CONTRACT_KEY = "tk_sell_flow_contract";
 /** Bump only to drop offline-only fake In Transit shipments (not card drafts). */
 const SELL_LOCAL_SCHEMA_KEY = "tk_sell_local_schema";
 /** 6 — clear stale SUB-… after draft packages stopped being created server-side. */
@@ -231,6 +235,47 @@ export function clearAllSellLocalState() {
  * Bind local sell draft keys to the signed-in user.
  * Returns true when storage was cleared (account switch / logout / legacy orphan).
  */
+function configuredSellRwa(): string {
+  const chainId = activeRqChainId();
+  if (!SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId)) return "";
+  return getChainContracts(chainId as SupportedChainId).rwaAddress.trim().toLowerCase();
+}
+
+function sellLocalHasDraft(): boolean {
+  return (
+    Boolean(localStorage.getItem(SELL_FLOW_DRAFT_KEY)) ||
+    Boolean(localStorage.getItem(SELL_FLOW_PROGRESS_KEY)) ||
+    Boolean(localStorage.getItem(SELL_SUBMISSION_PUBLIC_ID_KEY)) ||
+    Boolean(localStorage.getItem(SELL_SHIPMENT_KEY))
+  );
+}
+
+/**
+ * Drop browser sell drafts when the configured RWA changes.
+ * Returns true when storage was cleared.
+ */
+export function bindSellFlowToContract(
+  rwaAddress: string | null | undefined = configuredSellRwa(),
+): boolean {
+  if (typeof window === "undefined") return false;
+  const next = rwaAddress?.trim().toLowerCase() || "";
+  if (!next || next === "0x0000000000000000000000000000000000000000") return false;
+  try {
+    const prev = localStorage.getItem(SELL_FLOW_CONTRACT_KEY)?.trim().toLowerCase() || "";
+    if (prev === next) return false;
+    const hadData = sellLocalHasDraft();
+    if (!prev && !hadData) {
+      localStorage.setItem(SELL_FLOW_CONTRACT_KEY, next);
+      return false;
+    }
+    clearAllSellLocalState();
+    localStorage.setItem(SELL_FLOW_CONTRACT_KEY, next);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function bindSellFlowToUser(userId: string | null | undefined): boolean {
   if (typeof window === "undefined") return false;
   try {

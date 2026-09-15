@@ -23,76 +23,24 @@ COPY . .
 # Privy dist patches (package.json postinstall — skipped in deps stage).
 RUN node scripts/patch-privy-isactive.mjs
 
-# Build-time env (NEXT_PUBLIC_* 는 빌드 시 번들에 정적 포함)
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_CHAIN_11155111_RPC_URL
-ARG NEXT_PUBLIC_CHAIN_11155111_RWA
-ARG NEXT_PUBLIC_CHAIN_11155111_USDC
-ARG NEXT_PUBLIC_CHAIN_1_RPC_URL
-ARG NEXT_PUBLIC_CHAIN_1_RWA
-ARG NEXT_PUBLIC_CHAIN_1_USDC
-ARG NEXT_PUBLIC_CHAIN_137_RPC_URL
-ARG NEXT_PUBLIC_CHAIN_137_RWA
-ARG NEXT_PUBLIC_CHAIN_137_USDC
-ARG NEXT_PUBLIC_DEFAULT_CHAIN_ID=11155111
-ARG NEXT_PUBLIC_PRIVY_APP_ID
-ARG NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT
-ARG NEXT_PUBLIC_PLATFORM_FEE_BPS
-ARG NEXT_PUBLIC_GA_MEASUREMENT_ID
-# MoonPay / Add funds (Privy useFiatOnramp) — see docs/guides/privy-wallet-funding.md
-ARG NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT
-ARG NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET
-ARG NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID
-ARG NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT
-ARG NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK
-# `next.config.ts` rewrites: same-origin `/api` → Nest. Baked at **build** time (not runtime).
-# 예: Docker Compose 에서 서비스명이 `api` 이고 Nest 가 4000 이면
-#   --build-arg API_PROXY_TARGET=http://api:4000
-# 없이 빌드하면 기본 http://127.0.0.1:4000 → 프론트 단독 컨테이너에서 /api 전부 502.
+# CI copies /home/ubuntu/.env.production.frontend → frontend/.env.production before `docker build`.
+# Next.js loads .env.production at build and bakes NEXT_PUBLIC_* into the bundle.
+RUN set -e; \
+  test -f .env.production || \
+    (echo "ERROR: .env.production missing — CI must copy EC2 frontend env first" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RPC_URL=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RPC_URL missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RWA=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RWA missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_USDC=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_USDC missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_PRIVY_APP_ID=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_PRIVY_APP_ID missing" && exit 1)
+
+# `next.config.ts` rewrites: same-origin `/api` → Nest. Baked at **build** time.
 ARG API_PROXY_TARGET=http://127.0.0.1:4000
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 
-# Empty NEXT_PUBLIC_API_URL ⇒ browser uses same-origin /api (works for IP, domain, https).
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_CHAIN_11155111_RPC_URL=$NEXT_PUBLIC_CHAIN_11155111_RPC_URL
-ENV NEXT_PUBLIC_CHAIN_11155111_RWA=$NEXT_PUBLIC_CHAIN_11155111_RWA
-ENV NEXT_PUBLIC_CHAIN_11155111_USDC=$NEXT_PUBLIC_CHAIN_11155111_USDC
-ENV NEXT_PUBLIC_CHAIN_1_RPC_URL=$NEXT_PUBLIC_CHAIN_1_RPC_URL
-ENV NEXT_PUBLIC_CHAIN_1_RWA=$NEXT_PUBLIC_CHAIN_1_RWA
-ENV NEXT_PUBLIC_CHAIN_1_USDC=$NEXT_PUBLIC_CHAIN_1_USDC
-ENV NEXT_PUBLIC_CHAIN_137_RPC_URL=$NEXT_PUBLIC_CHAIN_137_RPC_URL
-ENV NEXT_PUBLIC_CHAIN_137_RWA=$NEXT_PUBLIC_CHAIN_137_RWA
-ENV NEXT_PUBLIC_CHAIN_137_USDC=$NEXT_PUBLIC_CHAIN_137_USDC
-ENV NEXT_PUBLIC_DEFAULT_CHAIN_ID=$NEXT_PUBLIC_DEFAULT_CHAIN_ID
-ENV NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID
-ENV NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=$NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT
-ENV NEXT_PUBLIC_PLATFORM_FEE_BPS=$NEXT_PUBLIC_PLATFORM_FEE_BPS
-ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID
-ENV NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=$NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT
-ENV NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=$NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET
-ENV NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=$NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID
-ENV NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT=$NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT
-ENV NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK=$NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK
-
-# Sepolia (11155111) must be fully configured — otherwise client bundle crashes at runtime.
-RUN if [ -z "${NEXT_PUBLIC_CHAIN_11155111_RPC_URL:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RPC_URL must be non-empty at docker build."; \
-  exit 1; \
-fi
-RUN if [ -z "${NEXT_PUBLIC_CHAIN_11155111_RWA:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RWA must be non-empty at docker build."; \
-  exit 1; \
-fi
-RUN if [ -z "${NEXT_PUBLIC_CHAIN_11155111_USDC:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_USDC must be non-empty at docker build."; \
-  exit 1; \
-fi
-RUN if [ -z "${NEXT_PUBLIC_PRIVY_APP_ID:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_PRIVY_APP_ID must be non-empty at docker build (Privy login/wallets)."; \
-  exit 1; \
-fi
-
-# Standalone build (next.config.ts → output: 'standalone')
 RUN pnpm build
 
 # ── Stage 3: 실행 (최소 이미지) ──────────────────────────────────

@@ -107,6 +107,13 @@ function makeEm(opts: {
   return { em, findOneCalls, qb, updates, createdRows };
 }
 
+const chainConfig = {
+  resolveChainId: () => 11155111,
+  getRwaAddress: () => '0x1111111111111111111111111111111111111111',
+  getDefaultChainId: () => 11155111,
+  listConfiguredRwaAddresses: () => ['0x1111111111111111111111111111111111111111'],
+};
+
 describe('VaultSubmissionService.upsertDraft', () => {
   it('locks submission by publicId without relations (Postgres FOR UPDATE + LEFT JOIN)', async () => {
     const now = new Date();
@@ -114,6 +121,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       id: 'sub-1',
       publicId: 'SUB-TEST-1',
       userId: 'user-1',
+      tokenContract: '0x1111111111111111111111111111111111111111',
       status: 'draft' as const,
       carrier: null,
       trackingNumber: null,
@@ -144,6 +152,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -198,6 +207,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -230,6 +240,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
     const fixed = new Date(2026, 7, 5); // local Aug 5, 2026
     const { em } = makeEm({
@@ -247,6 +258,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
     const fixed = new Date(2026, 7, 5);
     const { em } = makeEm({ lastPublicIdRows: [] });
@@ -268,6 +280,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
 
     await expect(service.upsertDraft('user-1', { cards: [] })).rejects.toBeInstanceOf(
@@ -289,6 +302,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
 
     await expect(
@@ -355,6 +369,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       {} as never,
+      chainConfig as never,
     );
 
     const dto = await service.upsertDraft('user-1', { cards: [CONFIRMED_CARD] });

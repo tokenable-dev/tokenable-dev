@@ -36,52 +36,33 @@ Images are tagged with the branch name (rolling pointer) **and** the full `githu
 
 ---
 
-## GitHub Secrets / Variables
+## GitHub Secrets (deploy only)
 
-`NEXT_PUBLIC_*` values are baked into the frontend bundle at Docker build time — a rebuild is required when they change.
+Keep **only** infrastructure secrets in GitHub Actions. Frontend `NEXT_PUBLIC_*` live on the **EC2 host** (same idea as backend env):
 
-| Name | Required | Description |
-|------|----------|-------------|
-| `AWS_ACCESS_KEY_ID` | Yes | ECR push credentials |
-| `AWS_SECRET_ACCESS_KEY` | Yes | ECR push credentials |
-| `ECR_REGISTRY` | Yes | e.g. `717728193407.dkr.ecr.ap-northeast-2.amazonaws.com` |
-| `DEV_EC2_HOST` | Yes (`develop`) | Dev EC2 public IP or hostname |
-| `DEV_EC2_SSH_KEY` | Yes (`develop`) | Dev SSH private key |
-| `PROD_EC2_HOST` | For `main` | Prod EC2 host |
-| `PROD_EC2_SSH_KEY` | For `main` | Prod SSH private key |
-| `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` | Yes | Sepolia RPC (Alchemy) — Docker build arg |
-| `NEXT_PUBLIC_CHAIN_11155111_RWA` | Yes | Sepolia TokenableRWA proxy — Docker build arg |
-| `NEXT_PUBLIC_CHAIN_11155111_USDC` | Yes | Sepolia USDC (Circle testnet) — Docker build arg |
-| `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | No | Default `11155111` (Sepolia-only) |
-| `NEXT_PUBLIC_CHAIN_1_RPC_URL` | No | Ethereum mainnet RPC — add all three when mainnet goes live |
-| `NEXT_PUBLIC_CHAIN_1_RWA` | No | Ethereum mainnet TokenableRWA |
-| `NEXT_PUBLIC_CHAIN_1_USDC` | No | Ethereum mainnet USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) |
-| `NEXT_PUBLIC_CHAIN_137_RPC_URL` | No | Polygon mainnet RPC — add all three after Polygon RWA deploy |
-| `NEXT_PUBLIC_CHAIN_137_RWA` | No | Polygon TokenableRWA |
-| `NEXT_PUBLIC_CHAIN_137_USDC` | No | Polygon native USDC (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
-| `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | No | `production` for Polygon live; `sandbox` only for Sepolia QA |
-| `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | No | `true` only for Sepolia MoonPay QA |
-| `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` | No | `137` (Polygon) production; `11155111` Sepolia QA. Active mainnet header also wins. |
-| `NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT` | No | Defaults to `50` |
-| `NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK` | No | Sandbox/testnet only; ignored on mainnet |
-| `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
-| `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
-| `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID |
+| On EC2 | Purpose |
+|--------|---------|
+| `/home/ubuntu/.env.production.backend` | Runtime secrets (Alchemy, DB, Privy secret, …) |
+| `/home/ubuntu/.env.production.frontend` | Frontend bake (`NEXT_PUBLIC_*`) — CI copies this via SSH before `docker build` |
 
-`API_PROXY_TARGET` is passed as `--build-arg API_PROXY_TARGET=http://backend:4000` by the workflow automatically.
+Details: [`deploy/README.md`](../../deploy/README.md).
 
-MoonPay / Add funds: frontend Dockerfile + `deploy.yml` bake `NEXT_PUBLIC_PRIVY_FUNDING_*` at image build. Backend still needs `PRIVY_FUNDING_TARGET_CAIP2` in `.env.production.backend`. See [privy-wallet-funding.md](privy-wallet-funding.md).
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Yes | ECR push |
+| `ECR_REGISTRY` | Yes | Registry host |
+| `DEV_EC2_HOST` / `DEV_EC2_SSH_KEY` | Yes (`develop`) | Dev SSH (deploy + fetch frontend env) |
+| `PROD_EC2_HOST` / `PROD_EC2_SSH_KEY` | For `main` | Prod SSH |
+
+**Do not** put `NEXT_PUBLIC_*` in GitHub Secrets or commit real `deploy/*.env` files. Use a **public** Sepolia RPC in the frontend host file; Alchemy only in `.env.production.backend`.
+
+After editing `.env.production.frontend` on EC2, push (or re-run Actions) so the frontend image rebuilds.
+
+MoonPay / Add funds: `NEXT_PUBLIC_PRIVY_FUNDING_*` go in `.env.production.frontend`. Backend still needs `PRIVY_FUNDING_TARGET_CAIP2` in `.env.production.backend`. See [privy-wallet-funding.md](privy-wallet-funding.md).
 
 ---
 
-## EC2 Setup (First Time)
-
-```bash
-# On EC2:
-git clone https://github.com/<org>/tokenable-dev.git /home/ubuntu/app
-```
+## Backend env on EC2
 
 Create `/home/ubuntu/.env.production.backend` with all backend secrets.
 
@@ -89,7 +70,7 @@ Create `/home/ubuntu/.env.production.backend` with all backend secrets.
 
 ```env
 # Privy (required)
-PRIVY_APP_ID=<same as NEXT_PUBLIC_PRIVY_APP_ID>
+PRIVY_APP_ID=<same as NEXT_PUBLIC_PRIVY_APP_ID in /home/ubuntu/.env.production.frontend>
 PRIVY_APP_SECRET=<from Privy Dashboard → Settings → App secret>
 # PRIVY_JWT_VERIFICATION_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
@@ -235,7 +216,7 @@ curl -sS https://your-domain.com/api/health
 - [ ] Frontend built with correct `NEXT_PUBLIC_*` env
 - [ ] `CORS_ORIGIN` lists every frontend origin
 - [ ] `FRONTEND_URL` matches the public HTTPS URL (required for Privy cookies)
-- [ ] GitHub secret `NEXT_PUBLIC_PRIVY_APP_ID` set and frontend image rebuilt
+- [ ] `/home/ubuntu/.env.production.frontend` exists on EC2 and frontend image rebuilt
 - [ ] EC2 `.env.production.backend` has `PRIVY_APP_ID` + `PRIVY_APP_SECRET`
 - [ ] Privy Dashboard → **Domains** includes `https://your-domain.com`
 - [ ] `RWA_OWNER_PRIVATE_KEY` configured with MINTER_ROLE + BURNER_ROLE on deployed contract
@@ -254,6 +235,8 @@ curl -sS https://your-domain.com/api/health
 ### Backend exits on boot: “Database schema is behind”
 
 Production asserts required tables/columns (see `backend/src/health/schema-assert.service.ts`). Apply the listed `backend/sql/maintenance/…` files, then restart. Temporary bypass: `SCHEMA_ASSERT_ON_BOOT=0` (do not leave on).
+
+**`column c.token_contract does not exist` (500 on collection lists):** the API was deployed before `add_marketplace_collections_token_contract.sql` ran. This is a missing additive column, not a dropped table. Apply that file (see below), then retry. Do not re-run bootstrap or a marketplace reset.
 
 **`vault_submission_items.card_number does not exist` (500 on `/api/vault/submissions`):** code was deployed before `add_vault_submission_item_display_fields.sql` ran on the server DB. Fix immediately:
 

@@ -111,6 +111,24 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   },
   {
     kind: 'column',
+    table: 'marketplace_collections',
+    column: 'token_contract',
+    fix: 'maintenance/add_marketplace_collections_token_contract.sql',
+  },
+  {
+    kind: 'column',
+    table: 'vault_submissions',
+    column: 'token_contract',
+    fix: 'maintenance/add_vault_submissions_token_contract.sql',
+  },
+  {
+    kind: 'column',
+    table: 'portfolio_daily_snapshots',
+    column: 'token_contract',
+    fix: 'maintenance/add_portfolio_daily_snapshots_token_contract.sql',
+  },
+  {
+    kind: 'column',
     table: 'bulk_mint_job_items',
     column: 'display_name',
     fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',

@@ -142,7 +142,6 @@ PINATA_GATEWAY=your_gateway.mypinata.cloud
 # PSA — multi-token pool (comma-separated; each ~1 req/day free tier)
 PSA_PUBLIC_API_TOKENS=token1,token2
 # PSA_PUBLIC_API_UPSTREAM_ENABLED=true
-# PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT=always
 
 # Cardhedger
 CARDHEDGER_API_KEY=your_cardhedger_key

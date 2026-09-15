@@ -32,6 +32,7 @@ import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
   draftCardsFromSubmissionItems,
+  bindSellFlowToContract,
   bindSellFlowToUser,
   consumeSellFlowResumeCards,
   readSellFlowDraftCards,
@@ -203,7 +204,9 @@ export function useSellFlow() {
   // Bind draft keys to the signed-in user before any local restore (blocks cross-account OCR leaks).
   useEffect(() => {
     if (!authInitialized) return;
-    const wiped = bindSellFlowToUser(user?.id ?? null);
+    const wiped =
+      bindSellFlowToUser(user?.id ?? null) || bindSellFlowToContract();
+    if (wiped && user?.id) bindSellFlowToUser(user.id);
     if (!wiped) return;
     setCards([]);
     setDraftRestored(false);
@@ -219,6 +222,7 @@ export function useSellFlow() {
     if (localHydrateDoneRef.current) return;
     localHydrateDoneRef.current = true;
     if (user?.id) bindSellFlowToUser(user.id);
+    bindSellFlowToContract();
     const localCards = user?.id ? readSellFlowDraftCards() : [];
     const q = searchParams.get("vault");
     const prefillsVault: SellVaultChoice | null =

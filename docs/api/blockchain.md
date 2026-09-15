@@ -185,7 +185,7 @@ Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdin
 
 Collection detail orderbook and market reads (`GET /marketplace/collections/:key`, `…/stats`, `…/platform-trades`, `…/market-series`, `GET /marketplace/rwa/:tokenId/trades`, portfolio/market batch snapshots) also filter by that chain’s RWA `token_contract` and USDC address. Public and admin collection lists include a card only when this contract has an order or token, or the catalog row is stamped with this RWA address (`marketplace_collections.token_contract`). Unstamped drafts with no activity are leftover catalogs, not a live marketplace.
 
-`portfolio_daily_snapshots` are unique on `(wallet_address, snapshot_date_kst, chain_id)`. The 09:00 KST cron captures each configured chain separately; `GET /marketplace/portfolio/daily/:wallet` returns history for the request chain only.
+`portfolio_daily_snapshots` are unique on `(wallet_address, snapshot_date_kst, chain_id, token_contract)`. The 09:00 KST cron captures each configured RWA separately; `GET /marketplace/portfolio/daily/:wallet` returns history for the request chain's **current** RWA only. Unstamped rows from a previous contract are not used for 24h P/L. Sell packages (`vault_submissions`) are stamped the same way and are not listed for a new address.
 
 Admin platform analytics (`GET /marketplace/admin/analytics`) scopes mints / orders / GMV / holdings / snapshot counts to the request chain. Users, watchlist, and collection catalog totals remain global.
 

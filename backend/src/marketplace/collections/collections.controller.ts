@@ -629,29 +629,33 @@ export class CollectionsController {
     const chainId = this.chainConfig.resolveChainId(chainHeader);
     let col = await this.collectionService.findOne(k);
     if (col) {
-      await this.collectionService.ensurePsaTotalPopulationFromListings(
-        k,
-        chainId,
-      );
-      // Mint-only PSA: no live Public API on read (mirror/pop must already be on components).
+      // DB-only enrichments can stay on the request path.
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
       await this.collectionService.ensurePsaSpecPopulationOnReadIfMissing(k);
-      await this.collectionService.ensurePsaCertNumberFromListings(k, {
-        chainId,
-      });
-      const cardhedgerUpdated =
-        await this.collectionService.ensureCardhedgerCardIdFromListings(
-          k,
-          chainId,
-        );
-      if (cardhedgerUpdated) {
-        this.eventEmitter.emit('snapshot.enqueue', { key: k, reason: 'manual' });
-      }
-      await this.collectionService.ensureListingDisplayTitleFromListings(
-        k,
-        chainId,
-      );
       await this.collectionService.ensureNormalizedPokemonLanguageIfMissing(k);
+
+      // RPC/IPFS backfills must not gate the detail response (Alchemy 429 → nginx 504).
+      // Stamped rows early-return; missing fields catch up in the background.
+      void Promise.all([
+        this.collectionService.ensurePsaTotalPopulationFromListings(k, chainId),
+        this.collectionService.ensurePsaCertNumberFromListings(k, { chainId }),
+        this.collectionService.ensureCardhedgerCardIdFromListings(k, chainId),
+        this.collectionService.ensureListingDisplayTitleFromListings(k, chainId),
+      ])
+        .then(([ , , cardhedgerUpdated]) => {
+          if (cardhedgerUpdated) {
+            this.eventEmitter.emit('snapshot.enqueue', {
+              key: k,
+              reason: 'manual',
+            });
+          }
+        })
+        .catch((e) => {
+          this.logger.warn(
+            `collection detail backfill failed key=${k}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+
       col = await this.collectionService.findOne(k);
     }
 

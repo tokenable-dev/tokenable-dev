@@ -415,6 +415,9 @@ export class CollectionComponentsService {
       typeof comp.cardhedgerSearchQuery === 'string'
         ? comp.cardhedgerSearchQuery.trim()
         : '';
+    // Detail reads must not block on RPC when the bucket is already stamped.
+    // Missing ids are filled at mint / snapshot; re-audit can run offline.
+    if (existing) return false;
 
     const asks = await this.activeListingsForCollection(k, chainId);
     const ids = new Set<string>();
@@ -493,6 +496,10 @@ export class CollectionComponentsService {
     if (!row) return;
 
     const colC = row.psaCertNumber?.trim() || '';
+    // Stored cert is enough for collection detail. Re-pick from listings is
+    // RPC-heavy and must not gate every GET behind Alchemy/IPFS.
+    if (colC) return;
+
     const asks = await this.activeListingsForCollection(k, opts?.chainId);
     const hits: ListingPsaCertHit[] = [];
     for (const o of asks) {

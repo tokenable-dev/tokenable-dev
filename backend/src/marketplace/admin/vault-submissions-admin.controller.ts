@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -18,6 +19,7 @@ import {
   AdminUpdateItemStatusDto,
   AdminUpdateSubmissionStatusDto,
 } from '../../vault/dto/admin-vault-submission.dto';
+import { CHAIN_ID_HEADER } from '../../blockchain/chain-config.service';
 import { MarketplaceAdminService } from './marketplace-admin.service';
 
 @ApiTags('marketplace-admin-vault-submissions')
@@ -31,9 +33,12 @@ export class VaultSubmissionsAdminController {
 
   @Get('counts')
   @ApiOperation({ summary: 'Pipeline status counts for ops dashboard' })
-  counts(@Req() req: Request) {
+  counts(
+    @Req() req: Request,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     this.admin.assertAdminSession(req);
-    return this.submissions.adminCounts();
+    return this.submissions.adminCounts(chainHeader);
   }
 
   @Get('arrival-reviews')
@@ -57,9 +62,13 @@ export class VaultSubmissionsAdminController {
     summary:
       'PSA reviewing / approved cards ready for admin mint + deliver to user',
   })
-  listMintQueue(@Req() req: Request, @Query('q') q?: string) {
+  listMintQueue(
+    @Req() req: Request,
+    @Query('q') q?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     this.admin.assertAdminSession(req);
-    return this.submissions.listAdminMintQueue({ q });
+    return this.submissions.listAdminMintQueue({ q, chainHeader });
   }
 
   @Get('vaulted-reviews')
@@ -132,9 +141,10 @@ export class VaultSubmissionsAdminController {
     @Req() req: Request,
     @Query('status') status?: string,
     @Query('q') q?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.admin.assertAdminSession(req);
-    return this.submissions.adminList({ status, q });
+    return this.submissions.adminList({ status, q, chainHeader });
   }
 
   @Get(':idOrPublicId')

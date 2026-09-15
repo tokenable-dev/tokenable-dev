@@ -31,22 +31,20 @@ cd /home/ubuntu/app   # or your compose dir
 docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d backend
 ```
 
-## GitHub Secrets / Variables (frontend bake)
+## Frontend bake (EC2 `/home/ubuntu/.env.production.frontend`)
 
-`NEXT_PUBLIC_*` are baked at **image build** — set these, then redeploy `develop`:
+`NEXT_PUBLIC_*` are baked at **image build**. Create `/home/ubuntu/.env.production.frontend` on EC2 once; CI copies it via SSH. See [deploy/README.md](../../deploy/README.md).
 
-| Name | Value |
+| Name | Notes |
 |------|--------|
 | `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | `11155111` |
-| `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` | same Alchemy Sepolia URL as backend |
-| `NEXT_PUBLIC_CHAIN_11155111_RWA` | `0x35b2368E718914e981b1C0043c76d4a573163D4A` (match backend) |
-| `NEXT_PUBLIC_CHAIN_11155111_USDC` | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
-| `NEXT_PUBLIC_CHAIN_137_RPC_URL` | Polygon Alchemy URL |
-| `NEXT_PUBLIC_CHAIN_137_RWA` | `0x9ccF71bc790C9f43e42cFCa7aFd305A816497903` (match deploy backend — not local) |
-| `NEXT_PUBLIC_CHAIN_137_USDC` | `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
-| `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | `sandbox` (or leave unset on `develop` — workflow defaults sandbox) |
-| `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | `true` (or leave unset on `develop`) |
-| `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` | `11155111` (or leave unset — follows default chain) |
+| `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` | Public Sepolia URL (not Alchemy) |
+| `NEXT_PUBLIC_CHAIN_11155111_RWA` | Must match backend `CHAIN_11155111_RWA_ADDRESS` |
+| `NEXT_PUBLIC_CHAIN_11155111_USDC` | Circle Sepolia USDC |
+| `NEXT_PUBLIC_CHAIN_137_*` | Polygon for internal-dev switcher |
+| `NEXT_PUBLIC_PRIVY_*` / fee / GA | Public client config |
+
+GitHub Actions only needs AWS/ECR/EC2 secrets — see [deployment.md](deployment.md#github-secrets-deploy-only).
 
 Do **not** set funding chain to `137` for the public Sepolia deploy. Internal-dev on Polygon still gets live MoonPay because the app uses the **active header network** when it is a mainnet.
 

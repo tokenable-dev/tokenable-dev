@@ -7,7 +7,7 @@ Sell-flow package tracking (local cards → ship package → PSA → mint link).
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/` | List my submissions (newest first) |
+| `GET` | `/` | List my submissions for the request chain's configured RWA (newest first). Other contracts and unstamped leftovers are omitted |
 | `GET` | `/:idOrPublicId` | Detail by uuid or `SUB-…` (`SUB-YYYYMMDD-#####`, daily sequence e.g. `00001`) |
 | `POST` | `/draft` | Upsert **shipping package** (`{ publicId?, cards[] }` all `confirmed: true`) → `awaiting_shipment`. Does **not** create `status=draft` rows. |
 | `PATCH` | `/:idOrPublicId/draft` | Same upsert with pinned public id |
@@ -39,7 +39,7 @@ Includes `scenario` (`A`–`H`) for Vault-Detail UI, plus `items[]` and shipment
 
 ### Draft resume (frontend)
 
-Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** create `vault_submissions` rows with `status=draft`.
+Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** create `vault_submissions` rows with `status=draft`. Browser drafts are cleared when the configured RWA address changes (`tk_sell_flow_contract`). Shipping upserts stamp `token_contract` from `x-tokenable-chain-id`.
 
 | Layer | What |
 |-------|------|

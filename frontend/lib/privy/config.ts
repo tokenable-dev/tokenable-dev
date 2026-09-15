@@ -1,15 +1,13 @@
-import { addRpcUrlOverrideToChain } from "@privy-io/chains";
 import { createConfig } from "@privy-io/wagmi";
 import type { PrivyClientConfig } from "@privy-io/react-auth";
-import { http } from "wagmi";
+import { http, fallback } from "wagmi";
 import { ASSETS } from "@/constants/assets";
 import {
-  DEFAULT_CHAIN_ID,
-  getChainDefinition,
+  getBrowserRpcUrls,
   getDefaultPrivyChain,
   getPrivySupportedChains,
-  isChainConfigured,
 } from "@/lib/chains/registry";
+import type { SupportedChainId } from "@/lib/chains/types";
 import {
   PRIVY_LOGIN_METHODS_ORDER,
   resolvePrivyLoginMethodsOrder,
@@ -146,8 +144,19 @@ export const privyClientConfig: PrivyClientConfig = buildPrivyClientConfig();
 
 const transports = Object.fromEntries(
   wagmiChains.map((chain) => {
-    const def = getChainDefinition(chain.id as typeof DEFAULT_CHAIN_ID);
-    return [chain.id, http(def.viemChain.rpcUrls.default.http[0])];
+    const chainId = chain.id as SupportedChainId;
+    const urls = getBrowserRpcUrls(chainId);
+    // Prefer public RPCs when NEXT_PUBLIC points at a shared Alchemy key —
+    // browser clients sharing one key hit 429; Alchemy's error body lacks CORS.
+    const httpClients = urls.map((url) =>
+      http(url, { retryCount: 0, timeout: 12_000 }),
+    );
+    return [
+      chain.id,
+      httpClients.length === 1
+        ? httpClients[0]!
+        : fallback(httpClients, { rank: false }),
+    ];
   }),
 );
 
