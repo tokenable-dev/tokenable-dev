@@ -101,7 +101,7 @@ async function bootstrap() {
         '5. **Admin** — `POST /api/marketplace/admin/auth/login` → `marketplace-admin` 태그 (쿠키 세션)',
         '',
         '**인증** — `access-token`: Tokenable JWT · `privy-access-token`: Privy `getAccessToken()` (세션 동기화·검증).',
-        '**체인** — 선택 헤더 `x-tokenable-chain-id` (예: `80002`). marketplace 태그 대부분에 적용.',
+        '**체인** — 선택 헤더 `x-tokenable-chain-id` (예: `11155111` Sepolia, `1` Ethereum, `137` Polygon). marketplace 태그 대부분에 적용.',
         '**Privy 카탈로그** — `GET /api/privy/catalog` · 태그 `privy-auth` / `privy-users` / `privy-funding`.',
       ].join('\n'),
     )

@@ -136,13 +136,11 @@ export function buildCollectionMarketDetailCards(params: {
     });
   }
 
-  if (series) {
-    rows.push({
-      id: "series",
-      label: "Series",
-      value: series,
-    });
-  }
+  rows.push({
+    id: "series",
+    label: "Series",
+    value: series || "-",
+  });
 
   if (setDisplay) {
     rows.push({
@@ -159,13 +157,11 @@ export function buildCollectionMarketDetailCards(params: {
     formatCardDisplaySetLabel(np?.setCode) ||
     extractCatalogSetCodeFromDisplay(setSourceRaw) ||
     extractCatalogSetCodeFromDisplay(setLineRaw);
-  if (setCode) {
-    rows.push({
-      id: "set-code",
-      label: "Set code",
-      value: setCode,
-    });
-  }
+  rows.push({
+    id: "set-code",
+    label: "Set code",
+    value: setCode || "-",
+  });
 
   if (splitNum.number) {
     rows.push({
@@ -240,12 +236,14 @@ export function buildCollectionMarketDetailCards(params: {
   return rows.map((row) => ({
     ...row,
     value:
-      row.id === "card-number" ||
-      row.id === "set" ||
-      row.id === "set-code" ||
-      row.id === "language" ||
-      row.id === "grade"
+      row.value === "-" || row.value === "—"
         ? row.value
-        : toCardDisplayCase(row.value),
+        : row.id === "card-number" ||
+            row.id === "set" ||
+            row.id === "set-code" ||
+            row.id === "language" ||
+            row.id === "grade"
+          ? row.value
+          : toCardDisplayCase(row.value),
   }));
 }

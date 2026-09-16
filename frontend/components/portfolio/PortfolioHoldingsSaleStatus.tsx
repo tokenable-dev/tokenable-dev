@@ -11,20 +11,19 @@ const KIND_CLASS: Record<HoldingsSaleKind, string> = {
   redeeming: "pf-sale-status--redeeming",
 };
 
-/** Dot + label only — no subtext (shipping copy lives behind Track). */
+/** Portfolio.html status pill — mono 10px chip (Not listed / Listed · $… / Redeeming). */
 export function PortfolioHoldingsSaleStatus({
   isListed,
   redeemStatus,
+  listPriceUsd = null,
 }: {
   isListed: boolean;
   redeemStatus: RedeemSurfaceBadge | null;
+  listPriceUsd?: number | null;
 }) {
   const kind = holdingsSaleKind(isListed, redeemStatus);
-  const label = holdingsSaleStatusLabel(kind);
+  const label = holdingsSaleStatusLabel(kind, isListed ? listPriceUsd : null);
   return (
-    <span className={`pf-sale-status ${KIND_CLASS[kind]}`}>
-      <span className="pf-sale-status__dot" aria-hidden />
-      {label}
-    </span>
+    <span className={`pf-sale-status ${KIND_CLASS[kind]}`}>{label}</span>
   );
 }

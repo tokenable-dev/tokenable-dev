@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { Order, RwaMetadata } from "@/lib/core";
+import { postRwaVaultInfoBatch, rq } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import {
@@ -20,6 +23,7 @@ import {
   formatPortfolioGradeLabel,
   resolvePortfolioHoldingsHeadlines,
 } from "@/lib/portfolio/portfolioTableHelpers";
+import { portfolioTableVaultChip } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkButton } from "@/components/ds";
 import {
@@ -109,6 +113,31 @@ export function PortfolioHoldingsSection({
     () => resolvePortfolioHoldingsHeadlines(assetRows, metadataByTokenId),
     [assetRows, metadataByTokenId],
   );
+
+  const vaultTokenIds = useMemo(
+    () => assetRows.map((r) => r.tokenId),
+    [assetRows],
+  );
+  const chainId = activeRqChainId();
+  const vaultInfoQuery = useQuery({
+    queryKey: rq.rwaVaultInfoBatch(undefined, vaultTokenIds, chainId),
+    queryFn: () => postRwaVaultInfoBatch(vaultTokenIds),
+    enabled: vaultTokenIds.length > 0,
+    staleTime: 60_000,
+  });
+  const vaultByTokenId = useMemo(() => {
+    const m = new Map<
+      number,
+      { text: string; tone: "psa" | "partner" }
+    >();
+    for (const item of vaultInfoQuery.data?.items ?? []) {
+      const id = Number(item.tokenId);
+      if (!Number.isFinite(id)) continue;
+      const chip = portfolioTableVaultChip(item.vaultLabel);
+      if (chip) m.set(id, chip);
+    }
+    return m;
+  }, [vaultInfoQuery.data]);
 
   const filteredSortedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -335,6 +364,7 @@ export function PortfolioHoldingsSection({
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
           headlineByTokenId={headlineByTokenId}
+          vaultByTokenId={vaultByTokenId}
           assetHrefBase={assetsBase}
           costBasisByTokenId={costBasisByTokenId}
           valuesPending={valuesPending}

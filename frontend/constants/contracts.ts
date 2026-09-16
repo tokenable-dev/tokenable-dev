@@ -16,7 +16,7 @@ export const USDC_ADDRESS = defaultContracts.usdcAddress;
 
 export { getChainContracts } from "@/lib/chains/registry";
 
-/** Seaport v1.5 — same canonical address on Polygon Amoy and other EVM chains. */
+/** Seaport v1.5 — same canonical address on supported EVM chains. */
 export const SEAPORT_ADDRESS =
   "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC" as `0x${string}`;
 
@@ -34,11 +34,11 @@ export const PLATFORM_FEE_RECIPIENT: `0x${string}` | null = (() => {
   return raw as `0x${string}`;
 })();
 
-/** Fee in basis points — 250 = 2.5 %. Falls back to 0 when recipient is unset. */
+/** Fee in basis points — 500 = 5 %. Falls back to 0 when recipient is unset. */
 export const PLATFORM_FEE_BPS: number = (() => {
   if (!PLATFORM_FEE_RECIPIENT) return 0;
-  const v = parseInt(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "250", 10);
-  return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 250;
+  const v = parseInt(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "500", 10);
+  return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 500;
 })();
 
 // ─── Tokenable_RWA ABIs ─────────────────────────────────────────────────────────

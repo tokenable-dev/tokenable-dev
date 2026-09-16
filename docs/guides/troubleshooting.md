@@ -98,13 +98,26 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 
 ---
 
+## Alchemy CU / too many `eth_getLogs`
+
+**Symptom:** Alchemy dashboard shows heavy `eth_getLogs`; monthly capacity exceeded; Nest logs owner-index backfill/poll.
+
+**Cause:** `RWA_OWNER_INDEX_ENABLED=1` + `CHAIN_*_RWA_DEPLOY_BLOCK` replays Transfer logs from deploy→head (chunk ≈10 blocks). Older code also **polled every 60s during catch-up**, doubling RPC. A wrong/old deploy block or a dead RPC that still retried every minute made it worse.
+
+**Fix:**
+- Local: `RWA_OWNER_INDEX_ENABLED=0` (portfolio falls back to `ownerOf`).
+- Staging/prod: enable only when needed; set deploy block to the **current** RWA proxy; restart backend after the listener change (no poll during catch-up; idle poll ~5 min; fail backoff).
+- Do not leave Alchemy as the only RPC while catch-up runs for hundreds of thousands of blocks.
+
+---
+
 ## Backend log spam: `JsonRpcProvider failed to detect network … retry in 1s`
 
 **Symptom:** Nest stdout floods that line about once per second. `/api/health` still returns 200. Owner-index backfill may still print every ~60s.
 
 **Cause:** ethers `JsonRpcProvider` could not complete `eth_chainId`. It retries **every 1s** by design. Local `CHAIN_11155111_RPC_URL` pointed at Alchemy after the monthly CU cap → 429. `RWA_OWNER_INDEX_ENABLED=1` keeps creating RPC calls (and used to leak a new provider per pass).
 
-**Fix:** Use `https://ethereum-sepolia-rpc.publicnode.com` in `backend/.env` (`CHAIN_11155111_RPC_URL`). Do **not** use `https://rpc.sepolia.org` — that host now returns Apache **404**. Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Code uses `{ staticNetwork: true }` plus a cached provider so a dead RPC does not print this loop.
+**Fix:** Use Alchemy (or any primary) in `CHAIN_*_RPC_URL`. Backend wraps it with public fallbacks (`ethereum-sepolia-rpc.publicnode.com`, …) via ethers `FallbackProvider`. Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Providers use `{ staticNetwork: true }` so a dead primary does not print the 1s loop forever.
 
 ---
 
@@ -205,6 +218,31 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
 - `collection_key` NULL → listing metadata missing graded bucket fields; see orphan route `/marketplace/other-listings`.
 - List API OK but UI empty → hard refresh; check `GET /api/marketplace/collections`.
 - Snapshot bar stuck → `POST /api/marketplace/collections/market-snapshots` errors in Network tab.
+
+---
+
+## List / Edit price: `ERC721: invalid token ID`
+
+`ownerOf(tokenId)` failed on the RWA contract the **frontend** is using. Missing Cardhedger data does **not** cause this.
+
+Common causes:
+
+1. **Header network ≠ mint chain** — Polygon mint listed while app/wallet still on Sepolia (or the reverse).
+2. **Frontend / backend RWA address drift** — `NEXT_PUBLIC_CHAIN_{id}_RWA` ≠ `CHAIN_{id}_RWA_ADDRESS`.
+3. **Redeployed RWA without DB reset** — old `rwa_tokens` / `orders` rows for a previous CA; portfolio can still show ghost token ids. Use admin **reset for new contract** *before* swapping the CA (see `docs/api/marketplace-admin.md`).
+
+Checks:
+
+```bash
+# DB row (token_contract must match the active CA)
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
+  "SELECT token_id, token_contract, cert_number, owner_wallet FROM rwa_tokens WHERE cert_number='YOUR_CERT';"
+
+# On-chain (replace RPC + CA)
+cast call $RWA_ADDRESS "ownerOf(uint256)(address)" $TOKEN_ID --rpc-url $RPC_URL
+```
+
+Listing now preflights `ownerOf` and maps this error to an actionable message (switch network / align env / reset after redeploy).
 
 ---
 

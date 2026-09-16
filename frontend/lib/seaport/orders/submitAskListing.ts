@@ -65,17 +65,38 @@ export async function submitAskListingOrder(params: {
   const priceInUnits = parseUnits(priceUsdc, 6);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const [settlementPolicy, now, counter, alreadyAll, onChainOwner] = await Promise.all([
-    params.settlementPolicy
-      ? Promise.resolve(params.settlementPolicy)
-      : getRwaSettlementPolicy(tokenIdStr).then((r) => {
-          if (!r.settlementPolicy) {
-            throw new Error(
-              "Vault custody is unknown for this token — refresh and try again",
-            );
-          }
-          return r.settlementPolicy;
-        }),
+  const settlementPolicy = params.settlementPolicy
+    ? params.settlementPolicy
+    : await getRwaSettlementPolicy(tokenIdStr).then((r) => {
+        if (!r.settlementPolicy) {
+          throw new Error(
+            `This card is not registered on the selected network (chain ${chainId}). Switch the header network to the chain where it was minted, or re-mint after resetting marketplace data for the current RWA contract.`,
+          );
+        }
+        return r.settlementPolicy;
+      });
+
+  let onChainOwner: Address;
+  try {
+    onChainOwner = await publicClient.readContract({
+      address: rwaAddress,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "ownerOf",
+      args: [tokenIdBn],
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/invalid token|nonexistent token|owner query for nonexistent/i.test(msg)) {
+      throw new Error(
+        `Token #${tokenIdStr} does not exist on ${rwaAddress} (chain ${chainId}). ` +
+          `Usually the app RWA address does not match the mint contract, or DB rows were left after a redeploy — ` +
+          `switch network / align NEXT_PUBLIC_CHAIN_*_RWA with the backend, or run admin “reset for new contract” before minting on a new CA.`,
+      );
+    }
+    throw e;
+  }
+
+  const [now, counter, alreadyAll] = await Promise.all([
     getChainTimestampSec(publicClient),
     publicClient.readContract({
       address: SEAPORT_ADDRESS,
@@ -88,12 +109,6 @@ export async function submitAskListingOrder(params: {
       abi: TOKENABLE_RWA_APPROVE_ABI,
       functionName: "isApprovedForAll",
       args: [address, SEAPORT_ADDRESS],
-    }),
-    publicClient.readContract({
-      address: rwaAddress,
-      abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "ownerOf",
-      args: [tokenIdBn],
     }),
   ]);
   if (onChainOwner.toLowerCase() !== address.toLowerCase()) {

@@ -3,7 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { TkButton } from "@/components/ds";
-import { PARTNER_PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import {
+  PARTNER_PORTFOLIO_PATH,
+  portfolioUrl,
+} from "@/lib/portfolio/portfolioPaths";
 import type { SellDraftCard } from "@/lib/sell/sellFlowDraft";
 import type { PartnerMintBatchResult } from "@/lib/sell/mintSellFlowCard";
 import { SellCardNameBlock } from "./SellCardNameBlock";
@@ -38,6 +41,14 @@ export function SellFlowPartnerDoneModal({
   const total = ok + skip;
   const allFailed = ok === 0 && skip > 0;
   const noun = ok === 1 ? "card" : "cards";
+  const firstTokenId = result.succeeded[0]?.tokenId;
+  const setPriceHref =
+    firstTokenId != null && Number.isFinite(firstTokenId) && firstTokenId > 0
+      ? portfolioUrl(
+          PARTNER_PORTFOLIO_PATH,
+          `tab=assets&setprice=${Math.floor(firstTokenId)}`,
+        )
+      : portfolioUrl(PARTNER_PORTFOLIO_PATH, "tab=assets");
 
   const title = allFailed ? (
     <>None of {total} cards were registered</>
@@ -149,7 +160,7 @@ export function SellFlowPartnerDoneModal({
 
         <div className="sell-flow-partner-done-actions">
           {ok > 0 ? (
-            <TkButton href={PARTNER_PORTFOLIO_PATH} variant="primary">
+            <TkButton href={setPriceHref} variant="primary">
               Set prices
             </TkButton>
           ) : null}

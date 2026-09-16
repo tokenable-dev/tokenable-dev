@@ -310,6 +310,14 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     };
   }
 
+  if (/invalid token id|nonexistent token|owner query for nonexistent|does not exist on 0x/i.test(lower)) {
+    return {
+      code: "NETWORK_MISMATCH",
+      message:
+        "This token ID is not minted on the RWA contract for the selected network. Switch the header to the mint chain, confirm NEXT_PUBLIC_CHAIN_*_RWA matches the backend, or reset marketplace data after a contract redeploy — then list again.",
+    };
+  }
+
   if (/execution reverted|revert|reverted|requirement failed/i.test(lower)) {
     const walked = walkCollectErrorText(err);
     const detail =

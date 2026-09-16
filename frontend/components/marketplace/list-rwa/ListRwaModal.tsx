@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
-import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
+import {
+  ListRwaModalFormActions,
+  ListRwaModalFormView,
+} from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
 import { useListRwaModal } from "@/hooks/list-rwa";
 import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
+import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
@@ -27,12 +31,12 @@ export function ListRwaModal(props: ListRwaModalProps) {
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
   const formVariant = shell === "sheet" ? "sheet" : "modal";
-  const sheetLabel =
-    copyVariant === "set-price"
-      ? modal.isReplaceListing
-        ? "Edit price"
-        : "Set price"
-      : "List for sale";
+  const isSetPrice = copyVariant === "set-price";
+  const sheetLabel = isSetPrice
+    ? modal.isReplaceListing
+      ? "Edit price"
+      : "Set price"
+    : "List for sale";
 
   useEffect(() => setMounted(true), []);
 
@@ -60,39 +64,82 @@ export function ListRwaModal(props: ListRwaModalProps) {
     );
   }
 
-  const form = (
-    <ListRwaModalFormView
-      tokenId={tokenId}
-      assetTitle={assetTitle}
-      headlineParts={headlineParts}
-      headlineGrade={headlineGrade}
-      collectionKey={collectionKey}
-      isReplaceListing={modal.isReplaceListing}
+  const listPriceNum = Number(String(modal.price).replace(/[^0-9.]/g, ""));
+  const topBidUsd = modal.topCollectionBid
+    ? Number(modal.topCollectionBid.inputValue)
+    : 0;
+  const sellingNow =
+    isSetPrice &&
+    topBidUsd > 0 &&
+    Number.isFinite(listPriceNum) &&
+    listPriceNum > 0 &&
+    listPriceNum <= topBidUsd &&
+    modal.crossingBidsForInstantSale.length > 0;
+  const ctaLabel = modal.isProcessing
+    ? "Processing..."
+    : sellingNow
+      ? `Sell now — ${formatUsdListing(listPriceNum)}`
+      : isSetPrice
+        ? modal.isReplaceListing
+          ? "Update"
+          : "List"
+        : modal.isReplaceListing
+          ? "Update listing"
+          : "List";
+
+  const formProps = {
+    tokenId,
+    assetTitle,
+    headlineParts,
+    headlineGrade,
+    collectionKey,
+    isReplaceListing: modal.isReplaceListing,
+    price: modal.price,
+    onPriceChange: modal.setPrice,
+    crossingBidsForInstantSale: modal.crossingBidsForInstantSale,
+    selectedBidHash: modal.selectedBidHash,
+    onSelectBidHash: modal.setSelectedBidHash,
+    topCollectionBid: modal.topCollectionBid,
+    marketValueUsd,
+    listedPriceUsd,
+    onRequestCancelListing,
+    onClose,
+    copyVariant,
+    settlementPolicy: modal.settlementPolicy,
+    vaultLabel: modal.vaultLabel,
+    step: modal.step,
+    errorMsg: modal.errorMsg,
+    isProcessing: modal.isProcessing,
+    onSubmit: () => void modal.handleList(),
+    variant: formVariant as "modal" | "sheet",
+  };
+
+  const sheetActions = (
+    <ListRwaModalFormActions
+      ctaLabel={ctaLabel}
+      sellingNow={sellingNow}
+      isProcessing={modal.isProcessing}
       price={modal.price}
-      onPriceChange={modal.setPrice}
-      crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
-      selectedBidHash={modal.selectedBidHash}
-      onSelectBidHash={modal.setSelectedBidHash}
-      topCollectionBid={modal.topCollectionBid}
-      marketValueUsd={marketValueUsd}
-      listedPriceUsd={listedPriceUsd}
+      onSubmit={() => void modal.handleList()}
+      isSetPrice={isSetPrice}
+      isReplaceListing={modal.isReplaceListing}
       onRequestCancelListing={onRequestCancelListing}
       onClose={onClose}
-      copyVariant={copyVariant}
-      settlementPolicy={modal.settlementPolicy}
-      vaultLabel={modal.vaultLabel}
-      step={modal.step}
-      errorMsg={modal.errorMsg}
-      isProcessing={modal.isProcessing}
-      onSubmit={() => void modal.handleList()}
-      variant={formVariant}
     />
   );
 
   if (shell === "sheet") {
     return (
-      <TkActionSheet open onClose={onClose} aria-label={sheetLabel}>
-        {form}
+      <TkActionSheet
+        open
+        onClose={onClose}
+        aria-label={sheetLabel}
+        actions={isSetPrice ? sheetActions : undefined}
+      >
+        <ListRwaModalFormView
+          {...formProps}
+          hideActions={isSetPrice}
+        />
       </TkActionSheet>
     );
   }
@@ -114,7 +161,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         >
           ✕
         </button>
-        {form}
+        <ListRwaModalFormView {...formProps} />
       </div>
     </div>,
     document.body,

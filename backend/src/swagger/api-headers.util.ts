@@ -8,6 +8,6 @@ export function ApiChainIdHeader(): MethodDecorator & ClassDecorator {
     required: false,
     description:
       'Chain ID (예: 11155111 Sepolia, 1 Ethereum, 137 Polygon). 미설정 시 서버 기본 체인.',
-    schema: { type: 'integer', example: 80002 },
+    schema: { type: 'integer', example: 11155111 },
   });
 }

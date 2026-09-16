@@ -168,9 +168,8 @@ MARKETPLACE_ADMIN_DB_RESET_PASSWORD=3009
 # MARKET_SNAPSHOT_CRON_ENABLED=false          # Cardhedger 15-min refresh (default: prod only)
 # CARDLADDER_INDEXES_PREWARM_ENABLED=false    # Playwright scrape on boot (default: prod only)
 # IDENTITY_RECONCILIATION_ENABLED=false       # 3-min cache repair loop (default: prod only)
-# RWA_OWNER_INDEX_ENABLED=0                   # Transfer log index + poll (enable in prod/staging)
-# RWA_OWNER_INDEX_POLL_MS=60000               # Active poll while backfilling (default 60s)
-# RWA_OWNER_INDEX_IDLE_POLL_MS=120000         # Idle poll after index ready (default 2min)
+# RWA_OWNER_INDEX_ENABLED=0                   # Keep off locally — eth_getLogs catch-up burns RPC CU
+# RWA_OWNER_INDEX_IDLE_POLL_MS=300000         # After index ready only (default 5min; no poll during catch-up)
 
 # Alchemy Free RPC tuning (defaults are Free-friendly — override only if you upgrade)
 # RPC_MAX_CONCURRENCY=2

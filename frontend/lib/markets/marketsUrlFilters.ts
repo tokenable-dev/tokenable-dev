@@ -300,7 +300,7 @@ export function marketsHrefForDetailRow(
   ctx: MarketsDetailLinkContext = {},
 ): string | null {
   const v = value.trim();
-  if (!v) return null;
+  if (!v || v === "-" || v === "—") return null;
 
   const categories = categoriesFromDetailCtx(ctx);
 

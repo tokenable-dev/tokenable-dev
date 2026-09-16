@@ -41,6 +41,7 @@ export function ListRwaModalFormView({
   isProcessing,
   onSubmit,
   variant = "modal",
+  hideActions = false,
 }: {
   tokenId: number;
   assetTitle?: string | null;
@@ -67,6 +68,8 @@ export function ListRwaModalFormView({
   onSubmit: () => void;
   /** `embedded` — card detail inline panel; `sheet` — TkActionSheet on RWA detail. */
   variant?: "modal" | "embedded" | "sheet";
+  /** When true, primary/secondary CTAs are omitted (parent renders them in sheet actions). */
+  hideActions?: boolean;
 }) {
   const isEmbedded = variant === "embedded";
   const isSheet = variant === "sheet";
@@ -112,6 +115,20 @@ export function ListRwaModalFormView({
   const isSelfVaultHold = settlementPolicy === "self_vault_hold";
   const feePct = isSelfVaultHold ? 5 : feePercent(settlementPolicy);
 
+  const actions = (
+    <ListRwaModalFormActions
+      ctaLabel={ctaLabel}
+      sellingNow={sellingNow}
+      isProcessing={isProcessing}
+      price={price}
+      onSubmit={onSubmit}
+      isSetPrice={isSetPrice}
+      isReplaceListing={isReplaceListing}
+      onRequestCancelListing={onRequestCancelListing}
+      onClose={onClose}
+    />
+  );
+
   return (
     <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
       {!isEmbedded ? (
@@ -121,7 +138,7 @@ export function ListRwaModalFormView({
           <div className="min-w-0 flex-1 space-y-2">
             <p
               className={
-                isSheet
+                isSetPrice || isSheet
                   ? "rd-list-sheet__eyebrow"
                   : "text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90"
               }
@@ -259,6 +276,34 @@ export function ListRwaModalFormView({
         </div>
       )}
 
+      {hideActions ? null : actions}
+    </div>
+  );
+}
+
+export function ListRwaModalFormActions({
+  ctaLabel,
+  sellingNow,
+  isProcessing,
+  price,
+  onSubmit,
+  isSetPrice,
+  isReplaceListing,
+  onRequestCancelListing,
+  onClose,
+}: {
+  ctaLabel: string;
+  sellingNow: boolean;
+  isProcessing: boolean;
+  price: string;
+  onSubmit: () => void;
+  isSetPrice: boolean;
+  isReplaceListing: boolean;
+  onRequestCancelListing?: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <>
       <TkButton
         className={`mt-0.5 w-full justify-center${sellingNow ? " rd-list-sheet__cta--sell" : ""}`}
         onClick={onSubmit}
@@ -267,17 +312,8 @@ export function ListRwaModalFormView({
         {ctaLabel}
       </TkButton>
 
-      {isSetPrice && isReplaceListing && onRequestCancelListing ? (
-        <TkButton
-          type="button"
-          variant="ghost"
-          className="w-full justify-center"
-          disabled={isProcessing}
-          onClick={onRequestCancelListing}
-        >
-          Cancel listing
-        </TkButton>
-      ) : isSetPrice && onClose ? (
+      {/* portfolio-modals.js: Cancel closes the drawer */}
+      {isSetPrice && onClose ? (
         <TkButton
           type="button"
           variant="ghost"
@@ -288,7 +324,19 @@ export function ListRwaModalFormView({
           Cancel
         </TkButton>
       ) : null}
-    </div>
+
+      {isSetPrice && isReplaceListing && onRequestCancelListing ? (
+        <TkButton
+          type="button"
+          variant="ghost"
+          className="w-full justify-center rd-list-sheet__cancel-listing"
+          disabled={isProcessing}
+          onClick={onRequestCancelListing}
+        >
+          Cancel listing
+        </TkButton>
+      ) : null}
+    </>
   );
 }
 

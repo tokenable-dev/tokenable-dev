@@ -44,11 +44,23 @@ describe('ChainConfigService.requireChainId', () => {
     expect(makeService().resolveChainId('137')).toBe(137);
   });
 
-  it('reuses one JsonRpcProvider per chain', () => {
+  it('reuses one provider per chain', () => {
     const svc = makeService();
     expect(svc.createJsonRpcProvider(11155111)).toBe(
       svc.createJsonRpcProvider(11155111),
     );
+    svc.onModuleDestroy();
+  });
+
+  it('puts env Alchemy URL first, then public fallbacks', () => {
+    const svc = makeService({
+      CHAIN_11155111_RPC_URL:
+        'https://eth-sepolia.g.alchemy.com/v2/test-key',
+    });
+    const urls = svc.getRpcUrls(11155111);
+    expect(urls[0]).toBe('https://eth-sepolia.g.alchemy.com/v2/test-key');
+    expect(urls).toContain('https://ethereum-sepolia-rpc.publicnode.com');
+    expect(urls.length).toBeGreaterThan(1);
     svc.onModuleDestroy();
   });
 });

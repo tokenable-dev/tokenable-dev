@@ -1,14 +1,55 @@
 # Blockchain Architecture
 
+**Last updated:** 2026-09-16
+
+Canonical doc for on-chain components used by the platform: what we own, what we integrate, where it is deployed, and how backend/frontend talk to it.
+
 ## Overview
 
 Tokenable uses **EVM chains** configured in `ChainConfigService` (`SUPPORTED_CHAIN_IDS`: Sepolia `11155111`, Ethereum mainnet `1`, Polygon `137`) for:
 
-- **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards
-- **Seaport 1.5** — off-chain order book with on-chain USDC settlement (Vault channel)
-- **USDC (Circle)** — settlement currency for all marketplace trades
+- **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards (**we deploy and upgrade**)
+- **Seaport 1.5** — OpenSea settlement protocol; off-chain order book in Postgres, on-chain USDC fill (**third-party**)
+- **USDC (Circle)** — settlement currency for all marketplace trades (**third-party**)
 
-The backend is the sole on-chain writer for mint/burn. Users sign Seaport trades via Privy or MetaMask.
+The backend is the sole on-chain writer for mint/burn/custody transfer. Users sign Seaport trades via Privy or MetaMask.
+
+Default public/dev chain is **Ethereum Sepolia**. **Ethereum mainnet** is production. **Polygon mainnet** is configured for internal/QA multi-chain (not the primary public path).
+
+---
+
+## Contract inventory (ownership)
+
+| Component | Owner | Role on platform | Docs / source |
+|-----------|-------|------------------|---------------|
+| **TokenableRWA** (UUPS ERC-721) | Tokenable | Mint / burn / custody NFT for PSA vaultRef | This file · `contracts/contracts/TokenableRWA.sol` |
+| **Seaport 1.5** | OpenSea (canonical deploy) | Ask / bid / fulfill / match; USDC consideration | This file · [Seaport](https://github.com/ProjectOpenSea/seaport) · ADR: [seaport-accept-offer.md](./seaport-accept-offer.md) |
+| **USDC** | Circle | Trade settlement (6 decimals) | Circle docs · per-chain addresses below |
+| **ConduitController** | OpenSea | Present in frontend constants; current orders use `conduitKey = 0` (direct Seaport approvals) | `frontend/constants/contracts.ts` |
+
+We do **not** fork or maintain Seaport/USDC bytecode. Integration lives in `frontend/lib/seaport/*`, `backend/src/marketplace/orders/*`, and partner signing in `PartnerSeaportAskService`.
+
+### Audit / assurance status
+
+| Component | Status |
+|-----------|--------|
+| **Seaport 1.5** | External, widely used OpenSea protocol with public audits/reviews (rely on OpenSea’s published assurance — we do not re-audit Seaport) |
+| **USDC** | Circle-issued stablecoin; standard ERC-20 on each chain |
+| **TokenableRWA** | Covered by Hardhat tests (`contracts/test/TokenableRWA.test.ts`). **No external security audit published yet** — treat as internal assurance until an audit is completed |
+
+---
+
+## Deployed TokenableRWA proxies
+
+Proxy addresses are the stable contract IDs (UUPS implementation can change underneath). **Source of truth for what the app uses:** `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA`. OpenZeppelin upgrade manifests: `contracts/.openzeppelin/{sepolia,polygon,mainnet}.json` (may list older proxies from prior deploys).
+
+| Chain | ID | Current app proxy (env) | Notes |
+|-------|----|-------------------------|--------|
+| Ethereum Sepolia | 11155111 | `0x78DE07b00Aa1E02aE1b97D3cC38FBc630Bc176ee` | Default local/dev |
+| Ethereum mainnet | 1 | `0x318C92F6e913f1d1E90c0396270705B83918bCdb` | Production |
+| Polygon mainnet | 137 | `0x502C30D7bB302CD31326dE770390bcbbe9Ed13eC` | Internal / QA |
+
+After a redeploy, update backend + frontend env and this table in the same change.
 
 ---
 
@@ -20,14 +61,14 @@ The backend is the sole on-chain writer for mint/burn. Users sign Seaport trades
 
 ### Roles
 
-| Role | Keccak ID | Purpose | Current holder |
+| Role | Keccak ID | Purpose | Typical holder |
 |------|-----------|---------|----------------|
-| `DEFAULT_ADMIN_ROLE` | `0x00...00` | Upgrades, royalty, contractURI, role grants | Deployer EOA |
-| `MINTER_ROLE` | `keccak256("MINTER_ROLE")` | `mint`, `mintBatch` | Backend hot wallet |
-| `BURNER_ROLE` | `keccak256("BURNER_ROLE")` | `adminBurn` | Backend hot wallet |
-| `PAUSER_ROLE` | `keccak256("PAUSER_ROLE")` | `pause`, `unpause` | Backend hot wallet |
+| `DEFAULT_ADMIN_ROLE` | `0x00...00` | Upgrades, royalty, contractURI, role grants | Deployer / `RWA_ADMIN_ADDRESS` (prefer multisig in prod) |
+| `MINTER_ROLE` | `keccak256("MINTER_ROLE")` | `mint`, `mintBatch` | Backend hot wallet (`RWA_MINTER_ADDRESS`) |
+| `BURNER_ROLE` | `keccak256("BURNER_ROLE")` | `adminBurn` | Same minter address at initialize |
+| `PAUSER_ROLE` | `keccak256("PAUSER_ROLE")` | `pause`, `unpause` | Same minter address at initialize |
 
-V1: all roles granted to the same backend EOA at `initialize()`. Can be split later via `grantRole()` without a contract upgrade.
+At `initialize(admin, minter, …)`: **admin** gets `DEFAULT_ADMIN_ROLE`; **minter** gets `MINTER_ROLE` + `BURNER_ROLE` + `PAUSER_ROLE`. Defaults use the deployer for both when env overrides are unset. Roles can be split later via `grantRole()` without a contract upgrade.
 
 ### Functions
 
@@ -157,9 +198,12 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 
 ## Seaport Integration
 
-**Version:** Seaport 1.5  
-**Address:** `0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC` (all EVM chains)  
-**Settlement:** USDC (6 decimals)
+**Version:** Seaport 1.5 (OpenSea)  
+**Address:** `0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC` (canonical on supported EVM chains)  
+**Settlement:** USDC (6 decimals)  
+**Order storage:** signed parameters + signature in Postgres `orders` (not an on-chain order book)
+
+Seller UX for taking token offers: [seaport-accept-offer.md](./seaport-accept-offer.md). REST surface: [../api/marketplace.md](../api/marketplace.md).
 
 ### Trading flow
 
@@ -167,19 +211,23 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 1. Frontend calls `setApprovalForAll(Seaport, true)` on TokenableRWA if needed
 2. Read `Seaport.getCounter(offerer)` for nonce
 3. Build Seaport order: offer = ERC-721, consideration = USDC
-   - **standard:** seller + platform fee (~5%)
+   - **standard:** seller + platform fee (default **5%** / `PLATFORM_FEE_BPS=500`)
    - **self_vault_hold:** single consideration = 100% USDC to `PLATFORM_FEE_RECIPIENT` (no $0 seller line). Valid even when the seller wallet is that same address (fee/custody key used as MetaMask).
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table (backend rejects self-vault asks that are not full-platform-take)
 
 **Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address. The vault badge uses token `settlement_policy` / `vaultLabel` (`PSA Vault` vs `Tokenable Vault`), not seller identity — a partner may list PSA-vaulted cards. Admin / partner portal still show `{partner} Vault`.
 
-**Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c.
+**Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c and [self-vault-hold-settlement.md](./self-vault-hold-settlement.md).
 
 **Buy (buyer):**
 1. USDC `approve(Seaport, maxUint256)` if allowance is below the ask price (one-time; later buys skip this)
 2. `Seaport.fulfillOrder(order, fulfillerConduitKey)` — on-chain
-3. `PATCH /api/marketplace/orders/:hash/fulfill` — backend marks order fulfilled
+3. After the tx mines, backend `PATCH /api/marketplace/orders/:hash/fulfill` **requires** `Seaport.getOrderStatus` to show the order filled — a reverted wallet tx must not flip listing status or `owner_wallet`
+
+**Token offer (bid on a specific `tokenId`):**
+1. Bid offers USDC; consideration is ERC-721 for that token (itemType 2)
+2. Seller settles via Edit price / Accept offer (`matchAdvancedOrders` or related fulfill paths) — see ADR
 
 **Criteria bid (collection-level):**
 1. Merkle tree over collection token IDs
@@ -188,14 +236,14 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 
 ### Platform fee
 
-Encoded in every ask's `consideration` array:
+Encoded in standard ask `consideration` arrays (not on bids):
 
 ```env
 NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=0x...
-NEXT_PUBLIC_PLATFORM_FEE_BPS=500   # 5%
+NEXT_PUBLIC_PLATFORM_FEE_BPS=500   # 5% — keep in sync with backend PLATFORM_FEE_BPS
 ```
 
-ERC-2981 royalty is a separate mechanism (contract-level, not Seaport consideration).
+Frontend fallback when the env var is unset (but recipient is set) is also **500**. ERC-2981 royalty is a separate mechanism (contract-level, not Seaport consideration).
 
 ---
 
@@ -246,6 +294,8 @@ Run: `cd contracts && pnpm test`
 
 | Chain | ID | Usage | USDC |
 |-------|----|-------|------|
-| Ethereum Sepolia | 11155111 | Development / testnet | Circle testnet USDC: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
-| Polygon mainnet | 137 | Internal / QA (multi-chain) | Native USDC: `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
+| Ethereum Sepolia | 11155111 | Default development / public test | Circle testnet USDC: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
 | Ethereum mainnet | 1 | Production | Circle USDC: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
+| Polygon mainnet | 137 | Internal / QA (multi-chain) | Native USDC: `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
+
+Polygon Amoy (`80002`) is **not** in `SUPPORTED_CHAIN_IDS` and is not used by the current app config.

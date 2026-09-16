@@ -25,8 +25,26 @@ function applyPrice(n: number): string {
   return String(Math.round(n));
 }
 
+function UseCheckIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#04140b"
+      strokeWidth="3.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 /**
- * Shared Set price / Edit price widget — `tk-price-input.js` (ds-26).
+ * Shared Set price / Edit price widget — `tk-price-input.js` (Portfolio.html).
  */
 export function ListRwaPriceInput({
   tokenId,
@@ -62,6 +80,8 @@ export function ListRwaPriceInput({
 
   const [base, setBase] = useState<"market" | "lowest">("market");
   const [pick, setPick] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+
   const highBid =
     highestBidUsd != null && Number.isFinite(highestBidUsd) && highestBidUsd > 0
       ? highestBidUsd
@@ -69,9 +89,17 @@ export function ListRwaPriceInput({
   const cross = highBid > 0 && value > 0 && value <= highBid;
 
   const baseVal = base === "lowest" ? lowest : market;
-  const baseName = base === "lowest" ? "lowest ask" : "market value";
-  const feeAmt = Math.round(value * feePercent) / 100;
+  const feeAmt = Math.round((value * feePercent) / 100);
   const netAmt = Math.max(0, value - feeAmt);
+
+  const derivedOffset = useMemo(() => {
+    if (!baseVal || value <= 0) return 0;
+    return Math.max(-90, Math.min(500, Math.round((value / baseVal - 1) * 100)));
+  }, [baseVal, value]);
+
+  const offsetBadge = !value || derivedOffset === 0
+    ? "Market"
+    : `Market ${derivedOffset > 0 ? "+" : ""}${derivedOffset}%`;
 
   const hint = useMemo(() => {
     if (cross) {
@@ -101,6 +129,7 @@ export function ListRwaPriceInput({
 
   function setFromRef(n: number) {
     setPick(null);
+    setOffset(0);
     onPriceChange(applyPrice(n));
   }
 
@@ -116,95 +145,67 @@ export function ListRwaPriceInput({
 
   const hasRefs = market > 0 || lowest > 0 || last > 0 || highBid > 0;
 
+  function refSelected(refValue: number): boolean {
+    return value > 0 && refValue > 0 && Math.round(refValue) === Math.round(value);
+  }
+
   return (
     <div className="tk-price">
       {hasRefs ? (
         <div className="tk-price__refs">
           {lowest > 0 ? (
-            <div className="tk-price__ref">
-              <span className="tk-price__ref-lbl">Lowest ask</span>
-              <span className="tk-price__ref-right">
-                <span className="tk-price__ref-val tkl-mono">{money(lowest)}</span>
-                <button
-                  type="button"
-                  className="tk-price__use"
-                  disabled={disabled}
-                  onClick={useLowestAsk}
-                >
-                  Use
-                </button>
-              </span>
-            </div>
+            <PriceRefRow
+              label="Lowest ask"
+              amount={lowest}
+              selected={refSelected(lowest)}
+              disabled={disabled}
+              onUse={useLowestAsk}
+            />
           ) : null}
           {market > 0 ? (
-            <div className="tk-price__ref">
-              <span className="tk-price__ref-lbl">Last price</span>
-              <span className="tk-price__ref-right">
-                <span className="tk-price__ref-val tkl-mono">{money(market)}</span>
-                <button
-                  type="button"
-                  className="tk-price__use"
-                  disabled={disabled}
-                  onClick={useMarketValue}
-                >
-                  Use
-                </button>
-              </span>
-            </div>
+            <PriceRefRow
+              label="Last price"
+              amount={market}
+              selected={refSelected(market)}
+              disabled={disabled}
+              onUse={useMarketValue}
+            />
           ) : null}
           {last > 0 ? (
-            <div className="tk-price__ref">
-              <span className="tk-price__ref-lbl">Last sold</span>
-              <span className="tk-price__ref-right">
-                <span className="tk-price__ref-val tkl-mono">{money(last)}</span>
-                <button
-                  type="button"
-                  className="tk-price__use"
-                  disabled={disabled}
-                  onClick={() => setFromRef(last)}
-                >
-                  Use
-                </button>
-              </span>
-            </div>
+            <PriceRefRow
+              label="Last sold"
+              amount={last}
+              selected={refSelected(last)}
+              disabled={disabled}
+              onUse={() => setFromRef(last)}
+            />
           ) : null}
           {highBid > 0 ? (
-            <div className="tk-price__ref">
-              <span className="tk-price__ref-lbl">
-                Highest bid
-                <span className="tk-price__sells-now">sells now</span>
-              </span>
-              <span className="tk-price__ref-right">
-                <span className="tk-price__ref-val tk-price__ref-val--bid tkl-mono">
-                  {money(highBid)}
-                </span>
-                <button
-                  type="button"
-                  className="tk-price__use tk-price__use--sell"
-                  disabled={disabled}
-                  onClick={() => {
-                    setPick(null);
-                    onPriceChange(applyPrice(highBid));
-                  }}
-                >
-                  Use
-                </button>
-              </span>
-            </div>
+            <PriceRefRow
+              label="Highest bid"
+              amount={highBid}
+              selected={refSelected(highBid)}
+              disabled={disabled}
+              bid
+              onUse={() => setFromRef(highBid)}
+            />
           ) : null}
         </div>
       ) : suggestions.loading ? (
         <p className="tk-price__loading" role="status">
           Loading market references…
         </p>
-      ) : null}
+      ) : (
+        <p className="tk-price__empty-refs" role="status">
+          No Cardhedger market match for this card yet — type a listing price
+          manually. Redeem and listing still work without a market quote.
+        </p>
+      )}
 
       <div className="tk-price__your">
         <span className="tk-price__ref-lbl">Your listing price</span>
         {lowest > 0 ? (
-          <span className="tk-price__base-tog tk-price__base-tog--static">
-            Base: {base === "lowest" ? "Lowest ask" : "Market value"}
-          </span>
+          <span className="tk-price__offset-badge">{offsetBadge}</span>
         ) : null}
       </div>
 
@@ -238,24 +239,20 @@ export function ListRwaPriceInput({
                 key={p}
                 type="button"
                 className={cn("tk-price__chip", on && "tk-price__chip--on")}
-                disabled={disabled || (p === 0 ? !market : !baseVal)}
+                disabled={disabled || !baseVal}
                 onClick={() => {
-                  if (p === 0) {
-                    if (!market) return;
-                    setBase("market");
-                    setPick("0");
-                    onPriceChange(applyPrice(Math.round(market)));
-                    return;
-                  }
                   if (!baseVal) return;
+                  // tk-price-input.js: Market resets offset; ±% accumulates on base.
+                  const nextOffset =
+                    p === 0
+                      ? 0
+                      : Math.max(-90, Math.min(500, (offset || derivedOffset) + p));
+                  setOffset(nextOffset);
                   setPick(String(p));
-                  onPriceChange(applyPrice(Math.round(baseVal * (1 + p / 100))));
+                  onPriceChange(
+                    applyPrice(Math.round(baseVal * (1 + nextOffset / 100))),
+                  );
                 }}
-                title={
-                  baseVal
-                    ? `± relative to ${baseName} (${money(baseVal)})`
-                    : undefined
-                }
               >
                 {label}
               </button>
@@ -291,6 +288,56 @@ export function ListRwaPriceInput({
           {payoutNote ? <p className="tk-price__payout-note">{payoutNote}</p> : null}
         </>
       ) : null}
+    </div>
+  );
+}
+
+function PriceRefRow({
+  label,
+  amount,
+  selected,
+  disabled,
+  bid,
+  onUse,
+}: {
+  label: string;
+  amount: number;
+  selected: boolean;
+  disabled: boolean;
+  bid?: boolean;
+  onUse: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "tk-price__ref",
+        bid && "tk-price__ref--bid-tone",
+        selected && "tk-price__ref--on",
+      )}
+    >
+      <span className="tk-price__ref-lbl">
+        {label}
+        {bid ? <span className="tk-price__sells-now">sells now</span> : null}
+      </span>
+      <span className="tk-price__ref-right">
+        <span
+          className={cn(
+            "tk-price__ref-val tkl-mono",
+            bid && "tk-price__ref-val--bid",
+          )}
+        >
+          {money(amount)}
+        </span>
+        <button
+          type="button"
+          className={cn("tk-price__use", selected && "tk-price__use--on")}
+          disabled={disabled}
+          onClick={onUse}
+        >
+          {selected ? <UseCheckIcon /> : null}
+          Use
+        </button>
+      </span>
     </div>
   );
 }

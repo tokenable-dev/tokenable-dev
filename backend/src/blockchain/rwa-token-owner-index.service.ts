@@ -20,9 +20,10 @@ const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 /** Alchemy Free `eth_getLogs` is ~10 blocks; larger chunks 429 immediately. */
 const DEFAULT_LOG_CHUNK = 10;
 const DEFAULT_LOG_DELAY_MS = 600;
-const DEFAULT_LOG_MAX_RETRIES = 6;
+/** Keep retries low — each 429 retry still burns CU. */
+const DEFAULT_LOG_MAX_RETRIES = 2;
 /** Cap each backfill pass so boot does not hammer RPC until head. */
-const DEFAULT_MAX_BLOCKS_PER_RUN = 500;
+const DEFAULT_MAX_BLOCKS_PER_RUN = 200;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

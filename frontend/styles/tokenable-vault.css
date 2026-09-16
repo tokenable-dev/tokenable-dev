@@ -237,14 +237,21 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  box-sizing: border-box;
   flex-shrink: 0;
   transition: background 0.2s, color 0.2s;
+}
+
+/* JetBrains Mono digits sit optically low — nudge only when showing a number. */
+.vault-stepper__dot:not(:has(svg)) {
+  padding-bottom: 2px;
 }
 
 .vault-stepper__dot--active {
@@ -687,7 +694,7 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ── Hub: landing ─────────────────────────────────────────────────────────── */
+/* ── Hub: landing — Vault-Dashboard-Active.html `#view-landing` ───────────── */
 
 .vault-landing {
   width: 100%;
@@ -700,17 +707,6 @@
   text-align: center;
 }
 
-.vault-landing__icon {
-  width: 88px;
-  height: 88px;
-  margin: 0 auto 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(26, 111, 255, 0.12);
-  border-radius: 50%;
-}
-
 .vault-landing h1 {
   margin: 0;
   font-family: var(--font-sans);
@@ -721,111 +717,41 @@
   color: #fff;
 }
 
-.vault-landing h1 span {
-  color: var(--azure);
-}
-
 .vault-landing__steps {
-  max-width: 560px;
-  margin: 44px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 400px;
+  margin: 44px auto 8px;
   padding: 0;
   list-style: none;
+  text-align: left;
 }
 
 .vault-landing-step {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 18px;
-}
-
-.vault-landing-step__icon {
-  position: relative;
-  width: 56px;
-  height: 56px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  image-rendering: pixelated;
-  box-shadow:
-    inset -5px -5px 0 rgba(0, 0, 0, 0.5),
-    inset 5px 5px 0 rgba(91, 154, 255, 0.28),
-    0 0 0 4px #16161d;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.vault-landing-step--blue .vault-landing-step__icon {
-  background: #2f6bff;
+.vault-landing-step__bullet {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 9px;
+  background: var(--azure);
 }
 
-.vault-landing-step--green .vault-landing-step__icon {
-  background: #38d17f;
-  box-shadow:
-    inset -5px -5px 0 rgba(0, 0, 0, 0.5),
-    inset 5px 5px 0 rgba(255, 255, 255, 0.28),
-    0 0 0 4px #16161d;
-}
-
-.vault-landing-step__num {
-  position: absolute;
-  top: -9px;
-  left: -9px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  color: #0a0a0a;
-  image-rendering: pixelated;
-  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.4), 0 0 0 3px #16161d;
-}
-
-.vault-landing-step--blue .vault-landing-step__num {
-  background: #5b9aff;
-}
-
-.vault-landing-step--green .vault-landing-step__num {
-  background: #38d17f;
-}
-
-.vault-landing-step__copy {
-  padding-top: 6px;
+.vault-landing-step__bullet--pos {
+  background: var(--pos);
 }
 
 .vault-landing-step__title {
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 700;
+  line-height: 1.35;
   color: #fff;
-}
-
-.vault-landing-step__copy p {
-  margin: 6px 0 0;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--t2);
-}
-
-.vault-landing-dots {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 8px 0 8px 26px;
-}
-
-.vault-landing-dots span {
-  width: 8px;
-  height: 8px;
-}
-
-.vault-landing-dots--blue span {
-  background: rgba(47, 107, 255, 0.55);
-}
-
-.vault-landing-dots--green span {
-  background: rgba(56, 209, 127, 0.55);
 }
 
 .vault-landing__cta-wrap {
@@ -835,7 +761,8 @@
 
 .vault-landing__cta {
   height: 60px !important;
-  width: 280px !important;
+  width: 360px !important;
+  max-width: 100% !important;
   padding: 0 !important;
   font-size: 16px !important;
   font-weight: 700 !important;
@@ -3398,7 +3325,7 @@
 
 .vault-hub-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 20px;
@@ -3455,6 +3382,7 @@
   display: inline-flex;
   align-items: center;
   height: 46px;
+  margin-top: 26px; /* sit on the title row under the Selling eyebrow */
   padding: 0 20px;
   font-size: 14px;
   font-weight: 600;
@@ -4056,15 +3984,21 @@
   height: 26px;
   border-radius: 50%;
   flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.08);
   color: var(--t3);
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
+}
+
+.vault-v-step__dot:not(:has(svg)) {
+  padding-bottom: 1px;
 }
 
 .vault-v-step--done .vault-v-step__dot {
@@ -4678,6 +4612,10 @@
   .vault-hub-header__shipments {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .vault-hub-header__cta {
+    margin-top: 0;
   }
 
   .vault-vtabs {

@@ -152,9 +152,9 @@
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--eyebrow);
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .rd-list-sheet__card {
@@ -162,13 +162,19 @@
 }
 
 .rd-list-sheet__card-name {
-  margin: 8px 0 0;
+  margin: 8px 0 14px;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.02em;
   color: #fff;
   overflow-wrap: anywhere;
+}
+
+.rd-list-sheet__cancel-listing {
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 13px !important;
+  height: 40px !important;
 }
 
 .rd-list-sheet__card-facts {
@@ -382,7 +388,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 0;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1.5px transparent;
+  background: transparent;
+}
+
+.tk-price__ref--bid-tone {
+  margin-top: 2px;
 }
 
 .tk-price__ref-lbl {
@@ -410,14 +424,18 @@
 }
 
 .tk-price__use {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 0;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--azure, #1A6FFF);
+  background: rgba(26, 111, 255, 0.18);
+  color: var(--brand-400, #5b9aff);
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.4);
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 700;
   height: 28px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 7px;
   cursor: pointer;
 }
@@ -425,6 +443,12 @@
 .tk-price__use:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.tk-price__use--on {
+  background: var(--pos, #00c864);
+  color: #04140b;
+  box-shadow: 0 0 0 2px rgba(0, 200, 100, 0.3);
 }
 
 .tk-price__use--sell {
@@ -487,6 +511,16 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+.tk-price__empty-refs {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .tk-price__your {
   display: flex;
   align-items: baseline;
@@ -510,8 +544,8 @@
   box-sizing: border-box;
 }
 .tk-price__ref--on {
-  box-shadow: 0 0 0 1px rgba(0, 200, 100, 0.55), 0 0 18px rgba(0, 200, 100, 0.28);
   background: rgba(0, 200, 100, 0.08);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 200, 100, 0.5);
 }
 .tk-price__ref-check {
   color: var(--pos);
@@ -519,6 +553,12 @@
 }
 .tk-price__base-tog--static {
   cursor: default;
+}
+.tk-price__offset-badge {
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .tk-price__field {
@@ -617,8 +657,8 @@
   margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: 9px;
-  background: rgba(243, 112, 30, 0.1);
-  color: #f3701e;
+  background: rgba(234, 130, 0, 0.1);
+  color: #ea8200;
 }
 
 .tk-price__hint--good,

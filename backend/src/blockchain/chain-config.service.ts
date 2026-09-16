@@ -1,6 +1,14 @@
-import { Injectable, BadRequestException, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JsonRpcProvider } from 'ethers';
+import {
+  AbstractProvider,
+  FallbackProvider,
+  JsonRpcProvider,
+} from 'ethers';
 
 export const SUPPORTED_CHAIN_IDS = [11155111, 1, 137] as const;
 export type SupportedChainId = (typeof SUPPORTED_CHAIN_IDS)[number];
@@ -9,9 +17,23 @@ export const CHAIN_ID_HEADER = 'x-tokenable-chain-id';
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/i;
 
+/** Public JSON-RPC fallbacks when primary (e.g. Alchemy) returns 429 / is down. */
+const PUBLIC_RPC_FALLBACKS: Record<SupportedChainId, readonly string[]> = {
+  11155111: [
+    'https://ethereum-sepolia-rpc.publicnode.com',
+    'https://sepolia.drpc.org',
+  ],
+  1: ['https://ethereum.publicnode.com', 'https://cloudflare-eth.com'],
+  137: ['https://polygon-bor.publicnode.com', 'https://polygon-rpc.com'],
+};
+
+function isHttpRpcUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 @Injectable()
 export class ChainConfigService implements OnModuleDestroy {
-  private readonly providers = new Map<SupportedChainId, JsonRpcProvider>();
+  private readonly providers = new Map<SupportedChainId, AbstractProvider>();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -109,6 +131,23 @@ export class ChainConfigService implements OnModuleDestroy {
     );
   }
 
+  /**
+   * Ordered RPC URLs: env primary first, then public fallbacks (deduped).
+   * Used so Alchemy CU exhaustion can fail over without editing env.
+   */
+  getRpcUrls(chainId: SupportedChainId): string[] {
+    const primary = this.getRpcUrl(chainId);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const url of [primary, ...PUBLIC_RPC_FALLBACKS[chainId]]) {
+      const u = url.trim();
+      if (!u || !isHttpRpcUrl(u) || seen.has(u)) continue;
+      seen.add(u);
+      out.push(u);
+    }
+    return out;
+  }
+
   getRwaAddress(chainId: SupportedChainId): string {
     const fromMap = this.config
       .get<string>(`CHAIN_${chainId}_RWA_ADDRESS`)
@@ -132,23 +171,37 @@ export class ChainConfigService implements OnModuleDestroy {
   }
 
   /**
-   * Cached JsonRpcProvider. `staticNetwork: true` is required — passing chainId
-   * alone still lets ethers poll `eth_chainId` and log
-   * "failed to detect network … retry in 1s" forever on 429 / dead RPC.
+   * Cached provider. Primary = `CHAIN_*_RPC_URL` (Alchemy). Extra URLs use
+   * ethers FallbackProvider so 429 / dead primary fails over to public RPCs.
+   * `staticNetwork: true` avoids eth_chainId spam on a broken primary.
    */
-  createJsonRpcProvider(chainId?: SupportedChainId): JsonRpcProvider {
+  createJsonRpcProvider(chainId?: SupportedChainId): AbstractProvider {
     const id = chainId ?? this.getDefaultChainId();
     const existing = this.providers.get(id);
     if (existing) return existing;
-    const rpcUrl = this.getRpcUrl(id);
-    const provider = new JsonRpcProvider(rpcUrl, id, { staticNetwork: true });
+
+    const urls = this.getRpcUrls(id);
+    const provider =
+      urls.length === 1
+        ? new JsonRpcProvider(urls[0], id, { staticNetwork: true })
+        : new FallbackProvider(
+            urls.map((url, index) => ({
+              provider: new JsonRpcProvider(url, id, { staticNetwork: true }),
+              // Lower priority = preferred (Alchemy at index 0).
+              priority: index + 1,
+              stallTimeout: 2_500,
+              weight: 1,
+            })),
+            id,
+          );
+
     this.providers.set(id, provider);
     return provider;
   }
 
   onModuleDestroy(): void {
     for (const provider of this.providers.values()) {
-      provider.destroy();
+      void provider.destroy();
     }
     this.providers.clear();
   }

@@ -1,12 +1,12 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for graded-card RWAs on **Polygon mainnet** (137) and **Polygon Amoy** testnet (80002). Users mint **PSA 10** cards via IPFS, list, and trade with USDC. Settlement is **OpenSea Seaport 1.5** (signed off-chain orders in Postgres). External pricing is **materialized** from Cardhedger into `collection_market_snapshots` ([docs/architecture/database.md](docs/architecture/database.md)). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
+A decentralized marketplace for graded-card RWAs on **Ethereum Sepolia** (11155111, default/dev) and **Ethereum mainnet** (1, production), with **Polygon mainnet** (137) for internal/QA. Users mint **PSA 10** cards via IPFS, list, and trade with USDC. Settlement is **OpenSea Seaport 1.5** (signed off-chain orders in Postgres). External pricing is **materialized** from Cardhedger into `collection_market_snapshots` ([docs/architecture/database.md](docs/architecture/database.md)). Monorepo: Next.js frontend + Nest backend + Hardhat contracts. Smart-contract inventory: **[docs/architecture/blockchain.md](docs/architecture/blockchain.md)**.
 
 ---
 
 ## Project Description
 
-Full-stack marketplace for graded-card RWAs on Polygon (Amoy testnet + mainnet): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External market references come from the **Cardhedger** API (catalog, mint previews, PSA-10 price history, AI insights) — proxied through the Nest backend. Landing **Market Indexes** use **Card Ladder** scrape + cache.
+Full-stack marketplace for graded-card RWAs: mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External market references come from the **Cardhedger** API (catalog, mint previews, PSA-10 price history, AI insights) — proxied through the Nest backend. Landing **Market Indexes** use **Card Ladder** scrape + cache.
 
 ### What users see today
 
@@ -47,15 +47,19 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 
 ### Smart Contracts
 
-- **Solidity**
-- **Hardhat** — Development and deployment
-- **OpenZeppelin** — ERC-721, ERC-20, and security patterns
+- **Solidity 0.8.20** / **Hardhat** — TokenableRWA (UUPS ERC-721)
+- **OpenZeppelin 4.9.6** upgradeable — AccessControl, Pausable, ERC-2981
+- **Seaport 1.5** + **Circle USDC** — external protocols (we integrate, do not fork)
+
+Details, ownership, and deployed proxy addresses: **[docs/architecture/blockchain.md](docs/architecture/blockchain.md)**.
 
 ### Blockchain / Web3
 
-- **Polygon mainnet** (137) and **Polygon Amoy** testnet (80002)
-- **MetaMask** — Wallet connection
-- **IPFS** — Decentralized storage for RWA metadata and images
+- **Ethereum Sepolia** (11155111) — default local / public test
+- **Ethereum mainnet** (1) — production
+- **Polygon mainnet** (137) — internal / QA multi-chain
+- **Privy** + **MetaMask** — wallet connection / embedded wallets
+- **IPFS (Pinata)** — RWA metadata and images
 
 ---
 
@@ -65,7 +69,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 tokenable-dev/
 ├── frontend/       # Next.js App Router (port 3000)
 ├── backend/        # NestJS API (port 4000 prod / 4100 local dev)
-├── contracts/      # Hardhat — TokenableRWA (ERC-721), MockUSDC (ERC-20)
+├── contracts/      # Hardhat — TokenableRWA (UUPS ERC-721); USDC is external (Circle)
 ├── docs/           # Architecture, API reference, guides, diagrams
 ├── docker/         # Postgres init scripts
 ├── nginx/          # Reverse proxy configs (HTTP + TLS)
@@ -79,7 +83,7 @@ tokenable-dev/
 |--------|-------------|
 | **frontend** | Wallet connection, RWA minting, markets, portfolio, watchlist, marketplace admin UI |
 | **backend** | IPFS uploads, blockchain reads, Seaport order book, Cardhedger/PSA/Card Ladder integration |
-| **contracts** | TokenableRWA + MockUSDC — listing & matching via Seaport ([docs/api/marketplace.md](docs/api/marketplace.md)) |
+| **contracts** | TokenableRWA — mint/burn; trading via Seaport ([docs/architecture/blockchain.md](docs/architecture/blockchain.md), [docs/api/marketplace.md](docs/api/marketplace.md)) |
 | **docs** | Canonical documentation index — start at [docs/README.md](docs/README.md) |
 
 ---
@@ -91,6 +95,7 @@ tokenable-dev/
 | **[docs/README.md](docs/README.md)** | Documentation index · branches/deploy · quick links |
 | **[docs/api/README.md](docs/api/README.md)** | **`/api/*`** overview · links to scoped API docs |
 | **[docs/architecture/overview.md](docs/architecture/overview.md)** | High-level system layout |
+| **[docs/architecture/blockchain.md](docs/architecture/blockchain.md)** | Smart contracts inventory · TokenableRWA · Seaport · USDC · deployments |
 | **[docs/architecture/database.md](docs/architecture/database.md)** | PostgreSQL schema (17 tables) |
 | **[docs/frontend/routes.md](docs/frontend/routes.md)** | App Router route reference |
 | **[docs/guides/local-setup.md](docs/guides/local-setup.md)** | Local dev setup |
@@ -137,9 +142,9 @@ cd contracts && pnpm install && cd ..
 
 Create env files yourself (not committed):
 
-- `backend/.env` — RPC, Postgres, Redis, Pinata, JWT/Google, Cardhedger, PSA keys (`CHAIN_80002_*` / `CHAIN_137_*` per chain)
-- `frontend/.env` — `NEXT_PUBLIC_*` only (`NEXT_PUBLIC_CHAIN_80002_RPC_URL`, `_RWA`, `_USDC` required for Amoy dev)
-- `contracts/.env` — deploy `DEPLOYER_PRIVATE_KEY`, `POLYGON_AMOY_RPC_URL` (and `POLYGON_RPC_URL` for mainnet)
+- `backend/.env` — RPC, Postgres, Redis, Pinata, JWT/Privy, Cardhedger, PSA keys (`CHAIN_11155111_*` / `CHAIN_1_*` / `CHAIN_137_*` per chain)
+- `frontend/.env` — `NEXT_PUBLIC_*` only (`NEXT_PUBLIC_CHAIN_{id}_RPC_URL`, `_RWA`, `_USDC`; default chain `11155111`)
+- `contracts/.env` — deploy `DEPLOYER_PRIVATE_KEY`, Sepolia / Polygon / mainnet RPC URLs
 
 See **[docs/guides/local-setup.md](docs/guides/local-setup.md)** for a full template.
 
@@ -151,15 +156,16 @@ docker compose up -d postgres redis
 
 ### 5. Deploy smart contracts (optional)
 
-Contracts may already be deployed on Amoy. To redeploy:
+Contracts may already be deployed. To redeploy:
 
 ```bash
 cd contracts
-pnpm run deploy:rwa:amoy      # TokenableRWA → Polygon Amoy (80002)
+pnpm run deploy:rwa:sepolia   # TokenableRWA → Ethereum Sepolia (11155111)
 pnpm run deploy:rwa:polygon   # TokenableRWA → Polygon mainnet (137)
+pnpm run deploy:rwa:mainnet   # TokenableRWA → Ethereum mainnet (1)
 ```
 
-Update `CHAIN_80002_*` / `CHAIN_137_*` in `backend/.env` and `NEXT_PUBLIC_CHAIN_*` in `frontend/.env`.
+Update `CHAIN_{id}_*` in `backend/.env` and `NEXT_PUBLIC_CHAIN_*` in `frontend/.env`, then refresh the address table in **[docs/architecture/blockchain.md](docs/architecture/blockchain.md)**.
 
 ### 6. Run the application
 

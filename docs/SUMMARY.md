@@ -9,6 +9,8 @@
 - [Database](architecture/database.md)
 - [Frontend Architecture](architecture/frontend.md)
 - [Blockchain Architecture](architecture/blockchain.md)
+- [Seaport Accept Offer (ADR)](architecture/seaport-accept-offer.md)
+- [Self-vault Hold Settlement](architecture/self-vault-hold-settlement.md)
 - [Vault Lifecycle](architecture/vault-lifecycle.md)
 - [Materialized Market Snapshots](architecture/materialized-market-snapshots.md)
 - [Portfolio List Materialization](architecture/portfolio-list-materialization.md)

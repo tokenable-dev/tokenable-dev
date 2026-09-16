@@ -98,6 +98,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           <PortfolioHoldingsSaleStatus
             isListed={isListed}
             redeemStatus={redeemStatus}
+            listPriceUsd={row.listPriceUsd}
           />
         </div>
 

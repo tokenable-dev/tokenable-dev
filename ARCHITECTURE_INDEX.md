@@ -2,7 +2,7 @@
 
 Navigation guide for both humans and AI agents. Read this first before working on any subsystem.
 
-**Last updated:** 2026-07-07 | **Status:** Reflects current implementation.
+**Last updated:** 2026-09-16 | **Status:** Reflects current implementation.
 
 > **New session?** Follow [`AI_WORKFLOW.md`](AI_WORKFLOW.md) for the step order, and read [`.cursor/project-constitution.md`](.cursor/project-constitution.md) for philosophy and invariants. This index answers "I need to modify X → which files do I read?"
 
@@ -10,7 +10,7 @@ Navigation guide for both humans and AI agents. Read this first before working o
 
 ## Platform Purpose
 
-**Tokenable** is a **non-custodial marketplace for PSA-graded trading card RWAs** (Real World Assets) on Polygon blockchain. Users vault physical PSA 10 cards, receive ERC-721 NFTs, and trade them via Seaport 1.5 with USDC settlement.
+**Tokenable** is a **non-custodial marketplace for PSA-graded trading card RWAs** (Real World Assets) on **Ethereum** (Sepolia for default/dev, mainnet for production; Polygon mainnet for internal/QA). Users vault physical PSA 10 cards, receive ERC-721 NFTs (**TokenableRWA**), and trade them via **Seaport 1.5** with **USDC** settlement. On-chain stack details: [`docs/architecture/blockchain.md`](docs/architecture/blockchain.md).
 
 ---
 
@@ -73,6 +73,7 @@ Key facts:
 - UUPS upgradeable ERC-721 + ERC-2981 + AccessControl + Pausable
 - Roles: `MINTER_ROLE`, `BURNER_ROLE`, `PAUSER_ROLE`, `DEFAULT_ADMIN_ROLE`
 - Token IDs start at 1 and never reuse
+- Trading uses **OpenSea Seaport 1.5** + **Circle USDC** (external) — inventory and deployed proxies in `docs/architecture/blockchain.md`
 - After upgrade: always run `pnpm sync-abi` and redeploy backend
 
 ---

@@ -97,7 +97,7 @@ Returns array of tokenIds owned by `address`.
 
 When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). If the registry has fewer rows than on-chain `totalMinted` (for example after an old collection-delete wipe), it rescans `ownerOf` and persists owners before serving. Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
 
-Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill + live Transfer listener). **Required for log replay:** `CHAIN_{id}_RWA_DEPLOY_BLOCK` = TokenableRWA deploy block (without it, log backfill is skipped to avoid scanning genesis→head and hitting RPC 429s; portfolio still works via `ownerOf` scan + live Transfer listener). Optional tuning: `RWA_OWNER_INDEX_LOG_CHUNK` = inclusive blocks per `eth_getLogs` (default **10**, Alchemy Free), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default **600**), `RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN` (default **500** — pauses between passes), `RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS` (default **60000**), `RWA_OWNER_INDEX_POLL_MS` (default **60000** — active poll while backfilling), `RWA_OWNER_INDEX_IDLE_POLL_MS` (default **120000** — after all chains indexed), `RWA_OWNER_INDEX_POLL_MAX_BLOCKS` (default **50** per poll), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default 6).
+Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill, then idle Transfer poll). **Keep `0` on local/dev** unless you are testing the index — catch-up is the main Alchemy CU consumer. **Required for log replay:** `CHAIN_{id}_RWA_DEPLOY_BLOCK` = TokenableRWA deploy block (without it, log backfill is skipped to avoid scanning genesis→head; portfolio still works via `ownerOf`). Catch-up uses backfill passes only — **no live poll until indexed** (polling during catch-up used to double `eth_getLogs`). Failed passes back off (up to 15 min). Optional tuning: `RWA_OWNER_INDEX_LOG_CHUNK` (default **10**), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default **600**), `RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN` (default **200**), `RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS` (default **120000**), `RWA_OWNER_INDEX_IDLE_POLL_MS` (default **300000** — after indexed), `RWA_OWNER_INDEX_POLL_MAX_BLOCKS` (default **50**), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default **2**).
 
 **Alchemy Free RPC budget** (defaults tuned for Free tier CU/s):
 
@@ -169,7 +169,7 @@ The backend resolves the target chain from the `x-tokenable-chain-id` request he
 
 | Variable pattern | Purpose |
 |-----------------|---------|
-| `CHAIN_11155111_RPC_URL` | Sepolia RPC |
+| `CHAIN_11155111_RPC_URL` | Sepolia RPC (Alchemy preferred; public fallbacks are automatic) |
 | `CHAIN_11155111_RWA_ADDRESS` | TokenableRWA on Sepolia |
 | `CHAIN_11155111_USDC_ADDRESS` | USDC on Sepolia (Circle testnet) |
 | `CHAIN_1_RPC_URL` | Ethereum mainnet RPC |

@@ -765,6 +765,14 @@
   font-weight: 600;
   color: var(--pos);
 }
+/* ▲▼ fill the mono em-square — scale below the % digits. */
+.pa-page .mval-chg__dir {
+  font-size: 8px;
+  line-height: 1;
+  display: inline-block;
+  position: relative;
+  top: -0.5px;
+}
 .pa-page .mval-chg.neg {
   color: var(--neg);
 }

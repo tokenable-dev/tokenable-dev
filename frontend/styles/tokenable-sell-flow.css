@@ -1581,13 +1581,20 @@ button.sell-ship-step--btn:focus-visible {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  box-sizing: border-box;
   flex-shrink: 0;
+}
+
+/* JetBrains Mono digits sit optically low — nudge only when showing a number. */
+.sell-ship-circle:not(:has(svg)) {
+  padding-bottom: 2px;
 }
 
 .sell-ship-circle--active {

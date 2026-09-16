@@ -6,7 +6,7 @@ pnpm dev
 ```
 
 - App: [http://localhost:3000](http://localhost:3000)
-- Env: `frontend/.env` — `NEXT_PUBLIC_CHAIN_80002_RPC_URL`, `_RWA`, `_USDC` (see [local-setup.md](../docs/guides/local-setup.md))
+- Env: `frontend/.env` — `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`, `_RWA`, `_USDC` (see [local-setup.md](../docs/guides/local-setup.md), [blockchain.md](../docs/architecture/blockchain.md))
 
 ## Main routes
 

@@ -71,7 +71,7 @@ NFTs sit in the platform custody wallet between mint and delivery. The custody w
 
 ### Re-entrancy
 
-Not applicable: the contract has no external value flows (no ETH/ERC-20 in TokenableRWA). Seaport handles USDC settlement via its own well-audited logic.
+Not applicable: the contract has no external value flows (no ETH/ERC-20 in TokenableRWA). Seaport handles USDC settlement via its own well-audited OpenSea protocol. **TokenableRWA has Hardhat test coverage; no external audit is published yet** — see [architecture/blockchain.md](architecture/blockchain.md).
 
 ---
 

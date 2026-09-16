@@ -1,7 +1,9 @@
 # Tokenable RWA Marketplace — Documentation
 
-A non-custodial marketplace for **graded trading-card RWAs** on **Ethereum Sepolia** (11155111, default dev) and **Ethereum mainnet** (1).  
+A non-custodial marketplace for **graded trading-card RWAs** on **Ethereum Sepolia** (11155111, default/dev), **Ethereum mainnet** (1, production), and **Polygon mainnet** (137, internal/QA).  
 Users vault **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata); the backend mints an ERC-721 NFT to a **platform custody wallet**, an admin delivers it to the user, and the user trades with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view. Portfolio value history is stored in **`portfolio_daily_snapshots`** (daily **09:00 KST** cron, plus recapture of today's slot when holdings change). Hide + cost basis use **`portfolio_holdings`**. Authenticated users can save collections in **`user_watchlist`**.
+
+On-chain stack (ownership, addresses, Seaport): **[architecture/blockchain.md](architecture/blockchain.md)**.
 
 The full physical-card lifecycle (deposit → mint → deliver → trade → redeem → burn) is documented in **[architecture/vault-lifecycle.md](architecture/vault-lifecycle.md)**.
 
@@ -71,7 +73,7 @@ tokenable-dev/
 |-------|-------|
 | Frontend | Next.js 16, React 19, **Privy** (`@privy-io/react-auth`), wagmi, viem, TanStack Query, Zustand, Tailwind CSS |
 | Backend | NestJS 11, TypeORM, PostgreSQL 16, Redis 7 (optional), Ethers.js 6 |
-| Blockchain | Ethereum Sepolia / Ethereum mainnet — Seaport 1.5, UUPS ERC-721 (TokenableRWA), USDC (Circle) |
+| Blockchain | Ethereum Sepolia / Ethereum mainnet / Polygon (QA) — Seaport 1.5, UUPS ERC-721 (TokenableRWA), USDC (Circle) |
 | Storage | Pinata (IPFS) |
 | Market data | Cardhedger API (+ `/api/cardhedger/v1/*` proxy), PSA Public API, Card Ladder scrape |
 | Infrastructure | Docker Compose, Nginx, AWS ECR + EC2 |

@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider } from 'ethers';
+import { Contract, type AbstractProvider } from 'ethers';
 import { ChainConfigService } from '../chain-config.service';
 import { TOKENABLE_RWA_ABI } from '../abis/tokenable-rwa.abi';
 import {
@@ -10,7 +10,7 @@ export const tokenableRwaFactory = {
   provide: TOKENABLE_RWA_CONTRACT,
   inject: [ETHERS_PROVIDER, ChainConfigService],
   useFactory: (
-    provider: JsonRpcProvider,
+    provider: AbstractProvider,
     chainConfig: ChainConfigService,
   ): Contract => {
     const chainId = chainConfig.getDefaultChainId();

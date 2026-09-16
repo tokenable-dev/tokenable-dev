@@ -916,7 +916,7 @@
 
 .portfolio-page .pf-table-wrap {
   overflow-x: auto;
-  border-radius: 16px;
+  border-radius: 0 0 16px 16px;
   background: #191919;
   width: 100%;
   box-shadow: none;
@@ -936,11 +936,11 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-card {
-  width: 22%;
+  width: 20%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-grade {
-  width: 8%;
+  width: 7%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-cost {
@@ -960,11 +960,11 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-status {
-  width: 16%;
+  width: 14%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action {
-  width: 14%;
+  width: 140px;
 }
 
 .portfolio-page .pf-table--bids .pf-col-card {
@@ -1016,12 +1016,12 @@
 }
 
 .portfolio-page .pf-table--holdings .pf-col-num-cell {
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-return-cell {
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -1064,42 +1064,45 @@
 .pf-sale-status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 13px;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
   line-height: 1.2;
+  padding: 3px 8px;
+  border-radius: 4px;
   white-space: nowrap;
+  vertical-align: middle;
   color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .pf-sale-status__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.35);
+  display: none;
 }
 
 .pf-sale-status--listed {
-  color: #8ec2ff;
+  color: #37d67a;
+  background: rgba(0, 200, 100, 0.14);
 }
 
 .pf-sale-status--listed .pf-sale-status__dot {
-  background: var(--azure, #1a6fff);
+  display: none;
 }
 
 .pf-sale-status--redeeming {
   color: #8ec2ff;
+  background: rgba(26, 111, 255, 0.18);
 }
 
 .pf-sale-status--redeeming .pf-sale-status__dot {
-  background: #1a6fff;
+  display: none;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action-cell {
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
+  width: 140px;
 }
 
 .portfolio-page .pf-table-wrap thead tr {
@@ -1189,7 +1192,7 @@
 }
 
 .portfolio-page .pf-table-wrap tbody td {
-  padding: 12px 10px;
+  padding: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
 }
@@ -1221,7 +1224,7 @@
   width: 52px;
   height: 70px;
   padding: 4px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .portfolio-page .pf-table-thumb img {
@@ -1592,6 +1595,21 @@
   font-size: 14px !important;
 }
 
+.portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-btn {
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
+  padding: 0 !important;
+  font-size: 13px !important;
+  margin: 0 auto !important;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-actions {
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
 .portfolio-page .pf-table-btn--full {
   width: 100% !important;
   height: 44px !important;
@@ -1677,8 +1695,8 @@
 }
 
 .portfolio-page .pf-hbadge--settled {
-  color: var(--progress-current);
-  background: var(--progress-done);
+  color: #4cde4c;
+  background: #0f3b24;
   box-shadow: none;
 }
 
@@ -1689,7 +1707,7 @@
 
 .portfolio-page .pf-hbadge--pending {
   color: #f3701e;
-  background: rgba(243, 112, 30, 0.18);
+  background: rgba(243, 112, 30, 0.16);
   box-shadow: none;
 }
 
@@ -1698,9 +1716,9 @@
 }
 
 .portfolio-page .pf-hbadge--failed {
-  color: #fff;
-  background: rgba(245, 51, 44, 0.88);
-  box-shadow: none;
+  color: #f5332c;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #f5332c;
 }
 
 .portfolio-page .pf-hbadge--canceled {
@@ -2548,7 +2566,7 @@
 
 .pf-mobile-asset-card__head .pf-sale-status {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .pf-mobile-asset-card__title {

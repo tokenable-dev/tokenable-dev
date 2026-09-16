@@ -8,7 +8,7 @@ This document is written for AI agents. It describes the platform, architecture,
 
 ## Platform Purpose
 
-Tokenable is a **non-custodial marketplace for PSA-graded trading card RWAs (Real World Assets)** on Polygon blockchain.
+Tokenable is a **non-custodial marketplace for PSA-graded trading card RWAs (Real World Assets)** on Ethereum (Sepolia default/dev, mainnet production; Polygon for internal/QA).
 
 Core user journey:
 1. User ships a physical PSA-graded card to the vault (PSA vault) — or keeps it (self vault)
@@ -28,7 +28,7 @@ Core user journey:
 |-------|-----------|
 | Frontend | Next.js 16, React 19, Tailwind 4, Privy, wagmi, React Query 5, Zustand 5 |
 | Backend | NestJS 11, TypeORM, Ethers.js 6, PostgreSQL 16, Redis 7 |
-| Blockchain | Polygon (Amoy 80002 / Mainnet 137), Seaport 1.5, USDC |
+| Blockchain | Ethereum Sepolia (11155111) / Ethereum mainnet (1) / Polygon (137 QA), Seaport 1.5, USDC |
 | Smart contracts | Solidity 0.8.20, UUPS upgradeable ERC-721, OpenZeppelin 4.9.6 |
 | IPFS | Pinata |
 | Auth | Privy (email, Google, Apple, embedded wallet, MetaMask) |

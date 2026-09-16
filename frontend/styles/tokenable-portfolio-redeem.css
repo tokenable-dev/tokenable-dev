@@ -138,9 +138,9 @@
 
 .pf-table-actions--status {
   flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .pf-table-actions--preparing {
@@ -154,11 +154,11 @@
 }
 
 .pf-table-actions__status-link {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--azure, #1A6FFF);
-  text-decoration: none;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .pf-table-actions__status-link:hover {

@@ -738,14 +738,14 @@ export function PortfolioPageView({
     if (!portfolioDataEnabled || assetsSectionLoading) return;
 
     const tokenId = Number(listParam);
+    // Fresh mint may land slightly after navigation — wait until owned ids include it.
+    if (!tokenIds.includes(tokenId)) return;
+
     listQueryHandledRef.current = listParam;
 
     // Stay on My Assets after clearing the deep-link query.
     router.replace(portfolioUrl(portfolioBase, "tab=assets"), { scroll: false });
-
-    if (tokenIds.includes(tokenId)) {
-      openPortfolioSetPriceModal(tokenId);
-    }
+    openPortfolioSetPriceModal(tokenId);
   }, [
     searchParams,
     portfolioDataEnabled,

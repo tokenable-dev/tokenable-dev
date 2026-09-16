@@ -29,7 +29,7 @@ flowchart TB
 2. **Site access gate** (optional): when `SITE_ACCESS_ENABLED=true`, unauthenticated API calls return `401 SITE_ACCESS_REQUIRED` except public paths (health, auth, site-access verify, Cardhedger webhooks). See [site-access.md](../api/site-access.md).
 3. **NestJS** validates via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
 4. **PostgreSQL** (TypeORM) persists **22+ application tables** — see [database.md](./database.md).
-5. **Ethereum RPC** (Sepolia testnet or mainnet) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.
+5. **Ethereum / Polygon RPC** (Sepolia, mainnet, or Polygon) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.
 6. **Cardhedger API** is called from snapshot workers, identity/cert resolution, `/api/cardhedger/v1/*` proxy, and portfolio capture — not on every marketplace chart/list GET.
 7. **Redis** (optional L2) backs the collection **identity cache** (`components.cardhedgerCardId`). Without `REDIS_URL`, L1 in-process cache only.
 8. **PSA Public API** (six upstream methods — see [api/psa.md](../api/psa.md)) verifies certs, slab images, spec population, and optional order/submission progress. A **multi-token pool** (`PSA_PUBLIC_API_TOKENS`) rotates across free API tokens.
@@ -112,7 +112,7 @@ Relational matching (`bids`/`asks` tables, settlement workers) has been **remove
 
 | Variable | Service | Purpose |
 |----------|---------|---------|
-| `CHAIN_{id}_RPC_URL` | backend | Per-chain RPC URL (`1`, `11155111`) |
+| `CHAIN_{id}_RPC_URL` | backend | Per-chain RPC URL (`11155111`, `1`, `137`) |
 | `CHAIN_{id}_RWA_ADDRESS` | backend | Per-chain TokenableRWA proxy address |
 | `CHAIN_{id}_USDC_ADDRESS` | backend | Per-chain USDC address |
 | `DEFAULT_CHAIN_ID` | backend | Default chain when header absent (default `11155111`) |

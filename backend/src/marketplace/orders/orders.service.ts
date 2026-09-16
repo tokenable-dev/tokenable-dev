@@ -880,7 +880,11 @@ export class OrdersService {
       if (e instanceof BadRequestException) throw e;
       const msg = e instanceof Error ? e.message : String(e);
       if (/nonexistent token|invalid token|owner query for nonexistent/i.test(msg)) {
-        throw new BadRequestException(`RWA #${tid} does not exist on chain`);
+        throw new BadRequestException(
+          `RWA #${tid} does not exist on ${expected} (chain ${chainId}). ` +
+            `Align CHAIN_${chainId}_RWA_ADDRESS / frontend NEXT_PUBLIC_CHAIN_${chainId}_RWA with the mint contract, ` +
+            `or reset marketplace rows for the previous CA before listing.`,
+        );
       }
       this.logger.warn(`ownerOf #${tid} failed: ${msg.slice(0, 180)}`);
       throw new ServiceUnavailableException(

@@ -260,6 +260,7 @@ export function PortfolioCollectionBidsSection({
               sortKey="expires"
               activeKey={sortKey}
               sortDir={sortDir}
+              muted
               onSort={(k) => toggleSort(k as BidsSortKey)}
             />
             <PortfolioStaticTh label="Action" muted />

@@ -39,15 +39,17 @@ export function formatExplorerAddr(addr: string): string {
 }
 
 export function formatMarketChangePct(pct: number | null | undefined): {
-  text: string;
+  arrow: "▲" | "▼";
+  label: string;
   positive: boolean;
 } | null {
   if (pct == null || !Number.isFinite(pct)) return null;
   const positive = pct >= 0;
   const abs = Math.abs(pct);
-  const body = abs >= 10 ? abs.toFixed(1) : abs.toFixed(1);
+  const body = abs.toFixed(1);
   return {
-    text: `${positive ? "▲" : "▼"} ${positive ? "+" : "−"}${body}%`,
+    arrow: positive ? "▲" : "▼",
+    label: `${positive ? "+" : "−"}${body}%`,
     positive,
   };
 }

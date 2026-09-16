@@ -74,19 +74,60 @@ export function useListRwaModal({
     !existingAskOrder &&
     existingAskQuery.isPending;
 
-  const { data: settlementPolicyData } = useQuery({
+  const { data: settlementPolicyData, isFetched: settlementFetched } = useQuery({
     queryKey: ["rwa-settlement-policy", chainId, String(tokenId)],
     queryFn: () => getRwaSettlementPolicy(tokenId),
     enabled: Boolean(String(tokenId).trim()),
     staleTime: 60_000,
   });
   const settlementPolicy = settlementPolicyData?.settlementPolicy ?? undefined;
+  const settlementKnown = settlementPolicyData?.known === true;
 
   const [price, setPrice] = useState("");
   const [selectedBidHash, setSelectedBidHash] = useState<string | null>(null);
   const [step, setStep] = useState<ListRwaModalStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [successMeta, setSuccessMeta] = useState<ListSuccessMeta | null>(null);
+
+  const onChainOwnerQuery = useQuery({
+    queryKey: ["rwa-ownerOf-preflight", chainId, rwaAddress, String(tokenId)],
+    queryFn: async () => {
+      if (!publicClient) throw new Error("Network not ready");
+      const tid = BigInt(normalizeDecimalTokenId(tokenId));
+      return publicClient.readContract({
+        address: rwaAddress,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "ownerOf",
+        args: [tid],
+      });
+    },
+    enabled: Boolean(publicClient && rwaAddress && String(tokenId).trim()),
+    staleTime: 15_000,
+    retry: 1,
+  });
+
+  // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
+  useEffect(() => {
+    if (!settlementFetched) return;
+    if (settlementPolicyData && !settlementKnown) {
+      setErrorMsg(
+        `This card is not indexed on chain ${chainId}. Switch the header network to where it was minted (or reset marketplace data after an RWA redeploy).`,
+      );
+      setStep("error");
+      return;
+    }
+    if (onChainOwnerQuery.isError) {
+      setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
+      setStep("error");
+    }
+  }, [
+    settlementFetched,
+    settlementKnown,
+    settlementPolicyData,
+    chainId,
+    onChainOwnerQuery.isError,
+    onChainOwnerQuery.error,
+  ]);
 
   const topCollectionBid = useMemo(() => {
     if (!collectionBids?.length) return null;
@@ -272,6 +313,19 @@ export function useListRwaModal({
 
     setErrorMsg("");
     setSuccessMeta(null);
+
+    if (settlementFetched && !settlementKnown) {
+      setErrorMsg(
+        `This card is not indexed on chain ${chainId}. Switch the header network to where it was minted.`,
+      );
+      setStep("error");
+      return;
+    }
+    if (onChainOwnerQuery.isError) {
+      setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
+      setStep("error");
+      return;
+    }
 
     try {
       // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.

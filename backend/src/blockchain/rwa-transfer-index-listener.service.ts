@@ -12,14 +12,13 @@ import {
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
 
 /**
- * Keeps `rwa_tokens.owner_wallet` fresh via ERC-721 Transfer logs.
- * Uses periodic `eth_getLogs` (not `eth_newFilter` subscriptions) — Alchemy Free
- * expires filter IDs quickly and ethers logs noisy "filter not found" errors.
+ * Keeps `rwa_tokens.owner_wallet` fresh via ERC-721 Transfer logs (`eth_getLogs`).
  *
- * Enable: RWA_OWNER_INDEX_ENABLED=1
+ * Enable: `RWA_OWNER_INDEX_ENABLED=1` + `CHAIN_{id}_RWA_DEPLOY_BLOCK`.
  *
- * Poll cadence slows automatically once backfill completes on all chains
- * (`RWA_OWNER_INDEX_IDLE_POLL_MS`, default 2 min) to avoid idle RPC spend.
+ * Catch-up = backfill passes only (no live poll until indexed — polling during
+ * backfill doubled `eth_getLogs` and burned Alchemy CU). After ready, idle poll
+ * only. Failed passes back off so a dead RPC does not hammer every minute.
  */
 @Injectable()
 export class RwaTransferIndexListenerService
@@ -31,6 +30,7 @@ export class RwaTransferIndexListenerService
   private backfillRunning = false;
   private pollRunning = false;
   private stopped = false;
+  private backfillFailStreak = 0;
 
   constructor(
     private readonly config: ConfigService,
@@ -84,15 +84,8 @@ export class RwaTransferIndexListenerService
     const raw = this.config
       .get<string>('RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS')
       ?.trim();
-    const n = Number(raw ?? 60_000);
-    return Number.isFinite(n) && n >= 5_000 ? Math.floor(n) : 60_000;
-  }
-
-  /** While any chain is still backfilling. */
-  private activePollIntervalMs(): number {
-    const raw = this.config.get<string>('RWA_OWNER_INDEX_POLL_MS')?.trim();
-    const n = Number(raw ?? 60_000);
-    return Number.isFinite(n) && n >= 5_000 ? Math.floor(n) : 60_000;
+    const n = Number(raw ?? 120_000);
+    return Number.isFinite(n) && n >= 5_000 ? Math.floor(n) : 120_000;
   }
 
   /** After all chains indexed — catch new transfers with minimal RPC. */
@@ -100,8 +93,15 @@ export class RwaTransferIndexListenerService
     const raw = this.config
       .get<string>('RWA_OWNER_INDEX_IDLE_POLL_MS')
       ?.trim();
-    const n = Number(raw ?? 120_000);
-    return Number.isFinite(n) && n >= 10_000 ? Math.floor(n) : 120_000;
+    const n = Number(raw ?? 300_000);
+    return Number.isFinite(n) && n >= 10_000 ? Math.floor(n) : 300_000;
+  }
+
+  /** On RPC failure: 2m → 4m → 8m … cap 15m. */
+  private backfillFailureDelayMs(): number {
+    const base = this.backfillPassDelayMs();
+    const streak = Math.min(this.backfillFailStreak, 4);
+    return Math.min(15 * 60_000, base * 2 ** streak);
   }
 
   private async allChainsIndexed(): Promise<boolean> {
@@ -113,12 +113,12 @@ export class RwaTransferIndexListenerService
     return true;
   }
 
-  private scheduleBackfillPass(): void {
+  private scheduleBackfillPass(delayMs: number): void {
     if (this.stopped || this.backfillTimer) return;
     this.backfillTimer = setTimeout(() => {
       this.backfillTimer = null;
       void this.runBackfillPass();
-    }, this.backfillPassDelayMs());
+    }, delayMs);
   }
 
   private async runBackfillPass(): Promise<void> {
@@ -126,12 +126,14 @@ export class RwaTransferIndexListenerService
     this.backfillRunning = true;
     const chains = this.pollableChainIds();
     let needsAnotherPass = false;
+    let hadFailure = false;
     try {
       for (const chainId of chains) {
         if (await this.ownerIndex.isIndexReady(chainId)) continue;
         try {
           await this.ownerIndex.backfillFromTransferLogs(chainId);
         } catch (e) {
+          hadFailure = true;
           this.logger.error(
             `Owner index backfill failed chain=${chainId}: ${String(e)}`,
           );
@@ -143,12 +145,32 @@ export class RwaTransferIndexListenerService
     } finally {
       this.backfillRunning = false;
     }
-    if (needsAnotherPass) {
-      this.scheduleBackfillPass();
+
+    if (this.stopped) return;
+
+    if (hadFailure) {
+      this.backfillFailStreak += 1;
+      const delay = this.backfillFailureDelayMs();
+      this.logger.warn(
+        `Owner index backfill backing off ${delay}ms (fail streak=${this.backfillFailStreak})`,
+      );
+      this.scheduleBackfillPass(delay);
+      return;
     }
+
+    this.backfillFailStreak = 0;
+    if (needsAnotherPass) {
+      this.scheduleBackfillPass(this.backfillPassDelayMs());
+      return;
+    }
+
+    this.logger.log(
+      'Owner index backfill complete — starting idle Transfer poll only',
+    );
+    this.scheduleNextIdlePoll();
   }
 
-  private scheduleNextPoll(): void {
+  private scheduleNextIdlePoll(): void {
     if (this.stopped || this.pollTimer) return;
     const chains = this.pollableChainIds();
     if (chains.length === 0) {
@@ -157,23 +179,29 @@ export class RwaTransferIndexListenerService
       );
       return;
     }
-    void this.allChainsIndexed().then((indexed) => {
-      if (this.stopped) return;
-      const delayMs = indexed
-        ? this.idlePollIntervalMs()
-        : this.activePollIntervalMs();
-      this.pollTimer = setTimeout(() => {
-        this.pollTimer = null;
-        void this.pollAllChains();
-      }, delayMs);
-    });
+    this.pollTimer = setTimeout(() => {
+      this.pollTimer = null;
+      void this.pollAllChains();
+    }, this.idlePollIntervalMs());
   }
 
   private async pollAllChains(): Promise<void> {
     if (this.stopped || this.pollRunning) {
-      this.scheduleNextPoll();
+      this.scheduleNextIdlePoll();
       return;
     }
+
+    // Never poll while catch-up is incomplete — backfill owns the cursor.
+    if (!(await this.allChainsIndexed())) {
+      this.logger.log(
+        'Idle Transfer poll skipped — backfill still in progress',
+      );
+      if (!this.backfillTimer && !this.backfillRunning) {
+        this.scheduleBackfillPass(this.backfillPassDelayMs());
+      }
+      return;
+    }
+
     this.pollRunning = true;
     try {
       for (const chainId of this.pollableChainIds()) {
@@ -193,20 +221,31 @@ export class RwaTransferIndexListenerService
       }
     } finally {
       this.pollRunning = false;
-      this.scheduleNextPoll();
+      this.scheduleNextIdlePoll();
     }
   }
 
   private async bootstrap(): Promise<void> {
-    await this.runBackfillPass();
     const chains = this.pollableChainIds();
-    if (chains.length === 0) return;
+    if (chains.length === 0) {
+      this.logger.warn(
+        'RwaTransferIndexListenerService: no chains with CHAIN_{id}_RWA_DEPLOY_BLOCK — disabled',
+      );
+      return;
+    }
+
     const indexed = await this.allChainsIndexed();
     this.logger.log(
-      `RwaTransferIndexListenerService: live Transfer poll ` +
-        `(active=${this.activePollIntervalMs()}ms idle=${this.idlePollIntervalMs()}ms) ` +
-        `chains=${chains.join(',')} indexed=${indexed}`,
+      `RwaTransferIndexListenerService: chains=${chains.join(',')} ` +
+        `indexed=${indexed} backfillDelay=${this.backfillPassDelayMs()}ms ` +
+        `idlePoll=${this.idlePollIntervalMs()}ms (no poll during catch-up)`,
     );
-    void this.pollAllChains();
+
+    if (indexed) {
+      this.scheduleNextIdlePoll();
+      return;
+    }
+
+    await this.runBackfillPass();
   }
 }

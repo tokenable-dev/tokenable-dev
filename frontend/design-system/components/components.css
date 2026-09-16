@@ -407,13 +407,13 @@ button.tk-stepper__col:focus-visible{
   height:var(--tk-step-dot, 30px);
   border-radius:50%;
   flex:none;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:grid;
+  place-items:center;
   box-sizing:border-box;
   font-family:var(--font-mono);
   font-size:12px;
   font-weight:600;
+  line-height:1;
 }
 .tk-stepper__dot svg{display:block}
 .tk-stepper__dot--done{
@@ -427,11 +427,15 @@ button.tk-stepper__col:focus-visible{
   color:var(--tk-step-cur-ink);
 }
 .tk-stepper__num{
+  display:block;
   font-family:var(--font-mono);
   font-size:12px;
   font-weight:700;
   line-height:1;
   letter-spacing:0;
+  font-variant-numeric:tabular-nums lining-nums;
+  /* JetBrains Mono digits sit optically low when box-centered — nudge up. */
+  transform:translateY(-1px);
 }
 .tk-stepper--sm .tk-stepper__num{font-size:10px}
 .tk-stepper__dot--failed{

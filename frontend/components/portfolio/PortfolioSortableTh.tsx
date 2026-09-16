@@ -40,6 +40,7 @@ export function PortfolioSortableTh({
   activeKey,
   sortDir,
   align = "left",
+  muted = false,
   onSort,
 }: {
   label: string;
@@ -47,11 +48,12 @@ export function PortfolioSortableTh({
   activeKey: string;
   sortDir: PortfolioSortDir;
   align?: "left" | "right" | "center";
+  muted?: boolean;
   onSort: (key: string) => void;
 }) {
   const active = activeKey === sortKey;
   return (
-    <th className={`pf-th pf-th--${align}`}>
+    <th className={`pf-th pf-th--${align}${muted ? " pf-th--muted" : ""}`}>
       <button
         type="button"
         className={`pf-th-sort pf-th-sort--${align}`}
