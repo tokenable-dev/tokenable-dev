@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/markets-ui";
-import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/markets-ui";
+import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/collection-markets";
+import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/collection-markets";
 import {
   COLLECTION_MARKETS_ORDER_BOOK_FRAME,
   COLLECTION_MARKET_CLUSTER_BEZEL,

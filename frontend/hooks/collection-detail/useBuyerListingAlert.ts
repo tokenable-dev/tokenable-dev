@@ -9,17 +9,19 @@ import {
   subscribeBuyerListingAlert,
   unsubscribeBuyerListingAlert,
 } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 
 export function useBuyerListingAlert(collectionKey: string) {
   const queryClient = useQueryClient();
+  const { chainId } = useAppChain();
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
   const normalized = collectionKey.trim().toLowerCase();
 
   const query = useQuery({
-    queryKey: rq.buyerListingAlert(userId, normalized),
+    queryKey: rq.buyerListingAlert(userId, normalized, chainId),
     queryFn: () => fetchBuyerListingAlertStatus(normalized),
     enabled: Boolean(userId && normalized),
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
@@ -34,7 +36,7 @@ export function useBuyerListingAlert(collectionKey: string) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: rq.buyerListingAlert(userId, normalized),
+        queryKey: rq.buyerListingAlert(userId, normalized, chainId),
       });
     },
   });

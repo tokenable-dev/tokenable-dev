@@ -22,7 +22,7 @@ export function useMarketplaceAdminCards() {
 
   const invalidateCard = async (tokenId: number) => {
     await qc.invalidateQueries({ queryKey: rq.adminRwaCards(chainId) });
-    await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
+    await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId, chainId) });
   };
 
   const updateMutation = useMutation({

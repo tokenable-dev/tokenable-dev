@@ -9,9 +9,14 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     const catalogCoverS3 = {
       isConfigured: jest.fn().mockReturnValue(false),
     };
+    const chainConfig = {
+      getDefaultChainId: jest.fn().mockReturnValue(11155111),
+      getRwaAddress: jest.fn().mockReturnValue('0xrwa1'),
+    };
     return new CollectionCoverService(
       { findOne: jest.fn(), update: jest.fn() } as never,
       {} as never,
+      chainConfig as never,
       cardhedger as never,
       {} as never,
       catalogCoverS3 as never,
@@ -288,9 +293,14 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
       }),
       forwardJson: jest.fn(),
     };
+    const chainConfig2 = {
+      getDefaultChainId: jest.fn().mockReturnValue(11155111),
+      getRwaAddress: jest.fn().mockReturnValue('0xrwa1'),
+    };
     const svc = new CollectionCoverService(
       { findOne: jest.fn(), update: jest.fn() } as never,
       {} as never,
+      chainConfig2 as never,
       cardhedger as never,
       {} as never,
       { isConfigured: jest.fn().mockReturnValue(false) } as never,

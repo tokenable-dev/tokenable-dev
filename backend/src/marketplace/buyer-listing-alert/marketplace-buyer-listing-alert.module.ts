@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../../auth/auth.module';
+import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { MarketplaceCollectionsModule } from '../collections/marketplace-collections.module';
 import { UserBuyerListingAlert } from '../entities/user-buyer-listing-alert.entity';
 import { Order } from '../entities/order.entity';
@@ -12,6 +13,7 @@ import { BuyerListingAlertService } from './buyer-listing-alert.service';
   imports: [
     TypeOrmModule.forFeature([UserBuyerListingAlert, Order]),
     AuthModule,
+    BlockchainModule,
     MarketplaceCollectionsModule,
     MarketplaceNotificationsModule,
   ],

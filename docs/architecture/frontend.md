@@ -3,19 +3,22 @@
 **Source:** `frontend/`  
 **Framework:** Next.js 16, React 19, App Router
 
+**In-repo guides:** [frontend/README.md](../../frontend/README.md) (run + routes) · [frontend/ARCHITECTURE.md](../../frontend/ARCHITECTURE.md) (code layout) · [frontend/design-system/README.md](../../frontend/design-system/README.md) (UI / DS)
+
 ## Feature layout
 
 Marketplace UI is organized into **feature folders** with matching `hooks/` and `lib/marketplace/` modules. Import the file that owns the symbol (`@/components/collectibles/CollectibleCard`). Keep barrels only where they have real fan-in (`lib/core`, `components/ds`, `lib/chains`, `lib/market`, `lib/privy`).
 
 | Area | Components | Hooks / lib |
 |------|------------|-------------|
-| Markets / exchange | `markets/`, `markets-ui/` | `hooks/markets/`, `lib/markets/` |
+| Markets / exchange | `markets/` | `hooks/markets/`, `lib/markets/` |
+| Collection PDP markets cluster widgets | `marketplace/collection-markets/` | — |
 | Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` — market-series and platform trades fetch in parallel once the slab grade is known from collection components; alternate-grade series waits until the default snapshot is present. Grid cards (`CollectibleCard`) and order-book depth/tape rows are `memo`’d; catalog S3/CloudFront covers in the flat frame use `next/image`. |
 | Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
 | Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` — catalog-only collections accept Place Bid (sentinel merkle); fill after first mint + buyer re-sign |
-| RWA listing leftovers | `rwa-detail/` (ListModalHost + theme), `PsaVaultOutlineTag` | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
+| RWA listing (portfolio Set/Edit price) | `list-rwa/` (`ListRwaModalHost` + modal) | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
@@ -58,13 +61,12 @@ frontend/
 │       ├── price-metrics-strip/
 │       ├── unified-order-book/
 │       ├── collection-trading/
-│       ├── rwa-detail/
 │       ├── rwa-detail-asset-panel/
-│       ├── list-rwa/
-│       ├── markets-ui/
+│       ├── list-rwa/              # ListRwaModal + ListRwaModalHost (portfolio Set/Edit price)
+│       ├── collection-markets/    # PDP markets-cluster widgets (not /markets browse)
 │       └── admin/                 # Backoffice shell, overview, users, collections, price sync
 │
-├── hooks/                         # Feature-scoped hooks — see `frontend/hooks/README.md`
+├── hooks/                         # Feature-scoped hooks — see `frontend/ARCHITECTURE.md` (§ Hooks)
 │
 ├── lib/
 │   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
@@ -91,7 +93,7 @@ frontend/
 
 `next.config.ts` redirects legacy **`/exchange` → `/markets`**. First paint (`app/markets/loading.tsx` + `MarketsPage` shell) uses the same `MarketsGridSkeleton` tile pulse as load-more — no “Loading markets…” copy or snapshot progress bar.
 
-Canonical listing URL is `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). Search, notifications, and admin card links use that path. `RwaDetailListModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
+Canonical listing URL is `/marketplace/collections/[collectionKey]?listing=` (trade panel focuses that copy). Search, notifications, and admin card links use that path. `ListRwaModalHost` / `ListRwaModal` remain for portfolio and Certificate of Ownership Set/Edit price (including cancel listing from Edit).
 
 ---
 

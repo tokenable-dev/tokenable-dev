@@ -2,7 +2,7 @@ import type {
   CollectionGradePrices,
   CollectionMarketPreview,
 } from "@/lib/core";
-import { marketHistoryTierFromComponents } from "@/lib/market";
+import { marketHistoryTierFromComponents } from "./priceTier";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   formatPsaGradePopPairTitle,

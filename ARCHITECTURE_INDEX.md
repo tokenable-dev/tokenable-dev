@@ -229,16 +229,17 @@ Key facts:
 
 | | |
 |---|---|
+| **Frontend docs (only three)** | `frontend/README.md` · `frontend/ARCHITECTURE.md` · `frontend/design-system/README.md` |
 | **Reference (read first)** | `docs/guides/design-system-reference.md` |
 | **Committed DS CSS** | `frontend/design-system/` (`styles.css`, `tokens/`, `components/components.css`) |
-| **Screen inventory** | `frontend/design-system/INVENTORY.md` |
+| **Screen inventory** | `frontend/design-system/README.md` (§ Screen → component inventory) |
 | **HTML prototypes (reference)** | `Tokenable Design System/` + `Tokenable-with design system-*` (not imported by Next.js) |
 | **DS public assets** | `frontend/public/assets/ds/` |
 | **Cursor rule** | `.cursor/rules/design-system-migration.mdc`, `.cursor/rules/design-system-reference.mdc` |
-| **Required reading before UI/visual changes** | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
+| **Required reading before UI/visual changes** | `docs/guides/design-system-reference.md`, `frontend/design-system/README.md` |
 
 Key facts:
-- Migration phases 0–10 are **Done**. Extend the reference + INVENTORY for new UI work.
+- Migration phases 0–10 are **Done**. Extend the reference + `frontend/design-system/README.md` for new UI work.
 - **Prototype sync:** `Tokenable Design System/` is reference only; production styles live in `frontend/design-system/`.
 - Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
 - Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
@@ -280,7 +281,7 @@ Key facts:
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |
 | PSA integration | `docs/api/psa.md`, `backend/src/psa/psa-public-api.service.ts` |
 | Frontend state | `frontend/store/authStore.ts`, `frontend/lib/core/queryKeys.ts`, `frontend/lib/core/invalidation.ts` |
-| Frontend UI / design system | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md`, `docs/guides/card-display-name.md` |
+| Frontend UI / design system | `docs/guides/design-system-reference.md`, `frontend/design-system/README.md`, `docs/guides/card-display-name.md` |
 | Deployment | `docs/guides/deployment.md`, `.github/workflows/deploy.yml` |
 
 ---

@@ -263,11 +263,12 @@ export class CollectionService {
       result.collectionKey,
       meta,
       certNumber,
+      chainId,
     );
     // Snapshot cold_start may have raced before id was filled — refresh again.
     this.enqueueMarketSnapshotRefresh(result.collectionKey);
 
-    const row = await this.findOne(result.collectionKey);
+    const row = await this.findOne(result.collectionKey, chainId);
     return {
       collectionKey: result.collectionKey,
       created: result.created,
@@ -286,9 +287,10 @@ export class CollectionService {
     collectionKey: string,
     meta: Record<string, unknown>,
     certNumber: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
-    const row = await this.findOne(key);
+    const row = await this.findOne(key, chainId);
     if (!row) return;
 
     const existing = String(row.components?.cardhedgerCardId ?? '').trim();
@@ -535,27 +537,33 @@ export class CollectionService {
       await this.components.mergePsaPopulationFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeCardhedgerCardIdFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeListingDisplayTitleFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeTrendingSlabMetaFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergePsaSpecIdFromCertIfMissing(
         collectionKey,
         psaCert,
         meta,
+        opts.chainId,
       );
       await this.components.mergeNormalizedPokemonFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
     } else if (this.identity.isEnabled()) {
       // Await so cache + DB are warm before snapshot cold_start / admin refresh.
@@ -566,16 +574,23 @@ export class CollectionService {
           ch.searchQuery,
         );
       } else {
-        await this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
+        await this.identity.seedFromMintMetadataOnInsert(
+          collectionKey,
+          meta,
+          opts.chainId,
+        );
       }
     }
 
     // Fill-if-empty even when orIgnore reports a false insert (Postgres
     // identifiers can be non-empty on conflict). Never replaces an existing cover.
-    await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, coverMeta);
+    await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, coverMeta, {
+      chainId: opts.chainId,
+    });
 
     await this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
       allowUpstream: true,
+      chainId: opts.chainId,
     });
 
     if (opts.linkRwaToken && opts.tokenId) {
@@ -654,34 +669,29 @@ export class CollectionService {
     return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
   }
 
-  private rwaAddressForChain(chainId?: SupportedChainId): string | null {
-    if (chainId == null) return null;
+  /**
+   * Resolve the lowercase RWA address for the given chain.
+   * Falls back to the default chain when chainId is omitted.
+   * Throws BadRequestException if the contract is not configured — every
+   * catalog insert must be stamped with a real on-chain address.
+   */
+  private rwaAddressForChain(chainId?: SupportedChainId): string {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     try {
-      return this.chainConfig.getRwaAddress(chainId);
+      return this.chainConfig.getRwaAddress(resolved).toLowerCase();
     } catch {
-      return null;
+      throw new BadRequestException(
+        `No RWA contract address configured for chain ${resolved} — cannot create a per-chain catalog row`,
+      );
     }
   }
 
   /**
-   * This contract's marketplace: an order/token on this RWA address, or a
-   * catalog row stamped with that address. Unstamped drafts are not shown —
-   * they are not a live marketplace for a new contract.
+   * Every catalog row is now stamped with a token_contract.
+   * Filter by exact contract match (composite PK column).
    */
   private chainScopedCollectionSql(rwaContract: string): string {
-    return `(
-      EXISTS (
-        SELECT 1 FROM orders o
-        WHERE LOWER(o.collection_key) = LOWER(c.collection_key)
-          AND LOWER(o.token_contract) = :rwaContract
-      )
-      OR EXISTS (
-        SELECT 1 FROM rwa_tokens t
-        WHERE LOWER(t.collection_key) = LOWER(c.collection_key)
-          AND LOWER(t.token_contract) = :rwaContract
-      )
-      OR LOWER(c.token_contract) = :rwaContract
-    )`;
+    return `LOWER(c.token_contract) = :rwaContract`;
   }
 
   async listSummariesPaged(input: {
@@ -1215,7 +1225,7 @@ export class CollectionService {
     const empty = { items: [] as CollectionSummary[] };
     if (!key) return empty;
 
-    const col = await this.findOne(key);
+    const col = await this.findOne(key, opts?.chainId);
     if (!col) return empty;
 
     const components = (col.components ?? {}) as Record<string, unknown>;
@@ -1479,25 +1489,35 @@ export class CollectionService {
   async setCollectionReviewStatusAdmin(
     collectionKey: string,
     reviewStatus: CollectionReviewStatus,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
+    const tokenContract = row.tokenContract.toLowerCase();
     await this.collectionRepo.update(
-      { collectionKey: k },
+      { collectionKey: k, tokenContract },
       { reviewStatus },
     );
-    const refreshed = await this.findOne(k);
+    const refreshed = await this.findOne(k, chainId);
     if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
     return refreshed;
   }
 
   async getReviewStatus(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<CollectionReviewStatus | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      return null;
+    }
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: collectionKey.toLowerCase() },
-      select: ['collectionKey', 'reviewStatus'],
+      where: { collectionKey: collectionKey.toLowerCase(), tokenContract },
+      select: ['collectionKey', 'reviewStatus', 'tokenContract'],
     });
     if (!row) return null;
     return (row.reviewStatus ?? 'active') as CollectionReviewStatus;
@@ -1568,9 +1588,24 @@ export class CollectionService {
     return items;
   }
 
-  async findOne(key: string): Promise<MarketplaceCollection | null> {
+  /**
+   * Chain-scoped catalog row lookup. When chainId is omitted the default chain
+   * is used so existing callers keep compiling — prefer threading chainId when
+   * the request context is available.
+   */
+  async findOne(
+    key: string,
+    chainId?: SupportedChainId,
+  ): Promise<MarketplaceCollection | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      return null;
+    }
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key.toLowerCase() },
+      where: { collectionKey: key.toLowerCase(), tokenContract },
     });
     if (!row) return null;
     // UX OPTIMIZATION ONLY (not a correctness requirement):
@@ -1603,7 +1638,7 @@ export class CollectionService {
 
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
-    opts?: { allowUpstream?: boolean },
+    opts?: { allowUpstream?: boolean; chainId?: SupportedChainId },
   ): Promise<void> {
     return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
   }
@@ -1739,15 +1774,17 @@ export class CollectionService {
   async setCollectionCoverImageAdmin(
     collectionKey: string,
     coverImageUrl: string,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
-    return this.cover.setCollectionCoverImageAdmin(collectionKey, coverImageUrl);
+    return this.cover.setCollectionCoverImageAdmin(collectionKey, coverImageUrl, chainId);
   }
 
   async uploadCollectionCoverImageAdmin(
     collectionKey: string,
     file: Express.Multer.File,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
-    return this.cover.uploadCollectionCoverImageAdmin(collectionKey, file);
+    return this.cover.uploadCollectionCoverImageAdmin(collectionKey, file, chainId);
   }
 
   async adminPreviewCoverFromToken(
@@ -1766,7 +1803,10 @@ export class CollectionService {
     return this.cover.upgradeCoverFromToken(collectionKey, tokenId, chainId);
   }
 
-  async adminDeleteCollectionCompletely(collectionKey: string): Promise<{
+  async adminDeleteCollectionCompletely(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{
     collectionKey: string;
     deletedSnapshots: number;
     deletedOrders: number;
@@ -1774,29 +1814,51 @@ export class CollectionService {
     deletedCollection: boolean;
   }> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) {
       throw new Error('COLLECTION_NOT_FOUND');
     }
+    const tokenContract = row.tokenContract.toLowerCase();
+
+    // Count catalog rows for this key to decide whether to delete the snapshot.
+    // Snapshot PK is collection_key-only (shared pricing across chains).
+    const totalRows = await this.collectionRepo.count({
+      where: { collectionKey: k },
+    });
 
     const result = await this.collectionRepo.manager.transaction(async (em) => {
-      const snapRes = await em.delete(CollectionMarketSnapshot, {
+      // Delete snapshot only when this is the last chain row for this bucket.
+      let deletedSnapshots = 0;
+      if (totalRows <= 1) {
+        const snapRes = await em.delete(CollectionMarketSnapshot, {
+          collectionKey: k,
+        });
+        deletedSnapshots = snapRes.affected ?? 0;
+      }
+
+      // Chain-scoped: orders for this key + contract only.
+      const orderRes = await em.delete(Order, {
         collectionKey: k,
+        tokenContract,
       });
-      const orderRes = await em.delete(Order, { collectionKey: k });
-      // Keep mint registry / owner index. Portfolio reads ownedTokenIds from
-      // rwa_tokens.owner_wallet — deleting those rows hides live NFTs.
+
+      // Chain-scoped: unlink rwa_tokens that belong to this key + contract.
+      // Keep mint registry / owner index — deleting those rows hides live NFTs.
       const rwaRes = await em
         .createQueryBuilder()
         .update(RwaToken)
         .set({ collectionKey: null })
         .where('LOWER(collection_key) = :k', { k })
+        .andWhere('LOWER(token_contract) = :tc', { tc: tokenContract })
         .execute();
+
+      // Delete only this chain's catalog row.
       const colRes = await em.delete(MarketplaceCollection, {
         collectionKey: k,
+        tokenContract,
       });
       return {
-        deletedSnapshots: snapRes.affected ?? 0,
+        deletedSnapshots,
         deletedOrders: orderRes.affected ?? 0,
         unlinkedRwaTokens: rwaRes.affected ?? 0,
         deletedCollection: (colRes.affected ?? 0) > 0,
@@ -1806,7 +1868,7 @@ export class CollectionService {
     this.merkleSet.invalidateForCollection(k);
 
     this.logger.warn(
-      `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
+      `[Admin] deleted collection ${k} contract=${tokenContract}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
     );
 
     return { collectionKey: k, ...result };
@@ -1814,7 +1876,7 @@ export class CollectionService {
 
   merkleEligibleTokenIds(
     collectionKey: string,
-    options?: { bypassCache?: boolean },
+    options?: { bypassCache?: boolean; chainId?: SupportedChainId },
   ): Promise<{ tokenIds: string[] }> {
     return this.merkleSet.merkleEligibleTokenIds(collectionKey, options);
   }
@@ -1826,20 +1888,25 @@ export class CollectionService {
    */
   async sampleBidAnchorTokenIds(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<{ tokenIds: string[] }> {
     const k = collectionKey.trim().toLowerCase();
     if (!k) return { tokenIds: [] };
 
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const fromRegistry =
-      await this.rwaTokenRegistry.tokenIdsForCollectionKey(k);
+      await this.rwaTokenRegistry.tokenIdsForCollectionKey(k, resolved);
     if (fromRegistry.length > 0) {
       return { tokenIds: fromRegistry.slice(0, 50) };
     }
 
-    const rows = await this.orderRepo.find({
-      where: { collectionKey: k },
-      take: 80,
-    });
+    const rwaContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :k', { k })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .take(80)
+      .getMany();
     const ids = [
       ...new Set(
         rows

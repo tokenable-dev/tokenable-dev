@@ -6,10 +6,12 @@ import { UserBuyerListingAlert } from '../entities/user-buyer-listing-alert.enti
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionService } from '../collections/collection.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 
 describe('BuyerListingAlertService', () => {
   let service: BuyerListingAlertService;
   const rows: UserBuyerListingAlert[] = [];
+  const RWA = '0xabc';
 
   const requiresUnfired = (firedAt: unknown) =>
     firedAt === null ||
@@ -25,6 +27,7 @@ describe('BuyerListingAlertService', () => {
         (r) =>
           r.userId === where.userId &&
           r.collectionKey === where.collectionKey &&
+          r.tokenContract === where.tokenContract &&
           (requiresUnfired(where.firedAt) ? r.firedAt == null : true),
       ) ?? null,
     ),
@@ -32,36 +35,56 @@ describe('BuyerListingAlertService', () => {
       async ({
         where,
       }: {
-        where: { collectionKey: string; firedAt?: unknown };
+        where: {
+          collectionKey: string;
+          tokenContract?: string;
+          firedAt?: unknown;
+        };
       }) =>
         rows.filter(
           (r) =>
             r.collectionKey === where.collectionKey &&
+            (where.tokenContract == null ||
+              r.tokenContract === where.tokenContract) &&
             (requiresUnfired(where.firedAt) ? r.firedAt == null : true),
         ),
     ),
     upsert: jest.fn(async (partial: Partial<UserBuyerListingAlert>) => {
       const key = partial.collectionKey!;
       const userId = partial.userId!;
+      const tokenContract = partial.tokenContract!;
       const idx = rows.findIndex(
-        (r) => r.userId === userId && r.collectionKey === key,
+        (r) =>
+          r.userId === userId &&
+          r.collectionKey === key &&
+          r.tokenContract === tokenContract,
       );
       const row = {
         id: idx >= 0 ? rows[idx]!.id : rows.length + 1,
         userId,
         collectionKey: key,
+        tokenContract,
         createdAt: new Date(),
         firedAt: partial.firedAt ?? null,
       } as UserBuyerListingAlert;
       if (idx >= 0) rows[idx] = row;
       else rows.push(row);
     }),
-    delete: jest.fn(async ({ userId, collectionKey }: UserBuyerListingAlert) => {
-      const idx = rows.findIndex(
-        (r) => r.userId === userId && r.collectionKey === collectionKey,
-      );
-      if (idx >= 0) rows.splice(idx, 1);
-    }),
+    delete: jest.fn(
+      async ({
+        userId,
+        collectionKey,
+        tokenContract,
+      }: UserBuyerListingAlert) => {
+        const idx = rows.findIndex(
+          (r) =>
+            r.userId === userId &&
+            r.collectionKey === collectionKey &&
+            r.tokenContract === tokenContract,
+        );
+        if (idx >= 0) rows.splice(idx, 1);
+      },
+    ),
     createQueryBuilder: jest.fn(() => ({
       update: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
@@ -81,11 +104,20 @@ describe('BuyerListingAlertService', () => {
   };
 
   const collections = {
-    findOne: jest.fn(async () => ({ collectionKey: 'ch:test' })),
+    findOne: jest.fn(async () => ({
+      collectionKey: 'ch:test',
+      tokenContract: RWA,
+    })),
   };
 
   const notifications = {
     notifyBuyerListingAlerts: jest.fn(async () => undefined),
+  };
+
+  const chainConfig = {
+    getDefaultChainId: jest.fn(() => 11155111),
+    getRwaAddress: jest.fn(() => RWA),
+    resolveChainId: jest.fn(() => 11155111),
   };
 
   beforeEach(async () => {
@@ -99,53 +131,67 @@ describe('BuyerListingAlertService', () => {
         { provide: getRepositoryToken(Order), useValue: ordersRepo },
         { provide: CollectionService, useValue: collections },
         { provide: NotificationsService, useValue: notifications },
+        { provide: ChainConfigService, useValue: chainConfig },
       ],
     }).compile();
 
     service = module.get(BuyerListingAlertService);
   });
 
-  it('subscribe creates an active row', async () => {
-    await service.subscribe('user-1', 'ch:test');
-    expect(await service.isActive('user-1', 'ch:test')).toBe(true);
+  it('subscribe creates an active row scoped to token_contract', async () => {
+    await service.subscribe('user-1', 'ch:test', 11155111);
+    expect(await service.isActive('user-1', 'ch:test', 11155111)).toBe(true);
+    expect(alertsRepo.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenContract: RWA }),
+      ['userId', 'collectionKey', 'tokenContract'],
+    );
   });
 
   it('unsubscribe removes the row', async () => {
-    await service.subscribe('user-1', 'ch:test');
-    await service.unsubscribe('user-1', 'ch:test');
-    expect(await service.isActive('user-1', 'ch:test')).toBe(false);
+    await service.subscribe('user-1', 'ch:test', 11155111);
+    await service.unsubscribe('user-1', 'ch:test', 11155111);
+    expect(await service.isActive('user-1', 'ch:test', 11155111)).toBe(false);
   });
 
   it('fires BUYER_LISTING_ALERT on first ask and marks subscription off', async () => {
-    await service.subscribe('user-1', 'ch:test');
+    await service.subscribe('user-1', 'ch:test', 11155111);
     const ask = {
       side: OrderSide.ASK,
       status: OrderStatus.ACTIVE,
       collectionKey: 'ch:test',
       orderHash: '0xask1',
       considerationAmount: '1000000',
-      tokenContract: '0xabc',
+      tokenContract: RWA,
       tokenId: '42',
     } as Order;
 
     await service.onFirstAskListed(ask);
 
+    expect(ordersRepo.count).toHaveBeenCalledWith({
+      where: {
+        collectionKey: 'ch:test',
+        tokenContract: RWA,
+        side: OrderSide.ASK,
+        status: OrderStatus.ACTIVE,
+      },
+    });
     expect(notifications.notifyBuyerListingAlerts).toHaveBeenCalledWith({
       ask,
       collectionKey: 'ch:test',
       userIds: ['user-1'],
     });
-    expect(await service.isActive('user-1', 'ch:test')).toBe(false);
+    expect(await service.isActive('user-1', 'ch:test', 11155111)).toBe(false);
   });
 
-  it('skips when collection already has multiple active asks', async () => {
-    await service.subscribe('user-1', 'ch:test');
+  it('skips when collection already has multiple active asks on same RWA', async () => {
+    await service.subscribe('user-1', 'ch:test', 11155111);
     ordersRepo.count.mockResolvedValueOnce(2);
 
     await service.onFirstAskListed({
       side: OrderSide.ASK,
       status: OrderStatus.ACTIVE,
       collectionKey: 'ch:test',
+      tokenContract: RWA,
       orderHash: '0xask2',
     } as Order);
 

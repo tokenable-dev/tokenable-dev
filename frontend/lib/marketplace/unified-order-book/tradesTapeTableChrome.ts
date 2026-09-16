@@ -1,4 +1,6 @@
-import { orderBookTradesContentValueCls } from "@/components/marketplace/price-metrics-strip/theme";
+/** Trades tape cell typography — shared with PDP order-book theme (pure class string). */
+export const orderBookTradesContentValueCls =
+  "font-[Arial,Helvetica,sans-serif] text-[12px] font-normal leading-[1.3] tracking-tight tabular-nums";
 
 /** Visible trade rows before wheel scroll (collection + RWA Trades tab). */
 export const TRADES_TAPE_TARGET_VISIBLE_ROWS = 9;

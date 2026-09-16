@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { EntityManager } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { Repository } from 'typeorm';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
@@ -127,6 +131,7 @@ export class CollectionIdentityService {
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     @Inject(IDENTITY_CACHE_PROVIDER)
     private readonly cache: IdentityCacheProvider,
     private readonly cacheDecision: IdentityCacheDecisionEngine,
@@ -186,19 +191,52 @@ export class CollectionIdentityService {
 
   private async loadRow(
     collectionKey: string,
+    tokenContract?: string,
   ): Promise<MarketplaceCollection | null> {
+    const key = collectionKey.toLowerCase();
+    if (tokenContract) {
+      return this.collectionRepo.findOne({
+        where: { collectionKey: key, tokenContract: tokenContract.toLowerCase() },
+      });
+    }
+    // Chain unknown: any row for the key (shared identity fields).
     return this.collectionRepo.findOne({
-      where: { collectionKey: collectionKey.toLowerCase() },
+      where: { collectionKey: key },
     });
   }
 
+  private async tokenContractsForKey(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<string[]> {
+    const key = collectionKey.toLowerCase();
+    if (chainId != null) {
+      try {
+        return [this.chainConfig.getRwaAddress(chainId).toLowerCase()];
+      } catch {
+        return [];
+      }
+    }
+    const rows = await this.collectionRepo.find({
+      where: { collectionKey: key },
+      select: ['tokenContract'],
+    });
+    return [
+      ...new Set(
+        rows
+          .map((r) => r.tokenContract?.trim().toLowerCase())
+          .filter((a): a is string => Boolean(a)),
+      ),
+    ];
+  }
+
   /**
-   * Serialize identity writes for one collection row across pods via
-   * `SELECT … FOR UPDATE`, then apply a conditional UPDATE that only succeeds
-   * while `components.cardhedgerCardId` is still empty.
+   * Serialize identity writes via `SELECT … FOR UPDATE`, then apply a conditional
+   * UPDATE that only succeeds while `components.cardhedgerCardId` is still empty.
    *
-   * Precedence is evaluated on the locked row — concurrent mint/cert/resolve
-   * callers queue on the row lock instead of racing through loadRow().
+   * When chainId is known, lock that catalog row. When unknown (Cardhedger
+   * enrichment by collection_key only), process each chain row — shared
+   * cardhedgerCardId fields may update all chains; do not wipe review_status.
    */
   private async withExclusiveWrite(
     collectionKey: string,
@@ -207,72 +245,92 @@ export class CollectionIdentityService {
       comp: Record<string, unknown>,
       existing: string,
     ) => IdentityWriteDecision,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
+    const contracts = await this.tokenContractsForKey(key, chainId);
+    if (contracts.length === 0) {
+      this.logDecision(key, source, 'rejected', 'collection_not_found');
+      return;
+    }
 
-    const txResult = await this.collectionRepo.manager.transaction(
-      async (em) => {
-        const row = await em.findOne(MarketplaceCollection, {
-          where: { collectionKey: key },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!row) {
+    let lastDecision: IdentityDecision = 'noop';
+    let lastDetail: string | undefined;
+    let lastCacheHint: IdentityCacheHint;
+
+    for (const tokenContract of contracts) {
+      const txResult = await this.collectionRepo.manager.transaction(
+        async (em) => {
+          const row = await em.findOne(MarketplaceCollection, {
+            where: { collectionKey: key, tokenContract },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!row) {
+            return {
+              decision: 'rejected' as const,
+              detail: 'collection_not_found',
+              cacheHint: undefined as IdentityCacheHint,
+            };
+          }
+
+          const comp = row.components;
+          const existing = this.storedCardId(comp);
+          const writeDecision = decide(comp, existing);
+
+          if (writeDecision.outcome === 'noop') {
+            return {
+              decision: 'noop' as const,
+              detail: writeDecision.detail,
+              cacheHint: existing || undefined,
+            };
+          }
+          if (writeDecision.outcome === 'rejected') {
+            return {
+              decision: 'rejected' as const,
+              detail: writeDecision.detail,
+              cacheHint: existing || undefined,
+            };
+          }
+
+          const persisted = await this.persistIdIfEmpty(
+            em,
+            key,
+            tokenContract,
+            comp,
+            writeDecision.cardId,
+            writeDecision.extras ?? {},
+          );
+          if (!persisted) {
+            const current = this.storedCardId(comp);
+            return {
+              decision: 'rejected' as const,
+              detail: current
+                ? `stored_id=${current}_conditional_update_blocked`
+                : 'conditional_update_blocked',
+              cacheHint: current || undefined,
+            };
+          }
+
           return {
-            decision: 'rejected' as const,
-            detail: 'collection_not_found',
-            cacheHint: undefined as IdentityCacheHint,
+            decision: 'accepted' as const,
+            detail: `new_id=${writeDecision.cardId}`,
+            cacheHint: writeDecision.cardId,
           };
-        }
+        },
+      );
 
-        const comp = row.components;
-        const existing = this.storedCardId(comp);
-        const writeDecision = decide(comp, existing);
+      lastDecision = txResult.decision;
+      lastDetail = txResult.detail;
+      lastCacheHint = txResult.cacheHint;
+      if (txResult.decision === 'accepted') {
+        await this.applyPostCommitCache(key, txResult.cacheHint);
+      }
+    }
 
-        if (writeDecision.outcome === 'noop') {
-          return {
-            decision: 'noop' as const,
-            detail: writeDecision.detail,
-            // Refresh TTL when ID unchanged (e.g. seed pre-warm); skip if cache already matches.
-            cacheHint: existing || undefined,
-          };
-        }
-        if (writeDecision.outcome === 'rejected') {
-          return {
-            decision: 'rejected' as const,
-            detail: writeDecision.detail,
-            // Reconcile seed pre-warm when a different stored ID wins under lock.
-            cacheHint: existing || undefined,
-          };
-        }
-
-        const persisted = await this.persistIdIfEmpty(
-          em,
-          key,
-          comp,
-          writeDecision.cardId,
-          writeDecision.extras ?? {},
-        );
-        if (!persisted) {
-          const current = this.storedCardId(comp);
-          return {
-            decision: 'rejected' as const,
-            detail: current
-              ? `stored_id=${current}_conditional_update_blocked`
-              : 'conditional_update_blocked',
-            cacheHint: current || undefined,
-          };
-        }
-
-        return {
-          decision: 'accepted' as const,
-          detail: `new_id=${writeDecision.cardId}`,
-          cacheHint: writeDecision.cardId,
-        };
-      },
-    );
-
-    await this.applyPostCommitCache(key, txResult.cacheHint);
-    this.logDecision(key, source, txResult.decision, txResult.detail);
+    if (lastDecision !== 'accepted') {
+      await this.applyPostCommitCache(key, lastCacheHint);
+    }
+    this.logDecision(key, source, lastDecision, lastDetail);
   }
 
   /**
@@ -282,6 +340,7 @@ export class CollectionIdentityService {
   private async persistIdIfEmpty(
     em: EntityManager,
     collectionKey: string,
+    tokenContract: string,
     comp: Record<string, unknown>,
     cardId: string,
     extras: Record<string, unknown>,
@@ -297,6 +356,9 @@ export class CollectionIdentityService {
       .update(MarketplaceCollection)
       .set({ components: merged })
       .where('collection_key = :key', { key: collectionKey })
+      .andWhere('LOWER(token_contract) = :tokenContract', {
+        tokenContract: tokenContract.toLowerCase(),
+      })
       .andWhere(
         `(components->>'cardhedgerCardId' IS NULL OR BTRIM(components->>'cardhedgerCardId') = '')`,
       )
@@ -384,44 +446,54 @@ export class CollectionIdentityService {
     }
 
     let cleared = false;
-    let auditOutcome: 'cleared' | 'skipped_id_changed' | 'skipped_not_found' =
-      'skipped_id_changed';
+    let sawRow = false;
 
-    await this.collectionRepo.manager.transaction(async (em) => {
-      const row = await em.findOne(MarketplaceCollection, {
-        where: { collectionKey: key },
-        lock: { mode: 'pessimistic_write' },
+    // Audit is collection_key-scoped: clear matching identity on every chain row.
+    const contracts = await this.tokenContractsForKey(key);
+    for (const tokenContract of contracts) {
+      await this.collectionRepo.manager.transaction(async (em) => {
+        const row = await em.findOne(MarketplaceCollection, {
+          where: { collectionKey: key, tokenContract },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!row) return;
+        sawRow = true;
+
+        const current = this.storedCardId(row.components);
+        if (current !== expected) {
+          return;
+        }
+
+        const nextComponents: Record<string, unknown> = { ...row.components };
+        delete nextComponents.cardhedgerCardId;
+        delete nextComponents.cardhedgerSearchQuery;
+
+        const result = await em
+          .createQueryBuilder()
+          .update(MarketplaceCollection)
+          .set({
+            components: nextComponents as QueryDeepPartialEntity<
+              Record<string, unknown>
+            >,
+          })
+          .where('collection_key = :key', { key })
+          .andWhere('LOWER(token_contract) = :tokenContract', { tokenContract })
+          .andWhere(`components->>'cardhedgerCardId' = :expected`, {
+            expected,
+          })
+          .execute();
+
+        if ((result.affected ?? 0) > 0) {
+          cleared = true;
+        }
       });
-      if (!row) {
-        auditOutcome = 'skipped_not_found';
-        return;
-      }
+    }
 
-      const current = this.storedCardId(row.components);
-      if (current !== expected) return;
-
-      const nextComponents: Record<string, unknown> = { ...row.components };
-      delete nextComponents.cardhedgerCardId;
-      delete nextComponents.cardhedgerSearchQuery;
-
-      const result = await em
-        .createQueryBuilder()
-        .update(MarketplaceCollection)
-        .set({
-          components: nextComponents as QueryDeepPartialEntity<
-            Record<string, unknown>
-          >,
-        })
-        .where('collection_key = :key', { key })
-        .andWhere(`components->>'cardhedgerCardId' = :expected`, {
-          expected,
-        })
-        .execute();
-
-      cleared = (result.affected ?? 0) > 0;
-      if (cleared) auditOutcome = 'cleared';
-    });
-
+    const auditOutcome = cleared
+      ? 'cleared'
+      : !sawRow
+        ? 'skipped_not_found'
+        : 'skipped_id_changed';
     this.metrics?.recordIdentityAuditClear(auditOutcome);
 
     if (auditOutcome === 'skipped_id_changed') {
@@ -731,6 +803,7 @@ export class CollectionIdentityService {
   async writeFromMintMetadata(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const ch = cardhedgerFromRwaMetadata(meta);
@@ -740,23 +813,28 @@ export class CollectionIdentityService {
     }
     const cardId = ch.cardId;
 
-    await this.withExclusiveWrite(key, 'mint', (_comp, existing) => {
-      if (existing === cardId) {
-        return { outcome: 'noop', detail: 'id_already_stored' };
-      }
-      if (existing) {
-        return {
-          outcome: 'rejected',
-          detail: `stored_id=${existing} incoming=${cardId}`,
-        };
-      }
+    await this.withExclusiveWrite(
+      key,
+      'mint',
+      (_comp, existing) => {
+        if (existing === cardId) {
+          return { outcome: 'noop', detail: 'id_already_stored' };
+        }
+        if (existing) {
+          return {
+            outcome: 'rejected',
+            detail: `stored_id=${existing} incoming=${cardId}`,
+          };
+        }
 
-      const extras: Record<string, unknown> = {};
-      if (ch.psaSpecId) extras.psaSpecId = ch.psaSpecId;
-      if (ch.searchQuery) extras.cardhedgerSearchQuery = ch.searchQuery;
+        const extras: Record<string, unknown> = {};
+        if (ch.psaSpecId) extras.psaSpecId = ch.psaSpecId;
+        if (ch.searchQuery) extras.cardhedgerSearchQuery = ch.searchQuery;
 
-      return { outcome: 'accept', cardId, extras };
-    });
+        return { outcome: 'accept', cardId, extras };
+      },
+      chainId,
+    );
   }
 
   /**
@@ -805,15 +883,22 @@ export class CollectionIdentityService {
     const trimmed = description.trim();
     if (!trimmed) return;
     const key = collectionKey.toLowerCase();
-    const col = await this.collectionRepo.findOne({ where: { collectionKey: key } });
-    if (!col) return;
-    const comp = (col.components ?? {}) as Record<string, unknown>;
-    // Skip if a card ID or search query is already stored
-    if (comp.cardhedgerCardId || comp.cardhedgerSearchQuery) return;
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      { components: { ...comp, cardhedgerSearchQuery: trimmed } },
-    );
+    // Cardhedger enrichment by collection_key only: shared search query may
+    // update all chain rows. Do not wipe review_status.
+    const cols = await this.collectionRepo.find({
+      where: { collectionKey: key },
+    });
+    for (const col of cols) {
+      const comp = (col.components ?? {}) as Record<string, unknown>;
+      if (comp.cardhedgerCardId || comp.cardhedgerSearchQuery) continue;
+      await this.collectionRepo.update(
+        {
+          collectionKey: key,
+          tokenContract: col.tokenContract,
+        },
+        { components: { ...comp, cardhedgerSearchQuery: trimmed } },
+      );
+    }
     this.identityLog.logWrite(this.logger, 'info', {
       key,
       outcome: 'cert_desc_search_query_stored',
@@ -871,6 +956,7 @@ export class CollectionIdentityService {
   async seedFromMintMetadataOnInsert(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -897,7 +983,7 @@ export class CollectionIdentityService {
     await this.cache.set(key, ch.cardId, IDENTITY_CACHE_TTL_MS);
 
     // writeFromMintMetadata is idempotent: noop if value already stored in DB.
-    await this.writeFromMintMetadata(key, meta);
+    await this.writeFromMintMetadata(key, meta, chainId);
 
     this.identityLog.logWrite(
       this.logger,

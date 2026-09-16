@@ -111,31 +111,9 @@ export type AdminUserDetail = AdminUserSummary & {
   kycEvents: AdminKycEventRow[];
 };
 
-export type AdminUserStats = {
-  total: number;
-  privy: number;
-  legacy: number;
-  google: number;
-  emailOtp: number;
-  walletLogin: number;
-  withWallet: number;
-  kycApproved: number;
-  kycPending: number;
-  kycRejected: number;
-  kycNone: number;
-  verified: number;
-  unverified: number;
-};
-
 async function parseAdminError(res: Response, fallback: string): Promise<never> {
   const err = await res.json().catch(() => ({}));
   throw new Error((err as { message?: string }).message ?? fallback);
-}
-
-export async function getAdminUserStats(): Promise<AdminUserStats> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/admin/users/stats`);
-  if (!res.ok) await parseAdminError(res, "Failed to load user stats");
-  return res.json() as Promise<AdminUserStats>;
 }
 
 export async function getAdminUsers(params: {
@@ -294,19 +272,6 @@ export function formatAdminUserShortId(userId: string): string {
   return `U-${hex}`;
 }
 
-export function formatPrivyAuthMethod(method: AdminPrivyAuthMethod): string {
-  const labels: Record<AdminPrivyAuthMethod, string> = {
-    wallet: "Wallet",
-    google: "Google",
-    email: "Email",
-    "google+email": "Google+Email",
-    apple: "Apple",
-    other: "Multi",
-    legacy: "Legacy",
-  };
-  return labels[method];
-}
-
 export function formatAuthProviderLabel(type: string): string {
   const labels: Record<string, string> = {
     privy: "Privy",
@@ -348,14 +313,4 @@ export function userInitials(name: string | null, email: string): string {
   }
   const local = formatAdminUserEmail(email).replace(/\(wallet.*$/i, "").trim();
   return local.slice(0, 2).toUpperCase() || "?";
-}
-
-export function privyAuthMethodBadgeClass(method: AdminPrivyAuthMethod): string {
-  if (method === "legacy") {
-    return "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
-  }
-  if (method === "wallet") {
-    return "bg-violet-50 text-violet-700 ring-1 ring-violet-200";
-  }
-  return "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200";
 }

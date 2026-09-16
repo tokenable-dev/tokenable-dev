@@ -84,9 +84,6 @@ export function SettingsPartnerVaultSection() {
       setSavedFlash(true);
       setEditorOpen(false);
       await qc.invalidateQueries({ queryKey: rq.partnerMe() });
-      await qc.invalidateQueries({
-        queryKey: ["self-vault-partner-eligibility"],
-      });
       window.setTimeout(() => setSavedFlash(false), 2500);
     },
     onError: (e: unknown) => {

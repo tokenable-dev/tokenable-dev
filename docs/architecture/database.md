@@ -50,7 +50,7 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `marketplace_collections` | Graded-metadata bucket catalog (created on first ask or admin cert). `token_contract` is the RWA address it belongs to | `marketplace/entities/marketplace-collection.entity.ts` |
+| `marketplace_collections` | Graded-metadata bucket catalog. **Composite PK: `(collection_key, token_contract)`** — one review/cover lifecycle per RWA chain address. Snapshot PK stays `collection_key`-only (shared pricing across chains). | `marketplace/entities/marketplace-collection.entity.ts` |
 | `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`, `vault_partner_id`, `owner_wallet`) | `marketplace/entities/rwa-token.entity.ts` |
 | `rwa_owner_index_cursors` | Transfer-log backfill cursor per RWA contract | `blockchain/entities/rwa-owner-index-cursor.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
@@ -65,7 +65,7 @@
 | `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per RWA** (`token_contract` + `chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
-| `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
+| `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask **on this RWA** — unique `(user_id, collection_key, token_contract)` | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
 
 ### Admin & Cardhedger infra
 
@@ -164,12 +164,13 @@ erDiagram
 erDiagram
     marketplace_collections {
         varchar collection_key PK
+        varchar token_contract PK "RWA address — composite PK with collection_key"
         varchar display_label
         jsonb components
         varchar psa_cert_number
     }
     collection_market_snapshots {
-        varchar collection_key PK
+        varchar collection_key PK "shared across chains — snapshot PK is key-only"
         float headline_usd
         varchar market_state
     }
@@ -186,8 +187,8 @@ erDiagram
         varchar collection_key
         varchar status
     }
-    marketplace_collections ||--o| collection_market_snapshots : "collection_key"
-    marketplace_collections ||--o{ orders : "collection_key"
+    marketplace_collections ||--o| collection_market_snapshots : "collection_key (shared pricing)"
+    marketplace_collections ||--o{ orders : "collection_key + token_contract"
     marketplace_collections ||--o{ rwa_tokens : "collection_key (nullable; admin delete unlinks, does not drop rows)"
 ```
 
@@ -236,6 +237,8 @@ pending_deposit
 
 Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA address). Snapshots store both `chain_id` and `token_contract` so a new RWA on the same chain does not reuse the previous contract's chart or 24h P/L.
 
+**Shared across chain switch (intentional):** `users` / KYC / partners / watchlist keys are global — inventory is per RWA, but the user profile must stay shared when the network picker changes.
+
 **Existing DBs:** run `backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql` — do not rely on TypeORM synchronize to drop the old `(wallet, date)` unique.
 
 ---
@@ -274,6 +277,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_bulk_mint_slab_display_image_back_url.sql` | Existing DBs: `bulk_mint_job_items.slab_display_image_back_url` |
 | `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 | `maintenance/add_marketplace_collections_token_contract.sql` | Existing DBs: `marketplace_collections.token_contract` + backfill from orders/tokens |
+| `maintenance/marketplace_collections_per_chain_pk.sql` | Existing DBs: drop single-col PK, stamp remaining NULL rows from activity, clone catalog rows per RWA, enforce `NOT NULL`, add composite PK `(collection_key, token_contract)` |
 | `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
 | `maintenance/add_portfolio_daily_snapshots_token_contract.sql` | Existing DBs: `portfolio_daily_snapshots.token_contract`; unique includes the RWA address. Unstamped rows are not read |
 | `maintenance/add_vault_submissions_token_contract.sql` | Existing DBs: `vault_submissions.token_contract` + backfill from linked mints. Unstamped packages stay hidden |
@@ -289,6 +293,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
 | `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
 | `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
+| `maintenance/user_buyer_listing_alert_token_contract.sql` | Existing DBs: add `token_contract`, unique `(user_id, collection_key, token_contract)` |
 | `maintenance/drop_legacy_unused_tables.sql` | Drop unused leftovers: `psa_cert_snapshots`, `portfolio_hidden_holdings`, `verification_tokens` |
 | `maintenance/audit_stale_public_tables.sql` | Read-only: empty / quiet public tables (no DROP) |
 

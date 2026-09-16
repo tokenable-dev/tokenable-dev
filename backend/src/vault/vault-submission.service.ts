@@ -810,6 +810,8 @@ export class VaultSubmissionService {
         userId: sub.userId,
         submissionPublicId: sub.publicId,
         cardLabel: firstCard,
+        chainId: sub.chainId ?? undefined,
+        tokenContract: sub.tokenContract,
       })
       .catch((e) => {
         this.logger.warn(
@@ -1525,6 +1527,8 @@ export class VaultSubmissionService {
           submissionPublicId: sub.publicId,
           itemId: item.id,
           cardLabel,
+          chainId: sub.chainId ?? undefined,
+          tokenContract: sub.tokenContract,
         })
         .catch((e) => {
           this.logger.warn(
@@ -1539,6 +1543,8 @@ export class VaultSubmissionService {
           itemId: item.id,
           cardLabel,
           reason: item.rejectionReason,
+          chainId: sub.chainId ?? undefined,
+          tokenContract: sub.tokenContract,
         })
         .catch((e) => {
           this.logger.warn(
@@ -1552,6 +1558,8 @@ export class VaultSubmissionService {
           submissionPublicId: sub.publicId,
           itemId: item.id,
           cardLabel,
+          chainId: sub.chainId ?? undefined,
+          tokenContract: sub.tokenContract,
         })
         .catch((e) => {
           this.logger.warn(
@@ -1587,6 +1595,8 @@ export class VaultSubmissionService {
           itemId: item.id,
           submissionPublicId: sub.publicId,
           cardLabel: item.displayName,
+          chainId: sub.chainId ?? undefined,
+          tokenContract: sub.tokenContract,
         })
         .catch((e) => {
           this.logger.warn(

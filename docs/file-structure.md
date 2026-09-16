@@ -210,7 +210,7 @@ frontend/
 │   │   ├── admin/          # All admin page components
 │   │   ├── collection-detail/
 │   │   ├── collection-trading/
-│   │   ├── rwa-detail/     # ListModalHost + theme (page tree removed)
+│   │   ├── list-rwa/       # ListRwaModal + ListRwaModalHost (portfolio Set/Edit price)
 │   │   └── ...
 │   ├── network/            # NetworkSwitcher
 │   ├── portfolio/

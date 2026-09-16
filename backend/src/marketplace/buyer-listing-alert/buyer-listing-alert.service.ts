@@ -7,8 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import {
-  CollectionService,
-} from '../collections/collection.service';
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
+import { CollectionService } from '../collections/collection.service';
 import { UserBuyerListingAlert } from '../entities/user-buyer-listing-alert.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -24,6 +26,7 @@ export class BuyerListingAlertService {
     private readonly orders: Repository<Order>,
     private readonly collections: CollectionService,
     private readonly notifications: NotificationsService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   private normalizeKey(raw: string): string {
@@ -34,44 +37,74 @@ export class BuyerListingAlertService {
     return key;
   }
 
-  async isActive(userId: string, rawKey: string): Promise<boolean> {
+  private tokenContractForChain(chainId?: SupportedChainId): string {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    return this.chainConfig.getRwaAddress(resolved).toLowerCase();
+  }
+
+  async isActive(
+    userId: string,
+    rawKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<boolean> {
     const collectionKey = this.normalizeKey(rawKey);
+    const tokenContract = this.tokenContractForChain(chainId);
     const row = await this.alerts.findOne({
-      where: { userId, collectionKey, firedAt: IsNull() },
+      where: { userId, collectionKey, tokenContract, firedAt: IsNull() },
     });
     return row != null;
   }
 
-  async subscribe(userId: string, rawKey: string): Promise<{ collectionKey: string; active: true }> {
+  async subscribe(
+    userId: string,
+    rawKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ collectionKey: string; active: true }> {
     const collectionKey = this.normalizeKey(rawKey);
-    const row = await this.collections.findOne(collectionKey);
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const row = await this.collections.findOne(collectionKey, resolved);
     if (!row) {
       throw new NotFoundException('Collection not found');
     }
+    const tokenContract = row.tokenContract.toLowerCase();
 
     await this.alerts.upsert(
-      { userId, collectionKey, firedAt: null },
-      ['userId', 'collectionKey'],
+      { userId, collectionKey, tokenContract, firedAt: null },
+      ['userId', 'collectionKey', 'tokenContract'],
     );
     return { collectionKey, active: true };
   }
 
-  async unsubscribe(userId: string, rawKey: string): Promise<void> {
+  async unsubscribe(
+    userId: string,
+    rawKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
     const collectionKey = this.normalizeKey(rawKey);
-    await this.alerts.delete({ userId, collectionKey });
+    const tokenContract = this.tokenContractForChain(chainId);
+    await this.alerts.delete({ userId, collectionKey, tokenContract });
   }
 
   private async listActiveSubscriberUserIds(
     collectionKey: string,
+    tokenContract: string,
   ): Promise<string[]> {
     const rows = await this.alerts.find({
-      where: { collectionKey, firedAt: IsNull() },
+      where: {
+        collectionKey,
+        tokenContract: tokenContract.toLowerCase(),
+        firedAt: IsNull(),
+      },
       select: ['userId'],
     });
     return [...new Set(rows.map((r) => r.userId))];
   }
 
-  private async markFired(collectionKey: string, userIds: string[]): Promise<void> {
+  private async markFired(
+    collectionKey: string,
+    tokenContract: string,
+    userIds: string[],
+  ): Promise<void> {
     if (userIds.length === 0) return;
     const now = new Date();
     await this.alerts
@@ -79,27 +112,35 @@ export class BuyerListingAlertService {
       .update(UserBuyerListingAlert)
       .set({ firedAt: now })
       .where('collection_key = :collectionKey', { collectionKey })
+      .andWhere('LOWER(token_contract) = :tokenContract', {
+        tokenContract: tokenContract.toLowerCase(),
+      })
       .andWhere('fired_at IS NULL')
       .andWhere('user_id IN (:...userIds)', { userIds })
       .execute();
   }
 
-  /** First active ask on a collection → notify subscribers once, then auto-off. */
+  /** First active ask on a collection+RWA → notify subscribers once, then auto-off. */
   async onFirstAskListed(ask: Order): Promise<void> {
     if (ask.side !== OrderSide.ASK || ask.status !== OrderStatus.ACTIVE) return;
     const collectionKey = ask.collectionKey?.trim().toLowerCase();
-    if (!collectionKey) return;
+    const tokenContract = ask.tokenContract?.trim().toLowerCase();
+    if (!collectionKey || !tokenContract) return;
 
     const activeAskCount = await this.orders.count({
       where: {
         collectionKey,
+        tokenContract,
         side: OrderSide.ASK,
         status: OrderStatus.ACTIVE,
       },
     });
     if (activeAskCount !== 1) return;
 
-    const userIds = await this.listActiveSubscriberUserIds(collectionKey);
+    const userIds = await this.listActiveSubscriberUserIds(
+      collectionKey,
+      tokenContract,
+    );
     if (userIds.length === 0) return;
 
     await this.notifications.notifyBuyerListingAlerts({
@@ -107,9 +148,9 @@ export class BuyerListingAlertService {
       collectionKey,
       userIds,
     });
-    await this.markFired(collectionKey, userIds);
+    await this.markFired(collectionKey, tokenContract, userIds);
     this.logger.log(
-      `BUYER_LISTING_ALERT fired for ${collectionKey} → ${userIds.length} subscriber(s)`,
+      `BUYER_LISTING_ALERT fired for ${collectionKey} @ ${tokenContract} → ${userIds.length} subscriber(s)`,
     );
   }
 }

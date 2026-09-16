@@ -36,7 +36,7 @@ export const ORDER_BOOK_THREE_COL_GRID = "grid grid-cols-3 gap-x-4 sm:gap-x-5";
 export const ORDER_BOOK_TRADES_FOUR_COL_GRID = "grid grid-cols-4 gap-x-3";
 
 /** Trades tape data cells — one size for Price / Side / Source / Time. */
-export const orderBookTradesContentValueCls = `${collectionDetailArialClass} text-[12px] font-normal leading-[1.3] tracking-tight tabular-nums`;
+export { orderBookTradesContentValueCls } from "@/lib/marketplace/unified-order-book/tradesTapeTableChrome";
 
 /** Flush trades column headers. */
 export const orderBookTradesFlushHeaderCls = `${collectionDetailArialClass} text-[9px] font-medium uppercase leading-none tracking-[0.07em] text-zinc-500 sm:text-[10px] lg:text-xs`;

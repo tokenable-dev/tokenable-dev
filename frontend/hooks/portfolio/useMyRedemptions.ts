@@ -6,6 +6,7 @@ import {
   getMyRedemptions,
   type MyRedemptionRow,
 } from "@/lib/core/api/rwa-redeem";
+import { rq } from "@/lib/core/queryKeys";
 import { isRedeemInFlight } from "@/lib/portfolio/redeemDraft";
 import { useAuthStore } from "@/store/authStore";
 import { useAppChain } from "@/providers/AppChainProvider";
@@ -19,7 +20,7 @@ export function useMyRedemptions(enabled = true) {
   const { chainId } = useAppChain();
 
   const query = useQuery({
-    queryKey: ["rwa", "redemptions", "mine", user?.id ?? null, chainId],
+    queryKey: rq.myRedemptions(user?.id ?? null, chainId),
     queryFn: () => getMyRedemptions(chainId),
     enabled: Boolean(user?.id) && enabled,
     staleTime: 30_000,

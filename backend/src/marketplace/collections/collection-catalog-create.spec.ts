@@ -95,12 +95,16 @@ describe('CollectionService.createCatalogCollectionFromPsaCert', () => {
     };
     const eventEmitter = { emit: jest.fn() };
 
+    const chainConfig = {
+      getDefaultChainId: jest.fn().mockReturnValue(11155111),
+      getRwaAddress: jest.fn().mockReturnValue('0xrwacontract1'),
+    };
     const service = new CollectionService(
       collectionRepo as never,
       {} as never,
       {} as never,
       {} as never,
-      { getDefaultChainId: () => 11155111 } as never,
+      chainConfig as never,
       { get: () => undefined } as never,
       {} as never,
       { upsertFromMetadata: jest.fn() } as never,
@@ -129,7 +133,8 @@ describe('CollectionService.createCatalogCollectionFromPsaCert', () => {
       '83179580',
     );
     const insertValues = (collectionRepo as { valuesMock: jest.Mock }).valuesMock
-      .mock.calls[0]?.[0] as { components?: Record<string, unknown> };
+      .mock.calls[0]?.[0] as { components?: Record<string, unknown>; tokenContract?: string };
+    expect(insertValues.tokenContract).toBe('0xrwacontract1');
     expect(insertValues.components?.cardhedgerCardId).toBe('ch_catalog_1');
     expect(insertValues.components?.cardhedgerCardIdSource).toBe('psa_cert');
     expect(eventEmitter.emit).toHaveBeenCalledWith('snapshot.enqueue', {

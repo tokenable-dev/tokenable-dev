@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { CollectionMarketStats, Order } from "@/lib/core";
 import type { PortfolioBidCollectionMeta, PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
@@ -9,21 +9,25 @@ import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
-import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
-import { stripTrailingRawGradeLabel } from "@/lib/marketplace/cardDisplayName";
 import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
 
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
+type BidsStatusFilter = "" | "highest" | "outbid" | "expired";
 
-const BIDS_SORT_OPTIONS = [
-  { key: "name", label: "Card" },
-  { key: "bid", label: "Your bid" },
-  { key: "top", label: "Top bid" },
-  { key: "ask", label: "Ask price" },
-  { key: "expires", label: "Expires" },
-] as const;
+const BIDS_TOOLBAR_SORT: { value: BidsSortKey; label: string }[] = [
+  { value: "bid", label: "Your bid" },
+  { value: "top", label: "Top bid" },
+  { value: "expires", label: "Expiry" },
+];
+
+const BIDS_STATUS_OPTIONS: { id: BidsStatusFilter; label: string }[] = [
+  { id: "", label: "All" },
+  { id: "highest", label: "Highest" },
+  { id: "outbid", label: "Outbid" },
+  { id: "expired", label: "Expired" },
+];
 
 function isOutbidByBook(
   bidPriceUsdc: number,
@@ -118,17 +122,54 @@ export function PortfolioCollectionBidsSection({
   onChangeBid: (bid: PortfolioBidRow) => void;
   onRebid: (bid: PortfolioBidRow) => void;
 }) {
-  const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
-    usePortfolioTableSort<BidsSortKey>("name");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BidsStatusFilter>("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const { sortKey, sortDir, toggleSort, setSort } =
+    usePortfolioTableSort<BidsSortKey>("bid", "desc");
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [filterOpen]);
 
   const sortedBids = useMemo(() => {
-    const rows = [...bids];
+    const q = searchQuery.trim().toLowerCase();
+    const rows = bids.filter((bid) => {
+      const meta = collectionMetaByKey.get(bid.collectionKey);
+      const label =
+        meta?.displayLabel?.trim() ||
+        bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
+      const line2 = meta?.line2?.trim() || "";
+      if (q) {
+        const hay = `${label} ${line2} ${bid.collectionKey}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (!statusFilter) return true;
+      const book =
+        bidsByCollectionKey?.get(bid.collectionKey) ??
+        bidsByCollectionKey?.get(bid.collectionKey.toLowerCase());
+      const top = highestBidUsdForHolding(book, bid.tokenId);
+      const expired =
+        bid.status === "expired" ||
+        (expiresMsRemaining(bid.endTime) != null &&
+          (expiresMsRemaining(bid.endTime) as number) <= 0);
+      const outbid = !expired && isOutbidByBook(bid.priceUsdc, top);
+      if (statusFilter === "expired") return expired;
+      if (statusFilter === "outbid") return outbid;
+      if (statusFilter === "highest") return !expired && !outbid;
+      return true;
+    });
     rows.sort((a, b) => {
       const labelA =
-        stripTrailingRawGradeLabel(collectionMetaByKey.get(a.collectionKey)?.displayLabel) ||
+        collectionMetaByKey.get(a.collectionKey)?.displayLabel ||
         a.collectionKey.replace(/^ch:/, "");
       const labelB =
-        stripTrailingRawGradeLabel(collectionMetaByKey.get(b.collectionKey)?.displayLabel) ||
+        collectionMetaByKey.get(b.collectionKey)?.displayLabel ||
         b.collectionKey.replace(/^ch:/, "");
       const listingsA =
         listingsByCollectionKey?.get(a.collectionKey) ??
@@ -172,6 +213,8 @@ export function PortfolioCollectionBidsSection({
     return rows;
   }, [
     bids,
+    searchQuery,
+    statusFilter,
     sortKey,
     sortDir,
     collectionMetaByKey,
@@ -204,16 +247,104 @@ export function PortfolioCollectionBidsSection({
     );
   }
 
+  const filterActive = statusFilter !== "";
+
   return (
     <>
-      <div className="pf-panel-toolbar pf-panel-toolbar--bids-only">
-        <PortfolioMobileSort
-          options={[...BIDS_SORT_OPTIONS]}
-          value={mobileSortValue}
-          onChange={applyMobileSort}
-        />
+      <div className="pf-tbar" id="bids-tbar">
+        <button
+          type="button"
+          className={`pf-tbtn pf-tbtn--icon${filterActive ? " pf-tbtn--on" : ""}`}
+          aria-label="Filter bids"
+          aria-expanded={filterOpen}
+          onClick={() => setFilterOpen(true)}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+            <line x1="10" y1="18" x2="14" y2="18" />
+          </svg>
+          {filterActive ? <span className="pf-tbtn__dot" /> : null}
+        </button>
+        <div className="pf-tbar__search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <line x1="16.5" y1="16.5" x2="21" y2="21" />
+          </svg>
+          <input
+            type="search"
+            autoComplete="off"
+            placeholder="Search your bids"
+            value={searchQuery}
+            aria-label="Search your bids"
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="pf-tbar__spacer" />
+        <div className="pf-tbar__cluster">
+          <div className="pf-tbar__sortsel">
+            <select
+              aria-label="Sort bids"
+              value={sortKey === "name" || sortKey === "ask" ? "bid" : sortKey}
+              onChange={(e) => {
+                setSort(e.target.value as BidsSortKey, "desc");
+              }}
+            >
+              {BIDS_TOOLBAR_SORT.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
       </div>
 
+      {filterOpen ? (
+        <div className="pf-filter-drawer" role="presentation">
+          <button
+            type="button"
+            className="pf-filter-drawer__scrim"
+            aria-label="Close filter"
+            onClick={() => setFilterOpen(false)}
+          />
+          <div
+            className="pf-filter-drawer__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter bids"
+          >
+            <div className="pf-filter-drawer__grip" />
+            <div className="pf-filter-drawer__h">Filter bids</div>
+            {BIDS_STATUS_OPTIONS.map((opt) => {
+              const sel = statusFilter === opt.id;
+              return (
+                <button
+                  key={opt.id || "all"}
+                  type="button"
+                  className={`pf-filter-drawer__opt${sel ? " pf-filter-drawer__opt--sel" : ""}`}
+                  onClick={() => {
+                    setStatusFilter(opt.id);
+                    setFilterOpen(false);
+                  }}
+                >
+                  {opt.label}
+                  <span className="pf-filter-drawer__ck" aria-hidden>
+                    ✓
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {sortedBids.length === 0 ? (
+        <p className="pf-empty pf-empty--panel">No bids match your search.</p>
+      ) : (
       <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids">
         <colgroup>
           <col className="pf-col-card" />
@@ -270,8 +401,10 @@ export function PortfolioCollectionBidsSection({
           {sortedBids.map((bid, index) => {
             const meta = collectionMetaByKey.get(bid.collectionKey);
             const label =
-              stripTrailingRawGradeLabel(meta?.displayLabel) ||
+              meta?.displayLabel?.trim() ||
               bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
+            const line2 = meta?.line2?.trim() || "";
+            const hoverLabel = meta?.hoverLabel?.trim() || label;
             const book =
               bidsByCollectionKey?.get(bid.collectionKey) ??
               bidsByCollectionKey?.get(bid.collectionKey.toLowerCase());
@@ -315,9 +448,19 @@ export function PortfolioCollectionBidsSection({
                         <div className="h-full w-full animate-pulse bg-white/5" />
                       ) : null}
                     </div>
-                    <span className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-                      {label}
-                    </span>
+                    <div className="pf-table-card-copy">
+                      <span
+                        className={`pf-table-card-name pf-table-card-name--bids ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                        title={hoverLabel}
+                      >
+                        {label}
+                      </span>
+                      {line2 ? (
+                        <span className="pf-table-card-sub pf-table-card-sub--hover">
+                          {line2}
+                        </span>
+                      ) : null}
+                    </div>
                   </Link>
                 </td>
                 <td data-label="Your bid">
@@ -414,7 +557,8 @@ export function PortfolioCollectionBidsSection({
             );
           })}
         </tbody>
-      </TkTable>
+        </TkTable>
+      )}
     </>
   );
 }

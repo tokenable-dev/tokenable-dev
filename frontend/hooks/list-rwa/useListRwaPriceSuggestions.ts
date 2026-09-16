@@ -38,9 +38,10 @@ export function useListRwaPriceSuggestions(input: {
 }) {
   const { tokenId, collectionKey: collectionKeyProp, enabled } = input;
   const tokenIdOk = Number.isFinite(tokenId) && tokenId >= 0;
+  const rqChainId = activeRqChainId();
 
   const { data: metaBundle } = useQuery({
-    queryKey: rq.rwaAssetDetail(tokenId),
+    queryKey: rq.rwaAssetDetail(tokenId, rqChainId),
     queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,

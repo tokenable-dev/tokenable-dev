@@ -183,27 +183,6 @@ export async function postAdminSetCollectionReviewStatus(
   }>;
 }
 
-const ALL_COLLECTIONS_PAGE_LIMIT = 60;
-const ALL_COLLECTIONS_MAX_PAGES = 100;
-
-/** Walk cursor pages until exhausted — for home ranking across the full catalog. */
-export async function getAllMarketplaceCollections(): Promise<
-  MarketplaceCollectionSummary[]
-> {
-  const items: MarketplaceCollectionSummary[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < ALL_COLLECTIONS_MAX_PAGES; page++) {
-    const pack = await getMarketplaceCollectionsPage({
-      cursor,
-      limit: ALL_COLLECTIONS_PAGE_LIMIT,
-    });
-    items.push(...pack.items);
-    cursor = pack.nextCursor;
-    if (!cursor) break;
-  }
-  return items;
-}
-
 export interface HomeMarketplaceFeed {
   topMovers: MarketplaceCollectionSummary[];
   justVaulted: MarketplaceCollectionSummary[];
@@ -397,24 +376,6 @@ export async function getMerkleEligibleTokenIds(
     const err = await res.json().catch(() => ({}));
     throw new Error(
       (err as { message?: string }).message ?? "Failed to load merkle set"
-    );
-  }
-  return res.json() as Promise<{ tokenIds: string[] }>;
-}
-
-/** Minted / previously traded token ids — for card bids when there is no live ask. */
-export async function getCollectionBidAnchorTokenIds(
-  collectionKey: string,
-  opts?: { signal?: AbortSignal },
-): Promise<{ tokenIds: string[] }> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/bid-anchor-tokens`,
-    { signal: opts?.signal },
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load collection tokens"
     );
   }
   return res.json() as Promise<{ tokenIds: string[] }>;

@@ -20,6 +20,7 @@ import {
   listAdminVaultSubmissions,
   rq,
 } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 /** Pause admin polling while the tab is hidden (saves local Nest/DB CPU). */
 function adminPollMs(ms: number): () => number | false {
@@ -30,8 +31,9 @@ function adminPollMs(ms: number): () => number | false {
 }
 
 export function useAdminVaultSubmissionCounts() {
+  const { chainId } = useAppChain();
   return useQuery({
-    queryKey: rq.adminVaultSubmissionCounts(),
+    queryKey: rq.adminVaultSubmissionCounts(chainId),
     queryFn: () => getAdminVaultSubmissionCounts(),
     staleTime: 30_000,
     refetchInterval: adminPollMs(60_000),
@@ -78,8 +80,9 @@ export function useAdminVaultMintQueue(q: string) {
 }
 
 export function useAdminVaultSubmissions(status: string, q: string) {
+  const { chainId } = useAppChain();
   return useQuery({
-    queryKey: rq.adminVaultSubmissions(status, q),
+    queryKey: rq.adminVaultSubmissions(chainId, status, q),
     queryFn: () =>
       listAdminVaultSubmissions({
         status: status === "all" ? undefined : status,
@@ -93,8 +96,9 @@ export function useAdminVaultSubmissions(status: string, q: string) {
 }
 
 export function useAdminVaultSubmissionDetail(id: string | null) {
+  const { chainId } = useAppChain();
   return useQuery({
-    queryKey: rq.adminVaultSubmission(id ?? ""),
+    queryKey: rq.adminVaultSubmission(id ?? "", chainId),
     queryFn: () => getAdminVaultSubmission(id!),
     enabled: Boolean(id),
     staleTime: 5_000,

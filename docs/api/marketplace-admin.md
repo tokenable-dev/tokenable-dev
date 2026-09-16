@@ -192,9 +192,11 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
-| POST | `/api/marketplace/collections/:key/admin/delete` | Delete marketplace bucket + snapshots + orders. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
+| POST | `/api/marketplace/collections/:key/admin/delete` | Delete **this chain's** catalog row + chain-scoped orders. Snapshot deleted only when no other chain row remains for that key. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
 
 New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Later listings/sales do not replace an existing cover (admin uploads stay). Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
+
+> **Per-chain catalog:** `marketplace_collections` has composite PK `(collection_key, token_contract)`. Each RWA contract gets its own catalog row with independent `review_status` and `cover_image_url`. All collection and admin endpoints are chain-scoped via `x-tokenable-chain-id` header (defaults to `DEFAULT_CHAIN_ID`). `collection_market_snapshots` PK remains `collection_key`-only — pricing is shared across chains.
 
 ---
 

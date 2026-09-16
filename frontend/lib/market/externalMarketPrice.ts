@@ -1,10 +1,10 @@
 import type { CollectionGradePrices, CollectionMarketPreview, CollectionUsdPoint } from "@/lib/core";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { catalogSpotUsdFromMarketPreview } from "./gradedCardMarketCap";
 import {
-  catalogSpotUsdFromMarketPreview,
-} from "@/lib/market";
-import { marketHistoryTierFromComponents } from "@/lib/market";
-import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
+  isAuthQualifierGradeScore,
+  marketHistoryTierFromComponents,
+} from "./priceTier";
 import {
   MARKET_PRICE_CHANGE_LAG_SEC,
   referenceHistoryCoversFullYear,

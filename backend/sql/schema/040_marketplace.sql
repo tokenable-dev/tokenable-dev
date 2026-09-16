@@ -3,7 +3,7 @@
 --           collection-market-snapshot.entity.ts, order.entity.ts
 
 CREATE TABLE IF NOT EXISTS marketplace_collections (
-  collection_key varchar(64) PRIMARY KEY,
+  collection_key varchar(64) NOT NULL,
   display_label varchar NOT NULL,
   query_used text,
   components jsonb NOT NULL,
@@ -12,8 +12,10 @@ CREATE TABLE IF NOT EXISTS marketplace_collections (
   market_parallel_key varchar(96) NOT NULL DEFAULT 'base',
   bucket_key_version smallint NOT NULL DEFAULT 2,
   review_status varchar(32) NOT NULL DEFAULT 'active',
-  token_contract varchar(42),
+  token_contract varchar(42) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_collections_pkey
+    PRIMARY KEY (collection_key, token_contract),
   CONSTRAINT marketplace_collections_bucket_key_version_check
     CHECK (bucket_key_version >= 1),
   CONSTRAINT marketplace_collections_review_status_check
@@ -33,12 +35,18 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_collections_created_at
 CREATE INDEX IF NOT EXISTS idx_marketplace_collections_review_status
   ON marketplace_collections (review_status);
 
+CREATE INDEX IF NOT EXISTS idx_marketplace_collections_token_contract
+  ON marketplace_collections (token_contract);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_collections_token_created
+  ON marketplace_collections (token_contract, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_mc_components_cardhedger_card_id
   ON marketplace_collections (LOWER(components->>'cardhedgerCardId'))
   WHERE components->>'cardhedgerCardId' IS NOT NULL;
 
 COMMENT ON TABLE marketplace_collections IS
-  'Logical collection bucket (computeMarketBucketKey). Created on first ask listing.';
+  'Graded bucket (collection_key) per RWA (token_contract). Created on first ask or admin create-from-cert.';
 COMMENT ON COLUMN marketplace_collections.components IS
   'Bucket fields + mint enrichments (cardhedgerCardId, listingDisplayTitle, PSA mirrors, …).';
 COMMENT ON COLUMN marketplace_collections.psa_cert_number IS
@@ -46,9 +54,9 @@ COMMENT ON COLUMN marketplace_collections.psa_cert_number IS
 COMMENT ON COLUMN marketplace_collections.market_parallel_key IS
   'Indexed parallel facet (base or PSA Variety slug). Pricing in collection_market_snapshots.';
 COMMENT ON COLUMN marketplace_collections.review_status IS
-  'pending_review | active | rejected. New inserts are pending_review; Markets lists active only.';
+  'pending_review | active | rejected. Per-chain; Markets lists active for the request RWA only.';
 COMMENT ON COLUMN marketplace_collections.token_contract IS
-  'RWA address this catalog was created for. Public/admin lists also match orders and tokens on that address.';
+  'RWA address this catalog row belongs to. Composite PK with collection_key.';
 
 CREATE TABLE IF NOT EXISTS collection_market_snapshots (
   collection_key varchar(64) PRIMARY KEY,

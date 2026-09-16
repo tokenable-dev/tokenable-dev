@@ -73,17 +73,16 @@ export class MarketplaceCollection {
   reviewStatus: CollectionReviewStatus;
 
   /**
-   * RWA address this catalog was created for. Listings still isolate via
-   * orders/tokens; this stops an unstamped draft from appearing on every chain.
+   * RWA address this catalog row belongs to.
+   * Composite PK with collection_key — one review/cover lifecycle per chain.
    */
   @Index()
-  @Column({
+  @PrimaryColumn({
     name: 'token_contract',
     type: 'varchar',
     length: 42,
-    nullable: true,
   })
-  tokenContract: string | null;
+  tokenContract: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

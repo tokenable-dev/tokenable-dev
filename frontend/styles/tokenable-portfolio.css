@@ -348,157 +348,178 @@
   border-radius: 0 0 16px 16px;
 }
 
-/* ── Holdings toolbar (filter / search / sort / view) ───────────────────── */
+/* ── Shared portfolio toolbar (Portfolio.html `.pf-tbar`) ───────────────── */
 
-.pf-assets-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 16px 0;
-}
-
-.pf-assets-bar__left,
-.pf-assets-bar__right {
+.pf-tbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  flex-wrap: nowrap;
+  padding: 14px 4px;
+  margin: 16px 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.pf-assets-bar__left {
-  flex: 1;
-}
-
-.pf-filter-btn,
-.pf-search-toggle {
-  display: inline-flex;
+.pf-tbar__search {
   position: relative;
+  flex: 0 1 320px;
+  min-width: 0;
+  height: 40px;
+}
+
+.pf-tbar__search input {
+  width: 100%;
+  height: 40px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 0 12px 0 38px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.pf-tbar__search input:focus {
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.6);
+  border-color: transparent;
+}
+
+.pf-tbar__search input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pf-tbar__search svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.pf-tbar__spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.pf-tbar__cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.pf-tbtn {
+  height: 40px;
+  min-width: 40px;
+  padding: 0 13px;
+  box-sizing: border-box;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  border: 0;
+  gap: 7px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;
-  background: #191919;
   color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
 }
 
-.pf-filter-btn {
-  width: 38px;
-  height: 38px;
+.pf-tbtn:hover {
+  color: #fff;
+  background: #1b1b1b;
+}
+
+.pf-tbtn--icon {
   padding: 0;
+  width: 40px;
+  flex: none;
+  position: relative;
 }
 
-.pf-search-toggle {
-  width: 34px;
-  height: 34px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.pf-filter-btn:hover,
-.pf-search-toggle:hover {
+.pf-tbtn--on {
+  background: var(--azure);
+  border-color: var(--azure);
   color: #fff;
 }
 
-.pf-filter-btn__dot {
+.pf-tbtn__dot {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 8px;
+  right: 8px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--azure);
-  box-shadow: 0 0 0 2px #191919;
 }
 
-.pf-search-expanded {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-}
-
-.pf-search-expanded__icon {
+.pf-tbtn__badge {
   position: absolute;
-  left: 13px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.pf-search-expanded__input {
-  width: 100%;
-  height: 38px;
-  border: 0;
-  border-radius: 9px;
-  background: #191919;
-  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.5);
+  top: 6px;
+  right: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--azure);
   color: #fff;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  padding: 0 40px 0 38px;
-  outline: none;
-}
-
-.pf-search-expanded__input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.pf-search-expanded__close {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.pf-gallery-sort {
+.pf-tbar__sortsel {
   position: relative;
+  height: 40px;
 }
 
-.pf-gallery-sort__select {
+.pf-tbar__sortsel select {
   appearance: none;
   -webkit-appearance: none;
-  background: #191919;
+  height: 40px;
+  background: #141414;
   color: #fff;
-  border: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font-family: var(--font-mono);
   font-size: 12px;
-  padding: 8px 30px 8px 12px;
-  border-radius: 8px;
+  padding: 0 30px 0 12px;
+  border-radius: 9px;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
-.pf-gallery-sort__caret {
+.pf-tbar__sortsel .cx {
   position: absolute;
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .pf-view-toggle {
   display: inline-flex;
-  background: #191919;
+  background: #141414;
   border-radius: 9px;
   padding: 3px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex: none;
 }
 
 .pf-view {
-  height: 30px;
+  height: 32px;
   padding: 0 12px;
   border: 0;
   border-radius: 7px;
@@ -518,6 +539,109 @@
 .pf-view--sel {
   background: var(--azure);
   color: #fff;
+}
+
+.pf-tbar--select {
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.pf-cl-count {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.pf-cl-chip {
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d1d3d4;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pf-cl-chip--icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portfolio-page .pf-cl-go {
+  height: 38px;
+}
+
+.pf-holdings-row--cl-on {
+  background: rgba(26, 111, 255, 0.08) !important;
+}
+
+.pf-holdings-row--cl-dim {
+  opacity: 0.4;
+}
+
+.pf-holdings-row--cl-pick {
+  cursor: pointer;
+}
+
+.pf-table-card-cell--cl {
+  position: relative;
+  padding-left: 30px !important;
+}
+
+.pf-rowchk {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  background: #0e0e0e;
+  display: block;
+  pointer-events: none;
+}
+
+.pf-holdings-row--cl-on .pf-rowchk {
+  background: var(--azure);
+  box-shadow: inset 0 0 0 2px var(--azure);
+}
+
+.pf-selreason {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 12, 0.55);
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pf-mobile-asset-card--cl-on {
+  box-shadow: inset 0 0 0 2px var(--azure);
+}
+
+.pf-mobile-asset-card--cl-dim {
+  opacity: 0.4;
+}
+
+.pf-mobile-asset-card--cl-pick {
+  cursor: pointer;
 }
 
 .pf-filter-drawer {
@@ -609,52 +733,78 @@
   margin: 12px 0 16px;
 }
 
-.pf-hx-toolbar {
+.pf-filter-drawer__fields {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 4px;
+  flex-direction: column;
+  gap: 14px;
   margin: 0 0 8px;
 }
 
-.pf-hx-search {
-  position: relative;
-  flex: 1;
-  min-width: 180px;
+.pf-filter-drawer__label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.pf-hx-search__icon {
-  position: absolute;
-  left: 11px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
+.pf-filter-drawer__label > span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.pf-hx-search__input {
+.pf-filter-drawer__select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 44px;
+  background: #0e0e0e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 0 34px 0 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.pf-filter-drawer__apply {
   width: 100%;
-  height: 38px;
-  background: #141414;
+  height: 48px;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+.pf-hx-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-hx-custom__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  background: #0e0e0e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;
   color: #fff;
   font-family: var(--font-sans);
   font-size: 13px;
-  padding: 0 12px 0 34px;
-  outline: none;
+  padding: 0 10px;
 }
 
-.pf-hx-search__input::placeholder {
+.pf-hx-custom__sep {
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* keep legacy hx-sel overrides harmless if referenced elsewhere */
 .portfolio-page .pf-hx-sel {
   flex-shrink: 0;
   height: 38px;
 }
 
-/* Portfolio.html `.hx-sel` — flat dark selects (All types / statuses / time) */
 .portfolio-page .pf-hx-sel .tk-input {
   height: 38px;
   min-height: 38px;
@@ -766,15 +916,43 @@
 }
 
 @media (max-width: 768px) {
-  .pf-assets-bar {
-    flex-wrap: nowrap;
-    gap: 8px;
+  .pf-tbar {
+    flex-wrap: wrap;
     margin: 12px 0 14px;
   }
 
-  .pf-assets-bar__right {
-    flex-shrink: 0;
-    gap: 6px;
+  .pf-tbar__search {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .pf-tbar__spacer {
+    display: none;
+  }
+
+  .pf-tbar__cluster {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .pf-tbar--select {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    z-index: 8500;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    margin: 0;
+    padding: 12px 14px;
+    background: #191919;
+    border-radius: 14px;
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.55),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 
@@ -928,75 +1106,77 @@
   border-spacing: 0;
 }
 
-/* Fixed column areas — keep thead labels over the same slot as body cells */
-.portfolio-page .pf-table--holdings,
+/* Column rhythm — Portfolio.html desktop uses auto layout: Card absorbs
+   leftover width so Vault/metrics sit further right (wide Card↔Vault gap). */
+.portfolio-page .pf-table--holdings {
+  table-layout: auto;
+}
+
 .portfolio-page .pf-table--bids,
 .portfolio-page .pf-table--history {
   table-layout: fixed;
 }
 
+/* Card takes remaining space; other cols shrink-wrap (nowrap + tiny width). */
 .portfolio-page .pf-table--holdings .pf-col-card {
-  width: 20%;
+  width: auto;
 }
 
-.portfolio-page .pf-table--holdings .pf-col-grade {
-  width: 7%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-cost {
-  width: 11%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-value {
-  width: 11%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-profit {
-  width: 10%;
-}
-
-.portfolio-page .pf-table--holdings .pf-col-return {
-  width: 8%;
-}
-
+.portfolio-page .pf-table--holdings .pf-col-grade,
+.portfolio-page .pf-table--holdings .pf-col-cost,
+.portfolio-page .pf-table--holdings .pf-col-value,
+.portfolio-page .pf-table--holdings .pf-col-profit,
+.portfolio-page .pf-table--holdings .pf-col-return,
 .portfolio-page .pf-table--holdings .pf-col-status {
-  width: 14%;
+  width: 1%;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-action {
   width: 140px;
 }
 
+.portfolio-page .pf-table--holdings td[data-label="Vault"],
+.portfolio-page .pf-table--holdings td[data-label="Cost basis"],
+.portfolio-page .pf-table--holdings td[data-label="Mkt Price"],
+.portfolio-page .pf-table--holdings td[data-label="$ Chg."],
+.portfolio-page .pf-table--holdings td[data-label="% Chg."],
+.portfolio-page .pf-table--holdings td[data-label="Status"],
+.portfolio-page .pf-table--holdings td[data-label="Action"],
+.portfolio-page .pf-table--holdings thead .pf-th:not(:first-child) {
+  white-space: nowrap;
+}
+
+/* Bids — Card wider, trailing cols compact (Portfolio.html spacing) */
 .portfolio-page .pf-table--bids .pf-col-card {
-  width: 26%;
+  width: 34%;
 }
 
 .portfolio-page .pf-table--bids .pf-col-bid {
-  width: 11%;
-}
-
-.portfolio-page .pf-table--bids .pf-col-top {
-  width: 11%;
-}
-
-.portfolio-page .pf-table--bids .pf-col-ask {
-  width: 11%;
-}
-
-.portfolio-page .pf-table--bids .pf-col-status {
-  width: 16%;
-}
-
-.portfolio-page .pf-table--bids .pf-col-expires {
   width: 10%;
 }
 
+.portfolio-page .pf-table--bids .pf-col-top {
+  width: 10%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-ask {
+  width: 10%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-status {
+  width: 14%;
+}
+
+.portfolio-page .pf-table--bids .pf-col-expires {
+  width: 9%;
+}
+
 .portfolio-page .pf-table--bids .pf-col-action {
-  width: 15%;
+  width: 13%;
 }
 
 .portfolio-page .pf-table--history .pf-col-date {
-  width: 14%;
+  width: 16%;
 }
 
 .portfolio-page .pf-table--history .pf-col-type {
@@ -1004,11 +1184,11 @@
 }
 
 .portfolio-page .pf-table--history .pf-col-card {
-  width: 36%;
+  width: 38%;
 }
 
 .portfolio-page .pf-table--history .pf-col-status {
-  width: 24%;
+  width: 20%;
 }
 
 .portfolio-page .pf-table--history .pf-col-amount {
@@ -1018,6 +1198,11 @@
 .portfolio-page .pf-table--holdings .pf-col-num-cell {
   text-align: left;
   white-space: nowrap;
+}
+
+.portfolio-page .pf-table--holdings thead .pf-th--right .pf-th-sort {
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .portfolio-page .pf-table--holdings .pf-col-return-cell {
@@ -1197,6 +1382,11 @@
   vertical-align: middle;
 }
 
+/* Portfolio.html `#pf-tableview` body cells use 12px 10px */
+.portfolio-page .pf-table--holdings tbody td {
+  padding: 12px 10px;
+}
+
 .portfolio-page .pf-table-wrap tbody tr:last-child td {
   border-bottom: none;
 }
@@ -1249,7 +1439,22 @@
   font-weight: 600;
   font-size: 14px;
   color: #fff;
-  --cd-line1-lh: 1.35;
+  --cd-line1-lh: 1.4;
+  line-height: 1.4;
+}
+
+/* My Assets — single-line ellipsis (Portfolio.html `#pf-tableview`) */
+.portfolio-page .pf-table-card-name--holdings,
+.portfolio-page .pf-table-card-name--history {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* My Bids — Line 1 single-line; Line 2 reveals on row hover */
+.portfolio-page .pf-table-card-name--bids {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1274,7 +1479,9 @@
 }
 
 .portfolio-page .pf-holdings-row:hover .pf-table-card-sub--hover,
-.portfolio-page .pf-holdings-row:focus-within .pf-table-card-sub--hover {
+.portfolio-page .pf-holdings-row:focus-within .pf-table-card-sub--hover,
+.portfolio-page .pf-table--bids tbody tr:hover .pf-table-card-sub--hover,
+.portfolio-page .pf-table--bids tbody tr:focus-within .pf-table-card-sub--hover {
   max-height: 20px;
   opacity: 1;
   margin-top: 3px;
@@ -1306,6 +1513,13 @@
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.portfolio-page .pf-table-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t2);
+  white-space: nowrap;
 }
 
 .portfolio-page .pf-cost-basis-cell {
@@ -1458,6 +1672,13 @@
   color: #fff;
 }
 
+.portfolio-page .pf-table--bids td[data-label="Top bid"] .pf-table-muted,
+.portfolio-page .pf-table--bids td[data-label="Ask price"] .pf-table-muted {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .portfolio-page .pf-table-expires {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.52);
@@ -1485,6 +1706,15 @@
 
 .portfolio-page .pf-panel-toolbar--bids-only {
   justify-content: flex-end;
+  /* Desktop: mobile-sort is hidden — don't leave empty toolbar margin under tabs */
+  margin: 0;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .portfolio-page .pf-panel-toolbar--bids-only {
+    margin: 8px 0 12px;
+  }
 }
 
 .portfolio-page .pf-table-pl {
@@ -1531,8 +1761,30 @@
   flex-wrap: wrap;
 }
 
-.portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-actions {
-  justify-content: center;
+.portfolio-page .pf-table-actions--status {
+  align-items: flex-start;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-actions--status {
+  align-items: center;
+}
+
+.portfolio-page .pf-table-actions__status-link {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azure);
+  white-space: nowrap;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.portfolio-page .pf-table-actions__status-link:hover {
+  text-decoration: underline;
+}
+
+.portfolio-page .pf-table-actions--dim {
+  opacity: 0.55;
 }
 
 .portfolio-page .pf-table-actions--set-price {
@@ -1607,6 +1859,8 @@
 .portfolio-page .pf-table--holdings .pf-col-action-cell .pf-table-actions {
   justify-content: center;
   align-items: center;
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
 }
 
@@ -1620,6 +1874,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
 }
@@ -1683,7 +1938,7 @@
 }
 
 /* Transaction history — match Portfolio.html hx-row typography */
-.portfolio-page .pf-history-row td[data-label="Date"] .pf-table-muted {
+.portfolio-page .pf-history-row td[data-label="Date"] .pf-table-date {
   font-size: 12px;
   font-weight: 500;
   color: var(--t2);
@@ -1692,6 +1947,12 @@
 .portfolio-page .pf-history-row .pf-table-type {
   font-size: 13px;
   font-weight: 600;
+}
+
+.portfolio-page .pf-history-row td[data-label="Card"] .pf-table-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
 }
 
 .portfolio-page .pf-hbadge--settled {
@@ -1748,6 +2009,13 @@
 .portfolio-page .pf-bid-status-tag {
   font-size: 10px !important;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* Portfolio.html expired chip — soft gray, not default neutral token */
+.portfolio-page .pf-bid-status-tag.tk-tag--neutral.tk-tag--soft {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
 }
 
 .portfolio-page .pf-bids-outbid-bar {
@@ -2540,6 +2808,7 @@
 }
 
 .pf-mobile-asset-card__img {
+  position: relative;
   width: 90px;
   height: 126px;
   background: #0e0e0e;
@@ -2573,10 +2842,14 @@
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.25;
   color: #fff;
-  --cd-line1-lh: 1.3;
+  --cd-line1-lh: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pf-mobile-asset-card__grade {

@@ -181,7 +181,9 @@ The backend resolves the target chain from the `x-tokenable-chain-id` request he
 | `DEFAULT_CHAIN_ID` | Default chain when header absent (default `11155111`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |
 
-Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header — or putting a new RWA address in env — must never return another contract’s mints. A new address is an empty marketplace; wipe the previous address in admin Data inventory first so that chain’s inbox, charts, and open vault cycles do not carry over.
+Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`, `user_buyer_listing_alert`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header — or putting a new RWA address in env — must never return another contract’s mints. A new address is an empty marketplace; wipe the previous address in admin Data inventory first so that chain’s inbox, charts, and open vault cycles do not carry over.
+
+**Shared across chain switch (intentional):** users, KYC, partners, and watchlist keys stay global — the user profile must not fork per network. Watchlist **display** and POST/DELETE validation are chain-filtered against the request catalog; the watchlist table itself remains key-only.
 
 Collection detail orderbook and market reads (`GET /marketplace/collections/:key`, `…/stats`, `…/platform-trades`, `…/market-series`, `GET /marketplace/rwa/:tokenId/trades`, portfolio/market batch snapshots) also filter by that chain’s RWA `token_contract` and USDC address. Public and admin collection lists include a card only when this contract has an order or token, or the catalog row is stamped with this RWA address (`marketplace_collections.token_contract`). Unstamped drafts with no activity are leftover catalogs, not a live marketplace.
 

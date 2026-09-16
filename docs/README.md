@@ -45,7 +45,7 @@ tokenable-dev/
 | Local setup | [guides/local-setup.md](guides/local-setup.md) |
 | Database (36 TypeORM entities) | [architecture/database.md](architecture/database.md) |
 | Backend module map | [architecture/backend.md](architecture/backend.md) |
-| Frontend structure | [architecture/frontend.md](architecture/frontend.md) |
+| Frontend structure | [architecture/frontend.md](architecture/frontend.md) · [../frontend/README.md](../frontend/README.md) · [../frontend/ARCHITECTURE.md](../frontend/ARCHITECTURE.md) |
 | Blockchain / contract | [architecture/blockchain.md](architecture/blockchain.md) |
 | Vault lifecycle | [architecture/vault-lifecycle.md](architecture/vault-lifecycle.md) |
 | Business rules | [business-rules.md](business-rules.md) |

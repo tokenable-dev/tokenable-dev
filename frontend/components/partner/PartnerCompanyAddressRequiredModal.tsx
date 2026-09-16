@@ -187,9 +187,6 @@ export function PartnerCompanyAddressRequiredModal() {
       if (partnerId) writeDeferred(partnerId, false);
       setDeferred(false);
       await qc.invalidateQueries({ queryKey: rq.partnerMe() });
-      await qc.invalidateQueries({
-        queryKey: ["self-vault-partner-eligibility"],
-      });
     },
     onError: (e: unknown) => {
       setSaveError(e instanceof Error ? e.message : "Save failed");

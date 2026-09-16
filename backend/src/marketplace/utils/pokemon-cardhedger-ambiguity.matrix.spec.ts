@@ -83,6 +83,7 @@ function gengar151Collection(
     marketParallelKey,
     bucketKeyVersion: 2,
     reviewStatus: 'active',
+    tokenContract: '0xrwa1',
     createdAt: new Date(),
   } satisfies MarketplaceCollection;
 }

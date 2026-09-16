@@ -37,9 +37,7 @@ Tokenable is **dark-first**, **Azure brand** (`#1A6FFF` / `--brand-500` / `--azu
 ## Read order (UI / styling tasks)
 
 1. **This file** — tokens, components, do/don't, CSS import order
-2. **[INVENTORY.md](../../frontend/design-system/INVENTORY.md)** — which React component owns which screen section
-3. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
-4. Matching HTML prototype (reference only): `Tokenable Design System/` for tokens; screen HTML in `Tokenable-with design system-*` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
+2. **[frontend/design-system/README.md](../../frontend/design-system/README.md)** — engineer quick start, brand/a11y, prototypes, screen → component inventory
 
 **Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge.
 
@@ -171,7 +169,7 @@ When the designer updates `Tokenable Design System/` (tokens, `components/compon
 1. **Do not** paste prototype HTML/JS into React or import the prototype folder from Next.js.
 2. **Diff** changed files against `frontend/design-system/` (especially `components/components.css`, `tokens/fig-tokens.css`). Use `node frontend/scripts/ds-import-standalone.mjs --extract-css` to pull typography/components from the standalone bundle for diff.
 3. **Merge selectively** into `frontend/design-system/` — resolve intentional app-only deltas (e.g. `tk-btn--primary-inv` may exist only in the repo).
-4. **Reimplement** layout in existing React components (`components/ds/*`, domain folders) using `Tk*` primitives — see [INVENTORY.md](../../frontend/design-system/INVENTORY.md).
+4. **Reimplement** layout in existing React components (`components/ds/*`, domain folders) using `Tk*` primitives — see [design-system/README.md](../../frontend/design-system/README.md) (screen inventory).
 5. **Verify** `http://localhost:3000/dev/design-system` after any `components.css` or token change.
 6. **PR note:** one-line DS changelog when CSS/tokens change, e.g. `DS: tk-btn--primary hover #2E80FF → #3088FF`.
 
@@ -263,11 +261,11 @@ Import from `@/components/ds`:
 
 ## Checklist — new or changed UI
 
-- [ ] Section mapped in `INVENTORY.md` (add row if new)
+- [ ] Section mapped in `frontend/design-system/README.md` inventory (add row if new)
 - [ ] Uses `Tk*` / existing domain components where possible
 - [ ] Colors from `fig-tokens` or bridge aliases — no new random hex
 - [ ] Modal pattern correct (Dialog vs ActionSheet)
-- [ ] Focus visible / reduced-motion respected (see SOURCE-README a11y)
+- [ ] Focus visible / reduced-motion respected (see brand/a11y section in design-system README)
 - [ ] `cd frontend && pnpm exec tsc --noEmit`
 - [ ] Spot-check `/dev/design-system` if adding or changing a primitive
 - [ ] If `frontend/design-system/**/*.css` changed: PR description includes `DS: …` one-liner (see Prototype sync)
@@ -289,7 +287,7 @@ Import from `@/components/ds`:
 
 | Doc | Purpose |
 |-----|---------|
-| [frontend/design-system/README.md](../../frontend/design-system/README.md) | Engineer quick start |
-| [frontend/design-system/SOURCE-README.md](../../frontend/design-system/SOURCE-README.md) | Designer export: brand, type, pixel system, a11y |
-| [frontend/design-system/INVENTORY.md](../../frontend/design-system/INVENTORY.md) | Screen → component map |
+| [frontend/design-system/README.md](../../frontend/design-system/README.md) | DS quick start + brand/a11y + prototypes + screen inventory |
+| [frontend/ARCHITECTURE.md](../../frontend/ARCHITECTURE.md) | Frontend code layout contract |
+| [frontend/README.md](../../frontend/README.md) | Run locally + routes |
 | [ARCHITECTURE_INDEX.md](../../ARCHITECTURE_INDEX.md) | Subsystem navigation |

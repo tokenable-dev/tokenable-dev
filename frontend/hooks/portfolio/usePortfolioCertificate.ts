@@ -145,7 +145,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const mintPreview = mintPreviewQuery.data?.[tokenId] ?? null;
 
   const ordersQuery = useQuery({
-    queryKey: rq.orderByToken(tokenId),
+    queryKey: rq.orderByToken(tokenId, chainId),
     queryFn: () => getActiveOrderForToken(tokenId),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.ordersStaleMs,

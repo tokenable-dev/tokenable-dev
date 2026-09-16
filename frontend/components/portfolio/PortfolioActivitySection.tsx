@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { TxKind, TxLifecycle, TxRow } from "@/lib/portfolio/portfolioTypes";
 import {
@@ -15,11 +15,10 @@ import {
   txKindLabel,
   txLifecycleLabel,
 } from "@/lib/portfolio/buildPortfolioTxRows";
-import { TkButton, TkSelect, TkTable } from "@/components/ds";
+import { TkButton, TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
-import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
 import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
 
@@ -27,16 +26,14 @@ type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
 type HistoryStatusFilter = "" | TxLifecycle;
 type HistoryRangeFilter = "all" | "30" | "90" | "ytd" | "custom";
 
-const HISTORY_SORT_OPTIONS = [
-  { key: "date", label: "Date" },
-  { key: "type", label: "Type" },
-  { key: "card", label: "Card" },
-  { key: "status", label: "Status" },
-  { key: "amount", label: "Amount" },
-] as const;
-
 const ALL_KINDS: TxKind[] = ["BUY", "SELL", "MINT", "REDEEM", "TRANSFER"];
 const DAY_MS = 86_400_000;
+
+const HISTORY_TOOLBAR_SORT: { value: HistorySortKey; label: string }[] = [
+  { value: "date", label: "Date" },
+  { value: "amount", label: "Amount" },
+];
+
 
 function csvCell(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -88,10 +85,40 @@ export function PortfolioActivitySection({
   const [typeFilter, setTypeFilter] = useState<"" | TxKind>("");
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
   const [rangeFilter, setRangeFilter] = useState<HistoryRangeFilter>("90");
+  const [draftType, setDraftType] = useState<"" | TxKind>("");
+  const [draftStatus, setDraftStatus] = useState<HistoryStatusFilter>("");
+  const [draftRange, setDraftRange] = useState<HistoryRangeFilter>("90");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
+  const [filterOpen, setFilterOpen] = useState(false);
+  const { sortKey, sortDir, toggleSort, setSort } =
     usePortfolioTableSort<HistorySortKey>("date", "desc");
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [filterOpen]);
+
+  function openFilters() {
+    setDraftType(typeFilter);
+    setDraftStatus(statusFilter);
+    setDraftRange(rangeFilter);
+    setFilterOpen(true);
+  }
+
+  function applyFilters() {
+    setTypeFilter(draftType);
+    setStatusFilter(draftStatus);
+    setRangeFilter(draftRange);
+    setFilterOpen(false);
+  }
+
+  const filterCount =
+    (typeFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (rangeFilter !== "all" ? 1 : 0);
 
   const sortedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -201,24 +228,30 @@ export function PortfolioActivitySection({
 
   return (
     <>
-      <div className="pf-hx-toolbar">
-        <div className="pf-hx-search">
-          <svg
-            className="pf-hx-search__icon"
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="rgba(255,255,255,0.4)"
-            strokeWidth="2"
-            aria-hidden
-          >
+      <div className="pf-tbar" id="hx-toolbar">
+        <button
+          type="button"
+          className="pf-tbtn pf-tbtn--icon"
+          aria-label="Filter history"
+          aria-expanded={filterOpen}
+          onClick={openFilters}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+            <line x1="10" y1="18" x2="14" y2="18" />
+          </svg>
+          {filterCount > 0 ? (
+            <span className="pf-tbtn__badge">{filterCount}</span>
+          ) : null}
+        </button>
+        <div className="pf-tbar__search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="11" cy="11" r="7" />
             <line x1="16.5" y1="16.5" x2="21" y2="21" />
           </svg>
           <input
             type="search"
-            className="pf-hx-search__input"
             autoComplete="off"
             placeholder="Search card or cert #"
             value={searchQuery}
@@ -226,77 +259,137 @@ export function PortfolioActivitySection({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <TkSelect
-          aria-label="Filter by type"
-          wrapClassName="pf-hx-sel"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "" | TxKind)}
-        >
-          <option value="">All types</option>
-          {ALL_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {TX_KIND_LABEL[kind]}
-            </option>
-          ))}
-        </TkSelect>
-        <TkSelect
-          aria-label="Filter by status"
-          wrapClassName="pf-hx-sel"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as HistoryStatusFilter)}
-        >
-          <option value="">All statuses</option>
-          <option value="in_progress">In progress</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-          <option value="canceled">Canceled</option>
-        </TkSelect>
-        <TkSelect
-          aria-label="Filter by date range"
-          wrapClassName="pf-hx-sel"
-          value={rangeFilter}
-          onChange={(e) => setRangeFilter(e.target.value as HistoryRangeFilter)}
-        >
-          <option value="all">All time</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-          <option value="ytd">Year to date</option>
-          <option value="custom">Custom</option>
-        </TkSelect>
-        {rangeFilter === "custom" ? (
-          <div className="pf-hx-custom">
-            <input
-              type="date"
-              className="pf-hx-custom__input"
-              aria-label="From date"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-            />
-            <span className="pf-hx-custom__sep">–</span>
-            <input
-              type="date"
-              className="pf-hx-custom__input"
-              aria-label="To date"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-            />
+        <div className="pf-tbar__spacer" />
+        <div className="pf-tbar__cluster">
+          <div className="pf-tbar__sortsel">
+            <select
+              aria-label="Sort history"
+              value={sortKey === "amount" ? "amount" : "date"}
+              onChange={(e) => {
+                const next = e.target.value as HistorySortKey;
+                setSort(next, "desc");
+              }}
+            >
+              {HISTORY_TOOLBAR_SORT.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </div>
-        ) : null}
-        <TkButton
-          type="button"
-          variant="subtle"
-          size="sm"
-          className="pf-hx-export"
-          onClick={exportCsv}
-        >
-          Export CSV
-        </TkButton>
-        <PortfolioMobileSort
-          options={[...HISTORY_SORT_OPTIONS]}
-          value={mobileSortValue}
-          onChange={applyMobileSort}
-        />
+          <button
+            type="button"
+            className="pf-tbtn pf-tbtn--icon"
+            aria-label="Export CSV"
+            onClick={exportCsv}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {filterOpen ? (
+        <div className="pf-filter-drawer" role="presentation">
+          <button
+            type="button"
+            className="pf-filter-drawer__scrim"
+            aria-label="Close filter"
+            onClick={() => setFilterOpen(false)}
+          />
+          <div
+            className="pf-filter-drawer__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filters"
+          >
+            <div className="pf-filter-drawer__grip" />
+            <div className="pf-filter-drawer__h">Filters</div>
+            <div className="pf-filter-drawer__fields">
+              <label className="pf-filter-drawer__label">
+                <span>Type</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftType}
+                  onChange={(e) => setDraftType(e.target.value as "" | TxKind)}
+                >
+                  <option value="">All types</option>
+                  {ALL_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {TX_KIND_LABEL[kind]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="pf-filter-drawer__label">
+                <span>Status</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftStatus}
+                  onChange={(e) =>
+                    setDraftStatus(e.target.value as HistoryStatusFilter)
+                  }
+                >
+                  <option value="">All statuses</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+              </label>
+              <label className="pf-filter-drawer__label">
+                <span>Date range</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftRange}
+                  onChange={(e) =>
+                    setDraftRange(e.target.value as HistoryRangeFilter)
+                  }
+                >
+                  <option value="all">All time</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="ytd">Year to date</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              {draftRange === "custom" ? (
+                <div className="pf-hx-custom">
+                  <input
+                    type="date"
+                    className="pf-hx-custom__input"
+                    aria-label="From date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                  />
+                  <span className="pf-hx-custom__sep">–</span>
+                  <input
+                    type="date"
+                    className="pf-hx-custom__input"
+                    aria-label="To date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <TkButton
+              type="button"
+              variant="primary"
+              className="pf-filter-drawer__apply"
+              onClick={applyFilters}
+            >
+              Apply filters
+            </TkButton>
+          </div>
+        </div>
+      ) : null}
 
       {sortedRows.length === 0 ? (
         <p className="pf-empty pf-empty--panel">No transactions match your search.</p>
@@ -370,16 +463,16 @@ export function PortfolioActivitySection({
                   role="button"
                 >
                   <td data-label="Date">
-                    <span className="tkl-mono pf-table-muted">{tx.date}</span>
+                    <span className="tkl-mono pf-table-date">{tx.date}</span>
                   </td>
                   <td data-label="Type">
-                    <span className={`pf-table-type ${txKindClass(tx)}`}>
+                    <span className={`tkl-mono pf-table-type ${txKindClass(tx)}`}>
                       {txKindLabel(tx)}
                     </span>
                   </td>
                   <td data-label="Card">
                     <span
-                      className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                      className={`pf-table-card-name pf-table-card-name--history ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
                       title={fullName}
                     >
                       {tx.asset}

@@ -33,6 +33,9 @@ export function PortfolioHoldingsTableView({
   getBadge,
   isTradeBlocked,
   assetHrefBase,
+  selectMode = false,
+  selectedTokenIds,
+  onToggleSelect,
 }: {
   rows: AssetRow[];
   headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
@@ -46,6 +49,9 @@ export function PortfolioHoldingsTableView({
   getBadge: (tokenId: number) => RedeemSurfaceBadge | null;
   isTradeBlocked: (tokenId: number) => boolean;
   assetHrefBase: string;
+  selectMode?: boolean;
+  selectedTokenIds?: Set<number>;
+  onToggleSelect?: (tokenId: number) => void;
 }) {
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
@@ -63,10 +69,10 @@ export function PortfolioHoldingsTableView({
         <tr>
           <PortfolioStaticTh label="Card" sortHint />
           <PortfolioStaticTh label="Vault" sortHint />
-          <PortfolioStaticTh label="Cost basis" sortHint />
-          <PortfolioStaticTh label="Mkt Price" sortHint />
-          <PortfolioStaticTh label="$ Chg." sortHint />
-          <PortfolioStaticTh label="% Chg." sortHint />
+          <PortfolioStaticTh label="Cost basis" sortHint align="right" />
+          <PortfolioStaticTh label="Mkt Price" sortHint align="right" />
+          <PortfolioStaticTh label="$ Chg." sortHint align="right" />
+          <PortfolioStaticTh label="% Chg." sortHint align="right" />
           <PortfolioStaticTh label="Status" muted />
           <PortfolioStaticTh label="Action" align="center" muted />
         </tr>
@@ -87,27 +93,80 @@ export function PortfolioHoldingsTableView({
           const headline = headlineByTokenId.get(row.tokenId) ?? null;
           const titleLabel = headline?.line1 ?? row.name;
           const vault = vaultByTokenId?.get(row.tokenId) ?? null;
+          const selected = selectedTokenIds?.has(row.tokenId) ?? false;
+          const rowMods = [
+            zebra,
+            dim,
+            selectMode && isListed && selected ? " pf-holdings-row--cl-on" : "",
+            selectMode && !isListed ? " pf-holdings-row--cl-dim" : "",
+            selectMode && isListed ? " pf-holdings-row--cl-pick" : "",
+          ].join("");
 
           return (
-            <tr key={row.tokenId} className={`asset-row pf-holdings-row${zebra}${dim}`}>
+            <tr
+              key={row.tokenId}
+              className={`asset-row pf-holdings-row${rowMods}`}
+              onClick={
+                selectMode && isListed
+                  ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onToggleSelect?.(row.tokenId);
+                    }
+                  : undefined
+              }
+            >
               <td data-label="Card">
-                <Link
-                  href={portfolioAssetHref(assetHrefBase, row.tokenId)}
-                  className="pf-table-card-cell pf-table-card-cell--holdings"
-                >
-                  <div className="pf-table-thumb">
-                    {row.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
-                    ) : null}
+                {selectMode && isListed ? (
+                  <div className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--cl">
+                    <span className="pf-rowchk" aria-hidden />
+                    <div className="pf-table-thumb">
+                      {row.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
+                      ) : null}
+                    </div>
+                    <div className="pf-table-card-copy">
+                      <span
+                        className={`pf-table-card-name pf-table-card-name--holdings ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                        title={headline?.hover ?? titleLabel}
+                      >
+                        {titleLabel}
+                      </span>
+                      {headline?.line2 ? (
+                        <span className="pf-table-card-sub pf-table-card-sub--hover">
+                          {headline.line2}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <span
-                    className={`pf-table-card-name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                    title={headline?.hover ?? titleLabel}
+                ) : (
+                  <Link
+                    href={portfolioAssetHref(assetHrefBase, row.tokenId)}
+                    className="pf-table-card-cell pf-table-card-cell--holdings"
+                    onClick={selectMode ? (e) => e.preventDefault() : undefined}
                   >
-                    {titleLabel}
-                  </span>
-                </Link>
+                    <div className="pf-table-thumb">
+                      {row.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
+                      ) : null}
+                    </div>
+                    <div className="pf-table-card-copy">
+                      <span
+                        className={`pf-table-card-name pf-table-card-name--holdings ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                        title={headline?.hover ?? titleLabel}
+                      >
+                        {titleLabel}
+                      </span>
+                      {headline?.line2 ? (
+                        <span className="pf-table-card-sub pf-table-card-sub--hover">
+                          {headline.line2}
+                        </span>
+                      ) : null}
+                    </div>
+                  </Link>
+                )}
               </td>
               <td data-label="Vault" className="pf-col-grade-cell">
                 {vault ? (
@@ -179,17 +238,19 @@ export function PortfolioHoldingsTableView({
                 />
               </td>
               <td data-label="Action" className="pf-col-action-cell">
-                <PortfolioHoldingsRowActions
-                  isListed={isListed}
-                  disabled={tradeBlocked}
-                  disabledTitle={
-                    tradeBlocked
-                      ? "Redemption in progress — listing unavailable"
-                      : undefined
-                  }
-                  redeemStatus={badge}
-                  onSetPrice={() => onSetPrice(row.tokenId)}
-                />
+                {selectMode ? null : (
+                  <PortfolioHoldingsRowActions
+                    isListed={isListed}
+                    disabled={tradeBlocked}
+                    disabledTitle={
+                      tradeBlocked
+                        ? "Redemption in progress — listing unavailable"
+                        : undefined
+                    }
+                    redeemStatus={badge}
+                    onSetPrice={() => onSetPrice(row.tokenId)}
+                  />
+                )}
               </td>
             </tr>
           );

@@ -1,53 +1,93 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ASSETS_SEGMENT_OPTIONS,
   type AssetsSegment,
 } from "@/lib/portfolio/portfolioAssetsSegment";
+import { TkButton } from "@/components/ds";
 
 export type AssetsViewMode = "gallery" | "table";
-export type AssetsToolbarSort = "newest" | "value" | "pl" | "ret" | "name";
+export type AssetsToolbarSort = "value" | "pl" | "ret" | "name";
 
 const SORT_OPTIONS: { value: AssetsToolbarSort; label: string }[] = [
-  { value: "newest", label: "Newest" },
   { value: "value", label: "Value" },
   { value: "pl", label: "Gain $" },
-  { value: "ret", label: "% Chg." },
+  { value: "ret", label: "Return %" },
   { value: "name", label: "Name" },
 ];
 
-/** Portfolio.html My Assets control bar — filter, search, sort, gallery/table. */
+const FilterIcon = () => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <line x1="4" y1="6" x2="20" y2="6" />
+    <line x1="7" y1="12" x2="17" y2="12" />
+    <line x1="10" y1="18" x2="14" y2="18" />
+  </svg>
+);
+
+const SelectIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <polyline points="9 11 12 14 22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+/** Portfolio.html My Assets `pf-tbar` — filter, search, sort, view, Select. */
 export function PortfolioAssetsToolbar({
   segment,
   onSegmentChange,
-  searchOpen,
-  onSearchOpenChange,
   searchQuery,
   onSearchQueryChange,
   sort,
   onSortChange,
   view,
   onViewChange,
+  selectMode,
+  onSelectModeChange,
+  selectedCount,
+  onSelectAll,
+  onClearSelection,
+  onCancelSelected,
+  cancellingSelected,
 }: {
   segment: AssetsSegment;
   onSegmentChange: (seg: AssetsSegment) => void;
-  searchOpen: boolean;
-  onSearchOpenChange: (open: boolean) => void;
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
   sort: AssetsToolbarSort;
   onSortChange: (sort: AssetsToolbarSort) => void;
   view: AssetsViewMode;
   onViewChange: (view: AssetsViewMode) => void;
+  selectMode: boolean;
+  onSelectModeChange: (on: boolean) => void;
+  selectedCount: number;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
+  onCancelSelected: () => void;
+  cancellingSelected?: boolean;
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
   const filterActive = segment !== "tradeable";
-
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
 
   useEffect(() => {
     if (!filterOpen) return;
@@ -58,88 +98,77 @@ export function PortfolioAssetsToolbar({
     return () => document.removeEventListener("keydown", onKey);
   }, [filterOpen]);
 
-  function closeSearch() {
-    onSearchOpenChange(false);
-    onSearchQueryChange("");
+  if (selectMode) {
+    return (
+      <div className="pf-tbar pf-tbar--select" id="pf-assets-toolbar" role="toolbar" aria-label="Cancel listing selection">
+        <span className="pf-cl-count">
+          {selectedCount} selected
+        </span>
+        <button type="button" className="pf-cl-chip" onClick={onSelectAll}>
+          Select all
+        </button>
+        <button type="button" className="pf-cl-chip" onClick={onClearSelection}>
+          Clear
+        </button>
+        <TkButton
+          type="button"
+          variant="primary"
+          size="sm"
+          className="pf-cl-go"
+          disabled={selectedCount === 0 || cancellingSelected}
+          onClick={onCancelSelected}
+        >
+          {cancellingSelected ? "Cancelling…" : "Cancel listing"}
+        </TkButton>
+        <button
+          type="button"
+          className="pf-cl-chip pf-cl-chip--icon"
+          aria-label="Exit selection"
+          onClick={() => onSelectModeChange(false)}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="pf-assets-bar">
-        <div className="pf-assets-bar__left">
-          <button
-            type="button"
-            className="pf-filter-btn"
-            aria-label="Filter assets"
-            aria-expanded={filterOpen}
-            onClick={() => setFilterOpen(true)}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="7" y1="12" x2="17" y2="12" />
-              <line x1="10" y1="18" x2="14" y2="18" />
-            </svg>
-            {filterActive ? <span className="pf-filter-btn__dot" /> : null}
-          </button>
+      <div className="pf-tbar" id="pf-assets-toolbar">
+        <button
+          type="button"
+          className="pf-tbtn pf-tbtn--icon"
+          aria-label="Filter assets"
+          aria-expanded={filterOpen}
+          onClick={() => setFilterOpen(true)}
+        >
+          <FilterIcon />
+          {filterActive ? <span className="pf-tbtn__dot" /> : null}
+        </button>
 
-          {!searchOpen ? (
-            <button
-              type="button"
-              className="pf-search-toggle"
-              aria-label="Search your assets"
-              onClick={() => onSearchOpenChange(true)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.5" y1="16.5" x2="21" y2="21" />
-              </svg>
-            </button>
-          ) : (
-            <div className="pf-search-expanded">
-              <svg
-                className="pf-search-expanded__icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="rgba(255,255,255,0.4)"
-                strokeWidth="2"
-                aria-hidden
-              >
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.5" y1="16.5" x2="21" y2="21" />
-              </svg>
-              <input
-                ref={searchRef}
-                type="search"
-                className="pf-search-expanded__input"
-                autoComplete="off"
-                placeholder="Search your assets — name, cert #, set"
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") closeSearch();
-                }}
-              />
-              <button
-                type="button"
-                className="pf-search-expanded__close"
-                aria-label="Close search"
-                onClick={closeSearch}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          )}
+        <div className="pf-tbar__search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <line x1="16.5" y1="16.5" x2="21" y2="21" />
+          </svg>
+          <input
+            type="search"
+            autoComplete="off"
+            placeholder="Search name, cert #, set"
+            value={searchQuery}
+            aria-label="Search your assets"
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+          />
         </div>
 
-        <div className="pf-assets-bar__right">
-          <div className="pf-gallery-sort">
+        <div className="pf-tbar__spacer" />
+
+        <div className="pf-tbar__cluster">
+          <div className="pf-tbar__sortsel">
             <select
-              className="pf-gallery-sort__select"
               aria-label="Sort assets"
               value={sort}
               onChange={(e) => onSortChange(e.target.value as AssetsToolbarSort)}
@@ -151,12 +180,12 @@ export function PortfolioAssetsToolbar({
               ))}
             </select>
             <svg
-              className="pf-gallery-sort__caret"
+              className="cx"
               width="12"
               height="12"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="rgba(255,255,255,0.5)"
+              stroke="currentColor"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -195,6 +224,15 @@ export function PortfolioAssetsToolbar({
               <span className="pf-view__lbl">Table</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            className="pf-tbtn"
+            onClick={() => onSelectModeChange(true)}
+          >
+            <SelectIcon />
+            <span>Select</span>
+          </button>
         </div>
       </div>
 

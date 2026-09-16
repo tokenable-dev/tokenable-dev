@@ -201,10 +201,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
   },
 ];
 
-export const ADMIN_NAV_ITEMS: AdminNavItem[] = ADMIN_NAV_SECTIONS.flatMap(
-  (s) => s.items,
-);
-
 export function isAdminNavItemActive(
   pathname: string,
   item: AdminNavItem,

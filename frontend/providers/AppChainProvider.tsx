@@ -135,7 +135,6 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
     void queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
     void queryClient.invalidateQueries({ queryKey: ["portfolio-holdings"] });
-    void queryClient.invalidateQueries({ queryKey: ["portfolio-hidden"] });
     void queryClient.invalidateQueries({ queryKey: ["portfolio-daily-snapshots"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-analytics"] });
     void queryClient.invalidateQueries({ queryKey: ["portfolio-bids"] });
@@ -158,6 +157,14 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["portfolio-bid-collections"] });
     void queryClient.invalidateQueries({ queryKey: ["marketplace-detail-metadata"] });
     void queryClient.invalidateQueries({ queryKey: ["collection-owned-rwa"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-collections-list"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-vault-submissions"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-vault-submission-counts"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-vault-submission"] });
+    void queryClient.invalidateQueries({ queryKey: ["vault-submissions"] });
+    void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+    void queryClient.invalidateQueries({ queryKey: ["orders", "by-token-active"] });
+    void queryClient.invalidateQueries({ queryKey: ["buyer-listing-alert"] });
   }, [chainId, queryClient]);
 
   const value = useMemo<AppChainContextValue>(

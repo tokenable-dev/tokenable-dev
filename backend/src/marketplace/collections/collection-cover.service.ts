@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
-import type { SupportedChainId } from '../../blockchain/chain-config.service';
+import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
@@ -72,6 +72,7 @@ export class CollectionCoverService {
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly catalogCoverS3: CatalogCoverS3Service,
@@ -258,10 +259,10 @@ export class CollectionCoverService {
   async upgradeCoverFromMetaIfBetter(
     collectionKey: string,
     meta: Record<string, unknown>,
-    opts?: { replaceExisting?: boolean },
+    opts?: { replaceExisting?: boolean; chainId?: SupportedChainId },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, opts?.chainId);
     if (!row) return null;
 
     const current = row.coverImageUrl?.trim() ?? '';
@@ -299,7 +300,7 @@ export class CollectionCoverService {
             k,
             ranked,
           );
-          return this.persistCoverImageUrl(k, publicUrl);
+          return this.persistCoverImageUrl(k, publicUrl, opts?.chainId);
         } catch (e) {
           this.logger.warn(
             `Catalog cover upgrade ingest failed for ${k}: ${
@@ -316,7 +317,7 @@ export class CollectionCoverService {
     const next = ranked[0] ?? null;
     if (!next) return current || null;
     if (!current) {
-      return this.persistCoverImageUrl(k, next);
+      return this.persistCoverImageUrl(k, next, opts?.chainId);
     }
     if (scoreCollectionCoverUrl(next) > scoreCollectionCoverUrl(current)) {
       if (this.catalogCoverS3.isConfigured()) {
@@ -325,12 +326,12 @@ export class CollectionCoverService {
             k,
             ranked,
           );
-          return this.persistCoverImageUrl(k, publicUrl);
+          return this.persistCoverImageUrl(k, publicUrl, opts?.chainId);
         } catch {
           /* fall through to remote URL */
         }
       }
-      return this.persistCoverImageUrl(k, next);
+      return this.persistCoverImageUrl(k, next, opts?.chainId);
     }
     return current;
   }
@@ -338,13 +339,14 @@ export class CollectionCoverService {
   async setCollectionCoverImageAdmin(
     collectionKey: string,
     coverImageUrl: string,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
     const k = collectionKey.toLowerCase();
     const url = coverImageUrl.trim();
     if (!url) throw new Error('COLLECTION_COVER_URL_EMPTY');
     if (!isPersistableCoverUrl(url)) throw new Error('COLLECTION_COVER_URL_INVALID');
 
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
 
     const previousCover = row.coverImageUrl;
@@ -362,7 +364,7 @@ export class CollectionCoverService {
       }
     }
 
-    const persisted = await this.persistCoverImageUrl(k, urlToPersist);
+    const persisted = await this.persistCoverImageUrl(k, urlToPersist, chainId);
     if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
 
     // Clean legacy uuid-style keys when the public URL path changed.
@@ -377,7 +379,7 @@ export class CollectionCoverService {
       await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
     }
 
-    const refreshed = await this.findOne(k);
+    const refreshed = await this.findOne(k, chainId);
     if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
     return refreshed;
   }
@@ -388,14 +390,15 @@ export class CollectionCoverService {
   async uploadCollectionCoverImageAdmin(
     collectionKey: string,
     file: Express.Multer.File,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
 
     const previousCover = row.coverImageUrl;
     const { publicUrl } = await this.catalogCoverS3.uploadCollectionCover(k, file);
-    const persisted = await this.persistCoverImageUrl(k, publicUrl);
+    const persisted = await this.persistCoverImageUrl(k, publicUrl, chainId);
     if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
 
     if (
@@ -409,7 +412,7 @@ export class CollectionCoverService {
       await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
     }
 
-    const refreshed = await this.findOne(k);
+    const refreshed = await this.findOne(k, chainId);
     if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
     return refreshed;
   }
@@ -431,7 +434,7 @@ export class CollectionCoverService {
     chainId?: SupportedChainId,
   ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
     const prev = row.coverImageUrl?.trim() ?? '';
 
@@ -442,6 +445,7 @@ export class CollectionCoverService {
 
     const after = await this.upgradeCoverFromMetaIfBetter(k, meta, {
       replaceExisting: true,
+      chainId,
     });
     const next = after?.trim() ?? prev;
     return {
@@ -450,7 +454,28 @@ export class CollectionCoverService {
     };
   }
 
-  private async findOne(key: string): Promise<MarketplaceCollection | null> {
+  /**
+   * Chain-scoped lookup when chainId is available; otherwise falls back to the
+   * default chain. Updating cover for all chain rows (when chain unknown) is
+   * acceptable — covers are shared presentation, not chain-specific state.
+   */
+  private async findOne(
+    key: string,
+    chainId?: SupportedChainId,
+  ): Promise<MarketplaceCollection | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string | undefined;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      tokenContract = undefined;
+    }
+    if (tokenContract) {
+      return this.collectionRepo.findOne({
+        where: { collectionKey: key.toLowerCase(), tokenContract },
+      });
+    }
+    // Fall back: return the first row for this key (cover is shared).
     return this.collectionRepo.findOne({
       where: { collectionKey: key.toLowerCase() },
     });
@@ -781,6 +806,7 @@ export class CollectionCoverService {
   private async persistCoverImageUrl(
     collectionKey: string,
     rawUrl: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const trimmed = normalizeCatalogCoverPublicUrl(rawUrl.trim());
@@ -792,7 +818,22 @@ export class CollectionCoverService {
       coverImageUrl: trimmed,
     };
 
-    await this.collectionRepo.update({ collectionKey: k }, patch);
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string | undefined;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      tokenContract = undefined;
+    }
+    if (tokenContract) {
+      await this.collectionRepo.update(
+        { collectionKey: k, tokenContract },
+        patch,
+      );
+    } else {
+      // Chain unknown: cover is shared presentation — update all rows for key.
+      await this.collectionRepo.update({ collectionKey: k }, patch);
+    }
     return trimmed;
   }
 }

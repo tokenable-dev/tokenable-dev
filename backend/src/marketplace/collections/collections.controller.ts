@@ -458,7 +458,7 @@ export class CollectionsController {
   ) {
     const k = this.normalizeKey(key);
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    const col = await this.collectionService.findOne(k);
+    const col = await this.collectionService.findOne(k, chainId);
     if (!col) {
       return this.aiInsight.getAiInsightForCollection(null);
     }
@@ -627,7 +627,7 @@ export class CollectionsController {
   ) {
     const k = this.normalizeKey(key);
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    let col = await this.collectionService.findOne(k);
+    let col = await this.collectionService.findOne(k, chainId);
     if (col) {
       // DB-only enrichments can stay on the request path.
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
@@ -656,7 +656,7 @@ export class CollectionsController {
           );
         });
 
-      col = await this.collectionService.findOne(k);
+      col = await this.collectionService.findOne(k, chainId);
     }
 
     const [listingsRaw, collectionBids] = await Promise.all([
@@ -702,6 +702,7 @@ export class CollectionsController {
     @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminSetCollectionCoverDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
@@ -709,6 +710,7 @@ export class CollectionsController {
       const col = await this.collectionService.setCollectionCoverImageAdmin(
         k,
         body.coverImageUrl,
+        this.chainConfig.resolveChainId(chainHeader),
       );
       return {
         collectionKey: col.collectionKey,
@@ -777,6 +779,7 @@ export class CollectionsController {
     @Req() req: Request,
     @Param('key') key: string,
     @UploadedFile() file?: Express.Multer.File,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
@@ -784,6 +787,7 @@ export class CollectionsController {
       const col = await this.collectionService.uploadCollectionCoverImageAdmin(
         k,
         file as Express.Multer.File,
+        this.chainConfig.resolveChainId(chainHeader),
       );
       return {
         collectionKey: col.collectionKey,
@@ -826,6 +830,7 @@ export class CollectionsController {
     @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminSetCollectionReviewStatusDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
@@ -841,6 +846,7 @@ export class CollectionsController {
       const col = await this.collectionService.setCollectionReviewStatusAdmin(
         k,
         next,
+        this.chainConfig.resolveChainId(chainHeader),
       );
       return {
         collectionKey: col.collectionKey,
@@ -869,7 +875,7 @@ export class CollectionsController {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    const col = await this.collectionService.findOne(k);
+    const col = await this.collectionService.findOne(k, chainId);
     if (!col) {
       throw new NotFoundException('Collection not found');
     }
@@ -909,6 +915,7 @@ export class CollectionsController {
         const updated = await this.collectionService.setCollectionCoverImageAdmin(
           k,
           coverImageUrl,
+          chainId,
         );
         return {
           coverImageUrl: updated.coverImageUrl,
@@ -949,6 +956,7 @@ export class CollectionsController {
     @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminDeleteCollectionDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
     const k = this.normalizeKey(key);
@@ -959,7 +967,10 @@ export class CollectionsController {
       );
     }
     try {
-      return await this.collectionService.adminDeleteCollectionCompletely(k);
+      return await this.collectionService.adminDeleteCollectionCompletely(
+        k,
+        this.chainConfig.resolveChainId(chainHeader),
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg === 'COLLECTION_NOT_FOUND') {
@@ -977,9 +988,11 @@ export class CollectionsController {
   merkleSet(
     @Param('key') key: string,
     @Query('bypassCache') bypassCache?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     return this.collectionService.merkleEligibleTokenIds(key, {
       bypassCache: bypassCache === '1' || bypassCache === 'true',
+      chainId: this.chainConfig.resolveChainId(chainHeader),
     });
   }
 
@@ -989,7 +1002,13 @@ export class CollectionsController {
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/bid-anchor-tokens')
-  bidAnchorTokens(@Param('key') key: string) {
-    return this.collectionService.sampleBidAnchorTokenIds(this.normalizeKey(key));
+  bidAnchorTokens(
+    @Param('key') key: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.collectionService.sampleBidAnchorTokenIds(
+      this.normalizeKey(key),
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 }

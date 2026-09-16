@@ -12,6 +12,7 @@ import {
 } from "@/lib/core";
 import { listingVerificationTiles } from "@/lib/marketplace/collectionListingModalHelpers";
 import { COLLECTION_TRADE_SELF_VAULT_LABEL } from "@/lib/marketplace/vaultCustodyLabel";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export type CollectionOwnedRwaRow = {
   tokenId: number;
@@ -27,11 +28,12 @@ export type CollectionOwnedRwaRow = {
  */
 export function useCollectionOwnedRwa(collectionKey: string) {
   const { address } = useAccount();
+  const { chainId } = useAppChain();
   const key = collectionKey.trim();
   const addr = address?.trim().toLowerCase() ?? "";
 
   const query = useQuery({
-    queryKey: rq.collectionOwnedRwa(addr, key),
+    queryKey: rq.collectionOwnedRwa(addr, key, chainId),
     queryFn: async (): Promise<CollectionOwnedRwaRow[]> => {
       if (!addr || !key) return [];
       const page = await postPortfolioAssetsPage({

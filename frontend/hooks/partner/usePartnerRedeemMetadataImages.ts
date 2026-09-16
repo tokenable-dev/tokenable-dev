@@ -63,8 +63,3 @@ export function usePartnerRedeemMetadata(
 
   return query.data ?? EMPTY;
 }
-
-/** @deprecated Prefer {@link usePartnerRedeemMetadata}. */
-export function usePartnerRedeemMetadataImages(items: PartnerRedeemRow[]) {
-  return usePartnerRedeemMetadata(items).images;
-}

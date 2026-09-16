@@ -4,7 +4,6 @@ export * from './sportCategoryDisplay';
 export * from './collectionMarketPricing';
 export * from './externalMarketPrice';
 export * from './gradedCardMarketCap';
-export * from './marketRasterIconFrame';
 export * from './priceTier';
 export * from './priceChangePeriod';
 export * from './tradesVolume';

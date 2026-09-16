@@ -8,6 +8,7 @@ import {
   getMyRedemptions,
   paidEstimateFromMyRedemptions,
 } from "@/lib/core/api/rwa-redeem";
+import { rq } from "@/lib/core/queryKeys";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { buildRedeemShipments, type RedeemShipmentView } from "@/lib/portfolio/buildRedeemShipments";
 import type {
@@ -30,7 +31,7 @@ export function RedeemPreparingPanel({
   const count = cards.length;
   const tokenIds = cards.map((c) => c.tokenId);
   const paidQuery = useQuery({
-    queryKey: ["rwa", "redemptions", "mine", "paid", chainId, tokenIds.join(",")],
+    queryKey: rq.myRedemptionsPaid(chainId, tokenIds.join(",")),
     queryFn: () => getMyRedemptions(chainId, tokenIds),
     enabled: count > 0,
     staleTime: 30_000,

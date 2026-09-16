@@ -37,12 +37,3 @@ export function TkTag({
     </span>
   );
 }
-
-export type TkBadgeProps = {
-  className?: string;
-  children: React.ReactNode;
-};
-
-export function TkBadge({ className, children }: TkBadgeProps) {
-  return <span className={cn("tk-badge", className)}>{children}</span>;
-}

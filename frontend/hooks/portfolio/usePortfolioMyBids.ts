@@ -15,9 +15,18 @@ import type {
 } from "@/lib/portfolio/portfolioBidTypes";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { activeRqChainId } from "@/lib/chains";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import {
+  buildMarketsCollectionHoverTitle,
+  buildMarketsCollectionMeta,
+  buildMarketsCollectionTitle,
+} from "@/lib/markets/marketsCollectionTitle";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 const PORTFOLIO_USDC_DECIMALS = 1_000_000;
+
+function emptyComponents(): CollectionComponents {
+  return {};
+}
 
 function orderToPortfolioBidRow(o: OrderListItem): PortfolioBidRow | null {
   const collectionKey = String(o.collectionKey ?? "").trim().toLowerCase();
@@ -93,17 +102,36 @@ export function usePortfolioMyBids(address: string | undefined) {
           try {
             const detail = await getMarketplaceCollectionDetailOrNull(key);
             const collection = detail?.collection ?? null;
-            map.set(key, {
-              displayLabel: collection
-                ? buildMarketsCollectionTitle({
-                    collection,
-                    comp: collection.components,
-                  })
-                : key.replace(/^ch:/, "").slice(0, 48),
-              imageUrl: detail
-                ? pickCollectionDetailDisplayImageUrl(detail)
-                : null,
-            });
+            if (collection) {
+              const comp = collection.components ?? emptyComponents();
+              const titleParams = {
+                collection: {
+                  collectionKey: collection.collectionKey,
+                  displayLabel: collection.displayLabel,
+                },
+                comp,
+              };
+              const line1 = buildMarketsCollectionTitle(titleParams);
+              const line2 = buildMarketsCollectionMeta(titleParams).trim();
+              map.set(key, {
+                displayLabel:
+                  line1 ||
+                  collection.displayLabel?.trim() ||
+                  key.replace(/^ch:/, "").slice(0, 48),
+                line2: line2 || undefined,
+                hoverLabel: buildMarketsCollectionHoverTitle(titleParams) || undefined,
+                imageUrl: detail
+                  ? pickCollectionDetailDisplayImageUrl(detail)
+                  : null,
+              });
+            } else {
+              map.set(key, {
+                displayLabel: key.replace(/^ch:/, "").slice(0, 48),
+                imageUrl: detail
+                  ? pickCollectionDetailDisplayImageUrl(detail)
+                  : null,
+              });
+            }
           } catch {
             map.set(key, {
               displayLabel: key.replace(/^ch:/, "").slice(0, 48),

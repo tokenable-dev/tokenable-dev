@@ -966,7 +966,7 @@ export class CollectionMarketService {
   ): Promise<CollectionMarketStatsResponse> {
     const key = collectionKey.toLowerCase();
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
-    const col = await this.collectionService.findOne(key);
+    const col = await this.collectionService.findOne(key, resolved);
     const expectedUsdc = this.usdcContractAddressLower(resolved);
 
     const prices: number[] = [];

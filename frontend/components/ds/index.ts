@@ -16,8 +16,8 @@ export type { TkActionSheetProps } from "./ActionSheet";
 export { TkTabs, TkTab } from "./Tabs";
 export type { TkTabsProps, TkTabProps } from "./Tabs";
 
-export { TkTag, TkBadge } from "./Tag";
-export type { TkTagProps, TkBadgeProps, TkTagTone, TkTagAppearance } from "./Tag";
+export { TkTag } from "./Tag";
+export type { TkTagProps, TkTagTone, TkTagAppearance } from "./Tag";
 
 export { TkTable } from "./Table";
 export type { TkTableProps } from "./Table";

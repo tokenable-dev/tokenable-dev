@@ -98,6 +98,7 @@ tokenable-dev/
 | **[docs/architecture/blockchain.md](docs/architecture/blockchain.md)** | Smart contracts inventory · TokenableRWA · Seaport · USDC · deployments |
 | **[docs/architecture/database.md](docs/architecture/database.md)** | PostgreSQL schema (17 tables) |
 | **[docs/frontend/routes.md](docs/frontend/routes.md)** | App Router route reference |
+| **[frontend/README.md](frontend/README.md)** | Frontend runbook · architecture · design-system docs |
 | **[docs/guides/local-setup.md](docs/guides/local-setup.md)** | Local dev setup |
 | **[docs/guides/deployment.md](docs/guides/deployment.md)** | GitHub Actions · ECR · EC2 · secrets |
 | **[docs/guides/networking.md](docs/guides/networking.md)** | Nginx · same-origin `/api` · CORS · OAuth · TLS checklist |

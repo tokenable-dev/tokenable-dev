@@ -251,4 +251,4 @@ Use when validating a release after display-name work.
 ## Related docs
 
 - `docs/architecture/frontend.md` — Details KV / Markets filters (facet labels separate from display name)
-- `frontend/design-system/INVENTORY.md` — UI components
+- `frontend/design-system/README.md` — UI components (screen inventory)

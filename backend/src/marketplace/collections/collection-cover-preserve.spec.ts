@@ -15,9 +15,14 @@ describe('CollectionCoverService.upgradeCoverFromMetaIfBetter preserve', () => {
       ingestBestRemoteImage: jest.fn(),
       downloadRemoteImage: jest.fn(),
     };
+    const chainConfig = {
+      getDefaultChainId: jest.fn().mockReturnValue(11155111),
+      getRwaAddress: jest.fn().mockReturnValue('0xrwa1'),
+    };
     const svc = new CollectionCoverService(
       { findOne, update } as never,
       {} as never,
+      chainConfig as never,
       { assertConfigured: jest.fn(), forwardJson: jest.fn() } as never,
       {} as never,
       catalogCoverS3 as never,

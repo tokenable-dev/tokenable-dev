@@ -11,7 +11,7 @@ globs:
 For **UI, layout, styling, or new visual design** on the Tokenable frontend:
 
 1. Read **`docs/guides/design-system-reference.md`** first (tokens, components, CSS import order, checklist, do/don't).
-2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
+2. Read **`frontend/design-system/README.md`** (screen → component inventory) for mapping.
 3. Use **`components/ds/*`** (`TkButton`, `TkDialog`, `TkActionSheet`, …) and tokens from **`frontend/design-system/tokens/fig-tokens.css`**.
 4. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
 

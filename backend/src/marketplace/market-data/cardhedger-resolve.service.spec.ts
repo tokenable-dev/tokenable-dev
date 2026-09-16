@@ -73,6 +73,7 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
     marketParallelKey: 'base',
     bucketKeyVersion: 2,
     reviewStatus: 'active',
+    tokenContract: '0xrwa1',
     createdAt: new Date(),
   } satisfies MarketplaceCollection;
 
@@ -203,6 +204,7 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
       marketParallelKey: 'rookie_signatures',
       bucketKeyVersion: 2,
       reviewStatus: 'active',
+    tokenContract: '0xrwa1',
       createdAt: new Date(),
     } satisfies MarketplaceCollection;
 
@@ -352,6 +354,7 @@ describe('CardhedgerResolveService — PSA Variety vs Cardhedger catalog variant
       marketParallelKey: opts.marketParallelKey,
       bucketKeyVersion: 2,
       reviewStatus: 'active',
+    tokenContract: '0xrwa1',
       createdAt: new Date(),
     } satisfies MarketplaceCollection;
   }
@@ -629,6 +632,7 @@ describe('CardhedgerResolveService — cert Path 0 vs stored id / UI titles', ()
       marketParallelKey: 'full_art_sylveon_vmax_hyper',
       bucketKeyVersion: 2,
       reviewStatus: 'active',
+    tokenContract: '0xrwa1',
       createdAt: new Date(),
     } satisfies MarketplaceCollection);
 

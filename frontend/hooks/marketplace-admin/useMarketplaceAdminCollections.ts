@@ -10,17 +10,19 @@ import {
   type CollectionReviewStatusFilter,
 } from "@/lib/core";
 import { rq } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useAdminCollectionMarketSnapshots } from "./useAdminCollectionMarketSnapshots";
 
 const PAGE_SIZE = 30;
 
 export function useMarketplaceAdminCollections() {
   const qc = useQueryClient();
+  const { chainId } = useAppChain();
   const [reviewFilter, setReviewFilter] =
     useState<CollectionReviewStatusFilter>("pending_review");
 
   const listQuery = useInfiniteQuery({
-    queryKey: [...rq.adminCollectionsList(), reviewFilter] as const,
+    queryKey: [...rq.adminCollectionsList(chainId), reviewFilter] as const,
     queryFn: ({ pageParam }) =>
       getMarketplaceCollectionsPage({
         cursor: pageParam ?? null,
@@ -33,7 +35,7 @@ export function useMarketplaceAdminCollections() {
   });
 
   const countsQuery = useQuery({
-    queryKey: [...rq.adminCollectionsList(), "review-counts"] as const,
+    queryKey: [...rq.adminCollectionsList(chainId), "review-counts"] as const,
     queryFn: () => getAdminCollectionReviewCounts(),
     staleTime: 30_000,
   });
@@ -52,7 +54,7 @@ export function useMarketplaceAdminCollections() {
     useAdminCollectionMarketSnapshots(collectionKeys);
 
   async function invalidateCollections(collectionKey?: string) {
-    await qc.invalidateQueries({ queryKey: rq.adminCollectionsList() });
+    await qc.invalidateQueries({ queryKey: rq.adminCollectionsList(chainId) });
     await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
     if (collectionKey) {
       await qc.invalidateQueries({

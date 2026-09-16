@@ -10,6 +10,7 @@ export function PortfolioCancelListingConfirmModal({
   assetTitle,
   gradeLabel,
   listPriceUsd,
+  count = 1,
   pending,
   onClose,
   onConfirm,
@@ -18,23 +19,32 @@ export function PortfolioCancelListingConfirmModal({
   assetTitle: string;
   gradeLabel?: string | null;
   listPriceUsd?: number | null;
+  /** Batch cancel: number of listings selected. */
+  count?: number;
   pending?: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
+  const batch = count > 1;
   const title = assetTitle.trim() || "This listing";
   const price = formatUsdListing(listPriceUsd);
   const grade = gradeLabel?.trim();
-  const detail = [title, grade, price !== "—" ? `Listed ${price}` : null]
-    .filter(Boolean)
-    .join(" · ");
+  const detail = batch
+    ? `${count} listings will be removed from the market.`
+    : [title, grade, price !== "—" ? `Listed ${price}` : null]
+        .filter(Boolean)
+        .join(" · ");
 
   return (
     <TkDialog
       open={open}
       onClose={pending ? () => undefined : onClose}
-      title="Cancel Listing?"
-      description={`Your listing will be removed from the market. ${detail}`}
+      title={batch ? `Cancel ${count} listings?` : "Cancel Listing?"}
+      description={
+        batch
+          ? detail
+          : `Your listing will be removed from the market. ${detail}`
+      }
       footer={
         <div className="flex flex-col gap-2 w-full">
           <TkButton
@@ -44,7 +54,7 @@ export function PortfolioCancelListingConfirmModal({
             disabled={pending}
             onClick={() => void onConfirm()}
           >
-            {pending ? "…" : "Cancel Listing"}
+            {pending ? "…" : batch ? `Cancel ${count} listings` : "Cancel Listing"}
           </TkButton>
           <TkButton
             variant="ghost"

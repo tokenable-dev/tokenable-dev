@@ -58,8 +58,16 @@ export class WatchlistController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Add collection to watchlist' })
   @ApiBody(apiBodyDefault(WatchlistMutateDto, SWAGGER_BODY_EXAMPLES.watchlistMutate))
-  add(@Req() req: Request & { user: User }, @Body() body: WatchlistMutateDto) {
-    return this.watchlist.add(req.user.id, body.collectionKey);
+  add(
+    @Req() req: Request & { user: User },
+    @Body() body: WatchlistMutateDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.watchlist.add(
+      req.user.id,
+      body.collectionKey,
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 
   @Delete()
@@ -69,7 +77,12 @@ export class WatchlistController {
   async remove(
     @Req() req: Request & { user: User },
     @Body() body: WatchlistMutateDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ): Promise<void> {
-    await this.watchlist.remove(req.user.id, body.collectionKey);
+    await this.watchlist.remove(
+      req.user.id,
+      body.collectionKey,
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 export type PortfolioSortDir = "asc" | "desc";
 
@@ -21,20 +21,15 @@ export function usePortfolioTableSort<T extends string>(
     setSortDir(opts?.dirWhenSelecting?.(key) ?? "asc");
   }
 
-  function applyMobileSort(value: string) {
-    const [key, dir] = value.split(":") as [T, PortfolioSortDir];
-    if (!key || (dir !== "asc" && dir !== "desc")) return;
+  function setSort(key: T, dir?: PortfolioSortDir) {
     setSortKey(key);
-    setSortDir(dir);
+    setSortDir(dir ?? opts?.dirWhenSelecting?.(key) ?? "asc");
   }
-
-  const mobileSortValue = useMemo(() => `${sortKey}:${sortDir}`, [sortKey, sortDir]);
 
   return {
     sortKey,
     sortDir,
     toggleSort,
-    applyMobileSort,
-    mobileSortValue,
+    setSort,
   };
 }

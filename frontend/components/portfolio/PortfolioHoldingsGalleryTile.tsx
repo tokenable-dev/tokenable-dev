@@ -53,6 +53,9 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   actionsDisabledTitle,
   onSaveCostBasis,
   onSetPrice,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
 }: {
   row: AssetRow;
   headline: PortfolioHoldingsHeadline | null;
@@ -67,6 +70,9 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   actionsDisabledTitle?: string;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   onSetPrice: (tokenId: number) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
@@ -82,6 +88,8 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     "pf-gtile",
     redeemStatus?.kind === "transit" ? "pf-gtile--transit" : null,
     redeemStatus?.kind === "possession" ? "pf-gtile--possession" : null,
+    selectMode && isListed && selected ? "pf-gtile--sel-on" : null,
+    selectMode && !isListed ? "pf-gtile--sel-dim" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -93,9 +101,20 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   );
 
   return (
-    <div className={tileClass}>
+    <div
+      className={tileClass}
+      onClick={
+        selectMode && isListed
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.();
+            }
+          : undefined
+      }
+    >
       <div className="pf-gtile__media">
-        {href ? (
+        {href && !(selectMode && isListed) ? (
           <Link href={href} className="pf-gtile__media-link" aria-label={titleLabel}>
             {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -110,6 +129,16 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         ) : (
           <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
         )}
+        {selectMode && isListed ? (
+          <div className={`pf-selchk${selected ? " pf-selchk--on" : ""}`} aria-hidden>
+            {selected ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : null}
+          </div>
+        ) : null}
+        {selectMode && !isListed ? <div className="pf-selreason">Not listed</div> : null}
         <div className="pf-gtile__badge-wrap">
           <span className={`pf-gbadge tkl-mono ${badge.className}`}>{badgeLabel}</span>
         </div>
@@ -117,7 +146,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 
       <div className="pf-gtile__body">
         <div className="pf-gtile__title" title={titleHover}>
-          {href ? (
+          {href && !(selectMode && isListed) ? (
             <Link href={href} className="pf-gtile__title-link">
               {titleNode}
             </Link>
@@ -193,22 +222,24 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
           )}
         </div>
 
-        <div className="pf-gtile__act">
-          <PortfolioHoldingsRowActions
-            isListed={isListed}
-            fullWidth
-            disabled={actionsDisabled}
-            disabledTitle={actionsDisabledTitle}
-            redeemStatus={redeemStatus}
-            onSetPrice={() => {
-              trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                card_id: String(row.tokenId),
-                current_price: row.currentPrice ?? undefined,
-              });
-              onSetPrice(row.tokenId);
-            }}
-          />
-        </div>
+        {!selectMode ? (
+          <div className="pf-gtile__act">
+            <PortfolioHoldingsRowActions
+              isListed={isListed}
+              fullWidth
+              disabled={actionsDisabled}
+              disabledTitle={actionsDisabledTitle}
+              redeemStatus={redeemStatus}
+              onSetPrice={() => {
+                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                  card_id: String(row.tokenId),
+                  current_price: row.currentPrice ?? undefined,
+                });
+                onSetPrice(row.tokenId);
+              }}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

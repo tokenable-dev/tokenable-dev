@@ -117,6 +117,7 @@ export class VaultSubmissionAdminMintService {
             itemId: item.id,
             cardLabel,
             tokenId: String(adopted.tokenId),
+            chainId,
           })
           .catch((e) => {
             this.logger.warn(
@@ -175,6 +176,7 @@ export class VaultSubmissionAdminMintService {
           itemId: item.id,
           cardLabel,
           tokenId: String(mint.tokenId),
+          chainId,
         })
         .catch((e) => {
           this.logger.warn(

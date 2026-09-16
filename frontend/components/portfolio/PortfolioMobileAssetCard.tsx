@@ -32,6 +32,9 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   actionsDisabledTitle,
   onSaveCostBasis,
   onSetPrice,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
 }: {
   row: AssetRow;
   headline: PortfolioHoldingsHeadline | null;
@@ -46,6 +49,9 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   actionsDisabledTitle?: string;
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   onSetPrice: (tokenId: number) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
@@ -58,11 +64,30 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
       : redeemStatus?.kind === "possession"
         ? " pf-mobile-asset-card--possession"
         : "";
+  const selectClass = selectMode
+    ? [
+        isListed && selected ? " pf-mobile-asset-card--cl-on" : "",
+        !isListed ? " pf-mobile-asset-card--cl-dim" : "",
+        isListed ? " pf-mobile-asset-card--cl-pick" : "",
+      ].join("")
+    : "";
 
   return (
-    <div className={`pf-mobile-asset-card${dimClass}`} role="listitem">
+    <div
+      className={`pf-mobile-asset-card${dimClass}${selectClass}`}
+      role="listitem"
+      onClick={
+        selectMode && isListed
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.();
+            }
+          : undefined
+      }
+    >
       <div className="pf-mobile-asset-card__img">
-        {href ? (
+        {href && !(selectMode && isListed) ? (
           <Link href={href} aria-label={titleLabel}>
             {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -73,12 +98,21 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
         ) : null}
+        {selectMode && isListed ? (
+          <div className={`pf-selchk${selected ? " pf-selchk--on" : ""}`} aria-hidden>
+            {selected ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="pf-mobile-asset-card__info">
         <div className="pf-mobile-asset-card__head">
           <div className="pf-mobile-asset-card__title" title={titleHover}>
             {headline ? (
-              href ? (
+              href && !(selectMode && isListed) ? (
                 <Link href={href} className="pf-mobile-asset-card__title-link">
                   <span className={CARD_DISPLAY_LINE1_CLAMP_CLASS}>
                     {headline?.line1 ?? titleLabel}
@@ -89,7 +123,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
                   {headline?.line1 ?? titleLabel}
                 </span>
               )
-            ) : href ? (
+            ) : href && !(selectMode && isListed) ? (
               <Link href={href}>{titleLabel}</Link>
             ) : (
               titleLabel
@@ -155,7 +189,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           </>
         ) : null}
 
-        {redeemStatus?.kind !== "possession" ? (
+        {!selectMode && redeemStatus?.kind !== "possession" ? (
           <div className="pf-mobile-asset-card__actions">
             <PortfolioHoldingsRowActions
               isListed={isListed}

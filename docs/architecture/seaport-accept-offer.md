@@ -94,7 +94,7 @@ Locked query params:
 
 | Piece | Location |
 |-------|----------|
-| Accept token offer (ask untouched) | `frontend/lib/seaport/fulfillment/acceptTokenOffer.ts` |
+| Accept / match token offer (seller settle) | `runTokenBidMatch` in `frontend/lib/seaport/fulfillment/runCriteriaMatch.ts` (wired from `listRwaInstantMatch.ts`; standalone `acceptTokenOffer.ts` removed — zero runtime callers) |
 | Buyer USDC preflight | `checkBuyerUsdcReadyForBid` in `runCriteriaMatch.ts` |
 | Dead-bid invalidate API | `PATCH /api/marketplace/orders/:hash/invalidate-dead-bid` |
 | Bid → ask-owner notifications | `marketplace_notifications` + `NotificationsService.notifyAskOwnerOfTokenBid` / `notifyAskOwnerOfTokenBidCancelled` / `notifyAskOwnerOfUnfilledBid` |

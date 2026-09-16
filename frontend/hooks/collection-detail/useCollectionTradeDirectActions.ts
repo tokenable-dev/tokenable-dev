@@ -20,6 +20,7 @@ import {
   invalidateAfterCriteriaBid,
   invalidateAfterRwaDetail,
 } from "@/lib/core/invalidation";
+import { activeRqChainId } from "@/lib/chains";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
@@ -106,8 +107,9 @@ export function useCollectionTradeDirectActions(input: {
 
   const [busy, setBusy] = useState<CollectionTradeBusy>(null);
 
+  const rqChainId = activeRqChainId();
   const { data: merkleSet } = useQuery({
-    queryKey: rq.merkleSet(collectionKey),
+    queryKey: rq.merkleSet(collectionKey, rqChainId),
     queryFn: () => getMerkleEligibleTokenIds(collectionKey),
     enabled: collectionKey.length > 0,
     staleTime: marketplaceRqPolicy.merkleSetStaleMs,

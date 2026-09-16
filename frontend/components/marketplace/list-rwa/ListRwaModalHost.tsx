@@ -12,7 +12,8 @@ const ListRwaModal = dynamic(
   { ssr: false },
 );
 
-export function RwaDetailListModalHost({
+/** Portfolio / certificate entry that mounts {@link ListRwaModal} (dynamic, client-only). */
+export function ListRwaModalHost({
   open,
   tokenId,
   assetTitle,

@@ -47,12 +47,14 @@ export function PortfolioHoldingsSection({
   tokenToCollectionKey: _tokenToCollectionKey,
   bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
-  acquiredAtByTokenId,
+  acquiredAtByTokenId: _acquiredAtByTokenId,
   valuesPending,
   canEditCostBasis,
   onSaveCostBasis,
   savingCostBasisTokenId,
   onSetPrice,
+  onRequestCancelListings,
+  cancellingListingTokenId = null,
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
   redeemCarrierDeliveredByTokenId,
@@ -75,6 +77,16 @@ export function PortfolioHoldingsSection({
   onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   savingCostBasisTokenId?: number | null;
   onSetPrice: (tokenId: number) => void;
+  onRequestCancelListings?: (
+    items: {
+      tokenId: number;
+      assetTitle: string;
+      gradeLabel: string | null;
+      orderHash: string;
+      listPriceUsd: number | null;
+    }[],
+  ) => void;
+  cancellingListingTokenId?: number | null;
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
   redeemCarrierDeliveredByTokenId?: Map<number, string>;
@@ -86,11 +98,12 @@ export function PortfolioHoldingsSection({
   totalAssetCount?: number;
 }) {
   const [segment, setSegment] = useState<AssetsSegment>("tradeable");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<AssetsToolbarSort>("newest");
+  const [sort, setSort] = useState<AssetsToolbarSort>("value");
   /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
   const [view, setView] = useState<AssetsViewMode>("table");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTokenIds, setSelectedTokenIds] = useState<Set<number>>(() => new Set());
   const isMobile = useIsMobileViewport(768);
   const pathname = usePathname();
   const assetsBase = portfolioBasePath(pathname);
@@ -161,12 +174,6 @@ export function PortfolioHoldingsSection({
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {
-        case "newest": {
-          const tA = Date.parse(acquiredAtByTokenId?.get(a.tokenId) ?? "") || 0;
-          const tB = Date.parse(acquiredAtByTokenId?.get(b.tokenId) ?? "") || 0;
-          if (tA !== tB) return tB - tA;
-          return b.tokenId - a.tokenId;
-        }
         case "name":
           return compareSortText(a.name, b.name, "asc");
         case "pl": {
@@ -202,7 +209,6 @@ export function PortfolioHoldingsSection({
     sort,
     metadataByTokenId,
     costBasisByTokenId,
-    acquiredAtByTokenId,
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
@@ -225,6 +231,75 @@ export function PortfolioHoldingsSection({
     },
     [assetRows, onSetPrice],
   );
+
+  const listedRows = useMemo(
+    () =>
+      filteredSortedRows.filter(
+        (row) => row.listPriceUsd != null && row.activeListingOrderHash != null,
+      ),
+    [filteredSortedRows],
+  );
+
+  useEffect(() => {
+    if (!selectMode) return;
+    const listed = new Set(listedRows.map((r) => r.tokenId));
+    setSelectedTokenIds((prev) => {
+      let changed = false;
+      const next = new Set<number>();
+      for (const id of prev) {
+        if (listed.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [selectMode, listedRows]);
+
+  const setSelectModeSafe = useCallback((on: boolean) => {
+    setSelectMode(on);
+    if (!on) setSelectedTokenIds(new Set());
+  }, []);
+
+  const toggleSelect = useCallback((tokenId: number) => {
+    setSelectedTokenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tokenId)) next.delete(tokenId);
+      else next.add(tokenId);
+      return next;
+    });
+  }, []);
+
+  const selectAllListed = useCallback(() => {
+    setSelectedTokenIds(new Set(listedRows.map((r) => r.tokenId)));
+  }, [listedRows]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedTokenIds(new Set());
+  }, []);
+
+  const requestCancelSelected = useCallback(() => {
+    if (!onRequestCancelListings || selectedTokenIds.size === 0) return;
+    const items = listedRows
+      .filter((row) => selectedTokenIds.has(row.tokenId))
+      .map((row) => {
+        const meta = metadataByTokenId.get(row.tokenId) ?? null;
+        const headline = headlineByTokenId.get(row.tokenId);
+        return {
+          tokenId: row.tokenId,
+          assetTitle: headline?.line1 ?? row.name,
+          gradeLabel: formatPortfolioGradeLabel(meta),
+          orderHash: row.activeListingOrderHash!,
+          listPriceUsd: row.listPriceUsd ?? null,
+        };
+      });
+    if (items.length === 0) return;
+    onRequestCancelListings(items);
+  }, [
+    onRequestCancelListings,
+    selectedTokenIds,
+    listedRows,
+    metadataByTokenId,
+    headlineByTokenId,
+  ]);
 
   if (assetsSectionLoading) {
     if (view === "gallery" && !isMobile) {
@@ -277,18 +352,28 @@ export function PortfolioHoldingsSection({
       <PortfolioAssetsToolbar
         segment={segment}
         onSegmentChange={setSegment}
-        searchOpen={searchOpen}
-        onSearchOpenChange={setSearchOpen}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         sort={sort}
         onSortChange={setSort}
         view={view}
         onViewChange={setView}
+        selectMode={selectMode}
+        onSelectModeChange={setSelectModeSafe}
+        selectedCount={selectedTokenIds.size}
+        onSelectAll={selectAllListed}
+        onClearSelection={clearSelection}
+        onCancelSelected={requestCancelSelected}
+        cancellingSelected={
+          cancellingListingTokenId != null &&
+          selectedTokenIds.has(cancellingListingTokenId)
+        }
       />
 
       {emptyFiltered ? (
-        <p className="pf-empty pf-empty--panel">Nothing in this segment.</p>
+        <p className="pf-empty pf-empty--panel">
+          {selectMode ? "No active listings." : "Nothing in this segment."}
+        </p>
       ) : view === "gallery" ? (
         <div className="pf-gallery" role="list">
           {filteredSortedRows.map((row) => {
@@ -320,6 +405,9 @@ export function PortfolioHoldingsSection({
                   }
                   onSaveCostBasis={onSaveCostBasis}
                   onSetPrice={handleSetPrice}
+                  selectMode={selectMode}
+                  selected={selectedTokenIds.has(row.tokenId)}
+                  onToggleSelect={() => toggleSelect(row.tokenId)}
                 />
               </div>
             );
@@ -356,6 +444,9 @@ export function PortfolioHoldingsSection({
                 }
                 onSaveCostBasis={onSaveCostBasis}
                 onSetPrice={handleSetPrice}
+                selectMode={selectMode}
+                selected={selectedTokenIds.has(row.tokenId)}
+                onToggleSelect={() => toggleSelect(row.tokenId)}
               />
             );
           })}
@@ -376,6 +467,9 @@ export function PortfolioHoldingsSection({
           isTradeBlocked={(tokenId) =>
             isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))
           }
+          selectMode={selectMode}
+          selectedTokenIds={selectedTokenIds}
+          onToggleSelect={toggleSelect}
         />
       )}
 

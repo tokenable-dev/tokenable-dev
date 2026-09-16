@@ -23,37 +23,17 @@ export const rq = {
     chainId: number,
   ) =>
     ["orders", "by-offerer", chainId, address.trim().toLowerCase(), side] as const,
-  ordersByTokenBatch: (
-    address: string | undefined,
-    tokenIds: readonly number[],
-    chainId: number,
-  ) =>
-    [
-      "orders",
-      "by-token-batch",
-      chainId,
-      address ?? "",
-      [...tokenIds].slice().sort((a, b) => a - b),
-    ] as const,
   collectionsMarketplace: (chainId: number) =>
     ["collections", "marketplace", chainId] as const,
   /** Search page infinite query (`GET /marketplace/collections?q=`). Do not share with typeahead. */
   collectionsSearch: (chainId: number, q: string) =>
     ["collections", "search", chainId, q] as const,
-  /** GNB / hero typeahead — same API, different cache shape than infinite `pages`. */
-  collectionsSearchTypeahead: (chainId: number, q: string) =>
-    ["collections", "search-typeahead", chainId, q] as const,
   /** GNB + search page cert/card hits (`GET /marketplace/search`). */
   catalogSearch: (chainId: number, q: string) =>
     ["catalog", "search", chainId, q] as const,
-  /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
-  homeAllCollections: (chainId: number) =>
-    ["collections", "marketplace", "all", chainId] as const,
   /** Ranked home ticker + grids (server `GET …/home-feed`). */
   homeMarketplaceFeed: (chainId: number) =>
     ["collections", "marketplace", "home-feed", chainId] as const,
-  /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
-  cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
    * Second element: sorted collection keys. Third: `priceHistoryDuration` for batched snapshots
    * (must match POST body so cache invalidates when window changes).
@@ -73,10 +53,18 @@ export const rq = {
       address ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
-  selfVaultPartnerEligibility: (wallet: string, chainId: number) =>
-    ["self-vault-partner-eligibility", chainId, wallet.toLowerCase()] as const,
   partnerMe: () => ["partner-me"] as const,
   partnerRedeems: () => ["partner-me", "redeems"] as const,
+  /**
+   * Prefix for all signed-in user redemption caches (`invalidateAfterRedeemCustody`).
+   * Keep segment order stable — PreparingPanel paid keys nest under this prefix.
+   */
+  myRedemptionsMine: () => ["rwa", "redemptions", "mine"] as const,
+  myRedemptions: (userId: string | null, chainId: number) =>
+    ["rwa", "redemptions", "mine", userId, chainId] as const,
+  /** Paid/preparing panel — same prefix as `myRedemptionsMine` for invalidation. */
+  myRedemptionsPaid: (chainId: number, tokenIdsJoined: string) =>
+    ["rwa", "redemptions", "mine", "paid", chainId, tokenIdsJoined] as const,
   vaultSubmissions: (chainId?: number) =>
     ["vault-submissions", chainId ?? null] as const,
   rwaVaultInfoBatch: (
@@ -101,8 +89,6 @@ export const rq = {
       address ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
-  portfolioHidden: (address: string, chainId: number) =>
-    ["portfolio-hidden", chainId, address] as const,
   portfolioHoldings: (
     address: string,
     tokenIds: readonly number[],
@@ -125,8 +111,8 @@ export const rq = {
     ["portfolio-activity", address, chainId] as const,
   userWatchlist: (userId: string, chainId: number) =>
     ["user-watchlist", userId, chainId] as const,
-  buyerListingAlert: (userId: string, collectionKey: string) =>
-    ["buyer-listing-alert", userId, collectionKey.trim().toLowerCase()] as const,
+  buyerListingAlert: (userId: string, collectionKey: string, chainId: number) =>
+    ["buyer-listing-alert", userId, collectionKey.trim().toLowerCase(), chainId] as const,
   marketplaceNotifications: (userId: string, chainId: number) =>
     ["marketplace-notifications", userId, chainId] as const,
 
@@ -186,27 +172,31 @@ export const rq = {
    * `enabled: open && ...` in the query instead. This 3-element form is
    * also the correct prefix for invalidation after listing or cancellation.
    */
-  collectionOwnedRwa: (addr: string, key: string) =>
-    ["collection-owned-rwa", addr, key] as const,
+  collectionOwnedRwa: (addr: string, key: string, chainId: number) =>
+    ["collection-owned-rwa", addr, key, chainId] as const,
 
   // ── Orders ─────────────────────────────────────────────────────────────────
 
   /** Active ask order for a single token (used in RWA detail / list modal). */
-  orderByToken: (tokenId: number) => ["orders", "by-token-active", tokenId] as const,
+  orderByToken: (tokenId: number, chainId: number) =>
+    ["orders", "by-token-active", tokenId, chainId] as const,
   /** Full order record fetched by orderHash (used in list-rwa fulfill flow). */
   orderDetail: (hash: string) => ["orders", "detail", hash] as const,
 
   // ── RWA / Metadata ─────────────────────────────────────────────────────────
 
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
-  rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
+  rwaAssetDetail: (tokenId: number, chainId: number) =>
+    ["marketplace-detail-metadata", tokenId, chainId] as const,
   /** Admin — all RWA registry cards (listed + unlisted). */
   adminRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
   adminCustodyNfts: (chainId: number) => ["admin-custody-nfts", chainId] as const,
-  adminVaultSubmissions: (status?: string, q?: string) =>
-    ["admin-vault-submissions", status ?? "all", q ?? ""] as const,
-  adminVaultSubmissionCounts: () => ["admin-vault-submission-counts"] as const,
-  adminVaultSubmission: (id: string) => ["admin-vault-submission", id] as const,
+  adminVaultSubmissions: (chainId: number, status?: string, q?: string) =>
+    ["admin-vault-submissions", chainId, status ?? "all", q ?? ""] as const,
+  adminVaultSubmissionCounts: (chainId: number) =>
+    ["admin-vault-submission-counts", chainId] as const,
+  adminVaultSubmission: (id: string, chainId: number) =>
+    ["admin-vault-submission", id, chainId] as const,
   adminPsaArrivalReviews: (status?: string) =>
     ["admin-psa-arrival-reviews", status ?? "pending"] as const,
   adminPsaVaultedReviews: (status?: string) =>
@@ -231,11 +221,9 @@ export const rq = {
     ["admin-rwa-roles-overview", chainId] as const,
   adminRwaRolesStatus: (wallet: string, chainId: number) =>
     ["admin-rwa-roles-status", wallet.toLowerCase(), chainId] as const,
-  adminUserStats: () => ["admin-user-stats"] as const,
   adminAnalytics: (days: number, chainId: number) =>
     ["admin-analytics", days, chainId] as const,
   adminDataInventory: () => ["admin-data-inventory"] as const,
-  adminGa4Analytics: (days: number) => ["admin-ga4-analytics", days] as const,
   adminUsersList: (
     q: string,
     filter: string,
@@ -247,15 +235,14 @@ export const rq = {
     ["admin-users-list", q, filter, role, accountStatus, page, limit] as const,
   adminUserDetail: (userId: string) => ["admin-user-detail", userId] as const,
   /** Admin — marketplace collections list (cursor pages). */
-  adminCollectionsList: () => ["admin-collections-list"] as const,
+  adminCollectionsList: (chainId: number) =>
+    ["admin-collections-list", chainId] as const,
   /**
    * Derived collection/bucket key computed from a token's metadata + tokenURI.
    * URI included so the key invalidates if the on-chain tokenURI is updated.
    */
   rwaBucketKey: (tokenId: number, uri: string | undefined) =>
     ["metadata-bucket-key", tokenId, uri] as const,
-  /** On-chain trade activity events for a single token. */
-  rwaActivity: (tokenId: number) => ["rwa-activity", tokenId] as const,
   /** Server-resolved collection_key for a minted/owned token (rwa_tokens + metadata). */
   tokenCollectionKey: (tokenId: number) => ["token-collection-key", tokenId] as const,
   /** Resolved https URL for the slab back-image (used in RWA detail panel). */
@@ -264,10 +251,10 @@ export const rq = {
   // ── Merkle ─────────────────────────────────────────────────────────────────
 
   /** Merkle-eligible tokenIds for a specific collection (criteria bid flow). */
-  merkleSet: (key: string) => ["merkle-set", key] as const,
+  merkleSet: (key: string, chainId: number) =>
+    ["merkle-set", key, chainId] as const,
   /** Prefix key used to invalidate ALL merkle-set queries at once. */
   merkleSetAll: () => ["merkle-set"] as const,
-  bidAnchorTokens: (key: string) => ["bid-anchor-tokens", key] as const,
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
 
@@ -321,28 +308,6 @@ export const rq = {
   /** Single catalog cover resolve by search string. */
   cardhedgerCatalogCover: (search: string) =>
     ["cardhedger-catalog-cover", search] as const,
-  cardhedgerCardDetails: (cardId: string) => ["cardhedger-card-details", cardId] as const,
-  cardhedgerPricesByCard: (cardId: string, grade: string, days: number) =>
-    ["cardhedger-prices-by-card", cardId, grade, days] as const,
-  cardhedgerAllPricesByCard: (cardId: string) =>
-    ["cardhedger-all-prices-by-card", cardId] as const,
-  /** Grade-specific 90-day sales via 90day-prices-by-grade-search. */
-  cardhedger90DaySalesByGrade: (cardId: string, grade: string, searchSig: string) =>
-    ["cardhedger-90day-sales-by-grade", cardId, grade, searchSig] as const,
-  /** Fallback 90-day sales via `90day-prices-by-grade` (not search API). */
-  cardhedger90DaySalesFallback: (
-    cardId: string,
-    grade: string,
-    category: string,
-    description: string,
-  ) =>
-    [
-      "cardhedger-90day-sales-fallback",
-      cardId,
-      grade,
-      category,
-      description,
-    ] as const,
 } as const;
 
 /** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */

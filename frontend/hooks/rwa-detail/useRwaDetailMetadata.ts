@@ -7,6 +7,7 @@ import {
   extractBucketComponentsFromMetadata,
 } from "@/lib/marketplace/bucketKey";
 import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 function cachedAssetInitialData(tokenId: number) {
   const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
@@ -22,8 +23,9 @@ function cachedAssetInitialData(tokenId: number) {
 }
 
 export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
+  const { chainId } = useAppChain();
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: rq.rwaAssetDetail(tokenId),
+    queryKey: rq.rwaAssetDetail(tokenId, chainId),
     queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,

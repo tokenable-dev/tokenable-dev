@@ -81,6 +81,23 @@ export class CollectionComponentsService {
     return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
   }
 
+  /** Catalog row criteria — prefer chain-scoped PK when chainId is known. */
+  private catalogWhere(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): { collectionKey: string; tokenContract?: string } {
+    const key = collectionKey.toLowerCase();
+    if (chainId == null) return { collectionKey: key };
+    try {
+      return {
+        collectionKey: key,
+        tokenContract: this.chainConfig.getRwaAddress(chainId).toLowerCase(),
+      };
+    } catch {
+      return { collectionKey: key };
+    }
+  }
+
   private async activeListingsForCollection(
     collectionKey: string,
     chainId?: SupportedChainId,
@@ -104,7 +121,7 @@ export class CollectionComponentsService {
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
+      where: this.catalogWhere(k, chainId),
     });
     if (!row) return false;
 
@@ -159,13 +176,10 @@ export class CollectionComponentsService {
     }
     if (!dirty) return false;
 
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      {
-        components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
-        marketParallelKey: nextParallel,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(k, chainId), {
+      components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
+      marketParallelKey: nextParallel,
+    });
     this.logger.log(
       `Collection ${k}: psaVariety remerged from mint variant → ${merged}`,
     );
@@ -175,10 +189,11 @@ export class CollectionComponentsService {
   async mergePsaPopulationFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, chainId),
     });
     if (!row) return;
 
@@ -193,21 +208,19 @@ export class CollectionComponentsService {
       ...row.components,
       psaTotalPopulation: fresh.psaTotalPopulation,
     };
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(key, chainId), {
+      components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
   }
 
   async mergeTrendingSlabMetaFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, chainId),
     });
     if (!row) return;
     const comp = row.components;
@@ -230,19 +243,16 @@ export class CollectionComponentsService {
     // overwriting on every mint thrashs Cardhedger cert lookups.
     const certDirty = Boolean(cert && !certCol);
     if (dirty || certDirty) {
-      await this.collectionRepo.update(
-        { collectionKey: key },
-        {
-          ...(dirty
-            ? {
-                components: next as QueryDeepPartialEntity<
-                  Record<string, unknown>
-                >,
-              }
-            : {}),
-          ...(certDirty ? { psaCertNumber: cert } : {}),
-        },
-      );
+      await this.collectionRepo.update(this.catalogWhere(key, chainId), {
+        ...(dirty
+          ? {
+              components: next as QueryDeepPartialEntity<
+                Record<string, unknown>
+              >,
+            }
+          : {}),
+        ...(certDirty ? { psaCertNumber: cert } : {}),
+      });
     }
   }
 
@@ -253,10 +263,11 @@ export class CollectionComponentsService {
     collectionKey: string,
     _psaCert: string | undefined,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, chainId),
     });
     if (!row) return;
     if (psaSpecIdFromComponentsRow(row.components)) return;
@@ -265,12 +276,9 @@ export class CollectionComponentsService {
     if (!specId) return;
 
     const next = { ...row.components, psaSpecId: specId };
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(key, chainId), {
+      components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
   }
 
   /**
@@ -280,7 +288,7 @@ export class CollectionComponentsService {
    */
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
-    opts?: { allowUpstream?: boolean },
+    opts?: { allowUpstream?: boolean; chainId?: SupportedChainId },
   ): Promise<void> {
     if (opts?.allowUpstream !== true) {
       return;
@@ -288,7 +296,7 @@ export class CollectionComponentsService {
 
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, opts?.chainId),
     });
     if (!row) return;
 
@@ -323,12 +331,9 @@ export class CollectionComponentsService {
       psaSpecTotalPopulation: capture.total,
       psaGrade10Population: capture.grade10,
     };
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(key, opts?.chainId), {
+      components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
     this.logger.log(
       `Collection ${key}: Spec pop stored from ${capture.source} specId=${capture.specId}`,
     );
@@ -340,7 +345,7 @@ export class CollectionComponentsService {
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
+      where: this.catalogWhere(k, chainId),
     });
     if (!row) return;
     const comp = row.components;
@@ -379,10 +384,9 @@ export class CollectionComponentsService {
           }
         }
         if (pop != null && Number.isFinite(pop) && pop > 0) {
-          await this.collectionRepo.update(
-            { collectionKey: k },
-            { components: { ...comp, psaTotalPopulation: Math.floor(pop) } },
-          );
+          await this.collectionRepo.update(this.catalogWhere(k, chainId), {
+            components: { ...comp, psaTotalPopulation: Math.floor(pop) },
+          });
           return;
         }
       } catch {
@@ -403,7 +407,7 @@ export class CollectionComponentsService {
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
+      where: this.catalogWhere(k, chainId),
     });
     if (!row) return false;
     const comp = row.components;
@@ -451,7 +455,7 @@ export class CollectionComponentsService {
     if (ids.size === 0) return false;
 
     if (lastMeta) {
-      await this.identity.writeFromMintMetadata(k, lastMeta);
+      await this.identity.writeFromMintMetadata(k, lastMeta, chainId);
       if (this.identity.isEnabled()) return true;
     }
 
@@ -471,12 +475,9 @@ export class CollectionComponentsService {
       }
     }
     if (!dirty) return false;
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      {
-        components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(k, chainId), {
+      components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
     return true;
   }
 
@@ -491,7 +492,7 @@ export class CollectionComponentsService {
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
+      where: this.catalogWhere(k, opts?.chainId),
     });
     if (!row) return;
 
@@ -528,10 +529,9 @@ export class CollectionComponentsService {
       return;
     }
 
-    await this.collectionRepo.update(
-      { collectionKey: k },
-      { psaCertNumber: chosen },
-    );
+    await this.collectionRepo.update(this.catalogWhere(k, opts?.chainId), {
+      psaCertNumber: chosen,
+    });
   }
 
   /**
@@ -610,6 +610,8 @@ export class CollectionComponentsService {
     opts?: { allowUpstream?: boolean },
   ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
+    // Cardhedger/PSA mirror enrichment is collection_key-scoped: shared component
+    // fields may update all chain rows. Do not touch review_status.
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
     });
@@ -709,6 +711,8 @@ export class CollectionComponentsService {
     failCodes: string[];
   }> {
     const k = collectionKey.toLowerCase();
+    // Cardhedger audit is collection_key-scoped: shared identity fields may
+    // update all chain rows. Do not wipe review_status.
     const dbRow = await this.collectionRepo.findOne({
       where: { collectionKey: k },
     });
@@ -955,18 +959,20 @@ export class CollectionComponentsService {
   async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    await this.identity.writeFromMintMetadata(collectionKey, meta);
+    await this.identity.writeFromMintMetadata(collectionKey, meta, chainId);
   }
 
   /** Duplicate-key race: fill `listingDisplayTitle` when the row was created by another listing first. */
   async mergeListingDisplayTitleFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const dbRow = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, chainId),
     });
     if (!dbRow) return;
     const comp = dbRow.components;
@@ -977,15 +983,12 @@ export class CollectionComponentsService {
     if (existing.length > 0) return;
     const t = extractListingDisplayTitleFromMeta(meta);
     if (!t) return;
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: {
-          ...comp,
-          listingDisplayTitle: t,
-        } as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(key, chainId), {
+      components: {
+        ...comp,
+        listingDisplayTitle: t,
+      } as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
   }
 
   /**
@@ -995,10 +998,11 @@ export class CollectionComponentsService {
   async mergeNormalizedPokemonFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const dbRow = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
+      where: this.catalogWhere(key, chainId),
     });
     if (!dbRow) return;
     const comp = { ...(dbRow.components as Record<string, unknown>) };
@@ -1040,12 +1044,9 @@ export class CollectionComponentsService {
     ) {
       return;
     }
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
-    );
+    await this.collectionRepo.update(this.catalogWhere(key, chainId), {
+      components: comp as QueryDeepPartialEntity<Record<string, unknown>>,
+    });
   }
 
   /**
@@ -1056,6 +1057,7 @@ export class CollectionComponentsService {
     collectionKey: string,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
+    // Shared component field across chains when only collection_key is known.
     const dbRow = await this.collectionRepo.findOne({
       where: { collectionKey: key },
     });
@@ -1115,7 +1117,7 @@ export class CollectionComponentsService {
   ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
+      where: this.catalogWhere(k, chainId),
     });
     if (!row) return;
     const comp = row.components;
@@ -1136,15 +1138,12 @@ export class CollectionComponentsService {
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const t = extractListingDisplayTitleFromMeta(meta);
         if (!t) continue;
-        await this.collectionRepo.update(
-          { collectionKey: k },
-          {
-            components: {
-              ...comp,
-              listingDisplayTitle: t,
-            } as QueryDeepPartialEntity<Record<string, unknown>>,
-          },
-        );
+        await this.collectionRepo.update(this.catalogWhere(k, chainId), {
+          components: {
+            ...comp,
+            listingDisplayTitle: t,
+          } as QueryDeepPartialEntity<Record<string, unknown>>,
+        });
         return;
       } catch {
         /* try next listing */

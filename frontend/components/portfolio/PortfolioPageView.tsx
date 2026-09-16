@@ -58,7 +58,7 @@ import {
   PORTFOLIO_PATH,
   portfolioUrl,
 } from "@/lib/portfolio/portfolioPaths";
-import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/modals/RwaDetailListModalHost";
+import { ListRwaModalHost } from "@/components/marketplace/list-rwa/ListRwaModalHost";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
@@ -112,11 +112,13 @@ export function PortfolioPageView({
     listedPriceUsd?: number | null;
   } | null>(null);
   const [cancelListingConfirm, setCancelListingConfirm] = useState<{
-    tokenId: number;
-    assetTitle: string;
-    gradeLabel: string | null;
-    orderHash: string;
-    listPriceUsd: number | null;
+    items: {
+      tokenId: number;
+      assetTitle: string;
+      gradeLabel: string | null;
+      orderHash: string;
+      listPriceUsd: number | null;
+    }[];
   } | null>(null);
   const [changeBidModal, setChangeBidModal] = useState<{
     bid: Order;
@@ -822,6 +824,10 @@ export function PortfolioPageView({
               onSaveCostBasis={saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
               onSetPrice={openPortfolioSetPriceModal}
+              onRequestCancelListings={(items) => {
+                setCancelListingConfirm({ items });
+              }}
+              cancellingListingTokenId={holdingActions.cancellingListingTokenId}
               redeemStatusByTokenId={redeemStatusByTokenId}
               redeemTrackingByTokenId={redeemTrackingByTokenId}
               redeemCarrierDeliveredByTokenId={redeemCarrierDeliveredByTokenId}
@@ -919,26 +925,31 @@ export function PortfolioPageView({
       {cancelListingConfirm != null ? (
         <PortfolioCancelListingConfirmModal
           open
-          assetTitle={cancelListingConfirm.assetTitle}
-          gradeLabel={cancelListingConfirm.gradeLabel}
-          listPriceUsd={cancelListingConfirm.listPriceUsd}
+          assetTitle={cancelListingConfirm.items[0]?.assetTitle ?? ""}
+          gradeLabel={cancelListingConfirm.items[0]?.gradeLabel}
+          listPriceUsd={cancelListingConfirm.items[0]?.listPriceUsd}
+          count={cancelListingConfirm.items.length}
           pending={
-            holdingActions.cancellingListingTokenId === cancelListingConfirm.tokenId
+            cancelListingConfirm.items.some(
+              (it) => holdingActions.cancellingListingTokenId === it.tokenId,
+            )
           }
           onClose={() => setCancelListingConfirm(null)}
           onConfirm={async () => {
-            await holdingActions.cancelListing(
-              cancelListingConfirm.tokenId,
-              cancelListingConfirm.orderHash,
-              cancelListingConfirm.listPriceUsd ?? undefined,
-            );
+            for (const item of cancelListingConfirm.items) {
+              await holdingActions.cancelListing(
+                item.tokenId,
+                item.orderHash,
+                item.listPriceUsd ?? undefined,
+              );
+            }
             setCancelListingConfirm(null);
           }}
         />
       ) : null}
 
       {listModal != null ? (
-        <RwaDetailListModalHost
+        <ListRwaModalHost
           open
           tokenId={listModal.tokenId}
           assetTitle={listModal.assetTitle}
@@ -965,11 +976,15 @@ export function PortfolioPageView({
               ? () => {
                   const meta = metadataByTokenId.get(listModal.tokenId) ?? null;
                   setCancelListingConfirm({
-                    tokenId: listModal.tokenId,
-                    assetTitle: listModal.assetTitle,
-                    gradeLabel: formatPortfolioGradeLabel(meta),
-                    orderHash: listModal.existingAskOrderHash!,
-                    listPriceUsd: listModal.listedPriceUsd ?? null,
+                    items: [
+                      {
+                        tokenId: listModal.tokenId,
+                        assetTitle: listModal.assetTitle,
+                        gradeLabel: formatPortfolioGradeLabel(meta),
+                        orderHash: listModal.existingAskOrderHash!,
+                        listPriceUsd: listModal.listedPriceUsd ?? null,
+                      },
+                    ],
                   });
                   setListModal(null);
                 }

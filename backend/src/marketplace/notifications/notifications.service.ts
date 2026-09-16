@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import {
   ChainConfigService,
+  SUPPORTED_CHAIN_IDS,
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
 import { UserService } from '../../user/user.service';
@@ -111,6 +112,25 @@ export class NotificationsService {
   private chainIdForOrder(order: Order): SupportedChainId {
     return (
       this.chainConfig.resolveChainIdFromRwaAddress(order.tokenContract) ??
+      this.chainConfig.getDefaultChainId()
+    );
+  }
+
+  /** Vault inbox: prefer submission chain_id / token_contract over default. */
+  private chainIdForVault(params: {
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
+  }): SupportedChainId {
+    const raw = params.chainId;
+    if (
+      raw != null &&
+      Number.isFinite(Number(raw)) &&
+      SUPPORTED_CHAIN_IDS.includes(Number(raw) as SupportedChainId)
+    ) {
+      return Number(raw) as SupportedChainId;
+    }
+    return (
+      this.chainConfig.resolveChainIdFromRwaAddress(params.tokenContract) ??
       this.chainConfig.getDefaultChainId()
     );
   }
@@ -422,15 +442,18 @@ export class NotificationsService {
     const key = collectionKey.trim().toLowerCase();
     if (!key || userIds.length === 0) return;
 
+    const chainId = this.chainIdForOrder(ask);
+    const tokenContract = ask.tokenContract?.trim().toLowerCase() || undefined;
     const collection = await this.collections.findOne({
-      where: { collectionKey: key },
+      where: tokenContract
+        ? { collectionKey: key, tokenContract }
+        : { collectionKey: key },
     });
     const cardLabel =
       collection?.displayLabel?.trim() || key.slice(0, 48) || 'This card';
     const imageUrl = collection?.coverImageUrl?.trim() || null;
     const askUsdc = microsToUsdc(String(ask.considerationAmount ?? '0'));
     const priceLabel = formatUsdLabel(askUsdc);
-    const chainId = this.chainIdForOrder(ask);
     const href = `/marketplace/collections/${encodeURIComponent(key)}`;
     const tid = String(ask.tokenId ?? '').trim();
     const tidNorm = isValidDecimalTokenId(tid)
@@ -726,14 +749,17 @@ export class NotificationsService {
     userId: string;
     submissionPublicId: string;
     cardLabel?: string | null;
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
   }): Promise<void> {
     const recipient = await this.primaryWalletForUser(params.userId);
     if (!recipient) return;
     const card = params.cardLabel?.trim() || 'your card';
+    const chainId = this.chainIdForVault(params);
 
     await this.emitInbox({
       recipientWallet: recipient,
-      chainId: this.chainConfig.getDefaultChainId(),
+      chainId,
       type: 'vault',
       eventKey: 'SELLER_SUBMISSION_RECEIVED',
       title: 'Your card arrived at the vault',
@@ -754,6 +780,8 @@ export class NotificationsService {
     itemId: string;
     cardLabel?: string | null;
     tokenId?: string | null;
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
   }): Promise<void> {
     const recipient = await this.primaryWalletForUser(params.userId);
     if (!recipient) return;
@@ -762,10 +790,11 @@ export class NotificationsService {
     const href = tid
       ? `/portfolio?tab=assets&setprice=${encodeURIComponent(tid)}`
       : `/vault/submissions/${encodeURIComponent(params.submissionPublicId)}`;
+    const chainId = this.chainIdForVault(params);
 
     await this.emitInbox({
       recipientWallet: recipient,
-      chainId: this.chainConfig.getDefaultChainId(),
+      chainId,
       type: 'vault',
       eventKey: 'SELLER_VERIFY_DONE_SET_PRICE',
       title: `${card} is ready to list`,
@@ -787,14 +816,17 @@ export class NotificationsService {
     itemId: string;
     cardLabel?: string | null;
     reason?: string | null;
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
   }): Promise<void> {
     const recipient = await this.primaryWalletForUser(params.userId);
     if (!recipient) return;
     const card = params.cardLabel?.trim() || 'Your card';
+    const chainId = this.chainIdForVault(params);
 
     await this.emitInbox({
       recipientWallet: recipient,
-      chainId: this.chainConfig.getDefaultChainId(),
+      chainId,
       type: 'vault',
       eventKey: 'SELLER_CARD_REJECTED',
       title: `${card} couldn't be vaulted`,
@@ -814,14 +846,17 @@ export class NotificationsService {
     submissionPublicId: string;
     itemId: string;
     cardLabel?: string | null;
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
   }): Promise<void> {
     const recipient = await this.primaryWalletForUser(params.userId);
     if (!recipient) return;
     const card = params.cardLabel?.trim() || 'your card';
+    const chainId = this.chainIdForVault(params);
 
     await this.emitInbox({
       recipientWallet: recipient,
-      chainId: this.chainConfig.getDefaultChainId(),
+      chainId,
       type: 'vault',
       eventKey: 'SELLER_LISTING_FAILED',
       title: `We're having trouble listing ${card}`,
@@ -843,15 +878,18 @@ export class NotificationsService {
     submissionPublicId: string;
     cardLabel?: string | null;
     tokenId?: string | null;
+    chainId?: SupportedChainId | number | null;
+    tokenContract?: string | null;
   }): Promise<void> {
     const recipient = await this.primaryWalletForUser(params.userId);
     if (!recipient) return;
     const card = params.cardLabel?.trim() || 'Your card';
     const tid = params.tokenId?.trim();
+    const chainId = this.chainIdForVault(params);
 
     await this.emitInbox({
       recipientWallet: recipient,
-      chainId: this.chainConfig.getDefaultChainId(),
+      chainId,
       type: 'vault',
       eventKey: 'SELLER_PRICE_PENDING_REMINDER',
       title: 'Your card is waiting for a price',

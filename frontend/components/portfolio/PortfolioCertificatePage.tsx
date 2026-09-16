@@ -59,7 +59,9 @@ export function PortfolioCertificatePage({
     tokenIds: tokenIdOk ? [tokenId] : [],
     queryClient,
     refetchActiveOrders: () =>
-      queryClient.invalidateQueries({ queryKey: rq.orderByToken(tokenId) }),
+      queryClient.invalidateQueries({
+        queryKey: rq.orderByToken(tokenId, rqChainId),
+      }),
   });
 
   const collectionKey = data.collectionKey;
@@ -122,7 +124,9 @@ export function PortfolioCertificatePage({
       address: data.walletAddress,
       tokenId,
     });
-    void queryClient.invalidateQueries({ queryKey: rq.orderByToken(tokenId) });
+    void queryClient.invalidateQueries({
+      queryKey: rq.orderByToken(tokenId, rqChainId),
+    });
   }, [collectionKey, data.walletAddress, queryClient, tokenId]);
 
   return (

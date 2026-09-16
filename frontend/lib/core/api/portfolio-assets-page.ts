@@ -1,12 +1,10 @@
+import type { CollectionMarketPreview } from "./marketplace-market-data";
 import type {
-  CollectionMarketPreview,
-  CollectionMarketSeries,
-  CollectionMarketStats,
   PortfolioHoldingBatchItem,
-  RwaMetadata,
-} from "@/lib/core";
+  PortfolioMarketBatchItem,
+} from "./portfolio";
+import type { RwaMetadata } from "./rwa-types";
 import { backendFetch, getApiUrl } from "./client";
-import type { PortfolioMarketBatchItem } from "./portfolio";
 
 export const PORTFOLIO_ASSETS_PAGE_MAX = 50;
 

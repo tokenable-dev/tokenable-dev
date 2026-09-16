@@ -59,9 +59,13 @@ export class WatchlistService {
     return new Set(rows.map((r) => r.collectionKey.toLowerCase()));
   }
 
-  async add(userId: string, rawKey: string): Promise<{ collectionKey: string }> {
+  async add(
+    userId: string,
+    rawKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ collectionKey: string }> {
     const collectionKey = this.normalizeKey(rawKey);
-    const row = await this.collections.findOne(collectionKey);
+    const row = await this.collections.findOne(collectionKey, chainId);
     if (!row) {
       throw new NotFoundException('Collection not found');
     }
@@ -81,8 +85,18 @@ export class WatchlistService {
     return { collectionKey };
   }
 
-  async remove(userId: string, rawKey: string): Promise<void> {
+  async remove(
+    userId: string,
+    rawKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
     const collectionKey = this.normalizeKey(rawKey);
+    // Validate the key exists on the request chain so callers cannot attach
+    // against a catalog row from another RWA. Table stays global (keys shared).
+    const row = await this.collections.findOne(collectionKey, chainId);
+    if (!row) {
+      throw new NotFoundException('Collection not found');
+    }
     await this.watchlist.delete({ userId, collectionKey });
   }
 }
