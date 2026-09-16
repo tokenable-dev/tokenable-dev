@@ -7,10 +7,17 @@ import {
   pickRwaAssetDisplayImageRef,
   psaCertNumberFromGradedMeta,
 } from '../marketplace/utils/collection-image.util';
+import { redactRwaMetadataCertForPublic } from '../marketplace/utils/cert-number-display.util';
 import { resolveRegistryDisplayName } from '../marketplace/utils/rwa-list-display-name.util';
 import { BlockchainService } from './blockchain.service';
 import { ChainConfigService, type SupportedChainId } from './chain-config.service';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
+
+function normalizeViewerWallet(address: string | null | undefined): string | null {
+  const a = address?.trim().toLowerCase();
+  if (!a || !/^0x[0-9a-f]{40}$/.test(a)) return null;
+  return a;
+}
 
 function metadataCidFromTokenUri(uri: string): string | null {
   const u = uri.trim();
@@ -227,9 +234,22 @@ export class RwaAssetResolveService {
     };
   }
 
+  private applyCertVisibility(
+    metadata: Record<string, unknown> | null,
+    tokenId: number,
+    viewerWallet: string | null,
+    owners: Map<number, string>,
+  ): Record<string, unknown> | null {
+    if (!metadata) return null;
+    const owner = owners.get(tokenId);
+    if (viewerWallet && owner && owner === viewerWallet) return metadata;
+    return redactRwaMetadataCertForPublic(metadata);
+  }
+
   async getResolvedRwaAsset(
     tokenId: number,
     chainId?: SupportedChainId,
+    viewerWalletAddress?: string,
   ): Promise<{
     tokenId: number;
     tokenURI: string;
@@ -248,9 +268,21 @@ export class RwaAssetResolveService {
         : null) ??
       base.imageBackUrl ??
       null;
+    const viewer = normalizeViewerWallet(viewerWalletAddress);
+    const owners = viewer
+      ? await this.blockchain.batchOwnerOf([tokenId], undefined, chainId)
+      : new Map<number, string>();
+    const metadata = this.applyCertVisibility(
+      base.metadata,
+      tokenId,
+      viewer,
+      owners,
+    );
+
     if (!fields.front) {
       return {
         ...base,
+        metadata,
         imageBackUrl,
         displayImageUrlOverride: null,
       };
@@ -258,6 +290,7 @@ export class RwaAssetResolveService {
     const imageUrl = await this.resolveOverrideToHttps(fields.front);
     return {
       ...base,
+      metadata,
       imageUrl: imageUrl ?? base.imageUrl,
       imageBackUrl,
       displayImageUrlOverride: fields.front,
@@ -484,6 +517,7 @@ export class RwaAssetResolveService {
   async batchRwaMetadata(
     tokenIds: number[],
     chainId?: SupportedChainId,
+    viewerWalletAddress?: string,
   ): Promise<{
     items: Array<{
       tokenId: number;
@@ -549,6 +583,10 @@ export class RwaAssetResolveService {
     }
     const metadataByUri = await this.fetchMetadataJsonByUriMap(registryUris);
     const httpsBackCache = new Map<string, string | null>();
+    const viewer = normalizeViewerWallet(viewerWalletAddress);
+    const owners = viewer
+      ? await this.blockchain.batchOwnerOf(unique, undefined, chainId)
+      : new Map<number, string>();
 
     const items = await Promise.all(
       unique.map(async (tokenId) => {
@@ -590,12 +628,18 @@ export class RwaAssetResolveService {
         }
 
         const tokenURI = registryUri || onChain?.tokenURI?.trim() || null;
+        const visibleMetadata = this.applyCertVisibility(
+          metadata,
+          tokenId,
+          viewer,
+          owners,
+        );
 
         if (!override) {
           return {
             tokenId,
             tokenURI,
-            metadata,
+            metadata: visibleMetadata,
             imageUrl,
             imageBackUrl,
             displayImageUrlOverride: null,
@@ -605,8 +649,9 @@ export class RwaAssetResolveService {
         return {
           tokenId,
           tokenURI,
-          metadata,
-          imageUrl: imageUrl ?? (await this.resolveImageFromMetadata(metadata)),
+          metadata: visibleMetadata,
+          imageUrl:
+            imageUrl ?? (await this.resolveImageFromMetadata(visibleMetadata)),
           imageBackUrl,
           displayImageUrlOverride: override,
         };

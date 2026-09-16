@@ -17,8 +17,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:integration": "jest --testPathPattern=integration\\.spec",
-    "test:identity": "jest identity-cache",
-    "test:ci": "pnpm test identity-cache cardhedger-health identity-log-contract"
+    "test:identity": "jest --testPathPattern=identity-cache --testPathIgnorePatterns=integration\\.spec",
+    "test:ci": "jest --testPathPattern='identity-cache|cardhedger-health|identity-log-contract' --testPathIgnorePatterns=integration\\.spec"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",

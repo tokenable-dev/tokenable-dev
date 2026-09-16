@@ -160,10 +160,15 @@ export const rq = {
   rwaTokenTrades: (tokenId: number, chainId: number, grade?: string) =>
     ["rwa-token-trades", tokenId, chainId, grade ?? ""] as const,
   /** Metadata rows for RWA tokens listed under a collection. */
-  collectionListingsMetadata: (key: string, tokenIds: readonly number[]) =>
+  collectionListingsMetadata: (
+    key: string,
+    tokenIds: readonly number[],
+    viewerWallet?: string,
+  ) =>
     [
       "collection-listings-metadata",
       key,
+      viewerWallet?.toLowerCase() ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
   /**
@@ -186,8 +191,17 @@ export const rq = {
   // ── RWA / Metadata ─────────────────────────────────────────────────────────
 
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
-  rwaAssetDetail: (tokenId: number, chainId: number) =>
-    ["marketplace-detail-metadata", tokenId, chainId] as const,
+  rwaAssetDetail: (
+    tokenId: number,
+    chainId: number,
+    viewerWallet?: string,
+  ) =>
+    [
+      "marketplace-detail-metadata",
+      tokenId,
+      chainId,
+      viewerWallet?.toLowerCase() ?? "",
+    ] as const,
   /** Admin — all RWA registry cards (listed + unlisted). */
   adminRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
   adminCustodyNfts: (chainId: number) => ["admin-custody-nfts", chainId] as const,

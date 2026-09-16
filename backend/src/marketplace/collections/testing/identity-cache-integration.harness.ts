@@ -158,6 +158,7 @@ export async function createIdentityIntegrationHarness(
         entities: [MarketplaceCollection],
         synchronize: true,
         logging: false,
+        retryAttempts: 0,
       }),
       TypeOrmModule.forFeature([MarketplaceCollection]),
       CardhedgerMetricsModule,

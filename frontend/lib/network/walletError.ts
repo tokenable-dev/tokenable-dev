@@ -82,9 +82,24 @@ export type WalletErrorCode =
   | "REVERT"
   | "UNKNOWN";
 
+/** Normalized categories for Privy external-wallet connect / activate flows. */
+export type WalletConnectErrorCode =
+  | "USER_CANCELLED"
+  | "ACTIVATION_FAILED"
+  | "WALLET_UNAVAILABLE"
+  | "ACCOUNT_MISMATCH"
+  | "CHAIN_MISMATCH"
+  | "TIMEOUT"
+  | "UNKNOWN";
+
 export interface WalletErrorResult {
   code: WalletErrorCode;
   /** UI에 표시할 짧은 문장 */
+  message: string;
+}
+
+export interface WalletConnectErrorResult {
+  code: WalletConnectErrorCode;
   message: string;
 }
 
@@ -204,6 +219,105 @@ function stringifyUnknown(err: unknown): string {
 }
 
 /**
+ * Privy connect / link / activate failures (not Seaport tx errors).
+ * Never returns raw provider stacks — only short user-facing copy.
+ */
+export function mapWalletConnectError(err: unknown): WalletConnectErrorResult {
+  const text = stringifyUnknown(err);
+  const lower = text.toLowerCase();
+
+  const numericCode =
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    typeof (err as { code?: unknown }).code === "number"
+      ? (err as { code: number }).code
+      : undefined;
+
+  if (
+    numericCode === 4001 ||
+    /user rejected|user denied|rejected the request|action rejected|cancelled by user|user closed|closed modal|exited|dismiss/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "USER_CANCELLED",
+      message: "Wallet connection was cancelled. Try again when you are ready.",
+    };
+  }
+
+  if (
+    /account mismatch|does not match|wrong (account|wallet)|different (account|wallet)|connected wallet does not match/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "ACCOUNT_MISMATCH",
+      message:
+        "The wallet in MetaMask does not match your Tokenable account wallet. Switch accounts or reconnect.",
+    };
+  }
+
+  if (
+    /wrong network|chain mismatch|switch network|unrecognized chain|network not supported|expected chain|chain id/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "CHAIN_MISMATCH",
+      message: "Wrong network in your wallet. Switch to the app network and try again.",
+    };
+  }
+
+  if (
+    /timeout|timed out|time out|deadline|couldn't finish connecting|could not finish connecting/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "We couldn't finish connecting your wallet. Please try connecting again.",
+    };
+  }
+
+  if (
+    /wallet not found|not found in privy|not available in this (browser )?session|no ethereum provider|provider.*(undefined|unavailable)|metamask.*(not found|unavailable)|failed to connect/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "WALLET_UNAVAILABLE",
+      message:
+        "Wallet is not available in this browser session. Open MetaMask and try connecting again.",
+    };
+  }
+
+  if (
+    /failed to activate|activation failed|setactivewallet|could not switch wallet|unable to connect/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "ACTIVATION_FAILED",
+      message: "Could not activate your wallet. Please try connecting again.",
+    };
+  }
+
+  if (text.trim()) {
+    return {
+      code: "UNKNOWN",
+      message: "Something went wrong connecting your wallet. Please try again.",
+    };
+  }
+
+  return {
+    code: "UNKNOWN",
+    message: "Something went wrong connecting your wallet. Please try again.",
+  };
+}
+
+/**
  * 지갑·트랜잭션 관련 에러를 사용자 친화 문구로 변환한다.
  */
 export function mapWalletError(err: unknown): WalletErrorResult {
@@ -252,6 +366,25 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "NETWORK_MISMATCH",
       message: "Wrong network. Switch to the app network in the header and try again.",
+    };
+  }
+
+  if (
+    /account wallet not found in privy|not available in this (browser )?session|reconnect your wallet/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "UNKNOWN",
+      message:
+        "Your account wallet is not active in this browser. Reconnect your wallet and try again.",
+    };
+  }
+
+  if (/account wallet session is not ready/i.test(lower)) {
+    return {
+      code: "TIMEOUT",
+      message: "Wallet is still connecting. Wait a moment and try again.",
     };
   }
 

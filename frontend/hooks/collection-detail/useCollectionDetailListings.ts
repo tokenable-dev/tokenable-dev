@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
 import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/core";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
@@ -15,6 +16,8 @@ export function useCollectionDetailListings(params: {
   enabled: boolean;
 }) {
   const { collectionKey, asks, enabled } = params;
+  const { address } = useAccount();
+  const viewerWallet = address?.trim() ?? "";
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
@@ -23,7 +26,11 @@ export function useCollectionDetailListings(params: {
   );
 
   const { data: batchMetadata } = useQuery({
-    queryKey: rq.collectionListingsMetadata(collectionKey, tokenIds),
+    queryKey: rq.collectionListingsMetadata(
+      collectionKey,
+      tokenIds,
+      viewerWallet,
+    ),
     queryFn: async () => {
       const ids = tokenIds;
       const BATCH_MAX = 80;
@@ -32,7 +39,12 @@ export function useCollectionDetailListings(params: {
         chunks.push(ids.slice(i, i + BATCH_MAX));
       }
       const packs = await Promise.all(
-        chunks.map((chunk) => postRwaMetadataBatch({ tokenIds: chunk })),
+        chunks.map((chunk) =>
+          postRwaMetadataBatch({
+            tokenIds: chunk,
+            viewerWalletAddress: viewerWallet || undefined,
+          }),
+        ),
       );
       const flat = packs.flatMap((p) => p.items);
       primeRwaMetadataCache(

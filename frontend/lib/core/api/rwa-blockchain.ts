@@ -21,11 +21,19 @@ export async function getRwaTokensByOwner(address: string): Promise<number[]> {
 /** 서버에서 tokenURI + metadata JSON + 브라우저용 imageUrl(https)까지 일괄 처리 (클라이언트는 IPFS에 직접 접속하지 않음) */
 export async function postRwaMetadataBatch(body: {
   tokenIds: number[];
+  /** Full cert metadata for tokenIds this wallet owns on-chain. */
+  viewerWalletAddress?: string | null;
 }): Promise<{ items: RwaMetadataBatchItem[] }> {
+  const payload: { tokenIds: number[]; viewerWalletAddress?: string } = {
+    tokenIds: body.tokenIds,
+  };
+  const viewer = body.viewerWalletAddress?.trim();
+  if (viewer) payload.viewerWalletAddress = viewer;
+
   const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/metadata/batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Failed to batch-load RWA metadata");
   return res.json() as Promise<{ items: RwaMetadataBatchItem[] }>;
@@ -34,6 +42,7 @@ export async function postRwaMetadataBatch(body: {
 /** Chunks tokenIds — portfolio can own 80+ cards; single POST >80 is rejected by Nest validation. */
 export async function postRwaMetadataBatchBatched(
   tokenIds: number[],
+  viewerWalletAddress?: string | null,
 ): Promise<{ items: RwaMetadataBatchItem[] }> {
   const unique = [
     ...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n)))),
@@ -43,7 +52,10 @@ export async function postRwaMetadataBatchBatched(
   const items: RwaMetadataBatchItem[] = [];
   for (let i = 0; i < unique.length; i += RWA_METADATA_BATCH_MAX) {
     const chunk = unique.slice(i, i + RWA_METADATA_BATCH_MAX);
-    const pack = await postRwaMetadataBatch({ tokenIds: chunk });
+    const pack = await postRwaMetadataBatch({
+      tokenIds: chunk,
+      viewerWalletAddress,
+    });
     items.push(...pack.items);
   }
   items.sort((a, b) => a.tokenId - b.tokenId);
@@ -59,8 +71,17 @@ export type ResolvedRwaAsset = {
 };
 
 /** 단일 토큰: tokenURI → metadata → imageUrl 전부 서버 게이트웨이·캐시 */
-export async function getResolvedRwaAsset(tokenId: number): Promise<ResolvedRwaAsset> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/asset/${tokenId}`);
+export async function getResolvedRwaAsset(
+  tokenId: number,
+  viewerWalletAddress?: string | null,
+): Promise<ResolvedRwaAsset> {
+  const sp = new URLSearchParams();
+  const viewer = viewerWalletAddress?.trim();
+  if (viewer) sp.set("viewerWallet", viewer);
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/blockchain/rwa/asset/${tokenId}${q ? `?${q}` : ""}`,
+  );
   if (res.status === 404) {
     return { tokenId, tokenURI: "", metadata: null, imageUrl: null, imageBackUrl: null };
   }

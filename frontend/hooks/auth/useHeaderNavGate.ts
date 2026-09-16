@@ -53,6 +53,8 @@ export function useHeaderNavGate() {
                 openWalletMismatch({ returnTo: href });
                 return;
               }
+              // connect-wallet: still allow nav (Portfolio etc. show their own
+              // disconnected / activating UI). Trade CTAs use useTradeAccessGate.
             }
             router.push(href);
             return;

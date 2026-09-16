@@ -31,6 +31,7 @@ export function useEnsureAccountWalletActive() {
   const { address: connectedAddress } = useAccount();
   const alignInFlight = useRef(false);
   const lastAlignedAddress = useRef<string | null>(null);
+  const mismatchNotifiedFor = useRef<string | null>(null);
   const walletFingerprint = wallets.map((w) => w.address.toLowerCase()).join(",");
   const privyWalletHint = pickPrivyUserEthereumWalletAddress(privyUser) ?? "";
 
@@ -48,6 +49,7 @@ export function useEnsureAccountWalletActive() {
     const primary = normalizeWalletAddress(pendingLinked);
     if (connected && primary && connected === primary) {
       lastAlignedAddress.current = primary;
+      mismatchNotifiedFor.current = null;
       useAuthUiStore.getState().closeWalletMismatch();
       return;
     }
@@ -56,6 +58,22 @@ export function useEnsureAccountWalletActive() {
       resolveAccountSigningWallet(wallets, primaryLinked ?? pendingLinked) ??
       findPrivyWalletByAddress(wallets, pendingLinked) ??
       pickPrimaryPrivyWallet(wallets);
+
+    // Primary known but not in this Privy session, while another account is active.
+    if (
+      !target &&
+      primaryLinked &&
+      connected &&
+      connected !== primaryLinked
+    ) {
+      const key = `${primaryLinked}:${connected}`;
+      if (mismatchNotifiedFor.current !== key) {
+        mismatchNotifiedFor.current = key;
+        useAuthUiStore.getState().openWalletMismatch();
+      }
+      return;
+    }
+
     if (!target) return;
 
     const targetNorm = normalizeWalletAddress(target.address);
@@ -77,6 +95,7 @@ export function useEnsureAccountWalletActive() {
       .then(async () => {
         await waitForWagmiAccountAddress(target.address);
         lastAlignedAddress.current = targetNorm;
+        mismatchNotifiedFor.current = null;
         useAuthUiStore.getState().closeWalletMismatch();
       })
       .catch(() => {

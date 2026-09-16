@@ -10,6 +10,7 @@ import {
   rq,
   type RwaMetadata,
 } from "@/lib/core";
+import { formatCertLabel } from "@/lib/marketplace/certNumberDisplay";
 import { listingVerificationTiles } from "@/lib/marketplace/collectionListingModalHelpers";
 import { COLLECTION_TRADE_SELF_VAULT_LABEL } from "@/lib/marketplace/vaultCustodyLabel";
 import { useAppChain } from "@/providers/AppChainProvider";
@@ -51,7 +52,10 @@ export function useCollectionOwnedRwa(collectionKey: string) {
       );
       if (matched.length === 0) return [];
 
-      const { items } = await postRwaMetadataBatch({ tokenIds: matched });
+      const { items } = await postRwaMetadataBatch({
+        tokenIds: matched,
+        viewerWalletAddress: addr,
+      });
       const byId = new Map(items.map((row) => [row.tokenId, row]));
 
       return matched
@@ -59,14 +63,14 @@ export function useCollectionOwnedRwa(collectionKey: string) {
           const row = byId.get(tokenId);
           const meta = row?.metadata ?? null;
           const tiles = listingVerificationTiles(meta);
+          const certLabel =
+            formatCertLabel(tiles.certNumber !== "—" ? tiles.certNumber : null) ??
+            `Token #${tokenId}`;
           return {
             tokenId,
             metadata: meta,
             imageUrl: row?.imageUrl ?? null,
-            certLabel:
-              tiles.certNumber !== "—"
-                ? `Cert. ${tiles.certNumber}`
-                : `Token #${tokenId}`,
+            certLabel,
             vaultLabel: COLLECTION_TRADE_SELF_VAULT_LABEL,
           };
         })

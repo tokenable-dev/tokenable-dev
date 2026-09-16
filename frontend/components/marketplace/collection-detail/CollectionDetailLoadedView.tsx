@@ -149,12 +149,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const certNumberForToken = useCallback(
     (tokenId: number): string | null => {
+      const ownedRow = owned.rows.find((row) => row.tokenId === tokenId);
+      if (ownedRow?.metadata) {
+        const ownedTiles = listingVerificationTiles(ownedRow.metadata);
+        if (ownedTiles.certNumber && ownedTiles.certNumber !== "—") {
+          return ownedTiles.certNumber;
+        }
+      }
       const packed = listingsBatchMetadata?.get(tokenId);
       const tiles = listingVerificationTiles(packed?.metadata ?? null);
       if (tiles.certNumber && tiles.certNumber !== "—") return tiles.certNumber;
-      const ownedRow = owned.rows.find((row) => row.tokenId === tokenId);
-      const fromOwned = ownedRow?.certLabel.match(/(\d{5,})/);
-      return fromOwned?.[1] ?? null;
+      return null;
     },
     [listingsBatchMetadata, owned.rows],
   );

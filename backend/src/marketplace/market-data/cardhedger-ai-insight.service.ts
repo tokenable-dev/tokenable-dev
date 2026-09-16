@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import { maskPsaCertNumberForPublicApi } from '../utils/cert-number-display.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 import type { CollectionAiInsightPricingStats } from './cardhedger-market-data.types';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
@@ -403,7 +404,9 @@ export class CardhedgerAiInsightService {
         col.components ?? {},
         stats.psaTotalPopulation,
       );
-      const psaCert = psaCertNumberFromCollectionRow(col);
+      const psaCert = maskPsaCertNumberForPublicApi(
+        psaCertNumberFromCollectionRow(col),
+      );
       const defaultPlatform: AiInsightPlatformContext = {
         activeListingCount: 0,
         floorUsd: null,

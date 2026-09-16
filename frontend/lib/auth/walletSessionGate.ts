@@ -1,5 +1,10 @@
 import type { AuthUser } from "./auth";
-import { getPrimaryWalletAddress, isUserWalletLinked, userHasLinkedWallet } from "./wallets";
+import {
+  getPrimaryWalletAddress,
+  isUserWalletLinked,
+  normalizeWalletAddress,
+  userHasLinkedWallet,
+} from "./wallets";
 import {
   isWalletSessionActive,
   type WalletConnectionSnapshot,
@@ -10,35 +15,37 @@ export type WalletSessionGateResult =
   | { action: "connect-wallet" }
   | { action: "wallet-mismatch" };
 
-/** Wallet session check after account-level gate (login + linked wallet) passes. */
+/**
+ * Wallet session check after account-level gate (login + linked wallet) passes.
+ *
+ * States this models (not identical):
+ * - linked (backend primary) vs active (wagmi session) vs account match vs ready
+ * Chain readiness is enforced later by `useEnsureAccountWalletReady` / AppChain.
+ */
 export function resolveWalletSessionGate(
   user: AuthUser | null | undefined,
   connection: WalletConnectionSnapshot,
 ): WalletSessionGateResult {
   const sessionActive = isWalletSessionActive(connection);
+  const primary = getPrimaryWalletAddress(user);
+  const connected = normalizeWalletAddress(connection.address);
 
+  // Do not assume silent MetaMask activation will succeed — prompt connect/activate.
   if (!sessionActive) {
-    // If the account has a primary wallet, PrivyAppProviders will silently activate it.
-    // For email/social users: embedded wallet is always available via Privy.
-    // For wallet-first users: MetaMask may need explicit reconnection — Phase 4 Trading QA
-    // must verify that wallet-first users are prompted to reconnect MetaMask before trading.
-    if (user && getPrimaryWalletAddress(user)) {
-      return { action: "allow" };
-    }
     return { action: "connect-wallet" };
   }
 
   if (
     user &&
     userHasLinkedWallet(user) &&
-    connection.address &&
-    !isUserWalletLinked(user, connection.address)
+    connected &&
+    !isUserWalletLinked(user, connected)
   ) {
-    // Primary wallet is set: PrivyAppProviders will auto-align to the correct wallet.
-    // Mismatch prompt only triggers when no primary is set (unusual edge case).
-    if (getPrimaryWalletAddress(user)) {
-      return { action: "allow" };
-    }
+    return { action: "wallet-mismatch" };
+  }
+
+  // Primary is the signing wallet. Connected but wrong account must not proceed.
+  if (primary && connected && connected !== primary) {
     return { action: "wallet-mismatch" };
   }
 

@@ -1,9 +1,20 @@
 import { create } from "zustand";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
+import type { WalletConnectErrorCode } from "@/lib/network/walletError";
+import { useToastStore } from "@/store/toastStore";
 
 export type AuthModalMode = "sign-in" | "sign-up";
 
-export type ConnectWalletIntent = "session" | "link";
+/**
+ * Survives PrivyWalletLauncher remount during MetaMask Mobile app-switch.
+ * Do not rely on component useRef alone for duplicate-activation protection.
+ */
+export type WalletActivationPhase =
+  | "idle"
+  | "activating"
+  | "waiting_mobile_return"
+  | "reconciling"
+  | "failed";
 
 /** Survives OAuth full-page redirects (Google etc.) — Zustand alone does not. */
 const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
@@ -43,22 +54,28 @@ function resolvePendingReturnTo(
   return current;
 }
 
+function isActivationInFlight(phase: WalletActivationPhase): boolean {
+  return (
+    phase === "activating" ||
+    phase === "waiting_mobile_return" ||
+    phase === "reconciling"
+  );
+}
+
 interface AuthUiState {
   signInOpen: boolean;
   signInMode: AuthModalMode;
   connectWalletOpen: boolean;
-  /** Activates linked wallet (`session`) or opens Privy link flow (`link`). */
-  connectWalletIntent: ConnectWalletIntent;
   walletMismatchOpen: boolean;
   kycOpen: boolean;
   pendingReturnTo: string | null;
 
+  walletActivationPhase: WalletActivationPhase;
+  walletActivationExpectedAddress: string | null;
+
   openSignIn: (opts?: { mode?: AuthModalMode; returnTo?: string }) => void;
   closeSignIn: () => void;
-  openConnectWallet: (opts?: {
-    returnTo?: string;
-    intent?: ConnectWalletIntent;
-  }) => void;
+  openConnectWallet: (opts?: { returnTo?: string }) => void;
   closeConnectWallet: () => void;
   openWalletMismatch: (opts?: { returnTo?: string }) => void;
   closeWalletMismatch: () => void;
@@ -67,17 +84,30 @@ interface AuthUiState {
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
+
+  /**
+   * Begin a wallet activation attempt. Returns false when one is already in flight
+   * (duplicate tap / remount) — caller must not open another Privy modal.
+   */
+  beginWalletActivation: (expectedAddress?: string | null) => boolean;
+  setWalletActivationPhase: (phase: WalletActivationPhase) => void;
+  failWalletActivation: (
+    code: WalletConnectErrorCode,
+    message: string,
+  ) => void;
+  finishWalletActivation: () => void;
 }
 
 export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   signInOpen: false,
   signInMode: "sign-in",
   connectWalletOpen: false,
-  connectWalletIntent: "session",
   walletMismatchOpen: false,
   kycOpen: false,
-  // Prefer in-memory; sessionStorage is the OAuth-reload fallback (see consumeReturnTo).
   pendingReturnTo: null,
+
+  walletActivationPhase: "idle",
+  walletActivationExpectedAddress: null,
 
   openSignIn: (opts) =>
     set({
@@ -88,15 +118,30 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
 
   closeSignIn: () => set({ signInOpen: false }),
 
-  openConnectWallet: (opts) =>
+  openConnectWallet: (opts) => {
+    const phase = get().walletActivationPhase;
+    const pendingReturnTo = resolvePendingReturnTo(
+      opts?.returnTo,
+      get().pendingReturnTo,
+    );
+    if (isActivationInFlight(phase)) {
+      set({ pendingReturnTo });
+      useToastStore.getState().push({
+        tone: "warning",
+        title: "Connecting wallet",
+        message:
+          "Approve the request in MetaMask, then return to this tab to finish.",
+        durationMs: 6_000,
+      });
+      return;
+    }
     set({
       connectWalletOpen: true,
-      connectWalletIntent: opts?.intent ?? "session",
-      pendingReturnTo: resolvePendingReturnTo(opts?.returnTo, get().pendingReturnTo),
-    }),
+      pendingReturnTo,
+    });
+  },
 
-  closeConnectWallet: () =>
-    set({ connectWalletOpen: false, connectWalletIntent: "session" }),
+  closeConnectWallet: () => set({ connectWalletOpen: false }),
 
   openWalletMismatch: (opts) =>
     set({
@@ -129,4 +174,30 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     set({ pendingReturnTo: null });
     return path && path.startsWith("/") ? path : null;
   },
+
+  beginWalletActivation: (expectedAddress) => {
+    if (isActivationInFlight(get().walletActivationPhase)) return false;
+    set({
+      walletActivationPhase: "activating",
+      walletActivationExpectedAddress: expectedAddress?.trim()
+        ? expectedAddress.trim().toLowerCase()
+        : null,
+    });
+    return true;
+  },
+
+  setWalletActivationPhase: (phase) => set({ walletActivationPhase: phase }),
+
+  failWalletActivation: (_code, _message) =>
+    set({
+      walletActivationPhase: "failed",
+      connectWalletOpen: false,
+    }),
+
+  finishWalletActivation: () =>
+    set({
+      walletActivationPhase: "idle",
+      walletActivationExpectedAddress: null,
+      connectWalletOpen: false,
+    }),
 }));

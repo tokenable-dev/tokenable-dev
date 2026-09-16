@@ -632,6 +632,40 @@ export function PortfolioPageView({
 
   const redeemInProgressCount = inFlightRows.length;
 
+  const buildListModalState = useCallback(
+    (tokenId: number) => {
+      const row =
+        assetRowsByTokenId.get(tokenId) ??
+        assetRows.find((r) => r.tokenId === tokenId);
+      const listing = listingByTokenId.get(tokenId);
+      const identity = listPriceSheetIdentity(
+        holdingsMetadataByTokenId.get(tokenId) ??
+          metadataByTokenId.get(tokenId) ??
+          null,
+        tokenId,
+        row?.name,
+      );
+      return {
+        tokenId,
+        assetTitle: identity.line1,
+        headlineParts: identity.parts,
+        headlineGrade: identity.grade,
+        collectionKey: tokenToCollectionKey[tokenId],
+        existingAskOrderHash: listing?.orderHash,
+        marketValueUsd: row?.currentPrice ?? null,
+        listedPriceUsd: listing?.priceUsd ?? row?.listPriceUsd ?? null,
+      };
+    },
+    [
+      assetRows,
+      assetRowsByTokenId,
+      listingByTokenId,
+      tokenToCollectionKey,
+      holdingsMetadataByTokenId,
+      metadataByTokenId,
+    ],
+  );
+
   const openPortfolioSetPriceModal = useCallback(
     (tokenId: number) => {
       if (isRedeemInFlight(redeemStatusByTokenId.get(tokenId))) {
@@ -639,37 +673,36 @@ export function PortfolioPageView({
         return;
       }
       runSellAccessGate(() => {
-        const row = assetRows.find((r) => r.tokenId === tokenId);
-        const listing = listingByTokenId.get(tokenId);
-        const identity = listPriceSheetIdentity(
-          holdingsMetadataByTokenId.get(tokenId) ??
-            metadataByTokenId.get(tokenId) ??
-            null,
-          tokenId,
-          row?.name,
-        );
-        setListModal({
-          tokenId,
-          assetTitle: identity.line1,
-          headlineParts: identity.parts,
-          headlineGrade: identity.grade,
-          collectionKey: tokenToCollectionKey[tokenId],
-          existingAskOrderHash: listing?.orderHash,
-          marketValueUsd: row?.currentPrice ?? null,
-          listedPriceUsd: listing?.priceUsd ?? row?.listPriceUsd ?? null,
-        });
+        setListModal(buildListModalState(tokenId));
       });
     },
-    [
-      assetRows,
-      listingByTokenId,
-      runSellAccessGate,
-      tokenToCollectionKey,
-      redeemStatusByTokenId,
-      holdingsMetadataByTokenId,
-      metadataByTokenId,
-    ],
+    [runSellAccessGate, redeemStatusByTokenId, buildListModalState],
   );
+
+  /** Fresh mint often opens the sheet before BFF metadata/prices land — keep the open panel live. */
+  useEffect(() => {
+    if (listModal == null) return;
+    const next = buildListModalState(listModal.tokenId);
+    setListModal((prev) => {
+      if (prev == null || prev.tokenId !== next.tokenId) return prev;
+      if (
+        prev.assetTitle === next.assetTitle &&
+        prev.headlineGrade === next.headlineGrade &&
+        prev.collectionKey === next.collectionKey &&
+        prev.existingAskOrderHash === next.existingAskOrderHash &&
+        prev.marketValueUsd === next.marketValueUsd &&
+        prev.listedPriceUsd === next.listedPriceUsd &&
+        prev.headlineParts.cardName === next.headlineParts.cardName &&
+        prev.headlineParts.cardNumber === next.headlineParts.cardNumber &&
+        prev.headlineParts.year === next.headlineParts.year &&
+        prev.headlineParts.setName === next.headlineParts.setName &&
+        prev.headlineParts.variety === next.headlineParts.variety
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [listModal?.tokenId, buildListModalState]);
 
   const { dailyPnlUsd, dailyPnlPct } = usePortfolioDailyChart(
     portfolioAddress,

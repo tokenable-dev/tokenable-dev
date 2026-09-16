@@ -74,11 +74,18 @@ export function useListRwaModal({
     !existingAskOrder &&
     existingAskQuery.isPending;
 
-  const { data: settlementPolicyData, isFetched: settlementFetched } = useQuery({
+  const {
+    data: settlementPolicyData,
+    isFetched: settlementFetched,
+    refetch: refetchSettlementPolicy,
+  } = useQuery({
     queryKey: ["rwa-settlement-policy", chainId, String(tokenId)],
     queryFn: () => getRwaSettlementPolicy(tokenId),
     enabled: Boolean(String(tokenId).trim()),
     staleTime: 60_000,
+    // Fresh mint: token may land in DB a few seconds after the sheet opens.
+    refetchInterval: (q) =>
+      q.state.data?.known === false ? 2_000 : false,
   });
   const settlementPolicy = settlementPolicyData?.settlementPolicy ?? undefined;
   const settlementKnown = settlementPolicyData?.known === true;
@@ -107,24 +114,26 @@ export function useListRwaModal({
   });
 
   // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
+  // Do not hard-error on unknown settlement while indexing catches up after mint.
   useEffect(() => {
-    if (!settlementFetched) return;
-    if (settlementPolicyData && !settlementKnown) {
-      setErrorMsg(
-        `This card is not indexed on chain ${chainId}. Switch the header network to where it was minted (or reset marketplace data after an RWA redeploy).`,
-      );
-      setStep("error");
-      return;
-    }
     if (onChainOwnerQuery.isError) {
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
       setStep("error");
+      return;
+    }
+    if (
+      settlementFetched &&
+      settlementKnown &&
+      step === "error" &&
+      !onChainOwnerQuery.isError
+    ) {
+      setErrorMsg("");
+      setStep("idle");
     }
   }, [
     settlementFetched,
     settlementKnown,
-    settlementPolicyData,
-    chainId,
+    step,
     onChainOwnerQuery.isError,
     onChainOwnerQuery.error,
   ]);
@@ -314,17 +323,22 @@ export function useListRwaModal({
     setErrorMsg("");
     setSuccessMeta(null);
 
-    if (settlementFetched && !settlementKnown) {
-      setErrorMsg(
-        `This card is not indexed on chain ${chainId}. Switch the header network to where it was minted.`,
-      );
-      setStep("error");
-      return;
-    }
     if (onChainOwnerQuery.isError) {
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
       setStep("error");
       return;
+    }
+    let resolvedSettlement = settlementPolicy;
+    if (!settlementKnown) {
+      const refreshed = await refetchSettlementPolicy();
+      if (refreshed.data?.known !== true) {
+        setErrorMsg(
+          "Card details are still loading after mint. Wait a moment and try List again.",
+        );
+        setStep("error");
+        return;
+      }
+      resolvedSettlement = refreshed.data.settlementPolicy ?? undefined;
     }
 
     try {
@@ -355,7 +369,7 @@ export function useListRwaModal({
           chainId,
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
-          settlementPolicy,
+          settlementPolicy: resolvedSettlement,
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -419,7 +433,7 @@ export function useListRwaModal({
         >[0]["writeContractAsync"],
         chainId,
         mode: "create",
-        settlementPolicy,
+        settlementPolicy: resolvedSettlement,
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {

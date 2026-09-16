@@ -8,6 +8,7 @@ import {
 } from "@/lib/marketplace/bucketKey";
 import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
 import { useAppChain } from "@/providers/AppChainProvider";
+import { useAccount } from "wagmi";
 
 function cachedAssetInitialData(tokenId: number) {
   const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
@@ -24,9 +25,12 @@ function cachedAssetInitialData(tokenId: number) {
 
 export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
   const { chainId } = useAppChain();
+  const { address } = useAccount();
+  const viewerWallet = address?.trim() ?? "";
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: rq.rwaAssetDetail(tokenId, chainId),
-    queryFn: () => getResolvedRwaAsset(tokenId),
+    queryKey: rq.rwaAssetDetail(tokenId, chainId, viewerWallet),
+    queryFn: () =>
+      getResolvedRwaAsset(tokenId, viewerWallet || undefined),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
     initialData: () => cachedAssetInitialData(tokenId),

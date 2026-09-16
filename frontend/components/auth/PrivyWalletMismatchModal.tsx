@@ -64,7 +64,11 @@ export function PrivyWalletMismatchModal() {
           primaryLinked.toLowerCase(),
       );
       if (!match) {
-        setError("Linked wallet is not available in this browser session.");
+        // Primary not in this browser session — reopen Privy reconnect flow.
+        closeWalletMismatch();
+        useAuthUiStore.getState().openConnectWallet({
+          returnTo: useAuthUiStore.getState().pendingReturnTo ?? undefined,
+        });
         return;
       }
       await setActiveWallet(match);
@@ -75,7 +79,7 @@ export function PrivyWalletMismatchModal() {
     } finally {
       setBusy(false);
     }
-  }, [primaryLinked, wallets, setActiveWallet, syncSession, finish]);
+  }, [primaryLinked, wallets, setActiveWallet, syncSession, finish, closeWalletMismatch]);
 
   const walletFingerprint = wallets
     .map((w) => w.address.toLowerCase())

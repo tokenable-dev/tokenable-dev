@@ -38,6 +38,7 @@ import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MintEventListenerService } from './mint-event-listener.service';
 import { pickCollectionDisplayImageUrl } from '../utils/collection-image.util';
+import { maskCollectionEntityForPublicApi } from '../utils/collection-row.util';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
@@ -686,7 +687,7 @@ export class CollectionsController {
       : null;
 
     return {
-      collection: col ?? null,
+      collection: col ? maskCollectionEntityForPublicApi(col) : null,
       listings,
       collectionBids,
       representativeImageUrl,

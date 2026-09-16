@@ -4,6 +4,7 @@ import {
   psaGradePolicyInputFromGraded,
 } from "@/lib/market/psaGradePolicy";
 import { uriNeedsBackendResolve } from "@/lib/marketplace/mediaUriResolve";
+import { formatCertNumberDisplay } from "@/lib/marketplace/certNumberDisplay";
 import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
@@ -88,9 +89,11 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
     (graded ? formatPsaGradedByDisplay(psaGradePolicyInputFromGraded(graded)) : null) ??
     trust.gradeLine?.trim() ??
     "—";
+  const certDisplay =
+    formatCertNumberDisplay(trust.certNumber) ?? null;
   return {
     gradedBy,
-    certNumber: trust.certNumber ?? "—",
+    certNumber: certDisplay ?? "—",
     storedAt: "PSA Vault",
   };
 }

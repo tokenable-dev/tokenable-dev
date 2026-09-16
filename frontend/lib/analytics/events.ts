@@ -83,7 +83,12 @@ export type EventName =
 
   // ── Wallet ─────────────────────────────────────────────────────────────
   | "wallet_connect_started"    // connect wallet flow opened
-  | "wallet_connected"          // wallet linked successfully
+  | "wallet_connected"          // wallet linked / activated successfully
+  | "wallet_connect_cancelled"  // user dismissed Privy / MetaMask connect
+  | "wallet_connect_failed"     // connect / activate failed (non-cancel)
+  | "wallet_connect_timeout"    // mobile return / Privy session wait timed out
+  | "wallet_account_mismatch"   // active MetaMask account ≠ Tokenable primary
+  | "wallet_chain_mismatch"     // wallet chain ≠ app chain after activate/switch
   | "wallet_menu_opened"        // header wallet menu opened
   | "fiat_onramp_started"       // Add Funds / fiat on-ramp flow initiated
 

@@ -1,5 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsInt, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsEthereumAddress,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 
 export class RwaMetadataBatchDto {
@@ -14,4 +21,13 @@ export class RwaMetadataBatchDto {
   @IsInt({ each: true })
   @Min(0, { each: true })
   tokenIds!: number[];
+
+  /** When set, tokens owned by this wallet return full cert metadata; others are redacted. */
+  @ApiPropertyOptional({
+    description: 'Viewer wallet — full cert for owned tokenIds only',
+    example: SWAGGER_FIXTURES.wallet,
+  })
+  @IsOptional()
+  @IsEthereumAddress()
+  viewerWalletAddress?: string;
 }

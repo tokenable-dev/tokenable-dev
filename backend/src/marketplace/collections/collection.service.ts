@@ -52,7 +52,10 @@ import {
   pickTrendingSlabImageRef,
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
-import { enrichCollectionComponentsForApi } from '../utils/collection-row.util';
+import {
+  enrichCollectionComponentsForApi,
+} from '../utils/collection-row.util';
+import { maskPsaCertNumberForPublicApi } from '../utils/cert-number-display.util';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import {
@@ -1138,18 +1141,19 @@ export class CollectionService {
         (typeof comp.cardName === 'string' && comp.cardName.trim()) ||
         (typeof comp.psaSubject === 'string' && comp.psaSubject.trim()) ||
         '';
+      const certPublic = maskPsaCertNumberForPublicApi(t.certNumber);
       const title =
         name ||
         (t.displayName ?? '').trim() ||
         (col?.displayLabel ?? '').trim() ||
-        (t.certNumber ? `Cert #${t.certNumber}` : `Token #${t.tokenId}`);
+        (certPublic ? `Cert ${certPublic}` : `Token #${t.tokenId}`);
       const imageUrl =
         pickSearchTokenImageUrl(t.displayImageUrl, null) ??
         pickSearchTokenImageUrl(extra?.imageUrl ?? null, null) ??
         pickCollectionDisplayImageUrl(col?.coverImageUrl ?? null);
       return {
         tokenId: t.tokenId,
-        certNumber: t.certNumber,
+        certNumber: certPublic,
         collectionKey: t.collectionKey,
         title,
         setLine: CollectionService.setLineFromComponents(comp),
@@ -1162,7 +1166,10 @@ export class CollectionService {
         ),
         listedUsd: askByToken.get(t.tokenId) ?? null,
         imageUrl,
-        components: Object.keys(comp).length > 0 ? comp : null,
+        components:
+          Object.keys(comp).length > 0
+            ? enrichCollectionComponentsForApi(comp, col?.psaCertNumber ?? null)
+            : null,
       };
     });
   }

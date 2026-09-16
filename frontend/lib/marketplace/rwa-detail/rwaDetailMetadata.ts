@@ -7,6 +7,7 @@ import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHead
 import {
   formatAssetDetailHeadlineText,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { formatCertNumberDisplay } from "@/lib/marketplace/certNumberDisplay";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
@@ -91,7 +92,8 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
       value: formatSportCategoryDisplayLabel(category),
     });
   }
-  if (cert) rows.push({ label: "Cert #", value: cert });
+  const certDisplay = formatCertNumberDisplay(cert);
+  if (certDisplay) rows.push({ label: "Cert #", value: certDisplay });
 
   if (rows.length >= 2) return rows.slice(0, 8);
 
@@ -126,7 +128,7 @@ function joinSlabTextParts(...vals: (string | null | undefined)[]): string {
 }
 
 function formatRwaMobileSlabCertLabel(certNumber: string | null | undefined): string {
-  const cert = certNumber?.trim() ?? "";
+  const cert = formatCertNumberDisplay(certNumber);
   return cert ? `CERT. ${cert}` : "";
 }
 

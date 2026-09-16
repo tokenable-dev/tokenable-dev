@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -42,9 +43,14 @@ export class BlockchainController {
   getResolvedRwaAsset(
     @Param('tokenId', ParseIntPipe) tokenId: number,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+    @Query('viewerWallet') viewerWallet?: string,
   ) {
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    return this.rwaAssetResolve.getResolvedRwaAsset(tokenId, chainId);
+    return this.rwaAssetResolve.getResolvedRwaAsset(
+      tokenId,
+      chainId,
+      viewerWallet?.trim(),
+    );
   }
 
   /** ERC-721 tokenURI 문자열만 */
@@ -88,7 +94,11 @@ export class BlockchainController {
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    return this.rwaAssetResolve.batchRwaMetadata(body.tokenIds ?? [], chainId);
+    return this.rwaAssetResolve.batchRwaMetadata(
+      body.tokenIds ?? [],
+      chainId,
+      body.viewerWalletAddress?.trim(),
+    );
   }
 
   /** ipfs:// URI → 브라우저용 https URL */
