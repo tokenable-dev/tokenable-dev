@@ -49,7 +49,7 @@ export function KbwMysteryCardBurnModal({
             disabled={burning}
             onClick={() => void handleBurn()}
           >
-            {burning ? "Burning…" : "Burn"}
+            {burning ? "Checking…" : "Check"}
           </TkButton>
         </div>
       }

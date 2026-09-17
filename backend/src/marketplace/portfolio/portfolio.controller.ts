@@ -227,7 +227,7 @@ export class PortfolioController {
   @ApiOperation({
     summary: 'KBW Mystery Card burn 여부',
     description:
-      'Web2 synthetic event card — whether this wallet already burned it (removed from Portfolio).',
+      'Web2 synthetic event card — burned when any portfolio for this wallet’s contact email has burned (email-scoped, all wallets).',
   })
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/kbw-mystery-card/:wallet')
@@ -239,7 +239,7 @@ export class PortfolioController {
   @ApiOperation({
     summary: 'KBW Mystery Card burn',
     description:
-      'Permanently remove the web2 KBW Mystery Card from this wallet’s Portfolio view.',
+      'Hide the web2 KBW Mystery Card for this contact email on every linked wallet portfolio (not an on-chain burn).',
   })
   @ApiBody(
     apiBodyDefault(BurnKbwMysteryCardDto, {

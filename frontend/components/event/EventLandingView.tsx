@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLogin } from "@privy-io/react-auth";
 import { ASSETS } from "@/constants/assets";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
+import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import { useAuthUiStore } from "@/store/authUiStore";
-import { useToastStore } from "@/store/toastStore";
 
 const STAGE1_INSTAGRAM_URL = "https://www.instagram.com/tokenable_io";
 const STAGE1_DONE_KEY = "tk_kbw_stage1_done";
@@ -72,6 +73,7 @@ function Stage1Gloss() {
 
 /** KBW event landing — Figma 430×932 layout. */
 export function EventLandingView() {
+  const router = useRouter();
   const [stage1Done, setStage1Done] = useState(false);
   const { login } = useLogin();
   const { authenticated, canShowAuthUi } = usePrivyInitGate();
@@ -92,18 +94,11 @@ export function EventLandingView() {
 
   function handleStage2() {
     if (!stage1Done) return;
-    setPendingReturnTo("/event");
-    // Same path as GNB Sign up — call Privy login() directly.
-    // openSignIn → PrivySignInLauncher no-ops when already authenticated.
     if (authenticated) {
-      useToastStore.getState().push({
-        tone: "brand",
-        title: "Already signed in",
-        message: "You're already logged in to Tokenable.",
-        durationMs: 4_000,
-      });
+      router.push(`${PORTFOLIO_PATH}?tab=assets`);
       return;
     }
+    setPendingReturnTo("/event");
     if (!canShowAuthUi) return;
     login();
   }

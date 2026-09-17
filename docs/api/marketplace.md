@@ -625,6 +625,14 @@ Honors `x-tokenable-chain-id`.
 
 **Client paint after buy:** the buyer’s My Assets localStorage bundle is **not** wiped on ask fill. The fill USDC is written immediately (`marketplace_buy`) so **Purchase price** shows before holdings refetch. Stale assets-page / persist writes must not replace a painted `marketplace_buy` with a null cost. Seller paint cache is still cleared (they no longer own the token).
 
+### `GET /api/marketplace/portfolio/kbw-mystery-card/:wallet`
+
+Whether the web2 KBW Mystery Card is hidden for this wallet. Lookup is **email-scoped**: resolve the wallet → linked account email(s) → `kbw_mystery_card_burns`. Same contact email on another wallet returns `burned: true` after any of them burns.
+
+### `POST /api/marketplace/portfolio/kbw-mystery-card/burn`
+
+Body `{ walletAddress }`. Records a burn for every contact email linked to that wallet (not an on-chain NFT burn). Afterward, Portfolio hides the synthetic card for all wallets sharing those emails.
+
 **Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys and after `PUT …/cost-basis` (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or `manual` value.
 
 ---

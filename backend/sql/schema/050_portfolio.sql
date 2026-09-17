@@ -73,13 +73,13 @@ COMMENT ON COLUMN portfolio_holdings.cost_basis_source IS
 
 CREATE TABLE IF NOT EXISTS kbw_mystery_card_burns (
   id serial PRIMARY KEY,
-  wallet_address varchar(42) NOT NULL,
+  email varchar(320) NOT NULL,
   burned_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT kbw_mystery_card_burns_wallet_unique UNIQUE (wallet_address)
+  CONSTRAINT kbw_mystery_card_burns_email_unique UNIQUE (email)
 );
 
 COMMENT ON TABLE kbw_mystery_card_burns IS
-  'Web2 KBW Mystery Card burn ledger — one row per wallet; Portfolio hides the synthetic card after burn.';
+  'Web2 KBW Mystery Card burn ledger — one row per email; all wallets sharing that email hide the card after burn.';
 
 CREATE TABLE IF NOT EXISTS user_watchlist (
   id serial PRIMARY KEY,

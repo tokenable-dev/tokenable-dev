@@ -20,6 +20,7 @@ FILES=(
   maintenance/nullable_rwa_tokens_settlement_policy.sql
   maintenance/user_buyer_listing_alert_token_contract.sql
   maintenance/drop_legacy_unused_tables.sql
+  maintenance/add_kbw_mystery_card_burns.sql
 )
 
 run_psql() {

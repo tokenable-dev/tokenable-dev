@@ -8,7 +8,7 @@ import {
 
 /**
  * Web2-only burn ledger for the synthetic KBW Mystery Card.
- * One row per wallet — after burn the card stays out of Portfolio.
+ * One row per email — after burn, every portfolio for that email hides the card.
  */
 @Entity('kbw_mystery_card_burns')
 export class KbwMysteryCardBurn {
@@ -16,8 +16,8 @@ export class KbwMysteryCardBurn {
   id: number;
 
   @Index({ unique: true })
-  @Column({ name: 'wallet_address', type: 'varchar', length: 42 })
-  walletAddress: string;
+  @Column({ name: 'email', type: 'varchar', length: 320 })
+  email: string;
 
   @CreateDateColumn({ name: 'burned_at', type: 'timestamptz' })
   burnedAt: Date;

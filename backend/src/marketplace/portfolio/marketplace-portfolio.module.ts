@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { User } from '../../user/entities/user.entity';
+import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from '../entities/portfolio-holding.entity';
 import { KbwMysteryCardBurn } from '../entities/kbw-mystery-card-burn.entity';
@@ -25,6 +26,7 @@ import { PortfolioController } from './portfolio.controller';
       KbwMysteryCardBurn,
       RwaToken,
       User,
+      UserWallet,
     ]),
     BlockchainModule,
     MarketplaceMarketDataModule,
