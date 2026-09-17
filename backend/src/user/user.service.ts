@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { getAddress } from 'ethers';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import type { ParsedAuthProvider, ParsedWalletLink } from '../auth/privy/privy.types';
 import { isWalletOnlyPlaceholderEmail } from '../auth/privy/privy-user.parser';
 import type { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -30,6 +30,24 @@ import {
   MAX_SHIPPING_ADDRESSES_PER_USER,
   normalizeEmailNotifPrefs,
 } from './user-settings.util';
+
+function isUsersEmailUniqueViolation(err: unknown): boolean {
+  if (!(err instanceof QueryFailedError)) return false;
+  const driver = err as QueryFailedError & {
+    driverError?: { code?: string; constraint?: string };
+  };
+  if (driver.driverError?.code !== '23505') return false;
+  const constraint = String(driver.driverError?.constraint ?? '');
+  const detail = String(
+    (driver.driverError as { detail?: string } | undefined)?.detail ?? err.message,
+  );
+  return (
+    constraint.includes('email') ||
+    /Key \(email\)=/i.test(detail) ||
+    /users_email_unique/i.test(constraint) ||
+    /users_email_unique/i.test(detail)
+  );
+}
 
 @Injectable()
 export class UserService {
@@ -125,7 +143,19 @@ export class UserService {
       passwordHash: null,
       lastPrivySyncAt: new Date(),
     });
-    const saved = await this.users.save(user);
+    let saved: User;
+    try {
+      saved = await this.users.save(user);
+    } catch (err) {
+      if (!isUsersEmailUniqueViolation(err)) throw err;
+      // Constraint still present on an older deploy DB. Shared-email policy
+      // requires maintenance/drop_users_email_unique.sql — until then, do not
+      // 500 the whole Privy social login; surface a clear 400.
+      throw new BadRequestException(
+        'This email is already on another Tokenable account. ' +
+          'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+      );
+    }
     await this.syncPrivyIdentity(saved.id, params.authProviders ?? [], wallets);
     return (await this.findById(saved.id)) ?? saved;
   }
@@ -186,7 +216,22 @@ export class UserService {
       user.googleId = params.googleId;
       dirty = true;
     }
-    if (dirty) await this.users.save(user);
+    if (!dirty) return;
+    try {
+      await this.users.save(user);
+    } catch (err) {
+      // Prod may still have users_email_unique — never fail Privy session sync
+      // because of a contact-email clash; keep prior email and continue.
+      if (!isUsersEmailUniqueViolation(err)) throw err;
+      const fresh = await this.findById(user.id);
+      if (!fresh) return;
+      user.email = fresh.email;
+      try {
+        await this.users.save(user);
+      } catch {
+        /* non-email fields may already be persisted; ignore secondary clash */
+      }
+    }
   }
 
   /** Sync linked auth providers from Privy profile (soft-unlink removed providers). */
@@ -546,7 +591,15 @@ export class UserService {
     ) {
       user.emailNotifPrefs = { ...DEFAULT_EMAIL_NOTIF_PREFS };
     }
-    return this.users.save(user);
+    try {
+      return await this.users.save(user);
+    } catch (err) {
+      if (!isUsersEmailUniqueViolation(err)) throw err;
+      throw new BadRequestException(
+        'This email is already on another Tokenable account. ' +
+          'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+      );
+    }
   }
 
   serializeShippingAddress(row: UserShippingAddress) {

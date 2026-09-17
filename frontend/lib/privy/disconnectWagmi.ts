@@ -22,7 +22,11 @@ export async function disconnectAllWagmiWallets(): Promise<void> {
     // Best-effort — Privy logout already cleared the auth session.
   }
 
-  await revokeInjectedEthAccountsGrant();
+  // Never block sign-out / next social login on MetaMask permission UI.
+  await Promise.race([
+    revokeInjectedEthAccountsGrant(),
+    new Promise<void>((resolve) => setTimeout(resolve, 400)),
+  ]);
 }
 
 type Eip1193Provider = {
