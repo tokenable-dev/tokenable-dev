@@ -100,6 +100,9 @@ export const rq = {
       address.toLowerCase(),
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
+  /** Whether the wallet already burned the web2 KBW Mystery Card. */
+  kbwMysteryCard: (address: string) =>
+    ["kbw-mystery-card", address.toLowerCase()] as const,
   /** Collection labels/covers for portfolio bid rows (sorted keys). */
   portfolioBidCollections: (sortedKeys: readonly string[]) =>
     ["portfolio-bid-collections", [...sortedKeys]] as const,

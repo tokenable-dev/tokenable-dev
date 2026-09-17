@@ -25,6 +25,8 @@ import { PortfolioAssetsPageDto } from './dto/portfolio-assets-page.dto';
 import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from './portfolio-holding.service';
+import { KbwMysteryCardService } from './kbw-mystery-card.service';
+import { BurnKbwMysteryCardDto } from './dto/burn-kbw-mystery-card.dto';
 
 /**
  * 포트폴리오 — 일별 스냅샷·24h P&L·보유 숨김·cost basis.
@@ -37,6 +39,7 @@ export class PortfolioController {
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly portfolioAssetsPage: PortfolioAssetsPageService,
+    private readonly kbwMysteryCard: KbwMysteryCardService,
     private readonly chainConfig: ChainConfigService,
   ) {}
 
@@ -219,5 +222,32 @@ export class PortfolioController {
       chainId,
     );
     return { ok: true };
+  }
+
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn 여부',
+    description:
+      'Web2 synthetic event card — whether this wallet already burned it (removed from Portfolio).',
+  })
+  @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
+  @Get('portfolio/kbw-mystery-card/:wallet')
+  async getKbwMysteryCardStatus(@Param('wallet') wallet: string) {
+    const burned = await this.kbwMysteryCard.isBurned(wallet);
+    return { burned };
+  }
+
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn',
+    description:
+      'Permanently remove the web2 KBW Mystery Card from this wallet’s Portfolio view.',
+  })
+  @ApiBody(
+    apiBodyDefault(BurnKbwMysteryCardDto, {
+      walletAddress: SWAGGER_FIXTURES.wallet,
+    }),
+  )
+  @Post('portfolio/kbw-mystery-card/burn')
+  async burnKbwMysteryCard(@Body() body: BurnKbwMysteryCardDto) {
+    return this.kbwMysteryCard.burn(body.walletAddress);
   }
 }

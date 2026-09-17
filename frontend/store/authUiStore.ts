@@ -68,6 +68,8 @@ interface AuthUiState {
   connectWalletOpen: boolean;
   walletMismatchOpen: boolean;
   kycOpen: boolean;
+  /** Post-login KBW mystery-card offer (armed only during event window). */
+  kbwOfferPending: boolean;
   pendingReturnTo: string | null;
 
   walletActivationPhase: WalletActivationPhase;
@@ -81,6 +83,8 @@ interface AuthUiState {
   closeWalletMismatch: () => void;
   openKyc: (opts?: { returnTo?: string }) => void;
   closeKyc: () => void;
+  armKbwOffer: () => void;
+  clearKbwOffer: () => void;
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
@@ -96,6 +100,8 @@ interface AuthUiState {
     message: string,
   ) => void;
   finishWalletActivation: () => void;
+  /** Clear in-flight connect/link so logout cannot resume a MetaMask prompt. */
+  resetWalletActivation: () => void;
 }
 
 export const useAuthUiStore = create<AuthUiState>((set, get) => ({
@@ -104,6 +110,7 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   connectWalletOpen: false,
   walletMismatchOpen: false,
   kycOpen: false,
+  kbwOfferPending: false,
   pendingReturnTo: null,
 
   walletActivationPhase: "idle",
@@ -117,6 +124,9 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     }),
 
   closeSignIn: () => set({ signInOpen: false }),
+
+  armKbwOffer: () => set({ kbwOfferPending: true }),
+  clearKbwOffer: () => set({ kbwOfferPending: false }),
 
   openConnectWallet: (opts) => {
     const phase = get().walletActivationPhase;
@@ -199,5 +209,13 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
       walletActivationPhase: "idle",
       walletActivationExpectedAddress: null,
       connectWalletOpen: false,
+    }),
+
+  resetWalletActivation: () =>
+    set({
+      walletActivationPhase: "idle",
+      walletActivationExpectedAddress: null,
+      connectWalletOpen: false,
+      walletMismatchOpen: false,
     }),
 }));

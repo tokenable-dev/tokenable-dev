@@ -13,6 +13,7 @@ import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
+import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
@@ -35,9 +36,14 @@ export function PrivySessionBridge() {
   const catchupAttempt = useRef(0);
   const [loginSyncNonce, setLoginSyncNonce] = useState(0);
   useLogin({
-    onComplete: () => {
+    onComplete: ({ wasAlreadyAuthenticated }) => {
       catchupAttempt.current = 0;
       setLoginSyncNonce((n) => n + 1);
+      // Session restore / refresh also fires onComplete with wasAlreadyAuthenticated.
+      // Only arm the KBW offer after a real login (logged-out → logged-in).
+      if (!wasAlreadyAuthenticated && isKbwEventActive()) {
+        useAuthUiStore.getState().armKbwOffer();
+      }
     },
   });
   const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
@@ -67,6 +73,7 @@ export function PrivySessionBridge() {
   useEffect(() => {
     if (!ready) return;
     if (wasAuthenticated.current && !authenticated && !isSignOutInProgress()) {
+      useAuthUiStore.getState().resetWalletActivation();
       void useAuthStore.getState().logout();
       void disconnectAllWagmiWallets();
     }

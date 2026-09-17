@@ -358,7 +358,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-  padding: 10px 4px 8px;
+  padding: 14px 4px;
   margin: 0;
   width: 100%;
   box-sizing: border-box;
@@ -415,6 +415,7 @@
 }
 
 .pf-tbar__search.open input {
+  padding-right: 40px;
   cursor: text;
 }
 
@@ -427,14 +428,66 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+.pf-tbar__search input::-webkit-search-decoration,
+.pf-tbar__search input::-webkit-search-cancel-button,
+.pf-tbar__search input::-webkit-search-results-button,
+.pf-tbar__search input::-webkit-search-results-decoration {
+  display: none;
+}
+
 .pf-tbar__search svg {
   position: absolute;
   left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
   color: rgba(255, 255, 255, 0.5);
   pointer-events: none;
   z-index: 2;
+}
+
+.pf-search-x {
+  display: none;
+  position: absolute;
+  right: 6px;
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  padding: 0;
+  line-height: 0;
+  box-sizing: border-box;
+}
+
+.pf-search-x svg {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  margin: 0;
+  color: inherit;
+  pointer-events: auto;
+  display: block;
+}
+
+.pf-search-x:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.pf-tbar__search.open .pf-search-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pf-tbar__spacer {
@@ -936,6 +989,23 @@
   align-items: center;
 }
 
+button.pf-table-card-cell--activate {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pf-mobile-asset-card--activate {
+  cursor: pointer;
+}
+
 .portfolio-page .pf-table-mkt {
   font-size: 13px;
   font-weight: 700;
@@ -954,50 +1024,73 @@
 
 @media (max-width: 768px) {
   .pf-tbar {
-    flex-wrap: wrap;
-    padding: 8px 4px 6px;
+    position: relative;
+    flex-wrap: nowrap;
+    padding: 14px 4px;
     margin: 0;
+    overflow-x: auto;
   }
 
-  .pf-tbar__search {
-    flex: none;
-    order: 0;
-  }
-
+  /* Overlay the full toolbar row — keeps filter/sort/select on one line underneath. */
   .pf-tbar__search.open {
-    width: 100%;
-    max-width: 100%;
-    flex: 1 1 100%;
-    order: -1;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 14px;
+    width: auto;
+    max-width: none;
+    z-index: 20;
+    aspect-ratio: auto;
+  }
+
+  .pf-tbar__search.open input {
+    height: 44px;
+    font-size: 16px;
+    box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.6);
   }
 
   .pf-tbar__spacer {
-    display: none;
+    min-width: 4px;
   }
 
   .pf-tbar__cluster {
-    flex: 1 1 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    gap: 6px;
+    flex: none;
+    flex-wrap: nowrap;
   }
 
   .pf-tbar--select {
     position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
     z-index: 8500;
     width: auto;
-    max-width: calc(100vw - 24px);
-    margin: 0;
-    padding: 12px 14px;
-    background: #191919;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 13px 14px;
+    overflow: visible;
+    background: linear-gradient(180deg, #1b2b52, #141414);
     border-radius: 14px;
     box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.55),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-    flex-wrap: wrap;
-    justify-content: center;
+      0 -2px 0 0 var(--azure) inset,
+      0 18px 50px rgba(0, 0, 0, 0.7),
+      inset 0 0 0 1px rgba(26, 111, 255, 0.5);
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    transform: none;
+    animation: pf-cl-bar-in 0.18s ease both;
+  }
+}
+
+@keyframes pf-cl-bar-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -1497,7 +1590,7 @@
   text-overflow: ellipsis;
 }
 
-/* My Bids — Line 1 single-line; Line 2 reveals on row hover */
+/* My Bids — single-line title; line2 always on (Portfolio.html #pf-tab-bids) */
 .portfolio-page .pf-table-card-name--bids {
   display: block;
   white-space: nowrap;
@@ -1524,16 +1617,22 @@
 }
 
 .portfolio-page .pf-holdings-row:hover .pf-table-card-sub--hover,
-.portfolio-page .pf-holdings-row:focus-within .pf-table-card-sub--hover,
-.portfolio-page .pf-table--bids tbody tr:hover .pf-table-card-sub--hover,
-.portfolio-page .pf-table--bids tbody tr:focus-within .pf-table-card-sub--hover {
+.portfolio-page .pf-holdings-row:focus-within .pf-table-card-sub--hover {
+  max-height: 20px;
+  opacity: 1;
+  margin-top: 3px;
+}
+
+/* Bids: line2 always visible on desktop */
+.portfolio-page .pf-table--bids .pf-table-card-sub--hover {
   max-height: 20px;
   opacity: 1;
   margin-top: 3px;
 }
 
 @media (max-width: 768px) {
-  .portfolio-page .pf-table-card-sub--hover {
+  .portfolio-page .pf-table-card-sub--hover,
+  .portfolio-page .pf-table--bids .pf-table-card-sub--hover {
     display: none;
   }
 }
@@ -1744,9 +1843,16 @@
 
 .portfolio-page .pf-table-btn--bid-action {
   height: 38px;
-  min-width: 96px;
+  width: 100%;
+  min-width: 0;
   padding: 0 18px;
   font-size: 14px;
+  box-sizing: border-box;
+}
+
+.portfolio-page .pf-table--bids td[data-label="Action"] .pf-table-actions {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .portfolio-page .pf-panel-toolbar--bids-only {
@@ -2057,10 +2163,27 @@
   letter-spacing: 0.02em;
 }
 
+/* Portfolio.html OUTBID chip */
+.portfolio-page .pf-bid-status-tag.tk-tag--warning.tk-tag--soft {
+  background: rgba(243, 112, 30, 0.12) !important;
+  color: #f3701e !important;
+}
+
 /* Portfolio.html expired chip — soft gray, not default neutral token */
 .portfolio-page .pf-bid-status-tag.tk-tag--neutral.tk-tag--soft {
   background: rgba(255, 255, 255, 0.08) !important;
   color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* History Status / Amount — right-aligned like Portfolio.html */
+.portfolio-page .pf-table--history td[data-label="Status"],
+.portfolio-page .pf-table--history td[data-label="Amount"] {
+  text-align: right;
+}
+
+.portfolio-page .pf-table--history thead .pf-th--right .pf-th-sort {
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .portfolio-page .pf-bids-outbid-bar {
@@ -2470,6 +2593,10 @@
   box-shadow:
     0 0 0 2px var(--azure),
     0 16px 40px rgba(0, 0, 0, 0.55) !important;
+  cursor: pointer;
+}
+
+.pf-gtile--activate {
   cursor: pointer;
 }
 
@@ -3127,215 +3254,315 @@
     display: flex;
   }
 
-  /* Bids / history stack as cards; My Assets uses row cards (≤768). */
-  .portfolio-page .pf-table-wrap {
-    overflow: hidden;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    border-radius: 16px;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .portfolio-page .pf-table--bids,
-  .portfolio-page .pf-table--history,
-  .portfolio-page .pf-table-wrap .tk-table,
-  .portfolio-page .pf-table-wrap .tk-table tbody {
-    display: block;
-    width: 100%;
-    min-width: 0;
-    table-layout: auto;
-  }
-
-  .portfolio-page .pf-table-wrap .tk-table colgroup,
-  .portfolio-page .pf-table-wrap .tk-table col {
-    display: none;
-  }
-
-  #portfolio-panel-bids .pf-table-btn,
-  #portfolio-panel-history .pf-table-btn {
-    width: 100%;
-    min-height: 38px;
-    font-size: 14px;
-  }
-
-  .portfolio-page .pf-table-wrap thead {
-    display: none;
-  }
-
-  .portfolio-page .pf-table-wrap tbody tr,
-  .portfolio-page .pf-table-wrap tbody tr.pf-table-row--zebra,
-  .portfolio-page .pf-history-row {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    padding: 16px;
-    margin-bottom: 12px;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .portfolio-page .pf-table-wrap tbody tr:last-child {
-    margin-bottom: 0;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    padding: 8px 0;
-    font-size: 14px;
-    line-height: 1.4;
-    border: none;
-    text-align: left;
-    min-width: 0;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td::before {
-    content: attr(data-label);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.45);
-    font-weight: 600;
-    flex: 0 1 auto;
-    max-width: 42%;
-    text-align: left;
-    line-height: 1.35;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:not(:first-child) > span,
-  .portfolio-page .pf-table-wrap tbody td:not(:first-child) > div,
-  .portfolio-page .pf-table-wrap tbody td:not(:first-child) .tk-tag,
-  .portfolio-page .pf-table-wrap tbody td:not(:first-child) .pf-hbadge {
-    margin-left: auto;
-    text-align: right;
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 58%;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 6px;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 12px;
-  }
-
-  .portfolio-page .pf-table--bids tbody td:first-child {
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child::before {
-    display: none;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-thumb {
-    flex-shrink: 0;
-    width: 52px;
-    height: 70px;
-    padding: 4px;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-name {
-    flex: 1;
-    min-width: 0;
-    margin-left: 0;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.35;
-    text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .portfolio-page .pf-table--history tbody td[data-label="Card"] .pf-table-card-name {
-    margin-left: auto;
-    flex: 1;
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: none;
-    font-weight: 600;
-    text-align: right;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .portfolio-page .pf-table--history tbody td[data-label="Amount"] .pf-table-amount {
-    margin-left: auto;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .portfolio-page .pf-table--history tbody td[data-label="Amount"] .pf-table-amount--dash {
-    margin-left: auto;
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  .portfolio-page .pf-hbadge {
-    min-width: 0;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:last-child {
-    margin-top: 6px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:last-child::before {
-    display: none;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:last-child .pf-table-actions {
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .portfolio-page .pf-table-wrap tbody td:last-child .pf-table-btn {
-    flex: 1;
-    width: 100%;
-  }
+  /* Bids / Tx History keep desktop tables until ≤768 (Portfolio.html). */
 }
 
 /* Phone — equal-width tabs (Portfolio.html ≤768) */
 @media (max-width: 768px) {
   #portfolio-panel-collectibles .pf-holdings-table-wrap {
     display: none !important;
+  }
+
+  /* My Bids / Tx History — Portfolio.html compact 3-zone rows */
+  #portfolio-panel-bids .pf-table-wrap,
+  #portfolio-panel-history .pf-table-wrap {
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 0 0 16px 16px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids,
+  #portfolio-panel-history .pf-table--history,
+  #portfolio-panel-bids .pf-table-wrap .tk-table,
+  #portfolio-panel-history .pf-table-wrap .tk-table,
+  #portfolio-panel-bids .pf-table-wrap .tk-table tbody,
+  #portfolio-panel-history .pf-table-wrap .tk-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  #portfolio-panel-bids .pf-table-wrap .tk-table colgroup,
+  #portfolio-panel-bids .pf-table-wrap .tk-table col,
+  #portfolio-panel-history .pf-table-wrap .tk-table colgroup,
+  #portfolio-panel-history .pf-table-wrap .tk-table col,
+  #portfolio-panel-bids .pf-table-wrap thead,
+  #portfolio-panel-history .pf-table-wrap thead {
+    display: none;
+  }
+
+  /* Tx History · compact list rows */
+  #portfolio-panel-history .pf-table--history tbody tr,
+  #portfolio-panel-history .pf-table--history tbody tr.pf-table-row--zebra,
+  #portfolio-panel-history .pf-history-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-auto-rows: auto;
+    column-gap: 10px;
+    row-gap: 3px;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 11px 4px;
+    margin-bottom: 0;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  #portfolio-panel-history .pf-table--history tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td {
+    display: inline-flex;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    border: none;
+    margin: 0;
+    font-size: inherit;
+    line-height: 1.35;
+    min-width: 0;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td::before {
+    display: none;
+    content: none;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Card"] {
+    grid-column: 1;
+    grid-row: 1;
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Card"] .pf-table-card-name {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] .pf-table-amount {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] .pf-table-amount--dash {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Type"] {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Status"] {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    text-align: right;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Date"] {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  #portfolio-panel-history .pf-table--history tbody td[data-label="Date"] .pf-table-date {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  #portfolio-panel-history .pf-hbadge {
+    width: auto;
+    min-width: 0;
+    height: 22px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  /* My Bids · compact 3-zone cards */
+  #portfolio-panel-bids .pf-table--bids tbody tr,
+  #portfolio-panel-bids .pf-table--bids tbody tr.pf-table-row--zebra {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    grid-auto-rows: auto;
+    column-gap: 12px;
+    row-gap: 7px;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #191919;
+    border-radius: 12px;
+    border: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td {
+    display: inline-flex;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    border: none;
+    margin: 0;
+    font-size: inherit;
+    line-height: 1.35;
+    min-width: 0;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td::before {
+    display: none;
+    content: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"],
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-cell,
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-copy {
+    display: contents;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-thumb {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    align-self: center;
+    width: 64px;
+    height: 90px;
+    padding: 4px;
+    border-radius: 0;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-name {
+    grid-column: 2;
+    grid-row: 1;
+    display: block;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Your bid"] {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Your bid"]::before {
+    display: inline;
+    content: "You ";
+    color: rgba(255, 255, 255, 0.4);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    margin-right: 2px;
+    max-width: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Top bid"] {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Top bid"]::before {
+    display: inline;
+    content: "Top ";
+    color: rgba(255, 255, 255, 0.4);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    margin-right: 2px;
+    max-width: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Ask price"] {
+    display: none;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Status"] {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Expires"] {
+    grid-column: 3;
+    grid-row: 3;
+    justify-self: end;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-actions {
+    width: auto;
+    margin: 0;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-btn,
+  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-btn--bid-action {
+    width: 78px;
+    min-width: 78px;
+    max-width: 78px;
+    height: 38px;
+    padding: 0;
+    font-size: 14px;
   }
 
   .portfolio-page .portfolio-page__shell.tkl-wrap {

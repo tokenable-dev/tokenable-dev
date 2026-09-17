@@ -71,16 +71,17 @@ Clears the `access_token` cookie.
 
 ### `PATCH /api/auth/profile`
 
-Update display name and notification / marketing preferences for the authenticated user.
+Update display name, contact email (wallet-only accounts), and notification / marketing preferences for the authenticated user.
 
 - **Guard:** `JwtAuthGuard`
 - **Body (all optional):**
   - `name` — display name (1–200 chars)
+  - `email` — real contact inbox; only allowed when the account still has the `@privy.wallet` placeholder (MetaMask / wallet-only). The same email may be stored on multiple accounts (one person, multiple wallets).
   - `marketingEmailsOptIn` — boolean
   - `emailNotificationsEnabled` — master switch for category email prefs
   - `emailNotifPrefs` — `{ trades?, bids?, price?, vault? }` booleans
 - **Response:** `{ user: … }` (same shape as session; includes the new preference fields)
-- **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`.
+- **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`, and does **not** replace a real `users.email` with the wallet-only `@privy.wallet` placeholder.
 
 ### `POST /api/auth/avatar`
 
@@ -170,10 +171,11 @@ On every `POST /auth/privy/session`:
 
 ### Wagmi wallet alignment (frontend)
 
-`AccountWalletAligner` (`useEnsureAccountWalletActive`) picks the wagmi active wallet on every page load. Two rules keep browser extensions out of that path:
+`AccountWalletAligner` (`useEnsureAccountWalletActive`) keeps wagmi on the account **embedded** wallet when present. External wallets are never auto-activated:
 
-- **External wallets are only activated when the backend has confirmed them as `is_primary`.** `useWallets()` also lists extensions that this origin already has a live `eth_accounts` grant for, and `@privy-io/wagmi` silently reconnects them — activating one would open MetaMask for a Google/email user who never asked for it.
+- **Never call `setActiveWallet` for MetaMask / other extensions in the background aligner.** `useWallets()` also lists extensions that this origin already has a live `eth_accounts` grant for; activating one would open MetaMask unprompted (including after MetaMask login / logout races). MetaMask connects only when the user clicks it in Privy (login / connect / link) or when an explicit UI flow runs (`PrivyWalletLauncher`, trade/sign via `useEnsureAccountWalletReady`).
 - **Pre-sync guesses are embedded-only.** `pickPrimaryPrivyWallet()` returns the embedded wallet or nothing; it never falls back to `wallets[0]`.
+- **Sign out** disconnects wagmi connectors and best-effort `wallet_revokePermissions` so the extension is not silently re-listed.
 
 `WalletDataProvider` keeps the account wallet on the app-selected chain:
 

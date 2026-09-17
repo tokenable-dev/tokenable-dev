@@ -143,30 +143,19 @@ export class PortfolioAssetsPageService {
   }
 
   /**
-   * DB owner index first. When the index is ready, never block My Assets on
-   * registry heal (that scan can take tens of seconds) — heal runs in the
-   * background. RPC ownerOf only when index is not ready and DB is empty.
+   * DB owner index only on the My Assets hot path. Registry heal can take tens
+   * of seconds — always run it in the background. Never block empty wallets on
+   * a full-supply ownerOf scan (`getRwaTokensByOwner`).
    */
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
   ): Promise<number[]> {
-    const indexReady = await this.ownerIndex.isIndexReady(chainId);
-    if (indexReady) {
-      void this.blockchain
-        .healOwnerRegistryIfIncomplete(chainId)
-        .catch(() => undefined);
-      const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-      return this.sortOwnedNewestFirst(fromDb);
-    }
-
-    await this.blockchain.healOwnerRegistryIfIncomplete(chainId);
+    void this.blockchain
+      .healOwnerRegistryIfIncomplete(chainId)
+      .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    if (fromDb.length > 0) {
-      return this.sortOwnedNewestFirst(fromDb);
-    }
-    const fromChain = await this.blockchain.getRwaTokensByOwner(wallet, chainId);
-    return this.sortOwnedNewestFirst(fromChain);
+    return this.sortOwnedNewestFirst(fromDb);
   }
 
   private sortOwnedNewestFirst(tokenIds: number[]): number[] {

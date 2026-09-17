@@ -16,12 +16,17 @@ import {
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
 import { waitForWagmiAccountAddress } from "@/lib/privy/accountWalletReady";
+import { isSignOutInProgress } from "@/lib/privy/session";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 /**
- * Keeps wagmi aligned with the Tokenable account primary wallet.
- * Waits until backend session sync sets primaryLinked — never guesses embedded early.
+ * Keeps wagmi aligned with the Tokenable account **embedded** wallet only.
+ *
+ * External wallets (MetaMask etc.) must never be auto-activated here — that
+ * opens the extension popup on every remount / after logout races. MetaMask
+ * connects only when the user clicks it in Privy (login / connect / link) or
+ * when an explicit flow calls `PrivyWalletLauncher` / `useEnsureAccountWalletReady`.
  */
 export function useEnsureAccountWalletActive() {
   const { ready, authenticated, user: privyUser } = usePrivy();
@@ -36,7 +41,7 @@ export function useEnsureAccountWalletActive() {
   const privyWalletHint = pickPrivyUserEthereumWalletAddress(privyUser) ?? "";
 
   useEffect(() => {
-    if (!ready || !authenticated) return;
+    if (!ready || !authenticated || isSignOutInProgress()) return;
 
     const primaryLinked = getPrimaryWalletAddress(user);
     const pendingLinked =
@@ -79,10 +84,10 @@ export function useEnsureAccountWalletActive() {
     const targetNorm = normalizeWalletAddress(target.address);
     if (!targetNorm) return;
 
-    // An external wallet may only be activated when the backend has confirmed it
-    // as this account's primary (wallet-first login). Activating a merely
-    // connected extension would open MetaMask right after a social login.
-    if (isPrivyExternalWallet(target) && targetNorm !== primaryLinked) return;
+    // Never auto-activate browser extensions — eth_accounts grants keep them
+    // listed in useWallets(), and setActiveWallet would pop MetaMask unprompted.
+    if (isPrivyExternalWallet(target)) return;
+
     if (connected && connected === targetNorm) {
       lastAlignedAddress.current = targetNorm;
       return;

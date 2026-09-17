@@ -1,0 +1,42 @@
+/* KBW Mystery Card burn modal */
+
+.tk-dialog.tk-kbw-burn {
+  gap: 24px;
+  max-width: 420px;
+}
+
+.tk-kbw-burn__art {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.tk-kbw-burn__art img {
+  width: min(180px, 48vw);
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+
+.tk-kbw-burn__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.tk-kbw-burn__error {
+  margin: 0;
+  font-size: 13px;
+  color: #ff6b6b;
+  text-align: center;
+}
+
+.tk-dialog.tk-kbw-burn .tk-dialog__foot {
+  justify-content: stretch;
+}
+
+.tk-dialog.tk-kbw-burn .tk-dialog__foot .tk-btn {
+  width: 100%;
+}

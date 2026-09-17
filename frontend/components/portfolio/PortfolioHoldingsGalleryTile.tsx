@@ -56,6 +56,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   selectMode = false,
   selected = false,
   onToggleSelect,
+  onActivate,
 }: {
   row: AssetRow;
   headline: PortfolioHoldingsHeadline | null;
@@ -73,6 +74,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  onActivate?: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
@@ -90,6 +92,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     redeemStatus?.kind === "possession" ? "pf-gtile--possession" : null,
     selectMode && isListed && selected ? "pf-gtile--sel-on" : null,
     selectMode && !isListed ? "pf-gtile--sel-dim" : null,
+    onActivate && !selectMode ? "pf-gtile--activate" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -103,6 +106,18 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   return (
     <div
       className={tileClass}
+      role={onActivate && !selectMode ? "button" : undefined}
+      tabIndex={onActivate && !selectMode ? 0 : undefined}
+      onKeyDown={
+        onActivate && !selectMode
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onActivate();
+              }
+            }
+          : undefined
+      }
       onClick={
         selectMode && isListed
           ? (e) => {
@@ -110,7 +125,12 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
               e.stopPropagation();
               onToggleSelect?.();
             }
-          : undefined
+          : onActivate && !selectMode
+            ? (e) => {
+                e.preventDefault();
+                onActivate();
+              }
+            : undefined
       }
     >
       <div className="pf-gtile__media">
@@ -223,7 +243,10 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         </div>
 
         {!selectMode ? (
-          <div className="pf-gtile__act">
+          <div
+            className="pf-gtile__act"
+            onClick={onActivate ? (e) => e.stopPropagation() : undefined}
+          >
             <PortfolioHoldingsRowActions
               isListed={isListed}
               fullWidth

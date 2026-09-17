@@ -1,4 +1,7 @@
-import { parsePrivyUserProfile } from './privy-user.parser';
+import {
+  isWalletOnlyPlaceholderEmail,
+  parsePrivyUserProfile,
+} from './privy-user.parser';
 
 const PRIVY_ID = 'did:privy:test-user-001';
 const WALLET = '0x2925a6Fa34C2CF44B3d2857777D7a301077211f7';
@@ -111,6 +114,15 @@ describe('parsePrivyUserProfile', () => {
     );
     expect(profile.email).toContain('@privy.wallet');
     expect(profile.emailVerified).toBe(false);
+  });
+
+  it('detects wallet-only placeholder emails', () => {
+    expect(
+      isWalletOnlyPlaceholderEmail(
+        '0xd5abdd307414718c59949ac5465930a1f8a52691@privy.wallet',
+      ),
+    ).toBe(true);
+    expect(isWalletOnlyPlaceholderEmail('user@example.com')).toBe(false);
   });
 
   it('dedupes email + google with same inbox', () => {

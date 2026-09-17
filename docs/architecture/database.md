@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **36 entities** registered in `app.module.ts` 
+**ORM:** TypeORM (NestJS) — **34 entities** registered in `app.module.ts` 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -27,7 +27,7 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `users` | Platform account (email, profile, Privy DID, KYC snapshot, Settings email/marketing prefs) | `user/entities/user.entity.ts` |
+| `users` | Platform account (email may be shared across wallet accounts; profile, Privy DID, KYC snapshot, Settings prefs) | `user/entities/user.entity.ts` |
 | `user_auth_providers` | Linked login methods (email, Google, Apple, wallet, passkey) — synced from Privy | `user/entities/user-auth-provider.entity.ts` |
 | `user_wallets` | Multiple linked wallets per user with embedded/external metadata | `user/entities/user-wallet.entity.ts` |
 | `user_shipping_addresses` | Saved ship-to address book (Settings → Addresses; redeem) | `user/entities/user-shipping-address.entity.ts` |
@@ -64,6 +64,7 @@
 |-------|---------|--------|
 | `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per RWA** (`token_contract` + `chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
+| `kbw_mystery_card_burns` | Web2 KBW Mystery Card burn ledger — one row per wallet; card stays out of Portfolio after burn | `marketplace/entities/kbw-mystery-card-burn.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
 | `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask **on this RWA** — unique `(user_id, collection_key, token_contract)` | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
 
@@ -91,7 +92,7 @@
 erDiagram
     users {
         uuid id PK
-        varchar email UK
+        varchar email
         varchar privy_id UK
         varchar wallet_address
         varchar kyc_status

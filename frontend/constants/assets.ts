@@ -94,6 +94,14 @@ export const ASSETS = {
     landing6: `${ASSETS_BASE}/home/newcards/c06.jpg`,
   },
 
+  /** `/event` landing */
+  event: {
+    stars: `${ASSETS_BASE}/event/stars.png`,
+    check: `${ASSETS_BASE}/event/check.png`,
+    mysteryPack: `${ASSETS_BASE}/event/mystery-pack.png`,
+    kbwMysteryCard: `${ASSETS_BASE}/event/kbw-mystery-card.png`,
+  },
+
   /** 기타 이미지 */
   images: {} as Record<string, string>,
 } as const;

@@ -7,6 +7,7 @@ import { getAddress } from 'ethers';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import type { ParsedAuthProvider, ParsedWalletLink } from '../auth/privy/privy.types';
+import { isWalletOnlyPlaceholderEmail } from '../auth/privy/privy-user.parser';
 import type { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 import type {
   CreateShippingAddressDto,
@@ -95,15 +96,23 @@ export class UserService {
       return (await this.findById(byPrivy.id)) ?? byPrivy;
     }
 
-    const byEmail = await this.findByEmail(email);
-    if (byEmail) {
-      byEmail.privyId = params.privyId;
+    // Contact emails may be shared across wallet accounts. Only attach a new
+    // Privy DID onto a legacy pre-Privy row (no privy_id yet).
+    const legacyByEmail = await this.users.findOne({
+      where: { email, privyId: IsNull() },
+    });
+    if (legacyByEmail) {
+      legacyByEmail.privyId = params.privyId;
       // Same preserve rules as patchPrivyProfileIfNeeded (Settings name/avatar).
-      await this.patchPrivyProfileIfNeeded(byEmail, params);
-      byEmail.lastPrivySyncAt = new Date();
-      await this.users.save(byEmail);
-      await this.syncPrivyIdentity(byEmail.id, params.authProviders ?? [], wallets);
-      return (await this.findById(byEmail.id)) ?? byEmail;
+      await this.patchPrivyProfileIfNeeded(legacyByEmail, params);
+      legacyByEmail.lastPrivySyncAt = new Date();
+      await this.users.save(legacyByEmail);
+      await this.syncPrivyIdentity(
+        legacyByEmail.id,
+        params.authProviders ?? [],
+        wallets,
+      );
+      return (await this.findById(legacyByEmail.id)) ?? legacyByEmail;
     }
 
     const user = this.users.create({
@@ -134,8 +143,13 @@ export class UserService {
     let dirty = false;
     const email = params.email.toLowerCase().trim();
     if (email && email !== user.email) {
-      user.email = email;
-      dirty = true;
+      const incomingPlaceholder = isWalletOnlyPlaceholderEmail(email);
+      const currentPlaceholder = isWalletOnlyPlaceholderEmail(user.email);
+      // Keep a real contact inbox — wallet-only Privy sync must not clobber it.
+      if (!(incomingPlaceholder && !currentPlaceholder)) {
+        user.email = email;
+        dirty = true;
+      }
     }
     // Preserve Settings display name; only fill when empty.
     if (
@@ -159,8 +173,14 @@ export class UserService {
       params.emailVerified !== undefined &&
       params.emailVerified !== user.emailVerified
     ) {
-      user.emailVerified = params.emailVerified;
-      dirty = true;
+      const wouldDowngradeRealInbox =
+        params.emailVerified === false &&
+        isWalletOnlyPlaceholderEmail(params.email) &&
+        !isWalletOnlyPlaceholderEmail(user.email);
+      if (!wouldDowngradeRealInbox) {
+        user.emailVerified = params.emailVerified;
+        dirty = true;
+      }
     }
     if (params.googleId && !user.googleId) {
       user.googleId = params.googleId;
@@ -493,6 +513,20 @@ export class UserService {
       const name = dto.name.trim();
       if (!name) throw new BadRequestException('Display name is required');
       user.name = name;
+    }
+    if (dto.email !== undefined) {
+      const email = dto.email.toLowerCase().trim();
+      if (!email) throw new BadRequestException('Email is required');
+      if (isWalletOnlyPlaceholderEmail(email)) {
+        throw new BadRequestException('Enter a real email address');
+      }
+      if (!isWalletOnlyPlaceholderEmail(user.email) && user.email !== email) {
+        throw new BadRequestException('Email is already set on this account');
+      }
+      if (user.email !== email) {
+        user.email = email;
+        user.emailVerified = false;
+      }
     }
     if (dto.marketingEmailsOptIn !== undefined) {
       user.marketingEmailsOptIn = dto.marketingEmailsOptIn;

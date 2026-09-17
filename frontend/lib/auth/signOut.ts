@@ -5,6 +5,7 @@ import {
   setSignOutInProgress,
 } from "@/lib/privy/session";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
+import { useAuthUiStore } from "@/store/authUiStore";
 
 export { registerPrivySignOut } from "@/lib/privy/session";
 
@@ -18,6 +19,7 @@ export async function completeSignOut(
   fallbackClearTokenableSession?: () => Promise<void>,
 ): Promise<void> {
   setSignOutInProgress(true);
+  useAuthUiStore.getState().resetWalletActivation();
   try {
     const privySignOut = getPrivySignOutHandler();
     if (privySignOut) {

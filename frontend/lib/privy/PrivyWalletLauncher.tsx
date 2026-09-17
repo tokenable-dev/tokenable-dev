@@ -8,6 +8,7 @@ import { useSetActiveWallet } from "@privy-io/wagmi";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import {
   findPrivyWalletByAddress,
+  isPrivyExternalWallet,
   resolveActivePrivyWallet,
 } from "@/lib/privy/wallet";
 import {
@@ -183,6 +184,16 @@ export function PrivyWalletLauncher() {
             ));
 
           if (quick) {
+            // eth_accounts grants keep MetaMask listed in useWallets() without a
+            // user click. Always open Privy connect for external wallets so the
+            // extension only activates when MetaMask is chosen in Privy.
+            if (isPrivyExternalWallet(quick)) {
+              setWalletActivationPhase("waiting_mobile_return");
+              connectWallet({
+                description: "Reconnect your account wallet to continue",
+              });
+              return;
+            }
             await reconcileActiveWallet(quick);
             if (cancelledRef.current) return;
             finishWalletActivation();

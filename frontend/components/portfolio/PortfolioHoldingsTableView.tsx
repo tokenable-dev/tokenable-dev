@@ -12,6 +12,7 @@ import {
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
+import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
@@ -36,6 +37,7 @@ export function PortfolioHoldingsTableView({
   selectMode = false,
   selectedTokenIds,
   onToggleSelect,
+  onOpenKbwMysteryCard,
 }: {
   rows: AssetRow[];
   headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
@@ -52,6 +54,7 @@ export function PortfolioHoldingsTableView({
   selectMode?: boolean;
   selectedTokenIds?: Set<number>;
   onToggleSelect?: (tokenId: number) => void;
+  onOpenKbwMysteryCard?: () => void;
 }) {
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
@@ -94,6 +97,7 @@ export function PortfolioHoldingsTableView({
           const titleLabel = headline?.line1 ?? row.name;
           const vault = vaultByTokenId?.get(row.tokenId) ?? null;
           const selected = selectedTokenIds?.has(row.tokenId) ?? false;
+          const virtual = isKbwMysteryCardTokenId(row.tokenId);
           const rowMods = [
             zebra,
             dim,
@@ -101,6 +105,30 @@ export function PortfolioHoldingsTableView({
             selectMode && !isListed ? " pf-holdings-row--cl-dim" : "",
             selectMode && isListed ? " pf-holdings-row--cl-pick" : "",
           ].join("");
+
+          const cardMedia = (
+            <>
+              <div className="pf-table-thumb">
+                {row.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
+                ) : null}
+              </div>
+              <div className="pf-table-card-copy">
+                <span
+                  className={`pf-table-card-name pf-table-card-name--holdings ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                  title={headline?.hover ?? titleLabel}
+                >
+                  {titleLabel}
+                </span>
+                {headline?.line2 ? (
+                  <span className="pf-table-card-sub pf-table-card-sub--hover">
+                    {headline.line2}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          );
 
           return (
             <tr
@@ -120,51 +148,23 @@ export function PortfolioHoldingsTableView({
                 {selectMode && isListed ? (
                   <div className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--cl">
                     <span className="pf-rowchk" aria-hidden />
-                    <div className="pf-table-thumb">
-                      {row.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
-                      ) : null}
-                    </div>
-                    <div className="pf-table-card-copy">
-                      <span
-                        className={`pf-table-card-name pf-table-card-name--holdings ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                        title={headline?.hover ?? titleLabel}
-                      >
-                        {titleLabel}
-                      </span>
-                      {headline?.line2 ? (
-                        <span className="pf-table-card-sub pf-table-card-sub--hover">
-                          {headline.line2}
-                        </span>
-                      ) : null}
-                    </div>
+                    {cardMedia}
                   </div>
+                ) : virtual ? (
+                  <button
+                    type="button"
+                    className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--activate"
+                    onClick={() => onOpenKbwMysteryCard?.()}
+                  >
+                    {cardMedia}
+                  </button>
                 ) : (
                   <Link
                     href={portfolioAssetHref(assetHrefBase, row.tokenId)}
                     className="pf-table-card-cell pf-table-card-cell--holdings"
                     onClick={selectMode ? (e) => e.preventDefault() : undefined}
                   >
-                    <div className="pf-table-thumb">
-                      {row.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
-                      ) : null}
-                    </div>
-                    <div className="pf-table-card-copy">
-                      <span
-                        className={`pf-table-card-name pf-table-card-name--holdings ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                        title={headline?.hover ?? titleLabel}
-                      >
-                        {titleLabel}
-                      </span>
-                      {headline?.line2 ? (
-                        <span className="pf-table-card-sub pf-table-card-sub--hover">
-                          {headline.line2}
-                        </span>
-                      ) : null}
-                    </div>
+                    {cardMedia}
                   </Link>
                 )}
               </td>
@@ -243,9 +243,11 @@ export function PortfolioHoldingsTableView({
                     isListed={isListed}
                     disabled={tradeBlocked}
                     disabledTitle={
-                      tradeBlocked
-                        ? "Redemption in progress — listing unavailable"
-                        : undefined
+                      virtual
+                        ? "Event collectible — not listable"
+                        : tradeBlocked
+                          ? "Redemption in progress — listing unavailable"
+                          : undefined
                     }
                     redeemStatus={badge}
                     onSetPrice={() => onSetPrice(row.tokenId)}

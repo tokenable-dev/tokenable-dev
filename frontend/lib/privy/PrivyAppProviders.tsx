@@ -34,7 +34,7 @@ import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersist
 import { PortfolioQueryPersistence } from "@/providers/PortfolioQueryPersistence";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
 
-/** Mount once inside PrivyProvider — silently selects the account embedded wallet. */
+/** Mount once inside PrivyProvider — silently selects the account embedded wallet only. */
 function AccountWalletAligner() {
   useEnsureAccountWalletActive();
   return null;

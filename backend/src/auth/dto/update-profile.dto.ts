@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
   IsObject,
   IsOptional,
   IsString,
@@ -39,6 +40,13 @@ export class UpdateProfileDto {
   @MinLength(1)
   @MaxLength(200)
   name?: string;
+
+  /** Contact inbox for wallet-only (MetaMask) accounts that still have `@privy.wallet`. */
+  @ApiPropertyOptional({ example: 'collector@example.com' })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

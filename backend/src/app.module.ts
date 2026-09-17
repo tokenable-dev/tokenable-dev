@@ -40,6 +40,7 @@ import { UserShippingAddress } from './user/entities/user-shipping-address.entit
 import { UserWallet } from './user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
+import { KbwMysteryCardBurn } from './marketplace/entities/kbw-mystery-card-burn.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { UserBuyerListingAlert } from './marketplace/entities/user-buyer-listing-alert.entity';
 import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
@@ -138,6 +139,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           UserKycEvent,
           PortfolioDailySnapshot,
           PortfolioHolding,
+          KbwMysteryCardBurn,
           UserWatchlist,
           UserBuyerListingAlert,
           CardhedgerPriceSubscription,

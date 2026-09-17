@@ -457,7 +457,7 @@ export function PortfolioCollectionBidsSection({
                   </Link>
                 </td>
                 <td data-label="Your bid">
-                  <span className="tkl-mono pf-table-bid">{bid.priceLabel}</span>
+                  <span className="tkl-mono pf-table-bid">$ {bid.priceLabel}</span>
                 </td>
                 <td data-label="Top bid">
                   <span

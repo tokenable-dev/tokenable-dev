@@ -33,6 +33,8 @@ export interface AuthUser {
 
 export type UpdateProfileInput = {
   name?: string;
+  /** Replace `@privy.wallet` placeholder with a real contact inbox. */
+  email?: string;
   marketingEmailsOptIn?: boolean;
   emailNotificationsEnabled?: boolean;
   emailNotifPrefs?: Partial<EmailNotifPrefs>;

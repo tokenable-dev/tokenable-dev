@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/ds/cn";
 
@@ -9,6 +9,8 @@ export type TkDialogProps = {
   onClose: () => void;
   title: string;
   description?: string;
+  /** Optional leading icon above the title (e.g. onboarding prompts). */
+  icon?: ReactNode;
   children?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
@@ -37,6 +39,7 @@ export function TkDialog({
   onClose,
   title,
   description,
+  icon,
   children,
   footer,
   className,
@@ -76,6 +79,7 @@ export function TkDialog({
         className={cn("tk-dialog", className)}
       >
         <div className="tk-dialog__head">
+          {icon ? <div className="tk-dialog__icon">{icon}</div> : null}
           <h2 className="tk-dialog__title" id={titleId}>
             {title}
           </h2>

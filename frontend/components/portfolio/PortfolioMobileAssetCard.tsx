@@ -35,6 +35,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   selectMode = false,
   selected = false,
   onToggleSelect,
+  onActivate,
 }: {
   row: AssetRow;
   headline: PortfolioHoldingsHeadline | null;
@@ -52,6 +53,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  onActivate?: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
@@ -71,10 +73,12 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
         isListed ? " pf-mobile-asset-card--cl-pick" : "",
       ].join("")
     : "";
+  const activateClass =
+    onActivate && !selectMode ? " pf-mobile-asset-card--activate" : "";
 
   return (
     <div
-      className={`pf-mobile-asset-card${dimClass}${selectClass}`}
+      className={`pf-mobile-asset-card${dimClass}${selectClass}${activateClass}`}
       role="listitem"
       onClick={
         selectMode && isListed
@@ -83,7 +87,12 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
               e.stopPropagation();
               onToggleSelect?.();
             }
-          : undefined
+          : onActivate && !selectMode
+            ? (e) => {
+                e.preventDefault();
+                onActivate();
+              }
+            : undefined
       }
     >
       <div className="pf-mobile-asset-card__img">
@@ -190,7 +199,10 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
         ) : null}
 
         {!selectMode && redeemStatus?.kind !== "possession" ? (
-          <div className="pf-mobile-asset-card__actions">
+          <div
+            className="pf-mobile-asset-card__actions"
+            onClick={onActivate ? (e) => e.stopPropagation() : undefined}
+          >
             <PortfolioHoldingsRowActions
               isListed={isListed}
               fullWidth

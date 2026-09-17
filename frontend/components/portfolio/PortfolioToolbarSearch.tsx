@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 /**
- * Portfolio.html `.pf-tbar__search` — icon by default, expands on click.
- * Collapses on blur when empty (Escape clears + collapses).
+ * Portfolio.html `.pf-tbar__search` — icon by default; expands in-place.
+ * On mobile (CSS) the open state overlays the full toolbar row.
  */
 export function PortfolioToolbarSearch({
   value,
@@ -30,6 +30,22 @@ export function PortfolioToolbarSearch({
     return () => window.clearTimeout(id);
   }, [open]);
 
+  function closeSearch() {
+    onChange("");
+    setOpen(false);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    if (value.trim()) {
+      onChange("");
+      return;
+    }
+    setOpen(false);
+    inputRef.current?.blur();
+  }
+
   return (
     <div
       className={`pf-tbar__search${open ? " open" : ""}`}
@@ -51,7 +67,7 @@ export function PortfolioToolbarSearch({
       </svg>
       <input
         ref={inputRef}
-        type="search"
+        type="text"
         autoComplete="off"
         placeholder={placeholder}
         value={value}
@@ -60,17 +76,33 @@ export function PortfolioToolbarSearch({
         onBlur={() => {
           if (!value.trim()) setOpen(false);
         }}
-        onKeyDown={(e) => {
-          if (e.key !== "Escape") return;
-          e.preventDefault();
-          if (value.trim()) {
-            onChange("");
-            return;
-          }
-          setOpen(false);
-          inputRef.current?.blur();
-        }}
+        onKeyDown={onKeyDown}
       />
+      <button
+        type="button"
+        className="pf-search-x"
+        aria-label="Close search"
+        tabIndex={open ? 0 : -1}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => {
+          e.stopPropagation();
+          closeSearch();
+        }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          aria-hidden
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
     </div>
   );
 }

@@ -137,7 +137,7 @@ export class AuthController {
   @ApiOperation({
     summary: '프로필 / 알림 설정 업데이트',
     description:
-      'Display name, marketing opt-in, email notification master switch + category prefs.',
+      'Display name, contact email (wallet-only → real inbox), marketing opt-in, email notification master switch + category prefs.',
   })
   async updateProfile(
     @Req() req: Request & { user: User },

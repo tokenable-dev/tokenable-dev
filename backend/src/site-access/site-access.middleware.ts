@@ -9,6 +9,7 @@ import {
   readSiteAccessConfig,
   verifySiteAccessToken,
 } from './site-access.util';
+import { isKbwEventActive } from './kbw-event-period';
 import { isAuthPublicApiPath } from '../auth/auth-oauth.util';
 import { isSwaggerPublicApiPath } from './site-access-swagger.util';
 
@@ -23,7 +24,9 @@ function normalizeRequestPath(path: string): string {
 export class SiteAccessMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction): void {
     const cfg = readSiteAccessConfig(process.env);
-    if (!cfg.enabled) {
+    // Keep SITE_ACCESS_* config + code paths; temporarily open the platform
+    // gate during KBW. Marketplace admin auth is separate and stays required.
+    if (!cfg.enabled || isKbwEventActive()) {
       next();
       return;
     }

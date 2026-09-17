@@ -1,0 +1,719 @@
+/* /event — KBW landing (mobile-first, Figma 430×932 reference) */
+
+/* Chrome-less page: drop GNB reserved offset on mobile */
+body:has(.ev-page) .tk-shell-scroll {
+  padding-top: 0 !important;
+}
+
+.ev-page {
+  --ev-azure: #1a6fff;
+  --ev-ink: #000000;
+  --font-ev-display: var(--font-ev-pixelify), "Pixelify Sans", sans-serif;
+  --font-ev-pixel: var(--font-ev-press), "Press Start 2P", monospace;
+
+  box-sizing: border-box;
+  min-height: 100dvh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--ev-ink);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.ev-page *,
+.ev-page *::before,
+.ev-page *::after {
+  box-sizing: border-box;
+}
+
+/* Frame — stars only inside the phone column */
+.ev-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding:
+    max(14px, env(safe-area-inset-top, 0px))
+    max(18px, env(safe-area-inset-right, 0px))
+    max(14px, env(safe-area-inset-bottom, 0px))
+    max(18px, env(safe-area-inset-left, 0px));
+  /* Spread sections so dead space doesn't pile under the footer */
+  gap: clamp(32px, 5.5vh, 64px);
+  justify-content: space-between;
+  background-color: var(--ev-ink);
+  background-image: url("/assets/event/stars.png");
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+
+.ev-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 45px;
+  flex-shrink: 0;
+}
+
+.ev-top__logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.ev-top__logo img {
+  height: 22px;
+  width: auto;
+  display: block;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.ev-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  text-align: center;
+  flex-shrink: 0;
+  padding-top: clamp(8px, 1.5vh, 20px);
+}
+
+.ev-hero__title {
+  margin: 0;
+  align-self: stretch;
+  text-align: center;
+  font-family: var(--font-ev-display);
+  font-size: clamp(44px, 13.5vw, 62px);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #e8edf7;
+  text-shadow:
+    0 3px 0 #2a355c,
+    3px 3px 0 #1a2547,
+    5px 6px 0 #0c1630,
+    5px 8px 14px rgba(0, 0, 0, 0.6);
+}
+
+.ev-hero__title-line {
+  display: block;
+}
+
+.ev-hero__title-line--accent {
+  color: #4f93ff;
+}
+
+.ev-hero__rule {
+  width: 70px;
+  height: 3px;
+  margin: clamp(16px, 2.2vh, 24px) auto clamp(14px, 2vh, 20px);
+  border: 0;
+  background: var(--ev-azure);
+  box-shadow: 0 0 12px 0 #1a6fff;
+  flex-shrink: 0;
+}
+
+.ev-hero__sub {
+  margin: 0;
+  align-self: stretch;
+  color: rgba(125, 180, 255, 0.5);
+  text-align: center;
+  font-family: var(--font-ev-pixel);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 1px;
+}
+
+/* ── Stages ──────────────────────────────────────────────────────────────── */
+
+.ev-stages {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  justify-content: space-evenly;
+  gap: clamp(32px, 5vh, 56px);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-block: clamp(8px, 1.5vh, 24px);
+}
+
+.ev-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  text-align: center;
+  gap: 12px;
+}
+
+.ev-stage__label {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-ev-pixel);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24.2px;
+}
+
+.ev-stage__label--1 {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ev-stage__label--2 {
+  color: #7db4ff;
+}
+
+.ev-stage__desc {
+  margin: 0;
+  align-self: stretch;
+  color: #fff;
+  text-align: center;
+  font-family: var(--font-sans), Inter, system-ui, sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20.4px;
+}
+
+.ev-btn {
+  position: relative;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  height: 80px;
+  justify-content: center;
+  align-items: center;
+  align-self: stretch;
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  font-family: var(--font-ev-display);
+  font-size: clamp(15px, 4.6vw, 20px);
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  letter-spacing: 1px;
+  text-align: center;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.ev-btn__label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ev-btn__check {
+  width: 43px;
+  height: 32px;
+  display: block;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.ev-btn__gloss {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: min(409px, 118%);
+  height: 36px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ev-btn--primary {
+  overflow: hidden;
+  border-radius: 92px;
+  color: #fff;
+  text-shadow:
+    0 2px 0 #0b3fae,
+    2px 3px 0 #072a78,
+    0 0 14px rgba(255, 255, 255, 0.35);
+  background: linear-gradient(180deg, #6aa8ff 0%, #1a6fff 50%, #0c46b8 100%);
+  box-shadow:
+    0 6px 0 0 rgba(195, 222, 255, 0.95) inset,
+    0 -10px 14px 0 rgba(0, 0, 70, 0.5) inset,
+    0 8px 0 0 #0b3fae,
+    0 14px 0 0 #072a78,
+    0 0 40px 0 rgba(26, 111, 255, 0.5);
+}
+
+.ev-btn--primary:hover {
+  filter: brightness(1.04);
+}
+
+.ev-btn--primary:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 6px 0 0 rgba(195, 222, 255, 0.95) inset,
+    0 -10px 14px 0 rgba(0, 0, 70, 0.5) inset,
+    0 5px 0 0 #0b3fae,
+    0 8px 0 0 #072a78,
+    0 0 28px 0 rgba(26, 111, 255, 0.4);
+}
+
+.ev-btn--disabled {
+  border-radius: 200px;
+  opacity: 0.19;
+  color: #0a1022;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  background: linear-gradient(
+    180deg,
+    var(--color-grey-98, #f6f9ff) 0%,
+    var(--color-azure-85, #cdd5e6) 52%,
+    var(--color-azure-72, #a7b0c6) 100%
+  );
+  box-shadow:
+    0 6px 0 0 rgba(255, 255, 255, 0.95) inset,
+    0 -8px 12px 0 rgba(0, 0, 40, 0.28) inset,
+    0 10px 0 0 #9aa3b8,
+    0 17px 0 0 #6b7490,
+    0 30px 38px 0 rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+
+/* Stage 1 completed — dark pill + pixel check only */
+.ev-btn--done {
+  overflow: hidden;
+  border-radius: 200px;
+  color: #38d17f;
+  text-shadow: none;
+  background: linear-gradient(180deg, #3a455c 0%, #2a3144 48%, #1e2434 100%);
+  box-shadow:
+    0 5px 0 0 rgba(255, 255, 255, 0.14) inset,
+    0 -10px 16px 0 rgba(0, 0, 0, 0.45) inset,
+    0 8px 0 0 #151a26,
+    0 14px 0 0 #0b0f18,
+    0 24px 30px 0 rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+
+.ev-btn--done .ev-btn__label {
+  gap: 0;
+}
+
+.ev-btn:disabled {
+  pointer-events: none;
+}
+
+/* ── Foot ────────────────────────────────────────────────────────────────── */
+
+.ev-foot {
+  width: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding-top: 4px;
+}
+
+.ev-foot__marquee {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+
+.ev-foot__track {
+  display: flex;
+  width: max-content;
+  gap: 2.5rem;
+  animation: ev-foot-marquee 28s linear infinite;
+}
+
+.ev-foot__tag {
+  margin: 0;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: center;
+  font-family: var(--font-ev-pixel);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@keyframes ev-foot-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-25%);
+  }
+}
+
+/* Short phones — tighten so nothing clips */
+@media (max-height: 720px) {
+  .ev-shell {
+    gap: 22px;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+  }
+
+  .ev-hero {
+    padding-top: 4px;
+  }
+
+  .ev-hero__rule {
+    margin: 12px auto 10px;
+  }
+
+  .ev-stages {
+    gap: 24px;
+    padding-block: 4px;
+    justify-content: flex-start;
+  }
+
+  .ev-stage {
+    gap: 8px;
+  }
+
+  .ev-btn {
+    height: 72px;
+    margin-bottom: 8px;
+  }
+}
+
+/* Comfortable / tall phones — Figma-ish breathing room */
+@media (min-height: 900px) {
+  .ev-shell {
+    gap: 56px;
+    padding-top: max(24px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .ev-hero__rule {
+    margin: 22px auto 18px;
+  }
+
+  .ev-stages {
+    gap: 48px;
+    padding-block: 16px;
+  }
+
+  .ev-btn {
+    height: 88px;
+    margin-bottom: 14px;
+  }
+}
+
+/* Match Figma artboard when viewport is tall enough */
+@media (min-width: 430px) and (min-height: 900px) {
+  .ev-shell {
+    width: 430px;
+    min-height: 932px;
+    padding: 32px;
+    gap: 64px;
+  }
+
+  .ev-hero__title {
+    font-size: 62px;
+    line-height: 70.4px;
+  }
+
+  .ev-hero__rule {
+    margin: 24px auto 20px;
+  }
+
+  .ev-stages {
+    gap: 52px;
+    padding-block: 20px 24px;
+  }
+
+  .ev-btn {
+    height: 96px;
+    margin-bottom: 14px;
+    font-size: 20px;
+  }
+
+  .ev-btn--primary {
+    box-shadow:
+      0 6px 0 0 rgba(195, 222, 255, 0.95) inset,
+      0 -10px 14px 0 rgba(0, 0, 70, 0.5) inset,
+      0 10px 0 0 #0b3fae,
+      0 17px 0 0 #072a78,
+      0 0 50px 0 rgba(26, 111, 255, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-foot__track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ev-foot__marquee {
+    mask-image: none;
+  }
+
+  .ev-foot__track .ev-foot__tag:not(:first-child) {
+    display: none;
+  }
+
+  .ev-btn {
+    transition: none;
+  }
+
+  .ev-btn--primary:active {
+    transform: none;
+  }
+}
+
+/* ── Post-login mystery offer modal (mobile event shell) ─────────────────── */
+
+.ev-offer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  min-height: 100dvh;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  animation: ev-offer-fade 0.2s ease;
+}
+
+.ev-offer-modal {
+  width: min(100%, 390px);
+  max-width: 390px;
+  min-height: 0;
+  max-height: min(100dvh - 32px, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: clamp(12px, 2.2vh, 22px);
+  justify-content: flex-start;
+  padding:
+    14px
+    18px
+    max(16px, env(safe-area-inset-bottom, 0px))
+    18px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: ev-offer-rise 0.24s ease;
+}
+
+.ev-offer-modal__top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--ev-ink, #000);
+  padding-bottom: 4px;
+}
+
+.ev-offer-modal__close {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #a7a9ac;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.ev-offer-modal__close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ev-offer-modal__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  text-align: center;
+  flex-shrink: 0;
+  padding-top: 0;
+}
+
+.ev-offer-modal__eyebrow {
+  margin: 0;
+  color: rgba(125, 180, 255, 0.85);
+  text-align: center;
+  font-family: var(--font-ev-pixel);
+  font-size: 10px;
+  font-weight: 400;
+  /* Press Start 2P clips with tight line-height — give glyphs room. */
+  line-height: 1.9;
+  letter-spacing: 0.4px;
+  padding: 6px 4px 2px;
+}
+
+.ev-offer-modal__hero .ev-hero__rule {
+  margin: 10px auto 0;
+}
+
+.ev-offer-modal__pack {
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.ev-offer-modal__pack img {
+  width: min(100%, 250px);
+  height: auto;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 0 28px rgba(255, 190, 60, 0.35));
+}
+
+.ev-offer-modal__meta {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ev-offer-modal__title {
+  margin: 0;
+  color: var(--White-Lilac, #e8edf7);
+  text-align: center;
+  text-shadow:
+    0 3px 0 #2a355c,
+    3px 3px 0 #1a2547,
+    5px 6px 0 #0c1630,
+    5px 8px 14px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-ev-display, "Pixelify Sans");
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 28.4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.ev-offer-modal__price {
+  margin: 0;
+  color: var(--Pomegranate, var(--color-red-57, #f5332c));
+  text-align: center;
+  font-family: var(--font-ev-pixel, "Press Start 2P");
+  font-size: 40px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 44px;
+}
+
+.ev-offer-modal__price-strike {
+  position: relative;
+  display: inline-block;
+}
+
+.ev-offer-modal__price-strike::after {
+  content: "";
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  top: 48%;
+  height: 3px;
+  background: var(--Pomegranate, var(--color-red-57, #f5332c));
+  transform: rotate(-8deg);
+  box-shadow: 0 0 8px rgba(245, 51, 44, 0.55);
+}
+
+.ev-offer-modal__cta {
+  flex-shrink: 0;
+  height: 68px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  color: var(--White, var(--color-white-solid, #fff));
+  text-align: center;
+  /* JetBrains Mono / ExtraBold */
+  font-family: var(--font-mono, "JetBrains Mono");
+  font-size: var(--font-size-18, 18px);
+  font-style: normal;
+  font-weight: var(--font-weight-800, 800);
+  line-height: normal;
+  letter-spacing: 0;
+}
+
+.ev-offer-modal__cta .ev-btn__label {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+@keyframes ev-offer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ev-offer-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-offer-overlay,
+  .ev-offer-modal {
+    animation: none;
+  }
+}
+
+@media (min-width: 480px) {
+  .ev-offer-overlay {
+    padding: 24px;
+  }
+
+  .ev-offer-modal {
+    max-height: calc(100dvh - 48px);
+  }
+}

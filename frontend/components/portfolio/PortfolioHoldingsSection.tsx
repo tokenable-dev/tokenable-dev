@@ -37,6 +37,7 @@ import {
   portfolioAssetHref,
   portfolioBasePath,
 } from "@/lib/portfolio/portfolioPaths";
+import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
 import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
@@ -47,13 +48,14 @@ export function PortfolioHoldingsSection({
   tokenToCollectionKey: _tokenToCollectionKey,
   bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
-  acquiredAtByTokenId: _acquiredAtByTokenId,
+  acquiredAtByTokenId,
   valuesPending,
   canEditCostBasis,
   onSaveCostBasis,
   savingCostBasisTokenId,
   onSetPrice,
   onRequestCancelListings,
+  onOpenKbwMysteryCard,
   cancellingListingTokenId = null,
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
@@ -86,6 +88,7 @@ export function PortfolioHoldingsSection({
       listPriceUsd: number | null;
     }[],
   ) => void;
+  onOpenKbwMysteryCard?: () => void;
   cancellingListingTokenId?: number | null;
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
@@ -99,19 +102,14 @@ export function PortfolioHoldingsSection({
 }) {
   const [segment, setSegment] = useState<AssetsSegment>("tradeable");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<AssetsToolbarSort>("value");
-  /** Mobile (≤768) defaults to row cards like Portfolio.html `.mobile-asset-cards`. */
-  const [view, setView] = useState<AssetsViewMode>("table");
+  const [sort, setSort] = useState<AssetsToolbarSort>("newest");
+  /** Default: gallery tiles on mobile and desktop (table is opt-in). */
+  const [view, setView] = useState<AssetsViewMode>("gallery");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedTokenIds, setSelectedTokenIds] = useState<Set<number>>(() => new Set());
   const isMobile = useIsMobileViewport(768);
   const pathname = usePathname();
   const assetsBase = portfolioBasePath(pathname);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia("(min-width: 769px)").matches) setView("gallery");
-  }, []);
 
   function getBadge(tokenId: number) {
     return redeemSurfaceBadge(
@@ -174,6 +172,18 @@ export function PortfolioHoldingsSection({
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {
+        case "newest": {
+          const isoA = acquiredAtByTokenId?.get(a.tokenId);
+          const isoB = acquiredAtByTokenId?.get(b.tokenId);
+          const msA = isoA ? Date.parse(isoA) : NaN;
+          const msB = isoB ? Date.parse(isoB) : NaN;
+          const cmp = compareSortNum(
+            Number.isFinite(msA) ? msA : null,
+            Number.isFinite(msB) ? msB : null,
+            "desc",
+          );
+          return cmp !== 0 ? cmp : b.tokenId - a.tokenId;
+        }
         case "name":
           return compareSortText(a.name, b.name, "asc");
         case "pl": {
@@ -209,6 +219,7 @@ export function PortfolioHoldingsSection({
     sort,
     metadataByTokenId,
     costBasisByTokenId,
+    acquiredAtByTokenId,
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
@@ -384,30 +395,42 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const virtual = isKbwMysteryCardTokenId(row.tokenId);
 
             return (
               <div key={row.tokenId} className="pf-gallery__item" role="listitem">
                 <PortfolioHoldingsGalleryTile
                   row={row}
                   headline={headline ?? null}
-                  href={portfolioAssetHref(assetsBase, row.tokenId)}
+                  href={
+                    virtual ? undefined : portfolioAssetHref(assetsBase, row.tokenId)
+                  }
                   cost={cost}
                   valuesPending={valuesPending}
-                  canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                  canEditCostBasis={
+                    !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
+                  }
                   savingCostBasis={savingCostBasisTokenId === row.tokenId}
                   isListed={isListed}
                   redeemStatus={badge}
-                  actionsDisabled={tradeBlocked}
+                  actionsDisabled={virtual || tradeBlocked}
                   actionsDisabledTitle={
-                    tradeBlocked
-                      ? "Redemption in progress — listing unavailable"
-                      : undefined
+                    virtual
+                      ? "Event collectible — not listable"
+                      : tradeBlocked
+                        ? "Redemption in progress"
+                        : undefined
                   }
                   onSaveCostBasis={onSaveCostBasis}
                   onSetPrice={handleSetPrice}
-                  selectMode={selectMode}
+                  selectMode={selectMode && !virtual}
                   selected={selectedTokenIds.has(row.tokenId)}
                   onToggleSelect={() => toggleSelect(row.tokenId)}
+                  onActivate={
+                    virtual && onOpenKbwMysteryCard
+                      ? onOpenKbwMysteryCard
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -423,30 +446,42 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const virtual = isKbwMysteryCardTokenId(row.tokenId);
 
             return (
               <PortfolioMobileAssetCard
                 key={row.tokenId}
                 row={row}
                 headline={headline ?? null}
-                href={portfolioAssetHref(assetsBase, row.tokenId)}
+                href={
+                  virtual ? undefined : portfolioAssetHref(assetsBase, row.tokenId)
+                }
                 cost={cost}
                 valuesPending={valuesPending}
-                canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                canEditCostBasis={
+                  !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
+                }
                 savingCostBasis={savingCostBasisTokenId === row.tokenId}
                 isListed={isListed}
                 redeemStatus={badge}
-                actionsDisabled={tradeBlocked}
+                actionsDisabled={virtual || tradeBlocked}
                 actionsDisabledTitle={
-                  tradeBlocked
-                    ? "Redemption in progress — listing unavailable"
-                    : undefined
+                  virtual
+                    ? "Event collectible — not listable"
+                    : tradeBlocked
+                      ? "Redemption in progress — listing unavailable"
+                      : undefined
                 }
                 onSaveCostBasis={onSaveCostBasis}
                 onSetPrice={handleSetPrice}
-                selectMode={selectMode}
+                selectMode={selectMode && !virtual}
                 selected={selectedTokenIds.has(row.tokenId)}
                 onToggleSelect={() => toggleSelect(row.tokenId)}
+                onActivate={
+                  virtual && onOpenKbwMysteryCard
+                    ? onOpenKbwMysteryCard
+                    : undefined
+                }
               />
             );
           })}
@@ -454,9 +489,6 @@ export function PortfolioHoldingsSection({
       ) : (
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
-          headlineByTokenId={headlineByTokenId}
-          vaultByTokenId={vaultByTokenId}
-          assetHrefBase={assetsBase}
           costBasisByTokenId={costBasisByTokenId}
           valuesPending={valuesPending}
           canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
@@ -465,11 +497,16 @@ export function PortfolioHoldingsSection({
           onSetPrice={handleSetPrice}
           getBadge={getBadge}
           isTradeBlocked={(tokenId) =>
+            isKbwMysteryCardTokenId(tokenId) ||
             isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))
           }
+          vaultByTokenId={vaultByTokenId}
           selectMode={selectMode}
           selectedTokenIds={selectedTokenIds}
           onToggleSelect={toggleSelect}
+          headlineByTokenId={headlineByTokenId}
+          assetHrefBase={assetsBase}
+          onOpenKbwMysteryCard={onOpenKbwMysteryCard}
         />
       )}
 

@@ -182,7 +182,7 @@ Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk
 
 Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
 
-Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before.
+Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before. Wallet-only (MetaMask) accounts that still have a `@privy.wallet` placeholder are prompted for a real contact email via `AddEmailRequiredModal` (saved through `PATCH /auth/profile`). During the KBW window (`isKbwEventActive` / `NEXT_PUBLIC_KBW_EVENT_START|END`), a real Privy login (not session restore / refresh — `wasAlreadyAuthenticated === false`) arms `KbwMysteryOfferModal` on mobile.
 
 ## Portfolio My Assets loading
 

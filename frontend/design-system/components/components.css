@@ -259,6 +259,7 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
   animation:tk-dialog-rise var(--duration-base) steps(4);
 }
 .tk-dialog__head{display:flex;flex-direction:column;gap:8px}
+.tk-dialog__icon{display:flex;align-items:flex-start}
 .tk-dialog__title{font-size:22px;font-weight:700;color:#ffffff;margin:0}
 .tk-dialog__body{font-size:16px;line-height:1.5;color:#a7a9ac;margin:0}
 .tk-dialog__head + .tk-dialog__body{margin-top:-12px}

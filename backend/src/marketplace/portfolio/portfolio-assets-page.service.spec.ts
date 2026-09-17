@@ -175,12 +175,28 @@ describe('PortfolioAssetsPageService', () => {
     );
 
     expect(ownerIndex.getTokenIdsByOwner).toHaveBeenCalled();
-    expect(ownerIndex.isIndexReady).toHaveBeenCalled();
+    expect(blockchain.getRwaTokensByOwner).not.toHaveBeenCalled();
     expect(rwaAssetResolve.batchPortfolioMetadata).toHaveBeenCalledWith(
       [42, 41],
       11155111,
-      { allowExternal: false },
     );
     expect(result.ownedTokenIds).toEqual([42, 41]);
+  });
+
+  it('returns empty ownedTokenIds from DB without chain scan when index not ready', async () => {
+    ownerIndex.isIndexReady.mockResolvedValue(false);
+    ownerIndex.getTokenIdsByOwner.mockResolvedValue([]);
+
+    const result = await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(result.ownedTokenIds).toEqual([]);
+    expect(ownerIndex.getTokenIdsByOwner).toHaveBeenCalled();
+    expect(blockchain.getRwaTokensByOwner).not.toHaveBeenCalled();
+    expect(blockchain.healOwnerRegistryIfIncomplete).toHaveBeenCalled();
   });
 });

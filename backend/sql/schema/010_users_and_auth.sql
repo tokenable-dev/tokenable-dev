@@ -23,11 +23,14 @@ CREATE TABLE IF NOT EXISTS users (
   email_notif_prefs jsonb NOT NULL DEFAULT '{"trades":true,"bids":true,"price":true,"vault":true}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT users_email_unique UNIQUE (email),
   CONSTRAINT users_google_id_unique UNIQUE (google_id),
   CONSTRAINT users_kyc_status_check
     CHECK (kyc_status IN ('none', 'pending', 'approved', 'rejected'))
 );
+
+-- Contact emails may be shared across wallet-only accounts (no UNIQUE).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_unique;
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (lower(email));
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_privy_id_unique
   ON users (privy_id)
@@ -37,7 +40,8 @@ CREATE INDEX IF NOT EXISTS idx_users_wallet_address
   ON users (wallet_address)
   WHERE wallet_address IS NOT NULL;
 
-COMMENT ON TABLE users IS 'Platform accounts (Privy / Google / email) with optional linked wallet.';
+COMMENT ON TABLE users IS 'Platform accounts (Privy / Google / email) with optional linked wallet. Contact email is not unique.';
+COMMENT ON COLUMN users.email IS 'Contact inbox (or @privy.wallet placeholder for MetaMask-only until set). Not globally unique.';
 COMMENT ON COLUMN users.password_hash IS 'scrypt hash for email/password login; NULL for OAuth-only accounts.';
 COMMENT ON COLUMN users.wallet_address IS 'Primary linked wallet (denormalized). Same address may appear on multiple users.';
 COMMENT ON COLUMN users.marketing_emails_opt_in IS 'Settings: product news / drops opt-in (delivery TBD).';

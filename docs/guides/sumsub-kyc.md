@@ -78,7 +78,7 @@ Reusable KYC: same applicant id is reused on later `access-token` calls.
 
 ### Email / wallet-only applicants
 
-MetaMask-only Privy accounts store a synthetic DB email (`{checksummedAddress}@privy.wallet`) for uniqueness. That value is **not** a real inbox and must **not** be sent to Sumsub as `email` / `applicantIdentifiers.email` — `KycService` omits it via `sumsubEmailForUser`. Real emails (OTP / social) are still forwarded when present.
+MetaMask-only Privy accounts store a synthetic DB email (`{checksummedAddress}@privy.wallet`) until the user adds a real contact inbox. That placeholder is **not** a real inbox and must **not** be sent to Sumsub as `email` / `applicantIdentifiers.email` — `KycService` omits it via `sumsubEmailForUser`. Real emails (OTP / social / MetaMask contact capture) are still forwarded when present. Contact emails are not globally unique — multiple wallet accounts may share one inbox.
 
 ## API
 
