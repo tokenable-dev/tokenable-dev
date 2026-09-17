@@ -8,7 +8,7 @@ import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
-import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
+import { useMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import "@/styles/tokenable-event.css";
@@ -96,17 +96,21 @@ function OfferGloss() {
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const isMobile = useIsMobileViewport(768);
+  const { ready: viewportReady, isMobile } = useMobileViewport(768);
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const kbwOfferPending = useAuthUiStore((s) => s.kbwOfferPending);
   const clearKbwOffer = useAuthUiStore((s) => s.clearKbwOffer);
+  const hydrateKbwOfferPending = useAuthUiStore((s) => s.hydrateKbwOfferPending);
 
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    hydrateKbwOfferPending();
+  }, [hydrateKbwOfferPending]);
 
   const emailGateOpen = isEmailCaptureBlocking(user?.id, user?.email);
 
@@ -117,13 +121,15 @@ export function KbwMysteryOfferModal() {
       clearKbwOffer();
       return;
     }
-    // Mobile-only offer — clear the arm on desktop so it does not reopen later.
+    // Wait until matchMedia is known — do NOT clear on the initial false hydration.
+    if (!viewportReady) return;
+    // Desktop: drop the arm so a later resize does not surprise-open.
     if (!isMobile) {
       clearKbwOffer();
       return;
     }
     if (!initialized || privySessionSyncing || !user) return;
-    // Let MetaMask contact-email capture go first.
+    // Let MetaMask contact-email capture go first; keep pending until dismissed.
     if (emailGateOpen) return;
 
     setOpen(true);
@@ -136,12 +142,13 @@ export function KbwMysteryOfferModal() {
     privySessionSyncing,
     user,
     emailGateOpen,
+    viewportReady,
     isMobile,
   ]);
 
   useEffect(() => {
-    if (!isMobile && open) setOpen(false);
-  }, [isMobile, open]);
+    if (viewportReady && !isMobile && open) setOpen(false);
+  }, [viewportReady, isMobile, open]);
 
   function close() {
     setOpen(false);

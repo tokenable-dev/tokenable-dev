@@ -7,22 +7,39 @@ import { useLogin } from "@privy-io/react-auth";
 import { ASSETS } from "@/constants/assets";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 const STAGE1_INSTAGRAM_URL = "https://www.instagram.com/tokenable_io";
-const STAGE1_DONE_KEY = "tk_kbw_stage1_done";
+const STAGE1_DONE_PREFIX = "tk_kbw_stage1_done:";
+/** Legacy unscoped key — clear so it cannot leak across accounts. */
+const STAGE1_DONE_LEGACY = "tk_kbw_stage1_done";
 
-function readStage1Done(): boolean {
+function stage1Scope(userId: string | undefined, email: string | undefined): string {
+  const id = userId?.trim();
+  if (id) return `user:${id}`;
+  const em = email?.trim().toLowerCase();
+  if (em) return `email:${em}`;
+  return "guest";
+}
+
+function stage1StorageKey(scope: string): string {
+  return `${STAGE1_DONE_PREFIX}${scope}`;
+}
+
+function readStage1Done(scope: string): boolean {
   try {
-    return sessionStorage.getItem(STAGE1_DONE_KEY) === "1";
+    sessionStorage.removeItem(STAGE1_DONE_LEGACY);
+    return sessionStorage.getItem(stage1StorageKey(scope)) === "1";
   } catch {
     return false;
   }
 }
 
-function writeStage1Done() {
+function writeStage1Done(scope: string) {
   try {
-    sessionStorage.setItem(STAGE1_DONE_KEY, "1");
+    sessionStorage.removeItem(STAGE1_DONE_LEGACY);
+    sessionStorage.setItem(stage1StorageKey(scope), "1");
   } catch {
     /* ignore */
   }
@@ -77,17 +94,31 @@ export function EventLandingView() {
   const [stage1Done, setStage1Done] = useState(false);
   const { login } = useLogin();
   const { authenticated, canShowAuthUi } = usePrivyInitGate();
+  const userId = useAuthStore((s) => s.user?.id);
+  const userEmail = useAuthStore((s) => s.user?.email);
   const setPendingReturnTo = useAuthUiStore((s) => s.setPendingReturnTo);
+  const scope = stage1Scope(userId, userEmail);
 
   useEffect(() => {
-    if (readStage1Done()) setStage1Done(true);
-  }, []);
+    // Per-account (or guest) — switching users must not keep another account's check.
+    const done = readStage1Done(scope);
+    if (done) {
+      setStage1Done(true);
+      return;
+    }
+    // Guest completed Stage 1 then logged in: carry over once for this session.
+    if (scope !== "guest" && readStage1Done("guest")) {
+      writeStage1Done(scope);
+      setStage1Done(true);
+      return;
+    }
+    setStage1Done(false);
+  }, [scope]);
 
   function handleStage1() {
     if (stage1Done) return;
     // Same-tab HTTPS — avoids window.open about:blank when the IG app intercepts.
-    // No app → Instagram mobile web. App installed → handoff; Chrome return stays on /event.
-    writeStage1Done();
+    writeStage1Done(scope);
     setStage1Done(true);
     window.location.assign(STAGE1_INSTAGRAM_URL);
   }
@@ -99,6 +130,11 @@ export function EventLandingView() {
       return;
     }
     setPendingReturnTo("/event");
+    try {
+      sessionStorage.setItem("tk_kbw_login_intent", "1");
+    } catch {
+      /* ignore */
+    }
     if (!canShowAuthUi) return;
     login();
   }

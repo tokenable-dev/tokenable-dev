@@ -40,8 +40,17 @@ export function PrivySessionBridge() {
       catchupAttempt.current = 0;
       setLoginSyncNonce((n) => n + 1);
       // Session restore / refresh also fires onComplete with wasAlreadyAuthenticated.
-      // Only arm the KBW offer after a real login (logged-out → logged-in).
-      if (!wasAlreadyAuthenticated && isKbwEventActive()) {
+      // Real login → arm. Event Stage-2 sets tk_kbw_login_intent so OAuth redirect
+      // returns that report wasAlreadyAuthenticated still get the offer.
+      if (!isKbwEventActive()) return;
+      let eventLoginIntent = false;
+      try {
+        eventLoginIntent = sessionStorage.getItem("tk_kbw_login_intent") === "1";
+        if (eventLoginIntent) sessionStorage.removeItem("tk_kbw_login_intent");
+      } catch {
+        /* ignore */
+      }
+      if (!wasAlreadyAuthenticated || eventLoginIntent) {
         useAuthUiStore.getState().armKbwOffer();
       }
     },

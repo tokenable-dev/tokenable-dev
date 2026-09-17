@@ -21,6 +21,7 @@ FILES=(
   maintenance/user_buyer_listing_alert_token_contract.sql
   maintenance/drop_legacy_unused_tables.sql
   maintenance/add_kbw_mystery_card_burns.sql
+  maintenance/drop_users_email_unique.sql
 )
 
 run_psql() {

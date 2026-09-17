@@ -20,6 +20,7 @@ export async function completeSignOut(
 ): Promise<void> {
   setSignOutInProgress(true);
   useAuthUiStore.getState().resetWalletActivation();
+  useAuthUiStore.getState().clearKbwOffer();
   try {
     const privySignOut = getPrivySignOutHandler();
     if (privySignOut) {

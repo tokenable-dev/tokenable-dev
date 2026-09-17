@@ -18,6 +18,8 @@ export type WalletActivationPhase =
 
 /** Survives OAuth full-page redirects (Google etc.) — Zustand alone does not. */
 const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
+/** Survives remount / mobile viewport hydration so the KBW offer is not dropped. */
+const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
 
 function readStoredReturnTo(): string | null {
   if (typeof window === "undefined") return null;
@@ -39,6 +41,25 @@ function writeStoredReturnTo(path: string | null) {
     }
   } catch {
     /* ignore quota / private mode */
+  }
+}
+
+function readKbwOfferPending(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(KBW_OFFER_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeKbwOfferPending(pending: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (pending) sessionStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
+    else sessionStorage.removeItem(KBW_OFFER_PENDING_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
@@ -85,6 +106,8 @@ interface AuthUiState {
   closeKyc: () => void;
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
+  /** Restore pending flag from sessionStorage after remount. */
+  hydrateKbwOfferPending: () => void;
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
@@ -125,8 +148,19 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
 
   closeSignIn: () => set({ signInOpen: false }),
 
-  armKbwOffer: () => set({ kbwOfferPending: true }),
-  clearKbwOffer: () => set({ kbwOfferPending: false }),
+  armKbwOffer: () => {
+    writeKbwOfferPending(true);
+    set({ kbwOfferPending: true });
+  },
+  clearKbwOffer: () => {
+    writeKbwOfferPending(false);
+    set({ kbwOfferPending: false });
+  },
+
+  /** Rehydrate pending offer after remount (OAuth / soft navigation). */
+  hydrateKbwOfferPending: () => {
+    if (readKbwOfferPending()) set({ kbwOfferPending: true });
+  },
 
   openConnectWallet: (opts) => {
     const phase = get().walletActivationPhase;

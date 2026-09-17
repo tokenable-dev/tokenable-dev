@@ -1,2 +1,2 @@
 /** Shared UI primitives: viewport, mount, scroll lock. */
-export { useIsMobileViewport } from "./useIsMobileViewport";
+export { useIsMobileViewport, useMobileViewport } from "./useIsMobileViewport";
