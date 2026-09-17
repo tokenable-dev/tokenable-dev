@@ -27,7 +27,6 @@ export function ListRwaModalHost({
   marketValueUsd,
   listedPriceUsd,
   copyVariant,
-  onRequestCancelListing,
   onMatchedSale,
   onClose,
   onListed,
@@ -45,7 +44,6 @@ export function ListRwaModalHost({
   marketValueUsd?: number | null;
   listedPriceUsd?: number | null;
   copyVariant?: "default" | "set-price";
-  onRequestCancelListing?: () => void;
   onMatchedSale?: () => void;
   onClose: () => void;
   onListed: (tokenId?: number, created?: Order) => void;
@@ -67,7 +65,6 @@ export function ListRwaModalHost({
       marketValueUsd={marketValueUsd}
       listedPriceUsd={listedPriceUsd}
       copyVariant={copyVariant}
-      onRequestCancelListing={onRequestCancelListing}
       onMatchedSale={onMatchedSale}
       onClose={onClose}
       onListed={onListed}

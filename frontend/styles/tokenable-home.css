@@ -865,9 +865,17 @@
   overflow: hidden;
 }
 
-.home-page .grid4 .card__img > * {
+.home-page .grid4 .card__img > *:not(.fav):not(.card__fade) {
   height: 100%;
   width: 100%;
+}
+
+.home-page .grid4 .card__img .fav {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  width: auto;
+  height: auto;
 }
 
 .home-page .grid4 .card__img img {
@@ -1863,7 +1871,7 @@
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--eyebrow, #1a6fff);
 }
 
 .home-partners__cta-title {

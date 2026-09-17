@@ -195,12 +195,7 @@ export function ListRwaPriceInput({
         <p className="tk-price__loading" role="status">
           Loading market references…
         </p>
-      ) : (
-        <p className="tk-price__empty-refs" role="status">
-          No Cardhedger market match for this card yet — type a listing price
-          manually. Redeem and listing still work without a market quote.
-        </p>
-      )}
+      ) : null}
 
       <div className="tk-price__your">
         <span className="tk-price__ref-lbl">Your listing price</span>

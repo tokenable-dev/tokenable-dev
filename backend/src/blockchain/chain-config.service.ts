@@ -174,6 +174,9 @@ export class ChainConfigService implements OnModuleDestroy {
    * Cached provider. Primary = `CHAIN_*_RPC_URL` (Alchemy). Extra URLs use
    * ethers FallbackProvider so 429 / dead primary fails over to public RPCs.
    * `staticNetwork: true` avoids eth_chainId spam on a broken primary.
+   * `quorum: 1` — this is failover, not multi-RPC consensus. Default quorum
+   * (ceil(n/2)) throws "quorum not met" when only one RPC returns a valid
+   * result (common under Alchemy 429 / flaky public nodes).
    */
   createJsonRpcProvider(chainId?: SupportedChainId): AbstractProvider {
     const id = chainId ?? this.getDefaultChainId();
@@ -193,6 +196,7 @@ export class ChainConfigService implements OnModuleDestroy {
               weight: 1,
             })),
             id,
+            { quorum: 1 },
           );
 
     this.providers.set(id, provider);

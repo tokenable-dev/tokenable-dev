@@ -6,6 +6,7 @@ import {
   type AssetsSegment,
 } from "@/lib/portfolio/portfolioAssetsSegment";
 import { TkButton } from "@/components/ds";
+import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
 
 export type AssetsViewMode = "gallery" | "table";
 export type AssetsToolbarSort = "value" | "pl" | "ret" | "name";
@@ -149,20 +150,12 @@ export function PortfolioAssetsToolbar({
           {filterActive ? <span className="pf-tbtn__dot" /> : null}
         </button>
 
-        <div className="pf-tbar__search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <circle cx="11" cy="11" r="7" />
-            <line x1="16.5" y1="16.5" x2="21" y2="21" />
-          </svg>
-          <input
-            type="search"
-            autoComplete="off"
-            placeholder="Search name, cert #, set"
-            value={searchQuery}
-            aria-label="Search your assets"
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-          />
-        </div>
+        <PortfolioToolbarSearch
+          value={searchQuery}
+          onChange={onSearchQueryChange}
+          placeholder="Search name, cert #, set"
+          aria-label="Search your assets"
+        />
 
         <div className="pf-tbar__spacer" />
 

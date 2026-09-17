@@ -138,6 +138,16 @@ export function PortfolioCertificatePage({
         backHref={backHref}
         onRedeem={startRedeem}
         onSellList={() => setListOpen(true)}
+        onCancelListing={
+          existingAskOrderHash
+            ? () =>
+                setCancelListingConfirm({
+                  orderHash: existingAskOrderHash,
+                  listPriceUsd: listedPriceUsd,
+                })
+            : undefined
+        }
+        cancelListingPending={holdingActions.cancellingListingTokenId === tokenId}
       />
       {listOpen && tokenIdOk ? (
         <ListRwaModal
@@ -155,17 +165,6 @@ export function PortfolioCertificatePage({
           existingAskOrderHash={existingAskOrderHash}
           initialPriceUsdc={
             listedPriceUsd != null ? String(listedPriceUsd) : null
-          }
-          onRequestCancelListing={
-            existingAskOrderHash
-              ? () => {
-                  setListOpen(false);
-                  setCancelListingConfirm({
-                    orderHash: existingAskOrderHash,
-                    listPriceUsd: listedPriceUsd,
-                  });
-                }
-              : undefined
           }
           onClose={() => setListOpen(false)}
           onMatchedSale={afterListingChange}

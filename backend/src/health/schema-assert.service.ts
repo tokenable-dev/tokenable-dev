@@ -139,6 +139,12 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     column: 'collection_key',
     fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',
   },
+  {
+    kind: 'column',
+    table: 'user_buyer_listing_alert',
+    column: 'token_contract',
+    fix: 'maintenance/user_buyer_listing_alert_token_contract.sql',
+  },
 ];
 
 export function formatSchemaAssertFailure(missing: SchemaRequirement[]): string {

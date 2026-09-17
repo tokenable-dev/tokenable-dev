@@ -117,9 +117,17 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 
 **Cause:** ethers `JsonRpcProvider` could not complete `eth_chainId`. It retries **every 1s** by design. Local `CHAIN_11155111_RPC_URL` pointed at Alchemy after the monthly CU cap → 429. `RWA_OWNER_INDEX_ENABLED=1` keeps creating RPC calls (and used to leak a new provider per pass).
 
-**Fix:** Use Alchemy (or any primary) in `CHAIN_*_RPC_URL`. Backend wraps it with public fallbacks (`ethereum-sepolia-rpc.publicnode.com`, …) via ethers `FallbackProvider`. Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Providers use `{ staticNetwork: true }` so a dead primary does not print the 1s loop forever.
+**Fix:** Use Alchemy (or any primary) in `CHAIN_*_RPC_URL`. Backend wraps it with public fallbacks (`ethereum-sepolia-rpc.publicnode.com`, …) via ethers `FallbackProvider` with **`quorum: 1`** (failover — not majority consensus). Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Providers use `{ staticNetwork: true }` so a dead primary does not print the 1s loop forever.
 
 ---
+
+## Backend: `quorum not met` on eth_call (FallbackProvider)
+
+**Symptom:** Nest logs `Error: quorum not met … method: "call"` (often `name()` / portfolio snapshot). Health still 200. Error payload may include a **valid** `results` entry (e.g. decoded `"Tokenable"`) while still throwing.
+
+**Cause:** ethers `FallbackProvider` default quorum is `ceil(totalWeight / 2)`. With primary + 2 public RPCs, quorum=2. When only one node answers (Alchemy 429 / public flaky), the call fails even though one result is fine.
+
+**Fix (code):** `ChainConfigService.createJsonRpcProvider` passes `{ quorum: 1 }`. Redeploy backend.
 
 ## Owner index: `server response 404 Not Found` at `rpc.sepolia.org`
 

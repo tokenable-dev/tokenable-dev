@@ -18,6 +18,7 @@ FILES=(
   maintenance/add_vault_submissions_token_contract.sql
   maintenance/add_portfolio_daily_snapshots_token_contract.sql
   maintenance/nullable_rwa_tokens_settlement_policy.sql
+  maintenance/user_buyer_listing_alert_token_contract.sql
   maintenance/drop_legacy_unused_tables.sql
 )
 

@@ -20,6 +20,7 @@ import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
 import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
 
 type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
@@ -245,20 +246,12 @@ export function PortfolioActivitySection({
             <span className="pf-tbtn__badge">{filterCount}</span>
           ) : null}
         </button>
-        <div className="pf-tbar__search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <circle cx="11" cy="11" r="7" />
-            <line x1="16.5" y1="16.5" x2="21" y2="21" />
-          </svg>
-          <input
-            type="search"
-            autoComplete="off"
-            placeholder="Search card or cert #"
-            value={searchQuery}
-            aria-label="Search transaction history"
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <PortfolioToolbarSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search card or cert #"
+          aria-label="Search transaction history"
+        />
         <div className="pf-tbar__spacer" />
         <div className="pf-tbar__cluster">
           <div className="pf-tbar__sortsel">

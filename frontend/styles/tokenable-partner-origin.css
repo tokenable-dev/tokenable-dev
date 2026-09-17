@@ -64,7 +64,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #5b9aff;
+  color: var(--eyebrow, #1a6fff);
 }
 
 .po-grid {

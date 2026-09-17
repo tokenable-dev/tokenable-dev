@@ -9,6 +9,8 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.05);
   --azure: rgb(26, 111, 255);
+  /* PortfolioAsset accents use --brand-400; map to platform azure (not DS violet). */
+  --brand-400: var(--azure);
   --pos: rgb(0, 200, 100);
   --neg: #f5332c;
   --warn: #f3701e;
@@ -778,6 +780,16 @@
 }
 .pa-page .mval-v--listed {
   color: var(--brand-400);
+}
+.pa-page .pa-listings {
+  margin: 2px 0 6px;
+}
+.pa-page .pa-listings .prow:last-of-type {
+  border-bottom: 0;
+}
+.pa-page .pa-listings .btn--sm {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .pa-page .foot-actions {
   display: grid;

@@ -5,6 +5,10 @@
   color: var(--t1);
   overflow-x: clip;
   min-height: 100%;
+  /* Match Portfolio.html value-hero / change chip tokens */
+  --azure: rgb(26, 111, 255);
+  --pos: rgb(0, 200, 100);
+  --neg: #f5332c;
 }
 
 .portfolio-page__shell {
@@ -24,28 +28,27 @@
 }
 
 .pf-value-hero__eyebrow {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.16em;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--eyebrow, #5b9aff);
+  color: var(--eyebrow);
+  white-space: nowrap;
 }
 
 .pf-value-hero__row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 @media (max-width: 1024px) {
-  .pf-value-hero__row {
-    margin-top: 0;
-  }
-
   .partner-portfolio-header .pf-sec-title {
     margin-top: 0;
   }
@@ -54,8 +57,8 @@
 .pf-value-hero__amount {
   font-family: var(--font-sans);
   font-weight: 800;
-  font-size: 34px;
-  letter-spacing: -0.5px;
+  font-size: clamp(32px, 4vw, 44px);
+  letter-spacing: -0.03em;
   color: #fff;
   line-height: 1;
 }
@@ -63,20 +66,21 @@
 .pf-value-hero__chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .pf-value-hero__chip--up {
-  color: #3fd9a4;
+  color: var(--pos, rgb(0, 200, 100));
 }
 
 .pf-value-hero__chip--down {
-  color: #ff5d6c;
+  color: var(--neg, #f5332c);
 }
 
 .pf-value-hero__chip--flat {
@@ -84,16 +88,15 @@
 }
 
 .pf-value-hero__chip-dir {
-  font-size: 9px;
+  font-size: inherit;
   line-height: 1;
   display: inline-block;
-  position: relative;
-  top: -0.5px;
 }
 
 .pf-value-hero__chip-dot {
-  color: var(--t3);
-  font-weight: 400;
+  color: inherit;
+  font-weight: inherit;
+  opacity: 0.9;
 }
 
 .pf-value-hero__note {
@@ -355,17 +358,35 @@
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-  padding: 14px 4px;
-  margin: 16px 0;
+  padding: 10px 4px 8px;
+  margin: 0;
   width: 100%;
   box-sizing: border-box;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.pf-tbar::-webkit-scrollbar {
+  display: none;
 }
 
 .pf-tbar__search {
   position: relative;
-  flex: 0 1 320px;
-  min-width: 0;
+  flex: none;
+  width: 40px;
   height: 40px;
+  aspect-ratio: 1;
+  min-width: 0;
+  transition: width 0.18s ease;
+  cursor: pointer;
+}
+
+.pf-tbar__search.open {
+  width: 320px;
+  max-width: 60vw;
+  aspect-ratio: auto;
+  cursor: text;
 }
 
 .pf-tbar__search input {
@@ -380,9 +401,24 @@
   padding: 0 12px 0 38px;
   outline: none;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
-.pf-tbar__search input:focus {
+.pf-tbar__search:not(.open) input {
+  color: transparent;
+  caret-color: transparent;
+  padding: 0;
+}
+
+.pf-tbar__search:not(.open) input::placeholder {
+  color: transparent;
+}
+
+.pf-tbar__search.open input {
+  cursor: text;
+}
+
+.pf-tbar__search.open input:focus {
   box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.6);
   border-color: transparent;
 }
@@ -396,8 +432,9 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.5);
   pointer-events: none;
+  z-index: 2;
 }
 
 .pf-tbar__spacer {
@@ -918,10 +955,18 @@
 @media (max-width: 768px) {
   .pf-tbar {
     flex-wrap: wrap;
-    margin: 12px 0 14px;
+    padding: 8px 4px 6px;
+    margin: 0;
   }
 
   .pf-tbar__search {
+    flex: none;
+    order: 0;
+  }
+
+  .pf-tbar__search.open {
+    width: 100%;
+    max-width: 100%;
     flex: 1 1 100%;
     order: -1;
   }
@@ -3075,7 +3120,7 @@
   }
 
   .portfolio-page__tab-panel {
-    padding-top: 12px;
+    padding-top: 4px;
   }
 
   .pf-mobile-sort {
@@ -3387,16 +3432,16 @@
   }
 
   .pf-value-hero__row {
-    margin-top: 0;
-    gap: 10px;
+    margin-top: 8px;
+    gap: 12px;
   }
 
   .pf-value-hero__amount {
-    font-size: 34px;
+    font-size: clamp(32px, 8vw, 40px);
   }
 
   .pf-value-hero__chip {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .pf-value-hero__redeem {

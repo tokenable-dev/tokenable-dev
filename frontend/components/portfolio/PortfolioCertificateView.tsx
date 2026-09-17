@@ -21,6 +21,8 @@ export function PortfolioCertificateView({
   backHref,
   onRedeem,
   onSellList,
+  onCancelListing,
+  cancelListingPending = false,
 }: {
   tokenId: number;
   tokenIdOk: boolean;
@@ -28,6 +30,9 @@ export function PortfolioCertificateView({
   backHref: string;
   onRedeem: () => void;
   onSellList: () => void;
+  /** PortfolioAsset.html — Cancel listing sits on the Sale listing prow. */
+  onCancelListing?: () => void;
+  cancelListingPending?: boolean;
 }) {
   const [tab, setTab] = useState<"proof" | "history">("proof");
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -94,7 +99,7 @@ export function PortfolioCertificateView({
 
         <div className="cert">
           <div className="cert-head">
-            <span className="cert-title">◆ Certificate of Ownership</span>
+            <span className="cert-title">◈ Certificate of Ownership</span>
             {d.explorerUrl ? (
               <a
                 className="cert-id"
@@ -305,8 +310,62 @@ export function PortfolioCertificateView({
                   <div className="hist-d">{n.detail}</div>
                 </div>
               ))}
+              <p className="note">
+                Only verified Tokenable transactions enter this history; unverified
+                external or private sales stay as market comps.
+              </p>
             </div>
           )}
+
+          {d.listed && d.listing?.priceUsd != null ? (
+            <>
+              <div className="hair" />
+              <div className="pa-listings" data-listed-section="">
+                <div className="proof-h">Sale listing</div>
+                <div className="prow">
+                  <span className="prow-ic" aria-hidden>
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20.59 13.41 12 22l-9-9V4a1 1 0 0 1 1-1h9z" />
+                      <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="prow-k">Listed for sale</span>
+                    <span className="prow-s">
+                      {formatUsdListing(d.listing.priceUsd)}
+                      {d.listing.createdAt
+                        ? ` · listed ${formatCertDate(d.listing.createdAt)}`
+                        : null}
+                    </span>
+                  </span>
+                  {onCancelListing ? (
+                    <button
+                      type="button"
+                      className="btn btn--subtle btn--sm"
+                      disabled={
+                        !d.isOwner ||
+                        !d.canSign ||
+                        d.redeemInFlight ||
+                        cancelListingPending
+                      }
+                      onClick={onCancelListing}
+                    >
+                      {cancelListingPending ? "Cancelling…" : "Cancel listing"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <div className="hair" />
 
@@ -323,14 +382,6 @@ export function PortfolioCertificateView({
                 </span>
               ) : null}
             </div>
-            {d.listed && d.listing?.priceUsd != null ? (
-              <div className="mval">
-                <span className="mval-k">Listed</span>
-                <span className="mval-v mval-v--listed">
-                  {formatUsdListing(d.listing.priceUsd)}
-                </span>
-              </div>
-            ) : null}
             <div className="foot-actions">
               <button
                 type="button"

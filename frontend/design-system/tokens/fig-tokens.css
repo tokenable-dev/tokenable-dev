@@ -351,7 +351,7 @@
   --switch-height: 24; /* @kind spacing */
   --switch-indicator-diameter: 18; /* @kind spacing */
   --switch-width: 40; /* @kind spacing */
-  --text-brand-default: rgb(91,154,255); /* @kind color */ /* #5B9AFF eyebrow/small-label azure */
+  --text-brand-default: rgb(26,111,255); /* @kind color */ /* #1A6FFF brand / eyebrow azure */
   --text-brand-on-brand-secondary: rgba(255,255,255,0.8); /* @kind color */
   --text-brand-on-brand-tertiary: rgba(255,255,255,0.6); /* @kind color */
   --text-brand-on-brand: rgb(255,255,255); /* @kind color */

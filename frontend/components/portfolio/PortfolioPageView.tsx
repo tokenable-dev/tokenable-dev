@@ -63,7 +63,7 @@ import { CollectionChangeBidModal } from "@/components/marketplace/collection-tr
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
-import { formatPortfolioGradeLabel, listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
+import { listPriceSheetIdentity } from "@/lib/portfolio/portfolioTableHelpers";
 import type { PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { usePortfolioCollectionTopBids } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import { usePortfolioLoadPerf } from "@/hooks/portfolio/usePortfolioLoadPerf";
@@ -1004,25 +1004,6 @@ export function PortfolioPageView({
           marketValueUsd={listModal.marketValueUsd}
           listedPriceUsd={listModal.listedPriceUsd}
           copyVariant="set-price"
-          onRequestCancelListing={
-            listModal.existingAskOrderHash
-              ? () => {
-                  const meta = metadataByTokenId.get(listModal.tokenId) ?? null;
-                  setCancelListingConfirm({
-                    items: [
-                      {
-                        tokenId: listModal.tokenId,
-                        assetTitle: listModal.assetTitle,
-                        gradeLabel: formatPortfolioGradeLabel(meta),
-                        orderHash: listModal.existingAskOrderHash!,
-                        listPriceUsd: listModal.listedPriceUsd ?? null,
-                      },
-                    ],
-                  });
-                  setListModal(null);
-                }
-              : undefined
-          }
           onMatchedSale={() => {
             void refetchActiveOrders();
           }}

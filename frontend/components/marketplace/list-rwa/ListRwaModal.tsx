@@ -26,7 +26,6 @@ export function ListRwaModal(props: ListRwaModalProps) {
     copyVariant = "default",
     marketValueUsd,
     listedPriceUsd,
-    onRequestCancelListing,
   } = props;
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
@@ -102,7 +101,6 @@ export function ListRwaModal(props: ListRwaModalProps) {
     topCollectionBid: modal.topCollectionBid,
     marketValueUsd,
     listedPriceUsd,
-    onRequestCancelListing,
     onClose,
     copyVariant,
     settlementPolicy: modal.settlementPolicy,
@@ -122,8 +120,6 @@ export function ListRwaModal(props: ListRwaModalProps) {
       price={modal.price}
       onSubmit={() => void modal.handleList()}
       isSetPrice={isSetPrice}
-      isReplaceListing={modal.isReplaceListing}
-      onRequestCancelListing={onRequestCancelListing}
       onClose={onClose}
     />
   );

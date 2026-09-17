@@ -171,12 +171,6 @@
   overflow-wrap: anywhere;
 }
 
-.rd-list-sheet__cancel-listing {
-  color: rgba(255, 255, 255, 0.45) !important;
-  font-size: 13px !important;
-  height: 40px !important;
-}
-
 .rd-list-sheet__card-facts {
   margin: 6px 0 6px;
   font-family: var(--font-mono);
@@ -509,16 +503,6 @@
   margin: 0 0 14px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
-}
-
-.tk-price__empty-refs {
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.55);
 }
 
 .tk-price__your {

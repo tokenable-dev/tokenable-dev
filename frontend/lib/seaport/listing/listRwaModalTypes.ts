@@ -53,8 +53,6 @@ export interface ListRwaModalProps {
   marketValueUsd?: number | null;
   /** Listed ask amount for “Currently listed at” (Portfolio v2). */
   listedPriceUsd?: number | null;
-  /** Opens cancel-listing confirm (Portfolio Edit price drawer). */
-  onRequestCancelListing?: () => void;
   /** `sheet` — bottom `TkActionSheet` (RWA detail); default centered modal. */
   shell?: ListRwaModalShell;
   /** Portfolio Set price / Edit price copy (design system-2). */

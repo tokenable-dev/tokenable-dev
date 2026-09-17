@@ -13,10 +13,10 @@
   --surf: #141414;
   --surf-2: #111111;
   --line: rgba(255, 255, 255, 0.08);
-  /* Primary accent / CTA / links — `#1A6FFF`. Eyebrows use `--eyebrow`, not this. */
+  /* Primary accent / CTA / links / page eyebrows — `#1A6FFF`. */
   --azure: var(--accent-azure);
-  /* Page eyebrows only — not Neutral buttons (`--brand-400` / `#977DFF`). */
-  --eyebrow: #5b9aff;
+  /* Page eyebrows — same brand azure (`#1A6FFF`). Not Neutral violet (`--brand-400`). */
+  --eyebrow: #1a6fff;
   /* Vaulting / stepper progress — not price-gain `--pos`. */
   --progress-current: #4cde4c;
   --progress-done: #0f3b24;

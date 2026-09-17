@@ -17,9 +17,9 @@
   --t1: rgba(255, 255, 255, 0.95);
   --t2: rgba(255, 255, 255, 0.7);
   --t3: rgba(255, 255, 255, 0.52);
-  /* Neutral / “View all” violet — not eyebrow azure (`#5B9AFF`). */
+  /* Neutral / “View all” violet — not eyebrow azure (`#1A6FFF`). */
   --brand-400: #977dff;
-  --eyebrow: #5b9aff;
+  --eyebrow: #1a6fff;
   --brand-500: rgb(26, 111, 255);
   --text-default-secondary: rgba(255, 255, 255, 0.7);
   --text-default-tertiary: rgba(255, 255, 255, 0.52);

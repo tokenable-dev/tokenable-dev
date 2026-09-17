@@ -31,7 +31,6 @@ export function ListRwaModalFormView({
   topCollectionBid,
   marketValueUsd,
   listedPriceUsd,
-  onRequestCancelListing,
   onClose,
   copyVariant = "default",
   settlementPolicy = "standard",
@@ -57,7 +56,6 @@ export function ListRwaModalFormView({
   topCollectionBid?: { micros: bigint; label: string; inputValue: string } | null;
   marketValueUsd?: number | null;
   listedPriceUsd?: number | null;
-  onRequestCancelListing?: () => void;
   onClose?: () => void;
   copyVariant?: "default" | "set-price";
   settlementPolicy?: AskSettlementPolicy;
@@ -123,8 +121,6 @@ export function ListRwaModalFormView({
       price={price}
       onSubmit={onSubmit}
       isSetPrice={isSetPrice}
-      isReplaceListing={isReplaceListing}
-      onRequestCancelListing={onRequestCancelListing}
       onClose={onClose}
     />
   );
@@ -288,8 +284,6 @@ export function ListRwaModalFormActions({
   price,
   onSubmit,
   isSetPrice,
-  isReplaceListing,
-  onRequestCancelListing,
   onClose,
 }: {
   ctaLabel: string;
@@ -298,42 +292,28 @@ export function ListRwaModalFormActions({
   price: string;
   onSubmit: () => void;
   isSetPrice: boolean;
-  isReplaceListing: boolean;
-  onRequestCancelListing?: () => void;
   onClose?: () => void;
 }) {
   return (
     <>
       <TkButton
-        className={`mt-0.5 w-full justify-center${sellingNow ? " rd-list-sheet__cta--sell" : ""}`}
+        className={`w-full justify-center${sellingNow ? " rd-list-sheet__cta--sell" : ""}`}
         onClick={onSubmit}
         disabled={isProcessing || !price || parseFloat(price) <= 0}
       >
         {ctaLabel}
       </TkButton>
 
-      {/* portfolio-modals.js: Cancel closes the drawer */}
+      {/* portfolio-modals.js pfSetPriceModal: Cancel closes the drawer (pixel secondary). */}
       {isSetPrice && onClose ? (
         <TkButton
           type="button"
-          variant="ghost"
+          variant="subtle"
           className="w-full justify-center"
           disabled={isProcessing}
           onClick={onClose}
         >
           Cancel
-        </TkButton>
-      ) : null}
-
-      {isSetPrice && isReplaceListing && onRequestCancelListing ? (
-        <TkButton
-          type="button"
-          variant="ghost"
-          className="w-full justify-center rd-list-sheet__cancel-listing"
-          disabled={isProcessing}
-          onClick={onRequestCancelListing}
-        >
-          Cancel listing
         </TkButton>
       ) : null}
     </>

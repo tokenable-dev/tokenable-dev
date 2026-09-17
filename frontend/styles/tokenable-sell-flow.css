@@ -295,10 +295,9 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--azure);
+  color: var(--eyebrow, #1a6fff);
   margin-bottom: 14px;
 }
-
 /* Choose-Vault-Individual.html hides .eyebrow at 768px; layout.css hides at 1024. */
 @media (min-width: 769px) and (max-width: 1024px) {
   .sell-flow-eyebrow {
@@ -1682,7 +1681,7 @@ button.sell-ship-step--btn:focus-visible {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--eyebrow, #1a6fff);
   font-weight: 600;
   margin-bottom: 16px;
 }
@@ -2761,7 +2760,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-eyebrow {
   font-family: var(--font-sans);
   font-weight: 600;
-  color: var(--azure, #1a6fff);
+  color: var(--eyebrow, #1a6fff);
 }
 
 .sell-flow-page .sell-flow-sub,
@@ -2834,7 +2833,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-panel__eyebrow,
 .sell-flow-page .sell-ship-panel__eyebrow--inline {
   font-size: 11px;
-  color: #18181b;
+  color: var(--eyebrow, #1a6fff);
 }
 
 .sell-flow-page .sell-ship-track-head {

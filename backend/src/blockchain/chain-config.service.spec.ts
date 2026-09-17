@@ -63,4 +63,14 @@ describe('ChainConfigService.requireChainId', () => {
     expect(urls.length).toBeGreaterThan(1);
     svc.onModuleDestroy();
   });
+
+  it('uses quorum 1 so a single healthy RPC is enough (failover, not consensus)', () => {
+    const svc = makeService({
+      CHAIN_11155111_RPC_URL:
+        'https://eth-sepolia.g.alchemy.com/v2/test-key',
+    });
+    const provider = svc.createJsonRpcProvider(11155111) as { quorum?: number };
+    expect(provider.quorum).toBe(1);
+    svc.onModuleDestroy();
+  });
 });
