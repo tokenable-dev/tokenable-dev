@@ -51,6 +51,7 @@ export function toCardDisplayCase(value: string | null | undefined): string {
     "sgc",
     "cgc",
     "tag",
+    "kbw",
     "ex",
     "gx",
     "v",

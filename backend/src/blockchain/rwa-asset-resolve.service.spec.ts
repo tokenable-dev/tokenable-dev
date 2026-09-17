@@ -5,6 +5,7 @@ describe('RwaAssetResolveService', () => {
   const blockchain = {
     getResolvedRwaAsset: jest.fn(),
     batchRwaMetadata: jest.fn(),
+    getRwaTokenURI: jest.fn(),
   };
   const ipfs = {
     fetchMetadataJson: jest.fn(),
@@ -35,6 +36,7 @@ describe('RwaAssetResolveService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    blockchain.getRwaTokenURI.mockResolvedValue('');
     service = new RwaAssetResolveService(
       blockchain as never,
       ipfs as never,
@@ -82,12 +84,14 @@ describe('RwaAssetResolveService', () => {
     } as RwaToken;
 
     rwaTokenRepo.find.mockResolvedValue([row]);
+    blockchain.getRwaTokenURI.mockResolvedValue('ipfs://QmMeta117');
     ipfs.fetchMetadataJson.mockResolvedValue(sampleMetadata);
     ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
 
     const { items } = await service.batchPortfolioMetadata([117], 11155111);
 
     expect(ipfs.fetchMetadataJson).toHaveBeenCalledWith('ipfs://QmMeta117');
+    expect(blockchain.getRwaTokenURI).toHaveBeenCalledWith(117, 11155111);
     expect(blockchain.batchRwaMetadata).not.toHaveBeenCalled();
     expect(items[0]?.imageUrl).toBe('https://cdn.example/slab-117.jpg');
     expect(items[0]?.metadata).toEqual(sampleMetadata);
@@ -97,6 +101,61 @@ describe('RwaAssetResolveService', () => {
         displayName: 'Joe Burrow · PSA 10',
       }),
     );
+  });
+
+  it('batchPortfolioMetadata prefers on-chain when registry token_uri drifts', async () => {
+    const row = {
+      tokenId: '1',
+      tokenContract: '0xrwa',
+      tokenUri: 'ipfs://QmWrongPikachu',
+      certNumber: '87965247',
+      displayName: 'Monkey D. Luffy · 119 · PSA 10',
+      displayImageUrl: null,
+      displayImageBackUrl: null,
+    } as RwaToken;
+
+    const luffyMeta = {
+      name: 'Monkey D. Luffy',
+      properties: {
+        graded: {
+          psa: { certNumber: '87965247', subject: 'Monkey D. Luffy' },
+          card: { name: 'Monkey D. Luffy', number: '119' },
+          grade: { score: 10 },
+        },
+      },
+    };
+    const pikachuMeta = {
+      name: 'Pikachu Holo',
+      properties: {
+        graded: {
+          psa: { certNumber: '11111111', subject: 'Pikachu' },
+          card: { name: 'Pikachu Holo' },
+          grade: { score: 10 },
+        },
+      },
+    };
+
+    rwaTokenRepo.find.mockResolvedValue([row]);
+    blockchain.getRwaTokenURI.mockResolvedValue('ipfs://QmLuffyCorrect');
+    ipfs.fetchMetadataJson.mockResolvedValue(pikachuMeta);
+    ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
+    blockchain.batchRwaMetadata.mockResolvedValue({
+      items: [
+        {
+          tokenId: 1,
+          tokenURI: 'ipfs://QmLuffyCorrect',
+          metadata: luffyMeta,
+          imageUrl: 'https://cdn.example/luffy.jpg',
+        },
+      ],
+    });
+
+    const { items } = await service.batchPortfolioMetadata([1], 11155111);
+
+    expect(blockchain.batchRwaMetadata).toHaveBeenCalledWith([1], 11155111);
+    expect(items[0]?.metadata).toEqual(luffyMeta);
+    expect(items[0]?.tokenURI).toBe('ipfs://QmLuffyCorrect');
+    expect(items[0]?.imageUrl).toBe('https://cdn.example/luffy.jpg');
   });
 
   it('batchPortfolioMetadata falls back to on-chain for owner-index stubs without URI', async () => {

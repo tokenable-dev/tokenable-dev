@@ -25,6 +25,7 @@ import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
 import { useCollectionTradeDirectActions } from "@/hooks/collection-detail/useCollectionTradeDirectActions";
 import { CollectionMobileTradeBar } from "./CollectionMobileTradeBar";
+import { CollectionMobileTradeSheet } from "./CollectionMobileTradeSheet";
 import { CollectionSimilarItemsSection } from "./CollectionSimilarItemsSection";
 import {
   CollectionDetailTradePanel,
@@ -43,7 +44,7 @@ import {
   listingVaultBadge,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
-import { pickLowestActiveAsk, sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
+import { sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { Order } from "@/lib/core";
 
@@ -178,6 +179,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const [listPricePreset, setListPricePreset] = useState<string | null>(null);
   const [chooseOwnedOpen, setChooseOwnedOpen] = useState(false);
+  const [mobileTradeSheetOpen, setMobileTradeSheetOpen] = useState(false);
   const [tradeFocus, setTradeFocus] = useState<{
     seq: number;
     tab: CollectionDetailTradeTab;
@@ -409,12 +411,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [asks],
   );
 
-  const openBuyFloor = useCallback(() => {
-    const floor = pickLowestActiveAsk([...listings.askMap.values()]);
-    if (!floor) return;
-    handleTradeBuy(Number(floor.tokenId));
-  }, [listings.askMap, handleTradeBuy]);
-
   const defaultMobileBidUsd = useMemo(() => {
     const top = highestBidUsd != null && highestBidUsd > 0 ? highestBidUsd : 0;
     const last =
@@ -428,15 +424,23 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     return 0;
   }, [highestBidUsd, lowestAskUsd, market.gradeAwareExternalUsd]);
 
-  const defaultMobileSellUsd = useMemo(() => {
-    if (lowestAskUsd != null && lowestAskUsd > 0) {
-      return Math.round(lowestAskUsd * 0.99);
-    }
-    if (market.gradeAwareExternalUsd != null && market.gradeAwareExternalUsd > 0) {
-      return Math.round(market.gradeAwareExternalUsd);
-    }
-    return 0;
-  }, [lowestAskUsd, market.gradeAwareExternalUsd]);
+  const openMobileTradeSheet = useCallback(
+    (tab: CollectionDetailTradeTab) => {
+      focusTrade({
+        tab,
+        buyTokenId: null,
+        sellTokenId: null,
+        bidUsd:
+          tab === "bid" && defaultMobileBidUsd > 0 ? defaultMobileBidUsd : null,
+      });
+      setMobileTradeSheetOpen(true);
+    },
+    [focusTrade, defaultMobileBidUsd],
+  );
+
+  const closeMobileTradeSheet = useCallback(() => {
+    setMobileTradeSheetOpen(false);
+  }, []);
 
   const tradeBuyItems = useMemo((): CollectionTradeCertItem[] => {
     return sortActiveAsksLowestFirst(asks).map((order: Order) => {
@@ -475,6 +479,41 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       onBuy={handleTradeBuy}
       onBid={handleTradeBid}
       onSell={handleTradeSell}
+      buyDisabled={asks.length === 0 || tradeDirect.busy != null}
+      bidDisabled={tradeDirect.busy != null}
+      sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
+      buyBusy={tradeDirect.busy === "buy"}
+      bidBusy={tradeDirect.busy === "bid"}
+      sellBusy={tradeDirect.busy === "sell"}
+      focusSeq={tradeFocus.seq}
+      focusTab={tradeFocus.tab}
+      focusBuyTokenId={tradeFocus.buyTokenId}
+      focusSellTokenId={tradeFocus.sellTokenId}
+      focusBidUsd={tradeFocus.bidUsd}
+    />
+  );
+
+  const mobileSheetTradePanel = (
+    <CollectionDetailTradePanel
+      buyItems={tradeBuyItems}
+      ownedItems={tradeOwnedItems}
+      lowestAskUsd={lowestAskUsd}
+      highestBidUsd={highestBidUsd}
+      lastSaleUsd={market.gradeAwareExternalUsd}
+      askCount={asks.length}
+      bidCount={collectionBids.length}
+      onBuy={(tokenId) => {
+        closeMobileTradeSheet();
+        handleTradeBuy(tokenId);
+      }}
+      onBid={(priceUsd) => {
+        closeMobileTradeSheet();
+        handleTradeBid(priceUsd);
+      }}
+      onSell={(tokenId, priceUsd) => {
+        closeMobileTradeSheet();
+        handleTradeSell(tokenId, priceUsd);
+      }}
       buyDisabled={asks.length === 0 || tradeDirect.busy != null}
       bidDisabled={tradeDirect.busy != null}
       sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
@@ -594,31 +633,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
       <CollectionMobileTradeBar
         lowestAskUsd={lowestAskUsd}
-        onBuy={openBuyFloor}
-        onBid={() => {
-          if (!(defaultMobileBidUsd > 0)) return;
-          handleTradeBid(defaultMobileBidUsd);
-        }}
-        onSell={() => {
-          const rows = listableOwnedRows;
-          if (rows.length === 0) {
-            if (owned.rows.length === 0) router.push("/sell");
-            return;
-          }
-          if (!(defaultMobileSellUsd > 0)) {
-            openListFlow(null);
-            return;
-          }
-          if (rows.length === 1) {
-            handleTradeSell(rows[0]!.tokenId, defaultMobileSellUsd);
-            return;
-          }
-          openListFlow(defaultMobileSellUsd);
-        }}
-        buyDisabled={asks.length === 0 || tradeDirect.busy != null}
-        bidDisabled={!(defaultMobileBidUsd > 0) || tradeDirect.busy != null}
-        sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
+        onBuy={() => openMobileTradeSheet("buy")}
+        onBid={() => openMobileTradeSheet("bid")}
+        onSell={() => openMobileTradeSheet("sell")}
+        buyDisabled={tradeDirect.busy != null}
+        bidDisabled={tradeDirect.busy != null}
+        sellDisabled={tradeDirect.busy != null}
       />
+
+      <CollectionMobileTradeSheet
+        open={mobileTradeSheetOpen}
+        onClose={closeMobileTradeSheet}
+      >
+        {mobileSheetTradePanel}
+      </CollectionMobileTradeSheet>
 
       <TradeCelebrationModal
         open={tradeCelebration != null}

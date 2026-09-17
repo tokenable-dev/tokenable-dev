@@ -88,9 +88,11 @@
 }
 
 .pf-value-hero__chip-dir {
-  font-size: inherit;
+  /* ▲▼ fill the mono em-square — half the % digit size. */
+  font-size: 0.5em;
   line-height: 1;
   display: inline-block;
+  transform: translateY(-0.5px);
 }
 
 .pf-value-hero__chip-dot {
@@ -397,7 +399,8 @@
   border-radius: 9px;
   color: #fff;
   font-family: var(--font-sans);
-  font-size: 14px;
+  /* ≥16px: iOS Safari zooms focused inputs under 16px. */
+  font-size: 16px;
   padding: 0 12px 0 38px;
   outline: none;
   box-sizing: border-box;
@@ -408,6 +411,8 @@
   color: transparent;
   caret-color: transparent;
   padding: 0;
+  /* Icon tap opens via the wrapper — avoid focusing at 14px before `.open`. */
+  pointer-events: none;
 }
 
 .pf-tbar__search:not(.open) input::placeholder {
@@ -1045,7 +1050,6 @@ button.pf-table-card-cell--activate {
 
   .pf-tbar__search.open input {
     height: 44px;
-    font-size: 16px;
     box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.6);
   }
 

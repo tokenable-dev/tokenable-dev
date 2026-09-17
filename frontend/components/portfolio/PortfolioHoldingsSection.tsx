@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Order, RwaMetadata } from "@/lib/core";
+import type { RwaMetadata } from "@/lib/core";
 import { postRwaVaultInfoBatch, rq } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -45,8 +45,6 @@ export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
   metadataByTokenId,
-  tokenToCollectionKey: _tokenToCollectionKey,
-  bidsByCollectionKey: _bidsByCollectionKey,
   costBasisByTokenId,
   acquiredAtByTokenId,
   valuesPending,
@@ -70,8 +68,6 @@ export function PortfolioHoldingsSection({
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
-  tokenToCollectionKey: Record<number, string>;
-  bidsByCollectionKey: Map<string, Order[]>;
   costBasisByTokenId: Map<number, number>;
   acquiredAtByTokenId?: Map<number, string>;
   valuesPending: boolean;
@@ -169,6 +165,10 @@ export function PortfolioHoldingsSection({
     });
 
     rows.sort((a, b) => {
+      const aKbw = isKbwMysteryCardTokenId(a.tokenId);
+      const bKbw = isKbwMysteryCardTokenId(b.tokenId);
+      if (aKbw !== bKbw) return aKbw ? -1 : 1;
+
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {

@@ -10,7 +10,7 @@ import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAccount } from "wagmi";
 
-function cachedAssetInitialData(tokenId: number) {
+function cachedAssetPlaceholder(tokenId: number) {
   const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
   const cachedImg = getCachedRwaImageUrl(tokenId);
   if (!cachedMeta && !cachedImg) return undefined;
@@ -33,7 +33,8 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
       getResolvedRwaAsset(tokenId, viewerWallet || undefined),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
-    initialData: () => cachedAssetInitialData(tokenId),
+    // List-primed cache is paint-only — never treat as a fresh detail resolve.
+    placeholderData: () => cachedAssetPlaceholder(tokenId),
   });
 
   const metadata = metaBundle?.metadata ?? null;

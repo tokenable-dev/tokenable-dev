@@ -1,4 +1,4 @@
-const LS_KEY = "tokenable.rwa-metadata-cache.v2";
+const LS_KEY = "tokenable.rwa-metadata-cache.v3";
 const MAX_ENTRIES = 400;
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 

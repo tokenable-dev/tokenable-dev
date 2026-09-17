@@ -246,11 +246,15 @@ export function isImeKeyEvent(e: KeyboardEvent<HTMLInputElement>): boolean {
 export function TkHeaderSearch({
   mobileOpen,
   onMobileOpenChange,
+  overlayMode,
 }: {
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
+  /** Mobile viewport, or desktop when the 420px bar no longer fits. */
+  overlayMode?: boolean;
 }) {
   const gnbMobile = useGnbMobile();
+  const useOverlay = overlayMode ?? gnbMobile;
   const [desktopOpen, setDesktopOpen] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const mobileOverlayOpen = mobileOpen ?? internalMobileOpen;
@@ -275,7 +279,7 @@ export function TkHeaderSearch({
     }
   }, [pathname, urlSearchQ]);
 
-  const searchActive = gnbMobile ? mobileOverlayOpen : desktopOpen;
+  const searchActive = useOverlay ? mobileOverlayOpen : desktopOpen;
   const showResultsPanel =
     searchActive && query.trim().length > 0;
 
@@ -317,13 +321,21 @@ export function TkHeaderSearch({
     if (pathname === "/search" || pathname.startsWith("/search/")) {
       router.push("/search");
     }
-    if (gnbMobile) {
+    if (useOverlay) {
       mobileInputRef.current?.focus();
     } else {
       desktopInputRef.current?.focus();
       setDesktopOpen(true);
     }
-  }, [gnbMobile, pathname, router]);
+  }, [useOverlay, pathname, router]);
+
+  useEffect(() => {
+    if (!useOverlay) {
+      setMobileOverlayOpen(false);
+      return;
+    }
+    setDesktopOpen(false);
+  }, [useOverlay, setMobileOverlayOpen]);
 
   useEffect(() => {
     if (!mobileOverlayOpen) return;
@@ -344,7 +356,7 @@ export function TkHeaderSearch({
     function onKey(e: globalThis.KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        if (gnbMobile) {
+        if (useOverlay) {
           setMobileOverlayOpen(true);
         } else {
           setDesktopOpen(true);
@@ -354,7 +366,7 @@ export function TkHeaderSearch({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [gnbMobile, setMobileOverlayOpen]);
+  }, [useOverlay, setMobileOverlayOpen]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -365,12 +377,12 @@ export function TkHeaderSearch({
         setDesktopOpen(false);
       }
     }
-    if (desktopOpen && !gnbMobile) document.addEventListener("mousedown", handler);
+    if (desktopOpen && !useOverlay) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [desktopOpen, gnbMobile]);
+  }, [desktopOpen, useOverlay]);
 
   function liveQuery(): string {
-    const el = gnbMobile ? mobileInputRef.current : desktopInputRef.current;
+    const el = useOverlay ? mobileInputRef.current : desktopInputRef.current;
     return el?.value ?? query;
   }
 
@@ -426,7 +438,7 @@ export function TkHeaderSearch({
     }
   }
 
-  const showDesktopDropdown = !gnbMobile && desktopOpen && query.trim().length > 0;
+  const showDesktopDropdown = !useOverlay && desktopOpen && query.trim().length > 0;
   const showMobileResults = mobileOverlayOpen && query.trim().length > 0;
 
   const coverSources = useMemo(
@@ -521,7 +533,7 @@ export function TkHeaderSearch({
 
   return (
     <>
-      {!gnbMobile ? (
+      {!useOverlay ? (
         <form
           ref={desktopWrapperRef}
           className="gnb-search-anchor"
@@ -584,11 +596,17 @@ export function TkHeaderSearch({
   );
 }
 
-export function TkHeaderSearchMobileButton({ onClick }: { onClick: () => void }) {
+export function TkHeaderSearchMobileButton({
+  onClick,
+  className,
+}: {
+  onClick: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
-      className="gnb-search-mobile"
+      className={cn("gnb-search-mobile", className)}
       onClick={onClick}
       aria-label="Search collections"
     >

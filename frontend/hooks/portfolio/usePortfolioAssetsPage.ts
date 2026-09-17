@@ -58,8 +58,10 @@ function mergePageIntoAccumulated(
 ) {
   const metadataByToken = new Map(prev.metadataByToken);
   for (const it of pageData.metadataItems) {
-    metadataByToken.set(it.tokenId, {
-      tokenId: it.tokenId,
+    const tokenId = Number(it.tokenId);
+    if (!Number.isFinite(tokenId) || tokenId < 0) continue;
+    metadataByToken.set(tokenId, {
+      tokenId,
       metadata: it.metadata as RwaMetadata | null,
       imageUrl: it.imageUrl,
     });
@@ -254,32 +256,44 @@ export function usePortfolioAssetsPage(input: {
   });
 
   useEffect(() => {
-    if (!pendingBatchFetched || pendingTokenIds.length === 0) return;
-    const ids = [...pendingTokenIds];
-    for (const id of ids) {
+    if (
+      !pendingBatchFetched ||
+      pageFetching ||
+      !pageData ||
+      pendingTokenIds.length === 0
+    ) {
+      return;
+    }
+
+    const returnedIds = new Set(
+      pageData.metadataItems.map((it) => Number(it.tokenId)),
+    );
+    // Only consume a response that covers this pending batch — avoids marking
+    // ids fetched from a stale/partial React Query payload.
+    if (!pendingTokenIds.every((id) => returnedIds.has(id))) return;
+
+    for (const id of pendingTokenIds) {
       fetchedTokenIdsRef.current.add(id);
     }
 
-    if (pageData) {
-      primeRwaMetadataCache(
-        pageData.metadataItems.map((it) => ({
-          tokenId: it.tokenId,
-          metadata: it.metadata,
-          imageUrl: it.imageUrl,
-        })),
-      );
+    primeRwaMetadataCache(
+      pageData.metadataItems.map((it) => ({
+        tokenId: it.tokenId,
+        metadata: it.metadata,
+        imageUrl: it.imageUrl,
+      })),
+    );
 
-      setAccumulated((prev) => mergePageIntoAccumulated(prev, pageData));
-    }
-
+    setAccumulated((prev) => mergePageIntoAccumulated(prev, pageData));
     setFetchGeneration((g) => g + 1);
-  }, [pendingBatchFetched, pageData, pendingTokenIds]);
+  }, [pendingBatchFetched, pageFetching, pageData, pendingTokenIds]);
 
   const assets = useMemo(() => {
     // Show shells as soon as we know owned ids — don't wait for BFF metadata.
+    // Always re-stamp tokenId from the owned-id key so href/label cannot drift.
     return loadedTokenIds.map((id) => {
       const loaded = accumulated.metadataByToken.get(id);
-      if (loaded) return loaded;
+      if (loaded) return { ...loaded, tokenId: id };
       return {
         tokenId: id,
         metadata: null,
@@ -288,9 +302,11 @@ export function usePortfolioAssetsPage(input: {
     });
   }, [loadedTokenIds, accumulated.metadataByToken]);
 
-  const tokenToServerCollectionKey = useMemo(() => {
+  const tokenToCollectionKey = useMemo(() => {
     const o: Record<number, string> = { ...accumulated.collectionKeys };
     for (const a of assets) {
+      // Listing collection_key is fallback only — never override mint registry key.
+      if (o[a.tokenId]) continue;
       const listingKey = listingCollectionKeyByToken
         .get(a.tokenId)
         ?.trim()
@@ -299,15 +315,6 @@ export function usePortfolioAssetsPage(input: {
     }
     return o;
   }, [assets, accumulated.collectionKeys, listingCollectionKeyByToken]);
-
-  const tokenToCollectionKey = useMemo(() => {
-    return { ...tokenToServerCollectionKey };
-  }, [tokenToServerCollectionKey]);
-
-  const uniqueCollectionKeys = useMemo(
-    () => [...new Set(Object.values(tokenToServerCollectionKey))],
-    [tokenToServerCollectionKey],
-  );
 
   const statsByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketStats>();
@@ -320,9 +327,7 @@ export function usePortfolioAssetsPage(input: {
   const seriesByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketSeries>();
     for (const it of accumulated.marketItems) {
-      if (it.series) {
-        m.set(it.collectionKey.toLowerCase(), it.series);
-      }
+      if (it.series) m.set(it.collectionKey.toLowerCase(), it.series);
     }
     return m;
   }, [accumulated.marketItems]);
@@ -339,7 +344,7 @@ export function usePortfolioAssetsPage(input: {
     }
     return assets
       .filter((a) => {
-        const ck = tokenToServerCollectionKey[a.tokenId]?.toLowerCase();
+        const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase();
         if (!ck) return true;
         return !portfolioSnapshotCanPriceHoldings(
           seriesByCollectionKey.get(ck),
@@ -352,7 +357,7 @@ export function usePortfolioAssetsPage(input: {
     enabled,
     assets,
     serverKeysReady,
-    tokenToServerCollectionKey,
+    tokenToCollectionKey,
     seriesByCollectionKey,
   ]);
 
@@ -417,7 +422,7 @@ export function usePortfolioAssetsPage(input: {
       .map((id) => {
         const a = accumulated.metadataByToken.get(id)!;
         return {
-          tokenId: a.tokenId,
+          tokenId: id,
           metadata: a.metadata,
           imageUrl: a.imageUrl,
         };
@@ -511,8 +516,6 @@ export function usePortfolioAssetsPage(input: {
     loadedTokenIds,
     assets,
     tokenToCollectionKey,
-    tokenToServerCollectionKey,
-    uniqueCollectionKeys,
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken: mintPreviewByToken ?? EMPTY_MINT,

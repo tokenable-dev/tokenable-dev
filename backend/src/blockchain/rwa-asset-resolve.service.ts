@@ -316,27 +316,50 @@ export class RwaAssetResolveService {
     return meta;
   }
 
+  /** True when IPFS JSON cert/name does not match the `rwa_tokens` mint row. */
+  private registryRowDisagreesWithMetadata(
+    row: RwaToken,
+    metadata: Record<string, unknown> | null,
+  ): boolean {
+    if (!metadata) return false;
+    const rowCert = row.certNumber?.trim();
+    const metaCert = psaCertNumberFromGradedMeta(metadata)?.trim() || '';
+    if (rowCert && metaCert && rowCert !== metaCert) return true;
+
+    const rowName = row.displayName?.trim().toLowerCase() || '';
+    const metaName =
+      resolveRegistryDisplayName(metadata)?.trim().toLowerCase() || '';
+    if (!rowName || !metaName) return false;
+    const rowCore = rowName.split(/[·•|]/)[0]?.trim() || rowName;
+    const metaCore = metaName.split(/[·•|]/)[0]?.trim() || metaName;
+    return rowCore.length >= 3 && metaCore.length >= 3 && rowCore !== metaCore;
+  }
+
+  private normalizeTokenUri(uri: string): string {
+    return uri.trim().replace(/\/+$/, '').toLowerCase();
+  }
+
+  private tokenUrisDiffer(a: string, b: string): boolean {
+    return this.normalizeTokenUri(a) !== this.normalizeTokenUri(b);
+  }
+
   private async fetchMetadataJsonByUriMap(
     uris: string[],
   ): Promise<Map<string, Record<string, unknown> | null>> {
     const unique = [...new Set(uris.map((u) => u.trim()).filter(Boolean))];
     const out = new Map<string, Record<string, unknown> | null>();
-    const concurrency = 4;
-    for (let i = 0; i < unique.length; i += concurrency) {
-      const chunk = unique.slice(i, i + concurrency);
-      await Promise.all(
-        chunk.map(async (uri) => {
-          out.set(uri, await this.fetchMetadataJsonSafe(uri));
-        }),
-      );
-    }
+    await Promise.all(
+      unique.map(async (uri) => {
+        out.set(uri, await this.fetchMetadataJsonSafe(uri));
+      }),
+    );
     return out;
   }
 
   /**
-   * Portfolio list path — graded JSON from registry `token_uri` (IPFS) when
-   * present; owner-index stubs without URI fall back to on-chain tokenURI +
-   * IPFS (same as detail). Prefers DB slab images. Heals empty registry fields.
+   * Portfolio list metadata. Prefer registry `token_uri` IPFS for speed, but
+   * when that URI (or cert/name) drifts from on-chain / `rwa_tokens`, fall back
+   * to on-chain — same identity SSOT as certificate detail.
    */
   async batchPortfolioMetadata(
     tokenIds: number[],
@@ -372,23 +395,23 @@ export class RwaAssetResolveService {
       }
     }
 
-    const needsOnChain = unique.filter((tokenId) => {
+    type OnChainPack = {
+      tokenURI: string | null;
+      metadata: Record<string, unknown> | null;
+      imageUrl: string | null;
+    };
+    const onChainById = new Map<number, OnChainPack>();
+
+    const missingRegistryUri = unique.filter((tokenId) => {
       const row = registryRows.get(tokenId);
       return !row || !this.registryMetadataUri(row);
     });
-    const onChainById = new Map<
-      number,
-      {
-        tokenURI: string | null;
-        metadata: Record<string, unknown> | null;
-        imageUrl: string | null;
-      }
-    >();
-    if (needsOnChain.length > 0) {
-      const base = await this.blockchain.batchRwaMetadata(needsOnChain, chainId);
-      for (const item of base.items) {
-        onChainById.set(item.tokenId, item);
-      }
+    if (missingRegistryUri.length > 0) {
+      const base = await this.blockchain.batchRwaMetadata(
+        missingRegistryUri,
+        chainId,
+      );
+      for (const item of base.items) onChainById.set(item.tokenId, item);
     }
 
     const registryUris: string[] = [];
@@ -410,38 +433,96 @@ export class RwaAssetResolveService {
       return https;
     };
 
+    // Cheap tokenURI probe for rows that already have a registry URI.
+    const chainUriById = new Map<number, string>();
+    const probeIds = unique.filter((id) => {
+      if (onChainById.has(id)) return false;
+      const row = registryRows.get(id);
+      return Boolean(row && this.registryMetadataUri(row));
+    });
+    await Promise.all(
+      probeIds.map(async (tokenId) => {
+        try {
+          const uri = (
+            await this.blockchain.getRwaTokenURI(tokenId, chainId)
+          )?.trim();
+          if (uri) chainUriById.set(tokenId, uri);
+        } catch {
+          /* keep registry path */
+        }
+      }),
+    );
+
+    const driftTokenIds: number[] = [];
+    for (const tokenId of unique) {
+      if (onChainById.has(tokenId)) continue;
+      const row = registryRows.get(tokenId);
+      const registryUri = row ? this.registryMetadataUri(row) : '';
+      if (!row || !registryUri) continue;
+      const chainUri = chainUriById.get(tokenId) || '';
+      if (chainUri && this.tokenUrisDiffer(registryUri, chainUri)) {
+        driftTokenIds.push(tokenId);
+        continue;
+      }
+      const fromUri = metadataByUri.get(registryUri) ?? null;
+      if (this.registryRowDisagreesWithMetadata(row, fromUri)) {
+        driftTokenIds.push(tokenId);
+      }
+    }
+    if (driftTokenIds.length > 0) {
+      const drifted = await this.blockchain.batchRwaMetadata(
+        driftTokenIds,
+        chainId,
+      );
+      for (const item of drifted.items) onChainById.set(item.tokenId, item);
+    }
+
     const items = await Promise.all(
       unique.map(async (tokenId) => {
         const row = registryRows.get(tokenId);
         const registryUri = row ? this.registryMetadataUri(row) : '';
         const onChain = onChainById.get(tokenId);
+        const chainUri =
+          onChain?.tokenURI?.trim() || chainUriById.get(tokenId) || '';
 
-        let metadata: Record<string, unknown> | null = null;
-        if (registryUri) {
-          metadata = metadataByUri.get(registryUri) ?? null;
-        }
-        if (!metadata && row) {
-          metadata = this.stubMetadataFromRegistryRow(row);
-        }
-        if (!metadata) {
-          metadata = onChain?.metadata ?? null;
+        let metadata: Record<string, unknown> | null = registryUri
+          ? (metadataByUri.get(registryUri) ?? null)
+          : null;
+        const uriDrift = Boolean(
+          registryUri && chainUri && this.tokenUrisDiffer(registryUri, chainUri),
+        );
+        const rowDrift =
+          Boolean(row) && this.registryRowDisagreesWithMetadata(row!, metadata);
+        const drifted = uriDrift || rowDrift;
+
+        if (drifted) {
+          // Drop drifted IPFS — never keep the wrong card on the list.
+          metadata =
+            onChain?.metadata ??
+            (row ? this.stubMetadataFromRegistryRow(row) : null);
+        } else {
+          if (!metadata && row) {
+            metadata = this.stubMetadataFromRegistryRow(row);
+          }
+          if (!metadata) {
+            metadata = onChain?.metadata ?? null;
+          }
         }
 
-        const tokenURI =
-          registryUri || onChain?.tokenURI?.trim() || null;
+        const tokenURI = drifted && chainUri ? chainUri : registryUri || chainUri || null;
 
-        this.maybeBackfillRegistryFields(row, tokenId, tokenURI, metadata);
+        this.maybeBackfillRegistryFields(row, tokenId, tokenURI, metadata, {
+          forceUriHeal: drifted,
+        });
 
         const override = row?.displayImageUrl?.trim() || null;
         let imageUrl: string | null = null;
-        if (override) {
+        if (override && !drifted) {
           imageUrl = await resolveHttps(override);
         } else if (metadata) {
           imageUrl = await this.resolveImageFromMetadata(metadata);
         }
-        if (!imageUrl) {
-          imageUrl = onChain?.imageUrl ?? null;
-        }
+        if (!imageUrl) imageUrl = onChain?.imageUrl ?? null;
         const imageBackUrl = await resolveHttps(row?.displayImageBackUrl);
 
         return {
@@ -460,18 +541,21 @@ export class RwaAssetResolveService {
   }
 
   /**
-   * Heal owner-index stubs / incomplete mint rows after a successful resolve.
-   * Only fills empty columns — never overwrites settlement_policy or images.
+   * Heal incomplete registry fields after resolve. When `forceUriHeal` is set
+   * (list/detail identity drift), also overwrite mismatched token_uri / cert / name.
+   * Never touches settlement_policy or slab image columns.
    */
   private maybeBackfillRegistryFields(
     row: RwaToken | undefined,
     tokenId: number,
     tokenURI: string | null,
     metadata: Record<string, unknown> | null,
+    opts?: { forceUriHeal?: boolean },
   ): void {
     const contract = row?.tokenContract ?? this.rwaContractAddress();
     if (!contract) return;
     const tid = String(tokenId);
+    const force = opts?.forceUriHeal === true;
 
     const patch: {
       displayName?: string;
@@ -488,13 +572,17 @@ export class RwaAssetResolveService {
       !current ||
       /\bRaw\b/i.test(current) ||
       (!/[·•]/.test(current) && !/\bPSA\s+/i.test(current));
-    if (name && currentLooksIncomplete && name !== current) {
+    if (name && name !== current && (force || currentLooksIncomplete)) {
       patch.displayName = name;
       dirty = true;
     }
 
     const uri = tokenURI?.trim() || '';
-    if (uri && !row?.tokenUri?.trim() && !row?.metadataCid?.trim()) {
+    const existingUri = row?.tokenUri?.trim() || '';
+    const canFillEmptyUri = uri && !existingUri && !row?.metadataCid?.trim();
+    const canHealUri =
+      force && uri && existingUri && this.tokenUrisDiffer(uri, existingUri);
+    if (canFillEmptyUri || canHealUri) {
       patch.tokenUri = uri;
       patch.metadataCid = metadataCidFromTokenUri(uri);
       dirty = true;
@@ -503,7 +591,8 @@ export class RwaAssetResolveService {
     const cert = metadata
       ? psaCertNumberFromGradedMeta(metadata)?.trim() || null
       : null;
-    if (cert && !row?.certNumber?.trim()) {
+    const existingCert = row?.certNumber?.trim() || '';
+    if (cert && (!existingCert || (force && existingCert !== cert))) {
       patch.certNumber = cert;
       dirty = true;
     }

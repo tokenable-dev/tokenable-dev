@@ -14,7 +14,7 @@ import { activeRqChainId, getChainContracts, SUPPORTED_CHAIN_IDS } from "@/lib/c
 import type { SupportedChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
-const SCHEMA = 6;
+const SCHEMA = 7;
 /** Keep a just-bought tile only until owner_wallet index catches up. */
 const OPTIMISTIC_BUY_MAX_AGE_MS = 3 * 60 * 1000;
 /** Paint-time cache TTL — matches marketplace list persistence. */

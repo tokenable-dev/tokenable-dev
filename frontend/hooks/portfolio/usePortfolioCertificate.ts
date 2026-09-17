@@ -95,7 +95,10 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
   });
 
-  const holding = holdingsQuery.data?.items?.[0] ?? null;
+  const holding = useMemo(() => {
+    const items = holdingsQuery.data?.items ?? [];
+    return items.find((h) => Number(h.tokenId) === tokenId) ?? null;
+  }, [holdingsQuery.data?.items, tokenId]);
 
   const vaultQuery = useQuery({
     queryKey: ["rwa-settlement-policy", chainId, tokenId],

@@ -3,7 +3,7 @@
 import "@/styles/tokenable-wallet-menu.css";
 import "@/styles/tokenable-notifications.css";
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { ASSETS } from "@/constants/assets";
@@ -19,10 +19,20 @@ import {
 import { NotificationsDrawer } from "@/components/layout/notifications/NotificationsDrawer";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
+import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
+import { useGnbDesktopSearchLayout } from "@/hooks/layout/useGnbDesktopSearchLayout";
 import { useAuthStore } from "@/store/authStore";
 
 export function TkHeader() {
   const pathname = usePathname();
+  const gnbMobile = useGnbMobile();
+  const {
+    barRef,
+    leftRef,
+    rightRef,
+    compact: desktopSearchCompact,
+    searchLeftPx,
+  } = useGnbDesktopSearchLayout(!gnbMobile);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -31,6 +41,16 @@ export function TkHeader() {
   const { unreadCount } = useMarketplaceNotifications({
     enabled: Boolean(userId) && !hideChrome,
   });
+  const overlaySearch = gnbMobile || desktopSearchCompact;
+
+  const searchPositionStyle = (
+    !gnbMobile && searchLeftPx != null
+      ? ({
+          "--gnb-search-left": `${searchLeftPx}px`,
+          "--gnb-search-tx": "0",
+        } as CSSProperties)
+      : undefined
+  );
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
@@ -83,10 +103,12 @@ export function TkHeader() {
           "tk-header",
           drawerOpen && "tk-header--drawer-open",
           mobileSearchOpen && "tk-header--search-open",
+          desktopSearchCompact && "tk-header--search-compact",
         )}
+        style={searchPositionStyle}
       >
-        <div className="tk-header__bar">
-          <div className="tk-header__left">
+        <div className="tk-header__bar" ref={barRef}>
+          <div className="tk-header__left" ref={leftRef}>
             <Link href="/" className="flex shrink-0 items-center" aria-label="Tokenable home">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -114,6 +136,7 @@ export function TkHeader() {
               <TkHeaderSearch
                 mobileOpen={mobileSearchOpen}
                 onMobileOpenChange={setMobileSearchOpen}
+                overlayMode={overlaySearch}
               />
             </Suspense>
           </div>
@@ -145,7 +168,14 @@ export function TkHeader() {
               </button>
             </div>
 
-            <div className="gnb-right">
+            {desktopSearchCompact ? (
+              <TkHeaderSearchMobileButton
+                className="gnb-search-desktop-fallback"
+                onClick={openMobileSearch}
+              />
+            ) : null}
+
+            <div className="gnb-right" ref={rightRef}>
               <HeaderAuthControls onOpenNotifications={openNotifications} />
             </div>
           </div>

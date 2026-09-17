@@ -132,6 +132,7 @@ export function PortfolioCertificatePage({
   return (
     <>
       <PortfolioCertificateView
+        key={tokenIdOk ? tokenId : "invalid"}
         tokenId={tokenId}
         tokenIdOk={tokenIdOk}
         data={data}

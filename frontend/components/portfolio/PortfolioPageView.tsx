@@ -876,8 +876,6 @@ export function PortfolioPageView({
               assetsSectionLoading={assetsSectionLoading}
               assetRows={holdingsDisplayRows}
               metadataByTokenId={holdingsMetadataByTokenId}
-              tokenToCollectionKey={tokenToCollectionKey}
-              bidsByCollectionKey={bidsByCollectionKey}
               costBasisByTokenId={costBasisByTokenId}
               acquiredAtByTokenId={acquiredAtByTokenId}
               valuesPending={valuesPending}
