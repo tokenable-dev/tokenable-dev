@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLogin } from "@privy-io/react-auth";
 import { ASSETS } from "@/constants/assets";
@@ -9,6 +9,23 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { useToastStore } from "@/store/toastStore";
 
 const STAGE1_INSTAGRAM_URL = "https://www.instagram.com/tokenable_io";
+const STAGE1_DONE_KEY = "tk_kbw_stage1_done";
+
+function readStage1Done(): boolean {
+  try {
+    return sessionStorage.getItem(STAGE1_DONE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeStage1Done() {
+  try {
+    sessionStorage.setItem(STAGE1_DONE_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
 
 const COPY = {
   heroSub: "Korea Blockchain Week",
@@ -60,10 +77,17 @@ export function EventLandingView() {
   const { authenticated, canShowAuthUi } = usePrivyInitGate();
   const setPendingReturnTo = useAuthUiStore((s) => s.setPendingReturnTo);
 
+  useEffect(() => {
+    if (readStage1Done()) setStage1Done(true);
+  }, []);
+
   function handleStage1() {
     if (stage1Done) return;
-    window.open(STAGE1_INSTAGRAM_URL, "_blank", "noopener,noreferrer");
+    // Same-tab HTTPS — avoids window.open about:blank when the IG app intercepts.
+    // No app → Instagram mobile web. App installed → handoff; Chrome return stays on /event.
+    writeStage1Done();
     setStage1Done(true);
+    window.location.assign(STAGE1_INSTAGRAM_URL);
   }
 
   function handleStage2() {
