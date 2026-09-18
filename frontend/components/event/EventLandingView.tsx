@@ -29,32 +29,23 @@ const COPY = {
   foot: "REAL GRADED CARDS · ON-CHAIN · INSTANTSETTLEMENT",
 } as const;
 
-/** Open Instagram profile — prefer native app on mobile; never leave `/event` with a popup. */
+/** Open Instagram profile — native app on mobile; never replace the Tokenable tab with Instagram web. */
 function openInstagramProfile() {
   if (!isMobileBrowserUa()) {
     window.open(STAGE1_INSTAGRAM_WEB, "_blank", "noopener,noreferrer");
     return;
   }
 
-  // Mobile: never `window.open` HTTPS — that forces a browser tab/popup before the app.
-  // Try the native scheme first; only if we are still visible after a pause, fall back
-  // same-tab (Universal / App Links may still hand off to Instagram).
+  // App scheme / Intent only. Do NOT assign https://instagram.com on this tab —
+  // that replaces /event with Instagram web when the app handoff fails or is slow.
   const isAndroid = /Android/i.test(navigator.userAgent);
-
   if (isAndroid) {
     window.location.href =
       `intent://user?username=${STAGE1_IG_USER}#Intent;` +
       `scheme=instagram;package=com.instagram.android;end`;
-  } else {
-    window.location.href = STAGE1_INSTAGRAM_APP;
+    return;
   }
-
-  window.setTimeout(() => {
-    // App took over → tab is hidden; do nothing.
-    if (document.hidden) return;
-    // Same tab only — no popup. OS may still open the Instagram app via App Links.
-    window.location.assign(STAGE1_INSTAGRAM_WEB);
-  }, 2200);
+  window.location.href = STAGE1_INSTAGRAM_APP;
 }
 
 function Stage1Gloss() {

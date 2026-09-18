@@ -4,10 +4,9 @@
  * ## Flow
  * 1. `PrivyAppProviders` — wraps app when `NEXT_PUBLIC_PRIVY_APP_ID` is set
  * 2. `PrivySignInLauncher` — auth UI → Privy `login()`
- * 3. `PrivyWalletSiweAutoContinue` — mobile: after explicit MetaMask tap, push SIWE on connect success (one MM visit when possible)
- * 4. `PrivySessionBridge` — Privy token → `POST /auth/privy/session` → Tokenable cookie
- * 5. `PrivyWalletLauncher` — activate / link wallet via Privy + refresh session
- * 6. `useSeaportOrderSigner` — Seaport EIP-712 via Privy SDK
+ * 3. `PrivySessionBridge` — Privy token → `POST /auth/privy/session` → Tokenable cookie
+ * 4. `PrivyWalletLauncher` — activate / link wallet via Privy + refresh session
+ * 5. `useSeaportOrderSigner` — Seaport EIP-712 via Privy SDK
  *
  * Canonical home: `frontend/lib/privy/`
  * Backend: `backend/src/auth/privy/` (token verify) + `backend/src/privy/` (API proxy/funding)
