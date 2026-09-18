@@ -1,15 +1,6 @@
-/** Session flag: user opened Privy login and may need mobile SIWE auto-continue. */
+/** Helpers for mobile Privy wallet login — no unsolicited MetaMask prompts. */
 
 const KEY = "tk_privy_wallet_siwe_pending";
-const TTL_MS = 5 * 60_000;
-
-export function markPrivyWalletLoginIntent(): void {
-  try {
-    sessionStorage.setItem(KEY, String(Date.now()));
-  } catch {
-    /* private mode */
-  }
-}
 
 export function clearPrivyWalletLoginIntent(): void {
   try {
@@ -19,24 +10,11 @@ export function clearPrivyWalletLoginIntent(): void {
   }
 }
 
-export function hasPrivyWalletLoginIntent(): boolean {
-  try {
-    const raw = sessionStorage.getItem(KEY);
-    if (!raw) return false;
-    const started = Number(raw);
-    if (!Number.isFinite(started) || Date.now() - started > TTL_MS) {
-      sessionStorage.removeItem(KEY);
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Mark mobile SIWE intent, then open Privy's login modal. */
+/** Open Privy's login modal. MetaMask is only prompted when the user picks it there. */
 export function startPrivyLogin(login: () => void): void {
-  markPrivyWalletLoginIntent();
+  // Clear any leftover SIWE flag so a prior WC session cannot trigger MetaMask
+  // on the next page load without an explicit Privy MetaMask click.
+  clearPrivyWalletLoginIntent();
   login();
 }
 

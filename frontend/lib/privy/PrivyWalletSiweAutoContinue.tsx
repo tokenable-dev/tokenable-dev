@@ -1,28 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { isPrivyExternalWallet } from "@/lib/privy/wallet";
+import { usePrivy } from "@privy-io/react-auth";
 import {
   clearPrivyWalletLoginIntent,
-  hasPrivyWalletLoginIntent,
   isMobileBrowserUa,
 } from "@/lib/privy/walletLoginIntent";
 
 /**
- * Why MetaMask opens twice on mobile
- * ----------------------------------
- * Privy's ConnectionStatusScreen sets `separateConnectAndSign` for mobile
- * WalletConnect (MetaMask). After eth_requestAccounts it shows
- * "Sign with your wallet" and does NOT auto-call `loginWithWallet` (desktop
- * MetaMask WC waits ~2.5s then auto-prompts SIWE). The Sign tap usually
- * happens after the user is already back in the browser → a second deeplink.
+ * Mobile MetaMask (WalletConnect) SIWE helper — Sign CTA only.
  *
- * Fix: the moment connect succeeds (Sign CTA mounts — often while MetaMask is
- * still open and this tab is `document.hidden`), wait briefly for WC to settle
- * (same idea as Privy's 2.5s desktop delay), then click Sign / `loginOrLink`
- * so `personal_sign` is pushed over the existing WC session. MetaMask can show
- * the SIWE prompt in the same app visit; the user returns once, already logged in.
+ * Privy sets `separateConnectAndSign` on mobile WC: after the user explicitly
+ * connects MetaMask in the Privy modal, it shows "Sign with your wallet" and
+ * waits for a tap (second round-trip). We auto-click that CTA only.
+ *
+ * Hard rule: never call `loginOrLink()` / never deeplink MetaMask unless Privy
+ * is already showing the post-connect Sign button. A leftover session intent +
+ * a previously connected wallet must not open MetaMask on cold page entry.
  */
 function findPrivySiweButton(): HTMLButtonElement | null {
   if (typeof document === "undefined") return null;
@@ -37,10 +31,14 @@ function findPrivySiweButton(): HTMLButtonElement | null {
 
 export function PrivyWalletSiweAutoContinue() {
   const { ready, authenticated } = usePrivy();
-  const { wallets } = useWallets();
   const clickedRef = useRef(false);
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loginOrLinkAtRef = useRef(0);
+
+  // Drop any stale SIWE intent from a previous visit — it must not survive into
+  // a cold load and trigger wallet prompts without a Privy MetaMask click.
+  useEffect(() => {
+    clearPrivyWalletLoginIntent();
+  }, []);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -62,64 +60,45 @@ export function PrivyWalletSiweAutoContinue() {
       }
     };
 
-    const fireSign = () => {
-      if (!hasPrivyWalletLoginIntent() || clickedRef.current) return;
-
+    const fireSignClick = () => {
+      if (clickedRef.current) return;
       const signBtn = findPrivySiweButton();
-      if (signBtn) {
-        clickedRef.current = true;
-        clearScheduled();
-        signBtn.click();
-        // One retry window if SIWE was dismissed / WC not ready.
-        window.setTimeout(() => {
-          if (!hasPrivyWalletLoginIntent()) return;
-          clickedRef.current = false;
-        }, 4_000);
-        return;
-      }
+      if (!signBtn) return;
 
-      const wallet = wallets.find((w) => isPrivyExternalWallet(w));
-      if (!wallet || typeof wallet.loginOrLink !== "function") return;
-      const now = Date.now();
-      if (now - loginOrLinkAtRef.current < 3_000) return;
-      loginOrLinkAtRef.current = now;
       clickedRef.current = true;
-      void (async () => {
-        try {
-          await wallet.loginOrLink();
-        } catch {
-          clickedRef.current = false;
-        }
-      })();
+      clearScheduled();
+      signBtn.click();
+
+      // Allow one retry if the user dismissed SIWE / WC was not ready.
+      window.setTimeout(() => {
+        clickedRef.current = false;
+      }, 4_000);
     };
 
-    /** Prefer firing while MetaMask is still open (tab hidden). */
-    const armSign = () => {
-      if (!hasPrivyWalletLoginIntent() || clickedRef.current) return;
-
-      const hasCta = Boolean(findPrivySiweButton());
-      const hasWallet = wallets.some((w) => isPrivyExternalWallet(w));
-      if (!hasCta && !hasWallet) return;
+    const armIfSignVisible = () => {
+      if (clickedRef.current) return;
+      if (!findPrivySiweButton()) return;
       if (scheduledRef.current) return;
 
-      // Hidden = still in MetaMask → settle WC then push personal_sign in-app.
-      // Visible = already returned → fire ASAP (may still need a second deep link).
+      // Only runs when Privy already showed Sign — i.e. user clicked MetaMask
+      // in Privy and connect succeeded. Hidden tab ≈ still in MetaMask.
       const delay = document.hidden ? 1_800 : 350;
       scheduledRef.current = setTimeout(() => {
         scheduledRef.current = null;
-        fireSign();
+        fireSignClick();
       }, delay);
     };
 
-    armSign();
+    armIfSignVisible();
 
-    const intervalId = window.setInterval(armSign, 250);
+    const intervalId = window.setInterval(armIfSignVisible, 400);
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       clearScheduled();
-      fireSign();
+      // Only if Sign CTA is on screen (active Privy connect flow).
+      if (findPrivySiweButton()) fireSignClick();
     };
-    const observer = new MutationObserver(() => armSign());
+    const observer = new MutationObserver(() => armIfSignVisible());
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -135,7 +114,7 @@ export function PrivyWalletSiweAutoContinue() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pageshow", onVisibility);
     };
-  }, [ready, authenticated, wallets]);
+  }, [ready, authenticated]);
 
   return null;
 }
