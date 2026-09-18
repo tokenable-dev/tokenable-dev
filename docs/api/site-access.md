@@ -16,7 +16,7 @@ SITE_ACCESS_SECRET=your-long-random-secret
 
 When disabled (default), middleware is a no-op.
 
-**KBW event window:** while `isKbwEventActive()` is true (default Sep 2026 KST, override via `KBW_EVENT_START` / `KBW_EVENT_END` or `NEXT_PUBLIC_KBW_*`), the platform gate is temporarily skipped so visitors do not need the shared `717171` password. Code and env stay in place — turn the window off after the event to restore the gate. **Marketplace admin login is separate** and remains required.
+KBW `/event` and the mystery-card offer still work after the visitor passes this gate (password → `site_access` cookie). The event window does **not** bypass the gate. Marketplace admin login is separate.
 
 ---
 

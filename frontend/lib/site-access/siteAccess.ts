@@ -1,5 +1,3 @@
-import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
-
 export const SITE_ACCESS_COOKIE = "site_access";
 
 /** Default gate password when SITE_ACCESS_PASSWORD is unset (local + deploy parity). */
@@ -22,13 +20,8 @@ export function readSiteAccessConfig(): SiteAccessConfig {
   };
 }
 
-/**
- * Platform staging gate (`717171`). Kept intact — temporarily skipped while the
- * KBW event window is active so visitors can enter without the shared password.
- * Marketplace admin login remains separate and is unaffected.
- */
+/** Platform staging gate — active whenever `SITE_ACCESS_ENABLED=true`. */
 export function isSiteAccessEnabled(): boolean {
-  if (isKbwEventActive()) return false;
   return readSiteAccessConfig().enabled;
 }
 

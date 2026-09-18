@@ -1,5 +1,5 @@
 import { createConfig } from "@privy-io/wagmi";
-import type { PrivyClientConfig } from "@privy-io/react-auth";
+import type { PrivyClientConfig, WalletListEntry } from "@privy-io/react-auth";
 import { http, fallback } from "wagmi";
 import { ASSETS } from "@/constants/assets";
 import {
@@ -61,14 +61,32 @@ export function isPrivyWalletLoginEnabled(): boolean {
 
 /**
  * Wallets shown in Privy login, link, and connect modals.
- * Covers both first-class wallet login and post-login linking.
+ * Never include bare `wallet_connect` — it expands to 100+ WalletConnect registry icons.
+ * Mobile: named wallets only (MetaMask / Coinbase / Rainbow deeplinks).
+ * Desktop: same + detected extensions + one WalletConnect QR button.
  */
-export const PRIVY_EXTERNAL_WALLET_LIST = [
+export function resolvePrivyExternalWalletList(): WalletListEntry[] {
+  const mobile =
+    typeof navigator !== "undefined" &&
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (mobile) {
+    return ["metamask", "coinbase_wallet", "rainbow"];
+  }
+  return [
+    "metamask",
+    "coinbase_wallet",
+    "rainbow",
+    "detected_ethereum_wallets",
+    "wallet_connect_qr",
+  ];
+}
+
+/** Static fallback list (no WC registry dump). */
+export const PRIVY_EXTERNAL_WALLET_LIST: WalletListEntry[] = [
   "metamask",
   "coinbase_wallet",
   "rainbow",
-  "wallet_connect",
-] as const;
+];
 
 /**
  * Returns false — wallet login is enabled, so embedded is NOT forced as the only signing wallet.
@@ -118,7 +136,8 @@ export function buildPrivyClientConfig(options?: {
       // Tokenable wordmark at top of the login / connect modal (same as GNB).
       logo: privyModalLogoUrl(),
       // Link/connect modals (linkWallet, UserPill) — separate from loginMethods.
-      walletList: isPrivyEnabled() ? [...PRIVY_EXTERNAL_WALLET_LIST] : [],
+      // Never use bare `wallet_connect` (100+ registry icons).
+      walletList: isPrivyEnabled() ? resolvePrivyExternalWalletList() : [],
       showWalletLoginFirst: false,
     },
     embeddedWallets: {

@@ -55,10 +55,12 @@ const FULL_LOGIN_OVERFLOW: LoginMethodOverflow = [
   "sms",
 ];
 
-/** Extra wallets under "More options" (MetaMask is on the primary row). */
+/** Extra wallets under "More options" (MetaMask is on the primary row).
+ * Do not put `wallet_connect` here — Privy expands it to 100+ registry icons.
+ */
 const DEFAULT_WALLET_OVERFLOW: LoginMethodOverflow = [
   "coinbase_wallet",
-  "wallet_connect",
+  "rainbow",
 ];
 
 /** Client-side login methods — intersected with Privy Dashboard enabled methods. */
@@ -104,10 +106,11 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
   },
   {
     id: "wallet-login",
-    label: "Sign in / sign up with external wallet (MetaMask, Coinbase, WalletConnect)",
+    label: "Sign in / sign up with external wallet (MetaMask, Coinbase, Rainbow)",
     hook: "useLogin / loginMethods wallet",
     status: "enabled",
-    note: "Wallet-first users get an embedded wallet auto-created (createOnLogin). " +
+    note: "walletList uses named wallets only — never bare wallet_connect (100+ registry). " +
+      "Wallet-first users get an embedded wallet auto-created (createOnLogin). " +
       "Embedded stays signing primary for email/social users; " +
       "external wallet is signing primary for wallet-first users.",
   },

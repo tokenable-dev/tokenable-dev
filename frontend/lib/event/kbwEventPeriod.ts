@@ -1,7 +1,6 @@
 /**
- * Korea Blockchain Week event window (client-side gate for post-login offer +
- * temporary site-access bypass). Keep dates in sync with
- * `backend/src/site-access/kbw-event-period.ts`.
+ * Korea Blockchain Week event window (client-side: post-login offer, `/event` UX).
+ * Keep dates in sync with `backend/src/site-access/kbw-event-period.ts`.
  * Override with ISO dates:
  *   NEXT_PUBLIC_KBW_EVENT_START / NEXT_PUBLIC_KBW_EVENT_END
  */

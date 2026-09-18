@@ -1,6 +1,7 @@
 /**
  * Korea Blockchain Week event window — keep in sync with
- * `frontend/lib/event/kbwEventPeriod.ts`.
+ * `frontend/lib/event/kbwEventPeriod.ts`. Used for event offer UX only
+ * (does not bypass the site-access password gate).
  *
  * Env (optional ISO timestamps):
  *   KBW_EVENT_START / KBW_EVENT_END
