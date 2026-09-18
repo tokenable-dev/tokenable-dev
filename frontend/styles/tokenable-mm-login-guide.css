@@ -1,0 +1,152 @@
+/* Mobile MetaMask login bridge — sits under Privy dialogs (z≈9999), above app chrome. */
+
+.tk-mm-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: rgba(6, 8, 14, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: tk-mm-guide-in 280ms ease-out;
+}
+
+.tk-mm-guide--soft {
+  align-items: flex-start;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.tk-mm-guide--soft .tk-mm-guide__card {
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.tk-mm-guide--soft .tk-mm-guide__pulse {
+  margin-bottom: 8px;
+}
+
+.tk-mm-guide--soft .tk-mm-guide__title {
+  font-size: 15px;
+}
+
+.tk-mm-guide--soft .tk-mm-guide__body {
+  font-size: 13px;
+}
+
+.tk-mm-guide--soft .tk-mm-guide__dismiss {
+  margin-top: 10px;
+}
+
+.tk-mm-guide__card {
+  pointer-events: auto;
+  width: min(420px, 100%);
+  border-radius: 20px;
+  padding: 22px 22px 20px;
+  background: linear-gradient(165deg, #161b28 0%, #0e121c 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 18px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  transform: translateY(0);
+  animation: tk-mm-guide-card 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tk-mm-guide__step {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b8d90;
+}
+
+.tk-mm-guide__pulse {
+  width: 10px;
+  height: 10px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #f6851b;
+  box-shadow: 0 0 0 0 rgba(246, 133, 27, 0.55);
+  animation: tk-mm-guide-pulse 1.6s ease-out infinite;
+}
+
+.tk-mm-guide__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f4f4f5;
+}
+
+.tk-mm-guide__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #a7a9ac;
+}
+
+.tk-mm-guide__dismiss {
+  margin-top: 16px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #8b8d90;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tk-mm-guide__dismiss:active {
+  color: #d4d4d8;
+}
+
+@keyframes tk-mm-guide-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tk-mm-guide-card {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tk-mm-guide-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(246, 133, 27, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(246, 133, 27, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(246, 133, 27, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-mm-guide,
+  .tk-mm-guide__card,
+  .tk-mm-guide__pulse {
+    animation: none;
+  }
+}

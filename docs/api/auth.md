@@ -189,7 +189,7 @@ On every `POST /auth/privy/session`:
 
 **Hard rule:** MetaMask must open only after the user taps MetaMask inside Privy (login / connect / link). Never call `loginOrLink()` or deeplink MetaMask on cold page entry.
 
-Privy's mobile WalletConnect path uses `separateConnectAndSign`: connect and SIWE are two MetaMask visits. The user connects in MetaMask, returns to the browser, taps **Sign with your wallet**, then confirms the signature in MetaMask again. We do not auto-continue SIWE.
+Privy's mobile WalletConnect path uses `separateConnectAndSign`: connect and SIWE are two MetaMask visits. The user connects in MetaMask, returns to the browser, taps **Sign with your wallet**, then confirms the signature in MetaMask again. We do not auto-continue SIWE. `PrivyMetamaskLoginGuide` shows a soft step bridge (1/2 connect → 2/2 sign → signing in) so the handoff does not feel blank between app switches.
 
 ---
 

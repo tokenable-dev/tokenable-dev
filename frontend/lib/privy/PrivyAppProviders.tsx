@@ -27,6 +27,7 @@ import { useEnsureAccountWalletActive } from "@/hooks/auth/useEnsureAccountWalle
 import { PrivySessionBridge } from "@/lib/privy/PrivySessionBridge";
 import { PrivySignInLauncher } from "@/lib/privy/PrivySignInLauncher";
 import { PrivyWalletLauncher } from "@/lib/privy/PrivyWalletLauncher";
+import { PrivyMetamaskLoginGuide } from "@/lib/privy/PrivyMetamaskLoginGuide";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
 import { AppChainProvider } from "@/providers/AppChainProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
@@ -105,6 +106,7 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
           <PortfolioQueryPersistence />
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
+          <PrivyMetamaskLoginGuide />
           <PrivySessionBridge />
           <AccountWalletAligner />
           <AuthProvider>
