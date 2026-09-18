@@ -60,33 +60,27 @@ export function isPrivyWalletLoginEnabled(): boolean {
 }
 
 /**
- * Wallets shown in Privy login, link, and connect modals.
- * Never include bare `wallet_connect` — it expands to 100+ WalletConnect registry icons.
- * Mobile: named wallets only (MetaMask / Coinbase / Rainbow deeplinks).
- * Desktop: same + detected extensions + one WalletConnect QR button.
+ * Wallets shown in Privy login / link / connect modals.
+ *
+ * Must be **identical on SSR and client** — branching on `navigator` made the
+ * PrivyProvider config flip after hydrate on iPhone, which aborts in-flight
+ * WalletConnect and leaves Privy on "Waiting for MetaMask… Retry".
+ *
+ * Never include bare `wallet_connect` (expands to 100+ registry icons).
+ * Named wallets deeplink on mobile; `detected_ethereum_wallets` is a no-op there.
  */
 export function resolvePrivyExternalWalletList(): WalletListEntry[] {
-  const mobile =
-    typeof navigator !== "undefined" &&
-    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (mobile) {
-    return ["metamask", "coinbase_wallet", "rainbow"];
-  }
   return [
     "metamask",
     "coinbase_wallet",
     "rainbow",
     "detected_ethereum_wallets",
-    "wallet_connect_qr",
   ];
 }
 
-/** Static fallback list (no WC registry dump). */
-export const PRIVY_EXTERNAL_WALLET_LIST: WalletListEntry[] = [
-  "metamask",
-  "coinbase_wallet",
-  "rainbow",
-];
+/** Same as {@link resolvePrivyExternalWalletList} (stable export for callers). */
+export const PRIVY_EXTERNAL_WALLET_LIST: WalletListEntry[] =
+  resolvePrivyExternalWalletList();
 
 /**
  * Returns false — wallet login is enabled, so embedded is NOT forced as the only signing wallet.

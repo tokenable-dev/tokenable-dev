@@ -25,6 +25,8 @@ import {
   type WalletConnectErrorCode,
 } from "@/lib/network/walletError";
 import { refreshPrivyAuthSession } from "@/lib/privy/session";
+import { resolvePrivyExternalWalletList } from "@/lib/privy/config";
+import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { useToastStore } from "@/store/toastStore";
@@ -184,13 +186,27 @@ export function PrivyWalletLauncher() {
             ));
 
           if (quick) {
-            // eth_accounts grants keep MetaMask listed in useWallets() without a
-            // user click. Always open Privy connect for external wallets so the
-            // extension only activates when MetaMask is chosen in Privy.
+            // Desktop extensions can sit in useWallets() via eth_accounts without
+            // a user gesture — always re-open Privy connect there.
+            // Mobile WC sessions from MetaMask login are real; a second connectWallet
+            // deeplink hangs on "Waiting for MetaMask" on iOS Safari.
             if (isPrivyExternalWallet(quick)) {
+              if (isMobileBrowserUa()) {
+                try {
+                  await reconcileActiveWallet(quick);
+                  if (cancelledRef.current) return;
+                  finishWalletActivation();
+                  trackEvent("wallet_connected", { provider: "session_mobile" });
+                  navigateAfterSuccess();
+                  return;
+                } catch {
+                  // Fall through to an explicit Privy connect.
+                }
+              }
               setWalletActivationPhase("waiting_mobile_return");
               connectWallet({
                 description: "Reconnect your account wallet to continue",
+                walletList: resolvePrivyExternalWalletList(),
               });
               return;
             }
@@ -206,6 +222,7 @@ export function PrivyWalletLauncher() {
           setWalletActivationPhase("waiting_mobile_return");
           connectWallet({
             description: "Reconnect your account wallet to continue",
+            walletList: resolvePrivyExternalWalletList(),
           });
           return;
         }
@@ -214,6 +231,7 @@ export function PrivyWalletLauncher() {
         setWalletActivationPhase("waiting_mobile_return");
         linkWallet({
           description: "Link a wallet to your Tokenable account",
+          walletList: resolvePrivyExternalWalletList(),
         });
       } catch (err) {
         reportFailure(err, "ACTIVATION_FAILED");

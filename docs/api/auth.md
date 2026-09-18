@@ -191,6 +191,8 @@ On every `POST /auth/privy/session`:
 
 Privy's mobile WalletConnect path uses `separateConnectAndSign`: connect and SIWE are two MetaMask visits. The user connects in MetaMask, returns to the browser, taps **Sign with your wallet**, then confirms the signature in MetaMask again. We do not auto-continue SIWE.
 
+**iOS note:** `appearance.walletList` must be identical on SSR and client (no `navigator` branching). A hydrate flip remounts Privy mid-WalletConnect and shows "Waiting for MetaMask… Retry". After MetaMask login, `PrivyWalletLauncher` activates an existing mobile WC wallet with `setActiveWallet` instead of opening a second `connectWallet` deeplink.
+
 ---
 
 ## Access gates (frontend)
