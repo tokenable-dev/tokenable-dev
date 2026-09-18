@@ -189,9 +189,9 @@ On every `POST /auth/privy/session`:
 
 **Hard rule:** MetaMask must open only after the user taps MetaMask inside Privy (login / connect / link). Never call `loginOrLink()` or deeplink MetaMask on cold page entry just because a WalletConnect session / external wallet is already listed in `useWallets()`.
 
-**Why two MetaMask trips can still happen:** Privy's mobile WalletConnect path sets `separateConnectAndSign`. After an **explicit** MetaMask connect it shows **Sign with your wallet** and does not auto-call `loginWithWallet`. Tapping Sign after returning to the browser can deeplink MetaMask again for `personal_sign`.
+**Why two MetaMask trips happen by default:** Privy's mobile WalletConnect path sets `separateConnectAndSign`. Connect and SIWE (`personal_sign`) are separate WC requests. If the user returns to the browser and then taps **Sign with your wallet**, MetaMask opens again.
 
-**What we do:** `PrivyWalletSiweAutoContinue` auto-clicks Privy's **Sign with your wallet** CTA only when that button is on screen (post-connect in the Privy modal). It never calls `loginOrLink()` on its own.
+**What we do:** `PrivyWalletSiweAutoContinue` marks a short-lived flow only when the user taps MetaMask in Privy. On `useConnectWallet` `onSuccess` (and as a backup when the Sign CTA appears) it immediately pushes SIWE via Sign-button click or `loginOrLink()` while MetaMask is often still open — so connect + sign can finish in one MetaMask visit. Cold load never marks the flow and never calls `loginOrLink()`.
 
 ---
 
