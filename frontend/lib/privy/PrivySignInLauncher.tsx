@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 /** Opens Privy's native login modal when auth UI store requests sign-in. */
@@ -18,7 +19,7 @@ export function PrivySignInLauncher() {
     launchInFlight.current = true;
     closeSignIn();
     if (!authenticated) {
-      login();
+      startPrivyLogin(login);
     }
     launchInFlight.current = false;
   }, [signInOpen, login, closeSignIn, authenticated]);

@@ -2,30 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import { Pixelify_Sans, Press_Start_2P } from "next/font/google";
+import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
+import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
+import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
-import { useMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-import "@/styles/tokenable-event.css";
-
-const pressStart = Press_Start_2P({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-ev-press",
-  display: "swap",
-});
-
-const pixelify = Pixelify_Sans({
-  weight: ["400", "700"],
-  subsets: ["latin"],
-  variable: "--font-ev-pixelify",
-  display: "swap",
-});
 
 function emailDeferKey(userId: string) {
   return `tk_add_email_deferred:${userId}`;
@@ -91,12 +78,14 @@ function OfferGloss() {
 }
 
 /**
- * Post-login KBW mystery-card offer — mobile-only centered modal.
- * Armed by PrivySessionBridge on login while `isKbwEventActive()`.
+ * KBW mystery-card offer — all viewports.
+ *
+ * Participation SSOT: portfolio still has the event card (`burned === false`)
+ * → 미참여 → show modal. Card gone (`burned === true`) → 참여 → hide.
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const { ready: viewportReady, isMobile } = useMobileViewport(768);
+  const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
@@ -107,6 +96,26 @@ export function KbwMysteryOfferModal() {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
+  const wallet = getPrimaryWalletAddress(user)?.toLowerCase() ?? "";
+  const cardStatusQuery = useQuery({
+    queryKey: rq.kbwMysteryCard(wallet),
+    queryFn: () => fetchKbwMysteryCardStatus(wallet),
+    enabled:
+      mounted &&
+      isKbwEventActive() &&
+      Boolean(wallet) &&
+      initialized &&
+      !privySessionSyncing &&
+      Boolean(user),
+    staleTime: 30_000,
+  });
+
+  /** Card still in portfolio ⇒ not participated. */
+  const cardStillInPortfolio = cardStatusQuery.data?.burned === false;
+  /** Burned / removed ⇒ participated. */
+  const cardRemovedFromPortfolio = cardStatusQuery.data?.burned === true;
+  const statusReady = cardStatusQuery.isSuccess;
+
   useEffect(() => {
     setMounted(true);
     hydrateKbwOfferPending();
@@ -116,24 +125,30 @@ export function KbwMysteryOfferModal() {
 
   useEffect(() => {
     if (!mounted) return;
-    if (!kbwOfferPending) return;
     if (!isKbwEventActive()) {
       clearKbwOffer();
-      return;
-    }
-    // Wait until matchMedia is known — do NOT clear on the initial false hydration.
-    if (!viewportReady) return;
-    // Desktop: drop the arm so a later resize does not surprise-open.
-    if (!isMobile) {
-      clearKbwOffer();
+      setOpen(false);
       return;
     }
     if (!initialized || privySessionSyncing || !user) return;
-    // Let MetaMask contact-email capture go first; keep pending until dismissed.
     if (emailGateOpen) return;
+    if (!wallet) return;
+    if (!statusReady) return;
 
-    setOpen(true);
-    clearKbwOffer();
+    if (cardRemovedFromPortfolio) {
+      clearKbwOffer();
+      setOpen(false);
+      return;
+    }
+
+    if (!cardStillInPortfolio) return;
+
+    const onHome = pathname === "/" || pathname === "";
+    // `/event` only opens when Stage 2 armed the offer (not on every visit).
+    if (kbwOfferPending || onHome) {
+      setOpen(true);
+      if (kbwOfferPending) clearKbwOffer();
+    }
   }, [
     mounted,
     kbwOfferPending,
@@ -142,28 +157,28 @@ export function KbwMysteryOfferModal() {
     privySessionSyncing,
     user,
     emailGateOpen,
-    viewportReady,
-    isMobile,
+    wallet,
+    statusReady,
+    cardStillInPortfolio,
+    cardRemovedFromPortfolio,
+    pathname,
   ]);
-
-  useEffect(() => {
-    if (viewportReady && !isMobile && open) setOpen(false);
-  }, [viewportReady, isMobile, open]);
 
   function close() {
     setOpen(false);
   }
 
   function handleBuy() {
+    clearKbwOffer();
     close();
     router.push(`${PORTFOLIO_PATH}?tab=assets`);
   }
 
-  if (!mounted || !open || !isMobile || typeof document === "undefined") return null;
+  if (!mounted || !open || typeof document === "undefined") return null;
 
   return createPortal(
     <div
-      className={`ev-page ev-offer-overlay ${pressStart.variable} ${pixelify.variable}`}
+      className="ev-page ev-offer-overlay"
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();

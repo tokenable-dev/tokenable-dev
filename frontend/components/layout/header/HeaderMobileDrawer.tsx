@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useLogin } from "@privy-io/react-auth";
 import { useCallback, useEffect, useState } from "react";
 import { TkButton } from "@/components/ds";
+import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import {
   HEADER_NAV_ITEMS,
   navItemActive,
@@ -193,7 +194,7 @@ export function HeaderMobileDrawer({
   }, [logout, onClose, signingOut]);
 
   const handleConnect = () => {
-    login();
+    startPrivyLogin(login);
     onClose();
   };
 

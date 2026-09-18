@@ -27,6 +27,8 @@ Example: `covers/a1b2c3…/cover`
 
 Client: `normalizeCatalogCoverPublicUrl` (`catalogCoverPublicUrl.ts`) appends `/cover` when a public URL ends at `/covers/{key}`. Collection hero pick (`collectionDisplayImage.ts`) uses that after rejecting PSA `/cert/` slabs, `rwa-slabs/`, and the legacy `cover-image.jpg` API path.
 
+**Frontend:** collection detail does **not** live-search Cardhedger for a cover when `coverImageUrl` is missing — it shows no cover. Ungated client `card-search` previously could display an unrelated Bubble `/crop_image` (wrong TCG / character). Covers come only from persisted `coverImageUrl` (or a session-remembered admin pick).
+
 Admin replace and create-time ingest always **overwrite the same object**. No UUID segment — the public URL stays stable for a collection.
 
 Cache-Control on put: `public, max-age=300, must-revalidate` (covers are overwritable; avoid year-long immutable CDN cache).

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useLogin } from "@privy-io/react-auth";
 import { TkButton } from "@/components/ds";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
+import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 
 const HeaderWalletMenu = dynamic(
@@ -42,7 +43,7 @@ export function HeaderAuthControls({
         type="button"
         variant="primary"
         className="tk-btn--gnb tk-connect"
-        onClick={() => login()}
+        onClick={() => startPrivyLogin(login)}
       >
         Sign up
       </TkButton>

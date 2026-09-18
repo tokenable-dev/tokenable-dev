@@ -490,7 +490,7 @@ body:has(.ev-page) .tk-shell-scroll {
   }
 }
 
-/* ── Post-login mystery offer modal (mobile event shell) ─────────────────── */
+/* ── Post-login mystery offer modal (all viewports) ──────────────────────── */
 
 .ev-offer-overlay {
   position: fixed;

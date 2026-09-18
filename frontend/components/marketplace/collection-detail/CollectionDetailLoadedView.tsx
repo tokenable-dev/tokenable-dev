@@ -4,10 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
-import { catalogCoverSearchFromCollection } from "@/lib/marketplace/catalogCoverSearch";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
-import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useBuyerListingAlert } from "@/hooks/collection-detail/useBuyerListingAlert";
 import { useCollectionOwnedRwa } from "@/hooks/collection-detail/useCollectionOwnedRwa";
@@ -75,21 +73,10 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [collectionKey],
   );
   // Prefer detail/seed cover (e.g. pinned Collectr) over a stale session remember.
-  const existingCoverUrl =
+  // No client Cardhedger search fallback — unmatched collections show no cover
+  // rather than a ungated search hit (wrong character / wrong TCG).
+  const collectionCoverUrl =
     pickCollectionDetailDisplayImageUrl(data) || rememberedCoverUrl;
-  const catalogCoverSearch = useMemo(
-    () =>
-      catalogCoverSearchFromCollection({
-        collectionKey,
-        displayLabel: collection.displayLabel,
-        components: collection.components,
-      }).search,
-    [collectionKey, collection.displayLabel, collection.components],
-  );
-  const { url: collectionCoverUrl } = useCatalogCoverUrl({
-    existingUrl: existingCoverUrl,
-    search: catalogCoverSearch,
-  });
 
   const psaPopulationPanel = useMemo(
     () => resolveCollectionPsaPopulationPanelData(comp),
@@ -115,7 +102,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const listingsBatchMetadata = useMemo(() => {
     const base = listings.batchMetadata;
-    const overlayCover = existingCoverUrl || collectionCoverUrl;
+    const overlayCover = collectionCoverUrl;
     if (!overlayCover || !base?.size) return base;
     let needsOverlay = false;
     for (const entry of base.values()) {
@@ -131,7 +118,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       next.set(tokenId, { ...entry, imageUrl: overlayCover });
     }
     return next;
-  }, [listings.batchMetadata, existingCoverUrl, collectionCoverUrl]);
+  }, [listings.batchMetadata, collectionCoverUrl]);
 
   const owned = useCollectionOwnedRwa(collectionKey);
 

@@ -320,11 +320,6 @@ export const rq = {
   /** RWA NFT balance count for a wallet address (on-chain). */
   rwaBalance: (addr: string) => ["rwa-balance", addr] as const,
 
-  // ── CardHedger ─────────────────────────────────────────────────────────────
-
-  /** Single catalog cover resolve by search string. */
-  cardhedgerCatalogCover: (search: string) =>
-    ["cardhedger-catalog-cover", search] as const,
 } as const;
 
 /** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */

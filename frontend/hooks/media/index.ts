@@ -1,3 +1,2 @@
-/** Media URL resolve (IPFS/CDN) and Cardhedger catalog covers. */
+/** Media URL resolve (IPFS/CDN). */
 export { useResolvedMediaUrl, useResolvedMediaUrlMap } from "./useResolvedMediaUrl";
-export { useCatalogCoverUrl } from "./useCatalogCoverUrl";

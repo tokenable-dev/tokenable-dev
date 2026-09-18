@@ -185,6 +185,12 @@ On every `POST /auth/privy/session`:
 
 `useEnsureAccountWalletReady` / listing flows call the same sync before approve + Seaport sign.
 
+### Mobile MetaMask login (SIWE)
+
+Privy's mobile WalletConnect path **separates** connect and SIWE (`separateConnectAndSign`): after MetaMask approves the connection, the modal shows **Sign with your wallet** and waits for another tap — a second browser ↔ app round trip.
+
+`PrivyWalletSiweAutoContinue` + `startPrivyLogin()` fix that for login: when the user opens Privy login, we mark a short-lived intent; as soon as an external wallet appears in `useWallets` (often while MetaMask is still open on the WC session), we call `wallet.loginOrLink()` so the SIWE prompt can appear in the same MetaMask session. Tab focus retries if the first attempt needs a gesture.
+
 ---
 
 ## Access gates (frontend)

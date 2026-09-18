@@ -14,6 +14,7 @@ import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
+import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
@@ -50,8 +51,14 @@ export function PrivySessionBridge() {
       } catch {
         /* ignore */
       }
-      if (!wasAlreadyAuthenticated || eventLoginIntent) {
-        useAuthUiStore.getState().armKbwOffer();
+      const freshLogin = !wasAlreadyAuthenticated || eventLoginIntent;
+      if (!freshLogin) return;
+
+      const ui = useAuthUiStore.getState();
+      ui.armKbwOffer();
+      // Stage 2 → main (`/`) after login so the offer modal can open there.
+      if (eventLoginIntent) {
+        ui.setPendingReturnTo("/");
       }
     },
   });
@@ -144,6 +151,10 @@ export function PrivySessionBridge() {
 
           if (!syncedUser || cancelled) break;
 
+          if (isKbwEventActive()) {
+            claimGuestKbwStage1ForAccount(syncedUser.id, syncedUser.email);
+          }
+
           if (userHasLinkedWallet(syncedUser)) {
             catchupAttempt.current = 0;
           } else {
@@ -172,7 +183,13 @@ export function PrivySessionBridge() {
             const returnTo = useAuthUiStore.getState().consumeReturnTo();
             if (returnTo) {
               returnToHandled.current = true;
-              router.push(returnTo);
+              const targetPath = returnTo.split("?")[0] || returnTo;
+              const here =
+                typeof window !== "undefined" ? window.location.pathname : "";
+              // Already on the landing — avoid a no-op navigation / remount.
+              if (here !== targetPath) {
+                router.push(returnTo);
+              }
             }
           }
         } finally {

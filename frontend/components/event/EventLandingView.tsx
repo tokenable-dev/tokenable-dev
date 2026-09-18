@@ -1,49 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLogin } from "@privy-io/react-auth";
 import { ASSETS } from "@/constants/assets";
-import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
-import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import {
+  claimGuestKbwStage1ForAccount,
+  kbwEventParticipationScope,
+  readKbwStage1Done,
+  writeKbwStage1Done,
+} from "@/lib/event/kbwEventParticipation";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 const STAGE1_INSTAGRAM_URL = "https://www.instagram.com/tokenable_io";
-const STAGE1_DONE_PREFIX = "tk_kbw_stage1_done:";
-/** Legacy unscoped key — clear so it cannot leak across accounts. */
-const STAGE1_DONE_LEGACY = "tk_kbw_stage1_done";
-
-function stage1Scope(userId: string | undefined, email: string | undefined): string {
-  const id = userId?.trim();
-  if (id) return `user:${id}`;
-  const em = email?.trim().toLowerCase();
-  if (em) return `email:${em}`;
-  return "guest";
-}
-
-function stage1StorageKey(scope: string): string {
-  return `${STAGE1_DONE_PREFIX}${scope}`;
-}
-
-function readStage1Done(scope: string): boolean {
-  try {
-    sessionStorage.removeItem(STAGE1_DONE_LEGACY);
-    return sessionStorage.getItem(stage1StorageKey(scope)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writeStage1Done(scope: string) {
-  try {
-    sessionStorage.removeItem(STAGE1_DONE_LEGACY);
-    sessionStorage.setItem(stage1StorageKey(scope), "1");
-  } catch {
-    /* ignore */
-  }
-}
 
 const COPY = {
   heroSub: "Korea Blockchain Week",
@@ -92,51 +62,60 @@ function Stage1Gloss() {
 export function EventLandingView() {
   const router = useRouter();
   const [stage1Done, setStage1Done] = useState(false);
-  const { login } = useLogin();
-  const { authenticated, canShowAuthUi } = usePrivyInitGate();
-  const userId = useAuthStore((s) => s.user?.id);
-  const userEmail = useAuthStore((s) => s.user?.email);
-  const setPendingReturnTo = useAuthUiStore((s) => s.setPendingReturnTo);
-  const scope = stage1Scope(userId, userEmail);
+  const stage1TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
+  const userEmail = user?.email;
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
+  const armKbwOffer = useAuthUiStore((s) => s.armKbwOffer);
+  const scope = kbwEventParticipationScope(userId, userEmail);
 
   useEffect(() => {
     // Per-account (or guest) — switching users must not keep another account's check.
-    const done = readStage1Done(scope);
-    if (done) {
+    if (readKbwStage1Done(scope)) {
       setStage1Done(true);
       return;
     }
-    // Guest completed Stage 1 then logged in: carry over once for this session.
-    if (scope !== "guest" && readStage1Done("guest")) {
-      writeStage1Done(scope);
+    if (scope !== "guest" && readKbwStage1Done("guest")) {
+      claimGuestKbwStage1ForAccount(userId, userEmail);
       setStage1Done(true);
       return;
     }
     setStage1Done(false);
-  }, [scope]);
+  }, [scope, userId, userEmail]);
+
+  useEffect(() => {
+    return () => {
+      if (stage1TimerRef.current) clearTimeout(stage1TimerRef.current);
+    };
+  }, []);
 
   function handleStage1() {
-    if (stage1Done) return;
-    // Same-tab HTTPS — avoids window.open about:blank when the IG app intercepts.
-    writeStage1Done(scope);
-    setStage1Done(true);
-    window.location.assign(STAGE1_INSTAGRAM_URL);
+    if (stage1Done || stage1TimerRef.current) return;
+
+    // Same-tab only — no popup (desktop was opening both a new tab and navigating).
+    stage1TimerRef.current = setTimeout(() => {
+      stage1TimerRef.current = null;
+      writeKbwStage1Done(scope);
+      setStage1Done(true);
+      window.location.assign(STAGE1_INSTAGRAM_URL);
+    }, 2000);
   }
 
   function handleStage2() {
     if (!stage1Done) return;
-    if (authenticated) {
-      router.push(`${PORTFOLIO_PATH}?tab=assets`);
-      return;
-    }
-    setPendingReturnTo("/event");
+    // Agreed: login → main (`/`) → offer modal → BUY FREE → portfolio.
+    armKbwOffer();
     try {
       sessionStorage.setItem("tk_kbw_login_intent", "1");
     } catch {
       /* ignore */
     }
-    if (!canShowAuthUi) return;
-    login();
+    if (user) {
+      router.push("/");
+      return;
+    }
+    openSignIn({ returnTo: "/" });
   }
 
   return (

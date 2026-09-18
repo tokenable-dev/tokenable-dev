@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import type { CardhedgerSearchCard } from "@/lib/core/api/cardhedger";
 
 /** Protocol-relative Bubble CDN URLs → https. */
 export function resolveCardhedgerImageUrl(raw: string | null): string | null {
@@ -51,7 +50,8 @@ export function collectionCoverImageStyle(
 
 /**
  * Prefer Cardhedger Bubble catalog art (`/crop_image`, `/resize`) — raw card scans,
- * not eBay graded slab photos.
+ * not eBay graded slab photos. Used when scoring a known URL (e.g. mint source),
+ * not for ungated client card-search cover picks.
  */
 export function scoreCardhedgerCatalogCoverUrl(url: string | null | undefined): number {
   const u = resolveCardhedgerImageUrl(url ?? null);
@@ -70,37 +70,4 @@ export function scoreCardhedgerCatalogCoverUrl(url: string | null | undefined): 
   } catch {
     return -1;
   }
-}
-
-/** Best Bubble catalog cover from card-search hits (requires score ≥ 70). */
-export function normalizeCatalogCoverUrl(url: string): string {
-  return resolveCardhedgerImageUrl(url)?.trim().toLowerCase() ?? "";
-}
-
-export function pickCardhedgerCatalogCoverUrl(
-  cards: readonly CardhedgerSearchCard[],
-  opts?: { excludeUrls?: ReadonlySet<string> },
-): string | null {
-  const exclude = opts?.excludeUrls;
-  let best: string | null = null;
-  let bestScore = -1;
-  for (const card of cards) {
-    const url = resolveCardhedgerImageUrl(card.image ?? null);
-    if (!url) continue;
-    const normalized = normalizeCatalogCoverUrl(url);
-    if (exclude?.has(normalized)) continue;
-    const score = scoreCardhedgerCatalogCoverUrl(url);
-    if (score > bestScore) {
-      bestScore = score;
-      best = url;
-    }
-  }
-  return bestScore >= 70 ? best : null;
-}
-
-export function mockCollectionSearchQuery(params: {
-  title: string;
-  set?: string | null;
-}): string {
-  return [params.title.trim(), (params.set ?? "").trim()].filter(Boolean).join(" ");
 }
