@@ -58,18 +58,19 @@ Prefer one canonical HTTPS entry point.
 
 1. Point the domain **A record** to the EC2 public IP.
 2. The `nginx/nginx.conf` already handles HTTP + ACME challenge.
-3. Run Certbot:
+3. Run Certbot (separate lineage per hostname — do **not** expand the existing `tokenable-dev.com` cert):
    ```bash
-   certbot certonly --webroot -w /var/www/certbot -d tokenable-dev.com -d www.tokenable-dev.com
+   certbot certonly --webroot -w /home/ubuntu/app/certbot/www -d tokenable-dev.com -d www.tokenable-dev.com
+   certbot certonly --webroot -w /home/ubuntu/app/certbot/www -d app.tokenable.io
    ```
 4. Set HTTPS template without overwriting tracked files. In `/home/ubuntu/app/.env` (gitignored):
    ```env
    NGINX_CONF=./nginx/nginx.tls.conf
    ```
-5. Edit `nginx/nginx.tls.conf` with correct `server_name` and cert paths.
-6. Recreate the Nginx container:
+5. `nginx/nginx.tls.conf` has separate `server` blocks for `tokenable-dev.com` / `www` and `app.tokenable.io` (each with its own LE paths). After editing, `docker exec tokenable-nginx nginx -t` then `nginx -s reload` (or recreate nginx only).
+6. Recreate only if reload is not enough:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate nginx
+   docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-deps --force-recreate nginx
    ```
 
 `X-Forwarded-Proto` is forwarded to the backend so it can infer the client scheme.
