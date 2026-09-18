@@ -6,20 +6,35 @@ Cardhedger market data is **materialized** in `collection_market_snapshots` and 
 
 Full table definitions: [database.md](./database.md).
 
-```
-Cron / stale-SWR enqueue / on-demand cold start
-  → CollectionMarketSnapshotSchedulerService (in-memory queue; BullMQ-ready)
-  → CollectionMarketSnapshotService.refreshSnapshot()
-  → Cardhedger upstream (worker only)
-  → normalize → upsert collection_market_snapshots
+```mermaid
+flowchart TD
+    subgraph workers [Background workers]
+        CRON["@Cron tick"]
+        SWR["stale_after exceeded"]
+        COLD["cold start / on-demand"]
+        CRON --> Q[(Scheduler queue)]
+        SWR --> Q
+        COLD --> Q
+        Q --> REF[CollectionMarketSnapshotService.refreshSnapshot]
+        REF --> CH[Cardhedger upstream]
+        CH --> NORM[normalize]
+        NORM --> UPSERT[("UPSERT collection_market_snapshots")]
+    end
 
-GET /marketplace/collections/market-snapshots   (POST batch)
-GET /marketplace/collections/:key/cardhedger
-GET /marketplace/collections/:key/cardhedger/price-history
-GET /marketplace/collections/:key/market-series
-  → CollectionMarketSnapshotReadService
-  → PostgreSQL (+ platform fills from orders for market-series)
-  → optional snapshotStale + async refresh enqueue
+    subgraph api [Hot read path]
+    GET1["POST …/market-snapshots"]
+    GET2["GET …/cardhedger"]
+    GET3["GET …/price-history"]
+    GET4["GET …/market-series"]
+    GET5["POST …/portfolio-market-batch"]
+    GET1 --> READ[CollectionMarketSnapshotReadService]
+    GET2 --> READ
+    GET3 --> READ
+    GET4 --> READ
+    GET5 --> READ
+    READ --> PG[("PostgreSQL")]
+    READ -->|stale?| Q
+    end
 ```
 
 ## Separation of concerns
@@ -38,6 +53,10 @@ GET /marketplace/collections/:key/market-series
 2. If `stale_after <= now()`, response includes `snapshotStale: true`.
 3. Scheduler enqueues async refresh — the HTTP request does not block on Cardhedger.
 
+**Portfolio holdings** (`POST …/portfolio-market-batch` and `POST …/portfolio/assets-page`) never overlay live Cardhedger and never scan the listing pool. My Assets loads the full snapshot price index from PostgreSQL (in-process TTL) **in parallel** with wallet metadata, then joins by `collection_key`. Missing rows enqueue `cold_start` and return an empty series until the worker upserts.
+
+Holdings that have **no `marketplace_collections` row**, or a snapshot with unmatched Cardhedger and no grade-strip USD, cannot be priced from this endpoint. The portfolio list then uses token-level `POST /marketplace/cardhedger/mint-previews` for spot only. It does not fetch per-token trades/comps on My Assets (that was an N+1 Cardhedger waterfall). Daily wallet totals (`portfolio_daily_snapshots`) still apply a mint-preview fallback.
+
 ## Cold start
 
 When no snapshot row exists (new collection / first listing):
@@ -55,8 +74,8 @@ See [backend/sql/README.md](../../backend/sql/README.md#snapshot-worker-env). Co
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | 900 | Freshness window |
 | `MARKET_SNAPSHOT_CRON_ENABLED` | on | Background `@Cron` refresh |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | 4 | Parallel worker cap |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | 7 days | `psa_cert_snapshots` row TTL |
-| `PORTFOLIO_SNAPSHOT_*` | see sql README | Daily 09:00 KST wallet totals (`portfolio_daily_snapshots`) |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | ignored | Mint-only PSA policy — snapshot refresh never calls PSA |
+| `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | 30000 | In-process full snapshot price index for portfolio joins |
 
 ## Future: BullMQ + Redis
 

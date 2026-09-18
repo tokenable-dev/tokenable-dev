@@ -3,9 +3,10 @@ import {
   psaGradePolicyInputFromComponents,
   psaGradePolicyInputFromGraded,
 } from "./psaGradePolicy";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export function marketHistoryTierFromComponents(
-  components: Record<string, unknown> | null | undefined,
+  components: CollectionComponents | null | undefined,
 ): string {
   return marketHistoryTierFromPsaGradeInput(
     psaGradePolicyInputFromComponents(components),

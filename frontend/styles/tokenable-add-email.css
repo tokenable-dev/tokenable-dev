@@ -1,0 +1,101 @@
+/* Add-email onboarding (MetaMask / wallet-only → real contact inbox) */
+
+.tk-dialog.tk-add-email {
+  gap: 28px;
+  max-width: 560px;
+  width: min(560px, calc(100vw - 32px));
+  padding: 36px 40px;
+}
+
+.tk-dialog.tk-add-email .tk-dialog__head {
+  gap: 10px;
+  padding-right: 36px;
+}
+
+.tk-dialog.tk-add-email .tk-dialog__icon {
+  margin-bottom: 4px;
+}
+
+.tk-add-email__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1a2744 0%, #121a2e 100%);
+  box-shadow: inset 0 0 0 1px rgba(155, 123, 255, 0.35);
+}
+
+.tk-dialog.tk-add-email .tk-dialog__title {
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.tk-dialog.tk-add-email .tk-dialog__head > .tk-dialog__body {
+  font-size: 15px;
+  line-height: 1.45;
+  color: #a7a9ac;
+  max-width: none;
+}
+
+.tk-add-email__field {
+  gap: 8px;
+  margin: 0;
+  width: 100%;
+}
+
+.tk-dialog.tk-add-email .tk-add-email__field .tk-field__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b8d90;
+}
+
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input {
+  color: #fff;
+  background: #0e0e0e;
+  border-radius: 12px;
+  clip-path: none;
+  box-shadow: inset 0 0 0 1.5px #1a6fff;
+  padding: 14px 16px;
+  font-size: 15px;
+  width: 100%;
+}
+
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1.5px #3d84ff;
+}
+
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input:focus,
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input:focus-visible {
+  box-shadow: inset 0 0 0 2px #1a6fff;
+}
+
+.tk-dialog.tk-add-email .tk-add-email__input.tk-input--error {
+  box-shadow: inset 0 0 0 1.5px rgba(245, 51, 44, 0.9);
+}
+
+.tk-dialog.tk-add-email .tk-dialog__foot {
+  justify-content: stretch;
+}
+
+.tk-dialog.tk-add-email .tk-dialog__foot .tk-btn {
+  width: 100%;
+}
+
+@media (max-width: 480px) {
+  .tk-dialog.tk-add-email {
+    width: min(560px, calc(100vw - 24px));
+    padding: 28px 22px;
+  }
+
+  .tk-dialog.tk-add-email .tk-dialog__head {
+    padding-right: 28px;
+  }
+}

@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { postRwaMetadataBatch, type Order, type RwaMetadata } from "@/lib/core";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
+import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/core";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
   bestAskByToken,
-  sortedTokenIdsByOldestListing,
+  sortedTokenIdsByLowestAsk,
 } from "@/lib/marketplace/collectionListingUtils";
 
 export function useCollectionDetailListings(params: {
@@ -15,15 +16,21 @@ export function useCollectionDetailListings(params: {
   enabled: boolean;
 }) {
   const { collectionKey, asks, enabled } = params;
+  const { address } = useAccount();
+  const viewerWallet = address?.trim() ?? "";
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
-    () => (enabled ? sortedTokenIdsByOldestListing(asks) : []),
+    () => (enabled ? sortedTokenIdsByLowestAsk(asks) : []),
     [enabled, asks],
   );
 
   const { data: batchMetadata } = useQuery({
-    queryKey: ["collection-listings-metadata", collectionKey, tokenIds],
+    queryKey: rq.collectionListingsMetadata(
+      collectionKey,
+      tokenIds,
+      viewerWallet,
+    ),
     queryFn: async () => {
       const ids = tokenIds;
       const BATCH_MAX = 80;
@@ -32,7 +39,12 @@ export function useCollectionDetailListings(params: {
         chunks.push(ids.slice(i, i + BATCH_MAX));
       }
       const packs = await Promise.all(
-        chunks.map((chunk) => postRwaMetadataBatch({ tokenIds: chunk })),
+        chunks.map((chunk) =>
+          postRwaMetadataBatch({
+            tokenIds: chunk,
+            viewerWalletAddress: viewerWallet || undefined,
+          }),
+        ),
       );
       const flat = packs.flatMap((p) => p.items);
       primeRwaMetadataCache(
@@ -45,12 +57,13 @@ export function useCollectionDetailListings(params: {
       return new Map(
         flat.map((it) => [
           it.tokenId,
-          { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl },
+          { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl, imageBackUrl: it.imageBackUrl ?? null },
         ]),
       );
     },
     enabled: enabled && tokenIds.length > 0,
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   return {

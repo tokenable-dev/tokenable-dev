@@ -59,10 +59,13 @@ export function gradeStripFromHistoryTier(
   if (spotUsd == null || !Number.isFinite(spotUsd) || spotUsd <= 0) {
     return { psa10: null, psa9: null, raw: null };
   }
-  if (historyTier === 'PSA_10')
-    return { psa10: spotUsd, psa9: null, raw: null };
-  if (historyTier === 'PSA_AUTH')
-    return { psa10: spotUsd, psa9: null, raw: null };
+  const tier = String(historyTier ?? '').trim().toUpperCase();
+  if (tier === 'PSA_10') return { psa10: spotUsd, psa9: null, raw: null };
+  if (tier === 'PSA_9') return { psa10: null, psa9: spotUsd, raw: null };
+  if (tier === 'PSA_AUTH') return { psa10: spotUsd, psa9: null, raw: null };
+  if (/^PSA_[1-8]$/.test(tier)) {
+    return { psa10: null, psa9: null, raw: spotUsd };
+  }
   return { psa10: null, psa9: null, raw: null };
 }
 

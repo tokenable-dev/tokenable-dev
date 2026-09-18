@@ -11,6 +11,14 @@ export interface CollectionGradePrices {
   raw: number | null;
 }
 
+/** One Cardhedger grade slot (PSA, BGS, SGC, …) for collection chart picker. */
+export interface CollectionGradeCatalogEntry {
+  grade: string;
+  priceUsd: number | null;
+  grader: string | null;
+  displayOrder: number;
+}
+
 /** Full dual-series bundle for collection detail chart */
 export interface CollectionMarketSeries {
   collectionKey: string;
@@ -28,6 +36,13 @@ export interface CollectionMarketSeries {
     | "none"
     | null;
   gradePrices: CollectionGradePrices;
+  /** Materialized snapshot spot basis (`psa_estimate` when Cardhedger is unmatched). */
+  spotPriceBasis?: string | null;
+  /** All graders/grades from Cardhedger catalog (snapshot or live). */
+  allGradePrices?: CollectionGradeCatalogEntry[];
+  /** This collection slab grade label (e.g. PSA 8). */
+  collectionGrade?: string | null;
+  historyTier?: string | null;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
   /**
@@ -65,6 +80,349 @@ export async function getCollectionMarketSeries(
     );
   }
   return res.json() as Promise<CollectionMarketSeries>;
+}
+
+/** AI market brief for a collection (admin / future collection detail). */
+export type AiInsightPriceTrendLabel =
+  | "cooling"
+  | "consolidation"
+  | "breakout"
+  | "stable"
+  | "volatile";
+
+export type AiInsightLiquidityLevel =
+  | "healthy"
+  | "moderate"
+  | "thin"
+  | "very_thin";
+
+export type AiInsightConfidenceLevel = "high" | "medium" | "low";
+
+export type AiInsightVolatilityLevel = "low" | "medium" | "high";
+
+export type AiInsightMarketCycleLabel =
+  | "accumulation"
+  | "expansion"
+  | "distribution"
+  | "correction";
+
+export interface AiInsightScoredComponent {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+  contribution: number;
+}
+
+export interface AiInsightTrendWindow {
+  window: "7d" | "30d" | "90d" | "365d";
+  changePct: number | null;
+}
+
+export interface AiInsightSectionBase {
+  dataSources?: string[];
+}
+
+export interface AiInsightMarketPerformanceSection extends AiInsightSectionBase {
+  commentary: string[];
+  trends: AiInsightTrendWindow[];
+  volumeNote: string | null;
+}
+
+export interface AiInsightPriceTrendSection extends AiInsightSectionBase {
+  label: AiInsightPriceTrendLabel | null;
+  commentary: string[];
+  lowestUsd: number | null;
+  highestUsd: number | null;
+  medianSaleUsd: number | null;
+  recentSaleUsd: number | null;
+}
+
+export interface AiInsightLiquiditySection extends AiInsightSectionBase {
+  level: AiInsightLiquidityLevel | null;
+  commentary: string[];
+  sales7d: number | null;
+  sales30d: number | null;
+  avgDaysBetweenSales: number | null;
+  tokenableActiveListings: number | null;
+  listingToSaleRatio: number | null;
+}
+
+export interface AiInsightDemandSection extends AiInsightSectionBase {
+  score: number;
+  components: AiInsightScoredComponent[];
+  reasoning: string[];
+}
+
+export interface AiInsightRarityPopulationRow {
+  label: string;
+  count: number;
+}
+
+export interface AiInsightRaritySection extends AiInsightSectionBase {
+  commentary: string[];
+  populations: AiInsightRarityPopulationRow[];
+  psa10SharePct: number | null;
+  scarcityRatio10vs9: number | null;
+  gradeDistribution: AiInsightRarityPopulationRow[];
+}
+
+export interface AiInsightInvestmentThesisSection extends AiInsightSectionBase {
+  bullCase: string[];
+  bearCase: string[];
+  keyRisks: string[];
+}
+
+export interface AiInsightSalesTimelineEntry {
+  date: string;
+  priceUsd: number;
+  marketplace: string | null;
+  grade: string;
+}
+
+export interface AiInsightSalesTimelineSection extends AiInsightSectionBase {
+  entries: AiInsightSalesTimelineEntry[];
+  trendSummary: string | null;
+}
+
+export interface AiInsightPsaVerificationSection extends AiInsightSectionBase {
+  psaVerified: boolean | null;
+  certMatch: boolean | null;
+  gradeMatch: boolean | null;
+  marketDataCoverage: boolean;
+  certification: string | null;
+  gradingLabel: string | null;
+  trustScore: number;
+  reasoning: string[];
+}
+
+export interface AiInsightMarketStructureSection extends AiInsightSectionBase {
+  spotUsd: number | null;
+  compLowUsd: number | null;
+  compHighUsd: number | null;
+  tokenableFloorUsd: number | null;
+  floorPremiumPct: number | null;
+  listingConcentrationPct: number | null;
+  marketplaceDistribution: Array<{ label: string; pct: number }>;
+  commentary: string[];
+}
+
+export interface AiInsightFmvSection extends AiInsightSectionBase {
+  currentUsd: number | null;
+  fmvUsd: number | null;
+  premiumVsFmvPct: number | null;
+  confidenceGrade: "A" | "B" | "C" | "D" | null;
+  method: string | null;
+  freshnessDays: number | null;
+}
+
+export interface AiInsightGradePremiumRow {
+  grade: string;
+  priceUsd: number | null;
+}
+
+export interface AiInsightGradePremiumSection extends AiInsightSectionBase {
+  grades: AiInsightGradePremiumRow[];
+  psa10VsRawPct: number | null;
+  psa10VsPsa9Ratio: number | null;
+  psa10VsPsa8Ratio: number | null;
+}
+
+export interface AiInsightVolatilitySection extends AiInsightSectionBase {
+  vol30dPct: number | null;
+  vol90dPct: number | null;
+  vol365dPct: number | null;
+  level30d: AiInsightVolatilityLevel | null;
+  level90d: AiInsightVolatilityLevel | null;
+  level365d: AiInsightVolatilityLevel | null;
+}
+
+export interface AiInsightMarketCycleSection extends AiInsightSectionBase {
+  label: AiInsightMarketCycleLabel;
+  reasoning: string[];
+}
+
+export interface AiInsightMarketRankSection extends AiInsightSectionBase {
+  rank: number;
+  category: string;
+  rankChange30d: number | null;
+  percentile: number;
+}
+
+export interface AiInsightOpportunitySection extends AiInsightSectionBase {
+  score: number;
+  components: AiInsightScoredComponent[];
+}
+
+export interface AiInsightCardIdentityFact {
+  label: string;
+  value: string;
+}
+
+export interface AiInsightCardIdentitySection extends AiInsightSectionBase {
+  facts: AiInsightCardIdentityFact[];
+}
+
+export interface AiInsightExecutiveSummarySection extends AiInsightSectionBase {
+  paragraphs: string[];
+}
+
+export interface AiInsightConfidenceSection extends AiInsightSectionBase {
+  level: AiInsightConfidenceLevel;
+  score: number;
+  reasoning: string[];
+}
+
+export interface CollectionAiInsightSections {
+  marketPerformance?: AiInsightMarketPerformanceSection;
+  priceTrend?: AiInsightPriceTrendSection;
+  liquidity?: AiInsightLiquiditySection;
+  demand?: AiInsightDemandSection;
+  rarity?: AiInsightRaritySection;
+  investmentThesis?: AiInsightInvestmentThesisSection;
+  salesTimeline?: AiInsightSalesTimelineSection;
+  psaVerification?: AiInsightPsaVerificationSection;
+  marketStructure?: AiInsightMarketStructureSection;
+  fmv?: AiInsightFmvSection;
+  gradePremium?: AiInsightGradePremiumSection;
+  volatility?: AiInsightVolatilitySection;
+  marketCycle?: AiInsightMarketCycleSection;
+  marketRank?: AiInsightMarketRankSection;
+  opportunity?: AiInsightOpportunitySection;
+  cardIdentity?: AiInsightCardIdentitySection;
+  executiveSummary?: AiInsightExecutiveSummarySection;
+  confidence?: AiInsightConfidenceSection;
+}
+
+export interface CollectionAiInsightResponse {
+  title: string;
+  summary: string;
+  bullets: string[];
+  chartSpec?: {
+    chartStyle: string;
+    trendStructure: string[];
+    momentumBehavior: string;
+    visualInterpretation: string;
+    miniSeries: number[];
+    pathRepresentation: string;
+  };
+  uiInstructions?: {
+    loading: {
+      style: string;
+      scanningEffect: string;
+      minDurationMs: number;
+      maxDurationMs: number;
+    };
+    progressiveRenderOrder: string[];
+  };
+  generatedAt: string;
+  confidence?: number | null;
+  confidenceNote?: string | null;
+  riskTapeNote?: string | null;
+  marketTone?: string | null;
+  riskScore?: number | null;
+  riskLabel?: "Low" | "Medium" | "High" | null;
+  stats?: {
+    psa10SpotUsd: number | null;
+    rawSpotUsd: number | null;
+    premiumVsRawPct: number | null;
+    sales7d: number | null;
+    sales30d: number | null;
+    change7dPct: number | null;
+    change30dPct: number | null;
+    change90dPct: number | null;
+    change365dPct: number | null;
+    points90d: number;
+    points365d: number;
+    psaTotalPopulation?: number | null;
+    psa10PriceConfidence?: "high" | "medium" | "low" | null;
+    psa10PricingNote?: string | null;
+    psa10SpotLowUsd?: number | null;
+    psa10SpotHighUsd?: number | null;
+    psa10CatalogUsd?: number | null;
+  };
+  sections?: CollectionAiInsightSections;
+  priceHistory?: Array<{ t: number; v: number }>;
+  dataAvailable: boolean;
+}
+
+export async function getCollectionAiInsight(
+  collectionKey: string,
+  opts?: { signal?: AbortSignal },
+): Promise<CollectionAiInsightResponse> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/ai-insight`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load AI insight",
+    );
+  }
+  return res.json() as Promise<CollectionAiInsightResponse>;
+}
+
+export interface CollectionGradeCatalogResponse {
+  collectionKey: string;
+  cardhedgerCardId: string | null;
+  collectionGrade: string | null;
+  historyTier: string | null;
+  grades: CollectionGradeCatalogEntry[];
+  source: "snapshot" | "live";
+}
+
+export interface CollectionGradePriceSeries {
+  collectionKey: string;
+  grade: string;
+  cardhedgerCardId: string | null;
+  points: CollectionUsdPoint[];
+  days: number;
+}
+
+export async function getCollectionGradeCatalog(
+  collectionKey: string,
+  opts?: { live?: boolean; signal?: AbortSignal },
+): Promise<CollectionGradeCatalogResponse> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  if (opts?.live) sp.set("live", "1");
+  const qs = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/grade-catalog${qs ? `?${qs}` : ""}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load grade catalog",
+    );
+  }
+  return res.json() as Promise<CollectionGradeCatalogResponse>;
+}
+
+export async function getCollectionGradePriceSeries(
+  collectionKey: string,
+  grade: string,
+  days = 365,
+  opts?: { signal?: AbortSignal },
+): Promise<CollectionGradePriceSeries> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  sp.set("grade", grade);
+  sp.set("days", String(days));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/grade-series?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load grade price series",
+    );
+  }
+  return res.json() as Promise<CollectionGradePriceSeries>;
 }
 
 /** Listing-pool statistics for a collection (same contract as GET …/collections/:key/stats). */
@@ -136,7 +494,19 @@ export interface CollectionMarketPreview {
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
     /** Backend: comps vs history point vs catalog PSA 10 slot. */
-    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | null;
+    spotPriceBasis?:
+      | "comps"
+      | "latest_sale"
+      | "sparse_sale_avg"
+      | "catalog"
+      | "comps_median"
+      | "fmv"
+      | "cert_estimate"
+      | "batch_price_estimate"
+      | "psa_estimate"
+      | null;
+    /** Phase 4 — headline pricing upstream (fmv / estimate / comps). */
+    priceSource?: "cardhedger_fmv" | "cardhedger_estimate" | "cardhedger_comps" | null;
     /** Unix seconds — comps newest sale or history observation when applicable. */
     latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;
@@ -154,6 +524,30 @@ export interface CollectionMarketPreview {
 
 /** Matches `MintPreviewsByTokenIdsDto` `@ArrayMaxSize(32)` in the Nest controller. */
 const MINT_MARKET_PREVIEW_MAX_BATCH = 32;
+const MINT_MARKET_PREVIEW_CHUNK_PARALLEL = 3;
+
+async function postBatchMintMarketPreviewsChunk(
+  tokenIds: number[],
+): Promise<Record<number, CollectionMarketPreview>> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
+    );
+  }
+  const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
+  const out: Record<number, CollectionMarketPreview> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k);
+    if (Number.isFinite(id)) out[id] = v;
+  }
+  return out;
+}
 
 /** Cardhedger batch — 서버가 tokenId별 메타데이터를 조회 (요청은 id 목록만) */
 export async function postBatchMintMarketPreviews(
@@ -162,48 +556,82 @@ export async function postBatchMintMarketPreviews(
   const unique = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter(
     (n) => Number.isFinite(n) && n >= 0,
   );
-  const out: Record<number, CollectionMarketPreview> = {};
+  if (unique.length === 0) return {};
 
+  const chunks: number[][] = [];
   for (let i = 0; i < unique.length; i += MINT_MARKET_PREVIEW_MAX_BATCH) {
-    const chunk = unique.slice(i, i + MINT_MARKET_PREVIEW_MAX_BATCH);
-    const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenIds: chunk }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(
-        (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
-      );
-    }
-    const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
-    for (const [k, v] of Object.entries(raw)) {
-      const id = Number(k);
-      if (Number.isFinite(id)) out[id] = v;
-    }
+    chunks.push(unique.slice(i, i + MINT_MARKET_PREVIEW_MAX_BATCH));
+  }
+
+  const out: Record<number, CollectionMarketPreview> = {};
+  for (let i = 0; i < chunks.length; i += MINT_MARKET_PREVIEW_CHUNK_PARALLEL) {
+    const packs = await Promise.all(
+      chunks
+        .slice(i, i + MINT_MARKET_PREVIEW_CHUNK_PARALLEL)
+        .map((chunk) => postBatchMintMarketPreviewsChunk(chunk)),
+    );
+    for (const pack of packs) Object.assign(out, pack);
   }
 
   return out;
 }
 
-/** Fulfilled listing fill for collection tape (same source as chart platform series). */
+export type CollectionTapeFillSource = "platform" | "cardhedger";
+
+/** Trades tape row — platform fills and/or Cardhedger comps. */
 export interface CollectionPlatformTapeFill {
   t: number;
   priceUsdc: number;
   tokenId: string;
   orderHash: string;
-  /** buy = instant take of listing; sell = matched listing to collection bid (new fills only). */
+  /** buy = instant take of listing; sell = matched listing to collection bid. */
   tapeAggressor?: "buy" | "sell";
+  source?: CollectionTapeFillSource;
+  /** Cardhedger comps sale_type (Auction, Best Offer, …) — not buy/sell aggressor. */
+  externalSaleType?: string | null;
+  /** Inferred marketplace (e.g. eBay) from Cardhedger sale_url / price_source. */
+  externalSalePlatform?: string | null;
+  /** Cardhedger comps sale_url — sold listing link when available. */
+  externalSaleUrl?: string | null;
 }
 
-/** DB-only: chart points + tape rows. */
+export interface TradesVolumeWindowStats {
+  notionalUsdc: number;
+  tradeCount: number;
+  platformCount: number;
+  cardhedgerCount: number;
+}
+
+export interface CollectionTradesVolumeStats {
+  windows: {
+    "7d": TradesVolumeWindowStats;
+    "30d": TradesVolumeWindowStats;
+    "90d": TradesVolumeWindowStats;
+    "180d": TradesVolumeWindowStats;
+    "365d": TradesVolumeWindowStats;
+  };
+  total: TradesVolumeWindowStats;
+}
+
+/** Platform chart points + merged trades tape + volume stats. */
 export async function getCollectionPlatformTrades(
-  collectionKey: string
-): Promise<{ platformUsd: CollectionUsdPoint[]; trades: CollectionPlatformTapeFill[] }> {
+  collectionKey: string,
+  opts?: { bootstrapTokenId?: number; grade?: string },
+): Promise<{
+  platformUsd: CollectionUsdPoint[];
+  trades: CollectionPlatformTapeFill[];
+  volume: CollectionTradesVolumeStats;
+}> {
   const enc = encodeURIComponent(collectionKey);
+  const qs = new URLSearchParams();
+  if (opts?.bootstrapTokenId != null && Number.isFinite(opts.bootstrapTokenId)) {
+    qs.set("bootstrapTokenId", String(Math.floor(opts.bootstrapTokenId)));
+  }
+  const grade = opts?.grade?.trim();
+  if (grade) qs.set("grade", grade);
+  const query = qs.toString();
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades`
+    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades${query ? `?${query}` : ""}`,
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -214,6 +642,37 @@ export async function getCollectionPlatformTrades(
   return res.json() as Promise<{
     platformUsd: CollectionUsdPoint[];
     trades: CollectionPlatformTapeFill[];
+    volume: CollectionTradesVolumeStats;
+  }>;
+}
+
+/** Trades for one RWA token — works without a marketplace collection row. */
+export async function getRwaTokenTrades(
+  tokenId: number,
+  opts?: { grade?: string },
+): Promise<{
+  platformUsd: CollectionUsdPoint[];
+  trades: CollectionPlatformTapeFill[];
+  volume: CollectionTradesVolumeStats;
+}> {
+  const id = Math.floor(Number(tokenId));
+  const qs = new URLSearchParams();
+  const grade = opts?.grade?.trim();
+  if (grade) qs.set("grade", grade);
+  const query = qs.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/rwa/${id}/trades${query ? `?${query}` : ""}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load RWA trades",
+    );
+  }
+  return res.json() as Promise<{
+    platformUsd: CollectionUsdPoint[];
+    trades: CollectionPlatformTapeFill[];
+    volume: CollectionTradesVolumeStats;
   }>;
 }
 
@@ -233,6 +692,9 @@ export interface CollectionListMarketSnapshot {
     | "none"
     | null;
   gradePrices: CollectionGradePrices;
+  spotPriceBasis?: string | null;
+  /** Same Cardhedger preview as collection detail `market-series`. */
+  cardhedgerPreview?: CollectionMarketPreview;
   sparklineUsd: CollectionUsdPoint[];
   /** Pool stats (listing-derived); same contract as collection stats endpoint */
   marketStats?: CollectionMarketStats | null;
@@ -277,14 +739,23 @@ export async function postMarketplaceCollectionSnapshotsBatched(
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };
-  const items: CollectionListMarketSnapshot[] = [];
+  const chunks: string[][] = [];
   for (let i = 0; i < collectionKeys.length; i += max) {
-    const chunk = collectionKeys.slice(i, i + max);
-    const pack = await postMarketplaceCollectionSnapshots({
-      collectionKeys: chunk,
-      priceHistoryDuration,
-    });
-    items.push(...pack.items);
+    chunks.push(collectionKeys.slice(i, i + max));
+  }
+  const CONCURRENCY = 4;
+  const items: CollectionListMarketSnapshot[] = [];
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    const wave = chunks.slice(i, i + CONCURRENCY);
+    const packs = await Promise.all(
+      wave.map((chunk) =>
+        postMarketplaceCollectionSnapshots({
+          collectionKeys: chunk,
+          priceHistoryDuration,
+        }),
+      ),
+    );
+    for (const pack of packs) items.push(...pack.items);
   }
   return { items };
 }

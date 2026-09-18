@@ -1,0 +1,69 @@
+---
+description: Security rules for the Tokenable platform
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Security Rules
+
+## Secrets
+
+1. Never log private keys, JWT tokens, Privy tokens, API keys, or user passwords.
+
+2. Never commit production secrets to git. Dev `.env` files are committed for convenience; production values belong on the server.
+
+3. `PRIVY_APP_SECRET` is server-side only. Never reference it in frontend code or pass it to the client.
+
+4. `RWA_OWNER_PRIVATE_KEY` and `RWA_CUSTODY_PRIVATE_KEY` control on-chain writes. Treat them as the most sensitive secrets in the system. `PLATFORM_FEE_PRIVATE_KEY` controls self-vault seller USDC payouts from the fee wallet — same sensitivity for treasury funds.
+
+5. If any secret is accidentally logged or exposed: rotate it immediately and document the incident.
+
+## Authentication
+
+6. All user-facing routes requiring authentication must use `@UseGuards(JwtAuthGuard)`.
+
+7. Admin routes must call `MarketplaceAdminService.assertAdminSession()` — do not use JwtAuthGuard for admin.
+
+8. Never bypass authentication guards for "convenience" in any non-dev environment.
+
+9. `GET /api/auth/session` must never return 401 — it returns `{ user: null }` for unauthenticated requests.
+
+## Input Validation
+
+10. All controller inputs must go through DTOs with `class-validator`. No raw string reaches business logic.
+
+11. `ValidationPipe` with `whitelist: true` and `forbidNonWhitelisted: true` is global — do not disable.
+
+12. Wallet addresses must be validated as Ethereum addresses before use. Use `@IsEthereumAddress()` in DTOs.
+
+## Blockchain
+
+13. Never call `mint()` or `adminBurn()` from frontend code. These are backend-only operations.
+
+14. Verify that the backend wallet holds the required role (`MINTER_ROLE`, `BURNER_ROLE`) before executing on-chain writes.
+
+15. Always validate on-chain ownership before executing custody transfers — never trust the database alone.
+
+## CORS
+
+16. `CORS_ORIGIN` must list specific origins. Never set `*` with `credentials: true`.
+
+17. In production, `FRONTEND_URL` must be the actual HTTPS domain — it sets the Secure cookie flag.
+
+## Rate Limiting
+
+18. PSA Public API tokens are rate-limited. The multi-token pool in `psa-public-api.service.ts` is the only correct access pattern.
+
+19. Do not add direct PSA API calls outside of `PsaModule` — always go through the service.
+
+## Site Access Gate
+
+20. `SITE_ACCESS_ENABLED=true` adds a password gate for staging. Do not bypass or remove this check.
+
+21. Rotate `SITE_ACCESS_PASSWORD` and `SITE_ACCESS_SECRET` before any public staging exposure.
+
+## KYC
+
+22. Never set `kyc_status = 'approved'` without proper admin action or webhook verification.
+
+23. The internal dev email bypass in `accountAccess.ts` must be removed before mainnet production use.

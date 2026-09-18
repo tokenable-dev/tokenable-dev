@@ -1,16 +1,13 @@
-export { CategoryBadge, CollectiblePriceLine } from "./CollectibleCardChrome";
 export { PortfolioActivitySection } from "./PortfolioActivitySection";
-export { PortfolioAssetCard } from "./PortfolioAssetCard";
 export { PortfolioDisconnectedState } from "./PortfolioDisconnectedState";
+export { PortfolioGuestState } from "./PortfolioGuestState";
 export { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
-export { PortfolioHideConfirmModal } from "./PortfolioHideConfirmModal";
-export { PortfolioSummaryBar } from "./PortfolioSummaryBar";
-export { PortfolioValuePanel } from "./PortfolioValuePanel";
+export { PortfolioRedeemInProgressSection } from "./PortfolioRedeemInProgressSection";
+export { PortfolioCollectionBidsSection } from "./PortfolioCollectionBidsSection";
 export {
-  PortfolioCardIconButton,
-  PortfolioHideIcon,
-  PortfolioUnhideIcon,
-} from "./PortfolioCardIconButton";
-export { PortfolioChartToggle } from "./PortfolioChartToggle";
-export { PortfolioHeaderStat } from "./PortfolioHeaderStat";
-export { PortfolioValueChart } from "./PortfolioValueChart";
+  PortfolioMainSection,
+  type PortfolioMainTab,
+} from "./PortfolioMainSection";
+export { PortfolioCancelBidConfirmModal } from "./PortfolioCancelBidConfirmModal";
+export { PortfolioCancelListingConfirmModal } from "./PortfolioCancelListingConfirmModal";
+export { PortfolioValuePanel } from "./PortfolioValuePanel";

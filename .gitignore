@@ -11,11 +11,16 @@ frontend/.env
 frontend/.env.local
 contracts/.env
 
+# Deploy env files must never be committed (real files live on EC2 — see deploy/README.md)
+deploy/*.env
+
 # 빌드 결과물
 .next
 dist
 build
 
+# Designer handoff scratch (keep HTML prototypes; ignore bulky refs)
+/Tokenable-with design system-*/
 # 기타
 .DS_Store
 *.log

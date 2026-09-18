@@ -1,3 +1,4 @@
+import { Contract } from 'ethers';
 import { createHash } from 'crypto';
 import {
   BadRequestException,
@@ -8,6 +9,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   EntityManager,
@@ -19,16 +21,54 @@ import {
   Repository,
 } from 'typeorm';
 import { CollectionService } from '../collections/collection.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
+import { microsToUsdc } from '../admin/platform-analytics.util';
+import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
+import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
+import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { BuyerListingAlertService } from '../buyer-listing-alert/buyer-listing-alert.service';
+import { VaultService } from '../../vault/vault.service';
+import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.service';
+import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
+import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
 import {
   backfillAskTokenIdFromParameters,
   CRITERIA_TOKEN_SENTINEL,
   isCriteriaCollectionBidOrder,
+  isDeadTokenBidFunding,
+  isTokenBidOrder,
   isValidDecimalTokenId,
   resolveFulfilledAskTokenId,
 } from '../utils/platform-tape.util';
+import { tokenBidWindowIsValid } from '../utils/token-bid-duration.util';
+import {
+  BID_CROSSES_ASK_MESSAGE,
+  pickCrossingAskForBid,
+} from './bid-crosses-ask.util';
+
+/** Seaport v1.5 — same canonical address used by the frontend. */
+const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
+
+const ERC20_BALANCE_ALLOWANCE_ABI = [
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+] as const;
+
+const ERC721_OWNER_OF_ABI = [
+  'function ownerOf(uint256 tokenId) view returns (address)',
+] as const;
+
+const SEAPORT_ORDER_STATUS_ABI = [
+  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
+] as const;
 
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
 function normalizeDecimalTokenId(raw: string): string {
@@ -48,23 +88,157 @@ export class OrdersService {
     private readonly orderRepo: Repository<Order>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
+    private readonly chainConfig: ChainConfigService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    private readonly partners: MarketplacePartnersService,
+    private readonly notifications: NotificationsService,
+    private readonly buyerListingAlerts: BuyerListingAlertService,
+    private readonly vault: VaultService,
+    private readonly selfVaultSettlements: SelfVaultSettlementService,
+    private readonly ownerIndex: RwaTokenOwnerIndexService,
   ) {}
 
-  async createOrder(dto: CreateOrderDto): Promise<Order> {
+  private async withListingDisplay(
+    items: OrderListItem[],
+    tokenContract: string,
+  ): Promise<OrderListItem[]> {
+    if (!items.length) return items;
+    const names = await this.partners.resolveDisplayNamesByWallets(
+      items.map((i) => i.offerer),
+    );
+    const askIds = items
+      .filter((i) => i.side !== OrderSide.BID)
+      .map((i) => i.tokenId);
+    const vaultByTokenId =
+      askIds.length > 0
+        ? await this.vault.getVaultDisplayByTokenIds(tokenContract, askIds)
+        : new Map();
+    return items.map((i) => {
+      const sellerDisplayName = names.get(i.offerer.toLowerCase()) ?? null;
+      if (i.side === OrderSide.BID) {
+        return {
+          ...i,
+          sellerDisplayName,
+          settlementPolicy: null,
+          vaultLabel: null,
+        };
+      }
+      const vault = vaultByTokenId.get(i.tokenId);
+      return {
+        ...i,
+        sellerDisplayName,
+        settlementPolicy: vault?.settlementPolicy ?? null,
+        vaultLabel: vault?.vaultLabel ?? null,
+      };
+    });
+  }
+
+  private async attachListingDisplay<
+    T extends {
+      offerer: string;
+      tokenId: string;
+      tokenContract: string;
+      side?: OrderSide | string;
+    },
+  >(
+    order: T,
+  ): Promise<
+    T & {
+      sellerDisplayName: string | null;
+      settlementPolicy: 'standard' | 'self_vault_hold' | null;
+      vaultLabel: string | null;
+    }
+  > {
+    const names = await this.partners.resolveDisplayNamesByWallets([
+      order.offerer,
+    ]);
+    const sellerDisplayName =
+      names.get(String(order.offerer).toLowerCase()) ?? null;
+    if (order.side === OrderSide.BID || order.side === 'bid') {
+      return Object.assign(order, {
+        sellerDisplayName,
+        settlementPolicy: null,
+        vaultLabel: null,
+      });
+    }
+    const vault = (
+      await this.vault.getVaultDisplayByTokenIds(order.tokenContract, [
+        String(order.tokenId),
+      ])
+    ).get(String(order.tokenId));
+    return Object.assign(order, {
+      sellerDisplayName,
+      settlementPolicy: vault?.settlementPolicy ?? null,
+      vaultLabel: vault?.vaultLabel ?? null,
+    });
+  }
+
+  async createOrder(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
+
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
 
     if (side === OrderSide.BID) {
       const cons = dto.parameters.consideration?.[0];
-      if (!cons || Number(cons.itemType) !== 4) {
+      const itemType = Number(cons?.itemType);
+      if (itemType === 2) {
+        this.assertValidTokenBid(dto, chainId);
+        const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
+        if (!bidCollectionKey) {
+          throw new BadRequestException(
+            'collectionKey is required for token bids',
+          );
+        }
+        await this.assertActiveTokenBidLimit(
+          dto.parameters.offerer,
+          bidCollectionKey,
+          chainId,
+        );
+        await this.assertTokenBidDoesNotCrossAsk(dto, bidCollectionKey);
+      } else if (itemType === 4) {
+        this.assertValidCriteriaBid(dto, chainId);
+        const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
+        if (!bidCollectionKey) {
+          throw new BadRequestException(
+            'collectionKey is required for collection bids',
+          );
+        }
+        await this.assertActiveTokenBidLimit(
+          dto.parameters.offerer,
+          bidCollectionKey,
+          chainId,
+        );
+        await this.assertTokenBidDoesNotCrossAsk(dto, bidCollectionKey);
+      } else {
         throw new BadRequestException(
-          'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
+          'Token bids require consideration itemType 2 (ERC721)',
         );
       }
-      this.assertValidCriteriaBid(dto);
     }
 
     if (side === OrderSide.ASK) {
-      this.assertValidAskListing(dto);
+      this.assertValidAskListing(dto, chainId);
+      await this.assertAskSettlementPolicy(dto, chainId);
+
+      await this.vault.assertTokenRedeemableForListing(
+        dto.tokenContract,
+        String(dto.tokenId),
+      );
+      await this.assertAskOffererOwnsToken(dto, chainId);
+      await this.cancelActiveAskIfOffererUnowned(
+        dto.tokenContract,
+        String(dto.tokenId),
+        chainId,
+      );
 
       const existing = await this.orderRepo.findOne({
         where: {
@@ -82,6 +256,11 @@ export class OrdersService {
     }
 
     const order = await this.materializeOrderFromDto(dto);
+    if (side === OrderSide.ASK && !order.collectionKey?.trim()) {
+      throw new BadRequestException(
+        'Could not create a marketplace collection for this token. Check that graded metadata is on IPFS and try again.',
+      );
+    }
     const saved = await this.persistOrder(order, this.orderRepo.manager);
     const diagOn =
       this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
@@ -98,7 +277,84 @@ export class OrdersService {
         }),
       );
     }
-    return saved;
+    if (side === OrderSide.BID && isTokenBidOrder(saved)) {
+      void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
+        this.logger.warn(
+          `notifyAskOwnerOfTokenBid failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      void this.notifications.notifyBidderOfBidPlaced(saved).catch((e) => {
+        this.logger.warn(
+          `notifyBidderOfBidPlaced failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+    }
+    if (side === OrderSide.ASK) {
+      void this.notifications.notifySellerListingLive(saved).catch((e) => {
+        this.logger.warn(
+          `notifySellerListingLive failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      void this.buyerListingAlerts.onFirstAskListed(saved).catch((e) => {
+        this.logger.warn(
+          `onFirstAskListed failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+    }
+    if (side === OrderSide.ASK && saved.collectionKey?.trim()) {
+      const reviewStatus = await this.collectionService.getReviewStatus(
+        saved.collectionKey,
+      );
+      return this.attachListingDisplay(
+        Object.assign(saved, {
+          reviewStatus: reviewStatus ?? 'active',
+        }),
+      );
+    }
+    return this.attachListingDisplay(saved);
+  }
+
+  /**
+   * First ask listing: create marketplace_collections from token metadata, or reuse
+   * a prior ask's key when metadata fetch fails transiently.
+   */
+  private async resolveAskCollectionKey(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): Promise<string | null> {
+    const tidRaw = String(dto.tokenId);
+    try {
+      const key = await this.collectionService.ensureCollectionForListing(
+        tidRaw,
+        chainId,
+      );
+      if (key?.trim()) return key.trim().toLowerCase();
+    } catch (e) {
+      this.logger.warn(
+        `ensureCollectionForListing failed for token #${tidRaw}: ${String(e)}`,
+      );
+    }
+
+    const tidNorm = normalizeDecimalTokenId(tidRaw);
+    const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+    const prior = await this.orderRepo.findOne({
+      where: {
+        tokenContract: dto.tokenContract,
+        side: OrderSide.ASK,
+        tokenId: In(tidVariants),
+        collectionKey: Not(IsNull()),
+      },
+      order: { updatedAt: 'DESC' },
+    });
+    if (prior?.collectionKey?.trim()) {
+      const reused = prior.collectionKey.trim().toLowerCase();
+      this.logger.log(
+        `Reused collection_key from a prior ask for token #${tidRaw} (ensure failed or returned null).`,
+      );
+      return reused;
+    }
+
+    return null;
   }
 
   /**
@@ -109,12 +365,22 @@ export class OrdersService {
     oldOrderHash: string,
     callerAddress: string,
     dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
   ): Promise<Order> {
     if (dto.side === 'bid') {
       throw new BadRequestException(
         'replaceSellerListing only accepts ask listings',
       );
     }
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
+    this.assertValidAskListing(dto, chainId);
+    await this.assertAskSettlementPolicy(dto, chainId);
+    await this.assertAskOffererOwnsToken(dto, chainId);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -151,10 +417,14 @@ export class OrdersService {
       await em.save(old);
 
       const order = await this.materializeOrderFromDto(dto);
-      const materializedKeyNull = order.collectionKey == null;
-      /** Re-attach bucket if IPFS/RPC flaked on replace but the prior row had a key (instant match needs it). */
-      if (!order.collectionKey && old.collectionKey) {
-        order.collectionKey = old.collectionKey;
+      const materializedKeyNull = !order.collectionKey?.trim();
+      if (materializedKeyNull && old.collectionKey?.trim()) {
+        order.collectionKey = old.collectionKey.trim().toLowerCase();
+      }
+      if (!order.collectionKey?.trim()) {
+        throw new BadRequestException(
+          'Could not resolve marketplace collection for this listing replacement.',
+        );
       }
       const saved = await this.persistOrder(order, em);
       const diagOn =
@@ -173,6 +443,107 @@ export class OrdersService {
           }),
         );
       }
+      const reviewStatus = await this.collectionService.getReviewStatus(
+        saved.collectionKey!,
+      );
+      return Object.assign(saved, {
+        reviewStatus: reviewStatus ?? 'active',
+      });
+    });
+  }
+
+  /**
+   * Cancel an active collection bid and insert a new signed bid in one transaction.
+   */
+  async replaceBuyerBid(
+    oldOrderHash: string,
+    callerAddress: string,
+    dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
+    if (dto.side !== 'bid') {
+      throw new BadRequestException('replaceBuyerBid only accepts bids');
+    }
+
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
+
+    const cons = dto.parameters.consideration?.[0];
+    const itemType = Number(cons?.itemType);
+    if (itemType === 2) {
+      this.assertValidTokenBid(dto, chainId);
+    } else if (itemType === 4) {
+      this.assertValidCriteriaBid(dto, chainId);
+    } else {
+      throw new BadRequestException(
+        'Only token bids (itemType 2) or collection criteria bids (itemType 4) can be replaced',
+      );
+    }
+
+    const newCollectionKey = dto.collectionKey?.trim().toLowerCase();
+    if (!newCollectionKey) {
+      throw new BadRequestException('collectionKey is required for bids');
+    }
+    await this.assertTokenBidDoesNotCrossAsk(dto, newCollectionKey);
+
+    return this.orderRepo.manager.transaction(async (em) => {
+      const old = await em.findOne(Order, {
+        where: { orderHash: oldOrderHash },
+      });
+      if (!old) {
+        throw new NotFoundException(`Order not found: ${oldOrderHash}`);
+      }
+      if (itemType === 2) {
+        if (!isTokenBidOrder(old)) {
+          throw new BadRequestException('Only token bids can be replaced');
+        }
+      } else if (!isCriteriaCollectionBidOrder(old)) {
+        throw new BadRequestException(
+          'Only collection criteria bids can be replaced with a criteria bid',
+        );
+      }
+      if (old.status !== OrderStatus.ACTIVE) {
+        throw new BadRequestException(`Order is already ${old.status}`);
+      }
+      if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
+        throw new BadRequestException('Only the offerer can replace this bid');
+      }
+      if (itemType === 2) {
+        if (
+          normalizeDecimalTokenId(String(old.tokenId)) !==
+          normalizeDecimalTokenId(String(dto.tokenId))
+        ) {
+          throw new BadRequestException(
+            'New bid tokenId must match the bid being replaced',
+          );
+        }
+      }
+      const oldKey = old.collectionKey?.trim().toLowerCase();
+      if (!oldKey || oldKey !== newCollectionKey) {
+        throw new BadRequestException(
+          'New bid collectionKey must match the bid being replaced',
+        );
+      }
+
+      old.status = OrderStatus.CANCELLED;
+      await em.save(old);
+
+      const order = await this.materializeOrderFromDto(dto);
+      const saved = await this.persistOrder(order, em);
+      void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
+        this.logger.warn(
+          `notifyAskOwnerOfTokenBid (replace) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      void this.notifications.notifyBidderOfBidPlaced(saved).catch((e) => {
+        this.logger.warn(
+          `notifyBidderOfBidPlaced (replace) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
       return saved;
     });
   }
@@ -180,15 +551,16 @@ export class OrdersService {
   private async materializeOrderFromDto(dto: CreateOrderDto): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
-    const params = parameters as unknown as Record<string, unknown>;
+    let params = parameters as unknown as Record<string, unknown>;
+    const chainId =
+      this.chainConfig.resolveChainIdFromRwaAddress(dto.tokenContract) ??
+      this.chainConfig.getDefaultChainId();
 
     let collectionKey: string | null = null;
     if (side === OrderSide.BID) {
       const key = dto.collectionKey?.trim().toLowerCase();
       if (!key) {
-        throw new BadRequestException(
-          'collectionKey is required for ERC721_WITH_CRITERIA bids',
-        );
+        throw new BadRequestException('collectionKey is required for token bids');
       }
       const col = await this.collectionService.findOne(key);
       if (!col) {
@@ -196,35 +568,7 @@ export class OrdersService {
       }
       collectionKey = col.collectionKey;
     } else {
-      try {
-        collectionKey = await this.collectionService.ensureCollectionForListing(
-          dto.tokenId,
-        );
-      } catch (e) {
-        this.logger.warn(
-          `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
-        );
-        const tidRaw = String(dto.tokenId);
-        const tidNorm = normalizeDecimalTokenId(tidRaw);
-        const tidVariants = [
-          ...new Set([tidRaw, tidNorm].filter((s) => s.length > 0)),
-        ];
-        const prior = await this.orderRepo.findOne({
-          where: {
-            tokenContract: dto.tokenContract,
-            side: OrderSide.ASK,
-            tokenId: In(tidVariants),
-            collectionKey: Not(IsNull()),
-          },
-          order: { updatedAt: 'DESC' },
-        });
-        if (prior?.collectionKey) {
-          collectionKey = prior.collectionKey;
-          this.logger.log(
-            `Reused collection_key from a prior ask for token #${dto.tokenId} (metadata fetch failed).`,
-          );
-        }
-      }
+      collectionKey = await this.resolveAskCollectionKey(dto, chainId);
       const tid = String(dto.tokenId);
       const diagOn =
         this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
@@ -238,7 +582,6 @@ export class OrdersService {
             side: 'ask',
             tokenId: tid,
             tokenContract: dto.tokenContract,
-            note: 'Order will persist with collection_key NULL unless replace flow reuses prior listing key.',
           }),
         );
       } else if (diagOn) {
@@ -260,8 +603,18 @@ export class OrdersService {
       }
     }
 
-    const tokenIdForRow =
-      side === OrderSide.BID ? CRITERIA_TOKEN_SENTINEL : dto.tokenId;
+    const tokenIdForRow = normalizeDecimalTokenId(String(dto.tokenId));
+
+    if (side === OrderSide.ASK) {
+      const policy = await this.vault.getSettlementPolicy(
+        dto.tokenContract,
+        tokenIdForRow,
+      );
+      params = {
+        ...params,
+        _settlementPolicy: policy,
+      };
+    }
 
     return this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
@@ -306,8 +659,96 @@ export class OrdersService {
     }
   }
 
-  /** Collection bid: offer USDC, consideration ERC721_WITH_CRITERIA + Merkle root */
-  private assertValidCriteriaBid(dto: CreateOrderDto): void {
+  private maxActiveCollectionBidsPerOfferer(): number {
+    return (
+      this.config.get<number>('marketplace.maxActiveCollectionBidsPerOfferer') ??
+      0
+    );
+  }
+
+  /**
+   * Per-wallet cap on simultaneous active token bids in one collection.
+   * `0` = unlimited (current default).
+   */
+  private async assertActiveTokenBidLimit(
+    offererAddress: string,
+    collectionKey: string,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const max = this.maxActiveCollectionBidsPerOfferer();
+    if (max <= 0) return;
+    const addr = String(offererAddress ?? '').trim().toLowerCase();
+    const key = String(collectionKey ?? '').trim().toLowerCase();
+    if (!addr || !key) return;
+
+    const rwa = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const activeCount = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('LOWER(o.collection_key) = :key', { key })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .getCount();
+
+    if (activeCount >= max) {
+      throw new BadRequestException(
+        max === 1
+          ? 'You already have an active bid on this collection. Cancel or edit it to place a new one.'
+          : `Maximum ${max} bids per collection. Cancel an existing bid to place a new one.`,
+      );
+    }
+  }
+
+  /**
+   * A bid at or above another wallet's live ask must buy that ask, not rest on the book.
+   */
+  private async assertTokenBidDoesNotCrossAsk(
+    dto: CreateOrderDto,
+    bidCollectionKey: string,
+  ): Promise<void> {
+    let bidMicros: bigint;
+    try {
+      bidMicros = BigInt(
+        String(dto.parameters.offer?.[0]?.startAmount ?? '').trim(),
+      );
+    } catch {
+      throw new BadRequestException('Bid offer amount is invalid');
+    }
+    if (bidMicros <= 0n) return;
+
+    const key = bidCollectionKey.trim().toLowerCase();
+    const tokenId = String(dto.tokenId ?? '').trim();
+    const collectionAsks = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.collection_key) = :key', { key })
+      .getMany();
+    const tokenAsks =
+      Number(dto.parameters.consideration?.[0]?.itemType) === 4
+        ? []
+        : tokenId.length > 0
+          ? await this.orderRepo.find({
+              where: {
+                status: OrderStatus.ACTIVE,
+                side: OrderSide.ASK,
+                tokenId,
+              },
+            })
+          : [];
+    const crossing = pickCrossingAskForBid(
+      [...collectionAsks, ...tokenAsks],
+      dto.parameters.offerer,
+      bidMicros,
+    );
+    if (crossing) {
+      throw new ConflictException(BID_CROSSES_ASK_MESSAGE);
+    }
+  }
+
+  /** Token offer: offer USDC, consideration ERC721 for a specific tokenId. */
+  private assertValidTokenBid(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
     const offer = p.offer?.[0];
     const cons = p.consideration?.[0];
@@ -316,18 +757,18 @@ export class OrdersService {
         'Bid order must include offer and consideration items',
       );
     }
-    if (offer.itemType !== 1) {
+    if (Number(offer.itemType) !== 1) {
       throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
     }
-    if (cons.itemType !== 4) {
+    if (Number(cons.itemType) !== 2) {
       throw new BadRequestException(
-        'Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
+        'Token bid consideration[0] must be ERC721 (itemType 2)',
       );
     }
-    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
     if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
       throw new BadRequestException(
-        'Bid offer token must match USDC_CONTRACT_ADDRESS',
+        `Bid offer token must match USDC for chain ${chainId}`,
       );
     }
     if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
@@ -335,21 +776,320 @@ export class OrdersService {
         'Bid consideration token must match tokenContract',
       );
     }
-    if (!cons.identifierOrCriteria || cons.identifierOrCriteria === '0') {
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid)) {
+      throw new BadRequestException('Token bids require a valid tokenId');
+    }
+    const consId = String(cons.identifierOrCriteria ?? '').trim();
+    if (
+      !isValidDecimalTokenId(consId) ||
+      normalizeDecimalTokenId(consId) !== normalizeDecimalTokenId(tid)
+    ) {
       throw new BadRequestException(
-        'Criteria bid must set identifierOrCriteria to Merkle root',
+        'Bid consideration identifierOrCriteria must match tokenId',
       );
     }
-    if (dto.tokenId !== CRITERIA_TOKEN_SENTINEL) {
-      throw new BadRequestException('Criteria bids must use tokenId "0"');
+    const window = tokenBidWindowIsValid({
+      startTimeSec: Number(p.startTime),
+      endTimeSec: Number(p.endTime),
+      nowSec: Date.now() / 1000,
+    });
+    if (!window.ok) {
+      throw new BadRequestException(window.reason);
     }
+  }
+
+  /** Collection offer: USDC for any minted token in the bucket (Merkle criteria). */
+  private assertValidCriteriaBid(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): void {
+    const p = dto.parameters;
+    const offer = p.offer?.[0];
+    const cons = p.consideration?.[0];
+    if (!offer || !cons) {
+      throw new BadRequestException(
+        'Bid order must include offer and consideration items',
+      );
+    }
+    if (Number(offer.itemType) !== 1) {
+      throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
+    }
+    if (Number(cons.itemType) !== 4) {
+      throw new BadRequestException(
+        'Collection bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
+      );
+    }
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
+    if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
+      throw new BadRequestException(
+        `Bid offer token must match USDC for chain ${chainId}`,
+      );
+    }
+    if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
+      throw new BadRequestException(
+        'Bid consideration token must match tokenContract',
+      );
+    }
+    const root = String(cons.identifierOrCriteria ?? '').trim();
+    if (!root || root === '0') {
+      throw new BadRequestException(
+        'Collection bid requires a Merkle root in identifierOrCriteria',
+      );
+    }
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid) || tid !== CRITERIA_TOKEN_SENTINEL) {
+      throw new BadRequestException(
+        'Collection bids must use tokenId 0 (criteria sentinel)',
+      );
+    }
+    const window = tokenBidWindowIsValid({
+      startTimeSec: Number(p.startTime),
+      endTimeSec: Number(p.endTime),
+      nowSec: Date.now() / 1000,
+    });
+    if (!window.ok) {
+      throw new BadRequestException(window.reason);
+    }
+  }
+
+  private async readOnChainRwaOwner(
+    tokenContract: string,
+    tokenId: string,
+    chainId: SupportedChainId,
+  ): Promise<string> {
+    const tid = Number(normalizeDecimalTokenId(tokenId));
+    if (!Number.isFinite(tid) || tid < 0) {
+      throw new BadRequestException(`Invalid tokenId ${tokenId}`);
+    }
+    const expected = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    if (tokenContract.toLowerCase() !== expected) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const nft = new Contract(expected, ERC721_OWNER_OF_ABI, provider);
+    try {
+      const owner = String(await nft.ownerOf(tid)).trim().toLowerCase();
+      if (!owner || owner === '0x0000000000000000000000000000000000000000') {
+        throw new BadRequestException(`RWA #${tid} has no on-chain owner`);
+      }
+      return owner;
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/nonexistent token|invalid token|owner query for nonexistent/i.test(msg)) {
+        throw new BadRequestException(
+          `RWA #${tid} does not exist on ${expected} (chain ${chainId}). ` +
+            `Align CHAIN_${chainId}_RWA_ADDRESS / frontend NEXT_PUBLIC_CHAIN_${chainId}_RWA with the mint contract, ` +
+            `or reset marketplace rows for the previous CA before listing.`,
+        );
+      }
+      this.logger.warn(`ownerOf #${tid} failed: ${msg.slice(0, 180)}`);
+      throw new ServiceUnavailableException(
+        'Could not verify on-chain NFT ownership — try again',
+      );
+    }
+  }
+
+  private async assertAskOffererOwnsToken(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const owner = await this.readOnChainRwaOwner(
+      dto.tokenContract,
+      String(dto.tokenId),
+      chainId,
+    );
+    const offerer = dto.parameters.offerer.trim().toLowerCase();
+    if (owner !== offerer) {
+      throw new BadRequestException(
+        `Cannot list token #${dto.tokenId}: connected wallet does not own this card on-chain (owner is ${owner})`,
+      );
+    }
+  }
+
+  /**
+   * Drop a leftover ask whose offerer no longer owns the NFT so the current
+   * on-chain owner can list. Does not cancel a live ask from the current owner.
+   */
+  private async cancelActiveAskIfOffererUnowned(
+    tokenContract: string,
+    tokenId: string,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const tidRaw = String(tokenId);
+    const tidNorm = normalizeDecimalTokenId(tidRaw);
+    const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+    const existing = await this.orderRepo.findOne({
+      where: {
+        tokenContract,
+        tokenId: In(tidVariants),
+        status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
+      },
+    });
+    if (!existing) return;
+    const owner = await this.readOnChainRwaOwner(
+      tokenContract,
+      tidNorm || tidRaw,
+      chainId,
+    );
+    if (owner === existing.offerer.toLowerCase()) return;
+    existing.status = OrderStatus.CANCELLED;
+    existing.parameters = {
+      ...(existing.parameters ?? {}),
+      _unownedAsk: true,
+      _onChainOwner: owner,
+      _unownedAskReason: 'supersede_by_onchain_owner',
+      _unownedAskAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `cancelActiveAskIfOffererUnowned ${existing.orderHash.slice(0, 10)}… owner=${owner.slice(0, 10)}… offerer=${existing.offerer.slice(0, 10)}…`,
+    );
+    await this.orderRepo.save(existing);
+    await this.ownerIndex.recordOwner(existing.tokenContract, existing.tokenId, owner);
+  }
+
+  /**
+   * Never mark the book fulfilled (or move owner_wallet) unless Seaport consumed
+   * the order. A reverted fulfillOrder tx must not look like a sale.
+   */
+  private async assertSeaportOrderFilledOnChain(
+    orderHash: string,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const seaport = new Contract(
+      SEAPORT_ADDRESS,
+      SEAPORT_ORDER_STATUS_ABI,
+      provider,
+    );
+    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
+    try {
+      const result = (await seaport.getOrderStatus(hash)) as [
+        boolean,
+        boolean,
+        bigint,
+        bigint,
+      ];
+      const isCancelled = Boolean(result[1]);
+      const filled = BigInt(result[2]);
+      const size = BigInt(result[3]);
+      if (isCancelled || size === 0n || filled < size) {
+        throw new BadRequestException(
+          'On-chain Seaport fill was not found for this order — listing and ownership were not updated',
+        );
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `getOrderStatus ${hash.slice(0, 10)}… failed: ${msg.slice(0, 180)}`,
+      );
+      throw new ServiceUnavailableException(
+        'Could not verify on-chain Seaport fill — try again',
+      );
+    }
+  }
+
+  /**
+   * Ask fill: Seaport getOrderStatus, or NFT already with the buyer (receipt
+   * succeeded / hash lookup missed). Never treat a still-seller-owned token as sold.
+   */
+  private async assertOrderSettledForFulfill(
+    order: Order,
+    buyerAddress: string | undefined,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    try {
+      await this.assertSeaportOrderFilledOnChain(order.orderHash, chainId);
+      return;
+    } catch (e) {
+      if (!(e instanceof BadRequestException)) throw e;
+      if ((order.side ?? OrderSide.ASK) !== OrderSide.ASK) throw e;
+      const buyer = buyerAddress?.trim().toLowerCase();
+      if (!buyer) throw e;
+      const owner = await this.readOnChainRwaOwner(
+        order.tokenContract,
+        String(order.tokenId),
+        chainId,
+      );
+      if (owner === buyer && owner !== order.offerer.toLowerCase()) {
+        this.logger.log(
+          `fulfillOrder ${order.orderHash.slice(0, 10)}… settled via ownerOf buyer (getOrderStatus miss)`,
+        );
+        return;
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Self-vault hold asks: exactly one USDC consideration to PLATFORM_FEE_RECIPIENT
+   * (full amount). Standard asks keep the seller (+ optional fee) shape.
+   */
+  private async assertAskSettlementPolicy(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    const policy = await this.vault.getSettlementPolicy(
+      dto.tokenContract,
+      String(dto.tokenId),
+    );
+    if (policy == null) {
+      throw new BadRequestException(
+        `Token #${dto.tokenId} vault custody is unknown — mint registry incomplete; refresh or contact support`,
+      );
+    }
+    if (!isSelfVaultHoldPolicy(policy)) return;
+
+    const feeRecipient = (
+      this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!feeRecipient) {
+      throw new BadRequestException(
+        'PLATFORM_FEE_RECIPIENT is required for self-vault hold listings',
+      );
+    }
+
+    const cons = dto.parameters.consideration ?? [];
+    if (cons.length !== 1) {
+      throw new BadRequestException(
+        'Self-vault hold asks must have exactly one USDC consideration (100% platform take)',
+      );
+    }
+    const only = cons[0];
+    if (Number(only.itemType) !== 1) {
+      throw new BadRequestException(
+        'Self-vault hold consideration must be ERC20 USDC',
+      );
+    }
+    // Seller may be PLATFORM_FEE_RECIPIENT (custody key in MetaMask) — that is still a valid full-platform-take ask.
+    if (only.recipient.toLowerCase() !== feeRecipient) {
+      throw new BadRequestException(
+        `Self-vault hold consideration recipient must be the platform fee wallet (${feeRecipient})`,
+      );
+    }
+    const amount = BigInt(only.startAmount);
+    const declared = BigInt(dto.considerationAmount);
+    if (amount !== declared) {
+      throw new BadRequestException(
+        'Self-vault hold consideration amount must equal considerationAmount',
+      );
+    }
+    void chainId;
   }
 
   /**
    * Ask listing: consideration[0] = USDC to seller, optional consideration[1] = USDC platform fee.
    * Sum of consideration amounts must equal dto.considerationAmount (= total price).
+   * Self-vault hold uses a single fee-recipient consideration (validated separately).
    */
-  private assertValidAskListing(dto: CreateOrderDto): void {
+  private assertValidAskListing(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
     const cons = p.consideration;
     if (!cons || cons.length === 0) {
@@ -358,7 +1098,7 @@ export class OrdersService {
       );
     }
 
-    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
     const feeRecipient = (
       this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
     ).toLowerCase();
@@ -373,7 +1113,7 @@ export class OrdersService {
       }
       if (usdc && c.token.toLowerCase() !== usdc.toLowerCase()) {
         throw new BadRequestException(
-          `Ask consideration[${i}] token must match USDC_CONTRACT_ADDRESS`,
+          `Ask consideration[${i}] token must match USDC for chain ${chainId} (${usdc})`,
         );
       }
       sum += BigInt(c.startAmount);
@@ -422,23 +1162,39 @@ export class OrdersService {
     return Math.min(Math.max(1, Math.floor(requested)), serverMax);
   }
 
-  async findActiveOrders(limit?: number): Promise<Order[]> {
-    await this.expireOrders();
-    return this.orderRepo.find({
-      where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
-      order: { createdAt: 'DESC' },
-      take: this.activeOrdersCap(limit),
-    });
+  async findActiveOrders(
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.created_at', 'DESC')
+      .take(this.activeOrdersCap(limit))
+      .getMany();
   }
 
-  async findActiveOrderListItems(limit?: number): Promise<OrderListItem[]> {
-    const rows = await this.findActiveOrders(limit);
-    return rows.map((o) => orderToListItem(o));
+  async findActiveOrderListItems(
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const rows = await this.findActiveOrders(limit, chainId);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
   }
 
   /** Active ask listing for an ERC-721 token (including mint id `0`). */
-  async findActiveAskByTokenId(tokenIdRaw: string): Promise<Order | null> {
-    await this.expireOrders();
+  async findActiveAskByTokenId(
+    tokenIdRaw: string,
+    chainId?: SupportedChainId,
+  ): Promise<(Order & { sellerDisplayName: string | null }) | null> {
     const tid = String(tokenIdRaw ?? '').trim();
     const variants = [
       ...new Set(
@@ -446,23 +1202,114 @@ export class OrdersService {
       ),
     ];
     if (variants.length === 0) return null;
-    return this.orderRepo.findOne({
-      where: {
-        tokenId: In(variants),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const order = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.created_at', 'DESC')
+      .getOne();
+    if (!order) return null;
+    return this.attachListingDisplay(order);
   }
 
   /**
    * Order history keyed by requested token id string (one batch query; no N+1).
    */
+  /** Active asks listed by a wallet (portfolio listings — not the global book). */
+  async findActiveAsksByOfferer(
+    offererAddress: string,
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const addr = offererAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 500), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
+  }
+
+  /** Collection criteria bids placed by a wallet (active + historical). */
+  async findCollectionBidsByOfferer(
+    offererAddress: string,
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const addr = offererAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 100), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('o.collection_key IS NOT NULL')
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
+  }
+
+  /**
+   * Portfolio transaction history for a wallet:
+   * - fulfilled asks they listed (SELL)
+   * - fulfilled bids they placed (BUY via sell-into-bid)
+   * - fulfilled asks they bought (`parameters._filledByBuyer`)
+   */
+  async findPortfolioActivityOrders(
+    walletAddress: string,
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const addr = walletAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 200), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :st', { st: OrderStatus.FULFILLED })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .andWhere(
+        `(LOWER(o.offerer) = :addr OR (o.side = :ask AND LOWER(COALESCE(o.parameters->>'_filledByBuyer', '')) = :addr))`,
+        { addr, ask: OrderSide.ASK },
+      )
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+
+    return this.withListingDisplay(
+      rows.map((o) => orderToListItem(o)),
+      this.chainConfig.getRwaAddress(id),
+    );
+  }
+
   async findOrdersBatchByTokenIds(
     tokenIds: number[],
+    chainId?: SupportedChainId,
   ): Promise<Record<string, OrderListItem[]>> {
-    await this.expireOrders();
     const out: Record<string, OrderListItem[]> = {};
     const requested = [
       ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
@@ -479,13 +1326,36 @@ export class OrdersService {
       variants.add(normalizeDecimalTokenId(s));
     }
 
-    const rows = await this.orderRepo.find({
-      where: { tokenId: In([...variants]) },
-      order: { updatedAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants: [...variants] })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .getMany();
+
+    const names = await this.partners.resolveDisplayNamesByWallets(
+      rows.map((o) => o.offerer),
+    );
+    const vaultByTokenId = await this.vault.getVaultDisplayByTokenIds(
+      this.chainConfig.getRwaAddress(id),
+      rows
+        .filter((o) => o.side !== OrderSide.BID)
+        .map((o) => String(o.tokenId)),
+    );
 
     for (const o of rows) {
-      const item = orderToListItem(o);
+      const vault = vaultByTokenId.get(String(o.tokenId));
+      const isBid = o.side === OrderSide.BID;
+      const item: OrderListItem = {
+        ...orderToListItem(
+          o,
+          names.get(o.offerer.toLowerCase()) ?? null,
+        ),
+        settlementPolicy: isBid ? null : vault?.settlementPolicy ?? null,
+        vaultLabel: isBid ? null : vault?.vaultLabel ?? null,
+      };
       const nk = normalizeDecimalTokenId(String(o.tokenId));
       for (const n of requested) {
         if (normalizeDecimalTokenId(String(n)) === nk) {
@@ -498,24 +1368,32 @@ export class OrdersService {
     return out;
   }
 
-  async findByTokenId(tokenId: string): Promise<Order[]> {
-    await this.expireOrders();
+  async findByTokenId(
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
     const tid = String(tokenId ?? '').trim();
     const variants = [
       ...new Set(
         [tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0),
       ),
     ];
-    return this.orderRepo.find({
-      where: { tokenId: In(variants) },
-      order: { updatedAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .getMany();
   }
 
-  async findByHash(orderHash: string): Promise<Order> {
+  async findByHash(
+    orderHash: string,
+  ): Promise<Order & { sellerDisplayName: string | null }> {
     const order = await this.orderRepo.findOne({ where: { orderHash } });
     if (!order) throw new NotFoundException(`Order not found: ${orderHash}`);
-    return order;
+    return this.attachListingDisplay(order);
   }
 
   async cancelOrder(orderHash: string, callerAddress: string): Promise<Order> {
@@ -529,18 +1407,181 @@ export class OrdersService {
     }
 
     order.status = OrderStatus.CANCELLED;
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+    if (isTokenBidOrder(saved)) {
+      void this.notifications
+        .notifyAskOwnerOfTokenBidCancelled(saved)
+        .catch((e) => {
+          this.logger.warn(
+            `notifyAskOwnerOfTokenBidCancelled failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+    }
+    return saved;
+  }
+
+  /**
+   * Mark an unfundable / expired token bid cancelled so sellers stop retrying it.
+   * Idempotent by order_hash. Only cancels when on-chain USDC (or endTime) proves dead.
+   */
+  async invalidateDeadBid(
+    orderHash: string,
+    callerAddress: string,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
+    const order = await this.findByHash(orderHash);
+
+    if (order.status !== OrderStatus.ACTIVE) {
+      return order;
+    }
+    if (!isTokenBidOrder(order)) {
+      throw new BadRequestException(
+        'Only active token bids can be invalidated as dead offers',
+      );
+    }
+
+    const offer0 = (
+      order.parameters as {
+        offer?: Array<{ itemType?: number; startAmount?: string }>;
+        endTime?: string | number;
+      }
+    )?.offer?.[0];
+    let needed = BigInt(0);
+    try {
+      needed = BigInt(String(offer0?.startAmount ?? '0').trim() || '0');
+    } catch {
+      needed = BigInt(0);
+    }
+
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const erc20 = new Contract(usdc, ERC20_BALANCE_ALLOWANCE_ABI, provider);
+    const [balRaw, allowanceRaw, block] = await Promise.all([
+      erc20.balanceOf(order.offerer) as Promise<bigint>,
+      erc20.allowance(order.offerer, SEAPORT_ADDRESS) as Promise<bigint>,
+      provider.getBlock('latest'),
+    ]);
+    const nowSec = Number(block?.timestamp ?? Math.floor(Date.now() / 1000));
+    const endTimeSec = Number(
+      (order.parameters as { endTime?: string | number })?.endTime ?? 0,
+    );
+
+    const verdict = isDeadTokenBidFunding({
+      balance: BigInt(balRaw),
+      allowance: BigInt(allowanceRaw),
+      needed,
+      nowSec,
+      endTimeSec,
+    });
+    if (!verdict.dead) {
+      throw new BadRequestException(
+        'Bid still appears fundable on-chain; not invalidating',
+      );
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    order.parameters = {
+      ...(order.parameters ?? {}),
+      _deadBid: true,
+      _deadBidReason: verdict.reason,
+      _deadBidBy: callerAddress.toLowerCase(),
+      _deadBidAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `invalidateDeadBid ${orderHash.slice(0, 10)}… reason=${verdict.reason} by ${callerAddress.slice(0, 10)}…`,
+    );
+    const saved = await this.orderRepo.save(order);
+    void this.notifications.notifyAskOwnerOfUnfilledBid(saved).catch((e) => {
+      this.logger.warn(
+        `notifyAskOwnerOfUnfilledBid failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+    void this.notifications.notifyBidderOfDeadBid(saved).catch((e) => {
+      this.logger.warn(
+        `notifyBidderOfDeadBid failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+    return saved;
+  }
+
+  /**
+   * Drop an ask whose offerer no longer owns the NFT (Seaport would revert
+   * `ERC721: transfer from incorrect owner`). Idempotent. Anyone may report;
+   * ownership is proven on-chain.
+   */
+  async invalidateUnownedAsk(
+    orderHash: string,
+    callerAddress: string,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
+    const order = await this.findByHash(orderHash);
+    if (order.status !== OrderStatus.ACTIVE) {
+      return order;
+    }
+    if ((order.side ?? OrderSide.ASK) !== OrderSide.ASK) {
+      throw new BadRequestException('Only ask listings can be invalidated as unowned');
+    }
+    const owner = await this.readOnChainRwaOwner(
+      order.tokenContract,
+      String(order.tokenId),
+      chainId,
+    );
+    if (owner === order.offerer.toLowerCase()) {
+      throw new BadRequestException(
+        'Listing wallet still owns this token on-chain',
+      );
+    }
+    order.status = OrderStatus.CANCELLED;
+    order.parameters = {
+      ...(order.parameters ?? {}),
+      _unownedAsk: true,
+      _onChainOwner: owner,
+      _unownedAskBy: callerAddress.toLowerCase(),
+      _unownedAskAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `invalidateUnownedAsk ${orderHash.slice(0, 10)}… owner=${owner.slice(0, 10)}… offerer=${order.offerer.slice(0, 10)}… by ${callerAddress.slice(0, 10)}…`,
+    );
+    const saved = await this.orderRepo.save(order);
+    await this.ownerIndex.recordOwner(order.tokenContract, order.tokenId, owner);
+    return saved;
   }
 
   /**
    * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
    * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
    */
-  async fulfillOrder(orderHash: string): Promise<Order> {
+  async fulfillOrder(
+    orderHash: string,
+    buyerAddress?: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
     if (order.status !== OrderStatus.ACTIVE) {
       throw new BadRequestException(`Order is already ${order.status}`);
+    }
+
+    await this.assertOrderSettledForFulfill(
+      order,
+      buyerAddress,
+      chainId ?? this.chainConfig.getDefaultChainId(),
+    );
+
+    // Self-vault hold: block fee-less bid-only fulfills (seller would get 100% USDC).
+    if (
+      order.side === OrderSide.BID &&
+      Number(order.parameters?.consideration?.[0]?.itemType) === 2
+    ) {
+      const policy = await this.vault.getSettlementPolicy(
+        order.tokenContract,
+        String(order.tokenId),
+      );
+      if (isSelfVaultHoldPolicy(policy)) {
+        throw new BadRequestException(
+          'Self-vault hold tokens cannot settle via bid-only fulfill. Match against a full-platform-take ask instead.',
+        );
+      }
     }
 
     order.status = OrderStatus.FULFILLED;
@@ -549,19 +1590,38 @@ export class OrdersService {
       order.parameters = {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'buy',
+        ...(buyerAddress?.trim()
+          ? {
+              _filledByBuyer: buyerAddress.trim().toLowerCase(),
+              _settlementAmount: String(order.considerationAmount ?? '0'),
+            }
+          : {}),
       };
       backfillAskTokenIdFromParameters(order);
+    } else if (order.side === OrderSide.BID) {
+      order.parameters = {
+        ...(order.parameters ?? {}),
+        _tapeFillSide: 'sell',
+        _settlementAmount: String(
+          order.parameters?.offer?.[0]?.startAmount ??
+            order.considerationAmount ??
+            '0',
+        ),
+      };
     }
     const saved = await this.orderRepo.save(order);
 
     if (!isCriteriaCollectionBidOrder(saved) && saved.side === OrderSide.ASK) {
       const tid = resolveFulfilledAskTokenId(saved);
       if (tid != null) {
+        // NFT left this ask — clear sibling asks only. Other token bids stay
+        // (new owner / book can still see open offers on this tokenId).
         const cleared = await this.orderRepo.update(
           {
             tokenContract: saved.tokenContract,
             tokenId: tid,
             status: OrderStatus.ACTIVE,
+            side: OrderSide.ASK,
             id: Not(saved.id),
           },
           { status: OrderStatus.CANCELLED },
@@ -569,9 +1629,116 @@ export class OrdersService {
         const n = cleared.affected ?? 0;
         if (n > 0) {
           this.logger.log(
-            `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
+            `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active ask(s) for token #${tid}`,
           );
         }
+      }
+
+      if (buyerAddress?.trim()) {
+        // Ledger first — each fulfilled self-vault ask (incl. resales) gets its own row.
+        await this.maybeCreateSelfVaultSettlement(
+          saved,
+          buyerAddress,
+          chainId,
+        );
+        await this.seedMarketplaceBuyFromAskFill(
+          buyerAddress,
+          saved,
+          saved.updatedAt ?? new Date(),
+          chainId,
+        );
+        await this.recordBuyerOwnershipAfterSettle({
+          tokenContract: saved.tokenContract,
+          tokenId: resolveFulfilledAskTokenId(saved),
+          buyerWallet: buyerAddress,
+        });
+        // Don't block the fulfill HTTP response on chart RPC — client has a fetch timeout.
+        void this.refreshChartsAfterHoldingsMove(
+          [buyerAddress, saved.offerer],
+          chainId,
+        ).catch((e) => {
+          this.logger.warn(
+            `refreshChartsAfterHoldingsMove (fulfillOrder ask) failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
+        void this.notifications
+          .notifyTradeSettled({
+            ask: saved,
+            buyerWallet: buyerAddress,
+          })
+          .catch((e) => {
+            this.logger.warn(
+              `notifyTradeSettled (fulfillOrder) failed: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          });
+      } else {
+        this.logger.warn(
+          `fulfillOrder ask ${orderHash.slice(0, 10)}…: missing buyerAddress — owner_wallet/holdings not updated until Transfer poll`,
+        );
+      }
+    } else if (
+      !isCriteriaCollectionBidOrder(saved) &&
+      saved.side === OrderSide.BID &&
+      Number(saved.parameters?.consideration?.[0]?.itemType) === 2
+    ) {
+      // Seller accepted a token offer — clear leftover asks on this token only.
+      const tid = normalizeDecimalTokenId(String(saved.tokenId));
+      if (tid) {
+        const cleared = await this.orderRepo.update(
+          {
+            tokenContract: saved.tokenContract,
+            tokenId: tid,
+            status: OrderStatus.ACTIVE,
+            side: OrderSide.ASK,
+          },
+          { status: OrderStatus.CANCELLED },
+        );
+        const n = cleared.affected ?? 0;
+        if (n > 0) {
+          this.logger.log(
+            `fulfillOrder bid ${orderHash.slice(0, 10)}…: cancelled ${n} active ask(s) for token #${tid}`,
+          );
+        }
+      }
+
+      if (buyerAddress?.trim()) {
+        const offerAmt = String(
+          saved.parameters?.offer?.[0]?.startAmount ??
+            saved.considerationAmount ??
+            '0',
+        );
+        await this.seedMarketplaceBuyFromAskFill(
+          buyerAddress,
+          {
+            ...saved,
+            side: OrderSide.ASK,
+            considerationAmount: offerAmt,
+            parameters: {
+              ...(saved.parameters ?? {}),
+              _filledByBuyer: buyerAddress.trim().toLowerCase(),
+              _settlementAmount: offerAmt,
+            },
+          } as Order,
+          saved.updatedAt ?? new Date(),
+          chainId,
+        );
+        await this.recordBuyerOwnershipAfterSettle({
+          tokenContract: saved.tokenContract,
+          tokenId: saved.tokenId,
+          buyerWallet: buyerAddress,
+        });
+        void this.refreshChartsAfterHoldingsMove(
+          [buyerAddress, saved.offerer],
+          chainId,
+        ).catch((e) => {
+          this.logger.warn(
+            `refreshChartsAfterHoldingsMove (fulfillOrder bid) failed: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        });
       }
     }
 
@@ -584,6 +1751,7 @@ export class OrdersService {
   async fulfillMatchedPair(
     askHash: string,
     bidHash: string,
+    chainId?: SupportedChainId,
   ): Promise<{ ask: Order; bid: Order }> {
     const ask = await this.findByHash(askHash);
     const bid = await this.findByHash(bidHash);
@@ -600,10 +1768,26 @@ export class OrdersService {
       throw new BadRequestException('Both orders must be active');
     }
 
+    const fillChain = chainId ?? this.chainConfig.getDefaultChainId();
+    await this.assertSeaportOrderFilledOnChain(ask.orderHash, fillChain);
+    await this.assertSeaportOrderFilledOnChain(bid.orderHash, fillChain);
+
     const consBid = bid.parameters.consideration?.[0];
-    if (!consBid || Number(consBid.itemType) !== 4) {
+    const bidItemType = Number(consBid?.itemType);
+    if (bidItemType === 2) {
+      if (
+        normalizeDecimalTokenId(String(ask.tokenId)) !==
+        normalizeDecimalTokenId(String(bid.tokenId))
+      ) {
+        throw new BadRequestException(
+          'Token bid must target the same tokenId as the listing',
+        );
+      }
+    } else if (bidItemType === 4) {
+      // Legacy criteria bids may still settle if already on-chain.
+    } else {
       throw new BadRequestException(
-        'bid must be an ERC721_WITH_CRITERIA collection bid',
+        'bid must be a token bid (itemType 2) or legacy criteria bid (itemType 4)',
       );
     }
 
@@ -632,18 +1816,38 @@ export class OrdersService {
 
     ask.status = OrderStatus.FULFILLED;
     bid.status = OrderStatus.FULFILLED;
+    const settlementAmount = (() => {
+      const offerAmt = String(
+        bid.parameters?.offer?.[0]?.startAmount ?? '',
+      ).trim();
+      if (offerAmt) return offerAmt;
+      return String(bid.considerationAmount ?? ask.considerationAmount ?? '0');
+    })();
+    const buyer = bid.offerer.trim().toLowerCase();
     ask.parameters = {
       ...(ask.parameters ?? {}),
       _tapeFillSide: 'sell',
+      _filledByBuyer: buyer,
+      _matchedBidOrderHash: bid.orderHash,
+      _settlementAmount: settlementAmount,
+    };
+    bid.parameters = {
+      ...(bid.parameters ?? {}),
+      _tapeFillSide: 'sell',
+      _matchedAskOrderHash: ask.orderHash,
+      _settlementAmount: settlementAmount,
     };
     backfillAskTokenIdFromParameters(ask);
     await this.orderRepo.save([ask, bid]);
 
+    // Clear sibling asks only. Other open bids on this tokenId remain on the book
+    // (seller chose one offer; unmatched bids stay for the new owner / later fills).
     const cleared = await this.orderRepo.update(
       {
         tokenContract: ask.tokenContract,
         tokenId: ask.tokenId,
         status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
         id: Not(ask.id),
       },
       { status: OrderStatus.CANCELLED },
@@ -651,16 +1855,199 @@ export class OrdersService {
     const n = cleared.affected ?? 0;
     if (n > 0) {
       this.logger.log(
-        `fulfillMatchedPair: cancelled ${n} other active order(s) for token #${ask.tokenId}`,
+        `fulfillMatchedPair: cancelled ${n} other active ask(s) for token #${ask.tokenId}`,
       );
     }
+
+    await this.maybeCreateSelfVaultSettlement(ask, bid.offerer, chainId);
+    await this.seedMarketplaceBuyFromAskFill(
+      bid.offerer,
+      {
+        ...ask,
+        considerationAmount: settlementAmount,
+      } as Order,
+      ask.updatedAt ?? new Date(),
+      chainId,
+    );
+    await this.recordBuyerOwnershipAfterSettle({
+      tokenContract: ask.tokenContract,
+      tokenId: ask.tokenId,
+      buyerWallet: bid.offerer,
+    });
+
+    void this.refreshChartsAfterHoldingsMove(
+      [bid.offerer, ask.offerer],
+      chainId,
+    ).catch((e) => {
+      this.logger.warn(
+        `refreshChartsAfterHoldingsMove (fulfillMatchedPair) failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    });
+
+    void this.notifications
+      .notifyTradeSettled({
+        ask,
+        bid,
+        buyerWallet: bid.offerer,
+        settlementMicros: settlementAmount,
+      })
+      .catch((e) => {
+        this.logger.warn(
+          `notifyTradeSettled (fulfillMatchedPair) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
 
     return { ask, bid };
   }
 
+  /** Recapture today's chart slot for buyer + seller after NFT moved. */
+  private async refreshChartsAfterHoldingsMove(
+    wallets: Array<string | null | undefined>,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const unique = [
+      ...new Set(
+        wallets
+          .map((w) => w?.trim().toLowerCase())
+          .filter((w): w is string => Boolean(w)),
+      ),
+    ];
+    if (!unique.length) return;
+    await this.portfolioSnapshots.refreshCurrentSlotSnapshots(
+      unique,
+      chainId,
+      0,
+    );
+  }
+
+  private async maybeCreateSelfVaultSettlement(
+    ask: Order,
+    buyerWallet: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    try {
+      const stamped = String(
+        (ask.parameters as { _settlementPolicy?: string } | undefined)
+          ?._settlementPolicy ?? '',
+      ).trim();
+      let policy = isSelfVaultHoldPolicy(stamped)
+        ? ('self_vault_hold' as const)
+        : await this.vault.getSettlementPolicy(
+            ask.tokenContract,
+            normalizeDecimalTokenId(String(ask.tokenId)),
+          );
+      // Resales of the same token must each get a ledger row (keyed by order_hash).
+      // If policy lookup misses, still create when the ask is full-platform-take.
+      if (
+        !isSelfVaultHoldPolicy(policy) &&
+        this.selfVaultSettlements.isFullPlatformTakeAsk(ask)
+      ) {
+        policy = 'self_vault_hold';
+      }
+      if (!isSelfVaultHoldPolicy(policy)) return;
+      const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+      const row = await this.selfVaultSettlements.createFromFulfilledAsk({
+        ask,
+        buyerWallet,
+        chainId: resolved,
+      });
+      if (!row) {
+        this.logger.error(
+          `self_vault_settlement create returned null for ask ${ask.orderHash?.slice(0, 10)}… token #${ask.tokenId}`,
+        );
+      }
+    } catch (e) {
+      this.logger.error(
+        `self_vault_settlement create failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  }
+
+  private async seedMarketplaceBuyFromAskFill(
+    buyerWallet: string,
+    askOrder: Order,
+    acquiredAt: Date,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const tidRaw = resolveFulfilledAskTokenId(askOrder);
+    if (tidRaw == null) return;
+    const tid = Math.floor(Number(tidRaw));
+    if (!Number.isFinite(tid) || tid < 0) return;
+
+    const costUsd = microsToUsdc(askOrder.considerationAmount);
+    if (!(costUsd > 0)) return;
+
+    try {
+      await this.portfolioHoldings.seedMarketplaceBuyCostBasis(
+        buyerWallet,
+        tid,
+        costUsd,
+        acquiredAt,
+        chainId,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `marketplace buy cost basis seed failed for token #${tid}: ${msg}`,
+      );
+    }
+  }
+
+  /**
+   * Immediate My Assets ownership after Seaport settle — do not wait for
+   * Transfer-log poll (can be 1–2+ minutes). Poll remains a heal backstop.
+   */
+  private async recordBuyerOwnershipAfterSettle(params: {
+    tokenContract: string;
+    tokenId: string | number | null | undefined;
+    buyerWallet: string | null | undefined;
+  }): Promise<void> {
+    const buyer = params.buyerWallet?.trim().toLowerCase();
+    const tid =
+      params.tokenId != null ? String(params.tokenId).trim() : '';
+    const contract = params.tokenContract?.trim();
+    if (!buyer || !tid || !contract) return;
+    try {
+      await this.ownerIndex.recordOwner(contract, tid, buyer);
+    } catch (e) {
+      this.logger.warn(
+        `recordOwner after settle failed token=#${tid}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  }
+
+  /** Runs every 60 seconds to mark timed-out orders as expired. */
+  @Cron('*/1 * * * *')
+  async expireOrdersCron(): Promise<void> {
+    await this.expireOrders();
+  }
+
   private async expireOrders(): Promise<void> {
+    const now = new Date();
+    const due = await this.orderRepo.find({
+      where: { status: OrderStatus.ACTIVE, endTime: LessThan(now) },
+      take: 500,
+    });
+    if (due.length === 0) return;
+
+    for (const order of due) {
+      if (isTokenBidOrder(order)) {
+        void this.notifications.notifyBidderOfBidExpired(order).catch((e) => {
+          this.logger.warn(
+            `notifyBidderOfBidExpired failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        });
+      }
+    }
+
     await this.orderRepo.update(
-      { status: OrderStatus.ACTIVE, endTime: LessThan(new Date()) },
+      { status: OrderStatus.ACTIVE, endTime: LessThan(now) },
       { status: OrderStatus.EXPIRED },
     );
   }

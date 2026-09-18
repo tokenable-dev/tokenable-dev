@@ -3,14 +3,18 @@ import {
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
+  extractCardNumberFromDisplayText,
   formatHeadlineCardNumber,
   leadingYearFromSetLine,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
+import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type CollectionHeadlineInfoTag = { id: string; text: string; title?: string };
 
 export type HeadlineCardNumberMarketPreview = {
-  card?: { cardNumber?: string | null } | null;
+  card?: { cardNumber?: string | null; name?: string | null } | null;
 } | null;
 
 /** Normalize chips for duplicate detection (against set/title lines). */
@@ -44,21 +48,42 @@ export function variantAlreadyRepresentedInMetaStrip(
   return m.includes(v);
 }
 
-/** `#085`-style token from preview or components (shared by hero title + chips). */
+function componentCardNumberRaw(comp: CollectionComponents): string {
+  const v = comp.cardNumber as unknown;
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return "";
+}
+
+/** Display card number from preview, components, or listing title (shared by hero title + chips). */
 export function resolveHeadlineFormattedCardNumber(
   marketPreview: HeadlineCardNumberMarketPreview,
-  comp: Record<string, unknown>,
+  comp: CollectionComponents,
+  extraHaystack?: string | null,
 ): string | null {
-  const cardNoRaw = comp["cardNumber"];
-  const cardNoStr =
-    typeof cardNoRaw === "string"
-      ? cardNoRaw.trim()
-      : cardNoRaw != null
-        ? String(cardNoRaw).trim()
-        : "";
-  return formatHeadlineCardNumber(
-    marketPreview?.card?.cardNumber?.trim() || cardNoStr,
-  );
+  const direct = [
+    marketPreview?.card?.cardNumber,
+    componentCardNumberRaw(comp),
+  ];
+  for (const raw of direct) {
+    const formatted = formatHeadlineCardNumber(raw);
+    if (formatted) return formatted;
+  }
+  const haystacks = [
+    extraHaystack ?? "",
+    listingDisplayTitleFromComp(comp),
+    typeof comp.psaSubject === "string" ? comp.psaSubject : "",
+    typeof comp.cardNameDisplay === "string" ? comp.cardNameDisplay : "",
+    typeof comp.cardName === "string" ? comp.cardName : "",
+    typeof comp.variant === "string" ? comp.variant : "",
+    typeof comp.psaVariety === "string" ? comp.psaVariety : "",
+    marketPreview?.card?.name ?? "",
+  ];
+  for (const hay of haystacks) {
+    const extracted = extractCardNumberFromDisplayText(hay);
+    if (extracted) return extracted;
+  }
+  return null;
 }
 
 export function headlineContainsFormattedCardNumber(
@@ -89,7 +114,7 @@ export function mergeHeadlineCardNumberIntoTitle(
 
 export type BuildCollectionHeadlineInfoTagsInput = {
   headlineSetLine: string | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   marketPreview: {
     card?: {
       cardNumber?: string | null;
@@ -98,7 +123,7 @@ export type BuildCollectionHeadlineInfoTagsInput = {
       market?: string | null;
     } | null;
   } | null;
-  /** Visible hero title (includes formatted `#085` when applicable). */
+  /** Visible hero title (includes formatted card number when applicable). */
   collectionHeadlineTitle: string;
   collectionHeadlineMetaStrip: string | null;
   pokeTierLabel: string | null;
@@ -149,11 +174,14 @@ export function buildCollectionHeadlineInfoTags(
     pushUnique("cardno", numTokFmt, "Card number");
   }
 
-  const variantRaw = comp["variant"];
-  const varFromComp =
-    typeof variantRaw === "string" && variantRaw.trim().length > 0 ? variantRaw.trim() : "";
-  const varFull = varFromComp || (marketPreview?.card?.variant?.trim() ?? "");
-  if (varFull && !variantAlreadyRepresentedInMetaStrip(metaStripForDedupe, varFull)) {
+  const varFull =
+    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant) ?? "";
+  const variantKey = normTagDedupeKey(varFull);
+  if (
+    varFull &&
+    !variantAlreadyRepresentedInMetaStrip(metaStripForDedupe, varFull) &&
+    !(variantKey.length >= 5 && titleKey.includes(variantKey))
+  ) {
     pushUnique("variant", varFull, varFull);
   }
 

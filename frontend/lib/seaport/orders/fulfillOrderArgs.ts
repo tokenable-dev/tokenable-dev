@@ -1,4 +1,6 @@
+import type { PublicClient } from "viem";
 import type { Order } from "@/lib/core";
+import { SEAPORT_ADDRESS, SEAPORT_ABI } from "@/constants/contracts";
 import { normalizeSeaportZone } from "../criteria/criteriaMatch";
 
 export const FULFILL_EXTRA_DATA =
@@ -36,4 +38,25 @@ export function fulfillSeaportOrderArgs(order: Order) {
     },
     signature: order.signature as `0x${string}`,
   };
+}
+
+/** Seaport getOrderStatus — do not mark the book filled unless the order consumed on-chain. */
+export async function requireSeaportOrderFilled(
+  publicClient: PublicClient,
+  orderHash: string,
+): Promise<void> {
+  const hash = (
+    orderHash.startsWith("0x") ? orderHash : `0x${orderHash}`
+  ) as `0x${string}`;
+  const [, isCancelled, totalFilled, totalSize] = await publicClient.readContract({
+    address: SEAPORT_ADDRESS,
+    abi: SEAPORT_ABI,
+    functionName: "getOrderStatus",
+    args: [hash],
+  });
+  if (isCancelled || totalSize === BigInt(0) || totalFilled < totalSize) {
+    throw new Error(
+      "The on-chain trade did not fill. Listing and ownership were not updated. If the transaction reverted, nothing moved on-chain.",
+    );
+  }
 }

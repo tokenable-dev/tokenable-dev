@@ -1,16 +1,24 @@
 import { registerAs } from '@nestjs/config';
-
-export const DEFAULT_MARKETPLACE_ADMIN_WALLET =
-  '0xd5abdd307414718c59949ac5465930a1f8a52691';
+import { readCardhedgerFeatureFlags } from './cardhedger-feature-flags.util';
 
 export default registerAs('marketplace', () => {
-  const adminRaw =
-    process.env.MARKETPLACE_ADMIN_WALLETS?.trim() ||
-    DEFAULT_MARKETPLACE_ADMIN_WALLET;
-  const adminWallets = adminRaw
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter((s) => /^0x[a-f0-9]{40}$/.test(s));
+  const adminUsername =
+    process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'skyand';
+  const adminPassword =
+    process.env.MARKETPLACE_ADMIN_PASSWORD?.trim() || '071725';
+  const adminSessionSecret =
+    process.env.MARKETPLACE_ADMIN_SESSION_SECRET?.trim() ||
+    process.env.SITE_ACCESS_SECRET?.trim() ||
+    '';
+  const adminSessionSeconds = clampInt(
+    process.env.MARKETPLACE_ADMIN_SESSION_SECONDS,
+    28_800,
+    300,
+    86_400,
+  );
+  /** Dev/staging Data-inventory “reset for new contract” gate. */
+  const adminDbResetPassword =
+    process.env.MARKETPLACE_ADMIN_DB_RESET_PASSWORD?.trim() || '3009';
 
   const activeOrdersMaxRaw = Number(
     process.env.MARKETPLACE_ACTIVE_ORDERS_MAX ?? '20000',
@@ -25,6 +33,13 @@ export default registerAs('marketplace', () => {
     2_000,
     1,
     10_000,
+  );
+  /** `0` = unlimited. Set `MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER=1` to restore the cap. */
+  const maxActiveCollectionBidsPerOfferer = clampInt(
+    process.env.MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER,
+    0,
+    0,
+    20,
   );
   const platformTradesFulfilledScanMax = clampInt(
     process.env.MARKETPLACE_PLATFORM_TRADES_SCAN_MAX,
@@ -64,10 +79,21 @@ export default registerAs('marketplace', () => {
     process.env.CARDHEDGER_MINT_PREVIEW_CERT_BATCH !== '0' &&
     process.env.CARDHEDGER_MINT_PREVIEW_CERT_BATCH !== 'false';
 
+  const cardhedgerFeatureFlags = readCardhedgerFeatureFlags(process.env);
+
+  /** Phase 6 — per-resolve debug log for match-first A/B pilot (latency + path). */
+  const cardhedgerResolveMatchFirstPilotLog =
+    envTruthy(process.env.CARDHEDGER_RESOLVE_MATCH_FIRST_PILOT_LOG);
+
   return {
-    adminWallets,
+    adminUsername,
+    adminPassword,
+    adminSessionSecret,
+    adminSessionSeconds,
+    adminDbResetPassword,
     activeOrdersMax,
     collectionActiveOrdersMax,
+    maxActiveCollectionBidsPerOfferer,
     platformTradesFulfilledScanMax,
     marketStatsFulfilledScanMax,
     merkleSetCacheTtlMs,
@@ -75,8 +101,15 @@ export default registerAs('marketplace', () => {
     merklePreferRegistry,
     cardhedgerMintPreviewConcurrency,
     cardhedgerMintPreviewUseCertBatch,
+    cardhedgerFeatureFlags,
+    cardhedgerResolveMatchFirstPilotLog,
   };
 });
+
+function envTruthy(raw: string | undefined): boolean {
+  const v = raw?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
 
 function clampInt(
   raw: string | undefined,

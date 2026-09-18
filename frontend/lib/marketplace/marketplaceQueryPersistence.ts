@@ -1,14 +1,19 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { rq, marketplaceRqPolicy } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 
 /** Bump when persisted shape changes or to drop stale browser caches (e.g. after DB resets). */
-const SCHEMA = 4;
+const SCHEMA = 5;
 /** Cached list + snapshots stay usable for 24h; after that next visit refetches. */
 const TTL_MS = 24 * 60 * 60 * 1000;
-const LS_COLLECTIONS = "tokenable.rq.collections-marketplace.v2";
+const LS_COLLECTIONS_PREFIX = "tokenable.rq.collections-marketplace.v3.";
 const LS_SNAPSHOTS_MAP = "tokenable.rq.collection-snapshots-map.v2";
+
+function collectionsLsKey(chainId: number): string {
+  return `${LS_COLLECTIONS_PREFIX}${chainId}`;
+}
 
 function isFresh(savedAt: number): boolean {
   return Date.now() - savedAt < TTL_MS;
@@ -33,7 +38,7 @@ function isValidCollectionsInfiniteCache(
 
 function configureMarketplaceDefaults(queryClient: QueryClient): void {
   const oneDay = 24 * 60 * 60 * 1000;
-  queryClient.setQueryDefaults(rq.collectionsMarketplace(), {
+  queryClient.setQueryDefaults(["collections", "marketplace"], {
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
     gcTime: oneDay,
     refetchOnWindowFocus: false,
@@ -46,15 +51,17 @@ function configureMarketplaceDefaults(queryClient: QueryClient): void {
 }
 
 /**
- * Restore marketplace list + batched snapshot bundle from localStorage before first paint
+ * Restore marketplace list + batched snapshot bundle from localStorage after mount
  * (paired with {@link subscribeMarketplacePersistence}).
  */
 export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
   if (typeof window === "undefined") return;
   configureMarketplaceDefaults(queryClient);
+  const chainId = activeRqChainId();
 
   try {
-    const rawCol = localStorage.getItem(LS_COLLECTIONS);
+    const lsKey = collectionsLsKey(chainId);
+    const rawCol = localStorage.getItem(lsKey);
     if (rawCol) {
       let parsed: { v?: number; savedAt?: number; data?: unknown };
       try {
@@ -63,7 +70,7 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
         parsed = {};
       }
       if (parsed.v != null && parsed.v !== SCHEMA) {
-        localStorage.removeItem(LS_COLLECTIONS);
+        localStorage.removeItem(lsKey);
       } else if (
         parsed.v === SCHEMA &&
         typeof parsed.savedAt === "number" &&
@@ -71,9 +78,9 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
         parsed.data != null &&
         isValidCollectionsInfiniteCache(parsed.data)
       ) {
-        queryClient.setQueryData(rq.collectionsMarketplace(), parsed.data);
+        queryClient.setQueryData(rq.collectionsMarketplace(chainId), parsed.data);
       } else if (parsed.data != null && !isValidCollectionsInfiniteCache(parsed.data)) {
-        localStorage.removeItem(LS_COLLECTIONS);
+        localStorage.removeItem(lsKey);
       }
     }
 
@@ -137,7 +144,7 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
    * LS is only a paint-time cache; always prefer the server after hydration so an empty
    * or reset DB is not masked for the full collections stale window.
    */
-  void queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  void queryClient.invalidateQueries({ queryKey: ["collections", "marketplace"] });
   void queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
 }
 
@@ -146,10 +153,11 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 function flushMarketplaceToStorage(queryClient: QueryClient): void {
   if (typeof window === "undefined") return;
   try {
-    const col = queryClient.getQueryData(rq.collectionsMarketplace());
+    const chainId = activeRqChainId();
+    const col = queryClient.getQueryData(rq.collectionsMarketplace(chainId));
     if (col != null) {
       localStorage.setItem(
-        LS_COLLECTIONS,
+        collectionsLsKey(chainId),
         JSON.stringify({
           v: SCHEMA,
           savedAt: Date.now(),

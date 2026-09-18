@@ -69,6 +69,49 @@ export function isCriteriaCollectionBid(order: Order): boolean {
   return order.side === "bid" && c != null && Number(c.itemType) === 4;
 }
 
+/** Builds `matchAdvancedOrders` args for a token offer + listing (no Merkle). */
+export function buildTokenBidMatchExecution(params: {
+  tokenBidOrder: Order;
+  listingOrder: Order;
+}): {
+  orders: AdvancedOrderArg[];
+  criteriaResolvers: CriteriaResolverArg[];
+  fulfillments: FulfillmentArg[];
+  recipient: Address;
+} {
+  const buyerAdv = orderToAdvancedOrder(params.tokenBidOrder);
+  const sellerAdv = orderToAdvancedOrder(params.listingOrder);
+  const fulfillments: FulfillmentArg[] = [
+    {
+      offerComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
+      considerationComponents: [{ orderIndex: BigInt(1), itemIndex: BigInt(0) }],
+    },
+    {
+      offerComponents: [{ orderIndex: BigInt(1), itemIndex: BigInt(0) }],
+      considerationComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
+    },
+  ];
+
+  const listingConsiderationCount =
+    params.listingOrder.parameters?.consideration?.length ?? 0;
+  if (listingConsiderationCount > 1) {
+    for (let i = 1; i < listingConsiderationCount; i++) {
+      fulfillments.push({
+        offerComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
+        considerationComponents: [
+          { orderIndex: BigInt(1), itemIndex: BigInt(i) },
+        ],
+      });
+    }
+  }
+  return {
+    orders: [buyerAdv, sellerAdv],
+    criteriaResolvers: [],
+    fulfillments,
+    recipient: MATCH_RECIPIENT_ZERO,
+  };
+}
+
 /**
  * Builds `matchAdvancedOrders` args: criteria bid (order 0) + listing (order 1).
  * `criteriaProof` must be valid for `tokenId` against the bid’s Merkle root.

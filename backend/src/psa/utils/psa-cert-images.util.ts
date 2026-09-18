@@ -28,6 +28,17 @@ function getImagesRows(body: unknown): unknown[] | null {
   return null;
 }
 
+function coerceIsFrontImage(v: unknown): boolean | null {
+  if (v === true || v === 1) return true;
+  if (v === false || v === 0) return false;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'true' || s === '1') return true;
+    if (s === 'false' || s === '0') return false;
+  }
+  return null;
+}
+
 /** `GetImagesByCertNumber` JSON — 보통 `[{ ImageURL, IsFrontImage }, …]` */
 export function extractPsaCertImagesFromGetImagesBody(body: unknown): {
   front?: string;
@@ -40,11 +51,15 @@ export function extractPsaCertImagesFromGetImagesBody(body: unknown): {
   for (const row of rows) {
     if (!row || typeof row !== 'object') continue;
     const u = (row as { ImageURL?: unknown }).ImageURL;
-    const isFront = (row as { IsFrontImage?: unknown }).IsFrontImage;
+    const isFront = coerceIsFrontImage(
+      (row as { IsFrontImage?: unknown }).IsFrontImage,
+    );
     if (typeof u !== 'string' || !/^https?:\/\//i.test(u.trim())) continue;
     const url = u.trim();
     if (isFront === true) out.front = url;
     else if (isFront === false) out.back = url;
+    else if (/_b\.(jpe?g|png)$/i.test(url)) out.back = url;
+    else if (/_f\.(jpe?g|png)$/i.test(url)) out.front = url;
   }
   return out;
 }

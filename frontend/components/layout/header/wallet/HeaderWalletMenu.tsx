@@ -1,0 +1,88 @@
+"use client";
+
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
+import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
+import { HeaderWalletMenuPanel } from "./HeaderWalletMenuPanel";
+import { WalletChevronIcon } from "./HeaderWalletMenuIcons";
+
+/** Desktop GNB wallet chip + dropdown (HTML tk-wallet-wrap). */
+export function HeaderWalletMenu({
+  onOpenNotifications,
+}: {
+  onOpenNotifications?: () => void;
+}) {
+  const mounted = useClientMounted();
+  const menuId = useId();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const { displayAddress, balanceLabel } = useHeaderWalletMenuData();
+  const { unreadCount } = useMarketplaceNotifications();
+
+  const close = useCallback(() => setOpen(false), []);
+
+  const handleOpenNotifications = useCallback(() => {
+    close();
+    onOpenNotifications?.();
+  }, [close, onOpenNotifications]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutsideClick = (event: MouseEvent) => {
+      const root = wrapRef.current;
+      if (!root?.contains(event.target as Node)) close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("click", onOutsideClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("click", onOutsideClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [close, open]);
+
+  if (!mounted) {
+    return <div className="gnb-auth-skeleton animate-pulse" aria-hidden />;
+  }
+
+  return (
+    <div className="tk-wallet-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="tk-wallet-chip"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={menuId}
+        aria-label={
+          unreadCount > 0
+            ? `Wallet menu, ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+            : "Wallet menu"
+        }
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="tk-wallet-chip__avatar" aria-hidden />
+        <span className="tk-wallet-chip__addr mono">{displayAddress}</span>
+        <span className="tk-wallet-chip__bal mono">{balanceLabel}</span>
+        <WalletChevronIcon className="tk-wallet-chip__chevron" aria-hidden />
+      </button>
+      <NotificationUnreadBadge count={unreadCount} floating />
+
+      <div
+        id={menuId}
+        role="menu"
+        className="tk-wallet-dropdown"
+        data-open={open ? "1" : undefined}
+      >
+        <HeaderWalletMenuPanel
+          variant="dropdown"
+          onNavigate={close}
+          onOpenNotifications={handleOpenNotifications}
+        />
+      </div>
+    </div>
+  );
+}

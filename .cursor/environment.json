@@ -1,0 +1,21 @@
+{
+  "name": "Tokenable RWA Marketplace",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd backend && CI=true corepack pnpm@10.33.3 start:dev",
+      "description": "NestJS API (http://localhost:4100/api, Swagger at /api/docs)"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && CI=true corepack pnpm@10.33.3 dev",
+      "description": "Next.js app (http://localhost:3000)"
+    }
+  ],
+  "ports": [
+    { "name": "frontend", "port": 3000 },
+    { "name": "backend", "port": 4100 }
+  ]
+}

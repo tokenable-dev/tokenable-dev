@@ -1,13 +1,19 @@
 import type { Address, Hash, PublicClient } from "viem";
-import { fulfillOrderApi, type Order } from "@/lib/core";
+import { maxUint256 } from "viem";
+import { fulfillOrderApi, invalidateUnownedAskApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
-  USDC_ADDRESS,
   USDC_ABI,
+  TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
-import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "./fulfillOrderArgs";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
+import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
+import {
+  FULFILL_EXTRA_DATA,
+  fulfillSeaportOrderArgs,
+  requireSeaportOrderFilled,
+} from "./fulfillOrderArgs";
 
 function askPriceMicros(o: Order): bigint {
   try {
@@ -30,7 +36,7 @@ type FulfillWrite = (args: {
 }) => Promise<Hash>;
 
 type ApproveWrite = (args: {
-  address: typeof USDC_ADDRESS;
+  address: `0x${string}`;
   abi: typeof USDC_ABI;
   functionName: "approve";
   args: readonly [`0x${string}`, bigint];
@@ -38,9 +44,16 @@ type ApproveWrite = (args: {
   gas?: bigint;
 }) => Promise<Hash>;
 
+function isTimeoutError(e: unknown): boolean {
+  if (e instanceof DOMException && e.name === "AbortError") return true;
+  if (e instanceof Error && e.name === "TimeoutError") return true;
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  return /timed out|timeout|time out|deadline/i.test(msg);
+}
+
 /**
  * Fulfill an active ask listing (buy the listed RWA at the listing price).
- * Approves USDC if needed, then Seaport fulfillOrder, then notifies the API.
+ * Approves USDC to Seaport with maxUint256 if needed (same as bids), then fulfillOrder.
  */
 export async function fulfillAskListingOrder(params: {
   ask: Order;
@@ -50,10 +63,34 @@ export async function fulfillAskListingOrder(params: {
   chainId: number;
 }): Promise<void> {
   const { ask, address, publicClient, writeContractAsync, chainId } = params;
+  const { usdcAddress, rwaAddress } = getChainContracts(chainId as SupportedChainId);
   const payUnits = askPriceMicros(ask);
+  const tokenIdBn = BigInt(String(ask.tokenId ?? "0"));
+
+  const onChainOwner = await publicClient.readContract({
+    address: rwaAddress,
+    abi: TOKENABLE_RWA_APPROVE_ABI,
+    functionName: "ownerOf",
+    args: [tokenIdBn],
+  });
+  if (onChainOwner.toLowerCase() !== String(ask.offerer).toLowerCase()) {
+    try {
+      await invalidateUnownedAskApi(ask.orderHash, address);
+    } catch {
+      /* book cleanup is best-effort */
+    }
+    if (onChainOwner.toLowerCase() === address.toLowerCase()) {
+      throw new Error(
+        "You already own this card in the connected wallet. The other wallet’s listing was removed because it could not be filled.",
+      );
+    }
+    throw new Error(
+      "This listing is no longer valid — the seller no longer holds the card. It was removed from the book. Refresh and try again.",
+    );
+  }
 
   let allowance = await publicClient.readContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "allowance",
     args: [address, SEAPORT_ADDRESS],
@@ -75,24 +112,27 @@ export async function fulfillAskListingOrder(params: {
     const gasApprovePromise = gasWithCapFast(
       publicClient,
       {
-        address: USDC_ADDRESS,
+        address: usdcAddress,
         abi: USDC_ABI,
         functionName: "approve",
-        args: [SEAPORT_ADDRESS, payUnits],
+        args: [SEAPORT_ADDRESS, maxUint256],
         account: address,
       },
       GAS_FALLBACK.erc20Approve,
     );
     const gasApprove = await gasApprovePromise;
     const approveTx = await writeContractAsync({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "approve",
-      args: [SEAPORT_ADDRESS, payUnits],
+      args: [SEAPORT_ADDRESS, maxUint256],
       chainId,
       gas: gasApprove,
     });
-    await publicClient.waitForTransactionReceipt({ hash: approveTx });
+    const approveReceipt = await waitForUserTxReceipt(publicClient, approveTx);
+    if (approveReceipt.status === "reverted") {
+      throw new Error("USDC approval was reverted on-chain. Try again.");
+    }
   }
 
   const gasFulfill = await gasFulfillPromise;
@@ -104,10 +144,32 @@ export async function fulfillAskListingOrder(params: {
     chainId,
     gas: gasFulfill,
   });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
+  const receipt = await waitForUserTxReceipt(publicClient, fulfillTx);
   if (receipt.status === "reverted") {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
   }
+  try {
+    await requireSeaportOrderFilled(publicClient, ask.orderHash);
+  } catch (e) {
+    console.warn(
+      "[fulfillAskListing] getOrderStatus not filled after a successful receipt — still settling the book",
+      ask.orderHash,
+      e,
+    );
+  }
 
-  await fulfillOrderApi(ask.orderHash);
+  // On-chain buy already succeeded. Don't fail the UX if the indexer/API stalls
+  // (same pattern as runCriteriaMatch after matchAdvancedOrders).
+  try {
+    await fulfillOrderApi(ask.orderHash, address);
+  } catch (e: unknown) {
+    if (isTimeoutError(e)) {
+      console.warn(
+        "[fulfillAskListing] fulfillOrderApi timed out after on-chain success — refresh Portfolio / collection.",
+        ask.orderHash,
+      );
+      return;
+    }
+    throw e;
+  }
 }

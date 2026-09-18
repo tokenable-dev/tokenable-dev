@@ -1,55 +1,68 @@
 "use client";
 
-import {
-  COLLECTION_DETAILS_BORDER_B,
-} from "@/components/marketplace/collectionOverviewChrome";
+import { COLLECTION_ORDER_BOOK_FLUSH_INSET } from "@/components/marketplace/collectionOverviewChrome";
+import { orderBookTabLabelCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 
 export function OrderBookTabHeader({
   tab,
   setTab,
   flush,
+  collectionDetail = false,
 }: {
   tab: OrderBookTab;
   setTab: (tab: OrderBookTab) => void;
   flush?: boolean;
+  collectionDetail?: boolean;
 }) {
+  const tabs = [
+    { id: "trades" as const, label: "Trades" },
+    {
+      id: "book" as const,
+      label: collectionDetail ? "Listings" : "Offers",
+    },
+  ];
+  const tabBase = collectionDetail
+    ? "cd-ob-tab shrink-0 transition-colors duration-200"
+    : flush
+      ? `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent pb-1.5 text-center transition-colors duration-200`
+      : `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
+  const tabActive = collectionDetail
+    ? "cd-ob-tab--active"
+    : "border-white text-white";
+  const tabInactive = collectionDetail
+    ? ""
+    : "font-medium text-zinc-500 hover:border-zinc-700 hover:text-zinc-300";
+
   return (
     <div
-      className={`relative shrink-0 flex items-center justify-end gap-2 max-lg:justify-between max-lg:px-2.5 max-lg:pt-1.5 max-lg:pb-1 px-2.5 pt-2 pb-1 sm:px-3 ${
-        flush ? "border-b border-[rgba(38,39,45,1)] max-lg:bg-[rgb(20,20,21)]" : COLLECTION_DETAILS_BORDER_B
+      className={`relative flex w-full shrink-0 items-end border-b ${
+        collectionDetail
+          ? "cd-ob-tabs border-white/[0.08] bg-transparent"
+          : `border-zinc-800/70 bg-black ${
+              flush
+                ? `${COLLECTION_ORDER_BOOK_FLUSH_INSET} pb-0`
+                : "px-2.5 sm:px-3 max-lg:px-2.5 max-lg:pb-0 max-lg:pt-2"
+            }`
       }`}
     >
-      {flush ? (
-        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500 max-lg:inline lg:hidden">
-          Depth
-        </span>
-      ) : null}
       <div
-        className={`flex rounded-lg bg-black/30 p-0.5 ring-1 ring-[rgba(11,13,16,1)] ${flush ? "max-lg:ml-0 lg:ml-auto" : ""}`}
+        className={`flex shrink-0 ${collectionDetail ? "justify-start gap-0" : "min-w-0 w-full gap-3 sm:gap-4"}`}
+        role="tablist"
       >
-        <button
-          type="button"
-          onClick={() => setTab("book")}
-          className={`rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-colors ${
-            tab === "book"
-              ? "bg-white/[0.08] text-white shadow-sm"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          OrderBook
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("trades")}
-          className={`rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
-            tab === "trades"
-              ? "bg-white/[0.08] text-white shadow-sm"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          TRADES
-        </button>
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            onClick={() => setTab(t.id)}
+            title={t.label}
+            aria-selected={tab === t.id}
+            className={`${tabBase} ${tab === t.id ? tabActive : tabInactive}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
     </div>
   );

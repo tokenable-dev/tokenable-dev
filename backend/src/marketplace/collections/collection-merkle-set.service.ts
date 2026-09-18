@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import {
   computeMarketBucketKey,
@@ -27,6 +31,7 @@ export class CollectionMerkleSetService {
   constructor(
     private readonly config: ConfigService,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
   ) {}
@@ -41,6 +46,10 @@ export class CollectionMerkleSetService {
 
   private preferRegistry(): boolean {
     return this.config.get<boolean>('marketplace.merklePreferRegistry') !== false;
+  }
+
+  private resolveChainId(chainId?: SupportedChainId): SupportedChainId {
+    return chainId ?? this.chainConfig.getDefaultChainId();
   }
 
   invalidateForCollection(collectionKey: string): void {
@@ -59,11 +68,14 @@ export class CollectionMerkleSetService {
 
   async merkleEligibleTokenIds(
     collectionKey: string,
-    options?: { bypassCache?: boolean },
+    options?: { bypassCache?: boolean; chainId?: SupportedChainId },
   ): Promise<{ tokenIds: string[] }> {
     const k = collectionKey.toLowerCase();
-    const { totalMinted } = await this.blockchain.getRwaInfo();
-    const cacheKey = `${k}:${totalMinted}`;
+    const chainId = this.resolveChainId(options?.chainId);
+    const rwaAddress = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const { totalMinted } = await this.blockchain.getRwaInfo(chainId);
+    // Cache must be chain-scoped — same bucket key can mint different token ids per RWA.
+    const cacheKey = `${k}:${rwaAddress}:${totalMinted}`;
 
     if (!options?.bypassCache) {
       const hit = this.cache.get(cacheKey);
@@ -77,13 +89,16 @@ export class CollectionMerkleSetService {
       return existing;
     }
 
-    const work = this.resolveMerkleTokenIds(k, totalMinted, options).finally(
-      () => {
-        if (this.inflight.get(cacheKey) === work) {
-          this.inflight.delete(cacheKey);
-        }
-      },
-    );
+    const work = this.resolveMerkleTokenIds(
+      k,
+      totalMinted,
+      chainId,
+      options,
+    ).finally(() => {
+      if (this.inflight.get(cacheKey) === work) {
+        this.inflight.delete(cacheKey);
+      }
+    });
     if (!options?.bypassCache) {
       this.inflight.set(cacheKey, work);
     }
@@ -101,15 +116,14 @@ export class CollectionMerkleSetService {
   private async resolveMerkleTokenIds(
     collectionKeyLower: string,
     totalMinted: number,
+    chainId: SupportedChainId,
     options?: { bypassCache?: boolean },
   ): Promise<{ tokenIds: string[] }> {
-    if (
-      !options?.bypassCache &&
-      this.preferRegistry()
-    ) {
+    if (!options?.bypassCache && this.preferRegistry()) {
       const fromRegistry =
         await this.rwaTokenRegistry.tokenIdsForCollectionKey(
           collectionKeyLower,
+          chainId,
         );
       if (fromRegistry.length > 0) {
         return { tokenIds: fromRegistry };
@@ -119,6 +133,7 @@ export class CollectionMerkleSetService {
     const tokenIds = await this.scanMintedTokenIdsForCollectionKey(
       collectionKeyLower,
       totalMinted,
+      chainId,
     );
     return { tokenIds };
   }
@@ -126,6 +141,7 @@ export class CollectionMerkleSetService {
   private async scanMintedTokenIdsForCollectionKey(
     targetKeyLower: string,
     totalMinted: number,
+    chainId: SupportedChainId,
   ): Promise<string[]> {
     if (totalMinted <= 0) {
       return [];
@@ -141,7 +157,7 @@ export class CollectionMerkleSetService {
       }
       const flags = await Promise.all(
         chunk.map((tid) =>
-          this.mintedTokenBelongsToCollection(tid, targetKeyLower),
+          this.mintedTokenBelongsToCollection(tid, targetKeyLower, chainId),
         ),
       );
       for (let i = 0; i < chunk.length; i++) {
@@ -161,6 +177,7 @@ export class CollectionMerkleSetService {
   private async mintedTokenBelongsToCollection(
     tokenId: number,
     targetKeyLower: string,
+    chainId: SupportedChainId,
   ): Promise<boolean> {
     const max = CollectionMerkleSetService.MERKLE_TOKEN_LOOKUP_ATTEMPTS;
     for (let attempt = 0; attempt < max; attempt++) {
@@ -168,7 +185,7 @@ export class CollectionMerkleSetService {
         await new Promise((r) => setTimeout(r, 100 * attempt));
       }
       try {
-        const uri = await this.blockchain.getRwaTokenURI(tokenId);
+        const uri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const comp = extractBucketComponentsFromMetadata(meta);
         if (!comp) return false;

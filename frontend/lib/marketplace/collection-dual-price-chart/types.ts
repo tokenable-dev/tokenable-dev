@@ -21,4 +21,6 @@ export type MergeExternalChartSeriesInput = {
   externalMarketUsd?: number | null;
   externalWindowDays?: number | null;
   nowSec: number;
+  /** Stretch the series across the full x-axis (collection detail Price history). */
+  stretchToWindow?: boolean;
 };
