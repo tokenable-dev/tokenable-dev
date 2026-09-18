@@ -10,18 +10,19 @@ import {
 } from "@/lib/privy/walletLoginIntent";
 
 /**
- * Privy's ConnectionStatusScreen sets `separateConnectAndSign` on mobile for
+ * Why MetaMask opens twice on mobile
+ * ----------------------------------
+ * Privy's ConnectionStatusScreen sets `separateConnectAndSign` for mobile
  * WalletConnect (MetaMask). After eth_requestAccounts it shows
- * "Sign with your wallet" and waits for a second tap — another browser ↔ app trip.
+ * "Sign with your wallet" and does NOT auto-call `loginWithWallet` (desktop
+ * MetaMask WC waits ~2.5s then auto-prompts SIWE). The Sign tap usually
+ * happens after the user is already back in the browser → a second deeplink.
  *
- * Goal: one MetaMask session. As soon as connect succeeds (often while MetaMask
- * is still open), auto-fire SIWE so the sign prompt lands in that same session.
- *
- * Strategy (while login intent is pending):
- * 1. Click Privy's "Sign with your wallet" CTA when it appears (uses Privy's
- *    own `loginWithWallet` path, including their MetaMask WC delay).
- * 2. Also call `wallet.loginOrLink()` when an external wallet is ready.
- * 3. Retry on an interval + tab focus — do NOT clear intent until authenticated.
+ * Fix: the moment connect succeeds (Sign CTA mounts — often while MetaMask is
+ * still open and this tab is `document.hidden`), wait briefly for WC to settle
+ * (same idea as Privy's 2.5s desktop delay), then click Sign / `loginOrLink`
+ * so `personal_sign` is pushed over the existing WC session. MetaMask can show
+ * the SIWE prompt in the same app visit; the user returns once, already logged in.
  */
 function findPrivySiweButton(): HTMLButtonElement | null {
   if (typeof document === "undefined") return null;
@@ -37,69 +38,88 @@ function findPrivySiweButton(): HTMLButtonElement | null {
 export function PrivyWalletSiweAutoContinue() {
   const { ready, authenticated } = usePrivy();
   const { wallets } = useWallets();
-  const inFlightRef = useRef(false);
-  const lastClickAtRef = useRef(0);
-  const lastLoginOrLinkAtRef = useRef(0);
+  const clickedRef = useRef(false);
+  const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loginOrLinkAtRef = useRef(0);
 
   useEffect(() => {
     if (!authenticated) return;
     clearPrivyWalletLoginIntent();
-    inFlightRef.current = false;
+    clickedRef.current = false;
+    if (scheduledRef.current) {
+      clearTimeout(scheduledRef.current);
+      scheduledRef.current = null;
+    }
   }, [authenticated]);
 
   useEffect(() => {
     if (!ready || authenticated || !isMobileBrowserUa()) return;
 
-    const tryContinue = () => {
-      if (!hasPrivyWalletLoginIntent()) return;
-      if (inFlightRef.current) return;
+    const clearScheduled = () => {
+      if (scheduledRef.current) {
+        clearTimeout(scheduledRef.current);
+        scheduledRef.current = null;
+      }
+    };
 
-      const now = Date.now();
+    const fireSign = () => {
+      if (!hasPrivyWalletLoginIntent() || clickedRef.current) return;
 
-      // Prefer Privy's own Sign CTA — pushes personal_sign on the active WC session.
       const signBtn = findPrivySiweButton();
-      if (signBtn && now - lastClickAtRef.current > 1_200) {
-        lastClickAtRef.current = now;
-        inFlightRef.current = true;
-        try {
-          signBtn.click();
-        } finally {
-          // Allow another attempt if SIWE was dismissed / timed out.
-          window.setTimeout(() => {
-            inFlightRef.current = false;
-          }, 800);
-        }
+      if (signBtn) {
+        clickedRef.current = true;
+        clearScheduled();
+        signBtn.click();
+        // One retry window if SIWE was dismissed / WC not ready.
+        window.setTimeout(() => {
+          if (!hasPrivyWalletLoginIntent()) return;
+          clickedRef.current = false;
+        }, 4_000);
         return;
       }
 
       const wallet = wallets.find((w) => isPrivyExternalWallet(w));
       if (!wallet || typeof wallet.loginOrLink !== "function") return;
-      if (now - lastLoginOrLinkAtRef.current < 2_500) return;
-
-      lastLoginOrLinkAtRef.current = now;
-      inFlightRef.current = true;
+      const now = Date.now();
+      if (now - loginOrLinkAtRef.current < 3_000) return;
+      loginOrLinkAtRef.current = now;
+      clickedRef.current = true;
       void (async () => {
         try {
           await wallet.loginOrLink();
         } catch {
-          /* user rejected / WC busy — keep intent for retry */
-        } finally {
-          inFlightRef.current = false;
+          clickedRef.current = false;
         }
       })();
     };
 
-    tryContinue();
+    /** Prefer firing while MetaMask is still open (tab hidden). */
+    const armSign = () => {
+      if (!hasPrivyWalletLoginIntent() || clickedRef.current) return;
 
-    const intervalId = window.setInterval(tryContinue, 600);
+      const hasCta = Boolean(findPrivySiweButton());
+      const hasWallet = wallets.some((w) => isPrivyExternalWallet(w));
+      if (!hasCta && !hasWallet) return;
+      if (scheduledRef.current) return;
+
+      // Hidden = still in MetaMask → settle WC then push personal_sign in-app.
+      // Visible = already returned → fire ASAP (may still need a second deep link).
+      const delay = document.hidden ? 1_800 : 350;
+      scheduledRef.current = setTimeout(() => {
+        scheduledRef.current = null;
+        fireSign();
+      }, delay);
+    };
+
+    armSign();
+
+    const intervalId = window.setInterval(armSign, 250);
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
-      tryContinue();
+      clearScheduled();
+      fireSign();
     };
-    const onPageShow = () => tryContinue();
-
-    // Catch Privy modal mounting the Sign button after connect.
-    const observer = new MutationObserver(() => tryContinue());
+    const observer = new MutationObserver(() => armSign());
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -107,12 +127,13 @@ export function PrivyWalletSiweAutoContinue() {
     });
 
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pageshow", onVisibility);
     return () => {
       window.clearInterval(intervalId);
+      clearScheduled();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("pageshow", onVisibility);
     };
   }, [ready, authenticated, wallets]);
 

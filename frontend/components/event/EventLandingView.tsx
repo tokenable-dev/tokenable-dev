@@ -29,31 +29,32 @@ const COPY = {
   foot: "REAL GRADED CARDS · ON-CHAIN · INSTANTSETTLEMENT",
 } as const;
 
-/** Open Instagram profile — prefer native app on mobile; never leave `/event`. */
+/** Open Instagram profile — prefer native app on mobile; never leave `/event` with a popup. */
 function openInstagramProfile() {
   if (!isMobileBrowserUa()) {
     window.open(STAGE1_INSTAGRAM_WEB, "_blank", "noopener,noreferrer");
     return;
   }
 
+  // Mobile: never `window.open` HTTPS — that forces a browser tab/popup before the app.
+  // Try the native scheme first; only if we are still visible after a pause, fall back
+  // same-tab (Universal / App Links may still hand off to Instagram).
   const isAndroid = /Android/i.test(navigator.userAgent);
+
   if (isAndroid) {
-    // Intent opens the app when installed; otherwise falls back to the web URL.
     window.location.href =
-      `intent://www.instagram.com/${STAGE1_IG_USER}/#Intent;` +
-      `package=com.instagram.android;scheme=https;` +
-      `S.browser_fallback_url=${encodeURIComponent(STAGE1_INSTAGRAM_WEB)};end`;
-    return;
+      `intent://user?username=${STAGE1_IG_USER}#Intent;` +
+      `scheme=instagram;package=com.instagram.android;end`;
+  } else {
+    window.location.href = STAGE1_INSTAGRAM_APP;
   }
 
-  // iOS — try the Instagram app scheme; if still here, open web in a new tab.
-  const started = Date.now();
-  window.location.href = STAGE1_INSTAGRAM_APP;
   window.setTimeout(() => {
-    if (!document.hidden && Date.now() - started < 2200) {
-      window.open(STAGE1_INSTAGRAM_WEB, "_blank", "noopener,noreferrer");
-    }
-  }, 900);
+    // App took over → tab is hidden; do nothing.
+    if (document.hidden) return;
+    // Same tab only — no popup. OS may still open the Instagram app via App Links.
+    window.location.assign(STAGE1_INSTAGRAM_WEB);
+  }, 2200);
 }
 
 function Stage1Gloss() {
