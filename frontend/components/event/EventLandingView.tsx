@@ -10,13 +10,16 @@ import {
   readKbwStage1Done,
   writeKbwStage1Done,
 } from "@/lib/event/kbwEventParticipation";
+import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
-const STAGE1_INSTAGRAM_URL = "https://www.instagram.com/tokenable_io";
+const STAGE1_IG_USER = "tokenable_io";
+const STAGE1_INSTAGRAM_WEB = `https://www.instagram.com/${STAGE1_IG_USER}`;
+const STAGE1_INSTAGRAM_APP = `instagram://user?username=${STAGE1_IG_USER}`;
 
 const COPY = {
-  heroSub: "Korea Blockchain Week",
+  heroTitle: "Claim Your Free Card!",
   stage1Label: "STAGE 1",
   stage1Desc: "Follow @tokenable and like the pinned post",
   stage1Cta: "1. Instagram Follow & Like",
@@ -25,6 +28,33 @@ const COPY = {
   stage2Cta: "Log in to Tokenable",
   foot: "REAL GRADED CARDS · ON-CHAIN · INSTANTSETTLEMENT",
 } as const;
+
+/** Open Instagram profile — prefer native app on mobile; never leave `/event`. */
+function openInstagramProfile() {
+  if (!isMobileBrowserUa()) {
+    window.open(STAGE1_INSTAGRAM_WEB, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    // Intent opens the app when installed; otherwise falls back to the web URL.
+    window.location.href =
+      `intent://www.instagram.com/${STAGE1_IG_USER}/#Intent;` +
+      `package=com.instagram.android;scheme=https;` +
+      `S.browser_fallback_url=${encodeURIComponent(STAGE1_INSTAGRAM_WEB)};end`;
+    return;
+  }
+
+  // iOS — try the Instagram app scheme; if still here, open web in a new tab.
+  const started = Date.now();
+  window.location.href = STAGE1_INSTAGRAM_APP;
+  window.setTimeout(() => {
+    if (!document.hidden && Date.now() - started < 2200) {
+      window.open(STAGE1_INSTAGRAM_WEB, "_blank", "noopener,noreferrer");
+    }
+  }, 900);
+}
 
 function Stage1Gloss() {
   return (
@@ -54,6 +84,25 @@ function Stage1Gloss() {
           <stop offset="1" stopColor="white" stopOpacity="0" />
         </linearGradient>
       </defs>
+    </svg>
+  );
+}
+
+/** Pixel check — inline so we never depend on a flaky PNG load. */
+function Stage1CheckIcon() {
+  return (
+    <svg
+      className="ev-btn__check"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 43 32"
+      width={43}
+      height={32}
+      aria-hidden
+    >
+      <path
+        fill="#38d17f"
+        d="M4 16h3v3H4v-3zm3 3h3v3H7v-3zm3 3h3v3h-3v-3zm3 3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3zm3-3h3v3h-3v-3z"
+      />
     </svg>
   );
 }
@@ -93,12 +142,14 @@ export function EventLandingView() {
   function handleStage1() {
     if (stage1Done || stage1TimerRef.current) return;
 
-    // Same-tab only — no popup (desktop was opening both a new tab and navigating).
+    // Persist immediately so backgrounding the tab (Instagram app) cannot lose progress.
+    writeKbwStage1Done(scope);
+    openInstagramProfile();
+
+    // Checkmark UI after a short delay (matches design timing).
     stage1TimerRef.current = setTimeout(() => {
       stage1TimerRef.current = null;
-      writeKbwStage1Done(scope);
       setStage1Done(true);
-      window.location.assign(STAGE1_INSTAGRAM_URL);
     }, 2000);
   }
 
@@ -121,32 +172,39 @@ export function EventLandingView() {
   return (
     <div className="ev-page">
       <div className="ev-shell">
-        <header className="ev-top">
-          <Link href="/" className="ev-top__logo" aria-label="Tokenable home">
+        <section className="ev-intro" aria-label="Tokenable x KBW2026">
+          <div className="ev-intro__brand">
+            <Link href="/" className="ev-intro__logo" aria-label="Tokenable home">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ASSETS.logo.tokenableDs}
+                alt="Tokenable"
+                width={280}
+                height={40}
+              />
+            </Link>
+            <p className="ev-intro__x" aria-hidden>
+              X
+            </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={ASSETS.logo.tokenableDs}
-              alt="Tokenable"
-              width={160}
-              height={22}
+              className="ev-intro__kbw"
+              src={ASSETS.event.kbw2026}
+              alt="KBW2026"
+              width={158}
+              height={27}
             />
-          </Link>
-        </header>
-
-        <section className="ev-hero" aria-label="Event hero">
-          <h1 className="ev-hero__title">
-            <span className="ev-hero__title-line">PLAY</span>
-            <span className="ev-hero__title-line ev-hero__title-line--accent">
-              THE MARKET
-            </span>
-          </h1>
-          <div className="ev-hero__rule" aria-hidden />
-          <p className="ev-hero__sub">{COPY.heroSub}</p>
+            <div className="ev-intro__rule" aria-hidden />
+          </div>
+          <h1 className="ev-intro__claim">{COPY.heroTitle}</h1>
         </section>
 
         <div className="ev-stages">
           <section className="ev-stage" aria-labelledby="ev-stage-1">
-            <p className="ev-stage__label ev-stage__label--1" id="ev-stage-1">
+            <p
+              className={`ev-stage__label ${stage1Done ? "ev-stage__label--unchecked" : "ev-stage__label--checked"}`}
+              id="ev-stage-1"
+            >
               {COPY.stage1Label}
             </p>
             <p className="ev-stage__desc">{COPY.stage1Desc}</p>
@@ -160,24 +218,16 @@ export function EventLandingView() {
             >
               {stage1Done ? null : <Stage1Gloss />}
               <span className="ev-btn__label">
-                {stage1Done ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    className="ev-btn__check"
-                    src={ASSETS.event.check}
-                    alt=""
-                    width={43}
-                    height={32}
-                  />
-                ) : (
-                  COPY.stage1Cta
-                )}
+                {stage1Done ? <Stage1CheckIcon /> : COPY.stage1Cta}
               </span>
             </button>
           </section>
 
           <section className="ev-stage" aria-labelledby="ev-stage-2">
-            <p className="ev-stage__label ev-stage__label--2" id="ev-stage-2">
+            <p
+              className="ev-stage__label ev-stage__label--checked"
+              id="ev-stage-2"
+            >
               {COPY.stage2Label}
             </p>
             <p className="ev-stage__desc">{COPY.stage2Desc}</p>

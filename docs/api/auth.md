@@ -189,7 +189,7 @@ On every `POST /auth/privy/session`:
 
 Privy's mobile WalletConnect path **separates** connect and SIWE (`separateConnectAndSign`): after MetaMask approves the connection, the modal shows **Sign with your wallet** and waits for another tap — a second browser ↔ app round trip.
 
-`PrivyWalletSiweAutoContinue` + `startPrivyLogin()` fix that for login: when the user opens Privy login, we mark a short-lived intent; as soon as an external wallet appears in `useWallets` (often while MetaMask is still open on the WC session), we call `wallet.loginOrLink()` so the SIWE prompt can appear in the same MetaMask session. Tab focus retries if the first attempt needs a gesture.
+`PrivyWalletSiweAutoContinue` + `startPrivyLogin()` collapse that for login: when the user opens Privy login we mark a short-lived intent. As soon as Privy shows **Sign with your wallet** (often while MetaMask is still open on the WC session), we auto-click that CTA and/or call `wallet.loginOrLink()` so the SIWE prompt can appear in the **same** MetaMask session. Intent stays until `authenticated`; interval + MutationObserver + tab-focus retry if the first attempt fails.
 
 ---
 

@@ -34,18 +34,17 @@ body:has(.ev-page) .tk-shell-scroll {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   width: 100%;
   max-width: 430px;
   min-height: 100dvh;
   margin: 0 auto;
   padding:
-    max(14px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-top, 0px))
     max(18px, env(safe-area-inset-right, 0px))
     max(14px, env(safe-area-inset-bottom, 0px))
     max(18px, env(safe-area-inset-left, 0px));
-  /* Spread sections so dead space doesn't pile under the footer */
-  gap: clamp(32px, 5.5vh, 64px);
+  gap: clamp(28px, 4.5vh, 48px);
   justify-content: space-between;
   background-color: var(--ev-ink);
   background-image: url("/assets/event/stars.png");
@@ -54,7 +53,110 @@ body:has(.ev-page) .tk-shell-scroll {
   background-size: cover;
 }
 
-/* ── Top bar ─────────────────────────────────────────────────────────────── */
+/* ── Intro: Tokenable → X → KBW2026 → rule → Claim (centered) ───────────── */
+
+.ev-intro {
+  display: flex;
+  padding-top: 14px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  align-self: stretch;
+  width: 100%;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.ev-intro__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.ev-intro__logo {
+  display: flex;
+  width: auto;
+  height: auto;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  margin-inline: auto;
+}
+
+.ev-intro__logo img {
+  width: auto;
+  height: 40px;
+  max-width: min(280px, 78vw);
+  object-fit: contain;
+  display: block;
+}
+
+.ev-intro__x {
+  margin: 0 auto;
+  display: flex;
+  width: auto;
+  height: 48px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--White-Lilac, #e8edf7);
+  text-align: center;
+  /* Near-flat — only a 1px depth cue */
+  text-shadow: 1px 2px 0 rgba(12, 22, 48, 0.55);
+  font-family: var(--font-ev-press), "Press Start 2P", monospace;
+  font-size: 36px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.ev-intro__kbw {
+  width: 158px;
+  max-width: 48vw;
+  height: auto;
+  aspect-ratio: 95 / 16;
+  margin-inline: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.ev-intro__rule {
+  width: 70px;
+  height: 3px;
+  flex-shrink: 0;
+  margin-top: 18px;
+  margin-inline: auto;
+  border: 0;
+  background: var(--color-azure-55, #1a6fff);
+  box-shadow: 0 0 12px 0 #1a6fff;
+}
+
+.ev-intro__claim {
+  margin: 0 auto;
+  width: max-content;
+  max-width: 100%;
+  color: var(--Dodger-Blue, #4f93ff);
+  text-align: center;
+  white-space: nowrap;
+  text-shadow:
+    0 3px 0 #2a355c,
+    3px 3px 0 #1a2547,
+    5px 6px 0 #0c1630,
+    5px 8px 14px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 70.4px; /* 220% */
+  letter-spacing: var(--letter-spacing-1, 1px);
+}
+
+/* ── Top bar (offer modal still uses .ev-top) ─────────────────────────────── */
 
 .ev-top {
   display: flex;
@@ -79,7 +181,7 @@ body:has(.ev-page) .tk-shell-scroll {
   display: block;
 }
 
-/* ── Hero ────────────────────────────────────────────────────────────────── */
+/* ── Hero (offer modal eyebrow / legacy) ─────────────────────────────────── */
 
 .ev-hero {
   display: flex;
@@ -88,34 +190,26 @@ body:has(.ev-page) .tk-shell-scroll {
   align-self: stretch;
   text-align: center;
   flex-shrink: 0;
-  padding-top: clamp(8px, 1.5vh, 20px);
+  padding-top: clamp(4px, 1vh, 12px);
 }
 
 .ev-hero__title {
   margin: 0;
-  align-self: stretch;
+  width: 100%;
+  max-width: 366px;
+  color: var(--Dodger-Blue, #4f93ff);
   text-align: center;
-  font-family: var(--font-ev-display);
-  font-size: clamp(44px, 13.5vw, 62px);
-  font-style: normal;
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #e8edf7;
   text-shadow:
     0 3px 0 #2a355c,
     3px 3px 0 #1a2547,
     5px 6px 0 #0c1630,
     5px 8px 14px rgba(0, 0, 0, 0.6);
-}
-
-.ev-hero__title-line {
-  display: block;
-}
-
-.ev-hero__title-line--accent {
-  color: #4f93ff;
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 70.4px;
+  letter-spacing: var(--letter-spacing-1, 1px);
 }
 
 .ev-hero__rule {
@@ -123,7 +217,7 @@ body:has(.ev-page) .tk-shell-scroll {
   height: 3px;
   margin: clamp(16px, 2.2vh, 24px) auto clamp(14px, 2vh, 20px);
   border: 0;
-  background: var(--ev-azure);
+  background: var(--color-azure-55, #1a6fff);
   box-shadow: 0 0 12px 0 #1a6fff;
   flex-shrink: 0;
 }
@@ -146,13 +240,14 @@ body:has(.ev-page) .tk-shell-scroll {
 .ev-stages {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   align-self: stretch;
   justify-content: space-evenly;
-  gap: clamp(32px, 5vh, 56px);
+  gap: clamp(24px, 3.5vh, 40px);
   flex: 1 1 auto;
   min-height: 0;
-  padding-block: clamp(8px, 1.5vh, 24px);
+  width: 100%;
+  padding-block: clamp(4px, 1vh, 16px);
 }
 
 .ev-stage {
@@ -161,37 +256,42 @@ body:has(.ev-page) .tk-shell-scroll {
   align-items: center;
   align-self: stretch;
   text-align: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ev-stage__label {
   margin: 0;
   text-align: center;
-  font-family: var(--font-ev-pixel);
-  font-size: 11px;
+  font-family: var(--font-ev-press), "Press Start 2P", monospace;
+  font-size: var(--font-size-11, 11px);
   font-style: normal;
-  font-weight: 400;
-  line-height: 24.2px;
+  font-weight: var(--font-weight-400, 400);
+  line-height: var(--line-height-24_2, 24.2px); /* 220% */
+  letter-spacing: 0;
 }
 
-.ev-stage__label--1 {
-  color: rgba(255, 255, 255, 0.6);
+/* Unchecked — Stage 1 (or locked) */
+.ev-stage__label--1,
+.ev-stage__label--unchecked {
+  color: var(--white-60, var(--color-white-60, rgba(255, 255, 255, 0.6)));
 }
 
-.ev-stage__label--2 {
-  color: #7db4ff;
+/* Checked — Stage 2 (or completed) */
+.ev-stage__label--2,
+.ev-stage__label--checked {
+  color: var(--Malibu, #7db4ff);
 }
 
 .ev-stage__desc {
   margin: 0;
   align-self: stretch;
-  color: #fff;
+  color: var(--White, var(--color-white-solid, #fff));
   text-align: center;
-  font-family: var(--font-sans), Inter, system-ui, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 16px;
   font-style: normal;
-  font-weight: 400;
-  line-height: 20.4px;
+  font-weight: var(--font-weight-400, 400);
+  line-height: var(--line-height-20_4, 20.4px); /* 127.5% */
 }
 
 .ev-btn {
@@ -205,11 +305,13 @@ body:has(.ev-page) .tk-shell-scroll {
   align-items: center;
   align-self: stretch;
   width: 100%;
-  margin-top: 4px;
-  margin-bottom: 12px;
+  max-width: 366px;
+  margin-top: 6px;
+  margin-bottom: 0;
+  margin-inline: auto;
   padding: 0 16px;
   font-family: var(--font-ev-display);
-  font-size: clamp(15px, 4.6vw, 20px);
+  font-size: clamp(15px, 4.6vw, 18px);
   font-style: normal;
   font-weight: 700;
   line-height: normal;
@@ -232,7 +334,7 @@ body:has(.ev-page) .tk-shell-scroll {
   height: 32px;
   display: block;
   flex-shrink: 0;
-  image-rendering: pixelated;
+  overflow: visible;
 }
 
 .ev-btn__gloss {
@@ -279,21 +381,21 @@ body:has(.ev-page) .tk-shell-scroll {
 
 .ev-btn--disabled {
   border-radius: 200px;
-  opacity: 0.19;
-  color: #0a1022;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  opacity: 1;
+  color: #4a5166;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
   background: linear-gradient(
     180deg,
-    var(--color-grey-98, #f6f9ff) 0%,
-    var(--color-azure-85, #cdd5e6) 52%,
-    var(--color-azure-72, #a7b0c6) 100%
+    #3a4258 0%,
+    #2a3144 52%,
+    #1c2233 100%
   );
   box-shadow:
-    0 6px 0 0 rgba(255, 255, 255, 0.95) inset,
-    0 -8px 12px 0 rgba(0, 0, 40, 0.28) inset,
-    0 10px 0 0 #9aa3b8,
-    0 17px 0 0 #6b7490,
-    0 30px 38px 0 rgba(0, 0, 0, 0.55);
+    0 5px 0 0 rgba(255, 255, 255, 0.1) inset,
+    0 -8px 12px 0 rgba(0, 0, 0, 0.45) inset,
+    0 8px 0 0 #151a26,
+    0 14px 0 0 #0b0f18,
+    0 24px 30px 0 rgba(0, 0, 0, 0.55);
   cursor: default;
 }
 
@@ -417,7 +519,7 @@ body:has(.ev-page) .tk-shell-scroll {
   }
 
   .ev-stages {
-    gap: 48px;
+    gap: 36px;
     padding-block: 16px;
   }
 
@@ -437,7 +539,7 @@ body:has(.ev-page) .tk-shell-scroll {
   }
 
   .ev-hero__title {
-    font-size: 62px;
+    font-size: 32px;
     line-height: 70.4px;
   }
 
@@ -446,7 +548,7 @@ body:has(.ev-page) .tk-shell-scroll {
   }
 
   .ev-stages {
-    gap: 52px;
+    gap: 40px;
     padding-block: 20px 24px;
   }
 
@@ -495,34 +597,35 @@ body:has(.ev-page) .tk-shell-scroll {
 .ev-offer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  /* Above `.tk-header` (135) so the modal top is not clipped — header CSS unchanged. */
+  z-index: 140;
   min-height: 100dvh;
   background: rgba(0, 0, 0, 0.72);
   display: flex;
   justify-content: center;
   align-items: center;
   padding:
-    max(16px, env(safe-area-inset-top, 0px))
-    max(16px, env(safe-area-inset-right, 0px))
-    max(16px, env(safe-area-inset-bottom, 0px))
-    max(16px, env(safe-area-inset-left, 0px));
+    max(12px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    max(12px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
   animation: ev-offer-fade 0.2s ease;
 }
 
 .ev-offer-modal {
-  width: min(100%, 390px);
-  max-width: 390px;
+  width: min(100%, 360px);
+  max-width: 360px;
   min-height: 0;
-  max-height: min(100dvh - 32px, 720px);
+  max-height: min(100dvh - 24px, 620px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  gap: clamp(12px, 2.2vh, 22px);
+  gap: clamp(8px, 1.6vh, 14px);
   justify-content: flex-start;
   padding:
-    14px
-    18px
-    max(16px, env(safe-area-inset-bottom, 0px))
-    18px;
+    10px
+    16px
+    max(12px, env(safe-area-inset-bottom, 0px))
+    16px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
   animation: ev-offer-rise 0.24s ease;
 }
@@ -533,8 +636,9 @@ body:has(.ev-page) .tk-shell-scroll {
   z-index: 2;
   justify-content: space-between;
   align-items: center;
+  min-height: 36px;
   background: var(--ev-ink, #000);
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .ev-offer-modal__close {
@@ -542,8 +646,8 @@ body:has(.ev-page) .tk-shell-scroll {
   border: 0;
   margin: 0;
   padding: 0;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -574,16 +678,16 @@ body:has(.ev-page) .tk-shell-scroll {
   color: rgba(125, 180, 255, 0.85);
   text-align: center;
   font-family: var(--font-ev-pixel);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 400;
   /* Press Start 2P clips with tight line-height — give glyphs room. */
-  line-height: 1.9;
+  line-height: 1.8;
   letter-spacing: 0.4px;
-  padding: 6px 4px 2px;
+  padding: 4px 4px 0;
 }
 
 .ev-offer-modal__hero .ev-hero__rule {
-  margin: 10px auto 0;
+  margin: 8px auto 0;
 }
 
 .ev-offer-modal__pack {
@@ -596,11 +700,12 @@ body:has(.ev-page) .tk-shell-scroll {
 }
 
 .ev-offer-modal__pack img {
-  width: min(100%, 250px);
+  width: min(100%, 180px);
   height: auto;
+  max-height: min(38dvh, 260px);
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 0 28px rgba(255, 190, 60, 0.35));
+  filter: drop-shadow(0 0 22px rgba(255, 190, 60, 0.3));
 }
 
 .ev-offer-modal__meta {
@@ -608,7 +713,7 @@ body:has(.ev-page) .tk-shell-scroll {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   text-align: center;
   flex-shrink: 0;
 }
@@ -623,10 +728,10 @@ body:has(.ev-page) .tk-shell-scroll {
     5px 6px 0 #0c1630,
     5px 8px 14px rgba(0, 0, 0, 0.6);
   font-family: var(--font-ev-display, "Pixelify Sans");
-  font-size: 32px;
+  font-size: 26px;
   font-style: normal;
   font-weight: 700;
-  line-height: 28.4px;
+  line-height: 1.05;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -636,10 +741,10 @@ body:has(.ev-page) .tk-shell-scroll {
   color: var(--Pomegranate, var(--color-red-57, #f5332c));
   text-align: center;
   font-family: var(--font-ev-pixel, "Press Start 2P");
-  font-size: 40px;
+  font-size: 30px;
   font-style: normal;
   font-weight: 400;
-  line-height: 44px;
+  line-height: 1.2;
 }
 
 .ev-offer-modal__price-strike {
@@ -661,14 +766,14 @@ body:has(.ev-page) .tk-shell-scroll {
 
 .ev-offer-modal__cta {
   flex-shrink: 0;
-  height: 68px;
-  margin-top: 4px;
-  margin-bottom: 8px;
+  height: 56px;
+  margin-top: 2px;
+  margin-bottom: 4px;
   color: var(--White, var(--color-white-solid, #fff));
   text-align: center;
   /* JetBrains Mono / ExtraBold */
   font-family: var(--font-mono, "JetBrains Mono");
-  font-size: var(--font-size-18, 18px);
+  font-size: var(--font-size-16, 16px);
   font-style: normal;
   font-weight: var(--font-weight-800, 800);
   line-height: normal;
@@ -710,10 +815,15 @@ body:has(.ev-page) .tk-shell-scroll {
 
 @media (min-width: 480px) {
   .ev-offer-overlay {
-    padding: 24px;
+    padding: 20px;
   }
 
   .ev-offer-modal {
-    max-height: calc(100dvh - 48px);
+    max-height: calc(100dvh - 40px);
+  }
+
+  .ev-offer-modal__pack img {
+    width: min(100%, 200px);
+    max-height: min(40dvh, 280px);
   }
 }
