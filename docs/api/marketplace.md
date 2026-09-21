@@ -294,7 +294,7 @@ Returns a cursor-paginated list of collection summaries, or a **text search** wh
 |-------|---------|-------------|
 | `limit` | `30` | Max `60` (browse) / max `40` (when `q` set) |
 | `cursor` | — | Opaque cursor from prior page `nextCursor` (ignored when `q` is set) |
-| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Digit-only **7+** digits prefix-match collection cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. Individual minted cards are searched via `GET /api/marketplace/search`. |
+| `q` | — | Free-text search on card name/set/number, variant, display title, PSA subject — **not** `psaBrand` (so `poke` does not dump all Pokemon). Multi-word queries split on spaces / `/` / `_` with flexible gaps (`pikachu grey` matches `PIKACHU/GREY FELT HAT`). Digit-only **7+** digits prefix-match collection cert (ranked first). Results: relevance, then active listings, then recency. `nextCursor` is always `null`. Individual minted cards are searched via `GET /api/marketplace/search`. |
 
 ### `GET /api/marketplace/collections/home-feed`
 
@@ -310,7 +310,7 @@ Unified catalog search for the header typeahead and `/search` page.
 
 | Query | Default | Description |
 |-------|---------|-------------|
-| `q` | required | Same collection text match as `GET /collections?q=`. Digit-only queries **7+ digits** prefix-match **`rwa_tokens.cert_number`**. Shorter digits match **token id**, exact cert, or `#123` in the display name (not every cert that merely starts with `123`). Text queries match token `display_name`. |
+| `q` | required | Same collection text match as `GET /collections?q=` (including multi-word flexible gaps). Digit-only queries **7+ digits** prefix-match **`rwa_tokens.cert_number`**. Shorter digits match **token id**, exact cert, or `#123` in the display name (not every cert that merely starts with `123`). Text queries match token `display_name` the same way. |
 | `cardLimit` | `12` | Max minted-card hits (`0`–`24`). |
 | `collectionLimit` | `40` | Max collection hits (`0`–`40`). `0` skips collection search. |
 

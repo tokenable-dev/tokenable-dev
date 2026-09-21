@@ -9,11 +9,11 @@ import { TkButton } from "@/components/ds";
  * (ported to body so `isolation` on `.mobile-page-root` cannot offset
  * `position: fixed`).
  *
- * Layout (Card.html inline):
- *   Buy  flex:1      #2f6bff / white · label `Buy $9,000`
+ * Layout (Card.html `#ob-bottom-bar` inline):
+ *   Buy  flex:1      #1A6FFF / white · label `Buy $9,000`
  *   Bid  flex:0 26%  #12305e / white
- *   Sell flex:0 26%  #fff / #2f6bff
- *   height 52 · weight 700 · gap 10
+ *   Sell flex:0 26%  #fff / #1A6FFF
+ *   height 52 · font 15/700 · gap 10
  */
 export function CollectionMobileTradeBar({
   lowestAskUsd,

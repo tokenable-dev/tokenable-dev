@@ -29,6 +29,26 @@ describe('CollectionService.buildCollectionSearchSql', () => {
     expect(sql).not.toContain('psa_cert_number');
     expect(sql).not.toContain('psaBrand');
   });
+
+  it('lets space queries match slash-separated PSA subjects', () => {
+    const { params } =
+      CollectionService.buildCollectionSearchSql('pikachu grey');
+    expect(params.pat).toBe('%pikachu%grey%');
+  });
+
+  it('treats slash in the query like a word break', () => {
+    const { params } =
+      CollectionService.buildCollectionSearchSql('pikachu/grey');
+    expect(params.pat).toBe('%pikachu%grey%');
+  });
+});
+
+describe('CollectionService.buildTextIlikePattern', () => {
+  it('builds a flexible multi-token ILIKE pattern', () => {
+    expect(CollectionService.buildTextIlikePattern('  Pikachu   Grey  ')).toBe(
+      '%Pikachu%Grey%',
+    );
+  });
 });
 
 describe('CollectionService.scoreCollectionSearchHit', () => {
@@ -44,6 +64,15 @@ describe('CollectionService.scoreCollectionSearchHit', () => {
       components: { cardSet: 'Charizard ex' },
     });
     expect(nameHit).toBeGreaterThan(setHit);
+  });
+
+  it('scores space queries against slash PSA subjects', () => {
+    const score = CollectionService.scoreCollectionSearchHit('pikachu grey', {
+      displayLabel: 'x',
+      queryUsed: null,
+      components: { psaSubject: 'PIKACHU/GREY FELT HAT' },
+    });
+    expect(score).toBe(20);
   });
 
   it('scores cert prefix highest for long digit queries', () => {
@@ -80,6 +109,11 @@ describe('CollectionService.buildTokenSearchSql', () => {
     const { sql, params } = CollectionService.buildTokenSearchSql('charizard');
     expect(sql).toContain('displayName');
     expect(params.pat).toBe('%charizard%');
+  });
+
+  it('uses flexible token gaps for multi-word card name search', () => {
+    const { params } = CollectionService.buildTokenSearchSql('pikachu grey');
+    expect(params.pat).toBe('%pikachu%grey%');
   });
 });
 

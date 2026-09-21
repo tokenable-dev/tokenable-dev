@@ -179,6 +179,12 @@
     gap: 12px;
   }
 
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__head-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
   .collection-detail-page .cd-mobile-scroll__chart .cd-period-toolbar {
     width: 100%;
     margin-left: 0;
@@ -190,6 +196,7 @@
     height: 40px;
     padding: 0;
     border-radius: 8px;
+    font-size: 11px;
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body {
@@ -197,19 +204,39 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html {
-    min-height: 220px;
+    min-height: 290px;
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html > div,
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html .echarts-for-react,
   .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html canvas {
-    min-height: 220px !important;
+    min-height: 290px !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel,
+  .collection-detail-page .cd-mobile-scroll__chart #md-panel {
+    margin-top: 32px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__row {
+    height: 34.5px;
+    align-items: flex-start;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__lbl {
+    margin-bottom: 2px;
+    line-height: 1.1;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val.mono {
+    line-height: 1.1;
   }
 
   .collection-detail-page .cd-mobile-scroll__book.cd-notch {
     background: #191919;
     border-radius: 16px;
-    margin-top: 16px;
+    margin-top: 24px;
     padding-top: 0;
     /* Match desktop orderbook: fixed panel, tape scrolls inside. */
     height: 376px;
@@ -264,6 +291,18 @@
     padding: 0 16px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
+    height: 52px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs .cd-ob-tab {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
   /* Card.html — Details / PSA directly under trades rail */
@@ -696,7 +735,7 @@
 
 .cd-hero-bar--embed .cd-hero-bar__lastlbl,
 .cd-hero-bar--embed #hero-lastlbl {
-  font-size: 11px;
+  font-size: 15px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--t3);
@@ -1559,6 +1598,21 @@
     gap: 6px !important;
     padding: 0 !important;
     min-width: 0 !important;
+  }
+
+  /* Stack change % + period under the price so the row doesn't overflow. */
+  .cd-hero-bar__priceblock .cd-hero-bar__price-row,
+  #hero-priceblock .cd-hero-bar__price-row {
+    flex-wrap: wrap !important;
+    align-items: baseline !important;
+    gap: 0 !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cd-hero-bar__priceblock .cd-hero-bar__price-row > .cd-hero-bar__price,
+  #hero-priceblock .cd-hero-bar__price-row > .cd-hero-bar__price {
+    flex: 1 1 100%;
   }
 
   #hero-priceblock #hero-lastlbl,
@@ -3512,7 +3566,12 @@
   width: 100%;
 }
 
-/* Card.html: Buy flex:1 · Bid/Sell flex:0 0 26% · height 52 · weight 700 */
+/* Card.html #ob-bottom-bar:
+ *   Buy  flex:1      #1A6FFF / #fff
+ *   Bid  flex:0 26%  #12305e / #fff
+ *   Sell flex:0 26%  #fff / #1A6FFF
+ *   height 52 · font 15/700 · gap 10
+ */
 .cd-mobile-trade-bar__buy.tk-btn,
 .cd-mobile-trade-bar__buy {
   flex: 1 1 0;
@@ -3522,7 +3581,7 @@
   font-family: var(--font-sans);
   font-size: 15px !important;
   font-weight: 700 !important;
-  background: #2f6bff !important;
+  background: #1a6fff !important;
   color: #fff !important;
   box-shadow: none !important;
   transform: none !important;
@@ -3531,7 +3590,7 @@
 
 .cd-mobile-trade-bar__buy.tk-btn:hover,
 .cd-mobile-trade-bar__buy:hover {
-  background: #3d78ff !important;
+  background: #2a7aff !important;
   color: #fff !important;
   box-shadow: none !important;
   transform: none !important;
@@ -3571,7 +3630,7 @@
   font-size: 15px !important;
   font-weight: 700 !important;
   background: #fff !important;
-  color: #2f6bff !important;
+  color: #1a6fff !important;
   box-shadow: none !important;
   transform: none !important;
   filter: none !important;
@@ -3580,7 +3639,7 @@
 .cd-mobile-trade-bar__sell.tk-btn:hover,
 .cd-mobile-trade-bar__sell:hover {
   background: #f2f2f2 !important;
-  color: #2f6bff !important;
+  color: #1a6fff !important;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -4916,7 +4975,7 @@
 
   .cd-period {
     padding: 0 10px;
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .cd-listing-prov {

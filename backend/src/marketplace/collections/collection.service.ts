@@ -924,7 +924,7 @@ export class CollectionService {
     }
     return {
       sql: `COALESCE(t.displayName, '') ILIKE :pat ESCAPE '\\'`,
-      params: { pat: `%${escaped}%` },
+      params: { pat: CollectionService.buildTextIlikePattern(q) },
     };
   }
 
@@ -1338,6 +1338,32 @@ export class CollectionService {
   }
 
   /**
+   * User-facing text search pattern. Splits on whitespace / `/` / `_` and joins
+   * with `%` so `pikachu grey` matches PSA subjects like `PIKACHU/GREY FELT HAT`
+   * (UI shows slash as space via `toCardDisplayCase`).
+   */
+  static buildTextIlikePattern(q: string): string {
+    const tokens = q
+      .trim()
+      .split(/[\s/_]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((t) => CollectionService.escapeIlike(t));
+    if (tokens.length === 0) return '%%';
+    return `%${tokens.join('%')}%`;
+  }
+
+  /** Normalize stored titles for score matching (slash/underscore → space). */
+  static normalizeSearchHaystack(raw: string): string {
+    return raw
+      .trim()
+      .toLowerCase()
+      .replace(/[/_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * PSA certs are 7–10 digits. `%123%` on `psa_cert_number` matches most slabs.
    * Digit-only queries under that length match card number / `#123` in titles.
    */
@@ -1347,9 +1373,11 @@ export class CollectionService {
     sql: string;
     params: Record<string, string>;
   } {
-    const escaped = CollectionService.escapeIlike(q);
-    const pat = `%${escaped}%`;
     const digitOnly = /^\d+$/.test(q);
+    const escaped = CollectionService.escapeIlike(q);
+    const pat = digitOnly
+      ? `%${escaped}%`
+      : CollectionService.buildTextIlikePattern(q);
     const nameSql = `
       c.display_label ILIKE :pat ESCAPE '\\'
       OR COALESCE(c.query_used, '') ILIKE :pat ESCAPE '\\'
@@ -1406,11 +1434,15 @@ export class CollectionService {
       'displayLabel' | 'queryUsed' | 'components'
     >,
   ): number {
-    const nq = q.trim().toLowerCase();
-    if (!nq) return 0;
+    const nqRaw = q.trim().toLowerCase();
+    if (!nqRaw) return 0;
+    const nq = CollectionService.normalizeSearchHaystack(nqRaw);
+    const nqCompact = nq.replace(/\s+/g, '');
     const comp = hit.components ?? {};
     const str = (v: unknown) =>
-      typeof v === 'string' ? v.trim().toLowerCase() : '';
+      typeof v === 'string'
+        ? CollectionService.normalizeSearchHaystack(v)
+        : '';
     const name = str(comp.cardNameDisplay) || str(comp.cardName);
     const set = str(comp.cardSetDisplay) || str(comp.cardSet);
     const variant = str(comp.variant) || str(comp.psaVariety);
@@ -1421,23 +1453,38 @@ export class CollectionService {
     const num = str(comp.cardNumber);
     const cert = str(comp.psaCertNumber).replace(/\D/g, '');
 
-    if (/^\d+$/.test(nq) && nq.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
-      if (cert === nq) return 200;
-      if (cert.startsWith(nq)) return 150;
+    const containsQuery = (hay: string): boolean => {
+      if (!hay) return false;
+      if (hay.includes(nq)) return true;
+      // Same token gaps as ILIKE `%a%b%` (slash / WITH / middot between words).
+      const tokens = nq.split(/\s+/).filter(Boolean);
+      if (tokens.length <= 1) return false;
+      let from = 0;
+      for (const t of tokens) {
+        const i = hay.indexOf(t, from);
+        if (i < 0) return false;
+        from = i + t.length;
+      }
+      return true;
+    };
+
+    if (/^\d+$/.test(nqRaw) && nqRaw.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      if (cert === nqRaw) return 200;
+      if (cert.startsWith(nqRaw)) return 150;
     }
 
-    if (name === nq) return 100;
+    if (name === nq || name.replace(/\s+/g, '') === nqCompact) return 100;
     if (name.startsWith(nq)) return 80;
-    if (name.includes(nq)) return 60;
+    if (containsQuery(name)) return 60;
     if (set === nq) return 50;
-    if (set.includes(nq)) return 40;
-    if (variant.includes(nq)) return 30;
-    if (subject.includes(nq)) return 20;
+    if (containsQuery(set)) return 40;
+    if (containsQuery(variant)) return 30;
+    if (containsQuery(subject)) return 20;
     if (
-      title.includes(nq) ||
-      listing.includes(nq) ||
-      used.includes(nq) ||
-      num.includes(nq)
+      containsQuery(title) ||
+      containsQuery(listing) ||
+      containsQuery(used) ||
+      containsQuery(num)
     ) {
       return 10;
     }
