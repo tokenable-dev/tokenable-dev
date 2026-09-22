@@ -30,6 +30,27 @@ After a fixed image is pushed to ECR, redeploy without the override file.
 
 ---
 
+## Deploy fails: `the database system is shutting down` (maintenance SQL)
+
+**Symptom:** GitHub Deploy stops at `apply-deploy-maintenance: …sql` with  
+`FATAL: the database system is shutting down`.
+
+**Cause:** Postgres was restarting while `apply-deploy-maintenance.sh` ran — often because `docker compose up -d --force-recreate` recreated **postgres** on every deploy, or a overlapping deploy/OOM on a small instance.
+
+**Fix (repo):** CI now runs maintenance after `up -d postgres redis` (no force-recreate on DB) and only force-recreates `backend`, `frontend`, `nginx`. The maintenance script waits for `pg_isready` and retries `psql`.
+
+**On EC2 right now (failed mid-script):**
+
+```bash
+cd ~/app
+docker ps --filter name=tokenable-postgres
+docker logs tokenable-postgres --tail 40   # look for OOM or crash
+bash backend/sql/scripts/apply-deploy-maintenance.sh
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --no-deps backend frontend nginx
+```
+
+---
+
 ## PSA `/api/psa/analyze` returns 400 (ungraded / raw card)
 
 Cert OCR reads the PSA/BGS/CGC **slab label**, not a raw card. Cardhedger then returns 400/404/422; analyze surfaces **400** with *Please upload an image of a graded card…*. Pass `certNumber` if the cert is known. A 500 with Nest `Http Exception` and no `Card Hedge HTTP 5xx — retrying` log is usually this 4xx path (the real body is on `HttpException.getResponse()`).

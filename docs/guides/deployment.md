@@ -190,8 +190,13 @@ aws ecr get-login-password --region ap-northeast-2 \
   | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
 docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d postgres redis
+bash backend/sql/scripts/apply-deploy-maintenance.sh
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --no-deps backend frontend nginx
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --remove-orphans
 ```
+
+CI uses the same order. Avoid `up -d --force-recreate` on **postgres** every deploy — it restarts the DB while maintenance SQL runs and can fail with `the database system is shutting down` on t3.medium hosts.
 
 ---
 

@@ -9,6 +9,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-tokenable-postgres}"
+PGUSER="${PGUSER:-tokenable}"
+PGDATABASE="${PGDATABASE:-tokenable}"
+PG_WAIT_SECS="${MAINTENANCE_PG_WAIT_SECS:-120}"
+PG_ATTEMPTS="${MAINTENANCE_PG_ATTEMPTS:-8}"
 
 # Add new idempotent maintenance/*.sql here when the API entity layer depends on them.
 FILES=(
@@ -24,17 +29,61 @@ FILES=(
   maintenance/drop_users_email_unique.sql
 )
 
-run_psql() {
+postgres_via_docker() {
+  docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$POSTGRES_CONTAINER"
+}
+
+wait_for_postgres() {
+  local elapsed=0
+  while (( elapsed < PG_WAIT_SECS )); do
+    if [[ -n "${DATABASE_URL:-}" ]]; then
+      if psql "$DATABASE_URL" -q -c 'SELECT 1' >/dev/null 2>&1; then
+        return 0
+      fi
+    elif postgres_via_docker; then
+      if docker exec "$POSTGRES_CONTAINER" pg_isready -U "$PGUSER" -d "$PGDATABASE" -q 2>/dev/null; then
+        return 0
+      fi
+    else
+      if psql -U "$PGUSER" -d "$PGDATABASE" -q -c 'SELECT 1' >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  echo "apply-deploy-maintenance: postgres not ready after ${PG_WAIT_SECS}s" >&2
+  return 1
+}
+
+run_psql_once() {
   if [[ -n "${DATABASE_URL:-}" ]]; then
     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 "$@"
     return
   fi
-  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'tokenable-postgres'; then
-    docker exec -i tokenable-postgres psql -U "${PGUSER:-tokenable}" -d "${PGDATABASE:-tokenable}" -v ON_ERROR_STOP=1 "$@"
+  if postgres_via_docker; then
+    docker exec -i "$POSTGRES_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
     return
   fi
-  psql -U "${PGUSER:-tokenable}" -d "${PGDATABASE:-tokenable}" -v ON_ERROR_STOP=1 "$@"
+  psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
 }
+
+run_psql() {
+  local attempt=1
+  while (( attempt <= PG_ATTEMPTS )); do
+    if run_psql_once "$@"; then
+      return 0
+    fi
+    echo "apply-deploy-maintenance: psql failed (attempt ${attempt}/${PG_ATTEMPTS})" >&2
+    wait_for_postgres || true
+    sleep $((attempt * 2))
+    attempt=$((attempt + 1))
+  done
+  return 1
+}
+
+echo "apply-deploy-maintenance: waiting for postgres"
+wait_for_postgres
 
 for rel in "${FILES[@]}"; do
   f="$ROOT/$rel"

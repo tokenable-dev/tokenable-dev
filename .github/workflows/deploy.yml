@@ -127,13 +127,17 @@ jobs:
               rm -f "$TLS_BACKUP"
             fi
 
-            bash backend/sql/scripts/apply-deploy-maintenance.sh
-
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+            COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.ec2.yml"
+            $COMPOSE pull
+            # Keep Postgres/Redis running — force-recreate on every deploy caused
+            # "database system is shutting down" during maintenance on a small EC2.
+            $COMPOSE up -d postgres redis
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+            $COMPOSE up -d --force-recreate --no-deps backend frontend nginx
+            $COMPOSE up -d --remove-orphans
             docker image prune -f
 
   deploy-prod:
@@ -177,11 +181,13 @@ jobs:
               rm -f "$TLS_BACKUP"
             fi
 
-            bash backend/sql/scripts/apply-deploy-maintenance.sh
-
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
 
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+            COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.ec2.yml"
+            $COMPOSE pull
+            $COMPOSE up -d postgres redis
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+            $COMPOSE up -d --force-recreate --no-deps backend frontend nginx
+            $COMPOSE up -d --remove-orphans
             docker image prune -f
