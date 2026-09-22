@@ -631,11 +631,11 @@ export function PortfolioPageView({
       }
     }
     m.set(
-      buildKbwMysteryCardRow().tokenId,
-      buildKbwMysteryCardMetadata(),
+      buildKbwMysteryCardRow(kbwMysteryBurned).tokenId,
+      buildKbwMysteryCardMetadata(kbwMysteryBurned),
     );
     return m;
-  }, [metadataByTokenId, phantomMetaQuery.data]);
+  }, [metadataByTokenId, phantomMetaQuery.data, kbwMysteryBurned]);
 
   const holdingsDisplayCount = useMemo(
     () =>

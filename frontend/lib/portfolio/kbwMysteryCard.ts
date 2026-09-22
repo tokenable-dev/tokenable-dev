@@ -11,11 +11,17 @@ export function isKbwMysteryCardTokenId(tokenId: number): boolean {
   return tokenId === KBW_MYSTERY_CARD_TOKEN_ID;
 }
 
+export function kbwMysteryCardImageUrl(used = false): string {
+  return used
+    ? ASSETS.event.kbwMysteryCardRedeemed
+    : ASSETS.event.kbwMysteryCard;
+}
+
 export function buildKbwMysteryCardRow(used = false): PricedAssetRow {
   return {
     tokenId: KBW_MYSTERY_CARD_TOKEN_ID,
     name: KBW_MYSTERY_CARD_NAME,
-    imageUrl: ASSETS.event.kbwMysteryCard,
+    imageUrl: kbwMysteryCardImageUrl(used),
     category: null,
     amount: 1,
     currentPrice: null,
@@ -30,10 +36,10 @@ export function buildKbwMysteryCardRow(used = false): PricedAssetRow {
   };
 }
 
-export function buildKbwMysteryCardMetadata(): RwaMetadata {
+export function buildKbwMysteryCardMetadata(used = false): RwaMetadata {
   return {
     name: KBW_MYSTERY_CARD_NAME,
     description: "Korea Blockchain Week mystery card (event collectible).",
-    image: ASSETS.event.kbwMysteryCard,
+    image: kbwMysteryCardImageUrl(used),
   };
 }

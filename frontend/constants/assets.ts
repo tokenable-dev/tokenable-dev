@@ -100,6 +100,8 @@ export const ASSETS = {
     check: `${ASSETS_BASE}/event/check.png`,
     mysteryPack: `${ASSETS_BASE}/event/mystery-pack.png`,
     kbwMysteryCard: `${ASSETS_BASE}/event/kbw-mystery-card.png`,
+    /** KBW mystery card after staff check (REDEEMED stamp). */
+    kbwMysteryCardRedeemed: `${ASSETS_BASE}/event/kbw-mystery-card-redeemed.png`,
     /** Tokenable × KBW brand stack */
     x: `${ASSETS_BASE}/event/x.png`,
     kbw2026: `${ASSETS_BASE}/event/kbw2026.png`,
