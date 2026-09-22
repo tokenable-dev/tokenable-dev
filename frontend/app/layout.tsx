@@ -5,6 +5,7 @@ import "@/styles/tokenable-event.css";
 import { Providers } from "./providers";
 import { TkHeader } from "@/components/layout/TkHeader";
 import { TkFooter } from "@/components/layout/TkFooter";
+import { FaqDrawerHost } from "@/components/faq/FaqDrawerHost";
 import { ASSETS } from "@/constants/assets";
 import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 import { SiteAnalytics } from "@/components/analytics";
@@ -107,6 +108,7 @@ export default function RootLayout({
               </main>
             </div>
             <TkFooter />
+            <FaqDrawerHost />
           </div>
         </Providers>
         <SiteAnalytics />

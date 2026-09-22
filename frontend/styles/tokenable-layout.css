@@ -1404,6 +1404,10 @@
   }
 
   .gnb-search-desktop-fallback {
+    display: none !important;
+  }
+
+  .tk-header--search-compact .gnb-search-desktop-fallback {
     display: flex !important;
   }
 

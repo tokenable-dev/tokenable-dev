@@ -57,4 +57,6 @@ export interface ListRwaModalProps {
   shell?: ListRwaModalShell;
   /** Portfolio Set price / Edit price copy (design system-2). */
   copyVariant?: "default" | "set-price";
+  /** When false, hooks stay mounted but UI is hidden (avoids remount during approve/sign). */
+  open?: boolean;
 }

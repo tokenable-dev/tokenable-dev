@@ -66,7 +66,7 @@ Locked query params:
   - Invalidate the dead bid (`PATCH …/invalidate-dead-bid`).
   - **Keep** the ask at the price the seller just set (do not instant-only cancel).
   - Notify **ask owner** (`Offer could not be filled`) and **bidder** (`Your offer couldn't be filled` / Add funds).
-- Other instant-match failures may still auto-cancel under instant-only protection.
+- **Edit price / replace-listing**: always **keep** the new ask when instant match fails (no instant-only cancel). First-time **Set price** with a crossing bid may still auto-cancel if match cannot complete.
 
 ### Accept modal (secondary)
 

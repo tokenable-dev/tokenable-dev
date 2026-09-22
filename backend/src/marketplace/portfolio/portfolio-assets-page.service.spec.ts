@@ -32,6 +32,10 @@ describe('PortfolioAssetsPageService', () => {
   const blockchain = {
     getRwaTokensByOwner: jest.fn(),
     healOwnerRegistryIfIncomplete: jest.fn(),
+    filterTokenIdsOwnedByWallet: jest.fn(
+      async (_wallet: string, ids: number[]) => ids,
+    ),
+    listTokenIdsOwnedOnChain: jest.fn(async () => []),
   };
 
   let service: PortfolioAssetsPageService;

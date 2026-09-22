@@ -161,7 +161,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         label: "Contract roles",
         icon: "key",
         prefix: "/marketplace/admin/contract-roles",
-        description: "MINTER / BURNER on TokenableRWA",
+        description: "MINTER / PAUSER on the OpenZeppelin ERC-721",
       },
     ],
   },

@@ -47,7 +47,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 
 ### Smart Contracts
 
-- **Solidity 0.8.20** / **Hardhat** — TokenableRWA (UUPS ERC-721)
+- **Solidity 0.8.20** / **Hardhat** — OpenZeppelin ERC721PresetMinterPauserAutoId (no proxy)
 - **OpenZeppelin 4.9.6** upgradeable — AccessControl, Pausable, ERC-2981
 - **Seaport 1.5** + **Circle USDC** — external protocols (we integrate, do not fork)
 
@@ -69,7 +69,7 @@ Details, ownership, and deployed proxy addresses: **[docs/architecture/blockchai
 tokenable-dev/
 ├── frontend/       # Next.js App Router (port 3000)
 ├── backend/        # NestJS API (port 4000 prod / 4100 local dev)
-├── contracts/      # Hardhat — TokenableRWA (UUPS ERC-721); USDC is external (Circle)
+├── contracts/      # Hardhat — OpenZeppelin ERC-721 preset (no proxy); USDC is external (Circle)
 ├── docs/           # Architecture, API reference, guides, diagrams
 ├── docker/         # Postgres init scripts
 ├── nginx/          # Reverse proxy configs (HTTP + TLS)

@@ -122,7 +122,10 @@ export function PortfolioHoldingsSection({
   );
 
   const vaultTokenIds = useMemo(
-    () => assetRows.map((r) => r.tokenId),
+    () =>
+      assetRows
+        .map((r) => r.tokenId)
+        .filter((id) => !isKbwMysteryCardTokenId(id)),
     [assetRows],
   );
   const chainId = activeRqChainId();
@@ -396,6 +399,7 @@ export function PortfolioHoldingsSection({
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
             const virtual = isKbwMysteryCardTokenId(row.tokenId);
+            const kbwUsed = Boolean(row.kbwMysteryUsed);
 
             return (
               <div key={row.tokenId} className="pf-gallery__item" role="listitem">
@@ -416,7 +420,9 @@ export function PortfolioHoldingsSection({
                   actionsDisabled={virtual || tradeBlocked}
                   actionsDisabledTitle={
                     virtual
-                      ? "Event collectible — not listable"
+                      ? kbwUsed
+                        ? "Event collectible — already used"
+                        : "Event collectible — not listable"
                       : tradeBlocked
                         ? "Redemption in progress"
                         : undefined
@@ -427,7 +433,7 @@ export function PortfolioHoldingsSection({
                   selected={selectedTokenIds.has(row.tokenId)}
                   onToggleSelect={() => toggleSelect(row.tokenId)}
                   onActivate={
-                    virtual && onOpenKbwMysteryCard
+                    virtual && !kbwUsed && onOpenKbwMysteryCard
                       ? onOpenKbwMysteryCard
                       : undefined
                   }
@@ -447,6 +453,7 @@ export function PortfolioHoldingsSection({
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
             const virtual = isKbwMysteryCardTokenId(row.tokenId);
+            const kbwUsed = Boolean(row.kbwMysteryUsed);
 
             return (
               <PortfolioMobileAssetCard
@@ -467,7 +474,9 @@ export function PortfolioHoldingsSection({
                 actionsDisabled={virtual || tradeBlocked}
                 actionsDisabledTitle={
                   virtual
-                    ? "Event collectible — not listable"
+                    ? kbwUsed
+                      ? "Event collectible — already used"
+                      : "Event collectible — not listable"
                     : tradeBlocked
                       ? "Redemption in progress — listing unavailable"
                       : undefined
@@ -478,7 +487,7 @@ export function PortfolioHoldingsSection({
                 selected={selectedTokenIds.has(row.tokenId)}
                 onToggleSelect={() => toggleSelect(row.tokenId)}
                 onActivate={
-                  virtual && onOpenKbwMysteryCard
+                  virtual && !kbwUsed && onOpenKbwMysteryCard
                     ? onOpenKbwMysteryCard
                     : undefined
                 }

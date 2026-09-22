@@ -98,6 +98,7 @@ export function PortfolioHoldingsTableView({
           const vault = vaultByTokenId?.get(row.tokenId) ?? null;
           const selected = selectedTokenIds?.has(row.tokenId) ?? false;
           const virtual = isKbwMysteryCardTokenId(row.tokenId);
+          const kbwUsed = Boolean(row.kbwMysteryUsed);
           const rowMods = [
             zebra,
             dim,
@@ -150,7 +151,7 @@ export function PortfolioHoldingsTableView({
                     <span className="pf-rowchk" aria-hidden />
                     {cardMedia}
                   </div>
-                ) : virtual ? (
+                ) : virtual && !kbwUsed ? (
                   <button
                     type="button"
                     className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--activate"
@@ -158,6 +159,10 @@ export function PortfolioHoldingsTableView({
                   >
                     {cardMedia}
                   </button>
+                ) : virtual ? (
+                  <div className="pf-table-card-cell pf-table-card-cell--holdings">
+                    {cardMedia}
+                  </div>
                 ) : (
                   <Link
                     href={portfolioAssetHref(assetHrefBase, row.tokenId)}
@@ -235,6 +240,7 @@ export function PortfolioHoldingsTableView({
                   isListed={isListed}
                   redeemStatus={badge}
                   listPriceUsd={row.listPriceUsd}
+                  kbwMysteryUsed={kbwUsed}
                 />
               </td>
               <td data-label="Action" className="pf-col-action-cell">
@@ -244,7 +250,9 @@ export function PortfolioHoldingsTableView({
                     disabled={tradeBlocked}
                     disabledTitle={
                       virtual
-                        ? "Event collectible — not listable"
+                        ? kbwUsed
+                          ? "Event collectible — already used"
+                          : "Event collectible — not listable"
                         : tradeBlocked
                           ? "Redemption in progress — listing unavailable"
                           : undefined

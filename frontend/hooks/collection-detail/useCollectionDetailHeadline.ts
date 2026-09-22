@@ -103,7 +103,7 @@ export function useCollectionDetailHeadline(params: {
     const corpus = `${listingTitle} ${name} ${setN} ${psaCat} ${previewCat} ${marketPreview?.card?.setName ?? ""}`;
     const bucket = inferSportBucketFromHaystack(corpus);
     if (bucket === "onepiece") return toCardDisplayCase("One Piece");
-    if (bucket === "pokemon") return toCardDisplayCase("Pokemon");
+    if (bucket === "pokemon") return "Pokémon";
     if (bucket === "basketball") return "NBA";
     if (bucket === "baseball") return "MLB";
     if (previewCat) {

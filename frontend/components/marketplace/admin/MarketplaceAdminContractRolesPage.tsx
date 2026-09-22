@@ -45,7 +45,7 @@ export function MarketplaceAdminContractRolesPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Contract roles"
-        subtitle={`Grant or revoke TokenableRWA AccessControl roles on ${chain.label}. Transactions are signed by the backend admin key (DEFAULT_ADMIN_ROLE). Switch network in the top bar to manage another chain.`}
+        subtitle={`Grant or revoke ERC721 preset AccessControl roles on ${chain.label}. Transactions are signed by the backend admin key (DEFAULT_ADMIN_ROLE). Switch network in the top bar to manage another chain.`}
       />
 
       {overviewQuery.isLoading ? (

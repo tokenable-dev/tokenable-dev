@@ -11,7 +11,7 @@ export function isKbwMysteryCardTokenId(tokenId: number): boolean {
   return tokenId === KBW_MYSTERY_CARD_TOKEN_ID;
 }
 
-export function buildKbwMysteryCardRow(): PricedAssetRow {
+export function buildKbwMysteryCardRow(used = false): PricedAssetRow {
   return {
     tokenId: KBW_MYSTERY_CARD_TOKEN_ID,
     name: KBW_MYSTERY_CARD_NAME,
@@ -26,6 +26,7 @@ export function buildKbwMysteryCardRow(): PricedAssetRow {
     setName: null,
     marketPreviewRaw: null,
     sparkline1y: [],
+    kbwMysteryUsed: used,
   };
 }
 

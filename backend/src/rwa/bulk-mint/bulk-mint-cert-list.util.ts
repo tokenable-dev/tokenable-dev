@@ -1,8 +1,8 @@
 /** Max certs per bulk mint job (API + Excel). */
 export const BULK_MINT_MAX_ITEMS = 500;
 
-/** On-chain mintBatch size — matches TokenableRWA.MAX_BATCH_SIZE. */
-export const BULK_MINT_ON_CHAIN_CHUNK = 50;
+/** Sequential mint(to) calls per item — OpenZeppelin preset has no mintBatch. */
+export const BULK_MINT_ON_CHAIN_CHUNK = 10;
 
 const CERT_HEADER_RE =
   /^(cert|certnumber|cert_number|psa\s*cert|psa\s*cert\s*number|cert\s*#)$/i;

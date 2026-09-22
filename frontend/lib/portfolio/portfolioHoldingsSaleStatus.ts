@@ -10,12 +10,18 @@ import {
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 
 /** Sale-state only — every card is already in a vault. */
-export type HoldingsSaleKind = "not_listed" | "listed" | "redeeming";
+export type HoldingsSaleKind =
+  | "not_listed"
+  | "listed"
+  | "redeeming"
+  | "event_used";
 
 export function holdingsSaleKind(
   isListed: boolean,
   redeemStatus: RedeemSurfaceBadge | null,
+  kbwMysteryUsed = false,
 ): HoldingsSaleKind {
+  if (kbwMysteryUsed) return "event_used";
   if (redeemStatus && redeemStatus.kind !== "possession") return "redeeming";
   if (isListed) return "listed";
   return "not_listed";
@@ -25,6 +31,7 @@ export function holdingsSaleStatusLabel(
   kind: HoldingsSaleKind,
   listPriceUsd?: number | null,
 ): string {
+  if (kind === "event_used") return "Checked";
   if (kind === "listed") {
     if (listPriceUsd != null && Number.isFinite(listPriceUsd)) {
       return `Listed · ${formatUsdCompact(listPriceUsd)}`;

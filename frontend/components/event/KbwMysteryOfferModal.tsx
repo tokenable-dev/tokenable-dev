@@ -80,8 +80,8 @@ function OfferGloss() {
 /**
  * KBW mystery-card offer — all viewports.
  *
- * Participation SSOT: portfolio still has the event card (`burned === false`)
- * → 미참여 → show modal. Card gone (`burned === true`) → 참여 → hide.
+ * Participation SSOT: `burned === false` → not participated → show modal.
+ * `burned === true` → participated (portfolio shows card as Used) → hide modal.
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();

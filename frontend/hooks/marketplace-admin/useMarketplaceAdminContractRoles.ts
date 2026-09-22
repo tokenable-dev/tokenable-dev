@@ -75,7 +75,7 @@ export function useMarketplaceAdminContractRoles() {
       const roleLabel = overviewQuery.data?.roles.find((r) => r.key === role)?.label ?? role;
       const warn =
         role === "default_admin"
-          ? " WARNING: Default admin can upgrade the contract and manage all roles."
+          ? " WARNING: Default admin can grant or revoke minter/pauser roles."
           : "";
       if (
         !window.confirm(
@@ -103,7 +103,7 @@ export function useMarketplaceAdminContractRoles() {
       const roleLabel = overviewQuery.data?.roles.find((r) => r.key === role)?.label ?? role;
       const warn =
         role === "default_admin"
-          ? " WARNING: Revoking default admin may lock out contract upgrades and role management."
+          ? " WARNING: Revoking default admin may lock out role management."
           : "";
       if (
         !window.confirm(

@@ -1,6 +1,6 @@
 # Blockchain Architecture
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-22
 
 Canonical doc for on-chain components used by the platform: what we own, what we integrate, where it is deployed, and how backend/frontend talk to it.
 
@@ -8,13 +8,13 @@ Canonical doc for on-chain components used by the platform: what we own, what we
 
 Tokenable uses **EVM chains** configured in `ChainConfigService` (`SUPPORTED_CHAIN_IDS`: Sepolia `11155111`, Ethereum mainnet `1`, Polygon `137`) for:
 
-- **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards (**we deploy and upgrade**)
+- **RWA NFT** — unmodified OpenZeppelin `ERC721PresetMinterPauserAutoId` (we deploy; **no proxy / no upgrades**)
 - **Seaport 1.5** — OpenSea settlement protocol; off-chain order book in Postgres, on-chain USDC fill (**third-party**)
 - **USDC (Circle)** — settlement currency for all marketplace trades (**third-party**)
 
 The backend is the sole on-chain writer for mint/burn/custody transfer. Users sign Seaport trades via Privy or MetaMask.
 
-Default public/dev chain is **Ethereum Sepolia**. **Ethereum mainnet** is production. **Polygon mainnet** is configured for internal/QA multi-chain (not the primary public path).
+Changing NFT behavior means **redeploy + swap** `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA` and start inventory on the new address.
 
 ---
 
@@ -22,12 +22,12 @@ Default public/dev chain is **Ethereum Sepolia**. **Ethereum mainnet** is produc
 
 | Component | Owner | Role on platform | Docs / source |
 |-----------|-------|------------------|---------------|
-| **TokenableRWA** (UUPS ERC-721) | Tokenable | Mint / burn / custody NFT for PSA vaultRef | This file · `contracts/contracts/TokenableRWA.sol` |
+| **ERC721PresetMinterPauserAutoId** | Tokenable deploy of OpenZeppelin 4.9.6 | Mint / owner-burn / pause NFT | This file · OZ preset (`contracts/contracts/oz-erc721-preset.sol`) |
 | **Seaport 1.5** | OpenSea (canonical deploy) | Ask / bid / fulfill / match; USDC consideration | This file · [Seaport](https://github.com/ProjectOpenSea/seaport) · ADR: [seaport-accept-offer.md](./seaport-accept-offer.md) |
 | **USDC** | Circle | Trade settlement (6 decimals) | Circle docs · per-chain addresses below |
 | **ConduitController** | OpenSea | Present in frontend constants; current orders use `conduitKey = 0` (direct Seaport approvals) | `frontend/constants/contracts.ts` |
 
-We do **not** fork or maintain Seaport/USDC bytecode. Integration lives in `frontend/lib/seaport/*`, `backend/src/marketplace/orders/*`, and partner signing in `PartnerSeaportAskService`.
+We do **not** write custom NFT Solidity. We do **not** fork Seaport/USDC.
 
 ### Audit / assurance status
 
@@ -35,13 +35,13 @@ We do **not** fork or maintain Seaport/USDC bytecode. Integration lives in `fron
 |-----------|--------|
 | **Seaport 1.5** | External, widely used OpenSea protocol with public audits/reviews (rely on OpenSea’s published assurance — we do not re-audit Seaport) |
 | **USDC** | Circle-issued stablecoin; standard ERC-20 on each chain |
-| **TokenableRWA** | Covered by Hardhat tests (`contracts/test/TokenableRWA.test.ts`). **No external security audit published yet** — treat as internal assurance until an audit is completed |
+| **RWA NFT** | Unmodified OpenZeppelin Contracts **v4.9.6** `ERC721PresetMinterPauserAutoId`. Tests: `contracts/test/OzErc721Preset.test.ts`. App/key/ops risk is off-chain. |
 
 ---
 
-## Deployed TokenableRWA proxies
+## Deployed RWA contracts
 
-Proxy addresses are the stable contract IDs (UUPS implementation can change underneath). **Source of truth for what the app uses:** `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA`. OpenZeppelin upgrade manifests: `contracts/.openzeppelin/{sepolia,polygon,mainnet}.json` (may list older proxies from prior deploys).
+These are **plain contract addresses** (not UUPS proxies). **Source of truth:** `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA`. Values below are stale until the next `pnpm deploy:rwa:*` and env swap.
 
 | Chain | ID | Current app proxy (env) | Notes |
 |-------|----|-------------------------|--------|
@@ -53,72 +53,34 @@ After a redeploy, update backend + frontend env and this table in the same chang
 
 ---
 
-## TokenableRWA Contract
+## RWA NFT (OpenZeppelin preset)
 
-**Type:** UUPS upgradeable ERC-721 + ERC-2981 + AccessControl + Pausable  
-**Solidity:** 0.8.20 | **OpenZeppelin:** 4.9.6 upgradeable  
-**Source:** `contracts/contracts/TokenableRWA.sol`
+**Type:** Non-upgradeable ERC-721 + Enumerable + Burnable + Pausable + AccessControlEnumerable  
+**On-chain name:** `ERC721PresetMinterPauserAutoId` (OpenZeppelin Contracts 4.9.6)  
+**Constructor:** `("Tokenable", "TRWA", baseTokenURI)`  
+**Compile shim:** `contracts/contracts/oz-erc721-preset.sol` (import only — no Tokenable Solidity)
 
 ### Roles
 
-| Role | Keccak ID | Purpose | Typical holder |
-|------|-----------|---------|----------------|
-| `DEFAULT_ADMIN_ROLE` | `0x00...00` | Upgrades, royalty, contractURI, role grants | Deployer / `RWA_ADMIN_ADDRESS` (prefer multisig in prod) |
-| `MINTER_ROLE` | `keccak256("MINTER_ROLE")` | `mint`, `mintBatch` | Backend hot wallet (`RWA_MINTER_ADDRESS`) |
-| `BURNER_ROLE` | `keccak256("BURNER_ROLE")` | `adminBurn` | Same minter address at initialize |
-| `PAUSER_ROLE` | `keccak256("PAUSER_ROLE")` | `pause`, `unpause` | Same minter address at initialize |
+| Role | Purpose | Typical holder |
+|------|---------|----------------|
+| `DEFAULT_ADMIN_ROLE` | Grant/revoke minter and pauser | Deployer (EOA that runs `deploy-tokenable-rwa.ts`) |
+| `MINTER_ROLE` | `mint(address to)` | Backend hot wallet |
+| `PAUSER_ROLE` | `pause` / `unpause` | Same minter unless split |
 
-At `initialize(admin, minter, …)`: **admin** gets `DEFAULT_ADMIN_ROLE`; **minter** gets `MINTER_ROLE` + `BURNER_ROLE` + `PAUSER_ROLE`. Defaults use the deployer for both when env overrides are unset. Roles can be split later via `grantRole()` without a contract upgrade.
+No `BURNER_ROLE`. `burn(tokenId)` is ERC721Burnable (current owner or approved). Deploy mints then burns token 0 so live inventory starts at 1.
 
-### Functions
+### Functions we use
 
-| Function | Access | Description |
-|----------|--------|-------------|
-| `initialize(admin, minter, royaltyReceiver, royaltyBps)` | once | Sets up roles; token IDs start at **1** (`_nextTokenId = 1`) |
-| `mint(to, tokenURI, vaultRef)` | MINTER, not paused | Reverts `VaultRefAlreadyActive` if cert already backed; emits `Minted` |
-| `mintBatch(to[], uris[], vaultRefs[])` | MINTER, not paused | Max **50** per batch. Backend bulk mint jobs chunk larger requests (up to 500) into multiple `mintBatch` txs |
-| `adminBurn(tokenId, expectedOwner)` | BURNER | Clears `activeTokenIdOf(vaultRef)`; allows `address(0)` to skip ownership check; **not paused** (burns work while paused) |
-| `pause` / `unpause` | PAUSER | Blocks mint/transfer; burns still allowed |
-| `setDefaultRoyalty(receiver, bps)` | ADMIN | ERC-2981 royalty |
-| `setContractURI(uri)` | ADMIN | EIP-7572 collection metadata |
-| `vaultRef(tokenId)` | view | Returns permanent vaultRef (survives burn) |
-| `activeTokenIdOf(vaultRef)` | view | Returns tokenId or 0 if no active token |
-| `isVaultRefActive(vaultRef)` | view | Boolean wrapper |
-| `totalMinted()` | view | Monotonic counter (includes burned) = `_nextTokenId - 1` |
-| `contractURI()` | view | Collection-level metadata URL |
-| ERC-721 standard | — | `ownerOf`, `tokenURI`, `safeTransferFrom`, etc. |
-| ERC-2981 standard | — | `royaltyInfo(tokenId, salePrice)` |
-
-### Events
-
-| Event | Fields | When |
-|-------|--------|------|
-| `Minted(to, tokenId, vaultRef indexed, tokenURI)` | — | After successful `mint()` |
-| `Burned(tokenId, burnedBy, vaultRef)` | — | After successful `adminBurn()` |
-| `ContractURIUpdated(newURI)` | — | After `setContractURI()` |
-| `RoyaltyUpdated(receiver, feeBps)` | — | After `setDefaultRoyalty()` |
-| ERC-721 `Transfer` | from, to, tokenId | Standard |
-
-### Custom errors
-
-| Error | Trigger |
-|-------|---------|
-| `ZeroAddress` | `to == address(0)` in mint |
-| `EmptyTokenURI` | Empty tokenURI in mint |
-| `EmptyVaultRef` | Zero-bytes vaultRef in mint |
-| `VaultRefAlreadyActive(vaultRef, existingTokenId)` | Cert still backed by live NFT |
-| `OwnerMismatch` | `adminBurn` with non-zero `expectedOwner` that doesn't match on-chain owner |
-| `ArrayLengthMismatch` | `mintBatch` arrays of different lengths |
-| `BatchTooLarge` | Batch > 50 |
+`mint(to)`, `burn(tokenId)`, `pause`/`unpause`, `totalSupply`, `tokenByIndex`, `tokenURI` (= `baseURI + id`), standard ERC-721. No `vaultRef`, `mintBatch`, `adminBurn`, ERC-2981, or `contractURI`. Cert uniqueness and metadata live in Postgres / Pinata.
 
 ### Design invariants
 
-1. **One active NFT per physical card** — enforced by `activeTokenIdByVaultRef` mapping
-2. **Token IDs never reused** — `_nextTokenId` only increments
-3. **Burns work while paused** — `_beforeTokenTransfer` skips pause check when `to == address(0)`
-4. **No permissionless owner burn** — only `BURNER_ROLE` can burn; users initiate via `POST /rwa/redeem-batch`
-5. **vaultRef is permanent** — stored per tokenId even after burn (audit trail)
-6. **UUPS proxy** — implementation can be upgraded without changing the proxy address
+1. One active NFT per physical card — **Postgres** (vault cycle + `rwa_tokens` unique index)
+2. Token IDs never reused — OZ Counters
+3. Live inventory starts at 1 — deploy burns token 0
+4. Token holders *can* self-burn on-chain (OZ); Tokenable UI never calls burn
+5. No proxy — behavior change = new deploy + env swap
 
 ---
 
@@ -130,7 +92,7 @@ The single backend service that signs and submits transactions. Uses two keys:
 
 | Key env var | Purpose |
 |-------------|---------|
-| `RWA_OWNER_PRIVATE_KEY` | Signs `mint()` (MINTER_ROLE) and `adminBurn()` (BURNER_ROLE) |
+| `RWA_OWNER_PRIVATE_KEY` | Signs `mint(to)` (`MINTER_ROLE`) |
 | `RWA_CUSTODY_WALLET_ADDRESS` | Where redeemers send NFTs (and mint deliver-from). Independent of fee wallet |
 | `RWA_CUSTODY_PRIVATE_KEY` | Signs custody `safeTransferFrom` (deliver to user / return on refund). Defaults to owner key if unset |
 | `PLATFORM_FEE_RECIPIENT` | Receives redeem USDC fees (+ self-vault sale proceeds) |
@@ -142,15 +104,15 @@ Sepolia redeem v1 may set `RWA_CUSTODY_*` to the same values as `PLATFORM_FEE_*`
 
 | Method | Chain action |
 |--------|-------------|
-| `mintTo(to, tokenURI, vaultRef, chainId?)` | Calls `mint(to, tokenURI, vaultRef)` with owner wallet |
-| `mintBatchTo(items[], chainId?)` | Calls `mintBatch` (max **50** items); returns `tokenIds[]` + `txHash` |
-| `adminBurn(tokenId, chainId?, expectedOwner?)` | Calls `adminBurn(tokenId, owner)` after BURNER_ROLE check |
+| `mintTo(to, tokenURI, vaultRef, chainId?, hooks?)` | OZ `mint(to)`. URI/vaultRef stay off-chain. Parses `Transfer` from 0 |
+| `mintBatchTo(items[], chainId?)` | Sequential `mint(to)` (no on-chain batch) |
+| `adminBurn(tokenId, chainId?, expectedOwner?)` | OZ `burn(tokenId)` as current owner (custody preferred) |
 | `safeTransferFromCustody(tokenId, to, chainId?)` | Calls `safeTransferFrom(custody, to, tokenId)` with custody wallet |
 | `getCustodyWalletAddress(chainId?)` | Resolves custody wallet address |
 
 ### Pre-flight checks
 
-`adminBurn` verifies that the backend wallet has `BURNER_ROLE` before attempting the transaction — returns a clear error message if not.
+`adminBurn` reads `ownerOf` first. The burn signer must be that owner (usually custody). `expectedOwner` is checked in the backend.
 
 `safeTransferFromCustody` verifies:
 - Token exists on-chain
@@ -188,10 +150,12 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 
 | Method | Description |
 |--------|-------------|
-| `getRwaInfo()` | name, symbol, totalMinted |
+| `getRwaInfo()` | name, symbol, totalMinted (= `totalSupply`, live count) |
+| `listLiveTokenIds()` | ERC721Enumerable `tokenByIndex` |
+| `getMintedTokenIdFromTx(hash)` | Parse mint `Transfer` from `address(0)` |
 | `getRwaTokenOwner(tokenId)` | `ownerOf(tokenId)` — throws NotFoundException if not minted |
 | `getRwaTokenURI(tokenId)` | `tokenURI(tokenId)` |
-| `getRwaTokensByOwner(address)` | Scans all minted tokens for matching owner |
+| `getRwaTokensByOwner(address)` | Owner index / enumerable scan |
 | `batchOwnerOf(tokenIds[])` | Parallel `ownerOf` calls |
 
 ---
@@ -243,7 +207,7 @@ NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=0x...
 NEXT_PUBLIC_PLATFORM_FEE_BPS=500   # 5% — keep in sync with backend PLATFORM_FEE_BPS
 ```
 
-Frontend fallback when the env var is unset (but recipient is set) is also **500**. ERC-2981 royalty is a separate mechanism (contract-level, not Seaport consideration).
+Frontend fallback when the env var is unset (but recipient is set) is also **500**. Marketplace fees are Seaport consideration only (the OZ preset has no ERC-2981).
 
 ---
 
@@ -262,14 +226,12 @@ Metadata format follows OpenSea ERC-721 standard with additional `properties.gra
 
 | Command | Script | Purpose |
 |---------|--------|---------|
-| `pnpm deploy:rwa:sepolia` | `scripts/deploy-tokenable-rwa-uups.ts` | Deploy UUPS proxy to Sepolia |
-| `pnpm deploy:rwa:polygon` | same | Deploy to Polygon mainnet (`POLYGON_RPC_URL`) |
-| `pnpm deploy:rwa:mainnet` | same | Deploy to Ethereum mainnet |
-| `pnpm upgrade:rwa:sepolia` | `scripts/upgrade-tokenable-rwa.ts` | Upgrade implementation (proxy unchanged); auto-grants BURNER_ROLE |
-| `pnpm upgrade:rwa:polygon` | same | Upgrade on Polygon |
-| `pnpm grant-burner:sepolia` | `scripts/grant-rwa-burner-role.ts` | Manually grant BURNER_ROLE |
-| `pnpm grant-burner:polygon` | same | Grant BURNER_ROLE on Polygon |
+| `pnpm deploy:rwa:sepolia` | `scripts/deploy-tokenable-rwa.ts` | Deploy unmodified OZ ERC721 preset (burns token 0) |
+| `pnpm deploy:rwa:polygon` | same | Polygon |
+| `pnpm deploy:rwa:mainnet` | same | Ethereum mainnet |
 | `pnpm sync-abi` | `scripts/sync-abi.mjs` | Copy ABI → `backend/src/blockchain/abis/tokenable-rwa.abi.ts` |
+
+There is **no upgrade path**. A new NFT means a new address. See [`docs/guides/mainnet-multisig-deploy.md`](../guides/mainnet-multisig-deploy.md) for the deploy flow and role layout.
 
 After deploying a new contract, update:
 - `contracts/.env` — Sepolia / Polygon / mainnet RWA address vars used by Hardhat
@@ -282,9 +244,9 @@ After deploying a new contract, update:
 
 ## Contract tests
 
-**File:** `contracts/test/TokenableRWA.test.ts`
+**File:** `contracts/test/OzErc721Preset.test.ts`
 
-Coverage includes: initialization, mint, vaultRef invariant, mintBatch, adminBurn, pause, ERC-2981 royalty, contractURI, UUPS upgrade, and full lifecycle (mint → transfer → burn → re-mint cycle).
+Coverage: constructor roles, mint, consume-token-0 convention, owner burn, pause, grant MINTER_ROLE. No custom Tokenable Solidity to test.
 
 Run: `cd contracts && pnpm test`
 

@@ -32,7 +32,7 @@ Security model, secret management, and threat considerations for the Tokenable p
 
 | Key | What it controls | Risk if compromised |
 |-----|-----------------|---------------------|
-| `RWA_OWNER_PRIVATE_KEY` | MINTER_ROLE + BURNER_ROLE | Unauthorized mints or burns of all tokens |
+| `RWA_OWNER_PRIVATE_KEY` | `MINTER_ROLE` mint | Unauthorized mints |
 | `PLATFORM_FEE_PRIVATE_KEY` | Self-vault seller USDC payouts (`PLATFORM_FEE_RECIPIENT`) | Drain of accumulated marketplace fee / hold USDC |
 | `RWA_CUSTODY_PRIVATE_KEY` | Transfers from custody wallet | NFTs in custody could be stolen |
 | `JWT_SECRET` | All platform session cookies | Account impersonation |
@@ -57,13 +57,12 @@ The platform's hot wallet is the only signer for mint and burn. This means:
 ### Smart contract access control
 
 ```
-DEFAULT_ADMIN_ROLE → upgrades + role grants (deployer)
-MINTER_ROLE → mint, mintBatch (backend wallet)
-BURNER_ROLE → adminBurn (backend wallet)
-PAUSER_ROLE → pause / unpause (backend wallet or separate ops key)
+DEFAULT_ADMIN_ROLE → role grants (deployer EOA after `deploy-tokenable-rwa.ts`; see [mainnet-multisig-deploy.md](guides/mainnet-multisig-deploy.md))
+MINTER_ROLE → mint(to) (backend minter wallet)
+PAUSER_ROLE → pause / unpause (deployer or backend minter unless split)
 ```
 
-UUPS upgrades require `DEFAULT_ADMIN_ROLE`. The admin key should be a hardware wallet or multisig in production.
+The NFT is **unmodified OpenZeppelin `ERC721PresetMinterPauserAutoId`** (immutable deploy, no proxy). Burns use **ERC721Burnable** — the custody or minter wallet must own the token. There is no on-chain `BURNER_ROLE`, `mintBatch`, or `vaultRef`.
 
 ### Vault custody
 
@@ -71,7 +70,7 @@ NFTs sit in the platform custody wallet between mint and delivery. The custody w
 
 ### Re-entrancy
 
-Not applicable: the contract has no external value flows (no ETH/ERC-20 in TokenableRWA). Seaport handles USDC settlement via its own well-audited OpenSea protocol. **TokenableRWA has Hardhat test coverage; no external audit is published yet** — see [architecture/blockchain.md](architecture/blockchain.md).
+Not applicable: the preset NFT has no external value flows (no ETH/ERC-20 in the token contract). Seaport handles USDC settlement via its own audited protocol. **Custom NFT bytecode is not audited separately** — we rely on OpenZeppelin 4.9.6 plus our Hardhat tests; platform/ops risk remains — see [architecture/blockchain.md](architecture/blockchain.md).
 
 ---
 

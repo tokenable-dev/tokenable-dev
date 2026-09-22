@@ -3,8 +3,11 @@
  * ("Basketball", "Baseball") while product badges use league names (NBA, MLB, …).
  *
  * Pokémon slabs often arrive as PSA **TCG Cards** or Cardhedger **TCG** — product
- * badges should read **Pokemon**, not a second TCG label beside Pokémon copy.
+ * badges should read **Pokémon**, not a second TCG label beside Pokémon copy.
  */
+
+/** Official product spelling for category chips / badges (storage stays ASCII `Pokemon`). */
+export const POKEMON_CATEGORY_DISPLAY_LABEL = "Pokémon";
 
 /** PSA / Cardhedger / mint metadata → Pokémon (not generic TCG — One Piece also uses TCG). */
 const POKEMON_TCG_CATEGORY_PATTERNS: ReadonlyArray<RegExp> = [
@@ -70,6 +73,20 @@ export function isGenericTcgCategoryLabel(raw: string | null | undefined): boole
   return GENERIC_TCG_CATEGORY_PATTERNS.some((re) => re.test(t));
 }
 
+/**
+ * True when a display badge / label refers to Pokémon (ASCII or accented).
+ * Use for logic checks — never rely on `.includes("pokemon")` alone after display spelling.
+ */
+export function labelMentionsPokemon(raw: string | null | undefined): boolean {
+  const t = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  if (!t) return false;
+  return t.includes("pokemon") || t.includes("ポケ");
+}
+
 export function formatSportCategoryDisplayLabel(
   raw: string | null | undefined,
 ): string {
@@ -78,7 +95,7 @@ export function formatSportCategoryDisplayLabel(
     .replace(/\s+/g, " ");
   if (!t) return "";
 
-  if (isPokemonTcgCategoryLabel(t)) return "Pokemon";
+  if (isPokemonTcgCategoryLabel(t)) return POKEMON_CATEGORY_DISPLAY_LABEL;
   if (isGenericTcgCategoryLabel(t)) return "TCG";
 
   const upper = t.toUpperCase();

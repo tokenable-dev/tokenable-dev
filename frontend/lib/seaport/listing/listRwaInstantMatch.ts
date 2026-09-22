@@ -65,6 +65,8 @@ export type ListRwaInstantMatchDeps = {
   writeContractAsync: MatchWriteContractAsync;
   queryClient: QueryClient;
   chainId: SupportedChainId;
+  /** Edit price — do not auto-cancel ask when Merkle/indexing blocks instant fill. */
+  isReplaceListing?: boolean;
 };
 
 /**
@@ -325,8 +327,9 @@ async function tryMatchAfterListing(
       ) {
         lastMeta = {
           matched: false,
-          reasonCode: undefined,
-          hint: undefined,
+          reasonCode: "merkle_mismatch",
+          hint:
+            "This collection bid was signed before any cards were in the pool. The buyer should cancel it and place a new bid, then try Edit price or Match again.",
         };
         break;
       }
@@ -626,7 +629,7 @@ export async function runPostListInstantMatch(
     };
   }
 
-  if (instantDecision.enforceImmediateFill) {
+  if (instantDecision.enforceImmediateFill && !deps.isReplaceListing) {
     const cancelled = await cancelListingWithRetryAndVerify(deps, created.orderHash);
     meta = applyInstantOnlyProtection({
       ...meta,
@@ -636,6 +639,14 @@ export async function runPostListInstantMatch(
         : "Immediate match failed and auto-cancel could not be completed after retries. Listing may remain on order book. " +
           (meta.hint ?? ""),
     });
+  } else if (deps.isReplaceListing && !meta.matched && !meta.keptAskAfterBuyerFundingFail) {
+    meta = {
+      ...meta,
+      hint:
+        "Your listing stays active at the new price. " +
+        (meta.hint ??
+          "Automatic match did not complete — try Match on the collection page, or ask the buyer to cancel and re-place their collection bid."),
+    };
   }
   return meta;
 }

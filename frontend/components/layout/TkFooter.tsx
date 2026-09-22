@@ -34,7 +34,8 @@ export function TkFooter() {
           <span className="navlink" aria-disabled>
             Fees
           </span>
-          <Link href="/faq" className="navlink">
+          {/* data-faq-open → FaqDrawerHost bottom drawer; href=/faq is no-JS fallback */}
+          <Link href="/faq" className="navlink" data-faq-open>
             FAQ
           </Link>
           <span className="navlink" aria-disabled>

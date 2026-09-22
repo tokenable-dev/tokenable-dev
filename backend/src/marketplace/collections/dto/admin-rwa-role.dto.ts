@@ -4,7 +4,6 @@ import { IsEthereumAddress, IsIn, IsString } from 'class-validator';
 export const ADMIN_RWA_ROLE_KEYS = [
   'default_admin',
   'minter',
-  'burner',
   'pauser',
 ] as const;
 
@@ -27,7 +26,7 @@ export class AdminRwaRoleMutationDto {
     enum: ADMIN_RWA_ROLE_KEYS,
     example: 'minter',
     description:
-      'default_admin = upgrades + role grants; minter = mint; burner = adminBurn; pauser = pause/unpause',
+      'default_admin = role grants; minter = mint; pauser = pause/unpause',
   })
   @IsIn([...ADMIN_RWA_ROLE_KEYS])
   role!: AdminRwaRoleKey;

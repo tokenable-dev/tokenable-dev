@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { postAdminBurnRwaToken, rq } from "@/lib/core";
 import { invalidateAfterBurn } from "@/lib/core/invalidation";
 
-/** Admin-only: on-chain adminBurn via platform owner wallet (backend-signed). */
+/** Admin-only: ERC721Burnable.burn via custody/owner wallet (backend-signed). */
 export function useAdminBurnToken(walletAddress?: string) {
   const queryClient = useQueryClient();
   const [burningTokenId, setBurningTokenId] = useState<number | null>(null);

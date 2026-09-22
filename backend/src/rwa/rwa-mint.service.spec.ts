@@ -16,6 +16,7 @@ describe('RwaMintService', () => {
   };
   const blockchain = {
     getRwaTokenOwner: jest.fn().mockResolvedValue('0xcustody'),
+    invalidateTokensByOwnerCache: jest.fn(),
   };
   const chainConfig = {
     getRwaAddress: jest.fn().mockReturnValue('0xrwa'),
@@ -193,6 +194,7 @@ describe('RwaMintService', () => {
       'ipfs://QmMeta',
       expect.any(String),
       chainId,
+      expect.objectContaining({ onSubmitted: expect.any(Function) }),
     );
     expect(result.deliveryMode).toBe('custody');
     expect(result.mintedTo).toBe('0xcustody');
@@ -226,12 +228,13 @@ describe('RwaMintService', () => {
 
     expect(
       vaultSubmissions.assertCertAvailableForSelfVault,
-    ).toHaveBeenCalledWith('83179580');
+    ).toHaveBeenCalledWith('83179580', chainId);
     expect(chainWriter.mintTo).toHaveBeenCalledWith(
       '0xuserwallet',
       'ipfs://QmMeta',
       expect.any(String),
       chainId,
+      expect.objectContaining({ onSubmitted: expect.any(Function) }),
     );
     expect(result.deliveryMode).toBe('direct');
     expect(result.mintedTo).toBe('0xuserwallet');
@@ -363,6 +366,7 @@ describe('RwaMintService', () => {
       'ipfs://QmMeta',
       expect.any(String),
       chainId,
+      expect.objectContaining({ onSubmitted: expect.any(Function) }),
     );
     expect(chainWriter.safeTransferFromCustody).toHaveBeenCalledWith(
       9,
@@ -429,6 +433,7 @@ describe('RwaMintService', () => {
     expect(vaultSubmissions.attachCycleForCert).toHaveBeenCalledWith({
       userId: 'user-1',
       certNumber: '83179580',
+      chainId: 137,
       cycleId: 'cycle-existing',
     });
     expect(chainWriter.safeTransferFromCustody).toHaveBeenCalledWith(

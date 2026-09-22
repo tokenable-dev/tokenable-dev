@@ -28,7 +28,7 @@ export class VaultAsset {
   @Column({ name: 'external_cert_number', type: 'varchar', length: 32 })
   externalCertNumber: string;
 
-  /** keccak256(normalized cert number) — must match TokenableRWA.vaultRef() on-chain. */
+  /** keccak256(normalized cert number) — platform identity; not stored on the OZ ERC721 preset. */
   @Column({ name: 'vault_ref', type: 'varchar', length: 66, unique: true })
   vaultRef: string;
 

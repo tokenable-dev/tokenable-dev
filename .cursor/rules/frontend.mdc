@@ -88,7 +88,7 @@ Before modifying frontend code, read:
 
 30. The `x-tokenable-chain-id` header is set by `setActiveChainIdForApi()` and read by the backend's `ChainConfigService`.
 
-31. Do not call `TokenableRWA.mint()` or `adminBurn()` from frontend. Those are backend-only.
+31. Do not call `mint()` or `burn()` from frontend. Those are backend-only.
 
 ## Constants
 

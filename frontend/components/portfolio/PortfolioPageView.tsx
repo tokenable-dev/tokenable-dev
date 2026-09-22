@@ -346,9 +346,8 @@ export function PortfolioPageView({
       seriesByCollectionKey,
       mintPreviewByToken,
     }).sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
-    // Web2-only event collectible — one per portfolio wallet until burned.
-    if (kbwMysteryBurned) return rows;
-    return [buildKbwMysteryCardRow(), ...rows];
+    // Web2 KBW collectible — always shown; after burn, status becomes "Used".
+    return [buildKbwMysteryCardRow(kbwMysteryBurned), ...rows];
   }, [
     assets,
     listingByTokenId,
@@ -631,18 +630,19 @@ export function PortfolioPageView({
         m.set(it.tokenId, (it.metadata ?? null) as RwaMetadata | null);
       }
     }
-    if (!kbwMysteryBurned) {
-      m.set(buildKbwMysteryCardRow().tokenId, buildKbwMysteryCardMetadata());
-    }
+    m.set(
+      buildKbwMysteryCardRow().tokenId,
+      buildKbwMysteryCardMetadata(),
+    );
     return m;
-  }, [metadataByTokenId, phantomMetaQuery.data, kbwMysteryBurned]);
+  }, [metadataByTokenId, phantomMetaQuery.data]);
 
   const holdingsDisplayCount = useMemo(
     () =>
       Math.max(0, tokenIds.filter((id) => !hiddenSet.has(id)).length) +
       redeemPhantomAssetRows.length +
-      (kbwMysteryBurned ? 0 : 1),
-    [tokenIds, hiddenSet, redeemPhantomAssetRows.length, kbwMysteryBurned],
+      1,
+    [tokenIds, hiddenSet, redeemPhantomAssetRows.length],
   );
 
   const assetRowsByTokenId = useMemo(() => {
@@ -819,20 +819,87 @@ export function PortfolioPageView({
     openPortfolioSetPriceModal,
   ]);
 
+  const listModalLayer =
+    listModal != null ? (
+      <ListRwaModalHost
+        open
+        tokenId={listModal.tokenId}
+        assetTitle={listModal.assetTitle}
+        headlineParts={listModal.headlineParts}
+        headlineGrade={listModal.headlineGrade}
+        collectionKey={listModal.collectionKey}
+        collectionBids={
+          listModal.collectionKey
+            ? collectionTopBids.byCollectionKey.get(listModal.collectionKey)?.bids ??
+              []
+            : []
+        }
+        existingAskOrderHash={listModal.existingAskOrderHash}
+        initialPriceUsdc={
+          listModal.listedPriceUsd != null
+            ? String(listModal.listedPriceUsd)
+            : null
+        }
+        marketValueUsd={listModal.marketValueUsd}
+        listedPriceUsd={listModal.listedPriceUsd}
+        copyVariant="set-price"
+        onMatchedSale={() => {
+          void refetchActiveOrders();
+        }}
+        onClose={() => setListModal(null)}
+        onListed={(tid, created) => {
+          if (created) {
+            const priceUsd =
+              Number(created.considerationAmount) / PORTFOLIO_USDC_DECIMALS;
+            setListModal((m) =>
+              m && m.tokenId === tid
+                ? {
+                    ...m,
+                    existingAskOrderHash: created.orderHash,
+                    listedPriceUsd: Number.isFinite(priceUsd)
+                      ? priceUsd
+                      : m.listedPriceUsd,
+                  }
+                : m,
+            );
+          }
+          void invalidateAfterListing(queryClient, {
+            collectionKey: listModal.collectionKey,
+            address: signerAddress ?? portfolioAddress,
+            tokenId: tid ?? listModal.tokenId,
+          });
+          void refetchActiveOrders();
+        }}
+      />
+    ) : null;
+
   if (!authInitialized || authLoading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-black">
-        <span className="h-7 w-7 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
-      </div>
+      <>
+        <div className="flex min-h-[50vh] items-center justify-center bg-black">
+          <span className="h-7 w-7 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+        </div>
+        {listModalLayer}
+      </>
     );
   }
 
   if (!user) {
-    return <PortfolioGuestState />;
+    return (
+      <>
+        <PortfolioGuestState />
+        {listModalLayer}
+      </>
+    );
   }
 
   if (!wallet.hasLinkedWallet) {
-    return <PortfolioDisconnectedState />;
+    return (
+      <>
+        <PortfolioDisconnectedState />
+        {listModalLayer}
+      </>
+    );
   }
 
   return (
@@ -1027,59 +1094,7 @@ export function PortfolioPageView({
         />
       ) : null}
 
-      {listModal != null ? (
-        <ListRwaModalHost
-          open
-          tokenId={listModal.tokenId}
-          assetTitle={listModal.assetTitle}
-          headlineParts={listModal.headlineParts}
-          headlineGrade={listModal.headlineGrade}
-          collectionKey={listModal.collectionKey}
-          collectionBids={
-            listModal.collectionKey
-              ? collectionTopBids.byCollectionKey.get(listModal.collectionKey)?.bids ??
-                []
-              : []
-          }
-          existingAskOrderHash={listModal.existingAskOrderHash}
-          initialPriceUsdc={
-            listModal.listedPriceUsd != null
-              ? String(listModal.listedPriceUsd)
-              : null
-          }
-          marketValueUsd={listModal.marketValueUsd}
-          listedPriceUsd={listModal.listedPriceUsd}
-          copyVariant="set-price"
-          onMatchedSale={() => {
-            void refetchActiveOrders();
-          }}
-          onClose={() => setListModal(null)}
-          onListed={(tid, created) => {
-            if (created) {
-              const priceUsd =
-                Number(created.considerationAmount) / PORTFOLIO_USDC_DECIMALS;
-              setListModal((m) =>
-                m && m.tokenId === tid
-                  ? {
-                      ...m,
-                      existingAskOrderHash: created.orderHash,
-                      listedPriceUsd: Number.isFinite(priceUsd)
-                        ? priceUsd
-                        : m.listedPriceUsd,
-                    }
-                  : m,
-              );
-            }
-            void invalidateAfterListing(queryClient, {
-              collectionKey: listModal.collectionKey,
-              address: signerAddress ?? portfolioAddress,
-              tokenId: tid ?? listModal.tokenId,
-            });
-            void refetchActiveOrders();
-            // Keep sheet open so DS-4 complete state can render; Done closes via onClose.
-          }}
-        />
-      ) : null}
+      {listModalLayer}
     </div>
   );
 }

@@ -106,9 +106,8 @@ export class RwaMintService {
       );
     }
 
-    // The on-chain vaultRef MUST be derived from the permanent physical-asset
-    // identity (PSA cert number), never from tokenURI — otherwise the
-    // contract's anti-double-claim check across vault re-deposits is defeated.
+    // The off-chain vaultRef is still keccak256(cert) for DB uniqueness.
+    // The NFT contract no longer stores or checks it.
     const vaultRef = VaultService.computeVaultRef(certNumber);
 
     // "Vault Deposit -> Verify deposit -> Create asset record" — reserves the
@@ -169,6 +168,10 @@ export class RwaMintService {
         tokenURI,
         vaultRef,
         chainId,
+        {
+          onSubmitted: (hash) =>
+            this.vault.noteMintAttemptTx(cycle.id, { txHash: hash }),
+        },
       ));
     } catch (err) {
       // Release the reserved cycle so this cert isn't stuck "occupied" by a

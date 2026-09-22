@@ -48,11 +48,8 @@ export const TOKENABLE_RWA_MINT_ABI = [
     name: "mint",
     type: "function",
     stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "_tokenURI", type: "string" },
-    ],
-    outputs: [{ name: "", type: "uint256" }],
+    inputs: [{ name: "to", type: "address" }],
+    outputs: [],
   },
 ] as const;
 
@@ -320,15 +317,6 @@ export const SEAPORT_ORDER_TYPES = {
 // ─── Event ABIs (getLogs) ─────────────────────────────────────────────────────
 
 export const TOKENABLE_RWA_EVENTS_ABI = [
-  {
-    name: "Minted",
-    type: "event",
-    inputs: [
-      { name: "to", type: "address", indexed: true },
-      { name: "tokenId", type: "uint256", indexed: true },
-      { name: "tokenURI", type: "string", indexed: false },
-    ],
-  },
   {
     name: "Transfer",
     type: "event",

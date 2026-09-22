@@ -456,8 +456,8 @@ export class PortfolioDailySnapshotService {
     totalMinted: number;
     holderIndex: HolderIndex;
   }> {
-    const { totalMinted: totalRaw } = await this.blockchain.getRwaInfo(chainId);
-    const totalMinted = Math.max(0, Math.floor(Number(totalRaw)));
+    const liveIds = await this.blockchain.listLiveTokenIds(chainId);
+    const totalMinted = liveIds.length;
     if (totalMinted <= 0) {
       return { totalMinted: 0, holderIndex: new Map() };
     }
@@ -486,9 +486,8 @@ export class PortfolioDailySnapshotService {
       }),
     );
 
-    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i + 1);
     const ownerByToken = await this.blockchain.batchOwnerOf(
-      tokenIds,
+      liveIds,
       this.ownerScanConcurrency(),
       chainId,
     );

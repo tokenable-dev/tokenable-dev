@@ -127,17 +127,23 @@ export function stripCategoryPrefixFromSet(
   const set = setLine.trim();
   const cat = (categoryLabel ?? "").trim();
   if (!set || !cat) return set;
-  const catRe = new RegExp(`^${escapeRegExp(cat)}\\b\\s*`, "i");
-  if (catRe.test(set)) {
-    const stripped = set.replace(catRe, "").trim();
-    return stripped || set;
+  const catRes = [new RegExp(`^${escapeRegExp(cat)}\\b\\s*`, "i")];
+  // Display badge may be accented `Pokémon` while PSA Brand stays ASCII `Pokemon`.
+  if (/^pok[eé]mon$/i.test(cat)) {
+    catRes.push(/^pok[eé]mon\b\s*/i);
   }
-  const yearMatch = /^(\d{4})\s+(.+)$/.exec(set);
-  if (yearMatch) {
-    const [, y, rest] = yearMatch;
-    if (catRe.test(rest)) {
-      const strippedRest = rest.replace(catRe, "").trim();
-      if (strippedRest) return `${y} · ${strippedRest}`;
+  for (const catRe of catRes) {
+    if (catRe.test(set)) {
+      const stripped = set.replace(catRe, "").trim();
+      return stripped || set;
+    }
+    const yearMatch = /^(\d{4})\s+(.+)$/.exec(set);
+    if (yearMatch) {
+      const [, y, rest] = yearMatch;
+      if (catRe.test(rest)) {
+        const strippedRest = rest.replace(catRe, "").trim();
+        if (strippedRest) return `${y} · ${strippedRest}`;
+      }
     }
   }
   return set;
@@ -173,6 +179,12 @@ function cleanBreadcrumbSetNode(
       "ig",
     );
     spaced = spaced.replace(catPhrase, " ").replace(/\s+/g, " ").trim();
+    if (/^pok[eé]mon$/i.test(categoryLabel)) {
+      spaced = spaced
+        .replace(/(?:^|\s)pok[eé]mon(?:\s|$)/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
   }
 
   const rawTokens = spaced.split(/\s+/).filter(Boolean);

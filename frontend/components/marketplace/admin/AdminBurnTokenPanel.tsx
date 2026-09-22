@@ -27,9 +27,10 @@ export function AdminBurnTokenPanel({
         Burn by token ID
       </h2>
       <p className={`mt-2 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-        Executes on-chain <code className="text-xs">adminBurn</code> via the
-        platform owner wallet. Active listings are cancelled automatically before
-        burn. Not reversible.
+        Executes on-chain <code className="text-xs">burn</code> (OpenZeppelin
+        ERC721Burnable) via the wallet that currently holds the NFT — usually
+        custody after redeem intake. Active listings are cancelled first. Not
+        reversible. The token must already be in platform custody.
       </p>
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="block">

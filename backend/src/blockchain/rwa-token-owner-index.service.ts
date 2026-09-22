@@ -427,7 +427,7 @@ export class RwaTokenOwnerIndexService {
     if (deployBlock > 0) return true;
     this.logger.warn(
       `RWA owner index log backfill skipped chain=${chainId} — ` +
-        `set CHAIN_${chainId}_RWA_DEPLOY_BLOCK to the TokenableRWA deploy block ` +
+        `set CHAIN_${chainId}_RWA_DEPLOY_BLOCK to the ERC721 preset deploy block ` +
         `(live getLogs poll still records new mints when deploy block is set; portfolio uses ownerOf until indexed)`,
     );
     return false;
@@ -460,10 +460,10 @@ export class RwaTokenOwnerIndexService {
           TOKENABLE_RWA_ABI,
           provider,
         );
-        const totalMinted = Number(await contract.totalMinted());
-        return { totalMinted: Number.isFinite(totalMinted) ? totalMinted : 0 };
+        const totalSupply = Number(await contract.totalSupply());
+        return { totalMinted: Number.isFinite(totalSupply) ? totalSupply : 0 };
       },
-      { label: 'totalMinted' },
+      { label: 'totalSupply' },
     );
   }
 

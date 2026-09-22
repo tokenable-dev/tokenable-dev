@@ -205,16 +205,14 @@ Maintenance SQL for FedEx delivery / auto-receipt: `backend/sql/maintenance/add_
 
 ## VaultRef
 
-The `vaultRef` is a **permanent on-chain identity** for the physical card:
+The `vaultRef` is the **Postgres identity** for the physical card (not stored on the OZ NFT):
 
 ```typescript
 vaultRef = keccak256(certNumber.trim().toUpperCase())
 ```
 
 - Derived from PSA cert number only — never from tokenURI or tokenId
-- Stored in contract: `_vaultRefs[tokenId]` (permanent, survives burn)
-- Used for anti-double-claim: `VaultRefAlreadyActive` revert if active token exists
-- `activeTokenIdOf(vaultRef)` returns 0 after burn → allows new cycle
+- Anti-double-claim: vault cycle reserve + `rwa_tokens` partial unique index `(token_contract, cert_number) WHERE burned_at IS NULL`
 
 ---
 
@@ -256,10 +254,10 @@ The `intendedRecipient` (user's linked wallet at mint time) is recorded but is n
 
 After an NFT is burned, the same PSA cert can be re-vaulted:
 
-1. On-chain: `adminBurn()` clears `activeTokenIdOf(vaultRef)` → slot is free
+1. On-chain: `burn(tokenId)` (owner/custody) destroys the NFT
 2. DB: `burned_at` set on `rwa_tokens`; vault cycle reaches `redeemed`
 3. New cycle: `reserveCycleForDeposit()` creates `vault_cycle_number = 2`
-4. New mint: `mint(custodyWallet, newTokenURI, sameVaultRef)` → new `tokenId`
+4. New mint: `mint(custodyWallet)` → new `tokenId`; same cert `vaultRef` in DB
 5. DB partial unique: `(token_contract, cert_number) WHERE burned_at IS NULL` — allows duplicate cert on burned tokens
 
 ---
@@ -273,7 +271,7 @@ All admin vault ops require the marketplace admin session.
 | `GET /api/marketplace/admin/rwa-tokens/cards` | All registry tokens (listed + unlisted + burned) |
 | `GET /api/marketplace/admin/rwa-tokens/custody-nfts` | NFTs in custody wallet pending delivery |
 | `POST /api/marketplace/admin/rwa-tokens/:id/deliver` | Transfer custody → user primary wallet |
-| `POST /api/marketplace/admin/rwa-tokens/:id/burn` | On-chain adminBurn + completeRedemptionBurn |
+| `POST /api/marketplace/admin/rwa-tokens/:id/burn` | On-chain `burn` (custody must own) + completeRedemptionBurn |
 | `POST /api/marketplace/admin/rwa-tokens/redemptions/:redemptionId/confirm-release` | Mark physical card shipped |
 | `GET /api/marketplace/admin/rwa-tokens/vault-history/:certNumber` | Full audit history for a cert |
 
@@ -283,11 +281,11 @@ All admin vault ops require the marketplace admin session.
 
 | Action | Contract function | Signer |
 |--------|-------------------|--------|
-| Mint to custody | `mint(to, tokenURI, vaultRef)` | `RWA_OWNER_PRIVATE_KEY` (MINTER_ROLE) |
+| Mint to custody | `mint(to)` | `RWA_OWNER_PRIVATE_KEY` (`MINTER_ROLE`) |
 | Deliver to user | `safeTransferFrom(custody, user, tokenId)` | `RWA_CUSTODY_PRIVATE_KEY` |
-| Admin burn | `adminBurn(tokenId, expectedOwner)` | `RWA_OWNER_PRIVATE_KEY` (BURNER_ROLE) |
+| Admin burn | `burn(tokenId)` | Custody (or minter) **must own** the NFT |
 
-> Both MINTER_ROLE and BURNER_ROLE are granted to the minter address at `initialize()` time. They can be split to separate wallets via `grantRole()` without a contract upgrade.
+> There is no `BURNER_ROLE`. Burn is OpenZeppelin ERC721Burnable.
 
 ---
 

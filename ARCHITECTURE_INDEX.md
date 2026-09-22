@@ -10,7 +10,7 @@ Navigation guide for both humans and AI agents. Read this first before working o
 
 ## Platform Purpose
 
-**Tokenable** is a **non-custodial marketplace for PSA-graded trading card RWAs** (Real World Assets) on **Ethereum** (Sepolia for default/dev, mainnet for production; Polygon mainnet for internal/QA). Users vault physical PSA 10 cards, receive ERC-721 NFTs (**TokenableRWA**), and trade them via **Seaport 1.5** with **USDC** settlement. On-chain stack details: [`docs/architecture/blockchain.md`](docs/architecture/blockchain.md).
+**Tokenable** is a **non-custodial marketplace for PSA-graded trading card RWAs** (Real World Assets) on **Ethereum** (Sepolia for default/dev, mainnet for production; Polygon mainnet for internal/QA). Users vault physical PSA 10 cards, receive ERC-721 NFTs (OpenZeppelin **ERC721PresetMinterPauserAutoId**), and trade them via **Seaport 1.5** with **USDC** settlement. On-chain stack details: [`docs/architecture/blockchain.md`](docs/architecture/blockchain.md).
 
 ---
 
@@ -46,32 +46,32 @@ Key facts:
 | **Frontend (vault form)** | `frontend/app/vault/`, `frontend/components/vault/`, `frontend/hooks/vault/useMintForm.ts` |
 | **Frontend (admin)** | `frontend/app/marketplace/admin/custody-nfts/`, `frontend/components/marketplace/admin/MarketplaceAdminCustodyNftsPage.tsx` |
 | **Database tables** | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_submissions`, `vault_submission_items`, `rwa_tokens` |
-| **Contract** | `contracts/contracts/TokenableRWA.sol` |
+| **Contract** | OpenZeppelin `ERC721PresetMinterPauserAutoId` (`contracts/contracts/oz-erc721-preset.sol`) |
 | **Required reading before changes** | `docs/architecture/vault-lifecycle.md`, `docs/architecture/blockchain.md`, `docs/business-rules.md` |
 
 Key facts:
 - Mints go to **platform custody wallet**, not user. Admin delivers via `/admin/rwa-tokens/:id/deliver`.
-- `vaultRef = keccak256(certNumber.toUpperCase())` — permanent on-chain identity for the physical card.
+- `vaultRef = keccak256(certNumber.toUpperCase())` — permanent platform identity for the physical card (Postgres + vault cycle; not on the preset contract).
 - Only **PSA 10** graded cards can mint (enforced at `/api/rwa/upload`).
-- Same cert can be re-minted after burn (partial unique index in DB + contract `activeTokenIdOf` clears).
+- Same cert can be re-minted after burn (partial unique index in DB when no live `rwa_tokens` row for that vaultRef).
 
 ---
 
-### Smart Contract (TokenableRWA)
+### Smart Contract (OZ ERC721 preset)
 
 | | |
 |---|---|
 | **Documentation** | `docs/architecture/blockchain.md` |
-| **Source** | `contracts/contracts/TokenableRWA.sol` |
+| **Source** | OpenZeppelin 4.9.6 preset (compile shim `contracts/contracts/oz-erc721-preset.sol`) |
 | **ABI (synced copy)** | `backend/src/blockchain/abis/tokenable-rwa.abi.ts` |
-| **Tests** | `contracts/test/TokenableRWA.test.ts` |
+| **Tests** | `contracts/test/OzErc721Preset.test.ts` |
 | **Deploy scripts** | `contracts/scripts/` |
 | **Backend writer** | `backend/src/blockchain/rwa-chain-writer.service.ts` |
 | **Required reading before changes** | `docs/architecture/blockchain.md`, `docs/business-rules.md` (BR-19 through BR-21) |
 
 Key facts:
-- UUPS upgradeable ERC-721 + ERC-2981 + AccessControl + Pausable
-- Roles: `MINTER_ROLE`, `BURNER_ROLE`, `PAUSER_ROLE`, `DEFAULT_ADMIN_ROLE`
+- Unmodified OpenZeppelin `ERC721PresetMinterPauserAutoId` (no proxy)
+- Roles: `MINTER_ROLE`, `PAUSER_ROLE`, `DEFAULT_ADMIN_ROLE` (burn = ERC721Burnable owner)
 - Token IDs start at 1 and never reuse
 - Trading uses **OpenSea Seaport 1.5** + **Circle USDC** (external) — inventory and deployed proxies in `docs/architecture/blockchain.md`
 - After upgrade: always run `pnpm sync-abi` and redeploy backend
@@ -263,7 +263,7 @@ Key facts:
 |---|---|
 | **Documentation** | `docs/testing.md` |
 | **Backend tests** | `backend/src/**/*.spec.ts` |
-| **Contract tests** | `contracts/test/TokenableRWA.test.ts` |
+| **Contract tests** | `contracts/test/OzErc721Preset.test.ts` |
 | **CI** | `.github/workflows/backend-ci.yml` |
 
 ---
@@ -275,7 +275,7 @@ Key facts:
 | Auth / Privy session | `docs/api/auth.md`, `backend/src/auth/privy/privy-user.parser.ts` |
 | Vault mint flow | `docs/architecture/vault-lifecycle.md`, `backend/src/rwa/rwa-mint.service.ts`, `backend/src/vault/vault.service.ts` |
 | Partner consignment (mint+list) | `docs/api/marketplace-admin.md` (partners + bulk mint), `backend/src/marketplace/partners/`, `backend/src/rwa/bulk-mint/`, `backend/src/rwa/admin/bulk-mint-admin.controller.ts` |
-| Smart contract | `docs/architecture/blockchain.md`, `contracts/test/TokenableRWA.test.ts` |
+| Smart contract | `docs/architecture/blockchain.md`, `contracts/test/OzErc721Preset.test.ts` |
 | Database schema | `docs/architecture/database.md`, existing schema file(s) in that domain |
 | Marketplace trading | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |

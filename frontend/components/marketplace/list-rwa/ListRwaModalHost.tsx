@@ -1,18 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import type { Order } from "@/lib/core";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import { ListRwaModal } from "@/components/marketplace/list-rwa/ListRwaModal";
 
-const ListRwaModal = dynamic(
-  () =>
-    import("@/components/marketplace/list-rwa/ListRwaModal").then((m) => ({
-      default: m.ListRwaModal,
-    })),
-  { ssr: false },
-);
-
-/** Portfolio / certificate entry that mounts {@link ListRwaModal} (dynamic, client-only). */
+/** Portfolio / certificate entry that mounts {@link ListRwaModal}. */
 export function ListRwaModalHost({
   open,
   tokenId,
@@ -48,10 +40,9 @@ export function ListRwaModalHost({
   onClose: () => void;
   onListed: (tokenId?: number, created?: Order) => void;
 }) {
-  if (!open) return null;
-
   return (
     <ListRwaModal
+      open={open}
       shell="sheet"
       tokenId={tokenId}
       assetTitle={assetTitle}

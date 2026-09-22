@@ -25,10 +25,10 @@ export type CategorySelectOption = {
   label: string;
 };
 
-/** Markets.html filter chips — Pokemon / One Piece / NBA / MLB / Others. */
+/** Markets.html filter chips — Pokémon / One Piece / NBA / MLB / Others. */
 export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
   { id: "all", label: "All" },
-  { id: "pokemon", label: "Pokemon" },
+  { id: "pokemon", label: "Pokémon" },
   { id: "onepiece", label: "One Piece" },
   { id: "basketball", label: "NBA" },
   { id: "baseball", label: "MLB" },

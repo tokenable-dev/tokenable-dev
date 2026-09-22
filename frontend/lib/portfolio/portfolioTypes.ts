@@ -21,6 +21,8 @@ export interface PricedAssetRow {
   marketPreviewRaw: CollectionMarketPreview | null;
   /** Downsampled 1y external market USD for gallery sparkline. */
   sparkline1y: number[];
+  /** Web2 KBW Mystery Card — shown after event "burn" (redeemed), not removed from portfolio. */
+  kbwMysteryUsed?: boolean;
 }
 
 export type AssetRow = PricedAssetRow;

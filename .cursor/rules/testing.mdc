@@ -29,14 +29,11 @@ Before writing tests, read:
 
 ## Contract Tests (Hardhat/Chai)
 
-8. All contract tests in `contracts/test/TokenableRWA.test.ts`.
+8. All contract tests in `contracts/test/OzErc721Preset.test.ts`.
 
-9. Every new external function must have at least:
-   - Success case
-   - Access control failure (unauthorized caller)
-   - Input validation failures (zero address, empty string, etc.)
+9. Cover mint access control, owner burn, pause, and the consume-token-0 deploy convention.
 
-10. Test the full lifecycle: mint → transfer → burn → re-mint. This catches vaultRef slot bugs.
+10. Do not add custom NFT Solidity to test. The preset is unmodified OpenZeppelin.
 
 11. Test upgrades: deploy v1, upgrade to v2, verify state is preserved and new functions work.
 

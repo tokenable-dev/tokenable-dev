@@ -85,7 +85,7 @@ export class VaultMintRecoveryService implements OnModuleInit {
   private async healOne(
     cycleId: string,
     chainId: number,
-    vaultRef: string,
+    _vaultRef: string,
     attempt: {
       tokenURI: string;
       certNumber: string;
@@ -106,9 +106,12 @@ export class VaultMintRecoveryService implements OnModuleInit {
     }
     const chain = chainId as SupportedChainId;
     let tokenIdNum = Number(attempt.tokenId);
-    if (!Number.isFinite(tokenIdNum) || tokenIdNum <= 0) {
-      tokenIdNum = await this.blockchain.getActiveTokenIdOfVaultRef(
-        vaultRef,
+    if (!Number.isFinite(tokenIdNum) || tokenIdNum < 0) {
+      tokenIdNum = 0;
+    }
+    if (!tokenIdNum && attempt.txHash) {
+      tokenIdNum = await this.blockchain.getMintedTokenIdFromTx(
+        attempt.txHash,
         chain,
       );
     }

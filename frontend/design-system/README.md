@@ -239,7 +239,8 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Dev network switch | `NetworkSwitcher` | Account dropdown (desktop) + mobile drawer | `components/network/NetworkSwitcher.tsx` |
 | Notifications | `tk-notifications.js` | bell + panel | (Phase 10) |
 | Footer | `tk-footer.js` | `TkFooter` | `components/layout/TkFooter.tsx` |
-| FAQ | `FAQ.html` / `faq.js` | `FaqPage` | `components/faq/FaqPage.tsx` (`/faq`) |
+| FAQ page | `FAQ.html` / `faq.js` | `FaqPage` | `components/faq/FaqPage.tsx` (`/faq`) |
+| FAQ drawer | `tk-faq-drawer.js` + `[data-faq-open]` | `FaqDrawer` + `FaqDrawerHost` | `components/faq/FaqDrawer.tsx` — footer FAQ opens drawer; `href=/faq` is no-JS fallback |
 | Page container | `.wrap` | `tkl-wrap` | `constants/layout.ts` (`APP_MAIN_SHELL_CLASS`) |
 
 ---
@@ -296,7 +297,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Section | React target | File |
 |---------|--------------|------|
 | Page header | eyebrow + title | `components/markets/MarketsPageHeader.tsx` |
-| Filter / sort bar | Pokemon / One Piece / NBA / MLB / Others + More filters + Sort | `components/markets/MarketsFilterBar.tsx` |
+| Filter / sort bar | Pokémon / One Piece / NBA / MLB / Others + More filters + Sort | `components/markets/MarketsFilterBar.tsx` |
 | Card grid | `MarketsCollectionGrid` + `CollectibleCard` | `components/markets/MarketsCollectionGrid.tsx`, `components/collectibles/CollectibleCard.tsx` |
 | Page compose | `MarketsPage` | `components/markets/MarketsPage.tsx` |
 

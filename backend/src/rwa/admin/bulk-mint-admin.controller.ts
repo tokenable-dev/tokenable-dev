@@ -171,9 +171,9 @@ export class BulkMintAdminController {
 
   @Post('jobs/:id/commit')
   @ApiOperation({
-    summary: 'Approve once — mintBatch to partner wallet, then Seaport list',
+    summary: 'Approve once — mint each ready item to the partner wallet, then Seaport list',
     description:
-      'On-chain mint TX count = ceil(readyCount / 50). Then server signs asks with the entrusted partner key. Partial failures leave remaining items for retry.',
+      'Each card is a separate OpenZeppelin mint(to) transaction. Then the server signs asks with the entrusted partner key. Partial failures leave remaining items for retry.',
   })
   async commit(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
     this.admin.assertAdminSession(req);

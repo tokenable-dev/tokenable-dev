@@ -57,7 +57,7 @@ export class RwaToken {
   @Column({ name: 'vault_cycle_id', type: 'uuid', nullable: true })
   vaultCycleId: string | null;
 
-  /** On-chain vaultRef this token was minted with (see TokenableRWA.vaultRef()). */
+  /** vaultRef at mint time (DB + vault cycle); the preset contract has no vaultRef field. */
   @Column({ name: 'vault_ref', type: 'varchar', length: 66, nullable: true })
   vaultRef: string | null;
 

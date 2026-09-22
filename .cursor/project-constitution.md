@@ -29,7 +29,7 @@ Core user journey:
 | Frontend | Next.js 16, React 19, Tailwind 4, Privy, wagmi, React Query 5, Zustand 5 |
 | Backend | NestJS 11, TypeORM, Ethers.js 6, PostgreSQL 16, Redis 7 |
 | Blockchain | Ethereum Sepolia (11155111) / Ethereum mainnet (1) / Polygon (137 QA), Seaport 1.5, USDC |
-| Smart contracts | Solidity 0.8.20, UUPS upgradeable ERC-721, OpenZeppelin 4.9.6 |
+| Smart contracts | Solidity 0.8.20, OpenZeppelin 4.9.6 `ERC721PresetMinterPauserAutoId` (no proxy) |
 | IPFS | Pinata |
 | Auth | Privy (email, Google, Apple, embedded wallet, MetaMask) |
 | Pricing | Cardhedger (materialized, not live) |
@@ -41,7 +41,7 @@ Core user journey:
 
 ### 1. Backend-orchestrated blockchain writes
 
-Users never call the smart contract directly for mint or burn. Only the backend hot wallet (MINTER_ROLE, BURNER_ROLE) submits these transactions. Seaport trading is user-signed.
+Users never call the smart contract directly for mint or burn from the Tokenable UI. Only the backend hot wallet (`MINTER_ROLE`) submits `mint(to)`. Burns use ERC721Burnable and require the signer to own the token (typically custody after redeem intake). Seaport trading is user-signed.
 
 ### 2. Materialized market data
 
@@ -57,7 +57,7 @@ PSA vault and default `POST /rwa/mint` mint to the platform custody wallet; admi
 
 ### 5. One physical card, one active NFT
 
-The `vaultRef` (keccak256 of PSA cert) ensures one active NFT per physical card at any time. This is enforced both on-chain (custom error) and in the backend (vault cycle check).
+The `vaultRef` (keccak256 of PSA cert) ensures one active NFT per physical card at any time. This is enforced in the **backend** (vault cycle + `rwa_tokens` partial unique index), not on-chain.
 
 ---
 
@@ -210,12 +210,12 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 
 ## Smart Contract Assumptions
 
-1. Token IDs start at 1 and are monotonically increasing — never 0, never reused.
-2. `vaultRef = keccak256(certNumber.trim().toUpperCase())` — deterministic, permanent.
-3. `activeTokenIdOf(vaultRef)` returns 0 when no active NFT for that cert.
-4. `adminBurn` can be called while contract is paused; regular transfers cannot.
-5. UUPS proxy address never changes on upgrade.
-6. ABI must be re-synced (`pnpm sync-abi`) after any contract change.
+1. Token IDs are monotonically increasing and never reused. Deploy burns token 0 so live inventory starts at 1 (`orders.token_id = 0` is the collection-bid sentinel).
+2. `vaultRef = keccak256(certNumber.trim().toUpperCase())` — deterministic DB identity for the physical card (not stored on the NFT contract).
+3. Duplicate-cert prevention is Postgres + vault-cycle reserve, not `activeTokenIdOf`.
+4. `burn` requires the signer to own (or be approved for) the token; pause also blocks burns (OZ ERC721Pausable).
+5. NFT address changes on every redeploy — no UUPS proxy.
+6. ABI must be re-synced (`pnpm sync-abi`) after switching the compiled OZ artifact.
 
 ---
 
@@ -264,9 +264,9 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 
 ## Things That Must NEVER Be Changed Without Discussion
 
-1. **`vaultRef` derivation formula** — on-chain permanent; changing breaks all existing tokens.
-2. **`_nextTokenId` starting value** — must remain 1; no tokens at ID 0.
-3. **`adminBurn` burn mechanics** — clearing `activeTokenIdOf` is critical for re-mint.
+1. **`vaultRef` derivation formula** — used as the DB physical-card key; changing breaks vault cycles.
+2. **Live inventory must not use token id 0** — collection bids store `token_id = 0` as a sentinel.
+3. **Burn is owner/approved only** — backend burns after custody intake; do not reintroduce a custom adminBurn.
 4. **Seaport contract address** — standard deployed address; never override.
 5. **`collection_key` computation algorithm (v2)** — changing breaks all existing orders/collections.
 6. **PSA Public API token pool / rate limits** — affects mint and analyze availability.
@@ -277,8 +277,8 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 
 ## Things Requiring Manual Approval
 
-1. Smart contract upgrades (requires `DEFAULT_ADMIN_ROLE` — hardware wallet/multisig)
-2. `BURNER_ROLE` grant (allows destroying tokens — irreversible)
+1. Smart contract **redeploy** (new address; no in-place upgrade)
+2. Granting `MINTER_ROLE` to a new hot wallet
 3. Production database migrations
 4. Changes to `bootstrap-empty-prod-db.sql` (affects all new deployments)
 5. Changes to CI/CD pipeline (`.github/workflows/`)
@@ -317,10 +317,10 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 
 ### Smart contract change
 
-1. Update `contracts/contracts/TokenableRWA.sol`
-2. Add/update tests in `contracts/test/TokenableRWA.test.ts`
+1. Do not add custom NFT Solidity — keep the unmodified OpenZeppelin preset
+2. Add/update tests in `contracts/test/OzErc721Preset.test.ts`
 3. Run `pnpm test` — all tests must pass
 4. If ABI changes: run `pnpm sync-abi` and update backend
-5. Deploy via `pnpm upgrade:rwa:amoy` (preserves proxy address)
-6. Update address env vars in backend + frontend `.env`
+5. Deploy via `pnpm deploy:rwa:<network>` (new immutable address — update env everywhere)
+6. Set `CHAIN_{id}_RWA_DEPLOY_BLOCK` when using the owner index listener
 7. Update `docs/architecture/blockchain.md`

@@ -1,12 +1,12 @@
 /**
- * Burn every live TokenableRWA token on the configured chain so PSA certs can be re-minted.
+ * Burn every live RWA token the signer currently owns (ERC721Burnable).
  *
  * Usage (from backend/):
  *   node scripts/burn-all-rwa-tokens.mjs
  *   node scripts/burn-all-rwa-tokens.mjs --dry-run
  *
- * Requires RWA_OWNER_PRIVATE_KEY (or DEPLOYER_PRIVATE_KEY) with BURNER_ROLE,
- * plus CHAIN_{id}_RPC_URL and CHAIN_{id}_RWA_ADDRESS in backend/.env.
+ * Signer must be the current owner (usually custody). Requires
+ * CHAIN_{id}_RPC_URL and CHAIN_{id}_RWA_ADDRESS in backend/.env.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,11 +14,10 @@ import { fileURLToPath } from 'node:url';
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 
 const TOKENABLE_RWA_ABI = [
-  'function totalMinted() view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function tokenByIndex(uint256 index) view returns (uint256)',
   'function ownerOf(uint256 tokenId) view returns (address)',
-  'function adminBurn(uint256 tokenId, address expectedOwner)',
-  'function BURNER_ROLE() view returns (bytes32)',
-  'function hasRole(bytes32 role, address account) view returns (bool)',
+  'function burn(uint256 tokenId)',
 ];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,11 +57,12 @@ function resolveChainId() {
 
 function resolvePrivateKey() {
   const raw =
+    process.env.RWA_CUSTODY_PRIVATE_KEY?.trim() ||
     process.env.RWA_OWNER_PRIVATE_KEY?.trim() ||
     process.env.DEPLOYER_PRIVATE_KEY?.trim() ||
     '';
   if (!raw) {
-    console.error('RWA_OWNER_PRIVATE_KEY (or DEPLOYER_PRIVATE_KEY) is required');
+    console.error('RWA_CUSTODY_PRIVATE_KEY or RWA_OWNER_PRIVATE_KEY is required');
     process.exit(1);
   }
   return raw.startsWith('0x') ? raw : `0x${raw}`;
@@ -86,16 +86,6 @@ function resolveRwaAddress(chainId) {
   return addr;
 }
 
-function isMissingTokenError(e) {
-  const blob = `${e?.code ?? ''} ${e?.reason ?? ''} ${e?.shortMessage ?? ''}`.toLowerCase();
-  return (
-    e?.code === 'CALL_EXCEPTION' &&
-    (blob.includes('invalid token') ||
-      blob.includes('nonexistent token') ||
-      blob.includes('owner query for nonexistent'))
-  );
-}
-
 async function main() {
   const chainId = resolveChainId();
   const rpcUrl = resolveRpcUrl(chainId);
@@ -103,28 +93,17 @@ async function main() {
   const provider = new JsonRpcProvider(rpcUrl, chainId);
   const wallet = new Wallet(resolvePrivateKey(), provider);
   const contract = new Contract(contractAddress, TOKENABLE_RWA_ABI, wallet);
+  const signer = wallet.address.toLowerCase();
 
-  const [totalMinted, hasBurner] = await Promise.all([
-    contract.totalMinted(),
-    contract.hasRole(await contract.BURNER_ROLE(), wallet.address),
-  ]);
-
-  const total = Number(totalMinted);
+  const supply = Number(await contract.totalSupply());
   console.log(`Chain ${chainId} · RWA ${contractAddress}`);
-  console.log(`Signer ${wallet.address} · BURNER_ROLE=${hasBurner} · totalMinted=${total}`);
-  if (!hasBurner) {
-    console.error('Signer lacks BURNER_ROLE — run grant-burner for this chain first.');
-    process.exit(1);
-  }
+  console.log(`Signer ${wallet.address} · totalSupply=${supply}`);
 
   const live = [];
-  for (let tokenId = 1; tokenId <= total; tokenId += 1) {
-    try {
-      const owner = await contract.ownerOf(tokenId);
-      live.push({ tokenId, owner });
-    } catch (e) {
-      if (!isMissingTokenError(e)) throw e;
-    }
+  for (let i = 0; i < supply; i += 1) {
+    const tokenId = Number(await contract.tokenByIndex(i));
+    const owner = String(await contract.ownerOf(tokenId)).toLowerCase();
+    live.push({ tokenId, owner });
   }
 
   if (live.length === 0) {
@@ -132,21 +111,28 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${live.length} live token(s): ${live.map((t) => `#${t.tokenId}`).join(', ')}`);
+  const owned = live.filter((t) => t.owner === signer);
+  const skipped = live.filter((t) => t.owner !== signer);
+  console.log(`Found ${live.length} live token(s); signer owns ${owned.length}.`);
+  if (skipped.length) {
+    console.log(
+      `Skipping not-owned: ${skipped.map((t) => `#${t.tokenId}@${t.owner}`).join(', ')}`,
+    );
+  }
   if (dryRun) {
     console.log('Dry run — no transactions sent.');
     return;
   }
 
-  for (const { tokenId, owner } of live) {
+  for (const { tokenId, owner } of owned) {
     console.log(`Burning token #${tokenId} (owner ${owner})…`);
-    const tx = await contract.adminBurn(tokenId, owner);
+    const tx = await contract.burn(tokenId);
     console.log(`  tx ${tx.hash}`);
     const receipt = await tx.wait();
     console.log(`  confirmed in block ${receipt?.blockNumber ?? '?'}`);
   }
 
-  console.log('Done — all live tokens burned on chain.');
+  console.log('Done — signer-owned live tokens burned on chain.');
 }
 
 main().catch((err) => {

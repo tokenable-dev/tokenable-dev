@@ -63,7 +63,7 @@ Feature request / bug / change
 
 ### 7. Verify
 - `cd backend && pnpm exec tsc --noEmit` and `cd frontend && pnpm exec tsc --noEmit`.
-- Backend logic change → add/update a unit test. Contract change → update `contracts/test/TokenableRWA.test.ts` and run `pnpm test`; run `pnpm sync-abi` if the ABI changed.
+- Backend logic change → add/update a unit test. Contract change → update `contracts/test/OzErc721Preset.test.ts` and run `pnpm test`; run `pnpm sync-abi` if the ABI changed.
 
 ### 8. Keep docs true
 - If you changed how a subsystem works, update its doc in the same change. Docs are the single source of truth.
@@ -73,9 +73,9 @@ Feature request / bug / change
 
 ## Guardrails (from the constitution)
 
-- **Never** change: the `vaultRef` formula, JWT cookie name (`access_token`), admin cookie name (`marketplace_admin`), or the `collection_key` (v2) algorithm. See constitution § "Things That Must NEVER Be Changed."
-- **Requires approval:** smart-contract upgrades, `BURNER_ROLE` grants, production migrations, CI/CD changes, secret rotation.
-- **Never** call `mint()` / `adminBurn()` from the frontend — those are backend-only.
+- **Never** change: the `vaultRef` formula (DB physical-card key), JWT cookie name (`access_token`), admin cookie name (`marketplace_admin`), or the `collection_key` (v2) algorithm. See constitution § "Things That Must NEVER Be Changed."
+- **Requires approval:** smart-contract redeploy / env address swap, `MINTER_ROLE` grants, production migrations, CI/CD changes, secret rotation.
+- **Never** call `mint()` / `burn()` from the frontend — those are backend-only.
 - **Never** call Cardhedger/PSA upstream on a hot read path — reads come from PostgreSQL snapshots.
 - **Never** commit production secrets. See `.cursor/rules/security.mdc`.
 

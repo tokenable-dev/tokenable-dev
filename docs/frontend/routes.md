@@ -28,7 +28,7 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 | `/partner/portfolio/assets/[tokenId]` | `app/partner/portfolio/assets/[tokenId]/page.tsx` | Partner certificate of ownership |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
 | `/settings` | `app/settings/page.tsx` | Account settings — Profile, Notifications, Wallet, Addresses, Identity, Legal, Security (`?section=`) |
-| `/faq` | `app/faq/page.tsx` | Help center FAQ (`FAQ.html`) — linked from footer |
+| `/faq` | `app/faq/page.tsx` | Help center FAQ (`FAQ.html`). Footer FAQ uses `data-faq-open` to open the bottom drawer (`tk-faq-drawer.js` → `FaqDrawerHost`); `/faq` remains the full-page / no-JS fallback. |
 | `/profile` | `app/profile/page.tsx` | Redirects to `/settings` |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
 | `/site-access/verify` | `app/site-access/verify/route.ts` | Route handler for gate cookie (if used) |

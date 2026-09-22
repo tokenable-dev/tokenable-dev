@@ -150,8 +150,9 @@ export function PortfolioCertificatePage({
         }
         cancelListingPending={holdingActions.cancellingListingTokenId === tokenId}
       />
-      {listOpen && tokenIdOk ? (
+      {tokenIdOk ? (
         <ListRwaModal
+          open={listOpen}
           tokenId={tokenId}
           assetTitle={listIdentity.line1}
           headlineParts={listIdentity.parts}

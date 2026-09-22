@@ -15,6 +15,11 @@ import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation";
+import {
+  KBW_POST_LOGIN_ROUTE_KEY,
+  resolveKbwStage2ReturnPath,
+} from "@/lib/event/kbwEventLoginRouting";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
@@ -55,11 +60,15 @@ export function PrivySessionBridge() {
       if (!freshLogin) return;
 
       const ui = useAuthUiStore.getState();
-      ui.armKbwOffer();
-      // Stage 2 → main (`/`) after login so the offer modal can open there.
       if (eventLoginIntent) {
-        ui.setPendingReturnTo("/");
+        try {
+          sessionStorage.setItem(KBW_POST_LOGIN_ROUTE_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        return;
       }
+      ui.armKbwOffer();
     },
   });
   const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
@@ -180,7 +189,53 @@ export function PrivySessionBridge() {
           }
 
           if (!cancelled && !returnToHandled.current) {
-            const returnTo = useAuthUiStore.getState().consumeReturnTo();
+            let kbwReturnTo: string | null = null;
+            let kbwRouteDeferred = false;
+            try {
+              if (sessionStorage.getItem(KBW_POST_LOGIN_ROUTE_KEY) === "1") {
+                const wallet =
+                  getPrimaryWalletAddress(syncedUser) ??
+                  pickPrivyUserEthereumWalletAddress(privyUser) ??
+                  privyWalletHint ??
+                  null;
+                if (wallet) {
+                  sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
+                  kbwReturnTo = await resolveKbwStage2ReturnPath(wallet);
+                  const ui = useAuthUiStore.getState();
+                  if (kbwReturnTo === "/") ui.armKbwOffer();
+                  else ui.clearKbwOffer();
+                } else if (userHasLinkedWallet(syncedUser)) {
+                  sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
+                  useAuthUiStore.getState().armKbwOffer();
+                  kbwReturnTo = "/";
+                } else {
+                  const attempt = catchupAttempt.current;
+                  const clientWalletCount = walletsRef.current.length;
+                  const hasWalletHint =
+                    clientWalletCount > 0 ||
+                    Boolean(privyWalletHint) ||
+                    Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
+                  const shouldRetry =
+                    attempt < WALLET_CATCHUP_DELAYS_MS.length &&
+                    (hasWalletHint || attempt < 3);
+                  if (shouldRetry) {
+                    kbwRouteDeferred = true;
+                  } else {
+                    sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
+                    useAuthUiStore.getState().armKbwOffer();
+                    kbwReturnTo = "/";
+                  }
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+
+            if (kbwRouteDeferred) {
+              // Wait for wallet catch-up before choosing main vs portfolio.
+            } else {
+            const returnTo =
+              kbwReturnTo ?? useAuthUiStore.getState().consumeReturnTo();
             if (returnTo) {
               returnToHandled.current = true;
               const targetPath = returnTo.split("?")[0] || returnTo;
@@ -190,6 +245,7 @@ export function PrivySessionBridge() {
               if (here !== targetPath) {
                 router.push(returnTo);
               }
+            }
             }
           }
         } finally {

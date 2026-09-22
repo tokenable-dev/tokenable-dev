@@ -10,6 +10,7 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In } from 'typeorm';
+import { Contract } from 'ethers';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import {
   ChainConfigService,
@@ -71,6 +72,11 @@ import { CollectionCoverService } from './collection-cover.service';
 import { CollectionIdentityService } from './collection-identity.service';
 import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
 import { vaultLabelForCustody } from '../partners/partner-vault-label.util';
+
+const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
+const SEAPORT_ORDER_STATUS_ABI = [
+  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
+];
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
@@ -179,12 +185,18 @@ export class CollectionService {
     chainId?: SupportedChainId,
   ): Promise<string | null> {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId), resolved);
+    const uri = await this.rwaTokenRegistry.resolveMetadataUriForToken(
+      Number(tokenId),
+      resolved,
+    );
+    if (!uri) {
+      throw new Error('Unsupported tokenURI for IPFS metadata fetch');
+    }
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
       step: 'ensureCollectionForListing',
       tokenId: String(tokenId),
-      tokenUri: typeof uri === 'string' ? uri : String(uri),
+      tokenUri: uri,
       chainId: resolved,
       linkRwaToken: true,
     });
@@ -597,7 +609,7 @@ export class CollectionService {
     });
 
     if (opts.linkRwaToken && opts.tokenId) {
-      void this.rwaTokenRegistry.upsertFromMetadata(opts.tokenId, meta, {
+      await this.rwaTokenRegistry.upsertFromMetadata(opts.tokenId, meta, {
         tokenUri: opts.tokenUri,
         collectionKey,
         chainId: opts.chainId,
@@ -646,7 +658,13 @@ export class CollectionService {
     chainId?: SupportedChainId,
   ): Promise<string | null> {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId), resolved);
+    const uri = await this.rwaTokenRegistry.resolveMetadataUriForToken(
+      Number(tokenId),
+      resolved,
+    );
+    if (!uri) {
+      throw new Error('Unsupported tokenURI for IPFS metadata fetch');
+    }
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) return null;
@@ -1774,13 +1792,65 @@ export class CollectionService {
     );
   }
 
+  /** When match tx succeeded but fulfillMatchedPair missed, drop stale active rows. */
+  private async isSeaportOrderFullyFilled(
+    orderHash: string,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const seaport = new Contract(
+      SEAPORT_ADDRESS,
+      SEAPORT_ORDER_STATUS_ABI,
+      provider,
+    );
+    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
+    try {
+      const result = (await seaport.getOrderStatus(hash)) as [
+        boolean,
+        boolean,
+        bigint,
+        bigint,
+      ];
+      const isCancelled = Boolean(result[1]);
+      const filled = BigInt(result[2]);
+      const size = BigInt(result[3]);
+      return !isCancelled && size > 0n && filled >= size;
+    } catch {
+      return false;
+    }
+  }
+
+  private async dropSeaportConsumedActiveOrders(
+    orders: Order[],
+    chainId: SupportedChainId,
+  ): Promise<Order[]> {
+    const kept: Order[] = [];
+    for (const o of orders) {
+      if (o.status !== OrderStatus.ACTIVE) {
+        kept.push(o);
+        continue;
+      }
+      const filled = await this.isSeaportOrderFullyFilled(
+        o.orderHash,
+        chainId,
+      );
+      if (filled) {
+        o.status = OrderStatus.FULFILLED;
+        await this.orderRepo.save(o);
+        continue;
+      }
+      kept.push(o);
+    }
+    return kept;
+  }
+
   async activeListingsForCollection(
     collectionKey: string,
     chainId?: SupportedChainId,
   ): Promise<Order[]> {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
-    return this.orderRepo
+    const rows = await this.orderRepo
       .createQueryBuilder('o')
       .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
@@ -1806,6 +1876,7 @@ export class CollectionService {
       .orderBy('o.created_at', 'ASC')
       .take(this.collectionActiveOrdersCap())
       .getMany();
+    return this.dropSeaportConsumedActiveOrders(rows, resolved);
   }
 
   async activeBidsForCollection(
@@ -1814,7 +1885,7 @@ export class CollectionService {
   ): Promise<Order[]> {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
-    return this.orderRepo
+    const rows = await this.orderRepo
       .createQueryBuilder('o')
       .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
@@ -1823,6 +1894,7 @@ export class CollectionService {
       .orderBy('o.created_at', 'DESC')
       .take(this.collectionActiveOrdersCap())
       .getMany();
+    return this.dropSeaportConsumedActiveOrders(rows, resolved);
   }
 
   async setCollectionCoverImageAdmin(

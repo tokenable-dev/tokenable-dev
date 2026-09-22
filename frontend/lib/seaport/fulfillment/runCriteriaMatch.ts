@@ -13,7 +13,10 @@ import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
-import { requireSeaportOrderFilled } from "../orders/fulfillOrderArgs";
+import {
+  assertSeaportOrdersFillableForMatch,
+  requireSeaportOrderFilled,
+} from "../orders/fulfillOrderArgs";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
@@ -192,6 +195,11 @@ export async function runCriteriaMatch(params: {
   const proof = tree.getCriteriaProof(tidBn);
 
   await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+  await assertSeaportOrdersFillableForMatch(
+    publicClient,
+    bid.orderHash,
+    listing.orderHash,
+  );
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -333,6 +341,11 @@ export async function runTokenBidMatch(params: {
   }
 
   await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+  await assertSeaportOrdersFillableForMatch(
+    publicClient,
+    bid.orderHash,
+    listing.orderHash,
+  );
 
   const exec = buildTokenBidMatchExecution({
     tokenBidOrder: bid,
@@ -458,6 +471,15 @@ export function mapMatchError(
 
   const low = message.toLowerCase();
   if (
+    low.includes("orderalreadyfilled") ||
+    low.includes("0x10fda3e1")
+  ) {
+    return (
+      "This bid or listing was already filled on Seaport (the order book may be out of date). " +
+      "Refresh the collection page; the buyer may need to cancel and place a new collection bid."
+    );
+  }
+  if (
     low.includes("invalidtime") ||
     low.includes("not active on-chain") ||
     low.includes("seaport invalidtime")
@@ -502,6 +524,13 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   }
   if (low.includes("merkle root") || low.includes("leaf set") || low.includes("criteria")) {
     return "merkle_mismatch";
+  }
+  if (
+    low.includes("orderalreadyfilled") ||
+    low.includes("0x10fda3e1") ||
+    low.includes("already filled or cancelled on seaport")
+  ) {
+    return "expired_or_inactive";
   }
   if (low.includes("invalidtime") || low.includes("not active on-chain") || low.includes("expired")) {
     return "expired_or_inactive";

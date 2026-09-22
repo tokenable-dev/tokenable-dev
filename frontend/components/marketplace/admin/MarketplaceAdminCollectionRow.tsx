@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { useCollectionAdminCover } from "@/hooks/marketplace/collection-hero/useCollectionAdminCover";
-import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import { parseGradeScoreNumber, representativeGradeUsd, formatSportCategoryDisplayLabel } from "@/lib/market";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { CollectionAiInsightPanel } from "@/components/marketplace/collection-ai-insight";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
@@ -269,8 +269,10 @@ export function MarketplaceAdminCollectionRow({
               <div>
                 <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>Category</dt>
                 <dd className="mt-0.5 text-sm font-medium text-zinc-900">
-                  {snapshot?.categoryLabel?.trim() ||
-                    row.components.psaCategory?.trim() ||
+                  {formatSportCategoryDisplayLabel(
+                    row.components.psaCategory?.trim() || "",
+                  ) ||
+                    snapshot?.categoryLabel?.trim() ||
                     "—"}
                 </dd>
               </div>

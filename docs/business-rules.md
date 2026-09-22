@@ -222,20 +222,19 @@ Collection PSA mirror fields live in `marketplace_collections.components` (popul
 
 Users never call the smart contract directly for mint or burn operations.
 
-- Only the backend hot wallet (MINTER_ROLE, BURNER_ROLE) submits mint/burn transactions
+- Only the backend hot wallet (`MINTER_ROLE`) submits `mint(to)`. Burns use ERC721Burnable; the backend signs `burn` only when custody (or the minter wallet) owns the token.
 - Seaport trading is user-signed (standard ERC-721 transfers via fulfillOrder)
 
 ### BR-20: No TokenId Reuse
 
 Smart contract tokenIds are monotonically increasing and never reused.
 
-- `_nextTokenId` starts at 1 and only increments
+- OZ `Counters` auto-id; deploy burns token 0 so live inventory starts at 1
 - Burned tokens are gone; they receive a new tokenId on re-mint
 
-### BR-21: UUPS Upgrade Requires Admin Role
+### BR-21: NFT Changes Are Redeploys
 
-Smart contract upgrades require the `DEFAULT_ADMIN_ROLE`.
+There is no UUPS upgrade. Changing NFT behavior means deploying a new OpenZeppelin preset instance and swapping env addresses. Old tokens remain on the old address.
 
-- Cannot upgrade from the minter/burner hot wallet alone
-- After upgrade: run `upgrade-tokenable-rwa.ts` to auto-grant any missing roles
-- Never change the `vaultRef` storage slot in an upgrade (permanent on-chain data)
+- `DEFAULT_ADMIN_ROLE` only grants/revokes minter and pauser
+- `vaultRef` is a Postgres/vault-cycle key, not contract storage

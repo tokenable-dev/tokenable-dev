@@ -13,8 +13,8 @@ import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-inde
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 
 /**
- * Listens to the on-chain `Minted(address to, uint256 tokenId, string tokenURI)` event.
- * Syncs `rwa_tokens` only — marketplace collection rows are created on first ask listing.
+ * Listens to ERC-721 `Transfer(from=0x0)` mints and syncs `rwa_tokens`.
+ * Marketplace collection rows are still created on first ask listing.
  *
  * Enable via env:  MINT_EVENT_LISTENER_ENABLED=1
  */
@@ -48,9 +48,9 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     if (this.listening) {
       try {
-        await this.contract.removeAllListeners('Minted');
+        await this.contract.removeAllListeners('Transfer');
         this.listening = false;
-        this.logger.log('MintEventListenerService: removed Minted listener');
+        this.logger.log('MintEventListenerService: removed Transfer listener');
       } catch (e) {
         this.logger.warn(`removeAllListeners error: ${String(e)}`);
       }
@@ -60,13 +60,17 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
   private async startListening(): Promise<void> {
     try {
       await this.contract.on(
-        'Minted',
-        (to: string, tokenId: bigint, _vaultRef: string, tokenURI: string) => {
+        'Transfer',
+        (from: string, to: string, tokenId: bigint) => {
+          if (
+            String(from).toLowerCase() !==
+            '0x0000000000000000000000000000000000000000'
+          ) {
+            return;
+          }
           const id = Number(tokenId);
           const owner = String(to).trim().toLowerCase();
-          this.logger.log(
-            `Minted event: tokenId=${id} to=${owner} uri=${tokenURI.slice(0, 80)}`,
-          );
+          this.logger.log(`Mint Transfer: tokenId=${id} to=${owner}`);
           void this.handleMintedToken(id, undefined, owner).catch(
             (err: unknown) => {
               this.logger.warn(
@@ -77,7 +81,7 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
         },
       );
       this.listening = true;
-      this.logger.log('MintEventListenerService: listening for Minted events');
+      this.logger.log('MintEventListenerService: listening for Transfer mints');
     } catch (e) {
       this.logger.error(
         `MintEventListenerService failed to attach listener: ${String(e)}`,

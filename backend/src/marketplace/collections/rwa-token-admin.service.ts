@@ -700,17 +700,12 @@ export class RwaTokenAdminService {
         {
           key: 'default_admin',
           label: 'Default admin',
-          description: 'UUPS upgrades, royalty/contractURI, grant/revoke roles',
+          description: 'Grant/revoke MINTER and PAUSER roles',
         },
         {
           key: 'minter',
           label: 'Minter',
-          description: 'mint / mintBatch (vault deposits)',
-        },
-        {
-          key: 'burner',
-          label: 'Burner',
-          description: 'adminBurn (redemptions)',
+          description: 'mint(to) — vault deposits',
         },
         {
           key: 'pauser',

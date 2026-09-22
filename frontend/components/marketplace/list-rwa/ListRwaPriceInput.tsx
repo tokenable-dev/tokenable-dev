@@ -133,12 +133,12 @@ export function ListRwaPriceInput({
     onPriceChange(applyPrice(n));
   }
 
-  function useLowestAsk() {
+  function applyLowestAsk() {
     setBase("lowest");
     setFromRef(lowest);
   }
 
-  function useMarketValue() {
+  function applyMarketValue() {
     setBase("market");
     setFromRef(market);
   }
@@ -159,7 +159,7 @@ export function ListRwaPriceInput({
               amount={lowest}
               selected={refSelected(lowest)}
               disabled={disabled}
-              onUse={useLowestAsk}
+              onUse={applyLowestAsk}
             />
           ) : null}
           {market > 0 ? (
@@ -168,7 +168,7 @@ export function ListRwaPriceInput({
               amount={market}
               selected={refSelected(market)}
               disabled={disabled}
-              onUse={useMarketValue}
+              onUse={applyMarketValue}
             />
           ) : null}
           {last > 0 ? (

@@ -14,43 +14,56 @@ import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
+type ListRwaModalController = ReturnType<typeof useListRwaModal>;
+
+/** Hooks only — presentation is {@link ListRwaModalBody} (no hooks). */
 export function ListRwaModal(props: ListRwaModalProps) {
-  const {
-    tokenId,
-    assetTitle,
-    headlineParts,
-    headlineGrade,
-    collectionKey,
-    onClose,
-    shell = "modal",
-    copyVariant = "default",
-    marketValueUsd,
-    listedPriceUsd,
-  } = props;
+  const open = props.open ?? true;
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const shell = props.shell ?? "modal";
+    if (!open || shell === "sheet" || modal.step === "success") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [props.shell, modal.step, open]);
+
+  if (!open) return null;
+
+  return <ListRwaModalBody {...props} modal={modal} mounted={mounted} />;
+}
+
+function ListRwaModalBody({
+  tokenId,
+  assetTitle,
+  headlineParts,
+  headlineGrade,
+  collectionKey,
+  onClose,
+  shell = "modal",
+  copyVariant = "default",
+  marketValueUsd,
+  listedPriceUsd,
+  modal,
+  mounted,
+}: ListRwaModalProps & { modal: ListRwaModalController; mounted: boolean }) {
   const formVariant = shell === "sheet" ? "sheet" : "modal";
   const isSetPrice = copyVariant === "set-price";
+  const isSuccess = modal.step === "success";
   const sheetLabel = isSetPrice
     ? modal.isReplaceListing
       ? "Edit price"
       : "Set price"
     : "List for sale";
 
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (shell === "sheet" || modal.step === "success") return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [shell, modal.step]);
-
-  // portfolio-modals.js `pfSaleResult`: close set-price sheet, then centered overlay.
-  if (modal.step === "success") {
-    return (
+  if (isSuccess) {
+    const success = (
       <ListRwaModalSuccessView
         tokenId={tokenId}
         price={modal.price}
@@ -61,6 +74,14 @@ export function ListRwaModal(props: ListRwaModalProps) {
         onClose={onClose}
       />
     );
+    if (shell === "sheet") {
+      return (
+        <TkActionSheet open onClose={onClose} aria-label={sheetLabel}>
+          {success}
+        </TkActionSheet>
+      );
+    }
+    return success;
   }
 
   const listPriceNum = Number(String(modal.price).replace(/[^0-9.]/g, ""));
@@ -124,6 +145,13 @@ export function ListRwaModal(props: ListRwaModalProps) {
     />
   );
 
+  const form = (
+    <ListRwaModalFormView
+      {...formProps}
+      hideActions={isSetPrice && shell === "sheet"}
+    />
+  );
+
   if (shell === "sheet") {
     return (
       <TkActionSheet
@@ -132,10 +160,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         aria-label={sheetLabel}
         actions={isSetPrice ? sheetActions : undefined}
       >
-        <ListRwaModalFormView
-          {...formProps}
-          hideActions={isSetPrice}
-        />
+        {form}
       </TkActionSheet>
     );
   }

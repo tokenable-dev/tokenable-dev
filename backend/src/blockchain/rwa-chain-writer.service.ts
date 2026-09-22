@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Contract, Wallet, ZeroHash } from 'ethers';
+import { Contract, Wallet, ZeroAddress, ZeroHash } from 'ethers';
 import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { ChainConfigService } from './chain-config.service';
 import { BlockchainService } from './blockchain.service';
@@ -14,13 +14,36 @@ import { withRpcProviderCall } from './rpc-retry.util';
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
+function parseMintedTokenIds(
+  contract: Contract,
+  logs: readonly { topics: readonly string[]; data: string }[],
+): number[] {
+  const ids: number[] = [];
+  for (const log of logs) {
+    try {
+      const parsed = contract.interface.parseLog({
+        topics: [...log.topics],
+        data: log.data,
+      });
+      if (
+        parsed?.name === 'Transfer' &&
+        String(parsed.args.from).toLowerCase() === ZeroAddress.toLowerCase()
+      ) {
+        ids.push(Number(parsed.args.tokenId));
+      }
+    } catch {
+      /* skip unrelated logs */
+    }
+  }
+  return ids;
+}
+
 /**
- * Backend signer service for TokenableRWA write operations.
+ * Backend signer for the unmodified OpenZeppelin ERC721PresetMinterPauserAutoId.
  *
- * Uses RWA_OWNER_PRIVATE_KEY for mint/mintBatch (MINTER_ROLE) and adminBurn
- * (BURNER_ROLE). In V1 both roles are granted to the same deployer EOA at
- * initialize() time; they can be split across separate services/keys later
- * without a contract change since they are distinct AccessControl roles.
+ * RWA_OWNER_PRIVATE_KEY must hold MINTER_ROLE for mint(to). Burn uses
+ * ERC721Burnable.burn — the signer must currently own (or be approved for)
+ * the token, typically the custody wallet after redeem intake.
  */
 @Injectable()
 export class RwaChainWriterService {
@@ -154,16 +177,15 @@ export class RwaChainWriterService {
   }
 
   // ─── Mint ──────────────────────────────────────────────────────────────────
-  // vaultRef is computed by VaultService.computeVaultRef() from the PSA cert
-  // number (the permanent physical-asset identity) — never from tokenURI,
-  // which changes on every mint cycle and would defeat the contract's
-  // anti-double-claim check across vault re-deposits.
+  // On-chain mint is OpenZeppelin `mint(to)` only. tokenURI / vaultRef stay in
+  // Postgres (Pinata CID + keccak256 cert). Duplicate-cert checks are DB-only.
 
   async mintTo(
     to: string,
     tokenURI: string,
     vaultRef: string,
     chainId = this.chainConfig.getDefaultChainId(),
+    hooks?: { onSubmitted?: (txHash: string) => Promise<void> },
   ): Promise<{ tokenId: number; txHash: string }> {
     const recipient = to.trim().toLowerCase();
     if (!ADDR.test(recipient)) {
@@ -180,28 +202,20 @@ export class RwaChainWriterService {
     return this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
       withRpcProviderCall(async () => {
         const contract = this.signedContract(chainId);
-        const tx = await contract.mint(recipient, uri, vaultRef);
+        const tx = await contract.mint(recipient);
         this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
+        await hooks?.onSubmitted?.(tx.hash);
         const receipt = await tx.wait();
         if (!receipt?.hash) {
           throw new InternalServerErrorException('Mint transaction failed');
         }
 
-        let tokenId = -1;
-        for (const log of receipt.logs ?? []) {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            if (parsed?.name === 'Minted') {
-              tokenId = Number(parsed.args.tokenId);
-              break;
-            }
-          } catch {
-            /* skip unrelated logs */
-          }
-        }
+        const minted = parseMintedTokenIds(contract, receipt.logs ?? []);
+        const tokenId = minted[0] ?? -1;
         if (!Number.isFinite(tokenId) || tokenId < 0) {
-          const totalMinted = Number(await contract.totalMinted());
-          tokenId = totalMinted; // last minted
+          throw new InternalServerErrorException(
+            'Mint receipt had no ERC-721 Transfer from address(0)',
+          );
         }
 
         await this.ownerIndex.recordOwner(
@@ -217,8 +231,9 @@ export class RwaChainWriterService {
   }
 
   /**
-   * On-chain `mintBatch` — max 50 items per call (contract `MAX_BATCH_SIZE`).
-   * Caller must chunk larger jobs. All `to` addresses are typically custody.
+   * Sequential `mint(to)` calls (preset has no mintBatch). Same signer lock
+   * so nonces stay ordered. Prefer per-item `mintTo` when partial failure
+   * must not unwind already-mined tokens.
    */
   async mintBatchTo(
     items: Array<{ to: string; tokenURI: string; vaultRef: string }>,
@@ -227,70 +242,20 @@ export class RwaChainWriterService {
     if (!items.length) {
       throw new BadRequestException('mintBatch requires at least one item');
     }
-    if (items.length > 50) {
-      throw new BadRequestException(
-        `mintBatch max is 50 items (got ${items.length}); chunk in the caller`,
-      );
-    }
 
-    const tos: string[] = [];
-    const uris: string[] = [];
-    const refs: string[] = [];
+    const tokenIds: number[] = [];
+    let lastHash = '';
     for (const it of items) {
-      const recipient = it.to.trim().toLowerCase();
-      if (!ADDR.test(recipient)) {
-        throw new BadRequestException(`Invalid recipient wallet address: ${it.to}`);
-      }
-      const uri = it.tokenURI?.trim();
-      if (!uri) {
-        throw new BadRequestException('tokenURI is required for each mintBatch item');
-      }
-      if (!it.vaultRef || it.vaultRef === ZeroHash) {
-        throw new BadRequestException('vaultRef is required for each mintBatch item');
-      }
-      tos.push(recipient);
-      uris.push(uri);
-      refs.push(it.vaultRef);
+      const { tokenId, txHash } = await this.mintTo(
+        it.to,
+        it.tokenURI,
+        it.vaultRef,
+        chainId,
+      );
+      tokenIds.push(tokenId);
+      lastHash = txHash;
     }
-
-    return this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
-      withRpcProviderCall(async () => {
-        const contract = this.signedContract(chainId);
-        const tx = await contract.mintBatch(tos, uris, refs);
-        this.logger.log(
-          `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
-        );
-        const receipt = await tx.wait();
-        if (!receipt?.hash) {
-          throw new InternalServerErrorException('MintBatch transaction failed');
-        }
-
-        const tokenIds: number[] = [];
-        for (const log of receipt.logs ?? []) {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            if (parsed?.name === 'Minted') {
-              tokenIds.push(Number(parsed.args.tokenId));
-            }
-          } catch {
-            /* skip unrelated logs */
-          }
-        }
-        if (tokenIds.length !== items.length) {
-          throw new InternalServerErrorException(
-            `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
-          );
-        }
-
-        const contractAddr = this.chainConfig.getRwaAddress(chainId);
-        for (let i = 0; i < tokenIds.length; i++) {
-          await this.ownerIndex.recordOwner(contractAddr, tokenIds[i], tos[i]);
-          this.blockchain.invalidateTokensByOwnerCache(tos[i], chainId);
-        }
-
-        return { tokenIds, txHash: receipt.hash };
-      }, { label: 'mintBatchTo' }),
-    );
+    return { tokenIds, txHash: lastHash };
   }
 
   // ─── Custody delivery ──────────────────────────────────────────────────────
@@ -365,11 +330,11 @@ export class RwaChainWriterService {
     });
   }
 
-  // ─── Admin burn ────────────────────────────────────────────────────────────
+  // ─── Burn (ERC721Burnable) ─────────────────────────────────────────────────
 
   /**
-   * @param expectedOwner  Pass address(0x0) / null to skip ownership check.
-   *                       Recommended: pass the known owner to prevent race-condition burns.
+   * Burn via OpenZeppelin `burn(tokenId)`. The signer must own the token
+   * (or be approved). Prefer custody after redeem intake.
    */
   async adminBurn(
     tokenId: number,
@@ -381,31 +346,59 @@ export class RwaChainWriterService {
       throw new BadRequestException('Invalid tokenId');
     }
 
-    const contract = this.signedContract(chainId);
-    const signer = contract.runner;
-    if (!signer || !('getAddress' in signer)) {
-      throw new InternalServerErrorException('Burn signer unavailable');
-    }
-    const signerAddress = await (signer as Wallet).getAddress();
-    const burnerRole = await contract.BURNER_ROLE();
-    const hasBurner = await contract.hasRole(burnerRole, signerAddress);
-    if (!hasBurner) {
+    const read = this.readContract(chainId);
+    let owner: string;
+    try {
+      owner = String(await read.ownerOf(tid)).trim().toLowerCase();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/ERC721: invalid token ID|nonexistent token/i.test(msg)) {
+        throw new BadRequestException(
+          `Token #${tid} is not minted on chain (may already be burned).`,
+        );
+      }
       throw new InternalServerErrorException(
-        'Backend wallet lacks BURNER_ROLE on TokenableRWA. From contracts/: pnpm grant-burner:sepolia (or grant-burner:mainnet).',
+        `Could not resolve owner for token #${tid}: ${msg}`,
       );
     }
 
-    // Normalise: use address(0) to skip the on-chain ownership assertion when no
-    // expected owner is known, rather than sending a random/invalid address.
-    const ownerArg =
-      expectedOwner && ADDR.test(expectedOwner.trim())
-        ? expectedOwner.trim()
-        : '0x0000000000000000000000000000000000000000';
+    if (expectedOwner && ADDR.test(expectedOwner.trim())) {
+      const expected = expectedOwner.trim().toLowerCase();
+      if (expected !== owner) {
+        throw new BadRequestException(
+          'On-chain owner changed before burn — refresh the page and retry.',
+        );
+      }
+    }
 
-    return this.withSignerLock(chainId, this.ownerPrivateKey(), async () => {
+    const custody = await this.getCustodyWalletAddress(chainId);
+    const minterProvider = this.chainConfig.createJsonRpcProvider(chainId);
+    const minterWallet = new Wallet(this.ownerPrivateKey(), minterProvider);
+    const minterAddress = (await minterWallet.getAddress()).toLowerCase();
+
+    let signerKey: string;
+    if (owner === custody) {
+      signerKey = this.custodyPrivateKey();
+    } else if (owner === minterAddress) {
+      signerKey = this.ownerPrivateKey();
+    } else {
+      throw new BadRequestException(
+        `Token #${tid} must be in platform custody to burn (owner=${owner}). Transfer it to custody first.`,
+      );
+    }
+
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const wallet = new Wallet(signerKey, provider);
+    const contract = new Contract(
+      this.chainConfig.getRwaAddress(chainId),
+      TOKENABLE_RWA_ABI,
+      wallet,
+    );
+
+    return this.withSignerLock(chainId, signerKey, async () => {
       try {
-        const tx = await contract.adminBurn(tid, ownerArg);
-        this.logger.log(`adminBurn tx submitted: ${tx.hash} token #${tid}`);
+        const tx = await contract.burn(tid);
+        this.logger.log(`burn tx submitted: ${tx.hash} token #${tid}`);
         const receipt = await tx.wait();
         if (!receipt?.hash) {
           throw new InternalServerErrorException('Burn transaction failed');
@@ -418,14 +411,14 @@ export class RwaChainWriterService {
       } catch (e) {
         if (e instanceof InternalServerErrorException) throw e;
         const msg = e instanceof Error ? e.message : String(e);
-        if (/OwnerMismatch/i.test(msg)) {
-          throw new BadRequestException(
-            'On-chain owner changed before burn — refresh the page and retry.',
-          );
-        }
         if (/ERC721: invalid token ID|nonexistent token/i.test(msg)) {
           throw new BadRequestException(
             `Token #${tid} is not minted on chain (may already be burned).`,
+          );
+        }
+        if (/not token owner or approved/i.test(msg)) {
+          throw new BadRequestException(
+            `Token #${tid} is not owned or approved by the platform burn wallet.`,
           );
         }
         throw new InternalServerErrorException(`Burn transaction reverted: ${msg}`);
@@ -450,15 +443,13 @@ export class RwaChainWriterService {
 
   private async resolveRoleHash(
     contract: Contract,
-    role: 'default_admin' | 'minter' | 'burner' | 'pauser',
+    role: 'default_admin' | 'minter' | 'pauser',
   ): Promise<string> {
     switch (role) {
       case 'default_admin':
         return String(await contract.DEFAULT_ADMIN_ROLE());
       case 'minter':
         return String(await contract.MINTER_ROLE());
-      case 'burner':
-        return String(await contract.BURNER_ROLE());
       case 'pauser':
         return String(await contract.PAUSER_ROLE());
       default:
@@ -471,7 +462,7 @@ export class RwaChainWriterService {
     chainId = this.chainConfig.getDefaultChainId(),
   ): Promise<{
     walletAddress: string;
-    roles: Record<'default_admin' | 'minter' | 'burner' | 'pauser', boolean>;
+    roles: Record<'default_admin' | 'minter' | 'pauser', boolean>;
   }> {
     const wallet = walletAddress.trim().toLowerCase();
     if (!ADDR.test(wallet)) {
@@ -479,10 +470,9 @@ export class RwaChainWriterService {
     }
 
     const contract = this.readContract(chainId);
-    const [defaultAdmin, minter, burner, pauser] = await Promise.all([
+    const [defaultAdmin, minter, pauser] = await Promise.all([
       contract.hasRole(await contract.DEFAULT_ADMIN_ROLE(), wallet),
       contract.hasRole(await contract.MINTER_ROLE(), wallet),
-      contract.hasRole(await contract.BURNER_ROLE(), wallet),
       contract.hasRole(await contract.PAUSER_ROLE(), wallet),
     ]);
 
@@ -491,7 +481,6 @@ export class RwaChainWriterService {
       roles: {
         default_admin: Boolean(defaultAdmin),
         minter: Boolean(minter),
-        burner: Boolean(burner),
         pauser: Boolean(pauser),
       },
     };
@@ -499,7 +488,7 @@ export class RwaChainWriterService {
 
   async grantAccessRole(
     walletAddress: string,
-    role: 'default_admin' | 'minter' | 'burner' | 'pauser',
+    role: 'default_admin' | 'minter' | 'pauser',
     chainId = this.chainConfig.getDefaultChainId(),
   ): Promise<{ txHash: string; role: string; walletAddress: string }> {
     const wallet = walletAddress.trim().toLowerCase();
@@ -540,7 +529,7 @@ export class RwaChainWriterService {
 
   async revokeAccessRole(
     walletAddress: string,
-    role: 'default_admin' | 'minter' | 'burner' | 'pauser',
+    role: 'default_admin' | 'minter' | 'pauser',
     chainId = this.chainConfig.getDefaultChainId(),
   ): Promise<{ txHash: string; role: string; walletAddress: string }> {
     const wallet = walletAddress.trim().toLowerCase();

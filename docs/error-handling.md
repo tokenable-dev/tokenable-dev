@@ -186,13 +186,13 @@ Recommendation: add Sentry for production error monitoring.
 
 **Resolution:** Check token owner on-chain; update DB if delivery already happened.
 
-### "BURNER_ROLE not granted"
+### "Token must be in platform custody to burn"
 
-**Cause:** Backend wallet is missing `BURNER_ROLE` on the contract (e.g., after upgrade).
+**Cause:** ERC721Burnable only lets the current owner (or approved operator) burn. The NFT is still in a user wallet.
 
-**Response:** `500` with `BURNER_ROLE not granted` message.
+**Response:** `400` telling ops to wait until redeem custody intake.
 
-**Resolution:** Run `pnpm grant-burner:amoy` or `upgrade-tokenable-rwa.ts` (includes auto-grant).
+**Resolution:** Complete `POST /api/rwa/redeem-batch/:batchId/custody` first.
 
 ### PSA API exhausted
 

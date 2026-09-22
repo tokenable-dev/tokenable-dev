@@ -33,6 +33,28 @@
   text-align: center;
 }
 
+.tk-kbw-burn__staff-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 8px;
+  text-align: center;
+}
+
+.tk-kbw-burn__staff-lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tk-kbw-burn__staff-warn {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #ffb020;
+}
+
 .tk-dialog.tk-kbw-burn .tk-dialog__foot {
   justify-content: stretch;
 }

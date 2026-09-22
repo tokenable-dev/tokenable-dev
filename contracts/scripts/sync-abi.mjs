@@ -23,7 +23,7 @@ function syncAbi(artifactRel, outRel, exportName) {
 }
 
 syncAbi(
-  'artifacts/contracts/TokenableRWA.sol/TokenableRWA.json',
+  'artifacts/@openzeppelin/contracts/token/ERC721/presets/ERC721PresetMinterPauserAutoId.sol/ERC721PresetMinterPauserAutoId.json',
   '../backend/src/blockchain/abis/tokenable-rwa.abi.ts',
   'TOKENABLE_RWA_ABI',
 );

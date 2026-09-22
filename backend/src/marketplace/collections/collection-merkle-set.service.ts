@@ -140,38 +140,35 @@ export class CollectionMerkleSetService {
 
   private async scanMintedTokenIdsForCollectionKey(
     targetKeyLower: string,
-    totalMinted: number,
+    _totalMinted: number,
     chainId: SupportedChainId,
   ): Promise<string[]> {
-    if (totalMinted <= 0) {
+    const liveIds = await this.blockchain.listLiveTokenIds(chainId);
+    if (liveIds.length === 0) {
       return [];
     }
-    const maxId = totalMinted - 1;
-    const ids: string[] = [];
+    const matched: string[] = [];
     const concurrency = this.scanConcurrency();
-    for (let start = 0; start <= maxId; start += concurrency) {
-      const end = Math.min(start + concurrency - 1, maxId);
-      const chunk: number[] = [];
-      for (let tid = start; tid <= end; tid++) {
-        chunk.push(tid);
-      }
+    const sorted = [...liveIds].sort((a, b) => a - b);
+    for (let start = 0; start < sorted.length; start += concurrency) {
+      const chunk = sorted.slice(start, start + concurrency);
       const flags = await Promise.all(
         chunk.map((tid) =>
           this.mintedTokenBelongsToCollection(tid, targetKeyLower, chainId),
         ),
       );
       for (let i = 0; i < chunk.length; i++) {
-        if (flags[i]) ids.push(String(chunk[i]));
+        if (flags[i]) matched.push(String(chunk[i]));
       }
     }
-    ids.sort((a, b) => {
+    matched.sort((a, b) => {
       const ba = BigInt(a);
       const bb = BigInt(b);
       if (ba < bb) return -1;
       if (ba > bb) return 1;
       return 0;
     });
-    return ids;
+    return matched;
   }
 
   private async mintedTokenBelongsToCollection(
@@ -185,7 +182,11 @@ export class CollectionMerkleSetService {
         await new Promise((r) => setTimeout(r, 100 * attempt));
       }
       try {
-        const uri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
+        const uri = await this.rwaTokenRegistry.resolveMetadataUriForToken(
+          tokenId,
+          chainId,
+        );
+        if (!uri) return false;
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const comp = extractBucketComponentsFromMetadata(meta);
         if (!comp) return false;

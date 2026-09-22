@@ -38,9 +38,9 @@ alwaysApply: true
 
 ## Blockchain
 
-13. Never call `mint()` or `adminBurn()` from frontend code. These are backend-only operations.
+13. Never call `mint()` or `burn()` from frontend code. These are backend-only operations.
 
-14. Verify that the backend wallet holds the required role (`MINTER_ROLE`, `BURNER_ROLE`) before executing on-chain writes.
+14. Verify that the backend wallet holds `MINTER_ROLE` before minting. Burns use ERC721Burnable — the signer must own (or be approved for) the token, typically the custody wallet.
 
 15. Always validate on-chain ownership before executing custody transfers — never trust the database alone.
 

@@ -10,6 +10,11 @@ import {
   readKbwStage1Done,
   writeKbwStage1Done,
 } from "@/lib/event/kbwEventParticipation";
+import {
+  KBW_POST_LOGIN_ROUTE_KEY,
+  resolveKbwStage2ReturnPath,
+} from "@/lib/event/kbwEventLoginRouting";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -109,6 +114,7 @@ export function EventLandingView() {
   const userEmail = user?.email;
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const armKbwOffer = useAuthUiStore((s) => s.armKbwOffer);
+  const clearKbwOffer = useAuthUiStore((s) => s.clearKbwOffer);
   const scope = kbwEventParticipationScope(userId, userEmail);
 
   useEffect(() => {
@@ -145,17 +151,19 @@ export function EventLandingView() {
     }, 2000);
   }
 
-  function handleStage2() {
+  async function handleStage2() {
     if (!stage1Done) return;
-    // Agreed: login → main (`/`) → offer modal → BUY FREE → portfolio.
-    armKbwOffer();
     try {
       sessionStorage.setItem("tk_kbw_login_intent", "1");
+      sessionStorage.setItem(KBW_POST_LOGIN_ROUTE_KEY, "1");
     } catch {
       /* ignore */
     }
     if (user) {
-      router.push("/");
+      const path = await resolveKbwStage2ReturnPath(getPrimaryWalletAddress(user));
+      if (path === "/") armKbwOffer();
+      else clearKbwOffer();
+      router.push(path);
       return;
     }
     openSignIn({ returnTo: "/" });

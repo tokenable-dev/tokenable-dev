@@ -25,7 +25,7 @@ describe('VaultMintRecoveryService', () => {
       cancelCycle: jest.fn().mockResolvedValue(undefined),
     };
     const blockchain = {
-      getActiveTokenIdOfVaultRef: jest
+      getMintedTokenIdFromTx: jest
         .fn()
         .mockResolvedValue(overrides?.activeTokenId ?? 0),
       getRwaTokenURI: jest.fn().mockResolvedValue('ipfs://recovered'),
@@ -97,13 +97,14 @@ describe('VaultMintRecoveryService', () => {
             certNumber: '111',
             settlementPolicy: 'standard',
             ownerWallet: '0xcustody',
+            txHash: `0x${'ab'.repeat(32)}`,
           },
         },
       ],
     });
 
     await svc.recoverPass();
-    expect(blockchain.getActiveTokenIdOfVaultRef).toHaveBeenCalled();
+    expect(blockchain.getMintedTokenIdFromTx).toHaveBeenCalled();
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({
         tokenId: '42',

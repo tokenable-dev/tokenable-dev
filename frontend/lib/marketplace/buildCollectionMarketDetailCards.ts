@@ -16,6 +16,7 @@ import {
 } from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
+import { labelMentionsPokemon } from "@/lib/market";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
   formatDetailsCardNumber,
@@ -95,7 +96,7 @@ export function buildCollectionMarketDetailCards(params: {
         ch?.name,
         bucketCardSetForDisplay(comp),
       ],
-      includeDefaultEnglish: Boolean(collectionCategoryBadge?.toLowerCase().includes("pokemon")),
+      includeDefaultEnglish: labelMentionsPokemon(collectionCategoryBadge),
     });
     if (raw) lang = raw.trim();
   }

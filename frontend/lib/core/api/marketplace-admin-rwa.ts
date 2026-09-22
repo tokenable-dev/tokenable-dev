@@ -193,7 +193,6 @@ export async function postAdminDeliverRwaToken(
 export type AdminRwaRoleKey =
   | "default_admin"
   | "minter"
-  | "burner"
   | "pauser";
 
 export type AdminRwaRolesOverview = {

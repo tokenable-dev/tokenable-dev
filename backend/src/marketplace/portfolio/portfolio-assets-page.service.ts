@@ -155,7 +155,20 @@ export class PortfolioAssetsPageService {
       .healOwnerRegistryIfIncomplete(chainId)
       .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    return this.sortOwnedNewestFirst(fromDb);
+    const verifiedDb =
+      fromDb.length > 0
+        ? await this.blockchain.filterTokenIdsOwnedByWallet(
+            wallet,
+            fromDb,
+            chainId,
+          )
+        : [];
+    const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
+      wallet,
+      chainId,
+    );
+    const union = [...new Set([...verifiedDb, ...onChain])];
+    return this.sortOwnedNewestFirst(union);
   }
 
   private sortOwnedNewestFirst(tokenIds: number[]): number[] {

@@ -43,7 +43,7 @@ alwaysApply: true
 
 13. For backend logic changes: add or update a unit test.
 
-14. For contract changes: add or update a test in `contracts/test/TokenableRWA.test.ts`.
+14. For contract changes: add or update a test in `contracts/test/OzErc721Preset.test.ts`.
 
 ## Canonical Sources (do not repeat these rules here)
 

@@ -86,8 +86,8 @@ const RWA_TOKEN_ON_CYCLE_CERT_JOIN = `
  *         -> RwaToken (the NFT minted for that cycle)
  *
  * A physical card can have many cycles over its lifetime, but at most one
- * *open* (non-terminal) cycle at a time — mirroring the on-chain
- * `activeTokenIdByVaultRef` invariant enforced by TokenableRWA.sol.
+ * *open* (non-terminal) cycle at a time — enforced in Postgres (the OZ preset
+ * has no vaultRef / active-token mapping on-chain).
  */
 @Injectable()
 export class VaultService {
@@ -117,8 +117,8 @@ export class VaultService {
   /**
    * The single source of truth for deriving the on-chain vaultRef anchor.
    * MUST be derived from the physical asset's permanent identity (PSA cert
-   * number) — never from mint-cycle-specific data like tokenURI — otherwise
-   * the contract's anti-double-claim check across vault cycles is defeated.
+   * number) — never from mint-cycle-specific data like tokenURI — so vault
+   * cycles stay tied to the physical card across re-mints.
    */
   static computeVaultRef(certNumber: string): string {
     const normalized = VaultService.normalizeCert(certNumber);
@@ -186,9 +186,8 @@ export class VaultService {
   /**
    * Pre-flight check usable before doing expensive work (e.g. IPFS upload):
    * throws if this physical asset already has an open (non-terminal) cycle
-   * on the given chain. Cycles are chain-scoped — the on-chain
-   * `activeTokenIdByVaultRef` invariant is per contract, so a live Sepolia
-   * NFT must not block a Polygon mint.
+   * on the given chain. Cycles are chain-scoped per `chain_id`, so a live
+   * Sepolia NFT must not block a Polygon mint.
    */
   async findOpenCycleForCert(
     certNumber: string,
@@ -435,13 +434,15 @@ export class VaultService {
   /** After mint tx confirms — stamp tokenId/txHash on the attempt for crash recovery. */
   async noteMintAttemptTx(
     cycleId: string,
-    params: { tokenId: string; txHash: string },
+    params: { tokenId?: string; txHash: string },
   ): Promise<void> {
     const cycle = await this.cycles.findOne({ where: { id: cycleId } });
     if (!cycle || cycle.status !== 'minting' || !cycle.mintAttempt) return;
     cycle.mintAttempt = {
       ...cycle.mintAttempt,
-      tokenId: String(params.tokenId).trim(),
+      ...(params.tokenId != null && params.tokenId !== ''
+        ? { tokenId: String(params.tokenId).trim() }
+        : {}),
       txHash: params.txHash.trim().toLowerCase(),
     };
     await this.cycles.save(cycle);

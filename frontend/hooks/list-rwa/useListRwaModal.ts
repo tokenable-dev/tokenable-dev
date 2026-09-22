@@ -23,7 +23,11 @@ import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isT
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
-import { askUsdcToMatchCrossingBid, orderCollectionKey } from "@/lib/seaport/listing/listRwaModalUtils";
+import {
+  askUsdcToMatchCrossingBid,
+  orderCollectionKey,
+  shortBidder,
+} from "@/lib/seaport/listing/listRwaModalUtils";
 import {
   invalidateListingQueries,
   runPostListInstantMatch,
@@ -113,11 +117,31 @@ export function useListRwaModal({
     retry: 1,
   });
 
+  const listingInFlight =
+    step === "approving" ||
+    step === "signing" ||
+    step === "submitting" ||
+    step === "matching";
+
   // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
   // Do not hard-error on unknown settlement while indexing catches up after mint.
   useEffect(() => {
+    if (listingInFlight) return;
     if (onChainOwnerQuery.isError) {
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
+      setStep("error");
+      return;
+    }
+    const chainOwner = onChainOwnerQuery.data;
+    if (
+      chainOwner &&
+      address &&
+      chainOwner.toLowerCase() !== address.toLowerCase()
+    ) {
+      setErrorMsg(
+        `This card is owned by ${shortBidder(chainOwner)} on-chain, not your connected wallet (${shortBidder(address)}). ` +
+          "If you already sold it, refresh My Assets or open Portfolio with the buyer wallet.",
+      );
       setStep("error");
       return;
     }
@@ -125,15 +149,21 @@ export function useListRwaModal({
       settlementFetched &&
       settlementKnown &&
       step === "error" &&
-      !onChainOwnerQuery.isError
+      !onChainOwnerQuery.isError &&
+      (!chainOwner ||
+        !address ||
+        chainOwner.toLowerCase() === address.toLowerCase())
     ) {
       setErrorMsg("");
       setStep("idle");
     }
   }, [
+    listingInFlight,
     settlementFetched,
     settlementKnown,
     step,
+    address,
+    onChainOwnerQuery.data,
     onChainOwnerQuery.isError,
     onChainOwnerQuery.error,
   ]);
@@ -284,6 +314,7 @@ export function useListRwaModal({
       writeContractAsync: matchWrite,
       queryClient,
       chainId,
+      isReplaceListing,
     }),
     [
       tokenId,
@@ -294,6 +325,7 @@ export function useListRwaModal({
       preferredBidForMatch,
       topCollectionBid,
       resolvedExistingAsk,
+      isReplaceListing,
       signSeaportOrder,
       matchWrite,
       queryClient,

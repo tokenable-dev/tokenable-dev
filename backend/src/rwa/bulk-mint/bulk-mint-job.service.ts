@@ -854,40 +854,37 @@ export class BulkMintJobService {
     }
     if (!readyToMint.length) return;
 
-    let tokenIds: number[];
-    let txHash: string;
-    try {
-      ({ tokenIds, txHash } = await this.chainWriter.mintBatchTo(
-        readyToMint.map((r) => ({
-          to: mintTo,
-          tokenURI: r.item.tokenUri!,
-          vaultRef: r.item.vaultRef!,
-        })),
-        job.chainId as SupportedChainId,
-      ));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      for (const r of readyToMint) {
-        await this.vault.cancelCycle(r.cycleId, `bulk mintBatch failed: ${msg}`);
+    for (const r of readyToMint) {
+      let tokenId: number;
+      let txHash: string;
+      try {
+        ({ tokenId, txHash } = await this.chainWriter.mintTo(
+          mintTo,
+          r.item.tokenUri!,
+          r.item.vaultRef!,
+          job.chainId as SupportedChainId,
+          {
+            onSubmitted: (hash) =>
+              this.vault.noteMintAttemptTx(r.cycleId, { txHash: hash }),
+          },
+        ));
+        await this.vault.noteMintAttemptTx(r.cycleId, {
+          tokenId: String(tokenId),
+          txHash,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        await this.vault.cancelCycle(r.cycleId, `bulk mint failed: ${msg}`);
         await this.itemRepo.update(
           { id: r.item.id },
           {
             status: 'ready',
             vaultCycleId: null,
-            errorMessage: `mintBatch failed (retryable): ${msg}`,
+            errorMessage: `mint failed (retryable): ${msg}`,
           },
         );
+        continue;
       }
-      throw e;
-    }
-
-    for (let i = 0; i < readyToMint.length; i++) {
-      const r = readyToMint[i]!;
-      const tokenId = tokenIds[i]!;
-      await this.vault.noteMintAttemptTx(r.cycleId, {
-        tokenId: String(tokenId),
-        txHash,
-      });
       try {
         await this.vault.recordMintResult({
           cycleId: r.cycleId,
@@ -929,7 +926,6 @@ export class BulkMintJobService {
         this.logger.error(
           `recordMintResult failed cert=${r.item.certNumber} tokenId=${tokenId}: ${msg}`,
         );
-        // Leave vault_cycles.status=minting for boot recovery — do not cancel.
         await this.itemRepo.update(
           { id: r.item.id },
           {

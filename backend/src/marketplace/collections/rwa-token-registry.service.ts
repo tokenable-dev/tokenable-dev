@@ -18,14 +18,9 @@ function metadataCidFromTokenUri(uri: string): string | null {
 }
 
 /**
- * TokenableRWA mints 1..totalMinted (`_nextTokenId` starts at 1).
- * A 0..totalMinted-1 scan skips the newest id and wastes a call on token 0.
+ * Token registry helpers. Live token ids come from ERC721Enumerable, not a
+ * 1-based totalMinted counter.
  */
-export function mintedTokenIdRange(totalMinted: number): number[] {
-  const n = Math.floor(Number(totalMinted));
-  if (!Number.isFinite(n) || n <= 0) return [];
-  return Array.from({ length: n }, (_, i) => i + 1);
-}
 
 @Injectable()
 export class RwaTokenRegistryService {
@@ -41,6 +36,49 @@ export class RwaTokenRegistryService {
 
   private rwaContractAddress(chainId?: SupportedChainId): string {
     return this.chainConfig.getRwaAddress(chainId ?? this.chainConfig.getDefaultChainId());
+  }
+
+  /** Mint registry IPFS URI — OZ preset does not store per-token tokenURI on-chain. */
+  registryMetadataUri(row: RwaToken): string {
+    const tokenUri = row.tokenUri?.trim();
+    if (tokenUri) return tokenUri;
+    const cid = row.metadataCid?.trim();
+    if (!cid) return '';
+    return /^ipfs:\/\//i.test(cid) ? cid : `ipfs://${cid}`;
+  }
+
+  /**
+   * Prefer on-chain tokenURI when IPFS; else `rwa_tokens` mint-time URI.
+   */
+  async resolveMetadataUriForToken(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const tid = String(tokenId).trim();
+    let chainUri = '';
+    try {
+      chainUri = String(
+        await this.blockchain.getRwaTokenURI(tokenId, resolved),
+      ).trim();
+    } catch {
+      chainUri = '';
+    }
+    if (chainUri && this.ipfsResolver.normalizeIpfsSubpath(chainUri)) {
+      return chainUri;
+    }
+
+    const contract = this.rwaContractAddress(resolved);
+    const row = await this.repo.findOne({
+      where: { tokenContract: contract, tokenId: tid },
+    });
+    const registryUri = row ? this.registryMetadataUri(row) : '';
+    if (registryUri && this.ipfsResolver.normalizeIpfsSubpath(registryUri)) {
+      return registryUri;
+    }
+
+    const fallback = chainUri || registryUri;
+    return fallback.trim() ? fallback : null;
   }
 
   async upsertFromMetadata(
@@ -102,7 +140,8 @@ export class RwaTokenRegistryService {
     const contract = this.rwaContractAddress(chainId);
     if (!contract) return null;
     try {
-      const tokenUri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
+      const tokenUri = await this.resolveMetadataUriForToken(tokenId, chainId);
+      if (!tokenUri) return null;
       const meta = await this.ipfsResolver.fetchMetadataJson(tokenUri);
       return await this.upsertFromMetadata(tokenId, meta, {
         tokenUri,
@@ -150,12 +189,11 @@ export class RwaTokenRegistryService {
     return Boolean(row);
   }
 
-  /** Scan `1..totalMinted` on the configured RWA contract (boot / admin). */
+  /** Scan live token ids on the configured RWA contract (boot / admin). */
   async syncAllMintedFromChain(chainId?: SupportedChainId): Promise<{ scanned: number; upserted: number }> {
     const contract = this.rwaContractAddress(chainId);
     if (!contract) return { scanned: 0, upserted: 0 };
-    const { totalMinted: total } = await this.blockchain.getRwaInfo(chainId);
-    const ids = mintedTokenIdRange(total);
+    const ids = await this.blockchain.listLiveTokenIds(chainId);
     let upserted = 0;
     for (const id of ids) {
       try {

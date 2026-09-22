@@ -348,8 +348,8 @@ export function MarketplaceAdminCardRow({
                   isBurned
                     ? "Already burned"
                     : row.hasActiveListing
-                      ? "Cancels active listing, then on-chain adminBurn"
-                      : "On-chain adminBurn (platform wallet)"
+                      ? "Cancels active listing, then burns (token must be in custody)"
+                      : "On-chain burn (custody wallet must own the NFT)"
                 }
                 onClick={onBurn}
                 className={ADMIN_BTN_DANGER}

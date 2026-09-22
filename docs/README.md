@@ -24,7 +24,7 @@ Details and secrets checklist: **[guides/deployment.md](guides/deployment.md)** 
 tokenable-dev/
 ├── backend/      # NestJS REST API (port 4000 prod / 4100 local dev)
 ├── frontend/     # Next.js 16 App Router (port 3000)
-├── contracts/    # Hardhat — TokenableRWA (UUPS ERC-721); USDC is external (Circle)
+├── contracts/    # Hardhat — OpenZeppelin ERC721PresetMinterPauserAutoId (no proxy); USDC is external (Circle)
 ├── docs/         # This documentation
 ├── nginx/        # Reverse proxy (HTTP + TLS configs)
 └── certbot/      # Let's Encrypt webroot
@@ -54,6 +54,7 @@ tokenable-dev/
 | Marketplace admin API | [api/marketplace-admin.md](api/marketplace-admin.md) |
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
 | Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |
+| RWA Safe Factory deploy (2-of-3) | [guides/mainnet-multisig-deploy.md](guides/mainnet-multisig-deploy.md) |
 | Deploy env (Sepolia-first) | [guides/deploy-env-sepolia-first.md](guides/deploy-env-sepolia-first.md) |
 | Security model | [security.md](security.md) |
 | Testing strategy | [testing.md](testing.md) |
@@ -73,7 +74,7 @@ tokenable-dev/
 |-------|-------|
 | Frontend | Next.js 16, React 19, **Privy** (`@privy-io/react-auth`), wagmi, viem, TanStack Query, Zustand, Tailwind CSS |
 | Backend | NestJS 11, TypeORM, PostgreSQL 16, Redis 7 (optional), Ethers.js 6 |
-| Blockchain | Ethereum Sepolia / Ethereum mainnet / Polygon (QA) — Seaport 1.5, UUPS ERC-721 (TokenableRWA), USDC (Circle) |
+| Blockchain | Ethereum Sepolia / Ethereum mainnet / Polygon (QA) — Seaport 1.5, OpenZeppelin ERC-721 preset (immutable), USDC (Circle) |
 | Storage | Pinata (IPFS) |
 | Market data | Cardhedger API (+ `/api/cardhedger/v1/*` proxy), PSA Public API, Card Ladder scrape |
 | Infrastructure | Docker Compose, Nginx, AWS ECR + EC2 |

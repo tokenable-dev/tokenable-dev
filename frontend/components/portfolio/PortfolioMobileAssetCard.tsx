@@ -142,6 +142,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
             isListed={isListed}
             redeemStatus={redeemStatus}
             listPriceUsd={row.listPriceUsd}
+            kbwMysteryUsed={Boolean(row.kbwMysteryUsed)}
           />
         </div>
 

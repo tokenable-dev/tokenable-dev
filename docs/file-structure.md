@@ -282,18 +282,16 @@ frontend/
 ```
 contracts/
 ├── contracts/
-│   └── TokenableRWA.sol        # Main ERC-721 contract
+│   └── oz-erc721-preset.sol    # Compile shim → OZ ERC721PresetMinterPauserAutoId
 ├── scripts/
-│   ├── deploy-tokenable-rwa-uups.ts   # Deploy UUPS proxy
-│   ├── upgrade-tokenable-rwa.ts       # Upgrade implementation
-│   ├── grant-rwa-burner-role.ts       # Grant BURNER_ROLE
-│   └── sync-abi.mjs                   # Copy ABI → backend
+│   ├── deploy-tokenable-rwa.ts # Direct deploy (no proxy)
+│   ├── verify-rwa-preset.mjs   # Read-only checks vs backend/.env address
+│   └── sync-abi.mjs            # Copy ABI → backend
 ├── test/
-│   └── TokenableRWA.test.ts    # Comprehensive contract tests
-├── .openzeppelin/              # OpenZeppelin upgrade manifests (per network)
+│   └── OzErc721Preset.test.ts
 ├── hardhat.config.ts
 ├── package.json
-└── .env                        # DEPLOYER_PRIVATE_KEY, RPC URLs
+└── .env                        # DEPLOYER_PRIVATE_KEY, RPC URLs, RWA_ADMIN/MINTER
 ```
 
 ---

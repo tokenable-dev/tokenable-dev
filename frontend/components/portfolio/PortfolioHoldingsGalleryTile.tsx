@@ -20,19 +20,22 @@ import {
   holdingsSaleStatusLabel,
 } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 
-type GalleryStatusSeg = "notlisted" | "listed" | "redeeming";
+type GalleryStatusSeg = "notlisted" | "listed" | "redeeming" | "used";
 
 const GALLERY_STATUS: Record<GalleryStatusSeg, { className: string }> = {
   notlisted: { className: "pf-gbadge--notlisted" },
   listed: { className: "pf-gbadge--listed" },
   redeeming: { className: "pf-gbadge--redeeming" },
+  used: { className: "pf-gbadge--event-used" },
 };
 
 function galleryStatusSeg(
   isListed: boolean,
   redeemStatus: RedeemSurfaceBadge | null,
+  kbwMysteryUsed: boolean,
 ): GalleryStatusSeg {
-  const kind = holdingsSaleKind(isListed, redeemStatus);
+  const kind = holdingsSaleKind(isListed, redeemStatus, kbwMysteryUsed);
+  if (kind === "event_used") return "used";
   if (kind === "listed") return "listed";
   if (kind === "redeeming") return "redeeming";
   return "notlisted";
@@ -78,9 +81,12 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
-  const seg = galleryStatusSeg(isListed, redeemStatus);
+  const kbwUsed = Boolean(row.kbwMysteryUsed);
+  const seg = galleryStatusSeg(isListed, redeemStatus, kbwUsed);
   const badge = GALLERY_STATUS[seg];
-  const badgeLabel = holdingsSaleStatusLabel(holdingsSaleKind(isListed, redeemStatus));
+  const badgeLabel = holdingsSaleStatusLabel(
+    holdingsSaleKind(isListed, redeemStatus, kbwUsed),
+  );
   const costEditable = canEditCostBasis && !redeemStatus;
   const retLabel = pnl?.returnPct ?? null;
   const titleHover = headline?.hover ?? row.name;
@@ -93,6 +99,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     selectMode && isListed && selected ? "pf-gtile--sel-on" : null,
     selectMode && !isListed ? "pf-gtile--sel-dim" : null,
     onActivate && !selectMode ? "pf-gtile--activate" : null,
+    kbwUsed ? "pf-gtile--event-used" : null,
   ]
     .filter(Boolean)
     .join(" ");

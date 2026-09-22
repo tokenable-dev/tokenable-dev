@@ -287,7 +287,7 @@ export function buildCollectionHeadlineMetaStrip(params: {
   if (/\bvan\s*gogh\b/i.test(corpus)) {
     const inSet = /\bvan\s*gogh\b/i.test(set);
     if (!inSet) {
-      parts.push(/\bpokemon\b/i.test(corpus) ? "Pokemon × Van Gogh" : "Van Gogh");
+      parts.push(/\bpok[eé]mon\b/i.test(corpus) ? "Pokémon × Van Gogh" : "Van Gogh");
     }
   }
   if (
