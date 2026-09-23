@@ -2,10 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { TkButton, TkField, TkInput } from "@/components/ds";
 
 export function SiteAccessClient() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export function SiteAccessClient() {
         return;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["site-access-status"] });
       router.replace(nextPath);
       router.refresh();
     } catch {

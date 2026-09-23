@@ -30,11 +30,18 @@ export function isMarketplaceCollectionDetailPath(
  * Skip GNB/footer and background inbox polling — those hit Next `/api` proxy
  * and keep `next dev` compiling under load.
  */
+export function isSiteAccessGatePath(
+  pathname: string | null | undefined,
+): boolean {
+  if (!pathname) return false;
+  return pathname === "/site-access" || pathname.startsWith("/site-access/");
+}
+
 export function shouldHideAppChrome(
   pathname: string | null | undefined,
 ): boolean {
   if (!pathname) return false;
-  if (pathname === "/site-access" || pathname.startsWith("/site-access/")) {
+  if (isSiteAccessGatePath(pathname)) {
     return true;
   }
   if (pathname === "/event" || pathname.startsWith("/event/")) {

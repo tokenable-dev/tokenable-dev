@@ -10,10 +10,9 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
-import { useSwitchChain, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { canUseAppChainSwitcher } from "@/lib/auth/accountAccess";
-import { getPrimaryWalletAddress, normalizeWalletAddress } from "@/lib/auth/wallets";
+import { completeSignOut } from "@/lib/auth/signOut";
 import {
   CHAIN_ID_HEADER,
   DEFAULT_CHAIN_ID,
@@ -61,8 +60,6 @@ function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
 
 export function AppChainProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { switchChainAsync } = useSwitchChain();
-  const { address, isConnected } = useAccount();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const authInitialized = useAuthStore((s) => s.initialized);
@@ -106,23 +103,17 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       if (!allow) return;
       // Production bundles throw if contracts env is missing — never select unconfigured chains.
       if (!isChainConfigured(nextId)) return;
+      if (chainId === nextId) return;
       setChainIdState(nextId);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(STORAGE_KEY, String(nextId));
       }
       setActiveChainIdForApi(nextId);
       notifyAppChainChanged();
-      const primary = normalizeWalletAddress(getPrimaryWalletAddress(useAuthStore.getState().user));
-      const connected = normalizeWalletAddress(address);
-      const canSwitchWalletChain =
-        isConnected && (!primary || (connected && connected === primary));
-      if (canSwitchWalletChain) {
-        void switchChainAsync({ chainId: nextId }).catch(() => {
-          /* wallet may switch later via WalletDataProvider */
-        });
-      }
+      // Fresh Privy + wagmi session on the new chain — avoids stale wallet chain / MetaMask prompts.
+      void completeSignOut();
     },
-    [switchChainAsync, address, isConnected, pathname],
+    [chainId, pathname],
   );
 
   useEffect(() => {

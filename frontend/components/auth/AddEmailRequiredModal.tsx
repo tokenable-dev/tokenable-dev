@@ -7,6 +7,7 @@ import { updateAuthProfile } from "@/lib/auth/auth";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
 import { completeKbwPostLoginRedirect } from "@/lib/event/kbwEventLoginRouting";
+import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import "@/styles/tokenable-add-email.css";
@@ -65,6 +66,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export function AddEmailRequiredModal() {
   const router = useRouter();
+  const siteAccessAllowsModals = useSiteAccessAllowsAppModals();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
@@ -96,6 +98,7 @@ export function AddEmailRequiredModal() {
   }, [needsEmail]);
 
   const open =
+    siteAccessAllowsModals &&
     initialized &&
     !privySessionSyncing &&
     needsEmail &&

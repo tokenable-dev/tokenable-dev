@@ -33,6 +33,9 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
   if (pathname === "/api/site-access/verify" && method.toUpperCase() === "POST") {
     return true;
   }
+  if (pathname === "/api/site-access/status" && method.toUpperCase() === "GET") {
+    return true;
+  }
   if (pathname === "/api/health" && method.toUpperCase() === "GET") {
     return true;
   }

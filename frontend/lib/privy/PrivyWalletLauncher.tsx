@@ -186,22 +186,20 @@ export function PrivyWalletLauncher() {
             ));
 
           if (quick) {
-            // Desktop extensions can sit in useWallets() via eth_accounts without
-            // a user gesture — always re-open Privy connect there.
-            // Mobile WC sessions from MetaMask login are real; a second connectWallet
-            // deeplink hangs on "Waiting for MetaMask" on iOS Safari.
+            // External wallets may already be in useWallets() via eth_accounts — align
+            // wagmi quietly first; only open Privy connect when reconciliation fails.
             if (isPrivyExternalWallet(quick)) {
-              if (isMobileBrowserUa()) {
-                try {
-                  await reconcileActiveWallet(quick);
-                  if (cancelledRef.current) return;
-                  finishWalletActivation();
-                  trackEvent("wallet_connected", { provider: "session_mobile" });
-                  navigateAfterSuccess();
-                  return;
-                } catch {
-                  // Fall through to an explicit Privy connect.
-                }
+              try {
+                await reconcileActiveWallet(quick);
+                if (cancelledRef.current) return;
+                finishWalletActivation();
+                trackEvent("wallet_connected", {
+                  provider: isMobileBrowserUa() ? "session_mobile" : "session",
+                });
+                navigateAfterSuccess();
+                return;
+              } catch {
+                // Fall through to an explicit Privy connect (user chose Connect in UI).
               }
               setWalletActivationPhase("waiting_mobile_return");
               connectWallet({
