@@ -44,16 +44,21 @@ type AppChainContextValue = {
 
 const AppChainContext = createContext<AppChainContextValue | null>(null);
 
-function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
-  if (typeof window === "undefined") return DEFAULT_CHAIN_ID;
+function readPersistedAppChainId(): SupportedChainId | null {
+  if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(STORAGE_KEY);
   const n = Number(raw);
-  if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return DEFAULT_CHAIN_ID;
-  // Never restore an unconfigured chain (production throws on missing NEXT_PUBLIC_CHAIN_*).
-  if (!isChainConfigured(n as SupportedChainId)) return DEFAULT_CHAIN_ID;
+  if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return null;
+  if (!isChainConfigured(n as SupportedChainId)) return null;
+  return n as SupportedChainId;
+}
+
+function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
+  const persisted = readPersistedAppChainId();
+  if (!persisted) return DEFAULT_CHAIN_ID;
   // Local dev + internal dev on deploy: allow any configured chain (wallet switch / QA).
   if (process.env.NODE_ENV === "development" || internalDevBypass) {
-    return n as SupportedChainId;
+    return persisted;
   }
   return DEFAULT_CHAIN_ID;
 }
@@ -87,11 +92,14 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       notifyAppChainChanged();
       return;
     }
-    setChainIdState(DEFAULT_CHAIN_ID);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, String(DEFAULT_CHAIN_ID));
-    }
-    setActiveChainIdForApi(DEFAULT_CHAIN_ID);
+    // Signed-in users without the switcher always use the platform default.
+    // Logged-out visitors keep a persisted dev chain (network switch signs out
+    // without clobbering localStorage — see setChainId).
+    const persisted = readPersistedAppChainId();
+    const nextId =
+      useAuthStore.getState().user || !persisted ? DEFAULT_CHAIN_ID : persisted;
+    setChainIdState(nextId);
+    setActiveChainIdForApi(nextId);
     notifyAppChainChanged();
   }, [authInitialized, canSwitchChain, adminConsole]);
 
