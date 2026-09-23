@@ -101,32 +101,6 @@ export function ListRwaPriceInput({
     ? "Market"
     : `Market ${derivedOffset > 0 ? "+" : ""}${derivedOffset}%`;
 
-  const hint = useMemo(() => {
-    if (cross) {
-      return {
-        kind: "cross" as const,
-        msg: `Sells immediately to the top bid at ${money(highBid)}. This fills now instead of resting on the book.`,
-      };
-    }
-    if (value <= 0) return null;
-    if (market > 0 && value > market * 1.25) {
-      return {
-        kind: "warn" as const,
-        msg: "Well above market value — this may sit unsold.",
-      };
-    }
-    if (market > 0 && value < market * 0.7) {
-      return {
-        kind: "warn" as const,
-        msg: "Well below market value — you’d be leaving money on the table.",
-      };
-    }
-    if (lowest > 0 && value < lowest) {
-      return { kind: "good" as const, msg: "You’d be the lowest ask." };
-    }
-    return null;
-  }, [value, market, lowest, cross, highBid]);
-
   function setFromRef(n: number) {
     setPick(null);
     setOffset(0);
@@ -254,18 +228,6 @@ export function ListRwaPriceInput({
             );
           })}
         </div>
-      ) : null}
-
-      {hint ? (
-        <p
-          className={cn(
-            "tk-price__hint",
-            hint.kind === "good" && "tk-price__hint--good",
-            hint.kind === "cross" && "tk-price__hint--cross",
-          )}
-        >
-          {hint.kind === "cross" ? `⚡ ${hint.msg}` : hint.msg}
-        </p>
       ) : null}
 
       {feePercent > 0 ? (
