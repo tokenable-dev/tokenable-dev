@@ -87,7 +87,7 @@ POSTGRES_PASSWORD=<secure-password>
 POSTGRES_DB=tokenable
 
 # Blockchain — public users stay on Sepolia; internal-dev can switch when chains are configured
-DEFAULT_CHAIN_ID=11155111
+DEFAULT_CHAIN_ID=1
 CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 CHAIN_11155111_RWA_ADDRESS=0xF7242F62153ac2F42CbF331724F38B93829381c3
 CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238

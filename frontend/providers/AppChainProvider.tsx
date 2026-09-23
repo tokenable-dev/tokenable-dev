@@ -31,9 +31,6 @@ import { useAuthStore } from "@/store/authStore";
 
 const STORAGE_KEY = APP_CHAIN_STORAGE_KEY;
 
-/** Public users stay on Sepolia until mainnet launch. */
-const PUBLIC_APP_CHAIN_ID = 11155111 as SupportedChainId;
-
 function isMarketplaceAdminPath(pathname: string | null): boolean {
   return Boolean(pathname?.startsWith("/marketplace/admin"));
 }
@@ -75,7 +72,7 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
   const canSwitchChain = canUseAppChainSwitcher(user) || adminConsole;
   const configuredChains = useMemo(() => getConfiguredChains(), []);
   // Always match SSR — restore persisted chain after mount (localStorage is client-only).
-  const [chainId, setChainIdState] = useState<SupportedChainId>(PUBLIC_APP_CHAIN_ID);
+  const [chainId, setChainIdState] = useState<SupportedChainId>(DEFAULT_CHAIN_ID);
 
   const chain = useMemo(() => getChainDefinition(chainId), [chainId]);
 
@@ -93,11 +90,11 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       notifyAppChainChanged();
       return;
     }
-    setChainIdState(PUBLIC_APP_CHAIN_ID);
+    setChainIdState(DEFAULT_CHAIN_ID);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, String(PUBLIC_APP_CHAIN_ID));
+      window.localStorage.setItem(STORAGE_KEY, String(DEFAULT_CHAIN_ID));
     }
-    setActiveChainIdForApi(PUBLIC_APP_CHAIN_ID);
+    setActiveChainIdForApi(DEFAULT_CHAIN_ID);
     notifyAppChainChanged();
   }, [authInitialized, canSwitchChain, adminConsole]);
 
