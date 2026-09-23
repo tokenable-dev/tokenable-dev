@@ -3,12 +3,7 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { formatUnits } from "viem";
-import {
-  getMarketplaceCollectionDetail,
-  marketplaceRqPolicy,
-  rq,
-  type Order,
-} from "@/lib/core";
+import { getMarketplaceCollectionDetail, rq, type Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
@@ -77,13 +72,15 @@ export function highestBidUsdForHolding(
 export function usePortfolioCollectionTopBids(
   collectionKeys: readonly string[],
   enabled: boolean,
+  opts?: { freshOrderBook?: boolean },
 ) {
   const chainId = activeRqChainId();
+  const freshOrderBook = opts?.freshOrderBook === true;
   const uniqueKeys = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
     for (const raw of collectionKeys) {
-      const key = raw?.trim();
+      const key = raw?.trim().toLowerCase();
       if (!key || seen.has(key)) continue;
       seen.add(key);
       out.push(key);
@@ -94,9 +91,14 @@ export function usePortfolioCollectionTopBids(
   const queries = useQueries({
     queries: uniqueKeys.map((key) => ({
       queryKey: rq.collectionDetail(key, chainId),
-      queryFn: () => getMarketplaceCollectionDetail(key),
+      queryFn: () =>
+        getMarketplaceCollectionDetail(
+          key,
+          freshOrderBook ? { bypassCache: true } : undefined,
+        ),
       enabled: enabled && Boolean(key),
-      staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
+      staleTime: 0,
+      refetchOnMount: "always" as const,
     })),
   });
 

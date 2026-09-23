@@ -42,6 +42,17 @@ import { useSeaportOrderSigner } from "@/lib/privy";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
+import { useAuthStore } from "@/store/authStore";
+
+function rejectList(
+  setErrorMsg: (msg: string) => void,
+  setStep: (step: ListRwaModalStep) => void,
+  message: string,
+) {
+  setErrorMsg(message);
+  setStep("error");
+}
 
 export function useListRwaModal({
   tokenId,
@@ -54,8 +65,13 @@ export function useListRwaModal({
   collectionKey,
   collectionBids,
   preferredBidOrderHash,
+  open = true,
 }: ListRwaModalProps) {
-  const { address } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const user = useAuthStore((s) => s.user);
+  const listingAddress = (getPrimaryWalletAddress(user) ?? wagmiAddress) as
+    | Address
+    | undefined;
   const { chainId } = useAppChain();
   const { rwaAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
@@ -112,7 +128,10 @@ export function useListRwaModal({
         args: [tid],
       });
     },
-    enabled: Boolean(publicClient && rwaAddress && String(tokenId).trim()),
+    enabled:
+      open &&
+      step !== "success" &&
+      Boolean(publicClient && rwaAddress && String(tokenId).trim()),
     staleTime: 15_000,
     retry: 1,
   });
@@ -126,7 +145,9 @@ export function useListRwaModal({
   // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
   // Do not hard-error on unknown settlement while indexing catches up after mint.
   useEffect(() => {
+    if (!open) return;
     if (listingInFlight) return;
+    if (step === "success" || successMeta?.matched) return;
     if (onChainOwnerQuery.isError) {
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
       setStep("error");
@@ -135,12 +156,12 @@ export function useListRwaModal({
     const chainOwner = onChainOwnerQuery.data;
     if (
       chainOwner &&
-      address &&
-      chainOwner.toLowerCase() !== address.toLowerCase()
+      listingAddress &&
+      chainOwner.toLowerCase() !== listingAddress.toLowerCase()
     ) {
       setErrorMsg(
-        `This card is owned by ${shortBidder(chainOwner)} on-chain, not your connected wallet (${shortBidder(address)}). ` +
-          "If you already sold it, refresh My Assets or open Portfolio with the buyer wallet.",
+        `This card is owned by ${shortBidder(chainOwner)} on-chain, not the wallet used to list (${shortBidder(listingAddress)}). ` +
+          "Switch to that owner wallet in your account, or refresh if you just sold this card.",
       );
       setStep("error");
       return;
@@ -151,18 +172,20 @@ export function useListRwaModal({
       step === "error" &&
       !onChainOwnerQuery.isError &&
       (!chainOwner ||
-        !address ||
-        chainOwner.toLowerCase() === address.toLowerCase())
+        !listingAddress ||
+        chainOwner.toLowerCase() === listingAddress.toLowerCase())
     ) {
       setErrorMsg("");
       setStep("idle");
     }
   }, [
+    open,
     listingInFlight,
     settlementFetched,
     settlementKnown,
     step,
-    address,
+    successMeta?.matched,
+    listingAddress,
     onChainOwnerQuery.data,
     onChainOwnerQuery.isError,
     onChainOwnerQuery.error,
@@ -196,7 +219,7 @@ export function useListRwaModal({
       label = String(micros);
     }
     return { micros, label, inputValue: formatUnits(micros, 6) };
-  }, [collectionBids, address, tokenId]);
+  }, [collectionBids, tokenId]);
 
   const askMicrosFromPrice = useMemo(() => {
     const t = price.trim();
@@ -260,14 +283,16 @@ export function useListRwaModal({
   }, [selectedBidHash, preferredBidOrderHash]);
 
   const isReplaceListing = useMemo(() => {
-    if (!resolvedExistingAsk || !address) return false;
+    if (!resolvedExistingAsk || !listingAddress) return false;
     if (resolvedExistingAsk.side !== "ask" || resolvedExistingAsk.status !== "active")
       return false;
     if (Number(normalizeDecimalTokenId(resolvedExistingAsk.tokenId)) !== Number(tokenId)) {
       return false;
     }
-    return resolvedExistingAsk.offerer.toLowerCase() === address.toLowerCase();
-  }, [resolvedExistingAsk, address, tokenId]);
+    return (
+      resolvedExistingAsk.offerer.toLowerCase() === listingAddress.toLowerCase()
+    );
+  }, [resolvedExistingAsk, listingAddress, tokenId]);
 
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
@@ -303,7 +328,7 @@ export function useListRwaModal({
   const instantMatchDeps = useMemo(
     (): ListRwaInstantMatchDeps => ({
       tokenId,
-      address: address as Address | undefined,
+      address: listingAddress,
       publicClient: publicClient ?? undefined,
       collectionKey,
       collectionBids,
@@ -318,7 +343,7 @@ export function useListRwaModal({
     }),
     [
       tokenId,
-      address,
+      listingAddress,
       publicClient,
       collectionKey,
       collectionBids,
@@ -334,21 +359,41 @@ export function useListRwaModal({
   );
 
   async function handleList() {
-    if (!address || !price || parseFloat(price) <= 0) return;
+    if (!price || parseFloat(price) <= 0) return;
+    if (!listingAddress) {
+      rejectList(
+        setErrorMsg,
+        setStep,
+        "Link your wallet in account settings, then try List again.",
+      );
+      return;
+    }
     if (!signSeaportOrder) {
-      setErrorMsg("Wallet not connected. Please reconnect.");
+      rejectList(
+        setErrorMsg,
+        setStep,
+        "Wallet signer not ready. Refresh the page or reconnect your wallet.",
+      );
       return;
     }
     if (!publicClient) {
-      setErrorMsg("Network not ready. Try again.");
+      rejectList(setErrorMsg, setStep, "Network not ready. Try again.");
       return;
     }
     if (waitingOnExistingAsk) {
-      setErrorMsg("Loading your current listing. Try again in a moment.");
+      rejectList(
+        setErrorMsg,
+        setStep,
+        "Loading your current listing. Try again in a moment.",
+      );
       return;
     }
     if (existingAskOrderHash?.trim() && !isReplaceListing) {
-      setErrorMsg("Could not load the live listing to update. Refresh and try again.");
+      rejectList(
+        setErrorMsg,
+        setStep,
+        "Could not load the live listing to update. Refresh and try again.",
+      );
       return;
     }
 
@@ -392,7 +437,7 @@ export function useListRwaModal({
         let created = await submitAskListingOrder({
           tokenId,
           priceUsdc,
-          address: address as Address,
+          address: listingAddress,
           publicClient,
           signSeaportOrder,
           writeContractAsync: writeContractAsync as Parameters<
@@ -450,14 +495,14 @@ export function useListRwaModal({
         address: rwaAddress,
         abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "isApprovedForAll",
-        args: [address, SEAPORT_ADDRESS],
+        args: [listingAddress, SEAPORT_ADDRESS],
       });
       setStep(alreadyAll ? "signing" : "approving");
 
       let createdFinal = await submitAskListingOrder({
         tokenId,
         priceUsdc,
-        address: address as Address,
+        address: listingAddress,
         publicClient,
         signSeaportOrder,
         writeContractAsync: writeContractAsync as Parameters<

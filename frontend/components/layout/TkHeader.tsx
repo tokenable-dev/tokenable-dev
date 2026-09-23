@@ -29,7 +29,7 @@ export function TkHeader() {
   const {
     barRef,
     leftRef,
-    rightRef,
+    measureRightRef,
     compact: desktopSearchCompact,
     searchLeftPx,
   } = useGnbDesktopSearchLayout(!gnbMobile);
@@ -141,7 +141,7 @@ export function TkHeader() {
             </Suspense>
           </div>
 
-          <div className="tk-header__right" ref={rightRef}>
+          <div className="tk-header__right">
             <div className="tk-header__mobile-actions">
               <TkHeaderSearchMobileButton onClick={openMobileSearch} />
 
@@ -175,7 +175,7 @@ export function TkHeader() {
               />
             ) : null}
 
-            <div className="gnb-right">
+            <div className="gnb-right" ref={measureRightRef}>
               <HeaderAuthControls onOpenNotifications={openNotifications} />
             </div>
           </div>

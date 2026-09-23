@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TkButton, TkDialog, TkField, TkInput } from "@/components/ds";
 import { updateAuthProfile } from "@/lib/auth/auth";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import { completeKbwPostLoginRedirect } from "@/lib/event/kbwEventLoginRouting";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 import "@/styles/tokenable-add-email.css";
 
 function deferKey(userId: string) {
@@ -60,6 +64,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * the account still has the `@privy.wallet` placeholder.
  */
 export function AddEmailRequiredModal() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
@@ -121,6 +126,13 @@ export function AddEmailRequiredModal() {
       if (user?.id) writeDeferred(user.id, false);
       setDeferred(false);
       setEmail("");
+      const ui = useAuthUiStore.getState();
+      await completeKbwPostLoginRedirect({
+        walletAddress: getPrimaryWalletAddress(updated),
+        push: (path) => router.push(path),
+        armKbwOffer: () => ui.armKbwOffer(),
+        clearKbwOffer: () => ui.clearKbwOffer(),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save email");
     } finally {

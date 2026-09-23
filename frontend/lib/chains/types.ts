@@ -1,7 +1,7 @@
 import type { Chain } from "viem/chains";
 
 /** Supported EVM networks — Sepolia (default public), Ethereum, Polygon. */
-export const SUPPORTED_CHAIN_IDS = [11155111, 1, 137] as const;
+export const SUPPORTED_CHAIN_IDS = [1, 11155111, 137] as const;
 
 export type SupportedChainId = (typeof SUPPORTED_CHAIN_IDS)[number];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 /** Fixed desktop GNB search field width — do not shrink with the viewport. */
 export const GNB_SEARCH_BAR_WIDTH_PX = 420;
@@ -17,18 +17,19 @@ const GNB_SEARCH_FIT_SLACK_PX = 8;
  * Markets / Portfolio / Sell, reports `compact` so the header can switch
  * to the mobile magnifier + overlay.
  *
- * `rightRef` should wrap the full header right column (auth + compact magnifier)
- * so fit math matches what is on screen.
+ * `measureRightRef` must wrap `.gnb-right` only (auth cluster). Do not include
+ * `.gnb-search-desktop-fallback` — counting the magnifier shrinks “available”
+ * and can leave desktop stuck in compact mode on wide viewports.
  */
 export function useGnbDesktopSearchLayout(enabled: boolean) {
   const barRef = useRef<HTMLDivElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
-  const rightRef = useRef<HTMLDivElement>(null);
-  /** Start compact so the 50%-centered CSS fallback never overlaps nav before measure. */
-  const [compact, setCompact] = useState(() => enabled);
+  const measureRightRef = useRef<HTMLDivElement>(null);
+  /** Prefer the search bar on desktop until measure proves it cannot fit. */
+  const [compact, setCompact] = useState(false);
   const [searchLeftPx, setSearchLeftPx] = useState<number | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) {
       setCompact(false);
       setSearchLeftPx(null);
@@ -37,7 +38,7 @@ export function useGnbDesktopSearchLayout(enabled: boolean) {
 
     const bar = barRef.current;
     const left = leftRef.current;
-    const right = rightRef.current;
+    const right = measureRightRef.current;
     if (!bar || !left || !right) return;
 
     const measure = () => {
@@ -82,5 +83,5 @@ export function useGnbDesktopSearchLayout(enabled: boolean) {
     };
   }, [enabled]);
 
-  return { barRef, leftRef, rightRef, compact, searchLeftPx };
+  return { barRef, leftRef, measureRightRef, compact, searchLeftPx };
 }

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -204,6 +205,44 @@ export class RwaTokenRegistryService {
       }
     }
     return { scanned: ids.length, upserted };
+  }
+
+  /**
+   * Stable digest of registry rows for cache keys — same tokenId after admin
+   * reset / remint must not reuse a prior BFF payload (e.g. wrong cert).
+   */
+  async registryIdentityDigest(
+    tokenIds: Array<string | number>,
+    chainId?: SupportedChainId,
+  ): Promise<string> {
+    const contract = this.rwaContractAddress(chainId);
+    if (!contract) return '';
+
+    const ids = [
+      ...new Set(tokenIds.map((id) => Math.floor(Number(id)))),
+    ].filter((id) => Number.isFinite(id) && id >= 0);
+    if (ids.length === 0) return '';
+
+    const rows = await this.repo.find({
+      where: {
+        tokenContract: contract,
+        tokenId: In(ids.map((id) => String(id))),
+      },
+      select: ['tokenId', 'certNumber', 'collectionKey', 'metadataCid', 'tokenUri'],
+    });
+
+    const parts = rows
+      .map((row) => {
+        const tid = String(row.tokenId).trim();
+        const cert = row.certNumber?.trim() ?? '';
+        const key = row.collectionKey?.trim().toLowerCase() ?? '';
+        const cid = row.metadataCid?.trim() ?? '';
+        const uri = row.tokenUri?.trim() ?? '';
+        return `${tid}:${cert}:${key}:${cid}:${uri}`;
+      })
+      .sort();
+
+    return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
   }
 
   async collectionKeysByTokenIds(

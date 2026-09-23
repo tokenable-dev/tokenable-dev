@@ -41,15 +41,15 @@ We do **not** write custom NFT Solidity. We do **not** fork Seaport/USDC.
 
 ## Deployed RWA contracts
 
-These are **plain contract addresses** (not UUPS proxies). **Source of truth:** `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA`. Values below are stale until the next `pnpm deploy:rwa:*` and env swap.
+These are **plain contract addresses** (not UUPS proxies). **Source of truth:** per-host `CHAIN_{id}_RWA_ADDRESS` / `NEXT_PUBLIC_CHAIN_{id}_RWA` (see `deploy/README.md`).
 
-| Chain | ID | Current app proxy (env) | Notes |
-|-------|----|-------------------------|--------|
-| Ethereum Sepolia | 11155111 | `0x78DE07b00Aa1E02aE1b97D3cC38FBc630Bc176ee` | Default local/dev |
-| Ethereum mainnet | 1 | `0x318C92F6e913f1d1E90c0396270705B83918bCdb` | Production |
-| Polygon mainnet | 137 | `0x502C30D7bB302CD31326dE770390bcbbe9Ed13eC` | Internal / QA |
+| Chain | ID | Local dev | EC2 deploy |
+|-------|-----|-----------|------------|
+| Ethereum Sepolia | 11155111 | `0x70FDfd126b902173720412b2B8AD844E728F49af` | `0xF7242F62153ac2F42CbF331724F38B93829381c3` |
+| Ethereum mainnet | 1 | `0x1ee4a6a6cbc4E15f73125233bc9447208c2dB8C1` | `0xa8a7568E0A5f0dC2F5143ad09D12a032b3c145ad` |
+| Polygon mainnet | 137 | `0x0DE88f46A0790E3B08fA2eB96BE2819480E0e478` | `0x4d1FA7a19C5b6a5fd4aB0E9521eb5Ef252993d35` |
 
-After a redeploy, update backend + frontend env and this table in the same change.
+After a redeploy, update env on that host and this table in the same change.
 
 ---
 
@@ -176,7 +176,7 @@ Seller UX for taking token offers: [seaport-accept-offer.md](./seaport-accept-of
 2. Read `Seaport.getCounter(offerer)` for nonce
 3. Build Seaport order: offer = ERC-721, consideration = USDC
    - **standard:** seller + platform fee (default **5%** / `PLATFORM_FEE_BPS=500`)
-   - **self_vault_hold:** single consideration = 100% USDC to `PLATFORM_FEE_RECIPIENT` (no $0 seller line). Valid even when the seller wallet is that same address (fee/custody key used as MetaMask).
+   - **self_vault_hold:** seller USDC + platform fee (`SELF_VAULT_PLATFORM_FEE_BPS`, default 10%). Legacy single-line full-platform-take asks may still exist in the order book.
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table (backend rejects self-vault asks that are not full-platform-take)
 

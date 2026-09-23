@@ -194,7 +194,7 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
 | POST | `/api/marketplace/collections/:key/admin/delete` | Delete **this chain's** catalog row + chain-scoped orders. Snapshot deleted only when no other chain row remains for that key. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
 
-New collections start as `pending_review` on first ask **or** admin `create-from-cert`. Create-time cover is ingested to S3 when a catalog image is available. Later listings/sales do not replace an existing cover (admin uploads stay). Catalog-only rows (no orders / `rwa_tokens`) still appear in Markets after Approve. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
+First **ask listing** creates or activates `review_status = active` (Markets-visible without Approve). Admin `create-from-cert` without a listing still starts `pending_review`. Canceling an ask does not remove the collection. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
 
 > **Per-chain catalog:** `marketplace_collections` has composite PK `(collection_key, token_contract)`. Each RWA contract gets its own catalog row with independent `review_status` and `cover_image_url`. All collection and admin endpoints are chain-scoped via `x-tokenable-chain-id` header (defaults to `DEFAULT_CHAIN_ID`). `collection_market_snapshots` PK remains `collection_key`-only — pricing is shared across chains.
 
@@ -411,8 +411,8 @@ Requires `add_vault_redemptions_custody_refund.sql` applied. Does not change Fed
 | POST | `/arrival-reviews/:reviewId/dismiss` | Dismiss without status change |
 | GET | `/mint-queue` | Flat list of cards at PSA (`reviewing`/`approved` on `psa_reviewing` packages). `?q=` |
 | GET | `/vaulted-reviews` | Items Vaulted (secured) mail audit (`?status=pending\|minted\|failed\|dismissed`). Includes `mintedVia`, `mintResults` |
-| POST | `/vaulted-reviews/test-inject` | **TEST** inject vaulted Gmail + poll/auto-mint (`PSA_VAULTED_MAIL_TEST_INJECT=1` or `PSA_RECEIVED_MAIL_TEST_INJECT=1`) |
-| POST | `/vaulted-reviews/:reviewId/mint` | Manual mint & deliver for a vaulted review |
+| POST | `/vaulted-reviews/test-inject` | **TEST** inject vaulted Gmail + poll/auto-mint (`PSA_VAULTED_MAIL_TEST_INJECT=1` or `PSA_RECEIVED_MAIL_TEST_INJECT=1`). Send `x-tokenable-chain-id` from admin network switcher; matched mint-queue items mint on their **submission `chain_id`** (header must match or request fails). Cron polls use submission chain, else `PSA_VAULTED_MAIL_CHAIN_ID` / `DEFAULT_CHAIN_ID`. |
+| POST | `/vaulted-reviews/:reviewId/mint` | Manual mint & deliver for a vaulted review (same chain rules + optional `x-tokenable-chain-id`) |
 | POST | `/vaulted-reviews/:reviewId/dismiss` | Dismiss without minting |
 | POST | `/:idOrPublicId/items/:itemId/mint-and-deliver` | PSA analyze → IPFS → custody mint → deliver to depositor wallet (requires `x-tokenable-chain-id`). Item → `completed` / Live. If cert already has open `minted` cycle on chain, adopts existing token (no remint; may return `adoptedExisting`). Image fallback: PSA front → Cardhedger mint → item → Cardhedger catalog (collection-cover path) → Tokenable logo |
 | GET | `/` | List submissions (`?status=&q=` — public id, email, name, cert) |

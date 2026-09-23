@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
   bestAskByToken,
@@ -18,6 +19,7 @@ export function useCollectionDetailListings(params: {
   const { collectionKey, asks, enabled } = params;
   const { address } = useAccount();
   const viewerWallet = address?.trim() ?? "";
+  const chainId = activeRqChainId();
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
@@ -48,6 +50,7 @@ export function useCollectionDetailListings(params: {
       );
       const flat = packs.flatMap((p) => p.items);
       primeRwaMetadataCache(
+        chainId,
         flat.map((it) => ({
           tokenId: it.tokenId,
           metadata: it.metadata,

@@ -136,7 +136,8 @@ export function usePortfolioAssetsPage(input: {
     // Instant paint from cache — server ids bootstrap still runs to pick up new mints.
     hadPaintCacheRef.current = bundle.tokenIds.length > 0;
     const restored = accumulatedFromPortfolioBundle(bundle);
-    fetchedTokenIdsRef.current = new Set(restored.fetchedTokenIds);
+    // Paint from LS, but always re-fetch BFF metadata (tokenId can map to a new cert).
+    fetchedTokenIdsRef.current = new Set();
     bootstrapDoneRef.current = bundle.tokenIds.length > 0;
     setOwnedTokenIds(bundle.tokenIds);
     setBffLoadedCount(
@@ -251,7 +252,8 @@ export function usePortfolioAssetsPage(input: {
       Boolean(address && enabled) &&
       pendingTokenIds.length > 0 &&
       bootstrapDoneRef.current,
-    staleTime: 120_000,
+    staleTime: 0,
+    refetchOnMount: "always",
     retry: 2,
   });
 
@@ -277,6 +279,7 @@ export function usePortfolioAssetsPage(input: {
     }
 
     primeRwaMetadataCache(
+      chainId,
       pageData.metadataItems.map((it) => ({
         tokenId: it.tokenId,
         metadata: it.metadata,

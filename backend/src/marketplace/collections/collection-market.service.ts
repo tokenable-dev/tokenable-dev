@@ -28,6 +28,7 @@ import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
+import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
 import {
   cardhedgerRawSalesToTapeRows,
   computeCollectionTradesVolumeStats,
@@ -298,7 +299,11 @@ export class CollectionMarketService {
       ).bundle;
     }
 
-    return this.overlayLiveCardhedgerWhenThin(bundle, key, window);
+    const out = await this.overlayLiveCardhedgerWhenThin(bundle, key, window);
+    return {
+      ...out,
+      cardhedgerPreview: sanitizeMarketCollectionPreview(out.cardhedgerPreview),
+    };
   }
 
   /**
@@ -1453,7 +1458,7 @@ function mergeLiveCardhedgerOverlay(
         : bundle.marketChangeSource,
     gradePrices: input.gradePrices,
     spotPriceBasis: input.spotPriceBasis ?? bundle.spotPriceBasis,
-    cardhedgerPreview: input.cardhedgerPreview,
+    cardhedgerPreview: sanitizeMarketCollectionPreview(input.cardhedgerPreview),
     externalUsd: filterExternalUsdForChartWindow(input.externalUsdFull, window),
     allGradePrices:
       input.allGradePrices != null && input.allGradePrices.length > 0

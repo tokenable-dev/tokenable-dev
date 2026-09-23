@@ -217,6 +217,74 @@ GitHub Actions deploys frontend and backend from the **same commit** when you pu
 
 ---
 
+## EC2: `git pull` fails / deploy stuck (nginx `.bak` on server only)
+
+**Symptom:** EC2 has `nginx/nginx.tls.conf.bak.YYYYMMDDHHMMSS` but your laptop does not; `git pull` or deploy fails.
+
+**Cause:** Those `.bak` files are **untracked** on EC2 (manual `cp` before editing TLS). They do not exist in the repo. `git pull` can also fail when **tracked** `nginx/nginx.tls.conf` was edited on the server.
+
+**Fix (one-time on EC2):**
+
+```bash
+cd /home/ubuntu/app
+git fetch origin
+git checkout develop
+bash deploy/ec2-sync-git.sh develop
+```
+
+That script deletes `nginx.tls.conf.bak.*`, runs `git clean` on `nginx/`, `git reset --hard origin/<branch>`, then restores the live `nginx.tls.conf` from a `/tmp` backup. After this lands in `develop`, GitHub Deploy runs the same script.
+
+Until the script is on the host, run manually:
+
+```bash
+cp nginx/nginx.tls.conf /tmp/nginx.tls.conf.save
+rm -f nginx/nginx.tls.conf.bak.*
+git clean -fd -- nginx/
+git fetch origin && git reset --hard origin/develop
+cp /tmp/nginx.tls.conf.save nginx/nginx.tls.conf
+```
+
+---
+
+## Local Postgres: wrong data / `psql` shows old contracts
+
+**Symptom:** `psql -h 127.0.0.1 -p 5432` shows hundreds of `rwa_tokens`, but the app (Sepolia) only has tokenId 1 — or `localhost` vs `127.0.0.1` disagree.
+
+**Cause:** Two different servers on port **5432**:
+
+1. **Docker `tokenable-postgres`** on host **`127.0.0.1:5433`** (see `docker-compose.yml`).
+2. **Cursor/VS Code `Code Helper`** often binds **`127.0.0.1:5432`** (Database Client port forward or another local Postgres tunnel) — a **different** database, not the compose volume.
+
+**Fix (repo default):** Set `POSTGRES_HOST=127.0.0.1` and `POSTGRES_PORT=5433` in `backend/.env`, restart `pnpm start:dev`. Always use port **5433** for CLI/GUI clients.
+
+To drop the stray listener on 5432: Cursor **Ports** panel → stop any forward on **5432**, or quit the extension that started it. You do not need that tunnel for this project.
+
+Verify:
+
+```bash
+PGPASSWORD=tokenable psql -h 127.0.0.1 -p 5433 -U tokenable -d tokenable -c \
+  "SELECT lower(token_contract), COUNT(*) FROM rwa_tokens GROUP BY 1;"
+```
+
+---
+
+## Postgres: `sorry, too many clients already` (53300)
+
+**Symptom:** Cron logs (`PsaReceivedMailService`, `Scheduler`, etc.) fail with `code: '53300'`.
+
+**Cause:** Total connections to that Postgres instance exceeded `max_connections` — common locally when Nest + IDE DB clients + several `pnpm start:dev` processes share one server, or when minute crons spike at `:00`.
+
+**Fix (repo):**
+
+- Docker Postgres uses `max_connections=200` (`docker-compose.yml`). Recreate after pull:  
+  `docker compose up -d --force-recreate postgres`
+- Backend uses `POSTGRES_PORT=5433` and a bounded pool (`DB_POOL_MAX`, dev default **10**).
+- Session advisory locks for mail/redeem crons use one dedicated connection (`pg-session-advisory-lock.util.ts`) so pool checkouts do not leak locks.
+
+**On your machine:** One Nest process, close extra SQL clients on port 5432/5433, restart Postgres if needed.
+
+---
+
 ## Database: "relation does not exist"
 
 Production expects **seventeen** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:

@@ -79,7 +79,7 @@ docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
 Or with `DATABASE_URL`:
 
 ```bash
-DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable \
+DATABASE_URL=postgres://tokenable:tokenable@127.0.0.1:5433/tokenable \
   backend/sql/scripts/bootstrap-db.sh
 ```
 

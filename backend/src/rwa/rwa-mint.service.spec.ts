@@ -37,8 +37,8 @@ describe('RwaMintService', () => {
   };
   const vaultSubmissions = {
     assertCertAvailableForSelfVault: jest.fn().mockResolvedValue(undefined),
-    attachCycleForCert: jest.fn().mockResolvedValue(undefined),
-    markItemCompletedForCycle: jest.fn().mockResolvedValue(undefined),
+    attachCycleForCert: jest.fn().mockResolvedValue(true),
+    markItemCompletedForCycle: jest.fn().mockResolvedValue(true),
   };
   const portfolioHoldings = {
     seedVaultDeliveryCostBasis: jest.fn().mockResolvedValue(undefined),

@@ -107,6 +107,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const poolLog = new Logger('TypeOrmPool');
+        const nodeEnv = config.get<string>('NODE_ENV') ?? 'development';
+        const defaultPoolMax = nodeEnv === 'production' ? 20 : 10;
         return {
         type: 'postgres',
         host: config.getOrThrow<string>('POSTGRES_HOST'),
@@ -117,7 +119,9 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
         extra: {
           // Handshake + checkout wait; see docs/architecture/backend.md (Production TypeORM).
           connectionTimeoutMillis: 8_000,
-          max: Number(config.get<string>('DB_POOL_MAX') ?? '20'),
+          max: Number(
+            config.get<string>('DB_POOL_MAX') ?? String(defaultPoolMax),
+          ),
           idleTimeoutMillis: 30_000,
           keepAlive: true,
           keepAliveInitialDelayMillis: 10_000,

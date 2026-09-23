@@ -37,3 +37,25 @@ Required keys (CI/Dockerfile fail if missing):
 
 Keep only: `AWS_*`, `ECR_REGISTRY`, `DEV_EC2_*`, `PROD_EC2_*`.  
 Do **not** store `NEXT_PUBLIC_*` in GitHub.
+
+## RWA contract addresses (ERC721 preset)
+
+Set **backend** `CHAIN_{id}_RWA_ADDRESS` and **frontend** `NEXT_PUBLIC_CHAIN_{id}_RWA` to the same value on each host.
+
+| Chain | ID | Local (`backend/.env`, `frontend/.env`) | EC2 (`.env.production.*`) |
+|-------|-----|----------------------------------------|---------------------------|
+| Sepolia | 11155111 | `0x70FDfd126b902173720412b2B8AD844E728F49af` | `0xF7242F62153ac2F42CbF331724F38B93829381c3` |
+| Ethereum mainnet | 1 | `0x1ee4a6a6cbc4E15f73125233bc9447208c2dB8C1` | `0xa8a7568E0A5f0dC2F5143ad09D12a032b3c145ad` |
+| Polygon mainnet | 137 | `0x0DE88f46A0790E3B08fA2eB96BE2819480E0e478` | `0x4d1FA7a19C5b6a5fd4aB0E9521eb5Ef252993d35` |
+
+After changing addresses on EC2:
+
+- **Backend:** `docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-deps --force-recreate backend`
+- **Frontend:** edit `.env.production.frontend`, then push to `develop`/`main` (or re-run Deploy) so CI rebuilds the image.
+
+Ensure `RWA_OWNER_PRIVATE_KEY` on each host has `MINTER_ROLE` on that host’s RWA contracts.
+
+Default chain (Ethereum mainnet):
+
+- `DEFAULT_CHAIN_ID=1` in `.env.production.backend`
+- `NEXT_PUBLIC_DEFAULT_CHAIN_ID=1` in `.env.production.frontend` (rebuild frontend after change)

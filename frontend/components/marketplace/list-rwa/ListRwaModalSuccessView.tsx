@@ -25,38 +25,41 @@ export function ListRwaModalSuccessView({
   settlementPolicy?: AskSettlementPolicy;
   onClose: () => void;
 }) {
-  const isSetPrice = copyVariant === "set-price";
-  const isSelfVaultHold = settlementPolicy === "self_vault_hold";
   const priceNum = parseFloat(price);
   const fee = feePercent(settlementPolicy);
   const net =
-    Number.isFinite(priceNum) && priceNum > 0
-      ? isSelfVaultHold
-        ? String(Math.round(priceNum * 0.95))
-        : fee > 0
-          ? String(Math.round(priceNum * (1 - fee / 100)))
-          : null
-      : null;
+    Number.isFinite(priceNum) && priceNum > 0 && fee > 0
+      ? String(Math.round(priceNum * (1 - fee / 100)))
+      : Number.isFinite(priceNum) && priceNum > 0
+        ? String(Math.round(priceNum))
+        : null;
   const priceUsdc = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null;
 
   const fillFailed = Boolean(
     successMeta && !successMeta.matched && successMeta.keptAskAfterBuyerFundingFail,
   );
+  const instantOnlyFailed = Boolean(
+    successMeta && !successMeta.matched && successMeta.instantOnlyCancelled,
+  );
+  const softMatchNote =
+    successMeta &&
+    !successMeta.matched &&
+    !fillFailed &&
+    !instantOnlyFailed &&
+    successMeta.hint?.trim()
+      ? successMeta.hint.trim()
+      : null;
 
   let kind: ActionCompleteKind = "listed";
-  if (fillFailed) kind = "fill-failed";
+  if (fillFailed || instantOnlyFailed) kind = "fill-failed";
   else if (successMeta?.matched) kind = "sale";
   else if (isReplaceListing) kind = "price-updated";
   else kind = "listed";
 
-  const saleSub = successMeta?.matched
-    ? isSelfVaultHold
-      ? `Asset #${tokenId} sold. USDC is held by Tokenable until the buyer confirms — then you receive ~${net ?? "—"} USDC.`
-      : undefined
-    : null;
+  const saleSub = successMeta?.matched ? undefined : null;
 
   const listedSub =
-    !successMeta?.matched && !fillFailed
+    !successMeta?.matched && !fillFailed && !instantOnlyFailed && !softMatchNote
       ? isReplaceListing
         ? priceUsdc != null
           ? `Listed at $${priceUsdc.toLocaleString("en-US")}.`
@@ -66,69 +69,47 @@ export function ListRwaModalSuccessView({
           : `Asset #${tokenId} is now listed for ${price} USDC.`
       : undefined;
 
-  const fillFailedSub = fillFailed
-    ? "Your price is unchanged."
+  const fillFailedSub = fillFailed ? "Your price is unchanged." : undefined;
+  const instantOnlySub = instantOnlyFailed
+    ? successMeta?.hint?.trim() ??
+      "The bid couldn't be filled. Nothing is listed now."
     : undefined;
 
   const sub =
     fillFailed
       ? fillFailedSub
-      : successMeta?.matched
-        ? saleSub
-        : listedSub;
+      : instantOnlyFailed
+        ? instantOnlySub
+        : softMatchNote
+          ? softMatchNote
+          : successMeta?.matched
+            ? saleSub
+            : listedSub;
 
   const feeHint =
-    !successMeta?.matched && !fillFailed && net != null ? (
+    !successMeta?.matched &&
+    !fillFailed &&
+    !instantOnlyFailed &&
+    !softMatchNote &&
+    net != null &&
+    fee > 0 ? (
       <p className="text-xs text-zinc-500 leading-relaxed">
-        {isSelfVaultHold
-          ? `Payout ~$${Number(net).toLocaleString("en-US")} after buyer confirm (5% fee)`
-          : fee > 0
-            ? `You receive ~$${Number(net).toLocaleString("en-US")} after ${fee}% platform fee`
-            : null}
+        {`You receive ~$${Number(net).toLocaleString("en-US")} after ${fee}% platform fee`}
       </p>
     ) : null;
 
-  const matchHint =
-    !successMeta?.matched &&
-    !fillFailed &&
-    successMeta?.hint ? (
-      <div className="text-xs text-amber-200/90 leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 space-y-1.5">
-        <p>
-          A collection bid at or above your price was found, but it could not be filled
-          automatically.
-        </p>
-        {successMeta.reasonCode === "insufficient_balance" ? (
-          <p>Reason: Buyer balance insufficient.</p>
-        ) : null}
-        {successMeta.reasonCode === "insufficient_allowance" ? (
-          <p>Reason: Buyer allowance insufficient.</p>
-        ) : null}
-        {successMeta.reasonCode === "merkle_mismatch" ? (
-          <p>Reason: Merkle root mismatch.</p>
-        ) : null}
-        {successMeta.reasonCode === "expired_or_inactive" ? (
-          <p>Reason: Bid or listing expired/inactive.</p>
-        ) : null}
-        {successMeta.reasonCode === "timeout" ? <p>Reason: Matching timed out.</p> : null}
-        {successMeta.instantOnlyCancelled ? (
-          <p>Protection: Listing was auto-cancelled to enforce instant-only execution.</p>
-        ) : null}
-        <p>{successMeta.hint}</p>
-      </div>
-    ) : null;
+  const titleOverride = instantOnlyFailed
+    ? "Instant sale didn't complete"
+    : undefined;
 
   return (
     <ActionCompleteModal
       open
       kind={kind}
+      title={titleOverride}
       priceUsdc={priceUsdc}
       sub={sub}
-      extra={
-        <>
-          {feeHint}
-          {matchHint}
-        </>
-      }
+      extra={feeHint}
       primaryLabel="Done"
       onClose={onClose}
     />

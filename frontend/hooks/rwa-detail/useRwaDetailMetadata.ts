@@ -10,9 +10,9 @@ import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAccount } from "wagmi";
 
-function cachedAssetPlaceholder(tokenId: number) {
-  const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
-  const cachedImg = getCachedRwaImageUrl(tokenId);
+function cachedAssetPlaceholder(chainId: number, tokenId: number) {
+  const cachedMeta = getCachedRwaMetadata(chainId, tokenId) as RwaMetadata | null;
+  const cachedImg = getCachedRwaImageUrl(chainId, tokenId);
   if (!cachedMeta && !cachedImg) return undefined;
   return {
     tokenId,
@@ -34,7 +34,7 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
     // List-primed cache is paint-only — never treat as a fresh detail resolve.
-    placeholderData: () => cachedAssetPlaceholder(tokenId),
+    placeholderData: () => cachedAssetPlaceholder(chainId, tokenId),
   });
 
   const metadata = metaBundle?.metadata ?? null;

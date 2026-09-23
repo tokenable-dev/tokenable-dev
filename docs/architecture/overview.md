@@ -42,7 +42,7 @@ flowchart TB
 |-----------|-------|------|
 | `tokenable-frontend` | ECR `tokenable-frontend` | 3000 (internal) |
 | `tokenable-backend` | ECR `tokenable-backend` | 4000 (internal) |
-| `tokenable-postgres` | `postgres:16-alpine` | 5432 (internal) |
+| `tokenable-postgres` | `postgres:16-alpine` | 5432 (in-network); host **5433** |
 | `tokenable-redis` | `redis:7-alpine` | 6379 (internal; host dev: 127.0.0.1:6380) |
 | `tokenable-nginx` | `nginx:alpine` | 80, 443 (public) |
 

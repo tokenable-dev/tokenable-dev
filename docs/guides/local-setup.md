@@ -33,6 +33,10 @@ cd contracts && pnpm install && cd ..
 docker compose up -d postgres redis
 ```
 
+Host Postgres is **`127.0.0.1:5433`** (not `5432`). Redis stays on **`127.0.0.1:6380`**.
+
+Optional in `backend/.env`: `DB_POOL_MAX=10` (default in development when unset). Docker Postgres allows up to **200** connections for local IDE + API + crons.
+
 Tables are auto-created at backend startup via TypeORM `synchronize: true` (dev mode).  
 Alternatively, apply canonical DDL: see [backend/sql/README.md](../../backend/sql/README.md).
 
@@ -48,9 +52,10 @@ PORT=4100
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 
-# Database
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
+# Database — use 127.0.0.1:5433 (docker-compose.local.yml maps host 5433 → postgres).
+# Do not use host port 5432: Cursor/VS Code "Code Helper" may listen on 127.0.0.1:5432 and point at a different Postgres.
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5433
 POSTGRES_USER=tokenable
 POSTGRES_PASSWORD=tokenable
 POSTGRES_DB=tokenable
@@ -96,7 +101,9 @@ RWA_OWNER_PRIVATE_KEY=0x...   # MINTER_ROLE + BURNER_ROLE
 PARTNER_WALLET_ENCRYPTION_KEY=
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
-# Fee-wallet USDC outflows: self_vault seller payouts + redeem refunds (must derive PLATFORM_FEE_RECIPIENT)
+# Partner / self-vault marketplace fee on asks (1000 = 10%). Frontend: NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS
+# SELF_VAULT_PLATFORM_FEE_BPS=1000
+# Fee-wallet USDC outflows: legacy self_vault seller payouts + redeem refunds (must derive PLATFORM_FEE_RECIPIENT)
 PLATFORM_FEE_PRIVATE_KEY=
 # Self-vault auto confirm+payout (~5 min after fulfill). Set CRON=0 to disable.
 SELF_VAULT_AUTO_PAYOUT_CRON=1

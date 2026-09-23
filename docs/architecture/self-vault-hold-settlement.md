@@ -4,9 +4,11 @@ Self-vault mints (`deliveryMode=direct`) persist `rwa_tokens.settlement_policy =
 
 ## On-chain (Seaport)
 
-- Ask consideration is a **single** USDC item to `PLATFORM_FEE_RECIPIENT` for the full price.
-- Fulfill transfers NFT → buyer and USDC → company. Seller receives **$0** from Seaport.
-- Bid-only fulfill (no matching ask) is rejected for these tokens.
+- Ask consideration is **seller USDC + platform fee** (default **10%** via `SELF_VAULT_PLATFORM_FEE_BPS` / `NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS`), same instant split shape as PSA vault (5%).
+- Fulfill transfers NFT → buyer; USDC → seller net + fee wallet on-chain.
+- Bid-only fulfill (no matching ask) is still rejected for these tokens.
+
+**Legacy:** older asks with a **single** USDC line to `PLATFORM_FEE_RECIPIENT` still use the off-protocol ledger below until paid out.
 
 ## Off-protocol payout
 

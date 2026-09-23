@@ -1,4 +1,8 @@
 import { backendFetch, getApiUrl } from "./client";
+import {
+  stripVendorFromMarketSeries,
+  stripVendorMarketPreviewMessage,
+} from "@/lib/market/stripVendorMarketPreview";
 
 export interface CollectionUsdPoint {
   t: number;
@@ -79,7 +83,8 @@ export async function getCollectionMarketSeries(
       (err as { message?: string }).message ?? "Failed to load market series"
     );
   }
-  return res.json() as Promise<CollectionMarketSeries>;
+  const data = (await res.json()) as CollectionMarketSeries;
+  return stripVendorFromMarketSeries(data);
 }
 
 /** AI market brief for a collection (admin / future collection detail). */
@@ -537,14 +542,16 @@ async function postBatchMintMarketPreviewsChunk(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
-      (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
+      (err as { message?: string }).message ?? "Failed to load market previews",
     );
   }
   const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
   const out: Record<number, CollectionMarketPreview> = {};
   for (const [k, v] of Object.entries(raw)) {
     const id = Number(k);
-    if (Number.isFinite(id)) out[id] = v;
+    if (Number.isFinite(id)) {
+      out[id] = stripVendorMarketPreviewMessage(v) ?? v;
+    }
   }
   return out;
 }
@@ -726,7 +733,14 @@ export async function postMarketplaceCollectionSnapshots(body: {
       (err as { message?: string }).message ?? "Failed to load collection snapshots"
     );
   }
-  return res.json() as Promise<{ items: CollectionListMarketSnapshot[] }>;
+  const data = (await res.json()) as { items: CollectionListMarketSnapshot[] };
+  return {
+    items: data.items.map((item) => ({
+      ...item,
+      cardhedgerPreview:
+        stripVendorMarketPreviewMessage(item.cardhedgerPreview) ?? item.cardhedgerPreview,
+    })),
+  };
 }
 
 /**

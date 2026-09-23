@@ -68,6 +68,8 @@ Prefer one canonical HTTPS entry point.
    NGINX_CONF=./nginx/nginx.tls.conf
    ```
 5. `nginx/nginx.tls.conf` has separate `server` blocks for `tokenable-dev.com` / `www` and `app.tokenable.io` (each with its own LE paths). After editing, `docker exec tokenable-nginx nginx -t` then `nginx -s reload` (or recreate nginx only).
+
+   Do **not** create `nginx/nginx.tls.conf.bak.YYYYMMDDHHMMSS` in the repo tree (old manual habit). GitHub Deploy backs up TLS config under `/tmp` during `git reset --hard` and deletes `nginx.tls.conf.bak.*` on each run. For a manual backup before editing, use e.g. `cp nginx/nginx.tls.conf /tmp/nginx.tls.conf.$(date +%Y%m%d%H%M%S)`.
 6. Recreate only if reload is not enough:
    ```bash
    docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-deps --force-recreate nginx
@@ -94,6 +96,6 @@ Prefer one canonical HTTPS entry point.
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
 | `docker-compose.yml` | `INTERNAL_API_URL`, Nginx port mapping |
 | `nginx/nginx.conf` | HTTP + ACME + `/api` proxy (git-tracked) |
-| `nginx/nginx.tls.conf` | HTTPS template (not git-tracked) |
+| `nginx/nginx.tls.conf` | HTTPS template (tracked baseline; EC2 live edits preserved by Deploy backup) |
 | `backend/src/main.ts` | CORS, cookie config |
 | `backend/src/auth/auth.controller.ts` | Cookie `Secure` flag logic |

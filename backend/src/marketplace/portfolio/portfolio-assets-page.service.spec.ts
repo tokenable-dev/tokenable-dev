@@ -8,6 +8,9 @@ describe('PortfolioAssetsPageService', () => {
     collectionKeysByTokenIds: jest.fn(),
     resolveCollectionKeyFromTokenMetadata: jest.fn(),
   };
+  const rwaTokenRegistry = {
+    registryIdentityDigest: jest.fn(async () => 'digest'),
+  };
   const collectionMarket = {
     batchPortfolioMarketData: jest.fn(),
     getSnapshotPriceIndex: jest.fn(),
@@ -48,6 +51,7 @@ describe('PortfolioAssetsPageService', () => {
     service = new PortfolioAssetsPageService(
       rwaAssetResolve as never,
       collectionService as never,
+      rwaTokenRegistry as never,
       collectionMarket as never,
       portfolioHoldings as never,
       chainConfig as never,
@@ -147,6 +151,21 @@ describe('PortfolioAssetsPageService', () => {
       '365d',
     );
     expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
+  });
+
+  it('returns immediately without on-chain scan when owner index is empty', async () => {
+    ownerIndex.getTokenIdsByOwner.mockResolvedValue([]);
+
+    const result = await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(result.ownedTokenIds).toEqual([]);
+    expect(blockchain.listTokenIdsOwnedOnChain).not.toHaveBeenCalled();
+    expect(blockchain.filterTokenIdsOwnedByWallet).not.toHaveBeenCalled();
   });
 
   it('returns ownedTokenIds only when ownedIdsOnly is set', async () => {

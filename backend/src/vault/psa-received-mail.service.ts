@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, ForbiddenException, BadRequestExcepti
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
+import { runWithPgSessionAdvisoryLock } from '../database/pg-session-advisory-lock.util';
 import { GmailApiClient } from './gmail-api.client';
 import {
   decidePsaMailIngest,
@@ -83,16 +84,16 @@ export class PsaReceivedMailService implements OnModuleInit {
     queued: string[];
     skippedLock?: boolean;
   }> {
-    const locked = await this.tryAdvisoryLock();
-    if (!locked) {
+    const run = await runWithPgSessionAdvisoryLock(
+      this.dataSource,
+      POLL_ADVISORY_LOCK_KEY,
+      () => this.pollOnceLocked(),
+    );
+    if (!run.acquired) {
       this.logger.debug('PSA received-mail poll skipped (advisory lock held)');
       return { processed: 0, queued: [], skippedLock: true };
     }
-    try {
-      return await this.pollOnceLocked();
-    } finally {
-      await this.releaseAdvisoryLock();
-    }
+    return run.value;
   }
 
   private async pollOnceLocked(): Promise<{
@@ -216,23 +217,4 @@ export class PsaReceivedMailService implements OnModuleInit {
     return { messageId, cert, poll };
   }
 
-  private async tryAdvisoryLock(): Promise<boolean> {
-    const rows = (await this.dataSource.query(
-      `SELECT pg_try_advisory_lock($1) AS ok`,
-      [POLL_ADVISORY_LOCK_KEY],
-    )) as { ok: boolean }[];
-    return Boolean(rows[0]?.ok);
-  }
-
-  private async releaseAdvisoryLock(): Promise<void> {
-    try {
-      await this.dataSource.query(`SELECT pg_advisory_unlock($1)`, [
-        POLL_ADVISORY_LOCK_KEY,
-      ]);
-    } catch (e) {
-      this.logger.warn(
-        `PSA received-mail unlock failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-  }
 }

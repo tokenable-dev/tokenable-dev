@@ -25,6 +25,7 @@ import {
 } from './cardhedger-pricing.service';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
 import { cardhedgerCertRowUsableForPsaVariety } from '../utils/cardhedger-psa-variety.util';
+import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
 
 /**
  * Handles mint/cert/IPFS preview logic: resolves a PSA cert number to a
@@ -603,6 +604,12 @@ export class CardhedgerMintService {
       },
     );
 
+    for (const id of Object.keys(out)) {
+      const tokenId = Number(id);
+      if (!Number.isFinite(tokenId)) continue;
+      out[tokenId] = sanitizeMarketCollectionPreview(out[tokenId]);
+    }
+
     return out;
   }
 
@@ -633,7 +640,6 @@ export class CardhedgerMintService {
         enabled: false,
         searchQuery: '',
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
       });
     }
 

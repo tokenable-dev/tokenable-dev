@@ -20,22 +20,19 @@ import {
   holdingsSaleStatusLabel,
 } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 
-type GalleryStatusSeg = "notlisted" | "listed" | "redeeming" | "used";
+type GalleryStatusSeg = "notlisted" | "listed" | "redeeming";
 
 const GALLERY_STATUS: Record<GalleryStatusSeg, { className: string }> = {
   notlisted: { className: "pf-gbadge--notlisted" },
   listed: { className: "pf-gbadge--listed" },
   redeeming: { className: "pf-gbadge--redeeming" },
-  used: { className: "pf-gbadge--event-used" },
 };
 
 function galleryStatusSeg(
   isListed: boolean,
   redeemStatus: RedeemSurfaceBadge | null,
-  kbwMysteryUsed: boolean,
 ): GalleryStatusSeg {
-  const kind = holdingsSaleKind(isListed, redeemStatus, kbwMysteryUsed);
-  if (kind === "event_used") return "used";
+  const kind = holdingsSaleKind(isListed, redeemStatus);
   if (kind === "listed") return "listed";
   if (kind === "redeeming") return "redeeming";
   return "notlisted";
@@ -81,11 +78,10 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
-  const kbwUsed = Boolean(row.kbwMysteryUsed);
-  const seg = galleryStatusSeg(isListed, redeemStatus, kbwUsed);
+  const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
   const badgeLabel = holdingsSaleStatusLabel(
-    holdingsSaleKind(isListed, redeemStatus, kbwUsed),
+    holdingsSaleKind(isListed, redeemStatus),
   );
   const costEditable = canEditCostBasis && !redeemStatus;
   const retLabel = pnl?.returnPct ?? null;
@@ -99,7 +95,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     selectMode && isListed && selected ? "pf-gtile--sel-on" : null,
     selectMode && !isListed ? "pf-gtile--sel-dim" : null,
     onActivate && !selectMode ? "pf-gtile--activate" : null,
-    kbwUsed ? "pf-gtile--event-used" : null,
   ]
     .filter(Boolean)
     .join(" ");

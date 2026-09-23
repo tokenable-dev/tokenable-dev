@@ -19,8 +19,8 @@ export type CachedPortfolioAssetsPagePayload = Omit<
   'holdings' | 'ownedTokenIds'
 >;
 
-const MEMORY_NS = 'portfolio:assets-page:v6';
-const REDIS_KEY_PREFIX = 'portfolio:assets-page:v6:';
+const MEMORY_NS = 'portfolio:assets-page:v7';
+const REDIS_KEY_PREFIX = 'portfolio:assets-page:v7:';
 
 const REDIS_CONNECT_TIMEOUT_MS = 2_000;
 const REDIS_COMMAND_TIMEOUT_MS = 1_000;
@@ -76,9 +76,15 @@ export class PortfolioAssetsPageCacheService
     chainId: number,
     wallet: string,
     tokenIds: number[],
+    registryDigest = '',
   ): string {
     const sorted = [...tokenIds].sort((a, b) => a - b).join(',');
-    const sig = createHash('sha256').update(sorted).digest('hex').slice(0, 20);
+    const sig = createHash('sha256')
+      .update(sorted)
+      .update('\0')
+      .update(registryDigest)
+      .digest('hex')
+      .slice(0, 20);
     return `${chainId}:${wallet}:${sig}`;
   }
 

@@ -17,7 +17,9 @@ import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation";
 import {
   KBW_POST_LOGIN_ROUTE_KEY,
-  resolveKbwStage2ReturnPath,
+  completeKbwPostLoginRedirect,
+  isKbwPostLoginRoutePending,
+  shouldDeferKbwPostLoginForEmail,
 } from "@/lib/event/kbwEventLoginRouting";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 
@@ -192,38 +194,53 @@ export function PrivySessionBridge() {
             let kbwReturnTo: string | null = null;
             let kbwRouteDeferred = false;
             try {
-              if (sessionStorage.getItem(KBW_POST_LOGIN_ROUTE_KEY) === "1") {
-                const wallet =
-                  getPrimaryWalletAddress(syncedUser) ??
-                  pickPrivyUserEthereumWalletAddress(privyUser) ??
-                  privyWalletHint ??
-                  null;
-                if (wallet) {
-                  sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
-                  kbwReturnTo = await resolveKbwStage2ReturnPath(wallet);
-                  const ui = useAuthUiStore.getState();
-                  if (kbwReturnTo === "/") ui.armKbwOffer();
-                  else ui.clearKbwOffer();
-                } else if (userHasLinkedWallet(syncedUser)) {
-                  sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
-                  useAuthUiStore.getState().armKbwOffer();
-                  kbwReturnTo = "/";
+              if (isKbwPostLoginRoutePending()) {
+                if (shouldDeferKbwPostLoginForEmail(syncedUser.email)) {
+                  kbwRouteDeferred = true;
                 } else {
-                  const attempt = catchupAttempt.current;
-                  const clientWalletCount = walletsRef.current.length;
-                  const hasWalletHint =
-                    clientWalletCount > 0 ||
-                    Boolean(privyWalletHint) ||
-                    Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
-                  const shouldRetry =
-                    attempt < WALLET_CATCHUP_DELAYS_MS.length &&
-                    (hasWalletHint || attempt < 3);
-                  if (shouldRetry) {
-                    kbwRouteDeferred = true;
+                  const wallet =
+                    getPrimaryWalletAddress(syncedUser) ??
+                    pickPrivyUserEthereumWalletAddress(privyUser) ??
+                    privyWalletHint ??
+                    null;
+                  const ui = useAuthUiStore.getState();
+                  if (wallet) {
+                    const handled = await completeKbwPostLoginRedirect({
+                      walletAddress: wallet,
+                      push: (path) => router.push(path),
+                      armKbwOffer: () => ui.armKbwOffer(),
+                      clearKbwOffer: () => ui.clearKbwOffer(),
+                    });
+                    if (handled) returnToHandled.current = true;
+                  } else if (userHasLinkedWallet(syncedUser)) {
+                    const handled = await completeKbwPostLoginRedirect({
+                      walletAddress: null,
+                      push: (path) => router.push(path),
+                      armKbwOffer: () => ui.armKbwOffer(),
+                      clearKbwOffer: () => ui.clearKbwOffer(),
+                    });
+                    if (handled) returnToHandled.current = true;
                   } else {
-                    sessionStorage.removeItem(KBW_POST_LOGIN_ROUTE_KEY);
-                    useAuthUiStore.getState().armKbwOffer();
-                    kbwReturnTo = "/";
+                    const attempt = catchupAttempt.current;
+                    const clientWalletCount = walletsRef.current.length;
+                    const hasWalletHint =
+                      clientWalletCount > 0 ||
+                      Boolean(privyWalletHint) ||
+                      Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
+                    const shouldRetry =
+                      attempt < WALLET_CATCHUP_DELAYS_MS.length &&
+                      (hasWalletHint || attempt < 3);
+                    if (shouldRetry) {
+                      kbwRouteDeferred = true;
+                    } else {
+                      const handled = await completeKbwPostLoginRedirect({
+                        walletAddress: null,
+                        push: (path) => router.push(path),
+                        armKbwOffer: () => ui.armKbwOffer(),
+                        clearKbwOffer: () => ui.clearKbwOffer(),
+                      });
+                      if (handled) returnToHandled.current = true;
+                    }
                   }
                 }
               }

@@ -41,6 +41,16 @@ export const PLATFORM_FEE_BPS: number = (() => {
   return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 500;
 })();
 
+/** Partner / self-vault fee — 1000 = 10 %. */
+export const SELF_VAULT_PLATFORM_FEE_BPS: number = (() => {
+  if (!PLATFORM_FEE_RECIPIENT) return 0;
+  const v = parseInt(
+    process.env.NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS ?? "1000",
+    10,
+  );
+  return Number.isFinite(v) && v >= 0 && v <= 10_000 ? v : 1000;
+})();
+
 // ─── Tokenable_RWA ABIs ─────────────────────────────────────────────────────────
 
 export const TOKENABLE_RWA_MINT_ABI = [

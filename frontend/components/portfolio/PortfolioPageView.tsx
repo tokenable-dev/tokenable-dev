@@ -41,7 +41,11 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
-import { invalidateAfterCostBasisEdit, invalidateAfterListing } from "@/lib/core/invalidation";
+import {
+  invalidateAfterCostBasisEdit,
+  invalidateAfterCriteriaBid,
+  invalidateAfterListing,
+} from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -393,23 +397,29 @@ export function PortfolioPageView({
   const bidsTabActive = portfolioMainTab === "bids";
 
   const topBidCollectionKeys = useMemo(() => {
-    if (!bidsTabActive) return [];
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const bid of myBids.displayBids) {
-      const key = bid.collectionKey?.trim();
-      if (!key) continue;
+    const add = (raw: string | undefined) => {
+      const key = raw?.trim();
+      if (!key) return;
       const lower = key.toLowerCase();
-      if (seen.has(lower)) continue;
+      if (seen.has(lower)) return;
       seen.add(lower);
       out.push(key);
+    };
+    if (listModal?.collectionKey) add(listModal.collectionKey);
+    if (bidsTabActive) {
+      for (const bid of myBids.displayBids) {
+        add(bid.collectionKey);
+      }
     }
     return out;
-  }, [bidsTabActive, myBids.displayBids]);
+  }, [bidsTabActive, myBids.displayBids, listModal?.collectionKey]);
 
   const collectionTopBids = usePortfolioCollectionTopBids(
     topBidCollectionKeys,
-    portfolioDataEnabled && bidsTabActive,
+    portfolioDataEnabled && (bidsTabActive || listModal != null),
+    { freshOrderBook: listModal != null },
   );
 
   const bidsByCollectionKey = useMemo(() => {
@@ -753,7 +763,8 @@ export function PortfolioPageView({
   const assetsSectionLoading = idsLoading || assetsPage.isLoading;
   /** Keep hero skeleton only until at least one mark is known (partial sum OK). */
   const portfolioValuePending =
-    assetsSectionLoading || (valuesPending && livePortfolioValue == null);
+    assetsSectionLoading ||
+    (tokenIds.length > 0 && valuesPending && livePortfolioValue == null);
 
   usePortfolioLoadPerf({
     enabled: portfolioDataEnabled,
@@ -831,6 +842,9 @@ export function PortfolioPageView({
         collectionBids={
           listModal.collectionKey
             ? collectionTopBids.byCollectionKey.get(listModal.collectionKey)?.bids ??
+              collectionTopBids.byCollectionKey.get(
+                listModal.collectionKey.toLowerCase(),
+              )?.bids ??
               []
             : []
         }
@@ -1042,9 +1056,11 @@ export function PortfolioPageView({
           onUpdated={() => {
             void myBids.refetchBids();
             void refetchActiveOrders();
-            void queryClient.invalidateQueries({
-              queryKey: rq.collectionDetail(changeBidModal.collectionKey, activeRqChainId()),
-            });
+            void invalidateAfterCriteriaBid(
+              queryClient,
+              changeBidModal.collectionKey,
+              { portfolioWallets: [signerAddress] },
+            );
           }}
         />
       ) : null}

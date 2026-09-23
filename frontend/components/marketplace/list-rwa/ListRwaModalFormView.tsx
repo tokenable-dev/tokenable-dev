@@ -110,8 +110,7 @@ export function ListRwaModalFormView({
         ? "Update listing"
         : "List";
 
-  const isSelfVaultHold = settlementPolicy === "self_vault_hold";
-  const feePct = isSelfVaultHold ? 5 : feePercent(settlementPolicy);
+  const feePct = feePercent(settlementPolicy);
 
   const actions = (
     <ListRwaModalFormActions
@@ -186,11 +185,7 @@ export function ListRwaModalFormView({
         feePercent={feePct}
         marketValueUsd={marketValueUsd}
         disabled={isProcessing}
-        payoutNote={
-          isSelfVaultHold
-            ? "Sale USDC goes to Tokenable first. After the buyer confirms, you receive the amount above (after the platform fee)."
-            : null
-        }
+        payoutNote={null}
         highestBidUsd={
           topCollectionBid
             ? Number(topCollectionBid.inputValue)

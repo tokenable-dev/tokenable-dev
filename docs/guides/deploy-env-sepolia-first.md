@@ -13,7 +13,7 @@ PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111
 
 # Required for internal-dev Polygon switch (matches local + contracts/.openzeppelin/polygon.json)
 CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/<SAME_ALCHEMY_KEY>
-CHAIN_137_RWA_ADDRESS=0x9ccF71bc790C9f43e42cFCa7aFd305A816497903
+CHAIN_137_RWA_ADDRESS=0x4d1FA7a19C5b6a5fd4aB0E9521eb5Ef252993d35
 CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
 
 # Ethereum — keep RPC+USDC; leave RWA commented until mainnet RWA is deployed
@@ -22,7 +22,7 @@ CHAIN_1_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/<SAME_ALCHEMY_KEY>
 CHAIN_1_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 ```
 
-Sepolia RWA on the current deploy host (`0x35b2368E718914e981b1C0043c76d4a573163D4A`) is fine — keep it. GitHub `NEXT_PUBLIC_CHAIN_11155111_RWA` **must match** this address.
+Sepolia RWA on the deploy host: `0xF7242F62153ac2F42CbF331724F38B93829381c3`. `NEXT_PUBLIC_CHAIN_11155111_RWA` on EC2 **must match** `CHAIN_11155111_RWA_ADDRESS`.
 
 After editing backend env on EC2:
 

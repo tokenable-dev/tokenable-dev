@@ -525,10 +525,7 @@ export function useCollectionTradeDirectActions(input: {
             asking_price: parseFloat(priceUsdc),
           });
           const listedAt = parseFloat(priceUsdc);
-          const feePct =
-            settlementPolicy === "self_vault_hold"
-              ? 5
-              : feePercent(settlementPolicy);
+          const feePct = feePercent(settlementPolicy);
           const feeN = Math.round((listedAt * feePct) / 100);
           const netN = listedAt - feeN;
           const listedTitle = resolveToastMeta(tokenId, opts).cardTitle?.trim() || null;

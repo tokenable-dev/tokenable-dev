@@ -51,6 +51,47 @@ import {
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import { TOKENABLE_RWA_APPROVE_ABI } from "@/constants/contracts";
+
+function instantOnlyUserHint(reasonCode?: MatchFailureCode): string {
+  if (reasonCode === "expired_or_inactive") {
+    return "That bid was already filled or cancelled. We removed your listing so it wouldn't sit on the book by mistake.";
+  }
+  if (reasonCode === "merkle_mismatch") {
+    return "The bid didn't match the current card pool. We removed your listing — try again in a moment or use Match on the collection page.";
+  }
+  if (reasonCode === "timeout") {
+    return "Matching took too long. We removed your listing — refresh and try again.";
+  }
+  return "We couldn't fill the bid automatically, so your listing was cancelled.";
+}
+
+/** Match tx can succeed while a retry still sees OrderAlreadyFilled — trust on-chain ownership. */
+async function sellerStillOwnsRwa(deps: ListRwaInstantMatchDeps): Promise<boolean> {
+  if (!deps.address || !deps.publicClient) return true;
+  const { rwaAddress } = getChainContracts(deps.chainId);
+  try {
+    const owner = await deps.publicClient.readContract({
+      address: rwaAddress,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "ownerOf",
+      args: [BigInt(deps.tokenId)],
+    });
+    return String(owner).toLowerCase() === deps.address.toLowerCase();
+  } catch {
+    return true;
+  }
+}
+
+async function reconcileSaleIfOwnershipMoved(
+  deps: ListRwaInstantMatchDeps,
+  meta: ListSuccessMeta,
+): Promise<ListSuccessMeta> {
+  if (meta.matched) return meta;
+  const stillOwns = await sellerStillOwnsRwa(deps);
+  if (stillOwns) return meta;
+  return { matched: true };
+}
 
 export type ListRwaInstantMatchDeps = {
   tokenId: number;
@@ -609,6 +650,7 @@ export async function runPostListInstantMatch(
     await invalidateForMatchRetry(deps.queryClient, ck);
   }
   let meta = await tryMatchAfterListingWithTimeout(deps, created);
+  meta = await reconcileSaleIfOwnershipMoved(deps, meta);
   if (meta.matched) return meta;
 
   meta = await enrichMetaWithBuyerFundingCheck(deps, meta);
@@ -630,22 +672,22 @@ export async function runPostListInstantMatch(
   }
 
   if (instantDecision.enforceImmediateFill && !deps.isReplaceListing) {
+    meta = await reconcileSaleIfOwnershipMoved(deps, meta);
+    if (meta.matched) return meta;
+
     const cancelled = await cancelListingWithRetryAndVerify(deps, created.orderHash);
     meta = applyInstantOnlyProtection({
       ...meta,
       hint: cancelled
-        ? "Instant-only protection cancelled this listing because immediate match failed. " +
-          (meta.hint ?? "")
-        : "Immediate match failed and auto-cancel could not be completed after retries. Listing may remain on order book. " +
-          (meta.hint ?? ""),
+        ? instantOnlyUserHint(meta.reasonCode)
+        : "We couldn't cancel the listing automatically — refresh your portfolio.",
     });
   } else if (deps.isReplaceListing && !meta.matched && !meta.keptAskAfterBuyerFundingFail) {
     meta = {
       ...meta,
       hint:
-        "Your listing stays active at the new price. " +
-        (meta.hint ??
-          "Automatic match did not complete — try Match on the collection page, or ask the buyer to cancel and re-place their collection bid."),
+        meta.hint ??
+        "Auto-match didn't complete — use Match on the collection page if needed.",
     };
   }
   return meta;

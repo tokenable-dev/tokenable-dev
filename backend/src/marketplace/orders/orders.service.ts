@@ -40,6 +40,10 @@ import { SelfVaultSettlementService } from '../settlement/self-vault-settlement.
 import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
 import { isSelfVaultHoldPolicy } from '../settlement/rwa-settlement-policy';
 import {
+  readSelfVaultPlatformFeeBps,
+  splitGrossUsdcMicros,
+} from '../settlement/platform-fee-split.util';
+import {
   backfillAskTokenIdFromParameters,
   CRITERIA_TOKEN_SENTINEL,
   isCriteriaCollectionBidOrder,
@@ -255,7 +259,7 @@ export class OrdersService {
       }
     }
 
-    const order = await this.materializeOrderFromDto(dto);
+    const order = await this.materializeOrderFromDto(dto, chainId);
     if (side === OrderSide.ASK && !order.collectionKey?.trim()) {
       throw new BadRequestException(
         'Could not create a marketplace collection for this token. Check that graded metadata is on IPFS and try again.',
@@ -416,7 +420,7 @@ export class OrdersService {
       old.status = OrderStatus.CANCELLED;
       await em.save(old);
 
-      const order = await this.materializeOrderFromDto(dto);
+      const order = await this.materializeOrderFromDto(dto, chainId);
       const materializedKeyNull = !order.collectionKey?.trim();
       if (materializedKeyNull && old.collectionKey?.trim()) {
         order.collectionKey = old.collectionKey.trim().toLowerCase();
@@ -532,7 +536,7 @@ export class OrdersService {
       old.status = OrderStatus.CANCELLED;
       await em.save(old);
 
-      const order = await this.materializeOrderFromDto(dto);
+      const order = await this.materializeOrderFromDto(dto, chainId);
       const saved = await this.persistOrder(order, em);
       void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
         this.logger.warn(
@@ -548,11 +552,15 @@ export class OrdersService {
     });
   }
 
-  private async materializeOrderFromDto(dto: CreateOrderDto): Promise<Order> {
+  private async materializeOrderFromDto(
+    dto: CreateOrderDto,
+    requestChainId?: SupportedChainId,
+  ): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
     let params = parameters as unknown as Record<string, unknown>;
     const chainId =
+      requestChainId ??
       this.chainConfig.resolveChainIdFromRwaAddress(dto.tokenContract) ??
       this.chainConfig.getDefaultChainId();
 
@@ -562,7 +570,7 @@ export class OrdersService {
       if (!key) {
         throw new BadRequestException('collectionKey is required for token bids');
       }
-      const col = await this.collectionService.findOne(key);
+      const col = await this.collectionService.findOne(key, chainId);
       if (!col) {
         throw new NotFoundException(`Collection not found: ${key}`);
       }
@@ -1027,8 +1035,8 @@ export class OrdersService {
   }
 
   /**
-   * Self-vault hold asks: exactly one USDC consideration to PLATFORM_FEE_RECIPIENT
-   * (full amount). Standard asks keep the seller (+ optional fee) shape.
+   * Self-vault hold asks: seller USDC + platform fee (instant split, default 10% bps).
+   * Legacy single-line full-platform-take asks are still accepted for in-flight orders.
    */
   private async assertAskSettlementPolicy(
     dto: CreateOrderDto,
@@ -1056,32 +1064,77 @@ export class OrdersService {
       );
     }
 
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
     const cons = dto.parameters.consideration ?? [];
-    if (cons.length !== 1) {
-      throw new BadRequestException(
-        'Self-vault hold asks must have exactly one USDC consideration (100% platform take)',
-      );
-    }
-    const only = cons[0];
-    if (Number(only.itemType) !== 1) {
-      throw new BadRequestException(
-        'Self-vault hold consideration must be ERC20 USDC',
-      );
-    }
-    // Seller may be PLATFORM_FEE_RECIPIENT (custody key in MetaMask) — that is still a valid full-platform-take ask.
-    if (only.recipient.toLowerCase() !== feeRecipient) {
-      throw new BadRequestException(
-        `Self-vault hold consideration recipient must be the platform fee wallet (${feeRecipient})`,
-      );
-    }
-    const amount = BigInt(only.startAmount);
     const declared = BigInt(dto.considerationAmount);
-    if (amount !== declared) {
+    const offerer = String(dto.parameters.offerer ?? '')
+      .trim()
+      .toLowerCase();
+
+    if (cons.length === 1) {
+      const only = cons[0];
+      if (Number(only.itemType) !== 1) {
+        throw new BadRequestException(
+          'Self-vault hold consideration must be ERC20 USDC',
+        );
+      }
+      if (only.recipient.toLowerCase() !== feeRecipient) {
+        throw new BadRequestException(
+          `Legacy self-vault hold consideration recipient must be the platform fee wallet (${feeRecipient})`,
+        );
+      }
+      const amount = BigInt(only.startAmount);
+      if (amount !== declared) {
+        throw new BadRequestException(
+          'Self-vault hold consideration amount must equal considerationAmount',
+        );
+      }
+      return;
+    }
+
+    if (cons.length !== 2) {
       throw new BadRequestException(
-        'Self-vault hold consideration amount must equal considerationAmount',
+        'Self-vault hold asks must include seller USDC and platform fee consideration items',
       );
     }
-    void chainId;
+
+    const sellerLine = cons[0];
+    const feeLine = cons[1];
+    if (Number(sellerLine.itemType) !== 1 || Number(feeLine.itemType) !== 1) {
+      throw new BadRequestException(
+        'Self-vault hold consideration items must be ERC20 USDC',
+      );
+    }
+    if (
+      usdc &&
+      (sellerLine.token.toLowerCase() !== usdc.toLowerCase() ||
+        feeLine.token.toLowerCase() !== usdc.toLowerCase())
+    ) {
+      throw new BadRequestException(
+        `Self-vault hold consideration must use USDC for chain ${chainId}`,
+      );
+    }
+    if (sellerLine.recipient.toLowerCase() !== offerer) {
+      throw new BadRequestException(
+        'Self-vault hold seller consideration must pay the ask offerer',
+      );
+    }
+    if (feeLine.recipient.toLowerCase() !== feeRecipient) {
+      throw new BadRequestException(
+        `Self-vault hold fee consideration must pay the platform fee wallet (${feeRecipient})`,
+      );
+    }
+
+    const bps = readSelfVaultPlatformFeeBps(this.config);
+    const { sellerMicros, feeMicros } = splitGrossUsdcMicros(declared, bps);
+    if (
+      BigInt(sellerLine.startAmount) !== sellerMicros ||
+      BigInt(feeLine.startAmount) !== feeMicros
+    ) {
+      throw new BadRequestException(
+        `Self-vault hold fee split must be ${bps} bps platform / remainder to seller`,
+      );
+    }
   }
 
   /**
@@ -1579,7 +1632,7 @@ export class OrdersService {
       );
       if (isSelfVaultHoldPolicy(policy)) {
         throw new BadRequestException(
-          'Self-vault hold tokens cannot settle via bid-only fulfill. Match against a full-platform-take ask instead.',
+          'Self-vault hold tokens cannot settle via bid-only fulfill. List an ask or match bid+ask on Seaport.',
         );
       }
     }
@@ -1947,6 +2000,9 @@ export class OrdersService {
         policy = 'self_vault_hold';
       }
       if (!isSelfVaultHoldPolicy(policy)) return;
+      if (!this.selfVaultSettlements.isFullPlatformTakeAsk(ask)) {
+        return;
+      }
       const resolved = chainId ?? this.chainConfig.getDefaultChainId();
       const row = await this.selfVaultSettlements.createFromFulfilledAsk({
         ask,

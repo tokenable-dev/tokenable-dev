@@ -89,15 +89,15 @@ POSTGRES_DB=tokenable
 # Blockchain — public users stay on Sepolia; internal-dev can switch when chains are configured
 DEFAULT_CHAIN_ID=11155111
 CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-CHAIN_11155111_RWA_ADDRESS=0x35b2368E718914e981b1C0043c76d4a573163D4A
+CHAIN_11155111_RWA_ADDRESS=0xF7242F62153ac2F42CbF331724F38B93829381c3
 CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 # Ethereum mainnet — RPC+USDC ok for reads; RWA required before mint/trade
 CHAIN_1_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
-# CHAIN_1_RWA_ADDRESS=0x...
+CHAIN_1_RWA_ADDRESS=0xa8a7568E0A5f0dC2F5143ad09D12a032b3c145ad
 CHAIN_1_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 # Polygon — required for tokenable.dev@gmail.com internal-dev network switch
 CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
-CHAIN_137_RWA_ADDRESS=0x30D41cC4Efa7F1d5cAFE721Eba5743D9B8e5b96E
+CHAIN_137_RWA_ADDRESS=0x4d1FA7a19C5b6a5fd4aB0E9521eb5Ef252993d35
 CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 # Redeem NFT custody — independent of fee wallet (Sepolia v1 may equal PLATFORM_FEE_*)
@@ -177,6 +177,8 @@ The bootstrap creates **20+ tables** including all vault, auth provider, and KYC
 
 ## Manual Deploy / Pull
 
+Do **not** use `git pull` on EC2 if `nginx/nginx.tls.conf` was edited on the server or `nginx.tls.conf.bak.*` files exist — pull can refuse or leave a dirty tree. Use the same sync as GitHub Actions:
+
 ```bash
 cd /home/ubuntu/app
 
@@ -184,7 +186,8 @@ export ECR_REGISTRY=717728193407.dkr.ecr.ap-northeast-2.amazonaws.com
 export IMAGE_TAG=develop   # or: main
 
 git fetch origin
-git checkout develop && git pull origin develop
+git checkout develop   # or: main
+bash deploy/ec2-sync-git.sh develop   # or: main
 
 aws ecr get-login-password --region ap-northeast-2 \
   | docker login --username AWS --password-stdin "$ECR_REGISTRY"

@@ -35,6 +35,7 @@ import {
   type CardhedgerFmvResult,
 } from './cardhedger-fmv.util';
 import type { CardhedgerCertPriceResult } from './cardhedger-cert-price.util';
+import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
 
 export type { CardhedgerFmvResult } from './cardhedger-fmv.util';
 
@@ -880,7 +881,6 @@ export class CardhedgerPricingService {
           searchQuery: resolved.query,
           matched: Boolean(resolved.row && resolved.confidence),
           matchConfidence: resolved.confidence,
-          message: 'No comps payload from Cardhedger',
         }),
         cardId,
         grade,
@@ -904,9 +904,6 @@ export class CardhedgerPricingService {
         latestSaleAtSec: null,
         upstreamSource: 'cardhedger:comps',
         noSalesForGrade: true,
-        message:
-          `Cardhedger has no indexed ${grade} sales for this catalog card_id (comps 404). ` +
-          'Match is correct; price requires upstream sales data.',
       };
     }
 
@@ -966,7 +963,6 @@ export class CardhedgerPricingService {
         enabled: false,
         searchQuery: options?.searchQuery ?? '',
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
       });
     }
 
@@ -1018,7 +1014,6 @@ export class CardhedgerPricingService {
         enabled: false,
         searchQuery: query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
       });
     }
 
@@ -1028,7 +1023,6 @@ export class CardhedgerPricingService {
         enabled: true,
         searchQuery: resolved.query,
         matched: false,
-        message: 'No matching Cardhedger card found',
       });
     }
 
@@ -1608,10 +1602,7 @@ export class CardhedgerPricingService {
             median30d: null,
           } as const)
         : null;
-    const previewMessage =
-      compsNoSales && spotUsd == null
-        ? `Catalog matched (card_id=${cardId}) but Cardhedger has no ${chGrade} sales indexed yet`
-        : undefined;
+    const previewMessage = undefined;
 
     return {
       enabled: true,
@@ -1715,36 +1706,35 @@ export class CardhedgerPricingService {
     col: MarketplaceCollection | null,
   ): Promise<MarketCollectionPreview> {
     if (!col) {
-      return {
+      return sanitizeMarketCollectionPreview({
         enabled: this.isConfigured(),
         searchQuery: '',
         matched: false,
         message: 'Collection not found',
         card: null,
-      };
+      });
     }
     if (!this.isConfigured()) {
       const q = this.resolve.buildCollectionQuery(col);
-      return {
+      return sanitizeMarketCollectionPreview({
         enabled: false,
         searchQuery: q.query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
         card: null,
-      };
+      });
     }
 
     try {
       const r = await this.resolve.resolveCardForCollection(col);
       return this.buildPreviewFromResolved(r, col);
     } catch (e) {
-      return {
+      return sanitizeMarketCollectionPreview({
         enabled: true,
         searchQuery: this.resolve.buildCollectionQuery(col).query,
         matched: false,
         message: e instanceof Error ? e.message : String(e),
         card: null,
-      };
+      });
     }
   }
 
@@ -1754,16 +1744,17 @@ export class CardhedgerPricingService {
     previewOpts?: BuildPreviewOptions,
   ): Promise<MarketCollectionPreview> {
     if (!r.row || !r.confidence) {
-      return {
+      return sanitizeMarketCollectionPreview({
         enabled: true,
         searchQuery: r.query,
         matched: false,
-        message: 'No matching Cardhedger card found',
         card: null,
-      };
+      });
     }
     const tier = this.historyTierForCollection(col ?? null);
-    return this.rowToPreview(r.row, r.query, r.confidence, tier, previewOpts);
+    return sanitizeMarketCollectionPreview(
+      await this.rowToPreview(r.row, r.query, r.confidence, tier, previewOpts),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1803,7 +1794,6 @@ export class CardhedgerPricingService {
         enabled: false,
         searchQuery: this.resolve.buildCollectionQuery(col).query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
         days,
         tier,
         period: options.period,
@@ -1837,7 +1827,6 @@ export class CardhedgerPricingService {
         enabled: true,
         searchQuery: resolved.query,
         matched: false,
-        message: 'No matching Cardhedger card found',
         matchConfidence: resolved.confidence,
         days,
         tier,
@@ -1917,7 +1906,6 @@ export class CardhedgerPricingService {
         searchQuery: resolved.query,
         matched: true,
         matchConfidence: resolved.confidence,
-        message: `No ${tier} spot price from Cardhedger (empty prices-by-card / comps for card_id=${resolvedCardIdForFallback})`,
         days,
         tier,
         period: options.period,

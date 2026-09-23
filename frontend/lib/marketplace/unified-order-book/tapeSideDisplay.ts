@@ -1,6 +1,6 @@
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 
-/** Cardhedger comps are completed marketplace sales — no buy/sell aggressor in upstream data. */
+/** External comps are completed marketplace sales — no buy/sell aggressor in upstream data. */
 export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
   label: string;
   title: string;
@@ -10,7 +10,7 @@ export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
     return {
       label: "SALE",
       title:
-        "Completed external marketplace sale. Cardhedger does not provide buy/sell aggressor.",
+        "Completed external marketplace sale. Buy/sell side is not available for this record.",
     };
   }
   const lower = saleType.toLowerCase();
@@ -18,7 +18,7 @@ export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
     return {
       label: "REF",
       title:
-        "Cardhedger daily reference close for this day (not an individual auction). Shown for history depth; excluded from Vol.",
+        "Daily reference close for this day (not an individual auction). Shown for history depth; excluded from Vol.",
     };
   }
   let label = "SALE";
@@ -29,7 +29,7 @@ export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
 
   return {
     label,
-    title: `External marketplace sale (${saleType}). Buy/sell aggressor not provided by Cardhedger.`,
+    title: `External marketplace sale (${saleType}). Buy/sell side is not available for this record.`,
   };
 }
 
@@ -58,7 +58,7 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
     if (lower.includes("daily reference") || lower === "reference") {
       return {
         label: "—",
-        title: "Cardhedger daily reference — not an individual marketplace sale.",
+        title: "Daily reference price — not an individual marketplace sale.",
         href: null,
       };
     }
@@ -67,7 +67,7 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
     if (!platform) {
       return {
         label: "—",
-        title: "Marketplace not identified (no sale URL from Cardhedger).",
+        title: "Marketplace not identified (no sale link available).",
         href: null,
       };
     }
@@ -75,7 +75,7 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
       label: platform,
       title: href
         ? `Open sold listing on ${platform}`
-        : `Inferred marketplace from Cardhedger (listing URL not available).`,
+        : `Inferred marketplace (${platform}); listing link not available.`,
       href,
     };
   }

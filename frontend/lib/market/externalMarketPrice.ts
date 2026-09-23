@@ -23,9 +23,9 @@ export function externalMarketPriceSourceLabel(
   source: ExternalMarketPriceSource | null | undefined,
 ): string | null {
   if (source === "psa_estimate") return "PSA Estimate";
-  if (source === "cardhedger_fmv") return "Cardhedger FMV";
-  if (source === "cardhedger_estimate") return "Cardhedger Estimate";
-  if (source === "cardhedger_comps") return "Cardhedger Comps";
+  if (source === "cardhedger_fmv") return "Market FMV";
+  if (source === "cardhedger_estimate") return "Market estimate";
+  if (source === "cardhedger_comps") return "Recent sales";
   return null;
 }
 

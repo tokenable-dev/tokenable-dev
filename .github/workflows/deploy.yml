@@ -113,9 +113,9 @@ jobs:
             cd "$APP_DIR"
             git fetch origin
             git checkout develop
-
-            # EC2 may edit nginx.tls.conf for live certs/domains — keep it across deploy sync.
             TLS_CONF="$APP_DIR/nginx/nginx.tls.conf"
+            rm -f "$APP_DIR/nginx/nginx.tls.conf.bak."*
+            git clean -fd -- "$APP_DIR/nginx/" || true
             TLS_BACKUP=""
             if [ -f "$TLS_CONF" ]; then
               TLS_BACKUP=$(mktemp)
@@ -168,8 +168,9 @@ jobs:
             cd "$APP_DIR"
             git fetch origin
             git checkout main
-
             TLS_CONF="$APP_DIR/nginx/nginx.tls.conf"
+            rm -f "$APP_DIR/nginx/nginx.tls.conf.bak."*
+            git clean -fd -- "$APP_DIR/nginx/" || true
             TLS_BACKUP=""
             if [ -f "$TLS_CONF" ]; then
               TLS_BACKUP=$(mktemp)

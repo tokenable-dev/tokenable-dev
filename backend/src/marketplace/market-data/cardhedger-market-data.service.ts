@@ -519,7 +519,6 @@ export class CardhedgerMarketDataService {
         enabled: false,
         searchQuery: q.query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
         card: null,
       };
       const days = Math.min(
@@ -531,7 +530,6 @@ export class CardhedgerMarketDataService {
         enabled: false,
         searchQuery: q.query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
         days,
         tier,
         period: options.period,
@@ -543,7 +541,6 @@ export class CardhedgerMarketDataService {
         enabled: false,
         searchQuery: q.query,
         matched: false,
-        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
       });
       return { preview: notConfigured, history: notConfiguredHist, comps };
     }
@@ -572,9 +569,7 @@ export class CardhedgerMarketDataService {
                 enabled: true,
                 searchQuery: resolved.query,
                 matched: false,
-                message: resolved.row
-                  ? 'Resolved card missing card_id'
-                  : 'No matching Cardhedger card found',
+                message: resolved.row ? 'Resolved card missing card_id' : undefined,
                 matchConfidence: resolved.confidence,
               }),
             )

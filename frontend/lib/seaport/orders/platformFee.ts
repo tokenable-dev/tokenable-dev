@@ -1,6 +1,7 @@
 import {
   PLATFORM_FEE_BPS,
   PLATFORM_FEE_RECIPIENT,
+  SELF_VAULT_PLATFORM_FEE_BPS,
 } from "@/constants/contracts";
 
 export type AskSettlementPolicy = "standard" | "self_vault_hold";
@@ -17,28 +18,24 @@ export interface FeeSplit {
 /**
  * Splits a total USDC price into seller proceeds + platform fee.
  * When no fee recipient is configured the full amount goes to the seller.
- * `self_vault_hold` → 100% to platform fee recipient (seller paid later off-protocol).
+ * `self_vault_hold` → same split shape as PSA, but {@link SELF_VAULT_PLATFORM_FEE_BPS} (10%).
  */
 export function computeFeeSplit(
   totalPriceUnits: bigint,
   policy: AskSettlementPolicy = "standard",
 ): FeeSplit {
-  if (policy === "self_vault_hold") {
-    if (!PLATFORM_FEE_RECIPIENT) {
-      throw new Error(
-        "PLATFORM_FEE_RECIPIENT is required for self-vault hold listings",
-      );
-    }
-    return {
-      sellerAmount: BigInt(0),
-      feeAmount: totalPriceUnits,
-      feeRecipient: PLATFORM_FEE_RECIPIENT,
-      totalAmount: totalPriceUnits,
-      fullPlatformTake: true,
-    };
+  const feeBps =
+    policy === "self_vault_hold"
+      ? SELF_VAULT_PLATFORM_FEE_BPS
+      : PLATFORM_FEE_BPS;
+
+  if (policy === "self_vault_hold" && !PLATFORM_FEE_RECIPIENT) {
+    throw new Error(
+      "PLATFORM_FEE_RECIPIENT is required for self-vault listings",
+    );
   }
 
-  if (!PLATFORM_FEE_RECIPIENT || PLATFORM_FEE_BPS <= 0) {
+  if (!PLATFORM_FEE_RECIPIENT || feeBps <= 0) {
     return {
       sellerAmount: totalPriceUnits,
       feeAmount: BigInt(0),
@@ -48,8 +45,7 @@ export function computeFeeSplit(
     };
   }
 
-  const feeAmount =
-    (totalPriceUnits * BigInt(PLATFORM_FEE_BPS)) / BigInt(10_000);
+  const feeAmount = (totalPriceUnits * BigInt(feeBps)) / BigInt(10_000);
   const sellerAmount = totalPriceUnits - feeAmount;
 
   return {
@@ -73,7 +69,7 @@ type ConsiderationItem = {
 /**
  * Builds the Seaport `consideration` array for an ask listing.
  * - standard: seller (+ optional fee)
- * - self_vault_hold: single USDC item to platform fee recipient (no $0 seller line)
+ * - self_vault_hold: seller USDC + platform fee (10% default)
  */
 export function buildAskConsideration(
   totalPriceUnits: bigint,
@@ -180,8 +176,8 @@ export function buildAskConsiderationPayload(
 }
 
 export function feePercent(policy: AskSettlementPolicy = "standard"): number {
-  if (policy === "self_vault_hold") return 100;
+  if (policy === "self_vault_hold") return SELF_VAULT_PLATFORM_FEE_BPS / 100;
   return PLATFORM_FEE_BPS / 100;
 }
 
-export { PLATFORM_FEE_BPS, PLATFORM_FEE_RECIPIENT };
+export { PLATFORM_FEE_BPS, PLATFORM_FEE_RECIPIENT, SELF_VAULT_PLATFORM_FEE_BPS };

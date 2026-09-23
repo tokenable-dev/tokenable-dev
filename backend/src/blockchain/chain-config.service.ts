@@ -10,7 +10,7 @@ import {
   JsonRpcProvider,
 } from 'ethers';
 
-export const SUPPORTED_CHAIN_IDS = [11155111, 1, 137] as const;
+export const SUPPORTED_CHAIN_IDS = [1, 11155111, 137] as const;
 export type SupportedChainId = (typeof SUPPORTED_CHAIN_IDS)[number];
 
 export const CHAIN_ID_HEADER = 'x-tokenable-chain-id';
@@ -43,7 +43,7 @@ export class ChainConfigService implements OnModuleDestroy {
     if (SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) {
       return n as SupportedChainId;
     }
-    return 11155111;
+    return 1;
   }
 
   resolveChainId(headerValue?: string): SupportedChainId {
@@ -59,6 +59,17 @@ export class ChainConfigService implements OnModuleDestroy {
    * Never silently fall back to DEFAULT_CHAIN_ID — a missing header would
    * reserve a Sepolia vault cycle while the UI shows Polygon (or vice versa).
    */
+  /** Admin PSA mail / optional hints — undefined when header absent or invalid. */
+  parseOptionalChainIdHeader(headerValue?: string): SupportedChainId | undefined {
+    const raw = headerValue?.trim();
+    if (!raw) return undefined;
+    const n = Number(raw);
+    if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return undefined;
+    const chainId = n as SupportedChainId;
+    if (!this.isChainConfigured(chainId)) return undefined;
+    return chainId;
+  }
+
   requireChainId(headerValue?: string): SupportedChainId {
     const raw = headerValue?.trim();
     if (!raw) {

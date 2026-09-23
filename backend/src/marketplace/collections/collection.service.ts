@@ -526,6 +526,9 @@ export class CollectionService {
     );
 
     const tokenContract = this.rwaAddressForChain(opts.chainId);
+    const reviewStatusOnInsert: CollectionReviewStatus = opts.linkRwaToken
+      ? 'active'
+      : 'pending_review';
     const insertResult = await this.collectionRepo
       .createQueryBuilder()
       .insert()
@@ -541,7 +544,7 @@ export class CollectionService {
         psaCertNumber: psaCert ?? null,
         marketParallelKey: parallelKey,
         bucketKeyVersion: BUCKET_KEY_VERSION,
-        reviewStatus: 'pending_review',
+        reviewStatus: reviewStatusOnInsert,
         tokenContract,
       })
       .orIgnore()
@@ -619,6 +622,7 @@ export class CollectionService {
         collectionKey,
         opts.chainId,
       );
+      await this.activateCollectionOnListing(collectionKey, opts.chainId);
     }
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
@@ -629,6 +633,24 @@ export class CollectionService {
       displayLabel,
       coverImageUrl,
     };
+  }
+
+  /** Ask listing makes the bucket public on Markets; canceling the ask does not remove it. */
+  private async activateCollectionOnListing(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const k = collectionKey.trim().toLowerCase();
+    if (!k) return;
+    const tokenContract = this.rwaAddressForChain(chainId);
+    await this.collectionRepo
+      .createQueryBuilder()
+      .update(MarketplaceCollection)
+      .set({ reviewStatus: 'active' })
+      .where('collection_key = :k', { k })
+      .andWhere('token_contract = :tc', { tc: tokenContract })
+      .andWhere('review_status = :pending', { pending: 'pending_review' })
+      .execute();
   }
 
   /** Keep this token's live ask on the same bucket as the mint metadata. */

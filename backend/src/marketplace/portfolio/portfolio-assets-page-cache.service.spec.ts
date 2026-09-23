@@ -33,6 +33,11 @@ describe('PortfolioAssetsPageCacheService', () => {
     expect(service.buildKey(1, '0xabc', [1])).not.toBe(base);
   });
 
+  it('buildKey differs when registry identity digest changes', () => {
+    const base = service.buildKey(8453, '0xabc', [1], 'aaa');
+    expect(service.buildKey(8453, '0xabc', [1], 'bbb')).not.toBe(base);
+  });
+
   it('get returns memory layer first', async () => {
     const payload = {
       metadataItems: [],

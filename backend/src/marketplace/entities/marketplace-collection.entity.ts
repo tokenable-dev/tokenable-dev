@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
 
-/** Public Markets visibility gate — new inserts start as `pending_review`. */
+/** Public Markets visibility — listing-time buckets insert as `active`; admin catalog as `pending_review`. */
 export type CollectionReviewStatus =
   | 'pending_review'
   | 'active'
@@ -61,7 +61,7 @@ export class MarketplaceCollection {
 
   /**
    * Admin review gate for Markets/Home discovery.
-   * New listings create `pending_review`; existing rows default `active`.
+   * First ask listing creates or activates `active`; admin-only catalog rows may stay `pending_review`.
    */
   @Index()
   @Column({

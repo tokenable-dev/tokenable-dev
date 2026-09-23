@@ -21,6 +21,9 @@ build
 
 # Designer handoff scratch (keep HTML prototypes; ignore bulky refs)
 /Tokenable-with design system-*/
+# EC2 manual TLS backups (do not commit; deploy removes these)
+nginx/nginx.tls.conf.bak.*
+
 # 기타
 .DS_Store
 *.log

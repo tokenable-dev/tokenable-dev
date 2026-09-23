@@ -62,6 +62,7 @@ function useForegroundTab(): boolean {
 /** Inbox for the signed-in user on the active app chain. */
 export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
+  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const userId = user?.id ?? "";
   const chainId = activeRqChainId();
   const queryClient = useQueryClient();
@@ -70,6 +71,7 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const enabled =
     (options?.enabled ?? true) &&
     Boolean(userId) &&
+    !privySessionSyncing &&
     !shouldHideAppChrome(pathname) &&
     tabVisible;
 

@@ -209,7 +209,12 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const searchParams = useSearchParams();
   const listingQuery = searchParams.get("listing")?.trim() ?? "";
   const checkoutQuery = searchParams.get("checkout")?.trim() ?? "";
-  const { runTradeAccessGate } = useTradeAccessGate(pathname || `/marketplace/collections/${collectionKey}`);
+  const tradeReturnTo =
+    pathname || `/marketplace/collections/${collectionKey}`;
+  const { canAccess, canTrade, walletSessionPending, runTradeAccessGate } =
+    useTradeAccessGate(tradeReturnTo);
+  const tradeWalletNotReady =
+    canAccess && !canTrade && walletSessionPending;
 
   useEffect(() => {
     if (!listingQuery && !checkoutQuery) return;
@@ -466,9 +471,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       onBuy={handleTradeBuy}
       onBid={handleTradeBid}
       onSell={handleTradeSell}
-      buyDisabled={asks.length === 0 || tradeDirect.busy != null}
-      bidDisabled={tradeDirect.busy != null}
-      sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
+      buyDisabled={
+        asks.length === 0 ||
+        tradeDirect.busy != null ||
+        tradeWalletNotReady
+      }
+      bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
+      sellDisabled={
+        listableOwnedRows.length === 0 ||
+        tradeDirect.busy != null ||
+        tradeWalletNotReady
+      }
       buyBusy={tradeDirect.busy === "buy"}
       bidBusy={tradeDirect.busy === "bid"}
       sellBusy={tradeDirect.busy === "sell"}
@@ -501,9 +514,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         closeMobileTradeSheet();
         handleTradeSell(tokenId, priceUsd);
       }}
-      buyDisabled={asks.length === 0 || tradeDirect.busy != null}
-      bidDisabled={tradeDirect.busy != null}
-      sellDisabled={listableOwnedRows.length === 0 || tradeDirect.busy != null}
+      buyDisabled={
+        asks.length === 0 ||
+        tradeDirect.busy != null ||
+        tradeWalletNotReady
+      }
+      bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
+      sellDisabled={
+        listableOwnedRows.length === 0 ||
+        tradeDirect.busy != null ||
+        tradeWalletNotReady
+      }
       buyBusy={tradeDirect.busy === "buy"}
       bidBusy={tradeDirect.busy === "bid"}
       sellBusy={tradeDirect.busy === "sell"}
@@ -623,9 +644,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         onBuy={() => openMobileTradeSheet("buy")}
         onBid={() => openMobileTradeSheet("bid")}
         onSell={() => openMobileTradeSheet("sell")}
-        buyDisabled={tradeDirect.busy != null}
-        bidDisabled={tradeDirect.busy != null}
-        sellDisabled={tradeDirect.busy != null}
+        buyDisabled={tradeDirect.busy != null || tradeWalletNotReady}
+        bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
+        sellDisabled={tradeDirect.busy != null || tradeWalletNotReady}
       />
 
       <CollectionMobileTradeSheet

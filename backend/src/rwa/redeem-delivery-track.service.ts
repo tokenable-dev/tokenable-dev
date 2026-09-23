@@ -5,6 +5,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 import type { SupportedChainId } from '../blockchain/chain-config.service';
+import { runWithPgSessionAdvisoryLock } from '../database/pg-session-advisory-lock.util';
 import { NotificationsService } from '../marketplace/notifications/notifications.service';
 import {
   VaultRedemption,
@@ -136,8 +137,18 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
     autoConfirmedBatches: number;
     skippedLock?: boolean;
   }> {
-    const locked = await this.tryAdvisoryLock();
-    if (!locked) {
+    const run = await runWithPgSessionAdvisoryLock(
+      this.dataSource,
+      POLL_ADVISORY_LOCK_KEY,
+      async () => {
+        const trackOut = await this.pollDeliveries();
+        const autoOut = this.autoReceiptEnabled()
+          ? await this.autoConfirmDueBatches()
+          : { autoConfirmedBatches: 0 };
+        return { ...trackOut, ...autoOut };
+      },
+    );
+    if (!run.acquired) {
       this.logger.debug('Redeem FedEx Track poll skipped (advisory lock held)');
       return {
         tracked: 0,
@@ -146,15 +157,7 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
         skippedLock: true,
       };
     }
-    try {
-      const trackOut = await this.pollDeliveries();
-      const autoOut = this.autoReceiptEnabled()
-        ? await this.autoConfirmDueBatches()
-        : { autoConfirmedBatches: 0 };
-      return { ...trackOut, ...autoOut };
-    } finally {
-      await this.releaseAdvisoryLock();
-    }
+    return run.value;
   }
 
   private async pollDeliveries(): Promise<{
@@ -379,17 +382,4 @@ export class RedeemDeliveryTrackService implements OnModuleInit {
     return { autoConfirmedBatches };
   }
 
-  private async tryAdvisoryLock(): Promise<boolean> {
-    const rows = await this.dataSource.query(
-      `SELECT pg_try_advisory_lock($1) AS ok`,
-      [POLL_ADVISORY_LOCK_KEY],
-    );
-    return Boolean(rows?.[0]?.ok);
-  }
-
-  private async releaseAdvisoryLock(): Promise<void> {
-    await this.dataSource.query(`SELECT pg_advisory_unlock($1)`, [
-      POLL_ADVISORY_LOCK_KEY,
-    ]);
-  }
 }

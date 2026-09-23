@@ -297,12 +297,17 @@ export class RwaMintService {
       );
     }
 
-    await this.vaultSubmissions.attachCycleForCert({
+    const attached = await this.vaultSubmissions.attachCycleForCert({
       userId: user.id,
       certNumber: params.certNumber,
       chainId,
       cycleId: params.cycleId,
     });
+    if (!attached) {
+      throw new BadRequestException(
+        'Could not link vault submission item to mint cycle (cert / chain mismatch).',
+      );
+    }
 
     const custodyWallet =
       await this.chainWriter.getCustodyWalletAddress(chainId);
@@ -332,7 +337,14 @@ export class RwaMintService {
       );
     }
 
-    await this.vaultSubmissions.markItemCompletedForCycle(params.cycleId);
+    const completed = await this.vaultSubmissions.markItemCompletedForCycle(
+      params.cycleId,
+    );
+    if (!completed) {
+      throw new BadRequestException(
+        'Mint cycle was not linked to a vault submission item.',
+      );
+    }
     this.schedulePostMintPortfolioWork(
       recipient,
       params.tokenId,

@@ -50,6 +50,7 @@ export function CollectionListingBidCheckout({
   onPurchaseFilled,
   onHeaderTitleChange,
   onDone,
+  onWalletFlowBusyChange,
 }: {
   collectionKey: string;
   tokenId: string | number;
@@ -70,6 +71,8 @@ export function CollectionListingBidCheckout({
   onPurchaseFilled?: () => void;
   onHeaderTitleChange?: (title: string) => void;
   onDone?: () => void;
+  /** Lets parent modals block dismiss while approve/sign is in flight. */
+  onWalletFlowBusyChange?: (busy: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { runTradeAccessGate } = useTradeAccessGate(
@@ -158,6 +161,10 @@ export function CollectionListingBidCheckout({
     const t = window.setTimeout(() => inputRef.current?.focus(), 60);
     return () => window.clearTimeout(t);
   }, [showSuccess]);
+
+  useEffect(() => {
+    onWalletFlowBusyChange?.(bid.busy);
+  }, [bid.busy, onWalletFlowBusyChange]);
 
   const handleAction = () => {
     runTradeAccessGate(() => {

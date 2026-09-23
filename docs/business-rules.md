@@ -77,17 +77,16 @@ All marketplace trades use **Seaport 1.5**. There is no relational bid/ask match
 - Orders are signed EIP-712 structures, not matched server-side
 - Settlement is on-chain (`fulfillOrder` / `matchAdvancedOrders`)
 - Platform fee (5% default) is encoded as Seaport consideration item on **asks** only — bids/offers have no bid fee
-- **Self-vault hold** asks encode **100%** of USDC to `PLATFORM_FEE_RECIPIENT` (no seller consideration line)
+- **Self-vault hold** (partner vault) asks encode **seller USDC + platform fee** on Seaport (`SELF_VAULT_PLATFORM_FEE_BPS`, default **10%** = $10 on a $100 sale to the fee wallet)
 
-### BR-8c: Self-Vault Hold Settlement (Option A)
+### BR-8c: Self-Vault Hold Settlement
 
-Self-vault minted tokens (`settlement_policy = self_vault_hold`) settle differently from standard asks:
+Partner-vault tokens (`settlement_policy = self_vault_hold`) use the **same instant on-chain split** as PSA vault, with a higher fee:
 
-1. **Ask consideration** — single USDC item to the platform fee wallet (full listing price)
-2. **On fulfill** — NFT → buyer; USDC → company; seller gets **$0 on-chain**
-3. **Ledger** — one `self_vault_settlements` row per fulfilled ask (`pending_confirm`), keyed by `order_hash`. Resale of the same token before payout creates an additional row (pay each seller separately).
-4. **Seller payout** — admin `execute-payout` any time (auto-confirms if needed), **or** cron auto confirm+payout ~**5 minutes** after that sale’s fulfill (`SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS`, default 300). Reject skips payout.
-5. **Bid-only fulfill** (`fulfill_bid` when offer is below ask) is **blocked** for these tokens — match against a full-platform-take ask instead
+1. **Ask consideration** — USDC to seller (net) + USDC to `PLATFORM_FEE_RECIPIENT` (fee bps, default 10%)
+2. **On fulfill** — NFT → buyer; USDC → seller + fee wallet (no delayed hold for new listings)
+3. **Legacy ledger** — fulfilled asks that still used **100% → fee wallet** create `self_vault_settlements` for off-chain seller payout (admin or cron). New split asks skip the ledger.
+4. **Bid-only fulfill** is **blocked** for these tokens — match bid+ask on Seaport or list an ask
 
 ### BR-8a: Offers (Bids)
 
@@ -142,16 +141,15 @@ Admin cannot burn or deliver an NFT that has an active Seaport listing.
 - Pre-check in `RwaTokenAdminService` before on-chain calls
 - **Why:** User must cancel listing first to prevent griefing
 
-### BR-11b: New Collections Require Admin Review Before Markets
+### BR-11b: Collections on First Ask (Markets visibility)
 
-A new `marketplace_collections` row created on first ask **or** via admin catalog create (`POST …/collections/admin/create-from-cert`) starts as `review_status = pending_review`.
+A `marketplace_collections` row is created on **first ask listing** (`ensureCollectionForListing`) with `review_status = active` — no admin Approve step. Canceling the ask does **not** delete the collection row.
 
-- Sellers may still create/manage asks while pending
 - Home / Markets / public collection lists only show `review_status = active`
+- Admin catalog create (`POST …/collections/admin/create-from-cert`) without a listing still starts as `pending_review` (optional pre-mint catalog)
+- Admin may still reject or reopen collections from Marketplace Admin → Collections
 - Collection `coverImageUrl` is not replaced on later listings or sales once it is set. Admin cover upload/URL is the replace path.
-- Admin approves (`active`) or rejects (`rejected`) from Marketplace Admin → Collections
 - Existing rows default to `active` so legacy catalog stays public
-- Catalog-only collections (no mint / ask yet) are visible on Markets after Approve — list SQL treats rows with no orders and no `rwa_tokens` as chain-global
 
 ---
 

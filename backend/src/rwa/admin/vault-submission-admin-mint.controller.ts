@@ -39,11 +39,15 @@ export class VaultSubmissionAdminMintController {
   testInjectVaultedMail(
     @Req() req: Request,
     @Body() dto: AdminInjectPsaReceivedMailDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.admin.assertAdminSession(req);
+    const adminMintChainHint =
+      this.chainConfig.parseOptionalChainIdHeader(chainHeader);
     return this.vaultedMail.injectTestVaultedAndPoll({
       cert: dto.cert,
       cardLabel: dto.cardLabel,
+      adminMintChainHint,
     });
   }
 
@@ -54,9 +58,14 @@ export class VaultSubmissionAdminMintController {
   mintVaultedReview(
     @Req() req: Request,
     @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.admin.assertAdminSession(req);
-    return this.vaultedMail.autoMintReview(reviewId, 'admin');
+    const adminMintChainHint =
+      this.chainConfig.parseOptionalChainIdHeader(chainHeader);
+    return this.vaultedMail.autoMintReview(reviewId, 'admin', {
+      adminMintChainHint,
+    });
   }
 
   @Post(':idOrPublicId/items/:itemId/mint-and-deliver')

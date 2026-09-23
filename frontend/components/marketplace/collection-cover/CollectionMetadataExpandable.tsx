@@ -92,7 +92,6 @@ export function CollectionMetadataExpandable({
   representativeImageUrl,
   components,
   marketSeriesMeta,
-  cardhedgerCardId,
   compactHero = false,
   detailCards,
   detailsOpen: detailsOpenControlled,
@@ -155,16 +154,6 @@ export function CollectionMetadataExpandable({
             </dt>
             <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">
               {toCardDisplayCase(queryUsed)}
-            </dd>
-          </div>
-        ) : null}
-        {cardhedgerCardId?.trim() ? (
-          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black px-2.5 py-2 sm:col-span-2`}>
-            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              Cardhedger card ID
-            </dt>
-            <dd className="mt-0.5 font-mono text-xs text-zinc-200 break-all">
-              {cardhedgerCardId}
             </dd>
           </div>
         ) : null}

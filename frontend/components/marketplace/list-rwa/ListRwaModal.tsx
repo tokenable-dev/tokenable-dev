@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
+import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import {
   ListRwaModalFormActions,
   ListRwaModalFormView,
@@ -16,23 +18,26 @@ export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 
 type ListRwaModalController = ReturnType<typeof useListRwaModal>;
 
-/** Hooks only — presentation is {@link ListRwaModalBody} (no hooks). */
 export function ListRwaModal(props: ListRwaModalProps) {
+  return <ListRwaModalOpen {...props} />;
+}
+
+/** Listing state + wallet flows (hooks). */
+function ListRwaModalOpen(props: ListRwaModalProps) {
   const open = props.open ?? true;
   const modal = useListRwaModal(props);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const mounted = useClientMounted();
 
   useEffect(() => {
+    if (!open) return;
     const shell = props.shell ?? "modal";
-    if (!open || shell === "sheet" || modal.step === "success") return;
+    if (shell === "sheet" || modal.step === "success") return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [props.shell, modal.step, open]);
+  }, [open, props.shell, modal.step]);
 
   if (!open) return null;
 
@@ -56,6 +61,7 @@ function ListRwaModalBody({
   const formVariant = shell === "sheet" ? "sheet" : "modal";
   const isSetPrice = copyVariant === "set-price";
   const isSuccess = modal.step === "success";
+  const requestClose = guardCloseWhileBusy(modal.isProcessing, onClose);
   const sheetLabel = isSetPrice
     ? modal.isReplaceListing
       ? "Edit price"
@@ -63,7 +69,8 @@ function ListRwaModalBody({
     : "List for sale";
 
   if (isSuccess) {
-    const success = (
+    // Sheet shell: close the right rail before TkDialog — sheet overlay is z-200 vs dialog z-100.
+    return (
       <ListRwaModalSuccessView
         tokenId={tokenId}
         price={modal.price}
@@ -74,14 +81,6 @@ function ListRwaModalBody({
         onClose={onClose}
       />
     );
-    if (shell === "sheet") {
-      return (
-        <TkActionSheet open onClose={onClose} aria-label={sheetLabel}>
-          {success}
-        </TkActionSheet>
-      );
-    }
-    return success;
   }
 
   const listPriceNum = Number(String(modal.price).replace(/[^0-9.]/g, ""));
@@ -122,7 +121,7 @@ function ListRwaModalBody({
     topCollectionBid: modal.topCollectionBid,
     marketValueUsd,
     listedPriceUsd,
-    onClose,
+    onClose: requestClose,
     copyVariant,
     settlementPolicy: modal.settlementPolicy,
     vaultLabel: modal.vaultLabel,
@@ -141,7 +140,7 @@ function ListRwaModalBody({
       price={modal.price}
       onSubmit={() => void modal.handleList()}
       isSetPrice={isSetPrice}
-      onClose={onClose}
+      onClose={requestClose}
     />
   );
 
@@ -156,7 +155,7 @@ function ListRwaModalBody({
     return (
       <TkActionSheet
         open
-        onClose={onClose}
+        onClose={requestClose}
         aria-label={sheetLabel}
         actions={isSetPrice ? sheetActions : undefined}
       >
@@ -171,13 +170,13 @@ function ListRwaModalBody({
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={requestClose}
       />
       <div className="relative mx-auto flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
         <button
           type="button"
           aria-label="Close"
-          onClick={onClose}
+          onClick={requestClose}
           className="absolute right-3.5 top-3.5 rounded-lg p-1 text-sm text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 sm:right-4 sm:top-4"
         >
           ✕

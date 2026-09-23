@@ -214,7 +214,7 @@ export function resolveDefaultChainId(): SupportedChainId {
   if (fromEnv && isChainConfigured(fromEnv)) return fromEnv;
   const first = SUPPORTED_CHAIN_IDS.find(isChainConfigured);
   if (first) return first;
-  return 11155111;
+  return 1;
 }
 
 export const DEFAULT_CHAIN_ID = resolveDefaultChainId();

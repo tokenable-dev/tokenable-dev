@@ -15,6 +15,7 @@ import {
   collectionGradeLabelFromHistoryTier,
 } from '../utils/cardhedger-grade-catalog.util';
 import type { MarketCollectionPreview, MarketPriceHistoryResult } from '../utils/market-reference.types';
+import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 import type { MarketSnapshotMeta } from '../utils/market-snapshot.types';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
@@ -56,15 +57,15 @@ export class CollectionMarketSnapshotReadService {
   }
 
   previewFromRow(row: CollectionMarketSnapshot): MarketCollectionPreview {
-    return (
+    const raw =
       row.previewJson ?? {
         enabled: false,
         searchQuery: '',
         matched: false,
         message: 'Snapshot preview unavailable',
         card: null,
-      }
-    );
+      };
+    return sanitizeMarketCollectionPreview(raw);
   }
 
   /**

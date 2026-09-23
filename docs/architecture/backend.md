@@ -263,7 +263,7 @@ synchronize: NODE_ENV !== 'production'
 
 Production schema changes go through `backend/sql/schema/` and `backend/sql/maintenance/`. Do not enable `synchronize` in production. Do not re-run `bootstrap-db.sh` on a populated database.
 
-Connection pool is bounded: `max` = `DB_POOL_MAX` (default 20), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`, TCP `keepAlive`. pg-pool reports checkout/handshake waits as `timeout exceeded when trying to connect` — that is often a dead idle socket (Docker Desktop) or a full pool, not Postgres being down. `GET /api/health` can still succeed if one live client remains in the pool.
+Connection pool is bounded: `max` = `DB_POOL_MAX` (default **10** in development, **20** in production when unset), `idleTimeoutMillis: 30_000`, `connectionTimeoutMillis: 8_000`, TCP `keepAlive`. Local Docker Postgres sets `max_connections=200` (see `docker-compose.yml`). pg-pool reports checkout/handshake waits as `timeout exceeded when trying to connect` — that is often a dead idle socket (Docker Desktop) or a full pool, not Postgres being down. `GET /api/health` can still succeed if one live client remains in the pool.
 
 ## Module dependencies (key relationships)
 

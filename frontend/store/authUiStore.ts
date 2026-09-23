@@ -75,7 +75,7 @@ function resolvePendingReturnTo(
   return current;
 }
 
-function isActivationInFlight(phase: WalletActivationPhase): boolean {
+export function isWalletActivationInFlight(phase: WalletActivationPhase): boolean {
   return (
     phase === "activating" ||
     phase === "waiting_mobile_return" ||
@@ -168,13 +168,13 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
       opts?.returnTo,
       get().pendingReturnTo,
     );
-    if (isActivationInFlight(phase)) {
+    if (isWalletActivationInFlight(phase)) {
       set({ pendingReturnTo });
       useToastStore.getState().push({
         tone: "warning",
         title: "Connecting wallet",
         message:
-          "Approve the request in MetaMask, then return to this tab to finish.",
+          "Wallet connection is already in progress. Finish the approval in your wallet, then try again.",
         durationMs: 6_000,
       });
       return;
@@ -220,7 +220,7 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   },
 
   beginWalletActivation: (expectedAddress) => {
-    if (isActivationInFlight(get().walletActivationPhase)) return false;
+    if (isWalletActivationInFlight(get().walletActivationPhase)) return false;
     set({
       walletActivationPhase: "activating",
       walletActivationExpectedAddress: expectedAddress?.trim()

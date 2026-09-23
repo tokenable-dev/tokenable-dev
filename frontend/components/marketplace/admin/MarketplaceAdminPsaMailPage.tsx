@@ -21,6 +21,7 @@ import {
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 type ReviewFilter = "pending" | "confirmed" | "dismissed";
@@ -54,6 +55,7 @@ function formatWhen(iso: string | null | undefined): string {
 }
 
 export function MarketplaceAdminPsaMailPage() {
+  const { chain } = useAppChain();
   const [filter, setFilter] = useState<ReviewFilter>("pending");
   const [actionError, setActionError] = useState<string | null>(null);
   const [injectOk, setInjectOk] = useState<string | null>(null);
@@ -368,7 +370,10 @@ ${previewCert} - ${previewLabel}`}
             >
               mint-queue
             </Link>{" "}
-            item
+            item · mint network:{" "}
+            <strong className="font-medium text-zinc-800">{chain.label}</strong>{" "}
+            (admin bar — must match the depositor submission chain when a queue
+            item matches)
           </p>
         </div>
         <form

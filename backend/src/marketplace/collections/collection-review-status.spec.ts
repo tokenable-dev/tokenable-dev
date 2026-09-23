@@ -11,9 +11,11 @@ describe('collection review status rules', () => {
     expect(PUBLIC_VISIBLE.includes('rejected')).toBe(false);
   });
 
-  it('new insert status is pending_review', () => {
-    const newInsertStatus: CollectionReviewStatus = 'pending_review';
-    expect(newInsertStatus).toBe('pending_review');
+  it('admin catalog insert stays pending_review until listed', () => {
+    const catalogInsert: CollectionReviewStatus = 'pending_review';
+    const listingInsert: CollectionReviewStatus = 'active';
+    expect(catalogInsert).toBe('pending_review');
+    expect(listingInsert).toBe('active');
   });
 
   it('existing rows default to active', () => {

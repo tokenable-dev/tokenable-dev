@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CollectionMarketService } from '../collections/collection-market.service';
 import type { CollectionMarketBundle } from '../collections/collection-market.service';
 import { CollectionService } from '../collections/collection.service';
+import { RwaTokenRegistryService } from '../collections/rwa-token-registry.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { RwaTokenOwnerIndexService } from '../../blockchain/rwa-token-owner-index.service';
@@ -47,6 +48,7 @@ export class PortfolioAssetsPageService {
   constructor(
     private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly collectionService: CollectionService,
+    private readonly rwaTokenRegistry: RwaTokenRegistryService,
     private readonly collectionMarket: CollectionMarketService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly chainConfig: ChainConfigService,
@@ -104,7 +106,16 @@ export class PortfolioAssetsPageService {
     }
 
     const _t0 = perfNow();
-    const cacheKey = this.pageCache.buildKey(chain, wallet, uniqueTokenIds);
+    const registryDigest = await this.rwaTokenRegistry.registryIdentityDigest(
+      uniqueTokenIds,
+      chain,
+    );
+    const cacheKey = this.pageCache.buildKey(
+      chain,
+      wallet,
+      uniqueTokenIds,
+      registryDigest,
+    );
 
     if (this.pageCache.isEnabled()) {
       const cached = await this.pageCache.get(cacheKey);
@@ -155,14 +166,14 @@ export class PortfolioAssetsPageService {
       .healOwnerRegistryIfIncomplete(chainId)
       .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    const verifiedDb =
-      fromDb.length > 0
-        ? await this.blockchain.filterTokenIdsOwnedByWallet(
-            wallet,
-            fromDb,
-            chainId,
-          )
-        : [];
+    if (fromDb.length === 0) {
+      return [];
+    }
+    const verifiedDb = await this.blockchain.filterTokenIdsOwnedByWallet(
+      wallet,
+      fromDb,
+      chainId,
+    );
     const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
       wallet,
       chainId,

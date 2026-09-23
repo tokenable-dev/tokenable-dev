@@ -325,6 +325,43 @@ function RedeemOrderCard({
   const head = rows[0];
   if (!head) return null;
 
+  return (
+    <RedeemOrderCardBody
+      head={head}
+      rows={rows}
+      busy={busy}
+      onSaveMemo={onSaveMemo}
+      onSetShipmentTracking={onSetShipmentTracking}
+      onRefundUsdc={onRefundUsdc}
+      onRefundFull={onRefundFull}
+      onReturnNft={onReturnNft}
+    />
+  );
+}
+
+function RedeemOrderCardBody({
+  head,
+  rows,
+  busy,
+  onSaveMemo,
+  onSetShipmentTracking,
+  onRefundUsdc,
+  onRefundFull,
+  onReturnNft,
+}: {
+  head: AdminRedeemRow;
+  rows: AdminRedeemRow[];
+  busy: boolean;
+  onSaveMemo: (memo: string) => void;
+  onSetShipmentTracking: (
+    shipmentKey: string,
+    trackingNumber: string,
+    trackingCarrier?: string,
+  ) => void;
+  onRefundUsdc: () => void;
+  onRefundFull: () => void;
+  onReturnNft: (id: string) => void;
+}) {
   const [memo, setMemo] = useState(head.adminMemo ?? "");
   const showRefund = batchCanRefundUsdc(rows);
   const multi = rows.length > 1;

@@ -1426,15 +1426,6 @@ button.pf-table-card-cell--activate {
   display: none;
 }
 
-.pf-sale-status--event-used {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 210, 140, 0.95);
-  background: rgba(255, 176, 32, 0.12);
-  border: 1px solid rgba(255, 200, 80, 0.28);
-}
-
 .portfolio-page .pf-table--holdings .pf-col-action-cell {
   text-align: center;
   white-space: nowrap;
@@ -2708,19 +2699,6 @@ button.pf-table-card-cell--activate {
 .pf-gbadge--possession {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
-}
-
-.pf-gbadge--event-used {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 210, 140, 0.95);
-  background: rgba(255, 176, 32, 0.16);
-  border: 1px solid rgba(255, 200, 80, 0.3);
-}
-
-.pf-gtile--event-used .pf-gtile__media img {
-  opacity: 0.85;
 }
 
 .pf-selchk {

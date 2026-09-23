@@ -14,7 +14,7 @@ import { activeRqChainId, getChainContracts, SUPPORTED_CHAIN_IDS } from "@/lib/c
 import type { SupportedChainId } from "@/lib/chains";
 
 /** Bump when persisted shape changes. */
-const SCHEMA = 7;
+const SCHEMA = 8;
 /** Keep a just-bought tile only until owner_wallet index catches up. */
 const OPTIMISTIC_BUY_MAX_AGE_MS = 3 * 60 * 1000;
 /** Paint-time cache TTL — matches marketplace list persistence. */
@@ -246,30 +246,6 @@ function readAllPortfolioBundles(): PersistedPortfolioBundle[] {
   return out;
 }
 
-function bundleToAssetsPageResponse(
-  bundle: PersistedPortfolioBundle,
-): PortfolioAssetsPageResponse {
-  return {
-    ownedTokenIds: bundle.tokenIds,
-    metadataItems: bundle.fetchedTokenIds.map((tokenId) => {
-      const row = bundle.metadataItems.find((m) => m.tokenId === tokenId);
-      return {
-        tokenId,
-        tokenURI: null,
-        metadata: row?.metadata ?? null,
-        imageUrl: row?.imageUrl ?? null,
-        imageBackUrl: null,
-      };
-    }),
-    collectionKeys: bundle.collectionKeys,
-    marketItems: bundle.marketItems,
-    mintPreviews: {},
-    holdings: bundle.holdings.filter((h) =>
-      bundle.fetchedTokenIds.includes(h.tokenId),
-    ),
-  };
-}
-
 function hydrateBundle(queryClient: QueryClient, bundle: PersistedPortfolioBundle): void {
   const address = bundle.address.trim().toLowerCase();
   const chainId = bundle.chainId;
@@ -291,12 +267,9 @@ function hydrateBundle(queryClient: QueryClient, bundle: PersistedPortfolioBundl
     );
   }
 
-  if (bundle.fetchedTokenIds.length > 0) {
-    queryClient.setQueryData(
-      rq.portfolioAssetsPage(address, bundle.fetchedTokenIds, chainId),
-      bundleToAssetsPageResponse(bundle),
-    );
-  }
+  void queryClient.invalidateQueries({
+    queryKey: ["portfolio-assets-page", address, chainId],
+  });
 
   if (bundle.unmatchedMintTokenIds.length > 0 && bundle.mintPreviews) {
     queryClient.setQueryData(

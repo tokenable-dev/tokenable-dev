@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Order } from "@/lib/core";
 import { bidMaxUsdcFromOrder } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
 import { CollectionListingBidCheckout } from "@/components/marketplace/collection-detail/CollectionListingBidCheckout";
@@ -8,6 +9,7 @@ import {
   formatListingUsdc,
   stubListingForOffer,
 } from "@/lib/marketplace/collectionListingModalHelpers";
+import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
 
 export function CollectionChangeBidModal({
   open,
@@ -32,6 +34,42 @@ export function CollectionChangeBidModal({
   onUpdated?: () => void;
 }) {
   if (!open || bid == null) return null;
+
+  return (
+    <CollectionChangeBidModalBody
+      bid={bid}
+      collectionKey={collectionKey}
+      activeAsks={activeAsks}
+      collectionBids={collectionBids}
+      connectedAddress={connectedAddress}
+      mode={mode}
+      onClose={onClose}
+      onUpdated={onUpdated}
+    />
+  );
+}
+
+function CollectionChangeBidModalBody({
+  bid,
+  collectionKey,
+  activeAsks,
+  collectionBids = [],
+  connectedAddress,
+  mode = "change",
+  onClose,
+  onUpdated,
+}: {
+  bid: Order;
+  collectionKey: string;
+  activeAsks: Order[];
+  collectionBids?: Order[];
+  connectedAddress?: string;
+  mode?: "change" | "rebid";
+  onClose: () => void;
+  onUpdated?: () => void;
+}) {
+  const [walletFlowBusy, setWalletFlowBusy] = useState(false);
+  const requestClose = guardCloseWhileBusy(walletFlowBusy, onClose);
 
   const tokenId = normalizeDecimalTokenId(bid.tokenId);
   const tokenIdNum = Number(tokenId);
@@ -60,7 +98,7 @@ export function CollectionChangeBidModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={requestClose}
         aria-hidden
       />
       <div
@@ -87,7 +125,7 @@ export function CollectionChangeBidModal({
           <button
             type="button"
             aria-label="Close"
-            onClick={onClose}
+            onClick={requestClose}
             className="absolute right-4 top-4 rounded-lg p-2 text-base text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 sm:right-5 sm:top-5"
           >
             ✕
@@ -104,6 +142,7 @@ export function CollectionChangeBidModal({
             listedPriceLabel={listedLabel}
             connectedAddress={connectedAddress}
             bidToReplace={replaceBid}
+            onWalletFlowBusyChange={setWalletFlowBusy}
             onPlaced={() => {
               onUpdated?.();
               onClose();
@@ -112,7 +151,7 @@ export function CollectionChangeBidModal({
               onUpdated?.();
               onClose();
             }}
-            onDone={onClose}
+            onDone={requestClose}
           />
         </div>
       </div>

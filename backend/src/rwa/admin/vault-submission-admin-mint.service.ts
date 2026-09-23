@@ -73,6 +73,14 @@ export class VaultSubmissionAdminMintService {
     const priorStatus = item.status;
     const cert = item.certNumber.trim();
 
+    const submissionChainId = detail.chainId ?? null;
+    if (submissionChainId != null && submissionChainId !== chainId) {
+      throw new BadRequestException(
+        `Mint chain ${chainId} does not match submission chain ${submissionChainId}. ` +
+          'Use x-tokenable-chain-id for the submission network.',
+      );
+    }
+
     const user = await this.users.findByIdOrFail(detail.userId);
     await this.kyc.assertApprovedForCustody(user);
 

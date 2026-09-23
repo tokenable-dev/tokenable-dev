@@ -18,4 +18,4 @@ if ! redis-cli -p 6379 ping >/dev/null 2>&1; then
 fi
 redis-cli -p 6379 ping >/dev/null 2>&1 && echo "[start] redis ready" || echo "[start] WARNING: redis not ready"
 
-echo "[start] infra ready (postgres:5432, redis:6379)"
+echo "[start] infra ready (postgres host:5433, redis host:6380)"

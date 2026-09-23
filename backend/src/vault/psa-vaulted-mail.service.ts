@@ -8,8 +8,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
+import { runWithPgSessionAdvisoryLock } from '../database/pg-session-advisory-lock.util';
 import {
   ChainConfigService,
+  SUPPORTED_CHAIN_IDS,
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
 import { VaultSubmissionAdminMintService } from '../rwa/admin/vault-submission-admin-mint.service';
@@ -91,9 +93,50 @@ export class PsaVaultedMailService implements OnModuleInit {
     const raw = this.config.get<string>('PSA_VAULTED_MAIL_CHAIN_ID')?.trim();
     if (raw) {
       const n = Number(raw);
-      if ([11155111, 1, 137].includes(n)) return n as SupportedChainId;
+      if (SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) {
+        return n as SupportedChainId;
+      }
     }
     return this.chainConfig.getDefaultChainId();
+  }
+
+  /**
+   * Mint chain for Gmail / vaulted review.
+   * 1) Single submission chain on matched items (SSOT)
+   * 2) Admin header hint (test inject / manual mint from admin UI)
+   * 3) PSA_VAULTED_MAIL_CHAIN_ID / DEFAULT_CHAIN_ID (cron only)
+   */
+  private resolveMintChainForQueueItems(
+    items: Array<{ submissionChainId: number | null }>,
+    adminMintChainHint?: SupportedChainId,
+  ): SupportedChainId {
+    const chains = items
+      .map((i) => i.submissionChainId)
+      .filter(
+        (id): id is SupportedChainId =>
+          typeof id === 'number' &&
+          SUPPORTED_CHAIN_IDS.includes(id as SupportedChainId),
+      );
+    const unique = [...new Set(chains)];
+    if (unique.length === 1) {
+      const submissionChain = unique[0]!;
+      if (
+        adminMintChainHint != null &&
+        adminMintChainHint !== submissionChain
+      ) {
+        throw new BadRequestException(
+          `Admin network (chain ${adminMintChainHint}) does not match depositor submission (chain ${submissionChain}). Switch the admin network or fix the submission.`,
+        );
+      }
+      return submissionChain;
+    }
+    if (unique.length > 1) {
+      this.logger.warn(
+        `PSA vaulted mint: queue items span chains ${unique.join(',')} — using admin hint or configured default`,
+      );
+    }
+    if (adminMintChainHint != null) return adminMintChainHint;
+    return this.resolveMintChainId();
   }
 
   @Cron(
@@ -116,25 +159,29 @@ export class PsaVaultedMailService implements OnModuleInit {
     }
   }
 
-  async pollOnce(): Promise<{
+  async pollOnce(options?: {
+    adminMintChainHint?: SupportedChainId;
+  }): Promise<{
     processed: number;
     queued: string[];
     minted: string[];
     skippedLock?: boolean;
   }> {
-    const locked = await this.tryAdvisoryLock();
-    if (!locked) {
+    const run = await runWithPgSessionAdvisoryLock(
+      this.dataSource,
+      POLL_ADVISORY_LOCK_KEY,
+      () => this.pollOnceLocked(options),
+    );
+    if (!run.acquired) {
       this.logger.debug('PSA vaulted-mail poll skipped (advisory lock held)');
       return { processed: 0, queued: [], minted: [], skippedLock: true };
     }
-    try {
-      return await this.pollOnceLocked();
-    } finally {
-      await this.releaseAdvisoryLock();
-    }
+    return run.value;
   }
 
-  private async pollOnceLocked(): Promise<{
+  private async pollOnceLocked(options?: {
+    adminMintChainHint?: SupportedChainId;
+  }): Promise<{
     processed: number;
     queued: string[];
     minted: string[];
@@ -184,7 +231,9 @@ export class PsaVaultedMailService implements OnModuleInit {
           review.status === 'pending' &&
           !review.ingestNote
         ) {
-          const outcome = await this.autoMintReview(review.id);
+          const outcome = await this.autoMintReview(review.id, 'auto', {
+            adminMintChainHint: options?.adminMintChainHint,
+          });
           if (outcome.minted) minted.push(review.id);
         }
 
@@ -207,6 +256,7 @@ export class PsaVaultedMailService implements OnModuleInit {
   async autoMintReview(
     reviewId: string,
     via: 'auto' | 'admin' = 'auto',
+    options?: { adminMintChainHint?: SupportedChainId },
   ): Promise<{ minted: boolean }> {
     const review = await this.submissions.findPsaVaultedReviewById(reviewId);
     if (!review) return { minted: false };
@@ -236,7 +286,10 @@ export class PsaVaultedMailService implements OnModuleInit {
       return { minted: false };
     }
 
-    const chainId = this.resolveMintChainId();
+    const chainId = this.resolveMintChainForQueueItems(
+      match.items,
+      options?.adminMintChainHint,
+    );
     const results: Array<{
       cert: string;
       itemId?: string;
@@ -293,6 +346,7 @@ export class PsaVaultedMailService implements OnModuleInit {
   async injectTestVaultedAndPoll(input: {
     cert: string;
     cardLabel?: string | null;
+    adminMintChainHint?: SupportedChainId;
   }): Promise<{
     messageId: string;
     cert: string;
@@ -341,27 +395,10 @@ export class PsaVaultedMailService implements OnModuleInit {
     this.logger.warn(
       `PSA TEST vaulted mail injected messageId=${messageId} cert=${cert}`,
     );
-    const poll = await this.pollOnce();
+    const poll = await this.pollOnce({
+      adminMintChainHint: input.adminMintChainHint,
+    });
     return { messageId, cert, poll };
   }
 
-  private async tryAdvisoryLock(): Promise<boolean> {
-    const rows = (await this.dataSource.query(
-      `SELECT pg_try_advisory_lock($1) AS ok`,
-      [POLL_ADVISORY_LOCK_KEY],
-    )) as { ok: boolean }[];
-    return Boolean(rows[0]?.ok);
-  }
-
-  private async releaseAdvisoryLock(): Promise<void> {
-    try {
-      await this.dataSource.query(`SELECT pg_advisory_unlock($1)`, [
-        POLL_ADVISORY_LOCK_KEY,
-      ]);
-    } catch (e) {
-      this.logger.warn(
-        `PSA vaulted-mail unlock failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-  }
 }

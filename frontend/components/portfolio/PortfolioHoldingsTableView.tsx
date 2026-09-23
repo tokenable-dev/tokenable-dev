@@ -240,7 +240,6 @@ export function PortfolioHoldingsTableView({
                   isListed={isListed}
                   redeemStatus={badge}
                   listPriceUsd={row.listPriceUsd}
-                  kbwMysteryUsed={kbwUsed}
                 />
               </td>
               <td data-label="Action" className="pf-col-action-cell">

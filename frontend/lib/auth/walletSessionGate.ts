@@ -7,6 +7,7 @@ import {
 } from "./wallets";
 import {
   isWalletSessionActive,
+  isWalletSessionPending,
   type WalletConnectionSnapshot,
 } from "@/lib/wallet/walletConnectionDisplay";
 
@@ -50,4 +51,32 @@ export function resolveWalletSessionGate(
   }
 
   return { action: "allow" };
+}
+
+/** Trade CTAs: wagmi reconnect/connect or Privy activation still in flight. */
+export function isTradeWalletSessionPending(
+  connection: WalletConnectionSnapshot,
+  walletActivationInFlight: boolean,
+): boolean {
+  return isWalletSessionPending(connection) || walletActivationInFlight;
+}
+
+/**
+ * Open Privy wallet connect on trade pages when the account wallet is external
+ * (MetaMask etc.). Embedded primaries align silently via AccountWalletAligner.
+ */
+export function shouldProactivelyOpenTradeWalletConnect(input: {
+  canAccess: boolean;
+  sessionAction: WalletSessionGateResult["action"];
+  connection: WalletConnectionSnapshot;
+  walletActivationInFlight: boolean;
+  /** Primary is in Privy and embedded — background align only, no connect modal. */
+  silentEmbeddedActivation: boolean;
+}): boolean {
+  if (!input.canAccess) return false;
+  if (input.sessionAction !== "connect-wallet") return false;
+  if (isWalletSessionPending(input.connection)) return false;
+  if (input.walletActivationInFlight) return false;
+  if (input.silentEmbeddedActivation) return false;
+  return true;
 }

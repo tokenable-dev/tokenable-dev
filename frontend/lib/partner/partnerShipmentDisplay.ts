@@ -1,4 +1,5 @@
 import type { PartnerRedeemRow, RwaMetadata } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { getCachedRwaImageUrl } from "@/lib/marketplace";
 import type { PartnerShipmentGroup } from "@/lib/partner/partnerRedeemGroups";
 import { partnerRedeemDeadlineMs } from "@/lib/partner/partnerRedeemStats";
@@ -132,7 +133,7 @@ export function partnerCardImageUrl(
   }
   const n = Number(item.tokenId);
   if (Number.isFinite(n) && n > 0) {
-    const cached = getCachedRwaImageUrl(n);
+    const cached = getCachedRwaImageUrl(activeRqChainId(), n);
     if (cached) return cached;
   }
   return null;

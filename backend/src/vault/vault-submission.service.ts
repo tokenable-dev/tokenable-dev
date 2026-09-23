@@ -263,6 +263,8 @@ export class VaultSubmissionService {
       shipDate: sub.shipDate,
       shippedAt: this.isoOrNull(sub.shippedAt),
       packingSlipDownloadedAt: this.isoOrNull(sub.packingSlipDownloadedAt),
+      chainId: sub.chainId,
+      tokenContract: sub.tokenContract,
       createdAt: this.isoOrNull(sub.createdAt) ?? new Date(0).toISOString(),
       updatedAt: this.isoOrNull(sub.updatedAt) ?? new Date(0).toISOString(),
       items: items.map((it) => ({
@@ -525,7 +527,7 @@ export class VaultSubmissionService {
     certNumber: string;
     cycleId: string;
     chainId?: SupportedChainId;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const cert = VaultSubmissionService.normalizeCert(params.certNumber);
     const item = await this.items
       .createQueryBuilder('i')
@@ -542,7 +544,12 @@ export class VaultSubmissionService {
       .orderBy('s.updated_at', 'DESC')
       .getOne();
 
-    if (!item) return;
+    if (!item) {
+      this.logger.warn(
+        `attachCycleForCert: no open submission item for cert=${cert} user=${params.userId} chain=${params.chainId ?? this.chainConfig.getDefaultChainId()}`,
+      );
+      return false;
+    }
 
     item.vaultCycleId = params.cycleId;
     item.status = 'minting';
@@ -552,16 +559,22 @@ export class VaultSubmissionService {
       where: { id: item.submissionId },
       relations: { items: true },
     });
-    if (!sub) return;
+    if (!sub) return true;
     if (sub.status === 'in_transit' || sub.status === 'awaiting_shipment') {
       sub.status = 'psa_reviewing';
       await this.submissions.save(sub);
     }
+    return true;
   }
 
-  async markItemCompletedForCycle(cycleId: string): Promise<void> {
+  async markItemCompletedForCycle(cycleId: string): Promise<boolean> {
     const item = await this.items.findOne({ where: { vaultCycleId: cycleId } });
-    if (!item) return;
+    if (!item) {
+      this.logger.warn(
+        `markItemCompletedForCycle: no item linked to cycleId=${cycleId}`,
+      );
+      return false;
+    }
     item.status = 'completed';
     await this.items.save(item);
 
@@ -569,11 +582,12 @@ export class VaultSubmissionService {
       where: { id: item.submissionId },
       relations: { items: true },
     });
-    if (!sub?.items) return;
+    if (!sub?.items) return true;
     if (sub.items.every((i) => i.status === 'completed' || i.status === 'rejected')) {
       sub.status = 'completed';
       await this.submissions.save(sub);
     }
+    return true;
   }
 
   // ── Admin ops ──────────────────────────────────────────────────────────
@@ -1181,6 +1195,7 @@ export class VaultSubmissionService {
       cert: string;
       itemStatus: string;
       name: string | null;
+      submissionChainId: number | null;
     }>;
   }> {
     const normalized = [
@@ -1214,6 +1229,7 @@ export class VaultSubmissionService {
       cert: it.certNumber,
       itemStatus: it.status,
       name: it.displayName,
+      submissionChainId: it.submission?.chainId ?? null,
     }));
     return { matchedCerts, unmatchedCerts, items };
   }

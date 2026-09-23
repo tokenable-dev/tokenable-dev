@@ -80,7 +80,7 @@ export function MintFormMintImageSection({
                   : mintPreview.source === "user_upload"
                     ? "Your uploaded slab photo is used when PSA has no official image."
                     : mintPreview.source === "cardhedger_catalog"
-                      ? "PSA has no slab photo. Catalog representative art is used — not the Cardhedger branded placeholder."
+                      ? "PSA has no slab photo. Representative catalog art is used (not a generic placeholder)."
                       : "PSA has no slab photo and no catalog art. The Tokenable default slab is used."}
               </p>
               <span className="mt-2 inline-flex w-fit rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-300">

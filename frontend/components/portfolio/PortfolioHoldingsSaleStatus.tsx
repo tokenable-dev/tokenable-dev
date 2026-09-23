@@ -9,7 +9,6 @@ const KIND_CLASS: Record<HoldingsSaleKind, string> = {
   not_listed: "pf-sale-status--neutral",
   listed: "pf-sale-status--listed",
   redeeming: "pf-sale-status--redeeming",
-  event_used: "pf-sale-status--event-used",
 };
 
 /** Portfolio.html status pill — mono 10px chip (Not listed / Listed · $… / Redeeming). */
@@ -17,14 +16,12 @@ export function PortfolioHoldingsSaleStatus({
   isListed,
   redeemStatus,
   listPriceUsd = null,
-  kbwMysteryUsed = false,
 }: {
   isListed: boolean;
   redeemStatus: RedeemSurfaceBadge | null;
   listPriceUsd?: number | null;
-  kbwMysteryUsed?: boolean;
 }) {
-  const kind = holdingsSaleKind(isListed, redeemStatus, kbwMysteryUsed);
+  const kind = holdingsSaleKind(isListed, redeemStatus);
   const label = holdingsSaleStatusLabel(kind, isListed ? listPriceUsd : null);
   return (
     <span className={`pf-sale-status ${KIND_CLASS[kind]}`}>{label}</span>

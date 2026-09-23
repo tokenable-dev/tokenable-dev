@@ -7,6 +7,7 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import type { PartnerRedeemRow } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 
 export type PartnerRedeemCardMeta = {
@@ -27,6 +28,7 @@ const EMPTY: PartnerRedeemCardMeta = {
 export function usePartnerRedeemMetadata(
   items: PartnerRedeemRow[],
 ): PartnerRedeemCardMeta {
+  const chainId = activeRqChainId();
   const tokenIds = useMemo(() => {
     const ids = new Set<number>();
     for (const row of items) {
@@ -37,10 +39,11 @@ export function usePartnerRedeemMetadata(
   }, [items]);
 
   const query = useQuery({
-    queryKey: ["partner-redeem-card-meta", tokenIds],
+    queryKey: ["partner-redeem-card-meta", chainId, tokenIds],
     queryFn: async (): Promise<PartnerRedeemCardMeta> => {
       const pack = await postRwaMetadataBatchBatched(tokenIds);
       primeRwaMetadataCache(
+        chainId,
         pack.items.map((it) => ({
           tokenId: it.tokenId,
           metadata: it.metadata,

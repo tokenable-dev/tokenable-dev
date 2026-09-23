@@ -19,6 +19,7 @@ import {
 import { OrdersService } from '../../marketplace/orders/orders.service';
 import type { CreateOrderDto } from '../../marketplace/orders/dto/create-order.dto';
 import type { Order } from '../../marketplace/entities/order.entity';
+import { readSelfVaultPlatformFeeBps } from '../../marketplace/settlement/platform-fee-split.util';
 
 /** Seaport 1.5 — canonical address on EVM chains. */
 export const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
@@ -111,6 +112,8 @@ export class PartnerSeaportAskService {
     totalPriceUnits: bigint,
     sellerAddress: string,
     usdcAddress: string,
+    /** Partner bulk mint listings are always self-vault hold (10% fee default). */
+    settlementPolicy: 'standard' | 'self_vault_hold' = 'self_vault_hold',
   ): Array<{
     itemType: number;
     token: string;
@@ -120,7 +123,10 @@ export class PartnerSeaportAskService {
     recipient: string;
   }> {
     const feeRecipient = this.platformFeeRecipient();
-    const bps = this.platformFeeBps();
+    const bps =
+      settlementPolicy === 'self_vault_hold'
+        ? readSelfVaultPlatformFeeBps(this.config)
+        : this.platformFeeBps();
     let sellerAmount = totalPriceUnits;
     let feeAmount = 0n;
     if (feeRecipient && bps > 0) {
