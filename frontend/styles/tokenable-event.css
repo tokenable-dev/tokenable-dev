@@ -616,7 +616,7 @@ body:has(.ev-page) .tk-shell-scroll {
   width: min(100%, 360px);
   max-width: 360px;
   min-height: 0;
-  max-height: min(100dvh - 24px, 620px);
+  max-height: min(100dvh - 24px, 680px);
   overflow-y: auto;
   overscroll-behavior: contain;
   gap: clamp(8px, 1.6vh, 14px);
@@ -700,9 +700,9 @@ body:has(.ev-page) .tk-shell-scroll {
 }
 
 .ev-offer-modal__pack img {
-  width: min(100%, 180px);
+  width: min(100%, 252px);
   height: auto;
-  max-height: min(38dvh, 260px);
+  max-height: min(52dvh, 360px);
   display: block;
   object-fit: contain;
   filter: drop-shadow(0 0 22px rgba(255, 190, 60, 0.3));
@@ -823,7 +823,7 @@ body:has(.ev-page) .tk-shell-scroll {
   }
 
   .ev-offer-modal__pack img {
-    width: min(100%, 200px);
-    max-height: min(40dvh, 280px);
+    width: min(100%, 268px);
+    max-height: min(54dvh, 380px);
   }
 }

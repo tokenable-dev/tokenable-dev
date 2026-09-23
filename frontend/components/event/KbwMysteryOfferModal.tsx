@@ -188,7 +188,7 @@ export function KbwMysteryOfferModal() {
         className="ev-shell ev-offer-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="KBW Mystery Card"
+        aria-label="Mystery pack offer"
       >
         <header className="ev-top ev-offer-modal__top">
           <div className="ev-top__logo" aria-hidden>
@@ -210,23 +210,17 @@ export function KbwMysteryOfferModal() {
           </button>
         </header>
 
-        <section className="ev-offer-modal__hero" aria-label="Event">
-          <p className="ev-offer-modal__eyebrow">Korea Blockchain Week</p>
-          <div className="ev-hero__rule" aria-hidden />
-        </section>
-
         <div className="ev-offer-modal__pack">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={ASSETS.event.mysteryPack}
-            alt="KBW Mystery Card pack"
+            alt="Oripa mystery pack"
             width={430}
-            height={603}
+            height={664}
           />
         </div>
 
         <div className="ev-offer-modal__meta">
-          <h2 className="ev-offer-modal__title">KBW MYSTERY CARD</h2>
           <p className="ev-offer-modal__price" aria-label="Was 50 dollars">
             <span className="ev-offer-modal__price-strike">$50</span>
           </p>
