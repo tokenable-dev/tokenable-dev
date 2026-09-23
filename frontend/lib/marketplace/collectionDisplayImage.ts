@@ -1,6 +1,11 @@
+import { ASSETS } from "@/constants/assets";
 import type { MarketplaceCollectionDetail, MarketplaceCollectionSummary } from "@/lib/core";
 import { normalizeCatalogCoverPublicUrl } from "@/lib/marketplace/catalogCoverPublicUrl";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+
+/** Bundled Tokenable default — same as mint slab fallback. */
+export const COLLECTION_COVER_PLACEHOLDER_URL =
+  ASSETS.icons.tokenableMintPlaceholder;
 
 /** PSA graded slab photos must never be collection hero images. */
 export function isPsaCertSlabCloudfrontUrl(url: string): boolean {
@@ -35,13 +40,18 @@ export function pickCollectionDisplayImageUrl(input: {
   coverImageUrl?: string | null;
   components?: Pick<CollectionComponents, "trendingSlabImageUrl"> | null;
   collectionKey?: string | null;
-}): string | null {
+}): string {
   const fromApi = sanitizeCollectionCoverUrl(
     input.displayImageUrl?.trim() || input.representativeImageUrl?.trim() || null,
   );
   if (fromApi) return fromApi;
 
-  return sanitizeCollectionCoverUrl(input.coverImageUrl?.trim() || null);
+  const fromCover = sanitizeCollectionCoverUrl(
+    input.coverImageUrl?.trim() || null,
+  );
+  if (fromCover) return fromCover;
+
+  return COLLECTION_COVER_PLACEHOLDER_URL;
 }
 
 export function pickCollectionSummaryDisplayImageUrl(

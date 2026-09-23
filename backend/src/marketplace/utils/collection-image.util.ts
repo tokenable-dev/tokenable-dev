@@ -1,3 +1,7 @@
+/** Same asset as mint fallback (`public/assets/icons/tokenable_mint_placeholder.png`). */
+export const COLLECTION_COVER_PLACEHOLDER_PATH =
+  '/assets/icons/tokenable_mint_placeholder.png';
+
 /** Public http(s) URL. Shared by cover ranking, mint image, and slab ingest. */
 export function isHttpOrHttpsUrl(url: string | null | undefined): boolean {
   return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
@@ -221,12 +225,16 @@ export function isPsaCertSlabCloudfrontUrl(url: string): boolean {
  */
 export function pickCollectionDisplayImageUrl(
   coverImageUrl: string | null | undefined,
-): string | null {
+): string {
   const cover = coverImageUrl?.trim() ?? '';
-  if (!cover) return null;
-  if (isPsaCertSlabCloudfrontUrl(cover)) return null;
-  if (/\/rwa-slabs\//i.test(cover)) return null;
-  if (isLegacyNormalizedCollectionCoverApiPath(cover)) return null;
+  if (!cover) return COLLECTION_COVER_PLACEHOLDER_PATH;
+  if (isPsaCertSlabCloudfrontUrl(cover)) {
+    return COLLECTION_COVER_PLACEHOLDER_PATH;
+  }
+  if (/\/rwa-slabs\//i.test(cover)) return COLLECTION_COVER_PLACEHOLDER_PATH;
+  if (isLegacyNormalizedCollectionCoverApiPath(cover)) {
+    return COLLECTION_COVER_PLACEHOLDER_PATH;
+  }
   // Lazy import avoided — normalize only for our S3 folder shape.
   return normalizeLooseCatalogCoverUrl(cover);
 }
@@ -238,7 +246,7 @@ export function pickCollectionDisplayImageUrl(
 export function pickSearchTokenImageUrl(
   tokenDisplayImageUrl: string | null | undefined,
   collectionCoverUrl: string | null | undefined,
-): string | null {
+): string {
   const token = tokenDisplayImageUrl?.trim() ?? '';
   if (token && isUsableCoverUrl(token)) {
     return normalizeImageUrl(token);

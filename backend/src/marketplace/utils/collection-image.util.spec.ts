@@ -1,4 +1,5 @@
 import {
+  COLLECTION_COVER_PLACEHOLDER_PATH,
   isCardhedgerBubbleResizeUrl,
   isHttpOrHttpsUrl,
   isPsaCertSlabCloudfrontUrl,
@@ -100,25 +101,29 @@ describe('pickCollectionDisplayImageUrl', () => {
     );
   });
 
-  it('rejects legacy normalized cover API paths', () => {
+  it('uses Tokenable placeholder for legacy normalized cover API paths', () => {
     expect(
       pickCollectionDisplayImageUrl(
         '/api/marketplace/collections/foo/cover-image.jpg',
       ),
-    ).toBeNull();
+    ).toBe(COLLECTION_COVER_PLACEHOLDER_PATH);
   });
 
-  it('rejects PSA cert slab even when wrongly stored as cover_image_url', () => {
+  it('uses placeholder when cover is wrongly stored as PSA cert slab', () => {
     expect(
       pickCollectionDisplayImageUrl(
         'https://d1htnxwo4o0jhw.cloudfront.net/cert/143719559/uDxUkmwFzE.jpg',
       ),
-    ).toBeNull();
+    ).toBe(COLLECTION_COVER_PLACEHOLDER_PATH);
   });
 
-  it('returns null when cover is empty', () => {
-    expect(pickCollectionDisplayImageUrl(null)).toBeNull();
-    expect(pickCollectionDisplayImageUrl('')).toBeNull();
+  it('uses Tokenable placeholder when cover is empty', () => {
+    expect(pickCollectionDisplayImageUrl(null)).toBe(
+      COLLECTION_COVER_PLACEHOLDER_PATH,
+    );
+    expect(pickCollectionDisplayImageUrl('')).toBe(
+      COLLECTION_COVER_PLACEHOLDER_PATH,
+    );
   });
 });
 
