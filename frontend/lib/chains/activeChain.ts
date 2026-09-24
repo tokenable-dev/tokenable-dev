@@ -1,4 +1,4 @@
-import { DEFAULT_CHAIN_ID } from "./registry";
+import { platformDefaultChainId } from "./defaultChainByHost";
 import { getActiveChainIdForApi } from "./apiHeader";
 
 /** localStorage key for the header network picker (AppChainProvider). */
@@ -18,5 +18,5 @@ export function notifyAppChainChanged(): void {
 
 /** Chain id for React Query keys — follows AppChainProvider / API header. */
 export function activeRqChainId(): number {
-  return getActiveChainIdForApi() ?? DEFAULT_CHAIN_ID;
+  return getActiveChainIdForApi() ?? platformDefaultChainId();
 }

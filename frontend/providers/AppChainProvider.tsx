@@ -16,6 +16,7 @@ import { completeSignOut } from "@/lib/auth/signOut";
 import {
   CHAIN_ID_HEADER,
   DEFAULT_CHAIN_ID,
+  platformDefaultChainId,
   SUPPORTED_CHAIN_IDS,
   getChainDefinition,
   getConfiguredChains,
@@ -55,7 +56,7 @@ function readPersistedAppChainId(): SupportedChainId | null {
 
 function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
   const persisted = readPersistedAppChainId();
-  if (!persisted) return DEFAULT_CHAIN_ID;
+  if (!persisted) return platformDefaultChainId();
   // Local dev + internal dev on deploy: allow any configured chain (wallet switch / QA).
   if (process.env.NODE_ENV === "development" || internalDevBypass) {
     return persisted;
@@ -74,7 +75,9 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
   const canSwitchChain = canUseAppChainSwitcher(user) || adminConsole;
   const configuredChains = useMemo(() => getConfiguredChains(), []);
   // Always match SSR — restore persisted chain after mount (localStorage is client-only).
-  const [chainId, setChainIdState] = useState<SupportedChainId>(DEFAULT_CHAIN_ID);
+  const [chainId, setChainIdState] = useState<SupportedChainId>(() =>
+    typeof window === "undefined" ? DEFAULT_CHAIN_ID : platformDefaultChainId(),
+  );
 
   const chain = useMemo(() => getChainDefinition(chainId), [chainId]);
 
@@ -96,8 +99,9 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     // Logged-out visitors keep a persisted dev chain (network switch signs out
     // without clobbering localStorage — see setChainId).
     const persisted = readPersistedAppChainId();
+    const userNow = useAuthStore.getState().user;
     const nextId =
-      useAuthStore.getState().user || !persisted ? DEFAULT_CHAIN_ID : persisted;
+      !userNow && persisted ? persisted : platformDefaultChainId();
     setChainIdState(nextId);
     setActiveChainIdForApi(nextId);
     notifyAppChainChanged();

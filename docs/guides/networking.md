@@ -52,6 +52,8 @@ Google OAuth login and SMTP mail were removed. Login is Privy. Gmail polling use
 
 Prefer one canonical HTTPS entry point.
 
+**Two hostnames, one stack:** public default chain is chosen in the browser by hostname (`frontend/lib/chains/defaultChainByHost.ts`) — `app.tokenable.io` → Ethereum mainnet, `tokenable-dev.com` / `www` → Sepolia. Same Docker image; no per-domain frontend rebuild. API calls still use `x-tokenable-chain-id` from that default (internal dev can override via the header switcher).
+
 ---
 
 ## DNS & TLS

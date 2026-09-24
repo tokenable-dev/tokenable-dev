@@ -18,6 +18,7 @@ import {
   APP_CHAIN_CHANGED_EVENT,
   APP_CHAIN_STORAGE_KEY,
   DEFAULT_CHAIN_ID,
+  platformDefaultChainId,
   SUPPORTED_CHAIN_IDS,
   isChainConfigured,
   type SupportedChainId,
@@ -49,7 +50,7 @@ function readStoredAppChainId(): SupportedChainId {
   ) {
     return n as SupportedChainId;
   }
-  return DEFAULT_CHAIN_ID;
+  return platformDefaultChainId();
 }
 
 /**
