@@ -30,6 +30,11 @@ export class KycService {
     private readonly sumsub: SumsubApiService,
   ) {}
 
+  /** Admin / partner-grant override — must not be cleared by Sumsub reconcile. */
+  private isAdminKycApproval(user: User): boolean {
+    return user.kycStatus === 'approved' && user.kycProvider === 'admin';
+  }
+
   /**
    * Sync `users.kyc_status` from the **current** Sumsub app (by `externalUserId`).
    * Clears stale approvals when the applicant no longer exists in this app.
@@ -40,6 +45,7 @@ export class KycService {
     try {
       const raw = await this.sumsub.fetchApplicantByExternalUserId(user.id);
       if (!raw) {
+        if (this.isAdminKycApproval(user)) return user;
         if (user.kycStatus === 'none' && !user.kycExternalId) return user;
         if (!shouldApplyReconcileTransition(user.kycStatus, 'none')) {
           return user;
@@ -83,11 +89,15 @@ export class KycService {
         if (!externalIdUnchanged) {
           return this.users.updateKycStatus(user.id, {
             status: user.kycStatus,
-            provider: 'sumsub',
+            provider: user.kycProvider ?? 'sumsub',
             externalId: snapshot.id,
             payload: { source: 'sumsub_reconcile', externalIdOnly: true },
           });
         }
+        return user;
+      }
+
+      if (this.isAdminKycApproval(user) && nextStatus !== 'approved') {
         return user;
       }
 

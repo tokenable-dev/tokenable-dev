@@ -173,8 +173,10 @@ describe('MarketplacePartnersService company address', () => {
     await service.create({
       displayName: 'Demo Partner',
       walletAddress: wallet,
+      platformUserId: 'user-1',
     });
 
+    expect(users.findUserIdByLinkedWallet).not.toHaveBeenCalled();
     expect(users.updateKycStatus).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({

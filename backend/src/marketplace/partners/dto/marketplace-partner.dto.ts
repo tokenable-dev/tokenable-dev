@@ -40,6 +40,14 @@ export class CreateMarketplacePartnerDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Admin Users → 파트너 승인: approve KYC for this user id (demo; does not require wallet row match).',
+  })
+  @IsOptional()
+  @IsUUID()
+  platformUserId?: string;
 }
 
 export class UpdateMarketplacePartnerDto {
@@ -64,6 +72,14 @@ export class UpdateMarketplacePartnerDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'When set with an active partner, re-run partner-grant KYC approve for this user (e.g. fix-up after deploy).',
+  })
+  @IsOptional()
+  @IsUUID()
+  platformUserId?: string;
 }
 
 export class MarketplacePartnerIdParamDto {

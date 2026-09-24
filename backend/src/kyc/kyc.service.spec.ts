@@ -129,7 +129,9 @@ describe('KycService.reconcileUser', () => {
     const users = { updateKycStatus } as unknown as UserService;
 
     const service = new KycService(users, sumsub);
-    const result = await service.reconcileUser(makeUser({}));
+    const result = await service.reconcileUser(
+      makeUser({ kycProvider: 'sumsub' }),
+    );
 
     expect(updateKycStatus).toHaveBeenCalledWith('user-1', {
       status: 'none',
@@ -138,6 +140,23 @@ describe('KycService.reconcileUser', () => {
       payload: expect.objectContaining({ reason: 'applicant_not_found' }),
     });
     expect(result.kycStatus).toBe('none');
+  });
+
+  it('keeps admin-approved KYC when Sumsub has no applicant', async () => {
+    const updateKycStatus = jest.fn();
+    const sumsub = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      fetchApplicantByExternalUserId: jest.fn().mockResolvedValue(null),
+    } as unknown as SumsubApiService;
+    const users = { updateKycStatus } as unknown as UserService;
+
+    const service = new KycService(users, sumsub);
+    const user = makeUser({ kycProvider: 'admin' });
+    const result = await service.reconcileUser(user);
+
+    expect(updateKycStatus).not.toHaveBeenCalled();
+    expect(result.kycStatus).toBe('approved');
+    expect(result.kycProvider).toBe('admin');
   });
 
   it('syncs approved from Sumsub GREEN review', async () => {

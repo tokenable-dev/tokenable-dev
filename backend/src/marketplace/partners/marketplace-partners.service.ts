@@ -106,15 +106,59 @@ export class MarketplacePartnersService {
     return this.config.get<boolean>('marketplace.partnerGrantAutoKyc') === true;
   }
 
+  /** Demo/staging placeholder Origin so sell-flow Tokenable Vault is not blocked. */
+  private async ensureDemoPartnerOriginIfMissing(
+    partnerId: string,
+    displayName: string,
+  ): Promise<void> {
+    const existing = await this.findAddressByPartnerId(partnerId);
+    if (existing) return;
+    await this.upsertCompanyAddressForPartner(partnerId, {
+      companyName: (displayName || 'Demo Partner').slice(0, 128),
+      contactName: 'Tokenable Ops',
+      phone: '+1 5555550100',
+      country: 'US',
+      city: 'Los Angeles',
+      region: 'CA',
+      postal: '90015',
+      line1: '1200 S Figueroa St',
+      residential: false,
+    });
+    this.logger.log(
+      `Seeded demo partner Origin for partnerId=${partnerId} (partner grant)`,
+    );
+  }
+
   /**
-   * Demo/staging: partner vault is ops-approved — skip Sumsub for the wallet owner.
+   * Demo/staging: partner vault is ops-approved — KYC + Origin for sell-flow.
    * Audit via `user_kyc_events` (`source: admin_partner_vault_grant`).
    */
-  private async maybeApproveKycForPartnerWallet(
+  private async maybeApproveKycForPartnerGrant(
     walletAddress: string,
+    platformUserId?: string | null,
   ): Promise<void> {
-    if (!this.partnerGrantAutoKycEnabled()) return;
-    const userId = await this.users.findUserIdByLinkedWallet(walletAddress);
+    if (!this.partnerGrantAutoKycEnabled()) {
+      this.logger.warn(
+        'Partner grant auto-KYC skipped (MARKETPLACE_PARTNER_GRANT_AUTO_KYC=false and NODE_ENV=production)',
+      );
+      return;
+    }
+
+    const explicit = platformUserId?.trim();
+    let partner = await this.findActiveByWallet(walletAddress);
+    if (!partner && explicit) {
+      partner = await this.findActivePartnerForUser(explicit);
+    }
+    if (partner) {
+      await this.ensureDemoPartnerOriginIfMissing(
+        partner.id,
+        partner.displayName,
+      );
+    }
+
+    const userId =
+      explicit ||
+      (await this.users.findUserIdByLinkedWallet(walletAddress));
     if (!userId) {
       this.logger.warn(
         `Partner wallet ${walletAddress} has no platform user — skip KYC auto-approve`,
@@ -122,7 +166,8 @@ export class MarketplacePartnersService {
       return;
     }
     const user = await this.users.findById(userId);
-    if (!user || user.kycStatus === 'approved') return;
+    if (!user) return;
+    if (user.kycStatus === 'approved') return;
     await this.users.updateKycStatus(userId, {
       status: 'approved',
       provider: 'admin',
@@ -498,7 +543,10 @@ export class MarketplacePartnersService {
       `Created marketplace partner id=${saved.id} wallet=${walletAddress} hasKey=${Boolean(encrypted)}`,
     );
     if (saved.isActive) {
-      await this.maybeApproveKycForPartnerWallet(walletAddress);
+      await this.maybeApproveKycForPartnerGrant(
+        walletAddress,
+        dto.platformUserId,
+      );
     }
     return await this.toPublic(saved);
   }
@@ -536,8 +584,12 @@ export class MarketplacePartnersService {
       }
     }
     const saved = await this.partnerRepo.save(partner);
-    if (dto.isActive === true && wasInactive && saved.isActive) {
-      await this.maybeApproveKycForPartnerWallet(saved.walletAddress);
+    const reactivated = dto.isActive === true && wasInactive && saved.isActive;
+    if (saved.isActive && (reactivated || dto.platformUserId)) {
+      await this.maybeApproveKycForPartnerGrant(
+        saved.walletAddress,
+        dto.platformUserId,
+      );
     }
     return await this.toPublic(saved);
   }

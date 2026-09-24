@@ -95,6 +95,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
         return patchAdminMarketplacePartner(input.partnerId, {
           isActive: true,
           displayName: input.displayName,
+          platformUserId: userId,
           ...(input.privateKey ? { privateKey: input.privateKey } : {}),
         });
       }
@@ -105,6 +106,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
         displayName: input.displayName.trim(),
         walletAddress: input.walletAddress.trim(),
         isActive: true,
+        platformUserId: userId,
         ...(input.privateKey ? { privateKey: input.privateKey } : {}),
       });
     },
@@ -305,6 +307,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
           {detail.partner ? (
             <MarketplaceAdminUserPartnerPanel
               partner={detail.partner}
+              platformUserId={userId}
               onChanged={async () => {
                 await detailQuery.refetch();
               }}

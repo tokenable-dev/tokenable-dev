@@ -11,6 +11,9 @@ Keep existing secrets. Apply these **deltas**:
 DEFAULT_CHAIN_ID=11155111
 PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111
 
+# Demo: Admin 파트너 승인 → linked user KYC approved (required when NODE_ENV=production)
+MARKETPLACE_PARTNER_GRANT_AUTO_KYC=true
+
 # Required for internal-dev Polygon switch (matches local + contracts/.openzeppelin/polygon.json)
 CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/<SAME_ALCHEMY_KEY>
 CHAIN_137_RWA_ADDRESS=0x4d1FA7a19C5b6a5fd4aB0E9521eb5Ef252993d35

@@ -42,6 +42,7 @@ export async function postAdminMarketplacePartner(body: {
   walletAddress: string;
   privateKey?: string;
   isActive?: boolean;
+  platformUserId?: string;
 }): Promise<AdminMarketplacePartner> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/admin/partners`, {
     method: "POST",
@@ -58,6 +59,7 @@ export async function patchAdminMarketplacePartner(
     displayName?: string;
     privateKey?: string;
     isActive?: boolean;
+    platformUserId?: string;
   },
 ): Promise<AdminMarketplacePartner> {
   const res = await backendFetch(

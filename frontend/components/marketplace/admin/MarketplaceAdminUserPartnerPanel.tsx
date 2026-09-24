@@ -35,9 +35,11 @@ function shortWallet(addr: string): string {
  */
 export function MarketplaceAdminUserPartnerPanel({
   partner,
+  platformUserId,
   onChanged,
 }: {
   partner: AdminUserPartnerInfo;
+  platformUserId: string;
   onChanged: () => Promise<void>;
 }) {
   const qc = useQueryClient();
@@ -51,9 +53,24 @@ export function MarketplaceAdminUserPartnerPanel({
     setDisplayName(partner.displayName);
   }, [partner.id, partner.displayName]);
 
+  const kycGrantMutation = useMutation({
+    mutationFn: () =>
+      patchAdminMarketplacePartner(partner.id, {
+        platformUserId,
+      }),
+    onSuccess: async () => {
+      setError(null);
+      await onChanged();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
   const patchMutation = useMutation({
-    mutationFn: (body: { displayName?: string; privateKey?: string }) =>
-      patchAdminMarketplacePartner(partner.id, body),
+    mutationFn: (body: {
+      displayName?: string;
+      privateKey?: string;
+      platformUserId?: string;
+    }) => patchAdminMarketplacePartner(partner.id, body),
     onSuccess: async () => {
       setError(null);
       setShowRotate(false);
@@ -121,6 +138,14 @@ export function MarketplaceAdminUserPartnerPanel({
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={ADMIN_BTN_SECONDARY}
+          disabled={kycGrantMutation.isPending || !partner.isActive}
+          onClick={() => kycGrantMutation.mutate()}
+        >
+          {kycGrantMutation.isPending ? "KYC 적용 중…" : "파트너 KYC pass"}
+        </button>
         <button
           type="button"
           className={ADMIN_BTN_SECONDARY}

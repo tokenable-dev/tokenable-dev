@@ -346,6 +346,7 @@ export function useSellFlow() {
     enabled:
       Boolean(user) && (screen === "vault" || vaultChoice === "self"),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
 
   const selfVaultIsPartner = Boolean(selfVaultEligibilityQuery.data?.isPartner);
