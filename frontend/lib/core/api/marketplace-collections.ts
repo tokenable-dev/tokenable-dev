@@ -1,4 +1,5 @@
 import { backendFetch, getApiUrl } from "./client";
+import { readBackendErrorMessage } from "./parseBackendError";
 import type { Order } from "./orders";
 import type { CollectionListMarketSnapshot } from "./marketplace-market-data";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -147,12 +148,11 @@ export async function postAdminCreateCatalogCollectionFromCert(body: {
     },
   );
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const msg = (err as { message?: string | string[] }).message;
     throw new Error(
-      Array.isArray(msg)
-        ? msg.join(", ")
-        : (msg ?? "Failed to create collection from PSA cert"),
+      await readBackendErrorMessage(
+        res,
+        "Failed to create collection from PSA cert",
+      ),
     );
   }
   return res.json() as Promise<AdminCatalogCollectionCreateResult>;

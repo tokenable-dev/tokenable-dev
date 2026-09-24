@@ -299,7 +299,12 @@ export class CollectionMarketService {
       ).bundle;
     }
 
-    const out = await this.overlayLiveCardhedgerWhenThin(bundle, key, window);
+    const out = await this.overlayLiveCardhedgerWhenThin(
+      bundle,
+      key,
+      window,
+      chainId,
+    );
     return {
       ...out,
       cardhedgerPreview: sanitizeMarketCollectionPreview(out.cardhedgerPreview),
@@ -312,8 +317,10 @@ export class CollectionMarketService {
    */
   private async collectionForMarketRead(
     key: string,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection | null> {
-    let col = await this.collectionService.findOne(key);
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let col = await this.collectionService.findOne(key, resolved);
     if (!col) return null;
 
     let storedId = String(col.components?.cardhedgerCardId ?? '').trim();
@@ -322,27 +329,29 @@ export class CollectionMarketService {
         await this.collectionService.ensureCardhedgerCardIdFromListings(key);
       if (updated) {
         this.snapshotScheduler.enqueue(key, 'stale_swr');
-        col = (await this.collectionService.findOne(key)) ?? col;
+        col =
+          (await this.collectionService.findOne(key, resolved)) ?? col;
         storedId = String(col.components?.cardhedgerCardId ?? '').trim();
       }
     }
 
     if (!storedId && col.psaCertNumber?.trim()) {
       try {
-        const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+        const resolvedCert = await this.cardhedgerMarket.tryResolveCardIdByCert(
           col.psaCertNumber.trim(),
           { collection: col },
         );
-        if (resolved?.cardId) {
+        if (resolvedCert?.cardId) {
           await this.collectionService.mergeComponentsForMintBootstrap(key, {
-            cardhedgerCardId: resolved.cardId,
+            cardhedgerCardId: resolvedCert.cardId,
             cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
-            ...(resolved.query
-              ? { cardhedgerSearchQuery: resolved.query }
+            ...(resolvedCert.query
+              ? { cardhedgerSearchQuery: resolvedCert.query }
               : {}),
           });
           this.snapshotScheduler.enqueue(key, 'stale_swr');
-          col = (await this.collectionService.findOne(key)) ?? col;
+          col =
+            (await this.collectionService.findOne(key, resolved)) ?? col;
         }
       } catch (e) {
         this.logger.debug(
@@ -362,6 +371,7 @@ export class CollectionMarketService {
     bundle: CollectionMarketBundle,
     key: string,
     window: PriceHistoryDuration,
+    chainId?: SupportedChainId,
   ): Promise<CollectionMarketBundle> {
     const thin =
       bundle.spotPriceBasis === 'psa_estimate' ||
@@ -370,7 +380,7 @@ export class CollectionMarketService {
         (bundle.externalUsd?.length ?? 0) < 2);
     if (!thin) return bundle;
 
-    const col = await this.collectionForMarketRead(key);
+    const col = await this.collectionForMarketRead(key, chainId);
     if (!col) return bundle;
 
     if (!this.cardhedgerMarket.isConfigured()) {
@@ -697,6 +707,88 @@ export class CollectionMarketService {
     );
   }
 
+  /**
+   * Catalog row for trades tape — always scoped to the request chain's RWA.
+   */
+  private async collectionForTradesTape(
+    collectionKey: string,
+    chainId: SupportedChainId,
+    bootstrapTokenId?: number,
+  ): Promise<MarketplaceCollection | null> {
+    const k = collectionKey.toLowerCase();
+    let col = await this.collectionService.findOne(k, chainId);
+    if (
+      !col &&
+      bootstrapTokenId != null &&
+      Number.isFinite(bootstrapTokenId) &&
+      bootstrapTokenId >= 0
+    ) {
+      const ensured = await this.collectionService.ensureCollectionForListing(
+        String(Math.floor(bootstrapTokenId)),
+        chainId,
+      );
+      if (ensured?.trim().toLowerCase() === k) {
+        col = await this.collectionService.findOne(k, chainId);
+      }
+    }
+
+    if (col && !col.components?.cardhedgerCardId && col.psaCertNumber?.trim()) {
+      try {
+        const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+          col.psaCertNumber.trim(),
+          { collection: col },
+        );
+        if (resolved?.cardId) {
+          await this.collectionService.mergeComponentsForMintBootstrap(k, {
+            cardhedgerCardId: resolved.cardId,
+            cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+            ...(resolved.query ? { cardhedgerSearchQuery: resolved.query } : {}),
+          });
+          col = await this.collectionService.findOne(k, chainId);
+          this.logger.log(
+            `platform-trades: lazy cardId enrichment for ${k} → ${resolved.cardId}`,
+          );
+        } else if (resolved?.certDescription) {
+          await this.collectionService.mergeComponentsForMintBootstrap(k, {
+            cardhedgerSearchQuery: resolved.certDescription,
+          });
+          col = await this.collectionService.findOne(k, chainId);
+        }
+      } catch (e) {
+        this.logger.debug(
+          `platform-trades: cert-lookup skipped for ${k}: ${String(e)}`,
+        );
+      }
+    }
+
+    return col;
+  }
+
+  /**
+   * Warm Cardhedger comps after admin catalog create so collection detail trades
+   * are populated on first load (no platform fills required).
+   */
+  async warmTradesCompsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ rawSales: number }> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const k = collectionKey.toLowerCase();
+    const col = await this.collectionForTradesTape(k, resolved);
+    const tier = marketHistoryTierFromComponents(col?.components);
+    const comps = await this.cardhedgerMarket.getCompsSnapshotForTradesTape(
+      col,
+      { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT },
+    );
+    const n = comps.rawSales?.length ?? 0;
+    if (n > 0) {
+      this.logger.log(
+        `warmTradesComps: key=${k} chain=${resolved} rawSales=${n}`,
+      );
+    }
+    return { rawSales: n };
+  }
+
   async platformTradesForApi(
     collectionKey: string,
     opts?: { bootstrapTokenId?: number; cardhedgerGrade?: string },
@@ -707,58 +799,17 @@ export class CollectionMarketService {
     volume: CollectionTradesVolumeStats;
   }> {
     const k = collectionKey.toLowerCase();
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
     const { platformUsd, platformTrades } =
-      await this.buildPlatformTradesForKey(k, chainId);
+      await this.buildPlatformTradesForKey(k, resolved);
 
     let cardhedgerTrades: PlatformTapeFillRow[] = [];
     try {
-      let col = await this.collectionService.findOne(k);
-      const bootstrapTokenId = opts?.bootstrapTokenId;
-      if (
-        !col &&
-        bootstrapTokenId != null &&
-        Number.isFinite(bootstrapTokenId) &&
-        bootstrapTokenId >= 0
-      ) {
-        const ensured = await this.collectionService.ensureCollectionForListing(
-          String(Math.floor(bootstrapTokenId)),
-          chainId,
-        );
-        if (ensured?.trim().toLowerCase() === k) {
-          col = await this.collectionService.findOne(k);
-        }
-      }
-
-      // ── Lazy cardId enrichment ─────────────────────────────────────────────
-      // Persist cert → cardId when missing so later pricing paths can reuse it.
-      if (col && !col.components?.cardhedgerCardId && col.psaCertNumber?.trim()) {
-        try {
-          const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
-            col.psaCertNumber.trim(),
-            { collection: col },
-          );
-          if (resolved?.cardId) {
-            await this.collectionService.mergeComponentsForMintBootstrap(k, {
-              cardhedgerCardId: resolved.cardId,
-              cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
-              ...(resolved.query ? { cardhedgerSearchQuery: resolved.query } : {}),
-            });
-            col = await this.collectionService.findOne(k);
-            this.logger.log(
-              `platform-trades: lazy cardId enrichment for ${k} → ${resolved.cardId}`,
-            );
-          } else if (resolved?.certDescription) {
-            await this.collectionService.mergeComponentsForMintBootstrap(k, {
-              cardhedgerSearchQuery: resolved.certDescription,
-            });
-            col = await this.collectionService.findOne(k);
-          }
-        } catch (e) {
-          this.logger.debug(
-            `platform-trades: cert-lookup skipped for ${k}: ${String(e)}`,
-          );
-        }
-      }
+      const col = await this.collectionForTradesTape(
+        k,
+        resolved,
+        opts?.bootstrapTokenId,
+      );
 
       const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
       const tier = marketHistoryTierFromComponents(col?.components);

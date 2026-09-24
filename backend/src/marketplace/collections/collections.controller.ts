@@ -323,10 +323,22 @@ export class CollectionsController {
   ) {
     this.assertAdminSession(req);
     try {
-      return await this.collectionService.createCatalogCollectionFromPsaCert(
-        body.certNumber,
-        this.chainConfig.resolveChainId(chainHeader),
-      );
+      const chainId = this.chainConfig.resolveChainId(chainHeader);
+      const result =
+        await this.collectionService.createCatalogCollectionFromPsaCert(
+          body.certNumber,
+          chainId,
+        );
+      void this.collectionMarketService
+        .warmTradesCompsForCollection(result.collectionKey, chainId)
+        .catch((err) => {
+          this.logger.warn(
+            `warmTradesComps after create-from-cert cert=${body.certNumber}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+      return result;
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
       const msg = e instanceof Error ? e.message : String(e);
