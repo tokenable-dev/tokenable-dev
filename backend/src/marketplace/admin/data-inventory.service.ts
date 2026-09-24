@@ -241,9 +241,13 @@ export class DataInventoryService {
     const isProduction =
       this.config.get<boolean>('app.isProduction') ??
       this.config.get<string>('NODE_ENV') === 'production';
-    if (isProduction) {
+    const allowInProduction =
+      this.config.get<boolean>(
+        'marketplace.adminAllowContractResetInProduction',
+      ) === true;
+    if (isProduction && !allowInProduction) {
       throw new ForbiddenException(
-        'Marketplace reset for new contract is disabled in production',
+        'Marketplace reset for new contract is disabled in production (set MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION=true to enable)',
       );
     }
 
@@ -379,6 +383,18 @@ export class DataInventoryService {
           );
         }
         await note('vault_cycles', cycleSql, cycleParams, 'vault_cycles c');
+      }
+
+      if (certs.length > 0) {
+        const certVaultDeleted = await this.deleteOpenVaultCyclesForCertNumbers(
+          manager,
+          chain,
+          certs,
+          has,
+        );
+        for (const [table, n] of Object.entries(certVaultDeleted)) {
+          deletedCounts[table] = (deletedCounts[table] ?? 0) + n;
+        }
       }
 
       if (await has('vault_submissions')) {
@@ -555,6 +571,55 @@ export class DataInventoryService {
       [addr],
     )) as { k: string }[];
     return [...new Set(rows.map((r) => String(r.k).toLowerCase()).filter(Boolean))];
+  }
+
+  /**
+   * Cert-scoped vault cleanup so remint works after contract wipe even when
+   * rwa_tokens were deleted manually and left orphan open cycles on the chain.
+   */
+  private async deleteOpenVaultCyclesForCertNumbers(
+    manager: { query: DataSource['query'] },
+    chainId: number,
+    certNumbers: string[],
+    has: (table: string) => Promise<boolean>,
+  ): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    if (certNumbers.length === 0 || !(await has('vault_cycles'))) {
+      return counts;
+    }
+    const cycleIdsSql = `(
+      SELECT c.id FROM vault_cycles c
+      INNER JOIN vault_assets a ON a.id = c.vault_asset_id
+      WHERE c.chain_id = $1
+        AND lower(a.external_cert_number) = ANY($2::text[])
+        AND c.status NOT IN ('redeemed', 'cancelled')
+    )`;
+    const params = [chainId, certNumbers];
+
+    if (await has('vault_redemptions')) {
+      counts.vault_redemptions = await this.deleteReturningCount(
+        manager,
+        'vault_redemptions',
+        `vault_cycle_id IN ${cycleIdsSql}`,
+        params,
+      );
+    }
+    if (await has('vault_submission_items')) {
+      counts.vault_submission_items = await this.deleteReturningCount(
+        manager,
+        'vault_submission_items',
+        `vault_cycle_id IN ${cycleIdsSql}`,
+        params,
+      );
+    }
+    counts.vault_cycles = await this.deleteReturningCount(
+      manager,
+      'vault_cycles',
+      `id IN ${cycleIdsSql}`,
+      params,
+      'vault_cycles',
+    );
+    return counts;
   }
 
   private async certsForContract(

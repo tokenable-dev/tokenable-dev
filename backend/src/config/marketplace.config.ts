@@ -19,6 +19,10 @@ export default registerAs('marketplace', () => {
   /** Dev/staging Data-inventory “reset for new contract” gate. */
   const adminDbResetPassword =
     process.env.MARKETPLACE_ADMIN_DB_RESET_PASSWORD?.trim() || '3009';
+  /** When true, contract reset works even if NODE_ENV=production (still requires reset password). */
+  const adminAllowContractResetInProduction = envTruthy(
+    process.env.MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION,
+  );
 
   const activeOrdersMaxRaw = Number(
     process.env.MARKETPLACE_ACTIVE_ORDERS_MAX ?? '20000',
@@ -91,6 +95,7 @@ export default registerAs('marketplace', () => {
     adminSessionSecret,
     adminSessionSeconds,
     adminDbResetPassword,
+    adminAllowContractResetInProduction,
     activeOrdersMax,
     collectionActiveOrdersMax,
     maxActiveCollectionBidsPerOfferer,

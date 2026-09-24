@@ -10,6 +10,7 @@ const ADDR = '0x1111111111111111111111111111111111111111';
 describe('DataInventoryService.resetForNewContract', () => {
   function makeService(opts: {
     isProduction: boolean;
+    allowResetInProduction?: boolean;
     resetPassword?: string;
     configuredAddress?: string;
   }) {
@@ -43,6 +44,9 @@ describe('DataInventoryService.resetForNewContract', () => {
         }
         if (key === 'marketplace.adminDbResetPassword') {
           return opts.resetPassword ?? '3009';
+        }
+        if (key === 'marketplace.adminAllowContractResetInProduction') {
+          return opts.allowResetInProduction === true;
         }
         return undefined;
       }),
@@ -90,6 +94,16 @@ describe('DataInventoryService.resetForNewContract', () => {
     await expect(
       service.resetForNewContract('3009', SEPOLIA, ADDR),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows production when MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION is set', async () => {
+    const { service } = makeService({
+      isProduction: true,
+      allowResetInProduction: true,
+      resetPassword: '3009',
+    });
+    const result = await service.resetForNewContract('3009', SEPOLIA, ADDR);
+    expect(result.tokenContract).toBe(ADDR);
   });
 
   it('rejects wrong password', async () => {
