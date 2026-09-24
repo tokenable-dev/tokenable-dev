@@ -1,3 +1,5 @@
+import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
+import type { SupportedChainId } from "@/lib/chains/types";
 import { backendFetch, getApiUrl } from "./client";
 import { readBackendErrorMessage } from "./parseBackendError";
 import type { Order } from "./orders";
@@ -190,8 +192,13 @@ export interface HomeMarketplaceFeed {
   snapshots: CollectionListMarketSnapshot[];
 }
 
-export async function getHomeMarketplaceFeed(): Promise<HomeMarketplaceFeed> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/home-feed`);
+/** Landing grids — pass host default chain so wallet/network picker does not empty the strip. */
+export async function getHomeMarketplaceFeed(
+  chainId: SupportedChainId,
+): Promise<HomeMarketplaceFeed> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/home-feed`, {
+    headers: { [CHAIN_ID_HEADER]: String(chainId) },
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(

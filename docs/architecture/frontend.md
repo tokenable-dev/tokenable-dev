@@ -14,7 +14,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Markets / exchange | `markets/` | `hooks/markets/`, `lib/markets/` |
 | Collection PDP markets cluster widgets | `marketplace/collection-markets/` | — |
 | Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` — market-series and platform trades fetch in parallel once the slab grade is known from collection components; alternate-grade series waits until the default snapshot is present. Grid cards (`CollectibleCard`) and order-book depth/tape rows are `memo`’d; catalog S3/CloudFront covers in the flat frame use `next/image`. |
-| Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` |
+| Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` with **host default chain** (`platformDefaultChainId`), not the header network picker |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
 | Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` — catalog-only collections accept Place Bid (sentinel merkle); fill after first mint + buyer re-sign |

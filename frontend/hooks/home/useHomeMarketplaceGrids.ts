@@ -8,14 +8,14 @@ import {
   rq,
   marketplaceRqPolicy,
 } from "@/lib/core";
-import { activeRqChainId } from "@/lib/chains";
+import { platformDefaultChainId } from "@/lib/chains";
 import { resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 
 export function useHomeMarketplaceGrids() {
-  const chainId = activeRqChainId();
+  const chainId = platformDefaultChainId();
   const { data, isPending } = useQuery({
     queryKey: rq.homeMarketplaceFeed(chainId),
-    queryFn: getHomeMarketplaceFeed,
+    queryFn: () => getHomeMarketplaceFeed(chainId),
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
