@@ -1589,10 +1589,13 @@ export class CollectionService {
     const row = await this.findOne(k, chainId);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
     const tokenContract = row.tokenContract.toLowerCase();
-    await this.collectionRepo.update(
-      { collectionKey: k, tokenContract },
-      { reviewStatus },
-    );
+    await this.collectionRepo
+      .createQueryBuilder()
+      .update(MarketplaceCollection)
+      .set({ reviewStatus })
+      .where('lower(collection_key) = :k', { k })
+      .andWhere('lower(token_contract) = :tc', { tc: tokenContract })
+      .execute();
     const refreshed = await this.findOne(k, chainId);
     if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
     return refreshed;
@@ -1609,10 +1612,14 @@ export class CollectionService {
     } catch {
       return null;
     }
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: collectionKey.toLowerCase(), tokenContract },
-      select: ['collectionKey', 'reviewStatus', 'tokenContract'],
-    });
+    const row = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select(['c.collectionKey', 'c.reviewStatus', 'c.tokenContract'])
+      .where('lower(c.collection_key) = :k', {
+        k: collectionKey.toLowerCase(),
+      })
+      .andWhere('lower(c.token_contract) = :tc', { tc: tokenContract })
+      .getOne();
     if (!row) return null;
     return (row.reviewStatus ?? 'active') as CollectionReviewStatus;
   }
@@ -1698,9 +1705,11 @@ export class CollectionService {
     } catch {
       return null;
     }
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key.toLowerCase(), tokenContract },
-    });
+    const row = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where('lower(c.collection_key) = :k', { k: key.toLowerCase() })
+      .andWhere('lower(c.token_contract) = :tc', { tc: tokenContract })
+      .getOne();
     if (!row) return null;
     // UX OPTIMIZATION ONLY (not a correctness requirement):
     // Hydrates cardhedgerCardId from the identity cache when DB has null, reducing
