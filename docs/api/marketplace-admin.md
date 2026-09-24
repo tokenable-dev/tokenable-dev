@@ -219,6 +219,8 @@ Register company wallets for **Self vault** eligibility and optional partner bul
 
 Ops can also approve a user as partner from **Users → detail → 파트너 승인** (same `POST` create; wallet must be unique). Revoke uses `PATCH isActive: false`.
 
+When `MARKETPLACE_PARTNER_GRANT_AUTO_KYC=true` (default **on** when `NODE_ENV≠production`), creating an active partner or reactivating (`PATCH isActive: true`) sets the **linked platform user** (`user_wallets` / legacy `users.wallet_address`) to `kyc_status=approved` and appends `user_kyc_events` with `payload.source=admin_partner_vault_grant`. Set `MARKETPLACE_PARTNER_GRANT_AUTO_KYC=false` on mainnet production unless ops explicitly wants this bypass.
+
 | Env | Required | Purpose |
 |-----|----------|---------|
 | `PARTNER_WALLET_ENCRYPTION_KEY` | When storing/using a partner PK | AES-256-GCM master key — `openssl rand -hex 32` |

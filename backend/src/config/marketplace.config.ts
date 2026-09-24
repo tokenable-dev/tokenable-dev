@@ -23,6 +23,10 @@ export default registerAs('marketplace', () => {
   const adminAllowContractResetInProduction = envTruthy(
     process.env.MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION,
   );
+  /** When true, admin partner create/reactivate sets linked user KYC to approved (demo/staging). */
+  const partnerGrantAutoKyc =
+    envTruthy(process.env.MARKETPLACE_PARTNER_GRANT_AUTO_KYC) ||
+    process.env.NODE_ENV !== 'production';
 
   const activeOrdersMaxRaw = Number(
     process.env.MARKETPLACE_ACTIVE_ORDERS_MAX ?? '20000',
@@ -96,6 +100,7 @@ export default registerAs('marketplace', () => {
     adminSessionSeconds,
     adminDbResetPassword,
     adminAllowContractResetInProduction,
+    partnerGrantAutoKyc,
     activeOrdersMax,
     collectionActiveOrdersMax,
     maxActiveCollectionBidsPerOfferer,

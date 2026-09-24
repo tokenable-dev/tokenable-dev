@@ -80,6 +80,24 @@ export class UserService {
     return u;
   }
 
+  /** Linked wallet on `user_wallets` or legacy `users.wallet_address`. */
+  async findUserIdByLinkedWallet(
+    walletAddress: string,
+  ): Promise<string | null> {
+    const normalized = walletAddress.trim().toLowerCase();
+    if (!normalized) return null;
+    const row = await this.userWallets.findOne({
+      where: { walletAddress: normalized },
+      select: ['userId'],
+    });
+    if (row?.userId) return row.userId;
+    const legacy = await this.users.findOne({
+      where: { walletAddress: normalized },
+      select: ['id'],
+    });
+    return legacy?.id ?? null;
+  }
+
   async findByPrivyId(privyId: string): Promise<User | null> {
     return this.users.findOne({ where: { privyId } });
   }

@@ -28,9 +28,15 @@ describe('MarketplacePartnersService company address', () => {
   const users = {
     listWalletsForUser: jest.fn(),
     findById: jest.fn(),
+    findUserIdByLinkedWallet: jest.fn(),
+    updateKycStatus: jest.fn(),
   };
   const config = {
-    get: jest.fn().mockReturnValue('a'.repeat(64)),
+    get: jest.fn((key: string) => {
+      if (key === 'PARTNER_WALLET_ENCRYPTION_KEY') return 'a'.repeat(64);
+      if (key === 'marketplace.partnerGrantAutoKyc') return true;
+      return undefined;
+    }),
   };
 
   let service: MarketplacePartnersService;
@@ -151,5 +157,31 @@ describe('MarketplacePartnersService company address', () => {
         line1: '1200 Fig',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('approves KYC for the wallet owner when admin creates an active partner', async () => {
+    const wallet = '0xac5ebb0573ca515741d8986a1ba1cdc178f46539';
+    partnerRepo.findOne.mockResolvedValue(null);
+    users.findUserIdByLinkedWallet.mockResolvedValue('user-1');
+    users.findById.mockResolvedValue({
+      id: 'user-1',
+      kycStatus: 'none',
+      kycExternalId: null,
+    });
+    users.updateKycStatus.mockResolvedValue({});
+
+    await service.create({
+      displayName: 'Demo Partner',
+      walletAddress: wallet,
+    });
+
+    expect(users.updateKycStatus).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        status: 'approved',
+        provider: 'admin',
+        payload: { source: 'admin_partner_vault_grant' },
+      }),
+    );
   });
 });

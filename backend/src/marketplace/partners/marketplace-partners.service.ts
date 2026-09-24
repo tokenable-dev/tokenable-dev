@@ -102,6 +102,38 @@ export class MarketplacePartnersService {
     return Boolean(p.encryptedPrivateKey?.trim());
   }
 
+  private partnerGrantAutoKycEnabled(): boolean {
+    return this.config.get<boolean>('marketplace.partnerGrantAutoKyc') === true;
+  }
+
+  /**
+   * Demo/staging: partner vault is ops-approved — skip Sumsub for the wallet owner.
+   * Audit via `user_kyc_events` (`source: admin_partner_vault_grant`).
+   */
+  private async maybeApproveKycForPartnerWallet(
+    walletAddress: string,
+  ): Promise<void> {
+    if (!this.partnerGrantAutoKycEnabled()) return;
+    const userId = await this.users.findUserIdByLinkedWallet(walletAddress);
+    if (!userId) {
+      this.logger.warn(
+        `Partner wallet ${walletAddress} has no platform user — skip KYC auto-approve`,
+      );
+      return;
+    }
+    const user = await this.users.findById(userId);
+    if (!user || user.kycStatus === 'approved') return;
+    await this.users.updateKycStatus(userId, {
+      status: 'approved',
+      provider: 'admin',
+      externalId: user.kycExternalId,
+      payload: { source: 'admin_partner_vault_grant' },
+    });
+    this.logger.log(
+      `KYC approved for user ${userId} after partner vault grant (wallet=${walletAddress})`,
+    );
+  }
+
   toAddressPublic(a: MarketplacePartnerAddress): MarketplacePartnerAddressPublic {
     return {
       id: a.id,
@@ -465,6 +497,9 @@ export class MarketplacePartnersService {
     this.logger.log(
       `Created marketplace partner id=${saved.id} wallet=${walletAddress} hasKey=${Boolean(encrypted)}`,
     );
+    if (saved.isActive) {
+      await this.maybeApproveKycForPartnerWallet(walletAddress);
+    }
     return await this.toPublic(saved);
   }
 
@@ -473,6 +508,7 @@ export class MarketplacePartnersService {
     dto: UpdateMarketplacePartnerDto,
   ): Promise<MarketplacePartnerPublic> {
     const partner = await this.getOrThrow(id);
+    const wasInactive = !partner.isActive;
     if (dto.displayName !== undefined) {
       partner.displayName = dto.displayName.trim();
     }
@@ -500,6 +536,9 @@ export class MarketplacePartnersService {
       }
     }
     const saved = await this.partnerRepo.save(partner);
+    if (dto.isActive === true && wasInactive && saved.isActive) {
+      await this.maybeApproveKycForPartnerWallet(saved.walletAddress);
+    }
     return await this.toPublic(saved);
   }
 
