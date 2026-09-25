@@ -69,8 +69,11 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
       );
     }
 
-    it('uses prices-by-cert-ocr when flag is on', async () => {
-      const forwardJson = jest.fn(async () => certLookupFixture);
+    it('uses details-by-cert-ocr first when flag is on', async () => {
+      const forwardJson = jest.fn(async (_method, path) => {
+        if (path === '/v1/cards/details-by-cert-ocr') return certLookupFixture;
+        return certLookupFixture;
+      });
       const svc = serviceWithMocks(forwardJson, true);
       const result = await (
         svc as unknown as {
@@ -78,24 +81,24 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
         }
       ).tryResolveByCardhedgerCertOcr(tinyPng);
 
-      expect(forwardJson).toHaveBeenCalledTimes(1);
-      expect(forwardJson).toHaveBeenCalledWith(
+      expect(forwardJson).toHaveBeenCalledTimes(2);
+      expect(forwardJson.mock.calls[0]).toEqual([
         'POST',
-        '/v1/cards/prices-by-cert-ocr',
+        '/v1/cards/details-by-cert-ocr',
         expect.objectContaining({
           body: expect.objectContaining({ image_base64: expect.any(String) }),
         }),
-      );
+      ]);
+      expect(forwardJson.mock.calls[1][1]).toBe('/v1/cards/prices-by-cert');
       expect(result).toMatchObject({
         certCandidates: ['76676185'],
         cardId: 'card-abc',
-        certLookupComplete: true,
         priceUsd: 125.5,
         priceSource: 'cardhedger_prices_by_cert_ocr',
       });
     });
 
-    it('falls back to details-by-cert-ocr when prices path is empty', async () => {
+    it('falls back to prices-by-cert-ocr when details returns no cert', async () => {
       const forwardJson = jest
         .fn()
         .mockResolvedValueOnce({ cert_info: {} })
@@ -108,16 +111,12 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
       ).tryResolveByCardhedgerCertOcr(tinyPng);
 
       expect(forwardJson).toHaveBeenCalledTimes(2);
-      expect(forwardJson.mock.calls[0][1]).toBe('/v1/cards/prices-by-cert-ocr');
-      expect(forwardJson.mock.calls[1][1]).toBe(
-        '/v1/cards/details-by-cert-ocr',
-      );
+      expect(forwardJson.mock.calls[0][1]).toBe('/v1/cards/details-by-cert-ocr');
+      expect(forwardJson.mock.calls[1][1]).toBe('/v1/cards/prices-by-cert-ocr');
       expect(result).toMatchObject({
         cardId: 'card-abc',
+        certLookupComplete: true,
       });
-      expect(
-        (result as { certLookupComplete?: boolean }).certLookupComplete,
-      ).toBeUndefined();
     });
 
     it('uses details-by-cert-ocr only when flag is off', async () => {
@@ -137,7 +136,7 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
       );
     });
 
-    it('returns empty certs when Cardhedger cert OCR returns 422', async () => {
+    it('returns empty certs when both OCR paths return 422', async () => {
       const forwardJson = jest.fn(async () => {
         throw new HttpException(
           { detail: 'Could not extract certificate' },
@@ -154,6 +153,18 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
       ).tryResolveByCardhedgerCertOcr(tinyPng);
 
       expect(forwardJson).toHaveBeenCalledTimes(2);
+      expect(forwardJson).toHaveBeenNthCalledWith(
+        1,
+        'POST',
+        '/v1/cards/details-by-cert-ocr',
+        expect.any(Object),
+      );
+      expect(forwardJson).toHaveBeenNthCalledWith(
+        2,
+        'POST',
+        '/v1/cards/prices-by-cert-ocr',
+        expect.any(Object),
+      );
       expect(result.certCandidates).toEqual([]);
     });
 

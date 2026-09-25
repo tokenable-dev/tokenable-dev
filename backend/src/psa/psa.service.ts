@@ -157,9 +157,9 @@ export interface PsaAnalyzeResult {
 }
 
 /**
- * Cardhedger OCR / missing-image fallbacks must stay inside the browser + nginx
- * budgets. Default Cardhedger retries (20s × 4) stack past the 25s FE timeout
- * when the upstream hangs on empty catalog images.
+ * Slab OCR: one image POST (details-first). Avoid stacking prices-OCR + details-OCR
+ * + duplicate body variants — that was ~40s worst-case before any PSA work.
+ * Cardhedger retries stay off here; cert price uses lightweight prices-by-cert.
  */
 const CARDHEDGER_OCR_TIMEOUT_MS = 10_000;
 const CARDHEDGER_OCR_MAX_RETRIES = 0;
@@ -494,23 +494,43 @@ export class PsaService {
     return jpg.toString('base64');
   }
 
-  private async forwardCertOcrWithBodyVariants(
-    path: string,
-    b64: string,
-  ): Promise<unknown> {
-    const tryBodies: Array<Record<string, unknown>> = [
-      { image_base64: b64 },
-      { image_base64: `data:image/jpeg;base64,${b64}` },
-    ];
-    for (const body of tryBodies) {
-      const raw = await this.cardhedgerService.forwardJson('POST', path, {
-        body,
-        timeoutMs: CARDHEDGER_OCR_TIMEOUT_MS,
-        maxRetries: CARDHEDGER_OCR_MAX_RETRIES,
-      });
-      if (typeof raw === 'object' && raw != null) return raw;
+  /** One OCR POST per endpoint — Cardhedger accepts raw `image_base64` (no data-URI duplicate). */
+  private async forwardCertOcrImage(path: string, b64: string): Promise<unknown> {
+    return await this.cardhedgerService.forwardJson('POST', path, {
+      body: { image_base64: b64 },
+      timeoutMs: CARDHEDGER_OCR_TIMEOUT_MS,
+      maxRetries: CARDHEDGER_OCR_MAX_RETRIES,
+    });
+  }
+
+  /** After OCR cert is known, fetch headline USD via cert API (no second image upload). */
+  private async enrichOcrResolveWithPricesByCert(
+    mapped: CardhedgerCertOcrResolveResult,
+  ): Promise<CardhedgerCertOcrResolveResult> {
+    if (mapped.priceUsd != null) return mapped;
+    const digits = (mapped.certCandidates[0] ?? '').replace(/\D/g, '');
+    if (digits.length < 7) return mapped;
+    try {
+      const raw = await this.cardhedgerService.forwardJson(
+        'POST',
+        '/v1/cards/prices-by-cert',
+        {
+          body: { cert: digits, grader: 'PSA', days: 30 },
+          timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+          maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
+        },
+      );
+      const priceUsd = parseCertPriceResult(raw)?.price ?? undefined;
+      if (priceUsd == null) return mapped;
+      return {
+        ...mapped,
+        priceUsd,
+        priceSource: 'cardhedger_prices_by_cert_ocr',
+        certLookupComplete: mapped.certLookupComplete ?? true,
+      };
+    } catch {
+      return mapped;
     }
-    return null;
   }
 
   private async withAnalyzeImageFallbackBudget<T>(
@@ -582,45 +602,68 @@ export class PsaService {
       const b64 = await this.encodeSlabForCardhedgerOcr(image);
       const flags = this.cardhedgerFeatureFlags();
 
-      if (flags.pricesByCertOcrEnabled) {
-        const t0 = Date.now();
-        try {
-          const raw = await this.forwardCertOcrWithBodyVariants(
-            '/v1/cards/prices-by-cert-ocr',
-            b64,
+      let mapped: CardhedgerCertOcrResolveResult | null = null;
+      const t0 = Date.now();
+      try {
+        const raw = await this.forwardCertOcrImage(
+          '/v1/cards/details-by-cert-ocr',
+          b64,
+        );
+        mapped = PsaService.mapCertLookupToOcrResolve(raw);
+        if (PsaService.isCertOcrResolveUsable(mapped)) {
+          this.logger.log(
+            `Cardhedger details-by-cert-ocr ok in ${Date.now() - t0}ms cert=${mapped!.certCandidates[0] ?? 'n/a'} cardId=${mapped!.cardId ?? 'n/a'}`,
           );
-          const mapped = PsaService.mapCertLookupToOcrResolve(raw, {
-            certLookupComplete: true,
-            priceSource: 'cardhedger_prices_by_cert_ocr',
-          });
-          if (PsaService.isCertOcrResolveUsable(mapped)) {
-            this.logger.log(
-              `Cardhedger prices-by-cert-ocr ok in ${Date.now() - t0}ms cert=${mapped!.certCandidates[0] ?? 'n/a'} cardId=${mapped!.cardId ?? 'n/a'} price=${mapped!.priceUsd ?? 'n/a'}`,
-            );
-            return mapped!;
-          }
-          this.logger.warn(
-            'Cardhedger prices-by-cert-ocr returned no cert/card — falling back to details-by-cert-ocr',
-          );
-        } catch (e) {
-          const { status, detail } = PsaService.describeCaughtError(e);
-          this.logger.warn(
-            `Cardhedger prices-by-cert-ocr failed (HTTP ${status ?? 'n/a'}: ${detail}) — falling back to details-by-cert-ocr`,
-          );
+        }
+      } catch (e) {
+        const { status, detail } = PsaService.describeCaughtError(e);
+        this.logger.warn(
+          `Cardhedger details-by-cert-ocr failed (HTTP ${status ?? 'n/a'}: ${detail})`,
+        );
+        if (status != null && !PsaService.isUnusableCertOcrHttpStatus(status)) {
+          throw e;
         }
       }
 
-      const raw = await this.forwardCertOcrWithBodyVariants(
-        '/v1/cards/details-by-cert-ocr',
-        b64,
-      );
-      const mapped = PsaService.mapCertLookupToOcrResolve(raw);
-      if (mapped) return mapped;
+      if (!PsaService.isCertOcrResolveUsable(mapped) && flags.pricesByCertOcrEnabled) {
+        const t1 = Date.now();
+        try {
+          const raw = await this.forwardCertOcrImage(
+            '/v1/cards/prices-by-cert-ocr',
+            b64,
+          );
+          const fromPrices = PsaService.mapCertLookupToOcrResolve(raw, {
+            certLookupComplete: true,
+            priceSource: 'cardhedger_prices_by_cert_ocr',
+          });
+          if (PsaService.isCertOcrResolveUsable(fromPrices)) {
+            mapped = fromPrices;
+            this.logger.log(
+              `Cardhedger prices-by-cert-ocr ok in ${Date.now() - t1}ms cert=${mapped!.certCandidates[0] ?? 'n/a'} cardId=${mapped!.cardId ?? 'n/a'} price=${mapped!.priceUsd ?? 'n/a'}`,
+            );
+          }
+        } catch (e) {
+          const { status, detail } = PsaService.describeCaughtError(e);
+          this.logger.warn(
+            `Cardhedger prices-by-cert-ocr failed (HTTP ${status ?? 'n/a'}: ${detail})`,
+          );
+          if (status != null && !PsaService.isUnusableCertOcrHttpStatus(status)) {
+            throw e;
+          }
+        }
+      }
 
-      return {
-        certCandidates: [],
-        normalized: PsaService.emptyCardhedgerOcrNormalized(),
-      };
+      if (!PsaService.isCertOcrResolveUsable(mapped)) {
+        return {
+          certCandidates: [],
+          normalized: PsaService.emptyCardhedgerOcrNormalized(),
+        };
+      }
+
+      if (flags.pricesByCertOcrEnabled) {
+        mapped = await this.enrichOcrResolveWithPricesByCert(mapped!);
+      }
+      return mapped!;
     } catch (e) {
       const { status, detail } = PsaService.describeCaughtError(e);
       this.logger.warn(
@@ -1222,7 +1265,9 @@ export class PsaService {
   ): Promise<PsaAnalyzeResult> {
     const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
     const backOcr =
-      slabBack && slabBack.length > 0
+      slabBack &&
+      slabBack.length > 0 &&
+      frontOcr.certCandidates.length === 0
         ? await this.tryResolveByCardhedgerCertOcr(slabBack)
         : undefined;
 
