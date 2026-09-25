@@ -1,4 +1,5 @@
 import { backendFetch, getApiUrl } from "./client";
+import { readNestErrorMessage } from "./nestErrorMessage";
 import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
 import type { SupportedChainId } from "@/lib/chains/types";
 
@@ -35,13 +36,11 @@ export async function getRwaCertAvailability(
     },
   );
   if (!res.ok) {
-    const error = (await res.json().catch(() => ({}))) as {
-      message?: string | string[];
-    };
-    const msg = Array.isArray(error.message)
-      ? error.message.join(", ")
-      : error.message;
-    throw new Error(msg ?? "Could not check cert availability");
+    const { message } = await readNestErrorMessage(
+      res,
+      "Could not check cert availability",
+    );
+    throw new Error(message);
   }
   return res.json() as Promise<RwaCertAvailability>;
 }
@@ -90,26 +89,25 @@ export async function mintRwaViaBackend(input: {
     timeoutMs: RWA_MINT_TIMEOUT_MS,
   });
   if (!res.ok) {
-    const error = (await res.json().catch(() => ({}))) as {
-      message?: string | string[];
-      code?: string;
-    };
-    const msg = Array.isArray(error.message)
-      ? error.message.join(", ")
-      : error.message;
-    if (error.code === "COMPANY_ADDRESS_REQUIRED") {
+    const { message, code } = await readNestErrorMessage(
+      res,
+      "On-chain mint failed",
+    );
+    if (code === "COMPANY_ADDRESS_REQUIRED") {
       throw new Error(
-        msg ??
-          "Partner vault requires a company vault address — set it in Settings → Addresses",
+        message.includes("company vault")
+          ? message
+          : `${message} — set company vault address in Settings → Addresses`,
       );
     }
-    if (error.code === "SELF_VAULT_PARTNER_ONLY") {
+    if (code === "SELF_VAULT_PARTNER_ONLY") {
       throw new Error(
-        msg ??
-          "Partner vault is available only to contracted Tokenable partners",
+        message.includes("partner")
+          ? message
+          : `${message} — contracted Tokenable partners only`,
       );
     }
-    throw new Error(msg ?? "On-chain mint failed");
+    throw new Error(message);
   }
   return res.json() as Promise<MintRwaResult>;
 }

@@ -1,4 +1,5 @@
 import { backendFetch, getApiUrl } from "./client";
+import { readNestErrorMessage } from "./nestErrorMessage";
 import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
 import type { SupportedChainId } from "@/lib/chains/types";
 
@@ -27,8 +28,8 @@ export async function uploadRwaMetadata(
     timeoutMs: RWA_UPLOAD_TIMEOUT_MS,
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: "Upload failed" }));
-    throw new Error((error as { message: string }).message ?? "Asset upload failed");
+    const { message } = await readNestErrorMessage(res, "Asset upload failed");
+    throw new Error(message);
   }
   return res.json() as Promise<UploadRwaResult>;
 }

@@ -17,6 +17,16 @@ import { resolveMintPsaGradeLabel, ensureMintFormHasPsaScore } from "@/lib/vault
 import { resolveSelfVaultMintImageSelection, fileFromImageDataUrl } from "@/lib/vault/mintImageSource";
 import type { GradedCardFormState } from "@/types/gradedCard";
 
+function mintStepError(step: string, err: unknown): Error {
+  const inner =
+    err instanceof Error
+      ? err.message.trim()
+      : typeof err === "string"
+        ? err.trim()
+        : "Unknown error";
+  return new Error(`${step}: ${inner || "failed"}`);
+}
+
 /** List-ready title — SSOT Line 1 (`Name · # · Grade`). Never writes `Raw`. */
 function mintDisplayNameFromForm(
   form: GradedCardFormState,
@@ -138,7 +148,12 @@ export async function mintSellFlowCardByCert(input: {
     throw new Error(taken);
   }
 
-  const analyze = await analyzePsaByCertNumber(cert);
+  let analyze: PsaAnalyzeResult;
+  try {
+    analyze = await analyzePsaByCertNumber(cert);
+  } catch (e) {
+    throw mintStepError("PSA cert lookup", e);
+  }
   let form = gradedFormFromPsaAnalyze(analyze);
   form = applyPreferredMintGrade(form, input.preferredGrade);
   form = ensureMintFormHasPsaScore(form, analyze);
@@ -195,8 +210,16 @@ export async function mintSellFlowCardByCert(input: {
     }),
   );
 
-  const uploadResult = await uploadRwaMetadata(data, input.chainId);
-  const mintResult = await mintRwaViaBackend({
+  let uploadResult: Awaited<ReturnType<typeof uploadRwaMetadata>>;
+  try {
+    uploadResult = await uploadRwaMetadata(data, input.chainId);
+  } catch (e) {
+    throw mintStepError("Metadata upload (IPFS)", e);
+  }
+
+  let mintResult: Awaited<ReturnType<typeof mintRwaViaBackend>>;
+  try {
+    mintResult = await mintRwaViaBackend({
     recipientAddress: input.recipientAddress,
     tokenURI: uploadResult.tokenURI,
     certNumber: form.grade.certNumber.trim() || cert,
@@ -206,8 +229,16 @@ export async function mintSellFlowCardByCert(input: {
     collectionKey: uploadResult.collectionKey,
     displayImageUrl: uploadResult.displayImageUrl,
     displayImageBackUrl: uploadResult.displayImageBackUrl,
-  });
-  await syncRwaTokenAfterMint(mintResult.tokenId);
+    });
+  } catch (e) {
+    throw mintStepError("On-chain mint", e);
+  }
+
+  try {
+    await syncRwaTokenAfterMint(mintResult.tokenId);
+  } catch (e) {
+    throw mintStepError("Portfolio sync after mint", e);
+  }
 
   return {
     cert,
@@ -303,5 +334,12 @@ export function classifyPartnerMintSkip(message: string): {
   if (m.includes("invalid cert")) {
     return { kind: "invalid_cert", title: "Invalid cert number" };
   }
-  return { kind: "other", title: "Mint failed" };
+  const trimmed = message.trim();
+  const title =
+    trimmed.length > 0
+      ? trimmed.length > 96
+        ? `${trimmed.slice(0, 93)}…`
+        : trimmed
+      : "Mint failed";
+  return { kind: "other", title };
 }

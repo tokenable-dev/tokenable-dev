@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -10,6 +11,7 @@ import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
 import { ChainConfigService } from './chain-config.service';
 import { BlockchainService } from './blockchain.service';
 import { RwaTokenOwnerIndexService } from './rwa-token-owner-index.service';
+import { toMintRpcHttpException } from './mint-rpc-error.util';
 import { withRpcProviderCall } from './rpc-retry.util';
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
@@ -199,35 +201,42 @@ export class RwaChainWriterService {
       throw new BadRequestException('vaultRef is required');
     }
 
-    return this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
-      withRpcProviderCall(async () => {
-        const contract = this.signedContract(chainId);
-        const tx = await contract.mint(recipient);
-        this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
-        await hooks?.onSubmitted?.(tx.hash);
-        const receipt = await tx.wait();
-        if (!receipt?.hash) {
-          throw new InternalServerErrorException('Mint transaction failed');
-        }
+    try {
+      return await this.withSignerLock(chainId, this.ownerPrivateKey(), () =>
+        withRpcProviderCall(async () => {
+          const contract = this.signedContract(chainId);
+          const tx = await contract.mint(recipient);
+          this.logger.log(`mint tx submitted: ${tx.hash} → ${recipient}`);
+          await hooks?.onSubmitted?.(tx.hash);
+          const receipt = await tx.wait();
+          if (!receipt?.hash) {
+            throw new InternalServerErrorException(
+              'Mint transaction was mined but returned no receipt hash',
+            );
+          }
 
-        const minted = parseMintedTokenIds(contract, receipt.logs ?? []);
-        const tokenId = minted[0] ?? -1;
-        if (!Number.isFinite(tokenId) || tokenId < 0) {
-          throw new InternalServerErrorException(
-            'Mint receipt had no ERC-721 Transfer from address(0)',
+          const minted = parseMintedTokenIds(contract, receipt.logs ?? []);
+          const tokenId = minted[0] ?? -1;
+          if (!Number.isFinite(tokenId) || tokenId < 0) {
+            throw new InternalServerErrorException(
+              'Mint receipt had no ERC-721 Transfer from address(0) — check contract events',
+            );
+          }
+
+          await this.ownerIndex.recordOwner(
+            this.chainConfig.getRwaAddress(chainId),
+            tokenId,
+            recipient,
           );
-        }
+          this.blockchain.invalidateTokensByOwnerCache(recipient, chainId);
 
-        await this.ownerIndex.recordOwner(
-          this.chainConfig.getRwaAddress(chainId),
-          tokenId,
-          recipient,
-        );
-        this.blockchain.invalidateTokensByOwnerCache(recipient, chainId);
-
-        return { tokenId, txHash: receipt.hash };
-      }, { label: 'mintTo' }),
-    );
+          return { tokenId, txHash: receipt.hash };
+        }, { label: 'mintTo' }),
+      );
+    } catch (e) {
+      if (e instanceof HttpException) throw e;
+      throw toMintRpcHttpException(e);
+    }
   }
 
   /**

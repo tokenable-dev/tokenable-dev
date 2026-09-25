@@ -18,7 +18,7 @@ export class PsaApiError extends Error {
 }
 
 type PsaErrorBody = {
-  message?: string;
+  message?: string | string[];
   code?: string;
   statusCode?: number;
 };
@@ -50,12 +50,17 @@ export function formatPsaAnalyzeError(err: unknown): string {
 export async function throwIfPsaResponseNotOk(res: Response): Promise<void> {
   if (res.ok) return;
   const err = (await res.json().catch(() => ({}))) as PsaErrorBody;
-  const message =
+  let message =
     typeof err.message === "string" && err.message.trim()
       ? err.message.trim()
-      : res.status === 429
-        ? PSA_RATE_LIMIT_ALERT_MESSAGE
-        : "PSA request failed";
+      : Array.isArray(err.message)
+        ? err.message.join("; ")
+        : res.status === 429
+          ? PSA_RATE_LIMIT_ALERT_MESSAGE
+          : "PSA request failed";
+  if (res.status >= 400 && !message.startsWith("[HTTP")) {
+    message = `[HTTP ${res.status}] ${message}`;
+  }
   const code = typeof err.code === "string" ? err.code : undefined;
   throw new PsaApiError(message, res.status, code);
 }
