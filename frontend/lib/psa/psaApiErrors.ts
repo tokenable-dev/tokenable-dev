@@ -37,19 +37,34 @@ export function isPsaRateLimitError(err: unknown): boolean {
   return false;
 }
 
+const CARDHEDGER_CLIENT_CODES = new Set([
+  "CARDHEDGER_REQUEST_TIMEOUT",
+  "CARDHEDGER_CIRCUIT_OPEN",
+  "CARDHEDGER_NOT_CONFIGURED",
+  "CARDHEDGER_NETWORK_ERROR",
+  "CARDHEDGER_UPSTREAM_ERROR",
+  "PSA_SLAB_IMAGE_TOO_LARGE",
+]);
+
 export function formatPsaAnalyzeError(err: unknown): string {
   if (err instanceof PsaApiError && err.message.trim()) {
     return err.message.trim();
   }
   if (isPsaRateLimitError(err)) return PSA_RATE_LIMIT_ALERT_MESSAGE;
   if (err instanceof PsaApiError) return err.message;
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    for (const code of CARDHEDGER_CLIENT_CODES) {
+      if (err.message.includes(code)) return err.message;
+    }
+    return err.message;
+  }
   return "PSA lookup failed";
 }
 
 export async function throwIfPsaResponseNotOk(res: Response): Promise<void> {
   if (res.ok) return;
   const err = (await res.json().catch(() => ({}))) as PsaErrorBody;
+  const code = typeof err.code === "string" ? err.code : undefined;
   let message =
     typeof err.message === "string" && err.message.trim()
       ? err.message.trim()
@@ -58,9 +73,12 @@ export async function throwIfPsaResponseNotOk(res: Response): Promise<void> {
         : res.status === 429
           ? PSA_RATE_LIMIT_ALERT_MESSAGE
           : "PSA request failed";
-  if (res.status >= 400 && !message.startsWith("[HTTP")) {
+  if (
+    res.status >= 400 &&
+    !message.startsWith("[HTTP") &&
+    !CARDHEDGER_CLIENT_CODES.has(code ?? "")
+  ) {
     message = `[HTTP ${res.status}] ${message}`;
   }
-  const code = typeof err.code === "string" ? err.code : undefined;
   throw new PsaApiError(message, res.status, code);
 }

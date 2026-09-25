@@ -14,7 +14,7 @@ export const SLAB_UPLOAD_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp";
 
 /** Short UI hint under Upload Slab / card image pickers. */
 export const SLAB_UPLOAD_FORMAT_HINT =
-  "JPEG, PNG, or WebP · HEIC not supported";
+  "JPEG, PNG, or WebP · max 10 MB · HEIC not supported";
 
 const CARDHEDGER_PLACEHOLDER_PATH_RE =
   /(?:card[_-]?hedge(?:r)?[_-]?(?:logo|default|placeholder)|default[_-]?card|no[_-]?image|missing[_-]?image|placeholder[_-]?card)/i;

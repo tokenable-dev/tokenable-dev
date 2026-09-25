@@ -3,8 +3,13 @@ import {
   Injectable,
   Logger,
   Optional,
-  ServiceUnavailableException,
 } from '@nestjs/common';
+import {
+  throwCardhedgerCircuitOpen,
+  throwCardhedgerFetchFailed,
+  throwCardhedgerNotConfigured,
+  throwCardhedgerUpstreamHttpError,
+} from './cardhedger-upstream-error.util';
 import { ConfigService } from '@nestjs/config';
 import type {
   CardhedgerMetricsService,
@@ -45,9 +50,7 @@ export class CardhedgerService {
 
   assertConfigured(): void {
     if (!this.getApiKey()) {
-      throw new ServiceUnavailableException(
-        'CARDHEDGER_API_KEY is not configured',
-      );
+      throwCardhedgerNotConfigured();
     }
   }
 
@@ -228,11 +231,7 @@ export class CardhedgerService {
       }
     }
 
-    const msg =
-      lastNetworkError instanceof Error
-        ? lastNetworkError.message
-        : String(lastNetworkError);
-    throw new ServiceUnavailableException(`Card Hedge unreachable: ${msg}`);
+    throwCardhedgerFetchFailed(lastNetworkError, effectiveTimeout);
   }
 
   /**
@@ -257,16 +256,12 @@ export class CardhedgerService {
     },
   ): Promise<unknown> {
     if (this.isCircuitOpen()) {
-      throw new ServiceUnavailableException(
-        'Cardhedger circuit breaker open — request skipped',
-      );
+      throwCardhedgerCircuitOpen();
     }
 
     const key = this.getApiKey();
     if (!key) {
-      throw new ServiceUnavailableException(
-        'CARDHEDGER_API_KEY is not configured',
-      );
+      throwCardhedgerNotConfigured();
     }
 
     const base = this.getUpstreamBase();
@@ -336,10 +331,7 @@ export class CardhedgerService {
       } catch {
         /* keep text */
       }
-      throw new HttpException(
-        payload as string | Record<string, unknown>,
-        upstream.status,
-      );
+      throwCardhedgerUpstreamHttpError(upstream.status, payload);
     }
 
     this.recordCircuitSuccess();
@@ -388,9 +380,7 @@ export class CardhedgerService {
   }> {
     const key = this.getApiKey();
     if (!key) {
-      throw new ServiceUnavailableException(
-        'CARDHEDGER_API_KEY is not configured',
-      );
+      throwCardhedgerNotConfigured();
     }
 
     const base = this.getUpstreamBase();
@@ -423,10 +413,7 @@ export class CardhedgerService {
       } catch {
         /* */
       }
-      throw new HttpException(
-        payload as string | Record<string, unknown>,
-        upstream.status,
-      );
+      throwCardhedgerUpstreamHttpError(upstream.status, payload);
     }
 
     this.recordUpstreamMetric(

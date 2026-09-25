@@ -40,13 +40,24 @@ import { PsaService, type PsaAnalyzeResult } from './psa.service';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
 import { SWAGGER_FIXTURES } from '../swagger/fixtures';
 
+import { PSA_SLAB_MAX_UPLOAD_BYTES } from './psa-slab-image.util';
+
 const imageFilter = (
   _req: unknown,
   file: Express.Multer.File,
   cb: (e: Error | null, ok: boolean) => void,
 ) => {
   const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  cb(null, allowed.includes(file.mimetype));
+  if (!allowed.includes(file.mimetype)) {
+    cb(
+      new BadRequestException(
+        'Slab photo must be JPEG, PNG, or WebP (HEIC is not supported).',
+      ) as unknown as Error,
+      false,
+    );
+    return;
+  }
+  cb(null, true);
 };
 
 /**
@@ -117,7 +128,7 @@ export class PsaController {
         { name: 'slabBack', maxCount: 1 },
       ],
       {
-        limits: { fileSize: 15 * 1024 * 1024 },
+        limits: { fileSize: PSA_SLAB_MAX_UPLOAD_BYTES },
         fileFilter: imageFilter,
       },
     ),

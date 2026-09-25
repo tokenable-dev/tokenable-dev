@@ -170,7 +170,14 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
 
     it('throws when Cardhedger cert OCR returns 5xx', async () => {
       const forwardJson = jest.fn(async () => {
-        throw new HttpException({ detail: 'upstream' }, 502);
+        throw new HttpException(
+          {
+            code: 'CARDHEDGER_UPSTREAM_ERROR',
+            message: 'upstream',
+            statusCode: 502,
+          },
+          502,
+        );
       });
       const svc = serviceWithMocks(forwardJson, false);
       await expect(
@@ -179,7 +186,11 @@ describe('PsaService — Cardhedger cert OCR (Phase 5)', () => {
             tryResolveByCardhedgerCertOcr: (b: Buffer) => Promise<unknown>;
           }
         ).tryResolveByCardhedgerCertOcr(tinyPng),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'CARDHEDGER_UPSTREAM_ERROR',
+        }),
+      });
     });
   });
 });

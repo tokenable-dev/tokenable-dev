@@ -73,7 +73,7 @@ Cert OCR reads the PSA/BGS/CGC **slab label**, not a raw card. Cardhedger then r
 
 4. **Outbound HTTPS blocked** — PSA API, Cardhedger, and IPFS gateway requests must reach the internet. Check EC2 security group outbound rules.
 
-5. **Upload size** — Nginx `client_max_body_size` must be ≥ 15 MB. Multer limit is 15 MB (`psa.controller.ts`).
+5. **Upload size** — Slab photos are capped at **10 MB** (Cardhedger OCR limit). Nginx `client_max_body_size` must be ≥ 10 MB. Oversized or huge-resolution images return **400** `PSA_SLAB_IMAGE_TOO_LARGE`; OCR timeouts return **504** `CARDHEDGER_REQUEST_TIMEOUT` (not a generic 503).
 
 ---
 

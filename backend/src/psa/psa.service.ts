@@ -6,6 +6,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { assertSlabImageAcceptableForOcr } from './psa-slab-image.util';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
@@ -595,9 +596,11 @@ export class PsaService {
 
   private async tryResolveByCardhedgerCertOcr(
     image: Buffer,
+    slabLabel = 'slabFront',
   ): Promise<CardhedgerCertOcrResolveResult> {
     // HARD ENFORCEMENT: all OCR must be CardHedger OCR API.
     this.cardhedgerService.assertConfigured();
+    await assertSlabImageAcceptableForOcr(image, slabLabel);
     try {
       const b64 = await this.encodeSlabForCardhedgerOcr(image);
       const flags = this.cardhedgerFeatureFlags();
@@ -677,6 +680,9 @@ export class PsaService {
           certCandidates: [],
           normalized: PsaService.emptyCardhedgerOcrNormalized(),
         };
+      }
+      if (e instanceof HttpException) {
+        throw e;
       }
       throw new InternalServerErrorException(
         'CardHedger OCR 처리에 실패했습니다. CARDHEDGER_API_KEY 설정 및 업스트림 상태를 확인하세요.',
@@ -1263,12 +1269,12 @@ export class PsaService {
     slabBack: Buffer | undefined,
     certHint: string | undefined,
   ): Promise<PsaAnalyzeResult> {
-    const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
+    const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront, 'slabFront');
     const backOcr =
       slabBack &&
       slabBack.length > 0 &&
       frontOcr.certCandidates.length === 0
-        ? await this.tryResolveByCardhedgerCertOcr(slabBack)
+        ? await this.tryResolveByCardhedgerCertOcr(slabBack, 'slabBack')
         : undefined;
 
     const combinedNorm = PsaService.combineNormalizedOcr(
