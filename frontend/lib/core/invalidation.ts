@@ -247,7 +247,9 @@ export async function invalidateAfterRwaMintTx(
   input: { tokenId: number; address?: string | null },
 ): Promise<void> {
   await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(input.tokenId, activeRqChainId()) });
-  await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(input.tokenId) });
+  await qc.invalidateQueries({
+    queryKey: rq.tokenCollectionKey(input.tokenId, activeRqChainId()),
+  });
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
@@ -392,7 +394,9 @@ export async function invalidateAfterListing(
 
   if (opts.tokenId != null && Number.isFinite(opts.tokenId) && opts.tokenId >= 0) {
     await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(opts.tokenId, activeRqChainId()) });
-    await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(opts.tokenId) });
+    await qc.invalidateQueries({
+      queryKey: rq.tokenCollectionKey(opts.tokenId, activeRqChainId()),
+    });
   }
 
   if (opts.collectionKey) {

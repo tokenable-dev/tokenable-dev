@@ -31,6 +31,7 @@ export function useCollectionDetailListings(params: {
     queryKey: rq.collectionListingsMetadata(
       collectionKey,
       tokenIds,
+      chainId,
       viewerWallet,
     ),
     queryFn: async () => {

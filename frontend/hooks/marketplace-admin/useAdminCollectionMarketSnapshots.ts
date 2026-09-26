@@ -7,9 +7,11 @@ import {
   rq,
   type CollectionListMarketSnapshot,
 } from "@/lib/core";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 /** Batched materialized market snapshots for admin tables (ref / floor / last trade). */
 export function useAdminCollectionMarketSnapshots(collectionKeys: readonly string[]) {
+  const { chainId } = useAppChain();
   const sortedKeys = useMemo(
     () =>
       [...new Set(collectionKeys.map((k) => k.trim().toLowerCase()).filter(Boolean))].sort(),
@@ -17,7 +19,7 @@ export function useAdminCollectionMarketSnapshots(collectionKeys: readonly strin
   );
 
   const query = useQuery({
-    queryKey: rq.collectionSnapshots(sortedKeys, "max"),
+    queryKey: rq.collectionSnapshots(chainId, sortedKeys, "max"),
     queryFn: () => postMarketplaceCollectionSnapshotsBatched(sortedKeys, "max"),
     enabled: sortedKeys.length > 0,
     staleTime: 60_000,

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,16 +18,18 @@ import {
   CHAIN_ID_HEADER,
   DEFAULT_CHAIN_ID,
   platformDefaultChainId,
-  SUPPORTED_CHAIN_IDS,
   getChainDefinition,
   getConfiguredChains,
   isChainConfigured,
   notifyAppChainChanged,
   setActiveChainIdForApi,
   APP_CHAIN_STORAGE_KEY,
+  readPersistedAppChainId,
   type AppChainDefinition,
   type SupportedChainId,
 } from "@/lib/chains";
+import { runChainSwitchStorageHygiene } from "@/lib/chains/chainSwitchHygiene";
+import { rq } from "@/lib/core";
 import { useAuthStore } from "@/store/authStore";
 
 const STORAGE_KEY = APP_CHAIN_STORAGE_KEY;
@@ -39,20 +42,13 @@ type AppChainContextValue = {
   chainId: SupportedChainId;
   chain: AppChainDefinition;
   configuredChains: AppChainDefinition[];
+  /** False until auth session + persisted chain are applied (skip chain-scoped fetches). */
+  chainReady: boolean;
   setChainId: (chainId: SupportedChainId) => void;
   isConfigured: (chainId: SupportedChainId) => boolean;
 };
 
 const AppChainContext = createContext<AppChainContextValue | null>(null);
-
-function readPersistedAppChainId(): SupportedChainId | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  const n = Number(raw);
-  if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return null;
-  if (!isChainConfigured(n as SupportedChainId)) return null;
-  return n as SupportedChainId;
-}
 
 function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
   const persisted = readPersistedAppChainId();
@@ -73,11 +69,13 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
   // the public "internal dev" email allowlist.
   const adminConsole = isMarketplaceAdminPath(pathname);
   const canSwitchChain = canUseAppChainSwitcher(user) || adminConsole;
+  const chainReady = adminConsole || authInitialized;
   const configuredChains = useMemo(() => getConfiguredChains(), []);
   // Always match SSR — restore persisted chain after mount (localStorage is client-only).
   const [chainId, setChainIdState] = useState<SupportedChainId>(() =>
     typeof window === "undefined" ? DEFAULT_CHAIN_ID : platformDefaultChainId(),
   );
+  const prevChainRef = useRef<SupportedChainId | null>(null);
 
   const chain = useMemo(() => getChainDefinition(chainId), [chainId]);
 
@@ -85,14 +83,18 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     // Admin routes can restore stored chain before user JWT finishes; public
     // still waits for auth so we don't flash Polygon for anonymous visitors.
     if (!adminConsole && !authInitialized) return;
+    const applyChain = (nextId: SupportedChainId) => {
+      setChainIdState((prev) => (prev === nextId ? prev : nextId));
+      setActiveChainIdForApi(nextId);
+      notifyAppChainChanged();
+    };
+
     if (canSwitchChain) {
       const restored = readStoredChainId(true);
-      setChainIdState(restored);
       // Set immediately — don't wait for the chainId-effect below. Otherwise the
       // first mint/upload after login can still carry Sepolia (initial state)
       // while the UI already shows the restored Polygon selection.
-      setActiveChainIdForApi(restored);
-      notifyAppChainChanged();
+      applyChain(restored);
       return;
     }
     // Signed-in users without the switcher always use the platform default.
@@ -102,9 +104,7 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     const userNow = useAuthStore.getState().user;
     const nextId =
       !userNow && persisted ? persisted : platformDefaultChainId();
-    setChainIdState(nextId);
-    setActiveChainIdForApi(nextId);
-    notifyAppChainChanged();
+    applyChain(nextId);
   }, [authInitialized, canSwitchChain, adminConsole]);
 
   const setChainId = useCallback(
@@ -116,6 +116,7 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       // Production bundles throw if contracts env is missing — never select unconfigured chains.
       if (!isChainConfigured(nextId)) return;
       if (chainId === nextId) return;
+      runChainSwitchStorageHygiene(chainId, nextId);
       setChainIdState(nextId);
       if (typeof window !== "undefined") {
         window.localStorage.setItem(STORAGE_KEY, String(nextId));
@@ -130,6 +131,18 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setActiveChainIdForApi(chainId);
+  }, [chainId]);
+
+  useEffect(() => {
+    const prev = prevChainRef.current;
+    const chainChanged = prev != null && prev !== chainId;
+    if (chainChanged) {
+      runChainSwitchStorageHygiene(prev, chainId);
+    }
+    prevChainRef.current = chainId;
+    if (!chainChanged) return;
+
+    void queryClient.invalidateQueries({ queryKey: rq.homeMarketplaceFeed(chainId) });
     void queryClient.invalidateQueries({ queryKey: ["collections", "marketplace"] });
     void queryClient.invalidateQueries({ queryKey: ["orders"] });
     void queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
@@ -165,6 +178,12 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
     void queryClient.invalidateQueries({ queryKey: ["orders", "by-token-active"] });
     void queryClient.invalidateQueries({ queryKey: ["buyer-listing-alert"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-grade-catalog"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-grade-series"] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-ai-insight"] });
+    void queryClient.invalidateQueries({ queryKey: ["token-collection-key"] });
+    void queryClient.invalidateQueries({ queryKey: ["metadata-bucket-key"] });
+    void queryClient.invalidateQueries({ queryKey: ["list-rwa-mint-preview"] });
   }, [chainId, queryClient]);
 
   const value = useMemo<AppChainContextValue>(
@@ -172,10 +191,11 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
       chainId,
       chain,
       configuredChains,
+      chainReady,
       setChainId,
       isConfigured: (id) => configuredChains.some((c) => c.id === id),
     }),
-    [chainId, chain, configuredChains, setChainId],
+    [chainId, chain, configuredChains, chainReady, setChainId],
   );
 
   return <AppChainContext.Provider value={value}>{children}</AppChainContext.Provider>;

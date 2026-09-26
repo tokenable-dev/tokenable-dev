@@ -29,6 +29,7 @@ import {
   coercePsaChartGradeLabel,
   isPsaChartGradeLabel,
 } from "@/lib/marketplace/collection-grade-chart/psaChartGrades";
+import { activeRqChainId } from "@/lib/chains";
 
 function normalizeGradeLabel(raw: string | null | undefined): string {
   return String(raw ?? "").trim();
@@ -57,6 +58,7 @@ export function useCollectionGradeChart(input: {
 }) {
   const { collectionKey, comp, marketSeries, marketSeriesLoading, marketSeriesEnabled } =
     input;
+  const chainId = activeRqChainId();
 
   const slabGrade = useMemo(
     () => defaultSlabGradeLabel(marketSeries, comp),
@@ -99,7 +101,7 @@ export function useCollectionGradeChart(input: {
     catalogFromSeries.length === 0;
 
   const catalogQuery = useQuery({
-    queryKey: rq.collectionGradeCatalog(collectionKey, false),
+    queryKey: rq.collectionGradeCatalog(collectionKey, false, chainId),
     queryFn: () => getCollectionGradeCatalog(collectionKey),
     enabled: needsCatalogFetch,
     staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
@@ -132,7 +134,7 @@ export function useCollectionGradeChart(input: {
     gradesMatch(activeGrade, slabGrade) && snapshotPts.length >= 2;
 
   const gradeSeriesQuery = useQuery({
-    queryKey: rq.collectionGradeSeries(collectionKey, activeGrade, chartDays),
+    queryKey: rq.collectionGradeSeries(collectionKey, activeGrade, chartDays, chainId),
     queryFn: () =>
       getCollectionGradePriceSeries(
         collectionKey,

@@ -1,3 +1,4 @@
+import { activeRqChainId } from "@/lib/chains/activeChain";
 import type { SupportedChainId } from "@/lib/chains/types";
 import type { RedeemShipTo } from "@/lib/core/api/rwa-redeem";
 import type { RwaMetadata } from "@/lib/core";
@@ -42,8 +43,11 @@ export const EMPTY_REDEEM_ADDRESS_FORM: RedeemAddressForm = {
   saveAddress: true,
 };
 
-export function readRedeemDraft(): RedeemDraft | null {
+export function readRedeemDraft(
+  expectedChainId?: SupportedChainId,
+): RedeemDraft | null {
   if (typeof window === "undefined") return null;
+  const activeChain = (expectedChainId ?? activeRqChainId()) as SupportedChainId;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -52,8 +56,12 @@ export function readRedeemDraft(): RedeemDraft | null {
       !parsed ||
       !Array.isArray(parsed.cards) ||
       parsed.cards.length === 0 ||
-      typeof parsed.chainId !== "number"
+      typeof parsed.chainId !== "number" ||
+      parsed.chainId !== activeChain
     ) {
+      if (parsed?.chainId != null && parsed.chainId !== activeChain) {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
       return null;
     }
     return {

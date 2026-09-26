@@ -9,6 +9,7 @@ import {
   marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { useWatchlist } from "@/hooks/watchlist/useWatchlist";
 
 export function useWatchlistMarketSnapshots() {
@@ -18,8 +19,9 @@ export function useWatchlistMarketSnapshots() {
     [data?.collectionKeys],
   );
 
+  const chainId = activeRqChainId();
   const snapshotsQuery = useQuery({
-    queryKey: rq.collectionSnapshots(keys, "max"),
+    queryKey: rq.collectionSnapshots(chainId, keys, "max"),
     queryFn: () =>
       postMarketplaceCollectionSnapshotsBatched(keys, "max"),
     enabled: keys.length > 0,

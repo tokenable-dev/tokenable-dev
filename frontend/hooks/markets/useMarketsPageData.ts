@@ -56,8 +56,10 @@ export function useMarketsSnapshots(
   snapshotKeysSorted: readonly string[],
   enabled: boolean,
 ) {
+  const chainId = activeRqChainId();
   const { data: snapshotPack, isPending, isFetching } = useQuery({
     queryKey: rq.collectionSnapshots(
+      chainId,
       snapshotKeysSorted as string[],
       MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
     ),

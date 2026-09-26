@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { activeRqChainId } from "@/lib/chains";
 import {
   collectionDetailHref,
   readCollectionBrowseContext,
@@ -12,7 +13,7 @@ export function useCollectionCoverGallery(
   collectionKey: string,
   router: AppRouterInstance,
 ) {
-  const [context] = useState(() => readCollectionBrowseContext());
+  const [context] = useState(() => readCollectionBrowseContext(activeRqChainId()));
   const [viewingKey, setViewingKey] = useState(collectionKey);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 

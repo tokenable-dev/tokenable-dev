@@ -192,7 +192,7 @@ export interface HomeMarketplaceFeed {
   snapshots: CollectionListMarketSnapshot[];
 }
 
-/** Landing grids — pass host default chain so wallet/network picker does not empty the strip. */
+/** Landing grids — `chainId` must match AppChainProvider / `x-tokenable-chain-id`. */
 export async function getHomeMarketplaceFeed(
   chainId: SupportedChainId,
 ): Promise<HomeMarketplaceFeed> {

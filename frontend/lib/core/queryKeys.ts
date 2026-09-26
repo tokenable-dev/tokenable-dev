@@ -39,9 +39,16 @@ export const rq = {
    * (must match POST body so cache invalidates when window changes).
    */
   collectionSnapshots: (
+    chainId: number,
     sortedKeys: readonly string[],
     priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
-  ) => ["collection-snapshots", [...sortedKeys], priceHistoryDuration] as const,
+  ) =>
+    [
+      "collection-snapshots",
+      chainId,
+      [...sortedKeys],
+      priceHistoryDuration,
+    ] as const,
   rwaMetadataBatch: (
     address: string | undefined,
     tokenIds: readonly number[],
@@ -104,8 +111,8 @@ export const rq = {
   kbwMysteryCard: (address: string) =>
     ["kbw-mystery-card", address.toLowerCase()] as const,
   /** Collection labels/covers for portfolio bid rows (sorted keys). */
-  portfolioBidCollections: (sortedKeys: readonly string[]) =>
-    ["portfolio-bid-collections", [...sortedKeys]] as const,
+  portfolioBidCollections: (chainId: number, sortedKeys: readonly string[]) =>
+    ["portfolio-bid-collections", chainId, [...sortedKeys]] as const,
   /** Collection bids placed by wallet (portfolio). */
   portfolioBids: (address: string, chainId: number) =>
     ["portfolio-bids", address, chainId] as const,
@@ -134,13 +141,14 @@ export const rq = {
     chainId: number,
   ) => ["collection-market-series", key, duration, chainId] as const,
   /** Cardhedger all-grade catalog for collection chart picker. */
-  collectionGradeCatalog: (key: string, live = false) =>
-    ["collection-grade-catalog", key, live] as const,
+  collectionGradeCatalog: (key: string, live: boolean, chainId: number) =>
+    ["collection-grade-catalog", chainId, key, live] as const,
   /** Admin-only AI market brief for a collection. */
-  collectionAiInsight: (key: string) => ["collection-ai-insight", key] as const,
+  collectionAiInsight: (key: string, chainId: number) =>
+    ["collection-ai-insight", chainId, key] as const,
   /** Cardhedger price history for a selected grade label. */
-  collectionGradeSeries: (key: string, grade: string, days: number) =>
-    ["collection-grade-series", key, grade, days] as const,
+  collectionGradeSeries: (key: string, grade: string, days: number, chainId: number) =>
+    ["collection-grade-series", chainId, key, grade, days] as const,
   /** On-chain platform trades for a collection. */
   collectionPlatformTrades: (
     key: string,
@@ -166,10 +174,12 @@ export const rq = {
   collectionListingsMetadata: (
     key: string,
     tokenIds: readonly number[],
+    chainId: number,
     viewerWallet?: string,
   ) =>
     [
       "collection-listings-metadata",
+      chainId,
       key,
       viewerWallet?.toLowerCase() ?? "",
       [...tokenIds].slice().sort((a, b) => a - b),
@@ -258,10 +268,11 @@ export const rq = {
    * Derived collection/bucket key computed from a token's metadata + tokenURI.
    * URI included so the key invalidates if the on-chain tokenURI is updated.
    */
-  rwaBucketKey: (tokenId: number, uri: string | undefined) =>
-    ["metadata-bucket-key", tokenId, uri] as const,
+  rwaBucketKey: (tokenId: number, uri: string | undefined, chainId: number) =>
+    ["metadata-bucket-key", chainId, tokenId, uri] as const,
   /** Server-resolved collection_key for a minted/owned token (rwa_tokens + metadata). */
-  tokenCollectionKey: (tokenId: number) => ["token-collection-key", tokenId] as const,
+  tokenCollectionKey: (tokenId: number, chainId: number) =>
+    ["token-collection-key", chainId, tokenId] as const,
   /** Resolved https URL for the slab back-image (used in RWA detail panel). */
   rwaSlabBack: (uri: string) => ["rwa-detail-slab-back", uri] as const,
 

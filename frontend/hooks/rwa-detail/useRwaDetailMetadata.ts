@@ -42,7 +42,7 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
   const imageBackUrl = metaBundle?.imageBackUrl ?? null;
 
   const { data: metadataDerivedCollectionKey } = useQuery({
-    queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI),
+    queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI, chainId),
     queryFn: async () => {
       const meta = metaBundle?.metadata;
       if (!meta) return null;

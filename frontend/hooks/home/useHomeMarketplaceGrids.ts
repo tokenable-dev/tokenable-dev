@@ -8,18 +8,22 @@ import {
   rq,
   marketplaceRqPolicy,
 } from "@/lib/core";
-import { platformDefaultChainId } from "@/lib/chains";
+import type { SupportedChainId } from "@/lib/chains";
 import { resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export function useHomeMarketplaceGrids() {
-  const chainId = platformDefaultChainId();
-  const { data, isPending } = useQuery({
+  const { chainId, chainReady } = useAppChain();
+  const { data, isPending, isFetching, isError } = useQuery({
     queryKey: rq.homeMarketplaceFeed(chainId),
     queryFn: () => getHomeMarketplaceFeed(chainId),
+    enabled: chainReady,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
+  const gridsPending =
+    !chainReady || (isPending && data === undefined) || (isFetching && data === undefined);
 
   const snapshotByKey = useMemo(() => {
     const m = new Map<string, CollectionListMarketSnapshot>();
@@ -45,7 +49,8 @@ export function useHomeMarketplaceGrids() {
     justVaulted: data?.justVaulted ?? [],
     tickerItems,
     snapshotByKey,
-    isPending,
-    snapshotsPending: isPending,
+    isPending: gridsPending,
+    snapshotsPending: gridsPending,
+    isError,
   };
 }

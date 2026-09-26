@@ -13,7 +13,7 @@ import {
   rq,
   type MarketplaceNotificationItem,
 } from "@/lib/core";
-import { activeRqChainId } from "@/lib/chains";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { invalidateMarketplaceNotifications } from "@/lib/core/invalidation";
 import {
   formatNotificationTime,
@@ -64,11 +64,12 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const userId = user?.id ?? "";
-  const chainId = activeRqChainId();
+  const { chainId, chainReady } = useAppChain();
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const tabVisible = useForegroundTab();
   const enabled =
+    chainReady &&
     (options?.enabled ?? true) &&
     Boolean(userId) &&
     !privySessionSyncing &&

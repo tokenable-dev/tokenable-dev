@@ -9,16 +9,18 @@ import {
   rq,
   type CollectionAiInsightResponse,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useCollectionAiInsight(
   collectionKey: string,
   opts?: { enabled?: boolean },
 ) {
   const enabled = (opts?.enabled ?? true) && collectionKey.length > 0;
+  const chainId = activeRqChainId();
   const [showContent, setShowContent] = useState(false);
 
   const query = useQuery({
-    queryKey: rq.collectionAiInsight(collectionKey),
+    queryKey: rq.collectionAiInsight(collectionKey, chainId),
     queryFn: () => getCollectionAiInsight(collectionKey),
     enabled,
     staleTime: marketplaceRqPolicy.cardhedgerStaleMs,

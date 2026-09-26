@@ -1,8 +1,10 @@
 import type { MarketplaceCollectionSummary } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains/activeChain";
+import type { SupportedChainId } from "@/lib/chains/types";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 
-const STORAGE_KEY = "tokenable.collectionBrowse.v1";
+const STORAGE_KEY = "tokenable.collectionBrowse.v2";
 const MAX_AGE_MS = 30 * 60 * 1000;
 
 export type CollectionBrowseEntry = {
@@ -12,12 +14,23 @@ export type CollectionBrowseEntry = {
 };
 
 export type CollectionBrowseContext = {
+  chainId: SupportedChainId;
   source: "markets-grid" | "markets-trending";
   entries: CollectionBrowseEntry[];
   categoryFilter?: string;
   sortId?: string;
   savedAt: number;
 };
+
+export function clearCollectionBrowseContext(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem("tokenable.collectionBrowse.v1");
+  } catch {
+    /* ignore */
+  }
+}
 
 export function buildBrowseEntriesFromSummaries(
   collections: MarketplaceCollectionSummary[],
@@ -35,26 +48,42 @@ export function buildBrowseEntriesFromSummaries(
   return out;
 }
 
-export function saveCollectionBrowseContext(ctx: Omit<CollectionBrowseContext, "savedAt">): void {
+export function saveCollectionBrowseContext(
+  ctx: Omit<CollectionBrowseContext, "savedAt" | "chainId"> & {
+    chainId?: SupportedChainId;
+  },
+): void {
   if (typeof window === "undefined") return;
   if (ctx.entries.length < 2) return;
+  const chainId = ctx.chainId ?? (activeRqChainId() as SupportedChainId);
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ ...ctx, savedAt: Date.now() } satisfies CollectionBrowseContext),
+      JSON.stringify({
+        ...ctx,
+        chainId,
+        savedAt: Date.now(),
+      } satisfies CollectionBrowseContext),
     );
   } catch {
     /* quota / private mode */
   }
 }
 
-export function readCollectionBrowseContext(): CollectionBrowseContext | null {
+export function readCollectionBrowseContext(
+  expectedChainId?: number,
+): CollectionBrowseContext | null {
   if (typeof window === "undefined") return null;
+  const chainId = expectedChainId ?? activeRqChainId();
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CollectionBrowseContext;
-    if (!parsed?.entries?.length || Date.now() - parsed.savedAt > MAX_AGE_MS) {
+    if (
+      !parsed?.entries?.length ||
+      Date.now() - parsed.savedAt > MAX_AGE_MS ||
+      parsed.chainId !== chainId
+    ) {
       sessionStorage.removeItem(STORAGE_KEY);
       return null;
     }

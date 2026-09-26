@@ -94,7 +94,7 @@ export function usePortfolioMyBids(address: string | undefined) {
   );
 
   const collectionMetaQuery = useQuery({
-    queryKey: rq.portfolioBidCollections(collectionKeysSig),
+    queryKey: rq.portfolioBidCollections(chainId, collectionKeysSig),
     queryFn: async () => {
       const map = new Map<string, PortfolioBidCollectionMeta>();
       await Promise.all(

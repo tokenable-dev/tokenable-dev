@@ -50,7 +50,7 @@ export function useListRwaPriceSuggestions(input: {
   const metadata = metaBundle?.metadata ?? null;
 
   const { data: serverCollectionKey } = useQuery({
-    queryKey: rq.tokenCollectionKey(tokenId),
+    queryKey: rq.tokenCollectionKey(tokenId, rqChainId),
     queryFn: async () => {
       const map = await postTokenCollectionKeysByTokenIds([tokenId]);
       return map[tokenId]?.trim().toLowerCase() || null;
@@ -60,7 +60,7 @@ export function useListRwaPriceSuggestions(input: {
   });
 
   const { data: metadataDerivedCollectionKey } = useQuery({
-    queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI),
+    queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI, rqChainId),
     queryFn: async () => {
       const meta = metaBundle?.metadata;
       if (!meta) return null;
@@ -122,6 +122,7 @@ export function useListRwaPriceSuggestions(input: {
 
   const { data: snapshotPack, isLoading: snapshotLoading } = useQuery({
     queryKey: rq.collectionSnapshots(
+      rqChainId,
       persistedCollectionKey ? [persistedCollectionKey] : [],
       "max",
     ),
@@ -139,7 +140,7 @@ export function useListRwaPriceSuggestions(input: {
   }, [snapshotPack?.items, persistedCollectionKey]);
 
   const { data: mintPreviewPack, isLoading: mintPreviewLoading } = useQuery({
-    queryKey: ["list-rwa-mint-preview", tokenId] as const,
+    queryKey: ["list-rwa-mint-preview", rqChainId, tokenId] as const,
     queryFn: () => postBatchMintMarketPreviews([tokenId]),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
