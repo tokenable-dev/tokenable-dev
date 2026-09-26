@@ -18,6 +18,8 @@ type HomeHeroSlabCarouselProps = {
 const MOBILE_MQ = "(max-width: 768px)";
 const INIT_TIMEOUT_MS = 10_000;
 const MOBILE_SLOT_WAIT_MS = 2_000;
+/** ResizeObserver can fire every frame during hero layout — debounce reboots. */
+const RESIZE_REBOOT_DEBOUNCE_MS = 400;
 
 async function waitForMobileSlot(
   slot: HTMLElement | null,
@@ -64,6 +66,8 @@ export function HomeHeroSlabCarousel({
     let resizeObserver: ResizeObserver | null = null;
     let cancelled = false;
     let initGeneration = 0;
+    let bootInFlight = false;
+    let resizeDebounceId: ReturnType<typeof setTimeout> | null = null;
     const fallbackSrc = imageSources[0] ?? null;
 
     const disposeActive = () => {
@@ -95,28 +99,32 @@ export function HomeHeroSlabCarousel({
     };
 
     const boot = async (tier: HeroCarouselTier) => {
+      if (bootInFlight) return;
+      bootInFlight = true;
       const gen = ++initGeneration;
-      disposeActive();
-      host.querySelector(".home-hero__fallback")?.remove();
-
-      if (tier === "fallback" || imageSources.length === 0) {
-        mountFallback(imageSources[0] ?? null);
-        return;
-      }
-
-      if (mobileQuery.matches) {
-        const slotReady = await waitForMobileSlot(mobileSlotRef.current);
-        if (!slotReady) return;
-      }
-
-      const loadModule = import("@/lib/home/heroSlabCarousel");
-
-      let aborted = false;
-      const timeoutId = window.setTimeout(() => {
-        aborted = true;
-      }, INIT_TIMEOUT_MS);
+      let timeoutId: number | undefined;
 
       try {
+        disposeActive();
+        host.querySelector(".home-hero__fallback")?.remove();
+
+        if (tier === "fallback" || imageSources.length === 0) {
+          mountFallback(imageSources[0] ?? null);
+          return;
+        }
+
+        if (mobileQuery.matches) {
+          const slotReady = await waitForMobileSlot(mobileSlotRef.current);
+          if (!slotReady) return;
+        }
+
+        const loadModule = import("@/lib/home/heroSlabCarousel");
+
+        let aborted = false;
+        timeoutId = window.setTimeout(() => {
+          aborted = true;
+        }, INIT_TIMEOUT_MS);
+
         const loadedSources = await preloadHeroCarouselImages(tier, imageSources);
         if (cancelled || gen !== initGeneration || aborted) {
           if (aborted) mountFallback(loadedSources[0] ?? fallbackSrc);
@@ -124,7 +132,6 @@ export function HomeHeroSlabCarousel({
         }
 
         if (loadedSources.length === 0) {
-          // No decodeable covers — hide the ring rather than Tokenable placeholder faces.
           return;
         }
 
@@ -158,7 +165,8 @@ export function HomeHeroSlabCarousel({
       } catch {
         if (!cancelled && gen === initGeneration) mountFallback();
       } finally {
-        window.clearTimeout(timeoutId);
+        if (timeoutId != null) window.clearTimeout(timeoutId);
+        if (gen === initGeneration) bootInFlight = false;
       }
     };
 
@@ -196,11 +204,16 @@ export function HomeHeroSlabCarousel({
     mobileQuery.addEventListener("change", onMobileChange);
 
     resizeObserver = new ResizeObserver(() => {
-      if (mobileQuery.matches && active?.kind === "webgl") {
-        scheduleRun();
-        return;
-      }
-      if (!active && host.isConnected) scheduleRun();
+      if (resizeDebounceId != null) clearTimeout(resizeDebounceId);
+      resizeDebounceId = setTimeout(() => {
+        resizeDebounceId = null;
+        if (cancelled || bootInFlight) return;
+        if (mobileQuery.matches && active?.kind === "webgl") {
+          scheduleRun();
+          return;
+        }
+        if (!active && host.isConnected) scheduleRun();
+      }, RESIZE_REBOOT_DEBOUNCE_MS);
     });
     resizeObserver.observe(hero);
     resizeObserver.observe(host);
@@ -210,6 +223,7 @@ export function HomeHeroSlabCarousel({
     return () => {
       cancelled = true;
       initGeneration += 1;
+      if (resizeDebounceId != null) clearTimeout(resizeDebounceId);
       intersection.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       mobileQuery.removeEventListener("change", onMobileChange);

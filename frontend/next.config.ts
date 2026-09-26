@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
 import { backendOrigin } from "./lib/core/backendOrigin";
+import { DEV_CONTENT_SECURITY_POLICY } from "./lib/dev/devContentSecurityPolicy";
 
 /** Absolute path to this config file — used for webpack aliases only. */
 const FRONTEND_ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +34,18 @@ const nextConfig: NextConfig = {
   // Docker 컨테이너 배포를 위한 standalone 빌드
   // node_modules 없이 최소한의 파일만으로 실행 가능한 이미지 생성
   output: "standalone",
+  /**
+   * Dev overlay sticks on "Compiling…" when Turbopack never idles (hero WebGL resize
+   * reboot loop, constant `/api` route compiles, etc.). Set NEXT_DEV_INDICATOR=1 to show it.
+   */
+  devIndicators:
+    process.env.NEXT_DEV_INDICATOR === "1"
+      ? { position: "bottom-left" }
+      : false,
+  onDemandEntries: {
+    maxInactiveAge: 120_000,
+    pagesBufferLength: 10,
+  },
   experimental: {
     /**
      * Tree-shakes large packages so Turbopack/Webpack only bundles the exports actually used.
@@ -67,10 +80,24 @@ const nextConfig: NextConfig = {
      * Dev + prod: proxy `/api` at the edge. Avoids compiling `app/api/[...path]/route.ts`
      * on every browser request (Turbopack "Compiling…" + high CPU in local dev).
      * Nest default in dev is 127.0.0.1:4100 — override with API_PROXY_TARGET if needed.
-     * `app/api/site-access/*` and other explicit route handlers still win over this rewrite.
+     * Explicit handlers under `app/api/*` (e.g. site-access status) still win; no catch-all `/api` route.
      */
     const target = backendOrigin();
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];
+  },
+  async headers() {
+    if (process.env.NODE_ENV !== "development") return [];
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: DEV_CONTENT_SECURITY_POLICY,
+          },
+        ],
+      },
+    ];
   },
   async redirects() {
     return [

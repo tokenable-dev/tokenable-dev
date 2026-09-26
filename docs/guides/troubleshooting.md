@@ -432,9 +432,18 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 **Symptom:** Next dev overlay stuck on **“Compiling…”**, Mac fan loud, `node` CPU very high while browsing the app.
 
-**Cause:** Older dev setups compiled `app/api/[...path]/route.ts` on **every** `/api` poll (notifications, portfolio, etc.). Current dev uses edge rewrites instead — restart `pnpm dev` after pulling.
+**Cause:** A catch-all `app/api/[...path]/route.ts` **shadows** `next.config` rewrites — every notifications/portfolio poll compiles that route in Turbopack. The catch-all was removed; only `next.config` rewrites proxy `/api` to Nest.
 
-**Verify:** Dev server logs should show `GET /api/...` **without** repeated `compile: … proxy.ts` on each line after warm-up.
+**Fix:** Pull latest, **restart** `pnpm dev` (config + deleted catch-all). Warm-up one page, then idle.
+
+**Also check:**
+
+- Home hero WebGL (`HomeHeroSlabCarousel`) used to reboot on every `ResizeObserver` tick while `active` was null — that pegged CPU and kept Turbopack busy. Fixed with debounce + `bootInFlight` guard.
+- `proxy.ts` matcher now skips `_next/static`, assets, and **Next link prefetch** headers (fewer edge runs per navigation).
+- Dev CSP moved to `next.config` `headers()` so `proxy.ts` only runs the site-access gate.
+- Bottom-left dev indicator defaults **off** (`devIndicators: false`). Set `NEXT_DEV_INDICATOR=1` when you want the overlay back.
+
+**Verify:** After warm-up, dev logs should not show endless `GET /` every ~50ms. `/api/*` usually does not appear in the Next terminal (rewrite to Nest). Re-enable overlay with `NEXT_DEV_INDICATOR=1` only when debugging compile issues.
 
 
 ---

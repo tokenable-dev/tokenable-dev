@@ -721,6 +721,19 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.tkm-profile__funds {
+  margin-top: 8px;
+}
+
+.tkm-item--funds {
+  border-radius: 8px;
+}
+
+.tkm-funds-error {
+  margin: 4px 0 0;
+  padding: 0 4px;
+}
+
 .tk-header__mobile-actions .gnb-network-chip {
   height: 40px;
   padding: 0 10px;

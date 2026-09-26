@@ -134,7 +134,7 @@ getApiUrl()
 // → SSR:    process.env.INTERNAL_API_URL
 ```
 
-In local development, `next.config.ts` **rewrites** `/api/*` to Nest (default `http://127.0.0.1:4100`; override with `API_PROXY_TARGET`). `app/api/[...path]/route.ts` is a legacy fallback only.
+In local development, `next.config.ts` **rewrites** `/api/*` to Nest (default `http://127.0.0.1:4100`; override with `API_PROXY_TARGET`). Do not add a catch-all `app/api/[...path]` route — App Router handlers win over rewrites and force Turbopack to compile on every `/api` poll. Only explicit handlers remain (e.g. `app/api/site-access/status`).
 
 Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 

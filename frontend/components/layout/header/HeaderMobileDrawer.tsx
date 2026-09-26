@@ -23,9 +23,14 @@ import {
   MobileDrawerWatchlistIcon,
 } from "@/components/layout/header/HeaderMobileDrawerIcons";
 import {
+  WalletAddFundsIcon,
   WalletBidsIcon,
   WalletHistoryIcon,
 } from "@/components/layout/header/wallet/HeaderWalletMenuIcons";
+import {
+  isPrivyFiatOnrampFeatureEnabled,
+  usePrivyFiatOnramp,
+} from "@/hooks/wallet/usePrivyFiatOnramp";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
@@ -141,6 +146,14 @@ export function HeaderMobileDrawer({
   const loading = useAuthStore((s) => s.loading);
   const logout = useAuthStore((s) => s.logout);
   const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance } = useHeaderWalletMenuData();
+  const {
+    startFunding,
+    inFlight: fundingInFlight,
+    lastError: fundingError,
+    canStart: canStartFunding,
+    isLoadingConfig: fundingConfigLoading,
+  } = usePrivyFiatOnramp({ onComplete: () => void refetchBalance() });
+  const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
   const { isActivePartner } = useActivePartner();
   const portfolioHref = usePortfolioNavHref();
   const portfolioBase = portfolioBaseForPath(pathname);
@@ -198,6 +211,12 @@ export function HeaderMobileDrawer({
     onClose();
   };
 
+  const handleAddFunds = useCallback(() => {
+    void startFunding(walletAddress).then((ok) => {
+      if (ok) onClose();
+    });
+  }, [onClose, startFunding, walletAddress]);
+
   return (
     <>
       <div
@@ -236,6 +255,29 @@ export function HeaderMobileDrawer({
             <div className="tkm-profile__network">
               <NetworkSwitcher inDrawer />
             </div>
+            {showAddFunds ? (
+              <div className="tkm-profile__funds">
+                <button
+                  type="button"
+                  className="tkm-item tk-wd-item--funds tkm-item--funds"
+                  onClick={handleAddFunds}
+                  disabled={!walletAddress || fundingInFlight || fundingConfigLoading}
+                  title={
+                    canStartFunding
+                      ? "Buy USDC with card, Apple Pay, or Google Pay"
+                      : "MoonPay setup required in Privy Dashboard"
+                  }
+                >
+                  <WalletAddFundsIcon aria-hidden />
+                  {fundingInFlight ? "Opening checkout…" : "Add funds"}
+                </button>
+                {fundingError ? (
+                  <p className="tk-wd-funds-error tkm-funds-error" role="alert">
+                    {fundingError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
