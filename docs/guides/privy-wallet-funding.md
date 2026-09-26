@@ -40,7 +40,21 @@ curl -b cookies.txt http://127.0.0.1:4100/api/privy/apps/settings | jq '.funding
 | MoonPay sandbox flag | `privyClientConfig.fundingMethodConfig.moonpay.useSandbox` (false on mainnet) |
 | Destination chain | Active app chain when mainnet; else `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` |
 
-**Not used for Add funds:** `useFiatOnramp` (multi-provider router including Stripe — Stripe Embedded does not support Polygon USDC and fails with `Init failed` / unsupported asset). Stripe Embedded / Coinbase Onramp / Meld / Bridge bank deposits are out of scope.
+**Add funds (mainnet):** `usePrivyFiatOnramp` → Privy **`useFiatOnramp`** (Stripe / **Meld** / MoonPay / Coinbase by region). Destination is the chain’s **USDC contract address** + CAIP-2 chain (not the `"usdc"` symbol — that path was for legacy `useFundWallet` only).
+
+**Sepolia sandbox QA:** still `useFundWallet` + MoonPay when `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true`. Override mainnet aggregator with `NEXT_PUBLIC_PRIVY_FUNDING_MOONPAY_ONLY=true`.
+
+### Korea (KRW) — MoonPay “unable to verify identities in this country”
+
+MoonPay-only embed KYC can reject **South Korea** on ID step even though KR is not on MoonPay’s public unsupported-country list. Tokenable routes **Polygon/Ethereum mainnet** Add funds through Privy’s aggregator with **`krw`** in source currencies and Korean locale default.
+
+**You must configure (Privy Dashboard):**
+
+1. **Account Funding → Configure Meld** — complete **KYB** so Privy can route non-US/EU card onramps (100+ countries, KRW listed in Privy docs).
+2. **MoonPay production keys** — ask MoonPay support to confirm **South Korea** is enabled for your merchant / Privy embed product (not only consumer MoonPay app).
+3. **Funding token** — Polygon + native USDC (`eip155:137`) or Ethereum + USDC, matching `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID`.
+
+**Users:** passport with Latin-name transliteration if a national ID is rejected later; KRW checkout may bill in USD/EUR after FX (no KRW on-ramp currency in some provider UIs).
 
 ## Privy Dashboard checklist (Polygon live)
 

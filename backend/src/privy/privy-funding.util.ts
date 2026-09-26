@@ -152,7 +152,10 @@ export function assessPrivyFundingReadiness(
       'Add app domains under Settings → Allowed domains (e.g. `http://localhost:3000`, production URL).',
     );
     checklist.push(
-      'Frontend: Polygon live → NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=137 (environment auto-production on mainnet). Sepolia QA → sandbox + USE_ONRAMP_ON_TESTNET.',
+      'Frontend: Polygon live → NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=137 (mainnet uses Privy useFiatOnramp aggregator). Sepolia QA → sandbox + USE_ONRAMP_ON_TESTNET.',
+    );
+    checklist.push(
+      'Korea / KRW: Privy Dashboard → Account Funding → Configure Meld (KYB). MoonPay-only embed may block KR ID verification without Meld routing.',
     );
   } else {
     if (!masterToggleOn && moonpayEnabled) {

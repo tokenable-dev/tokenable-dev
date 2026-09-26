@@ -33,6 +33,7 @@ export {
   resolvePrivyFundingEnvironment,
   shouldUseMoonPayOnTestnet,
   shouldSkipFundingReadinessCheck,
+  shouldUsePrivyFiatAggregator,
   usesMoonPayFunding,
 } from "./funding";
 

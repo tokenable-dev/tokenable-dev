@@ -16,6 +16,7 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
+import { resolveNestLoggerLevels } from '../src/common/logging/nest-logger-options';
 import { ChainConfigService } from '../src/blockchain/chain-config.service';
 import {
   mintRejectionMessage,
@@ -133,7 +134,7 @@ async function main() {
   );
 
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    logger: resolveNestLoggerLevels(),
   });
 
   try {

@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
   // Docker 컨테이너 배포를 위한 standalone 빌드
   // node_modules 없이 최소한의 파일만으로 실행 가능한 이미지 생성
   output: "standalone",
+  /** Dev terminal: no per-request GET 200 lines. Set NEXT_LOG_REQUESTS=1 to restore. */
+  logging: {
+    incomingRequests: process.env.NEXT_LOG_REQUESTS === "1",
+    fetches:
+      process.env.NEXT_LOG_FETCHES === "1" ? { fullUrl: true } : undefined,
+  },
   /**
    * Dev overlay sticks on "Compiling…" when Turbopack never idles (hero WebGL resize
    * reboot loop, constant `/api` route compiles, etc.). Set NEXT_DEV_INDICATOR=1 to show it.
@@ -42,10 +48,6 @@ const nextConfig: NextConfig = {
     process.env.NEXT_DEV_INDICATOR === "1"
       ? { position: "bottom-left" }
       : false,
-  onDemandEntries: {
-    maxInactiveAge: 120_000,
-    pagesBufferLength: 10,
-  },
   experimental: {
     /**
      * Tree-shakes large packages so Turbopack/Webpack only bundles the exports actually used.

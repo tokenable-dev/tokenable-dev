@@ -5,15 +5,15 @@
   "scripts": {
     "postinstall": "node scripts/patch-privy-isactive.mjs",
     "check:css": "node scripts/check-css-braces.mjs",
-    "dev": "NODE_OPTIONS=--max-old-space-size=8192 next dev",
-    "dev:webpack": "NODE_OPTIONS=--max-old-space-size=8192 next dev --webpack",
+    "dev": "NODE_OPTIONS=--max-old-space-size=4096 next dev",
+    "dev:webpack": "NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "next start"
   },
   "dependencies": {
     "@next/third-parties": "16.1.6",
     "@privy-io/chains": "0.3.0",
-    "@privy-io/react-auth": "^3.32.2",
+    "@privy-io/react-auth": "^3.45.0",
     "@privy-io/wagmi": "^4.0.13",
     "@stripe/crypto": "^1.1.0",
     "@sumsub/websdk-react": "^2.6.3",

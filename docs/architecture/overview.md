@@ -134,6 +134,15 @@ Relational matching (`bids`/`asks` tables, settlement workers) has been **remove
 
 Frontend perf toggle uses `localStorage` keys (`PERF_LOG`, `PERF_THRESHOLD_MS`).
 
+### Logging
+
+| Variable | Service | Purpose |
+|----------|---------|---------|
+| `LOG_LEVEL` | backend | Default `warn` — Nest `Logger` only emits warn/error; `log` or `verbose` for full service logs |
+| `DB_LOGGING` | backend | TypeORM query logging when `true` (off by default) |
+| `NEXT_LOG_REQUESTS` | frontend | Set `1` to print dev `GET /… 200` request lines (off by default) |
+| `NEXT_LOG_FETCHES` | frontend | Set `1` to log Next server fetch cache lines |
+
 ### Other backend
 
 | Variable | Service | Purpose |

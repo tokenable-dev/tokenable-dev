@@ -103,6 +103,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      - LOG_LEVEL=${LOG_LEVEL:-warn}
       # Host dev uses backend/.env → redis://127.0.0.1:6380; in-compose backend uses service DNS.
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     healthcheck:

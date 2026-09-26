@@ -126,7 +126,7 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
     label: "Fiat on-ramp (MoonPay · card · Apple Pay · Google Pay)",
     hook: "useFiatOnramp / usePrivyFiatOnramp",
     status: "enabled",
-    note: "Header wallet menu → Add funds. Production: live Apple/Google Pay via MoonPay checkout.",
+    note: "Header wallet menu → Add funds. Mainnet: Privy useFiatOnramp (KRW + Meld/MoonPay by region). Sepolia QA: MoonPay embed only.",
   },
   {
     id: "fund-wallet",

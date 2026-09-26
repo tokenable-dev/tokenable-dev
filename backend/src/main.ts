@@ -16,6 +16,10 @@ import {
   assertMarketplaceAdminAuthConfig,
   readMarketplaceAdminAuthConfig,
 } from './marketplace/admin/marketplace-admin-auth.util';
+import {
+  isVerboseNestLogging,
+  resolveNestLoggerLevels,
+} from './common/logging/nest-logger-options';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -23,6 +27,7 @@ async function bootstrap() {
   assertMarketplaceAdminAuthConfig(readMarketplaceAdminAuthConfig(process.env));
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
+    logger: resolveNestLoggerLevels(),
   });
   app.enableShutdownHooks();
   // One trusted proxy hop (nginx) — req.ip resolves to the real client for
@@ -179,40 +184,43 @@ async function bootstrap() {
     process.env.PERF_LOG === 'true' || process.env.PERF_LOG === '1';
   const perfThreshold = Number(process.env.PERF_THRESHOLD_MS ?? '200');
 
-  if (!isProduction || perfEnabled) {
-    app.use(
-      (
-        req: { method: string; url?: string },
-        res: { on: (ev: string, fn: () => void) => void; statusCode: number },
-        next: () => void,
-      ) => {
-        const start = Date.now();
-        const path = req.url?.split('?')[0] ?? req.url ?? '';
-        res.on('finish', () => {
-          const ms = Date.now() - start;
-          if (!isProduction) {
-            logger.log(`${req.method} ${path} ${res.statusCode} ${ms}ms`);
-          }
-          if (perfEnabled && ms >= perfThreshold) {
-            process.stdout.write(
-              JSON.stringify({
-                perf: 'http',
-                method: req.method,
-                path,
-                status: res.statusCode,
-                ms,
-              }) + '\n',
-            );
-          }
-        });
-        next();
-      },
-    );
-  }
+  app.use(
+    (
+      req: { method: string; url?: string },
+      res: { on: (ev: string, fn: () => void) => void; statusCode: number },
+      next: () => void,
+    ) => {
+      const start = Date.now();
+      const path = req.url?.split('?')[0] ?? req.url ?? '';
+      res.on('finish', () => {
+        const ms = Date.now() - start;
+        const status = res.statusCode;
+        if (status >= 500) {
+          logger.error(`${req.method} ${path} ${status} ${ms}ms`);
+        } else if (status >= 400) {
+          logger.warn(`${req.method} ${path} ${status} ${ms}ms`);
+        }
+        if (perfEnabled && ms >= perfThreshold) {
+          process.stdout.write(
+            JSON.stringify({
+              perf: 'http',
+              method: req.method,
+              path,
+              status,
+              ms,
+            }) + '\n',
+          );
+        }
+      });
+      next();
+    },
+  );
 
   await app.listen(port, '0.0.0.0');
-  logger.log(`Server running on http://127.0.0.1:${port}/api`);
-  logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  if (isVerboseNestLogging()) {
+    logger.log(`Server running on http://127.0.0.1:${port}/api`);
+    logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  }
 }
 
 process.on('unhandledRejection', (reason) => {

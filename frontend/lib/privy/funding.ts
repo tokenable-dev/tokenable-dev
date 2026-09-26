@@ -1,9 +1,26 @@
 import {
   getChainDefinition,
+  getChainContracts,
   getPrivySupportedChains,
   SUPPORTED_CHAIN_IDS,
   type SupportedChainId,
 } from "@/lib/chains";
+
+/** Fiat source currencies for Privy `useFiatOnramp` (includes KRW for Korea). */
+export const PRIVY_FIAT_ONRAMP_SOURCE_ASSETS = [
+  "krw",
+  "usd",
+  "eur",
+  "gbp",
+  "jpy",
+  "aud",
+  "sgd",
+  "hkd",
+  "twd",
+  "thb",
+] as const;
+
+export type PrivyFiatOnrampSourceAsset = (typeof PRIVY_FIAT_ONRAMP_SOURCE_ASSETS)[number];
 
 export type PrivyFundingEnvironment = "sandbox" | "production";
 
@@ -129,6 +146,40 @@ export function usesMoonPayFunding(chainId: SupportedChainId): boolean {
 }
 
 /**
+ * Mainnet Add funds uses Privy `useFiatOnramp` (Stripe / Meld / MoonPay / Coinbase by region).
+ * MoonPay-only `useFundWallet` remains for Sepolia sandbox QA and when
+ * `NEXT_PUBLIC_PRIVY_FUNDING_MOONPAY_ONLY=true`.
+ */
+export function shouldUsePrivyFiatAggregator(chainId: SupportedChainId): boolean {
+  if (process.env.NEXT_PUBLIC_PRIVY_FUNDING_MOONPAY_ONLY === "true") {
+    return false;
+  }
+  if (isMainnetChain(chainId)) return true;
+  return process.env.NEXT_PUBLIC_PRIVY_FUNDING_USE_AGGREGATOR === "true";
+}
+
+/** Default checkout currency — KRW for Korean locale / Seoul timezone. */
+export function resolveDefaultFiatOnrampAsset(): PrivyFiatOnrampSourceAsset {
+  if (typeof window === "undefined") return "usd";
+  const lang = navigator.language?.toLowerCase() ?? "";
+  if (lang === "ko" || lang.startsWith("ko-")) return "krw";
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz === "Asia/Seoul") return "krw";
+  } catch {
+    /* ignore */
+  }
+  return "usd";
+}
+
+/** USDC contract on the funding destination chain (required by `useFiatOnramp`). */
+export function resolveFundingUsdcContractAddress(
+  chainId: SupportedChainId,
+): `0x${string}` {
+  return getChainContracts(chainId).usdcAddress;
+}
+
+/**
  * Destination asset for `useFiatOnramp`.
  * Always the symbol `"usdc"` — a contract address routes Privy through Stripe
  * Embedded onramp, which does not support Polygon native USDC and surfaces
@@ -176,6 +227,16 @@ export function formatPrivyFundingError(err: unknown): string {
     return [
       "MoonPay checkout popup could not open (often blocked by the browser).",
       "Allow popups for this site, then Add funds again and select MoonPay / card when prompted.",
+    ].join(" ");
+  }
+  if (
+    msg.toLowerCase().includes("unable to verify identities") ||
+    msg.toLowerCase().includes("not available in this country")
+  ) {
+    return [
+      "Card checkout could not verify your country with the current provider.",
+      "If you are in Korea, ensure Privy Dashboard → Account Funding has Meld configured (KYB) and production MoonPay keys with Korea enabled.",
+      "You can also send USDC to your wallet address from an exchange.",
     ].join(" ");
   }
   if (msg.includes("Funding chain") && msg.includes("not in PrivyProvider")) {

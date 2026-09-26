@@ -34,6 +34,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 import { PortfolioQueryPersistence } from "@/providers/PortfolioQueryPersistence";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
+import { FiatAggregatorFundingHost } from "@/lib/privy/FiatAggregatorFundingHost";
 
 /** Mount once inside PrivyProvider — silently selects the account embedded wallet only. */
 function AccountWalletAligner() {
@@ -107,6 +108,7 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
           <PrivySessionBridge />
+          <FiatAggregatorFundingHost />
           <AccountWalletAligner />
           <AuthProvider>
             <AppChainProvider>

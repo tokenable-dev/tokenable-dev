@@ -432,6 +432,8 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 **Symptom:** Next dev overlay stuck on **“Compiling…”**, Mac fan loud, `node` CPU very high while browsing the app.
 
+**Suddenly worse after a Privy upgrade?** `@privy-io/react-auth` 3.4x pulls in fiat-aggregator (Stripe/Meld) chunks. Tokenable lazy-loads that path on first **Add funds** only; initial `/` compile should stay lighter. Dev uses `NODE_OPTIONS=--max-old-space-size=4096` (8GB made fan/noise worse on laptops). Clear cache: `rm -rf frontend/.next` then `pnpm dev`.
+
 **Cause:** A catch-all `app/api/[...path]/route.ts` **shadows** `next.config` rewrites — every notifications/portfolio poll compiles that route in Turbopack. The catch-all was removed; only `next.config` rewrites proxy `/api` to Nest.
 
 **Fix:** Pull latest, **restart** `pnpm dev` (config + deleted catch-all). Warm-up one page, then idle.
@@ -445,6 +447,15 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 **Verify:** After warm-up, dev logs should not show endless `GET /` every ~50ms. `/api/*` usually does not appear in the Next terminal (rewrite to Nest). Re-enable overlay with `NEXT_DEV_INDICATOR=1` only when debugging compile issues.
 
+---
+
+## Console too noisy (only want warnings / errors)
+
+**Backend (local + deploy):** Default `LOG_LEVEL=warn` (see `backend/.env`). Nest `Logger.log` / `debug` from services is suppressed; HTTP access lines print only for **4xx** (warn) and **5xx** (error). Bootstrap “Server running” lines appear only when `LOG_LEVEL=log` or `verbose`. `PERF_LOG` JSON lines are unchanged.
+
+**Frontend dev:** `next.config.ts` sets `logging.incomingRequests: false` unless `NEXT_LOG_REQUESTS=1`. Server fetch cache logs need `NEXT_LOG_FETCHES=1`.
+
+**TypeORM SQL:** stays off unless `DB_LOGGING=true`.
 
 ---
 
