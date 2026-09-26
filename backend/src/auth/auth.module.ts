@@ -2,18 +2,19 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { MailModule } from '../mail/mail.module';
+import { CatalogCoverS3Service } from '../marketplace/collections/catalog-cover-s3.service';
 import { UserModule } from '../user/user.module';
+import { UserShippingAddressesController } from '../user/user-shipping-addresses.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { PrivyService } from './privy';
 
+/** User-facing auth is Privy-only (`POST /auth/privy/session`). */
 @Module({
   imports: [
     ConfigModule,
-    MailModule,
     UserModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
@@ -26,8 +27,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard],
-  exports: [AuthService, JwtAuthGuard],
+  controllers: [AuthController, UserShippingAddressesController],
+  providers: [
+    AuthService,
+    PrivyService,
+    JwtStrategy,
+    JwtAuthGuard,
+    CatalogCoverS3Service,
+  ],
+  exports: [AuthService, JwtAuthGuard, PrivyService],
 })
 export class AuthModule {}

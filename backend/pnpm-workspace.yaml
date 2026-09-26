@@ -7,3 +7,7 @@ allowBuilds:
   utf-8-validate: true
   "@nestjs/core": true
   "@scarf/scarf": true
+  # testcontainers / optional native transitive deps (pnpm 11+ blocks unapproved build scripts)
+  cpu-features: true
+  protobufjs: true
+  ssh2: true

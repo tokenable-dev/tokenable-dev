@@ -1,5 +1,62 @@
 # Troubleshooting
 
+## Backend restart loop: `Cannot find module '/app/dist/main.js'`
+
+**Symptom:** `tokenable-backend` is `Restarting`, nginx returns **502**, `/api/health` fails.
+
+**Cause:** Nest compiled with a project-root `rootDir` (e.g. `scripts/*.ts` included), so the entrypoint landed at `dist/src/main.js` while the container CMD expected `dist/main.js`.
+
+**Prevention (repo):**
+- `backend/tsconfig.build.json` includes only `src/**/*`
+- `backend/Dockerfile` fails the image build unless `dist/main.js` exists
+- Backend CI runs `pnpm build` and asserts `dist/main.js`
+
+**Emergency on EC2 (current broken image only):**
+```bash
+cd ~/app
+cat > /tmp/backend-cmd.yml <<'EOF'
+services:
+  backend:
+    command: ["node", "dist/src/main.js"]
+EOF
+docker-compose -f docker-compose.yml -f docker-compose.ec2.yml -f /tmp/backend-cmd.yml \
+  up -d --force-recreate --no-deps backend
+docker logs tokenable-backend --tail 80
+docker inspect tokenable-backend --format '{{json .Config.Cmd}}'
+curl -sS http://127.0.0.1/api/health
+```
+
+After a fixed image is pushed to ECR, redeploy without the override file.
+
+---
+
+## Deploy fails: `the database system is shutting down` (maintenance SQL)
+
+**Symptom:** GitHub Deploy stops at `apply-deploy-maintenance: …sql` with  
+`FATAL: the database system is shutting down`.
+
+**Cause:** Postgres was restarting while `apply-deploy-maintenance.sh` ran — often because `docker compose up -d --force-recreate` recreated **postgres** on every deploy, or a overlapping deploy/OOM on a small instance.
+
+**Fix (repo):** CI now runs maintenance after `up -d postgres redis` (no force-recreate on DB) and only force-recreates `backend`, `frontend`, `nginx`. The maintenance script waits for `pg_isready` and retries `psql`.
+
+**On EC2 right now (failed mid-script):**
+
+```bash
+cd ~/app
+docker ps --filter name=tokenable-postgres
+docker logs tokenable-postgres --tail 40   # look for OOM or crash
+bash backend/sql/scripts/apply-deploy-maintenance.sh
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --no-deps backend frontend nginx
+```
+
+---
+
+## PSA `/api/psa/analyze` returns 400 (ungraded / raw card)
+
+Cert OCR reads the PSA/BGS/CGC **slab label**, not a raw card. Cardhedger then returns 400/404/422; analyze surfaces **400** with *Please upload an image of a graded card…*. Pass `certNumber` if the cert is known. A 500 with Nest `Http Exception` and no `Card Hedge HTTP 5xx — retrying` log is usually this 4xx path (the real body is on `HttpException.getResponse()`).
+
+---
+
 ## PSA `/api/psa/analyze` returns 500 on deployed server
 
 1. Check backend logs for `PSA analyze failed:`:
@@ -16,7 +73,7 @@
 
 4. **Outbound HTTPS blocked** — PSA API, Cardhedger, and IPFS gateway requests must reach the internet. Check EC2 security group outbound rules.
 
-5. **Upload size** — Nginx `client_max_body_size` must be ≥ 15 MB. Multer limit is 15 MB (`psa.controller.ts`).
+5. **Upload size** — Slab photos are capped at **10 MB** (Cardhedger OCR limit). Nginx `client_max_body_size` must be ≥ 10 MB. Oversized or huge-resolution images return **400** `PSA_SLAB_IMAGE_TOO_LARGE`; OCR timeouts return **504** `CARDHEDGER_REQUEST_TIMEOUT` (not a generic 503).
 
 ---
 
@@ -28,11 +85,109 @@
 
 ---
 
+## Login modal does not open / Privy session not created
+
+**Symptom:** Clicking "Sign in" has no effect, or `POST /api/auth/privy/session` returns `400 Bad Request`.
+
+**Console: `POST https://auth.privy.io/api/v1/sessions` → 500**
+
+Privy’s own session restore failed (often a stale refresh token, sometimes a Privy outage). While that happens Privy never becomes `ready`, so `login()` does nothing even if **Sign up** is visible.
+
+1. DevTools → Application → clear site data for the origin, then reload.
+2. Confirm [status.privy.io](https://status.privy.io) and Dashboard **Allowed domains** include the exact origin (`http://localhost:3000` or `https://tokenable-dev.com`).
+
+Unrelated noise: `THREE.Clock` deprecation (home 3D) and `contentscript.js` / `ObjectMultiplex` (wallet browser extension) do **not** block Sign up.
+
+**Local dev**
+
+1. Verify `NEXT_PUBLIC_PRIVY_APP_ID` is set in `frontend/.env` and the dev server was restarted after adding it (Next.js bakes `NEXT_PUBLIC_*` at startup).
+2. Verify `PRIVY_APP_ID` and `PRIVY_APP_SECRET` are set in `backend/.env`.
+3. Confirm `localhost:3000` is listed in the **Allowed domains** in the [Privy Dashboard](https://dashboard.privy.io/).
+4. Check backend logs: `pnpm start:dev` — look for `Privy auth is not configured` or token verification errors.
+
+**Deployed server (EC2)**
+
+1. **Frontend:** GitHub secret `NEXT_PUBLIC_PRIVY_APP_ID` must be set and a **new** deploy must run (value is baked into the Docker image — editing EC2 env alone does not update the frontend bundle).
+2. **Backend:** `/home/ubuntu/.env.production.backend` must include `PRIVY_APP_ID` (same App ID) and `PRIVY_APP_SECRET`. Recreate backend after editing:  
+   `docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate backend`
+3. **Privy Dashboard → Domains:** add `https://your-production-domain.com` (exact scheme + host).
+4. **`FRONTEND_URL` / `CORS_ORIGIN`:** must match the URL users open in the browser (HTTPS in production).
+5. **`SITE_ACCESS_ENABLED=true`:** complete `/site-access` first — most API routes (including `POST /api/auth/privy/session`) require the `site_access` cookie.
+6. **Cookies:** after login, DevTools → Application → Cookies should show `access_token` (HttpOnly). If missing, check `COOKIE_SECURE=true` when using HTTPS.
+
+See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay).
+
+---
+
+## Alchemy CU / too many `eth_getLogs`
+
+**Symptom:** Alchemy dashboard shows heavy `eth_getLogs`; monthly capacity exceeded; Nest logs owner-index backfill/poll.
+
+**Cause:** `RWA_OWNER_INDEX_ENABLED=1` + `CHAIN_*_RWA_DEPLOY_BLOCK` replays Transfer logs from deploy→head (chunk ≈10 blocks). Older code also **polled every 60s during catch-up**, doubling RPC. A wrong/old deploy block or a dead RPC that still retried every minute made it worse.
+
+**Fix:**
+- Local: `RWA_OWNER_INDEX_ENABLED=0` (portfolio falls back to `ownerOf`).
+- Staging/prod: enable only when needed; set deploy block to the **current** RWA proxy; restart backend after the listener change (no poll during catch-up; idle poll ~5 min; fail backoff).
+- Do not leave Alchemy as the only RPC while catch-up runs for hundreds of thousands of blocks.
+
+---
+
+## Backend log spam: `JsonRpcProvider failed to detect network … retry in 1s`
+
+**Symptom:** Nest stdout floods that line about once per second. `/api/health` still returns 200. Owner-index backfill may still print every ~60s.
+
+**Cause:** ethers `JsonRpcProvider` could not complete `eth_chainId`. It retries **every 1s** by design. Local `CHAIN_11155111_RPC_URL` pointed at Alchemy after the monthly CU cap → 429. `RWA_OWNER_INDEX_ENABLED=1` keeps creating RPC calls (and used to leak a new provider per pass).
+
+**Fix:** Use Alchemy (or any primary) in `CHAIN_*_RPC_URL`. Backend wraps it with public fallbacks (`ethereum-sepolia-rpc.publicnode.com`, …) via ethers `FallbackProvider` with **`quorum: 1`** (failover — not majority consensus). Restart `pnpm start:dev`. To stop Transfer-log backfill RPC entirely, set `RWA_OWNER_INDEX_ENABLED=0`. Providers use `{ staticNetwork: true }` so a dead primary does not print the 1s loop forever.
+
+---
+
+## Backend: `quorum not met` on eth_call (FallbackProvider)
+
+**Symptom:** Nest logs `Error: quorum not met … method: "call"` (often `name()` / portfolio snapshot). Health still 200. Error payload may include a **valid** `results` entry (e.g. decoded `"Tokenable"`) while still throwing.
+
+**Cause:** ethers `FallbackProvider` default quorum is `ceil(totalWeight / 2)`. With primary + 2 public RPCs, quorum=2. When only one node answers (Alchemy 429 / public flaky), the call fails even though one result is fine.
+
+**Fix (code):** `ChainConfigService.createJsonRpcProvider` passes `{ quorum: 1 }`. Redeploy backend.
+
+## Owner index: `server response 404 Not Found` at `rpc.sepolia.org`
+
+**Symptom:** After switching off Alchemy, Nest logs `Owner index backfill failed` / `Transfer log poll failed` with HTML `404 Not Found` from Apache on `rpc.sepolia.org`.
+
+**Cause:** That public URL is no longer a JSON-RPC endpoint.
+
+**Fix:** Set `CHAIN_11155111_RPC_URL` (and frontend `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`) to `https://ethereum-sepolia-rpc.publicnode.com`, then restart backend (and frontend if you changed `.env`). Update the same key on EC2 `.env.production.frontend` / `.env.production.backend` if those still point at `rpc.sepolia.org`.
+
+---
+
+## Markets / collection click — Alchemy CORS + 429 in the browser console
+
+**Symptom:** Console shows `Access to fetch at 'https://eth-sepolia.g.alchemy.com/…' … blocked by CORS` and `429 (Too Many Requests)`. Collection detail may still load from the API; wallet/wagmi calls fail loudly.
+
+**Cause:** `NEXT_PUBLIC_CHAIN_*_RPC_URL` embeds an Alchemy API key in the JS bundle. Every visitor shares that key. When the quota is exhausted, Alchemy returns 429 **without** CORS headers — the browser reports CORS, but the real error is rate limiting.
+
+**Fix (code):** Frontend wagmi prefers public RPCs when the configured URL looks like Alchemy/Infura (`getBrowserRpcUrls`). Redeploy the frontend after this change.
+
+**Fix (ops):** Keep Alchemy on **backend** `CHAIN_*_RPC_URL` only if the key still has CU. For `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` use `https://ethereum-sepolia-rpc.publicnode.com`, then rebuild the frontend image. Rotate the Alchemy key if it was exposed in the client bundle.
+
+---
+
+## Collection detail — "Could not load collection" / nginx 504 (no login needed)
+
+**Symptom:** Markets list works; opening a collection shows the load-failed state or hangs. Privy login is irrelevant.
+
+**Cause:** `GET /api/marketplace/collections/:key` used to **await** on-chain `tokenURI` + IPFS backfills on every read. When backend Alchemy is rate-limited, those retries run past nginx’s gateway timeout → **504**. Related endpoints (`market-series`, `stats`) stay fast because they only hit Postgres/Cardhedger.
+
+**Fix (code):** Detail returns DB rows immediately. RPC/IPFS backfills run in the background and early-return when `cardhedgerCardId` / `psaCertNumber` / pop / title are already stamped. Redeploy the backend.
+
+---
+
 ## Frontend API calls return 401
 
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).
-- Google OAuth callback URL must match exactly what is registered in Google Cloud Console.
+- Privy Dashboard allowed domains must include the exact origin users open (scheme + host).
 - `FRONTEND_URL` in backend env must match the URL the user opens in the browser.
+- If response includes `"code":"SITE_ACCESS_REQUIRED"`, complete **`/site-access`** first when `SITE_ACCESS_ENABLED=true` — see [site-access.md](../api/site-access.md).
 
 ---
 
@@ -46,7 +201,7 @@
 ## Containers start but frontend shows blank page
 
 1. Check frontend logs: `docker logs tokenable-frontend --tail=50`
-2. Verify `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` was provided as a build arg — the frontend Dockerfile validates this at build time.
+2. Verify `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`, `_RWA`, and `_USDC` were provided as build args — the frontend Dockerfile validates these at build time.
 3. Force a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to bypass stale Service Worker cache.
 
 ---
@@ -62,9 +217,77 @@ GitHub Actions deploys frontend and backend from the **same commit** when you pu
 
 ---
 
+## EC2: `git pull` fails / deploy stuck (nginx `.bak` on server only)
+
+**Symptom:** EC2 has `nginx/nginx.tls.conf.bak.YYYYMMDDHHMMSS` but your laptop does not; `git pull` or deploy fails.
+
+**Cause:** Those `.bak` files are **untracked** on EC2 (manual `cp` before editing TLS). They do not exist in the repo. `git pull` can also fail when **tracked** `nginx/nginx.tls.conf` was edited on the server.
+
+**Fix (one-time on EC2):**
+
+```bash
+cd /home/ubuntu/app
+git fetch origin
+git checkout develop
+bash deploy/ec2-sync-git.sh develop
+```
+
+That script deletes `nginx.tls.conf.bak.*`, runs `git clean` on `nginx/`, `git reset --hard origin/<branch>`, then restores the live `nginx.tls.conf` from a `/tmp` backup. After this lands in `develop`, GitHub Deploy runs the same script.
+
+Until the script is on the host, run manually:
+
+```bash
+cp nginx/nginx.tls.conf /tmp/nginx.tls.conf.save
+rm -f nginx/nginx.tls.conf.bak.*
+git clean -fd -- nginx/
+git fetch origin && git reset --hard origin/develop
+cp /tmp/nginx.tls.conf.save nginx/nginx.tls.conf
+```
+
+---
+
+## Local Postgres: wrong data / `psql` shows old contracts
+
+**Symptom:** `psql -h 127.0.0.1 -p 5432` shows hundreds of `rwa_tokens`, but the app (Sepolia) only has tokenId 1 — or `localhost` vs `127.0.0.1` disagree.
+
+**Cause:** Two different servers on port **5432**:
+
+1. **Docker `tokenable-postgres`** on host **`127.0.0.1:5433`** (see `docker-compose.yml`).
+2. **Cursor/VS Code `Code Helper`** often binds **`127.0.0.1:5432`** (Database Client port forward or another local Postgres tunnel) — a **different** database, not the compose volume.
+
+**Fix (repo default):** Set `POSTGRES_HOST=127.0.0.1` and `POSTGRES_PORT=5433` in `backend/.env`, restart `pnpm start:dev`. Always use port **5433** for CLI/GUI clients.
+
+To drop the stray listener on 5432: Cursor **Ports** panel → stop any forward on **5432**, or quit the extension that started it. You do not need that tunnel for this project.
+
+Verify:
+
+```bash
+PGPASSWORD=tokenable psql -h 127.0.0.1 -p 5433 -U tokenable -d tokenable -c \
+  "SELECT lower(token_contract), COUNT(*) FROM rwa_tokens GROUP BY 1;"
+```
+
+---
+
+## Postgres: `sorry, too many clients already` (53300)
+
+**Symptom:** Cron logs (`PsaReceivedMailService`, `Scheduler`, etc.) fail with `code: '53300'`.
+
+**Cause:** Total connections to that Postgres instance exceeded `max_connections` — common locally when Nest + IDE DB clients + several `pnpm start:dev` processes share one server, or when minute crons spike at `:00`.
+
+**Fix (repo):**
+
+- Docker Postgres uses `max_connections=200` (`docker-compose.yml`). Recreate after pull:  
+  `docker compose up -d --force-recreate postgres`
+- Backend uses `POSTGRES_PORT=5433` and a bounded pool (`DB_POOL_MAX`, dev default **10**).
+- Session advisory locks for mail/redeem crons use one dedicated connection (`pg-session-advisory-lock.util.ts`) so pool checkouts do not leak locks.
+
+**On your machine:** One Nest process, close extra SQL clients on port 5432/5433, restart Postgres if needed.
+
+---
+
 ## Database: "relation does not exist"
 
-Production expects **seven** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
+Production expects **seventeen** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
 
 ```bash
 # From repo root (host has backend/sql/)
@@ -95,6 +318,31 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
 
 ---
 
+## List / Edit price: `ERC721: invalid token ID`
+
+`ownerOf(tokenId)` failed on the RWA contract the **frontend** is using. Missing Cardhedger data does **not** cause this.
+
+Common causes:
+
+1. **Header network ≠ mint chain** — Polygon mint listed while app/wallet still on Sepolia (or the reverse).
+2. **Frontend / backend RWA address drift** — `NEXT_PUBLIC_CHAIN_{id}_RWA` ≠ `CHAIN_{id}_RWA_ADDRESS`.
+3. **Redeployed RWA without DB reset** — old `rwa_tokens` / `orders` rows for a previous CA; portfolio can still show ghost token ids. Use admin **reset for new contract** *before* swapping the CA (see `docs/api/marketplace-admin.md`).
+
+Checks:
+
+```bash
+# DB row (token_contract must match the active CA)
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
+  "SELECT token_id, token_contract, cert_number, owner_wallet FROM rwa_tokens WHERE cert_number='YOUR_CERT';"
+
+# On-chain (replace RPC + CA)
+cast call $RWA_ADDRESS "ownerOf(uint256)(address)" $TOKEN_ID --rpc-url $RPC_URL
+```
+
+Listing now preflights `ownerOf` and maps this error to an actionable message (switch network / align env / reset after redeploy).
+
+---
+
 ## Mint rejected: "PSA 10 only"
 
 Vault allows preview for any PSA grade; **mint** requires grade **10** in graded metadata. Non–PSA-10 certs (e.g. PSA 9 Jordan) will fail at `POST /api/rwa/upload`.
@@ -106,6 +354,29 @@ Vault allows preview for any PSA grade; **mint** requires grade **10** in graded
 - **Cert-only mode** (`POST /api/psa/analyze-by-cert`): uses your cert exactly; PSA response must match (`PSACert.CertNumber` = request) or API returns 400.
 - **Slab photo mode**: Cardhedger cert OCR runs **before** manual cert hint — wrong OCR cert can drive PSA lookup. Prefer cert-only for a known cert number.
 - Empty **Grade** dropdown: ensure backend parses `CardGrade` / `GradeDescription` from PSA (recent builds); redeploy if needed.
+
+---
+
+## `/vault/submit` — `POST /api/psa/analyze-by-cert` fails with 429
+
+**Symptom:** Cert lookup returns **429** `PSA_RATE_LIMIT_EXCEEDED`; backend log shows  
+`PSA upstream 429 cert=…`.
+
+**Cause:** PSA Public API upstream rate-limited the token(s) in `PSA_PUBLIC_API_TOKENS` / `PSA_PUBLIC_API_TOKEN`. Tokenable does not locally block tokens after 429.
+
+**Fix:** Wait for PSA’s daily reset / `Retry-After`, add another PSA token to the pool and restart backend, or request a higher quota from PSA. Details: [api/psa.md](../api/psa.md#rate-limits).
+
+---
+
+## Add funds / MoonPay console errors (Sepolia sandbox)
+
+| Console / UI | Meaning |
+|--------------|---------|
+| `Transaction not found` / `PrivyApiError` after cancel or incomplete checkout | Privy polls fiat tx status; common in sandbox — ignore if modal opened |
+| `fiat/status?provider=moonpay-sandbox` **400** | Same family — often benign |
+| `Buy 0X1C7D4…` + Stripe error | `destination.asset` must be `"usdc"` (symbol), not contract address |
+
+Setup: [privy-wallet-funding.md](privy-wallet-funding.md).
 
 ---
 
@@ -126,6 +397,82 @@ pnpm install --no-frozen-lockfile
 
 ---
 
+## Local dev: `net::ERR_CONTENT_DECODING_FAILED` on API responses
+
+**Symptom:** Browser DevTools shows `GET /api/marketplace/collections … net::ERR_CONTENT_DECODING_FAILED 200 (OK)`. Marketplace data does not load.
+
+**Cause:** The NestJS backend uses `compression()` middleware which GZIP-compresses responses. Node.js's `fetch` (undici) in the Next.js dev API proxy automatically decompresses the body — but the `Content-Encoding: gzip` response header was still forwarded to the browser, which then tried to decompress an already-decompressed body.
+
+**Fix (already applied):** `frontend/lib/core/apiDevProxy.ts` now strips `content-encoding` and `content-length` headers from proxied responses:
+
+```ts
+responseHeaders.delete("content-encoding");
+responseHeaders.delete("content-length");
+```
+
+If you see this error again, ensure you are running the latest frontend code. A browser hard-refresh (⌘⇧R) after a frontend restart clears any cached state.
+
+---
+
+## Local dev: API empty / `curl localhost:4000/api/health` hangs
+
+**Symptom:** UI shows no marketplace data; `curl http://127.0.0.1:4000/api/health` times out; Postgres still has rows; backend logs show SQL running.
+
+**Cause:** Cursor / VS Code **Ports** panel can bind `localhost:4000` for remote/tunnel forwarding. That listener wins over Nest on `127.0.0.1`, while Next.js dev rewrites `/api` → `http://127.0.0.1:4000` (see `frontend/lib/core/backendOrigin.ts`). Browser and SSR calls then hit the IDE tunnel, not the API.
+
+**Verify:**
+
+```bash
+lsof -i :4000 | head -5
+curl -s --max-time 3 http://127.0.0.1:4000/api/health
+# expect {"ok":true,"service":"tokenable-api",...}
+```
+
+**Fix:** Local dev defaults to Nest on **`127.0.0.1:4100`**. Next dev **rewrites** `/api/*` to that origin (`frontend/next.config.ts`); set `API_PROXY_TARGET` if Nest listens elsewhere. Restart both backend and frontend. If `backend/.env` has `PORT=4000`, use `4100` instead.
+
+**Symptom:** Next dev overlay stuck on **“Compiling…”**, Mac fan loud, `node` CPU very high while browsing the app.
+
+**Suddenly worse after a Privy upgrade?** `@privy-io/react-auth` 3.4x pulls in fiat-aggregator (Stripe/Meld) chunks. Tokenable lazy-loads that path on first **Add funds** only; initial `/` compile should stay lighter. Dev uses `NODE_OPTIONS=--max-old-space-size=4096` (8GB made fan/noise worse on laptops). Clear cache: `rm -rf frontend/.next` then `pnpm dev`.
+
+**Cause:** A catch-all `app/api/[...path]/route.ts` **shadows** `next.config` rewrites — every notifications/portfolio poll compiles that route in Turbopack. The catch-all was removed; only `next.config` rewrites proxy `/api` to Nest.
+
+**Fix:** Pull latest, **restart** `pnpm dev` (config + deleted catch-all). Warm-up one page, then idle.
+
+**Also check:**
+
+- Home hero WebGL (`HomeHeroSlabCarousel`) used to reboot on every `ResizeObserver` tick while `active` was null — that pegged CPU and kept Turbopack busy. Fixed with debounce + `bootInFlight` guard.
+- `proxy.ts` matcher now skips `_next/static`, assets, and **Next link prefetch** headers (fewer edge runs per navigation).
+- Dev CSP moved to `next.config` `headers()` so `proxy.ts` only runs the site-access gate.
+- Bottom-left dev indicator defaults **off** (`devIndicators: false`). Set `NEXT_DEV_INDICATOR=1` when you want the overlay back.
+
+**Verify:** After warm-up, dev logs should not show endless `GET /` every ~50ms. `/api/*` usually does not appear in the Next terminal (rewrite to Nest). Re-enable overlay with `NEXT_DEV_INDICATOR=1` only when debugging compile issues.
+
+---
+
+## Mobile social login (Google / Apple) fails or loops
+
+**Symptoms:** Hamburger → Connect Wallet → Google/Apple never finishes; lands on `/site-access` after OAuth; or Privy modal does nothing on iPhone.
+
+**Fixes in app:**
+
+1. **Staging gate:** OAuth returns with `privy_oauth_*` query params — the Next `proxy.ts` layer must allow that request without redirecting to `/site-access` first (codes expire quickly).
+2. **Mobile drawer:** Sign-in goes through `openSignIn` → `PrivySignInLauncher` (same as desktop), releases `gnb-drawer-open` scroll lock before Privy opens.
+3. **iOS:** Default login row includes **Apple** — enable Apple in Privy Dashboard → Login methods.
+
+**Still check:** Privy Dashboard → **Allowed domains** includes your mobile URL (HTTPS staging/production, and LAN IP if you test on phone). Use Safari/Chrome, not in-app browsers (Instagram/Kakao) for OAuth.
+
+---
+
+## Console too noisy (only want warnings / errors)
+
+**Backend (local + deploy):** Default `LOG_LEVEL=warn` (see `backend/.env`). Nest `Logger.log` / `debug` from services is suppressed; HTTP access lines print only for **4xx** (warn) and **5xx** (error). Bootstrap “Server running” lines appear only when `LOG_LEVEL=log` or `verbose`. `PERF_LOG` JSON lines are unchanged.
+
+**Frontend dev:** `next.config.ts` sets `logging.incomingRequests: false` unless `NEXT_LOG_REQUESTS=1`. Server fetch cache logs need `NEXT_LOG_FETCHES=1`.
+
+**TypeORM SQL:** stays off unless `DB_LOGGING=true`.
+
+---
+
 ## Quick Inspection Commands
 
 ```bash
@@ -138,7 +485,7 @@ docker logs tokenable-backend 2>&1 | tail -80
 # Check env vars in backend container
 docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV|CARDHEDGER'
 
-# Verify DB tables (expect 7 application tables — see architecture/database.md)
+# Verify DB tables (see architecture/database.md for full list)
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 
 # Portfolio cron log (after 09:00 KST or bootstrap)
@@ -147,5 +494,4 @@ docker logs tokenable-backend 2>&1 | grep portfolio_daily_snapshot
 # API smoke tests
 curl -s http://localhost:4000/api/auth/session
 curl -s http://localhost:4000/api/marketplace/collections
-curl -s http://localhost:4000/api/cardhedger/indexes
 ```

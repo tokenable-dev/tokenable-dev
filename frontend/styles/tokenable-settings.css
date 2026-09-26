@@ -1,0 +1,675 @@
+/* Settings — Settings.html layout (snav + section cards + soft buttons) */
+
+@keyframes tk-settings-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tk-settings {
+  /* Settings.html surface tokens (scoped — don't override app globals) */
+  --surf: #191919;
+  --surf-2: #141414;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 4vw, 40px) 100px;
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  gap: clamp(20px, 3vw, 44px);
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tk-settings__snav {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tk-settings__snav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tk-settings__snav-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 11px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--t2);
+  font-size: 14.5px;
+  font-weight: 500;
+  transition: all 0.12s;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.tk-settings__snav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+}
+
+.tk-settings__snav-item.on {
+  background: rgba(26, 111, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.25);
+}
+
+.tk-settings__snav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tk-settings__main {
+  min-width: 0;
+}
+
+.tk-settings__sec {
+  animation: tk-settings-fade 0.2s ease;
+}
+
+.tk-settings__sec-h {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: #fff;
+}
+
+.tk-settings__sec-sub {
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.55;
+  margin: 0 0 24px;
+}
+
+.tk-settings__card {
+  background: var(--surf, #191919);
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 16px;
+}
+
+.tk-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tk-settings__row:first-child {
+  border-top: 0;
+}
+
+.tk-settings__row--start {
+  align-items: flex-start;
+}
+
+/* Settings.html `.row > .btn` — the control keeps its intrinsic width so the
+   label column absorbs the squeeze instead of the button label wrapping. */
+.tk-settings__row > .tk-settings__btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.tk-settings__row-t {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tk-settings__row-d {
+  font-size: 12.5px;
+  color: var(--t2);
+  margin-top: 3px;
+  line-height: 1.5;
+  max-width: 400px;
+}
+
+.tk-settings__row-d--wide {
+  max-width: min(720px, 100%);
+}
+
+.tk-settings__lbl {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t2);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.tk-settings__inp {
+  width: 100%;
+  height: 48px;
+  padding: 0 15px;
+  background: var(--surf-2, #141414);
+  border: 0;
+  border-radius: 11px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+
+.tk-settings__inp:focus {
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+}
+
+/* Soft buttons — Settings.html .btn (not chunky tk-btn) */
+.tk-settings__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.12s;
+  text-decoration: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.tk-settings__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-settings__btn--primary {
+  background: var(--azure);
+  color: #fff;
+}
+
+.tk-settings__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.tk-settings__btn--ghost {
+  background: transparent;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.tk-settings__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tk-settings__btn--danger {
+  background: transparent;
+  color: #ff6b7a;
+  box-shadow: inset 0 0 0 1px rgba(245, 51, 44, 0.4);
+}
+
+.tk-settings__btn--danger:hover:not(:disabled) {
+  background: rgba(245, 51, 44, 0.08);
+}
+
+.tk-settings__btn--sm {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.tk-settings__btn--md {
+  height: 46px;
+  padding: 0 22px;
+  font-size: 14px;
+}
+
+.tk-settings__sw {
+  width: 44px;
+  height: 26px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.14);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  border: 0;
+  padding: 0;
+}
+
+.tk-settings__sw::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.tk-settings__sw.on {
+  background: var(--azure);
+}
+
+.tk-settings__sw.on::after {
+  transform: translateX(18px);
+}
+
+.tk-settings__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 11px;
+  border-radius: 7px;
+  vertical-align: middle;
+}
+
+.tk-settings__chip--pos {
+  background: rgba(0, 200, 100, 0.12);
+  color: var(--pos);
+}
+
+.tk-settings__chip--warn {
+  background: rgba(243, 112, 30, 0.12);
+  color: var(--warn);
+}
+
+.tk-settings__chip--muted {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--t2);
+}
+
+.tk-settings__banner {
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.tk-settings__banner--info {
+  background: rgba(26, 111, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.2);
+  color: var(--brand-400, #5b9aff);
+}
+
+.tk-settings__matrix {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tk-settings__matrix th,
+.tk-settings__matrix td {
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.tk-settings__matrix th:first-child,
+.tk-settings__matrix td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tk-settings__matrix th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t2);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tk-settings__matrix td {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--t2);
+}
+
+.tk-settings__cbx {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--surf-2, #141414);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  color: #fff;
+}
+
+.tk-settings__cbx svg {
+  opacity: 0;
+}
+
+.tk-settings__cbx.on {
+  background: var(--azure);
+  box-shadow: inset 0 0 0 1.5px var(--azure);
+}
+
+.tk-settings__cbx.on svg {
+  opacity: 1;
+}
+
+.tk-settings__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--azure), var(--brand-400, #5b9aff));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.tk-settings__balance {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0 20px;
+}
+
+.tk-settings__balance-amt {
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.tk-settings__balance-unit {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--t2);
+  font-weight: 600;
+}
+
+.tk-settings__hint {
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.tk-settings__wallet-addr {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #fff;
+  word-break: break-all;
+}
+
+.tk-settings__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tk-settings__row--addr {
+  gap: 20px;
+}
+
+.tk-settings__addr-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.tk-settings__row--addr .tk-settings__row-d--wide {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tk-settings__actions--addr {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.tk-settings__addr-default-slot {
+  display: inline-flex;
+  min-width: 8.75rem;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+.tk-settings__addr-default-spacer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  pointer-events: none;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Notification matrix — allow horizontal scroll on narrow screens */
+.tk-settings__matrix-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.tk-settings__matrix-wrap .tk-settings__matrix {
+  min-width: 320px;
+}
+
+.tk-settings__row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.tk-settings__lbltxt--short {
+  display: none;
+}
+
+/* Settings.html collapses snav nearer ~860; keep tablet sidebar until then */
+@media (max-width: 860px) {
+  .tk-settings {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px 14px calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+  }
+
+  .tk-settings__snav {
+    position: sticky;
+    top: 64px;
+    z-index: 20;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    margin: 0 -14px;
+    padding: 8px 14px 10px;
+    background: linear-gradient(
+      to bottom,
+      rgba(10, 10, 12, 0.96) 70%,
+      rgba(10, 10, 12, 0.88)
+    );
+    backdrop-filter: blur(10px);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tk-settings__snav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tk-settings__snav-item {
+    white-space: nowrap;
+    width: auto;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    gap: 0;
+  }
+
+  .tk-settings__snav-item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .tk-settings__sec-h {
+    font-size: 22px;
+  }
+
+  .tk-settings__sec-sub {
+    font-size: 13.5px;
+    margin-bottom: 18px;
+  }
+
+  .tk-settings__card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  /* Match Settings.html: keep title + control on one row by default */
+  .tk-settings__row {
+    gap: 12px;
+    padding: 14px 0;
+    align-items: center;
+  }
+
+  .tk-settings__row > :first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tk-settings__row-d,
+  .tk-settings__row-d--wide {
+    max-width: none;
+  }
+
+  /* Multi-action / tall blocks (addresses, long CTAs) still stack */
+  .tk-settings__row--stack,
+  .tk-settings__row--addr {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .tk-settings__row--stack > .tk-settings__btn {
+    width: 100%;
+  }
+
+  .tk-settings__row--addr .tk-settings__row-d--wide {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tk-settings__actions--addr {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .tk-settings__addr-default-slot {
+    min-width: 0;
+    width: auto;
+    justify-content: flex-start;
+  }
+
+  .tk-settings__addr-default-spacer {
+    display: none;
+  }
+
+  .tk-settings__sec--legal .tk-settings__row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .tk-settings__sec--legal .tk-settings__sw {
+    margin-top: 2px;
+  }
+
+  .tk-settings__balance-amt {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+
+  .tk-settings__matrix th,
+  .tk-settings__matrix td {
+    padding: 10px 6px;
+    font-size: 12px;
+  }
+
+  .tk-settings__matrix th {
+    font-size: 10px;
+  }
+
+  .tk-settings__avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 18px;
+  }
+
+  .tk-settings__btn--sm {
+    height: 40px;
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .tk-settings__lbltxt--full {
+    display: none;
+  }
+
+  .tk-settings__lbltxt--short {
+    display: inline;
+  }
+}
+
+@media (max-width: 400px) {
+  .tk-settings__snav-item {
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+
+  .tk-settings__card {
+    padding: 14px;
+  }
+}

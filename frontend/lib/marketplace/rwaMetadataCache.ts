@@ -1,8 +1,12 @@
-const LS_KEY = "tokenable.rwa-metadata-cache.v2";
+const LS_KEY = "tokenable.rwa-metadata-cache.v4";
 const MAX_ENTRIES = 400;
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Entry = { savedAt: number; metadata: unknown; imageUrl?: string | null };
+
+function cacheKey(chainId: number, tokenId: number): string {
+  return `${chainId}:${tokenId}`;
+}
 
 function readMap(): Record<string, Entry> {
   if (typeof window === "undefined") return {};
@@ -36,22 +40,29 @@ function writeMap(m: Record<string, Entry>): void {
   }
 }
 
-export function getCachedRwaMetadata(tokenId: number): unknown | null {
+export function getCachedRwaMetadata(
+  chainId: number,
+  tokenId: number,
+): unknown | null {
   const m = readMap();
-  const e = m[String(tokenId)];
+  const e = m[cacheKey(chainId, tokenId)];
   if (!e || Date.now() - e.savedAt > TTL_MS) return null;
   return e.metadata;
 }
 
-export function getCachedRwaImageUrl(tokenId: number): string | null {
+export function getCachedRwaImageUrl(
+  chainId: number,
+  tokenId: number,
+): string | null {
   const m = readMap();
-  const e = m[String(tokenId)];
+  const e = m[cacheKey(chainId, tokenId)];
   if (!e || Date.now() - e.savedAt > TTL_MS) return null;
   const u = e.imageUrl;
   return typeof u === "string" && u.trim() ? u.trim() : null;
 }
 
 export function primeRwaMetadataCache(
+  chainId: number,
   items: Array<{
     tokenId: number;
     metadata: unknown | null;
@@ -66,7 +77,11 @@ export function primeRwaMetadataCache(
       it.imageUrl != null && String(it.imageUrl).trim()
         ? String(it.imageUrl).trim()
         : null;
-    m[String(it.tokenId)] = { savedAt: now, metadata: it.metadata, imageUrl: img };
+    m[cacheKey(chainId, it.tokenId)] = {
+      savedAt: now,
+      metadata: it.metadata,
+      imageUrl: img,
+    };
   }
   writeMap(m);
 }

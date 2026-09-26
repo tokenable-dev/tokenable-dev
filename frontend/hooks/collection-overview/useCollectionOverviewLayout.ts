@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import {
   assetDetailHeadlineHasContent,
   type AssetDetailHeadlineParts,
@@ -28,6 +27,7 @@ export function useCollectionOverviewLayout(input: {
   mobileTabbedMarketUi: boolean;
   mobileMarketTabs: unknown;
   suppressHeadlineBanner: boolean;
+  chartMetricsRow?: unknown;
 }) {
   const {
     orderBook,
@@ -46,10 +46,10 @@ export function useCollectionOverviewLayout(input: {
     mobileTabbedMarketUi,
     mobileMarketTabs,
     suppressHeadlineBanner,
+    chartMetricsRow,
   } = input;
 
   const hasBookColumn = orderBook != null || tradeTicket != null;
-  const marketsTriple = tradePanel != null && orderBookNextToChart != null;
   const orderBookToggleEnabled = onShowOrderBookChange != null;
   const orderBookColumnVisible = !orderBookToggleEnabled || showOrderBook;
 
@@ -70,18 +70,32 @@ export function useCollectionOverviewLayout(input: {
   const showMobileHeroIdentity = Boolean(headlineTitleLayout && headlineTitle);
   const hideTopHeadlineBarOnMobile = showMobileHeroIdentity && statsLength === 0;
   const useMobileTabbedMarket = mobileTabbedMarketUi && mobileMarketTabs != null;
-  const isMobileDetail = useCollectionDetailMobile();
-  const showInlineMarketCluster = !useMobileTabbedMarket || !isMobileDetail;
+  /**
+   * Card.html cluster: chart + order book (+ optional trade dock).
+   * Driven by `orderBookNextToChart` — trade dock is optional (removed on
+   * collection detail); do not require `tradePanel` or the layout collapses
+   * into the narrow classic chart panel.
+   */
+  const marketsTriple =
+    orderBookNextToChart != null &&
+    (tradePanel != null || useMobileTabbedMarket);
+  // Desktop cluster must stay mounted whenever tabbed UI is used; visibility is
+  // CSS-only. Unmounting it on mobile blanked the page on widen (Tailwind hides
+  // the mobile column at ≥1024px before React remounts desktop).
+  const desktopMetricsAboveChart = marketsTriple && chartMetricsRow != null;
 
   const gridBodyClass = useMemo(() => {
+    if (marketsTriple && useMobileTabbedMarket) {
+      return "gap-3 sm:gap-4 lg:grid-cols-1 lg:gap-y-0 lg:items-start";
+    }
     if (marketsTriple) {
-      return "gap-3 sm:gap-4 lg:gap-x-5 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";
+      return "gap-3 sm:gap-4 lg:gap-x-10 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";
     }
     if (hasBookColumn) {
       return "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)_minmax(220px,300px)]";
     }
     return "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)]";
-  }, [marketsTriple, hasBookColumn]);
+  }, [marketsTriple, useMobileTabbedMarket, hasBookColumn]);
 
   return {
     hasBookColumn,
@@ -94,9 +108,8 @@ export function useCollectionOverviewLayout(input: {
     showMobileHeroIdentity,
     hideTopHeadlineBarOnMobile,
     useMobileTabbedMarket,
-    isMobileDetail,
-    showInlineMarketCluster,
     suppressHeadlineBanner,
     gridBodyClass,
+    desktopMetricsAboveChart,
   };
 }

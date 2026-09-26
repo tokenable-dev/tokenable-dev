@@ -1,24 +1,20 @@
-# develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
+# develop / main push → ECR build → EC2 docker-compose pull
 #
-# Required Repository secrets / variables (Secrets 우선, Variables 폴백)
-#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS    (필수)
-#   NEXT_PUBLIC_USDC_CONTRACT_ADDRESS   (필수)
-#   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
-#   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
-#   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
-#   NEXT_PUBLIC_API_URL - 비우면 브라우저는 same-origin /api (Nginx→Nest 권장)
-#   CI에서 프론트 이미지 빌드 시 API_PROXY_TARGET=http://backend:4000 고정 (레포 deploy.yml)
+# GitHub Secrets (deploy only — keep these):
 #   ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-#   DEV_EC2_HOST, DEV_EC2_SSH_KEY (develop 배포)
-#   PROD_EC2_HOST, PROD_EC2_SSH_KEY (main 배포)
+#   DEV_EC2_HOST, DEV_EC2_SSH_KEY (develop)
+#   PROD_EC2_HOST, PROD_EC2_SSH_KEY (main)
+#
+# Frontend NEXT_PUBLIC_* bake: CI copies /home/ubuntu/.env.production.frontend
+# from EC2 via SSH (not git, not GitHub Secrets). See deploy/README.md.
 #
 name: Deploy
 
 on:
   push:
     branches:
-      - develop  # develop → 개발 서버 자동 배포
-      - main     # main    → 프로덕션 서버 자동 배포 (추후 사용)
+      - develop
+      - main
 
 env:
   AWS_REGION: ap-northeast-2
@@ -26,7 +22,6 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # ── 1단계: 빌드 & ECR 푸시 ────────────────────────────────────
   build-and-push:
     name: Build & Push to ECR
     runs-on: ubuntu-latest
@@ -45,41 +40,35 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2.0.1
 
-      # ── Frontend 빌드 ──────────────────────────────────────────
+      - name: Fetch frontend bake env from EC2
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            HOST='${{ secrets.PROD_EC2_HOST }}'
+            KEY='${{ secrets.PROD_EC2_SSH_KEY }}'
+          else
+            HOST='${{ secrets.DEV_EC2_HOST }}'
+            KEY='${{ secrets.DEV_EC2_SSH_KEY }}'
+          fi
+          if [ -z "${HOST}" ] || [ -z "${KEY}" ]; then
+            echo "::error::EC2 host/SSH key secret missing for branch ${{ github.ref_name }}"
+            exit 1
+          fi
+          install -m 600 /dev/null /tmp/ec2.pem
+          printf '%s\n' "$KEY" > /tmp/ec2.pem
+          scp -i /tmp/ec2.pem -o StrictHostKeyChecking=accept-new \
+            "ubuntu@${HOST}:/home/ubuntu/.env.production.frontend" \
+            frontend/.env.production
+          rm -f /tmp/ec2.pem
+          grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RPC_URL=.+' frontend/.env.production
+          grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RWA=.+' frontend/.env.production
+          grep -Eq '^NEXT_PUBLIC_PRIVY_APP_ID=.+' frontend/.env.production
+          echo "Fetched frontend bake env from ${HOST}"
+
       - name: Build & push frontend image
         run: |
           set -euo pipefail
-          # Secrets 우선; 없으면 동일 이름의 Repository Variables 폴백
-          RWA="${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"
-          USDC="${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"
-          RPC="${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"
-          if [ -z "$RWA" ];  then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$USDC" ]; then USDC="${{ vars.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$RPC" ];  then RPC="${{ vars.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"; fi
-
-          if [ -z "$RWA" ];  then echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
-          if [ -z "$USDC" ]; then echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
-          if [ -z "$RPC" ];  then echo "::error::NEXT_PUBLIC_ALCHEMY_RPC_URL 가 비어 있습니다."; exit 1; fi
-
-          # Platform fee — 선택값 (없으면 빈값 그대로 build-arg 로 넘어가 런타임에 fee=0)
-          FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
-          FEE_BPS="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"
-          if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
-          if [ -z "$FEE_BPS" ];  then FEE_BPS="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"; fi
-
-          EXTRA_BUILD_ARGS=()
-          API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
-          if [ -n "$API_URL" ]; then
-            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_API_URL=$API_URL")
-          fi
-
           docker build \
-            "${EXTRA_BUILD_ARGS[@]}" \
-            --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
-            --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
-            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL="$RPC" \
-            --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
-            --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
             --build-arg API_PROXY_TARGET=http://backend:4000 \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
@@ -87,7 +76,6 @@ jobs:
           docker push ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }}
           docker push ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }}
 
-      # ── Backend 빌드 ───────────────────────────────────────────
       - name: Build & push backend image
         run: |
           docker build \
@@ -97,7 +85,6 @@ jobs:
           docker push ${{ env.ECR_REGISTRY }}/tokenable-backend:${{ env.IMAGE_TAG }}
           docker push ${{ env.ECR_REGISTRY }}/tokenable-backend:${{ github.ref_name }}
 
-  # ── 2단계: 개발 서버 배포 (develop 브랜치) ─────────────────────
   deploy-dev:
     name: Deploy to Dev Server
     runs-on: ubuntu-latest
@@ -114,11 +101,9 @@ jobs:
           script: |
             set -e
 
-            # ECR 로그인
             aws ecr get-login-password --region ap-northeast-2 \
               | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-            # 레포가 없으면 클론, 있으면 최신화 (.git 존재 여부로 판단)
             APP_DIR="/home/ubuntu/app"
             if [ ! -d "$APP_DIR/.git" ]; then
               rm -rf "$APP_DIR"
@@ -128,17 +113,33 @@ jobs:
             cd "$APP_DIR"
             git fetch origin
             git checkout develop
-            git pull origin develop
+            TLS_CONF="$APP_DIR/nginx/nginx.tls.conf"
+            rm -f "$APP_DIR/nginx/nginx.tls.conf.bak."*
+            git clean -fd -- "$APP_DIR/nginx/" || true
+            TLS_BACKUP=""
+            if [ -f "$TLS_CONF" ]; then
+              TLS_BACKUP=$(mktemp)
+              cp "$TLS_CONF" "$TLS_BACKUP"
+            fi
+            git reset --hard origin/develop
+            if [ -n "$TLS_BACKUP" ] && [ -s "$TLS_BACKUP" ]; then
+              cp "$TLS_BACKUP" "$TLS_CONF"
+              rm -f "$TLS_BACKUP"
+            fi
 
-            # 시크릿은 docker-compose.ec2.yml → /home/ubuntu/.env.production.backend 만 사용 (~/app/backend 에 touch 불필요)
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+            COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.ec2.yml"
+            $COMPOSE pull
+            # Keep Postgres/Redis running — force-recreate on every deploy caused
+            # "database system is shutting down" during maintenance on a small EC2.
+            $COMPOSE up -d postgres redis
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+            $COMPOSE up -d --force-recreate --no-deps backend frontend nginx
+            $COMPOSE up -d --remove-orphans
             docker image prune -f
 
-  # ── 3단계: 프로덕션 배포 (main 브랜치) — 추후 사용 ──────────────
   deploy-prod:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -167,11 +168,27 @@ jobs:
             cd "$APP_DIR"
             git fetch origin
             git checkout main
-            git pull origin main
+            TLS_CONF="$APP_DIR/nginx/nginx.tls.conf"
+            rm -f "$APP_DIR/nginx/nginx.tls.conf.bak."*
+            git clean -fd -- "$APP_DIR/nginx/" || true
+            TLS_BACKUP=""
+            if [ -f "$TLS_CONF" ]; then
+              TLS_BACKUP=$(mktemp)
+              cp "$TLS_CONF" "$TLS_BACKUP"
+            fi
+            git reset --hard origin/main
+            if [ -n "$TLS_BACKUP" ] && [ -s "$TLS_BACKUP" ]; then
+              cp "$TLS_BACKUP" "$TLS_CONF"
+              rm -f "$TLS_BACKUP"
+            fi
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
 
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+            COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.ec2.yml"
+            $COMPOSE pull
+            $COMPOSE up -d postgres redis
+            bash backend/sql/scripts/apply-deploy-maintenance.sh
+            $COMPOSE up -d --force-recreate --no-deps backend frontend nginx
+            $COMPOSE up -d --remove-orphans
             docker image prune -f

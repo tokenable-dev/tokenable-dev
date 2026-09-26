@@ -1,6 +1,8 @@
 import type { Order } from "@/lib/core";
+import { formatUnits, parseUnits } from "viem";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 
 /** Caps each marketplace HTTP call during instant-match so step 4 cannot hang forever. */
 export function matchFlowHttpSignal(): AbortSignal | undefined {
@@ -44,15 +46,34 @@ export function resolveMatchCollectionKey(
   const c = orderCollectionKey(existingAsk ?? undefined);
   let fromBid = "";
   for (const x of bids ?? []) {
-    if (x.status === "active" && isCriteriaCollectionBid(x)) {
-      const k = orderCollectionKey(x);
-      if (k) {
-        fromBid = k;
-        break;
-      }
+    if (x.status !== "active") continue;
+    if (!isCriteriaCollectionBid(x) && !isTokenBidOrder(x)) continue;
+    const k = orderCollectionKey(x);
+    if (k) {
+      fromBid = k;
+      break;
     }
   }
   return a || b || c || fromBid || undefined;
+}
+
+/**
+ * List at the resting bid when the typed ask is cheaper so FULL_OPEN match
+ * consumes the whole USDC offer (one signature; leftover bid USDC would revert).
+ */
+export function askUsdcToMatchCrossingBid(
+  typedUsdc: string,
+  bidMicros: bigint,
+): string {
+  const typed = typedUsdc.trim();
+  if (bidMicros <= BigInt(0)) return typed;
+  try {
+    const tm = parseUnits(typed, 6);
+    if (bidMicros > tm) return formatUnits(bidMicros, 6);
+  } catch {
+    /* keep typed */
+  }
+  return typed;
 }
 
 export function listModalAssetLabel(tokenId: number, assetTitle?: string | null): string {
@@ -72,39 +93,35 @@ export function mergeBidsByOrderHash(api: Order[], hints: Order[]): Order[] {
 }
 
 /**
- * Highest USDC bid first. If `preferred` is set, it only moves to the front **within the same
- * bid amount** (tie-break for multiple buyers at one price) — never before a strictly higher bid.
+ * Highest USDC bid first. Within the same price, FIFO by `createdAt` (oldest first),
+ * then `orderHash`.
+ *
+ * If `preferred` is set and present, **only that bid** is returned — the seller
+ * explicitly chose it (e.g. $1 while a $2 bid also crosses). Do not auto-upgrade
+ * to a higher offer.
  */
 export function orderMatchCandidates(merkleOk: Order[], preferred?: string | null): Order[] {
-  const byPriceDesc = (a: Order, b: Order) => {
+  const createdMs = (o: Order) => {
+    const t = Date.parse(String(o.createdAt ?? ""));
+    return Number.isFinite(t) ? t : 0;
+  };
+  const byPriceThenFifo = (a: Order, b: Order) => {
     const da = bidUsdcAmount(a);
     const db = bidUsdcAmount(b);
     if (da > db) return -1;
     if (da < db) return 1;
-    return 0;
+    const ta = createdMs(a);
+    const tb = createdMs(b);
+    if (ta !== tb) return ta - tb;
+    return String(a.orderHash).localeCompare(String(b.orderHash));
   };
-  const sorted = [...merkleOk].sort(byPriceDesc);
+  const sorted = [...merkleOk].sort(byPriceThenFifo);
   const p = preferred?.trim();
   if (!p) return sorted;
 
-  const out: Order[] = [];
-  let i = 0;
-  while (i < sorted.length) {
-    const tierPrice = bidUsdcAmount(sorted[i]!);
-    const tier: Order[] = [];
-    while (i < sorted.length && bidUsdcAmount(sorted[i]!) === tierPrice) {
-      tier.push(sorted[i]!);
-      i++;
-    }
-    const prefIdx = tier.findIndex((b) => b.orderHash === p);
-    if (prefIdx > 0) {
-      const pref = tier[prefIdx]!;
-      out.push(pref, ...tier.filter((_, j) => j !== prefIdx));
-    } else {
-      out.push(...tier);
-    }
-  }
-  return out;
+  const pref = sorted.find((b) => b.orderHash === p);
+  if (pref) return [pref];
+  return sorted;
 }
 
 export function applyInstantOnlyProtection<T extends { matched: boolean; instantOnlyCancelled?: boolean }>(
@@ -113,4 +130,14 @@ export function applyInstantOnlyProtection<T extends { matched: boolean; instant
   const next = { ...meta };
   if (!next.matched) next.instantOnlyCancelled = true;
   return next;
+}
+
+/** Buyer cannot settle — keep the seller's updated ask (do not instant-only cancel). */
+export function isBuyerFundingMatchFailure(
+  reasonCode: string | undefined,
+): boolean {
+  return (
+    reasonCode === "insufficient_balance" ||
+    reasonCode === "insufficient_allowance"
+  );
 }

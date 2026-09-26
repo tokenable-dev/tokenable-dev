@@ -1,0 +1,59 @@
+---
+description: Simplicity-first engineering rules — the Tokenable design philosophy
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Simplicity Rules
+
+This repository values practical engineering over theoretical engineering. It is maintained by a small team working closely with AI. Optimize for readability, maintainability, and low cognitive load.
+
+## Before Adding Anything
+
+1. Every new folder, file, abstraction, generic, and helper has a maintenance cost. Justify it or don't add it.
+
+2. When multiple solutions exist, choose the one a new engineer understands immediately.
+
+3. If unsure, choose the simpler solution. Small understandable improvements beat large rewrites.
+
+## Do NOT
+
+4. Do NOT create one-function or one-class wrapper files. Inline or colocate small helpers.
+
+5. Do NOT split a file just because it is long. Prefer cohesive files. Split only along a real domain seam.
+
+6. Do NOT create `shared` / `common` / `base` / `core` / `abstract` folders without strong justification.
+
+7. Do NOT introduce Clean Architecture, CQRS, Factory patterns, or extra Repository layers beyond NestJS default DI + TypeORM.
+
+8. Do NOT add abstractions for only two similar functions. Wait for meaningful duplication.
+
+9. Do NOT hide business logic behind indirection. It must be traceable in one read.
+
+10. Do NOT refactor simply because something can be refactored. Preserve business correctness above all.
+
+## Do
+
+11. Prefer explicit, readable code over clever code.
+
+12. Reuse existing services, hooks, and utilities before writing new ones — search first.
+
+13. Keep the abstraction level flat. NestJS module → service → repository is the whole backend stack. Do not add layers.
+
+14. Make abstractions only when they eliminate meaningful duplication (rule of thumb: 5+ occurrences, not 2).
+
+## Recommending Changes
+
+15. When recommending a change, explain the trade-off, the maintenance impact, and why it is worthwhile for THIS project — not generic best practice.
+
+16. Prefer recommending simplifications (removing complexity) over recommending additions.
+
+## Known Complexity Hotspots (be careful, do not split reactively)
+
+- `backend/src/marketplace/market-data/cardhedger-pricing.service.ts` (~1960 lines)
+- `backend/src/psa/psa.service.ts` (~1710 lines)
+- `backend/src/psa/psa-public-api.service.ts` (~1520 lines)
+- `backend/src/marketplace/collections/collection-market.service.ts` (~1400 lines)
+- `backend/src/marketplace/market-data/cardhedger-resolve.service.ts` (~1360 lines)
+
+These are cohesive complexity concentrations. Split only when a specific change reveals a natural seam — never reactively.

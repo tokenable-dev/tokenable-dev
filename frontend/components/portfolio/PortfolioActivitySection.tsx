@@ -1,7 +1,78 @@
 "use client";
 
-import type { TxRow } from "@/lib/portfolio/portfolioTypes";
-import { CategoryBadge } from "./CollectibleCardChrome";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import type { TxKind, TxLifecycle, TxRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  compareSortNum,
+  compareSortText,
+  formatPortfolioUsd,
+} from "@/lib/portfolio/portfolioTableHelpers";
+import {
+  TX_KIND_LABEL,
+  txAmountIsNonTrade,
+  txKindClass,
+  txKindLabel,
+  txLifecycleLabel,
+} from "@/lib/portfolio/buildPortfolioTxRows";
+import { TkButton, TkTable } from "@/components/ds";
+import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
+import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
+import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
+import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
+
+type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
+type HistoryStatusFilter = "" | TxLifecycle;
+type HistoryRangeFilter = "all" | "30" | "90" | "ytd" | "custom";
+
+const ALL_KINDS: TxKind[] = ["BUY", "SELL", "MINT", "REDEEM", "TRANSFER"];
+const DAY_MS = 86_400_000;
+
+const HISTORY_TOOLBAR_SORT: { value: HistorySortKey; label: string }[] = [
+  { value: "date", label: "Date" },
+  { value: "amount", label: "Amount" },
+];
+
+
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function startOfLocalDay(isoDate: string): number {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (!y || !m || !d) return NaN;
+  return new Date(y, m - 1, d).getTime();
+}
+
+function endOfLocalDay(isoDate: string): number {
+  const start = startOfLocalDay(isoDate);
+  if (!Number.isFinite(start)) return NaN;
+  return start + DAY_MS - 1;
+}
+
+function inDateRange(
+  tx: TxRow,
+  range: HistoryRangeFilter,
+  customFrom: string,
+  customTo: string,
+  now: Date,
+): boolean {
+  if (range === "all") return true;
+  if (range === "custom") {
+    const from = customFrom ? startOfLocalDay(customFrom) : NaN;
+    const to = customTo ? endOfLocalDay(customTo) : NaN;
+    if (Number.isFinite(from) && tx.dateMs < from) return false;
+    if (Number.isFinite(to) && tx.dateMs > to) return false;
+    return true;
+  }
+  if (range === "ytd") {
+    return tx.dateMs >= new Date(now.getFullYear(), 0, 1).getTime();
+  }
+  const days = Number(range);
+  return tx.dateMs >= now.getTime() - days * DAY_MS;
+}
 
 export function PortfolioActivitySection({
   loading,
@@ -10,69 +81,416 @@ export function PortfolioActivitySection({
   loading: boolean;
   txRows: TxRow[];
 }) {
+  const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"" | TxKind>("");
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
+  const [rangeFilter, setRangeFilter] = useState<HistoryRangeFilter>("90");
+  const [draftType, setDraftType] = useState<"" | TxKind>("");
+  const [draftStatus, setDraftStatus] = useState<HistoryStatusFilter>("");
+  const [draftRange, setDraftRange] = useState<HistoryRangeFilter>("90");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const { sortKey, sortDir, toggleSort, setSort } =
+    usePortfolioTableSort<HistorySortKey>("date", "desc");
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [filterOpen]);
+
+  function openFilters() {
+    setDraftType(typeFilter);
+    setDraftStatus(statusFilter);
+    setDraftRange(rangeFilter);
+    setFilterOpen(true);
+  }
+
+  function applyFilters() {
+    setTypeFilter(draftType);
+    setStatusFilter(draftStatus);
+    setRangeFilter(draftRange);
+    setFilterOpen(false);
+  }
+
+  const filterCount =
+    (typeFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (rangeFilter !== "all" ? 1 : 0);
+
+  const sortedRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const now = new Date();
+    const kindFilter = typeFilter;
+    const rows = txRows.filter((tx) => {
+      if (q) {
+        const hay = `${tx.asset} ${tx.assetHover ?? ""} ${tx.certNumber ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (kindFilter && tx.type !== kindFilter) return false;
+      if (statusFilter && tx.status !== statusFilter) return false;
+      if (!inDateRange(tx, rangeFilter, customFrom, customTo, now)) return false;
+      return true;
+    });
+    rows.sort((a, b) => {
+      switch (sortKey) {
+        case "type":
+          return compareSortText(txKindLabel(a), txKindLabel(b), sortDir);
+        case "card":
+          return compareSortText(a.asset, b.asset, sortDir);
+        case "status":
+          return compareSortText(txLifecycleLabel(a.status), txLifecycleLabel(b.status), sortDir);
+        case "amount":
+          return compareSortNum(a.price, b.price, sortDir);
+        default:
+          return compareSortNum(a.dateMs, b.dateMs, sortDir);
+      }
+    });
+    return rows;
+  }, [
+    txRows,
+    searchQuery,
+    typeFilter,
+    statusFilter,
+    rangeFilter,
+    customFrom,
+    customTo,
+    sortKey,
+    sortDir,
+  ]);
+
+  function exportCsv() {
+    const lines = [
+      [
+        "Date",
+        "Type",
+        "Card",
+        "Status",
+        "Amount",
+        "Token ID",
+        "Contract",
+        "Tx hashes",
+        "Seaport order",
+        "Seller",
+        "Buyer",
+      ],
+    ];
+    for (const tx of sortedRows) {
+      const dash = txAmountIsNonTrade(tx);
+      const txs = (tx.chainTxs ?? []).map((t) => `${t.label} ${t.hash}`).join(" | ");
+      const seaport = tx.type === "BUY" || tx.type === "SELL" ? tx.orderHash : "";
+      lines.push([
+        tx.dateTimeLabel ?? tx.date,
+        txKindLabel(tx),
+        tx.assetHover || tx.asset,
+        txLifecycleLabel(tx.status),
+        dash ? "—" : formatPortfolioUsd(tx.price),
+        tx.tokenId != null ? String(tx.tokenId) : "",
+        tx.tokenContract ?? "",
+        txs,
+        seaport,
+        tx.sellerWallet ?? "",
+        tx.buyerWallet ?? "",
+      ]);
+    }
+    const csv = lines.map((row) => row.map(csvCell).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    a.download = "tokenable-tx-history.csv";
+    a.click();
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
+        ))}
+      </div>
+    );
+  }
+
+  if (txRows.length === 0) {
+    return (
+      <div className="pf-empty pf-empty--panel">
+        <p>No transactions yet</p>
+        <p className="pf-empty__sub">
+          Buys, sells, mints, and redeems will show up here once they settle.
+        </p>
+        <Link href="/markets" className="pf-empty__cta">
+          Browse collections
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
-      <h2 className="mb-4 text-sm font-bold">Transaction History</h2>
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-11 animate-pulse rounded-lg bg-gray-800/40" />
-          ))}
+    <>
+      <div className="pf-tbar" id="hx-toolbar">
+        <button
+          type="button"
+          className="pf-tbtn pf-tbtn--icon"
+          aria-label="Filter history"
+          aria-expanded={filterOpen}
+          onClick={openFilters}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+            <line x1="10" y1="18" x2="14" y2="18" />
+          </svg>
+          {filterCount > 0 ? (
+            <span className="pf-tbtn__badge">{filterCount}</span>
+          ) : null}
+        </button>
+        <PortfolioToolbarSearch
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search card or cert #"
+          aria-label="Search transaction history"
+        />
+        <div className="pf-tbar__spacer" />
+        <div className="pf-tbar__cluster">
+          <div className="pf-tbar__sortsel">
+            <select
+              aria-label="Sort history"
+              value={sortKey === "amount" ? "amount" : "date"}
+              onChange={(e) => {
+                const next = e.target.value as HistorySortKey;
+                setSort(next, "desc");
+              }}
+            >
+              {HISTORY_TOOLBAR_SORT.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <button
+            type="button"
+            className="pf-tbtn pf-tbtn--icon"
+            aria-label="Export CSV"
+            onClick={exportCsv}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
         </div>
-      ) : txRows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No transactions yet</p>
+      </div>
+
+      {filterOpen ? (
+        <div className="pf-filter-drawer" role="presentation">
+          <button
+            type="button"
+            className="pf-filter-drawer__scrim"
+            aria-label="Close filter"
+            onClick={() => setFilterOpen(false)}
+          />
+          <div
+            className="pf-filter-drawer__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filters"
+          >
+            <div className="pf-filter-drawer__grip" />
+            <div className="pf-filter-drawer__h">Filters</div>
+            <div className="pf-filter-drawer__fields">
+              <label className="pf-filter-drawer__label">
+                <span>Type</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftType}
+                  onChange={(e) => setDraftType(e.target.value as "" | TxKind)}
+                >
+                  <option value="">All types</option>
+                  {ALL_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {TX_KIND_LABEL[kind]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="pf-filter-drawer__label">
+                <span>Status</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftStatus}
+                  onChange={(e) =>
+                    setDraftStatus(e.target.value as HistoryStatusFilter)
+                  }
+                >
+                  <option value="">All statuses</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+              </label>
+              <label className="pf-filter-drawer__label">
+                <span>Date range</span>
+                <select
+                  className="pf-filter-drawer__select"
+                  value={draftRange}
+                  onChange={(e) =>
+                    setDraftRange(e.target.value as HistoryRangeFilter)
+                  }
+                >
+                  <option value="all">All time</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="ytd">Year to date</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              {draftRange === "custom" ? (
+                <div className="pf-hx-custom">
+                  <input
+                    type="date"
+                    className="pf-hx-custom__input"
+                    aria-label="From date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                  />
+                  <span className="pf-hx-custom__sep">–</span>
+                  <input
+                    type="date"
+                    className="pf-hx-custom__input"
+                    aria-label="To date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <TkButton
+              type="button"
+              variant="primary"
+              className="pf-filter-drawer__apply"
+              onClick={applyFilters}
+            >
+              Apply filters
+            </TkButton>
+          </div>
+        </div>
+      ) : null}
+
+      {sortedRows.length === 0 ? (
+        <p className="pf-empty pf-empty--panel">No transactions match your search.</p>
       ) : (
-        <div className="max-h-[264px] overflow-hidden overflow-y-auto rounded-xl border border-gray-800/60">
-          <table className="w-full table-fixed text-[13px]">
-            <colgroup>
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "36%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "24%" }} />
-            </colgroup>
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#111a25] text-left text-xs text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Asset</th>
-                <th className="px-4 py-2.5 font-medium">Amount</th>
-                <th className="px-4 py-2.5 font-medium">Price</th>
-                <th className="px-4 py-2.5 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800/40">
-              {txRows.map((tx) => (
-                <tr key={tx.orderHash} className="transition-colors hover:bg-white/[0.02]">
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        tx.type === "BUY"
-                          ? "bg-mint/15 text-mint"
-                          : "bg-red-500/15 text-red-400"
-                      }`}
-                    >
-                      {tx.type}
+        <TkTable wrapClassName="pf-table-wrap" className="pf-table--history">
+          <colgroup>
+            <col className="pf-col-date" />
+            <col className="pf-col-type" />
+            <col className="pf-col-card" />
+            <col className="pf-col-status" />
+            <col className="pf-col-amount" />
+          </colgroup>
+          <thead>
+            <tr>
+              <PortfolioSortableTh
+                label="Date"
+                sortKey="date"
+                activeKey={sortKey}
+                sortDir={sortDir}
+                onSort={(k) => toggleSort(k as HistorySortKey)}
+              />
+              <PortfolioSortableTh
+                label="Type"
+                sortKey="type"
+                activeKey={sortKey}
+                sortDir={sortDir}
+                onSort={(k) => toggleSort(k as HistorySortKey)}
+              />
+              <PortfolioSortableTh
+                label="Card"
+                sortKey="card"
+                activeKey={sortKey}
+                sortDir={sortDir}
+                onSort={(k) => toggleSort(k as HistorySortKey)}
+              />
+              <PortfolioSortableTh
+                label="Status"
+                sortKey="status"
+                activeKey={sortKey}
+                sortDir={sortDir}
+                align="right"
+                onSort={(k) => toggleSort(k as HistorySortKey)}
+              />
+              <PortfolioSortableTh
+                label="Amount"
+                sortKey="amount"
+                activeKey={sortKey}
+                sortDir={sortDir}
+                align="right"
+                onSort={(k) => toggleSort(k as HistorySortKey)}
+              />
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map((tx, index) => {
+              const dash = txAmountIsNonTrade(tx);
+              const zebra = index % 2 === 1 ? " pf-table-row--zebra" : "";
+              const fullName = tx.assetHover || tx.asset;
+              return (
+                <tr
+                  key={tx.orderHash}
+                  className={`pf-history-row${zebra}`}
+                  onClick={() => setSelectedTx(tx)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedTx(tx);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                >
+                  <td data-label="Date">
+                    <span className="tkl-mono pf-table-date">{tx.date}</span>
+                  </td>
+                  <td data-label="Type">
+                    <span className={`tkl-mono pf-table-type ${txKindClass(tx)}`}>
+                      {txKindLabel(tx)}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-medium text-gray-200">
-                        {tx.asset}
-                      </span>
-                      {tx.category ? <CategoryBadge label={tx.category} /> : null}
-                    </div>
+                  <td data-label="Card">
+                    <span
+                      className={`pf-table-card-name pf-table-card-name--history ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
+                      title={fullName}
+                    >
+                      {tx.asset}
+                    </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-400">{tx.amount}</td>
-                  <td className="px-4 py-2.5 text-gray-400">
-                    ${tx.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  <td data-label="Status" style={{ textAlign: "right" }}>
+                    <PortfolioHistoryStatusBadge status={tx.status} />
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500">{tx.date}</td>
+                  <td data-label="Amount" style={{ textAlign: "right" }}>
+                    <span
+                      className={`tkl-mono pf-table-amount${
+                        dash ? " pf-table-amount--dash" : ""
+                      }`}
+                    >
+                      {dash ? "—" : formatPortfolioUsd(tx.price)}
+                    </span>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </TkTable>
       )}
-    </div>
+
+      <PortfolioTxDetailDrawer tx={selectedTx} onClose={() => setSelectedTx(null)} />
+    </>
   );
 }

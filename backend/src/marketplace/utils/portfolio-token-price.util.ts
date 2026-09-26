@@ -27,23 +27,30 @@ function gradedFromMeta(
 
 function gradeScoreFromMeta(meta: Record<string, unknown>): number | null {
   const graded = gradedFromMeta(meta);
-  if (!graded) return null;
-  const psa = graded.psa as Record<string, unknown> | undefined;
-  const grade = graded.grade as Record<string, unknown> | undefined;
-  return (
-    parseFiniteGradeScore(psa?.gradeScore) ??
-    parseFiniteGradeScore(grade?.score) ??
-    null
-  );
+  if (graded) {
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    const grade = graded.grade as Record<string, unknown> | undefined;
+    const fromGraded =
+      parseFiniteGradeScore(psa?.gradeScore) ??
+      parseFiniteGradeScore(grade?.score);
+    if (fromGraded != null) return fromGraded;
+  }
+  const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+  const m = name.match(/\bPSA\s+(\d{1,2}(?:\.\d+)?)\s*$/i);
+  return m?.[1] ? parseFiniteGradeScore(m[1]) : null;
 }
 
 function gradeScoreStrFromMeta(meta: Record<string, unknown>): string | null {
   const graded = gradedFromMeta(meta);
-  if (!graded) return null;
-  const psa = graded.psa as Record<string, unknown> | undefined;
-  const grade = graded.grade as Record<string, unknown> | undefined;
-  const raw = psa?.gradeScore ?? grade?.score;
-  return raw != null ? String(raw) : null;
+  if (graded) {
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    const grade = graded.grade as Record<string, unknown> | undefined;
+    const raw = psa?.gradeScore ?? grade?.score;
+    if (raw != null && String(raw).trim()) return String(raw).trim();
+  }
+  const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+  const m = name.match(/\bPSA\s+(\d{1,2}(?:\.\d+)?)\s*$/i);
+  return m?.[1] ?? null;
 }
 
 function representativeGradeUsd(
@@ -74,6 +81,26 @@ function pickPortfolioMarketPreview(
   if (sOk) return s!;
   if (mOk) return mintPv!;
   return s ?? mintPv ?? null;
+}
+
+/** True when portfolio snapshot alone can price a holding (no mint-preview needed). */
+export function portfolioSnapshotCanPriceHoldings(
+  series: CollectionMarketBundle | null | undefined,
+  gradeScore?: number | null,
+): boolean {
+  if (!series) return false;
+  const preview = series.cardhedgerPreview;
+  if (preview?.matched && preview?.card) return true;
+  const gp = series.gradePrices;
+  const hasStrip = Boolean(
+    finitePositive(gp?.psa10) ||
+      finitePositive(gp?.psa9) ||
+      finitePositive(gp?.raw) ||
+      series.allGradePrices?.some((e) => finitePositive(e.priceUsd)),
+  );
+  if (!hasStrip) return false;
+  /* Grade strip needs a resolvable grade; otherwise mint-preview must run. */
+  return gradeScore != null && Number.isFinite(gradeScore);
 }
 
 /** Cardhedger-backed mark for one owned token (snapshot-first, mint preview fallback). */

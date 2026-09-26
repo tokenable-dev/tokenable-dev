@@ -21,7 +21,7 @@ const SEAPORT_INVALID_TIME_ABI = [
 ] as const;
 
 const SEAPORT_INVALID_TIME_SHORT =
-  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the NFT or place a new collection bid, then try again.";
+  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the RWA or place a new collection bid, then try again.";
 
 function extractRevertHexData(err: unknown): Hex | null {
   let cur: unknown = err;
@@ -78,12 +78,28 @@ export type WalletErrorCode =
   | "TIMEOUT"
   | "NONCE"
   | "RATE_LIMIT"
+  | "LISTING_COLLECTION"
   | "REVERT"
+  | "UNKNOWN";
+
+/** Normalized categories for Privy external-wallet connect / activate flows. */
+export type WalletConnectErrorCode =
+  | "USER_CANCELLED"
+  | "ACTIVATION_FAILED"
+  | "WALLET_UNAVAILABLE"
+  | "ACCOUNT_MISMATCH"
+  | "CHAIN_MISMATCH"
+  | "TIMEOUT"
   | "UNKNOWN";
 
 export interface WalletErrorResult {
   code: WalletErrorCode;
   /** UI에 표시할 짧은 문장 */
+  message: string;
+}
+
+export interface WalletConnectErrorResult {
+  code: WalletConnectErrorCode;
   message: string;
 }
 
@@ -203,6 +219,105 @@ function stringifyUnknown(err: unknown): string {
 }
 
 /**
+ * Privy connect / link / activate failures (not Seaport tx errors).
+ * Never returns raw provider stacks — only short user-facing copy.
+ */
+export function mapWalletConnectError(err: unknown): WalletConnectErrorResult {
+  const text = stringifyUnknown(err);
+  const lower = text.toLowerCase();
+
+  const numericCode =
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    typeof (err as { code?: unknown }).code === "number"
+      ? (err as { code: number }).code
+      : undefined;
+
+  if (
+    numericCode === 4001 ||
+    /user rejected|user denied|rejected the request|action rejected|cancelled by user|user closed|closed modal|exited|dismiss/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "USER_CANCELLED",
+      message: "Wallet connection was cancelled. Try again when you are ready.",
+    };
+  }
+
+  if (
+    /account mismatch|does not match|wrong (account|wallet)|different (account|wallet)|connected wallet does not match/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "ACCOUNT_MISMATCH",
+      message:
+        "The wallet in MetaMask does not match your Tokenable account wallet. Switch accounts or reconnect.",
+    };
+  }
+
+  if (
+    /wrong network|chain mismatch|switch network|unrecognized chain|network not supported|expected chain|chain id/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "CHAIN_MISMATCH",
+      message: "Wrong network in your wallet. Switch to the app network and try again.",
+    };
+  }
+
+  if (
+    /timeout|timed out|time out|deadline|couldn't finish connecting|could not finish connecting/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "We couldn't finish connecting your wallet. Please try connecting again.",
+    };
+  }
+
+  if (
+    /wallet not found|not found in privy|not available in this (browser )?session|no ethereum provider|provider.*(undefined|unavailable)|metamask.*(not found|unavailable)|failed to connect/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "WALLET_UNAVAILABLE",
+      message:
+        "Wallet is not available in this browser session. Open MetaMask and try connecting again.",
+    };
+  }
+
+  if (
+    /failed to activate|activation failed|setactivewallet|could not switch wallet|unable to connect/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "ACTIVATION_FAILED",
+      message: "Could not activate your wallet. Please try connecting again.",
+    };
+  }
+
+  if (text.trim()) {
+    return {
+      code: "UNKNOWN",
+      message: "Something went wrong connecting your wallet. Please try again.",
+    };
+  }
+
+  return {
+    code: "UNKNOWN",
+    message: "Something went wrong connecting your wallet. Please try again.",
+  };
+}
+
+/**
  * 지갑·트랜잭션 관련 에러를 사용자 친화 문구로 변환한다.
  */
 export function mapWalletError(err: unknown): WalletErrorResult {
@@ -239,7 +354,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "INSUFFICIENT_FUNDS",
       message:
-        "Not enough ETH for gas. Add Sepolia ETH to your wallet and try again.",
+        "Not enough native token for gas. Add funds on the selected network and try again.",
     };
   }
 
@@ -250,14 +365,50 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   ) {
     return {
       code: "NETWORK_MISMATCH",
-      message: "Wrong network. Switch to Sepolia in your wallet and try again.",
+      message: "Wrong network. Switch to the app network in the header and try again.",
+    };
+  }
+
+  if (
+    /account wallet not found in privy|not available in this (browser )?session|reconnect your wallet/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "UNKNOWN",
+      message:
+        "Your account wallet is not active in this browser. Reconnect your wallet and try again.",
+    };
+  }
+
+  if (/account wallet session is not ready/i.test(lower)) {
+    return {
+      code: "TIMEOUT",
+      message: "Wallet is still connecting. Wait a moment and try again.",
+    };
+  }
+
+  if (/could not create a marketplace collection|could not resolve marketplace collection/i.test(lower)) {
+    return {
+      code: "LISTING_COLLECTION",
+      message:
+        "This token could not be grouped into a marketplace collection. Check graded metadata on IPFS and try listing again.",
+    };
+  }
+
+  if (/api request timed out/i.test(lower)) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "The server took too long to respond. Your on-chain action may still have succeeded — refresh Portfolio before trying again.",
     };
   }
 
   if (/timeout|timed out|time out|deadline/i.test(lower)) {
     return {
       code: "TIMEOUT",
-      message: "Transaction timed out. Try again.",
+      message:
+        "Confirmation timed out. Your purchase may still have gone through — check Portfolio or the explorer before trying again.",
     };
   }
 
@@ -281,6 +432,22 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "RATE_LIMIT",
       message: "Too many requests. Wait a moment and try again.",
+    };
+  }
+
+  if (/incorrect owner/i.test(lower)) {
+    return {
+      code: "REVERT",
+      message:
+        "This listing is no longer valid — the seller no longer holds the card. Refresh the collection and try again.",
+    };
+  }
+
+  if (/invalid token id|nonexistent token|owner query for nonexistent|does not exist on 0x/i.test(lower)) {
+    return {
+      code: "NETWORK_MISMATCH",
+      message:
+        "This token ID is not minted on the RWA contract for the selected network. Switch the header to the mint chain, confirm NEXT_PUBLIC_CHAIN_*_RWA matches the backend, or reset marketplace data after a contract redeploy — then list again.",
     };
   }
 
@@ -312,7 +479,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "NETWORK_MISMATCH",
       message:
-        "RPC returned no contract data. Confirm you are on Sepolia and that USDC / Seaport addresses match this app’s config.",
+        "RPC returned no contract data. Confirm the header network matches your wallet and that USDC / Seaport addresses are configured for this chain.",
     };
   }
 
