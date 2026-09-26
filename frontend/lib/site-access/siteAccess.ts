@@ -25,6 +25,20 @@ export function isSiteAccessEnabled(): boolean {
   return readSiteAccessConfig().enabled;
 }
 
+/**
+ * Privy social login returns to the app with these query params (full-page redirect).
+ * The staging password gate must not intercept that navigation or OAuth codes expire.
+ */
+export function isPrivyOAuthCallbackSearch(
+  searchParams: URLSearchParams | Readonly<URLSearchParams>,
+): boolean {
+  return (
+    searchParams.has("privy_oauth_code") ||
+    searchParams.has("privy_oauth_state") ||
+    searchParams.has("privy_oauth_provider")
+  );
+}
+
 export function isSiteAccessPublicPath(pathname: string, method: string): boolean {
   if (pathname === "/site-access") return true;
   if (pathname === "/site-access/verify" && method.toUpperCase() === "POST") {

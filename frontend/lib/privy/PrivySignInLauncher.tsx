@@ -19,7 +19,8 @@ export function PrivySignInLauncher() {
     launchInFlight.current = true;
     closeSignIn();
     if (!authenticated) {
-      startPrivyLogin(login);
+      const returnTo = useAuthUiStore.getState().pendingReturnTo;
+      startPrivyLogin(login, { returnTo: returnTo ?? undefined });
     }
     launchInFlight.current = false;
   }, [signInOpen, login, closeSignIn, authenticated]);

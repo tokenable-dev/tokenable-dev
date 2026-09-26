@@ -1,10 +1,8 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useLogin } from "@privy-io/react-auth";
 import { useCallback, useEffect, useState } from "react";
 import { TkButton } from "@/components/ds";
-import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import {
   HEADER_NAV_ITEMS,
   navItemActive,
@@ -50,6 +48,7 @@ import {
 } from "@/lib/portfolio/portfolioPaths";
 import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 import { HeaderWalletCopyAddressButton } from "@/components/layout/header/wallet/HeaderWalletCopyAddressButton";
 
 function mobileDrawerKycLabel(tone: HeaderKycTone, text: string): string {
@@ -139,7 +138,7 @@ export function HeaderMobileDrawer({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const navigate = useHeaderNavGate();
-  const { login } = useLogin();
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const { canShowAuthUi, authenticated, privyUnavailable } = usePrivyInitGate();
   const { unreadCount } = useMarketplaceNotifications();
   const initialized = useAuthStore((s) => s.initialized);
@@ -207,8 +206,15 @@ export function HeaderMobileDrawer({
   }, [logout, onClose, signingOut]);
 
   const handleConnect = () => {
-    startPrivyLogin(login);
-    onClose();
+    const pathOnly = pathname?.split("?")[0] ?? "/";
+    const search = searchParams?.toString();
+    const returnTo =
+      pathOnly && pathOnly !== "/"
+        ? `${pathOnly}${search ? `?${search}` : ""}`
+        : "/";
+    openSignIn({ returnTo });
+    // Close drawer after sign-in is queued — avoids trapping Privy under scroll lock on iOS.
+    queueMicrotask(() => onClose());
   };
 
   const handleAddFunds = useCallback(() => {

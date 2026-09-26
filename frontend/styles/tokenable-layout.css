@@ -878,6 +878,13 @@
   transform: translateX(0);
 }
 
+/* Privy login / OAuth UI must sit above the mobile drawer (z-index 8000–8001). */
+#privy-dialog,
+#privy-modal-content,
+[data-privy-dialog] {
+  z-index: 10000 !important;
+}
+
 .tkm-profile {
   margin: 0 16px 4px;
   padding: 14px 16px;

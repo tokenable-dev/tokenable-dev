@@ -449,6 +449,20 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 ---
 
+## Mobile social login (Google / Apple) fails or loops
+
+**Symptoms:** Hamburger → Connect Wallet → Google/Apple never finishes; lands on `/site-access` after OAuth; or Privy modal does nothing on iPhone.
+
+**Fixes in app:**
+
+1. **Staging gate:** OAuth returns with `privy_oauth_*` query params — the Next `proxy.ts` layer must allow that request without redirecting to `/site-access` first (codes expire quickly).
+2. **Mobile drawer:** Sign-in goes through `openSignIn` → `PrivySignInLauncher` (same as desktop), releases `gnb-drawer-open` scroll lock before Privy opens.
+3. **iOS:** Default login row includes **Apple** — enable Apple in Privy Dashboard → Login methods.
+
+**Still check:** Privy Dashboard → **Allowed domains** includes your mobile URL (HTTPS staging/production, and LAN IP if you test on phone). Use Safari/Chrome, not in-app browsers (Instagram/Kakao) for OAuth.
+
+---
+
 ## Console too noisy (only want warnings / errors)
 
 **Backend (local + deploy):** Default `LOG_LEVEL=warn` (see `backend/.env`). Nest `Logger.log` / `debug` from services is suppressed; HTTP access lines print only for **4xx** (warn) and **5xx** (error). Bootstrap “Server running” lines appear only when `LOG_LEVEL=log` or `verbose`. `PERF_LOG` JSON lines are unchanged.

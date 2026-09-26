@@ -88,7 +88,8 @@ export function resolvePrivyLoginMethodsOrder(): NonNullable<
     };
   }
   return {
-    primary: ["metamask", "google", "email"],
+    // Apple on the primary row — required for reliable iOS social sign-in (not buried under wallets).
+    primary: ["metamask", "google", "apple", "email"],
     overflow: [...DEFAULT_WALLET_OVERFLOW],
   };
 }

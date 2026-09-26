@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   SITE_ACCESS_COOKIE,
+  isPrivyOAuthCallbackSearch,
   isSiteAccessEnabled,
   isSiteAccessPublicPath,
   verifySiteAccessCookie,
@@ -18,6 +19,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const pathname = request.nextUrl.pathname;
+  if (isPrivyOAuthCallbackSearch(request.nextUrl.searchParams)) {
+    return NextResponse.next();
+  }
   if (isSiteAccessPublicPath(pathname, request.method)) {
     return NextResponse.next();
   }

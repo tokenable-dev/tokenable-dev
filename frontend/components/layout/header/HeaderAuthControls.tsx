@@ -1,11 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useLogin } from "@privy-io/react-auth";
 import { TkButton } from "@/components/ds";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
-import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 
 const HeaderWalletMenu = dynamic(
   () =>
@@ -24,7 +23,7 @@ export function HeaderAuthControls({
 }: {
   onOpenNotifications?: () => void;
 }) {
-  const { login } = useLogin();
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const { canShowAuthUi, authenticated, privyUnavailable } = usePrivyInitGate();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
@@ -43,7 +42,7 @@ export function HeaderAuthControls({
         type="button"
         variant="primary"
         className="tk-btn--gnb tk-connect"
-        onClick={() => startPrivyLogin(login)}
+        onClick={() => openSignIn({ returnTo: "/" })}
       >
         Sign up
       </TkButton>
