@@ -63,10 +63,12 @@ const nextConfig: NextConfig = {
    * (기본 `127.0.0.1:4000` 이면 프론트 컨테이너 안에 백엔드가 없어 `/api` 가 전부 502 가 됨.)
    */
   async rewrites() {
-    // Local dev: `app/api/[...path]/route.ts` probes Nest on 4100/4000 (no fixed LAN/loopback rewrite).
-    if (process.env.NODE_ENV === "development") {
-      return [];
-    }
+    /**
+     * Dev + prod: proxy `/api` at the edge. Avoids compiling `app/api/[...path]/route.ts`
+     * on every browser request (Turbopack "Compiling…" + high CPU in local dev).
+     * Nest default in dev is 127.0.0.1:4100 — override with API_PROXY_TARGET if needed.
+     * `app/api/site-access/*` and other explicit route handlers still win over this rewrite.
+     */
     const target = backendOrigin();
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];
   },

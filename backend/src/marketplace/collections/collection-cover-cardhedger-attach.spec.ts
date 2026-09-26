@@ -222,6 +222,48 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     );
   });
 
+  it('attaches cert-linked Base row when PSA says ALTERNATE ART (OP13-118)', async () => {
+    const forwardJson = jest.fn().mockResolvedValue({
+      results: [
+        {
+          cert_info: {
+            cert: '166215346',
+            description:
+              '2025 One Piece Japanese OP13-Carrying on His Will Monkey D. Luffy Alternate Art 118',
+          },
+          card: {
+            card_id: '1771650176617x878153312773092500',
+            description: 'Monkey.D.Luffy 2025 One Piece Carrying On His Will',
+            number: 'OP13-118',
+            variant: 'Base',
+            image: 'https://cdn.example.com/luffy.jpg',
+          },
+        },
+      ],
+    });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '166215346',
+            subject: 'Monkey D. Luffy',
+            cardNumberHint: '118',
+            variety: 'ALTERNATE ART',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '166215346');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBe('1771650176617x878153312773092500');
+    expect(forwardJson).toHaveBeenCalledTimes(1);
+  });
+
   it('attaches One Piece Manga AA via search when cert card is null (PSA 120 vs OP13-120)', async () => {
     const forwardJson = jest
       .fn()

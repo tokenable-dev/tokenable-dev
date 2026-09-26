@@ -460,12 +460,15 @@ export class CardhedgerMintService {
           if (certDigits) psaMirrorByCert.set(certDigits, psaMirror);
         }
 
+        const certCardId =
+          typeof certRow?.card_id === 'string' ? certRow.card_id.trim() : '';
         const batchRow =
           certRow &&
-          cardhedgerCertRowUsableForPsaVariety(
-            certRow as Record<string, unknown>,
-            String(psaMirror.psaVariety ?? ''),
-          )
+          (certCardId ||
+            cardhedgerCertRowUsableForPsaVariety(
+              certRow as Record<string, unknown>,
+              String(psaMirror.psaVariety ?? ''),
+            ))
             ? certRow
             : undefined;
 

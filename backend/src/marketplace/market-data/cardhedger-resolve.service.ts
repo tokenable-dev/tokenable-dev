@@ -561,10 +561,14 @@ export class CardhedgerResolveService {
     row: CardhedgerCardRow,
     opts?: {
       trustStoredCardhedgerCatalogId?: boolean;
+      /** GemRate / `details-by-certs` linked this catalog row to the slab cert. */
+      trustCertLinkedRow?: boolean;
       brandOrSet?: string | null;
     },
   ): boolean {
-    if (opts?.trustStoredCardhedgerCatalogId) return false;
+    if (opts?.trustStoredCardhedgerCatalogId || opts?.trustCertLinkedRow) {
+      return false;
+    }
     const pv = psaVariety?.trim() ?? '';
     if (!pv) {
       return !cardhedgerRowMatchesPsaVariety(
@@ -1259,7 +1263,10 @@ export class CardhedgerResolveService {
             const certVarietyFail = this.parallelRowFailsExpectation(
               q.psaVariety,
               row,
-              { brandOrSet: q.psaBrand || q.cardSet || null },
+              {
+                brandOrSet: q.psaBrand || q.cardSet || null,
+                trustCertLinkedRow: true,
+              },
             );
             if (certVarietyFail) {
               this.logger.log(

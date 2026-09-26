@@ -134,7 +134,7 @@ getApiUrl()
 // → SSR:    process.env.INTERNAL_API_URL
 ```
 
-In local development, `app/api/[...path]/route.ts` proxies all `/api/*` requests to the NestJS backend (auto-detected at port 4100 or 4000). The proxy strips `content-encoding` and `content-length` from backend responses so the browser does not attempt to re-decompress already-decompressed gzip bodies.
+In local development, `next.config.ts` **rewrites** `/api/*` to Nest (default `http://127.0.0.1:4100`; override with `API_PROXY_TARGET`). `app/api/[...path]/route.ts` is a legacy fallback only.
 
 Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 

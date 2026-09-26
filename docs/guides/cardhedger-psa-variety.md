@@ -188,6 +188,12 @@ Official pipeline is still **cert → `details-by-certs` → Variety gate → `/
 
 Catalog create / cover search must treat PSA checklist `#120` as compatible with Cardhedger `OP13-120` (`catalogTcgPrefixedNumberCompatible`). Exact string equality used to skip every OP13 hit, so `details-by-certs` `card: null` left the collection with no `cardId`, cover, or snapshot price.
 
+### PSA `ALTERNATE ART` with Cardhedger `variant: "Base"` (cert `166215346` Luffy OP13-118)
+
+Cardhedger `prices-by-cert` / `details-by-certs` can return a **cert-linked** `card_id` whose catalog row is labeled **`Base`** while PSA Variety is **`ALTERNATE ART`** and `cert_info.description` includes “Alternate Art”. Tokenable’s variety gate used to drop that row, so mint/catalog create stored **no `cardhedgerCardId`** and snapshots stayed empty despite Cardhedger sales on that `card_id`.
+
+**수정:** treat GemRate **cert-linked** catalog rows as authoritative in mint attach, mint preview cert batch, and resolve Path 0 (`trustCertLinkedRow`). Search / stored-id paths still run the full PSA Variety gate.
+
 **Comps are empty after a correct match.** Tokenable already calls `POST /v1/cards/comps` with that Championship `card_id` + `grade: "PSA 10"`. Cardhedger returns **404** `No sales data found for this card and grade`. `prices-by-card` / `all-prices-by-card` are also `[]`. Cert `prices-by-cert` still has `card: null` because GemRate `universal_gemrate_id` is empty — sales never land on this overlay row.
 
 Sibling rows **do** have comps and must not be used for this slab:

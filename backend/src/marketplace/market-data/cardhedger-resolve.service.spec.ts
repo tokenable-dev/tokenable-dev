@@ -596,6 +596,46 @@ describe('CardhedgerResolveService — PSA Variety vs Cardhedger catalog variant
 });
 
 describe('CardhedgerResolveService — cert Path 0 vs stored id / UI titles', () => {
+  it('uses cert-linked Base row for One Piece ALTERNATE ART (Cardhedger variant label mismatch)', async () => {
+    const certRow = {
+      card_id: '1771650176617x878153312773092500',
+      description: 'Monkey.D.Luffy 2025 One Piece Carrying On His Will',
+      name: 'Monkey.D.Luffy',
+      set: '2025 One Piece Carrying On His Will',
+      number: 'OP13-118',
+      variant: 'Base',
+    };
+    const forwardJson = jest.fn(async () => ({ cards: [] }));
+    const getCardRowByCert = jest.fn(async () => ({ row: certRow }));
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService, getCardRowByCert);
+
+    const result = await svc.resolveCardForCollection({
+      collectionKey: 'luffy-op13-118-aa',
+      displayLabel: 'Monkey D. Luffy · 118 · PSA 10',
+      queryUsed: null,
+      components: {
+        cardName: 'Monkey D. Luffy',
+        cardSet: '2025 One Piece Carrying On His Will',
+        cardNumber: '118',
+        psaVariety: 'ALTERNATE ART',
+        psaBrand: 'ONE PIECE JAPANESE OP13',
+        listingDisplayTitle: 'Monkey D. Luffy · 118 · PSA 10',
+      },
+      coverImageUrl: null,
+      psaCertNumber: '166215346',
+      bucketKeyVersion: 2,
+      reviewStatus: 'active',
+      tokenContract: '0xrwa1',
+      createdAt: new Date(),
+    } satisfies MarketplaceCollection);
+
+    expect(result.row?.card_id).toBe('1771650176617x878153312773092500');
+    expect(forwardJson).not.toHaveBeenCalled();
+  });
+
   it('uses details-by-certs Base row for FULL ART/subject even when a stored card_id exists', async () => {
     const certRow = {
       card_id: 'cert-sylveon-fa',

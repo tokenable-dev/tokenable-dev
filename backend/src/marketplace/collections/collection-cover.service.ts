@@ -136,10 +136,16 @@ export class CollectionCoverService {
         if (desc) searchQuery = desc;
         const card = row.card;
         if (card && typeof card === 'object') {
-          if (cardhedgerCertRowUsableForPsaVariety(card, psaVariety)) {
-            const id =
-              typeof card.card_id === 'string' ? card.card_id.trim() : '';
-            if (id) cardId = id;
+          const id =
+            typeof card.card_id === 'string' ? card.card_id.trim() : '';
+          const varietyOk = cardhedgerCertRowUsableForPsaVariety(
+            card,
+            psaVariety,
+          );
+          // GemRate cert link is authoritative even when Cardhedger labels the
+          // row `Base` but PSA says `ALTERNATE ART` (common on JP One Piece).
+          if (id && (varietyOk || !cardId)) {
+            cardId = id;
             const img =
               typeof card.image === 'string' ? card.image.trim() : '';
             if (img) imageUrl = img;
