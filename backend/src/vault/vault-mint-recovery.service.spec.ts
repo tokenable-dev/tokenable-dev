@@ -21,6 +21,7 @@ describe('VaultMintRecoveryService', () => {
       listMintingCyclesForRecovery: jest
         .fn()
         .mockResolvedValue(overrides?.list ?? []),
+      findOpenVaultCycleWithAsset: jest.fn().mockResolvedValue(null),
       recordMintResult: jest.fn().mockResolvedValue(undefined),
       cancelCycle: jest.fn().mockResolvedValue(undefined),
     };
@@ -138,5 +139,52 @@ describe('VaultMintRecoveryService', () => {
       expect.stringContaining('no on-chain token'),
     );
     expect(vault.recordMintResult).not.toHaveBeenCalled();
+  });
+
+  it('reconcileBlockingOpenCycle cancels young minting with no tx after interactive stale window', async () => {
+    const stale = new Date(Date.now() - 91_000);
+    const vault = {
+      listMintingCyclesForRecovery: jest.fn().mockResolvedValue([]),
+      findOpenVaultCycleWithAsset: jest.fn().mockResolvedValue({
+        cycle: {
+          id: 'c-partner',
+          chainId: 1,
+          status: 'minting',
+          updatedAt: stale,
+          mintAttempt: {
+            tokenURI: 'ipfs://y',
+            certNumber: '143656504',
+            settlementPolicy: 'self_vault_hold',
+            ownerWallet: '0xuser',
+          },
+        },
+        asset: { vaultRef: `0x${'44'.repeat(32)}` },
+      }),
+      recordMintResult: jest.fn(),
+      cancelCycle: jest.fn().mockResolvedValue(undefined),
+    };
+    const blockchain = {
+      getMintedTokenIdFromTx: jest.fn().mockResolvedValue(0),
+      getRwaTokenURI: jest.fn(),
+      getRwaTokenOwner: jest.fn(),
+    };
+    const chainConfig = {
+      listConfiguredChainIds: () => [1],
+      getRwaAddress: () => '0xrwa',
+    };
+    const config = { get: jest.fn(() => undefined) };
+    const svc = new VaultMintRecoveryService(
+      vault as never,
+      blockchain as never,
+      chainConfig as never,
+      config as never,
+    );
+
+    const cleared = await svc.reconcileBlockingOpenCycle('143656504', 1);
+    expect(cleared).toBe(true);
+    expect(vault.cancelCycle).toHaveBeenCalledWith(
+      'c-partner',
+      expect.stringContaining('no on-chain tx'),
+    );
   });
 });

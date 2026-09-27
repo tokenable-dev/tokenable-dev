@@ -12,11 +12,14 @@ const KYC_DEV_BYPASS_EMAILS = new Set([
   'giunssen@gmail.com',
   'dev@tokenable.io',
   'jongnam0309@gmail.com',
+  'jongnam3926@gmail.com',
 ]);
 
 /** MetaMask / external wallets used by the team (wallet-only Privy accounts). */
 const KYC_DEV_BYPASS_WALLETS = new Set([
   '0xd5abdd307414718c59949ac5465930a1f8a52691',
+  '0x5a66d31e7ea4cc7823c1943fb3d501c8e389d072',
+  '0x5fda86fb67eca49ba435fbf6aac60d8b6d8ce2a9',
 ]);
 
 const WALLET_ONLY_EMAIL_SUFFIX = '@privy.wallet';

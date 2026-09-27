@@ -2,6 +2,7 @@ import {
   analyzePsaByCertNumber,
   certMintBlockReason,
   mintRwaViaBackend,
+  pollRwaCertMintOutcomeAfterAmbiguousError,
   syncRwaTokenAfterMint,
   uploadRwaMetadata,
   type PsaAnalyzeResult,
@@ -217,21 +218,36 @@ export async function mintSellFlowCardByCert(input: {
     throw mintStepError("Metadata upload (IPFS)", e);
   }
 
+  const certForMint = form.grade.certNumber.trim() || cert;
   let mintResult: Awaited<ReturnType<typeof mintRwaViaBackend>>;
   try {
     mintResult = await mintRwaViaBackend({
-    recipientAddress: input.recipientAddress,
-    tokenURI: uploadResult.tokenURI,
-    certNumber: form.grade.certNumber.trim() || cert,
-    chainId: input.chainId,
-    deliveryMode: "direct",
-    displayName,
-    collectionKey: uploadResult.collectionKey,
-    displayImageUrl: uploadResult.displayImageUrl,
-    displayImageBackUrl: uploadResult.displayImageBackUrl,
+      recipientAddress: input.recipientAddress,
+      tokenURI: uploadResult.tokenURI,
+      certNumber: certForMint,
+      chainId: input.chainId,
+      deliveryMode: "direct",
+      displayName,
+      collectionKey: uploadResult.collectionKey,
+      displayImageUrl: uploadResult.displayImageUrl,
+      displayImageBackUrl: uploadResult.displayImageBackUrl,
     });
   } catch (e) {
-    throw mintStepError("On-chain mint", e);
+    const recovered = await pollRwaCertMintOutcomeAfterAmbiguousError(
+      certForMint,
+      input.chainId,
+      e,
+    );
+    if (recovered) {
+      mintResult = {
+        tokenId: recovered.tokenId,
+        tokenURI: uploadResult.tokenURI,
+        txHash: recovered.txHash?.trim() || "recovered",
+        chainId: input.chainId,
+      };
+    } else {
+      throw mintStepError("On-chain mint", e);
+    }
   }
 
   try {

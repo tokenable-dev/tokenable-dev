@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
@@ -19,29 +19,40 @@ export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 type ListRwaModalController = ReturnType<typeof useListRwaModal>;
 
 export function ListRwaModal(props: ListRwaModalProps) {
-  return <ListRwaModalOpen {...props} />;
+  const open = props.open ?? true;
+  if (!open) return null;
+  return <ListRwaModalActive {...props} open={open} />;
 }
 
-/** Listing state + wallet flows (hooks). */
-function ListRwaModalOpen(props: ListRwaModalProps) {
-  const open = props.open ?? true;
+/** Wallet + listing hooks — mount only while `open` (see CollectionChangeBidModal). */
+function ListRwaModalActive(props: ListRwaModalProps & { open: boolean }) {
+  const { onClose, shell = "modal", ...rest } = props;
   const modal = useListRwaModal(props);
   const mounted = useClientMounted();
 
   useEffect(() => {
-    if (!open) return;
-    const shell = props.shell ?? "modal";
     if (shell === "sheet" || modal.step === "success") return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open, props.shell, modal.step]);
+  }, [shell, modal.step]);
 
-  if (!open) return null;
+  /** Do not reset listing step before unmount — that briefly swaps success → form and can crash React hooks. */
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
-  return <ListRwaModalBody {...props} modal={modal} mounted={mounted} />;
+  return (
+    <ListRwaModalBody
+      {...rest}
+      shell={shell}
+      onClose={handleClose}
+      modal={modal}
+      mounted={mounted}
+    />
+  );
 }
 
 function ListRwaModalBody({

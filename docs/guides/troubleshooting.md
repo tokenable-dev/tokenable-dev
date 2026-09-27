@@ -449,6 +449,22 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 ---
 
+## Partner / self-vault mint: `socket hang up` or `ECONNRESET` on `POST /api/rwa/mint`
+
+**Symptoms:** Next dev terminal shows `Failed to proxy …/api/rwa/mint Error: socket hang up` (`ECONNRESET`). Nest may still log a successful direct mint (`token #N`) a few seconds later.
+
+**Cause:** Default Next **rewrite** proxy closes idle upstream connections before slow mainnet mint + receipt confirmation finishes. The browser then errors even though the backend completed the mint.
+
+**Fix:** `POST /api/rwa/mint` is handled by `frontend/app/api/rwa/mint/route.ts` with a **180s** server-side proxy timeout (same as the client `mintRwaViaBackend` timeout). Restart `pnpm dev` after pulling.
+
+**Also:** `ECONNREFUSED 127.0.0.1:4100` means Nest was down or restarting (e.g. `start:dev` recompile) — wait for `Found 0 errors` and retry.
+
+**Partner vault logs (harmless):** `attachCycleForCert: no open submission item` and skipped `markItemCompletedForCycle` are expected when minting from partner add-cards (no PSA shipment row). `Direct mint: no mark USD` (debug) only means cost-basis seed skipped until a market price exists.
+
+**UI still says “On-chain mint: [HTTP 504] fetch failed” but Nest logged token #N:** The mint often **succeeded**; only the dev proxy response was lost. The partner flow now polls `GET /api/rwa/cert-mint-outcome/:cert` for up to ~2 minutes and treats a minted cert as success. Restart `pnpm dev` after pulling. If the card is already in portfolio, use Set price — do not mint the same cert again.
+
+---
+
 ## Mobile social login (Google / Apple) fails or loops
 
 **Symptoms:** Hamburger → Connect Wallet → Google/Apple never finishes; lands on `/site-access` after OAuth; or Privy modal does nothing on iPhone.

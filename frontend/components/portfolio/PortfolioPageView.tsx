@@ -833,6 +833,7 @@ export function PortfolioPageView({
   const listModalLayer =
     listModal != null ? (
       <ListRwaModalHost
+        key={listModal.tokenId}
         open
         tokenId={listModal.tokenId}
         assetTitle={listModal.assetTitle}

@@ -48,6 +48,10 @@ export async function submitAskListingOrder(params: {
   oldOrderHash?: string;
   /** When omitted, fetched from backend (`rwa_tokens.settlement_policy`). */
   settlementPolicy?: AskSettlementPolicy;
+  /** After `setApprovalForAll` tx is confirmed (first-time Seaport approval only). */
+  onAfterApproval?: () => void;
+  /** After EIP-712 sign, before POST create/replace-listing. */
+  onBeforeSubmit?: () => void;
 }): Promise<Order> {
   const { priceUsdc, address, publicClient, signSeaportOrder, writeContractAsync, mode, chainId } =
     params;
@@ -141,6 +145,7 @@ export async function submitAskListingOrder(params: {
       gas: gasSetAll,
     });
     await waitForUserTxReceipt(publicClient, setAllTx);
+    params.onAfterApproval?.();
   }
 
   const considerationItems = buildAskConsideration(
@@ -173,6 +178,7 @@ export async function submitAskListingOrder(params: {
   };
 
   const signature = await signSeaportOrder(orderMessage, address);
+  params.onBeforeSubmit?.();
 
   const str = (v: unknown): string => String(v);
   const considerationPayload = buildAskConsiderationPayload(

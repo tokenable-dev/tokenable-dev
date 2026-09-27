@@ -17,6 +17,7 @@ import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfoli
 import { PortfolioHoldingService } from '../marketplace/portfolio/portfolio-holding.service';
 import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
+import { VaultMintRecoveryService } from '../vault/vault-mint-recovery.service';
 import { MarketplacePartnersService } from '../marketplace/partners/marketplace-partners.service';
 import { MintRwaDto, type MintDeliveryMode } from './dto/mint-rwa.dto';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
@@ -53,6 +54,7 @@ export class RwaMintService {
     private readonly users: UserService,
     private readonly vault: VaultService,
     private readonly vaultSubmissions: VaultSubmissionService,
+    private readonly mintRecovery: VaultMintRecoveryService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly partners: MarketplacePartnersService,
@@ -114,6 +116,7 @@ export class RwaMintService {
     // physical asset's cycle before spending gas on-chain. Throws if this
     // cert already has an open (non-redeemed) cycle.
     const displayNameEarly = dto.displayName?.trim() || `PSA #${certNumber}`;
+    await this.mintRecovery.reconcileBlockingOpenCycle(certNumber, chainId);
     const { cycle } = await this.vault.reserveCycleForDeposit({
       certNumber,
       chainId,
@@ -121,7 +124,7 @@ export class RwaMintService {
       displayName: displayNameEarly,
     });
 
-    await this.vaultSubmissions.attachCycleForCert({
+    const submissionLinked = await this.vaultSubmissions.attachCycleForCert({
       userId: user.id,
       certNumber,
       cycleId: cycle.id,
@@ -210,7 +213,9 @@ export class RwaMintService {
       );
       throw err;
     }
-    await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
+    if (submissionLinked) {
+      await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
+    }
     // Owner list grows on every mint — drop tokens-by-owner cache before
     // post-mint portfolio snapshot (otherwise rapid multi-mint freezes card_count).
     this.blockchain.invalidateTokensByOwnerCache(mintToAddress, chainId);
@@ -421,7 +426,7 @@ export class RwaMintService {
           chainId,
         );
       } else {
-        this.logger.warn(
+        this.logger.debug(
           `Direct mint: no mark USD for token #${tokenId} — acquiredAt recorded, cost basis skipped`,
         );
       }

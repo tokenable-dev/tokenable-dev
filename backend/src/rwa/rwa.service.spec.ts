@@ -21,6 +21,9 @@ describe('RwaService.uploadToIpfs', () => {
   const vaultSubmissions = {
     assertCertAvailableForSelfVault: jest.fn().mockResolvedValue(undefined),
   };
+  const mintRecovery = {
+    reconcileBlockingOpenCycle: jest.fn().mockResolvedValue(false),
+  };
   const rwaSlabS3 = {
     ingestMintSlabBestEffort: jest.fn(),
   };
@@ -44,6 +47,7 @@ describe('RwaService.uploadToIpfs', () => {
       pinata as never,
       vault as never,
       vaultSubmissions as never,
+      mintRecovery as never,
       rwaSlabS3 as never,
     );
   });
@@ -256,13 +260,22 @@ describe('RwaService.checkCertAvailability', () => {
   const vaultSubmissions = {
     assertCertAvailableForSelfVault: jest.fn(),
   };
+  const mintRecovery = {
+    reconcileBlockingOpenCycle: jest.fn().mockResolvedValue(false),
+  };
   const rwaSlabS3 = {} as never;
 
   let service: RwaService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new RwaService(pinata, vault as never, vaultSubmissions as never, rwaSlabS3);
+    service = new RwaService(
+      pinata,
+      vault as never,
+      vaultSubmissions as never,
+      mintRecovery as never,
+      rwaSlabS3,
+    );
   });
 
   it('returns unavailable when an open vault cycle exists', async () => {

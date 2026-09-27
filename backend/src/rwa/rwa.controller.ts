@@ -117,6 +117,27 @@ export class RwaController {
     return this.rwaService.checkCertAvailability(certNumber, chainId);
   }
 
+  @ApiBearerAuth()
+  @ApiChainIdHeader()
+  @ApiOperation({
+    summary:
+      'Resolve mint outcome for a cert after ambiguous client errors (504 / proxy drop)',
+  })
+  @Get('cert-mint-outcome/:certNumber')
+  @UseGuards(JwtAuthGuard)
+  certMintOutcome(
+    @Req() req: Request & { user: User },
+    @Param('certNumber') certNumber: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.requireChainId(chainHeader);
+    return this.rwaService.resolveCertMintOutcome(
+      certNumber,
+      chainId,
+      req.user.id,
+    );
+  }
+
   /** Mint RWA (owner-signed). Default custody + admin deliver; `deliveryMode=direct` for self vault. */
   @ApiBearerAuth()
   @ApiChainIdHeader()

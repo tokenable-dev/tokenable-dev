@@ -12,6 +12,9 @@ import { VaultService } from './vault.service';
 const DEFAULT_POLL_MS = 60_000;
 /** Cancel minting cycles with no on-chain token after this age. */
 const STALE_NO_CHAIN_MS = 30 * 60_000;
+/** Partner self-mint retry — release abandoned in-flight cycles without waiting for cron. */
+const INTERACTIVE_MINTING_STALE_MS = 90_000;
+const INTERACTIVE_DEPOSIT_STALE_MS = 2 * 60_000;
 
 /**
  * Completes `recordMintResult` for cycles left in `minting` after process death
@@ -51,6 +54,60 @@ export class VaultMintRecoveryService implements OnModuleInit {
     this.logger.log(
       `VaultMintRecoveryService armed poll=${interval}ms (heal minting cycles after crash/redeploy)`,
     );
+  }
+
+  /**
+   * Clears or heals a stuck open cycle so cert-availability / partner mint can retry.
+   * Returns true when the blocking row was cancelled or healed (re-check availability).
+   */
+  async reconcileBlockingOpenCycle(
+    certNumber: string,
+    chainId: number,
+  ): Promise<boolean> {
+    const row = await this.vault.findOpenVaultCycleWithAsset(certNumber, chainId);
+    if (!row) return false;
+
+    const { cycle, asset } = row;
+    const age = Date.now() - new Date(cycle.updatedAt).getTime();
+
+    if (cycle.status === 'deposit_verified') {
+      if (age < INTERACTIVE_DEPOSIT_STALE_MS) return false;
+      await this.vault.cancelCycle(
+        cycle.id,
+        'interactive: deposit_verified without mint progress',
+      );
+      return true;
+    }
+
+    if (cycle.status !== 'minting') {
+      return false;
+    }
+
+    const attempt = cycle.mintAttempt;
+    if (attempt?.tokenURI && attempt.certNumber) {
+      const outcome = await this.healOne(
+        cycle.id,
+        cycle.chainId,
+        asset.vaultRef,
+        attempt,
+        cycle.updatedAt,
+      );
+      if (outcome === 'healed' || outcome === 'cancelled') {
+        return true;
+      }
+    }
+
+    const hasTx = Boolean(attempt?.txHash?.trim());
+    const hasTokenHint = Boolean(attempt?.tokenId?.trim());
+    if (!hasTx && !hasTokenHint && age >= INTERACTIVE_MINTING_STALE_MS) {
+      await this.vault.cancelCycle(
+        cycle.id,
+        'interactive: minting with no on-chain tx',
+      );
+      return true;
+    }
+
+    return false;
   }
 
   async recoverPass(): Promise<{ healed: number; cancelled: number }> {

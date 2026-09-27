@@ -115,6 +115,14 @@ export function useListRwaModal({
   const [step, setStep] = useState<ListRwaModalStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [successMeta, setSuccessMeta] = useState<ListSuccessMeta | null>(null);
+  /** True for the whole handleList async — blocks owner preflight from clobbering in-flight steps. */
+  const listingFlowLockRef = useRef(false);
+
+  const listingInFlight =
+    step === "approving" ||
+    step === "signing" ||
+    step === "submitting" ||
+    step === "matching";
 
   const onChainOwnerQuery = useQuery({
     queryKey: ["rwa-ownerOf-preflight", chainId, rwaAddress, String(tokenId)],
@@ -131,22 +139,17 @@ export function useListRwaModal({
     enabled:
       open &&
       step !== "success" &&
+      !listingInFlight &&
       Boolean(publicClient && rwaAddress && String(tokenId).trim()),
     staleTime: 15_000,
     retry: 1,
   });
 
-  const listingInFlight =
-    step === "approving" ||
-    step === "signing" ||
-    step === "submitting" ||
-    step === "matching";
-
   // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
   // Do not hard-error on unknown settlement while indexing catches up after mint.
   useEffect(() => {
     if (!open) return;
-    if (listingInFlight) return;
+    if (listingInFlight || listingFlowLockRef.current) return;
     if (step === "success" || successMeta?.matched) return;
     if (onChainOwnerQuery.isError) {
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
@@ -399,26 +402,29 @@ export function useListRwaModal({
 
     setErrorMsg("");
     setSuccessMeta(null);
+    listingFlowLockRef.current = true;
 
     if (onChainOwnerQuery.isError) {
+      listingFlowLockRef.current = false;
       setErrorMsg(mapWalletError(onChainOwnerQuery.error).message);
       setStep("error");
       return;
     }
-    let resolvedSettlement = settlementPolicy;
-    if (!settlementKnown) {
-      const refreshed = await refetchSettlementPolicy();
-      if (refreshed.data?.known !== true) {
-        setErrorMsg(
-          "Card details are still loading after mint. Wait a moment and try List again.",
-        );
-        setStep("error");
-        return;
-      }
-      resolvedSettlement = refreshed.data.settlementPolicy ?? undefined;
-    }
 
     try {
+      let resolvedSettlement = settlementPolicy;
+      if (!settlementKnown) {
+        const refreshed = await refetchSettlementPolicy();
+        if (refreshed.data?.known !== true) {
+          setErrorMsg(
+            "Card details are still loading after mint. Wait a moment and try List again.",
+          );
+          setStep("error");
+          return;
+        }
+        resolvedSettlement = refreshed.data.settlementPolicy ?? undefined;
+      }
+
       // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.
       await ensureAccountWalletReady();
 
@@ -433,7 +439,13 @@ export function useListRwaModal({
         : typedPrice;
 
       if (isReplaceListing && resolvedExistingAsk) {
-        setStep("submitting");
+        const alreadyAllReplace = await publicClient.readContract({
+          address: rwaAddress,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "isApprovedForAll",
+          args: [listingAddress, SEAPORT_ADDRESS],
+        });
+        setStep(alreadyAllReplace ? "signing" : "approving");
         let created = await submitAskListingOrder({
           tokenId,
           priceUsdc,
@@ -447,6 +459,8 @@ export function useListRwaModal({
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
           settlementPolicy: resolvedSettlement,
+          onAfterApproval: () => setStep("signing"),
+          onBeforeSubmit: () => setStep("submitting"),
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -511,6 +525,8 @@ export function useListRwaModal({
         chainId,
         mode: "create",
         settlementPolicy: resolvedSettlement,
+        onAfterApproval: () => setStep("signing"),
+        onBeforeSubmit: () => setStep("submitting"),
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {
@@ -554,6 +570,8 @@ export function useListRwaModal({
     } catch (err: unknown) {
       setErrorMsg(mapWalletError(err).message);
       setStep("error");
+    } finally {
+      listingFlowLockRef.current = false;
     }
   }
 
@@ -562,12 +580,6 @@ export function useListRwaModal({
     step === "signing" ||
     step === "submitting" ||
     step === "matching";
-
-  function dismissSuccess() {
-    setStep("idle");
-    setSuccessMeta(null);
-    setErrorMsg("");
-  }
 
   return {
     price,
@@ -584,6 +596,5 @@ export function useListRwaModal({
     vaultLabel: formatVaultCustodyLabel(settlementPolicyData) ?? "—",
     isProcessing,
     handleList,
-    dismissSuccess,
   };
 }

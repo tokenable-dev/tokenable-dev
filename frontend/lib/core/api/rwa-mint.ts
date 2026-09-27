@@ -22,6 +22,73 @@ export type RwaCertAvailability = {
   message: string | null;
 };
 
+export type RwaCertMintOutcome = {
+  certNumber: string;
+  outcome: "available" | "in_progress" | "minted";
+  tokenId?: number;
+  txHash?: string | null;
+};
+
+const MINT_OUTCOME_POLL_MS = 3_000;
+const MINT_OUTCOME_POLL_ATTEMPTS = 40;
+
+export async function getRwaCertMintOutcome(
+  certNumber: string,
+  chainId: SupportedChainId,
+): Promise<RwaCertMintOutcome> {
+  const cert = certNumber.trim();
+  const res = await backendFetch(
+    `${getApiUrl()}/rwa/cert-mint-outcome/${encodeURIComponent(cert)}`,
+    {
+      method: "GET",
+      headers: { [CHAIN_ID_HEADER]: String(chainId) },
+      credentials: "include",
+    },
+  );
+  if (!res.ok) {
+    const { message } = await readNestErrorMessage(
+      res,
+      "Could not resolve mint outcome",
+    );
+    throw new Error(message);
+  }
+  return res.json() as Promise<RwaCertMintOutcome>;
+}
+
+function isAmbiguousMintTransportError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("[http 504]") ||
+    msg.includes("timed out") ||
+    msg.includes("fetch failed") ||
+    msg.includes("socket hang") ||
+    msg.includes("cannot reach api") ||
+    msg.includes("econnreset")
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Poll when POST /rwa/mint dropped but Nest may still have minted. */
+export async function pollRwaCertMintOutcomeAfterAmbiguousError(
+  certNumber: string,
+  chainId: SupportedChainId,
+  err: unknown,
+): Promise<{ tokenId: number; txHash?: string | null } | null> {
+  if (!isAmbiguousMintTransportError(err)) return null;
+  for (let i = 0; i < MINT_OUTCOME_POLL_ATTEMPTS; i++) {
+    const outcome = await getRwaCertMintOutcome(certNumber, chainId);
+    if (outcome.outcome === "minted" && outcome.tokenId != null) {
+      return { tokenId: outcome.tokenId, txHash: outcome.txHash };
+    }
+    if (outcome.outcome === "available") return null;
+    await sleep(MINT_OUTCOME_POLL_MS);
+  }
+  return null;
+}
+
 export async function getRwaCertAvailability(
   certNumber: string,
   chainId: SupportedChainId,

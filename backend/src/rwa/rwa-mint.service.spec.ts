@@ -40,6 +40,9 @@ describe('RwaMintService', () => {
     attachCycleForCert: jest.fn().mockResolvedValue(true),
     markItemCompletedForCycle: jest.fn().mockResolvedValue(true),
   };
+  const mintRecovery = {
+    reconcileBlockingOpenCycle: jest.fn().mockResolvedValue(false),
+  };
   const portfolioHoldings = {
     seedVaultDeliveryCostBasis: jest.fn().mockResolvedValue(undefined),
     recordVaultMintAcquisition: jest.fn().mockResolvedValue(undefined),
@@ -103,6 +106,7 @@ describe('RwaMintService', () => {
       users as never,
       vault as never,
       vaultSubmissions as never,
+      mintRecovery as never,
       portfolioHoldings as never,
       portfolioSnapshots as never,
       partners as never,
@@ -131,6 +135,14 @@ describe('RwaMintService', () => {
     expect(vault.recordMintResult).toHaveBeenCalledWith(
       expect.objectContaining({ displayImageUrl: slabUrl }),
     );
+  });
+
+  it('skips markItemCompletedForCycle when partner mint has no vault submission row', async () => {
+    vaultSubmissions.attachCycleForCert.mockResolvedValueOnce(false);
+
+    await service.mintForUser(user, baseDto, chainId);
+
+    expect(vaultSubmissions.markItemCompletedForCycle).not.toHaveBeenCalled();
   });
 
   it('defaults displayName to PSA #cert when omitted', async () => {

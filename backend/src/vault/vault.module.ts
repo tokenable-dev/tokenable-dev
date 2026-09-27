@@ -51,6 +51,7 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
   exports: [
     VaultService,
     VaultSubmissionService,
+    VaultMintRecoveryService,
     GmailApiClient,
     PsaReceivedMailService,
   ],

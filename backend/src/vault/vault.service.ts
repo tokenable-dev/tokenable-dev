@@ -219,6 +219,29 @@ export class VaultService {
     };
   }
 
+  /** Open (non-redeemed / non-cancelled) cycle row for recovery and partner retry. */
+  async findOpenVaultCycleWithAsset(
+    certNumber: string,
+    chainId: number,
+    assetType: VaultAssetType = 'psa_graded',
+  ): Promise<{ cycle: VaultCycle; asset: VaultAsset } | null> {
+    const normalized = VaultService.normalizeCert(certNumber);
+    if (!normalized) return null;
+    const asset = await this.assets.findOne({
+      where: { assetType, externalCertNumber: normalized },
+    });
+    if (!asset) return null;
+
+    const cycle = await this.cycles
+      .createQueryBuilder('c')
+      .where('c.vault_asset_id = :assetId', { assetId: asset.id })
+      .andWhere('c.chain_id = :chainId', { chainId })
+      .andWhere("c.status NOT IN ('redeemed', 'cancelled')")
+      .getOne();
+    if (!cycle) return null;
+    return { cycle, asset };
+  }
+
   /** Non-throwing pre-flight for UI mint gates. */
   async checkAvailableForNewCycle(
     certNumber: string,

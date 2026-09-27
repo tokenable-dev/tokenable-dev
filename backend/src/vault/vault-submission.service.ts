@@ -545,7 +545,8 @@ export class VaultSubmissionService {
       .getOne();
 
     if (!item) {
-      this.logger.warn(
+      // Partner self-vault mint uses local sell draft only — no vault_submission row.
+      this.logger.debug(
         `attachCycleForCert: no open submission item for cert=${cert} user=${params.userId} chain=${params.chainId ?? this.chainConfig.getDefaultChainId()}`,
       );
       return false;
@@ -570,7 +571,7 @@ export class VaultSubmissionService {
   async markItemCompletedForCycle(cycleId: string): Promise<boolean> {
     const item = await this.items.findOne({ where: { vaultCycleId: cycleId } });
     if (!item) {
-      this.logger.warn(
+      this.logger.debug(
         `markItemCompletedForCycle: no item linked to cycleId=${cycleId}`,
       );
       return false;

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
+import { VaultMintRecoveryService } from '../vault/vault-mint-recovery.service';
 import { psaCertNumberFromGradedMeta } from '../marketplace/utils/collection-image.util';
 import {
   resolveCatalogCoverMime,
@@ -62,6 +63,7 @@ export class RwaService {
     private readonly pinataService: PinataService,
     private readonly vault: VaultService,
     private readonly vaultSubmissions: VaultSubmissionService,
+    private readonly mintRecovery: VaultMintRecoveryService,
     private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
@@ -150,6 +152,7 @@ export class RwaService {
         'Could not extract a PSA cert number from gradedMetadata — required to open a vault cycle.',
       );
     }
+    await this.mintRecovery.reconcileBlockingOpenCycle(certNumber, chainId);
     await this.vault.assertAvailableForNewCycle(certNumber, chainId);
 
     let imageCID!: string;
@@ -310,6 +313,65 @@ export class RwaService {
     };
   }
 
+  /**
+   * After an ambiguous mint HTTP failure (proxy timeout), the client polls this
+   * to learn whether the cert actually landed on-chain for this user.
+   */
+  async resolveCertMintOutcome(
+    certNumber: string,
+    chainId: number,
+    userId: string,
+  ): Promise<{
+    certNumber: string;
+    outcome: 'available' | 'in_progress' | 'minted';
+    tokenId?: number;
+    txHash?: string | null;
+  }> {
+    const trimmed = certNumber.trim();
+    if (!/^\d{7,10}$/.test(trimmed)) {
+      throw new BadRequestException(
+        'Enter a valid PSA cert number (7–10 digits).',
+      );
+    }
+
+    const minted = await this.vault.findOpenMintedTokenForCert(trimmed, chainId);
+    if (minted) {
+      const ownerId = minted.cycle.depositedByUserId?.trim();
+      if (ownerId && ownerId !== userId) {
+        return { certNumber: trimmed, outcome: 'available' };
+      }
+      return {
+        certNumber: trimmed,
+        outcome: 'minted',
+        tokenId: minted.tokenId,
+        txHash: minted.cycle.mintAttempt?.txHash ?? null,
+      };
+    }
+
+    const open = await this.vault.findOpenVaultCycleWithAsset(trimmed, chainId);
+    if (!open) {
+      return { certNumber: trimmed, outcome: 'available' };
+    }
+
+    const ownerId = open.cycle.depositedByUserId?.trim();
+    if (ownerId && ownerId !== userId) {
+      return { certNumber: trimmed, outcome: 'available' };
+    }
+
+    const attempt = open.cycle.mintAttempt;
+    const tokenIdFromAttempt = Number(attempt?.tokenId);
+    if (Number.isFinite(tokenIdFromAttempt) && tokenIdFromAttempt >= 0) {
+      return {
+        certNumber: trimmed,
+        outcome: 'minted',
+        tokenId: tokenIdFromAttempt,
+        txHash: attempt?.txHash ?? null,
+      };
+    }
+
+    return { certNumber: trimmed, outcome: 'in_progress' };
+  }
+
   /** UI pre-flight — does not reserve a cycle. */
   async checkCertAvailability(
     certNumber: string,
@@ -326,6 +388,7 @@ export class RwaService {
       );
     }
 
+    await this.mintRecovery.reconcileBlockingOpenCycle(trimmed, chainId);
     const cycleCheck = await this.vault.checkAvailableForNewCycle(
       trimmed,
       chainId,
