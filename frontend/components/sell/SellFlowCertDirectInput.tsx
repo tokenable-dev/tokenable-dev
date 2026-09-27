@@ -3,7 +3,7 @@
 import { TkButton } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 
-/** OR + cert# row — PSA / Tokenable vault add-cards (dev@tokenable.io only). */
+/** OR + cert# row — PSA cert lookup on sell / vault add-cards. */
 export function SellFlowCertDirectInput({
   value,
   onChange,

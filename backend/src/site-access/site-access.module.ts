@@ -1,4 +1,9 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { SiteAccessController } from './site-access.controller';
 import { SiteAccessMiddleware } from './site-access.middleware';
 
@@ -7,6 +12,10 @@ import { SiteAccessMiddleware } from './site-access.middleware';
 })
 export class SiteAccessModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(SiteAccessMiddleware).forRoutes('*');
+    // Named wildcard — Nest 11 / path-to-regexp v8 (avoids LegacyRouteConverter warn on `/api/*`).
+    consumer.apply(SiteAccessMiddleware).forRoutes({
+      path: '{*path}',
+      method: RequestMethod.ALL,
+    });
   }
 }

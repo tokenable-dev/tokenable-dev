@@ -49,14 +49,11 @@ export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boole
   return isInternalDevUser(user);
 }
 
-/**
- * Sell-flow PSA / Tokenable vault: cert# direct lookup UI.
- * Staging-only for `dev@tokenable.io` (upload remains the public path).
- */
+/** Sell-flow add-cards: cert# direct lookup (alongside slab upload / OCR). */
 export function canUseSellCertDirectInput(
-  user: AuthUser | null | undefined,
+  _user: AuthUser | null | undefined,
 ): boolean {
-  return normalizeAuthEmail(user?.email) === "dev@tokenable.io";
+  return true;
 }
 
 /** KYC Level 2 — Sumsub `approved` on reconciled session (see GET /api/kyc/status). */
