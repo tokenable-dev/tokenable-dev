@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
@@ -29,6 +29,11 @@ function ListRwaModalActive(props: ListRwaModalProps & { open: boolean }) {
   const { onClose, shell = "modal", ...rest } = props;
   const modal = useListRwaModal(props);
   const mounted = useClientMounted();
+  /** Once listing succeeds, keep the result dialog until unmount (prod can flip step before parent closes). */
+  const successUiLockedRef = useRef(false);
+  if (modal.step === "success") {
+    successUiLockedRef.current = true;
+  }
 
   useEffect(() => {
     if (shell === "sheet" || modal.step === "success") return;
@@ -51,6 +56,7 @@ function ListRwaModalActive(props: ListRwaModalProps & { open: boolean }) {
       onClose={handleClose}
       modal={modal}
       mounted={mounted}
+      showSuccessUi={successUiLockedRef.current}
     />
   );
 }
@@ -68,10 +74,15 @@ function ListRwaModalBody({
   listedPriceUsd,
   modal,
   mounted,
-}: ListRwaModalProps & { modal: ListRwaModalController; mounted: boolean }) {
+  showSuccessUi,
+}: ListRwaModalProps & {
+  modal: ListRwaModalController;
+  mounted: boolean;
+  showSuccessUi: boolean;
+}) {
   const formVariant = shell === "sheet" ? "sheet" : "modal";
   const isSetPrice = copyVariant === "set-price";
-  const isSuccess = modal.step === "success";
+  const isSuccess = showSuccessUi;
   const requestClose = guardCloseWhileBusy(modal.isProcessing, onClose);
   const sheetLabel = isSetPrice
     ? modal.isReplaceListing
