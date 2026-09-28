@@ -8,7 +8,13 @@ import {
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
-import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
+import {
+  GAS_FALLBACK,
+  gasWithCapFast,
+  userTxFees,
+  waitForUserTxReceipt,
+  type UserTxFees,
+} from "@/lib/network";
 import {
   FULFILL_EXTRA_DATA,
   fulfillSeaportOrderArgs,
@@ -33,7 +39,7 @@ type FulfillWrite = (args: {
   args: readonly [ReturnType<typeof fulfillSeaportOrderArgs>, typeof FULFILL_EXTRA_DATA];
   chainId: number;
   gas?: bigint;
-}) => Promise<Hash>;
+} & UserTxFees) => Promise<Hash>;
 
 type ApproveWrite = (args: {
   address: `0x${string}`;
@@ -42,7 +48,7 @@ type ApproveWrite = (args: {
   args: readonly [`0x${string}`, bigint];
   chainId: number;
   gas?: bigint;
-}) => Promise<Hash>;
+} & UserTxFees) => Promise<Hash>;
 
 function isTimeoutError(e: unknown): boolean {
   if (e instanceof DOMException && e.name === "AbortError") return true;
@@ -120,7 +126,10 @@ export async function fulfillAskListingOrder(params: {
       },
       GAS_FALLBACK.erc20Approve,
     );
-    const gasApprove = await gasApprovePromise;
+    const [gasApprove, approveFees] = await Promise.all([
+      gasApprovePromise,
+      userTxFees(publicClient),
+    ]);
     const approveTx = await writeContractAsync({
       address: usdcAddress,
       abi: USDC_ABI,
@@ -128,6 +137,7 @@ export async function fulfillAskListingOrder(params: {
       args: [SEAPORT_ADDRESS, maxUint256],
       chainId,
       gas: gasApprove,
+      ...approveFees,
     });
     const approveReceipt = await waitForUserTxReceipt(publicClient, approveTx);
     if (approveReceipt.status === "reverted") {
@@ -135,7 +145,10 @@ export async function fulfillAskListingOrder(params: {
     }
   }
 
-  const gasFulfill = await gasFulfillPromise;
+  const [gasFulfill, fulfillFees] = await Promise.all([
+    gasFulfillPromise,
+    userTxFees(publicClient),
+  ]);
   const fulfillTx = await writeContractAsync({
     address: SEAPORT_ADDRESS,
     abi: SEAPORT_ABI,
@@ -143,6 +156,7 @@ export async function fulfillAskListingOrder(params: {
     args: [fulfillSeaportOrderArgs(ask), FULFILL_EXTRA_DATA],
     chainId,
     gas: gasFulfill,
+    ...fulfillFees,
   });
   const receipt = await waitForUserTxReceipt(publicClient, fulfillTx);
   if (receipt.status === "reverted") {

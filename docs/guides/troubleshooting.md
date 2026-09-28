@@ -493,7 +493,7 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 **Symptom:** Mint works on Ethereum mainnet, but Portfolio **Set price** shows `RPC request failed` (or a generic wallet error) when opening the sheet or right after the first Seaport **Approve**.
 
-**Cause:** Browser wagmi/viem reads (`ownerOf`, `getCounter`, gas estimate, receipt poll) go through `NEXT_PUBLIC_CHAIN_1_RPC_URL` when set; otherwise the app falls back to **public** endpoints (`cloudflare-eth.com`, `ethereum.publicnode.com`). Public mainnet RPCs are rate-limited and often fail under parallel reads (price references + listing preflight).
+**Cause:** Browser wagmi/viem reads (`ownerOf`, `getCounter`, gas estimate, receipt poll) go through `NEXT_PUBLIC_CHAIN_1_RPC_URL` when set; otherwise the app falls back to **public** endpoints (`ethereum.publicnode.com`, `eth.drpc.org`). `cloudflare-eth.com` (-32046) and `polygon-rpc.com` (401) no longer serve requests and were removed from the fallback lists. Slow listings: browser console prints `[listing-timing]` per step (wallet ready → chain reads → approve prompt → tx sent → confirmed → signed → submitted). Public mainnet RPCs are rate-limited and often fail under parallel reads (price references + listing preflight).
 
 **Fix:**
 
@@ -506,6 +506,20 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 **Check which file you edited:** the browser only reads `frontend/.env` / the frontend build env (`NEXT_PUBLIC_CHAIN_1_RPC_URL`). `backend/.env` `CHAIN_1_RPC_URL` is server-side only and does not change browser reads, Privy's approve modal gas estimate, or receipt polling.
 
 **Related — "Rendered fewer hooks than expected" / React #300 after first Approve:** our code has no Rules-of-Hooks violations (ESLint `react-hooks/rules-of-hooks` is clean), and the stack is mostly ignore-listed library frames under `<Providers>`. The trigger was background wallet aligners (`WalletDataProvider` chain switch, `useEnsureAccountWalletActive` `setActiveWallet`) firing while Privy's approve/sign UI was open. `useListRwaModal.handleList` now runs inside `runWalletFlow` (`lib/privy/session.ts`), which pauses those aligners. If it recurs, expand "ignore-listed frames" in the Next dev overlay and note the top component name.
+
+---
+
+## Mainnet mint / approve takes 40s–1min+
+
+**Symptom:** `/api/rwa/mint` takes ~40s, or the user's first Seaport approve waits a minute or more after the wallet confirms.
+
+**Cause:** Alchemy and publicnode answer `eth_maxPriorityFeePerGas` with `0x0` on mainnet. ethers (backend) and Privy (frontend) sent txs with a **0 gwei tip**, which builders deprioritise, so they waited several blocks. Check on Etherscan: "Max Priority" of 0.
+
+**Fix (in code):** a 0.2 gwei minimum tip (median mainnet tip is ~0.1 gwei; about $0.05 extra per tx).
+- Backend: `withMinPriorityFee` in `chain-config.service.ts` wraps every provider from `createJsonRpcProvider`, so mint, custody transfer, burn and fee payouts all use it.
+- Frontend: `userTxFees(publicClient)` in `lib/network/chainGas.ts` is spread into every `writeContractAsync` call. It returns `{}` (wallet decides) if estimation fails or takes over 1.5s.
+
+Polygon RPCs already suggest 25+ gwei, so the floor has no effect there.
 
 ---
 

@@ -12,7 +12,14 @@ import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCol
 import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError, waitForUserTxReceipt } from "@/lib/network";
+import {
+  GAS_FALLBACK,
+  gasWithCapFast,
+  mapWalletError,
+  userTxFees,
+  waitForUserTxReceipt,
+  type UserTxFees,
+} from "@/lib/network";
 import {
   assertSeaportOrdersFillableForMatch,
   requireSeaportOrderFilled,
@@ -31,7 +38,7 @@ export type MatchWriteContractAsync = (args: {
   args: readonly unknown[];
   chainId: number;
   gas: bigint;
-}) => Promise<`0x${string}`>;
+} & UserTxFees) => Promise<`0x${string}`>;
 
 export type MatchFailureCode =
   | "insufficient_balance"
@@ -227,7 +234,7 @@ export async function runCriteriaMatch(params: {
   );
 
   const SIMULATION_MS = 55_000;
-  const [, gas] = await Promise.race([
+  const [, gas, fees] = await Promise.race([
     Promise.all([
       publicClient.simulateContract({
         address: SEAPORT_ADDRESS,
@@ -237,6 +244,7 @@ export async function runCriteriaMatch(params: {
         account: address,
       }),
       gasPromise,
+      userTxFees(publicClient),
     ]),
     new Promise<never>((_, reject) =>
       setTimeout(
@@ -258,6 +266,7 @@ export async function runCriteriaMatch(params: {
     args: prepared.args as readonly unknown[],
     chainId,
     gas,
+    ...fees,
   });
 
   const receipt = await Promise.race([
@@ -371,7 +380,7 @@ export async function runTokenBidMatch(params: {
   );
 
   const SIMULATION_MS = 55_000;
-  const [, gas] = await Promise.race([
+  const [, gas, fees] = await Promise.race([
     Promise.all([
       publicClient.simulateContract({
         address: SEAPORT_ADDRESS,
@@ -381,6 +390,7 @@ export async function runTokenBidMatch(params: {
         account: address,
       }),
       gasPromise,
+      userTxFees(publicClient),
     ]),
     new Promise<never>((_, reject) =>
       setTimeout(
@@ -402,6 +412,7 @@ export async function runTokenBidMatch(params: {
     args: prepared.args as readonly unknown[],
     chainId,
     gas,
+    ...fees,
   });
 
   const receipt = await Promise.race([

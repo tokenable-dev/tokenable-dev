@@ -10,8 +10,10 @@ import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } f
 import {
   GAS_FALLBACK,
   gasWithCapFast,
+  userTxFees,
   waitForUserTxReceipt,
   withRpcReadRetry,
+  type UserTxFees,
 } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
@@ -36,7 +38,7 @@ type WriteAsync = (args: {
   args: readonly [Address, boolean];
   chainId: number;
   gas: bigint;
-}) => Promise<`0x${string}`>;
+} & UserTxFees) => Promise<`0x${string}`>;
 
 /**
  * Ensure `setApprovalForAll(Seaport, true)` → sign Seaport ask → POST create or replace-listing.
@@ -85,29 +87,35 @@ export async function submitAskListingOrder(params: {
         return r.settlementPolicy;
       });
 
-  let onChainOwner: Address;
-  try {
-    onChainOwner = await withRpcReadRetry(() =>
-      publicClient.readContract({
-        address: rwaAddress,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "ownerOf",
-        args: [tokenIdBn],
-      }),
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/invalid token|nonexistent token|owner query for nonexistent/i.test(msg)) {
-      throw new Error(
-        `Token #${tokenIdStr} does not exist on ${rwaAddress} (chain ${chainId}). ` +
-          `Usually the app RWA address does not match the mint contract, or DB rows were left after a redeploy — ` +
-          `switch network / align NEXT_PUBLIC_CHAIN_*_RWA with the backend, or run admin “reset for new contract” before minting on a new CA.`,
-      );
-    }
-    throw e;
-  }
+  const startedAt = Date.now();
+  const logStep = (step: string) =>
+    console.info(`[listing-timing] ${step} +${Date.now() - startedAt}ms`);
 
-  const [now, counter, alreadyAll] = await Promise.all([
+  const readOwner = async (): Promise<Address> => {
+    try {
+      return await withRpcReadRetry(() =>
+        publicClient.readContract({
+          address: rwaAddress,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "ownerOf",
+          args: [tokenIdBn],
+        }),
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/invalid token|nonexistent token|owner query for nonexistent/i.test(msg)) {
+        throw new Error(
+          `Token #${tokenIdStr} does not exist on ${rwaAddress} (chain ${chainId}). ` +
+            `Usually the app RWA address does not match the mint contract, or DB rows were left after a redeploy — ` +
+            `switch network / align NEXT_PUBLIC_CHAIN_*_RWA with the backend, or run admin “reset for new contract” before minting on a new CA.`,
+        );
+      }
+      throw e;
+    }
+  };
+
+  const [onChainOwner, now, counter, alreadyAll] = await Promise.all([
+    readOwner(),
     getChainTimestampSec(publicClient),
     withRpcReadRetry(() =>
       publicClient.readContract({
@@ -126,6 +134,7 @@ export async function submitAskListingOrder(params: {
       }),
     ),
   ]);
+  logStep(`chain reads done (approved=${alreadyAll})`);
   if (onChainOwner.toLowerCase() !== address.toLowerCase()) {
     const short = (w: string) =>
       w.length >= 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : w;
@@ -136,17 +145,21 @@ export async function submitAskListingOrder(params: {
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
 
   if (!alreadyAll) {
-    const gasSetAll = await gasWithCapFast(
-      publicClient,
-      {
-        address: rwaAddress,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "setApprovalForAll",
-        args: [SEAPORT_ADDRESS, true],
-        account: address,
-      },
-      GAS_FALLBACK.setApprovalForAll,
-    );
+    const [gasSetAll, fees] = await Promise.all([
+      gasWithCapFast(
+        publicClient,
+        {
+          address: rwaAddress,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "setApprovalForAll",
+          args: [SEAPORT_ADDRESS, true],
+          account: address,
+        },
+        GAS_FALLBACK.setApprovalForAll,
+      ),
+      userTxFees(publicClient),
+    ]);
+    logStep(`approve wallet prompt (tip=${fees.maxPriorityFeePerGas ?? "wallet"})`);
     const setAllTx = await writeContractAsync({
       address: rwaAddress,
       abi: TOKENABLE_RWA_APPROVE_ABI,
@@ -154,8 +167,11 @@ export async function submitAskListingOrder(params: {
       args: [SEAPORT_ADDRESS, true],
       chainId,
       gas: gasSetAll,
+      ...fees,
     });
+    logStep(`approve tx sent ${setAllTx}`);
     await waitForUserTxReceipt(publicClient, setAllTx);
+    logStep("approve tx confirmed on-chain");
     params.onAfterApproval?.();
   }
 
@@ -189,6 +205,7 @@ export async function submitAskListingOrder(params: {
   };
 
   const signature = await signSeaportOrder(orderMessage, address);
+  logStep("order signed");
   params.onBeforeSubmit?.();
 
   const str = (v: unknown): string => String(v);
@@ -229,12 +246,14 @@ export async function submitAskListingOrder(params: {
     considerationAmount: String(priceInUnits),
   };
 
-  if (mode === "replace" && params.oldOrderHash) {
-    return replaceListingApi({
-      callerAddress: address,
-      oldOrderHash: params.oldOrderHash,
-      order: payload,
-    });
-  }
-  return createOrder(payload);
+  const created =
+    mode === "replace" && params.oldOrderHash
+      ? await replaceListingApi({
+          callerAddress: address,
+          oldOrderHash: params.oldOrderHash,
+          order: payload,
+        })
+      : await createOrder(payload);
+  logStep("order submitted to backend");
+  return created;
 }

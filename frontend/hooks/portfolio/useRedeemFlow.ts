@@ -75,7 +75,7 @@ import {
 } from "@/lib/shipping/shipToValidation";
 import { redeemDestinationCountryCode } from "@/lib/shipping/redeemDestinationCountryCode";
 import { mapWalletError } from "@/lib/network/walletError";
-import { waitForUserTxReceipt } from "@/lib/network";
+import { userTxFees, waitForUserTxReceipt } from "@/lib/network";
 
 /** Pay-first UI: address → pay (+ user-signed NFT custody) → preparing → transit → done. */
 export type RedeemFlowStep =
@@ -890,6 +890,7 @@ export function useRedeemFlow() {
           abi: TOKENABLE_RWA_TRANSFER_ABI,
           functionName: "safeTransferFrom",
           args: [userWallet, custodyWallet, BigInt(tokenId)],
+          ...(await userTxFees(publicClient)),
         });
         await waitForUserTxReceipt(publicClient, nftHash);
         transfers.push({ tokenId, txHash: nftHash });
@@ -1053,6 +1054,7 @@ export function useRedeemFlow() {
         abi: USDC_ABI,
         functionName: "transfer",
         args: [payTo, amount],
+        ...(await userTxFees(publicClient)),
       });
       paymentSent = true;
       await waitForUserTxReceipt(publicClient, hash);

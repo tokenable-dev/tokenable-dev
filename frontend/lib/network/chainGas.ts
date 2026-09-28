@@ -1,3 +1,4 @@
+import { parseGwei } from "viem";
 import type { Hash, PublicClient, TransactionReceipt } from "viem";
 import type { EstimateContractGasParameters } from "viem";
 
@@ -50,6 +51,38 @@ export async function gasWithCapFast(
         resolve(fallback);
       });
   });
+}
+
+/**
+ * Alchemy / publicnode suggest a 0 tip on mainnet and Privy sends it as-is, so
+ * approves waited several blocks (1min+). Same floor as backend `MIN_PRIORITY_FEE_WEI`.
+ */
+const MIN_PRIORITY_FEE_WEI = parseGwei("0.2");
+const FEE_ESTIMATE_BUDGET_MS = 1_500;
+
+export type UserTxFees = { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
+
+/**
+ * EIP-1559 fees for a user tx with a minimum tip. Resolves `{}` (wallet decides)
+ * if estimation fails or exceeds the budget, so the wallet prompt is never blocked.
+ */
+export async function userTxFees(publicClient: PublicClient): Promise<UserTxFees> {
+  const estimate = publicClient
+    .estimateFeesPerGas()
+    .then((fees): UserTxFees => {
+      const tip =
+        fees.maxPriorityFeePerGas > MIN_PRIORITY_FEE_WEI
+          ? fees.maxPriorityFeePerGas
+          : MIN_PRIORITY_FEE_WEI;
+      // viem's maxFee is ~1.2× base; 2× keeps the tx valid if base fee rises for a few blocks.
+      const base = fees.maxFeePerGas - fees.maxPriorityFeePerGas;
+      return { maxFeePerGas: base * BigInt(2) + tip, maxPriorityFeePerGas: tip };
+    })
+    .catch((): UserTxFees => ({}));
+  const timeout = new Promise<UserTxFees>((resolve) =>
+    setTimeout(() => resolve({}), FEE_ESTIMATE_BUDGET_MS),
+  );
+  return Promise.race([estimate, timeout]);
 }
 
 /**

@@ -12,7 +12,7 @@ import {
   type CreateOrderPayload,
   type Order,
 } from "@/lib/core";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { GAS_FALLBACK, gasWithCapFast, userTxFees } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   BidCrossesLiveAskError,
@@ -206,6 +206,7 @@ export async function submitTokenBid(input: {
           },
           GAS_FALLBACK.erc20Approve,
         ));
+      const fees = await userTxFees(publicClient);
       await writeContractAsync({
         address: usdcAddress,
         abi: USDC_ABI,
@@ -213,6 +214,7 @@ export async function submitTokenBid(input: {
         args: [SEAPORT_ADDRESS, maxUint256],
         chainId,
         gas: gasApprove,
+        ...fees,
       });
     }
   }
@@ -415,6 +417,7 @@ export async function submitCollectionCriteriaBid(input: {
           },
           GAS_FALLBACK.erc20Approve,
         ));
+      const fees = await userTxFees(publicClient);
       await writeContractAsync({
         address: usdcAddress,
         abi: USDC_ABI,
@@ -422,6 +425,7 @@ export async function submitCollectionCriteriaBid(input: {
         args: [SEAPORT_ADDRESS, maxUint256],
         chainId,
         gas: gasApprove,
+        ...fees,
       });
     }
   }

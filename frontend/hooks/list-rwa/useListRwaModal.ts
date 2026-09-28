@@ -437,7 +437,11 @@ export function useListRwaModal({
       }
 
       // Sync Privy ConnectedWallet onto the app chain before approve/sign UIs open.
+      const walletReadyStartedAt = Date.now();
       await ensureAccountWalletReady();
+      console.info(
+        `[listing-timing] wallet ready +${Date.now() - walletReadyStartedAt}ms`,
+      );
 
       const typedPrice = price.trim();
       const matchBid = preferredBidForMatch

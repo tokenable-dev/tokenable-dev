@@ -7,7 +7,9 @@ import { ConfigService } from '@nestjs/config';
 import {
   AbstractProvider,
   FallbackProvider,
+  FeeData,
   JsonRpcProvider,
+  parseUnits,
 } from 'ethers';
 
 export const SUPPORTED_CHAIN_IDS = [1, 11155111, 137] as const;
@@ -19,16 +21,38 @@ const ADDR = /^0x[a-fA-F0-9]{40}$/i;
 
 /** Public JSON-RPC fallbacks when primary (e.g. Alchemy) returns 429 / is down. */
 const PUBLIC_RPC_FALLBACKS: Record<SupportedChainId, readonly string[]> = {
-  11155111: [
-    'https://ethereum-sepolia-rpc.publicnode.com',
-    'https://sepolia.drpc.org',
-  ],
-  1: ['https://ethereum.publicnode.com', 'https://cloudflare-eth.com'],
-  137: ['https://polygon-bor.publicnode.com', 'https://polygon-rpc.com'],
+  11155111: ['https://ethereum-sepolia-rpc.publicnode.com'],
+  1: ['https://ethereum.publicnode.com', 'https://eth.drpc.org'],
+  137: ['https://polygon-bor.publicnode.com', 'https://polygon.drpc.org'],
 };
 
 function isHttpRpcUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+/**
+ * Alchemy and publicnode answer `eth_maxPriorityFeePerGas` with 0 on mainnet,
+ * and ethers uses it as-is. Zero-tip txs wait several blocks (mints took ~40s).
+ * Median mainnet tip is ~0.1 gwei; Polygon RPCs already suggest far more.
+ */
+export const MIN_PRIORITY_FEE_WEI = parseUnits('0.2', 'gwei');
+
+export function withMinPriorityFee(provider: AbstractProvider): AbstractProvider {
+  const getFeeData: () => Promise<FeeData> = provider.getFeeData.bind(provider);
+  provider.getFeeData = async () => {
+    const fee = await getFeeData();
+    const maxFee = fee.maxFeePerGas;
+    const tip = fee.maxPriorityFeePerGas;
+    if (maxFee === null || tip === null || tip >= MIN_PRIORITY_FEE_WEI) {
+      return fee;
+    }
+    return new FeeData(
+      fee.gasPrice,
+      maxFee - tip + MIN_PRIORITY_FEE_WEI,
+      MIN_PRIORITY_FEE_WEI,
+    );
+  };
+  return provider;
 }
 
 @Injectable()
@@ -210,6 +234,7 @@ export class ChainConfigService implements OnModuleDestroy {
             { quorum: 1 },
           );
 
+    withMinPriorityFee(provider);
     this.providers.set(id, provider);
     return provider;
   }

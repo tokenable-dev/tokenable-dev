@@ -1,6 +1,33 @@
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChainConfigService } from './chain-config.service';
+import { AbstractProvider, FeeData, parseUnits } from 'ethers';
+import {
+  ChainConfigService,
+  MIN_PRIORITY_FEE_WEI,
+  withMinPriorityFee,
+} from './chain-config.service';
+
+describe('withMinPriorityFee', () => {
+  function providerWithFee(fee: FeeData): AbstractProvider {
+    return withMinPriorityFee({
+      getFeeData: async () => fee,
+    } as unknown as AbstractProvider);
+  }
+
+  it('raises a zero tip (Alchemy mainnet) to the floor and keeps base headroom', async () => {
+    const base = parseUnits('0.1', 'gwei');
+    const fee = await providerWithFee(new FeeData(base, base * 2n, 0n)).getFeeData();
+    expect(fee.maxPriorityFeePerGas).toBe(MIN_PRIORITY_FEE_WEI);
+    expect(fee.maxFeePerGas).toBe(base * 2n + MIN_PRIORITY_FEE_WEI);
+  });
+
+  it('keeps a tip already above the floor (Polygon)', async () => {
+    const tip = parseUnits('30', 'gwei');
+    const original = new FeeData(null, parseUnits('100', 'gwei'), tip);
+    const fee = await providerWithFee(original).getFeeData();
+    expect(fee).toBe(original);
+  });
+});
 
 describe('ChainConfigService.requireChainId', () => {
   function makeService(env: Record<string, string> = {}): ChainConfigService {

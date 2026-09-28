@@ -118,12 +118,12 @@ const DEV_FALLBACK: Record<
   { rpcUrl: string; rwaAddress: `0x${string}`; usdcAddress: `0x${string}` }
 > = {
   1: {
-    rpcUrl: "https://cloudflare-eth.com",
+    rpcUrl: "https://ethereum.publicnode.com",
     rwaAddress: "0x0000000000000000000000000000000000000000",
     usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   },
   137: {
-    rpcUrl: "https://polygon-rpc.com",
+    rpcUrl: "https://polygon-bor.publicnode.com",
     rwaAddress: "0x0000000000000000000000000000000000000000",
     usdcAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
   },
@@ -140,12 +140,9 @@ const DEV_FALLBACK: Record<
  * and rate-limit responses often look like CORS in DevTools.
  */
 const BROWSER_PUBLIC_RPC: Record<SupportedChainId, readonly string[]> = {
-  1: ["https://cloudflare-eth.com", "https://ethereum.publicnode.com"],
-  137: ["https://polygon-rpc.com", "https://polygon-bor.publicnode.com"],
-  11155111: [
-    "https://ethereum-sepolia-rpc.publicnode.com",
-    "https://sepolia.drpc.org",
-  ],
+  1: ["https://ethereum.publicnode.com", "https://eth.drpc.org"],
+  137: ["https://polygon-bor.publicnode.com", "https://polygon.drpc.org"],
+  11155111: ["https://ethereum-sepolia-rpc.publicnode.com"],
 };
 
 /** API-key RPCs that must not be every browser client's primary endpoint. */
