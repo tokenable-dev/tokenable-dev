@@ -489,6 +489,24 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 ---
 
+## Mainnet Set price: `RPC request failed` / listing reads fail
+
+**Symptom:** Mint works on Ethereum mainnet, but Portfolio **Set price** shows `RPC request failed` (or a generic wallet error) when opening the sheet or right after the first Seaport **Approve**.
+
+**Cause:** Browser wagmi/viem reads (`ownerOf`, `getCounter`, gas estimate, receipt poll) go through `NEXT_PUBLIC_CHAIN_1_RPC_URL` when set; otherwise the app falls back to **public** endpoints (`cloudflare-eth.com`, `ethereum.publicnode.com`). Public mainnet RPCs are rate-limited and often fail under parallel reads (price references + listing preflight).
+
+**Fix:**
+
+1. Set a **dedicated** mainnet RPC on the **frontend build** (not only backend): `NEXT_PUBLIC_CHAIN_1_RPC_URL=https://…` (Alchemy/Infura/QuickNode).
+2. By default the browser **still tries public RPCs first** when the URL is Alchemy/Infura (one `NEXT_PUBLIC_*` key is shared by every visitor). For staging / low-traffic mainnet QA, also set `NEXT_PUBLIC_RPC_CONFIGURED_FIRST=true` so wagmi uses your Alchemy URL first.
+3. Rebuild and redeploy the frontend after changing env vars (`NEXT_PUBLIC_*` is baked at build time).
+4. Hard-refresh the site (or clear cache) so the new bundle loads.
+5. Never paste RPC URLs with API keys in chat or commits — rotate the key if exposed.
+
+**Related:** React minified error **#300** after Approve → Sign usually means the listing modal briefly swapped UI trees (hooks crash). Ensure the latest frontend with `ListRwaModal` fixes is deployed; if #300 persists, capture the first non-minified stack from a local `pnpm dev` repro on mainnet.
+
+---
+
 ## Quick Inspection Commands
 
 ```bash

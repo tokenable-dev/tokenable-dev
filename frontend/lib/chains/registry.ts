@@ -153,18 +153,24 @@ function isSharedApiKeyRpc(url: string): boolean {
   return /alchemy\.com\/v2\/|infura\.io\/v3\//i.test(url);
 }
 
+/** When true, `NEXT_PUBLIC_CHAIN_*_RPC_URL` is the first browser endpoint (staging / low-traffic mainnet). */
+function preferConfiguredRpcFirst(): boolean {
+  return process.env.NEXT_PUBLIC_RPC_CONFIGURED_FIRST === "true";
+}
+
 /**
  * Ordered RPC URLs for browser clients (wagmi, wallet network add).
  * Shared Alchemy/Infura keys go last so quota exhaustion does not spam 429/CORS.
+ * Set `NEXT_PUBLIC_RPC_CONFIGURED_FIRST=true` to use your configured URL first (e.g. mainnet QA).
  */
 export function getBrowserRpcUrls(chainId: SupportedChainId): string[] {
   const configured = readRpcUrl(chainId)?.trim();
   const publics = [...BROWSER_PUBLIC_RPC[chainId]];
   if (!configured) return publics;
-  if (isSharedApiKeyRpc(configured)) {
-    return [...publics.filter((u) => u !== configured), configured];
+  if (!isSharedApiKeyRpc(configured) || preferConfiguredRpcFirst()) {
+    return [configured, ...publics.filter((u) => u !== configured)];
   }
-  return [configured, ...publics.filter((u) => u !== configured)];
+  return [...publics.filter((u) => u !== configured), configured];
 }
 
 export function getChainContracts(chainId: SupportedChainId): ChainContracts {

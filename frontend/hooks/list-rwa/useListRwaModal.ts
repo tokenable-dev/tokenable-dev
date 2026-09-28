@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, startTransition, useCallback } from "react";
 import {
   useAccount,
   useWriteContract,
@@ -16,7 +16,7 @@ import {
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { mapWalletError } from "@/lib/network";
+import { mapWalletError, withRpcReadRetry } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
@@ -118,6 +118,10 @@ export function useListRwaModal({
   /** True for the whole handleList async — blocks owner preflight from clobbering in-flight steps. */
   const listingFlowLockRef = useRef(false);
 
+  const setListingStep = useCallback((next: ListRwaModalStep) => {
+    startTransition(() => setStep(next));
+  }, []);
+
   const listingInFlight =
     step === "approving" ||
     step === "signing" ||
@@ -129,20 +133,22 @@ export function useListRwaModal({
     queryFn: async () => {
       if (!publicClient) throw new Error("Network not ready");
       const tid = BigInt(normalizeDecimalTokenId(tokenId));
-      return publicClient.readContract({
-        address: rwaAddress,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "ownerOf",
-        args: [tid],
-      });
+      return withRpcReadRetry(() =>
+        publicClient.readContract({
+          address: rwaAddress,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "ownerOf",
+          args: [tid],
+        }),
+      );
     },
     enabled:
       open &&
-      step !== "success" &&
+      step === "idle" &&
       !listingInFlight &&
       Boolean(publicClient && rwaAddress && String(tokenId).trim()),
     staleTime: 15_000,
-    retry: 1,
+    retry: 2,
   });
 
   // Surface chain/contract mismatches before the user signs (deploy redeploy / wrong network).
@@ -459,8 +465,8 @@ export function useListRwaModal({
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
           settlementPolicy: resolvedSettlement,
-          onAfterApproval: () => setStep("signing"),
-          onBeforeSubmit: () => setStep("submitting"),
+          onAfterApproval: () => setListingStep("signing"),
+          onBeforeSubmit: () => setListingStep("submitting"),
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -472,7 +478,7 @@ export function useListRwaModal({
         }
 
         const meta = await runPostListInstantMatch(instantMatchDeps, created, {
-          onStartMatching: () => setStep("matching"),
+          onStartMatching: () => setListingStep("matching"),
         });
         if (meta.matched) {
           const salePrice = parseFloat(price.trim());
@@ -498,7 +504,7 @@ export function useListRwaModal({
           ...meta,
           collectionUnderReview: created.reviewStatus === "pending_review",
         });
-        setStep("success");
+        setListingStep("success");
         await invalidateListingQueries(instantMatchDeps, created, {
           ownershipMoved: meta.matched,
         });
@@ -525,8 +531,8 @@ export function useListRwaModal({
         chainId,
         mode: "create",
         settlementPolicy: resolvedSettlement,
-        onAfterApproval: () => setStep("signing"),
-        onBeforeSubmit: () => setStep("submitting"),
+        onAfterApproval: () => setListingStep("signing"),
+        onBeforeSubmit: () => setListingStep("submitting"),
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {
@@ -538,7 +544,7 @@ export function useListRwaModal({
       }
 
       const meta = await runPostListInstantMatch(instantMatchDeps, createdFinal, {
-        onStartMatching: () => setStep("matching"),
+        onStartMatching: () => setListingStep("matching"),
       });
       if (meta.matched) {
         const salePrice = parseFloat(price.trim());
@@ -562,7 +568,7 @@ export function useListRwaModal({
         ...meta,
         collectionUnderReview: createdFinal.reviewStatus === "pending_review",
       });
-      setStep("success");
+      setListingStep("success");
 
       await invalidateListingQueries(instantMatchDeps, createdFinal, {
         ownershipMoved: meta.matched,

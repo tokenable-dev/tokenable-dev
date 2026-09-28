@@ -472,6 +472,18 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   }
 
   if (
+    /rpc request failed|http request failed|failed to fetch|fetch failed|network error|econnreset|socket hang up/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "Network read failed (RPC). Wait a moment and try again. On mainnet, set a reliable NEXT_PUBLIC_CHAIN_1_RPC_URL on the frontend build (public RPCs rate-limit often).",
+    };
+  }
+
+  if (
     /no contract code|returned no data|could not decode|contract not deployed|call exception/i.test(
       lower,
     )

@@ -7,7 +7,12 @@ import {
   SEAPORT_ABI,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/core";
-import { GAS_FALLBACK, gasWithCapFast, waitForUserTxReceipt } from "@/lib/network";
+import {
+  GAS_FALLBACK,
+  gasWithCapFast,
+  waitForUserTxReceipt,
+  withRpcReadRetry,
+} from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
@@ -82,12 +87,14 @@ export async function submitAskListingOrder(params: {
 
   let onChainOwner: Address;
   try {
-    onChainOwner = await publicClient.readContract({
-      address: rwaAddress,
-      abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "ownerOf",
-      args: [tokenIdBn],
-    });
+    onChainOwner = await withRpcReadRetry(() =>
+      publicClient.readContract({
+        address: rwaAddress,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "ownerOf",
+        args: [tokenIdBn],
+      }),
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/invalid token|nonexistent token|owner query for nonexistent/i.test(msg)) {
@@ -102,18 +109,22 @@ export async function submitAskListingOrder(params: {
 
   const [now, counter, alreadyAll] = await Promise.all([
     getChainTimestampSec(publicClient),
-    publicClient.readContract({
-      address: SEAPORT_ADDRESS,
-      abi: SEAPORT_ABI,
-      functionName: "getCounter",
-      args: [address],
-    }),
-    publicClient.readContract({
-      address: rwaAddress,
-      abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "isApprovedForAll",
-      args: [address, SEAPORT_ADDRESS],
-    }),
+    withRpcReadRetry(() =>
+      publicClient.readContract({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI,
+        functionName: "getCounter",
+        args: [address],
+      }),
+    ),
+    withRpcReadRetry(() =>
+      publicClient.readContract({
+        address: rwaAddress,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "isApprovedForAll",
+        args: [address, SEAPORT_ADDRESS],
+      }),
+    ),
   ]);
   if (onChainOwner.toLowerCase() !== address.toLowerCase()) {
     const short = (w: string) =>

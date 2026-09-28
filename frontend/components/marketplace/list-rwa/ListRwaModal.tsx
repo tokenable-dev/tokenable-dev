@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
@@ -20,34 +20,37 @@ type ListRwaModalController = ReturnType<typeof useListRwaModal>;
 
 export function ListRwaModal(props: ListRwaModalProps) {
   const open = props.open ?? true;
-  if (!open) return null;
-  return <ListRwaModalActive {...props} open={open} />;
+  return <ListRwaModalInner {...props} open={open} />;
 }
 
-/** Wallet + listing hooks — mount only while `open` (see CollectionChangeBidModal). */
-function ListRwaModalActive(props: ListRwaModalProps & { open: boolean }) {
-  const { onClose, shell = "modal", ...rest } = props;
+/**
+ * Wallet + listing hooks always run while this component is mounted (parent unmounts on close).
+ * Do not return before hooks — `open` only gates the visible UI.
+ */
+function ListRwaModalInner(props: ListRwaModalProps & { open: boolean }) {
+  const { onClose, shell = "modal", open, ...rest } = props;
   const modal = useListRwaModal(props);
   const mounted = useClientMounted();
-  /** Once listing succeeds, keep the result dialog until unmount (prod can flip step before parent closes). */
-  const successUiLockedRef = useRef(false);
-  if (modal.step === "success") {
-    successUiLockedRef.current = true;
-  }
+  const [showSuccessUi, setShowSuccessUi] = useState(false);
 
   useEffect(() => {
-    if (shell === "sheet" || modal.step === "success") return;
+    if (modal.step === "success") setShowSuccessUi(true);
+  }, [modal.step]);
+
+  useEffect(() => {
+    if (shell === "sheet" || modal.step === "success" || showSuccessUi) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [shell, modal.step]);
+  }, [shell, modal.step, showSuccessUi]);
 
-  /** Do not reset listing step before unmount — that briefly swaps success → form and can crash React hooks. */
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
+
+  if (!open) return null;
 
   return (
     <ListRwaModalBody
@@ -56,7 +59,7 @@ function ListRwaModalActive(props: ListRwaModalProps & { open: boolean }) {
       onClose={handleClose}
       modal={modal}
       mounted={mounted}
-      showSuccessUi={successUiLockedRef.current}
+      showSuccessUi={showSuccessUi}
     />
   );
 }
@@ -91,7 +94,6 @@ function ListRwaModalBody({
     : "List for sale";
 
   if (isSuccess) {
-    // Sheet shell: close the right rail before TkDialog — sheet overlay is z-200 vs dialog z-100.
     return (
       <ListRwaModalSuccessView
         tokenId={tokenId}
