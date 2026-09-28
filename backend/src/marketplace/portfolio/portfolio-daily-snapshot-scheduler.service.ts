@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { runWithPgSessionAdvisoryLock } from '../../database/pg-session-advisory-lock.util';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY } from './portfolio-daily-snapshot.types';
 
@@ -73,53 +74,37 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
       return;
     }
 
-    const acquired = await this.tryAdvisoryLock();
-    if (!acquired) {
-      this.logger.warn(
-        JSON.stringify({
-          msg: 'portfolio_daily_snapshot_skipped',
-          reason: 'advisory_lock_held',
-          trigger,
-        }),
-      );
-      return;
-    }
-
     this.captureInFlight = true;
+    let lock: { acquired: boolean };
     try {
-      const result = await this.portfolioSnapshots.captureAllHoldersDailySnapshots(
-        new Date(),
+      lock = await runWithPgSessionAdvisoryLock(
+        this.dataSource,
+        PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY,
+        async () => {
+          try {
+            const result =
+              await this.portfolioSnapshots.captureAllHoldersDailySnapshots(
+                new Date(),
+              );
+            this.logger.log(
+              JSON.stringify({
+                msg: 'portfolio_daily_snapshot_run_complete',
+                trigger,
+                timezone: 'Asia/Seoul',
+                ...result,
+              }),
+            );
+          } catch (e) {
+            this.logger.error(
+              JSON.stringify({
+                msg: 'portfolio_daily_snapshot_run_failed',
+                trigger,
+                error: String(e),
+              }),
+            );
+          }
+        },
       );
-      this.logger.log(
-        JSON.stringify({
-          msg: 'portfolio_daily_snapshot_run_complete',
-          trigger,
-          timezone: 'Asia/Seoul',
-          ...result,
-        }),
-      );
-    } catch (e) {
-      this.logger.error(
-        JSON.stringify({
-          msg: 'portfolio_daily_snapshot_run_failed',
-          trigger,
-          error: String(e),
-        }),
-      );
-    } finally {
-      this.captureInFlight = false;
-      await this.releaseAdvisoryLock();
-    }
-  }
-
-  private async tryAdvisoryLock(): Promise<boolean> {
-    try {
-      const rows = await this.dataSource.query(
-        'SELECT pg_try_advisory_lock($1) AS locked',
-        [PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY],
-      );
-      const locked = rows?.[0]?.locked;
-      return locked === true || locked === 't';
     } catch (e) {
       // Fail-closed: if the DB is unreachable we cannot safely determine
       // lock ownership, so we skip this run rather than letting all replicas
@@ -127,17 +112,19 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
       this.logger.warn(
         `portfolio snapshot advisory lock unavailable — skipping run: ${String(e)}`,
       );
-      return false;
+      return;
+    } finally {
+      this.captureInFlight = false;
     }
-  }
 
-  private async releaseAdvisoryLock(): Promise<void> {
-    try {
-      await this.dataSource.query('SELECT pg_advisory_unlock($1)', [
-        PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY,
-      ]);
-    } catch {
-      /* best-effort */
+    if (!lock.acquired) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'portfolio_daily_snapshot_skipped',
+          reason: 'advisory_lock_held',
+          trigger,
+        }),
+      );
     }
   }
 }

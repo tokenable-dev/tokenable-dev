@@ -380,6 +380,18 @@ Setup: [privy-wallet-funding.md](privy-wallet-funding.md).
 
 ---
 
+## Privy “Transaction complete” shows US$0.00 (redeem / USDC)
+
+**Symptom:** After redeem pay or NFT custody transfer, Privy’s success modal shows **Total (including fees) US$0.00** until you expand **Details**, which then shows only **ETH network gas** (~$0.15), not the USDC redeem fee.
+
+**Why:** Privy’s embedded-wallet receipt **Details** row prices `tx.value` (native ETH sent with the transaction). ERC-20 USDC transfers use `value: 0` — the USDC amount lives in contract calldata, which Privy does not decode into that USD line. Gas is ETH and appears under **Est. Fees** / **Total (including fees)** when expanded.
+
+**What we do:** Redeem uses Privy `sendTransaction` with `uiOptions` (description, **Action** in Details, success copy) so the modal states the USDC fee explicitly. Our pay step UI still shows the full breakdown before you sign.
+
+**Details · US$0.00 hidden for ERC-20:** `frontend/scripts/patch-privy-isactive.mjs` (runs on `pnpm install`) patches Privy’s `TransactionDetails` so the collapsed USD next to **Details** is omitted when `tx.value === 0` (USDC redeem fee). ETH gas still appears after expanding **Details**. Re-run `node frontend/scripts/patch-privy-isactive.mjs` after upgrading `@privy-io/react-auth` if the patch no-ops. External wallets (MetaMask, etc.) use their own UI.
+
+---
+
 ## Cardhedger routes return errors
 
 - Verify `CARDHEDGER_API_KEY` is set in the backend environment.
@@ -506,6 +518,8 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 **Check which file you edited:** the browser only reads `frontend/.env` / the frontend build env (`NEXT_PUBLIC_CHAIN_1_RPC_URL`). `backend/.env` `CHAIN_1_RPC_URL` is server-side only and does not change browser reads, Privy's approve modal gas estimate, or receipt polling.
 
 **Related — "Rendered fewer hooks than expected" / React #300 after first Approve:** our code has no Rules-of-Hooks violations (ESLint `react-hooks/rules-of-hooks` is clean), and the stack is mostly ignore-listed library frames under `<Providers>`. The trigger was background wallet aligners (`WalletDataProvider` chain switch, `useEnsureAccountWalletActive` `setActiveWallet`) firing while Privy's approve/sign UI was open. `useListRwaModal.handleList` now runs inside `runWalletFlow` (`lib/privy/session.ts`), which pauses those aligners. If it recurs, expand "ignore-listed frames" in the Next dev overlay and note the top component name.
+
+**Root cause (Privy 3.45):** `usePrivyEventSubscription(action, callbacks)`, which sits behind `useLogin`, `useSendTransaction`, `useSignTypedData` and others, returns *before* its `useContext`/`useEffect` when `callbacks` is undefined. When callbacks go from set to unset between renders, React throws #300. This is the only conditional hook in Privy's dist: rules-of-hooks was run over the de-minified bundle, and wagmi and react-query are clean for our usage. `scripts/patch-privy-isactive.mjs` (patch 6) makes the hooks unconditional. It runs on `postinstall` and in the frontend Dockerfile. After patching locally, delete `frontend/.next` and restart `pnpm dev`. When upgrading Privy, confirm the log line `event subscription hook order` still prints.
 
 ---
 

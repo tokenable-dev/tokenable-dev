@@ -8,6 +8,8 @@ export type EmailNotifPrefs = {
   bids: boolean;
   price: boolean;
   vault: boolean;
+  listing: boolean;
+  market: boolean;
 };
 
 export interface AuthUser {

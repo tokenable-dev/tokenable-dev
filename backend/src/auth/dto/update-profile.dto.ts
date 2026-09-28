@@ -31,6 +31,16 @@ export class EmailNotifPrefsDto {
   @IsOptional()
   @IsBoolean()
   vault?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  listing?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  market?: boolean;
 }
 
 export class UpdateProfileDto {

@@ -8,28 +8,37 @@ export type PgSessionAdvisoryLockResult<T> =
  * Session advisory lock on one dedicated connection (lock + unlock same session).
  * Pool checkout per `dataSource.query()` can leave locks on other sessions and
  * exhaust Postgres `max_connections` under cron load.
+ * `lockKey` is one bigint key or the two-int4 form `pg_try_advisory_lock(k1, k2)`.
  */
 export async function runWithPgSessionAdvisoryLock<T>(
   dataSource: DataSource,
-  lockKey: number,
+  lockKey: number | readonly [number, number],
   fn: () => Promise<T>,
 ): Promise<PgSessionAdvisoryLockResult<T>> {
+  const params = typeof lockKey === 'number' ? [lockKey] : [...lockKey];
+  const args = params.length === 1 ? '$1' : '$1, $2';
   const qr = dataSource.createQueryRunner();
   await qr.connect();
+  let acquired = false;
   try {
-    const rows = (await qr.query(`SELECT pg_try_advisory_lock($1) AS ok`, [
-      lockKey,
-    ])) as { ok: boolean }[];
-    if (!rows[0]?.ok) {
+    const rows = (await qr.query(
+      `SELECT pg_try_advisory_lock(${args}) AS ok`,
+      params,
+    )) as { ok: boolean | string }[];
+    const ok = rows[0]?.ok;
+    acquired = ok === true || ok === 't';
+    if (!acquired) {
       return { acquired: false };
     }
     const value = await fn();
     return { acquired: true, value };
   } finally {
-    try {
-      await qr.query(`SELECT pg_advisory_unlock($1)`, [lockKey]);
-    } catch {
-      // Best-effort; connection release ends the session anyway.
+    if (acquired) {
+      try {
+        await qr.query(`SELECT pg_advisory_unlock(${args})`, params);
+      } catch {
+        // Best-effort; connection release ends the session anyway.
+      }
     }
     await qr.release();
   }

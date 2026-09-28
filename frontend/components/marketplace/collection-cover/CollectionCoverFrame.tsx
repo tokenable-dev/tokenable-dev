@@ -36,12 +36,14 @@ export interface CollectionCoverFrameProps {
   className?: string;
   /** When set (e.g. from Markets browse context), fullscreen cover supports swipe between cards. */
   coverGallery?: CollectionCoverGalleryProps;
+  /** `flat` only — markets grids use fill; similar-items tiles use contain (hero-style). */
+  flatFit?: "fill" | "contain";
 }
 
 /**
  * 컬렉션 대표 이미지용 프레임 — 그라데이션 베젤, 이너 매트, 은은한 하이라이트.
  * featured: 중간 크기. hero: 컬렉션 상세 좌측 히어로 — 클릭하면 큰 이미지(라이트박스).
- * flat: 베젤·링 없이 이미지 영역만 — markets/home 그리드는 object-fill로 좁은 아트를 가로로 늘려 채움.
+ * flat: 베젤 없음 — markets/home는 flatFit fill; similar items는 flatFit contain (히어로와 동일).
  */
 export function CollectionCoverFrame({
   imageUrl,
@@ -50,6 +52,7 @@ export function CollectionCoverFrame({
   quietLoading = false,
   className = "",
   coverGallery,
+  flatFit = "fill",
 }: CollectionCoverFrameProps) {
   const [activeImageUrl, setActiveImageUrl] = useState(imageUrl);
   const { url: resolved, isLoading } = useResolvedMediaUrl(activeImageUrl);
@@ -70,8 +73,14 @@ export function CollectionCoverFrame({
     setImgFailed(true);
   };
 
-  /** Carousel / markets grid — fill the frame (crop if needed; no letterboxing). */
+  /** Carousel / markets grid — fill the frame; `flatFit: contain` matches collection hero. */
   if (variant === "flat") {
+    const flatObjectClass =
+      flatFit === "contain" ? "object-contain" : "object-fill";
+    const flatImgStyle =
+      flatFit === "contain"
+        ? collectionCoverImageStyle(resolved)
+        : { filter: "saturate(1.05) contrast(1.04)" };
     return (
       <div className={`relative h-full min-h-0 w-full ${className}`}>
         <div className="relative h-full min-h-0 w-full overflow-hidden">
@@ -82,8 +91,8 @@ export function CollectionCoverFrame({
                 alt={alt}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
-                className="object-fill object-center"
-                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                className={`${flatObjectClass} object-center`}
+                style={flatImgStyle}
                 onError={handleImageError}
                 referrerPolicy="no-referrer"
               />
@@ -92,8 +101,8 @@ export function CollectionCoverFrame({
               <img
                 src={resolved}
                 alt={alt}
-                className="absolute inset-0 h-full w-full object-fill object-center"
-                style={{ filter: "saturate(1.05) contrast(1.04)" }}
+                className={`absolute inset-0 h-full w-full ${flatObjectClass} object-center`}
+                style={flatImgStyle}
                 onError={handleImageError}
                 referrerPolicy="no-referrer"
                 loading="lazy"

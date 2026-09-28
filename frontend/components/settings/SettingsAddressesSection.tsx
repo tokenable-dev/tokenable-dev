@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   createShippingAddress,
   deleteShippingAddress,
@@ -44,12 +44,31 @@ const EMPTY_FORM: AddressForm = {
   isDefault: false,
 };
 
-function formatAddressInline(addr: ShippingAddress): string {
+function addressRowTitle(addr: ShippingAddress): string {
+  const name = addr.name.trim();
+  const label = addr.label.trim();
+  if (!label || label.toLowerCase() === "home") return name;
+  return `${name} · ${label}`;
+}
+
+function formatAddressBlock(addr: ShippingAddress): string[] {
   const street = [addr.line1, addr.line2].filter(Boolean).join(", ");
-  const locality = [addr.city, addr.region, addr.postal].filter(Boolean).join(", ");
-  return [street, locality, addr.country.toUpperCase(), addr.phone]
+  const locality = [
+    addr.city,
+    [addr.region, addr.postal].filter(Boolean).join(" "),
+  ]
     .filter(Boolean)
-    .join(" · ");
+    .join(", ");
+  const countryLabel =
+    addr.country.toLowerCase() === "us"
+      ? "United States"
+      : addr.country.length === 2
+        ? addr.country.toUpperCase()
+        : addr.country;
+  const cityLine = [locality, countryLabel].filter(Boolean).join(", ");
+  const lines = [street, cityLine].filter(Boolean);
+  if (addr.phone.trim()) lines.push(addr.phone.trim());
+  return lines;
 }
 
 function toForm(addr: ShippingAddress): AddressForm {
@@ -160,6 +179,14 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
     setError(null);
   }
 
+  function toggleAddForm() {
+    if (editor === "create") {
+      setEditor(null);
+      return;
+    }
+    openCreate();
+  }
+
   function openEdit(addr: ShippingAddress) {
     setForm(toForm(addr));
     setEditor(addr.id);
@@ -237,15 +264,10 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
     <section className="tk-settings__sec">
       <h1 className="tk-settings__sec-h">Addresses</h1>
       <p className="tk-settings__sec-sub">
-        Ship-to addresses for when you ship cards from the vault to your home.
-        Partners also set a Partner vault Origin below, used for shipping rates
-        out of that vault.
+        Used when you withdraw physical cards from the vault.
       </p>
 
-      <SettingsPartnerVaultSection />
-
       <div className="tk-settings__card">
-        <div className="tk-settings__row-t mb-3">Ship-to addresses</div>
         {loading ? (
           <p className="py-4 text-sm text-[var(--t2)]">Loading addresses…</p>
         ) : null}
@@ -253,11 +275,11 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
           ? addresses.map((addr) => (
               <div
                 key={addr.id}
-                className="tk-settings__row tk-settings__row--start tk-settings__row--addr"
+                className="tk-settings__row tk-settings__row--start"
               >
-                <div className="tk-settings__addr-main">
+                <div className="min-w-0 flex-1">
                   <div className="tk-settings__row-t">
-                    {addr.label}
+                    {addressRowTitle(addr)}
                     {addr.isDefault ? (
                       <span
                         className="tk-settings__chip tk-settings__chip--pos"
@@ -268,27 +290,24 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                     ) : null}
                   </div>
                   <div className="tk-settings__row-d tk-settings__row-d--wide">
-                    <span className="text-white/80">{addr.name}</span>
-                    <span className="text-[var(--t3)]"> · </span>
-                    <span>{formatAddressInline(addr)}</span>
+                    {formatAddressBlock(addr).map((line, i) => (
+                      <Fragment key={`${addr.id}-${i}`}>
+                        {i > 0 ? <br /> : null}
+                        {line}
+                      </Fragment>
+                    ))}
                   </div>
                 </div>
-                <div className="tk-settings__actions tk-settings__actions--addr">
-                  <span className="tk-settings__addr-default-slot">
-                    {addr.isDefault ? (
-                      <span className="tk-settings__addr-default-spacer" aria-hidden>
-                        Set as default
-                      </span>
-                    ) : (
-                      <SettingsBtn
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void setDefault(addr.id)}
-                      >
-                        Set as default
-                      </SettingsBtn>
-                    )}
-                  </span>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {!addr.isDefault ? (
+                    <SettingsBtn
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void setDefault(addr.id)}
+                    >
+                      Set as default
+                    </SettingsBtn>
+                  ) : null}
                   <SettingsBtn variant="ghost" size="sm" onClick={() => openEdit(addr)}>
                     Edit
                   </SettingsBtn>
@@ -299,17 +318,17 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
               </div>
             ))
           : null}
-        {!loading && addresses.length === 0 && editor == null ? (
+        {!loading && addresses.length === 0 && editor !== "create" ? (
           <p className="py-4 text-sm text-[var(--t2)]">No saved addresses.</p>
         ) : null}
       </div>
 
-      {editor == null ? (
-        <SettingsBtn variant="ghost" size="md" onClick={openCreate}>
-          + Add address
-        </SettingsBtn>
-      ) : (
-        <div className="tk-settings__card tk-settings__card--ship-form mt-3">
+      <SettingsBtn variant="ghost" size="md" onClick={toggleAddForm}>
+        + Add address
+      </SettingsBtn>
+
+      {editor != null ? (
+        <div className="tk-settings__card tk-settings__card--ship-form mt-4">
           <div className="tk-settings__lbl" style={{ marginBottom: 16 }}>
             {editor === "create" ? "New address" : "Edit address"}
           </div>
@@ -328,7 +347,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                       setForm((f) => ({ ...f, label: e.target.value }))
                     }
                     disabled={saving}
-                    placeholder="Home"
+                    placeholder="Home, Office, Vault…"
                   />
                 </TkField>
               </div>
@@ -374,7 +393,9 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
             </SettingsBtn>
           </div>
         </div>
-      )}
+      ) : null}
+
+      <SettingsPartnerVaultSection />
 
       {error ? (
         <p className="mt-3 text-xs text-[var(--warn)]" role="status">

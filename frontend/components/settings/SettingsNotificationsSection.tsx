@@ -5,16 +5,85 @@ import type { AuthUser, EmailNotifPrefs } from "@/lib/auth";
 import { updateAuthProfile } from "@/lib/auth";
 import { cn } from "@/lib/ds/cn";
 import { useAuthStore } from "@/store/authStore";
-import { SettingsBtn } from "./SettingsBtn";
 
-type Channel = "telegram" | "push" | "email";
-type Category = keyof EmailNotifPrefs;
+type AccountRowId =
+  | "sales"
+  | "purchases"
+  | "shipping"
+  | "withdrawals"
+  | "identity";
 
-const CATEGORIES: { id: Category; label: string }[] = [
-  { id: "trades", label: "Trades" },
-  { id: "bids", label: "Bids" },
-  { id: "price", label: "Price alerts" },
-  { id: "vault", label: "Vault" },
+const ACCOUNT_ROWS: {
+  id: AccountRowId;
+  title: string;
+  description: string;
+}[] = [
+  {
+    id: "sales",
+    title: "Sales & payouts",
+    description: "When your card sells and when your payout lands.",
+  },
+  {
+    id: "purchases",
+    title: "Purchases",
+    description: "Receipts for cards you buy.",
+  },
+  {
+    id: "shipping",
+    title: "Shipping & redemption",
+    description: "Order, shipping, tracking, and refunds.",
+  },
+  {
+    id: "withdrawals",
+    title: "Withdrawals",
+    description: "When funds leave your balance.",
+  },
+  {
+    id: "identity",
+    title: "Identity & account",
+    description: "Verification results and account status.",
+  },
+];
+
+const DEFAULT_ACCOUNT_TOGGLES: Record<AccountRowId, boolean> = {
+  sales: true,
+  purchases: true,
+  shipping: true,
+  withdrawals: true,
+  identity: true,
+};
+
+const OPTIONAL_ROWS: {
+  id: "listing" | "price" | "market" | "news";
+  title: string;
+  description: string;
+  prefKey?: keyof Pick<EmailNotifPrefs, "listing" | "price" | "market">;
+  marketing?: boolean;
+}[] = [
+  {
+    id: "listing",
+    title: "Listing alerts",
+    description: "A card you follow is listed for sale.",
+    prefKey: "listing",
+  },
+  {
+    id: "price",
+    title: "Price alerts",
+    description: "A card on your watchlist moves in price.",
+    prefKey: "price",
+  },
+  {
+    id: "market",
+    title: "Market updates",
+    description: "Weekly index summary.",
+    prefKey: "market",
+  },
+  {
+    id: "news",
+    title: "Product news & drops",
+    description: "Occasional product news and events.",
+    marketing: true,
+  },
 ];
 
 const DEFAULT_PREFS: EmailNotifPrefs = {
@@ -22,42 +91,36 @@ const DEFAULT_PREFS: EmailNotifPrefs = {
   bids: true,
   price: true,
   vault: true,
+  listing: true,
+  market: false,
 };
 
-function CheckIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
+type PendingSave = {
+  prefs: EmailNotifPrefs;
+  marketingEmailsOptIn: boolean;
+};
 
-type PendingSave = { emailOn: boolean; prefs: EmailNotifPrefs };
+function mergePrefs(user: AuthUser): EmailNotifPrefs {
+  return { ...DEFAULT_PREFS, ...user.emailNotifPrefs };
+}
 
 export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
   const setUser = useAuthStore((s) => s.setUser);
-  const [emailOn, setEmailOn] = useState(user.emailNotificationsEnabled ?? true);
-  const [prefs, setPrefs] = useState<EmailNotifPrefs>({
-    ...DEFAULT_PREFS,
-    ...user.emailNotifPrefs,
-  });
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<EmailNotifPrefs>(() => mergePrefs(user));
+  const [marketingEmailsOptIn, setMarketingEmailsOptIn] = useState(
+    user.marketingEmailsOptIn ?? false,
+  );
+  const [accountToggles, setAccountToggles] = useState(DEFAULT_ACCOUNT_TOGGLES);
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<PendingSave | null>(null);
   const saveChain = useRef(Promise.resolve());
-  const committed = useRef({
-    emailOn: user.emailNotificationsEnabled ?? true,
-    prefs: { ...DEFAULT_PREFS, ...user.emailNotifPrefs },
+  const committed = useRef<PendingSave>({
+    prefs: mergePrefs(user),
+    marketingEmailsOptIn: user.marketingEmailsOptIn ?? false,
   });
   const setUserRef = useRef(setUser);
   setUserRef.current = setUser;
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    setPushEnabled(Notification.permission === "granted");
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -65,10 +128,9 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
       const payload = pending.current;
       pending.current = null;
       if (!payload) return;
-      // Flush so a quick section switch does not discard the last toggle.
       void updateAuthProfile({
-        emailNotificationsEnabled: payload.emailOn,
         emailNotifPrefs: payload.prefs,
+        marketingEmailsOptIn: payload.marketingEmailsOptIn,
       })
         .then((u) => setUserRef.current(u))
         .catch(() => undefined);
@@ -77,22 +139,21 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
 
   function persist(next: PendingSave) {
     saveChain.current = saveChain.current.then(async () => {
-      // Capture after prior saves so a failed follow-up does not wipe a success.
       const previous = committed.current;
       try {
         const u = await updateAuthProfile({
-          emailNotificationsEnabled: next.emailOn,
           emailNotifPrefs: next.prefs,
+          marketingEmailsOptIn: next.marketingEmailsOptIn,
         });
         committed.current = {
-          emailOn: u.emailNotificationsEnabled ?? next.emailOn,
-          prefs: { ...DEFAULT_PREFS, ...u.emailNotifPrefs },
+          prefs: mergePrefs(u),
+          marketingEmailsOptIn: u.marketingEmailsOptIn ?? next.marketingEmailsOptIn,
         };
         setUser(u);
         setSaveError(null);
       } catch (e) {
-        setEmailOn(previous.emailOn);
         setPrefs(previous.prefs);
+        setMarketingEmailsOptIn(previous.marketingEmailsOptIn);
         setSaveError(e instanceof Error ? e.message : "Could not save preferences.");
       }
     });
@@ -108,184 +169,83 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
     }, 350);
   }
 
-  function toggleEmailMaster() {
-    const nextOn = !emailOn;
-    setEmailOn(nextOn);
-    scheduleSave({ emailOn: nextOn, prefs });
+  function isOptionalOn(row: (typeof OPTIONAL_ROWS)[number]): boolean {
+    if (row.marketing) return marketingEmailsOptIn;
+    if (row.prefKey) return prefs[row.prefKey];
+    return false;
   }
 
-  function toggleEmailCategory(cat: Category) {
-    if (!emailOn) return;
-    const nextPrefs = { ...prefs, [cat]: !prefs[cat] };
+  function toggleOptional(row: (typeof OPTIONAL_ROWS)[number]) {
+    if (row.marketing) {
+      const nextMarketing = !marketingEmailsOptIn;
+      setMarketingEmailsOptIn(nextMarketing);
+      scheduleSave({ prefs, marketingEmailsOptIn: nextMarketing });
+      return;
+    }
+    if (!row.prefKey) return;
+    const nextPrefs = { ...prefs, [row.prefKey]: !prefs[row.prefKey] };
     setPrefs(nextPrefs);
-    scheduleSave({ emailOn, prefs: nextPrefs });
+    scheduleSave({ prefs: nextPrefs, marketingEmailsOptIn });
   }
 
   return (
     <section className="tk-settings__sec">
       <h1 className="tk-settings__sec-h">Notifications</h1>
-      <p className="tk-settings__sec-sub">Choose how Tokenable reaches you.</p>
+      <p className="tk-settings__sec-sub">How Tokenable reaches you.</p>
+      <p className="tk-settings__sec-sub !mt-1.5">
+        You get these by email. Everything also appears in your notification center while
+        you&apos;re signed in.
+      </p>
 
-      <div className="tk-settings__banner tk-settings__banner--info">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="mt-px shrink-0"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        <span>
-          Email preferences are saved to your account. Telegram and server push delivery are not
-          connected yet — in-app inbox still shows all activity.
-        </span>
-      </div>
-
+      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">Account &amp; transactions</div>
       <div className="tk-settings__card">
-        <div className="tk-settings__row">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--brand-400)">
-              <path d="M21.9 4.3 18.6 19.8c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-4.9 9-8.1c.4-.3-.1-.5-.6-.2L6.1 13 1.3 11.5c-1-.3-1-1 .2-1.5L20.6 2.8c.9-.3 1.6.2 1.3 1.5z" />
-            </svg>
-            <div>
-              <div className="tk-settings__row-t">Telegram</div>
-              <div className="tk-settings__row-d">Real-time alerts via our Telegram bot.</div>
-            </div>
-          </div>
-          <SettingsBtn
-            variant="ghost"
-            size="sm"
-            onClick={() => setHint("Telegram bot linking is coming soon.")}
-          >
-            Coming soon
-          </SettingsBtn>
-        </div>
-
-        <div className="tk-settings__row">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            <div>
-              <div className="tk-settings__row-t">Web push</div>
-              <div className="tk-settings__row-d">
-                Browser permission on this device only. Server push delivery is not wired yet.
+        {ACCOUNT_ROWS.map((row) => {
+          const on = accountToggles[row.id];
+          return (
+            <div key={row.id} className="tk-settings__row">
+              <div>
+                <div className="tk-settings__row-t">{row.title}</div>
+                <div className="tk-settings__row-d">{row.description}</div>
               </div>
+              <button
+                type="button"
+                className={cn("tk-settings__sw", on && "on")}
+                aria-label={row.title}
+                aria-pressed={on}
+                onClick={() =>
+                  setAccountToggles((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
+                }
+              />
             </div>
-          </div>
-          <SettingsBtn
-            variant="ghost"
-            size="sm"
-            style={
-              pushEnabled
-                ? { color: "var(--pos)", boxShadow: "inset 0 0 0 1px rgba(0,200,100,0.4)" }
-                : undefined
-            }
-            onClick={() => {
-              if (typeof window !== "undefined" && "Notification" in window) {
-                void Notification.requestPermission().then((perm) => {
-                  setPushEnabled(perm === "granted");
-                  if (perm !== "granted") {
-                    setHint("Browser blocked notifications for this site.");
-                  }
-                });
-                return;
-              }
-              setHint("This browser does not support web notifications.");
-            }}
-          >
-            {pushEnabled ? "Allowed" : "Allow"}
-          </SettingsBtn>
-        </div>
-
-        <div className="tk-settings__row">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" strokeWidth="2">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="m22 7-10 5L2 7" />
-            </svg>
-            <div>
-              <div className="tk-settings__row-t">Email</div>
-              <div className="tk-settings__row-d">{user.email}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className={cn("tk-settings__sw", emailOn && "on")}
-            aria-label="Email notifications"
-            aria-pressed={emailOn}
-            onClick={toggleEmailMaster}
-          />
-        </div>
+          );
+        })}
       </div>
 
+      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">Optional alerts</div>
       <div className="tk-settings__card">
-        <div className="tk-settings__lbl" style={{ marginBottom: 6 }}>
-          Email categories
-        </div>
-        <div className="tk-settings__matrix-wrap">
-          <table className="tk-settings__matrix">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Telegram</th>
-                <th>Web push</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CATEGORIES.map((cat) => (
-                <tr key={cat.id}>
-                  <td>{cat.label}</td>
-                  {(["telegram", "push", "email"] as Channel[]).map((ch) => {
-                    if (ch !== "email") {
-                      return (
-                        <td key={ch}>
-                          <button
-                            type="button"
-                            className="tk-settings__cbx"
-                            aria-label={`${cat.label} ${ch} (coming soon)`}
-                            aria-pressed={false}
-                            disabled
-                            title="Coming soon"
-                          >
-                            <CheckIcon />
-                          </button>
-                        </td>
-                      );
-                    }
-                    const on = emailOn && prefs[cat.id];
-                    return (
-                      <td key={ch}>
-                        <button
-                          type="button"
-                          className={cn("tk-settings__cbx", on && "on")}
-                          aria-label={`${cat.label} email`}
-                          aria-pressed={on}
-                          disabled={!emailOn}
-                          onClick={() => toggleEmailCategory(cat.id)}
-                        >
-                          <CheckIcon />
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {OPTIONAL_ROWS.map((row) => {
+          const on = isOptionalOn(row);
+          return (
+            <div key={row.id} className="tk-settings__row">
+              <div>
+                <div className="tk-settings__row-t">{row.title}</div>
+                <div className="tk-settings__row-d">{row.description}</div>
+              </div>
+              <button
+                type="button"
+                className={cn("tk-settings__sw", on && "on")}
+                aria-label={row.title}
+                aria-pressed={on}
+                onClick={() => toggleOptional(row)}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      {saveError || hint ? (
+      {saveError ? (
         <p className="text-xs text-[var(--warn)]" role="status">
-          {saveError ?? hint}
+          {saveError}
         </p>
       ) : null}
     </section>

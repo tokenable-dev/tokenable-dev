@@ -22,5 +22,3 @@ export default function DesignSystemDevPage() {
     </div>
   );
 }
-
-// ㅁㄴㅇ

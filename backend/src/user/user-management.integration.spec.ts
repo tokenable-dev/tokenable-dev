@@ -119,7 +119,7 @@ describe('User management integration (Postgres)', () => {
 
   itIf('creates user with all auth providers and wallets on first Privy sync', async () => {
     const profile = buildFullPrivyProfile();
-    const user = await users.findOrCreateFromPrivy({
+    const { user, isNewRegistration } = await users.findOrCreateFromPrivy({
       privyId: TEST_PRIVY_ID,
       email: profile.email,
       name: profile.name,
@@ -129,6 +129,7 @@ describe('User management integration (Postgres)', () => {
       authProviders: profile.authProviders,
       wallets: profile.wallets,
     });
+    expect(isNewRegistration).toBe(true);
 
     const providers = await users.listAuthProvidersForUser(user.id);
     const wallets = await users.listWalletsForUser(user.id);
@@ -143,7 +144,7 @@ describe('User management integration (Postgres)', () => {
 
   itIf('updates existing user on re-sync without duplicate rows', async () => {
     const profile = buildFullPrivyProfile();
-    const first = await users.findOrCreateFromPrivy({
+    const { user: first } = await users.findOrCreateFromPrivy({
       privyId: TEST_PRIVY_ID,
       email: profile.email,
       name: profile.name,
@@ -154,7 +155,7 @@ describe('User management integration (Postgres)', () => {
       wallets: profile.wallets,
     });
 
-    const second = await users.findOrCreateFromPrivy({
+    const { user: second, isNewRegistration } = await users.findOrCreateFromPrivy({
       privyId: TEST_PRIVY_ID,
       email: profile.email,
       name: 'E2E User Updated',
@@ -165,6 +166,7 @@ describe('User management integration (Postgres)', () => {
       wallets: profile.wallets,
     });
 
+    expect(isNewRegistration).toBe(false);
     expect(second.id).toBe(first.id);
     expect(second.name).toBe('E2E User Updated');
 
@@ -200,7 +202,7 @@ describe('User management integration (Postgres)', () => {
     );
 
     const profile = buildFullPrivyProfile();
-    const merged = await users.findOrCreateFromPrivy({
+    const { user: merged, isNewRegistration } = await users.findOrCreateFromPrivy({
       privyId: TEST_PRIVY_ID,
       email: profile.email,
       name: profile.name,
@@ -211,6 +213,7 @@ describe('User management integration (Postgres)', () => {
       wallets: profile.wallets,
     });
 
+    expect(isNewRegistration).toBe(false);
     expect(merged.id).toBe(legacy.id);
     expect(merged.privyId).toBe(TEST_PRIVY_ID);
 
@@ -223,7 +226,7 @@ describe('User management integration (Postgres)', () => {
 
   itIf('soft-unlinks removed auth providers on sync', async () => {
     const profile = buildFullPrivyProfile();
-    const user = await users.findOrCreateFromPrivy({
+    const { user } = await users.findOrCreateFromPrivy({
       privyId: TEST_PRIVY_ID,
       email: profile.email,
       authProviders: profile.authProviders,

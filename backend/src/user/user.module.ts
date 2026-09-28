@@ -7,7 +7,6 @@ import { User } from './entities/user.entity';
 import { UserWallet } from './entities/user-wallet.entity';
 import { UserService } from './user.service';
 import { PlacesAddressService } from './places-address.service';
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([

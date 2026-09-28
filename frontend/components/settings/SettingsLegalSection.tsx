@@ -1,104 +1,56 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/auth";
-import { updateAuthProfile } from "@/lib/auth";
-import { cn } from "@/lib/ds/cn";
-import { useAuthStore } from "@/store/authStore";
 import { SettingsBtn } from "./SettingsBtn";
 
-const AGREEMENTS = [
-  "Seller Agreement",
-  "Terms of Use",
-  "Privacy Policy",
+const AGREEMENTS: { title: string; href: string }[] = [
+  { title: "Seller Agreement", href: "https://tokenable.io/terms" },
+  { title: "Terms of Use", href: "https://tokenable.io/terms" },
+  { title: "Privacy Policy", href: "https://tokenable.io/privacy" },
+];
+
+const CONSENT_LABELS = [
+  "Seller Agreement & Terms of Use",
+  "PSA Vault storage & withdrawal terms",
+  "5% platform fee on completed sales",
 ] as const;
 
+function formatConsentDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function SettingsLegalSection({ user }: { user: AuthUser }) {
-  const setUser = useAuthStore((s) => s.setUser);
-  const [marketingOn, setMarketingOn] = useState(user.marketingEmailsOptIn ?? false);
-  const [error, setError] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pending = useRef<boolean | null>(null);
-  const setUserRef = useRef(setUser);
-  setUserRef.current = setUser;
-
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      const next = pending.current;
-      pending.current = null;
-      if (next === null) return;
-      void updateAuthProfile({ marketingEmailsOptIn: next })
-        .then((u) => setUserRef.current(u))
-        .catch(() => undefined);
-    };
-  }, []);
-
-  function toggleMarketing() {
-    const next = !marketingOn;
-    setMarketingOn(next);
-    pending.current = next;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const value = pending.current;
-      pending.current = null;
-      if (value === null) return;
-      void updateAuthProfile({ marketingEmailsOptIn: value })
-        .then((u) => {
-          setUser(u);
-          setError(null);
-        })
-        .catch((e) => {
-          setMarketingOn(!value);
-          setError(e instanceof Error ? e.message : "Could not save preference.");
-        });
-    }, 250);
-  }
+  const acceptedOn = formatConsentDate(user.kycVerifiedAt);
 
   return (
     <section className="tk-settings__sec tk-settings__sec--legal">
-      <h1 className="tk-settings__sec-h">Legal and consents</h1>
+      <h1 className="tk-settings__sec-h">Legal &amp; consents</h1>
       <p className="tk-settings__sec-sub">
         Manage your agreements and communication preferences.
       </p>
 
       <div className="tk-settings__card">
-        <div className="tk-settings__row">
-          <div>
-            <div className="tk-settings__row-t">Marketing emails</div>
-            <div className="tk-settings__row-d">
-              Product news and drops. Opt out anytime.
-            </div>
-          </div>
-          <button
-            type="button"
-            className={cn("tk-settings__sw", marketingOn && "on")}
-            aria-label="Marketing emails"
-            aria-pressed={marketingOn}
-            onClick={toggleMarketing}
-          />
-        </div>
-      </div>
-
-      <div className="tk-settings__card">
         <div className="tk-settings__lbl" style={{ marginBottom: 4 }}>
           Agreements
         </div>
-        {AGREEMENTS.map((title) => (
-          <div key={title} className="tk-settings__row">
-            <div className="tk-settings__row-t">{title}</div>
-            <SettingsBtn
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setHint(
-                  `${title} document pages are coming soon. Seller terms are shown in the sell flow today.`,
-                )
-              }
+        {AGREEMENTS.map((item) => (
+          <div key={item.title} className="tk-settings__row">
+            <div className="tk-settings__row-t">{item.title}</div>
+            <a
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tk-settings__btn tk-settings__btn--ghost tk-settings__btn--sm"
             >
-              Coming soon
-            </SettingsBtn>
+              View
+            </a>
           </div>
         ))}
       </div>
@@ -107,17 +59,25 @@ export function SettingsLegalSection({ user }: { user: AuthUser }) {
         <div className="tk-settings__lbl" style={{ marginBottom: 12 }}>
           Consent history
         </div>
-        <p className="text-sm leading-relaxed text-[var(--t2)]">
-          A permanent consent audit log is coming soon. Seller terms are accepted again each time
-          you list through the sell flow.
-        </p>
+        {acceptedOn ? (
+          <div className="flex flex-col gap-3">
+            {CONSENT_LABELS.map((label) => (
+              <div key={label} className="flex gap-2.5">
+                <span className="shrink-0 text-[var(--pos)]" aria-hidden>✓</span>
+                <span className="text-[13px] leading-relaxed text-[var(--t2)]">
+                  {label}{" "}
+                  <span className="font-sans text-[var(--t3)]">· accepted {acceptedOn}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px] leading-relaxed text-[var(--t2)]">
+            Seller and vault consents are recorded when you verify identity and complete
+            your first listing in the sell flow.
+          </p>
+        )}
       </div>
-
-      {error || hint ? (
-        <p className="mt-3 text-xs text-[var(--warn)]" role="status">
-          {error ?? hint}
-        </p>
-      ) : null}
     </section>
   );
 }

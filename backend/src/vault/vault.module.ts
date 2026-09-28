@@ -16,7 +16,7 @@ import { VaultSubmissionService } from './vault-submission.service';
 import { VaultSubmissionsController } from './vault-submissions.controller';
 import { VaultService } from './vault.service';
 import { VaultMintRecoveryService } from './vault-mint-recovery.service';
-import { GmailApiClient } from './gmail-api.client';
+import { GmailModule } from './gmail.module';
 import { PsaReceivedMailService } from './psa-received-mail.service';
 
 /**
@@ -39,12 +39,12 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
     ]),
     MarketplaceNotificationsModule,
     BlockchainModule,
+    GmailModule,
   ],
   controllers: [VaultSubmissionsController],
   providers: [
     VaultService,
     VaultSubmissionService,
-    GmailApiClient,
     PsaReceivedMailService,
     VaultMintRecoveryService,
   ],
@@ -52,7 +52,7 @@ import { PsaReceivedMailService } from './psa-received-mail.service';
     VaultService,
     VaultSubmissionService,
     VaultMintRecoveryService,
-    GmailApiClient,
+    GmailModule,
     PsaReceivedMailService,
   ],
 })

@@ -111,6 +111,8 @@ export function serializeAuthUser(
     bids: user.emailNotifPrefs?.bids ?? true,
     price: user.emailNotifPrefs?.price ?? true,
     vault: user.emailNotifPrefs?.vault ?? true,
+    listing: user.emailNotifPrefs?.listing ?? true,
+    market: user.emailNotifPrefs?.market ?? false,
   };
 
   return {

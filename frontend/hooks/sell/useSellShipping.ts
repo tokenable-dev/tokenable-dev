@@ -27,6 +27,7 @@ import {
   type SellDraftCard,
   type SellReturnAddressDraft,
   validateTracking,
+  vaultSubmissionSyncImageUrl,
 } from "@/lib/sell/sellFlowDraft";
 import {
   getPartnerMe,
@@ -147,7 +148,7 @@ async function upsertAwaitingShipmentPackage(
       cert: c.cert,
       name: c.name,
       grade: c.grade,
-      img: c.img,
+      img: vaultSubmissionSyncImageUrl(c.img),
       confirmed: true,
       cardNumber: c.cardNumber,
       year: c.year,

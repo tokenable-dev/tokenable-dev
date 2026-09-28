@@ -6,6 +6,8 @@
  * 3. UserPill "Add funds" → Polygon USDC + MoonPay (Dashboard default is often chain 1).
  * 4. fundWallet chain fallback when Dashboard default is not in supportedChains.
  * 5. TransactionErrorView `styled.text` → `styled.span` (React crash: unrecognized <text> tag).
+ * 6. usePrivyEventSubscription: hooks after `if (!callbacks) return` (React #300 after approve).
+ * 7. TransactionDetails accordion: hide collapsed USD when `tx.value` is 0 (ERC-20 / USDC).
  *
  * Re-run safe after `pnpm install` — idempotent.
  */
@@ -264,6 +266,84 @@ function patchFundWalletChainFallback() {
   return patched;
 }
 
+/**
+ * Privy's `usePrivyEventSubscription(action, callbacks)` (behind useLogin, useSendTransaction,
+ * useSignTypedData, …) returns before `useContext`/`useEffect` when `callbacks` is undefined.
+ * If a caller's callbacks go from set → unset between renders, React throws
+ * "Rendered fewer hooks than expected" (#300) into RootLayout. Call the hooks
+ * unconditionally and skip inside the effect instead — same behaviour, stable hook order.
+ * Minified: esm `if(!n)return;let r=M().current[e];return g((()=>{for…`,
+ *           cjs `if(!n)return;let t=l().current[e];return r.useEffect((()=>{for…`.
+ */
+const EVENT_SUBSCRIPTION_NEEDLE =
+  /if\(!n\)return;let (\w)=(\w+)\(\)\.current\[e\];return ([\w.]+)\(\(\(\)=>\{for/g;
+
+/** USDC / contract calls have `value: 0` — Privy still shows "Details · US$0.00" (misleading). */
+const TX_DETAILS_HEADER_PRICE_ESM_NEEDLE =
+  'i("div",{children:d?.title||"Details"}),/*#__PURE__*/i(H,{children:/*#__PURE__*/i(l,{weiQuantities:[h],tokenPrice:a,tokenSymbol:s})})';
+const TX_DETAILS_HEADER_PRICE_ESM_REPLACEMENT =
+  'i("div",{children:d?.title||"Details"}),h>BigInt(0)&&/*#__PURE__*/i(H,{children:/*#__PURE__*/i(l,{weiQuantities:[h],tokenPrice:a,tokenSymbol:s})})';
+
+const TX_DETAILS_HEADER_PRICE_CJS_NEEDLE =
+  'e.jsx("div",{children:l?.title||"Details"}),/*#__PURE__*/e.jsx(N,{children:/*#__PURE__*/e.jsx(i.HeaderPriceDisplay,{weiQuantities:[x],tokenPrice:o,tokenSymbol:a})})';
+const TX_DETAILS_HEADER_PRICE_CJS_REPLACEMENT =
+  'e.jsx("div",{children:l?.title||"Details"}),x>BigInt(0)&&/*#__PURE__*/e.jsx(N,{children:/*#__PURE__*/e.jsx(i.HeaderPriceDisplay,{weiQuantities:[x],tokenPrice:o,tokenSymbol:a})})';
+
+function patchTransactionDetailsZeroValueHeader() {
+  let patched = 0;
+  for (const sub of ["esm", "cjs"]) {
+    const dir = path.join(PRIVY_DIST, sub);
+    if (!fs.existsSync(dir)) continue;
+    const [needle, replacement] =
+      sub === "esm"
+        ? [TX_DETAILS_HEADER_PRICE_ESM_NEEDLE, TX_DETAILS_HEADER_PRICE_ESM_REPLACEMENT]
+        : [TX_DETAILS_HEADER_PRICE_CJS_NEEDLE, TX_DETAILS_HEADER_PRICE_CJS_REPLACEMENT];
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.startsWith("TransactionDetails-")) continue;
+      const fp = path.join(dir, name);
+      if (
+        patchFile(fp, (content) =>
+          content.includes(needle) ? content.replace(needle, replacement) : null,
+        )
+      ) {
+        patched += 1;
+        console.log(
+          `[patch-privy-sdk] hide Details US$0 (value=0) → ${path.relative(process.cwd(), fp)}`,
+        );
+      }
+    }
+  }
+  return patched;
+}
+
+function patchEventSubscriptionHookOrder() {
+  let patched = 0;
+  for (const sub of ["esm", "cjs"]) {
+    const dir = path.join(PRIVY_DIST, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.endsWith(".mjs") && !name.endsWith(".js")) continue;
+      const fp = path.join(dir, name);
+      if (
+        patchFile(fp, (content) => {
+          if (!content.includes("Invalid event type")) return null;
+          return content.replace(
+            EVENT_SUBSCRIPTION_NEEDLE,
+            (_, ref, useCtx, useEff) =>
+              `let ${ref}=${useCtx}()?.current?.[e];return ${useEff}((()=>{if(!n||!${ref})return;for`,
+          );
+        })
+      ) {
+        patched += 1;
+        console.log(
+          `[patch-privy-sdk] event subscription hook order → ${path.relative(process.cwd(), fp)}`,
+        );
+      }
+    }
+  }
+  return patched;
+}
+
 function main() {
   if (!fs.existsSync(PRIVY_DIST)) return;
 
@@ -272,8 +352,19 @@ function main() {
   const addFunds = patchUserPillAddFunds();
   const chainFallback = patchFundWalletChainFallback();
   const styledText = patchStyledTextOutsideSvg();
+  const eventHooks = patchEventSubscriptionHookOrder();
+  const txDetailsHeader = patchTransactionDetailsZeroValueHeader();
 
-  if (isActive + clipPath + addFunds + chainFallback + styledText === 0) {
+  if (
+    isActive +
+      clipPath +
+      addFunds +
+      chainFallback +
+      styledText +
+      eventHooks +
+      txDetailsHeader ===
+    0
+  ) {
     console.log("[patch-privy-sdk] nothing to patch (already patched or version changed)");
   }
 }

@@ -18,6 +18,7 @@ import {
   UpsertVaultSubmissionDraftDto,
   VaultSubmissionCardDto,
 } from './dto/vault-submission.dto';
+import { normalizeVaultSubmissionImageUrl } from './vault-submission-image-url.util';
 import { VaultSubmissionItem } from './entities/vault-submission-item.entity';
 import {
   VaultSubmission,
@@ -459,7 +460,7 @@ export class VaultSubmissionService {
       language: card.language?.trim() || null,
       variant: card.variant?.trim() || null,
       grade: `PSA ${card.grade}`,
-      imageUrl: card.img?.trim() || null,
+      imageUrl: normalizeVaultSubmissionImageUrl(card.img),
       status: card.confirmed ? 'confirmed' : 'draft',
       sortOrder,
     };

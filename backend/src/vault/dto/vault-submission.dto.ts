@@ -1,4 +1,5 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { normalizeVaultSubmissionImageUrl } from '../vault-submission-image-url.util';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -30,6 +31,7 @@ export class VaultSubmissionCardDto {
   grade!: number;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeVaultSubmissionImageUrl(value))
   @IsString()
   @MaxLength(2048)
   img?: string | null;

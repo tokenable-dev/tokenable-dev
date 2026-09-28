@@ -31,13 +31,15 @@ export class AuthSessionUserDto {
   emailNotificationsEnabled?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Email category prefs: trades, bids, price, vault',
+    description: 'Email category prefs: trades, bids, price, vault, listing, market',
   })
   emailNotifPrefs?: {
     trades: boolean;
     bids: boolean;
     price: boolean;
     vault: boolean;
+    listing: boolean;
+    market: boolean;
   };
 
   @ApiProperty()

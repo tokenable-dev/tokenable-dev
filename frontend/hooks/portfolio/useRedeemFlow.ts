@@ -53,7 +53,12 @@ import {
   type ShippingCountry,
 } from "@/lib/core/api/shipping-addresses";
 import { useAuthStore } from "@/store/authStore";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
+import { usePrivyAwareWriteContract } from "@/hooks/wallet/usePrivyAwareWriteContract";
+import {
+  redeemCustodyTransferPrivyUi,
+  redeemUsdcFeePrivyUi,
+} from "@/lib/privy/redeemTxUi";
 import { getAddress, isAddress, formatUnits } from "viem";
 import { getChainContracts } from "@/lib/chains/registry";
 import {
@@ -429,7 +434,7 @@ export function useRedeemFlow() {
   const authReady = useAuthStore((s) => s.initialized);
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId });
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractWithPrivyUi } = usePrivyAwareWriteContract();
   const usdcBalance = useAppStore((s) => s.usdcBalance);
 
   const viewParam = parseRedeemViewQuery(searchParams);
@@ -884,13 +889,19 @@ export function useRedeemFlow() {
           );
         }
 
-        const nftHash = await writeContractAsync({
+        const fees = await userTxFees(publicClient);
+        const nftHash = await writeContractWithPrivyUi({
           chainId: pending.chainId,
           address: rwaAddress,
           abi: TOKENABLE_RWA_TRANSFER_ABI,
           functionName: "safeTransferFrom",
           args: [userWallet, custodyWallet, BigInt(tokenId)],
-          ...(await userTxFees(publicClient)),
+          ...fees,
+          privyUi: redeemCustodyTransferPrivyUi(
+            tokenId,
+            transferIndex,
+            needTransfer.length,
+          ),
         });
         await waitForUserTxReceipt(publicClient, nftHash);
         transfers.push({ tokenId, txHash: nftHash });
@@ -915,7 +926,7 @@ export function useRedeemFlow() {
         allInCustody: true,
       };
     },
-    [address, publicClient, writeContractAsync],
+    [address, publicClient, writeContractWithPrivyUi],
   );
 
   const resumeCustody = useCallback(async () => {
@@ -1048,13 +1059,15 @@ export function useRedeemFlow() {
 
       setPayPhase({ kind: "pay" });
       const { usdcAddress } = getChainContracts(chainId);
-      const hash = await writeContractAsync({
+      const fees = await userTxFees(publicClient);
+      const hash = await writeContractWithPrivyUi({
         chainId,
         address: usdcAddress,
         abi: USDC_ABI,
         functionName: "transfer",
         args: [payTo, amount],
-        ...(await userTxFees(publicClient)),
+        ...fees,
+        privyUi: redeemUsdcFeePrivyUi(amount),
       });
       paymentSent = true;
       await waitForUserTxReceipt(publicClient, hash);
@@ -1145,7 +1158,7 @@ export function useRedeemFlow() {
     isConnected,
     address,
     publicClient,
-    writeContractAsync,
+    writeContractWithPrivyUi,
     usdcBalance,
     finishCustodyTransfers,
   ]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TkDialog } from "@/components/ds";
 import { deleteAccount } from "@/lib/auth/auth";
@@ -8,16 +8,31 @@ import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
 import { SettingsBtn } from "./SettingsBtn";
 
+function describeThisSession(): { title: string; detail: string } {
+  if (typeof navigator === "undefined") {
+    return { title: "This device", detail: "active now" };
+  }
+  const ua = navigator.userAgent;
+  let browser = "Browser";
+  if (/Edg\//i.test(ua)) browser = "Edge";
+  else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = "Chrome";
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Safari";
+  else if (/Firefox\//i.test(ua)) browser = "Firefox";
+
+  return { title: "This device", detail: `${browser} · active now` };
+}
+
 export function SettingsSecuritySection() {
   const router = useRouter();
   const logout = useAuthStore((s) => s.logout);
+  const session = useMemo(() => describeThisSession(), []);
   const [signingOut, setSigningOut] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  async function handleSignOut() {
+  async function handleSignOutEverywhere() {
     if (signingOut) return;
     setSigningOut(true);
     try {
@@ -33,7 +48,6 @@ export function SettingsSecuritySection() {
     setDeletePending(true);
     try {
       await deleteAccount();
-      // Clear Privy too — otherwise PrivySessionBridge recreates the user via session sync.
       await completeSignOut(logout);
       setDeleteOpen(false);
       router.replace("/");
@@ -64,7 +78,7 @@ export function SettingsSecuritySection() {
             size="sm"
             onClick={() => setHint("2FA setup is coming soon.")}
           >
-            Coming soon
+            Set up 2FA
           </SettingsBtn>
         </div>
       </div>
@@ -76,17 +90,15 @@ export function SettingsSecuritySection() {
         <div className="tk-settings__row">
           <div>
             <div className="tk-settings__row-t">
-              This device
+              {session.title}
               <span
                 className="tk-settings__chip tk-settings__chip--muted"
                 style={{ marginLeft: 6 }}
               >
-                CURRENT
+                THIS DEVICE
               </span>
             </div>
-            <div className="tk-settings__row-d">
-              Multi-device session management is coming soon. Sign out below to end this session.
-            </div>
+            <div className="tk-settings__row-d">{session.detail}</div>
           </div>
         </div>
       </div>
@@ -94,16 +106,18 @@ export function SettingsSecuritySection() {
       <div className="tk-settings__card">
         <div className="tk-settings__row">
           <div>
-            <div className="tk-settings__row-t">Sign out</div>
+            <div className="tk-settings__row-t" style={{ color: "#FF6B7A" }}>
+              Sign out everywhere
+            </div>
             <div className="tk-settings__row-d">
-              End your session on this device.
+              Ends every active session, including this one.
             </div>
           </div>
           <SettingsBtn
             variant="danger"
             size="sm"
             disabled={signingOut}
-            onClick={() => void handleSignOut()}
+            onClick={() => void handleSignOutEverywhere()}
           >
             {signingOut ? "Signing out…" : "Sign out"}
           </SettingsBtn>

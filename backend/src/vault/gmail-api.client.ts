@@ -186,6 +186,37 @@ export class GmailApiClient {
     }
   }
 
+  /** Send outbound mail (requires Gmail API `gmail.send` scope on the refresh token). */
+  async sendRfc822(accessToken: string, rawRfc822: string): Promise<string> {
+    const encoded = Buffer.from(rawRfc822)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    const user = encodeURIComponent(this.user());
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/${user}/messages/send`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw: encoded }),
+      },
+    );
+    const json = (await res.json()) as {
+      id?: string;
+      error?: { message?: string };
+    };
+    if (!res.ok || !json.id) {
+      throw new Error(
+        `Gmail send failed: ${res.status} ${json.error?.message ?? ''}`.trim(),
+      );
+    }
+    return json.id;
+  }
+
   async insertRfc822(accessToken: string, rawRfc822: string): Promise<string> {
     const encoded = Buffer.from(rawRfc822)
       .toString('base64')

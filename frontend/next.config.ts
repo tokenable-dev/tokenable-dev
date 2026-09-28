@@ -82,7 +82,7 @@ const nextConfig: NextConfig = {
      * Dev + prod: proxy `/api` at the edge. Avoids compiling `app/api/[...path]/route.ts`
      * on every browser request (Turbopack "Compiling…" + high CPU in local dev).
      * Nest default in dev is 127.0.0.1:4100 — override with API_PROXY_TARGET if needed.
-     * Explicit handlers under `app/api/*` (e.g. site-access status) still win; no catch-all `/api` route.
+     * Explicit handlers under `app/api/*` (site-access, rwa/mint, vault mint-and-deliver / PSA test-inject) win over rewrites.
      */
     const target = backendOrigin();
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];

@@ -10,6 +10,8 @@ describe('normalizeEmailNotifPrefs', () => {
       bids: true,
       price: true,
       vault: true,
+      listing: true,
+      market: false,
     });
   });
 
@@ -24,6 +26,8 @@ describe('normalizeEmailNotifPrefs', () => {
       bids: false,
       price: false,
       vault: true,
+      listing: true,
+      market: false,
     });
   });
 

@@ -1,16 +1,20 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
+import { WelcomeEmailService } from '../email/templates/welcome/welcome-email.service';
 import { PrivyService, parsePrivyUserProfile } from './privy';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly users: UserService,
     private readonly jwt: JwtService,
     private readonly privy: PrivyService,
+    private readonly welcomeEmail: WelcomeEmailService,
   ) {}
 
   issueAccessToken(user: User): string {
@@ -52,7 +56,7 @@ export class AuthService {
         err instanceof Error ? err.message : 'Invalid Privy user profile';
       throw new BadRequestException(message);
     }
-    return this.users.findOrCreateFromPrivy({
+    const { user, isNewRegistration } = await this.users.findOrCreateFromPrivy({
       privyId: privyUser.id,
       email: profile.email,
       name: profile.name,
@@ -62,5 +66,13 @@ export class AuthService {
       authProviders: profile.authProviders,
       wallets: profile.wallets,
     });
+    void this.welcomeEmail
+      .sendForNewRegistration(user, isNewRegistration)
+      .catch((err) => {
+        this.logger.warn(
+          `Welcome email async error userId=${user.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    return user;
   }
 }

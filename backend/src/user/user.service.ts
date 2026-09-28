@@ -113,7 +113,7 @@ export class UserService {
     wallets?: ParsedWalletLink[];
     /** @deprecated Prefer wallets */
     walletAddresses?: string[];
-  }): Promise<User> {
+  }): Promise<{ user: User; isNewRegistration: boolean }> {
     const email = params.email.toLowerCase().trim();
     const wallets =
       params.wallets ??
@@ -129,7 +129,8 @@ export class UserService {
       await this.syncPrivyIdentity(byPrivy.id, params.authProviders ?? [], wallets);
       byPrivy.lastPrivySyncAt = new Date();
       await this.users.save(byPrivy);
-      return (await this.findById(byPrivy.id)) ?? byPrivy;
+      const refreshed = (await this.findById(byPrivy.id)) ?? byPrivy;
+      return { user: refreshed, isNewRegistration: false };
     }
 
     // Contact emails may be shared across wallet accounts. Only attach a new
@@ -148,7 +149,9 @@ export class UserService {
         params.authProviders ?? [],
         wallets,
       );
-      return (await this.findById(legacyByEmail.id)) ?? legacyByEmail;
+      const merged =
+        (await this.findById(legacyByEmail.id)) ?? legacyByEmail;
+      return { user: merged, isNewRegistration: false };
     }
 
     const user = this.users.create({
@@ -175,7 +178,8 @@ export class UserService {
       );
     }
     await this.syncPrivyIdentity(saved.id, params.authProviders ?? [], wallets);
-    return (await this.findById(saved.id)) ?? saved;
+    const created = (await this.findById(saved.id)) ?? saved;
+    return { user: created, isNewRegistration: true };
   }
 
   private async patchPrivyProfileIfNeeded(

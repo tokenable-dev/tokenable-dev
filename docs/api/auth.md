@@ -79,7 +79,7 @@ Update display name, contact email (wallet-only accounts), and notification / ma
   - `email` — real contact inbox; only allowed when the account still has the `@privy.wallet` placeholder (MetaMask / wallet-only). The same email may be stored on multiple accounts (one person, multiple wallets).
   - `marketingEmailsOptIn` — boolean
   - `emailNotificationsEnabled` — master switch for category email prefs
-  - `emailNotifPrefs` — `{ trades?, bids?, price?, vault? }` booleans
+  - `emailNotifPrefs` — `{ trades?, bids?, price?, vault?, listing?, market? }` booleans (`listing` / `market` are optional alert emails in Settings)
 - **Response:** `{ user: … }` (same shape as session; includes the new preference fields)
 - **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`, and does **not** replace a real `users.email` with the wallet-only `@privy.wallet` placeholder.
 
@@ -152,6 +152,7 @@ User → Privy login (email/Google/Apple/wallet)
        → upsert users by privy_id or email
        → syncPrivyWallets() → user_wallets
        → syncPrivyIdentity() → user_auth_providers
+     → (new `users` row only) `WelcomeEmailService` (`backend/src/email/`) via Gmail — one-time welcome mail when `WELCOME_EMAIL_ENABLED=1` and inbox is not a `@privy.wallet` placeholder. See [transactional-email.md](../architecture/transactional-email.md).
      → issueAccessToken() — JWT cookie (7 days)
      → return { user: AuthUser }
 ```

@@ -188,6 +188,18 @@ export function formatSellCardDisplay(
   return { line1, line2: line2 || null };
 }
 
+/** HTTP(S) preview for vault draft API — keeps local `data:` thumbs out of the DB. */
+export function vaultSubmissionSyncImageUrl(
+  img: string | null | undefined,
+): string | null {
+  const t = img?.trim();
+  if (!t) return null;
+  if (t.toLowerCase().startsWith("data:")) return null;
+  if (!/^https?:\/\//i.test(t)) return null;
+  if (t.length > 2048) return null;
+  return t;
+}
+
 export type SellDraftCard = {
   cert: string;
   name: string;

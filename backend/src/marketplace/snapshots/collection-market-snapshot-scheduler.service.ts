@@ -25,11 +25,8 @@ import type {
 import {
   collectionKeyToAdvisoryLockKey,
   formatAdvisoryLockKey,
-  type SnapshotAdvisoryLockKey,
 } from '../utils/snapshot-advisory-lock.util';
-
-/** Result of `pg_try_advisory_lock` — drives retry vs fail-closed paths. */
-type LockResult = 'acquired' | 'held' | 'db_error';
+import { runWithPgSessionAdvisoryLock } from '../../database/pg-session-advisory-lock.util';
 
 /**
  * Schedules materialized snapshot refresh.
@@ -239,43 +236,45 @@ export class CollectionMarketSnapshotSchedulerService
         await Promise.all(
           batch.map(async (job) => {
             const lockKey = collectionKeyToAdvisoryLockKey(job.collectionKey);
-            const lockResult = await this.tryAdvisoryLock(lockKey);
-            if (lockResult !== 'acquired') {
-              if (lockResult === 'held') {
-                this.logger.debug(
-                  JSON.stringify({
-                    msg: 'snapshot:lock_contention',
-                    collectionKey: job.collectionKey,
-                    lockKey: formatAdvisoryLockKey(lockKey),
-                    attempt: job.attempt,
-                    reason: job.reason,
-                  }),
-                );
-                this.scheduleLockRetry(job);
-              } else {
-                this.logger.warn(
-                  JSON.stringify({
-                    msg: 'snapshot:lock_db_error',
-                    collectionKey: job.collectionKey,
-                    lockKey: formatAdvisoryLockKey(lockKey),
-                    attempt: job.attempt,
-                    reason: job.reason,
-                  }),
-                );
-              }
+            let lock: { acquired: boolean };
+            try {
+              lock = await runWithPgSessionAdvisoryLock(
+                this.dataSource,
+                [lockKey.key1, lockKey.key2],
+                () =>
+                  this.snapshotService
+                    .refreshSnapshot(job.collectionKey, job.reason)
+                    .catch((e: unknown) => {
+                      this.logger.warn(
+                        `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+                      );
+                    }),
+              );
+            } catch {
+              // Fail-closed: if DB is unreachable, skip this job so other pods don't
+              // double-write the same snapshot row. No lock retry on db_error.
+              this.logger.warn(
+                JSON.stringify({
+                  msg: 'snapshot:lock_db_error',
+                  collectionKey: job.collectionKey,
+                  lockKey: formatAdvisoryLockKey(lockKey),
+                  attempt: job.attempt,
+                  reason: job.reason,
+                }),
+              );
               return;
             }
-            try {
-              await this.snapshotService.refreshSnapshot(
-                job.collectionKey,
-                job.reason,
+            if (!lock.acquired) {
+              this.logger.debug(
+                JSON.stringify({
+                  msg: 'snapshot:lock_contention',
+                  collectionKey: job.collectionKey,
+                  lockKey: formatAdvisoryLockKey(lockKey),
+                  attempt: job.attempt,
+                  reason: job.reason,
+                }),
               );
-            } catch (e) {
-              this.logger.warn(
-                `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
-              );
-            } finally {
-              await this.releaseAdvisoryLock(lockKey);
+              this.scheduleLockRetry(job);
             }
           }),
         );
@@ -286,36 +285,6 @@ export class CollectionMarketSnapshotSchedulerService
     } finally {
       this.processing = false;
       if (this.queue.length > 0) this.scheduleDrain();
-    }
-  }
-
-  private async tryAdvisoryLock(
-    lockKey: SnapshotAdvisoryLockKey,
-  ): Promise<LockResult> {
-    try {
-      const rows = await this.dataSource.query(
-        'SELECT pg_try_advisory_lock($1, $2) AS locked',
-        [lockKey.key1, lockKey.key2],
-      );
-      const locked = rows?.[0]?.locked;
-      return locked === true || locked === 't' ? 'acquired' : 'held';
-    } catch {
-      // Fail-closed: if DB is unreachable, skip this job so other pods don't
-      // double-write the same snapshot row. No lock retry on db_error.
-      return 'db_error';
-    }
-  }
-
-  private async releaseAdvisoryLock(
-    lockKey: SnapshotAdvisoryLockKey,
-  ): Promise<void> {
-    try {
-      await this.dataSource.query('SELECT pg_advisory_unlock($1, $2)', [
-        lockKey.key1,
-        lockKey.key2,
-      ]);
-    } catch {
-      /* best-effort */
     }
   }
 

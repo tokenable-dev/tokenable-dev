@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { TkButton, TkDialog } from "@/components/ds";
-import { ASSETS } from "@/constants/assets";
-import { KBW_MYSTERY_CARD_NAME } from "@/lib/portfolio/kbwMysteryCard";
+import {
+  KBW_MYSTERY_CARD_NAME,
+  kbwMysteryCardImageUrl,
+} from "@/lib/portfolio/kbwMysteryCard";
 import "@/styles/tokenable-kbw-mystery-burn.css";
 
 type BurnStep = "staff_gate" | "check";
@@ -106,7 +108,7 @@ export function KbwMysteryCardBurnModal({
         <div className="tk-kbw-burn__art">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={ASSETS.event.kbwMysteryCard}
+            src={kbwMysteryCardImageUrl(false)}
             alt={KBW_MYSTERY_CARD_NAME}
             width={163}
             height={253}

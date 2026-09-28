@@ -138,6 +138,32 @@ describe('DataInventoryService.resetForNewContract', () => {
     ).toBe(true);
   });
 
+  it('sweeps orphan vault cycles when wiping the configured contract', async () => {
+    const { service, query } = makeService({
+      isProduction: false,
+      resetPassword: '3009',
+    });
+    await service.resetForNewContract('3009', SEPOLIA, ADDR);
+    const sql = query.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(sql).toContain(
+      "c.status NOT IN ('pending_deposit', 'deposit_verified', 'minting')",
+    );
+    expect(sql).toContain('psa_cert_number');
+  });
+
+  it('does not chain-sweep orphan vault cycles for a legacy contract address', async () => {
+    const { service, query } = makeService({
+      isProduction: false,
+      resetPassword: '3009',
+      configuredAddress: '0x2222222222222222222222222222222222222222',
+    });
+    await service.resetForNewContract('3009', SEPOLIA, ADDR);
+    const sql = query.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(sql).not.toContain(
+      "c.status NOT IN ('pending_deposit', 'deposit_verified', 'minting')",
+    );
+  });
+
   it('does not wipe chain-scoped inbox when the address is a previous contract', async () => {
     const { service, query } = makeService({
       isProduction: false,

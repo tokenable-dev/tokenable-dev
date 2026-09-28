@@ -85,20 +85,27 @@ export class User {
   emailNotificationsEnabled: boolean;
 
   /**
-   * Per-category email prefs: trades | bids | price | vault.
+   * Per-category email prefs: trades | bids | price | vault | listing | market.
    * Stored for Settings; senders should honor when email delivery exists.
    */
   @Column({
     name: 'email_notif_prefs',
     type: 'jsonb',
-    default: () => `'{"trades":true,"bids":true,"price":true,"vault":true}'`,
+    default: () =>
+      `'{"trades":true,"bids":true,"price":true,"vault":true,"listing":true,"market":false}'`,
   })
   emailNotifPrefs: {
     trades: boolean;
     bids: boolean;
     price: boolean;
     vault: boolean;
+    listing: boolean;
+    market: boolean;
   };
+
+  /** One-time welcome email after first Privy registration (real inbox only). */
+  @Column({ name: 'welcome_email_sent_at', type: 'timestamptz', nullable: true })
+  welcomeEmailSentAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

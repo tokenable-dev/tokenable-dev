@@ -6,7 +6,7 @@ import { updateAuthProfile, uploadAuthAvatar } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SettingsBtn } from "./SettingsBtn";
 
-const AVATAR_MAX_BYTES = 8 * 1024 * 1024;
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
 const AVATAR_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
 
 function displayNameFor(user: AuthUser): string {
@@ -62,7 +62,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setError("Avatar must be 8MB or smaller.");
+      setError("Avatar must be 4MB or smaller.");
       return;
     }
     setUploading(true);
@@ -147,9 +147,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
               >
                 {uploading ? "Uploading…" : "Upload image"}
               </SettingsBtn>
-              <span className="tk-settings__hint">
-                PNG, JPG, or WebP · up to 8MB · replaces your login avatar
-              </span>
+              <span className="text-xs text-[var(--t3)]">PNG or JPG, up to 4MB</span>
             </div>
             <div className="mt-5 flex gap-2.5">
               <SettingsBtn

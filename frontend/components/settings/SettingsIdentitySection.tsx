@@ -55,8 +55,8 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
       </p>
 
       <div className="tk-settings__card">
-        <div className="tk-settings__row tk-settings__row--stack">
-          <div className="tk-settings__row-main flex min-w-0 items-center gap-3.5">
+        <div className="tk-settings__row">
+          <div className="flex min-w-0 items-center gap-3.5">
             <span
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
               style={{
@@ -94,14 +94,14 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
             </div>
           </div>
           {verified ? (
-            <span className="tk-settings__chip tk-settings__chip--pos self-start">
+            <span className="tk-settings__chip tk-settings__chip--pos shrink-0">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               VERIFIED
             </span>
           ) : (
-            <SettingsBtn variant="primary" size="sm" onClick={goToKyc}>
+            <SettingsBtn variant="primary" size="sm" className="shrink-0" onClick={goToKyc}>
               {status === "pending"
                 ? "Continue verification"
                 : status === "rejected"

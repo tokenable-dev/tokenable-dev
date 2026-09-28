@@ -185,6 +185,47 @@ describe('VaultSubmissionService.upsertDraft', () => {
     });
   });
 
+  it('stores null imageUrl when card img is a data URL (ship step must not block)', async () => {
+    const { em, createdRows } = makeEm({
+      findOneResult: null,
+      getOneResults: [null, null],
+      finalStatus: 'awaiting_shipment',
+    });
+
+    const submissions = {
+      manager: {
+        transaction: async (fn: (e: typeof em) => Promise<unknown>) => fn(em),
+      },
+      find: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+    };
+
+    const service = new VaultSubmissionService(
+      submissions as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      chainConfig as never,
+    );
+
+    await service.upsertDraft('user-1', {
+      cards: [
+        {
+          ...CONFIRMED_CARD,
+          img: `data:image/jpeg;base64,${'x'.repeat(8000)}`,
+        },
+      ],
+    });
+
+    const item = createdRows.find(
+      (r) => r.certNumber === '12345678' || r.certNumber === CONFIRMED_CARD.cert,
+    );
+    expect(item).toBeTruthy();
+    expect(item?.imageUrl ?? null).toBeNull();
+  });
+
   it('creates a new package as awaiting_shipment (never draft)', async () => {
     const { em, createdRows, qb, updates } = makeEm({
       findOneResult: null,

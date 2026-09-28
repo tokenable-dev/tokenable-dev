@@ -11,10 +11,11 @@ export function isKbwMysteryCardTokenId(tokenId: number): boolean {
   return tokenId === KBW_MYSTERY_CARD_TOKEN_ID;
 }
 
+/** Unused = same pack art as KBW offer modal; used = REDEEMED stamp asset. */
 export function kbwMysteryCardImageUrl(used = false): string {
   return used
     ? ASSETS.event.kbwMysteryCardRedeemed
-    : ASSETS.event.kbwMysteryCard;
+    : ASSETS.event.mysteryPack;
 }
 
 export function buildKbwMysteryCardRow(used = false): PricedAssetRow {

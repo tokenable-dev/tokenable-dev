@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { CatalogCoverS3Service } from '../marketplace/collections/catalog-cover-s3.service';
+import { EmailModule } from '../email/email.module';
 import { UserModule } from '../user/user.module';
 import { UserShippingAddressesController } from '../user/user-shipping-addresses.controller';
 import { AuthController } from './auth.controller';
@@ -16,6 +17,7 @@ import { PrivyService } from './privy';
   imports: [
     ConfigModule,
     UserModule,
+    EmailModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],

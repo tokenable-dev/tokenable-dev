@@ -35,6 +35,20 @@ Key facts:
 
 ---
 
+### Transactional email (product notifications)
+
+| | |
+|---|---|
+| **Documentation** | `docs/architecture/transactional-email.md` |
+| **Implementation** | `backend/src/email/` (`EmailModule`, `TransactionalEmailService`, `templates/welcome/`) |
+| **Frontend preview** | `frontend/components/email/welcome/`, `frontend/app/dev/welcome-email/` |
+| **Database** | `users.welcome_email_sent_at` (welcome idempotency) |
+| **Required reading before changes** | `docs/architecture/transactional-email.md`, `docs/api/auth.md` (welcome trigger) |
+
+PSA/vault **inbound** Gmail pollers remain in `backend/src/vault/` — not this module.
+
+---
+
 ### Vault Lifecycle (NFT Mint → Deliver → Burn)
 
 | | |

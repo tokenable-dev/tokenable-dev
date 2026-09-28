@@ -291,7 +291,14 @@ export class DataInventoryService {
         await has('orders'),
         await has('rwa_tokens'),
       );
-      const certs = await this.certsForContract(
+      const certs = await this.certNumbersForContractWipe(
+        manager,
+        addr,
+        chain,
+        collectionKeys,
+        has,
+      );
+      const contractCycleIds = await this.vaultCycleIdsForContract(
         manager,
         addr,
         await has('rwa_tokens'),
@@ -386,13 +393,25 @@ export class DataInventoryService {
       }
 
       if (certs.length > 0) {
-        const certVaultDeleted = await this.deleteOpenVaultCyclesForCertNumbers(
+        const certVaultDeleted = await this.deleteVaultLifecycleForCertNumbers(
           manager,
           chain,
           certs,
           has,
         );
         for (const [table, n] of Object.entries(certVaultDeleted)) {
+          deletedCounts[table] = (deletedCounts[table] ?? 0) + n;
+        }
+      }
+
+      if (contractCycleIds.length > 0 && (await has('vault_cycles'))) {
+        const linkedDeleted = await this.deleteVaultLifecycleForCycleIds(
+          manager,
+          'vault_cycles.id = ANY($1::uuid[])',
+          [contractCycleIds],
+          has,
+        );
+        for (const [table, n] of Object.entries(linkedDeleted)) {
           deletedCounts[table] = (deletedCounts[table] ?? 0) + n;
         }
       }
@@ -430,6 +449,17 @@ export class DataInventoryService {
         [addr],
       );
       await note('rwa_tokens', 'lower(token_contract) = $1', [addr]);
+
+      if (wipedConfiguredContract && (await has('vault_cycles'))) {
+        const orphanDeleted = await this.deleteOrphanVaultCyclesOnChain(
+          manager,
+          chain,
+          has,
+        );
+        for (const [table, n] of Object.entries(orphanDeleted)) {
+          deletedCounts[table] = (deletedCounts[table] ?? 0) + n;
+        }
+      }
 
       if (certs.length > 0 && (await has('vault_assets'))) {
         await note(
@@ -574,27 +604,140 @@ export class DataInventoryService {
   }
 
   /**
-   * Cert-scoped vault cleanup so remint works after contract wipe even when
-   * rwa_tokens were deleted manually and left orphan open cycles on the chain.
+   * PSA certs tied to this contract wipe — rwa_tokens, catalog, and bulk-mint
+   * rows. Collected before deletes so orphan vault_cycles still match after
+   * manual rwa_tokens cleanup.
    */
-  private async deleteOpenVaultCyclesForCertNumbers(
+  private async certNumbersForContractWipe(
+    manager: { query: DataSource['query'] },
+    addr: string,
+    chainId: number,
+    collectionKeys: string[],
+    has: (table: string) => Promise<boolean>,
+  ): Promise<string[]> {
+    const out = new Set<string>();
+    if (await has('rwa_tokens')) {
+      const rows = (await manager.query(
+        `SELECT DISTINCT lower(cert_number) AS c FROM rwa_tokens
+         WHERE lower(token_contract) = $1 AND cert_number IS NOT NULL`,
+        [addr],
+      )) as { c: string }[];
+      for (const r of rows) {
+        const c = String(r.c).toLowerCase().trim();
+        if (c) out.add(c);
+      }
+    }
+    if (await has('marketplace_collections')) {
+      const rows = (await manager.query(
+        `SELECT DISTINCT lower(psa_cert_number) AS c FROM marketplace_collections
+         WHERE psa_cert_number IS NOT NULL
+           AND (
+             lower(token_contract) = $1
+             OR (
+               $2::text[] <> ARRAY[]::text[]
+               AND lower(collection_key) = ANY($2::text[])
+             )
+           )`,
+        [addr, collectionKeys],
+      )) as { c: string }[];
+      for (const r of rows) {
+        const c = String(r.c).toLowerCase().trim();
+        if (c) out.add(c);
+      }
+    }
+    if (
+      (await has('bulk_mint_job_items')) &&
+      (await this.tableExists('bulk_mint_jobs'))
+    ) {
+      const rows = (await manager.query(
+        `SELECT DISTINCT lower(i.cert_number) AS c
+         FROM bulk_mint_job_items i
+         INNER JOIN bulk_mint_jobs j ON j.id = i.job_id
+         WHERE j.chain_id = $1 AND i.cert_number IS NOT NULL`,
+        [chainId],
+      )) as { c: string }[];
+      for (const r of rows) {
+        const c = String(r.c).toLowerCase().trim();
+        if (c) out.add(c);
+      }
+    }
+    return [...out];
+  }
+
+  private async vaultCycleIdsForContract(
+    manager: { query: DataSource['query'] },
+    addr: string,
+    hasTokens: boolean,
+  ): Promise<string[]> {
+    if (!hasTokens) return [];
+    const rows = (await manager.query(
+      `SELECT DISTINCT vault_cycle_id AS id FROM rwa_tokens
+       WHERE lower(token_contract) = $1 AND vault_cycle_id IS NOT NULL`,
+      [addr],
+    )) as { id: string }[];
+    return rows.map((r) => String(r.id)).filter(Boolean);
+  }
+
+  /** All vault_cycles for these certs on the chain (any status). */
+  private async deleteVaultLifecycleForCertNumbers(
     manager: { query: DataSource['query'] },
     chainId: number,
     certNumbers: string[],
     has: (table: string) => Promise<boolean>,
   ): Promise<Record<string, number>> {
-    const counts: Record<string, number> = {};
     if (certNumbers.length === 0 || !(await has('vault_cycles'))) {
-      return counts;
+      return {};
     }
     const cycleIdsSql = `(
       SELECT c.id FROM vault_cycles c
       INNER JOIN vault_assets a ON a.id = c.vault_asset_id
       WHERE c.chain_id = $1
         AND lower(a.external_cert_number) = ANY($2::text[])
-        AND c.status NOT IN ('redeemed', 'cancelled')
     )`;
-    const params = [chainId, certNumbers];
+    return this.deleteVaultLifecycleForCycleIds(
+      manager,
+      `vault_cycles.id IN ${cycleIdsSql}`,
+      [chainId, certNumbers],
+      has,
+    );
+  }
+
+  /**
+   * Cycles on this chain with no rwa_tokens row — clears redemption_requested
+   * orphans after rwa_tokens were removed manually or by a partial reset.
+   */
+  private async deleteOrphanVaultCyclesOnChain(
+    manager: { query: DataSource['query'] },
+    chainId: number,
+    has: (table: string) => Promise<boolean>,
+  ): Promise<Record<string, number>> {
+    if (!(await has('vault_cycles'))) return {};
+    const cycleIdsSql = `(
+      SELECT c.id FROM vault_cycles c
+      WHERE c.chain_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM rwa_tokens t WHERE t.vault_cycle_id = c.id
+        )
+        AND c.status NOT IN ('pending_deposit', 'deposit_verified', 'minting')
+    )`;
+    return this.deleteVaultLifecycleForCycleIds(
+      manager,
+      `vault_cycles.id IN ${cycleIdsSql}`,
+      [chainId],
+      has,
+    );
+  }
+
+  private async deleteVaultLifecycleForCycleIds(
+    manager: { query: DataSource['query'] },
+    cycleWhereSql: string,
+    params: unknown[],
+    has: (table: string) => Promise<boolean>,
+  ): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    if (!(await has('vault_cycles'))) return counts;
+
+    const cycleIdsSql = `(SELECT vault_cycles.id FROM vault_cycles WHERE ${cycleWhereSql})`;
 
     if (await has('vault_redemptions')) {
       counts.vault_redemptions = await this.deleteReturningCount(
@@ -615,25 +758,11 @@ export class DataInventoryService {
     counts.vault_cycles = await this.deleteReturningCount(
       manager,
       'vault_cycles',
-      `id IN ${cycleIdsSql}`,
+      cycleWhereSql,
       params,
       'vault_cycles',
     );
     return counts;
-  }
-
-  private async certsForContract(
-    manager: { query: DataSource['query'] },
-    addr: string,
-    hasTokens: boolean,
-  ): Promise<string[]> {
-    if (!hasTokens) return [];
-    const rows = (await manager.query(
-      `SELECT DISTINCT lower(cert_number) AS c FROM rwa_tokens
-       WHERE lower(token_contract) = $1 AND cert_number IS NOT NULL`,
-      [addr],
-    )) as { c: string }[];
-    return rows.map((r) => String(r.c).toLowerCase()).filter(Boolean);
   }
 
   private async deleteReturningCount(

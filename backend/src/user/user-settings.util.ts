@@ -3,6 +3,10 @@ export type EmailNotifPrefs = {
   bids: boolean;
   price: boolean;
   vault: boolean;
+  /** Optional: listing alert emails (watchlist / follow). */
+  listing: boolean;
+  /** Optional: weekly market index summary. */
+  market: boolean;
 };
 
 export const DEFAULT_EMAIL_NOTIF_PREFS: EmailNotifPrefs = {
@@ -10,6 +14,8 @@ export const DEFAULT_EMAIL_NOTIF_PREFS: EmailNotifPrefs = {
   bids: true,
   price: true,
   vault: true,
+  listing: true,
+  market: false,
 };
 
 export function normalizeEmailNotifPrefs(
@@ -21,6 +27,8 @@ export function normalizeEmailNotifPrefs(
     bids: typeof input?.bids === 'boolean' ? input.bids : base.bids,
     price: typeof input?.price === 'boolean' ? input.price : base.price,
     vault: typeof input?.vault === 'boolean' ? input.vault : base.vault,
+    listing: typeof input?.listing === 'boolean' ? input.listing : base.listing,
+    market: typeof input?.market === 'boolean' ? input.market : base.market,
   };
 }
 
