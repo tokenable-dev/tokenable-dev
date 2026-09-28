@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   useMarketplaceAdminDataInventory,
   useMarketplaceAdminDataInventoryRows,
+  useMarketplaceAdminPruneChainResidue,
   useMarketplaceAdminResetForNewContract,
   useMarketplaceAdminResetTargets,
 } from "@/hooks/marketplace-admin/useMarketplaceAdminDataInventory";
@@ -16,6 +17,7 @@ import { AdminSectionTitle } from "./AdminAnalyticsWidgets";
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_DANGER,
+  ADMIN_BTN_SECONDARY,
   ADMIN_LINK,
   ADMIN_PANEL,
   ADMIN_TEXT_META,
@@ -534,10 +536,14 @@ export function MarketplaceAdminDataInventoryPage() {
     useMarketplaceAdminDataInventory();
   const resetTargets = useMarketplaceAdminResetTargets();
   const resetMutation = useMarketplaceAdminResetForNewContract();
+  const pruneMutation = useMarketplaceAdminPruneChainResidue();
   const [resetChainId, setResetChainId] = useState<number | null>(null);
   const [resetAddress, setResetAddress] = useState("");
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [pruneMessage, setPruneMessage] = useState<string | null>(null);
+  const [pruneError, setPruneError] = useState<string | null>(null);
+  const [clearPsaOnPrune, setClearPsaOnPrune] = useState(false);
   const [domainFilter, setDomainFilter] = useState<
     DataInventoryDomainId | "all"
   >("all");
@@ -753,6 +759,120 @@ export function MarketplaceAdminDataInventoryPage() {
         ) : null}
       </div>
 
+      <div className={`${ADMIN_ARTICLE} mb-5`}>
+        <p className="text-sm font-semibold text-zinc-900">
+          체인 잔재·고아 데이터 정리
+        </p>
+        <p className={`mt-1 text-xs leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
+          선택한 네트워크에서{" "}
+          <span className="font-medium">rwa_tokens에 연결되지 않은</span>{" "}
+          vault_cycles(리딤/취소 테스트 찌꺼기), 스탬프 없거나 env RWA와 맞지
+          않는 vault_submissions, 사이클 없는 vault_assets를 지웁니다.{" "}
+          <span className="font-medium">
+            민트된 토큰·오더·연결된 볼트 사이클은 유지
+          </span>
+          됩니다. 다른 체인에 정상 스탬프된 셀 제출(예: mainnet)은 건드리지
+          않습니다.
+        </p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-zinc-700">
+            네트워크
+            <select
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+              value={resetChainId ?? ""}
+              disabled={
+                !resetTargets.data?.length ||
+                pruneMutation.isPending ||
+                resetMutation.isPending
+              }
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setResetChainId(id);
+                const target = resetTargets.data?.find((t) => t.chainId === id);
+                if (target) setResetAddress(target.rwaAddress);
+              }}
+            >
+              {(resetTargets.data ?? []).map((t) => (
+                <option key={t.chainId} value={t.chainId}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 pb-1 text-xs text-zinc-700">
+            <input
+              type="checkbox"
+              className="size-4 rounded border-zinc-300"
+              checked={clearPsaOnPrune}
+              disabled={pruneMutation.isPending}
+              onChange={(e) => setClearPsaOnPrune(e.target.checked)}
+            />
+            PSA 메일 리뷰 로그도 비우기 (전체 네트워크)
+          </label>
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={
+              pruneMutation.isPending ||
+              resetChainId == null ||
+              resetMutation.isPending
+            }
+            onClick={() => {
+              if (resetChainId == null) return;
+              const network =
+                selectedResetTarget?.label ?? String(resetChainId);
+              const rwa = selectedResetTarget?.rwaAddress ?? "";
+              const psaNote = clearPsaOnPrune
+                ? "\n\nPSA 입고/Vaulted 리뷰 테이블 전체를 TRUNCATE 합니다."
+                : "";
+              const ok = window.confirm(
+                `${network} 체인 잔재·고아 볼트/셀 데이터를 정리할까요?\n\n` +
+                  `유지: 이 체인 env RWA(${rwa})에 스탬프된 셀 제출, 모든 rwa_tokens·오더·연결된 vault_cycles.\n` +
+                  "삭제: rwa_tokens 없는 vault_cycles, 레거시 vault_submissions, 빈 vault_assets." +
+                  psaNote,
+              );
+              if (!ok) return;
+              const password = window.prompt("초기화 비밀번호를 입력하세요:");
+              if (password == null) return;
+              if (password.trim() === "") {
+                setPruneError("비밀번호가 비어 있어 취소되었습니다.");
+                return;
+              }
+              setPruneError(null);
+              setPruneMessage(null);
+              void pruneMutation
+                .mutateAsync({
+                  password: password.trim(),
+                  chainId: resetChainId,
+                  clearPsaMailReviews: clearPsaOnPrune,
+                })
+                .then((r) => {
+                  const wiped = Object.entries(r.deletedCounts)
+                    .filter(([, n]) => n > 0)
+                    .map(([t, n]) => `${t}=${n}`)
+                    .slice(0, 14)
+                    .join(", ");
+                  setPruneMessage(
+                    `${network} 잔재 정리 완료` +
+                      (wiped ? ` (삭제: ${wiped})` : " (지울 행 없음)"),
+                  );
+                })
+                .catch((e) => {
+                  setPruneError(e instanceof Error ? e.message : String(e));
+                });
+            }}
+          >
+            {pruneMutation.isPending ? "정리 중…" : "잔재·고아 정리 실행"}
+          </button>
+        </div>
+        {selectedResetTarget ? (
+          <p className={`mt-2 text-xs ${ADMIN_TEXT_META}`}>
+            이 체인에 남길 셀 제출 스탬프: chain_id={resetChainId},{" "}
+            <span className="font-mono">{selectedResetTarget.rwaAddress}</span>
+          </p>
+        ) : null}
+      </div>
+
       <div className="mb-5">
         <AdminDataInventorySchemaMap />
       </div>
@@ -778,9 +898,19 @@ export function MarketplaceAdminDataInventoryPage() {
           {resetMessage}
         </div>
       ) : null}
+      {pruneMessage ? (
+        <div className={`${ADMIN_ARTICLE} mb-5 text-sm text-emerald-700`}>
+          {pruneMessage}
+        </div>
+      ) : null}
       {resetError ? (
         <div className={`${ADMIN_ARTICLE} mb-5 text-sm text-red-600`}>
           {resetError}
+        </div>
+      ) : null}
+      {pruneError ? (
+        <div className={`${ADMIN_ARTICLE} mb-5 text-sm text-red-600`}>
+          {pruneError}
         </div>
       ) : null}
 

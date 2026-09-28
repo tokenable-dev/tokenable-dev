@@ -10,6 +10,7 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { DataInventoryService } from './data-inventory.service';
+import { AdminDataInventoryPruneChainResidueDto } from './dto/admin-data-inventory-prune.dto';
 import { AdminDataInventoryResetDto } from './dto/admin-data-inventory-reset.dto';
 import {
   AdminDataInventoryRowsQueryDto,
@@ -88,6 +89,23 @@ export class DataInventoryController {
       body.password,
       body.chainId,
       body.tokenContract,
+    );
+  }
+
+  @Post('prune-chain-residue')
+  @ApiOperation({
+    summary:
+      'Prune orphan vault cycles and legacy vault submissions for one chain (keeps rwa_tokens, orders, and linked mint cycles)',
+  })
+  pruneChainResidue(
+    @Req() req: Request,
+    @Body() body: AdminDataInventoryPruneChainResidueDto,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.inventory.pruneChainResidue(
+      body.password,
+      body.chainId,
+      body.clearPsaMailReviews === true,
     );
   }
 }

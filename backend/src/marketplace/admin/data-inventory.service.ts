@@ -130,6 +130,13 @@ export type AdminMarketplaceResetResult = {
   skippedMissingTables: string[];
 };
 
+export type AdminChainResiduePruneResult = {
+  chainId: SupportedChainId;
+  rwaAddress: string;
+  deletedCounts: Record<string, number>;
+  skippedMissingTables: string[];
+};
+
 const RESET_CHAIN_LABELS: Record<SupportedChainId, string> = {
   1: 'Ethereum',
   137: 'Polygon',
@@ -251,12 +258,7 @@ export class DataInventoryService {
       );
     }
 
-    const expected =
-      this.config.get<string>('marketplace.adminDbResetPassword')?.trim() ||
-      '';
-    if (!expected || !passwordMatchesResetGate(password, expected)) {
-      throw new UnauthorizedException('Invalid reset password');
-    }
+    this.assertAdminDbResetPassword(password);
 
     if (!SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId)) {
       throw new BadRequestException(`Unsupported chain id ${chainId}`);
@@ -497,6 +499,150 @@ export class DataInventoryService {
       JSON.stringify({ msg: 'admin_marketplace_reset_for_new_contract', ...result }),
     );
     return result;
+  }
+
+  /**
+   * Surgical cleanup for one chain: orphan vault_cycles (no rwa_tokens link),
+   * legacy vault_submissions for that network, empty vault_assets, optional PSA
+   * mail review tables. Does not delete rwa_tokens, orders, or minted cycles.
+   */
+  async pruneChainResidue(
+    password: string,
+    chainId: number,
+    clearPsaMailReviews = false,
+  ): Promise<AdminChainResiduePruneResult> {
+    this.assertAdminDbResetPassword(password);
+
+    if (!SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId)) {
+      throw new BadRequestException(`Unsupported chain id ${chainId}`);
+    }
+    const chain = chainId as SupportedChainId;
+    if (!this.chainConfig.isChainConfigured(chain)) {
+      throw new BadRequestException(
+        `Chain ${chain} is not configured (set CHAIN_${chain}_RWA_ADDRESS)`,
+      );
+    }
+
+    const rwaAddress = this.chainConfig.getRwaAddress(chain).toLowerCase();
+    const deletedCounts: Record<string, number> = {};
+    const skippedMissingTables: string[] = [];
+
+    const has = async (table: string) => {
+      const exists = await this.tableExists(table);
+      if (!exists) skippedMissingTables.push(table);
+      return exists;
+    };
+
+    await this.dataSource.transaction(async (manager) => {
+      const note = async (
+        table: string,
+        whereSql: string,
+        params: unknown[],
+        fromSql?: string,
+      ) => {
+        if (!(await has(table))) return;
+        deletedCounts[table] = await this.deleteReturningCount(
+          manager,
+          table,
+          whereSql,
+          params,
+          fromSql,
+        );
+      };
+
+      if (await has('vault_cycles')) {
+        const orphanWhere = `chain_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM rwa_tokens t WHERE t.vault_cycle_id = vault_cycles.id
+          )`;
+        const orphanDeleted = await this.deleteVaultLifecycleForCycleIds(
+          manager,
+          orphanWhere,
+          [chain],
+          has,
+        );
+        for (const [table, n] of Object.entries(orphanDeleted)) {
+          deletedCounts[table] = (deletedCounts[table] ?? 0) + n;
+        }
+      }
+
+      if (await has('vault_submissions')) {
+        await note(
+          'vault_submissions',
+          `(chain_id IS NULL OR chain_id = $1)
+           AND NOT (
+             chain_id IS NOT DISTINCT FROM $1
+             AND lower(coalesce(token_contract, '')) = $2
+           )`,
+          [chain, rwaAddress],
+        );
+      }
+
+      if (await has('vault_assets')) {
+        await note(
+          'vault_assets',
+          `NOT EXISTS (
+             SELECT 1 FROM vault_cycles c WHERE c.vault_asset_id = vault_assets.id
+           )`,
+          [],
+        );
+      }
+
+      if (
+        (await has('vault_redeem_payment_claims')) &&
+        (await this.tableExists('vault_redemptions'))
+      ) {
+        await note(
+          'vault_redeem_payment_claims',
+          `chain_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM vault_redemptions r
+             WHERE lower(r.payment_tx_hash) = lower(vault_redeem_payment_claims.payment_tx_hash)
+           )`,
+          [chain],
+        );
+      }
+
+      if (clearPsaMailReviews) {
+        for (const table of [
+          'vault_psa_arrival_reviews',
+          'vault_psa_vaulted_reviews',
+        ]) {
+          if (!(await this.tableExists(table))) {
+            skippedMissingTables.push(table);
+            continue;
+          }
+          const counted = (await manager.query(
+            `SELECT COUNT(*)::int AS n FROM "${table}"`,
+          )) as { n: number }[];
+          const n = Number(counted?.[0]?.n ?? 0);
+          if (n > 0) {
+            await manager.query(`TRUNCATE "${table}"`);
+            deletedCounts[table] = n;
+          }
+        }
+      }
+    });
+
+    const result: AdminChainResiduePruneResult = {
+      chainId: chain,
+      rwaAddress,
+      deletedCounts,
+      skippedMissingTables: [...new Set(skippedMissingTables)],
+    };
+    this.logger.warn(
+      JSON.stringify({ msg: 'admin_chain_residue_prune', ...result }),
+    );
+    return result;
+  }
+
+  private assertAdminDbResetPassword(password: string): void {
+    const expected =
+      this.config.get<string>('marketplace.adminDbResetPassword')?.trim() ||
+      '';
+    if (!expected || !passwordMatchesResetGate(password, expected)) {
+      throw new UnauthorizedException('Invalid reset password');
+    }
   }
 
   /**

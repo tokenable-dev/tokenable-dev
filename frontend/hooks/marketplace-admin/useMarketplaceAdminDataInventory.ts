@@ -4,6 +4,7 @@ import {
   getAdminDataInventorySchema,
   getAdminDataInventoryTableRows,
   getAdminResetTargets,
+  postAdminPruneChainResidue,
   postAdminResetForNewContract,
   rq,
 } from "@/lib/core";
@@ -55,6 +56,16 @@ export function useMarketplaceAdminResetForNewContract() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: postAdminResetForNewContract,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: rq.adminDataInventory() });
+    },
+  });
+}
+
+export function useMarketplaceAdminPruneChainResidue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: postAdminPruneChainResidue,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: rq.adminDataInventory() });
     },

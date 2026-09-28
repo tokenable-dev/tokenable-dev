@@ -13,6 +13,7 @@ import {
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
 import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
+import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
@@ -110,7 +111,9 @@ export function PortfolioHoldingsTableView({
           const cardMedia = (
             <>
               <div className="pf-table-thumb">
-                {row.imageUrl ? (
+                {virtual ? (
+                  <KbwMysteryPortfolioImage used={kbwUsed} />
+                ) : row.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
                 ) : null}

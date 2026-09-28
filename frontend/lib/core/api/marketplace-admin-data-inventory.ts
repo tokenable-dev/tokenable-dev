@@ -89,6 +89,13 @@ export type AdminMarketplaceResetResult = {
   skippedMissingTables: string[];
 };
 
+export type AdminChainResiduePruneResult = {
+  chainId: number;
+  rwaAddress: string;
+  deletedCounts: Record<string, number>;
+  skippedMissingTables: string[];
+};
+
 export type AdminDataInventoryRowsResult = {
   table: string;
   label: string;
@@ -170,4 +177,24 @@ export async function postAdminResetForNewContract(input: {
     await parseAdminError(res, "Failed to reset marketplace data");
   }
   return res.json() as Promise<AdminMarketplaceResetResult>;
+}
+
+/** Orphan vault cycles + legacy submissions for one chain (keeps minted rwa_tokens). */
+export async function postAdminPruneChainResidue(input: {
+  password: string;
+  chainId: number;
+  clearPsaMailReviews?: boolean;
+}): Promise<AdminChainResiduePruneResult> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/data-inventory/prune-chain-residue`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to prune chain residue");
+  }
+  return res.json() as Promise<AdminChainResiduePruneResult>;
 }
