@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { TkButton, TkInput } from "@/components/ds";
 import { TkDialog } from "@/components/ds/Dialog";
 import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import { setEmailUnsubscribeUiActive } from "@/lib/email/emailUnsubscribeLocal";
 import { useAuthStore } from "@/store/authStore";
 
 const NOTIFICATIONS_SETTINGS_HREF = "/settings?section=notifications";
@@ -36,6 +37,7 @@ export function UnsubscribePageView() {
   }, [queryEmail, sessionEmail]);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   function openConfirm() {
     const trimmed = email.trim();
@@ -53,7 +55,10 @@ export function UnsubscribePageView() {
   }
 
   function onConfirmUnsubscribe() {
+    const trimmed = email.trim();
+    setEmailUnsubscribeUiActive(trimmed);
     setConfirmOpen(false);
+    setCompleted(true);
   }
 
   return (
@@ -64,7 +69,24 @@ export function UnsubscribePageView() {
             Unsubscribe
           </h1>
 
-          <form className="mt-10 flex flex-col gap-6" onSubmit={onSubmit}>
+          {completed ? (
+            <p className="mt-10 text-center text-[15px] leading-relaxed text-[#333]">
+              Email notifications are turned off for this browser. You can adjust individual
+              alerts anytime in{" "}
+              <Link
+                href={NOTIFICATIONS_SETTINGS_HREF}
+                className="font-medium text-[#1a6fff] no-underline hover:underline"
+              >
+                Settings
+              </Link>
+              .
+            </p>
+          ) : null}
+
+          <form
+            className={completed ? "hidden" : "mt-10 flex flex-col gap-6"}
+            onSubmit={onSubmit}
+          >
             <div className="tk-field">
               <label
                 className="mb-2 block text-sm font-medium text-[#111]"

@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuthUser, EmailNotifPrefs } from "@/lib/auth";
 import { updateAuthProfile } from "@/lib/auth";
 import { cn } from "@/lib/ds/cn";
+import {
+  clearEmailUnsubscribeUi,
+  EMAIL_UNSUBSCRIBE_UI_EVENT,
+  readEmailUnsubscribeUiActive,
+} from "@/lib/email/emailUnsubscribeLocal";
 import { useAuthStore } from "@/store/authStore";
 
 type AccountRowId =
@@ -51,6 +56,20 @@ const DEFAULT_ACCOUNT_TOGGLES: Record<AccountRowId, boolean> = {
   shipping: true,
   withdrawals: true,
   identity: true,
+};
+
+const ALL_OFF_ACCOUNT_TOGGLES: Record<AccountRowId, boolean> = {
+  sales: false,
+  purchases: false,
+  shipping: false,
+  withdrawals: false,
+  identity: false,
+};
+
+const ALL_OFF_OPTIONAL_PREFS: Pick<EmailNotifPrefs, "listing" | "price" | "market"> = {
+  listing: false,
+  price: false,
+  market: false,
 };
 
 const OPTIONAL_ROWS: {
@@ -122,6 +141,23 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
   const setUserRef = useRef(setUser);
   setUserRef.current = setUser;
 
+  const applyAllAlertsOffUi = useCallback(() => {
+    setAccountToggles(ALL_OFF_ACCOUNT_TOGGLES);
+    setPrefs((prev) => ({ ...prev, ...ALL_OFF_OPTIONAL_PREFS }));
+    setMarketingEmailsOptIn(false);
+  }, []);
+
+  useEffect(() => {
+    if (readEmailUnsubscribeUiActive(user.email)) {
+      applyAllAlertsOffUi();
+    }
+    const onUnsubscribed = () => {
+      if (readEmailUnsubscribeUiActive(user.email)) applyAllAlertsOffUi();
+    };
+    window.addEventListener(EMAIL_UNSUBSCRIBE_UI_EVENT, onUnsubscribed);
+    return () => window.removeEventListener(EMAIL_UNSUBSCRIBE_UI_EVENT, onUnsubscribed);
+  }, [user.email, applyAllAlertsOffUi]);
+
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -175,15 +211,28 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
     return false;
   }
 
+  function clearUnsubscribeUiIfTurningOn(nextOn: boolean) {
+    if (nextOn) clearEmailUnsubscribeUi();
+  }
+
+  function toggleAccount(rowId: AccountRowId) {
+    const nextOn = !accountToggles[rowId];
+    clearUnsubscribeUiIfTurningOn(nextOn);
+    setAccountToggles((prev) => ({ ...prev, [rowId]: nextOn }));
+  }
+
   function toggleOptional(row: (typeof OPTIONAL_ROWS)[number]) {
     if (row.marketing) {
       const nextMarketing = !marketingEmailsOptIn;
+      clearUnsubscribeUiIfTurningOn(nextMarketing);
       setMarketingEmailsOptIn(nextMarketing);
       scheduleSave({ prefs, marketingEmailsOptIn: nextMarketing });
       return;
     }
     if (!row.prefKey) return;
-    const nextPrefs = { ...prefs, [row.prefKey]: !prefs[row.prefKey] };
+    const nextOn = !prefs[row.prefKey];
+    clearUnsubscribeUiIfTurningOn(nextOn);
+    const nextPrefs = { ...prefs, [row.prefKey]: nextOn };
     setPrefs(nextPrefs);
     scheduleSave({ prefs: nextPrefs, marketingEmailsOptIn });
   }
@@ -212,9 +261,7 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
                 className={cn("tk-settings__sw", on && "on")}
                 aria-label={row.title}
                 aria-pressed={on}
-                onClick={() =>
-                  setAccountToggles((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
-                }
+                onClick={() => toggleAccount(row.id)}
               />
             </div>
           );
