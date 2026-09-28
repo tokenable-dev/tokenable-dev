@@ -24,7 +24,6 @@ const ALL_LOGIN_METHODS: LoginMethod[] = [
   "email",
   "wallet",
   "google",
-  "apple",
   "sms",
   "passkey",
   "farcaster",
@@ -83,13 +82,12 @@ export function resolvePrivyLoginMethodsOrder(): NonNullable<
   }
   if (isPrivyFullLoginEnabled()) {
     return {
-      primary: ["metamask", "google", "apple", "email"],
+      primary: ["metamask", "google", "email"],
       overflow: [...FULL_LOGIN_OVERFLOW, ...DEFAULT_WALLET_OVERFLOW],
     };
   }
   return {
-    // Apple on the primary row — required for reliable iOS social sign-in (not buried under wallets).
-    primary: ["metamask", "google", "apple", "email"],
+    primary: ["metamask", "google", "email"],
     overflow: [...DEFAULT_WALLET_OVERFLOW],
   };
 }

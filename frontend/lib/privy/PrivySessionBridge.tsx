@@ -6,6 +6,7 @@ import { useLogout, useLogin, usePrivy, useWallets } from "@privy-io/react-auth"
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import {
   isSignOutInProgress,
+  PrivySessionSyncError,
   registerPrivySignOut,
   syncPrivySession,
 } from "@/lib/privy/session";
@@ -84,6 +85,8 @@ export function PrivySessionBridge() {
   const setPrivySessionSyncing = useAuthStore((s) => s.setPrivySessionSyncing);
   const syncInFlight = useRef(false);
   const syncPending = useRef(false);
+  /** After HTTP 429, stop hammering POST /auth/privy/session for one throttle window. */
+  const sessionRateLimitedUntil = useRef(0);
   const returnToHandled = useRef(false);
   const wasAuthenticated = useRef(false);
   const walletsRef = useRef(wallets);
@@ -124,7 +127,13 @@ export function PrivySessionBridge() {
       if (!authenticated) {
         returnToHandled.current = false;
         catchupAttempt.current = 0;
+        sessionRateLimitedUntil.current = 0;
       }
+      return;
+    }
+
+    if (Date.now() < sessionRateLimitedUntil.current) {
+      setPrivySessionSyncing(false);
       return;
     }
 
@@ -154,9 +163,17 @@ export function PrivySessionBridge() {
             try {
               syncedUser = await syncPrivySession(token);
               await hydrateFromSession(syncedUser);
+              sessionRateLimitedUntil.current = 0;
               break;
-            } catch {
-              // Mobile OAuth / site-access gate races — retry with backoff.
+            } catch (e) {
+              const status =
+                e instanceof PrivySessionSyncError ? e.status : 0;
+              if (status === 429) {
+                sessionRateLimitedUntil.current = Date.now() + 60_000;
+                break;
+              }
+              // Transient OAuth / wallet races — retry; stop after repeated 5xx.
+              if (status >= 500 && attempt >= 1) break;
             }
           }
 

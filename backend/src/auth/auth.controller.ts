@@ -86,7 +86,7 @@ export class AuthController {
   @HttpCode(200)
   // Each call verifies the Privy token upstream — cap per-IP to protect the
   // Privy API quota during a login stampede.
-  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Throttle({ default: { ttl: 60_000, limit: 45 } })
   @ApiHeader({
     name: 'Authorization',
     description: 'Bearer &lt;Privy access token&gt; from `getAccessToken()`',

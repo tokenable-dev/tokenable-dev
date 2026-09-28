@@ -44,6 +44,16 @@ export function getPrivySignOutHandler(): PrivySignOutFn | null {
   return privySignOutHandler;
 }
 
+export class PrivySessionSyncError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "PrivySessionSyncError";
+    this.status = status;
+  }
+}
+
 /** Privy access token → `POST /auth/privy/session` → Tokenable session cookie + user. */
 export async function syncPrivySession(privyAccessToken: string): Promise<AuthUser> {
   const res = await backendFetch(`${getApiUrl()}/auth/privy/session`, {
@@ -54,9 +64,9 @@ export async function syncPrivySession(privyAccessToken: string): Promise<AuthUs
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Privy session sync failed" }));
-    throw new Error(
-      (err as { message?: string }).message ?? "Privy session sync failed",
-    );
+    const message =
+      (err as { message?: string }).message ?? "Privy session sync failed";
+    throw new PrivySessionSyncError(message, res.status);
   }
   const data = (await res.json()) as { user: AuthUser };
   return data.user;
