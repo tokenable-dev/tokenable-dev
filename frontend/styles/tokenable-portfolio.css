@@ -2662,7 +2662,7 @@ button.pf-table-card-cell--activate {
   justify-content: center;
   width: 100%;
   height: 100%;
-  aspect-ratio: 430 / 664;
+  aspect-ratio: 652 / 912;
   max-width: 100%;
   max-height: 100%;
   margin: auto;
@@ -2692,13 +2692,6 @@ button.pf-table-card-cell--activate {
   object-fit: contain;
   object-position: center;
   display: block;
-}
-
-/* Used = redeemed stamp art; render smaller than mystery-pack unused. */
-.pf-kbw-mystery-art--used img {
-  width: 74%;
-  height: 74%;
-  margin: auto;
 }
 
 .pf-gtile__media-empty {

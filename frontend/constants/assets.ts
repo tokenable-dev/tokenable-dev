@@ -102,6 +102,9 @@ export const ASSETS = {
     kbwMysteryCard: `${ASSETS_BASE}/event/kbw-mystery-card.png`,
     /** KBW mystery card after staff check (REDEEMED stamp). */
     kbwMysteryCardRedeemed: `${ASSETS_BASE}/event/kbw-mystery-card-redeemed.png`,
+    /** Portfolio KBW collectible — unused / used pack (652×912). */
+    kbwMysteryPackUnused: `${ASSETS_BASE}/event/kbw-mystery-pack-unused.png`,
+    kbwMysteryPackUsed: `${ASSETS_BASE}/event/kbw-mystery-pack-used.png`,
     /** Tokenable × KBW brand stack */
     x: `${ASSETS_BASE}/event/x.png`,
     kbw2026: `${ASSETS_BASE}/event/kbw2026.png`,
