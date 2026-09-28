@@ -25,6 +25,7 @@ import {
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
 import { ensureAppChainNetwork } from "@/lib/network";
+import { isWalletFlowInProgress } from "@/lib/privy/session";
 
 // Baseline USDC balance poll. Transactions trigger an immediate refetch via
 // refreshTick, so this only needs to catch external transfers — 8s polling per
@@ -56,6 +57,7 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
     if (!isConnected || !primary || !connected || connected !== primary) {
       return;
     }
+    if (isWalletFlowInProgress()) return;
 
     const privyWallet =
       resolveAccountSigningWallet(wallets, primary) ??

@@ -20,6 +20,26 @@ export function setSignOutInProgress(value: boolean): void {
   signOutInProgress = value;
 }
 
+let walletFlowDepth = 0;
+
+/**
+ * Background wallet aligners (`WalletDataProvider`, `useEnsureAccountWalletActive`) must not
+ * call `switchChain` / `setActiveWallet` while a Privy approve/sign UI is open — Privy's
+ * `wallets` list churns mid-tx and a switch re-renders its modal tree (hooks crash at Providers).
+ */
+export function isWalletFlowInProgress(): boolean {
+  return walletFlowDepth > 0;
+}
+
+export async function runWalletFlow<T>(run: () => Promise<T>): Promise<T> {
+  walletFlowDepth += 1;
+  try {
+    return await run();
+  } finally {
+    walletFlowDepth = Math.max(0, walletFlowDepth - 1);
+  }
+}
+
 export function getPrivySignOutHandler(): PrivySignOutFn | null {
   return privySignOutHandler;
 }

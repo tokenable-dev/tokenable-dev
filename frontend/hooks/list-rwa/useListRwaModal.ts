@@ -39,6 +39,7 @@ import type {
   ListSuccessMeta,
 } from "@/lib/seaport/listing/listRwaModalTypes";
 import { useSeaportOrderSigner } from "@/lib/privy";
+import { runWalletFlow } from "@/lib/privy/session";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
@@ -367,7 +368,11 @@ export function useListRwaModal({
     ],
   );
 
-  async function handleList() {
+  function handleList() {
+    return runWalletFlow(runListing);
+  }
+
+  async function runListing() {
     if (!price || parseFloat(price) <= 0) return;
     if (!listingAddress) {
       rejectList(

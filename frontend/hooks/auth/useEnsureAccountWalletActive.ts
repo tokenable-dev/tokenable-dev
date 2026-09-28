@@ -16,7 +16,7 @@ import {
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
 import { waitForWagmiAccountAddress } from "@/lib/privy/accountWalletReady";
-import { isSignOutInProgress } from "@/lib/privy/session";
+import { isSignOutInProgress, isWalletFlowInProgress } from "@/lib/privy/session";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -41,7 +41,7 @@ export function useEnsureAccountWalletActive() {
   const privyWalletHint = pickPrivyUserEthereumWalletAddress(privyUser) ?? "";
 
   useEffect(() => {
-    if (!ready || !authenticated || isSignOutInProgress()) return;
+    if (!ready || !authenticated || isSignOutInProgress() || isWalletFlowInProgress()) return;
 
     const primaryLinked = getPrimaryWalletAddress(user);
     const pendingLinked =

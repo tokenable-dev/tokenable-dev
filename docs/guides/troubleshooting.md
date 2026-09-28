@@ -503,7 +503,9 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 4. Hard-refresh the site (or clear cache) so the new bundle loads.
 5. Never paste RPC URLs with API keys in chat or commits — rotate the key if exposed.
 
-**Related:** React minified error **#300** after Approve → Sign usually means the listing modal briefly swapped UI trees (hooks crash). Ensure the latest frontend with `ListRwaModal` fixes is deployed; if #300 persists, capture the first non-minified stack from a local `pnpm dev` repro on mainnet.
+**Check which file you edited:** the browser only reads `frontend/.env` / the frontend build env (`NEXT_PUBLIC_CHAIN_1_RPC_URL`). `backend/.env` `CHAIN_1_RPC_URL` is server-side only and does not change browser reads, Privy's approve modal gas estimate, or receipt polling.
+
+**Related — "Rendered fewer hooks than expected" / React #300 after first Approve:** our code has no Rules-of-Hooks violations (ESLint `react-hooks/rules-of-hooks` is clean), and the stack is mostly ignore-listed library frames under `<Providers>`. The trigger was background wallet aligners (`WalletDataProvider` chain switch, `useEnsureAccountWalletActive` `setActiveWallet`) firing while Privy's approve/sign UI was open. `useListRwaModal.handleList` now runs inside `runWalletFlow` (`lib/privy/session.ts`), which pauses those aligners. If it recurs, expand "ignore-listed frames" in the Next dev overlay and note the top component name.
 
 ---
 
