@@ -41,3 +41,4 @@ Welcome footer links are centralized in `email-footer-links.util.ts`: notificati
 | `WELCOME_EMAIL_PUBLIC_ASSET_BASE_URL` | HTTPS `…/assets/email/welcome-hero-composite.png` when `frontend/public` is absent. Locally, hero is built with **sharp** (logo + Welcome text baked into the image — Gmail ignores HTML overlays). Regenerate preview asset: `pnpm exec ts-node --transpile-only` + `buildWelcomeHeroCompositePng()` → `frontend/public/assets/email/welcome-hero-composite.png`. |
 | `TRANSACTIONAL_EMAIL_PUBLIC_ASSET_BASE_URL` | Default HTTPS asset base for future templates |
 | `TRANSACTIONAL_EMAIL_FROM` | Default From when a template has no dedicated `*_EMAIL_FROM` |
+| `TRANSACTIONAL_EMAIL_FRONTEND_URL` | App origin for links in email bodies (settings, unsubscribe, CTAs). Overrides `FRONTEND_URL`. In production, when `FRONTEND_URL` is localhost, defaults to `https://app.tokenable.io`. |

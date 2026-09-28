@@ -131,7 +131,8 @@ function buildHeroBlock(input: WelcomeEmailTemplateInput): string {
 }
 
 export function buildWelcomeEmailPlainText(input: WelcomeEmailTemplateInput): string {
-  const footer = buildEmailFooterLinks(input.frontendUrl);
+  const appBase = input.frontendUrl.replace(/\/$/, '');
+  const footer = buildEmailFooterLinks(appBase);
   return `Welcome to Tokenable
 
 The safest and fastest way to trade collectibles.
@@ -142,8 +143,8 @@ Authentication — Only verified PSA and BGS 10 graded cards.
 Vaulting — All graded cards are vaulted with either PSA or Tokenable partner vaults.
 Instant settlement — Sellers get paid instantly with on-chain transactions.
 
-Browse markets: https://app.tokenable.io/markets
-See how it works: https://app.tokenable.io/#home-features
+Browse markets: ${appBase}/markets
+See how it works: ${appBase}/#home-features
 
 The Tokenable team
 
@@ -155,9 +156,10 @@ Instagram: ${footer.instagramUrl}
 }
 
 export function buildWelcomeEmailHtml(input: WelcomeEmailTemplateInput): string {
-  const footer = buildEmailFooterLinks(input.frontendUrl);
-  const browseMarketsUrl = 'https://app.tokenable.io/markets';
-  const seeHowItWorksUrl = 'https://app.tokenable.io/#home-features';
+  const appBase = input.frontendUrl.replace(/\/$/, '');
+  const footer = buildEmailFooterLinks(appBase);
+  const browseMarketsUrl = `${appBase}/markets`;
+  const seeHowItWorksUrl = `${appBase}/#home-features`;
   const arrowWhite = externalArrowImg(input.arrowWhiteImgSrc);
   const arrowLinkInline = externalArrowImg(input.arrowLinkImgSrc, true);
   const cardBg = '#0D0F16';

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GmailApiClient } from '../vault/gmail-api.client';
 import { buildMultipartRfc822 } from './rfc822.util';
+import { resolveEmailFrontendUrl } from './resolve-email-frontend-url';
 import type { TransactionalEmailPayload } from './types';
 
 /**
@@ -26,8 +27,9 @@ export class TransactionalEmailService {
     return v === '1' || v === 'true';
   }
 
+  /** Canonical HTTPS app origin for links inside email bodies. */
   frontendUrl(): string {
-    return this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+    return resolveEmailFrontendUrl(this.config);
   }
 
   /**
