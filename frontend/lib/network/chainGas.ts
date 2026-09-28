@@ -52,18 +52,24 @@ export async function gasWithCapFast(
   });
 }
 
-/** Default viem HTTP poll is 4s — user txs feel stuck after the wallet already confirmed. */
-const USER_TX_RECEIPT_POLL_MS = 250;
-const USER_TX_RECEIPT_TIMEOUT_MS = 120_000;
+/**
+ * Receipt poll sized to block time (Ethereum / Sepolia ~12s, Polygon ~2s).
+ * Polling far faster than blocks only burns RPC quota and triggers 429 retries.
+ */
+function txReceiptPollMs(chainId: number | undefined): number {
+  return chainId === 137 ? 1_000 : 2_000;
+}
+const USER_TX_RECEIPT_TIMEOUT_MS = 180_000;
 
 export async function waitForUserTxReceipt(
   publicClient: PublicClient,
   hash: Hash,
 ): Promise<TransactionReceipt> {
+  const pollingInterval = txReceiptPollMs(publicClient.chain?.id);
   try {
     return await publicClient.waitForTransactionReceipt({
       hash,
-      pollingInterval: USER_TX_RECEIPT_POLL_MS,
+      pollingInterval,
       timeout: USER_TX_RECEIPT_TIMEOUT_MS,
     });
   } catch (e: unknown) {

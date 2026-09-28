@@ -163,7 +163,7 @@ const transports = Object.fromEntries(
     // Prefer public RPCs when NEXT_PUBLIC points at a shared Alchemy key —
     // browser clients sharing one key hit 429; Alchemy's error body lacks CORS.
     const httpClients = urls.map((url) =>
-      http(url, { retryCount: 2, timeout: 20_000 }),
+      http(url, { retryCount: 1, timeout: 10_000 }),
     );
     return [
       chain.id,
