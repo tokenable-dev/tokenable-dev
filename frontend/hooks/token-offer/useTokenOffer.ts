@@ -42,6 +42,7 @@ import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
+import { useBidUsdcApproveWrite } from "@/hooks/token-offer/useBidUsdcApproveWrite";
 
 /** Digits only (whole dollars). Strips commas / decimals / other chars. */
 export function sanitizeTokenBidPriceInput(raw: string): string {
@@ -101,6 +102,7 @@ export function useTokenOffer(input: {
   const { signSeaportOrder } = useSeaportOrderSigner();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const { writeContractAsync } = useWriteContract();
+  const bidUsdcApproveWrite = useBidUsdcApproveWrite();
   const queryClient = useQueryClient();
   const fiatOnramp = usePrivyFiatOnramp();
 
@@ -438,7 +440,7 @@ export function useTokenOffer(input: {
             address,
             publicClient,
             signSeaportOrder,
-            writeContractAsync,
+            writeContractAsync: bidUsdcApproveWrite,
             bidUnits: priceInUnits,
             counter: counter as bigint,
             usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
@@ -453,7 +455,7 @@ export function useTokenOffer(input: {
             address,
             publicClient,
             signSeaportOrder,
-            writeContractAsync,
+            writeContractAsync: bidUsdcApproveWrite,
             bidUnits: priceInUnits,
             counter: counter as bigint,
             usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,

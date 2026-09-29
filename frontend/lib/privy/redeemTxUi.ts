@@ -16,6 +16,23 @@ export function redeemUsdcFeePrivyUi(amountMicros: bigint): SendTransactionModal
   };
 }
 
+/** First-time USDC → Seaport approve during place bid (embedded wallet). */
+export function bidUsdcSeaportApprovalPrivyUi(): SendTransactionModalUIOptions {
+  return {
+    description:
+      "One-time approval so Tokenable can use your USDC when a bid is accepted (network gas in ETH).",
+    buttonText: "Approve USDC",
+    transactionInfo: {
+      title: "Details",
+      action: "Approve USDC for Seaport",
+      contractInfo: { name: "USDC" },
+    },
+    successHeader: "Approval complete",
+    successDescription:
+      "Your bid will be submitted next. This approval is saved for future bids on this network.",
+  };
+}
+
 /** First-time `setApprovalForAll(Seaport)` during list / set price (embedded wallet). */
 export function listSeaportApprovalPrivyUi(): SendTransactionModalUIOptions {
   return {

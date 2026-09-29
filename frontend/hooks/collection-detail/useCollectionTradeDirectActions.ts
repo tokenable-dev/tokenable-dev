@@ -37,6 +37,7 @@ import {
 import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
 import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
 import { useListingSeaportApproveWrite } from "@/hooks/list-rwa/useListingSeaportApproveWrite";
+import { useBidUsdcApproveWrite } from "@/hooks/token-offer/useBidUsdcApproveWrite";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
@@ -100,6 +101,7 @@ export function useCollectionTradeDirectActions(input: {
   const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
   const listingSeaportApproveWrite = useListingSeaportApproveWrite();
+  const bidUsdcApproveWrite = useBidUsdcApproveWrite();
   const { signSeaportOrder } = useSeaportOrderSigner();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const queryClient = useQueryClient();
@@ -336,7 +338,7 @@ export function useCollectionTradeDirectActions(input: {
             address: address as Address,
             publicClient,
             signSeaportOrder,
-            writeContractAsync,
+            writeContractAsync: bidUsdcApproveWrite,
             bidUnits,
             counter: counter as bigint,
             usdcAllowanceRaw: usdcAllowanceRaw as bigint,

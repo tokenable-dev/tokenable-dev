@@ -398,7 +398,7 @@ One-liner:
 **Examples:**
 
 - `lib/seaport/orders/submitAskListing.ts`
-- `lib/seaport/orders/submitTokenBid.ts`
+- `lib/seaport/bid/` (place bid; `orders/submitTokenBid.ts` re-exports)
 - `lib/seaport/orders/fulfillAskListing.ts`
 - `lib/seaport/fulfillment/runCriteriaMatch.ts`
 - Criteria / merkle helpers under `lib/seaport/criteria/`
@@ -492,7 +492,7 @@ Mint → Asset → Listing → Bid → Purchase → Settlement → Redeem
 | Mint | `app/sell`, `app/vault`, `components/sell`, `components/vault`, `hooks/sell`, `hooks/vault`, `lib/sell`, `lib/vault`, `lib/core/api/rwa-mint.ts`, vault-submissions, admin mint |
 | Asset | `components/portfolio`, `hooks/portfolio`, `hooks/rwa-detail`, `lib/marketplace/rwa-detail`, `lib/core/api/rwa-blockchain.ts`, portfolio BFF APIs |
 | Listing | `components/marketplace/list-rwa`, `hooks/list-rwa`, `lib/seaport/orders/submitAskListing.ts`, `lib/core/api/orders.ts` |
-| Bid | `hooks/token-offer`, collection trade UI, `lib/seaport/orders/submitTokenBid.ts` |
+| Bid | `hooks/token-offer`, collection trade UI, `lib/seaport/bid/submitBids.ts` |
 | Purchase | collection trade actions, `fulfillAskListing`, criteria match |
 | Settlement | `lib/core/api/rwa-settlement.ts`, admin self-vault payouts, fee helpers in seaport |
 | Redeem | `app/portfolio/redeem`, `components/portfolio/redeem`, `hooks/portfolio/useRedeemFlow.ts`, `lib/core/api/rwa-redeem.ts` |
