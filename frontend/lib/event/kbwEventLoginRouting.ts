@@ -1,4 +1,8 @@
-import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import type { AuthUser } from "@/lib/auth/auth";
+import {
+  isWalletOnlyPlaceholderEmail,
+  userNeedsContactEmail,
+} from "@/lib/auth/walletOnlyEmail";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
@@ -19,7 +23,9 @@ export function isKbwPostLoginRoutePending(): boolean {
 /** Wallet-only accounts must add a real email before leaving the event login flow. */
 export function shouldDeferKbwPostLoginForEmail(
   email: string | null | undefined,
+  user?: AuthUser | null,
 ): boolean {
+  if (user) return userNeedsContactEmail(user);
   return isWalletOnlyPlaceholderEmail(email);
 }
 

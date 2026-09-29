@@ -30,7 +30,8 @@ export function useSiteAccessAllowsAppModals(): boolean {
   });
 
   if (onGatePage) return false;
-  if (!data) return false;
+  // Do not block onboarding modals while status is loading (common on mobile).
+  if (!data) return true;
   if (!data.enabled) return true;
   return data.granted;
 }

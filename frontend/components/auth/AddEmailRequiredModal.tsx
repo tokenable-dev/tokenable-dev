@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { TkButton, TkDialog, TkField, TkInput } from "@/components/ds";
 import { updateAuthProfile } from "@/lib/auth/auth";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
-import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import {
+  isWalletOnlyPlaceholderEmail,
+  userNeedsContactEmail,
+} from "@/lib/auth/walletOnlyEmail";
 import { completeKbwPostLoginRedirect } from "@/lib/event/kbwEventLoginRouting";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
@@ -69,7 +72,6 @@ export function AddEmailRequiredModal() {
   const siteAccessAllowsModals = useSiteAccessAllowsAppModals();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
-  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const setUser = useAuthStore((s) => s.setUser);
 
   const inputId = useId();
@@ -78,8 +80,7 @@ export function AddEmailRequiredModal() {
   const [saving, setSaving] = useState(false);
   const [deferred, setDeferred] = useState(false);
 
-  const needsEmail =
-    Boolean(user) && isWalletOnlyPlaceholderEmail(user?.email);
+  const needsEmail = userNeedsContactEmail(user);
 
   useEffect(() => {
     if (!user?.id) {
@@ -100,7 +101,6 @@ export function AddEmailRequiredModal() {
   const open =
     siteAccessAllowsModals &&
     initialized &&
-    !privySessionSyncing &&
     needsEmail &&
     !deferred &&
     Boolean(user);

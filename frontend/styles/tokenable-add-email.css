@@ -1,5 +1,9 @@
 /* Add-email onboarding (MetaMask / wallet-only → real contact inbox) */
 
+.tk-dialog__overlay:has(.tk-add-email) {
+  z-index: 10100;
+}
+
 .tk-dialog.tk-add-email {
   gap: 28px;
   max-width: 560px;

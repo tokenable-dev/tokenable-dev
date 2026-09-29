@@ -212,7 +212,7 @@ export function PrivySessionBridge() {
             let kbwRouteDeferred = false;
             try {
               if (isKbwPostLoginRoutePending()) {
-                if (shouldDeferKbwPostLoginForEmail(syncedUser.email)) {
+                if (shouldDeferKbwPostLoginForEmail(syncedUser.email, syncedUser)) {
                   kbwRouteDeferred = true;
                 } else {
                   const wallet =

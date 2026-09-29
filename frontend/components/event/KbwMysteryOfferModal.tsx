@@ -6,11 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
-import { isWalletOnlyPlaceholderEmail } from "@/lib/auth/walletOnlyEmail";
+import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import type { AuthUser } from "@/lib/auth/auth";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -19,13 +20,10 @@ function emailDeferKey(userId: string) {
 }
 
 /** True while AddEmailRequiredModal should take priority. */
-function isEmailCaptureBlocking(
-  userId: string | undefined,
-  email: string | undefined,
-): boolean {
-  if (!userId || !isWalletOnlyPlaceholderEmail(email)) return false;
+function isEmailCaptureBlocking(user: AuthUser | null | undefined): boolean {
+  if (!user?.id || !userNeedsContactEmail(user)) return false;
   try {
-    if (sessionStorage.getItem(emailDeferKey(userId)) === "1") return false;
+    if (sessionStorage.getItem(emailDeferKey(user.id)) === "1") return false;
   } catch {
     /* ignore */
   }
@@ -121,7 +119,7 @@ export function KbwMysteryOfferModal() {
     hydrateKbwOfferPending();
   }, [hydrateKbwOfferPending]);
 
-  const emailGateOpen = isEmailCaptureBlocking(user?.id, user?.email);
+  const emailGateOpen = isEmailCaptureBlocking(user);
 
   useEffect(() => {
     if (!mounted) return;
@@ -131,7 +129,10 @@ export function KbwMysteryOfferModal() {
       return;
     }
     if (!initialized || privySessionSyncing || !user) return;
-    if (emailGateOpen) return;
+    if (emailGateOpen) {
+      setOpen(false);
+      return;
+    }
     if (!wallet) return;
     if (!statusReady) return;
 
