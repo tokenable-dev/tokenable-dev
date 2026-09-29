@@ -26,6 +26,10 @@ function kbwUiDebug(step: string): void {
   if (flag !== "true" && flag !== "1" && flag !== "yes") {
     if (process.env.NODE_ENV !== "development") return;
   }
+  // Lazy require avoids authUiStore ↔ kbwEventDebug cycle at module init.
+  void import("@/lib/event/kbwEventDebugBuffer").then((m) => {
+    m.appendKbwDebugLine(step);
+  });
   console.log(`[KBW] ${step}`);
 }
 

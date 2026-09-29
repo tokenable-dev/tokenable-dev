@@ -13,6 +13,7 @@ import {
   KBW_POST_LOGIN_ROUTE_KEY,
   KBW_STAGE2_FLOW_KEY,
 } from "@/lib/event/kbwEventLoginRouting";
+import { appendKbwDebugLine } from "@/lib/event/kbwEventDebugBuffer";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -91,6 +92,7 @@ export function kbwDebugSnapshot() {
 export function kbwDebug(step: string, detail?: Record<string, unknown>): void {
   if (!isKbwEventDebugEnabled()) return;
   const payload = detail ? { ...kbwDebugSnapshot(), ...detail } : kbwDebugSnapshot();
+  appendKbwDebugLine(step, payload as Record<string, unknown>);
   console.log(`${LOG_PREFIX} ${step}`, payload);
 }
 

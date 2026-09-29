@@ -11,6 +11,7 @@ import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 import { SiteAnalytics } from "@/components/analytics";
 import { PartnerCompanyAddressRequiredModal } from "@/components/partner/PartnerCompanyAddressRequiredModal";
 import { AddEmailRequiredModal } from "@/components/auth/AddEmailRequiredModal";
+import { KbwEventDebugOverlay } from "@/components/event/KbwEventDebugOverlay";
 import { KbwMysteryOfferModal } from "@/components/event/KbwMysteryOfferModal";
 import { NotificationToastsHost } from "@/components/layout/notifications/NotificationToastsHost";
 import { cn } from "@/lib/ds/cn";
@@ -99,6 +100,9 @@ export default function RootLayout({
               </Suspense>
               <Suspense fallback={null}>
                 <KbwMysteryOfferModal />
+              </Suspense>
+              <Suspense fallback={null}>
+                <KbwEventDebugOverlay />
               </Suspense>
               <Suspense fallback={null}>
                 <NotificationToastsHost />

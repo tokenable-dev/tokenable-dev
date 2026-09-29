@@ -3,6 +3,7 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
+import { appendKbwDebugLine } from "@/lib/event/kbwEventDebugBuffer";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
@@ -23,6 +24,7 @@ function kbwRouteDebug(step: string, detail?: Record<string, unknown>): void {
   if (flag !== "true" && flag !== "1" && flag !== "yes") {
     if (process.env.NODE_ENV !== "development") return;
   }
+  appendKbwDebugLine(step, detail);
   console.log(`[KBW] ${step}`, detail ?? {});
 }
 
