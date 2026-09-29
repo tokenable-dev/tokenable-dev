@@ -1,4 +1,5 @@
 import type { AuthUser } from "@/lib/auth/auth";
+import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
@@ -92,17 +93,28 @@ export function ensureKbwStage2Pending(): void {
 }
 
 type KbwEventPageFinishOpts = {
+  user?: AuthUser | null;
   walletAddress: string | null | undefined;
   push: (path: string) => void;
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 };
 
+function resolveKbwWallet(
+  user: AuthUser | null | undefined,
+  walletAddress: string | null | undefined,
+): string | null {
+  const fromArg = walletAddress?.trim();
+  if (fromArg) return fromArg;
+  return getPrimaryWalletAddress(user) ?? null;
+}
+
 /** On `/event`: offer if eligible; already used mystery card → portfolio. */
 export async function finishKbwEventOnPage(
   opts: KbwEventPageFinishOpts,
 ): Promise<void> {
-  const burned = await kbwMysteryCardBurned(opts.walletAddress);
+  const wallet = resolveKbwWallet(opts.user, opts.walletAddress);
+  const burned = await kbwMysteryCardBurned(wallet);
   clearKbwStage2();
   if (burned) {
     opts.clearKbwOffer();
@@ -163,7 +175,13 @@ export async function completeKbwStage2Session(opts: {
   if (!wallet && opts.allowWaitForWallet) return "wait_wallet";
 
   if (isEventPath(opts.pathname)) {
-    await finishKbwEventOnPage(opts);
+    await finishKbwEventOnPage({
+      user: opts.user,
+      walletAddress: wallet || opts.walletAddress,
+      push: opts.push,
+      armKbwOffer: opts.armKbwOffer,
+      clearKbwOffer: opts.clearKbwOffer,
+    });
     return "done";
   }
 

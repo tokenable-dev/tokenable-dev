@@ -155,6 +155,7 @@ export function AddEmailRequiredModal() {
 
       if (kbwEventEmailCapture) {
         await afterEventContactEmailSaved({
+          user: savedUser,
           walletAddress: wallet,
           push: (path) => router.push(path),
           armKbwOffer: () => ui.armKbwOffer(),

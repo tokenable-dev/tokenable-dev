@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
@@ -13,7 +13,11 @@ import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
-import { clearKbwStage2, isKbwStage2Pending } from "@/lib/event/kbwEventStage2";
+import {
+  clearKbwStage2,
+  finishKbwEventOnPage,
+  isKbwStage2Pending,
+} from "@/lib/event/kbwEventStage2";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -105,17 +109,24 @@ export function KbwMysteryOfferModal() {
   /** Wait for Tokenable cookie user so wallet-only vs real email is known. */
   const sessionReady = initialized && Boolean(user);
 
+  const stage2AwaitingOffer = authenticated && isKbwStage2Pending();
+
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet),
     queryFn: () => fetchKbwMysteryCardStatus(wallet),
     enabled:
-      mounted && isKbwEventActive() && Boolean(wallet) && sessionReady && open,
+      mounted &&
+      isKbwEventActive() &&
+      Boolean(wallet) &&
+      sessionReady &&
+      (open || stage2AwaitingOffer),
     staleTime: 30_000,
     retry: 1,
   });
 
   const participated = cardStatusQuery.data?.burned === true;
   const emailGateOpen = isEmailCaptureBlocking(user);
+  const stage2BurnedRedirectInFlight = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -127,8 +138,11 @@ export function KbwMysteryOfferModal() {
       setOpen(false);
       return;
     }
-    const stage2AwaitingOffer = authenticated && isKbwStage2Pending();
-    const wantOffer = kbwMysteryOfferVisible || stage2AwaitingOffer;
+    const statusReady =
+      !stage2AwaitingOffer || cardStatusQuery.data !== undefined;
+    const wantOffer =
+      kbwMysteryOfferVisible ||
+      (stage2AwaitingOffer && statusReady && !participated);
     if (!wantOffer) {
       setOpen(false);
       return;
@@ -138,15 +152,44 @@ export function KbwMysteryOfferModal() {
     if (emailGateOpen) return;
 
     setOpen(true);
-    clearKbwStage2();
   }, [
     mounted,
     kbwMysteryOfferVisible,
-    authenticated,
+    stage2AwaitingOffer,
+    participated,
+    cardStatusQuery.data,
     sessionReady,
     emailGateOpen,
     user?.id,
     user?.email,
+  ]);
+
+  useEffect(() => {
+    if (!stage2AwaitingOffer || !sessionReady || !wallet) return;
+    if (userNeedsContactEmail(user) || emailGateOpen) return;
+    if (cardStatusQuery.isLoading || !participated) return;
+    if (stage2BurnedRedirectInFlight.current) return;
+
+    stage2BurnedRedirectInFlight.current = true;
+    const ui = useAuthUiStore.getState();
+    void finishKbwEventOnPage({
+      user,
+      walletAddress: wallet,
+      push: (path) => router.push(path),
+      armKbwOffer: () => ui.armKbwOffer(),
+      clearKbwOffer: () => ui.clearKbwOffer(),
+    }).finally(() => {
+      stage2BurnedRedirectInFlight.current = false;
+    });
+  }, [
+    stage2AwaitingOffer,
+    sessionReady,
+    wallet,
+    participated,
+    cardStatusQuery.isLoading,
+    emailGateOpen,
+    user,
+    router,
   ]);
 
   useEffect(() => {
