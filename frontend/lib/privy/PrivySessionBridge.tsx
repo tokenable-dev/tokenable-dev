@@ -5,10 +5,13 @@ import { useRouter, usePathname } from "next/navigation";
 import { useLogout, useLogin, usePrivy, useWallets } from "@privy-io/react-auth";
 import { getPrimaryWalletAddress, userHasLinkedWallet } from "@/lib/auth/wallets";
 import {
+  isPrivySessionSyncSuppressed,
   isSignOutInProgress,
   onAuthSignOutComplete,
   PrivySessionSyncError,
+  registerPrivyAccessToken,
   registerPrivySignOut,
+  resumePrivySessionSync,
   syncPrivySession,
 } from "@/lib/privy/session";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
@@ -47,6 +50,7 @@ export function PrivySessionBridge() {
   const [loginSyncNonce, setLoginSyncNonce] = useState(0);
   useLogin({
     onComplete: ({ wasAlreadyAuthenticated }) => {
+      resumePrivySessionSync();
       catchupAttempt.current = 0;
       setLoginSyncNonce((n) => n + 1);
       if (!isKbwEventActive()) return;
@@ -88,8 +92,12 @@ export function PrivySessionBridge() {
 
   useEffect(() => {
     registerPrivySignOut(privyLogout);
-    return () => registerPrivySignOut(null);
-  }, [privyLogout]);
+    registerPrivyAccessToken(getAccessToken);
+    return () => {
+      registerPrivySignOut(null);
+      registerPrivyAccessToken(null);
+    };
+  }, [privyLogout, getAccessToken]);
 
   useEffect(() => {
     return onAuthSignOutComplete(() => {
@@ -139,7 +147,11 @@ export function PrivySessionBridge() {
   useEffect(() => {
     if (!ready) return;
 
-    if (!authenticated || isSignOutInProgress()) {
+    if (
+      !authenticated ||
+      isSignOutInProgress() ||
+      isPrivySessionSyncSuppressed()
+    ) {
       setPrivySessionSyncing(false);
       if (!authenticated) {
         returnToHandled.current = false;
@@ -157,7 +169,11 @@ export function PrivySessionBridge() {
     let cancelled = false;
 
     void (async () => {
-      if (syncInFlight.current || isSignOutInProgress()) {
+      if (
+        syncInFlight.current ||
+        isSignOutInProgress() ||
+        isPrivySessionSyncSuppressed()
+      ) {
         syncPending.current = true;
         return;
       }
@@ -170,7 +186,13 @@ export function PrivySessionBridge() {
           let syncedUser: Awaited<ReturnType<typeof syncPrivySession>> | null = null;
 
           for (let attempt = 0; attempt < SESSION_SYNC_DELAYS_MS.length; attempt++) {
-            if (cancelled || isSignOutInProgress()) break;
+            if (
+              cancelled ||
+              isSignOutInProgress() ||
+              isPrivySessionSyncSuppressed()
+            ) {
+              break;
+            }
             const delay = SESSION_SYNC_DELAYS_MS[attempt] ?? 0;
             if (delay > 0) await sleep(delay);
 

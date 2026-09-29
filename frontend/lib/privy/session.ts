@@ -4,7 +4,72 @@ import type { AuthUser } from "@/lib/auth/auth";
 type PrivySignOutFn = () => Promise<void>;
 
 let privySignOutHandler: PrivySignOutFn | null = null;
+type PrivyAccessTokenFn = () => Promise<string | null>;
+let privyAccessTokenFn: PrivyAccessTokenFn | null = null;
 let signOutInProgress = false;
+
+const SUPPRESS_PRIVY_SYNC_KEY = "tk_suppress_privy_sync";
+let suppressPrivySessionSync = false;
+
+function readSuppressSyncFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(SUPPRESS_PRIVY_SYNC_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSuppressSyncToStorage(on: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (on) sessionStorage.setItem(SUPPRESS_PRIVY_SYNC_KEY, "1");
+    else sessionStorage.removeItem(SUPPRESS_PRIVY_SYNC_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * After Sign out, block POST /auth/privy/session until the user completes a fresh
+ * Privy login — otherwise a lingering MetaMask Privy session re-logs wallet.
+ */
+export function suppressPrivySessionSyncAfterSignOut(): void {
+  suppressPrivySessionSync = true;
+  writeSuppressSyncToStorage(true);
+}
+
+export function resumePrivySessionSync(): void {
+  suppressPrivySessionSync = false;
+  writeSuppressSyncToStorage(false);
+}
+
+export function isPrivySessionSyncSuppressed(): boolean {
+  if (suppressPrivySessionSync) return true;
+  return readSuppressSyncFromStorage();
+}
+
+export function registerPrivyAccessToken(getter: PrivyAccessTokenFn | null): void {
+  privyAccessTokenFn = getter;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Wait until Privy logout cleared the access token (mobile MetaMask can lag). */
+export async function waitForPrivyAccessTokenCleared(
+  maxMs = 4_000,
+): Promise<void> {
+  const get = privyAccessTokenFn;
+  if (!get) return;
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const token = await get().catch(() => null);
+    if (!token) return;
+    await sleep(120);
+  }
+}
 
 type AuthSignOutListener = () => void;
 const authSignOutListeners = new Set<AuthSignOutListener>();

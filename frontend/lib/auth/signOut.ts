@@ -5,6 +5,8 @@ import {
   getPrivySignOutHandler,
   notifyAuthSignOutComplete,
   setSignOutInProgress,
+  suppressPrivySessionSyncAfterSignOut,
+  waitForPrivyAccessTokenCleared,
 } from "@/lib/privy/session";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
 import { useAuthStore } from "@/store/authStore";
@@ -57,6 +59,7 @@ export async function completeSignOut(
   clearTokenableSession?: () => Promise<void>,
 ): Promise<void> {
   setSignOutInProgress(true);
+  suppressPrivySessionSyncAfterSignOut();
   useAuthUiStore.getState().resetForSignOut();
   clearClientAuthPersistence();
 
@@ -64,14 +67,17 @@ export async function completeSignOut(
     clearTokenableSession ?? (() => useAuthStore.getState().logout());
 
   try {
+    await disconnectAllWagmiWallets();
+
     await clearTokenable().catch(() => undefined);
 
     const privySignOut = getPrivySignOutHandler();
     if (privySignOut) {
       await privySignOut().catch(() => undefined);
     }
-  } finally {
+    await waitForPrivyAccessTokenCleared();
     await disconnectAllWagmiWallets();
+  } finally {
     clearSavedRedeemAddress();
     clearAllSellLocalState();
     useAuthStore.getState().setPrivySessionSyncing(false);

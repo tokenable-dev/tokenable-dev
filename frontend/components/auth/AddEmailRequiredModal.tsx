@@ -154,7 +154,12 @@ export function AddEmailRequiredModal() {
       const wallet = getPrimaryWalletAddress(updated);
 
       if (kbwEventEmailCapture) {
-        afterEventContactEmailSaved(() => ui.armKbwOffer());
+        await afterEventContactEmailSaved({
+          walletAddress: wallet,
+          push: (path) => router.push(path),
+          armKbwOffer: () => ui.armKbwOffer(),
+          clearKbwOffer: () => ui.clearKbwOffer(),
+        });
       } else if (isKbwStage2Pending()) {
         await completeKbwStage2Session({
           user: savedUser,

@@ -91,14 +91,36 @@ export function ensureKbwStage2Pending(): void {
   writeDualFlag(STAGE2_PENDING_KEY, true);
 }
 
-/** `/event` email saved → mystery offer (no Stage-2 flag required). */
-export function afterEventContactEmailSaved(armKbwOffer: () => void): void {
+type KbwEventPageFinishOpts = {
+  walletAddress: string | null | undefined;
+  push: (path: string) => void;
+  armKbwOffer: () => void;
+  clearKbwOffer: () => void;
+};
+
+/** On `/event`: offer if eligible; already used mystery card → portfolio. */
+export async function finishKbwEventOnPage(
+  opts: KbwEventPageFinishOpts,
+): Promise<void> {
+  const burned = await kbwMysteryCardBurned(opts.walletAddress);
+  clearKbwStage2();
+  if (burned) {
+    opts.clearKbwOffer();
+    opts.push(KBW_EVENT_PORTFOLIO_ASSETS_PATH);
+  } else {
+    opts.armKbwOffer();
+  }
+}
+
+/** `/event` email saved after Stage-2 login. */
+export async function afterEventContactEmailSaved(
+  opts: KbwEventPageFinishOpts,
+): Promise<void> {
   if (!isKbwEventActive()) return;
   if (typeof window === "undefined" || !isEventPath(window.location.pathname)) {
     return;
   }
-  clearKbwStage2();
-  armKbwOffer();
+  await finishKbwEventOnPage(opts);
 }
 
 async function kbwMysteryCardBurned(
@@ -122,7 +144,7 @@ export type KbwStage2SessionResult =
 
 /**
  * Finish Stage-2 once Tokenable session (+ wallet when possible) exists.
- * On `/event`: arm offer in place (no redirect). Off-event: legacy redirect rules.
+ * On `/event`: offer modal if eligible; already used → portfolio assets. Off-event: same rules.
  */
 export async function completeKbwStage2Session(opts: {
   user: AuthUser;
@@ -140,16 +162,13 @@ export async function completeKbwStage2Session(opts: {
   const wallet = opts.walletAddress?.trim() ?? "";
   if (!wallet && opts.allowWaitForWallet) return "wait_wallet";
 
-  const onEvent = isEventPath(opts.pathname);
-  const burned = await kbwMysteryCardBurned(wallet || null);
-
-  clearKbwStage2();
-
-  if (onEvent) {
-    if (burned) opts.clearKbwOffer();
-    else opts.armKbwOffer();
+  if (isEventPath(opts.pathname)) {
+    await finishKbwEventOnPage(opts);
     return "done";
   }
+
+  const burned = await kbwMysteryCardBurned(wallet || null);
+  clearKbwStage2();
 
   if (burned) {
     opts.clearKbwOffer();

@@ -3,7 +3,11 @@
 import { useEffect, useRef } from "react";
 import { useLogin, useLogout, usePrivy } from "@privy-io/react-auth";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
-import { isSignOutInProgress } from "@/lib/privy/session";
+import {
+  isPrivySessionSyncSuppressed,
+  isSignOutInProgress,
+  waitForPrivyAccessTokenCleared,
+} from "@/lib/privy/session";
 import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -14,7 +18,7 @@ export function PrivySignInLauncher() {
   const closeSignIn = useAuthUiStore((s) => s.closeSignIn);
   const { login } = useLogin();
   const { logout } = useLogout();
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, ready, getAccessToken } = usePrivy();
   const tokenableUserId = useAuthStore((s) => s.user?.id);
   const launchInFlight = useRef(false);
 
@@ -23,21 +27,32 @@ export function PrivySignInLauncher() {
     if (isSignOutInProgress()) return;
 
     launchInFlight.current = true;
-    closeSignIn();
     const returnTo = useAuthUiStore.getState().pendingReturnTo;
+    closeSignIn();
 
     void (async () => {
       try {
         const hasTokenableUser = Boolean(useAuthStore.getState().user?.id);
-        if (authenticated && hasTokenableUser) return;
 
-        // Tokenable signed out but Privy still authenticated (common on mobile).
-        if (authenticated && !hasTokenableUser) {
+        if (authenticated && hasTokenableUser && !isPrivySessionSyncSuppressed()) {
+          return;
+        }
+
+        if (authenticated) {
+          await disconnectAllWagmiWallets();
           await logout().catch(() => undefined);
+          await waitForPrivyAccessTokenCleared();
           await disconnectAllWagmiWallets();
         }
 
         if (isSignOutInProgress()) return;
+
+        const stillAuthed = Boolean(await getAccessToken().catch(() => null));
+        if (stillAuthed) {
+          await logout().catch(() => undefined);
+          await waitForPrivyAccessTokenCleared();
+        }
+
         startPrivyLogin(login, { returnTo: returnTo ?? undefined });
       } finally {
         launchInFlight.current = false;
@@ -50,6 +65,7 @@ export function PrivySignInLauncher() {
     closeSignIn,
     authenticated,
     ready,
+    getAccessToken,
     tokenableUserId,
   ]);
 
