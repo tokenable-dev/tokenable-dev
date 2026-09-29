@@ -115,6 +115,25 @@ export async function resolveKbwStage2ReturnPath(
  * Finish KBW Stage-2 navigation (home + offer, or portfolio if already participated).
  * Returns true when the pending post-login route was consumed.
  */
+/** Finish Stage-2 after Tokenable session exists (mobile MetaMask return). */
+export async function tryCompleteKbwStage2AfterLogin(opts: {
+  user: AuthUser | null | undefined;
+  walletAddress: string | null | undefined;
+  push: (path: string) => void;
+  armKbwOffer: () => void;
+  clearKbwOffer: () => void;
+}): Promise<boolean> {
+  if (!isKbwEventActive() || !isKbwPostLoginRoutePending()) return false;
+  if (!opts.user) return false;
+  if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) return false;
+  return completeKbwPostLoginRedirect({
+    walletAddress: opts.walletAddress,
+    push: opts.push,
+    armKbwOffer: opts.armKbwOffer,
+    clearKbwOffer: opts.clearKbwOffer,
+  });
+}
+
 export async function completeKbwPostLoginRedirect(opts: {
   walletAddress: string | null | undefined;
   push: (path: string) => void;

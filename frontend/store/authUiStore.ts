@@ -24,7 +24,9 @@ const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
 function readStoredReturnTo(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const path = sessionStorage.getItem(AUTH_RETURN_TO_KEY);
+    const path =
+      sessionStorage.getItem(AUTH_RETURN_TO_KEY) ??
+      localStorage.getItem(AUTH_RETURN_TO_KEY);
     return path && path.startsWith("/") ? path : null;
   } catch {
     return null;
@@ -36,8 +38,10 @@ function writeStoredReturnTo(path: string | null) {
   try {
     if (path && path.startsWith("/")) {
       sessionStorage.setItem(AUTH_RETURN_TO_KEY, path);
+      localStorage.setItem(AUTH_RETURN_TO_KEY, path);
     } else {
       sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
+      localStorage.removeItem(AUTH_RETURN_TO_KEY);
     }
   } catch {
     /* ignore quota / private mode */

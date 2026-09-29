@@ -94,7 +94,7 @@ function OfferGloss() {
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const { user: privyUser, authenticated: privyAuthenticated } = usePrivy();
+  const { user: privyUser } = usePrivy();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const kbwOfferPending = useAuthUiStore((s) => s.kbwOfferPending);
@@ -109,8 +109,8 @@ export function KbwMysteryOfferModal() {
       pickPrivyUserEthereumWalletAddress(privyUser)
     )?.toLowerCase() ?? "";
 
-  const sessionReady =
-    initialized && (Boolean(user) || privyAuthenticated);
+  /** Wait for Tokenable cookie user so wallet-only vs real email is known. */
+  const sessionReady = initialized && Boolean(user);
 
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet),
@@ -135,6 +135,7 @@ export function KbwMysteryOfferModal() {
     }
     if (!kbwOfferPending) return;
     if (!sessionReady || !wallet) return;
+    if (userNeedsContactEmail(user)) return;
     if (emailGateOpen) return;
 
     setOpen(true);

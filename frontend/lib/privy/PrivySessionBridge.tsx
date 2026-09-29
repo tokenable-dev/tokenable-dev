@@ -21,6 +21,7 @@ import {
   consumeKbwLoginIntent,
   isKbwEventStage2PostLoginActive,
   isKbwPostLoginRoutePending,
+  isKbwStage2FlowPending,
   markKbwPostLoginRoutePending,
   markKbwStage2FlowPending,
   shouldDeferKbwPostLoginForEmail,
@@ -56,11 +57,16 @@ export function PrivySessionBridge() {
       // returns that report wasAlreadyAuthenticated still get the offer.
       if (!isKbwEventActive()) return;
       const eventLoginIntent = consumeKbwLoginIntent();
-      const freshLogin = !wasAlreadyAuthenticated || eventLoginIntent;
+      const stage2Flow =
+        isKbwStage2FlowPending() || isKbwPostLoginRoutePending();
+      // Mobile MetaMask: page often reloads with wasAlreadyAuthenticated=true
+      // and no second onComplete — Stage-2 flags must still apply.
+      const freshLogin =
+        !wasAlreadyAuthenticated || eventLoginIntent || stage2Flow;
       if (!freshLogin) return;
 
       const ui = useAuthUiStore.getState();
-      if (eventLoginIntent) {
+      if (eventLoginIntent || (wasAlreadyAuthenticated && stage2Flow)) {
         markKbwPostLoginRoutePending();
         markKbwStage2FlowPending();
         return;

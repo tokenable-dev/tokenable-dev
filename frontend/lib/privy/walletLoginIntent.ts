@@ -2,6 +2,15 @@
 
 const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
 
+function writeReturnTo(path: string) {
+  try {
+    sessionStorage.setItem(AUTH_RETURN_TO_KEY, path);
+    localStorage.setItem(AUTH_RETURN_TO_KEY, path);
+  } catch {
+    /* private mode */
+  }
+}
+
 /** Drop mobile drawer scroll lock so Privy modal / OAuth redirect are not blocked. */
 function releaseMobileDrawerScrollLock(): void {
   if (typeof document === "undefined") return;
@@ -25,11 +34,7 @@ export function startPrivyLogin(
 ): void {
   const returnTo = opts?.returnTo?.trim();
   if (returnTo?.startsWith("/")) {
-    try {
-      sessionStorage.setItem(AUTH_RETURN_TO_KEY, returnTo);
-    } catch {
-      /* private mode */
-    }
+    writeReturnTo(returnTo);
   }
   if (isMobileBrowserUa()) {
     releaseMobileDrawerScrollLock();
