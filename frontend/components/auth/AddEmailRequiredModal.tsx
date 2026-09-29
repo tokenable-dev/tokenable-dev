@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { TkButton, TkDialog, TkField, TkInput } from "@/components/ds";
 import { updateAuthProfile } from "@/lib/auth/auth";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
@@ -11,12 +11,11 @@ import {
 } from "@/lib/auth/walletOnlyEmail";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import {
-  armKbwOfferAfterEventContactEmail,
-  completeKbwPostLoginRedirect,
+  afterEventContactEmailSaved,
+  completeKbwStage2Session,
   isEventPath,
-  isKbwEventStage2PostLoginActive,
-  isKbwStage2FlowPending,
-} from "@/lib/event/kbwEventLoginRouting";
+  isKbwStage2Pending,
+} from "@/lib/event/kbwEventStage2";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -76,6 +75,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export function AddEmailRequiredModal() {
   const router = useRouter();
+  const pathname = usePathname();
   const siteAccessAllowsModals = useSiteAccessAllowsAppModals();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
@@ -105,8 +105,9 @@ export function AddEmailRequiredModal() {
     }
   }, [needsEmail]);
 
+  const onEventPage = isEventPath(pathname);
   const kbwEventEmailCapture =
-    isKbwEventStage2PostLoginActive() && needsEmail && Boolean(user);
+    isKbwEventActive() && onEventPage && needsEmail && Boolean(user);
 
   const open =
     (siteAccessAllowsModals || kbwEventEmailCapture) &&
@@ -123,32 +124,42 @@ export function AddEmailRequiredModal() {
 
   async function handleSave() {
     const next = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(next)) {
-      setError("Enter a valid email address");
+    const relaxedEventSave = kbwEventEmailCapture;
+    if (!next) {
+      setError("Enter an email address");
       return;
     }
-    if (isWalletOnlyPlaceholderEmail(next)) {
-      setError("Enter a real email address");
-      return;
+    if (!relaxedEventSave) {
+      if (!EMAIL_RE.test(next)) {
+        setError("Enter a valid email address");
+        return;
+      }
+      if (isWalletOnlyPlaceholderEmail(next)) {
+        setError("Enter a real email address");
+        return;
+      }
     }
     setSaving(true);
     setError(null);
     try {
       const updated = await updateAuthProfile({ email: next });
-      setUser(updated);
+      const savedUser = userNeedsContactEmail(updated)
+        ? { ...updated, email: next }
+        : updated;
+      setUser(savedUser);
       if (user?.id) writeDeferred(user.id, false);
       setDeferred(false);
       setEmail("");
       const ui = useAuthUiStore.getState();
       const wallet = getPrimaryWalletAddress(updated);
-      const onEvent =
-        typeof window !== "undefined" && isEventPath(window.location.pathname);
 
-      if (isKbwEventActive() && onEvent) {
-        armKbwOfferAfterEventContactEmail(() => ui.armKbwOffer());
-      } else if (isKbwEventStage2PostLoginActive()) {
-        await completeKbwPostLoginRedirect({
+      if (kbwEventEmailCapture) {
+        afterEventContactEmailSaved(() => ui.armKbwOffer());
+      } else if (isKbwStage2Pending()) {
+        await completeKbwStage2Session({
+          user: savedUser,
           walletAddress: wallet,
+          pathname,
           push: (path) => router.push(path),
           armKbwOffer: () => ui.armKbwOffer(),
           clearKbwOffer: () => ui.clearKbwOffer(),
@@ -161,9 +172,12 @@ export function AddEmailRequiredModal() {
     }
   }
 
-  const canSave = EMAIL_RE.test(email.trim()) && !saving;
+  const canSave =
+    (kbwEventEmailCapture
+      ? email.trim().length > 0
+      : EMAIL_RE.test(email.trim())) && !saving;
   const eventStage2EmailGate =
-    isKbwStage2FlowPending() && needsEmail && Boolean(user);
+    isKbwStage2Pending() && onEventPage && needsEmail && Boolean(user);
 
   return (
     <TkDialog

@@ -13,11 +13,7 @@ import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
-import {
-  clearKbwPostLoginRoutePending,
-  clearKbwStage2FlowPending,
-  isKbwEventStage2PostLoginActive,
-} from "@/lib/event/kbwEventLoginRouting";
+import { clearKbwStage2, isKbwStage2Pending } from "@/lib/event/kbwEventStage2";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -36,12 +32,9 @@ function isEmailCaptureBlocking(user: AuthUser | null | undefined): boolean {
   return true;
 }
 
-function clearKbwEventLoginFlowUi() {
-  clearKbwPostLoginRoutePending();
-  clearKbwStage2FlowPending();
-  const ui = useAuthUiStore.getState();
-  ui.clearKbwOffer();
-  ui.setKbwEventStage2LoginPending(false);
+function dismissKbwOfferUi() {
+  clearKbwStage2();
+  useAuthUiStore.getState().clearKbwOffer();
 }
 
 function CloseIcon() {
@@ -98,8 +91,7 @@ export function KbwMysteryOfferModal() {
   const { authenticated, user: privyUser } = usePrivy();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
-  const kbwOfferPending = useAuthUiStore((s) => s.kbwOfferPending);
-  const clearKbwOffer = useAuthUiStore((s) => s.clearKbwOffer);
+  const kbwMysteryOfferVisible = useAuthUiStore((s) => s.kbwMysteryOfferVisible);
 
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -135,9 +127,10 @@ export function KbwMysteryOfferModal() {
       setOpen(false);
       return;
     }
-    const stage2AwaitingOffer =
-      authenticated && isKbwEventStage2PostLoginActive();
-    if (!kbwOfferPending && !stage2AwaitingOffer) {
+    const stage2AwaitingOffer = authenticated && isKbwStage2Pending();
+    const wantOffer = kbwMysteryOfferVisible || stage2AwaitingOffer;
+    if (!wantOffer) {
+      setOpen(false);
       return;
     }
     if (!sessionReady) return;
@@ -145,12 +138,11 @@ export function KbwMysteryOfferModal() {
     if (emailGateOpen) return;
 
     setOpen(true);
-    clearKbwEventLoginFlowUi();
+    clearKbwStage2();
   }, [
     mounted,
-    kbwOfferPending,
+    kbwMysteryOfferVisible,
     authenticated,
-    clearKbwOffer,
     sessionReady,
     emailGateOpen,
     user?.id,
@@ -160,17 +152,17 @@ export function KbwMysteryOfferModal() {
   useEffect(() => {
     if (!open || !participated) return;
     setOpen(false);
-    clearKbwEventLoginFlowUi();
+    dismissKbwOfferUi();
   }, [open, participated]);
 
   function close() {
     setOpen(false);
-    clearKbwEventLoginFlowUi();
+    dismissKbwOfferUi();
   }
 
   function handleBuy() {
     setOpen(false);
-    clearKbwEventLoginFlowUi();
+    dismissKbwOfferUi();
     router.push(`${PORTFOLIO_PATH}?tab=assets`);
   }
 

@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
-import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import {
-  isKbwEventStage2PostLoginActive,
-  tryCompleteKbwStage2AfterLogin,
-} from "@/lib/event/kbwEventLoginRouting";
+  completeKbwStage2Session,
+  isKbwStage2Pending,
+} from "@/lib/event/kbwEventStage2";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { refreshPrivyAuthSession } from "@/lib/privy/session";
 import { useAuthStore } from "@/store/authStore";
@@ -18,12 +17,10 @@ import { useAuthUiStore } from "@/store/authUiStore";
 const POLL_MS = 800;
 const MAX_POLLS = 45;
 
-/**
- * Stage-2 post-login: after Privy + MetaMask (mobile app switch), wait for
- * Tokenable session user then email check → arm KBW offer once.
- */
+/** Mobile MetaMask return: poll until session exists, then finish Stage-2 on `/event`. */
 export function useKbwEventStage2PostLogin() {
   const router = useRouter();
+  const pathname = usePathname();
   const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
 
   useEffect(() => {
@@ -34,15 +31,8 @@ export function useKbwEventStage2PostLogin() {
   const initialized = useAuthStore((s) => s.initialized);
   const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const refresh = useAuthStore((s) => s.refresh);
-  const offerArmedRef = useRef(false);
+  const finishedRef = useRef(false);
   const pollCountRef = useRef(0);
-
-  const resetArmedIfFlowCleared = useCallback(() => {
-    if (!isKbwEventStage2PostLoginActive()) {
-      offerArmedRef.current = false;
-      pollCountRef.current = 0;
-    }
-  }, []);
 
   const ensureTokenableUser = useCallback(async () => {
     let sessionUser = useAuthStore.getState().user;
@@ -56,7 +46,7 @@ export function useKbwEventStage2PostLogin() {
           sessionUser = useAuthStore.getState().user;
         }
       } catch {
-        /* fall through to GET /auth/session */
+        /* GET /auth/session */
       }
     }
 
@@ -67,17 +57,17 @@ export function useKbwEventStage2PostLogin() {
     return sessionUser;
   }, [ready, authenticated, getAccessToken, hydrateFromSession, refresh]);
 
-  const finishStage2OnEvent = useCallback(async () => {
-    resetArmedIfFlowCleared();
-    if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return;
-    if (offerArmedRef.current) return;
-
-    const cookieUser = useAuthStore.getState().user;
-    if (!cookieUser && (!ready || !authenticated)) return;
+  const tryFinish = useCallback(async () => {
+    if (!isKbwEventActive() || !isKbwStage2Pending()) {
+      finishedRef.current = false;
+      pollCountRef.current = 0;
+      return;
+    }
+    if (finishedRef.current) return;
+    if (!useAuthStore.getState().user && (!ready || !authenticated)) return;
 
     const sessionUser = await ensureTokenableUser();
     if (!sessionUser) return;
-    if (userNeedsContactEmail(sessionUser)) return;
 
     const wallet =
       getPrimaryWalletAddress(sessionUser) ??
@@ -85,55 +75,46 @@ export function useKbwEventStage2PostLogin() {
       null;
 
     const ui = useAuthUiStore.getState();
-    const handled = await tryCompleteKbwStage2AfterLogin({
+    const result = await completeKbwStage2Session({
       user: sessionUser,
       walletAddress: wallet,
+      pathname,
       push: (path) => router.push(path),
       armKbwOffer: () => ui.armKbwOffer(),
       clearKbwOffer: () => ui.clearKbwOffer(),
+      allowWaitForWallet: true,
     });
-    if (handled) offerArmedRef.current = true;
+
+    if (result === "done") finishedRef.current = true;
   }, [
     ready,
     authenticated,
     privyUser,
+    pathname,
     ensureTokenableUser,
     router,
-    resetArmedIfFlowCleared,
   ]);
 
   useEffect(() => {
-    resetArmedIfFlowCleared();
-  }, [resetArmedIfFlowCleared, user?.id]);
+    if (!isKbwEventActive() || !isKbwStage2Pending()) return;
+    void tryFinish();
+  }, [tryFinish, user?.id, user?.email, initialized, ready, authenticated]);
 
   useEffect(() => {
-    if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return;
-    void finishStage2OnEvent();
-  }, [
-    finishStage2OnEvent,
-    user?.id,
-    user?.email,
-    initialized,
-    ready,
-    authenticated,
-  ]);
-
-  useEffect(() => {
-    if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return;
+    if (!isKbwEventActive() || !isKbwStage2Pending()) return;
 
     const tick = () => {
-      if (offerArmedRef.current) return;
+      if (finishedRef.current) return;
       if (pollCountRef.current >= MAX_POLLS) return;
       pollCountRef.current += 1;
-      void finishStage2OnEvent();
+      void tryFinish();
     };
 
     const id = window.setInterval(tick, POLL_MS);
-
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       pollCountRef.current = 0;
-      void finishStage2OnEvent();
+      void tryFinish();
     };
 
     window.addEventListener("pageshow", onVisible);
@@ -144,5 +125,5 @@ export function useKbwEventStage2PostLogin() {
       window.removeEventListener("pageshow", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [finishStage2OnEvent]);
+  }, [tryFinish]);
 }

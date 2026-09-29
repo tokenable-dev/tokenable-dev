@@ -100,10 +100,8 @@ interface AuthUiState {
   connectWalletOpen: boolean;
   walletMismatchOpen: boolean;
   kycOpen: boolean;
-  /** Post-login KBW mystery-card offer (armed only during event window). */
-  kbwOfferPending: boolean;
-  /** `/event` Stage-2 MetaMask login — show offer when true (Zustand, not storage-only). */
-  kbwEventStage2LoginPending: boolean;
+  /** KBW mystery offer overlay — persisted for MetaMask / OAuth remounts. */
+  kbwMysteryOfferVisible: boolean;
   pendingReturnTo: string | null;
 
   walletActivationPhase: WalletActivationPhase;
@@ -119,10 +117,8 @@ interface AuthUiState {
   closeKyc: () => void;
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
-  setKbwEventStage2LoginPending: (pending: boolean) => void;
-  /** Restore pending flag from sessionStorage after remount. */
+  /** Restore offer flag from sessionStorage after remount. */
   hydrateKbwOfferPending: () => void;
-  hydrateKbwEventStage2LoginPending: () => void;
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
@@ -140,6 +136,8 @@ interface AuthUiState {
   finishWalletActivation: () => void;
   /** Clear in-flight connect/link so logout cannot resume a MetaMask prompt. */
   resetWalletActivation: () => void;
+  /** Sign-out: close auth modals, KBW offer, returnTo, wallet activation. */
+  resetForSignOut: () => void;
 }
 
 export const useAuthUiStore = create<AuthUiState>((set, get) => ({
@@ -148,8 +146,7 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   connectWalletOpen: false,
   walletMismatchOpen: false,
   kycOpen: false,
-  kbwOfferPending: false,
-  kbwEventStage2LoginPending: false,
+  kbwMysteryOfferVisible: false,
   pendingReturnTo: null,
 
   walletActivationPhase: "idle",
@@ -166,23 +163,16 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
 
   armKbwOffer: () => {
     writeKbwOfferPending(true);
-    set({ kbwOfferPending: true });
+    set({ kbwMysteryOfferVisible: true });
   },
   clearKbwOffer: () => {
     writeKbwOfferPending(false);
-    set({ kbwOfferPending: false });
+    set({ kbwMysteryOfferVisible: false });
   },
 
-  /** Rehydrate pending offer after remount (OAuth / soft navigation). */
   hydrateKbwOfferPending: () => {
-    if (readKbwOfferPending()) set({ kbwOfferPending: true });
+    if (readKbwOfferPending()) set({ kbwMysteryOfferVisible: true });
   },
-
-  setKbwEventStage2LoginPending: (pending) =>
-    set({ kbwEventStage2LoginPending: pending }),
-
-  /** Stage-2 routing only — do not re-arm the offer modal from storage. */
-  hydrateKbwEventStage2LoginPending: () => {},
 
   openConnectWallet: (opts) => {
     const phase = get().walletActivationPhase;
@@ -274,4 +264,20 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
       connectWalletOpen: false,
       walletMismatchOpen: false,
     }),
+
+  resetForSignOut: () => {
+    writeStoredReturnTo(null);
+    writeKbwOfferPending(false);
+    set({
+      signInOpen: false,
+      signInMode: "sign-in",
+      connectWalletOpen: false,
+      walletMismatchOpen: false,
+      kycOpen: false,
+      kbwMysteryOfferVisible: false,
+      pendingReturnTo: null,
+      walletActivationPhase: "idle",
+      walletActivationExpectedAddress: null,
+    });
+  },
 }));

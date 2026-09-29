@@ -1,38 +1,81 @@
+import { clearKbwStage2 } from "@/lib/event/kbwEventStage2";
 import { clearSavedRedeemAddress } from "@/lib/portfolio/redeemDraft";
 import { clearAllSellLocalState } from "@/lib/sell/sellFlowDraft";
 import {
   getPrivySignOutHandler,
+  notifyAuthSignOutComplete,
   setSignOutInProgress,
 } from "@/lib/privy/session";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
+import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 export { registerPrivySignOut } from "@/lib/privy/session";
 
+const AUTH_PERSISTENCE_PREFIXES = [
+  "tk_auth_return_to",
+  "tk_kbw_offer_pending",
+  "tk_kbw_stage2",
+  "tk_kbw_stage1_done",
+  "tk_add_email_deferred:",
+  "tk_kbw_post_login_route",
+  "tk_kbw_stage2_flow",
+  "tk_kbw_login_intent",
+] as const;
+
+function removeMatchingStorageKeys(storage: Storage): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key) keys.push(key);
+    }
+    for (const key of keys) {
+      if (AUTH_PERSISTENCE_PREFIXES.some((p) => key === p || key.startsWith(p))) {
+        storage.removeItem(key);
+      }
+    }
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Drop event/login persistence so the next account starts clean. */
+export function clearClientAuthPersistence(): void {
+  if (typeof window === "undefined") return;
+  clearKbwStage2();
+  removeMatchingStorageKeys(sessionStorage);
+  removeMatchingStorageKeys(localStorage);
+}
+
 /**
- * Clear Privy session via registered `useLogout` handler.
- * Also disconnects wagmi connectors so a prior MetaMask session cannot stay
- * active after Sign out (Buy must not reopen MetaMask for the next social login).
- * Tokenable cookie is cleared in the logout `onSuccess` callback (PrivySessionBridge).
+ * Clear Privy + Tokenable sessions and all client auth/event state.
+ * Tokenable cookie is cleared here (not only in Privy `onSuccess`) so mobile
+ * cannot leave an orphan Privy session that blocks `login()` on the next tap.
  */
 export async function completeSignOut(
-  fallbackClearTokenableSession?: () => Promise<void>,
+  clearTokenableSession?: () => Promise<void>,
 ): Promise<void> {
   setSignOutInProgress(true);
-  useAuthUiStore.getState().resetWalletActivation();
-  useAuthUiStore.getState().clearKbwOffer();
+  useAuthUiStore.getState().resetForSignOut();
+  clearClientAuthPersistence();
+
+  const clearTokenable =
+    clearTokenableSession ?? (() => useAuthStore.getState().logout());
+
   try {
+    await clearTokenable().catch(() => undefined);
+
     const privySignOut = getPrivySignOutHandler();
     if (privySignOut) {
       await privySignOut().catch(() => undefined);
-    } else if (fallbackClearTokenableSession) {
-      await fallbackClearTokenableSession();
     }
   } finally {
     await disconnectAllWagmiWallets();
-    // Avoid leaking ship-to / sell OCR drafts into the next account on the same browser.
     clearSavedRedeemAddress();
     clearAllSellLocalState();
+    useAuthStore.getState().setPrivySessionSyncing(false);
     setSignOutInProgress(false);
+    notifyAuthSignOutComplete();
   }
 }

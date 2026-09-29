@@ -6,6 +6,21 @@ type PrivySignOutFn = () => Promise<void>;
 let privySignOutHandler: PrivySignOutFn | null = null;
 let signOutInProgress = false;
 
+type AuthSignOutListener = () => void;
+const authSignOutListeners = new Set<AuthSignOutListener>();
+
+/** Lets PrivySessionBridge drop in-flight sync state after sign-out. */
+export function onAuthSignOutComplete(listener: AuthSignOutListener): () => void {
+  authSignOutListeners.add(listener);
+  return () => {
+    authSignOutListeners.delete(listener);
+  };
+}
+
+export function notifyAuthSignOutComplete(): void {
+  for (const listener of authSignOutListeners) listener();
+}
+
 /** Wired by {@link PrivySessionBridge} so `completeSignOut` can clear Privy too. */
 export function registerPrivySignOut(handler: PrivySignOutFn | null): void {
   privySignOutHandler = handler;

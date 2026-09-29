@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ASSETS } from "@/constants/assets";
 import {
   claimGuestKbwStage1ForAccount,
@@ -11,13 +11,10 @@ import {
   writeKbwStage1Done,
 } from "@/lib/event/kbwEventParticipation";
 import {
-  clearKbwPostLoginRoutePending,
-  clearKbwStage2FlowPending,
-  markKbwLoginIntent,
-  markKbwPostLoginRoutePending,
-  markKbwStage2FlowPending,
-  resolveKbwStage2ReturnPath,
-} from "@/lib/event/kbwEventLoginRouting";
+  beginKbwStage2Login,
+  completeKbwStage2Session,
+} from "@/lib/event/kbwEventStage2";
+import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
@@ -112,6 +109,7 @@ function Stage1CheckIcon() {
 /** KBW event landing — Figma 430×932 layout. */
 export function EventLandingView() {
   const router = useRouter();
+  const pathname = usePathname();
   const [stage1Done, setStage1Done] = useState(false);
   const stage1TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const user = useAuthStore((s) => s.user);
@@ -158,19 +156,18 @@ export function EventLandingView() {
 
   async function handleStage2() {
     if (!stage1Done) return;
-    markKbwLoginIntent();
-    markKbwPostLoginRoutePending();
-    markKbwStage2FlowPending();
+    beginKbwStage2Login();
     if (user) {
-      if (userNeedsContactEmail(user)) {
-        return;
-      }
-      const path = await resolveKbwStage2ReturnPath(getPrimaryWalletAddress(user));
-      if (path === "/") armKbwOffer();
-      else clearKbwOffer();
-      clearKbwPostLoginRoutePending();
-      clearKbwStage2FlowPending();
-      router.push(path);
+      if (userNeedsContactEmail(user)) return;
+      if (!isKbwEventActive()) return;
+      await completeKbwStage2Session({
+        user,
+        walletAddress: getPrimaryWalletAddress(user),
+        pathname,
+        push: (path) => router.push(path),
+        armKbwOffer,
+        clearKbwOffer,
+      });
       return;
     }
     openSignIn({ returnTo: "/event" });

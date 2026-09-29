@@ -96,7 +96,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await logoutAuth();
     } finally {
-      set({ user: null });
+      set({
+        user: null,
+        loading: false,
+        initialized: true,
+        privySessionSyncing: false,
+      });
     }
   },
 }));
