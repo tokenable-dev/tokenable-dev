@@ -18,6 +18,9 @@ import {
 } from "@/lib/event/kbwEventStage2";
 import { migrateKbwStage1AfterContactEmail } from "@/lib/event/kbwEventParticipation";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
+import { kbwMysteryCardContactScope } from "@/lib/core/api/kbw-mystery-card";
+import { rq } from "@/lib/core/queryKeys";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import "@/styles/tokenable-add-email.css";
@@ -77,6 +80,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function AddEmailRequiredModal() {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const siteAccessAllowsModals = useSiteAccessAllowsAppModals();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
@@ -154,6 +158,12 @@ export function AddEmailRequiredModal() {
       setEmail("");
       const ui = useAuthUiStore.getState();
       const wallet = getPrimaryWalletAddress(updated);
+      const scope = kbwMysteryCardContactScope(savedUser.email);
+      if (wallet) {
+        void queryClient.invalidateQueries({
+          queryKey: rq.kbwMysteryCard(wallet.toLowerCase(), scope),
+        });
+      }
 
       if (kbwEventEmailCapture) {
         await afterEventContactEmailSaved({

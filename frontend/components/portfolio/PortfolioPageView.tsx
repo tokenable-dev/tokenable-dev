@@ -247,7 +247,10 @@ export function PortfolioPageView({
 
   const kbwMysteryQuery = useQuery({
     queryKey: rq.kbwMysteryCard(portfolioAddress ?? "", kbwContactScope),
-    queryFn: () => fetchKbwMysteryCardStatus(portfolioAddress!),
+    queryFn: () =>
+      fetchKbwMysteryCardStatus(portfolioAddress!, {
+        authenticatedSession: Boolean(user?.id),
+      }),
     enabled: secondaryPortfolioFetchReady && Boolean(portfolioAddress),
     staleTime: 30_000,
   });

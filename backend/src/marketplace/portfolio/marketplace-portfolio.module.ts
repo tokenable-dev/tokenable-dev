@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../../auth/auth.module';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
@@ -20,6 +21,7 @@ import { PortfolioController } from './portfolio.controller';
 /** Wallet portfolio daily snapshots and per-holding UI prefs (hide + cost basis). */
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       PortfolioDailySnapshot,
       PortfolioHolding,

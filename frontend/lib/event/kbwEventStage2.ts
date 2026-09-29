@@ -114,7 +114,7 @@ export async function finishKbwEventOnPage(
   opts: KbwEventPageFinishOpts,
 ): Promise<void> {
   const wallet = resolveKbwWallet(opts.user, opts.walletAddress);
-  const burned = await kbwMysteryCardBurned(wallet);
+  const burned = await kbwMysteryCardBurned(opts.user, wallet);
   clearKbwStage2();
   if (burned) {
     opts.clearKbwOffer();
@@ -136,11 +136,13 @@ export async function afterEventContactEmailSaved(
 }
 
 async function kbwMysteryCardBurned(
+  user: AuthUser | null | undefined,
   walletAddress: string | null | undefined,
 ): Promise<boolean> {
   try {
     const { burned } = await fetchKbwMysteryCardStatus(
       walletAddress?.trim() ?? "",
+      { authenticatedSession: Boolean(user?.id) },
     );
     return burned === true;
   } catch {
@@ -185,7 +187,7 @@ export async function completeKbwStage2Session(opts: {
     return "done";
   }
 
-  const burned = await kbwMysteryCardBurned(wallet || null);
+  const burned = await kbwMysteryCardBurned(opts.user, wallet || null);
   clearKbwStage2();
 
   if (burned) {
