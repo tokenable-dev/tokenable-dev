@@ -4,6 +4,7 @@ import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
+import { useAuthUiStore } from "@/store/authUiStore";
 
 /** Stage-2 login in progress (MetaMask app-switch safe: session + localStorage). */
 const STAGE2_PENDING_KEY = "tk_kbw_stage2";
@@ -76,6 +77,7 @@ export function clearKbwStage2(): void {
   writeDualFlag(LEGACY_STAGE2_FLOW_KEY, false);
   writeDualFlag(LEGACY_POST_LOGIN_ROUTE_KEY, false);
   writeDualFlag(LEGACY_LOGIN_INTENT_KEY, false);
+  useAuthUiStore.getState().clearPendingReturnToForEvent();
 }
 
 export function consumeKbwStage2LoginIntent(): boolean {

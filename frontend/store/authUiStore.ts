@@ -122,6 +122,7 @@ interface AuthUiState {
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
+  clearPendingReturnToForEvent: () => void;
 
   /**
    * Begin a wallet activation attempt. Returns false when one is already in flight
@@ -229,6 +230,14 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     writeStoredReturnTo(null);
     set({ pendingReturnTo: null });
     return path && path.startsWith("/") ? path : null;
+  },
+
+  /** Drop Stage-2 `openSignIn({ returnTo: "/event" })` so portfolio is not bounced back. */
+  clearPendingReturnToForEvent: () => {
+    const path = get().pendingReturnTo ?? readStoredReturnTo();
+    if (!path || (!path.startsWith("/event") && path !== "/event")) return;
+    writeStoredReturnTo(null);
+    set({ pendingReturnTo: null });
   },
 
   beginWalletActivation: (expectedAddress) => {

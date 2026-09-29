@@ -213,6 +213,7 @@ export function KbwMysteryOfferModal() {
   function handleBuy() {
     setOpen(false);
     dismissKbwOfferUi();
+    useAuthUiStore.getState().clearPendingReturnToForEvent();
     router.push(`${PORTFOLIO_PATH}?tab=assets`);
   }
 
