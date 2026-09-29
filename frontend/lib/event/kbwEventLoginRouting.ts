@@ -180,24 +180,42 @@ export async function completeKbwPostLoginRedirect(opts: {
   }
 
   const path = await resolveKbwStage2ReturnPath(opts.walletAddress);
-  if (path === "/") opts.armKbwOffer();
-  else opts.clearKbwOffer();
+  const participated = path !== "/";
+  const here =
+    typeof window !== "undefined" ? window.location.pathname : "";
+  const onEvent = isEventPath(here);
+
+  // `/event` Stage-2: keep user on the landing; offer modal is a global overlay.
+  if (onEvent) {
+    opts.armKbwOffer();
+  } else if (!participated) {
+    opts.armKbwOffer();
+  } else {
+    opts.clearKbwOffer();
+  }
 
   clearKbwPostLoginRoutePending();
   clearKbwStage2FlowPending();
 
   const targetPath = path.split("?")[0] || path;
-  const here =
-    typeof window !== "undefined" ? window.location.pathname : "";
-  const willPush = here !== targetPath;
+  let willPush = false;
+  if (participated && !onEvent && here !== targetPath) {
+    willPush = true;
+    opts.push(path);
+  } else if (!participated && !onEvent && here !== "/") {
+    willPush = true;
+    opts.push("/");
+  }
+
   kbwRouteDebug("completeRedirect.done", {
     wallet: shortWalletForLog(opts.walletAddress),
     path,
     here,
+    onEvent,
+    participated,
     willPush,
-    armedOffer: path === "/",
+    armedOffer: onEvent || !participated,
   });
-  if (willPush) opts.push(path);
 
   return true;
 }
