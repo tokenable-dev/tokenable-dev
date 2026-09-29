@@ -8,7 +8,11 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import type { User } from '../../user/entities/user.entity';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
@@ -223,9 +227,21 @@ export class PortfolioController {
   }
 
   @ApiOperation({
-    summary: 'KBW Mystery Card burn 여부',
+    summary: 'KBW Mystery Card burn status (signed-in user)',
     description:
-      'Web2 synthetic event card — burned when any portfolio for this wallet’s contact email has burned (email-scoped, all wallets).',
+      'Uses the session user contact email only — correct for /event offer and portfolio after MetaMask + email capture.',
+  })
+  @Get('portfolio/kbw-mystery-card/status/me')
+  @UseGuards(JwtAuthGuard)
+  async getMyKbwMysteryCardStatus(@Req() req: { user: User }) {
+    const burned = await this.kbwMysteryCard.isBurnedForUser(req.user);
+    return { burned };
+  }
+
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn 여부 (wallet lookup)',
+    description:
+      'Public wallet → linked contact emails (skips @privy.wallet placeholders). Prefer GET …/status/me when signed in.',
   })
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/kbw-mystery-card/:wallet')
@@ -245,7 +261,11 @@ export class PortfolioController {
     }),
   )
   @Post('portfolio/kbw-mystery-card/burn')
-  async burnKbwMysteryCard(@Body() body: BurnKbwMysteryCardDto) {
-    return this.kbwMysteryCard.burn(body.walletAddress);
+  @UseGuards(JwtAuthGuard)
+  async burnKbwMysteryCard(
+    @Req() req: { user: User },
+    @Body() _body: BurnKbwMysteryCardDto,
+  ) {
+    return this.kbwMysteryCard.burnForUser(req.user);
   }
 }

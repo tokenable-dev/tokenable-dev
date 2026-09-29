@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { KbwMysteryCardBurn } from '../entities/kbw-mystery-card-burn.entity';
@@ -22,6 +23,24 @@ export class KbwMysteryCardService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private contactEmailsOnly(emails: string[]): string[] {
+    return [
+      ...new Set(
+        emails
+          .map((e) => this.normalizeEmail(e))
+          .filter((e) => e.length > 0 && !isWalletOnlyPlaceholderEmail(e)),
+      ),
+    ];
+  }
+
+  /** Signed-in user only — avoids false "used" from another account on the same wallet. */
+  async isBurnedForUser(user: User): Promise<boolean> {
+    const email = this.normalizeEmail(user.email ?? '');
+    if (!email || isWalletOnlyPlaceholderEmail(email)) return false;
+    const row = await this.burns.findOne({ where: { email } });
+    return Boolean(row);
   }
 
   /** Contact emails linked to this wallet (primary + user_wallets). */
@@ -63,16 +82,39 @@ export class KbwMysteryCardService {
   }
 
   async isBurned(walletAddress: string): Promise<boolean> {
-    const emails = await this.emailsForWallet(walletAddress);
+    const emails = this.contactEmailsOnly(
+      await this.emailsForWallet(walletAddress),
+    );
     if (emails.length === 0) return false;
     const row = await this.burns.findOne({ where: { email: In(emails) } });
     return Boolean(row);
   }
 
+  async burnForUser(
+    user: User,
+  ): Promise<{ burned: true; alreadyBurned: boolean }> {
+    const email = this.normalizeEmail(user.email ?? '');
+    if (!email || isWalletOnlyPlaceholderEmail(email)) {
+      throw new BadRequestException(
+        'Add a contact email before claiming the KBW mystery card',
+      );
+    }
+
+    const existing = await this.burns.findOne({ where: { email } });
+    if (existing) {
+      return { burned: true, alreadyBurned: true };
+    }
+    await this.burns.save(this.burns.create({ email }));
+    return { burned: true, alreadyBurned: false };
+  }
+
+  /** @deprecated Prefer {@link burnForUser} — wallet-wide email union caused false burns. */
   async burn(
     walletAddress: string,
   ): Promise<{ burned: true; alreadyBurned: boolean }> {
-    const emails = await this.emailsForWallet(walletAddress);
+    const emails = this.contactEmailsOnly(
+      await this.emailsForWallet(walletAddress),
+    );
     if (emails.length === 0) {
       throw new BadRequestException(
         'No account email linked to this wallet — sign in before burning',

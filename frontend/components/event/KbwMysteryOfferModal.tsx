@@ -9,7 +9,10 @@ import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
-import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
+import {
+  fetchKbwMysteryCardStatus,
+  kbwMysteryCardContactScope,
+} from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
@@ -111,8 +114,10 @@ export function KbwMysteryOfferModal() {
 
   const stage2AwaitingOffer = authenticated && isKbwStage2Pending();
 
+  const kbwContactScope = kbwMysteryCardContactScope(user?.email);
+
   const cardStatusQuery = useQuery({
-    queryKey: rq.kbwMysteryCard(wallet),
+    queryKey: rq.kbwMysteryCard(wallet, kbwContactScope),
     queryFn: () => fetchKbwMysteryCardStatus(wallet),
     enabled:
       mounted &&
@@ -193,10 +198,10 @@ export function KbwMysteryOfferModal() {
   ]);
 
   useEffect(() => {
-    if (!open || !participated) return;
+    if (!open || !participated || cardStatusQuery.isFetching) return;
     setOpen(false);
     dismissKbwOfferUi();
-  }, [open, participated]);
+  }, [open, participated, cardStatusQuery.isFetching]);
 
   function close() {
     setOpen(false);

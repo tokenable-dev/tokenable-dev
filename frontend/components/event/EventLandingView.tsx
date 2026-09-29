@@ -122,7 +122,7 @@ export function EventLandingView() {
 
   useEffect(() => {
     // Per-account (or guest) — switching users must not keep another account's check.
-    if (readKbwStage1Done(scope)) {
+    if (readKbwStage1Done(scope, userId)) {
       setStage1Done(true);
       return;
     }
@@ -144,7 +144,7 @@ export function EventLandingView() {
     if (stage1Done || stage1TimerRef.current) return;
 
     // Persist immediately so backgrounding the tab (Instagram app) cannot lose progress.
-    writeKbwStage1Done(scope);
+    writeKbwStage1Done(scope, userId);
     openInstagramProfile();
 
     // Checkmark UI after a short delay (matches design timing).

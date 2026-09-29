@@ -74,6 +74,68 @@ describe('KbwMysteryCardService', () => {
     expect(save).toHaveBeenCalledWith({ email });
   });
 
+  it('isBurnedForUser ignores @privy.wallet and uses session email only', async () => {
+    const burns = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    const service = new KbwMysteryCardService(
+      burns as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.isBurnedForUser({
+        id: 'u1',
+        email: '0xabc@privy.wallet',
+      } as never),
+    ).resolves.toBe(false);
+
+    burns.findOne.mockResolvedValueOnce({ id: 1, email: 'kbw@example.com' });
+    await expect(
+      service.isBurnedForUser({
+        id: 'u1',
+        email: 'kbw@example.com',
+      } as never),
+    ).resolves.toBe(true);
+  });
+
+  it('isBurned ignores wallet-only placeholder emails on the wallet', async () => {
+    const burns = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    const users = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([{ id: 'u1' }]),
+      }),
+      find: jest.fn().mockResolvedValue([
+        { email: '0xabc@privy.wallet' },
+        { email: 'real@example.com' },
+      ]),
+    };
+    const userWallets = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
+
+    const service = new KbwMysteryCardService(
+      burns as never,
+      users as never,
+      userWallets as never,
+    );
+
+    await expect(service.isBurned(walletA)).resolves.toBe(false);
+    const whereEmail = burns.findOne.mock.calls[0][0].where.email as {
+      _value: string[];
+    };
+    expect(whereEmail._value).toEqual(['real@example.com']);
+  });
+
   it('burn throws when wallet has no linked account email', async () => {
     const emptyQb = {
       select: jest.fn().mockReturnThis(),

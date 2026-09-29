@@ -138,10 +138,10 @@ export async function afterEventContactEmailSaved(
 async function kbwMysteryCardBurned(
   walletAddress: string | null | undefined,
 ): Promise<boolean> {
-  const wallet = walletAddress?.trim();
-  if (!wallet) return false;
   try {
-    const { burned } = await fetchKbwMysteryCardStatus(wallet);
+    const { burned } = await fetchKbwMysteryCardStatus(
+      walletAddress?.trim() ?? "",
+    );
     return burned === true;
   } catch {
     return false;

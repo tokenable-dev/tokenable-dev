@@ -35,6 +35,7 @@ import {
   postRwaMetadataBatchBatched,
   putPortfolioCostBasis,
   fetchKbwMysteryCardStatus,
+  kbwMysteryCardContactScope,
   burnKbwMysteryCard,
   rq,
   type Order,
@@ -242,8 +243,10 @@ export function PortfolioPageView({
   const secondaryPortfolioFetchReady =
     portfolioDataEnabled && !assetsPage.idsLoading && !assetsPage.valuesPending;
 
+  const kbwContactScope = kbwMysteryCardContactScope(user?.email);
+
   const kbwMysteryQuery = useQuery({
-    queryKey: rq.kbwMysteryCard(portfolioAddress ?? ""),
+    queryKey: rq.kbwMysteryCard(portfolioAddress ?? "", kbwContactScope),
     queryFn: () => fetchKbwMysteryCardStatus(portfolioAddress!),
     enabled: secondaryPortfolioFetchReady && Boolean(portfolioAddress),
     staleTime: 30_000,
@@ -1121,11 +1124,12 @@ export function PortfolioPageView({
               throw new Error("No wallet connected");
             }
             await burnKbwMysteryCard(portfolioAddress);
-            queryClient.setQueryData(rq.kbwMysteryCard(portfolioAddress), {
-              burned: true,
-            });
+            queryClient.setQueryData(
+              rq.kbwMysteryCard(portfolioAddress, kbwContactScope),
+              { burned: true },
+            );
             await queryClient.invalidateQueries({
-              queryKey: rq.kbwMysteryCard(portfolioAddress),
+              queryKey: rq.kbwMysteryCard(portfolioAddress, kbwContactScope),
             });
           }}
         />

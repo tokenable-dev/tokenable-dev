@@ -16,6 +16,7 @@ import {
   isEventPath,
   isKbwStage2Pending,
 } from "@/lib/event/kbwEventStage2";
+import { migrateKbwStage1AfterContactEmail } from "@/lib/event/kbwEventParticipation";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -147,6 +148,7 @@ export function AddEmailRequiredModal() {
         ? { ...updated, email: next }
         : updated;
       setUser(savedUser);
+      migrateKbwStage1AfterContactEmail(savedUser.id, savedUser.email);
       if (user?.id) writeDeferred(user.id, false);
       setDeferred(false);
       setEmail("");

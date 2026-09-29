@@ -69,14 +69,42 @@ function stage1StorageKey(scope: string): string {
   return `${STAGE1_DONE_PREFIX}${scope}`;
 }
 
-export function readKbwStage1Done(scope: string): boolean {
+/**
+ * Stage 1 is stored per scope. Wallet-only login uses `user:{id}` until a real
+ * email is saved (`email:{address}`) — keep progress across that transition.
+ */
+export function readKbwStage1Done(
+  scope: string,
+  userId?: string,
+): boolean {
   storageRemove(STAGE1_DONE_LEGACY);
-  return storageGet(stage1StorageKey(scope)) === "1";
+  if (storageGet(stage1StorageKey(scope)) === "1") return true;
+  const id = userId?.trim();
+  if (id && scope.startsWith("email:")) {
+    return storageGet(stage1StorageKey(`user:${id}`)) === "1";
+  }
+  return false;
 }
 
-export function writeKbwStage1Done(scope: string): void {
+export function writeKbwStage1Done(scope: string, userId?: string): void {
   storageRemove(STAGE1_DONE_LEGACY);
   storageSet(stage1StorageKey(scope), "1");
+  const id = userId?.trim();
+  if (id) storageSet(stage1StorageKey(`user:${id}`), "1");
+}
+
+/** After `@privy.wallet` → real email, copy Stage 1 onto the email scope key. */
+export function migrateKbwStage1AfterContactEmail(
+  userId: string | undefined,
+  email: string | undefined,
+): void {
+  if (!userId) return;
+  const emailScope = kbwEventParticipationScope(userId, email);
+  if (!emailScope.startsWith("email:")) return;
+  const userScope = `user:${userId}`;
+  if (storageGet(stage1StorageKey(userScope)) === "1") {
+    storageSet(stage1StorageKey(emailScope), "1");
+  }
 }
 
 /** After guest Stage 1, copy progress onto the logged-in account. */
@@ -87,6 +115,6 @@ export function claimGuestKbwStage1ForAccount(
   const scope = kbwEventParticipationScope(userId, email);
   if (scope === "guest") return;
   if (!readKbwStage1Done("guest")) return;
-  writeKbwStage1Done(scope);
+  writeKbwStage1Done(scope, userId);
   storageRemove(stage1StorageKey("guest"));
 }
