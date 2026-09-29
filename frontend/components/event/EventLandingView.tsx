@@ -11,9 +11,14 @@ import {
   writeKbwStage1Done,
 } from "@/lib/event/kbwEventParticipation";
 import {
-  KBW_POST_LOGIN_ROUTE_KEY,
+  clearKbwPostLoginRoutePending,
+  clearKbwStage2FlowPending,
+  markKbwLoginIntent,
+  markKbwPostLoginRoutePending,
+  markKbwStage2FlowPending,
   resolveKbwStage2ReturnPath,
 } from "@/lib/event/kbwEventLoginRouting";
+import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
@@ -153,20 +158,22 @@ export function EventLandingView() {
 
   async function handleStage2() {
     if (!stage1Done) return;
-    try {
-      sessionStorage.setItem("tk_kbw_login_intent", "1");
-      sessionStorage.setItem(KBW_POST_LOGIN_ROUTE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+    markKbwLoginIntent();
+    markKbwPostLoginRoutePending();
+    markKbwStage2FlowPending();
     if (user) {
+      if (userNeedsContactEmail(user)) {
+        return;
+      }
       const path = await resolveKbwStage2ReturnPath(getPrimaryWalletAddress(user));
       if (path === "/") armKbwOffer();
       else clearKbwOffer();
+      clearKbwPostLoginRoutePending();
+      clearKbwStage2FlowPending();
       router.push(path);
       return;
     }
-    openSignIn({ returnTo: "/" });
+    openSignIn({ returnTo: "/event" });
   }
 
   return (

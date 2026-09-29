@@ -17,9 +17,12 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation";
 import {
-  KBW_POST_LOGIN_ROUTE_KEY,
   completeKbwPostLoginRedirect,
+  consumeKbwLoginIntent,
+  isKbwEventStage2PostLoginActive,
   isKbwPostLoginRoutePending,
+  markKbwPostLoginRoutePending,
+  markKbwStage2FlowPending,
   shouldDeferKbwPostLoginForEmail,
 } from "@/lib/event/kbwEventLoginRouting";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
@@ -52,23 +55,14 @@ export function PrivySessionBridge() {
       // Real login → arm. Event Stage-2 sets tk_kbw_login_intent so OAuth redirect
       // returns that report wasAlreadyAuthenticated still get the offer.
       if (!isKbwEventActive()) return;
-      let eventLoginIntent = false;
-      try {
-        eventLoginIntent = sessionStorage.getItem("tk_kbw_login_intent") === "1";
-        if (eventLoginIntent) sessionStorage.removeItem("tk_kbw_login_intent");
-      } catch {
-        /* ignore */
-      }
+      const eventLoginIntent = consumeKbwLoginIntent();
       const freshLogin = !wasAlreadyAuthenticated || eventLoginIntent;
       if (!freshLogin) return;
 
       const ui = useAuthUiStore.getState();
       if (eventLoginIntent) {
-        try {
-          sessionStorage.setItem(KBW_POST_LOGIN_ROUTE_KEY, "1");
-        } catch {
-          /* ignore */
-        }
+        markKbwPostLoginRoutePending();
+        markKbwStage2FlowPending();
         return;
       }
       ui.armKbwOffer();
@@ -266,20 +260,19 @@ export function PrivySessionBridge() {
             }
 
             if (kbwRouteDeferred) {
-              // Wait for wallet catch-up before choosing main vs portfolio.
-            } else {
-            const returnTo =
-              kbwReturnTo ?? useAuthUiStore.getState().consumeReturnTo();
-            if (returnTo) {
-              returnToHandled.current = true;
-              const targetPath = returnTo.split("?")[0] || returnTo;
-              const here =
-                typeof window !== "undefined" ? window.location.pathname : "";
-              // Already on the landing — avoid a no-op navigation / remount.
-              if (here !== targetPath) {
-                router.push(returnTo);
+              // Wait for wallet catch-up or email capture on `/event`.
+            } else if (!isKbwEventStage2PostLoginActive()) {
+              const returnTo =
+                kbwReturnTo ?? useAuthUiStore.getState().consumeReturnTo();
+              if (returnTo) {
+                returnToHandled.current = true;
+                const targetPath = returnTo.split("?")[0] || returnTo;
+                const here =
+                  typeof window !== "undefined" ? window.location.pathname : "";
+                if (here !== targetPath) {
+                  router.push(returnTo);
+                }
               }
-            }
             }
           }
         } finally {

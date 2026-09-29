@@ -9,7 +9,10 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
-import { completeKbwPostLoginRedirect } from "@/lib/event/kbwEventLoginRouting";
+import {
+  completeKbwPostLoginRedirect,
+  isKbwStage2FlowPending,
+} from "@/lib/event/kbwEventLoginRouting";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -144,11 +147,14 @@ export function AddEmailRequiredModal() {
   }
 
   const canSave = EMAIL_RE.test(email.trim()) && !saving;
+  const eventStage2EmailGate =
+    isKbwStage2FlowPending() && needsEmail && Boolean(user);
 
   return (
     <TkDialog
       open={open}
       onClose={dismiss}
+      dismissible={!eventStage2EmailGate}
       icon={<EmailIcon />}
       title="Add your email"
       description="We send all updates and event notifications by email."

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 import { useQuery } from "@tanstack/react-query";
 import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
@@ -12,6 +13,12 @@ import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
+import {
+  clearKbwStage2FlowPending,
+  isEventPath,
+  isKbwEventStage2PostLoginActive,
+} from "@/lib/event/kbwEventLoginRouting";
+import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -84,6 +91,7 @@ function OfferGloss() {
 export function KbwMysteryOfferModal() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user: privyUser } = usePrivy();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
@@ -94,7 +102,11 @@ export function KbwMysteryOfferModal() {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const wallet = getPrimaryWalletAddress(user)?.toLowerCase() ?? "";
+  const wallet =
+    (
+      getPrimaryWalletAddress(user) ??
+      pickPrivyUserEthereumWalletAddress(privyUser)
+    )?.toLowerCase() ?? "";
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet),
     queryFn: () => fetchKbwMysteryCardStatus(wallet),
@@ -103,7 +115,6 @@ export function KbwMysteryOfferModal() {
       isKbwEventActive() &&
       Boolean(wallet) &&
       initialized &&
-      !privySessionSyncing &&
       Boolean(user),
     staleTime: 30_000,
   });
@@ -128,7 +139,8 @@ export function KbwMysteryOfferModal() {
       setOpen(false);
       return;
     }
-    if (!initialized || privySessionSyncing || !user) return;
+    if (!initialized || !user) return;
+    if (privySessionSyncing && !wallet) return;
     if (emailGateOpen) {
       setOpen(false);
       return;
@@ -138,6 +150,7 @@ export function KbwMysteryOfferModal() {
 
     if (cardRemovedFromPortfolio) {
       clearKbwOffer();
+      clearKbwStage2FlowPending();
       setOpen(false);
       return;
     }
@@ -145,8 +158,12 @@ export function KbwMysteryOfferModal() {
     if (!cardStillInPortfolio) return;
 
     const onHome = pathname === "/" || pathname === "";
-    // `/event` only opens when Stage 2 armed the offer (not on every visit).
-    if (kbwOfferPending || onHome) {
+    const onEvent = isEventPath(pathname);
+    const stage2PostLogin = isKbwEventStage2PostLoginActive();
+    const shouldShowOffer =
+      kbwOfferPending || onHome || (onEvent && stage2PostLogin);
+
+    if (shouldShowOffer) {
       setOpen(true);
       if (kbwOfferPending) clearKbwOffer();
     }
@@ -167,11 +184,13 @@ export function KbwMysteryOfferModal() {
 
   function close() {
     setOpen(false);
+    clearKbwStage2FlowPending();
   }
 
   function handleBuy() {
     clearKbwOffer();
-    close();
+    clearKbwStage2FlowPending();
+    setOpen(false);
     router.push(`${PORTFOLIO_PATH}?tab=assets`);
   }
 
