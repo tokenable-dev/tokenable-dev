@@ -235,10 +235,10 @@ export function useMintForm() {
           certNumber: form.grade.certNumber,
           userImage: form.image,
         });
-        if (mintImage.imageUrl) {
-          data.append("imageUrl", mintImage.imageUrl);
-        } else if (mintImage.useUserFile && form.image instanceof File) {
+        if (mintImage.useUserFile && form.image instanceof File) {
           data.append("image", form.image);
+        } else if (mintImage.imageUrl) {
+          data.append("imageUrl", mintImage.imageUrl);
         }
 
         const meta = buildGradedCardMetadata(mintForm, psa.lastAnalyze);

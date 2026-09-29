@@ -5,7 +5,10 @@ import {
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
   pickPreferredCollectionCoverUrl,
+  pickRwaAssetDisplayImageRef,
+  pickRwaAssetHttpsSlabIngestUrl,
   pickSearchTokenImageUrl,
+  withRwaSlabDisplayCacheBust,
   rankCollectionCoverUrls,
   scoreCollectionCoverUrl,
 } from './collection-image.util';
@@ -156,5 +159,66 @@ describe('isPsaCertSlabCloudfrontUrl', () => {
         'https://d1htnxwo4o0jhw.cloudfront.net/spec/2427023/a4PuiPdzmECPOwdi1I7juQ.jpg',
       ),
     ).toBe(false);
+  });
+});
+
+describe('pickRwaAssetHttpsSlabIngestUrl', () => {
+  it('returns PSA certImageSourceUrl when present', () => {
+    const url =
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/84089328/front.jpg';
+    expect(
+      pickRwaAssetHttpsSlabIngestUrl({
+        properties: {
+          graded: {
+            psa: { certImageSourceUrl: url },
+          },
+        },
+      }),
+    ).toBe(url);
+  });
+
+  it('returns null for ipfs-only metadata image', () => {
+    expect(
+      pickRwaAssetHttpsSlabIngestUrl({
+        image: 'ipfs://bafyImage',
+        properties: { graded: { psa: { certNumber: '1' } } },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('withRwaSlabDisplayCacheBust', () => {
+  const slab =
+    'https://cdn.example/dev/covers/rwa-slabs/11155111/65172349/slab';
+
+  it('appends v= from updatedAt for slab URLs', () => {
+    const out = withRwaSlabDisplayCacheBust(slab, new Date('2026-01-02T00:00:00Z'));
+    expect(out).toBe(`${slab}?v=1767312000`);
+  });
+
+  it('leaves non-slab URLs unchanged', () => {
+    const cover = 'https://cdn.example/dev/covers/abc/cover';
+    expect(withRwaSlabDisplayCacheBust(cover, new Date())).toBe(cover);
+  });
+});
+
+describe('pickRwaAssetDisplayImageRef', () => {
+  const bubbleResize =
+    'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/d112/f1785814814999x241518332733346780/resize';
+
+  it('prefers pinned NFT image over Cardhedger catalog when mintImageSource is user_upload', () => {
+    const ref = pickRwaAssetDisplayImageRef({
+      image: 'ipfs://QmUserSlabPhoto',
+      properties: {
+        mintImageSource: 'user_upload',
+        graded: {
+          cardhedger: {
+            cardId: '1630254144684x954648640340207700',
+            imageUrl: bubbleResize,
+          },
+        },
+      },
+    });
+    expect(ref).toBe('ipfs://QmUserSlabPhoto');
   });
 });

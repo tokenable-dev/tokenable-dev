@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CollectionListMarketSnapshot } from "@/lib/core";
 import {
+  chainScopedQueryPending,
   getHomeMarketplaceFeed,
   rq,
   marketplaceRqPolicy,
@@ -22,8 +23,12 @@ export function useHomeMarketplaceGrids() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const gridsPending =
-    !chainReady || (isPending && data === undefined) || (isFetching && data === undefined);
+  const gridsPending = chainScopedQueryPending(
+    chainReady,
+    isPending,
+    isFetching,
+    data,
+  );
 
   const snapshotByKey = useMemo(() => {
     const m = new Map<string, CollectionListMarketSnapshot>();

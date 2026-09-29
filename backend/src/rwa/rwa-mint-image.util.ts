@@ -1,3 +1,8 @@
+/**
+ * Mint-time remote image pick (PSA slab → user URL → Cardhedger).
+ * Frontend mirror: `frontend/lib/vault/mintImageSource.ts` (preview + multipart).
+ * Display SSOT after mint: `docs/architecture/rwa-display-images.md`.
+ */
 import {
   isHttpOrHttpsUrl,
   isPsaCertSlabCloudfrontUrl,

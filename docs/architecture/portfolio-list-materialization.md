@@ -1,6 +1,7 @@
 # Portfolio list materialization
 
 **Status:** Complete — Phase 0–7 shipped.  
+**Image layers (mint vs slab vs collection cover):** [`rwa-display-images.md`](./rwa-display-images.md).  
 **Goal:** My Assets paints from PostgreSQL under multi-user load. IPFS / RPC / Cardhedger are never on the portfolio request hot path; they run only in bounded background heal / ops backfill / daily snapshot.
 
 ## List-ready row
@@ -57,7 +58,7 @@ Do **not** call upstream APIs once per user request for asset lists. That fans o
 | Path | Rule |
 |------|------|
 | `ownedIdsOnly` | DB owner index only |
-| `batchPortfolioMetadata` (assets-page) | DB stubs only; enqueue `needsHeal`; stub may parse PSA grade from `display_name` |
+| `batchPortfolioMetadata` (assets-page) | Tile `imageUrl` = `display_image_url` when set (same as certificate), even if `token_uri`/IPFS drifts; metadata title/cert may heal from on-chain |
 | Listed badge | Active `orders` ASK for tokenId |
 | List mark USD | Snapshot series first; mint-preview only when snapshot cannot price that token |
 | Detail / certificate | May resolve full graded JSON from `token_uri` |

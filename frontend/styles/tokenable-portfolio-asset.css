@@ -629,16 +629,6 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
 }
-.paz-hint {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t3);
-}
 .pa-page .hist-node {
   position: relative;
   padding: 0 0 22px 30px;

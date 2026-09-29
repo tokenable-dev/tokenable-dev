@@ -338,6 +338,23 @@ export function marketplaceApiRetryDelay(attemptIndex: number): number {
   return Math.min(1000 * 2 ** attemptIndex, 4000);
 }
 
+/**
+ * True while the app chain is not ready or a chain-scoped query has no cached row yet.
+ * Prevents empty/error UI flashes on hard refresh (see collection detail + home feed).
+ */
+export function chainScopedQueryPending(
+  chainReady: boolean,
+  isPending: boolean,
+  isFetching: boolean,
+  data: unknown,
+): boolean {
+  return (
+    !chainReady ||
+    (isPending && data === undefined) ||
+    (isFetching && data === undefined)
+  );
+}
+
 export const marketplaceRqPolicy = {
   // ── Existing policy values (do not remove) ─────────────────────────────────
   /** Active order book — same interval on every page */

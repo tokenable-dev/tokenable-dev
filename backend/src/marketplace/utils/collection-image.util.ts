@@ -142,11 +142,23 @@ function isDirectHttpsImageUrl(s: string): boolean {
   return isHttpOrHttpsUrl(t) && !t.toLowerCase().includes('/ipfs/');
 }
 
+function mintPinnedNftImageRef(
+  meta: Record<string, unknown>,
+): string | undefined {
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const src = props?.mintImageSource;
+  if (src !== 'user_upload' && src !== 'psa_cert') return undefined;
+  const img = meta.image;
+  return typeof img === 'string' && img.trim() ? img.trim() : undefined;
+}
+
 /**
  * RWA 카드 히어로/리스트용 이미지 ref — 민트 구조는 그대로 두고, 응답 `imageUrl`만 빠르게 만든다.
- * 순서: (1) PSA `certImageSourceUrl`·Cardhedger `imageUrl` 중 **순수 HTTPS**(IPFS 경로 제외)
- * → (2) {@link extractCollectionRepresentativeImage} (Cardhedger·PSA cert fallback)
- * → (3) 표준 `image`(보통 ipfs://).
+ * 순서: (1) PSA `certImageSourceUrl` (HTTPS slab)
+ * → (2) `properties.mintImageSource` user_upload/psa_cert → 표준 `image` (pinned slab, ipfs://)
+ * → (3) Cardhedger catalog `imageUrl` (collection art — not a PSA slab photo)
+ * → (4) {@link extractCollectionRepresentativeImage}
+ * → (5) 표준 `image`.
  */
 export function pickRwaAssetDisplayImageRef(
   meta: Record<string, unknown>,
@@ -163,6 +175,9 @@ export function pickRwaAssetDisplayImageRef(
   if (cert && isUsableCoverUrl(cert) && isDirectHttpsImageUrl(cert)) {
     return cert;
   }
+  const pinned = mintPinnedNftImageRef(meta);
+  if (pinned) return pinned;
+
   const ch = graded?.cardhedger as Record<string, unknown> | undefined;
   const chImage = typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
   if (chImage && isUsableCoverUrl(chImage) && isDirectHttpsImageUrl(chImage)) {
@@ -205,6 +220,49 @@ export function pickTrendingSlabImageRef(
     return img.trim();
   }
   return extractCollectionRepresentativeImage(meta);
+}
+
+/**
+ * HTTPS slab URL for S3 backfill ingest — skips ipfs:// refs (caller fetches IPFS separately).
+ */
+export function pickRwaAssetHttpsSlabIngestUrl(
+  meta: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!meta || typeof meta !== 'object') return null;
+  const ref = pickRwaAssetDisplayImageRef(meta);
+  if (!ref?.trim()) return null;
+  const t = normalizeImageUrl(ref.trim());
+  return isHttpOrHttpsUrl(t) ? t : null;
+}
+
+/** Platform S3 slab object keys are cert-scoped — remints overwrite the same URL. */
+export function isRwaSlabDisplayUrl(url: string): boolean {
+  try {
+    const path = new URL(url.trim().split('?')[0] ?? '').pathname.toLowerCase();
+    return /\/rwa-slabs\/\d+\/\d+\/slab(?:-back)?$/.test(path);
+  } catch {
+    return false;
+  }
+}
+
+/** Bust browser/CDN cache after remint overwrites `…/rwa-slabs/{chain}/{cert}/slab`. */
+export function withRwaSlabDisplayCacheBust(
+  url: string,
+  updatedAt?: Date | string | number | null,
+): string {
+  if (!isRwaSlabDisplayUrl(url)) return url;
+  const ms =
+    updatedAt instanceof Date
+      ? updatedAt.getTime()
+      : typeof updatedAt === 'number'
+        ? updatedAt
+        : updatedAt != null
+          ? Date.parse(String(updatedAt))
+          : NaN;
+  if (!Number.isFinite(ms)) return url;
+  const v = Math.floor(ms / 1000);
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}v=${v}`;
 }
 
 /** @deprecated Legacy normalized cover API — migrate to direct HTTPS URLs. */

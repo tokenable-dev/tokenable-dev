@@ -186,10 +186,10 @@ export async function mintSellFlowCardByCert(input: {
     certNumber: form.grade.certNumber || cert,
     userImage,
   });
-  if (mintImage.imageUrl) {
-    data.append("imageUrl", mintImage.imageUrl);
-  } else if (mintImage.useUserFile && userImage instanceof File) {
+  if (mintImage.useUserFile && userImage instanceof File) {
     data.append("image", userImage);
+  } else if (mintImage.imageUrl) {
+    data.append("imageUrl", mintImage.imageUrl);
   }
 
   const meta = buildGradedCardMetadata(form, analyze);

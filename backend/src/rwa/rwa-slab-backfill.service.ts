@@ -14,7 +14,7 @@ import { psaCertNumberFromGradedMeta } from '../marketplace/utils/collection-ima
 import { resolveRegistryDisplayName } from '../marketplace/utils/rwa-list-display-name.util';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
-import { resolveMintSlabSourceUrl } from './rwa-slab-source.util';
+import { pickRwaAssetHttpsSlabIngestUrl } from '../marketplace/utils/collection-image.util';
 
 export type RwaSlabBackfillResult = {
   scanned: number;
@@ -155,7 +155,7 @@ export class RwaSlabBackfillService {
         continue;
       }
 
-      const sourceUrl = resolveMintSlabSourceUrl(metadata);
+      const sourceUrl = pickRwaAssetHttpsSlabIngestUrl(metadata);
       if (!sourceUrl) {
         result.skipped += 1;
         result.details.push({
@@ -338,7 +338,7 @@ export class RwaSlabBackfillService {
 
       if (!row.displayImageUrl?.trim() && this.rwaSlabS3.isConfigured()) {
         const certForSlab = row.certNumber?.trim();
-        const sourceUrl = resolveMintSlabSourceUrl(metadata);
+        const sourceUrl = pickRwaAssetHttpsSlabIngestUrl(metadata);
         if (certForSlab && sourceUrl && !dryRun) {
           const displayImageUrl = await this.rwaSlabS3.ingestMintSlabBestEffort({
             chainId,

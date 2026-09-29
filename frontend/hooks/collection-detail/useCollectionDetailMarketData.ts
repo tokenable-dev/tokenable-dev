@@ -29,22 +29,22 @@ import { parsePsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
-import { activeRqChainId } from "@/lib/chains";
 import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
+  chainId: number;
+  chainReady: boolean;
   comp: CollectionComponents;
   hasCollection: boolean;
-  collectionComponents: CollectionComponents | undefined;
-  detailLoading: boolean;
   detailError: boolean;
-  hasDetailData: boolean;
   sessionFillPoint: { t: number; v: number } | null;
   setSessionFillPoint: (p: { t: number; v: number } | null) => void;
 }) {
   const {
     key,
+    chainId,
+    chainReady,
     comp,
     hasCollection,
     detailError,
@@ -58,9 +58,8 @@ export function useCollectionDetailMarketData(params: {
   );
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
-  const chainId = activeRqChainId();
   const marketSeriesEnabled =
-    looksLikeCollectionKey(key) && !detailError;
+    chainReady && looksLikeCollectionKey(key) && !detailError;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
     queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION, chainId),
@@ -91,6 +90,7 @@ export function useCollectionDetailMarketData(params: {
    * until market-series settles so we do not key the tape as PSA 10 by default.
    */
   const tradesQueryEnabled =
+    chainReady &&
     looksLikeCollectionKey(key) &&
     !detailError &&
     (hasSlabGradeFromComp || !marketSeriesLoading);

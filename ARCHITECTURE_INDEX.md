@@ -53,7 +53,7 @@ PSA/vault **inbound** Gmail pollers remain in `backend/src/vault/` — not this 
 
 | | |
 |---|---|
-| **Documentation** | `docs/architecture/vault-lifecycle.md` |
+| **Documentation** | `docs/architecture/vault-lifecycle.md`, `docs/architecture/rwa-display-images.md` |
 | **Business rules** | `docs/business-rules.md` (BR-1 through BR-7) |
 | **Backend** | `backend/src/rwa/`, `backend/src/vault/`, `backend/src/blockchain/rwa-chain-writer.service.ts` |
 | **Admin API** | `docs/api/marketplace-admin.md` |

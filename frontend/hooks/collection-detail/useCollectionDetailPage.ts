@@ -4,7 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { getMarketplaceCollectionDetail, rq, marketplaceRqPolicy } from "@/lib/core";
+import {
+  chainScopedQueryPending,
+  getMarketplaceCollectionDetail,
+  rq,
+  marketplaceRqPolicy,
+  type MarketplaceCollectionDetail,
+} from "@/lib/core";
 import { invalidateAfterCollectionUpdate } from "@/lib/core/invalidation";
 import type { BookRowSelection, TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 import { useCollectionDetailHeadline } from "./useCollectionDetailHeadline";
@@ -33,6 +39,24 @@ export type CollectionDetailLoadedProps = CollectionDetailPageModel & {
     CollectionDetailPageModel["collectionOrderBookProps"]
   >;
 };
+
+function resolveCollectionDetailPageStatus(input: {
+  collectionKey: string;
+  detailPending: boolean;
+  isError: boolean;
+  data: MarketplaceCollectionDetail | undefined;
+  isFetching: boolean;
+}): CollectionDetailPageStatus {
+  if (!input.collectionKey || !looksLikeCollectionKey(input.collectionKey)) {
+    return "invalid";
+  }
+  if (input.detailPending) return "loading";
+  if (input.isError || !input.data) return "fetch_error";
+  if (!input.data.collection) {
+    return input.isFetching ? "loading" : "not_created";
+  }
+  return "ready";
+}
 
 export function useCollectionDetailPage() {
   const params = useParams();
@@ -66,10 +90,12 @@ export function useCollectionDetailPage() {
     refetchOnWindowFocus: false,
     retry: false,
   });
-  const detailPending =
-    !chainReady ||
-    (isPending && data === undefined) ||
-    (isFetching && data === undefined);
+  const detailPending = chainScopedQueryPending(
+    chainReady,
+    isPending,
+    isFetching,
+    data,
+  );
 
   const comp = useMemo(
     () => parseCollectionComponents(data?.collection?.components),
@@ -80,12 +106,11 @@ export function useCollectionDetailPage() {
 
   const market = useCollectionDetailMarketData({
     key: collectionKey,
+    chainId,
+    chainReady,
     comp,
     hasCollection,
-    collectionComponents: data?.collection?.components,
-    detailLoading: detailPending,
     detailError: isError,
-    hasDetailData: Boolean(data),
     sessionFillPoint,
     setSessionFillPoint,
   });
@@ -120,19 +145,13 @@ export function useCollectionDetailPage() {
     void invalidateAfterCollectionUpdate(queryClient, collectionKey);
   }, [queryClient, collectionKey]);
 
-  const status: CollectionDetailPageStatus = !collectionKey
-    ? "invalid"
-    : !looksLikeCollectionKey(collectionKey)
-      ? "invalid"
-      : detailPending
-        ? "loading"
-        : isError || !data
-          ? "fetch_error"
-          : !data.collection
-            ? isFetching
-              ? "loading"
-              : "not_created"
-            : "ready";
+  const status = resolveCollectionDetailPageStatus({
+    collectionKey,
+    detailPending,
+    isError,
+    data,
+    isFetching,
+  });
 
   const collectionOrderBookProps = useMemo(() => {
     if (!data?.collection) return null;

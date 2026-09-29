@@ -1,3 +1,8 @@
+/**
+ * Mint preview + upload image selection (File beats PSA/Cardhedger).
+ * Server upload uses `backend/src/rwa/rwa-mint-image.util.ts` — keep rules in sync.
+ * Post-mint tile/certificate images: `docs/architecture/rwa-display-images.md`.
+ */
 import type { PsaAnalyzeResult } from "@/lib/core";
 import { ASSETS } from "@/constants/assets";
 import { isPsaCertSlabCloudfrontUrl } from "@/lib/marketplace/collectionDisplayImage";
@@ -80,6 +85,15 @@ export function resolveSelfVaultMintImageSelection(input: {
   source: MintImageSource;
   previewUrl: string;
 } {
+  // Explicit slab upload beats PSA/Cardhedger analyze art (user intent).
+  if (input.userImage instanceof File) {
+    return {
+      useUserFile: true,
+      source: "user_upload",
+      previewUrl: "",
+    };
+  }
+
   const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
     input.analyze,
     input.certNumber,
@@ -93,14 +107,6 @@ export function resolveSelfVaultMintImageSelection(input: {
       useUserFile: false,
       source: "psa_cert",
       previewUrl: trustedPsaSlabUrl,
-    };
-  }
-
-  if (input.userImage instanceof File) {
-    return {
-      useUserFile: true,
-      source: "user_upload",
-      previewUrl: "",
     };
   }
 

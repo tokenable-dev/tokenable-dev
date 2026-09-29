@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { PortfolioCertificateModel } from "@/hooks/portfolio/usePortfolioCertificate";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
@@ -38,6 +38,7 @@ export function PortfolioCertificateView({
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomFace, setZoomFace] = useState<"front" | "back">("front");
   const [zoomed, setZoomed] = useState(false);
+  const zoomImgRef = useRef<HTMLImageElement>(null);
 
   const front = d.imageUrl;
   const back = d.backUrl;
@@ -57,18 +58,28 @@ export function PortfolioCertificateView({
   }, []);
 
   useEffect(() => {
-    if (!zoomOpen) return;
+    if (!zoomOpen) {
+      setZoomed(false);
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setZoomOpen(false);
     };
     window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const body = document.body;
+    const prev = body?.style.overflow ?? "";
+    if (body) body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      if (body) body.style.overflow = prev;
     };
   }, [zoomOpen]);
+
+  useEffect(() => {
+    if (zoomed) return;
+    const img = zoomImgRef.current;
+    if (img) img.style.transformOrigin = "center";
+  }, [zoomed]);
 
   if (!tokenIdOk) {
     return (
@@ -431,27 +442,25 @@ export function PortfolioCertificateView({
         }}
       >
         <div className="paz-stage">
-          <span className="paz-hint">Scroll / tap image to zoom</span>
           {zoomSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              ref={zoomImgRef}
               className={`paz-img${zoomed ? " zoomed" : ""}`}
               src={zoomSrc}
               alt="Slab condition"
               style={zoomed ? { transform: "scale(2.1)" } : undefined}
               onMouseMove={(e) => {
                 if (!zoomed) return;
-                const r = e.currentTarget.getBoundingClientRect();
+                const img = e.currentTarget;
+                const r = img.getBoundingClientRect();
                 const px = (e.clientX - r.left) / r.width;
                 const py = (e.clientY - r.top) / r.height;
-                e.currentTarget.style.transformOrigin = `${px * 100}% ${py * 100}%`;
+                img.style.transformOrigin = `${px * 100}% ${py * 100}%`;
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                setZoomed((z) => {
-                  if (z) e.currentTarget.style.transformOrigin = "center";
-                  return !z;
-                });
+                setZoomed((prev) => !prev);
               }}
             />
           ) : null}

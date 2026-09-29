@@ -158,6 +158,67 @@ describe('RwaAssetResolveService', () => {
     expect(items[0]?.imageUrl).toBe('https://cdn.example/luffy.jpg');
   });
 
+  it('batchPortfolioMetadata prefers DB slab when token_uri drifts (metadata identity heal)', async () => {
+    const row = {
+      tokenId: '6',
+      tokenContract: '0xrwa',
+      tokenUri: 'ipfs://QmWrongRegistry',
+      certNumber: '65172349',
+      displayName: 'LaMelo Ball · PSA 10',
+      displayImageUrl: 'https://cdn.example/user-slab-65172349.jpg',
+      displayImageBackUrl: null,
+    } as RwaToken;
+
+    const wrongMeta = {
+      name: 'Wrong card from stale IPFS',
+      image: 'ipfs://QmCatalogOnly',
+      properties: {
+        graded: {
+          psa: { certNumber: '99999999' },
+          cardhedger: {
+            imageUrl: 'https://cardhedger.example/catalog-crop.jpg',
+          },
+        },
+      },
+    };
+    const onChainMeta = {
+      name: '2020 Panini Prizm LaMelo Ball',
+      image: 'ipfs://QmOnChainPin',
+      properties: {
+        graded: {
+          psa: { certNumber: '65172349', subject: 'LaMelo Ball' },
+        },
+      },
+    };
+
+    rwaTokenRepo.find.mockResolvedValue([row]);
+    blockchain.getRwaTokenURI.mockResolvedValue('ipfs://QmOnChainCorrect');
+    ipfs.fetchMetadataJson.mockResolvedValue(wrongMeta);
+    ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
+    ipfs.resolveImageToHttps.mockResolvedValue(
+      'https://cardhedger.example/catalog-crop.jpg',
+    );
+    blockchain.batchRwaMetadata.mockResolvedValue({
+      items: [
+        {
+          tokenId: 6,
+          tokenURI: 'ipfs://QmOnChainCorrect',
+          metadata: onChainMeta,
+          imageUrl: 'https://cdn.example/on-chain-fallback.jpg',
+        },
+      ],
+    });
+
+    const { items } = await service.batchPortfolioMetadata([6], 11155111);
+
+    expect(blockchain.batchRwaMetadata).toHaveBeenCalledWith([6], 11155111);
+    expect(items[0]?.metadata).toEqual(onChainMeta);
+    expect(items[0]?.imageUrl).toBe('https://cdn.example/user-slab-65172349.jpg');
+    expect(items[0]?.displayImageUrlOverride).toBe(
+      'https://cdn.example/user-slab-65172349.jpg',
+    );
+  });
+
   it('batchPortfolioMetadata falls back to on-chain for owner-index stubs without URI', async () => {
     const stub = {
       tokenId: '108',
