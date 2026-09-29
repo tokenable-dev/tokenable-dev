@@ -19,7 +19,6 @@ import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation
 import {
   completeKbwPostLoginRedirect,
   consumeKbwLoginIntent,
-  isEventPath,
   isKbwEventStage2PostLoginActive,
   isKbwPostLoginRoutePending,
   isKbwStage2FlowPending,
@@ -227,11 +226,7 @@ export function PrivySessionBridge() {
             let kbwReturnTo: string | null = null;
             let kbwRouteDeferred = false;
             try {
-              const onEventPage =
-                typeof window !== "undefined" &&
-                isEventPath(window.location.pathname);
-
-              if (isKbwPostLoginRoutePending() && !onEventPage) {
+              if (isKbwEventStage2PostLoginActive()) {
                 if (shouldDeferKbwPostLoginForEmail(syncedUser.email, syncedUser)) {
                   kbwRouteDeferred = true;
                 } else {

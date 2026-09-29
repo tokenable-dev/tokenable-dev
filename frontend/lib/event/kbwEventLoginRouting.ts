@@ -123,7 +123,7 @@ export async function tryCompleteKbwStage2AfterLogin(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive() || !isKbwPostLoginRoutePending()) return false;
+  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
   if (!opts.user) return false;
   if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) return false;
   return completeKbwPostLoginRedirect({
@@ -140,7 +140,7 @@ export async function completeKbwPostLoginRedirect(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive() || !isKbwPostLoginRoutePending()) return false;
+  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
 
   const path = await resolveKbwStage2ReturnPath(opts.walletAddress);
   if (path === "/") opts.armKbwOffer();

@@ -7,10 +7,8 @@ import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import {
-  clearKbwPostLoginRoutePending,
-  clearKbwStage2FlowPending,
   isKbwEventStage2PostLoginActive,
-  resolveKbwStage2ReturnPath,
+  tryCompleteKbwStage2AfterLogin,
 } from "@/lib/event/kbwEventLoginRouting";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { refreshPrivyAuthSession } from "@/lib/privy/session";
@@ -72,8 +70,10 @@ export function useKbwEventStage2PostLogin() {
   const finishStage2OnEvent = useCallback(async () => {
     resetArmedIfFlowCleared();
     if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return;
-    if (!ready || !authenticated) return;
     if (offerArmedRef.current) return;
+
+    const cookieUser = useAuthStore.getState().user;
+    if (!cookieUser && (!ready || !authenticated)) return;
 
     const sessionUser = await ensureTokenableUser();
     if (!sessionUser) return;
@@ -87,18 +87,15 @@ export function useKbwEventStage2PostLogin() {
       pickPrivyUserEthereumWalletAddress(privyUser) ??
       null;
 
-    const path = await resolveKbwStage2ReturnPath(wallet);
-    clearKbwPostLoginRoutePending();
-    clearKbwStage2FlowPending();
-
-    if (path !== "/") {
-      offerArmedRef.current = true;
-      router.push(path);
-      return;
-    }
-
-    offerArmedRef.current = true;
-    useAuthUiStore.getState().armKbwOffer();
+    const ui = useAuthUiStore.getState();
+    const handled = await tryCompleteKbwStage2AfterLogin({
+      user: sessionUser,
+      walletAddress: wallet,
+      push: (path) => router.push(path),
+      armKbwOffer: () => ui.armKbwOffer(),
+      clearKbwOffer: () => ui.clearKbwOffer(),
+    });
+    if (handled) offerArmedRef.current = true;
   }, [
     ready,
     authenticated,

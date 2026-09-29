@@ -16,6 +16,7 @@ import type { AuthUser } from "@/lib/auth/auth";
 import {
   clearKbwPostLoginRoutePending,
   clearKbwStage2FlowPending,
+  isKbwEventStage2PostLoginActive,
 } from "@/lib/event/kbwEventLoginRouting";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
@@ -94,7 +95,7 @@ function OfferGloss() {
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const { user: privyUser } = usePrivy();
+  const { authenticated, user: privyUser } = usePrivy();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const kbwOfferPending = useAuthUiStore((s) => s.kbwOfferPending);
@@ -134,7 +135,9 @@ export function KbwMysteryOfferModal() {
       setOpen(false);
       return;
     }
-    if (!kbwOfferPending) return;
+    const stage2AwaitingOffer =
+      authenticated && isKbwEventStage2PostLoginActive();
+    if (!kbwOfferPending && !stage2AwaitingOffer) return;
     if (!sessionReady) return;
     if (userNeedsContactEmail(user)) return;
     if (emailGateOpen) return;
@@ -144,6 +147,7 @@ export function KbwMysteryOfferModal() {
   }, [
     mounted,
     kbwOfferPending,
+    authenticated,
     clearKbwOffer,
     sessionReady,
     emailGateOpen,
