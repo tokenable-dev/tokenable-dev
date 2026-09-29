@@ -1,8 +1,6 @@
 import {
-  formatUnits,
   maxUint256,
   type Address,
-  type Hash,
   type PublicClient,
   zeroAddress,
 } from "viem";
@@ -39,19 +37,6 @@ const ITEM_ERC721 = 2;
 const ITEM_ERC721_WITH_CRITERIA = 4;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
-/** Filter DevTools console with `[tokenBid]`. Remove after first-approve investigation. */
-function logTokenBid(step: string, data?: Record<string, unknown>) {
-  if (process.env.NODE_ENV === "production") return;
-  if (data) {
-    console.log(`[tokenBid] ${step}`, data);
-  } else {
-    console.log(`[tokenBid] ${step}`);
-  }
-}
-
-function usdcAllowanceLogLabel(raw: bigint): string {
-  return `${formatUnits(raw, 6)} USDC (raw=${raw.toString()})`;
-}
 
 export const TOKEN_BID_DURATION_DAYS = [1, 3, 7, 14, 30, 60, 90, 180] as const;
 export type TokenBidDurationDays = (typeof TOKEN_BID_DURATION_DAYS)[number];
@@ -133,17 +118,6 @@ export async function submitTokenBid(input: {
     throw new Error("oldOrderHash required for replace");
   }
 
-  logTokenBid("submitTokenBid start", {
-    collectionKey,
-    tokenId: tokenIdStr,
-    address,
-    chainId,
-    mode,
-    bidUnits: bidUnits.toString(),
-    counter: counter.toString(),
-    allowanceFromHook:
-      usdcAllowanceRaw !== undefined ? usdcAllowanceRaw.toString() : "(on-chain read)",
-  });
 
   const crossing = await fetchCrossingAskForBid({
     collectionKey,
@@ -151,9 +125,6 @@ export async function submitTokenBid(input: {
     bidUnits,
   });
   if (crossing) {
-    logTokenBid("abort: bid crosses live ask", {
-      askHash: crossing.orderHash,
-    });
     throw new BidCrossesLiveAskError(crossing);
   }
 
@@ -174,12 +145,6 @@ export async function submitTokenBid(input: {
   const endTime = now + BigInt(tokenBidDurationSeconds(days));
   const allowancePre = allowanceLoaded;
   const needsUsdcApprove = allowancePre < bidUnits;
-  logTokenBid("allowance pre-sign", {
-    source: usdcAllowanceRaw !== undefined ? "wagmi hook cache" : "publicClient",
-    allowance: usdcAllowanceLogLabel(allowancePre),
-    needsUsdcApprove,
-    bidUnits: usdcAllowanceLogLabel(bidUnits),
-  });
   const usdcApproveGasPromise = needsUsdcApprove
     ? gasWithCapFast(
         publicClient,
@@ -225,13 +190,7 @@ export async function submitTokenBid(input: {
     counter: counter,
   };
 
-  logTokenBid("wallet: Seaport sign prompt (step 1 of 2 if first approve)");
   const signature = await signSeaportOrder(orderMessage, address);
-  logTokenBid("Seaport sign ok", {
-    signaturePrefix: `${signature.slice(0, 18)}…`,
-    startTime: now.toString(),
-    endTime: endTime.toString(),
-  });
 
   if (needsUsdcApprove) {
     const allowanceAfterSign = await publicClient.readContract({
@@ -239,10 +198,6 @@ export async function submitTokenBid(input: {
       abi: USDC_ABI,
       functionName: "allowance",
       args: [address, SEAPORT_ADDRESS],
-    });
-    logTokenBid("allowance after sign (on-chain)", {
-      allowance: usdcAllowanceLogLabel(allowanceAfterSign),
-      willSendApproveTx: allowanceAfterSign < bidUnits,
     });
     if (allowanceAfterSign < bidUnits) {
       const gasApprove =
@@ -259,49 +214,16 @@ export async function submitTokenBid(input: {
           GAS_FALLBACK.erc20Approve,
         ));
       const fees = await userTxFees(publicClient);
-      logTokenBid("wallet: USDC approve prompt (step 2 of 2)", {
-        seaport: SEAPORT_ADDRESS,
-        gas: gasApprove?.toString(),
-        maxFeePerGas: fees.maxFeePerGas?.toString(),
-      });
-      let approveTxHash: Hash | undefined;
-      try {
-        approveTxHash = await writeContractAsync({
-          address: usdcAddress,
-          abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, maxUint256],
-          chainId,
-          gas: gasApprove,
-          ...fees,
-        });
-        logTokenBid("writeContractAsync(approve) resolved", {
-          approveTxHash,
-        });
-      } catch (approveErr: unknown) {
-        logTokenBid("writeContractAsync(approve) threw", {
-          error: approveErr,
-          message:
-            approveErr instanceof Error ? approveErr.message : String(approveErr),
-        });
-        throw approveErr;
-      }
-      const allowanceAfterApprove = await publicClient.readContract({
+      await writeContractAsync({
         address: usdcAddress,
         abi: USDC_ABI,
-        functionName: "allowance",
-        args: [address, SEAPORT_ADDRESS],
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, maxUint256],
+        chainId,
+        gas: gasApprove,
+        ...fees,
       });
-      logTokenBid("allowance immediately after approve return (no receipt wait)", {
-        allowance: usdcAllowanceLogLabel(allowanceAfterApprove),
-        approveTxHash,
-        meetsBid: allowanceAfterApprove >= bidUnits,
-      });
-    } else {
-      logTokenBid("skipped approve tx (allowance already sufficient after sign)");
     }
-  } else {
-    logTokenBid("skipped approve path (allowance was sufficient pre-sign)");
   }
 
   const str = (v: unknown): string => String(v);
@@ -346,7 +268,6 @@ export async function submitTokenBid(input: {
     considerationAmount: str(bidUnits),
   };
 
-  logTokenBid("API: register bid", { mode, oldOrderHash });
   let order: Order;
   try {
     order =
@@ -357,12 +278,7 @@ export async function submitTokenBid(input: {
             order: payload,
           })
         : await createOrder(payload);
-    logTokenBid("API ok", { orderHash: order.orderHash, status: order.status });
   } catch (apiErr: unknown) {
-    logTokenBid("API failed", {
-      error: apiErr,
-      message: apiErr instanceof Error ? apiErr.message : String(apiErr),
-    });
     throw apiErr;
   }
 
@@ -410,16 +326,6 @@ export async function submitCollectionCriteriaBid(input: {
     throw new Error("oldOrderHash required for replace");
   }
 
-  logTokenBid("submitCollectionCriteriaBid start", {
-    collectionKey,
-    address,
-    chainId,
-    mode,
-    bidUnits: bidUnits.toString(),
-    counter: counter.toString(),
-    allowanceFromHook:
-      usdcAllowanceRaw !== undefined ? usdcAllowanceRaw.toString() : "(on-chain read)",
-  });
 
   const crossing = await fetchCrossingAskForBid({
     collectionKey,
@@ -427,9 +333,6 @@ export async function submitCollectionCriteriaBid(input: {
     bidUnits,
   });
   if (crossing) {
-    logTokenBid("abort: bid crosses live ask", {
-      askHash: crossing.orderHash,
-    });
     throw new BidCrossesLiveAskError(crossing);
   }
 
@@ -459,12 +362,6 @@ export async function submitCollectionCriteriaBid(input: {
   ]);
   const endTime = now + BigInt(tokenBidDurationSeconds(days));
   const needsUsdcApprove = allowanceLoaded < bidUnits;
-  logTokenBid("allowance pre-sign (criteria)", {
-    source: usdcAllowanceRaw !== undefined ? "wagmi hook cache" : "publicClient",
-    allowance: usdcAllowanceLogLabel(allowanceLoaded),
-    needsUsdcApprove,
-    bidUnits: usdcAllowanceLogLabel(bidUnits),
-  });
   const usdcApproveGasPromise = needsUsdcApprove
     ? gasWithCapFast(
         publicClient,
@@ -510,11 +407,7 @@ export async function submitCollectionCriteriaBid(input: {
     counter: counter,
   };
 
-  logTokenBid("wallet: Seaport sign prompt (criteria, step 1 of 2 if first approve)");
   const signature = await signSeaportOrder(orderMessage, address);
-  logTokenBid("Seaport sign ok (criteria)", {
-    signaturePrefix: `${signature.slice(0, 18)}…`,
-  });
 
   if (needsUsdcApprove) {
     const allowanceAfterSign = await publicClient.readContract({
@@ -522,10 +415,6 @@ export async function submitCollectionCriteriaBid(input: {
       abi: USDC_ABI,
       functionName: "allowance",
       args: [address, SEAPORT_ADDRESS],
-    });
-    logTokenBid("allowance after sign (criteria, on-chain)", {
-      allowance: usdcAllowanceLogLabel(allowanceAfterSign),
-      willSendApproveTx: allowanceAfterSign < bidUnits,
     });
     if (allowanceAfterSign < bidUnits) {
       const gasApprove =
@@ -542,46 +431,15 @@ export async function submitCollectionCriteriaBid(input: {
           GAS_FALLBACK.erc20Approve,
         ));
       const fees = await userTxFees(publicClient);
-      logTokenBid("wallet: USDC approve prompt (criteria, step 2 of 2)", {
-        seaport: SEAPORT_ADDRESS,
-        gas: gasApprove?.toString(),
-      });
-      let approveTxHash: Hash | undefined;
-      try {
-        approveTxHash = await writeContractAsync({
-          address: usdcAddress,
-          abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, maxUint256],
-          chainId,
-          gas: gasApprove,
-          ...fees,
-        });
-        logTokenBid("writeContractAsync(approve) resolved (criteria)", {
-          approveTxHash,
-        });
-      } catch (approveErr: unknown) {
-        logTokenBid("writeContractAsync(approve) threw (criteria)", {
-          error: approveErr,
-          message:
-            approveErr instanceof Error ? approveErr.message : String(approveErr),
-        });
-        throw approveErr;
-      }
-      const allowanceAfterApprove = await publicClient.readContract({
+      await writeContractAsync({
         address: usdcAddress,
         abi: USDC_ABI,
-        functionName: "allowance",
-        args: [address, SEAPORT_ADDRESS],
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, maxUint256],
+        chainId,
+        gas: gasApprove,
+        ...fees,
       });
-      logTokenBid(
-        "allowance immediately after approve return (criteria, no receipt wait)",
-        {
-          allowance: usdcAllowanceLogLabel(allowanceAfterApprove),
-          approveTxHash,
-          meetsBid: allowanceAfterApprove >= bidUnits,
-        },
-      );
     }
   }
 
@@ -627,7 +485,6 @@ export async function submitCollectionCriteriaBid(input: {
     considerationAmount: str(bidUnits),
   };
 
-  logTokenBid("API: register criteria bid", { mode, oldOrderHash });
   let order: Order;
   try {
     order =
@@ -638,15 +495,7 @@ export async function submitCollectionCriteriaBid(input: {
             order: payload,
           })
         : await createOrder(payload);
-    logTokenBid("API ok (criteria)", {
-      orderHash: order.orderHash,
-      status: order.status,
-    });
   } catch (apiErr: unknown) {
-    logTokenBid("API failed (criteria)", {
-      error: apiErr,
-      message: apiErr instanceof Error ? apiErr.message : String(apiErr),
-    });
     throw apiErr;
   }
 

@@ -34,7 +34,9 @@ import {
   BidCrossesLiveAskError,
   fetchCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
-import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
+import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
+import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
+import { useListingSeaportApproveWrite } from "@/hooks/list-rwa/useListingSeaportApproveWrite";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
@@ -97,6 +99,7 @@ export function useCollectionTradeDirectActions(input: {
   const { usdcAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
+  const listingSeaportApproveWrite = useListingSeaportApproveWrite();
   const { signSeaportOrder } = useSeaportOrderSigner();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const queryClient = useQueryClient();
@@ -457,19 +460,25 @@ export function useCollectionTradeDirectActions(input: {
         const top = topRows[0];
         const preferredExact = topRows.find((b) => bidUsdcAmount(b) === askMicros);
 
-        let created = await submitAskListingOrder({
-          tokenId,
-          priceUsdc,
-          address: address as Address,
+        const alreadyApproved = await readRwaSeaportApprovedForAll(
           publicClient,
-          signSeaportOrder,
-          writeContractAsync: writeContractAsync as Parameters<
-            typeof submitAskListingOrder
-          >[0]["writeContractAsync"],
           chainId,
-          mode: "create",
-          settlementPolicy,
-        });
+          address as Address,
+        );
+        let created = await runListingAskInWalletPhases(
+          {
+            tokenId,
+            priceUsdc,
+            address: address as Address,
+            publicClient,
+            signSeaportOrder,
+            writeContractAsync: listingSeaportApproveWrite,
+            chainId,
+            mode: "create",
+            settlementPolicy,
+          },
+          { alreadyApprovedForSeaport: alreadyApproved },
+        );
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
             const refreshed = await getOrderByHash(created.orderHash);

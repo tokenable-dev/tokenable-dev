@@ -1,20 +1,9 @@
 import { type Address, type PublicClient, zeroAddress } from "viem";
 import { parseUnits } from "viem";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
-import {
-  SEAPORT_ADDRESS,
-  TOKENABLE_RWA_APPROVE_ABI,
-  SEAPORT_ABI,
-} from "@/constants/contracts";
+import { SEAPORT_ADDRESS, SEAPORT_ABI } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/core";
-import {
-  GAS_FALLBACK,
-  gasWithCapFast,
-  userTxFees,
-  waitForUserTxReceipt,
-  withRpcReadRetry,
-  type UserTxFees,
-} from "@/lib/network";
+import { withRpcReadRetry } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
@@ -24,25 +13,25 @@ import {
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 import { getRwaSettlementPolicy } from "@/lib/core";
-import { afterWalletModalClosed } from "@/lib/privy/wallet";
+import { ensureRwaSeaportListingApproval } from "@/lib/seaport/listing/ensureRwaSeaportListingApproval";
+import {
+  assertListingWalletOwnsToken,
+  readRwaListingOwner,
+  readRwaSeaportApprovedForAll,
+} from "@/lib/seaport/listing/listingChainPreflight";
+import type { ListingSeaportApproveWrite } from "@/lib/seaport/listing/listingSeaportApproveWrite";
+import { createListingTimingLogger } from "@/lib/seaport/listing/listingTiming";
+
+export { ensureRwaSeaportListingApproval } from "@/lib/seaport/listing/ensureRwaSeaportListingApproval";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
-/** 20-byte zero address — must not use the 32-byte `ZERO_BYTES32` string here. */
 const ZERO_ADDRESS = zeroAddress;
 const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
-type WriteAsync = (args: {
-  address: Address;
-  abi: typeof TOKENABLE_RWA_APPROVE_ABI;
-  functionName: "setApprovalForAll";
-  args: readonly [Address, boolean];
-  chainId: number;
-  gas: bigint;
-} & UserTxFees) => Promise<`0x${string}`>;
-
 /**
- * Ensure `setApprovalForAll(Seaport, true)` → sign Seaport ask → POST create or replace-listing.
+ * Sign Seaport ask → POST create or replace-listing.
+ * UI entry points should prefer {@link runListingAskInWalletPhases} (Privy-safe).
  */
 export async function submitAskListingOrder(params: {
   tokenId: string | number;
@@ -50,15 +39,13 @@ export async function submitAskListingOrder(params: {
   address: Address;
   publicClient: PublicClient;
   signSeaportOrder: SignSeaportOrderFn;
-  writeContractAsync: WriteAsync;
+  writeContractAsync: ListingSeaportApproveWrite;
   chainId: SupportedChainId;
   mode: "create" | "replace";
   oldOrderHash?: string;
-  /** When omitted, fetched from backend (`rwa_tokens.settlement_policy`). */
   settlementPolicy?: AskSettlementPolicy;
-  /** After `setApprovalForAll` tx is confirmed (first-time Seaport approval only). */
-  onAfterApproval?: () => void;
-  /** After EIP-712 sign, before POST create/replace-listing. */
+  /** Caller already ran `ensureRwaSeaportListingApproval` in a prior wallet phase. */
+  skipSeaportApproval?: boolean;
   onBeforeSubmit?: () => void;
 }): Promise<Order> {
   const { priceUsdc, address, publicClient, signSeaportOrder, writeContractAsync, mode, chainId } =
@@ -88,35 +75,10 @@ export async function submitAskListingOrder(params: {
         return r.settlementPolicy;
       });
 
-  const startedAt = Date.now();
-  const logStep = (step: string) =>
-    console.info(`[listing-timing] ${step} +${Date.now() - startedAt}ms`);
-
-  const readOwner = async (): Promise<Address> => {
-    try {
-      return await withRpcReadRetry(() =>
-        publicClient.readContract({
-          address: rwaAddress,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "ownerOf",
-          args: [tokenIdBn],
-        }),
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/invalid token|nonexistent token|owner query for nonexistent/i.test(msg)) {
-        throw new Error(
-          `Token #${tokenIdStr} does not exist on ${rwaAddress} (chain ${chainId}). ` +
-            `Usually the app RWA address does not match the mint contract, or DB rows were left after a redeploy — ` +
-            `switch network / align NEXT_PUBLIC_CHAIN_*_RWA with the backend, or run admin “reset for new contract” before minting on a new CA.`,
-        );
-      }
-      throw e;
-    }
-  };
+  const logStep = createListingTimingLogger();
 
   const [onChainOwner, now, counter, alreadyAll] = await Promise.all([
-    readOwner(),
+    readRwaListingOwner(publicClient, chainId, params.tokenId),
     getChainTimestampSec(publicClient),
     withRpcReadRetry(() =>
       publicClient.readContract({
@@ -126,56 +88,20 @@ export async function submitAskListingOrder(params: {
         args: [address],
       }),
     ),
-    withRpcReadRetry(() =>
-      publicClient.readContract({
-        address: rwaAddress,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "isApprovedForAll",
-        args: [address, SEAPORT_ADDRESS],
-      }),
-    ),
+    readRwaSeaportApprovedForAll(publicClient, chainId, address),
   ]);
   logStep(`chain reads done (approved=${alreadyAll})`);
-  if (onChainOwner.toLowerCase() !== address.toLowerCase()) {
-    const short = (w: string) =>
-      w.length >= 10 ? `${w.slice(0, 6)}…${w.slice(-4)}` : w;
-    throw new Error(
-      `Connected wallet ${short(address)} does not own this card on-chain (owner is ${short(onChainOwner)}). Switch to that wallet to list — a failed buy does not move ownership.`,
-    );
-  }
+  assertListingWalletOwnsToken(onChainOwner, address);
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
 
-  if (!alreadyAll) {
-    const [gasSetAll, fees] = await Promise.all([
-      gasWithCapFast(
-        publicClient,
-        {
-          address: rwaAddress,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "setApprovalForAll",
-          args: [SEAPORT_ADDRESS, true],
-          account: address,
-        },
-        GAS_FALLBACK.setApprovalForAll,
-      ),
-      userTxFees(publicClient),
-    ]);
-    logStep(`approve wallet prompt (tip=${fees.maxPriorityFeePerGas ?? "wallet"})`);
-    const setAllTx = await writeContractAsync({
-      address: rwaAddress,
-      abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "setApprovalForAll",
-      args: [SEAPORT_ADDRESS, true],
+  if (!params.skipSeaportApproval && !alreadyAll) {
+    await ensureRwaSeaportListingApproval({
+      tokenId: params.tokenId,
+      address,
+      publicClient,
+      writeContractAsync,
       chainId,
-      gas: gasSetAll,
-      ...fees,
     });
-    logStep(`approve tx sent ${setAllTx}`);
-    await waitForUserTxReceipt(publicClient, setAllTx);
-    logStep("approve tx confirmed on-chain");
-    if (params.onAfterApproval) {
-      await afterWalletModalClosed(params.onAfterApproval);
-    }
   }
 
   const considerationItems = buildAskConsideration(
@@ -209,9 +135,7 @@ export async function submitAskListingOrder(params: {
 
   const signature = await signSeaportOrder(orderMessage, address);
   logStep("order signed");
-  if (params.onBeforeSubmit) {
-    await afterWalletModalClosed(params.onBeforeSubmit);
-  }
+  params.onBeforeSubmit?.();
 
   const str = (v: unknown): string => String(v);
   const considerationPayload = buildAskConsiderationPayload(
@@ -223,8 +147,8 @@ export async function submitAskListingOrder(params: {
   const payload: CreateOrderPayload = {
     side: "ask",
     parameters: {
-      offerer: address,
-      zone: ZERO_ADDRESS,
+      offerer: str(orderMessage.offerer),
+      zone: str(ZERO_ADDRESS),
       zoneHash: ZERO_BYTES32,
       startTime: str(now),
       endTime: str(endTime),

@@ -1,5 +1,6 @@
 import type { ConnectedWallet, User as PrivyUser } from "@privy-io/react-auth";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
+import { extendWalletFlowCooldown } from "@/lib/privy/session";
 import { getAccount } from "wagmi/actions";
 import { isEmbeddedOnlyWalletPolicy, wagmiPrivyConfig } from "@/lib/privy/config";
 
@@ -193,15 +194,14 @@ export function shouldUsePrivySdkForSigning(opts: {
 }
 
 /**
- * Run UI updates after Privy/wagmi tx modals finish closing.
- * Avoids React #300 when setState races Privy's post-tx re-render (first on-chain approve).
+ * Wait for Privy/wagmi tx modals to finish tearing down before the next wallet UI or aligner work.
  */
-export function afterWalletModalClosed(run: () => void): Promise<void> {
+export function pauseAfterWalletPrompt(ms = 700): Promise<void> {
+  extendWalletFlowCooldown(ms + 500);
   return new Promise((resolve) => {
     queueMicrotask(() => {
       requestAnimationFrame(() => {
-        run();
-        resolve();
+        setTimeout(resolve, ms);
       });
     });
   });

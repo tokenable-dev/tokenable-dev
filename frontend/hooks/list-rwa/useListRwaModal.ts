@@ -1,28 +1,26 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, startTransition, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   useAccount,
   useWriteContract,
   usePublicClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { getOrderByHash, getRwaSettlementPolicy, rq } from "@/lib/core";
+import { getOrderByHash, getRwaSettlementPolicy, rq, type Order } from "@/lib/core";
 import { patchCachesAfterAskListed } from "@/lib/core/invalidation";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  SEAPORT_ADDRESS,
-  TOKENABLE_RWA_APPROVE_ABI,
-} from "@/constants/contracts";
+import { TOKENABLE_RWA_APPROVE_ABI } from "@/constants/contracts";
 import { mapWalletError, withRpcReadRetry } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
-import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
+import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
+import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
 import {
   askUsdcToMatchCrossingBid,
   orderCollectionKey,
@@ -39,12 +37,10 @@ import type {
   ListSuccessMeta,
 } from "@/lib/seaport/listing/listRwaModalTypes";
 import { useSeaportOrderSigner } from "@/lib/privy";
-import { runWalletFlow } from "@/lib/privy/session";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { usePrivyAwareWriteContract } from "@/hooks/wallet/usePrivyAwareWriteContract";
-import { listSeaportApprovalPrivyUi } from "@/lib/privy/listRwaTxUi";
+import { useListingSeaportApproveWrite } from "@/hooks/list-rwa/useListingSeaportApproveWrite";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 
@@ -120,10 +116,6 @@ export function useListRwaModal({
   const [successMeta, setSuccessMeta] = useState<ListSuccessMeta | null>(null);
   /** True for the whole handleList async — blocks owner preflight from clobbering in-flight steps. */
   const listingFlowLockRef = useRef(false);
-
-  const setListingStep = useCallback((next: ListRwaModalStep) => {
-    startTransition(() => setStep(next));
-  }, []);
 
   const listingInFlight =
     step === "approving" ||
@@ -327,38 +319,7 @@ export function useListRwaModal({
   }, [initialPriceUsdc, tokenId, resolvedExistingAsk?.orderHash]);
 
   const { writeContractAsync } = useWriteContract();
-  const { writeContractWithPrivyUi } = usePrivyAwareWriteContract();
-
-  type ListingApproveWrite = Parameters<
-    typeof submitAskListingOrder
-  >[0]["writeContractAsync"];
-
-  const listingSeaportApproveWrite = useCallback<ListingApproveWrite>(
-    async (args) => {
-      const {
-        address: contract,
-        abi,
-        functionName,
-        args: fnArgs,
-        chainId: txChainId,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        gas,
-      } = args;
-      return writeContractWithPrivyUi({
-        chainId: txChainId,
-        address: contract,
-        abi,
-        functionName,
-        args: fnArgs,
-        gas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        privyUi: listSeaportApprovalPrivyUi(),
-      });
-    },
-    [writeContractWithPrivyUi],
-  );
+  const listingSeaportApproveWrite = useListingSeaportApproveWrite();
 
   const matchWrite = useMemo(
     () =>
@@ -403,7 +364,7 @@ export function useListRwaModal({
   );
 
   function handleList() {
-    return runWalletFlow(runListing);
+    return runListing();
   }
 
   async function runListing() {
@@ -488,27 +449,29 @@ export function useListRwaModal({
         : typedPrice;
 
       if (isReplaceListing && resolvedExistingAsk) {
-        const alreadyAllReplace = await publicClient.readContract({
-          address: rwaAddress,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "isApprovedForAll",
-          args: [listingAddress, SEAPORT_ADDRESS],
-        });
-        setStep(alreadyAllReplace ? "signing" : "approving");
-        let created = await submitAskListingOrder({
-          tokenId,
-          priceUsdc,
-          address: listingAddress,
+        const alreadyAllReplace = await readRwaSeaportApprovedForAll(
           publicClient,
-          signSeaportOrder,
-          writeContractAsync: listingSeaportApproveWrite,
           chainId,
-          mode: "replace",
-          oldOrderHash: resolvedExistingAsk.orderHash,
-          settlementPolicy: resolvedSettlement,
-          onAfterApproval: () => setListingStep("signing"),
-          onBeforeSubmit: () => setListingStep("submitting"),
-        });
+          listingAddress,
+        );
+        let created = await runListingAskInWalletPhases(
+          {
+            tokenId,
+            priceUsdc,
+            address: listingAddress,
+            publicClient,
+            signSeaportOrder,
+            writeContractAsync: listingSeaportApproveWrite,
+            chainId,
+            mode: "replace",
+            oldOrderHash: resolvedExistingAsk.orderHash,
+            settlementPolicy: resolvedSettlement,
+          },
+          {
+            alreadyApprovedForSeaport: alreadyAllReplace,
+            onStep: (s) => setStep(s),
+          },
+        );
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
             const refreshed = await getOrderByHash(created.orderHash);
@@ -519,7 +482,7 @@ export function useListRwaModal({
         }
 
         const meta = await runPostListInstantMatch(instantMatchDeps, created, {
-          onStartMatching: () => setListingStep("matching"),
+          onStartMatching: () => setStep("matching"),
         });
         if (meta.matched) {
           const salePrice = parseFloat(price.trim());
@@ -545,34 +508,35 @@ export function useListRwaModal({
           ...meta,
           collectionUnderReview: created.reviewStatus === "pending_review",
         });
-        setListingStep("success");
+        setStep("success");
         await invalidateListingQueries(instantMatchDeps, created, {
           ownershipMoved: meta.matched,
         });
         return;
       }
 
-      const alreadyAll = await publicClient.readContract({
-        address: rwaAddress,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "isApprovedForAll",
-        args: [listingAddress, SEAPORT_ADDRESS],
-      });
-      setStep(alreadyAll ? "signing" : "approving");
-
-      let createdFinal = await submitAskListingOrder({
-        tokenId,
-        priceUsdc,
-        address: listingAddress,
+      const alreadyAll = await readRwaSeaportApprovedForAll(
         publicClient,
-        signSeaportOrder,
-        writeContractAsync: listingSeaportApproveWrite,
         chainId,
-        mode: "create",
-        settlementPolicy: resolvedSettlement,
-        onAfterApproval: () => setListingStep("signing"),
-        onBeforeSubmit: () => setListingStep("submitting"),
-      });
+        listingAddress,
+      );
+      let createdFinal = await runListingAskInWalletPhases(
+        {
+          tokenId,
+          priceUsdc,
+          address: listingAddress,
+          publicClient,
+          signSeaportOrder,
+          writeContractAsync: listingSeaportApproveWrite,
+          chainId,
+          mode: "create",
+          settlementPolicy: resolvedSettlement,
+        },
+        {
+          alreadyApprovedForSeaport: alreadyAll,
+          onStep: (s) => setStep(s),
+        },
+      );
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
         try {
           const refreshed = await getOrderByHash(createdFinal.orderHash);
@@ -583,7 +547,7 @@ export function useListRwaModal({
       }
 
       const meta = await runPostListInstantMatch(instantMatchDeps, createdFinal, {
-        onStartMatching: () => setListingStep("matching"),
+        onStartMatching: () => setStep("matching"),
       });
       if (meta.matched) {
         const salePrice = parseFloat(price.trim());
@@ -607,7 +571,7 @@ export function useListRwaModal({
         ...meta,
         collectionUnderReview: createdFinal.reviewStatus === "pending_review",
       });
-      setListingStep("success");
+      setStep("success");
 
       await invalidateListingQueries(instantMatchDeps, createdFinal, {
         ownershipMoved: meta.matched,

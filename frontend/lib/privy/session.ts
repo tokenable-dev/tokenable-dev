@@ -21,6 +21,8 @@ export function setSignOutInProgress(value: boolean): void {
 }
 
 let walletFlowDepth = 0;
+/** Block aligners briefly after a Privy tx modal closes (teardown still mutates `wallets`). */
+let walletFlowCooldownUntil = 0;
 
 /**
  * Background wallet aligners (`WalletDataProvider`, `useEnsureAccountWalletActive`) must not
@@ -28,7 +30,13 @@ let walletFlowDepth = 0;
  * `wallets` list churns mid-tx and a switch re-renders its modal tree (hooks crash at Providers).
  */
 export function isWalletFlowInProgress(): boolean {
-  return walletFlowDepth > 0;
+  if (walletFlowDepth > 0) return true;
+  return Date.now() < walletFlowCooldownUntil;
+}
+
+/** Call after an on-chain wallet prompt completes (before opening the next Privy UI). */
+export function extendWalletFlowCooldown(ms: number): void {
+  walletFlowCooldownUntil = Math.max(walletFlowCooldownUntil, Date.now() + ms);
 }
 
 export async function runWalletFlow<T>(run: () => Promise<T>): Promise<T> {
