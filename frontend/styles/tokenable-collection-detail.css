@@ -2960,7 +2960,7 @@
   transform: translateY(-4px);
 }
 
-/* Similar tile: fixed 0.72 frame; image uses contain (hero-style) — no top/bottom crop. */
+/* Similar tile: fixed 0.72 frame; image covers the frame (no side letterboxing). */
 .cd-si-card__media {
   position: relative;
   width: 100%;
@@ -2986,7 +2986,7 @@
   width: 100%;
   height: 100%;
   max-width: none;
-  object-fit: contain !important;
+  object-fit: cover !important;
   object-position: center;
 }
 

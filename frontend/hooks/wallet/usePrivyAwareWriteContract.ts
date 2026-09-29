@@ -22,6 +22,7 @@ export type PrivyAwareWriteContractInput = {
   args: readonly unknown[];
   maxFeePerGas?: bigint;
   maxPriorityFeePerGas?: bigint;
+  gas?: bigint;
   /** Shown in Privy send/success modals when signing with an embedded wallet. */
   privyUi?: SendTransactionModalUIOptions;
 };
@@ -87,9 +88,16 @@ export function usePrivyAwareWriteContract() {
         return hash;
       }
 
-      return writeContractAsync(
-        input as Parameters<typeof writeContractAsync>[0],
-      );
+      return writeContractAsync({
+        address: input.address,
+        abi: input.abi,
+        functionName: input.functionName,
+        args: input.args,
+        chainId: input.chainId,
+        gas: input.gas,
+        maxFeePerGas: input.maxFeePerGas,
+        maxPriorityFeePerGas: input.maxPriorityFeePerGas,
+      } as Parameters<typeof writeContractAsync>[0]);
     },
     [usesPrivySdk, sendTransaction, signingWallet, writeContractAsync],
   );

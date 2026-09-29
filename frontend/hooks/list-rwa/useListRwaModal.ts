@@ -43,6 +43,8 @@ import { runWalletFlow } from "@/lib/privy/session";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
+import { usePrivyAwareWriteContract } from "@/hooks/wallet/usePrivyAwareWriteContract";
+import { listSeaportApprovalPrivyUi } from "@/lib/privy/listRwaTxUi";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 
@@ -325,6 +327,38 @@ export function useListRwaModal({
   }, [initialPriceUsdc, tokenId, resolvedExistingAsk?.orderHash]);
 
   const { writeContractAsync } = useWriteContract();
+  const { writeContractWithPrivyUi } = usePrivyAwareWriteContract();
+
+  type ListingApproveWrite = Parameters<
+    typeof submitAskListingOrder
+  >[0]["writeContractAsync"];
+
+  const listingSeaportApproveWrite = useCallback<ListingApproveWrite>(
+    async (args) => {
+      const {
+        address: contract,
+        abi,
+        functionName,
+        args: fnArgs,
+        chainId: txChainId,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        gas,
+      } = args;
+      return writeContractWithPrivyUi({
+        chainId: txChainId,
+        address: contract,
+        abi,
+        functionName,
+        args: fnArgs,
+        gas,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        privyUi: listSeaportApprovalPrivyUi(),
+      });
+    },
+    [writeContractWithPrivyUi],
+  );
 
   const matchWrite = useMemo(
     () =>
@@ -467,9 +501,7 @@ export function useListRwaModal({
           address: listingAddress,
           publicClient,
           signSeaportOrder,
-          writeContractAsync: writeContractAsync as Parameters<
-            typeof submitAskListingOrder
-          >[0]["writeContractAsync"],
+          writeContractAsync: listingSeaportApproveWrite,
           chainId,
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
@@ -534,9 +566,7 @@ export function useListRwaModal({
         address: listingAddress,
         publicClient,
         signSeaportOrder,
-        writeContractAsync: writeContractAsync as Parameters<
-          typeof submitAskListingOrder
-        >[0]["writeContractAsync"],
+        writeContractAsync: listingSeaportApproveWrite,
         chainId,
         mode: "create",
         settlementPolicy: resolvedSettlement,

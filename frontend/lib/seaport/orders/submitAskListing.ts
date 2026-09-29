@@ -24,6 +24,7 @@ import {
 import { getChainTimestampSec } from "./seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 import { getRwaSettlementPolicy } from "@/lib/core";
+import { afterWalletModalClosed } from "@/lib/privy/wallet";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -172,7 +173,9 @@ export async function submitAskListingOrder(params: {
     logStep(`approve tx sent ${setAllTx}`);
     await waitForUserTxReceipt(publicClient, setAllTx);
     logStep("approve tx confirmed on-chain");
-    params.onAfterApproval?.();
+    if (params.onAfterApproval) {
+      await afterWalletModalClosed(params.onAfterApproval);
+    }
   }
 
   const considerationItems = buildAskConsideration(
@@ -206,7 +209,9 @@ export async function submitAskListingOrder(params: {
 
   const signature = await signSeaportOrder(orderMessage, address);
   logStep("order signed");
-  params.onBeforeSubmit?.();
+  if (params.onBeforeSubmit) {
+    await afterWalletModalClosed(params.onBeforeSubmit);
+  }
 
   const str = (v: unknown): string => String(v);
   const considerationPayload = buildAskConsiderationPayload(

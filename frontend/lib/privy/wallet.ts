@@ -191,3 +191,18 @@ export function shouldUsePrivySdkForSigning(opts: {
 
   return true;
 }
+
+/**
+ * Run UI updates after Privy/wagmi tx modals finish closing.
+ * Avoids React #300 when setState races Privy's post-tx re-render (first on-chain approve).
+ */
+export function afterWalletModalClosed(run: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        run();
+        resolve();
+      });
+    });
+  });
+}

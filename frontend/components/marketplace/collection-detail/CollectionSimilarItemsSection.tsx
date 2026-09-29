@@ -47,7 +47,7 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
           <CollectionCoverFrame
             imageUrl={item.imageUrl}
             variant="flat"
-            flatFit="contain"
+            flatFit="cover"
             className="h-full w-full"
             quietLoading
           />

@@ -275,8 +275,9 @@ function patchFundWalletChainFallback() {
  * Minified: esm `if(!n)return;let r=M().current[e];return g((()=>{for…`,
  *           cjs `if(!n)return;let t=l().current[e];return r.useEffect((()=>{for…`.
  */
+/** Guard id varies by chunk (`n`, `_`, …); same early-return hook bug. */
 const EVENT_SUBSCRIPTION_NEEDLE =
-  /if\(!n\)return;let (\w)=(\w+)\(\)\.current\[e\];return ([\w.]+)\(\(\(\)=>\{for/g;
+  /if\(!(\w+)\)return;let (\w+)=(\w+)\(\)\.current\[e\];return ([\w.]+)\(\(\(\)=>\{for/g;
 
 /** USDC / contract calls have `value: 0` — Privy still shows "Details · US$0.00" (misleading). */
 const TX_DETAILS_HEADER_PRICE_ESM_NEEDLE =
@@ -326,11 +327,12 @@ function patchEventSubscriptionHookOrder() {
       const fp = path.join(dir, name);
       if (
         patchFile(fp, (content) => {
-          if (!content.includes("Invalid event type")) return null;
+          if (!EVENT_SUBSCRIPTION_NEEDLE.test(content)) return null;
+          EVENT_SUBSCRIPTION_NEEDLE.lastIndex = 0;
           return content.replace(
             EVENT_SUBSCRIPTION_NEEDLE,
-            (_, ref, useCtx, useEff) =>
-              `let ${ref}=${useCtx}()?.current?.[e];return ${useEff}((()=>{if(!n||!${ref})return;for`,
+            (_, guard, ref, useCtx, useEff) =>
+              `let ${ref}=${useCtx}()?.current?.[e];return ${useEff}((()=>{if(!${guard}||!${ref})return;for`,
           );
         })
       ) {
