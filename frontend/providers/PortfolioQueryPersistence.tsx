@@ -6,6 +6,7 @@ import {
   hydratePortfolioQueries,
   subscribePortfolioPersistence,
 } from "@/lib/portfolio/portfolioQueryPersistence";
+import { usePrefetchPortfolioBootstrap } from "@/hooks/portfolio/usePrefetchPortfolioBootstrap";
 
 /**
  * Hydrates portfolio React Query from localStorage after mount (instant paint on refresh),
@@ -14,6 +15,7 @@ import {
 export function PortfolioQueryPersistence() {
   const queryClient = useQueryClient();
   const hydrated = useRef(false);
+  usePrefetchPortfolioBootstrap();
 
   useLayoutEffect(() => {
     if (!hydrated.current) {

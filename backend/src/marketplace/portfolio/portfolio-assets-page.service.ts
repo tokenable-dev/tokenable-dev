@@ -19,7 +19,24 @@ import { perfNow, perfLog, elapsedMs } from '../../common/perf/perf';
 import {
   PortfolioAssetsPageCacheService,
 } from './portfolio-assets-page-cache.service';
-import { PORTFOLIO_ASSETS_PAGE_MAX } from './dto/portfolio-assets-page.dto';
+import {
+  PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT,
+  PORTFOLIO_ASSETS_PAGE_MAX,
+} from './dto/portfolio-assets-page.dto';
+
+export type PortfolioAssetsPageLoadOptions = {
+  ownedIdsOnly?: boolean;
+  bootstrapFirstPage?: boolean;
+};
+
+function normalizeLoadPageOptions(
+  options?: boolean | PortfolioAssetsPageLoadOptions,
+): PortfolioAssetsPageLoadOptions {
+  if (typeof options === 'boolean') {
+    return { ownedIdsOnly: options };
+  }
+  return options ?? {};
+}
 
 export type PortfolioAssetsPageMetadataItem = {
   tokenId: number;
@@ -61,14 +78,17 @@ export class PortfolioAssetsPageService {
     walletAddress: string,
     tokenIds: number[] | undefined,
     chainId?: SupportedChainId,
-    ownedIdsOnly = false,
+    options?: boolean | PortfolioAssetsPageLoadOptions,
   ): Promise<PortfolioAssetsPageResponse> {
+    const opts = normalizeLoadPageOptions(options);
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const wallet = walletAddress.trim().toLowerCase();
 
-    const ownedTokenIds = await this.resolveOwnedTokenIds(wallet, chain);
+    const ownedTokenIds = await this.resolveOwnedTokenIds(wallet, chain, {
+      skipOnChainUnion: opts.bootstrapFirstPage,
+    });
 
-    if (ownedIdsOnly) {
+    if (opts.ownedIdsOnly && !opts.bootstrapFirstPage) {
       return {
         ownedTokenIds,
         metadataItems: [],
@@ -89,10 +109,17 @@ export class PortfolioAssetsPageService {
       ),
     ].filter((id) => ownedSet.has(id));
 
-    const uniqueTokenIds =
+    let uniqueTokenIds =
       requested.length > 0
         ? requested
         : ownedTokenIds.slice(0, PORTFOLIO_ASSETS_PAGE_MAX);
+
+    if (opts.bootstrapFirstPage && requested.length === 0) {
+      uniqueTokenIds = ownedTokenIds.slice(
+        0,
+        PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT,
+      );
+    }
 
     if (uniqueTokenIds.length === 0) {
       return {
@@ -161,6 +188,7 @@ export class PortfolioAssetsPageService {
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
+    options?: { skipOnChainUnion?: boolean },
   ): Promise<number[]> {
     void this.blockchain
       .healOwnerRegistryIfIncomplete(chainId)
@@ -174,6 +202,9 @@ export class PortfolioAssetsPageService {
       fromDb,
       chainId,
     );
+    if (options?.skipOnChainUnion) {
+      return this.sortOwnedNewestFirst(verifiedDb);
+    }
     const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
       wallet,
       chainId,

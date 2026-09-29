@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Logger,
   Patch,
   Post,
   Req,
@@ -32,6 +33,7 @@ import {
 } from '../marketplace/collections/catalog-cover-s3.service';
 import type { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
+import { WelcomeEmailService } from '../email/templates/welcome/welcome-email.service';
 import { AuthService } from './auth.service';
 import {
   clearAccessTokenCookie,
@@ -53,11 +55,14 @@ import { maybeRefreshSiteAccessCookie } from '../site-access/site-access.util';
 @ApiTags('privy-auth')
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService,
     private readonly users: UserService,
     private readonly catalogCoverS3: CatalogCoverS3Service,
+    private readonly welcomeEmail: WelcomeEmailService,
   ) {}
 
   @Get('session')
@@ -143,7 +148,17 @@ export class AuthController {
     @Req() req: Request & { user: User },
     @Body() dto: UpdateProfileDto,
   ) {
+    const previousEmail = req.user.email;
     const user = await this.users.updateProfile(req.user.id, dto);
+    if (dto.email !== undefined) {
+      void this.welcomeEmail
+        .sendForContactEmailLinked(user, previousEmail)
+        .catch((err) => {
+          this.logger.warn(
+            `Welcome email async error userId=${user.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
     const wallets = await this.users.listWalletsForUser(user.id);
     const authProviders = await this.users.listAuthProvidersForUser(user.id);
     return { user: serializeAuthUser(user, wallets, authProviders) };

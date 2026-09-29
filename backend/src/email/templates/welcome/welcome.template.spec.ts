@@ -13,6 +13,12 @@ describe('welcome.template', () => {
       'https://app.tokenable.io/assets/email/welcome-arrow-white.png',
     arrowLinkImgSrc:
       'https://app.tokenable.io/assets/email/welcome-arrow-link.png',
+    featureAuthIconSrc:
+      'https://app.tokenable.io/assets/email/welcome-feature-auth.png',
+    featureVaultIconSrc:
+      'https://app.tokenable.io/assets/email/welcome-feature-vault.png',
+    featureSettleIconSrc:
+      'https://app.tokenable.io/assets/email/welcome-feature-settle.png',
   };
 
   it('includes hero copy and feature rows in HTML', () => {
@@ -21,8 +27,11 @@ describe('welcome.template', () => {
     expect(html).toContain('Authentication');
     expect(html).toContain('Browse markets');
     expect(html).toContain(input.arrowWhiteImgSrc);
-    expect(html).toContain('rgba(255,255,255,0.08)');
-    expect(html).toContain('#0D0F16');
+    expect(html).toContain(input.featureAuthIconSrc);
+    expect(html).not.toContain('data:image/svg+xml');
+    expect(html).toContain('rgba(0,0,0,0.08)');
+    expect(html).toContain('#FFFFFF');
+    expect(html).toContain('color-scheme" content="light"');
     expect(html).toContain(input.heroImgSrc);
     expect(html).toContain('width="600" height="330"');
     expect(html).toContain('tk-welcome-hero');
@@ -58,6 +67,9 @@ describe('welcome.template', () => {
         heroComposite: true,
         arrowWhiteImgSrc: 'cid:welcome-arrow-white@tokenable',
         arrowLinkImgSrc: 'cid:welcome-arrow-link@tokenable',
+        featureAuthIconSrc: 'cid:welcome-feature-auth@tokenable',
+        featureVaultIconSrc: 'cid:welcome-feature-vault@tokenable',
+        featureSettleIconSrc: 'cid:welcome-feature-settle@tokenable',
       },
       inlineImages: [
         {

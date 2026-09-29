@@ -8,6 +8,7 @@ export { usePortfolioMyBids } from "./usePortfolioMyBids";
 export { usePortfolioBidActions } from "./usePortfolioBidActions";
 export { usePortfolioCollectionTopBids } from "./usePortfolioCollectionTopBids";
 export { usePortfolioLoadPerf } from "./usePortfolioLoadPerf";
+export { usePrefetchPortfolioBootstrap } from "./usePrefetchPortfolioBootstrap";
 export { useMyRedemptions } from "./useMyRedemptions";
 export { useRedeemFlow } from "./useRedeemFlow";
 export { usePortfolioCertificate } from "./usePortfolioCertificate";

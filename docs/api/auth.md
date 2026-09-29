@@ -152,7 +152,7 @@ User → Privy login (email/Google/Apple/wallet)
        → upsert users by privy_id or email
        → syncPrivyWallets() → user_wallets
        → syncPrivyIdentity() → user_auth_providers
-     → (new `users` row only) `WelcomeEmailService` (`backend/src/email/`) via Gmail — one-time welcome mail when `WELCOME_EMAIL_ENABLED=1` and inbox is not a `@privy.wallet` placeholder. See [transactional-email.md](../architecture/transactional-email.md).
+     → (new `users` row + real inbox) or (`PATCH /auth/profile` `email` from `@privy.wallet`) → one-time `WelcomeEmailService` when `WELCOME_EMAIL_ENABLED=1` (`users.welcome_email_sent_at`). See [transactional-email.md](../architecture/transactional-email.md).
      → issueAccessToken() — JWT cookie (7 days)
      → return { user: AuthUser }
 ```

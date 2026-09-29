@@ -13,12 +13,13 @@ import {
 export function usePortfolioDailyChart(
   address: string | undefined,
   isConnected: boolean,
+  queryEnabled = true,
 ) {
   const chainId = activeRqChainId();
   const { data: dailySnapshotsData, isLoading: dailySnapshotsLoading } = useQuery({
     queryKey: rq.portfolioDailySnapshots(address ?? "", chainId),
     queryFn: () => getPortfolioDailySnapshots(address!, 32),
-    enabled: Boolean(address && isConnected),
+    enabled: Boolean(address && isConnected && queryEnabled),
     staleTime: marketplaceRqPolicy.portfolioDailyStaleMs,
   });
 

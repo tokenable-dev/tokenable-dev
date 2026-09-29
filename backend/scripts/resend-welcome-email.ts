@@ -2,20 +2,21 @@
  * Resend one-time welcome email (QA). Resets welcome_email_sent_at then sends.
  *
  *   pnpm exec ts-node -r tsconfig-paths/register scripts/resend-welcome-email.ts user@example.com
+ *   pnpm exec ts-node -r tsconfig-paths/register scripts/resend-welcome-email.ts user@example.com --any
+ *     (skip users table — QA send to any inbox)
+ *   pnpm exec ts-node -r tsconfig-paths/register scripts/resend-welcome-email.ts user@example.com --inline-cid
+ *     (QA: multipart/related CID PNGs — may show as attachments)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'pg';
 import { TransactionalEmailService } from '../src/email/transactional-email.service';
-import {
-  WELCOME_ARROW_LINK_CID,
-  WELCOME_ARROW_WHITE_CID,
-  WELCOME_HERO_CID,
-  tryLoadWelcomeCompositeInlineImages,
-} from '../src/email/templates/welcome/welcome.assets';
+import { resolveWelcomeEmailContent } from '../src/email/templates/welcome/welcome.assets';
 import { buildWelcomeEmailMessage } from '../src/email/templates/welcome/welcome.template';
 import { GmailApiClient } from '../src/vault/gmail-api.client';
+
+const CLI_FLAGS = new Set(['--any', '--inline-cid']);
 
 function loadDotEnv(file: string) {
   const text = readFileSync(file, 'utf8');
@@ -41,48 +42,16 @@ loadDotEnv(resolve(__dirname, '../.env'));
 
 const ENABLED_ENV = 'WELCOME_EMAIL_ENABLED';
 const FROM_ENV = 'WELCOME_EMAIL_FROM';
-const PUBLIC_ASSET_ENV = 'WELCOME_EMAIL_PUBLIC_ASSET_BASE_URL';
-
-async function resolveWelcomeContent(mail: TransactionalEmailService) {
-  const front = mail.frontendUrl();
-  const assetBase =
-    mail.httpsPublicAssetBase(PUBLIC_ASSET_ENV) ?? mail.httpsPublicAssetBase();
-  const inlineImages = await tryLoadWelcomeCompositeInlineImages();
-
-  if (inlineImages) {
-    return {
-      template: {
-        frontendUrl: front,
-        heroImgSrc: `cid:${WELCOME_HERO_CID}`,
-        heroComposite: true,
-        arrowWhiteImgSrc: `cid:${WELCOME_ARROW_WHITE_CID}`,
-        arrowLinkImgSrc: `cid:${WELCOME_ARROW_LINK_CID}`,
-      },
-      inlineImages,
-    };
-  }
-
-  if (assetBase) {
-    return {
-      template: {
-        frontendUrl: front,
-        heroImgSrc: `${assetBase}/assets/email/welcome-hero-composite.png`,
-        heroComposite: true,
-        arrowWhiteImgSrc: `${assetBase}/assets/email/welcome-arrow-white.png`,
-        arrowLinkImgSrc: `${assetBase}/assets/email/welcome-arrow-link.png`,
-      },
-    };
-  }
-
-  throw new Error(
-    'Welcome email image assets missing locally and no HTTPS public asset base URL configured',
-  );
-}
 
 async function main() {
-  const email = process.argv[2]?.trim().toLowerCase();
+  const args = process.argv.slice(2);
+  const sendToAny = args.includes('--any');
+  const inlineCid = args.includes('--inline-cid');
+  const email = args.find((a) => !CLI_FLAGS.has(a))?.trim().toLowerCase();
   if (!email) {
-    throw new Error('Usage: resend-welcome-email.ts <email>');
+    throw new Error(
+      'Usage: resend-welcome-email.ts <email> [--any] [--inline-cid]',
+    );
   }
 
   const configService = new ConfigService(process.env);
@@ -93,6 +62,26 @@ async function main() {
   }
   if (!mail.hasGmailCredentials()) {
     throw new Error('GMAIL_* credentials not configured');
+  }
+
+  const sendOnce = async () => {
+    const { template, inlineImages } = await resolveWelcomeEmailContent(mail, {
+      imageDelivery: inlineCid ? 'inline' : 'https',
+    });
+    const { subject, plain, html } = buildWelcomeEmailMessage(template);
+    const messageId = await mail.send(
+      { to: email, subject, plain, html, inlineImages },
+      { boundaryPrefix: 'tk_welcome', fromEnvKey: FROM_ENV },
+    );
+    const mode = inlineCid ? 'inline-cid' : 'https';
+    console.log(
+      `Welcome email sent to=${email} mode=${mode} messageId=${messageId}`,
+    );
+  };
+
+  if (sendToAny) {
+    await sendOnce();
+    return;
   }
 
   const pg = new Client({
@@ -110,7 +99,7 @@ async function main() {
   );
   const row = found.rows[0];
   if (!row) {
-    throw new Error(`No user with email ${email}`);
+    throw new Error(`No user with email ${email} (use --any for QA without a users row)`);
   }
 
   await pg.query(`UPDATE users SET welcome_email_sent_at = NULL WHERE id = $1`, [row.id]);
@@ -126,13 +115,7 @@ async function main() {
   }
 
   try {
-    const { template, inlineImages } = await resolveWelcomeContent(mail);
-    const { subject, plain, html } = buildWelcomeEmailMessage(template);
-    const messageId = await mail.send(
-      { to: email, subject, plain, html, inlineImages },
-      { boundaryPrefix: 'tk_welcome', fromEnvKey: FROM_ENV },
-    );
-    console.log(`Welcome email sent to ${email} messageId=${messageId}`);
+    await sendOnce();
   } catch (e) {
     await pg.query(`UPDATE users SET welcome_email_sent_at = NULL WHERE id = $1`, [row.id]);
     throw e;

@@ -203,12 +203,18 @@ export function PortfolioPageView({
   );
 
   const chainId = activeRqChainId();
+  const historyTabActive = portfolioMainTab === "history";
+  const bidsTabActiveEarly = portfolioMainTab === "bids";
+
   const activityQuery = useQuery({
     queryKey: rq.portfolioActivity(portfolioAddress ?? "", chainId),
     queryFn: () => getPortfolioActivityOrders(portfolioAddress!),
-    enabled: portfolioDataEnabled && Boolean(portfolioAddress?.trim()),
+    enabled:
+      portfolioDataEnabled &&
+      Boolean(portfolioAddress?.trim()) &&
+      historyTabActive,
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: historyTabActive ? 60_000 : false,
     refetchIntervalInBackground: false,
   });
 
@@ -233,10 +239,13 @@ export function PortfolioPageView({
     listingCollectionKeyByToken,
   });
 
+  const secondaryPortfolioFetchReady =
+    portfolioDataEnabled && !assetsPage.idsLoading && !assetsPage.valuesPending;
+
   const kbwMysteryQuery = useQuery({
     queryKey: rq.kbwMysteryCard(portfolioAddress ?? ""),
     queryFn: () => fetchKbwMysteryCardStatus(portfolioAddress!),
-    enabled: portfolioDataEnabled && Boolean(portfolioAddress),
+    enabled: secondaryPortfolioFetchReady && Boolean(portfolioAddress),
     staleTime: 30_000,
   });
   const kbwMysteryBurned = kbwMysteryQuery.data?.burned === true;
@@ -318,7 +327,12 @@ export function PortfolioPageView({
       activeRqChainId(),
     ),
     queryFn: () => postRwaMetadataBatchBatched(activityTokenIds),
-    enabled: Boolean(portfolioDataEnabled && portfolioAddress && activityTokenIds.length > 0),
+    enabled: Boolean(
+      portfolioDataEnabled &&
+        portfolioAddress &&
+        historyTabActive &&
+        activityTokenIds.length > 0,
+    ),
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
   });
 
@@ -386,7 +400,10 @@ export function PortfolioPageView({
     refetchActiveOrders,
   });
 
-  const myBids = usePortfolioMyBids(portfolioDataEnabled ? portfolioAddress : undefined);
+  const myBids = usePortfolioMyBids(
+    portfolioAddress,
+    portfolioDataEnabled && bidsTabActiveEarly,
+  );
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
     bidsAddress: portfolioAddress,
@@ -394,7 +411,7 @@ export function PortfolioPageView({
     refetchActiveOrders,
   });
 
-  const bidsTabActive = portfolioMainTab === "bids";
+  const bidsTabActive = bidsTabActiveEarly;
 
   const topBidCollectionKeys = useMemo(() => {
     const seen = new Set<string>();
@@ -745,6 +762,7 @@ export function PortfolioPageView({
   const { dailyPnlUsd, dailyPnlPct } = usePortfolioDailyChart(
     portfolioAddress,
     portfolioDataEnabled,
+    secondaryPortfolioFetchReady,
   );
 
   /** Live mark-to-market — sum of priced visible rows; null when none priced yet. */
@@ -776,7 +794,9 @@ export function PortfolioPageView({
 
   const bidsSectionLoading = myBids.loading;
   const historySectionLoading =
-    idsLoading || activityQuery.isLoading || myRedemptionsQuery.isLoading;
+    historyTabActive &&
+    (activityQuery.isLoading ||
+      (activityTokenIds.length > 0 && activityMetaQuery.isLoading));
 
   const portfolioViewedFiredRef = useRef(false);
   useEffect(() => {

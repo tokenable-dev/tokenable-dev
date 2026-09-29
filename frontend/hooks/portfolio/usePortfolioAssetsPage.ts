@@ -35,6 +35,7 @@ import type { RwaMetadata } from "@/lib/core";
 import {
   PORTFOLIO_ASSETS_FIRST_PAINT,
   PORTFOLIO_ASSETS_PAGE_MAX,
+  PORTFOLIO_BOOTSTRAP_STALE_MS,
 } from "@/lib/core/api/portfolio-assets-page";
 
 const EMPTY_MINT: Record<number, CollectionMarketPreview | undefined> = {};
@@ -173,11 +174,12 @@ export function usePortfolioAssetsPage(input: {
     queryFn: () =>
       postPortfolioAssetsPage({
         walletAddress: address!,
-        ownedIdsOnly: true,
+        bootstrapFirstPage: true,
       }),
     enabled: Boolean(address && enabled),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: PORTFOLIO_BOOTSTRAP_STALE_MS,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     retry: 2,
   });
 
@@ -199,6 +201,26 @@ export function usePortfolioAssetsPage(input: {
       readPortfolioBundle(address ?? "", chainId)?.holdings,
     );
     setOwnedTokenIds([...new Set([...serverIds, ...paintedBuys])]);
+
+    const bootstrapItems = ownedIdsData.metadataItems ?? [];
+    if (bootstrapItems.length > 0) {
+      const returnedIds = new Set(
+        bootstrapItems.map((it) => Number(it.tokenId)),
+      );
+      for (const id of returnedIds) {
+        if (Number.isFinite(id)) fetchedTokenIdsRef.current.add(id);
+      }
+      primeRwaMetadataCache(
+        chainId,
+        bootstrapItems.map((it) => ({
+          tokenId: it.tokenId,
+          metadata: it.metadata,
+          imageUrl: it.imageUrl,
+        })),
+      );
+      setAccumulated((prev) => mergePageIntoAccumulated(prev, ownedIdsData));
+    }
+
     setFetchGeneration((g) => g + 1);
   }, [ownedIdsFetched, ownedIdsSuccess, ownedIdsError, ownedIdsData, ownedTokenIds.length, address, chainId]);
 
@@ -212,12 +234,19 @@ export function usePortfolioAssetsPage(input: {
   }, [loadedTokenIds, fetchGeneration]);
 
   const holdingsLiveIds = loadedTokenIds;
+  const holdingsMissingForLoaded = useMemo(() => {
+    return holdingsLiveIds.some(
+      (id) => !accumulated.holdingsByToken.has(id),
+    );
+  }, [holdingsLiveIds, accumulated.holdingsByToken]);
+
   const { data: holdingsLive } = useQuery({
     queryKey: rq.portfolioHoldings(address ?? "", holdingsLiveIds, chainId),
     queryFn: () => postPortfolioHoldingsBatch(address!, holdingsLiveIds),
     enabled:
       Boolean(address && enabled) &&
       holdingsLiveIds.length > 0 &&
+      holdingsMissingForLoaded &&
       ownedIdsFetched &&
       ownedIdsSuccess,
     staleTime: 0,
@@ -465,14 +494,12 @@ export function usePortfolioAssetsPage(input: {
     unmatchedTokenIds.length > 0 &&
     (mintPreviewFetching || !mintPreviewFetched);
 
+  /** BFF metadata/keys only — mint preview refines prices in the background. */
   const valuesPending =
     Boolean(address) &&
     enabled &&
     loadedTokenIds.length > 0 &&
-    (isFetching ||
-      pendingTokenIds.length > 0 ||
-      !serverKeysReady ||
-      mintPreviewsPending);
+    (isFetching || pendingTokenIds.length > 0 || !serverKeysReady);
 
   /** Section skeleton only until owned token ids are known; cards fill in-place. */
   const isLoading = false;
@@ -534,5 +561,6 @@ export function usePortfolioAssetsPage(input: {
     loadMoreAssets,
     isLoadingMoreAssets,
     applyCostBasis,
+    mintPreviewsPending,
   };
 }

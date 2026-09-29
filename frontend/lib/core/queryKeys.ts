@@ -303,7 +303,12 @@ export const rq = {
     ] as const,
   /** DB bootstrap — wallet-only first load (no client tokenId list). */
   portfolioAssetsPageBootstrap: (addr: string, chainId: number) =>
-    ["portfolio-assets-page-bootstrap", addr.toLowerCase(), chainId] as const,
+    [
+      "portfolio-assets-page-bootstrap",
+      "v2-first-page",
+      addr.toLowerCase(),
+      chainId,
+    ] as const,
 
   // ── Media ──────────────────────────────────────────────────────────────────
 

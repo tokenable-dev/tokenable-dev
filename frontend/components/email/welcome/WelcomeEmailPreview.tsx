@@ -4,7 +4,7 @@ import Link from "next/link";
 function FeatureIconBox({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#1A1E28]"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] bg-white/[0.05]"
       aria-hidden
     >
       {children}
@@ -22,13 +22,15 @@ function FeatureRow({
   body: string;
 }) {
   return (
-    <div className="flex gap-2.5 rounded-xl bg-[#12151C] px-4 py-3.5">
+    <div className="flex items-center gap-3.5 rounded-xl bg-[#101016] py-4 pl-0 pr-4">
       <FeatureIconBox>{icon}</FeatureIconBox>
       <div className="min-w-0">
-        <p className="m-0 text-[15px] font-extrabold leading-[1.35] text-white">
+        <p className="m-0 text-base font-bold leading-[1.35] text-white sm:text-[14.5px]">
           {title}
         </p>
-        <p className="m-0 mt-1 text-sm leading-[1.35] text-white/70">{body}</p>
+        <p className="m-0 mt-0.5 text-[15px] leading-normal text-[rgba(233,238,251,0.55)] sm:text-[13.5px]">
+          {body}
+        </p>
       </div>
     </div>
   );
@@ -147,11 +149,11 @@ const settleIcon = (
 export function WelcomeEmailPreview() {
   return (
     <div
-      className="flex min-h-screen w-full flex-col items-center bg-[#04060F] px-3 py-7 sm:px-6 md:px-[204px]"
+      className="flex min-h-screen w-full flex-col items-center bg-[#04060F] px-3 py-7"
       style={{ maxWidth: "100%", margin: "0 auto" }}
     >
       <article
-        className="w-full max-w-[601.82px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0D0F16]"
+        className="w-full max-w-[600px] overflow-hidden border border-white/[0.08] bg-[#0D0F16]"
       >
         <div className="w-full overflow-hidden bg-[#0d0f16] leading-[0]">
           <Image
@@ -165,8 +167,8 @@ export function WelcomeEmailPreview() {
           />
         </div>
 
-        <div className="flex w-full flex-col items-start bg-[#0D0F16] px-[30px] pb-2 pt-7">
-          <p className="m-0 mb-4 text-base font-extrabold leading-tight text-white">
+        <div className="flex w-full flex-col items-start bg-[#0D0F16] px-[30px] pb-1 pt-7">
+          <p className="m-0 mb-3.5 text-[17px] font-extrabold leading-tight text-white sm:text-base">
             What Tokenable provides everyone
           </p>
           <div className="flex w-full flex-col gap-3">
@@ -188,10 +190,10 @@ export function WelcomeEmailPreview() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center bg-[#0D0F16] px-[30px] pb-7 pt-6 text-center">
+        <div className="flex flex-col items-center bg-[#0D0F16] px-[30px] pb-2 pt-[26px] text-center">
           <a
             href="https://app.tokenable.io/markets"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2175FF] px-7 py-3.5 text-[15px] font-bold leading-tight text-white no-underline"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A6FFF] px-7 py-3.5 text-[15px] font-bold leading-tight text-white no-underline"
           >
             Browse markets
             <Image
@@ -203,11 +205,11 @@ export function WelcomeEmailPreview() {
               aria-hidden
             />
           </a>
-          <p className="m-0 mb-4 mt-4 whitespace-nowrap text-center text-sm leading-snug text-white/75">
+          <p className="m-0 mt-5 whitespace-nowrap text-center text-[13px] leading-normal text-[rgba(233,238,251,0.5)]">
             New to Tokenable?{" "}
             <Link
               href="/#home-features"
-              className="inline-flex items-center gap-0.5 font-semibold text-[#8BB4FF] no-underline"
+              className="inline-flex items-center gap-0.5 font-semibold text-[#5B9AFF] no-underline"
             >
               See how it works
               <Image
@@ -220,30 +222,30 @@ export function WelcomeEmailPreview() {
               />
             </Link>
           </p>
-          <p className="m-0 text-sm font-semibold text-white/75">
+          <p className="m-0 mt-4 text-sm text-[rgba(233,238,251,0.76)]">
             The Tokenable team
           </p>
         </div>
 
-        <footer className="border-t border-white/12 bg-[#0D0F16] px-6 pb-7 pt-4 text-center text-xs leading-relaxed text-white/45">
+        <footer className="border-t border-white/[0.08] bg-[#0D0F16] px-[30px] pb-[26px] pt-[22px] text-center text-xs leading-[1.8] text-[rgba(233,238,251,0.5)]">
           <Link
             href="/settings?section=notifications"
-            className="text-white/55 underline"
+            className="text-[rgba(233,238,251,0.72)] underline"
           >
             Manage email preferences
           </Link>
           {" · "}
-          <Link href="/unsubscribe" className="text-white/55 underline">
+          <Link href="/unsubscribe" className="text-[rgba(233,238,251,0.72)] underline">
             Unsubscribe
           </Link>
           {" · "}
-          <a href="https://tokenable.io" className="text-white/55 underline">
+          <a href="https://tokenable.io" className="text-[rgba(233,238,251,0.72)] underline">
             tokenable.io
           </a>
           {" · "}
           <a
             href="https://www.instagram.com/tokenable_io"
-            className="text-white/55 underline"
+            className="text-[rgba(233,238,251,0.72)] underline"
           >
             Instagram
           </a>

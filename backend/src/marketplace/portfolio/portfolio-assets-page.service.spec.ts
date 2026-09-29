@@ -181,6 +181,41 @@ describe('PortfolioAssetsPageService', () => {
     expect(rwaAssetResolve.batchPortfolioMetadata).not.toHaveBeenCalled();
   });
 
+  it('bootstrapFirstPage returns owned ids and first paint without full on-chain scan', async () => {
+    rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
+      items: [
+        {
+          tokenId: 42,
+          tokenURI: null,
+          metadata: null,
+          imageUrl: null,
+          imageBackUrl: null,
+        },
+      ],
+      metaSource: { db: 1, ipfs: 0, onChain: 0, empty: 0 },
+      needsHeal: [],
+    });
+    portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
+    collectionService.collectionKeysByTokenIds.mockResolvedValue({});
+    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
+
+    const result = await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      undefined,
+      undefined,
+      { bootstrapFirstPage: true },
+    );
+
+    expect(result.ownedTokenIds).toEqual([42, 41]);
+    expect(result.metadataItems).toHaveLength(1);
+    expect(blockchain.listTokenIdsOwnedOnChain).not.toHaveBeenCalled();
+    expect(rwaAssetResolve.batchPortfolioMetadata).toHaveBeenCalledWith(
+      [42, 41],
+      11155111,
+    );
+  });
+
   it('loads first page from DB when tokenIds omitted', async () => {
     rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
       items: [],

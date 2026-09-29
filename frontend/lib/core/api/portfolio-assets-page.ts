@@ -11,6 +11,9 @@ export const PORTFOLIO_ASSETS_PAGE_MAX = 50;
 /** First My Assets metadata batch — smaller than max so cold paint finishes sooner. */
 export const PORTFOLIO_ASSETS_FIRST_PAINT = 24;
 
+/** Reuse bootstrap BFF within a session — invalidation still runs after mint/buy/sell. */
+export const PORTFOLIO_BOOTSTRAP_STALE_MS = 45_000;
+
 export type PortfolioAssetsPageMetadataItem = {
   tokenId: number;
   tokenURI: string | null;
@@ -37,6 +40,8 @@ export async function postPortfolioAssetsPage(body: {
   tokenIds?: number[];
   /** Fast path: ownedTokenIds only (no metadata / market). */
   ownedIdsOnly?: boolean;
+  /** Cold visit: ownedTokenIds + first paint page in one round-trip. */
+  bootstrapFirstPage?: boolean;
 }): Promise<PortfolioAssetsPageResponse> {
   const tokenIds = [
     ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
@@ -52,6 +57,7 @@ export async function postPortfolioAssetsPage(body: {
     walletAddress: string;
     tokenIds?: number[];
     ownedIdsOnly?: boolean;
+    bootstrapFirstPage?: boolean;
   } = {
     walletAddress: body.walletAddress,
   };
@@ -60,6 +66,9 @@ export async function postPortfolioAssetsPage(body: {
   }
   if (body.ownedIdsOnly) {
     payload.ownedIdsOnly = true;
+  }
+  if (body.bootstrapFirstPage) {
+    payload.bootstrapFirstPage = true;
   }
 
   const res = await backendFetch(

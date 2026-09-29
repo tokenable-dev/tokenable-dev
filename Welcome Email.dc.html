@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#05060c">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#05060c"/>
+    <rect x="330" y="150" width="540" height="360" rx="10" fill="#0d0f16" stroke="#1A6FFF" stroke-width="6"/>
+    <rect x="380" y="210" width="240" height="26" rx="4" fill="#1A6FFF"/>
+    <rect x="380" y="270" width="440" height="34" rx="4" fill="#e9eefb"/>
+    <rect x="380" y="320" width="360" height="34" rx="4" fill="#e9eefb"/>
+    <rect x="380" y="430" width="200" height="52" fill="#1A6FFF"/>
+  </svg>
+</template>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/tokens/fig-tokens.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/tokens/fig-typography.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/tokens/base.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/tokens/icons.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/components/components.css">
+  <link rel="stylesheet" href="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/styles.css">
+  <script src="_ds/tokenable-design-system-8d023b46-4eb2-4022-bd35-04949d53a7b1/_ds_bundle.js"></script>
+  <style>
+    @keyframes tkFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    @keyframes tkSpark { 0%,100% { opacity:.25; transform: scale(.85); } 50% { opacity:1; transform: scale(1.1); } }
+  </style>
+</helmet>
+<div style="background:#04060f;padding:28px 12px;font-family:Inter,Helvetica,Arial,sans-serif;min-height:100%;">
+  <div style="max-width:600px;width:100%;margin:0 auto;background:#0d0f16;border:1px solid rgba(255,255,255,.08);overflow:hidden;">
+
+    <!-- ============ HERO ============ -->
+    <div style="position:relative;overflow:hidden;min-height:330px;display:flex;flex-direction:column;justify-content:space-between;background:#05060c;background-image:url('assets/lib/hero-vault.png');background-size:cover;background-position:center;">
+      <!-- legibility scrim -->
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,7,15,.62) 0%,rgba(5,7,15,.05) 30%,rgba(5,7,15,.35) 62%,rgba(13,15,22,.94) 100%);pointer-events:none;"></div>
+
+      <!-- top bar -->
+      <div style="position:relative;display:flex;align-items:center;padding:22px 28px 0;">
+        <img src="assets/tokenable-logo.svg" alt="TOKENABLE" style="display:block;height:56px;width:auto;filter:drop-shadow(0 3px 10px rgba(0,0,0,.7));">
+      </div>
+
+      <!-- headline block -->
+      <div style="position:relative;padding:30px 30px 26px;">
+        <div style="font-weight:800;color:#fff;font-size:38px;line-height:1.1;letter-spacing:-1px;text-shadow:0 2px 16px rgba(0,0,0,.6);margin-bottom:12px;">Welcome</div>
+        <div style="color:rgba(255,255,255,.8);font-size:15px;line-height:1.5;text-shadow:0 1px 10px rgba(0,0,0,.55);">The safest and fastest way to trade collectibles.</div>
+      </div>
+    </div>
+
+    <!-- ============ BODY ============ -->
+    <div style="padding:28px 30px 4px;">
+      <p style="margin:0 0 14px;color:#fff;font-size:16px;font-weight:800;">What Tokenable provides everyone</p>
+
+      <!-- feature rows -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:14px;background:#101016;border-radius:12px;padding:16px 16px 16px 0;">
+          <span style="flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.05);color:#e9eefb;"><x-import component-from-global-scope="TokenableDesignSystem_8d023b.Icon" name="shield-check" size="22" color="#e9eefb" hint-size="22px,22px"></x-import></span>
+          <div style="min-width:0;"><div style="color:#fff;font-size:14.5px;font-weight:700;margin-bottom:2px;">Authentication</div><div style="color:rgba(233,238,251,.55);font-size:13.5px;line-height:1.5;">Only verified PSA and BGS 10 graded cards.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;background:#101016;border-radius:12px;padding:16px 16px 16px 0;">
+          <span style="flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.05);color:#e9eefb;"><x-import component-from-global-scope="TokenableDesignSystem_8d023b.Icon" name="vault" size="22" color="#e9eefb" hint-size="22px,22px"></x-import></span>
+          <div style="min-width:0;"><div style="color:#fff;font-size:14.5px;font-weight:700;margin-bottom:2px;">Vaulting</div><div style="color:rgba(233,238,251,.55);font-size:13.5px;line-height:1.5;">All graded cards are vaulted with either PSA or Tokenable partner vaults.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;background:#101016;border-radius:12px;padding:16px 16px 16px 0;">
+          <span style="flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.05);color:#e9eefb;"><x-import component-from-global-scope="TokenableDesignSystem_8d023b.Icon" name="lightning" size="22" color="#e9eefb" hint-size="22px,22px"></x-import></span>
+          <div style="min-width:0;"><div style="color:#fff;font-size:14.5px;font-weight:700;margin-bottom:2px;">Instant settlement</div><div style="color:rgba(233,238,251,.55);font-size:13.5px;line-height:1.5;">Sellers get paid instantly with on-chain transactions.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;padding:26px 30px 8px;">
+      <a href="https://tokenable.io/markets" class="tk-btn tk-btn--primary tk-btn--md" style="text-decoration:none;">Browse markets&nbsp;&nbsp;↗</a>
+    </div>
+
+    <!-- secondary -->
+    <div style="padding:20px 30px 24px;text-align:center;">
+      <p style="margin:0;color:rgba(233,238,251,.5);font-size:13px;line-height:1.6;">New to Tokenable? <a href="https://tokenable.io/how-it-works" style="color:#5b9aff;text-decoration:none;">See how it works ↗</a></p>
+      <p style="margin:16px 0 0;color:rgba(233,238,251,.76);font-size:14px;">The Tokenable team</p>
+    </div>
+
+    <div style="padding:22px 30px 26px;border-top:1px solid rgba(255,255,255,.08);text-align:center;">
+      <p style="margin:0;color:rgba(233,238,251,.5);font-size:12px;line-height:1.8;"><a href="{{ preferences_url }}" style="color:rgba(233,238,251,.72);text-decoration:underline;">Manage email preferences</a> · <a href="{{ unsubscribe_url }}" style="color:rgba(233,238,251,.72);text-decoration:underline;">Unsubscribe</a> · <a href="https://www.tokenable.io" style="color:rgba(233,238,251,.72);text-decoration:underline;">tokenable.io</a> · <a href="https://www.instagram.com/tokenable_io" style="color:rgba(233,238,251,.72);text-decoration:underline;">Instagram</a></p>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

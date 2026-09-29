@@ -15,6 +15,9 @@ import { SWAGGER_FIXTURES } from '../../../swagger/fixtures';
 /** Matches frontend `PORTFOLIO_ASSETS_PAGE_SIZE`. */
 export const PORTFOLIO_ASSETS_PAGE_MAX = 50;
 
+/** Matches frontend `PORTFOLIO_ASSETS_FIRST_PAINT` — cold bootstrap page size. */
+export const PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT = 24;
+
 export class PortfolioAssetsPageDto {
   @ApiProperty({ description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @IsString()
@@ -43,4 +46,13 @@ export class PortfolioAssetsPageDto {
   @IsOptional()
   @IsBoolean()
   ownedIdsOnly?: boolean;
+
+  @ApiProperty({
+    description:
+      'true면 ownedTokenIds + 첫 24장 메타/시장/holdings를 한 응답에 포함 (cold My Assets 1-RTT).',
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  bootstrapFirstPage?: boolean;
 }

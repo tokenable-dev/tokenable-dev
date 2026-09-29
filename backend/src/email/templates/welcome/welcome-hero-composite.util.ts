@@ -31,8 +31,8 @@ function heroCopyOverlaySvg(): Buffer {
     </linearGradient>
   </defs>
   <rect width="${HERO_W}" height="${HERO_H}" fill="url(#heroFade)"/>
-  <text x="${PAD}" y="262" fill="#FFFFFF" font-family="Inter,Arial,Helvetica,sans-serif" font-size="40" font-weight="800" letter-spacing="-0.02em">Welcome</text>
-  <text x="${PAD}" y="296" fill="rgba(255,255,255,0.88)" font-family="Inter,Arial,Helvetica,sans-serif" font-size="17" font-weight="500">${tagline}</text>
+  <text x="${PAD}" y="258" fill="#FFFFFF" font-family="Inter,Arial,Helvetica,sans-serif" font-size="38" font-weight="800" letter-spacing="-1">Welcome</text>
+  <text x="${PAD}" y="288" fill="rgba(255,255,255,0.80)" font-family="Inter,Arial,Helvetica,sans-serif" font-size="15" font-weight="400">${tagline}</text>
 </svg>`,
     'utf8',
   );

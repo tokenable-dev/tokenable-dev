@@ -192,12 +192,10 @@ export class PortfolioController {
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const chainId = this.chainConfig.resolveChainId(chainHeader);
-    return this.portfolioAssetsPage.loadPage(
-      body.walletAddress,
-      body.tokenIds,
-      chainId,
-      Boolean(body.ownedIdsOnly),
-    );
+    return this.portfolioAssetsPage.loadPage(body.walletAddress, body.tokenIds, chainId, {
+      ownedIdsOnly: Boolean(body.ownedIdsOnly),
+      bootstrapFirstPage: Boolean(body.bootstrapFirstPage),
+    });
   }
 
   /** User manual cost basis edit — never overwritten by auto seed */

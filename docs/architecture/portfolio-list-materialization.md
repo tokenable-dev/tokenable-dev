@@ -59,6 +59,7 @@ Do **not** call upstream APIs once per user request for asset lists. That fans o
 |------|------|
 | `ownedIdsOnly` | DB owner index only |
 | `batchPortfolioMetadata` (assets-page) | Tile `imageUrl` = `display_image_url` when set (same as certificate), even if `token_uri`/IPFS drifts; metadata title/cert may heal from on-chain |
+| Cold My Assets bootstrap | `POST …/assets-page` with `bootstrapFirstPage: true` — `ownedTokenIds` + first 24 rows in **one** response; skips full-supply `ownerOf` scan (DB + per-id verify only); on-chain union heals in background |
 | Listed badge | Active `orders` ASK for tokenId |
 | List mark USD | Snapshot series first; mint-preview only when snapshot cannot price that token |
 | Detail / certificate | May resolve full graded JSON from `token_uri` |

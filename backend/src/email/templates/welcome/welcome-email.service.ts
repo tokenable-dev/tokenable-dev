@@ -5,12 +5,7 @@ import { isWalletOnlyPlaceholderEmail } from '../../../auth/privy/privy-user.par
 import { User } from '../../../user/entities/user.entity';
 import { TransactionalEmailService } from '../../transactional-email.service';
 import type { EmailInlineImage } from '../../types';
-import {
-  WELCOME_ARROW_LINK_CID,
-  WELCOME_ARROW_WHITE_CID,
-  WELCOME_HERO_CID,
-  tryLoadWelcomeCompositeInlineImages,
-} from './welcome.assets';
+import { resolveWelcomeEmailContent } from './welcome.assets';
 import {
   buildWelcomeEmailMessage,
   type WelcomeEmailTemplateInput,
@@ -18,8 +13,6 @@ import {
 
 const ENABLED_ENV = 'WELCOME_EMAIL_ENABLED';
 const FROM_ENV = 'WELCOME_EMAIL_FROM';
-const PUBLIC_ASSET_ENV = 'WELCOME_EMAIL_PUBLIC_ASSET_BASE_URL';
-
 @Injectable()
 export class WelcomeEmailService {
   private readonly logger = new Logger(WelcomeEmailService.name);
@@ -34,48 +27,30 @@ export class WelcomeEmailService {
     template: WelcomeEmailTemplateInput;
     inlineImages?: EmailInlineImage[];
   }> {
-    const front = this.mail.frontendUrl();
-    const assetBase =
-      this.mail.httpsPublicAssetBase(PUBLIC_ASSET_ENV) ??
-      this.mail.httpsPublicAssetBase();
-    const inlineImages = await tryLoadWelcomeCompositeInlineImages();
-
-    if (inlineImages) {
-      return {
-        template: {
-          frontendUrl: front,
-          heroImgSrc: `cid:${WELCOME_HERO_CID}`,
-          heroComposite: true,
-          arrowWhiteImgSrc: `cid:${WELCOME_ARROW_WHITE_CID}`,
-          arrowLinkImgSrc: `cid:${WELCOME_ARROW_LINK_CID}`,
-        },
-        inlineImages,
-      };
-    }
-
-    if (assetBase) {
-      return {
-        template: {
-          frontendUrl: front,
-          heroImgSrc: `${assetBase}/assets/email/welcome-hero-composite.png`,
-          heroComposite: true,
-          arrowWhiteImgSrc: `${assetBase}/assets/email/welcome-arrow-white.png`,
-          arrowLinkImgSrc: `${assetBase}/assets/email/welcome-arrow-link.png`,
-        },
-      };
-    }
-
-    throw new Error(
-      'Welcome email image assets missing locally and WELCOME_EMAIL_PUBLIC_ASSET_BASE_URL (or TRANSACTIONAL_EMAIL_PUBLIC_ASSET_BASE_URL) is not set to an https URL',
-    );
+    return resolveWelcomeEmailContent(this.mail);
   }
 
-  /** Fire-and-forget from Privy session when a brand-new `users` row was inserted. */
+  /** Fire-and-forget when a brand-new `users` row is inserted with a real inbox. */
   async sendForNewRegistration(
     user: User,
     isNewRegistration: boolean,
   ): Promise<void> {
     if (!isNewRegistration) return;
+    await this.trySendWelcomeEmail(user);
+  }
+
+  /**
+   * Wallet-only (`@privy.wallet`) accounts that add a contact email via `PATCH /auth/profile`.
+   */
+  async sendForContactEmailLinked(
+    user: User,
+    previousEmail: string,
+  ): Promise<void> {
+    if (!isWalletOnlyPlaceholderEmail(previousEmail)) return;
+    await this.trySendWelcomeEmail(user);
+  }
+
+  private async trySendWelcomeEmail(user: User): Promise<void> {
     if (!this.mail.isEnvFlagEnabled(ENABLED_ENV)) return;
     if (!this.mail.hasGmailCredentials()) {
       this.logger.warn(

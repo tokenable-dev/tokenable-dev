@@ -61,12 +61,15 @@ function buildPortfolioBidRows(orders: OrderListItem[]): PortfolioBidRow[] {
     });
 }
 
-export function usePortfolioMyBids(address: string | undefined) {
+export function usePortfolioMyBids(
+  address: string | undefined,
+  queryEnabled = true,
+) {
   const chainId = activeRqChainId();
   const bidsQuery = useQuery({
     queryKey: rq.portfolioBids(address ?? "", chainId),
     queryFn: () => getCollectionBidsByOfferer(address!),
-    enabled: Boolean(address?.trim()),
+    enabled: Boolean(address?.trim()) && queryEnabled,
     staleTime: 30_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,

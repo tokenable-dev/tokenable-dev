@@ -103,7 +103,7 @@ export class User {
     market: boolean;
   };
 
-  /** One-time welcome email after first Privy registration (real inbox only). */
+  /** One-time welcome email (Privy signup with real inbox, or first contact email after `@privy.wallet`). */
   @Column({ name: 'welcome_email_sent_at', type: 'timestamptz', nullable: true })
   welcomeEmailSentAt: Date | null;
 
