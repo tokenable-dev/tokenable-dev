@@ -24,7 +24,7 @@ function externalArrowImg(src: string, inline = false): string {
 }
 
 const HERO_IMG_STYLE =
-  'display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;';
+  'display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;';
 
 /**
  * DC `Welcome Email.dc.html` is 600px-wide artboard (14.5/13.5px body).
@@ -33,12 +33,28 @@ const HERO_IMG_STYLE =
 const WELCOME_EMAIL_HEAD_STYLES = `
   <style type="text/css">
     :root { color-scheme: light only; supported-color-schemes: light; }
-    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; background-color: ${TK_CARD_BG} !important; background: ${TK_CARD_BG} !important; }
-    table.tk-welcome-outer { width: 100% !important; min-width: 100% !important; margin: 0 !important; padding: 0 !important; background-color: ${TK_CARD_BG} !important; }
-    img.tk-welcome-hero { width: 100% !important; max-width: 100% !important; height: auto !important; }
-    .tk-welcome-card { width: 100% !important; max-width: 100% !important; margin: 0 !important; background-color: ${TK_CARD_BG} !important; }
-    .tk-welcome-shell-pad { padding: 0 !important; margin: 0 !important; background-color: ${TK_CARD_BG} !important; }
+    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; background-color: #F3F4F6 !important; background: #F3F4F6 !important; }
+    table.tk-welcome-outer { width: 100% !important; min-width: 100% !important; margin: 0 !important; padding: 0 !important; background-color: #F3F4F6 !important; }
+    img.tk-welcome-hero { display: block !important; width: 100% !important; max-width: 600px !important; height: auto !important; }
+    .tk-welcome-card { width: 100% !important; max-width: 600px !important; margin: 0 auto !important; background-color: ${TK_CARD_BG} !important; }
+    .tk-welcome-shell-pad { padding: 32px 24px !important; margin: 0 auto !important; background-color: #F3F4F6 !important; }
+    @media only screen and (min-width: 621px) {
+      .tk-welcome-section-pad { padding-left: 32px !important; padding-right: 32px !important; }
+      .tk-welcome-section-title { font-size: 16px !important; }
+      .tk-welcome-feature-title { font-size: 14.5px !important; }
+      .tk-welcome-feature-body { font-size: 13.5px !important; line-height: 1.45 !important; }
+      .tk-welcome-cta-text { font-size: 15px !important; }
+      .tk-welcome-cta a { padding: 12px 24px !important; font-size: 15px !important; }
+      .tk-welcome-secondary { font-size: 13.5px !important; }
+      .tk-welcome-team { font-size: 14px !important; }
+      .tk-welcome-footer { font-size: 12px !important; line-height: 1.65 !important; }
+    }
     @media only screen and (max-width: 620px) {
+      html, body { background-color: ${TK_CARD_BG} !important; background: ${TK_CARD_BG} !important; }
+      table.tk-welcome-outer { background-color: ${TK_CARD_BG} !important; }
+      .tk-welcome-shell-pad { padding: 0 !important; background-color: ${TK_CARD_BG} !important; }
+      .tk-welcome-card { max-width: 100% !important; margin: 0 !important; }
+      img.tk-welcome-hero { max-width: 100% !important; }
       .tk-welcome-section-pad { padding-left: 20px !important; padding-right: 20px !important; }
       .tk-welcome-h1 { font-size: 30px !important; line-height: 1.08 !important; }
       .tk-welcome-section-title { font-size: 18px !important; }
@@ -185,11 +201,11 @@ export function buildWelcomeEmailHtml(input: WelcomeEmailTemplateInput): string 
   <title>Welcome to Tokenable</title>
   ${WELCOME_EMAIL_HEAD_STYLES}
 </head>
-<body style="margin:0 !important;padding:0 !important;width:100% !important;min-width:100%;background:${cardBg};" bgcolor="${cardBg}">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="${cardBg}" class="tk-welcome-outer" style="width:100%;min-width:100%;margin:0;padding:0;background:${cardBg};border-collapse:collapse;border-spacing:0;table-layout:fixed;">
+<body style="margin:0 !important;padding:0 !important;width:100% !important;min-width:100%;background:#F3F4F6;" bgcolor="#F3F4F6">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#F3F4F6" class="tk-welcome-outer" style="width:100%;min-width:100%;margin:0;padding:0;background:#F3F4F6;border-collapse:collapse;border-spacing:0;table-layout:fixed;">
     <tr>
-      <td align="left" valign="top" width="100%" class="tk-welcome-shell-pad" style="width:100%;padding:0;margin:0;background:${cardBg};" bgcolor="${cardBg}">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="tk-welcome-card" style="width:100%;max-width:100%;margin:0;background-color:${cardBg};border-collapse:collapse;border-spacing:0;" bgcolor="${cardBg}">
+      <td align="center" valign="top" width="100%" class="tk-welcome-shell-pad" style="width:100%;padding:32px 24px;margin:0;background:#F3F4F6;" bgcolor="#F3F4F6">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="tk-welcome-card" style="width:100%;max-width:600px;margin:0 auto;background-color:${cardBg};border-collapse:collapse;border-spacing:0;" bgcolor="${cardBg}">
           ${buildHeroBlock(input)}
           <tr>
             <td class="tk-welcome-section-pad" style="padding:28px 30px 4px 30px;background:${cardBg};font-family:Inter,Helvetica,Arial,sans-serif;">
