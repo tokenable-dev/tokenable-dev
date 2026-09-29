@@ -426,7 +426,20 @@ export function useTokenOffer(input: {
     }
 
     try {
-      await ensureAccountWalletReady();
+      const readyAddress = await ensureAccountWalletReady();
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[tokenBid] useTokenOffer handleSubmit", {
+          address,
+          readyAddress,
+          chainId,
+          priceInUnits: priceInUnits.toString(),
+          usdcAllowanceFromWagmi: usdcAllowanceRaw?.toString() ?? "(undefined)",
+          usdcBalance: usdcBalRaw?.toString(),
+          counter: counter?.toString(),
+          replaceIsCriteria,
+          isReplaceBid,
+        });
+      }
       setStep(isReplaceBid ? "submitting" : "signing");
       // Re-read after wallet prompts so Valid-for selection is never stale.
       const selectedDurationDays = resolveTokenBidDurationDays(
@@ -482,7 +495,15 @@ export function useTokenOffer(input: {
         }
         return;
       }
-      setErrorMsg(mapWalletError(e).message);
+      const mapped = mapWalletError(e);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[tokenBid] useTokenOffer failed", {
+          mapped,
+          raw: e,
+          rawMessage: e instanceof Error ? e.message : String(e),
+        });
+      }
+      setErrorMsg(mapped.message);
       setStep("error");
     }
   };

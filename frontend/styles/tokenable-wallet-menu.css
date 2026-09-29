@@ -64,6 +64,14 @@
 
 .tk-wallet-dropdown[data-open] {
   display: block;
+  /* GNB 64px + gap under chip (8px) + bottom inset — use full viewport below header */
+  max-height: calc(100vh - 64px - 8px - 12px);
+  max-height: calc(100dvh - 64px - 8px - 12px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
 }
 
 .tk-wallet-user {
