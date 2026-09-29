@@ -13,6 +13,7 @@ import {
   completeKbwPostLoginRedirect,
   isKbwStage2FlowPending,
 } from "@/lib/event/kbwEventLoginRouting";
+import { kbwDebug } from "@/lib/event/kbwEventDebug";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -107,6 +108,24 @@ export function AddEmailRequiredModal() {
     needsEmail &&
     !deferred &&
     Boolean(user);
+
+  useEffect(() => {
+    kbwDebug(open ? "addEmailModal.open" : "addEmailModal.closed", {
+      siteAccessAllowsModals,
+      initialized,
+      needsEmail,
+      deferred,
+      hasUser: Boolean(user),
+      eventStage2: isKbwStage2FlowPending(),
+    });
+  }, [
+    open,
+    siteAccessAllowsModals,
+    initialized,
+    needsEmail,
+    deferred,
+    user?.id,
+  ]);
 
   function dismiss() {
     if (!user?.id) return;

@@ -3,6 +3,7 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
+import { kbwDebug, shortWallet } from "@/lib/event/kbwEventDebug";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
@@ -123,9 +124,22 @@ export async function tryCompleteKbwStage2AfterLogin(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
-  if (!opts.user) return false;
-  if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) return false;
+  if (!isKbwEventActive()) {
+    kbwDebug("tryComplete.skip", { reason: "event_inactive" });
+    return false;
+  }
+  if (!isKbwEventStage2PostLoginActive()) {
+    kbwDebug("tryComplete.skip", { reason: "stage2_not_active" });
+    return false;
+  }
+  if (!opts.user) {
+    kbwDebug("tryComplete.skip", { reason: "no_user" });
+    return false;
+  }
+  if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) {
+    kbwDebug("tryComplete.skip", { reason: "needs_contact_email" });
+    return false;
+  }
   return completeKbwPostLoginRedirect({
     walletAddress: opts.walletAddress,
     push: opts.push,
@@ -140,7 +154,14 @@ export async function completeKbwPostLoginRedirect(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
+  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) {
+    kbwDebug("completeRedirect.skip", {
+      reason: "inactive",
+      eventActive: isKbwEventActive(),
+      stage2Active: isKbwEventStage2PostLoginActive(),
+    });
+    return false;
+  }
 
   const path = await resolveKbwStage2ReturnPath(opts.walletAddress);
   if (path === "/") opts.armKbwOffer();
@@ -152,7 +173,15 @@ export async function completeKbwPostLoginRedirect(opts: {
   const targetPath = path.split("?")[0] || path;
   const here =
     typeof window !== "undefined" ? window.location.pathname : "";
-  if (here !== targetPath) opts.push(path);
+  const willPush = here !== targetPath;
+  kbwDebug("completeRedirect.done", {
+    wallet: shortWallet(opts.walletAddress),
+    path,
+    here,
+    willPush,
+    armedOffer: path === "/",
+  });
+  if (willPush) opts.push(path);
 
   return true;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { kbwDebug } from "@/lib/event/kbwEventDebug";
 import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -18,8 +19,13 @@ export function PrivySignInLauncher() {
 
     launchInFlight.current = true;
     closeSignIn();
+    const returnTo = useAuthUiStore.getState().pendingReturnTo;
+    kbwDebug("signInLauncher", {
+      authenticated,
+      willCallPrivyLogin: !authenticated,
+      returnTo,
+    });
     if (!authenticated) {
-      const returnTo = useAuthUiStore.getState().pendingReturnTo;
       startPrivyLogin(login, { returnTo: returnTo ?? undefined });
     }
     launchInFlight.current = false;

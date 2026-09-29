@@ -21,6 +21,14 @@ const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
 /** Survives remount / mobile viewport hydration so the KBW offer is not dropped. */
 const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
 
+function kbwUiDebug(step: string): void {
+  const flag = process.env.NEXT_PUBLIC_KBW_EVENT_DEBUG?.trim().toLowerCase();
+  if (flag !== "true" && flag !== "1" && flag !== "yes") {
+    if (process.env.NODE_ENV !== "development") return;
+  }
+  console.log(`[KBW] ${step}`);
+}
+
 function readStoredReturnTo(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -167,10 +175,12 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   armKbwOffer: () => {
     writeKbwOfferPending(true);
     set({ kbwOfferPending: true });
+    kbwUiDebug("ui.armKbwOffer");
   },
   clearKbwOffer: () => {
     writeKbwOfferPending(false);
     set({ kbwOfferPending: false });
+    kbwUiDebug("ui.clearKbwOffer");
   },
 
   /** Rehydrate pending offer after remount (OAuth / soft navigation). */
