@@ -32,6 +32,10 @@ Verify the site-access password and set an HttpOnly cookie.
 
 This path is always public (exempt from the gate).
 
+### `GET /api/site-access/status` (Next.js only)
+
+Read-only gate state for the browser (`enabled` / `granted`). Implemented in `frontend/app/api/site-access/status/route.ts`. **Nginx must proxy this path to the frontend container**, not Nest — otherwise clients get `404` and onboarding modals can misbehave. See `nginx/nginx.tls.conf` `location = /api/site-access/status`.
+
 ---
 
 ## Middleware behavior
