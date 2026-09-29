@@ -245,9 +245,9 @@ export class PortfolioController {
   })
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/kbw-mystery-card/:wallet')
-  async getKbwMysteryCardStatus(@Param('wallet') wallet: string) {
-    const burned = await this.kbwMysteryCard.isBurned(wallet);
-    return { burned };
+  async getKbwMysteryCardStatus(@Param('wallet') _wallet: string) {
+    // Deprecated — wallet-wide email union caused false "used". Clients must use …/status/me.
+    return { burned: false };
   }
 
   @ApiOperation({

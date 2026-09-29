@@ -247,14 +247,16 @@ export function PortfolioPageView({
 
   const kbwMysteryQuery = useQuery({
     queryKey: rq.kbwMysteryCard(portfolioAddress ?? "", kbwContactScope),
-    queryFn: () =>
-      fetchKbwMysteryCardStatus(portfolioAddress!, {
-        authenticatedSession: Boolean(user?.id),
-      }),
-    enabled: secondaryPortfolioFetchReady && Boolean(portfolioAddress),
+    queryFn: () => fetchKbwMysteryCardStatus(portfolioAddress!),
+    enabled:
+      secondaryPortfolioFetchReady &&
+      Boolean(portfolioAddress) &&
+      Boolean(kbwContactScope),
     staleTime: 30_000,
   });
-  const kbwMysteryBurned = kbwMysteryQuery.data?.burned === true;
+  /** Unused until real contact email + explicit portfolio burn (`POST …/burn`). */
+  const kbwMysteryBurned =
+    Boolean(kbwContactScope) && kbwMysteryQuery.data?.burned === true;
   const [kbwBurnModalOpen, setKbwBurnModalOpen] = useState(false);
 
   const {

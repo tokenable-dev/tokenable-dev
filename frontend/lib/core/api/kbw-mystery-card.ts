@@ -21,18 +21,12 @@ export function kbwMysteryCardContactScope(
   return em;
 }
 
-export type FetchKbwMysteryCardStatusOpts = {
-  /** Tokenable session exists — never use wallet-wide email union (false "used"). */
-  authenticatedSession?: boolean;
-};
-
 /**
- * Prefer session user email (`/status/me`).
- * Wallet lookup is only for anonymous visitors (401 on /status/me).
+ * Signed-in user's contact email only (`GET …/status/me`).
+ * "Used" is only true after `POST …/burn` from portfolio — never wallet-wide lookup.
  */
 export async function fetchKbwMysteryCardStatus(
-  walletAddress: string,
-  opts?: FetchKbwMysteryCardStatusOpts,
+  _walletAddress: string,
 ): Promise<{ burned: boolean }> {
   const meRes = await backendFetch(
     `${getApiUrl()}/marketplace/portfolio/kbw-mystery-card/status/me`,
@@ -40,23 +34,10 @@ export async function fetchKbwMysteryCardStatus(
   if (meRes.ok) {
     return readBurned(meRes);
   }
-
-  if (opts?.authenticatedSession) {
+  if (meRes.status === 401) {
     return { burned: false };
   }
-
-  if (meRes.status !== 401) {
-    return readBurned(meRes);
-  }
-
-  const wallet = walletAddress.trim().toLowerCase();
-  if (!wallet) {
-    return { burned: false };
-  }
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/portfolio/kbw-mystery-card/${encodeURIComponent(wallet)}`,
-  );
-  return readBurned(res);
+  return readBurned(meRes);
 }
 
 export async function burnKbwMysteryCard(

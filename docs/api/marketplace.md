@@ -631,7 +631,7 @@ Honors `x-tokenable-chain-id`.
 
 ### `GET /api/marketplace/portfolio/kbw-mystery-card/:wallet`
 
-Whether the web2 KBW Mystery Card is hidden for linked **contact** emails on this wallet (`@privy.wallet` placeholders are ignored). Prefer `…/status/me` when signed in to avoid false `burned: true` from another account on the same wallet.
+**Deprecated.** Always `{ burned: false }`. Use `…/status/me` (signed-in contact email only). Wallet-wide lookup caused false “used” after MetaMask + email capture.
 
 ### `POST /api/marketplace/portfolio/kbw-mystery-card/burn`
 

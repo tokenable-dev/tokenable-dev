@@ -12,6 +12,7 @@ import {
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import {
   afterEventContactEmailSaved,
+  clearKbwStage2,
   completeKbwStage2Session,
   isEventPath,
   isKbwStage2Pending,
@@ -151,28 +152,32 @@ export function AddEmailRequiredModal() {
       const savedUser = userNeedsContactEmail(updated)
         ? { ...updated, email: next }
         : updated;
+      const ui = useAuthUiStore.getState();
+      const wallet = getPrimaryWalletAddress(updated);
+
+      // Win the race vs PrivySessionBridge / Stage2 poller — never burn-check here.
+      if (kbwEventEmailCapture) {
+        clearKbwStage2();
+        ui.armKbwOffer();
+      }
+
       setUser(savedUser);
       migrateKbwStage1AfterContactEmail(savedUser.id, savedUser.email);
       if (user?.id) writeDeferred(user.id, false);
       setDeferred(false);
       setEmail("");
-      const ui = useAuthUiStore.getState();
-      const wallet = getPrimaryWalletAddress(updated);
+
       const scope = kbwMysteryCardContactScope(savedUser.email);
       if (wallet) {
+        const w = wallet.toLowerCase();
+        queryClient.removeQueries({ queryKey: ["kbw-mystery-card", w] });
         void queryClient.invalidateQueries({
-          queryKey: rq.kbwMysteryCard(wallet.toLowerCase(), scope),
+          queryKey: rq.kbwMysteryCard(w, scope),
         });
       }
 
       if (kbwEventEmailCapture) {
-        await afterEventContactEmailSaved({
-          user: savedUser,
-          walletAddress: wallet,
-          push: (path) => router.push(path),
-          armKbwOffer: () => ui.armKbwOffer(),
-          clearKbwOffer: () => ui.clearKbwOffer(),
-        });
+        afterEventContactEmailSaved({ armKbwOffer: () => ui.armKbwOffer() });
       } else if (isKbwStage2Pending()) {
         await completeKbwStage2Session({
           user: savedUser,

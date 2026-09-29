@@ -89,9 +89,6 @@ function OfferGloss() {
   );
 }
 
-/**
- * KBW mystery-card offer — shown once per `armKbwOffer()` (Stage-2 login or post-email).
- */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
   const { authenticated, user: privyUser } = usePrivy();
@@ -113,21 +110,20 @@ export function KbwMysteryOfferModal() {
   const kbwContactScope = kbwMysteryCardContactScope(user?.email);
   const emailGateOpen = isEmailCaptureBlocking(user);
   const needsEmail = userNeedsContactEmail(user);
+  const hasContactEmail = Boolean(kbwContactScope);
 
   const shouldCheckBurned =
     mounted &&
     isKbwEventActive() &&
     sessionReady &&
+    hasContactEmail &&
     !needsEmail &&
     !emailGateOpen &&
-    (kbwMysteryOfferVisible || stage2AwaitingOffer);
+    stage2AwaitingOffer;
 
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet, kbwContactScope),
-    queryFn: () =>
-      fetchKbwMysteryCardStatus(wallet, {
-        authenticatedSession: Boolean(user?.id),
-      }),
+    queryFn: () => fetchKbwMysteryCardStatus(wallet),
     enabled: shouldCheckBurned,
     staleTime: 30_000,
     retry: 1,
@@ -161,9 +157,8 @@ export function KbwMysteryOfferModal() {
       return;
     }
 
-    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) {
-      return;
-    }
+    if (!hasContactEmail) return;
+    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) return;
     setOpen(!participated);
   }, [
     mounted,
@@ -175,15 +170,13 @@ export function KbwMysteryOfferModal() {
     sessionReady,
     needsEmail,
     emailGateOpen,
+    hasContactEmail,
   ]);
 
   useEffect(() => {
-    if (!stage2AwaitingOffer || !sessionReady || needsEmail || emailGateOpen) {
-      return;
-    }
-    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) {
-      return;
-    }
+    if (!stage2AwaitingOffer || !sessionReady || !hasContactEmail) return;
+    if (needsEmail || emailGateOpen) return;
+    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) return;
     if (!participated) return;
     if (stage2BurnedRedirectInFlight.current) return;
 
@@ -201,6 +194,7 @@ export function KbwMysteryOfferModal() {
   }, [
     stage2AwaitingOffer,
     sessionReady,
+    hasContactEmail,
     wallet,
     participated,
     cardStatusQuery.isLoading,

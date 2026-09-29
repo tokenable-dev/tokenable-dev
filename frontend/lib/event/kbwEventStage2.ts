@@ -109,12 +109,12 @@ function resolveKbwWallet(
   return getPrimaryWalletAddress(user) ?? null;
 }
 
-/** On `/event`: offer if eligible; already used mystery card → portfolio. */
+/** On `/event` when user already had contact email at login (not right after email capture). */
 export async function finishKbwEventOnPage(
   opts: KbwEventPageFinishOpts,
 ): Promise<void> {
   const wallet = resolveKbwWallet(opts.user, opts.walletAddress);
-  const burned = await kbwMysteryCardBurned(opts.user, wallet);
+  const burned = await kbwMysteryCardBurnedForUser(opts.user);
   clearKbwStage2();
   if (burned) {
     opts.clearKbwOffer();
@@ -124,26 +124,27 @@ export async function finishKbwEventOnPage(
   }
 }
 
-/** `/event` email saved after Stage-2 login. */
-export async function afterEventContactEmailSaved(
-  opts: KbwEventPageFinishOpts,
-): Promise<void> {
+/**
+ * After saving contact email on `/event` — always show the offer.
+ * Do not check burn status here (wallet-wide races caused false "used" + portfolio redirect).
+ */
+export function afterEventContactEmailSaved(opts: {
+  armKbwOffer: () => void;
+}): void {
   if (!isKbwEventActive()) return;
   if (typeof window === "undefined" || !isEventPath(window.location.pathname)) {
     return;
   }
-  await finishKbwEventOnPage(opts);
+  clearKbwStage2();
+  opts.armKbwOffer();
 }
 
-async function kbwMysteryCardBurned(
+async function kbwMysteryCardBurnedForUser(
   user: AuthUser | null | undefined,
-  walletAddress: string | null | undefined,
 ): Promise<boolean> {
+  if (!user?.id || userNeedsContactEmail(user)) return false;
   try {
-    const { burned } = await fetchKbwMysteryCardStatus(
-      walletAddress?.trim() ?? "",
-      { authenticatedSession: Boolean(user?.id) },
-    );
+    const { burned } = await fetchKbwMysteryCardStatus("");
     return burned === true;
   } catch {
     return false;
@@ -187,7 +188,7 @@ export async function completeKbwStage2Session(opts: {
     return "done";
   }
 
-  const burned = await kbwMysteryCardBurned(opts.user, wallet || null);
+  const burned = await kbwMysteryCardBurnedForUser(opts.user);
   clearKbwStage2();
 
   if (burned) {
