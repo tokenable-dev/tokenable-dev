@@ -2,7 +2,9 @@ import { maxUint256, type Address, type PublicClient, zeroAddress } from "viem";
 import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import { SEAPORT_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import {
+  createOrder,
   getMerkleEligibleTokenIds,
+  replaceBidApi,
   type CreateOrderPayload,
   type Order,
 } from "@/lib/core";
@@ -16,13 +18,12 @@ import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { collectionCriteriaSignLeafIds } from "@/lib/seaport/criteria/collectionCriteriaRoot";
 import { getChainTimestampSec } from "@/lib/seaport/orders/seaportOrderTime";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import type { BidUsdcSeaportApproveWrite } from "./bidUsdcApproveWrite";
 import {
   bidNeedsUsdcSeaportApprove,
+  ensureUsdcSeaportBidApprovalAfterSign,
   readUsdcSeaportAllowance,
-} from "./bidChainPreflight";
-import type { BidUsdcSeaportApproveWrite } from "./bidUsdcApproveWrite";
-import { ensureUsdcSeaportBidApprovalAfterSign } from "./ensureUsdcSeaportBidApproval";
-import { registerSeaportBid } from "./registerSeaportBid";
+} from "./ensureUsdcSeaportBidApproval";
 import {
   resolveTokenBidDurationDays,
   tokenBidDurationSeconds,
@@ -40,6 +41,23 @@ export type TokenBidSubmitResult = {
   order: Order;
   outcome: "bid";
 };
+
+async function registerSeaportBid(params: {
+  address: Address;
+  payload: CreateOrderPayload;
+  mode: "create" | "replace";
+  oldOrderHash?: string;
+}): Promise<Order> {
+  const { address, payload, mode, oldOrderHash } = params;
+  if (mode === "replace" && oldOrderHash) {
+    return replaceBidApi({
+      callerAddress: address,
+      oldOrderHash,
+      order: payload,
+    });
+  }
+  return createOrder(payload);
+}
 
 type BidSubmitBase = {
   collectionKey: string;
@@ -94,7 +112,7 @@ async function assertBidDoesNotCrossLiveAsk(
 
 /**
  * Sign + register a card-level Seaport offer (USDC → specific ERC721 tokenId).
- * UI entry points should pass {@link BidUsdcSeaportApproveWrite} from `useBidUsdcApproveWrite`.
+ * UI entry points should pass {@link BidUsdcSeaportApproveWrite} from `useMarketplacePrivyWrites`.
  */
 export async function submitTokenBid(
   input: BidSubmitBase & { tokenId: string | number },

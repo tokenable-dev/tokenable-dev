@@ -16,6 +16,55 @@ export function redeemUsdcFeePrivyUi(amountMicros: bigint): SendTransactionModal
   };
 }
 
+/** First-time USDC → Seaport approve before Buy now (embedded wallet). */
+export function buyUsdcSeaportApprovalPrivyUi(): SendTransactionModalUIOptions {
+  return {
+    description:
+      "One-time USDC approval so you can buy listings on Tokenable (network gas in ETH). Your next step is the purchase.",
+    buttonText: "Approve USDC",
+    transactionInfo: {
+      title: "Details",
+      action: "Approve USDC for Seaport",
+      contractInfo: { name: "USDC" },
+    },
+    successHeader: "Approval complete",
+    successDescription:
+      "Next, confirm the purchase in your wallet. This approval is saved for future buys on this network.",
+  };
+}
+
+/** Seller accepts a bid — Seaport matchAdvancedOrders (embedded wallet). */
+export function sellSeaportMatchPrivyUi(): SendTransactionModalUIOptions {
+  return {
+    description:
+      "Complete the sale to the buyer on Tokenable (network gas in ETH). This is not a token approval.",
+    buttonText: "Confirm sale",
+    transactionInfo: {
+      title: "Details",
+      action: "Complete sale on Seaport",
+      contractInfo: { name: "Seaport" },
+    },
+    successHeader: "Sale submitted",
+    successDescription:
+      "When the network confirms, the card leaves your portfolio and USDC is settled per the bid.",
+  };
+}
+
+/** Seaport fulfillOrder during Buy now (embedded wallet). */
+export function buyFulfillAskPrivyUi(priceUsdc: string): SendTransactionModalUIOptions {
+  return {
+    description: `Pay $${priceUsdc} USDC for this card (plus network gas in ETH).`,
+    buttonText: "Confirm purchase",
+    transactionInfo: {
+      title: "Details",
+      action: `Buy for $${priceUsdc} USDC`,
+      contractInfo: { name: "Seaport" },
+    },
+    successHeader: "Purchase complete",
+    successDescription: "This card should appear in your portfolio shortly.",
+  };
+}
+
 /** First-time USDC → Seaport approve during place bid (embedded wallet). */
 export function bidUsdcSeaportApprovalPrivyUi(): SendTransactionModalUIOptions {
   return {

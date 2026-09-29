@@ -6,7 +6,8 @@ import {
   SEAPORT_ABI_WITH_MATCH_ADVANCED,
   USDC_ABI,
 } from "@/constants/contracts";
-import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
+import { getMerkleEligibleTokenIds, type Order } from "@/lib/core";
+import { fulfillMatchedPairApi } from "@/lib/core/api/orders";
 import { canonicalBytes32Hex } from "../criteria/collectionCriteriaRoot";
 import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
 import { isTokenBidOrder } from "../orders/isTokenBidOrder";
@@ -291,35 +292,10 @@ export async function runCriteriaMatch(params: {
   await requireSeaportOrderFilled(publicClient, listing.orderHash);
   await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
-  /** Listing modal must not hang if the indexer/API stalls after a successful match on-chain. */
-  const FULFILL_MS = 38_000;
-  const fulfillAbort = new AbortController();
-  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
-  try {
-    await fulfillMatchedPairApi(
-      {
-        bidOrderHash: bid.orderHash,
-        askOrderHash: listing.orderHash,
-      },
-      { signal: fulfillAbort.signal },
-    );
-  } catch (e: unknown) {
-    const aborted =
-      fulfillAbort.signal.aborted ||
-      (e instanceof Error && e.name === "AbortError") ||
-      (typeof DOMException !== "undefined" &&
-        e instanceof DOMException &&
-        e.name === "AbortError");
-    if (aborted) {
-      console.warn(
-        "[runCriteriaMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
-      );
-      return;
-    }
-    throw e;
-  } finally {
-    clearTimeout(fulfillTimer);
-  }
+  await fulfillMatchedPairApiWithRetry({
+    bidOrderHash: bid.orderHash,
+    askOrderHash: listing.orderHash,
+  });
 }
 
 /**
@@ -437,34 +413,10 @@ export async function runTokenBidMatch(params: {
   await requireSeaportOrderFilled(publicClient, listing.orderHash);
   await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
-  const FULFILL_MS = 38_000;
-  const fulfillAbort = new AbortController();
-  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
-  try {
-    await fulfillMatchedPairApi(
-      {
-        bidOrderHash: bid.orderHash,
-        askOrderHash: listing.orderHash,
-      },
-      { signal: fulfillAbort.signal },
-    );
-  } catch (e: unknown) {
-    const aborted =
-      fulfillAbort.signal.aborted ||
-      (e instanceof Error && e.name === "AbortError") ||
-      (typeof DOMException !== "undefined" &&
-        e instanceof DOMException &&
-        e.name === "AbortError");
-    if (aborted) {
-      console.warn(
-        "[runTokenBidMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
-      );
-      return;
-    }
-    throw e;
-  } finally {
-    clearTimeout(fulfillTimer);
-  }
+  await fulfillMatchedPairApiWithRetry({
+    bidOrderHash: bid.orderHash,
+    askOrderHash: listing.orderHash,
+  });
 }
 
 const GENERIC_CONTRACT =
@@ -551,4 +503,56 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   }
   if (code === "REVERT") return "unknown";
   return "unknown";
+}
+
+const FULFILL_MATCHED_PAIR_ATTEMPTS = 4;
+const FULFILL_MATCHED_PAIR_BASE_TIMEOUT_MS = 45_000;
+const FULFILL_MATCHED_PAIR_TIMEOUT_STEP_MS = 25_000;
+
+function fulfillMatchApiSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isFulfillMatchAbortError(e: unknown): boolean {
+  if (e instanceof Error && e.name === "AbortError") return true;
+  return (
+    typeof DOMException !== "undefined" &&
+    e instanceof DOMException &&
+    e.name === "AbortError"
+  );
+}
+
+/** Persist ask+bid as fulfilled after on-chain match (retries slow API/RPC). */
+export async function fulfillMatchedPairApiWithRetry(body: {
+  bidOrderHash: string;
+  askOrderHash: string;
+}): Promise<{ ask: Order; bid: Order } | null> {
+  let lastErr: unknown;
+  for (let i = 0; i < FULFILL_MATCHED_PAIR_ATTEMPTS; i++) {
+    const timeoutMs =
+      FULFILL_MATCHED_PAIR_BASE_TIMEOUT_MS + i * FULFILL_MATCHED_PAIR_TIMEOUT_STEP_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const result = await fulfillMatchedPairApi(body, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      return result;
+    } catch (e: unknown) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (i < FULFILL_MATCHED_PAIR_ATTEMPTS - 1) {
+        await fulfillMatchApiSleep(1500 * (i + 1));
+      }
+    }
+  }
+  if (isFulfillMatchAbortError(lastErr)) {
+    console.warn(
+      "[runCriteriaMatch] fulfillMatchedPair API retries exhausted — portfolio may reconcile on next load.",
+      body,
+    );
+    return null;
+  }
+  throw lastErr;
 }

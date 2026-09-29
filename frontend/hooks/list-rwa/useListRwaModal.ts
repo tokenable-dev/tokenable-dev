@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import {
-  useAccount,
-  useWriteContract,
-  usePublicClient,
-} from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { getOrderByHash, getRwaSettlementPolicy, rq, type Order } from "@/lib/core";
 import { patchCachesAfterAskListed } from "@/lib/core/invalidation";
@@ -17,7 +13,6 @@ import { mapWalletError, withRpcReadRetry } from "@/lib/network";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
-import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
 import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
@@ -40,7 +35,7 @@ import { useSeaportOrderSigner } from "@/lib/privy";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { useListingSeaportApproveWrite } from "@/hooks/list-rwa/useListingSeaportApproveWrite";
+import { useMarketplacePrivyWrites } from "@/hooks/wallet/useMarketplacePrivyWrites";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 
@@ -318,17 +313,10 @@ export function useListRwaModal({
     setPrice("");
   }, [initialPriceUsdc, tokenId, resolvedExistingAsk?.orderHash]);
 
-  const { writeContractAsync } = useWriteContract();
-  const listingSeaportApproveWrite = useListingSeaportApproveWrite();
-
-  const matchWrite = useMemo(
-    () =>
-      ((args: Parameters<MatchWriteContractAsync>[0]) =>
-        writeContractAsync(
-          args as Parameters<typeof writeContractAsync>[0],
-        )) as MatchWriteContractAsync,
-    [writeContractAsync],
-  );
+  const {
+    listingSeaportApprove: listingSeaportApproveWrite,
+    seaportMatch: matchWrite,
+  } = useMarketplacePrivyWrites();
 
   const instantMatchDeps = useMemo(
     (): ListRwaInstantMatchDeps => ({

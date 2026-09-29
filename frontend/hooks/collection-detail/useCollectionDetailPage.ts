@@ -15,7 +15,7 @@ import { useAppStore, selectWallet } from "@/store";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
 import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
-import { activeRqChainId } from "@/lib/chains";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 export type CollectionDetailPageStatus =
   | "invalid"
@@ -53,15 +53,23 @@ export function useCollectionDetailPage() {
   } | null>(null);
   const [showOrderBook, setShowOrderBook] = useState(false);
 
-  const chainId = activeRqChainId();
-  const { data, isLoading, isError, error } = useQuery({
+  const { chainId, chainReady } = useAppChain();
+  const detailQueryEnabled =
+    chainReady &&
+    collectionKey.length > 0 &&
+    looksLikeCollectionKey(collectionKey);
+  const { data, isPending, isFetching, isError, error } = useQuery({
     queryKey: rq.collectionDetail(collectionKey, chainId),
     queryFn: () => getMarketplaceCollectionDetail(collectionKey),
-    enabled: collectionKey.length > 0 && looksLikeCollectionKey(collectionKey),
+    enabled: detailQueryEnabled,
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
     refetchOnWindowFocus: false,
     retry: false,
   });
+  const detailPending =
+    !chainReady ||
+    (isPending && data === undefined) ||
+    (isFetching && data === undefined);
 
   const comp = useMemo(
     () => parseCollectionComponents(data?.collection?.components),
@@ -75,7 +83,7 @@ export function useCollectionDetailPage() {
     comp,
     hasCollection,
     collectionComponents: data?.collection?.components,
-    detailLoading: isLoading,
+    detailLoading: detailPending,
     detailError: isError,
     hasDetailData: Boolean(data),
     sessionFillPoint,
@@ -116,12 +124,14 @@ export function useCollectionDetailPage() {
     ? "invalid"
     : !looksLikeCollectionKey(collectionKey)
       ? "invalid"
-      : isLoading
+      : detailPending
         ? "loading"
         : isError || !data
           ? "fetch_error"
           : !data.collection
-            ? "not_created"
+            ? isFetching
+              ? "loading"
+              : "not_created"
             : "ready";
 
   const collectionOrderBookProps = useMemo(() => {

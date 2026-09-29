@@ -42,7 +42,7 @@ import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { useBidUsdcApproveWrite } from "@/hooks/token-offer/useBidUsdcApproveWrite";
+import { useMarketplacePrivyWrites } from "@/hooks/wallet/useMarketplacePrivyWrites";
 
 /** Digits only (whole dollars). Strips commas / decimals / other chars. */
 export function sanitizeTokenBidPriceInput(raw: string): string {
@@ -102,7 +102,8 @@ export function useTokenOffer(input: {
   const { signSeaportOrder } = useSeaportOrderSigner();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const { writeContractAsync } = useWriteContract();
-  const bidUsdcApproveWrite = useBidUsdcApproveWrite();
+  const { bidUsdcApprove: bidUsdcApproveWrite, buyAsk: buyAskWrites } =
+    useMarketplacePrivyWrites();
   const queryClient = useQueryClient();
   const fiatOnramp = usePrivyFiatOnramp();
 
@@ -369,7 +370,7 @@ export function useTokenOffer(input: {
         ask,
         address: address as Address,
         publicClient,
-        writeContractAsync,
+        writes: buyAskWrites,
         chainId,
       });
       setLastOutcome("instant");

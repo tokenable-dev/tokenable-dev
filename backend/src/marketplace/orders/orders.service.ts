@@ -964,6 +964,227 @@ export class OrdersService {
    * Never mark the book fulfilled (or move owner_wallet) unless Seaport consumed
    * the order. A reverted fulfillOrder tx must not look like a sale.
    */
+  private async isSeaportOrderFullyFilledOnChain(
+    orderHash: string,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const seaport = new Contract(
+      SEAPORT_ADDRESS,
+      SEAPORT_ORDER_STATUS_ABI,
+      provider,
+    );
+    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
+    try {
+      const result = (await seaport.getOrderStatus(hash)) as [
+        boolean,
+        boolean,
+        bigint,
+        bigint,
+      ];
+      const isCancelled = Boolean(result[1]);
+      const filled = BigInt(result[2]);
+      const size = BigInt(result[3]);
+      return !isCancelled && size > 0n && filled >= size;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Ask consumed on Seaport or seller no longer owns the listed token (match / transfer). */
+  private async isAskListingConsumedOnChain(
+    ask: Order,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    if (await this.isSeaportOrderFullyFilledOnChain(ask.orderHash, chainId)) {
+      return true;
+    }
+    const tid = normalizeDecimalTokenId(String(ask.tokenId ?? ''));
+    if (!tid || tid === '0') return false;
+    try {
+      const owner = await this.readOnChainRwaOwner(
+        ask.tokenContract,
+        tid,
+        chainId,
+      );
+      return owner !== ask.offerer.trim().toLowerCase();
+    } catch {
+      return false;
+    }
+  }
+
+  /** Bid filled on Seaport or buyer now owns the ask token (criteria / token bid match). */
+  private async isBidSettledForAsk(
+    bid: Order,
+    ask: Order,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    if (await this.isSeaportOrderFullyFilledOnChain(bid.orderHash, chainId)) {
+      return true;
+    }
+    const tid = normalizeDecimalTokenId(String(ask.tokenId ?? ''));
+    if (!tid || tid === '0') return false;
+    try {
+      const owner = await this.readOnChainRwaOwner(
+        ask.tokenContract,
+        tid,
+        chainId,
+      );
+      return owner === bid.offerer.trim().toLowerCase();
+    } catch {
+      return false;
+    }
+  }
+
+  private async criteriaBidShowsInboundOwnership(
+    bid: Order,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    const key = String(bid.collectionKey ?? '').trim().toLowerCase();
+    if (!key) return false;
+    const rwa = String(bid.tokenContract ?? '').trim().toLowerCase();
+    if (!rwa) return false;
+    const asks = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.collection_key) = :key', { key })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.updated_at', 'DESC')
+      .take(30)
+      .getMany();
+    for (const ask of asks) {
+      if (!(await this.isAskListingConsumedOnChain(ask, chainId))) continue;
+      if (await this.isBidSettledForAsk(bid, ask, chainId)) return true;
+    }
+    return false;
+  }
+
+  private async isActiveOrderConsumedForReconcile(
+    order: Order,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    if (await this.isSeaportOrderFullyFilledOnChain(order.orderHash, chainId)) {
+      return true;
+    }
+    if (order.side === OrderSide.ASK) {
+      return this.isAskListingConsumedOnChain(order, chainId);
+    }
+    if (order.side === OrderSide.BID) {
+      return this.criteriaBidShowsInboundOwnership(order, chainId);
+    }
+    return false;
+  }
+
+  /**
+   * Match tx succeeded but fulfillMatchedPair timed out — repair book + portfolio rows.
+   */
+  private async reconcileOnChainFilledActiveOrders(
+    orders: Order[],
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    for (const o of orders) {
+      if (o.status !== OrderStatus.ACTIVE) continue;
+      if (!(await this.isActiveOrderConsumedForReconcile(o, chainId))) {
+        continue;
+      }
+      const paired = await this.tryFulfillMatchedPairForConsumedOrder(o, chainId);
+      if (!paired) {
+        o.status = OrderStatus.FULFILLED;
+        await this.orderRepo.save(o);
+        this.logger.warn(
+          `reconcile: marked ${o.side} ${o.orderHash.slice(0, 10)}… fulfilled on-chain without pair API`,
+        );
+      }
+    }
+  }
+
+  private async tryFulfillMatchedPairForConsumedOrder(
+    order: Order,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    const key = String(order.collectionKey ?? '').trim().toLowerCase();
+    if (!key) return false;
+    const rwa = String(order.tokenContract ?? '').trim().toLowerCase();
+    if (!rwa) return false;
+
+    if (order.side === OrderSide.BID) {
+      const asks = await this.orderRepo
+        .createQueryBuilder('o')
+        .where('LOWER(o.collection_key) = :key', { key })
+        .andWhere('o.side = :side', { side: OrderSide.ASK })
+        .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .orderBy('o.updated_at', 'DESC')
+        .take(20)
+        .getMany();
+      for (const ask of asks) {
+        if (!(await this.isAskListingConsumedOnChain(ask, chainId))) continue;
+        if (!(await this.isBidSettledForAsk(order, ask, chainId))) continue;
+        try {
+          await this.fulfillMatchedPair(ask.orderHash, order.orderHash, chainId);
+          order.status = OrderStatus.FULFILLED;
+          return true;
+        } catch (e) {
+          this.logger.warn(
+            `reconcile fulfillMatchedPair ask=${ask.orderHash.slice(0, 10)}… bid=${order.orderHash.slice(0, 10)}…: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+      return false;
+    }
+
+    if (order.side === OrderSide.ASK) {
+      const bids = await this.orderRepo
+        .createQueryBuilder('o')
+        .where('LOWER(o.collection_key) = :key', { key })
+        .andWhere('o.side = :side', { side: OrderSide.BID })
+        .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+        .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+        .orderBy('o.updated_at', 'DESC')
+        .take(20)
+        .getMany();
+      for (const bid of bids) {
+        if (!(await this.isBidSettledForAsk(bid, order, chainId))) continue;
+        try {
+          await this.fulfillMatchedPair(order.orderHash, bid.orderHash, chainId);
+          order.status = OrderStatus.FULFILLED;
+          return true;
+        } catch (e) {
+          this.logger.warn(
+            `reconcile fulfillMatchedPair ask=${order.orderHash.slice(0, 10)}… bid=${bid.orderHash.slice(0, 10)}…: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+    }
+    return false;
+  }
+
+  private async assertBidSettledForMatchedPair(
+    bid: Order,
+    ask: Order,
+    chainId: SupportedChainId,
+  ): Promise<void> {
+    try {
+      await this.assertSeaportOrderFilledOnChain(bid.orderHash, chainId);
+      return;
+    } catch (e) {
+      if (!(e instanceof BadRequestException)) throw e;
+    }
+    if (await this.isBidSettledForAsk(bid, ask, chainId)) {
+      this.logger.log(
+        `fulfillMatchedPair bid ${bid.orderHash.slice(0, 10)}… settled via buyer ownerOf (getOrderStatus miss)`,
+      );
+      return;
+    }
+    throw new BadRequestException(
+      'On-chain Seaport fill was not found for this bid — listing and ownership were not updated',
+    );
+  }
+
   private async assertSeaportOrderFilledOnChain(
     orderHash: string,
     chainId: SupportedChainId,
@@ -1292,6 +1513,7 @@ export class OrdersService {
       .orderBy('o.updated_at', 'DESC')
       .take(cap)
       .getMany();
+    await this.reconcileOnChainFilledActiveOrders(rows, id);
     return this.withListingDisplay(
       rows.map((o) => orderToListItem(o)),
       this.chainConfig.getRwaAddress(id),
@@ -1318,6 +1540,7 @@ export class OrdersService {
       .orderBy('o.updated_at', 'DESC')
       .take(cap)
       .getMany();
+    await this.reconcileOnChainFilledActiveOrders(rows, id);
     return this.withListingDisplay(
       rows.map((o) => orderToListItem(o)),
       this.chainConfig.getRwaAddress(id),
@@ -1822,8 +2045,8 @@ export class OrdersService {
     }
 
     const fillChain = chainId ?? this.chainConfig.getDefaultChainId();
-    await this.assertSeaportOrderFilledOnChain(ask.orderHash, fillChain);
-    await this.assertSeaportOrderFilledOnChain(bid.orderHash, fillChain);
+    await this.assertOrderSettledForFulfill(ask, bid.offerer, fillChain);
+    await this.assertBidSettledForMatchedPair(bid, ask, fillChain);
 
     const consBid = bid.parameters.consideration?.[0];
     const bidItemType = Number(consBid?.itemType);

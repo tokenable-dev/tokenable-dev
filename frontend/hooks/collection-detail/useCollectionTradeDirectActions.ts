@@ -2,11 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  useAccount,
-  usePublicClient,
-  useWriteContract,
-} from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits, type Address } from "viem";
 import {
   getMerkleEligibleTokenIds,
@@ -36,8 +32,7 @@ import {
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
 import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
-import { useListingSeaportApproveWrite } from "@/hooks/list-rwa/useListingSeaportApproveWrite";
-import { useBidUsdcApproveWrite } from "@/hooks/token-offer/useBidUsdcApproveWrite";
+import { useMarketplacePrivyWrites } from "@/hooks/wallet/useMarketplacePrivyWrites";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
@@ -48,7 +43,6 @@ import {
   type ListRwaInstantMatchDeps,
 } from "@/lib/seaport/listing/listRwaInstantMatch";
 import { orderCollectionKey, askUsdcToMatchCrossingBid } from "@/lib/seaport/listing/listRwaModalUtils";
-import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
@@ -99,9 +93,12 @@ export function useCollectionTradeDirectActions(input: {
   const { chainId } = useAppChain();
   const { usdcAddress } = useChainContracts();
   const publicClient = usePublicClient({ chainId });
-  const { writeContractAsync } = useWriteContract();
-  const listingSeaportApproveWrite = useListingSeaportApproveWrite();
-  const bidUsdcApproveWrite = useBidUsdcApproveWrite();
+  const {
+    listingSeaportApprove: listingSeaportApproveWrite,
+    bidUsdcApprove: bidUsdcApproveWrite,
+    buyAsk: buyAskWrites,
+    seaportMatch: matchWrite,
+  } = useMarketplacePrivyWrites();
   const { signSeaportOrder } = useSeaportOrderSigner();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const queryClient = useQueryClient();
@@ -132,15 +129,6 @@ export function useCollectionTradeDirectActions(input: {
     return mine[0];
   }, [address, collectionBids]);
 
-  const matchWrite = useMemo(
-    () =>
-      ((args: Parameters<MatchWriteContractAsync>[0]) =>
-        writeContractAsync(
-          args as Parameters<typeof writeContractAsync>[0],
-        )) as MatchWriteContractAsync,
-    [writeContractAsync],
-  );
-
   const resolveToastMeta = useCallback(
     (tokenId: number, override?: CollectionTradeToastMeta): CollectionTradeToastMeta => ({
       cardTitle: override?.cardTitle ?? toastCardTitle ?? null,
@@ -162,9 +150,7 @@ export function useCollectionTradeDirectActions(input: {
           ask,
           address: signerAddress as Address,
           publicClient,
-          writeContractAsync: writeContractAsync as Parameters<
-            typeof fulfillAskListingOrder
-          >[0]["writeContractAsync"],
+          writes: buyAskWrites,
           chainId,
         });
         const priceUsdc = Number(ask.considerationAmount) / 1_000_000;
@@ -214,7 +200,7 @@ export function useCollectionTradeDirectActions(input: {
       publicClient,
       busy,
       ensureAccountWalletReady,
-      writeContractAsync,
+      buyAskWrites,
       chainId,
       queryClient,
       collectionKey,
@@ -253,7 +239,7 @@ export function useCollectionTradeDirectActions(input: {
             ask,
             address: signerAddress as Address,
             publicClient,
-            writeContractAsync,
+            writes: buyAskWrites,
             chainId,
           });
           const purchasePrice =
@@ -397,7 +383,8 @@ export function useCollectionTradeDirectActions(input: {
       ensureAccountWalletReady,
       usdcAddress,
       collectionKey,
-      writeContractAsync,
+      buyAskWrites,
+      bidUsdcApproveWrite,
       chainId,
       queryClient,
       onInvalidate,
@@ -571,7 +558,6 @@ export function useCollectionTradeDirectActions(input: {
       busy,
       signSeaportOrder,
       ensureAccountWalletReady,
-      writeContractAsync,
       chainId,
       collectionBids,
       collectionKey,

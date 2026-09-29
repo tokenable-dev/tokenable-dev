@@ -6,21 +6,40 @@ import { GAS_FALLBACK, gasWithCapFast, userTxFees } from "@/lib/network";
 import { pauseAfterWalletPrompt } from "@/lib/privy/wallet";
 import { runWalletFlow } from "@/lib/privy/session";
 import type { BidUsdcSeaportApproveWrite } from "./bidUsdcApproveWrite";
-import { readUsdcSeaportAllowance } from "./bidChainPreflight";
+
+export async function readUsdcSeaportAllowance(
+  publicClient: PublicClient,
+  chainId: SupportedChainId,
+  owner: Address,
+  cachedAllowance?: bigint,
+): Promise<bigint> {
+  if (cachedAllowance !== undefined) return cachedAllowance;
+  const { usdcAddress } = getChainContracts(chainId);
+  return publicClient.readContract({
+    address: usdcAddress,
+    abi: USDC_ABI,
+    functionName: "allowance",
+    args: [owner, SEAPORT_ADDRESS],
+  });
+}
+
+export function bidNeedsUsdcSeaportApprove(
+  allowance: bigint,
+  bidUnits: bigint,
+): boolean {
+  return allowance < bidUnits;
+}
 
 /**
  * After Seaport sign: USDC → Seaport approve in its own wallet phase (Privy-safe).
- * Does not wait for receipt (same as legacy bid path).
  */
 export async function ensureUsdcSeaportBidApprovalAfterSign(params: {
   address: Address;
   publicClient: PublicClient;
   chainId: SupportedChainId;
   bidUnits: bigint;
-  /** From pre-sign allowance check; skips work when false. */
   needsUsdcApprove: boolean;
   writeContractAsync: BidUsdcSeaportApproveWrite;
-  /** Optional gas estimate started before sign. */
   usdcApproveGasPromise?: Promise<bigint | null>;
 }): Promise<void> {
   const {

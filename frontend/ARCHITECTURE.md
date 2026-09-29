@@ -399,7 +399,7 @@ One-liner:
 
 - `lib/seaport/orders/submitAskListing.ts`
 - `lib/seaport/bid/` (place bid; `orders/submitTokenBid.ts` re-exports)
-- `lib/seaport/orders/fulfillAskListing.ts`
+- `lib/seaport/fulfillment/fulfillAskListing.ts` (Buy now; `orders/fulfillAskListing` re-exports)
 - `lib/seaport/fulfillment/runCriteriaMatch.ts`
 - Criteria / merkle helpers under `lib/seaport/criteria/`
 
