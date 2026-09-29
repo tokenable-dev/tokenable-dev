@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/walletOnlyEmail";
 import {
   completeKbwPostLoginRedirect,
+  isKbwEventStage2PostLoginActive,
   isKbwStage2FlowPending,
 } from "@/lib/event/kbwEventLoginRouting";
 import { kbwDebug } from "@/lib/event/kbwEventDebug";
@@ -102,8 +103,11 @@ export function AddEmailRequiredModal() {
     }
   }, [needsEmail]);
 
+  const kbwEventEmailCapture =
+    isKbwEventStage2PostLoginActive() && needsEmail && Boolean(user);
+
   const open =
-    siteAccessAllowsModals &&
+    (siteAccessAllowsModals || kbwEventEmailCapture) &&
     initialized &&
     needsEmail &&
     !deferred &&
@@ -112,6 +116,7 @@ export function AddEmailRequiredModal() {
   useEffect(() => {
     kbwDebug(open ? "addEmailModal.open" : "addEmailModal.closed", {
       siteAccessAllowsModals,
+      kbwEventEmailCapture,
       initialized,
       needsEmail,
       deferred,
@@ -125,6 +130,7 @@ export function AddEmailRequiredModal() {
     needsEmail,
     deferred,
     user?.id,
+    kbwEventEmailCapture,
   ]);
 
   function dismiss() {

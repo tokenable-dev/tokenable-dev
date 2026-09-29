@@ -8,8 +8,9 @@ type SiteAccessStatus = { enabled: boolean; granted: boolean };
 
 async function fetchSiteAccessStatus(): Promise<SiteAccessStatus> {
   const res = await fetch("/api/site-access/status", { credentials: "include" });
+  // Fail open — a status outage must not block wallet email capture / KBW modals.
   if (!res.ok) {
-    return { enabled: true, granted: false };
+    return { enabled: false, granted: true };
   }
   return (await res.json()) as SiteAccessStatus;
 }
