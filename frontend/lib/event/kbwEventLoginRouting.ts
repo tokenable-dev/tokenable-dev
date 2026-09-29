@@ -3,7 +3,6 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
-import { kbwDebug, shortWallet } from "@/lib/event/kbwEventDebug";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
@@ -18,6 +17,21 @@ export const KBW_STAGE2_FLOW_KEY = "tk_kbw_stage2_flow";
 export const KBW_LOGIN_INTENT_KEY = "tk_kbw_login_intent";
 
 export const KBW_EVENT_PORTFOLIO_ASSETS_PATH = `${PORTFOLIO_PATH}?tab=assets`;
+
+function kbwRouteDebug(step: string, detail?: Record<string, unknown>): void {
+  const flag = process.env.NEXT_PUBLIC_KBW_EVENT_DEBUG?.trim().toLowerCase();
+  if (flag !== "true" && flag !== "1" && flag !== "yes") {
+    if (process.env.NODE_ENV !== "development") return;
+  }
+  console.log(`[KBW] ${step}`, detail ?? {});
+}
+
+function shortWalletForLog(address: string | null | undefined): string {
+  if (!address?.trim()) return "(none)";
+  const w = address.trim();
+  if (w.length < 12) return w;
+  return `${w.slice(0, 6)}…${w.slice(-4)}`;
+}
 
 function readDualStorageFlag(key: string): boolean {
   if (typeof window === "undefined") return false;
@@ -125,19 +139,19 @@ export async function tryCompleteKbwStage2AfterLogin(opts: {
   clearKbwOffer: () => void;
 }): Promise<boolean> {
   if (!isKbwEventActive()) {
-    kbwDebug("tryComplete.skip", { reason: "event_inactive" });
+    kbwRouteDebug("tryComplete.skip", { reason: "event_inactive" });
     return false;
   }
   if (!isKbwEventStage2PostLoginActive()) {
-    kbwDebug("tryComplete.skip", { reason: "stage2_not_active" });
+    kbwRouteDebug("tryComplete.skip", { reason: "stage2_not_active" });
     return false;
   }
   if (!opts.user) {
-    kbwDebug("tryComplete.skip", { reason: "no_user" });
+    kbwRouteDebug("tryComplete.skip", { reason: "no_user" });
     return false;
   }
   if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) {
-    kbwDebug("tryComplete.skip", { reason: "needs_contact_email" });
+    kbwRouteDebug("tryComplete.skip", { reason: "needs_contact_email" });
     return false;
   }
   return completeKbwPostLoginRedirect({
@@ -155,7 +169,7 @@ export async function completeKbwPostLoginRedirect(opts: {
   clearKbwOffer: () => void;
 }): Promise<boolean> {
   if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) {
-    kbwDebug("completeRedirect.skip", {
+    kbwRouteDebug("completeRedirect.skip", {
       reason: "inactive",
       eventActive: isKbwEventActive(),
       stage2Active: isKbwEventStage2PostLoginActive(),
@@ -174,8 +188,8 @@ export async function completeKbwPostLoginRedirect(opts: {
   const here =
     typeof window !== "undefined" ? window.location.pathname : "";
   const willPush = here !== targetPath;
-  kbwDebug("completeRedirect.done", {
-    wallet: shortWallet(opts.walletAddress),
+  kbwRouteDebug("completeRedirect.done", {
+    wallet: shortWalletForLog(opts.walletAddress),
     path,
     here,
     willPush,

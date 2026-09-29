@@ -13,10 +13,10 @@ import {
   KBW_POST_LOGIN_ROUTE_KEY,
   KBW_STAGE2_FLOW_KEY,
 } from "@/lib/event/kbwEventLoginRouting";
-
-const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
+
+const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
 
 const LOG_PREFIX = "[KBW]";
 
