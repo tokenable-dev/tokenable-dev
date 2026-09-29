@@ -3,7 +3,6 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
-import { appendKbwDebugLine } from "@/lib/event/kbwEventDebugBuffer";
 import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
@@ -18,22 +17,6 @@ export const KBW_STAGE2_FLOW_KEY = "tk_kbw_stage2_flow";
 export const KBW_LOGIN_INTENT_KEY = "tk_kbw_login_intent";
 
 export const KBW_EVENT_PORTFOLIO_ASSETS_PATH = `${PORTFOLIO_PATH}?tab=assets`;
-
-function kbwRouteDebug(step: string, detail?: Record<string, unknown>): void {
-  const flag = process.env.NEXT_PUBLIC_KBW_EVENT_DEBUG?.trim().toLowerCase();
-  if (flag !== "true" && flag !== "1" && flag !== "yes") {
-    if (process.env.NODE_ENV !== "development") return;
-  }
-  appendKbwDebugLine(step, detail);
-  console.log(`[KBW] ${step}`, detail ?? {});
-}
-
-function shortWalletForLog(address: string | null | undefined): string {
-  if (!address?.trim()) return "(none)";
-  const w = address.trim();
-  if (w.length < 12) return w;
-  return `${w.slice(0, 6)}…${w.slice(-4)}`;
-}
 
 function readDualStorageFlag(key: string): boolean {
   if (typeof window === "undefined") return false;
@@ -105,6 +88,18 @@ export function isEventPath(pathname: string | null | undefined): boolean {
   return pathname === "/event" || pathname.startsWith("/event/");
 }
 
+/**
+ * MetaMask Stage-2: storage flags are often cleared before the user saves email.
+ * On `/event`, always arm the offer once contact email exists — no flag check.
+ */
+export function armKbwOfferAfterEventContactEmail(armKbwOffer: () => void): void {
+  if (!isKbwEventActive()) return;
+  if (typeof window !== "undefined" && !isEventPath(window.location.pathname)) return;
+  clearKbwPostLoginRoutePending();
+  clearKbwStage2FlowPending();
+  armKbwOffer();
+}
+
 /** Wallet-only accounts must add a real email before leaving the event login flow. */
 export function shouldDeferKbwPostLoginForEmail(
   email: string | null | undefined,
@@ -128,10 +123,6 @@ export async function resolveKbwStage2ReturnPath(
   }
 }
 
-/**
- * Finish KBW Stage-2 navigation (home + offer, or portfolio if already participated).
- * Returns true when the pending post-login route was consumed.
- */
 /** Finish Stage-2 after Tokenable session exists (mobile MetaMask return). */
 export async function tryCompleteKbwStage2AfterLogin(opts: {
   user: AuthUser | null | undefined;
@@ -140,22 +131,9 @@ export async function tryCompleteKbwStage2AfterLogin(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive()) {
-    kbwRouteDebug("tryComplete.skip", { reason: "event_inactive" });
-    return false;
-  }
-  if (!isKbwEventStage2PostLoginActive()) {
-    kbwRouteDebug("tryComplete.skip", { reason: "stage2_not_active" });
-    return false;
-  }
-  if (!opts.user) {
-    kbwRouteDebug("tryComplete.skip", { reason: "no_user" });
-    return false;
-  }
-  if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) {
-    kbwRouteDebug("tryComplete.skip", { reason: "needs_contact_email" });
-    return false;
-  }
+  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
+  if (!opts.user) return false;
+  if (shouldDeferKbwPostLoginForEmail(opts.user.email, opts.user)) return false;
   return completeKbwPostLoginRedirect({
     walletAddress: opts.walletAddress,
     push: opts.push,
@@ -170,14 +148,7 @@ export async function completeKbwPostLoginRedirect(opts: {
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
 }): Promise<boolean> {
-  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) {
-    kbwRouteDebug("completeRedirect.skip", {
-      reason: "inactive",
-      eventActive: isKbwEventActive(),
-      stage2Active: isKbwEventStage2PostLoginActive(),
-    });
-    return false;
-  }
+  if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return false;
 
   const path = await resolveKbwStage2ReturnPath(opts.walletAddress);
   const participated = path !== "/";
@@ -185,7 +156,6 @@ export async function completeKbwPostLoginRedirect(opts: {
     typeof window !== "undefined" ? window.location.pathname : "";
   const onEvent = isEventPath(here);
 
-  // `/event` Stage-2: keep user on the landing; offer modal is a global overlay.
   if (onEvent) {
     opts.armKbwOffer();
   } else if (!participated) {
@@ -198,24 +168,11 @@ export async function completeKbwPostLoginRedirect(opts: {
   clearKbwStage2FlowPending();
 
   const targetPath = path.split("?")[0] || path;
-  let willPush = false;
   if (participated && !onEvent && here !== targetPath) {
-    willPush = true;
     opts.push(path);
   } else if (!participated && !onEvent && here !== "/") {
-    willPush = true;
     opts.push("/");
   }
-
-  kbwRouteDebug("completeRedirect.done", {
-    wallet: shortWalletForLog(opts.walletAddress),
-    path,
-    here,
-    onEvent,
-    participated,
-    willPush,
-    armedOffer: onEvent || !participated,
-  });
 
   return true;
 }

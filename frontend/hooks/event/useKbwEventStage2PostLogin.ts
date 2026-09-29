@@ -12,7 +12,6 @@ import {
 } from "@/lib/event/kbwEventLoginRouting";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { refreshPrivyAuthSession } from "@/lib/privy/session";
-import { kbwDebug, maskEmail, shortWallet } from "@/lib/event/kbwEventDebug";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -20,9 +19,8 @@ const POLL_MS = 800;
 const MAX_POLLS = 45;
 
 /**
- * `/event` Stage-2 only: after Privy + MetaMask (mobile app switch), wait for
+ * Stage-2 post-login: after Privy + MetaMask (mobile app switch), wait for
  * Tokenable session user then email check → arm KBW offer once.
- * Desktop usually finishes via PrivySessionBridge; mobile needs this backup.
  */
 export function useKbwEventStage2PostLogin() {
   const router = useRouter();
@@ -30,15 +28,14 @@ export function useKbwEventStage2PostLogin() {
 
   useEffect(() => {
     useAuthUiStore.getState().hydrateKbwOfferPending();
-    kbwDebug("postLoginHost.mounted");
   }, []);
+
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const refresh = useAuthStore((s) => s.refresh);
   const offerArmedRef = useRef(false);
   const pollCountRef = useRef(0);
-  const lastWaitLogRef = useRef<string | null>(null);
 
   const resetArmedIfFlowCleared = useCallback(() => {
     if (!isKbwEventStage2PostLoginActive()) {
@@ -58,10 +55,8 @@ export function useKbwEventStage2PostLogin() {
           await hydrateFromSession(synced);
           sessionUser = useAuthStore.getState().user;
         }
-      } catch (e) {
-        kbwDebug("postLogin.ensureUser.privySyncFailed", {
-          message: e instanceof Error ? e.message : "unknown",
-        });
+      } catch {
+        /* fall through to GET /auth/session */
       }
     }
 
@@ -74,44 +69,15 @@ export function useKbwEventStage2PostLogin() {
 
   const finishStage2OnEvent = useCallback(async () => {
     resetArmedIfFlowCleared();
-    if (!isKbwEventActive()) {
-      kbwDebug("postLogin.finish.skip", { reason: "event_inactive" });
-      return;
-    }
-    if (!isKbwEventStage2PostLoginActive()) {
-      kbwDebug("postLogin.finish.skip", { reason: "stage2_not_active" });
-      return;
-    }
+    if (!isKbwEventActive() || !isKbwEventStage2PostLoginActive()) return;
     if (offerArmedRef.current) return;
 
     const cookieUser = useAuthStore.getState().user;
-    if (!cookieUser && (!ready || !authenticated)) {
-      const waitKey = `privy:${ready}:${authenticated}`;
-      if (lastWaitLogRef.current !== waitKey) {
-        lastWaitLogRef.current = waitKey;
-        kbwDebug("postLogin.finish.waiting", {
-          reason: "privy_not_ready",
-          ready,
-          authenticated,
-          hasCookieUser: Boolean(cookieUser),
-        });
-      }
-      return;
-    }
+    if (!cookieUser && (!ready || !authenticated)) return;
 
     const sessionUser = await ensureTokenableUser();
-    if (!sessionUser) {
-      kbwDebug("postLogin.finish.skip", { reason: "no_tokenable_user" });
-      return;
-    }
-
-    if (userNeedsContactEmail(sessionUser)) {
-      kbwDebug("postLogin.finish.waiting", {
-        reason: "needs_contact_email",
-        email: maskEmail(sessionUser.email),
-      });
-      return;
-    }
+    if (!sessionUser) return;
+    if (userNeedsContactEmail(sessionUser)) return;
 
     const wallet =
       getPrimaryWalletAddress(sessionUser) ??
@@ -125,11 +91,6 @@ export function useKbwEventStage2PostLogin() {
       push: (path) => router.push(path),
       armKbwOffer: () => ui.armKbwOffer(),
       clearKbwOffer: () => ui.clearKbwOffer(),
-    });
-    kbwDebug("postLogin.finish.result", {
-      handled,
-      wallet: shortWallet(wallet),
-      userId: sessionUser.id,
     });
     if (handled) offerArmedRef.current = true;
   }, [
@@ -162,14 +123,8 @@ export function useKbwEventStage2PostLogin() {
 
     const tick = () => {
       if (offerArmedRef.current) return;
-      if (pollCountRef.current >= MAX_POLLS) {
-        kbwDebug("postLogin.poll.exhausted", { maxPolls: MAX_POLLS });
-        return;
-      }
+      if (pollCountRef.current >= MAX_POLLS) return;
       pollCountRef.current += 1;
-      if (pollCountRef.current === 1 || pollCountRef.current % 10 === 0) {
-        kbwDebug("postLogin.poll.tick", { n: pollCountRef.current });
-      }
       void finishStage2OnEvent();
     };
 
@@ -177,7 +132,6 @@ export function useKbwEventStage2PostLogin() {
 
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      kbwDebug("postLogin.visibility", { event: "pageshow_or_visible" });
       pollCountRef.current = 0;
       void finishStage2OnEvent();
     };

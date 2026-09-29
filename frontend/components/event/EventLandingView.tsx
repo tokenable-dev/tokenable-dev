@@ -20,7 +20,6 @@ import {
 } from "@/lib/event/kbwEventLoginRouting";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
-import { kbwDebug } from "@/lib/event/kbwEventDebug";
 import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -162,13 +161,8 @@ export function EventLandingView() {
     markKbwLoginIntent();
     markKbwPostLoginRoutePending();
     markKbwStage2FlowPending();
-    kbwDebug("event.stage2.click", {
-      hasUser: Boolean(user),
-      stage1Done,
-    });
     if (user) {
       if (userNeedsContactEmail(user)) {
-        kbwDebug("event.stage2.existingUser", { branch: "needs_contact_email" });
         return;
       }
       const path = await resolveKbwStage2ReturnPath(getPrimaryWalletAddress(user));
@@ -176,11 +170,9 @@ export function EventLandingView() {
       else clearKbwOffer();
       clearKbwPostLoginRoutePending();
       clearKbwStage2FlowPending();
-      kbwDebug("event.stage2.existingUser", { branch: "navigate", path });
       router.push(path);
       return;
     }
-    kbwDebug("event.stage2.openSignIn", { returnTo: "/event" });
     openSignIn({ returnTo: "/event" });
   }
 

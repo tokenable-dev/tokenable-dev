@@ -13,7 +13,6 @@ import { fetchKbwMysteryCardStatus } from "@/lib/core/api/kbw-mystery-card";
 import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
-import { kbwDebug } from "@/lib/event/kbwEventDebug";
 import {
   clearKbwPostLoginRoutePending,
   clearKbwStage2FlowPending,
@@ -138,33 +137,13 @@ export function KbwMysteryOfferModal() {
     }
     const stage2AwaitingOffer =
       authenticated && isKbwEventStage2PostLoginActive();
-    const traceOffer =
-      kbwOfferPending ||
-      stage2AwaitingOffer ||
-      isKbwEventStage2PostLoginActive();
     if (!kbwOfferPending && !stage2AwaitingOffer) {
       return;
     }
-    if (!sessionReady) {
-      if (traceOffer) {
-        kbwDebug("offerModal.blocked", {
-          reason: "session_not_ready",
-          initialized,
-          hasUser: Boolean(user),
-        });
-      }
-      return;
-    }
-    if (userNeedsContactEmail(user)) {
-      if (traceOffer) kbwDebug("offerModal.blocked", { reason: "needs_contact_email" });
-      return;
-    }
-    if (emailGateOpen) {
-      if (traceOffer) kbwDebug("offerModal.blocked", { reason: "email_gate_open" });
-      return;
-    }
+    if (!sessionReady) return;
+    if (userNeedsContactEmail(user)) return;
+    if (emailGateOpen) return;
 
-    kbwDebug("offerModal.open");
     setOpen(true);
     clearKbwEventLoginFlowUi();
   }, [

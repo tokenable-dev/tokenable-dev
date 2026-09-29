@@ -9,12 +9,14 @@ import {
   isWalletOnlyPlaceholderEmail,
   userNeedsContactEmail,
 } from "@/lib/auth/walletOnlyEmail";
+import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import {
+  armKbwOfferAfterEventContactEmail,
   completeKbwPostLoginRedirect,
+  isEventPath,
   isKbwEventStage2PostLoginActive,
   isKbwStage2FlowPending,
 } from "@/lib/event/kbwEventLoginRouting";
-import { kbwDebug } from "@/lib/event/kbwEventDebug";
 import { useSiteAccessAllowsAppModals } from "@/hooks/site-access/useSiteAccessAllowsAppModals";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -113,26 +115,6 @@ export function AddEmailRequiredModal() {
     !deferred &&
     Boolean(user);
 
-  useEffect(() => {
-    kbwDebug(open ? "addEmailModal.open" : "addEmailModal.closed", {
-      siteAccessAllowsModals,
-      kbwEventEmailCapture,
-      initialized,
-      needsEmail,
-      deferred,
-      hasUser: Boolean(user),
-      eventStage2: isKbwStage2FlowPending(),
-    });
-  }, [
-    open,
-    siteAccessAllowsModals,
-    initialized,
-    needsEmail,
-    deferred,
-    user?.id,
-    kbwEventEmailCapture,
-  ]);
-
   function dismiss() {
     if (!user?.id) return;
     writeDeferred(user.id, true);
@@ -158,12 +140,20 @@ export function AddEmailRequiredModal() {
       setDeferred(false);
       setEmail("");
       const ui = useAuthUiStore.getState();
-      await completeKbwPostLoginRedirect({
-        walletAddress: getPrimaryWalletAddress(updated),
-        push: (path) => router.push(path),
-        armKbwOffer: () => ui.armKbwOffer(),
-        clearKbwOffer: () => ui.clearKbwOffer(),
-      });
+      const wallet = getPrimaryWalletAddress(updated);
+      const onEvent =
+        typeof window !== "undefined" && isEventPath(window.location.pathname);
+
+      if (isKbwEventActive() && onEvent) {
+        armKbwOfferAfterEventContactEmail(() => ui.armKbwOffer());
+      } else if (isKbwEventStage2PostLoginActive()) {
+        await completeKbwPostLoginRedirect({
+          walletAddress: wallet,
+          push: (path) => router.push(path),
+          armKbwOffer: () => ui.armKbwOffer(),
+          clearKbwOffer: () => ui.clearKbwOffer(),
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save email");
     } finally {

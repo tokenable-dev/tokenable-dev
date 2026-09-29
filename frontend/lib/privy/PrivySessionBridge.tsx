@@ -27,7 +27,6 @@ import {
   shouldDeferKbwPostLoginForEmail,
 } from "@/lib/event/kbwEventLoginRouting";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
-import { kbwDebug, maskEmail, shortWallet } from "@/lib/event/kbwEventDebug";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
@@ -64,19 +63,12 @@ export function PrivySessionBridge() {
       // and no second onComplete — Stage-2 flags must still apply.
       const freshLogin =
         !wasAlreadyAuthenticated || eventLoginIntent || stage2Flow;
-      kbwDebug("bridge.login.onComplete", {
-        wasAlreadyAuthenticated,
-        eventLoginIntent,
-        stage2Flow,
-        freshLogin,
-      });
       if (!freshLogin) return;
 
       const ui = useAuthUiStore.getState();
       if (eventLoginIntent || (wasAlreadyAuthenticated && stage2Flow)) {
         markKbwPostLoginRoutePending();
         markKbwStage2FlowPending();
-        kbwDebug("bridge.login.stage2FlagsRefreshed");
         return;
       }
       ui.armKbwOffer();
@@ -112,7 +104,6 @@ export function PrivySessionBridge() {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!isKbwEventStage2PostLoginActive()) return;
-      kbwDebug("bridge.visibility.resumeSync");
       returnToHandled.current = false;
       setLoginSyncNonce((n) => n + 1);
     };
@@ -192,11 +183,6 @@ export function PrivySessionBridge() {
             } catch (e) {
               const status =
                 e instanceof PrivySessionSyncError ? e.status : 0;
-              kbwDebug("bridge.sync.attemptFailed", {
-                attempt,
-                status,
-                message: e instanceof Error ? e.message : "unknown",
-              });
               if (status === 429) {
                 sessionRateLimitedUntil.current = Date.now() + 60_000;
                 break;
@@ -206,21 +192,7 @@ export function PrivySessionBridge() {
             }
           }
 
-          if (cancelled) {
-            kbwDebug("bridge.sync.cancelled", { phase: "before_kbw" });
-            break;
-          }
-          if (!syncedUser) {
-            kbwDebug("bridge.sync.noUser");
-            break;
-          }
-
-          kbwDebug("bridge.sync.user", {
-            userId: syncedUser.id,
-            email: maskEmail(syncedUser.email),
-            wallet: shortWallet(getPrimaryWalletAddress(syncedUser)),
-            stage2Active: isKbwEventStage2PostLoginActive(),
-          });
+          if (cancelled || !syncedUser) break;
 
           if (isKbwEventActive()) {
             claimGuestKbwStage1ForAccount(syncedUser.id, syncedUser.email);
@@ -257,7 +229,6 @@ export function PrivySessionBridge() {
               if (isKbwEventStage2PostLoginActive()) {
                 if (shouldDeferKbwPostLoginForEmail(syncedUser.email, syncedUser)) {
                   kbwRouteDeferred = true;
-                  kbwDebug("bridge.kbw.deferred", { reason: "needs_contact_email" });
                 } else {
                   const wallet =
                     getPrimaryWalletAddress(syncedUser) ??
@@ -272,7 +243,6 @@ export function PrivySessionBridge() {
                       armKbwOffer: () => ui.armKbwOffer(),
                       clearKbwOffer: () => ui.clearKbwOffer(),
                     });
-                    kbwDebug("bridge.kbw.complete", { branch: "wallet", handled });
                     if (handled) returnToHandled.current = true;
                   } else if (userHasLinkedWallet(syncedUser)) {
                     const handled = await completeKbwPostLoginRedirect({
@@ -280,10 +250,6 @@ export function PrivySessionBridge() {
                       push: (path) => router.push(path),
                       armKbwOffer: () => ui.armKbwOffer(),
                       clearKbwOffer: () => ui.clearKbwOffer(),
-                    });
-                    kbwDebug("bridge.kbw.complete", {
-                      branch: "linked_no_client_wallet",
-                      handled,
                     });
                     if (handled) returnToHandled.current = true;
                   } else {
@@ -298,12 +264,6 @@ export function PrivySessionBridge() {
                       (hasWalletHint || attempt < 3);
                     if (shouldRetry) {
                       kbwRouteDeferred = true;
-                      kbwDebug("bridge.kbw.deferred", {
-                        reason: "wallet_catchup",
-                        attempt,
-                        clientWalletCount,
-                        hasWalletHint,
-                      });
                     } else {
                       const handled = await completeKbwPostLoginRedirect({
                         walletAddress: null,
@@ -311,19 +271,13 @@ export function PrivySessionBridge() {
                         armKbwOffer: () => ui.armKbwOffer(),
                         clearKbwOffer: () => ui.clearKbwOffer(),
                       });
-                      kbwDebug("bridge.kbw.complete", {
-                        branch: "no_wallet_fallback",
-                        handled,
-                      });
                       if (handled) returnToHandled.current = true;
                     }
                   }
                 }
               }
-            } catch (e) {
-              kbwDebug("bridge.kbw.error", {
-                message: e instanceof Error ? e.message : "unknown",
-              });
+            } catch {
+              /* ignore */
             }
 
             if (kbwRouteDeferred) {
