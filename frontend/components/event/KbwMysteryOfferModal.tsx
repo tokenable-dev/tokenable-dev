@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useQuery } from "@tanstack/react-query";
 import { ASSETS } from "@/constants/assets";
@@ -14,9 +14,8 @@ import { rq } from "@/lib/core/queryKeys";
 import { PORTFOLIO_PATH } from "@/lib/portfolio/portfolioPaths";
 import type { AuthUser } from "@/lib/auth/auth";
 import {
+  clearKbwPostLoginRoutePending,
   clearKbwStage2FlowPending,
-  isEventPath,
-  isKbwEventStage2PostLoginActive,
 } from "@/lib/event/kbwEventLoginRouting";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
@@ -26,7 +25,6 @@ function emailDeferKey(userId: string) {
   return `tk_add_email_deferred:${userId}`;
 }
 
-/** True while AddEmailRequiredModal should take priority. */
 function isEmailCaptureBlocking(user: AuthUser | null | undefined): boolean {
   if (!user?.id || !userNeedsContactEmail(user)) return false;
   try {
@@ -35,6 +33,14 @@ function isEmailCaptureBlocking(user: AuthUser | null | undefined): boolean {
     /* ignore */
   }
   return true;
+}
+
+function clearKbwEventLoginFlowUi() {
+  clearKbwPostLoginRoutePending();
+  clearKbwStage2FlowPending();
+  const ui = useAuthUiStore.getState();
+  ui.clearKbwOffer();
+  ui.setKbwEventStage2LoginPending(false);
 }
 
 function CloseIcon() {
@@ -83,21 +89,16 @@ function OfferGloss() {
 }
 
 /**
- * KBW mystery-card offer — all viewports.
- *
- * Participation SSOT: `burned === false` → not participated → show modal.
- * `burned === true` → participated (portfolio shows card as Used) → hide modal.
+ * KBW mystery-card offer — shown once per `armKbwOffer()` (Stage-2 login or post-email).
+ * Not shown on every home visit or from stale storage flags.
  */
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const pathname = usePathname();
-  const { user: privyUser } = usePrivy();
+  const { user: privyUser, authenticated: privyAuthenticated } = usePrivy();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
-  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const kbwOfferPending = useAuthUiStore((s) => s.kbwOfferPending);
   const clearKbwOffer = useAuthUiStore((s) => s.clearKbwOffer);
-  const hydrateKbwOfferPending = useAuthUiStore((s) => s.hydrateKbwOfferPending);
 
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -107,90 +108,61 @@ export function KbwMysteryOfferModal() {
       getPrimaryWalletAddress(user) ??
       pickPrivyUserEthereumWalletAddress(privyUser)
     )?.toLowerCase() ?? "";
+
+  const sessionReady =
+    initialized && (Boolean(user) || privyAuthenticated);
+
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet),
     queryFn: () => fetchKbwMysteryCardStatus(wallet),
     enabled:
-      mounted &&
-      isKbwEventActive() &&
-      Boolean(wallet) &&
-      initialized &&
-      Boolean(user),
+      mounted && isKbwEventActive() && Boolean(wallet) && sessionReady && open,
     staleTime: 30_000,
+    retry: 1,
   });
 
-  /** Card still in portfolio ⇒ not participated. */
-  const cardStillInPortfolio = cardStatusQuery.data?.burned === false;
-  /** Burned / removed ⇒ participated. */
-  const cardRemovedFromPortfolio = cardStatusQuery.data?.burned === true;
-  const statusReady = cardStatusQuery.isSuccess;
-
-  useEffect(() => {
-    setMounted(true);
-    hydrateKbwOfferPending();
-  }, [hydrateKbwOfferPending]);
-
+  const participated = cardStatusQuery.data?.burned === true;
   const emailGateOpen = isEmailCaptureBlocking(user);
 
   useEffect(() => {
-    if (!mounted) return;
-    if (!isKbwEventActive()) {
-      clearKbwOffer();
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !isKbwEventActive()) {
       setOpen(false);
       return;
     }
-    if (!initialized || !user) return;
-    if (privySessionSyncing && !wallet) return;
-    if (emailGateOpen) {
-      setOpen(false);
-      return;
-    }
-    if (!wallet) return;
-    if (!statusReady) return;
+    if (!kbwOfferPending) return;
+    if (!sessionReady || !wallet) return;
+    if (emailGateOpen) return;
 
-    if (cardRemovedFromPortfolio) {
-      clearKbwOffer();
-      clearKbwStage2FlowPending();
-      setOpen(false);
-      return;
-    }
-
-    if (!cardStillInPortfolio) return;
-
-    const onHome = pathname === "/" || pathname === "";
-    const onEvent = isEventPath(pathname);
-    const stage2PostLogin = isKbwEventStage2PostLoginActive();
-    const shouldShowOffer =
-      kbwOfferPending || onHome || (onEvent && stage2PostLogin);
-
-    if (shouldShowOffer) {
-      setOpen(true);
-      if (kbwOfferPending) clearKbwOffer();
-    }
+    setOpen(true);
+    clearKbwEventLoginFlowUi();
   }, [
     mounted,
     kbwOfferPending,
     clearKbwOffer,
-    initialized,
-    privySessionSyncing,
-    user,
-    emailGateOpen,
+    sessionReady,
     wallet,
-    statusReady,
-    cardStillInPortfolio,
-    cardRemovedFromPortfolio,
-    pathname,
+    emailGateOpen,
+    user?.id,
   ]);
+
+  useEffect(() => {
+    if (!open || !participated) return;
+    setOpen(false);
+    clearKbwEventLoginFlowUi();
+  }, [open, participated]);
 
   function close() {
     setOpen(false);
-    clearKbwStage2FlowPending();
+    clearKbwEventLoginFlowUi();
   }
 
   function handleBuy() {
-    clearKbwOffer();
-    clearKbwStage2FlowPending();
     setOpen(false);
+    clearKbwEventLoginFlowUi();
     router.push(`${PORTFOLIO_PATH}?tab=assets`);
   }
 

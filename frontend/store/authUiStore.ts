@@ -91,6 +91,8 @@ interface AuthUiState {
   kycOpen: boolean;
   /** Post-login KBW mystery-card offer (armed only during event window). */
   kbwOfferPending: boolean;
+  /** `/event` Stage-2 MetaMask login — show offer when true (Zustand, not storage-only). */
+  kbwEventStage2LoginPending: boolean;
   pendingReturnTo: string | null;
 
   walletActivationPhase: WalletActivationPhase;
@@ -106,8 +108,10 @@ interface AuthUiState {
   closeKyc: () => void;
   armKbwOffer: () => void;
   clearKbwOffer: () => void;
+  setKbwEventStage2LoginPending: (pending: boolean) => void;
   /** Restore pending flag from sessionStorage after remount. */
   hydrateKbwOfferPending: () => void;
+  hydrateKbwEventStage2LoginPending: () => void;
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
@@ -134,6 +138,7 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   walletMismatchOpen: false,
   kycOpen: false,
   kbwOfferPending: false,
+  kbwEventStage2LoginPending: false,
   pendingReturnTo: null,
 
   walletActivationPhase: "idle",
@@ -161,6 +166,12 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   hydrateKbwOfferPending: () => {
     if (readKbwOfferPending()) set({ kbwOfferPending: true });
   },
+
+  setKbwEventStage2LoginPending: (pending) =>
+    set({ kbwEventStage2LoginPending: pending }),
+
+  /** Stage-2 routing only — do not re-arm the offer modal from storage. */
+  hydrateKbwEventStage2LoginPending: () => {},
 
   openConnectWallet: (opts) => {
     const phase = get().walletActivationPhase;
