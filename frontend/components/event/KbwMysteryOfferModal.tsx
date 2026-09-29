@@ -126,6 +126,7 @@ export function KbwMysteryOfferModal() {
 
   useEffect(() => {
     setMounted(true);
+    useAuthUiStore.getState().hydrateKbwOfferPending();
   }, []);
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export function KbwMysteryOfferModal() {
       return;
     }
     if (!kbwOfferPending) return;
-    if (!sessionReady || !wallet) return;
+    if (!sessionReady) return;
     if (userNeedsContactEmail(user)) return;
     if (emailGateOpen) return;
 
@@ -145,9 +146,9 @@ export function KbwMysteryOfferModal() {
     kbwOfferPending,
     clearKbwOffer,
     sessionReady,
-    wallet,
     emailGateOpen,
     user?.id,
+    user?.email,
   ]);
 
   useEffect(() => {

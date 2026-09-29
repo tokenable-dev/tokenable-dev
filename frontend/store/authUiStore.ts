@@ -51,17 +51,24 @@ function writeStoredReturnTo(path: string | null) {
 function readKbwOfferPending(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return sessionStorage.getItem(KBW_OFFER_PENDING_KEY) === "1";
+    if (sessionStorage.getItem(KBW_OFFER_PENDING_KEY) === "1") return true;
+    if (localStorage.getItem(KBW_OFFER_PENDING_KEY) === "1") return true;
   } catch {
-    return false;
+    /* ignore */
   }
+  return false;
 }
 
 function writeKbwOfferPending(pending: boolean) {
   if (typeof window === "undefined") return;
   try {
-    if (pending) sessionStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
-    else sessionStorage.removeItem(KBW_OFFER_PENDING_KEY);
+    if (pending) {
+      sessionStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
+      localStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
+    } else {
+      sessionStorage.removeItem(KBW_OFFER_PENDING_KEY);
+      localStorage.removeItem(KBW_OFFER_PENDING_KEY);
+    }
   } catch {
     /* ignore */
   }

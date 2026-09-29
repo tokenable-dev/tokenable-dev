@@ -19,6 +19,7 @@ import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation
 import {
   completeKbwPostLoginRedirect,
   consumeKbwLoginIntent,
+  isEventPath,
   isKbwEventStage2PostLoginActive,
   isKbwPostLoginRoutePending,
   isKbwStage2FlowPending,
@@ -99,6 +100,21 @@ export function PrivySessionBridge() {
     registerPrivySignOut(privyLogout);
     return () => registerPrivySignOut(null);
   }, [privyLogout]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!isKbwEventStage2PostLoginActive()) return;
+      returnToHandled.current = false;
+      setLoginSyncNonce((n) => n + 1);
+    };
+    window.addEventListener("pageshow", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("pageshow", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -211,7 +227,11 @@ export function PrivySessionBridge() {
             let kbwReturnTo: string | null = null;
             let kbwRouteDeferred = false;
             try {
-              if (isKbwPostLoginRoutePending()) {
+              const onEventPage =
+                typeof window !== "undefined" &&
+                isEventPath(window.location.pathname);
+
+              if (isKbwPostLoginRoutePending() && !onEventPage) {
                 if (shouldDeferKbwPostLoginForEmail(syncedUser.email, syncedUser)) {
                   kbwRouteDeferred = true;
                 } else {

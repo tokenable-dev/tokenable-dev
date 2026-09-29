@@ -21,6 +21,7 @@ import {
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import { isMobileBrowserUa } from "@/lib/privy/walletLoginIntent";
+import { useKbwEventStage2PostLogin } from "@/hooks/event/useKbwEventStage2PostLogin";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -121,6 +122,8 @@ export function EventLandingView() {
   const armKbwOffer = useAuthUiStore((s) => s.armKbwOffer);
   const clearKbwOffer = useAuthUiStore((s) => s.clearKbwOffer);
   const scope = kbwEventParticipationScope(userId, userEmail);
+
+  useKbwEventStage2PostLogin();
 
   useEffect(() => {
     // Per-account (or guest) — switching users must not keep another account's check.
