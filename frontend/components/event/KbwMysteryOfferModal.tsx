@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useQuery } from "@tanstack/react-query";
 import { ASSETS } from "@/constants/assets";
 import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
 import { userNeedsContactEmail } from "@/lib/auth/walletOnlyEmail";
+import { ensureTokenableWalletSynced } from "@/lib/auth/ensureTokenableWalletSynced";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
 import {
   fetchKbwMysteryCardStatus,
@@ -91,13 +92,16 @@ function OfferGloss() {
 
 export function KbwMysteryOfferModal() {
   const router = useRouter();
-  const { authenticated, user: privyUser } = usePrivy();
+  const { authenticated, user: privyUser, getAccessToken } = usePrivy();
+  const { wallets } = useWallets();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
+  const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const kbwMysteryOfferVisible = useAuthUiStore((s) => s.kbwMysteryOfferVisible);
 
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
+  const [buyNavigating, setBuyNavigating] = useState(false);
 
   const wallet =
     (
@@ -210,7 +214,20 @@ export function KbwMysteryOfferModal() {
     dismissKbwOfferUi();
   }
 
-  function handleBuy() {
+  async function handleBuy() {
+    if (buyNavigating) return;
+    setBuyNavigating(true);
+    try {
+      await ensureTokenableWalletSynced({
+        getAccessToken,
+        hydrateFromSession,
+        privyWalletHint:
+          wallets.length > 0 ||
+          Boolean(pickPrivyUserEthereumWalletAddress(privyUser)),
+      });
+    } finally {
+      setBuyNavigating(false);
+    }
     setOpen(false);
     dismissKbwOfferUi();
     useAuthUiStore.getState().clearPendingReturnToForEvent();
@@ -272,10 +289,13 @@ export function KbwMysteryOfferModal() {
         <button
           type="button"
           className="ev-btn ev-btn--primary ev-offer-modal__cta"
-          onClick={handleBuy}
+          disabled={buyNavigating}
+          onClick={() => void handleBuy()}
         >
           <OfferGloss />
-          <span className="ev-btn__label">BUY • FREE</span>
+          <span className="ev-btn__label">
+            {buyNavigating ? "Loading…" : "BUY • FREE"}
+          </span>
         </button>
       </div>
     </div>,

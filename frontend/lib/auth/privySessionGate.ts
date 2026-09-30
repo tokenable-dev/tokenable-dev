@@ -14,3 +14,17 @@ export function shouldDeferGuestSignIn(opts: {
   if (opts.privyAuthenticated || opts.privySessionSyncing) return true;
   return false;
 }
+
+/** Logged in but portfolio wallet not on Tokenable user yet (Privy embedded catch-up). */
+export function shouldDeferPortfolioWalletLink(opts: {
+  user: AuthUser | null | undefined;
+  hasLinkedWallet: boolean;
+  privyAuthenticated: boolean;
+  privySessionSyncing: boolean;
+  privyWalletCount: number;
+}): boolean {
+  if (!opts.user || opts.hasLinkedWallet) return false;
+  if (opts.privySessionSyncing) return true;
+  if (opts.privyAuthenticated && opts.privyWalletCount > 0) return true;
+  return false;
+}

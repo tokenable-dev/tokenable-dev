@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import {
   usePortfolioDailyChart,
@@ -50,7 +50,11 @@ import {
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
+import { ensureTokenableWalletSynced } from "@/lib/auth/ensureTokenableWalletSynced";
+import {
+  shouldDeferGuestSignIn,
+  shouldDeferPortfolioWalletLink,
+} from "@/lib/auth/privySessionGate";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,
@@ -99,11 +103,45 @@ export function PortfolioPageView({
   const authInitialized = useAuthStore((s) => s.initialized);
   const authLoading = useAuthStore((s) => s.loading);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
-  const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
+  const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
+  const {
+    ready: privyReady,
+    authenticated: privyAuthenticated,
+    getAccessToken,
+  } = usePrivy();
+  const { wallets: privyWallets } = useWallets();
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const guestSignInPromptedRef = useRef(false);
   const { runSellAccessGate } = useSellAccessGate(portfolioBase);
   const wallet = useLinkedPortfolioWallet();
+  const deferPortfolioWalletLink = shouldDeferPortfolioWalletLink({
+    user,
+    hasLinkedWallet: wallet.hasLinkedWallet,
+    privyAuthenticated,
+    privySessionSyncing,
+    privyWalletCount: privyWallets.length,
+  });
+
+  useEffect(() => {
+    if (!deferPortfolioWalletLink) return;
+    let cancelled = false;
+    void ensureTokenableWalletSynced({
+      getAccessToken,
+      hydrateFromSession,
+      privyWalletHint: privyWallets.length > 0,
+    }).then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    deferPortfolioWalletLink,
+    getAccessToken,
+    hydrateFromSession,
+    privyWallets.length,
+  ]);
+
   const { connectedAddress, isConnected } = wallet;
   const portfolioAddress = wallet.portfolioAddress;
   const portfolioDataEnabled =
@@ -931,6 +969,17 @@ export function PortfolioPageView({
     return (
       <>
         <PortfolioGuestState />
+        {listModalLayer}
+      </>
+    );
+  }
+
+  if (deferPortfolioWalletLink) {
+    return (
+      <>
+        <div className="flex min-h-[50vh] items-center justify-center bg-black">
+          <span className="h-7 w-7 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+        </div>
         {listModalLayer}
       </>
     );
