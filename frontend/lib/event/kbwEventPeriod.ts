@@ -5,7 +5,7 @@
  *   NEXT_PUBLIC_KBW_EVENT_START / NEXT_PUBLIC_KBW_EVENT_END
  */
 const DEFAULT_START = "2026-09-01T00:00:00+09:00";
-const DEFAULT_END = "2026-09-30T23:59:59+09:00";
+const DEFAULT_END = "2026-10-01T23:59:59+09:00";
 
 function parseBound(raw: string | undefined, fallback: string): number {
   const n = Date.parse(raw?.trim() || fallback);
