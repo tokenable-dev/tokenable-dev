@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
-import { isNextImageCatalogCoverUrl } from "@/lib/marketplace/catalogCoverPublicUrl";
 import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
 import { CollectionCoverLightbox } from "./CollectionCoverLightbox";
 import { CollectionCoverSwipeLightbox } from "./CollectionCoverSwipeLightbox";
@@ -89,30 +87,19 @@ export function CollectionCoverFrame({
       <div className={`relative h-full min-h-0 w-full ${className}`}>
         <div className="relative h-full min-h-0 w-full overflow-hidden">
           {resolved && !imgFailed ? (
-            isNextImageCatalogCoverUrl(resolved) ? (
-              <Image
-                src={resolved}
-                alt={alt}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
-                className={`${flatObjectClass} object-center`}
-                style={flatImgStyle}
-                onError={handleImageError}
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolved}
-                alt={alt}
-                className={`absolute inset-0 h-full w-full ${flatObjectClass} object-center`}
-                style={flatImgStyle}
-                onError={handleImageError}
-                referrerPolicy="no-referrer"
-                loading="lazy"
-                decoding="async"
-              />
-            )
+            // Markets/home grids: plain <img> like collection hero — avoids stale
+            // `/_next/image` cache when admin overwrites the stable S3 /cover object.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolved}
+              alt={alt}
+              className={`absolute inset-0 h-full w-full ${flatObjectClass} object-center`}
+              style={flatImgStyle}
+              onError={handleImageError}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+            />
           ) : imgFailed ? (
             <div
               className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs leading-snug text-zinc-500"
