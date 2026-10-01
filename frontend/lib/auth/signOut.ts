@@ -1,4 +1,3 @@
-import { clearKbwStage2 } from "@/lib/event/kbwEventStage2";
 import { clearSavedRedeemAddress } from "@/lib/portfolio/redeemDraft";
 import { clearAllSellLocalState } from "@/lib/sell/sellFlowDraft";
 import {
@@ -16,10 +15,10 @@ export { registerPrivySignOut } from "@/lib/privy/session";
 
 const AUTH_PERSISTENCE_PREFIXES = [
   "tk_auth_return_to",
+  "tk_add_email_deferred:",
   "tk_kbw_offer_pending",
   "tk_kbw_stage2",
   "tk_kbw_stage1_done",
-  "tk_add_email_deferred:",
   "tk_kbw_post_login_route",
   "tk_kbw_stage2_flow",
   "tk_kbw_login_intent",
@@ -42,16 +41,15 @@ function removeMatchingStorageKeys(storage: Storage): void {
   }
 }
 
-/** Drop event/login persistence so the next account starts clean. */
+/** Drop login persistence so the next account starts clean. */
 export function clearClientAuthPersistence(): void {
   if (typeof window === "undefined") return;
-  clearKbwStage2();
   removeMatchingStorageKeys(sessionStorage);
   removeMatchingStorageKeys(localStorage);
 }
 
 /**
- * Clear Privy + Tokenable sessions and all client auth/event state.
+ * Clear Privy + Tokenable sessions and client auth persistence.
  * Tokenable cookie is cleared here (not only in Privy `onSuccess`) so mobile
  * cannot leave an orphan Privy session that blocks `login()` on the next tap.
  */

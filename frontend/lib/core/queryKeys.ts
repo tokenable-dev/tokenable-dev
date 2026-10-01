@@ -107,13 +107,6 @@ export const rq = {
       address.toLowerCase(),
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
-  /** Whether this wallet / signed-in contact email burned the web2 KBW Mystery Card. */
-  kbwMysteryCard: (address: string, contactEmailScope = "") =>
-    [
-      "kbw-mystery-card",
-      address.toLowerCase(),
-      contactEmailScope.trim().toLowerCase(),
-    ] as const,
   /** Collection labels/covers for portfolio bid rows (sorted keys). */
   portfolioBidCollections: (chainId: number, sortedKeys: readonly string[]) =>
     ["portfolio-bid-collections", chainId, [...sortedKeys]] as const,

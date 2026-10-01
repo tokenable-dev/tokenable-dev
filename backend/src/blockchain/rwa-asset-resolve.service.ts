@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import {
+  pickPsaCertSlabImageRef,
   pickRwaAssetDisplayImageRef,
   psaCertNumberFromGradedMeta,
   withRwaSlabDisplayCacheBust,
@@ -110,6 +111,44 @@ export class RwaAssetResolveService {
     return ref ? await this.ipfs.resolveImageToHttps(ref) : null;
   }
 
+  /**
+   * Portfolio / certificate tile: PSA slab from metadata → S3 user upload (`display_image_url`)
+   * → remaining metadata refs → on-chain fallback.
+   */
+  private async resolveTokenDisplayImageUrl(opts: {
+    metadata: Record<string, unknown> | null;
+    registryDisplayUrl: string | null | undefined;
+    registryUpdatedAt?: Date | null;
+    onChainImageUrl: string | null;
+  }): Promise<string | null> {
+    if (opts.metadata) {
+      const psaRef = pickPsaCertSlabImageRef(opts.metadata);
+      if (psaRef) {
+        const psaHttps = await this.resolveOverrideToHttps(
+          psaRef,
+          opts.registryUpdatedAt,
+        );
+        if (psaHttps) return psaHttps;
+      }
+    }
+
+    const registry = opts.registryDisplayUrl?.trim();
+    if (registry) {
+      const slabHttps = await this.resolveOverrideToHttps(
+        registry,
+        opts.registryUpdatedAt,
+      );
+      if (slabHttps) return slabHttps;
+    }
+
+    if (opts.metadata) {
+      const fromMeta = await this.resolveImageFromMetadata(opts.metadata);
+      if (fromMeta) return fromMeta;
+    }
+
+    return opts.onChainImageUrl?.trim() ? opts.onChainImageUrl : null;
+  }
+
   private async ensureMetadata(
     payload: ResolvedAssetPayload,
     row?: RwaToken | null,
@@ -150,24 +189,19 @@ export class RwaAssetResolveService {
     tokenId: number,
     row: RwaToken,
   ): Promise<ResolvedAssetPayload | null> {
-    const displayOverride = row.displayImageUrl?.trim();
+    const displayOverride = row.displayImageUrl?.trim() || null;
     const imageBackUrl = row.displayImageBackUrl?.trim() || null;
     const tokenUri = this.registryMetadataUri(row);
-
-    let imageUrl: string | null = null;
-    if (displayOverride) {
-      imageUrl = await this.resolveOverrideToHttps(
-        displayOverride,
-        row.updatedAt,
-      );
-    }
 
     const metadata = tokenUri
       ? await this.fetchMetadataJsonSafe(tokenUri)
       : null;
-    if (!imageUrl && metadata) {
-      imageUrl = await this.resolveImageFromMetadata(metadata);
-    }
+    const imageUrl = await this.resolveTokenDisplayImageUrl({
+      metadata,
+      registryDisplayUrl: displayOverride,
+      registryUpdatedAt: row.updatedAt,
+      onChainImageUrl: null,
+    });
 
     if (!imageUrl && !metadata && !tokenUri) return null;
 
@@ -288,24 +322,18 @@ export class RwaAssetResolveService {
       owners,
     );
 
-    if (!fields.front) {
-      return {
-        ...base,
-        metadata,
-        imageBackUrl,
-        displayImageUrlOverride: null,
-      };
-    }
-    const imageUrl = await this.resolveOverrideToHttps(
-      fields.front,
-      slabCacheBust,
-    );
+    const imageUrl = await this.resolveTokenDisplayImageUrl({
+      metadata,
+      registryDisplayUrl: fields.front,
+      registryUpdatedAt: slabCacheBust,
+      onChainImageUrl: base.imageUrl,
+    });
     return {
       ...base,
       metadata,
-      imageUrl: imageUrl ?? base.imageUrl,
+      imageUrl,
       imageBackUrl,
-      displayImageUrlOverride: fields.front,
+      displayImageUrlOverride: fields.front ?? null,
     };
   }
 
@@ -532,16 +560,12 @@ export class RwaAssetResolveService {
         });
 
         const override = row?.displayImageUrl?.trim() || null;
-        let imageUrl: string | null = null;
-        // Mint slab (display_image_url) is UI SSOT — same as certificate detail, even when
-        // token_uri / IPFS metadata drifted so we must not show the wrong card name/cert.
-        if (override) {
-          imageUrl = await resolveHttps(override, row?.updatedAt);
-        }
-        if (!imageUrl && metadata) {
-          imageUrl = await this.resolveImageFromMetadata(metadata);
-        }
-        if (!imageUrl) imageUrl = onChain?.imageUrl ?? null;
+        const imageUrl = await this.resolveTokenDisplayImageUrl({
+          metadata,
+          registryDisplayUrl: override,
+          registryUpdatedAt: row?.updatedAt ?? null,
+          onChainImageUrl: onChain?.imageUrl ?? null,
+        });
         const imageBackUrl = await resolveHttps(
           row?.displayImageBackUrl,
           row?.updatedAt,
@@ -717,17 +741,12 @@ export class RwaAssetResolveService {
         }
 
         const override = overrides.get(tokenId) ?? null;
-        let imageUrl: string | null = null;
-        if (override) {
-          imageUrl = await this.resolveOverrideToHttps(
-            override,
-            row?.updatedAt,
-          );
-        } else if (metadata) {
-          imageUrl = await this.resolveImageFromMetadata(metadata);
-        } else {
-          imageUrl = onChain?.imageUrl ?? null;
-        }
+        const imageUrl = await this.resolveTokenDisplayImageUrl({
+          metadata,
+          registryDisplayUrl: override,
+          registryUpdatedAt: row?.updatedAt ?? null,
+          onChainImageUrl: onChain?.imageUrl ?? null,
+        });
 
         let imageBackUrl: string | null = null;
         const rowBack = row?.displayImageBackUrl?.trim();
@@ -750,23 +769,11 @@ export class RwaAssetResolveService {
           owners,
         );
 
-        if (!override) {
-          return {
-            tokenId,
-            tokenURI,
-            metadata: visibleMetadata,
-            imageUrl,
-            imageBackUrl,
-            displayImageUrlOverride: null,
-          };
-        }
-
         return {
           tokenId,
           tokenURI,
           metadata: visibleMetadata,
-          imageUrl:
-            imageUrl ?? (await this.resolveImageFromMetadata(visibleMetadata)),
+          imageUrl,
           imageBackUrl,
           displayImageUrlOverride: override,
         };

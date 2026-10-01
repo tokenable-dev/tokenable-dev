@@ -18,14 +18,6 @@ import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
 import { pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-import { isKbwEventActive } from "@/lib/event/kbwEventPeriod";
-import { claimGuestKbwStage1ForAccount } from "@/lib/event/kbwEventParticipation";
-import {
-  completeKbwStage2Session,
-  consumeKbwStage2LoginIntent,
-  ensureKbwStage2Pending,
-  isKbwStage2Pending,
-} from "@/lib/event/kbwEventStage2";
 
 /** Delay between wallet catch-up POSTs while Privy API lags behind client wallets. */
 const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as const;
@@ -49,24 +41,10 @@ export function PrivySessionBridge() {
   const catchupAttempt = useRef(0);
   const [loginSyncNonce, setLoginSyncNonce] = useState(0);
   useLogin({
-    onComplete: ({ wasAlreadyAuthenticated }) => {
+    onComplete: () => {
       resumePrivySessionSync();
       catchupAttempt.current = 0;
       setLoginSyncNonce((n) => n + 1);
-      if (!isKbwEventActive()) return;
-
-      const loginIntent = consumeKbwStage2LoginIntent();
-      const stage2 = isKbwStage2Pending();
-      const relevantLogin =
-        !wasAlreadyAuthenticated || loginIntent || stage2;
-      if (!relevantLogin) return;
-
-      if (loginIntent || (wasAlreadyAuthenticated && stage2)) {
-        ensureKbwStage2Pending();
-        return;
-      }
-
-      useAuthUiStore.getState().armKbwOffer();
     },
   });
   const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
@@ -108,21 +86,6 @@ export function PrivySessionBridge() {
       syncInFlight.current = false;
       setLoginSyncNonce((n) => n + 1);
     });
-  }, []);
-
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      if (!isKbwStage2Pending()) return;
-      returnToHandled.current = false;
-      setLoginSyncNonce((n) => n + 1);
-    };
-    window.addEventListener("pageshow", onVisible);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.removeEventListener("pageshow", onVisible);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
   }, []);
 
   useEffect(() => {
@@ -217,10 +180,6 @@ export function PrivySessionBridge() {
 
           if (cancelled || !syncedUser) break;
 
-          if (isKbwEventActive()) {
-            claimGuestKbwStage1ForAccount(syncedUser.id, syncedUser.email);
-          }
-
           if (userHasLinkedWallet(syncedUser)) {
             catchupAttempt.current = 0;
           } else {
@@ -245,59 +204,7 @@ export function PrivySessionBridge() {
             }
           }
 
-          if (!cancelled && !returnToHandled.current && isKbwStage2Pending()) {
-            const wallet =
-              getPrimaryWalletAddress(syncedUser) ??
-              pickPrivyUserEthereumWalletAddress(privyUser) ??
-              privyWalletHint ??
-              null;
-            const ui = useAuthUiStore.getState();
-            const result = await completeKbwStage2Session({
-              user: syncedUser,
-              walletAddress: wallet,
-              pathname,
-              push: (path) => router.push(path),
-              armKbwOffer: () => ui.armKbwOffer(),
-              clearKbwOffer: () => ui.clearKbwOffer(),
-              allowWaitForWallet: !wallet && !userHasLinkedWallet(syncedUser),
-            });
-
-            if (result === "done") {
-              returnToHandled.current = true;
-            } else if (result === "wait_wallet") {
-              const attempt = catchupAttempt.current;
-              const clientWalletCount = walletsRef.current.length;
-              const hasWalletHint =
-                clientWalletCount > 0 ||
-                Boolean(privyWalletHint) ||
-                Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
-              const shouldRetry =
-                attempt < WALLET_CATCHUP_DELAYS_MS.length &&
-                (hasWalletHint || attempt < 3);
-              if (shouldRetry) {
-                syncPending.current = true;
-              } else {
-                const fallback = await completeKbwStage2Session({
-                  user: syncedUser,
-                  walletAddress: null,
-                  pathname,
-                  push: (path) => router.push(path),
-                  armKbwOffer: () => ui.armKbwOffer(),
-                  clearKbwOffer: () => ui.clearKbwOffer(),
-                  allowWaitForWallet: false,
-                });
-                if (fallback === "done") returnToHandled.current = true;
-              }
-            } else if (result === "deferred_email") {
-              /* AddEmailRequiredModal on `/event` */
-            }
-          }
-
-          if (
-            !cancelled &&
-            !returnToHandled.current &&
-            !isKbwStage2Pending()
-          ) {
+          if (!cancelled && !returnToHandled.current) {
             const returnTo = useAuthUiStore.getState().consumeReturnTo();
             if (returnTo) {
               returnToHandled.current = true;

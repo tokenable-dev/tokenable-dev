@@ -152,15 +152,8 @@ function mintPinnedNftImageRef(
   return typeof img === 'string' && img.trim() ? img.trim() : undefined;
 }
 
-/**
- * RWA 카드 히어로/리스트용 이미지 ref — 민트 구조는 그대로 두고, 응답 `imageUrl`만 빠르게 만든다.
- * 순서: (1) PSA `certImageSourceUrl` (HTTPS slab)
- * → (2) `properties.mintImageSource` user_upload/psa_cert → 표준 `image` (pinned slab, ipfs://)
- * → (3) Cardhedger catalog `imageUrl` (collection art — not a PSA slab photo)
- * → (4) {@link extractCollectionRepresentativeImage}
- * → (5) 표준 `image`.
- */
-export function pickRwaAssetDisplayImageRef(
+/** PSA official slab photo URL from mint metadata (HTTPS only). */
+export function pickPsaCertSlabImageRef(
   meta: Record<string, unknown>,
 ): string | undefined {
   const props = meta.properties as Record<string, unknown> | undefined;
@@ -175,9 +168,29 @@ export function pickRwaAssetDisplayImageRef(
   if (cert && isUsableCoverUrl(cert) && isDirectHttpsImageUrl(cert)) {
     return cert;
   }
+  return undefined;
+}
+
+/**
+ * RWA 카드 히어로/리스트용 이미지 ref — 민트 구조는 그대로 두고, 응답 `imageUrl`만 빠르게 만든다.
+ * 순서: (1) PSA `certImageSourceUrl` (HTTPS slab)
+ * → (2) `properties.mintImageSource` user_upload/psa_cert → 표준 `image` (pinned slab, ipfs://)
+ * → (3) Cardhedger catalog `imageUrl` (collection art — not a PSA slab photo)
+ * → (4) {@link extractCollectionRepresentativeImage}
+ * → (5) 표준 `image`.
+ */
+export function pickRwaAssetDisplayImageRef(
+  meta: Record<string, unknown>,
+): string | undefined {
+  const psa = pickPsaCertSlabImageRef(meta);
+  if (psa) return psa;
   const pinned = mintPinnedNftImageRef(meta);
   if (pinned) return pinned;
 
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
   const ch = graded?.cardhedger as Record<string, unknown> | undefined;
   const chImage = typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
   if (chImage && isUsableCoverUrl(chImage) && isDirectHttpsImageUrl(chImage)) {

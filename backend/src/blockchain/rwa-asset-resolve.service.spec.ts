@@ -103,6 +103,43 @@ describe('RwaAssetResolveService', () => {
     );
   });
 
+  it('batchPortfolioMetadata prefers PSA cert slab in metadata over display_image_url upload', async () => {
+    const psaSlab = 'https://d1htnxwo4o0jhw.cloudfront.net/cert/12345/small.jpg';
+    const metaWithPsa = {
+      ...sampleMetadata,
+      properties: {
+        graded: {
+          psa: {
+            subject: 'Joe Burrow',
+            gradeScore: '10',
+            certImageSourceUrl: psaSlab,
+          },
+        },
+      },
+    };
+    const row = {
+      tokenId: '200',
+      tokenContract: '0xrwa',
+      tokenUri: 'ipfs://QmMeta200',
+      certNumber: '12345',
+      displayName: null,
+      displayImageUrl: 'https://cdn.example/user-upload-200.jpg',
+      displayImageBackUrl: null,
+    } as RwaToken;
+
+    rwaTokenRepo.find.mockResolvedValue([row]);
+    blockchain.getRwaTokenURI.mockResolvedValue('ipfs://QmMeta200');
+    ipfs.fetchMetadataJson.mockResolvedValue(metaWithPsa);
+    ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
+
+    const { items } = await service.batchPortfolioMetadata([200], 11155111);
+
+    expect(items[0]?.imageUrl).toBe(psaSlab);
+    expect(items[0]?.displayImageUrlOverride).toBe(
+      'https://cdn.example/user-upload-200.jpg',
+    );
+  });
+
   it('batchPortfolioMetadata prefers on-chain when registry token_uri drifts', async () => {
     const row = {
       tokenId: '1',

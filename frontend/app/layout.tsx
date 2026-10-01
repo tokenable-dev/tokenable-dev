@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import "@/styles/tokenable-event.css";
 import { Providers } from "./providers";
 import { TkHeader } from "@/components/layout/TkHeader";
 import { TkFooter } from "@/components/layout/TkFooter";
@@ -11,14 +10,12 @@ import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 import { SiteAnalytics } from "@/components/analytics";
 import { PartnerCompanyAddressRequiredModal } from "@/components/partner/PartnerCompanyAddressRequiredModal";
 import { AddEmailRequiredModal } from "@/components/auth/AddEmailRequiredModal";
-import { KbwMysteryOfferModal } from "@/components/event/KbwMysteryOfferModal";
 import { NotificationToastsHost } from "@/components/layout/notifications/NotificationToastsHost";
 import { cn } from "@/lib/ds/cn";
 import { Suspense } from "react";
 
 const inter = Inter({
   subsets: ["latin"],
-  // 300 unused; keep 500 (font-medium / .tk-caption), 800 (home/vault), 900 (event claim).
   weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-inter",
   display: "swap",
@@ -28,21 +25,6 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-jetbrains-mono",
-  display: "swap",
-});
-
-/** KBW `/event` + offer modal — server-only; do not load via client `next/font`. */
-const pressStart = Press_Start_2P({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-ev-press",
-  display: "swap",
-});
-
-const pixelify = Pixelify_Sans({
-  weight: ["400", "700"],
-  subsets: ["latin"],
-  variable: "--font-ev-pixelify",
   display: "swap",
 });
 
@@ -84,7 +66,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="dark"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${pressStart.variable} ${pixelify.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased tk-ds-surface">
         <Providers>
@@ -96,9 +78,6 @@ export default function RootLayout({
               </Suspense>
               <Suspense fallback={null}>
                 <AddEmailRequiredModal />
-              </Suspense>
-              <Suspense fallback={null}>
-                <KbwMysteryOfferModal />
               </Suspense>
               <Suspense fallback={null}>
                 <NotificationToastsHost />

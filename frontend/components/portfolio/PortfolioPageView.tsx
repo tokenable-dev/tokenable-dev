@@ -24,19 +24,11 @@ import {
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import {
-  buildKbwMysteryCardMetadata,
-  buildKbwMysteryCardRow,
-  isKbwMysteryCardTokenId,
-} from "@/lib/portfolio/kbwMysteryCard";
-import {
   getOrderByHash,
   getPortfolioActivityOrders,
   marketplaceRqPolicy,
   postRwaMetadataBatchBatched,
   putPortfolioCostBasis,
-  fetchKbwMysteryCardStatus,
-  kbwMysteryCardContactScope,
-  burnKbwMysteryCard,
   rq,
   type Order,
   type RwaMetadata,
@@ -76,7 +68,6 @@ import {
 } from "@/lib/portfolio/portfolioPaths";
 import { ListRwaModalHost } from "@/components/marketplace/list-rwa/ListRwaModalHost";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
-import { KbwMysteryCardBurnModal } from "@/components/portfolio/KbwMysteryCardBurnModal";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -281,22 +272,6 @@ export function PortfolioPageView({
   const secondaryPortfolioFetchReady =
     portfolioDataEnabled && !assetsPage.idsLoading && !assetsPage.valuesPending;
 
-  const kbwContactScope = kbwMysteryCardContactScope(user?.email);
-
-  const kbwMysteryQuery = useQuery({
-    queryKey: rq.kbwMysteryCard(portfolioAddress ?? "", kbwContactScope),
-    queryFn: () => fetchKbwMysteryCardStatus(portfolioAddress!),
-    enabled:
-      secondaryPortfolioFetchReady &&
-      Boolean(portfolioAddress) &&
-      Boolean(kbwContactScope),
-    staleTime: 30_000,
-  });
-  /** Unused until real contact email + explicit portfolio burn (`POST …/burn`). */
-  const kbwMysteryBurned =
-    Boolean(kbwContactScope) && kbwMysteryQuery.data?.burned === true;
-  const [kbwBurnModalOpen, setKbwBurnModalOpen] = useState(false);
-
   const {
     ownedTokenIds: tokenIds,
     loadedTokenIds,
@@ -410,8 +385,7 @@ export function PortfolioPageView({
       seriesByCollectionKey,
       mintPreviewByToken,
     }).sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
-    // Web2 KBW collectible — always shown; after burn, status becomes "Used".
-    return [buildKbwMysteryCardRow(kbwMysteryBurned), ...rows];
+    return rows;
   }, [
     assets,
     listingByTokenId,
@@ -419,11 +393,9 @@ export function PortfolioPageView({
     statsByCollectionKey,
     seriesByCollectionKey,
     mintPreviewByToken,
-    kbwMysteryBurned,
   ]);
 
   const saveCostBasis = async (tokenId: number, costBasisUsd: number) => {
-    if (isKbwMysteryCardTokenId(tokenId)) return;
     const wallet = portfolioAddress ?? signerAddress;
     if (!wallet) return;
     setSavingCostBasisTokenId(tokenId);
@@ -703,18 +675,13 @@ export function PortfolioPageView({
         m.set(it.tokenId, (it.metadata ?? null) as RwaMetadata | null);
       }
     }
-    m.set(
-      buildKbwMysteryCardRow(kbwMysteryBurned).tokenId,
-      buildKbwMysteryCardMetadata(kbwMysteryBurned),
-    );
     return m;
-  }, [metadataByTokenId, phantomMetaQuery.data, kbwMysteryBurned]);
+  }, [metadataByTokenId, phantomMetaQuery.data]);
 
   const holdingsDisplayCount = useMemo(
     () =>
       Math.max(0, tokenIds.filter((id) => !hiddenSet.has(id)).length) +
-      redeemPhantomAssetRows.length +
-      1,
+      redeemPhantomAssetRows.length,
     [tokenIds, hiddenSet, redeemPhantomAssetRows.length],
   );
 
@@ -731,7 +698,6 @@ export function PortfolioPageView({
 
   const buildListModalState = useCallback(
     (tokenId: number) => {
-      if (isKbwMysteryCardTokenId(tokenId)) return null;
       const row =
         assetRowsByTokenId.get(tokenId) ??
         assetRows.find((r) => r.tokenId === tokenId);
@@ -766,7 +732,6 @@ export function PortfolioPageView({
 
   const openPortfolioSetPriceModal = useCallback(
     (tokenId: number) => {
-      if (isKbwMysteryCardTokenId(tokenId)) return;
       if (isRedeemInFlight(redeemStatusByTokenId.get(tokenId))) {
         window.alert("This card has a redemption in progress and cannot be listed.");
         return;
@@ -1042,7 +1007,6 @@ export function PortfolioPageView({
               onSaveCostBasis={saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
               onSetPrice={openPortfolioSetPriceModal}
-              onOpenKbwMysteryCard={() => setKbwBurnModalOpen(true)}
               onRequestCancelListings={(items) => {
                 setCancelListingConfirm({ items });
               }}
@@ -1165,26 +1129,6 @@ export function PortfolioPageView({
               );
             }
             setCancelListingConfirm(null);
-          }}
-        />
-      ) : null}
-
-      {kbwBurnModalOpen ? (
-        <KbwMysteryCardBurnModal
-          open
-          onClose={() => setKbwBurnModalOpen(false)}
-          onBurn={async () => {
-            if (!portfolioAddress) {
-              throw new Error("No wallet connected");
-            }
-            await burnKbwMysteryCard(portfolioAddress);
-            queryClient.setQueryData(
-              rq.kbwMysteryCard(portfolioAddress, kbwContactScope),
-              { burned: true },
-            );
-            await queryClient.invalidateQueries({
-              queryKey: rq.kbwMysteryCard(portfolioAddress, kbwContactScope),
-            });
           }}
         />
       ) : null}
