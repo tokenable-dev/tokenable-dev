@@ -98,11 +98,12 @@ export const ASSETS = {
   event: {
     stars: `${ASSETS_BASE}/event/stars.png`,
     check: `${ASSETS_BASE}/event/check.png`,
+    /** Post-login offer modal (`KbwMysteryOfferModal`), 663×1024. */
     mysteryPack: `${ASSETS_BASE}/event/mystery-pack.png`,
     kbwMysteryCard: `${ASSETS_BASE}/event/kbw-mystery-card.png`,
     /** KBW mystery card after staff check (REDEEMED stamp). */
     kbwMysteryCardRedeemed: `${ASSETS_BASE}/event/kbw-mystery-card-redeemed.png`,
-    /** Portfolio KBW collectible — unused / used pack (652×912). */
+    /** Portfolio event collectible — unused (21) / used+REDEEMED (20), 652×912. */
     kbwMysteryPackUnused: `${ASSETS_BASE}/event/kbw-mystery-pack-unused.png`,
     kbwMysteryPackUsed: `${ASSETS_BASE}/event/kbw-mystery-pack-used.png`,
     /** Tokenable × KBW brand stack */

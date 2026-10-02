@@ -5,7 +5,7 @@ import {
   kbwMysteryCardImageUrl,
 } from "@/lib/portfolio/kbwMysteryCard";
 
-/** Same frame for unused / used KBW pack art (652×912). */
+/** Unused / used ORIPA pack art — same 652×912 canvas. */
 export const KbwMysteryPortfolioImage = memo(function KbwMysteryPortfolioImage({
   used,
   className,

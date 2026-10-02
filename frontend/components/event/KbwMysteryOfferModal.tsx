@@ -238,14 +238,14 @@ export function KbwMysteryOfferModal() {
 
   return createPortal(
     <div
-      className="ev-page ev-offer-overlay"
+      className="ev-offer-overlay"
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
       <div
-        className="ev-shell ev-offer-modal"
+        className="ev-offer-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Mystery pack offer"
@@ -275,8 +275,8 @@ export function KbwMysteryOfferModal() {
           <img
             src={ASSETS.event.mysteryPack}
             alt="Oripa mystery pack"
-            width={430}
-            height={664}
+            width={663}
+            height={1024}
           />
         </div>
 

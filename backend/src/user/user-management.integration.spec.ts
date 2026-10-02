@@ -190,6 +190,35 @@ describe('User management integration (Postgres)', () => {
     expect((dupWallets[0] as { cnt: number }).cnt).toBe(2);
   });
 
+  itIf('merges Privy onto legacy Google row by google_id when email differs', async () => {
+    const profile = buildFullPrivyProfile();
+    const legacy = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: 'legacy-google-only@tokenable.test',
+        passwordHash: null,
+        name: 'Legacy Google',
+        googleId: profile.googleId,
+        emailVerified: true,
+      }),
+    );
+
+    const { user: merged, isNewRegistration } = await users.findOrCreateFromPrivy({
+      privyId: TEST_PRIVY_ID,
+      email: profile.email,
+      name: profile.name,
+      pictureUrl: profile.pictureUrl,
+      emailVerified: profile.emailVerified,
+      googleId: profile.googleId,
+      authProviders: profile.authProviders,
+      wallets: profile.wallets,
+    });
+
+    expect(isNewRegistration).toBe(false);
+    expect(merged.id).toBe(legacy.id);
+    expect(merged.privyId).toBe(TEST_PRIVY_ID);
+    expect(merged.email).toBe(profile.email.toLowerCase());
+  });
+
   itIf('merges Privy account onto existing email user without duplicate users', async () => {
     const legacy = await dataSource.getRepository(User).save(
       dataSource.getRepository(User).create({

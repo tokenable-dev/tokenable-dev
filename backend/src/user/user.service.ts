@@ -31,21 +31,50 @@ import {
   normalizeEmailNotifPrefs,
 } from './user-settings.util';
 
-function isUsersEmailUniqueViolation(err: unknown): boolean {
-  if (!(err instanceof QueryFailedError)) return false;
+function driverUniqueViolation(
+  err: unknown,
+): { constraint: string; detail: string } | null {
+  if (!(err instanceof QueryFailedError)) return null;
   const driver = err as QueryFailedError & {
-    driverError?: { code?: string; constraint?: string };
+    driverError?: { code?: string; constraint?: string; detail?: string };
   };
-  if (driver.driverError?.code !== '23505') return false;
-  const constraint = String(driver.driverError?.constraint ?? '');
-  const detail = String(
-    (driver.driverError as { detail?: string } | undefined)?.detail ?? err.message,
-  );
+  if (driver.driverError?.code !== '23505') return null;
+  return {
+    constraint: String(driver.driverError?.constraint ?? ''),
+    detail: String(driver.driverError?.detail ?? err.message),
+  };
+}
+
+function isUsersEmailUniqueViolation(err: unknown): boolean {
+  const v = driverUniqueViolation(err);
+  if (!v) return false;
   return (
-    constraint.includes('email') ||
-    /Key \(email\)=/i.test(detail) ||
-    /users_email_unique/i.test(constraint) ||
-    /users_email_unique/i.test(detail)
+    v.constraint.includes('email') ||
+    /Key \(email\)=/i.test(v.detail) ||
+    /users_email_unique/i.test(v.constraint) ||
+    /users_email_unique/i.test(v.detail)
+  );
+}
+
+function isUsersGoogleIdUniqueViolation(err: unknown): boolean {
+  const v = driverUniqueViolation(err);
+  if (!v) return false;
+  return (
+    v.constraint.includes('google_id') ||
+    /Key \(google_id\)=/i.test(v.detail) ||
+    /users_google_id_unique/i.test(v.constraint) ||
+    /users_google_id_unique/i.test(v.detail)
+  );
+}
+
+function isUsersPrivyIdUniqueViolation(err: unknown): boolean {
+  const v = driverUniqueViolation(err);
+  if (!v) return false;
+  return (
+    v.constraint.includes('privy_id') ||
+    /Key \(privy_id\)=/i.test(v.detail) ||
+    /users_privy_id_unique/i.test(v.constraint) ||
+    /users_privy_id_unique/i.test(v.detail)
   );
 }
 
@@ -102,6 +131,12 @@ export class UserService {
     return this.users.findOne({ where: { privyId } });
   }
 
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    const id = googleId?.trim();
+    if (!id) return null;
+    return this.users.findOne({ where: { googleId: id } });
+  }
+
   async findOrCreateFromPrivy(params: {
     privyId: string;
     email: string;
@@ -125,12 +160,15 @@ export class UserService {
 
     const byPrivy = await this.findByPrivyId(params.privyId);
     if (byPrivy) {
-      await this.patchPrivyProfileIfNeeded(byPrivy, params);
-      await this.syncPrivyIdentity(byPrivy.id, params.authProviders ?? [], wallets);
-      byPrivy.lastPrivySyncAt = new Date();
-      await this.users.save(byPrivy);
-      const refreshed = (await this.findById(byPrivy.id)) ?? byPrivy;
-      return { user: refreshed, isNewRegistration: false };
+      return this.finishPrivySessionSync(byPrivy, params, wallets);
+    }
+
+    const googleId = params.googleId?.trim() ?? '';
+    if (googleId) {
+      const byGoogle = await this.findByGoogleId(googleId);
+      if (byGoogle) {
+        return this.linkPrivyToExistingUser(byGoogle, params, wallets);
+      }
     }
 
     // Contact emails may be shared across wallet accounts. Only attach a new
@@ -139,19 +177,7 @@ export class UserService {
       where: { email, privyId: IsNull() },
     });
     if (legacyByEmail) {
-      legacyByEmail.privyId = params.privyId;
-      // Same preserve rules as patchPrivyProfileIfNeeded (Settings name/avatar).
-      await this.patchPrivyProfileIfNeeded(legacyByEmail, params);
-      legacyByEmail.lastPrivySyncAt = new Date();
-      await this.users.save(legacyByEmail);
-      await this.syncPrivyIdentity(
-        legacyByEmail.id,
-        params.authProviders ?? [],
-        wallets,
-      );
-      const merged =
-        (await this.findById(legacyByEmail.id)) ?? legacyByEmail;
-      return { user: merged, isNewRegistration: false };
+      return this.linkPrivyToExistingUser(legacyByEmail, params, wallets);
     }
 
     const user = this.users.create({
@@ -168,6 +194,19 @@ export class UserService {
     try {
       saved = await this.users.save(user);
     } catch (err) {
+      const racedPrivy = isUsersPrivyIdUniqueViolation(err)
+        ? await this.findByPrivyId(params.privyId)
+        : null;
+      if (racedPrivy) {
+        return this.finishPrivySessionSync(racedPrivy, params, wallets);
+      }
+      const racedGoogle =
+        googleId && isUsersGoogleIdUniqueViolation(err)
+          ? await this.findByGoogleId(googleId)
+          : null;
+      if (racedGoogle) {
+        return this.linkPrivyToExistingUser(racedGoogle, params, wallets);
+      }
       if (!isUsersEmailUniqueViolation(err)) throw err;
       // Constraint still present on an older deploy DB. Shared-email policy
       // requires maintenance/drop_users_email_unique.sql — until then, do not
@@ -180,6 +219,66 @@ export class UserService {
     await this.syncPrivyIdentity(saved.id, params.authProviders ?? [], wallets);
     const created = (await this.findById(saved.id)) ?? saved;
     return { user: created, isNewRegistration: true };
+  }
+
+  private async finishPrivySessionSync(
+    user: User,
+    params: {
+      privyId: string;
+      email: string;
+      name?: string | null;
+      pictureUrl?: string | null;
+      emailVerified?: boolean;
+      googleId?: string | null;
+      authProviders?: ParsedAuthProvider[];
+    },
+    wallets: ParsedWalletLink[],
+  ): Promise<{ user: User; isNewRegistration: boolean }> {
+    await this.patchPrivyProfileIfNeeded(user, params);
+    await this.syncPrivyIdentity(user.id, params.authProviders ?? [], wallets);
+    user.lastPrivySyncAt = new Date();
+    await this.users.save(user);
+    const refreshed = (await this.findById(user.id)) ?? user;
+    return { user: refreshed, isNewRegistration: false };
+  }
+
+  /** Attach Privy DID + profile onto a legacy or Google-linked row. */
+  private async linkPrivyToExistingUser(
+    user: User,
+    params: {
+      privyId: string;
+      email: string;
+      name?: string | null;
+      pictureUrl?: string | null;
+      emailVerified?: boolean;
+      googleId?: string | null;
+      authProviders?: ParsedAuthProvider[];
+    },
+    wallets: ParsedWalletLink[],
+  ): Promise<{ user: User; isNewRegistration: boolean }> {
+    user.privyId = params.privyId;
+    await this.patchPrivyProfileIfNeeded(user, params);
+    user.lastPrivySyncAt = new Date();
+    try {
+      await this.users.save(user);
+    } catch (err) {
+      if (isUsersPrivyIdUniqueViolation(err)) {
+        const byPrivy = await this.findByPrivyId(params.privyId);
+        if (byPrivy) {
+          return this.finishPrivySessionSync(byPrivy, params, wallets);
+        }
+      }
+      if (isUsersEmailUniqueViolation(err)) {
+        throw new BadRequestException(
+          'This email is already on another Tokenable account. ' +
+            'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+        );
+      }
+      throw err;
+    }
+    await this.syncPrivyIdentity(user.id, params.authProviders ?? [], wallets);
+    const merged = (await this.findById(user.id)) ?? user;
+    return { user: merged, isNewRegistration: false };
   }
 
   private async patchPrivyProfileIfNeeded(

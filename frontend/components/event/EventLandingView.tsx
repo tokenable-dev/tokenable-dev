@@ -26,7 +26,6 @@ const STAGE1_INSTAGRAM_WEB = `https://www.instagram.com/${STAGE1_IG_USER}`;
 const STAGE1_INSTAGRAM_APP = `instagram://user?username=${STAGE1_IG_USER}`;
 
 const COPY = {
-  heroTitle: "Claim Your Free Card!",
   stage1Label: "STAGE 1",
   stage1Desc: "Follow @tokenable and like the pinned post",
   stage1Cta: "1. Instagram Follow & Like",
@@ -176,34 +175,22 @@ export function EventLandingView() {
   return (
     <div className="ev-page">
       <div className="ev-shell">
-        <section className="ev-intro" aria-label="Tokenable x KBW2026">
-          <div className="ev-intro__brand">
-            <Link href="/" className="ev-intro__logo" aria-label="Tokenable home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={ASSETS.logo.tokenableDs}
-                alt="Tokenable"
-                width={280}
-                height={40}
-              />
-            </Link>
-            <p className="ev-intro__x" aria-hidden>
-              X
-            </p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="ev-intro__kbw"
-              src={ASSETS.event.kbw2026}
-              alt="KBW2026"
-              width={158}
-              height={27}
-            />
-            <div className="ev-intro__rule" aria-hidden />
-          </div>
-          <h1 className="ev-intro__claim">{COPY.heroTitle}</h1>
-        </section>
+        <div className="ev-body">
+          <section className="ev-intro" aria-label="Tokenable">
+            <div className="ev-intro__brand">
+              <Link href="/" className="ev-intro__logo" aria-label="Tokenable home">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ASSETS.logo.tokenableDs}
+                  alt="Tokenable"
+                  width={280}
+                  height={40}
+                />
+              </Link>
+            </div>
+          </section>
 
-        <div className="ev-stages">
+          <div className="ev-stages">
           <section className="ev-stage" aria-labelledby="ev-stage-1">
             <p
               className={`ev-stage__label ${stage1Done ? "ev-stage__label--unchecked" : "ev-stage__label--checked"}`}
@@ -227,6 +214,8 @@ export function EventLandingView() {
             </button>
           </section>
 
+          <p className="ev-stages__plus" aria-hidden>+</p>
+
           <section className="ev-stage" aria-labelledby="ev-stage-2">
             <p
               className="ev-stage__label ev-stage__label--checked"
@@ -245,6 +234,7 @@ export function EventLandingView() {
               <span className="ev-btn__label">{COPY.stage2Cta}</span>
             </button>
           </section>
+          </div>
         </div>
 
         <footer className="ev-foot" aria-label={COPY.foot}>

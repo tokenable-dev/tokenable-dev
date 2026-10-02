@@ -97,7 +97,7 @@ export function KbwMysteryCardBurnModal({
       {staffGate ? (
         <div className="tk-kbw-burn__staff-gate">
           <p className="tk-kbw-burn__staff-lead">
-            The next step marks this KBW Mystery Card as used. It is for{" "}
+            The next step marks this Mystery Card as used. It is for{" "}
             <strong>event staff at the booth only</strong>.
           </p>
           <p className="tk-kbw-burn__staff-warn">

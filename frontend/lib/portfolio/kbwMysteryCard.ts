@@ -5,7 +5,7 @@ import type { PricedAssetRow } from "@/lib/portfolio/portfolioTypes";
 /** Reserved synthetic id — not an on-chain token. */
 export const KBW_MYSTERY_CARD_TOKEN_ID = -717_171;
 
-export const KBW_MYSTERY_CARD_NAME = "KBW Mystery Card";
+export const KBW_MYSTERY_CARD_NAME = "Mystery Card";
 
 export function isKbwMysteryCardTokenId(tokenId: number): boolean {
   return tokenId === KBW_MYSTERY_CARD_TOKEN_ID;
@@ -40,7 +40,7 @@ export function buildKbwMysteryCardRow(used = false): PricedAssetRow {
 export function buildKbwMysteryCardMetadata(used = false): RwaMetadata {
   return {
     name: KBW_MYSTERY_CARD_NAME,
-    description: "Korea Blockchain Week mystery card (event collectible).",
+    description: "Event mystery card (collectible).",
     image: kbwMysteryCardImageUrl(used),
   };
 }
