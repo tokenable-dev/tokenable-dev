@@ -2960,24 +2960,27 @@
   transform: translateY(-4px);
 }
 
-/* Similar tile: fixed 0.72 frame; image covers the frame (no side letterboxing). */
+/* Similar tile: same fixed frame + object-fill as markets `.card__img` — stretch to width/height, no crop. */
 .cd-si-card__media {
   position: relative;
   width: 100%;
-  height: auto;
   aspect-ratio: 0.72;
   flex: 0 0 auto;
   border-radius: 10px;
   overflow: hidden;
   background: #111113;
+  contain: layout style;
+  isolation: isolate;
 }
 
-/* CollectionCoverFrame nests wrappers around the img — pin them to the frame. */
-.cd-si-card__media > * {
+/* CollectionCoverFrame (flat) — pin shell to the fixed frame. */
+.cd-si-card__media > .collection-cover-flat-shell {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .cd-si-card__media img {
@@ -2985,9 +2988,9 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  max-width: none;
-  object-fit: cover !important;
+  object-fit: fill;
   object-position: center;
+  filter: saturate(1.05) contrast(1.04);
 }
 
 .cd-si-card__media-empty {

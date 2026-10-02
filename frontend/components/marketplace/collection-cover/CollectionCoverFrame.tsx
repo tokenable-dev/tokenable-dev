@@ -34,14 +34,14 @@ export interface CollectionCoverFrameProps {
   className?: string;
   /** When set (e.g. from Markets browse context), fullscreen cover supports swipe between cards. */
   coverGallery?: CollectionCoverGalleryProps;
-  /** `flat` only — markets grids use fill; similar-items tiles use cover. */
+  /** `flat` only — markets / similar-items grids stretch art to the frame (`fill`). */
   flatFit?: "fill" | "contain" | "cover";
 }
 
 /**
  * 컬렉션 대표 이미지용 프레임 — 그라데이션 베젤, 이너 매트, 은은한 하이라이트.
  * featured: 중간 크기. hero: 컬렉션 상세 좌측 히어로 — 클릭하면 큰 이미지(라이트박스).
- * flat: 베젤 없음 — markets/home는 flatFit fill; similar items는 flatFit cover.
+ * flat: 베젤 없음 — markets / similar items는 flatFit fill (프레임에 맞게 가로·세로 늘림, 잘림 없음).
  */
 export function CollectionCoverFrame({
   imageUrl,
@@ -83,8 +83,10 @@ export function CollectionCoverFrame({
       flatFit === "fill"
         ? { filter: "saturate(1.05) contrast(1.04)" }
         : collectionCoverImageStyle(resolved);
+    const flatShellClass = `collection-cover-flat-shell relative h-full min-h-0 w-full overflow-hidden ${className}`;
+
     return (
-      <div className={`relative h-full min-h-0 w-full ${className}`}>
+      <div className={flatShellClass}>
         <div className="relative h-full min-h-0 w-full overflow-hidden">
           {resolved && !imgFailed ? (
             // Markets/home grids: plain <img> like collection hero — avoids stale
