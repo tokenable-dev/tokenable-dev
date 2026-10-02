@@ -5,8 +5,12 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "deploy:usdc": "hardhat run scripts/deploy-mock-usdc.ts --network sepolia",
-    "deploy:rwa": "hardhat run scripts/deploy-tokenable-rwa-sepolia.ts --network sepolia",
+    "test": "hardhat test",
+    "deploy:rwa": "hardhat run scripts/deploy-tokenable-rwa.ts --network sepolia",
+    "deploy:rwa:sepolia": "hardhat run scripts/deploy-tokenable-rwa.ts --network sepolia",
+    "deploy:rwa:polygon": "hardhat run scripts/deploy-tokenable-rwa.ts --network polygon",
+    "deploy:rwa:mainnet": "hardhat run scripts/deploy-tokenable-rwa.ts --network mainnet",
+    "sync-abi": "node scripts/sync-abi.mjs",
     "clean": "hardhat clean"
   },
   "keywords": [],

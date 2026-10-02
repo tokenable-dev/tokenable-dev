@@ -1,18 +1,30 @@
 import type { Abi, PublicClient, Address } from "viem";
 import { formatUnits } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI_WITH_MATCH_ADVANCED,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
+import { getMerkleEligibleTokenIds, type Order } from "@/lib/core";
+import { fulfillMatchedPairApi } from "@/lib/core/api/orders";
 import { canonicalBytes32Hex } from "../criteria/collectionCriteriaRoot";
-import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
-import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import {
+  GAS_FALLBACK,
+  gasWithCapFast,
+  mapWalletError,
+  userTxFees,
+  waitForUserTxReceipt,
+  type UserTxFees,
+} from "@/lib/network";
+import {
+  assertSeaportOrdersFillableForMatch,
+  requireSeaportOrderFilled,
+} from "../orders/fulfillOrderArgs";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
@@ -27,7 +39,7 @@ export type MatchWriteContractAsync = (args: {
   args: readonly unknown[];
   chainId: number;
   gas: bigint;
-}) => Promise<`0x${string}`>;
+} & UserTxFees) => Promise<`0x${string}`>;
 
 export type MatchFailureCode =
   | "insufficient_balance"
@@ -40,39 +52,48 @@ export type MatchFailureCode =
 /** ERC20 offer item in Seaport order parameters. */
 const ITEM_ERC20 = 1;
 
+export type BuyerUsdcReadyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "balance" | "allowance";
+      message: string;
+    };
+
 /**
- * Criteria bids do not escrow USDC — at match time Seaport transfers from the buyer (`offerer`).
- * Fail early with a clear message instead of an opaque ERC20 revert.
+ * Criteria / token bids do not escrow USDC — at match/fulfill time Seaport
+ * transfers from the buyer (`offerer`). Returns a structured result for UI preflight.
  */
-async function assertBuyerUsdcReadyForCriteriaBid(
+export async function checkBuyerUsdcReadyForBid(
   publicClient: PublicClient,
   bid: Order,
-): Promise<void> {
+  usdcAddress: Address,
+): Promise<BuyerUsdcReadyResult> {
   const offer0 = bid.parameters?.offer?.[0];
-  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return;
+  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return { ok: true };
   if (
-    String(offer0.token).toLowerCase() !== String(USDC_ADDRESS).toLowerCase()
+    String(offer0.token).toLowerCase() !== String(usdcAddress).toLowerCase()
   ) {
-    return;
+    return { ok: true };
   }
   const buyer = bid.offerer as Address;
   let needed: bigint;
   try {
     needed = BigInt(String(offer0.startAmount).trim());
   } catch {
-    return;
+    return { ok: true };
   }
-  if (needed <= BigInt(0)) return;
+  if (needed <= BigInt(0)) return { ok: true };
 
   const [bal, allowance] = await Promise.all([
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "balanceOf",
       args: [buyer],
     }),
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "allowance",
       args: [buyer, SEAPORT_ADDRESS],
@@ -80,17 +101,35 @@ async function assertBuyerUsdcReadyForCriteriaBid(
   ]);
 
   if ((bal as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this bid requires ${formatUnits(needed, 6)} USDC at execution time. ` +
-        `Collection bids do not lock USDC — the buyer must still hold the funds when you match. ` +
-        `If you are both buyer and seller, top up that wallet or cancel the bid and list without crossing.`,
-    );
+    return {
+      ok: false,
+      code: "balance",
+      message:
+        `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this offer requires ${formatUnits(needed, 6)} USDC. ` +
+        `Offers do not lock USDC — the buyer must still hold the funds when you accept.`,
+    };
   }
   if ((allowance as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport (same as when placing the collection bid).`,
-    );
+    return {
+      ok: false,
+      code: "allowance",
+      message:
+        `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport.`,
+    };
   }
+  return { ok: true };
+}
+
+/**
+ * Fail early with a clear message when the buyer cannot fund the bid.
+ */
+export async function assertBuyerUsdcReadyForCriteriaBid(
+  publicClient: PublicClient,
+  bid: Order,
+  usdcAddress: Address,
+): Promise<void> {
+  const ready = await checkBuyerUsdcReadyForBid(publicClient, bid, usdcAddress);
+  if (!ready.ok) throw new Error(ready.message);
 }
 
 export async function runCriteriaMatch(params: {
@@ -106,6 +145,7 @@ export async function runCriteriaMatch(params: {
    * proof/root match that snapshot. Otherwise we bypass server cache to avoid stale sets vs bids.
    */
   merkleTokenIds?: string[];
+  chainId: SupportedChainId;
 }): Promise<void> {
   const {
     address,
@@ -116,7 +156,10 @@ export async function runCriteriaMatch(params: {
     tokenId,
     collectionKey,
     merkleTokenIds: merkleTokenIdsParam,
+    chainId,
   } = params;
+
+  const { usdcAddress } = getChainContracts(chainId);
 
   if (!isCriteriaCollectionBid(bid)) {
     throw new Error("Not a criteria collection bid");
@@ -159,7 +202,12 @@ export async function runCriteriaMatch(params: {
 
   const proof = tree.getCriteriaProof(tidBn);
 
-  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid);
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+  await assertSeaportOrdersFillableForMatch(
+    publicClient,
+    bid.orderHash,
+    listing.orderHash,
+  );
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -187,7 +235,7 @@ export async function runCriteriaMatch(params: {
   );
 
   const SIMULATION_MS = 55_000;
-  const [, gas] = await Promise.race([
+  const [, gas, fees] = await Promise.race([
     Promise.all([
       publicClient.simulateContract({
         address: SEAPORT_ADDRESS,
@@ -197,6 +245,7 @@ export async function runCriteriaMatch(params: {
         account: address,
       }),
       gasPromise,
+      userTxFees(publicClient),
     ]),
     new Promise<never>((_, reject) =>
       setTimeout(
@@ -216,12 +265,13 @@ export async function runCriteriaMatch(params: {
     abi: prepared.abi as Abi,
     functionName: prepared.functionName,
     args: prepared.args as readonly unknown[],
-    chainId: sepolia.id,
+    chainId,
     gas,
+    ...fees,
   });
 
   const receipt = await Promise.race([
-    publicClient.waitForTransactionReceipt({ hash }),
+    waitForUserTxReceipt(publicClient, hash),
     new Promise<never>((_, reject) =>
       setTimeout(
         () =>
@@ -239,36 +289,134 @@ export async function runCriteriaMatch(params: {
       `Seaport match reverted on-chain (tx ${hash}). Simulation may differ from execution; check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
+  await requireSeaportOrderFilled(publicClient, listing.orderHash);
+  await requireSeaportOrderFilled(publicClient, bid.orderHash);
 
-  /** Listing modal must not hang if the indexer/API stalls after a successful match on-chain. */
-  const FULFILL_MS = 38_000;
-  const fulfillAbort = new AbortController();
-  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
-  try {
-    await fulfillMatchedPairApi(
-      {
-        bidOrderHash: bid.orderHash,
-        askOrderHash: listing.orderHash,
-      },
-      { signal: fulfillAbort.signal },
-    );
-  } catch (e: unknown) {
-    const aborted =
-      fulfillAbort.signal.aborted ||
-      (e instanceof Error && e.name === "AbortError") ||
-      (typeof DOMException !== "undefined" &&
-        e instanceof DOMException &&
-        e.name === "AbortError");
-    if (aborted) {
-      console.warn(
-        "[runCriteriaMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
-      );
-      return;
-    }
-    throw e;
-  } finally {
-    clearTimeout(fulfillTimer);
+  await fulfillMatchedPairApiWithRetry({
+    bidOrderHash: bid.orderHash,
+    askOrderHash: listing.orderHash,
+  });
+}
+
+/**
+ * Match a card-level token offer against an ask via `matchAdvancedOrders` (no Merkle).
+ */
+export async function runTokenBidMatch(params: {
+  address: Address;
+  publicClient: PublicClient;
+  writeContractAsync: MatchWriteContractAsync;
+  bid: Order;
+  listing: Order;
+  chainId: SupportedChainId;
+}): Promise<void> {
+  const { address, publicClient, writeContractAsync, bid, listing, chainId } =
+    params;
+  const { usdcAddress } = getChainContracts(chainId);
+
+  if (!isTokenBidOrder(bid)) {
+    throw new Error("Not a token bid");
   }
+
+  const chainNow = await getChainTimestampSec(publicClient);
+  if (!isSeaportOrderActiveAt(bid, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(bid, chainNow, "bid"));
+  }
+  if (!isSeaportOrderActiveAt(listing, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(listing, chainNow, "listing"));
+  }
+
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+  await assertSeaportOrdersFillableForMatch(
+    publicClient,
+    bid.orderHash,
+    listing.orderHash,
+  );
+
+  const exec = buildTokenBidMatchExecution({
+    tokenBidOrder: bid,
+    listingOrder: listing,
+  });
+  const prepared = matchAdvancedOrdersArgs({
+    orders: exec.orders,
+    criteriaResolvers: exec.criteriaResolvers,
+    fulfillments: exec.fulfillments,
+    recipient: exec.recipient,
+  });
+
+  const gasPromise = gasWithCapFast(
+    publicClient,
+    {
+      address: SEAPORT_ADDRESS,
+      abi: prepared.abi,
+      functionName: prepared.functionName,
+      args: prepared.args,
+      account: address,
+    },
+    GAS_FALLBACK.matchAdvancedOrders,
+  );
+
+  const SIMULATION_MS = 55_000;
+  const [, gas, fees] = await Promise.race([
+    Promise.all([
+      publicClient.simulateContract({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
+        functionName: "matchAdvancedOrders",
+        args: prepared.args as readonly [unknown, unknown, unknown, unknown],
+        account: address,
+      }),
+      gasPromise,
+      userTxFees(publicClient),
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Simulation timed out (RPC slow or overloaded). Try again in a moment.",
+            ),
+          ),
+        SIMULATION_MS,
+      ),
+    ),
+  ]);
+
+  const hash = await writeContractAsync({
+    address: SEAPORT_ADDRESS,
+    abi: prepared.abi as Abi,
+    functionName: prepared.functionName,
+    args: prepared.args as readonly unknown[],
+    chainId,
+    gas,
+    ...fees,
+  });
+
+  const receipt = await Promise.race([
+    waitForUserTxReceipt(publicClient, hash),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Match transaction confirmation timed out. Check the explorer for this tx or try again.",
+            ),
+          ),
+        120_000,
+      ),
+    ),
+  ]);
+  if (receipt.status === "reverted") {
+    throw new Error(
+      `Seaport match reverted on-chain (tx ${hash}). Check the buyer’s USDC balance and approval to Seaport.`,
+    );
+  }
+  await requireSeaportOrderFilled(publicClient, listing.orderHash);
+  await requireSeaportOrderFilled(publicClient, bid.orderHash);
+
+  await fulfillMatchedPairApiWithRetry({
+    bidOrderHash: bid.orderHash,
+    askOrderHash: listing.orderHash,
+  });
 }
 
 const GENERIC_CONTRACT =
@@ -285,6 +433,15 @@ export function mapMatchError(
   if (code !== "REVERT") return message;
 
   const low = message.toLowerCase();
+  if (
+    low.includes("orderalreadyfilled") ||
+    low.includes("0x10fda3e1")
+  ) {
+    return (
+      "This bid or listing was already filled on Seaport (the order book may be out of date). " +
+      "Refresh the collection page; the buyer may need to cancel and place a new collection bid."
+    );
+  }
   if (
     low.includes("invalidtime") ||
     low.includes("not active on-chain") ||
@@ -307,7 +464,7 @@ export function mapMatchError(
   }
 
   if (message === GENERIC_CONTRACT) {
-    return `${message} For instant match: confirm the buyer still has USDC + Seaport approval, your NFT is approved for Seaport, listing/bid are active, and Merkle set matches.`;
+    return `${message} For instant match: confirm the buyer still has USDC + Seaport approval, your RWA is approved for Seaport, listing/bid are active, and Merkle set matches.`;
   }
 
   return message;
@@ -319,6 +476,8 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   if (
     low.includes("balance insufficient") ||
     low.includes("insufficient balance") ||
+    low.includes("buyer usdc insufficient") ||
+    low.includes("usdc insufficient") ||
     (low.includes("erc20") && low.includes("insufficient"))
   ) {
     return "insufficient_balance";
@@ -329,6 +488,13 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   if (low.includes("merkle root") || low.includes("leaf set") || low.includes("criteria")) {
     return "merkle_mismatch";
   }
+  if (
+    low.includes("orderalreadyfilled") ||
+    low.includes("0x10fda3e1") ||
+    low.includes("already filled or cancelled on seaport")
+  ) {
+    return "expired_or_inactive";
+  }
   if (low.includes("invalidtime") || low.includes("not active on-chain") || low.includes("expired")) {
     return "expired_or_inactive";
   }
@@ -337,4 +503,56 @@ export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
   }
   if (code === "REVERT") return "unknown";
   return "unknown";
+}
+
+const FULFILL_MATCHED_PAIR_ATTEMPTS = 4;
+const FULFILL_MATCHED_PAIR_BASE_TIMEOUT_MS = 45_000;
+const FULFILL_MATCHED_PAIR_TIMEOUT_STEP_MS = 25_000;
+
+function fulfillMatchApiSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isFulfillMatchAbortError(e: unknown): boolean {
+  if (e instanceof Error && e.name === "AbortError") return true;
+  return (
+    typeof DOMException !== "undefined" &&
+    e instanceof DOMException &&
+    e.name === "AbortError"
+  );
+}
+
+/** Persist ask+bid as fulfilled after on-chain match (retries slow API/RPC). */
+export async function fulfillMatchedPairApiWithRetry(body: {
+  bidOrderHash: string;
+  askOrderHash: string;
+}): Promise<{ ask: Order; bid: Order } | null> {
+  let lastErr: unknown;
+  for (let i = 0; i < FULFILL_MATCHED_PAIR_ATTEMPTS; i++) {
+    const timeoutMs =
+      FULFILL_MATCHED_PAIR_BASE_TIMEOUT_MS + i * FULFILL_MATCHED_PAIR_TIMEOUT_STEP_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const result = await fulfillMatchedPairApi(body, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      return result;
+    } catch (e: unknown) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (i < FULFILL_MATCHED_PAIR_ATTEMPTS - 1) {
+        await fulfillMatchApiSleep(1500 * (i + 1));
+      }
+    }
+  }
+  if (isFulfillMatchAbortError(lastErr)) {
+    console.warn(
+      "[runCriteriaMatch] fulfillMatchedPair API retries exhausted — portfolio may reconcile on next load.",
+      body,
+    );
+    return null;
+  }
+  throw lastErr;
 }

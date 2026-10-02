@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
+import { SWAGGER_FIXTURES } from '../../../swagger/fixtures';
 import {
   IsArray,
   IsEthereumAddress,
@@ -14,11 +15,11 @@ import {
 } from 'class-validator';
 
 class SeaportOfferItemDto {
-  @ApiProperty({ description: 'ItemType (1 = ERC20, 2 = ERC721)', example: 1 })
+  @ApiProperty({ description: 'ItemType (1=ERC20, 2=ERC721)', example: 1 })
   @IsNumber()
   itemType: number;
 
-  @ApiProperty({ description: 'Token contract address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.rwaContract })
   @IsString()
   token: string;
 
@@ -37,13 +38,13 @@ class SeaportOfferItemDto {
 
 class SeaportConsiderationItemDto {
   @ApiProperty({
-    description: 'ItemType (1 = ERC20, 2 = ERC721, 4 = ERC721_WITH_CRITERIA)',
+    description: 'ItemType (1=ERC20, 2=ERC721, 4=ERC721_WITH_CRITERIA)',
     example: 1,
   })
   @IsNumber()
   itemType: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.usdc })
   @IsString()
   token: string;
 
@@ -51,29 +52,29 @@ class SeaportConsiderationItemDto {
   @IsString()
   identifierOrCriteria: string;
 
-  @ApiProperty({ example: '1000000' })
+  @ApiProperty({ example: '150000000' })
   @IsString()
   startAmount: string;
 
-  @ApiProperty({ example: '1000000' })
+  @ApiProperty({ example: '150000000' })
   @IsString()
   endAmount: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.wallet })
   @IsString()
   recipient: string;
 }
 
 class SeaportOrderParametersDto {
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.wallet })
   @IsString()
   offerer: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.zero })
   @IsString()
   zone: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.zoneHash })
   @IsString()
   zoneHash: string;
 
@@ -109,7 +110,7 @@ class SeaportOrderParametersDto {
   @IsString()
   salt: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.conduitKey })
   @IsString()
   conduitKey: string;
 
@@ -120,8 +121,7 @@ class SeaportOrderParametersDto {
 
 export class CreateOrderDto {
   @ApiPropertyOptional({
-    description:
-      'ask = listing, bid = buy order (FULL ERC721 or ERC721_WITH_CRITERIA)',
+    description: 'ask=판매 listing, bid=구매 주문 (ERC721 또는 ERC721_WITH_CRITERIA)',
     enum: ['ask', 'bid'],
     default: 'ask',
   })
@@ -129,41 +129,39 @@ export class CreateOrderDto {
   @IsIn(['ask', 'bid'])
   side?: 'ask' | 'bid';
 
-  @ApiProperty({ description: 'Seaport order parameters' })
+  @ApiProperty({ description: 'Seaport 주문 parameters' })
   @IsObject()
   @ValidateNested()
   @Type(() => SeaportOrderParametersDto)
   parameters: SeaportOrderParametersDto;
 
-  @ApiProperty({ description: 'EIP-712 signature' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.signature })
   @IsString()
   @IsNotEmpty()
   signature: string;
 
-  @ApiProperty({ description: 'RWA (ERC-721) contract address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.rwaContract })
   @IsEthereumAddress()
   tokenContract: string;
 
   /** ask: minted ERC-721 id (includes `0`). criteria bid: sentinel `"0"`. */
   @ApiProperty({
-    description:
-      'Ask: decimal token id (`0` is valid for first mint). Criteria bid: use `"0"`.',
+    description: 'Ask: tokenId (첫 mint는 `0` 가능). Criteria bid: `"0"` 사용.',
     example: '1',
   })
   @IsNumberString()
   tokenId: string;
 
-  @ApiProperty({ description: 'USDC address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.usdc })
   @IsEthereumAddress()
   considerationToken: string;
 
-  @ApiProperty({ description: 'USDC amount (6 decimals)' })
+  @ApiProperty({ example: '150000000', description: 'USDC 금액 (소수 6자리)' })
   @IsNumberString()
   considerationAmount: string;
 
   @ApiPropertyOptional({
-    description:
-      'Required when bid uses ERC721_WITH_CRITERIA (collection-wide bid)',
+    description: 'ERC721_WITH_CRITERIA bid(컬렉션 전체 입찰)일 때 필수',
   })
   @IsOptional()
   @IsString()

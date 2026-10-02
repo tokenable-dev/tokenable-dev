@@ -36,6 +36,17 @@ export function isCriteriaCollectionBidOrder(
   return isBidShapedSeaportParameters(order.parameters ?? {});
 }
 
+/** Token-level offer — USDC offer + ERC721 consideration for a specific tokenId. */
+export function isTokenBidOrder(
+  order: Pick<Order, 'side' | 'parameters'>,
+): boolean {
+  if (order.side !== OrderSide.BID) return false;
+  const offer = (order.parameters as { offer?: SeaportItem[] })?.offer?.[0];
+  const cons = (order.parameters as { consideration?: SeaportItem[] })
+    ?.consideration?.[0];
+  return Number(offer?.itemType) === 1 && Number(cons?.itemType) === 2;
+}
+
 /** ERC-721 tokenId for fulfilled asks (including mint id `0`). */
 export function resolveFulfilledAskTokenId(
   order: Pick<Order, 'tokenId' | 'parameters' | 'side'>,
@@ -61,6 +72,29 @@ export function backfillAskTokenIdFromParameters(order: Order): boolean {
   if (!tid) return false;
   order.tokenId = tid;
   return true;
+}
+
+/**
+ * Whether a token bid should be treated as dead for book invalidation
+ * (underfunded buyer or past Seaport endTime).
+ */
+export function isDeadTokenBidFunding(params: {
+  balance: bigint;
+  allowance: bigint;
+  needed: bigint;
+  nowSec: number;
+  endTimeSec: number;
+}): { dead: boolean; reason: 'underfunded' | 'expired' | null } {
+  if (params.endTimeSec > 0 && params.nowSec >= params.endTimeSec) {
+    return { dead: true, reason: 'expired' };
+  }
+  if (
+    params.needed > BigInt(0) &&
+    (params.balance < params.needed || params.allowance < params.needed)
+  ) {
+    return { dead: true, reason: 'underfunded' };
+  }
+  return { dead: false, reason: null };
 }
 
 /** Tape row for fulfilled ask (listing fill) or bid (collection buy / match). */

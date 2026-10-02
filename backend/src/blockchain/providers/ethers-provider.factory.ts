@@ -1,12 +1,9 @@
-import { ConfigService } from '@nestjs/config';
-import { JsonRpcProvider } from 'ethers';
+import { ChainConfigService } from '../chain-config.service';
 import { ETHERS_PROVIDER } from '../constants/injection-tokens';
 
 export const ethersProviderFactory = {
   provide: ETHERS_PROVIDER,
-  inject: [ConfigService],
-  useFactory: (configService: ConfigService): JsonRpcProvider => {
-    const rpcUrl = configService.getOrThrow<string>('SEPOLIA_RPC_URL');
-    return new JsonRpcProvider(rpcUrl);
-  },
+  inject: [ChainConfigService],
+  useFactory: (chainConfig: ChainConfigService) =>
+    chainConfig.createJsonRpcProvider(),
 };

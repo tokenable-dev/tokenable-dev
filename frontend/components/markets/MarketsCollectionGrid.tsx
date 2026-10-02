@@ -1,0 +1,123 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
+import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { cardDisplayPartsFromAssetDetail } from "@/lib/marketplace/assetDetailHeadline";
+import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
+import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
+import {
+  buildMarketsCollectionHeadlineParts,
+  gradeLabelFromComp,
+} from "@/lib/markets/marketsCollectionTitle";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { cn } from "@/lib/ds/cn";
+
+/** Same tile pulse as load-more — first paint and `/markets` route fallback. */
+export function MarketsGridSkeleton({
+  count = 8,
+  className,
+}: {
+  count?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("markets-grid", className)} aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={`markets-skel-${i}`}
+          className="markets-tail-skeleton aspect-[3/4] rounded-2xl bg-[var(--surf)]"
+        />
+      ))}
+    </div>
+  );
+}
+
+export function MarketsCollectionGrid({
+  collections,
+  snapshotByKey,
+  resolvedCoverMap,
+  changeLoading = false,
+  snapshotsFetching = false,
+  onBeforeNavigate,
+  showCatalogSubtitle = false,
+}: {
+  collections: MarketplaceCollectionSummary[];
+  snapshotByKey: Map<string, CollectionListMarketSnapshot>;
+  resolvedCoverMap: Map<string, string>;
+  changeLoading?: boolean;
+  /** True while a later snapshot batch is in flight — only missing cards show “…”. */
+  snapshotsFetching?: boolean;
+  onBeforeNavigate?: () => void;
+  showCatalogSubtitle?: boolean;
+}) {
+  const seenKeysRef = useRef(new Set<string>());
+  const enterKeys = useMemo(() => {
+    const enter = new Set<string>();
+    // Skip enter animation on the first paint so the initial grid doesn't cascade-fade.
+    if (seenKeysRef.current.size === 0) return enter;
+    for (const c of collections) {
+      const key = c.collectionKey;
+      if (key && !seenKeysRef.current.has(key)) enter.add(key);
+    }
+    return enter;
+  }, [collections]);
+
+  useEffect(() => {
+    for (const c of collections) {
+      if (c.collectionKey) seenKeysRef.current.add(c.collectionKey);
+    }
+  }, [collections]);
+
+  const titleByCollectionKey = useMemo(() => {
+    return resolveCardDisplayLine1Collisions(
+      collections.map((collection) => {
+        const comp = parseCollectionComponents(collection.components);
+        return {
+          id: collection.collectionKey,
+          parts: cardDisplayPartsFromAssetDetail(
+            buildMarketsCollectionHeadlineParts({ collection, comp }),
+            gradeLabelFromComp(comp),
+          ),
+        };
+      }),
+    );
+  }, [collections]);
+
+  return (
+    <div className="markets-grid">
+      {collections.map((collection, index) => {
+        const key = collection.collectionKey;
+        const keyLower = collectionKeyLower(collection);
+        const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
+        const snapshot = snapshotByKey.get(keyLower);
+
+        return (
+          <div
+            key={key}
+            className={cn(
+              "markets-card-slot",
+              enterKeys.has(key) && "markets-card-slot--enter",
+            )}
+          >
+            <CollectibleCard
+              collection={collection}
+              snapshot={snapshot}
+              resolvedCoverUrl={
+                displayImageUrl ? resolvedCoverMap.get(displayImageUrl) : undefined
+              }
+              changeLoading={
+                changeLoading || (snapshotsFetching && snapshot == null)
+              }
+              position={index}
+              onBeforeNavigate={onBeforeNavigate}
+              showCatalogSubtitle={showCatalogSubtitle}
+              titleOverride={titleByCollectionKey.get(collection.collectionKey)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
