@@ -176,7 +176,13 @@ export function TkHeader() {
             ) : null}
 
             <div className="gnb-right" ref={measureRightRef}>
-              <HeaderAuthControls onOpenNotifications={openNotifications} />
+              <Suspense
+                fallback={
+                  <div className="gnb-auth-skeleton animate-pulse" aria-hidden />
+                }
+              >
+                <HeaderAuthControls onOpenNotifications={openNotifications} />
+              </Suspense>
             </div>
           </div>
         </div>
