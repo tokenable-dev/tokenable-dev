@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../../auth/auth.module';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
+import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
@@ -29,6 +30,7 @@ import { PortfolioController } from './portfolio.controller';
       RwaToken,
       User,
       UserWallet,
+      UserAuthProvider,
     ]),
     BlockchainModule,
     MarketplaceMarketDataModule,

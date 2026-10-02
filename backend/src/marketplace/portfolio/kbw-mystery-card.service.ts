@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser';
+import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { KbwMysteryCardBurn } from '../entities/kbw-mystery-card-burn.entity';
@@ -15,6 +16,8 @@ export class KbwMysteryCardService {
     private readonly users: Repository<User>,
     @InjectRepository(UserWallet)
     private readonly userWallets: Repository<UserWallet>,
+    @InjectRepository(UserAuthProvider)
+    private readonly authProviders: Repository<UserAuthProvider>,
   ) {}
 
   private normalizeWallet(walletAddress: string): string {
@@ -35,11 +38,23 @@ export class KbwMysteryCardService {
     ];
   }
 
-  /** Signed-in user only — avoids false "used" from another account on the same wallet. */
+  /** Real contact inboxes for this account (users.email + linked OAuth/email providers). */
+  async contactEmailsForUser(user: User): Promise<string[]> {
+    const providers = await this.authProviders.find({
+      where: { userId: user.id, unlinkedAt: IsNull() },
+      select: ['email'],
+    });
+    return this.contactEmailsOnly([
+      user.email ?? '',
+      ...providers.map((p) => p.email ?? ''),
+    ]);
+  }
+
+  /** Signed-in user only — any linked contact email may mark the card used. */
   async isBurnedForUser(user: User): Promise<boolean> {
-    const email = this.normalizeEmail(user.email ?? '');
-    if (!email || isWalletOnlyPlaceholderEmail(email)) return false;
-    const row = await this.burns.findOne({ where: { email } });
+    const emails = await this.contactEmailsForUser(user);
+    if (emails.length === 0) return false;
+    const row = await this.burns.findOne({ where: { email: In(emails) } });
     return Boolean(row);
   }
 
@@ -93,19 +108,23 @@ export class KbwMysteryCardService {
   async burnForUser(
     user: User,
   ): Promise<{ burned: true; alreadyBurned: boolean }> {
-    const email = this.normalizeEmail(user.email ?? '');
-    if (!email || isWalletOnlyPlaceholderEmail(email)) {
+    const emails = await this.contactEmailsForUser(user);
+    if (emails.length === 0) {
       throw new BadRequestException(
         'Add a contact email before claiming the KBW mystery card',
       );
     }
 
-    const existing = await this.burns.findOne({ where: { email } });
-    if (existing) {
-      return { burned: true, alreadyBurned: true };
+    let alreadyBurned = false;
+    for (const email of emails) {
+      const existing = await this.burns.findOne({ where: { email } });
+      if (existing) {
+        alreadyBurned = true;
+        continue;
+      }
+      await this.burns.save(this.burns.create({ email }));
     }
-    await this.burns.save(this.burns.create({ email }));
-    return { burned: true, alreadyBurned: false };
+    return { burned: true, alreadyBurned };
   }
 
   /** @deprecated Prefer {@link burnForUser} — wallet-wide email union caused false burns. */

@@ -31,6 +31,7 @@ describe('KbwMysteryCardService', () => {
       burns as never,
       users as never,
       userWallets as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
     );
 
     await expect(service.isBurned(walletA)).resolves.toBe(true);
@@ -65,6 +66,7 @@ describe('KbwMysteryCardService', () => {
       burns as never,
       users as never,
       userWallets as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
     );
 
     await expect(service.burn(walletA)).resolves.toEqual({
@@ -78,10 +80,14 @@ describe('KbwMysteryCardService', () => {
     const burns = {
       findOne: jest.fn().mockResolvedValue(null),
     };
+    const authProviders = {
+      find: jest.fn().mockResolvedValue([]),
+    };
     const service = new KbwMysteryCardService(
       burns as never,
       {} as never,
       {} as never,
+      authProviders as never,
     );
 
     await expect(
@@ -98,6 +104,37 @@ describe('KbwMysteryCardService', () => {
         email: 'kbw@example.com',
       } as never),
     ).resolves.toBe(true);
+  });
+
+  it('isBurnedForUser is true when any linked provider email was burned', async () => {
+    const burns = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, email: 'google@example.com' }),
+    };
+    const authProviders = {
+      find: jest.fn().mockResolvedValue([
+        { email: 'google@example.com' },
+        { email: 'contact@example.com' },
+      ]),
+    };
+    const service = new KbwMysteryCardService(
+      burns as never,
+      {} as never,
+      {} as never,
+      authProviders as never,
+    );
+
+    await expect(
+      service.isBurnedForUser({
+        id: 'u1',
+        email: 'contact@example.com',
+      } as never),
+    ).resolves.toBe(true);
+    const where = burns.findOne.mock.calls[0][0].where.email as {
+      _value: string[];
+    };
+    expect(where._value.sort()).toEqual(
+      ['contact@example.com', 'google@example.com'].sort(),
+    );
   });
 
   it('isBurned ignores wallet-only placeholder emails on the wallet', async () => {
@@ -127,6 +164,7 @@ describe('KbwMysteryCardService', () => {
       burns as never,
       users as never,
       userWallets as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
     );
 
     await expect(service.isBurned(walletA)).resolves.toBe(false);
@@ -151,6 +189,7 @@ describe('KbwMysteryCardService', () => {
       {
         createQueryBuilder: jest.fn().mockReturnValue(emptyQb),
       } as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
     );
 
     await expect(service.burn(walletA)).rejects.toBeInstanceOf(
