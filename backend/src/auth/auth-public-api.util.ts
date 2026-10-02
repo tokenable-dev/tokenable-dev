@@ -1,6 +1,6 @@
 /**
  * Auth paths that must stay reachable without the site-access gate cookie.
- * OAuth redirects can drop `site_access`; login must still complete.
+ * (OAuth redirects can drop `site_access`; login must still complete.)
  */
 export function isAuthPublicApiPath(path: string, method: string): boolean {
   const m = method.toUpperCase();

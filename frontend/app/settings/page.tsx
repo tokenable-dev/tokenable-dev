@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { SettingsPage } from "@/components/settings/SettingsPage";
-import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
+import { resolveAuthReturnTo, shouldDeferGuestSignIn } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -20,8 +20,7 @@ function SettingsPageGate() {
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const prompted = useRef(false);
 
-  const query = searchParams.toString();
-  const returnTo = query ? `${pathname}?${query}` : pathname || "/settings";
+  const returnTo = resolveAuthReturnTo(pathname, searchParams);
 
   useEffect(() => {
     if (

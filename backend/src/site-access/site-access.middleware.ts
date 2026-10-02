@@ -9,7 +9,7 @@ import {
   readSiteAccessConfig,
   verifySiteAccessToken,
 } from './site-access.util';
-import { isAuthPublicApiPath } from '../auth/auth-oauth.util';
+import { isAuthPublicApiPath } from '../auth/auth-public-api.util';
 import { isSwaggerPublicApiPath } from './site-access-swagger.util';
 
 function normalizeRequestPath(path: string): string {

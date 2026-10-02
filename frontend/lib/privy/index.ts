@@ -17,7 +17,6 @@ export {
   PRIVY_APP_ID,
   isPrivyEnabled,
   isPrivyGoogleLoginEnabled,
-  isPrivyWalletLoginEnabled,
   buildPrivyClientConfig,
   privyDefaultChain,
   privyClientConfig,

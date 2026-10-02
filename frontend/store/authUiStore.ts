@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import {
+  readAuthReturnTo,
+  writeAuthReturnTo,
+} from "@/lib/auth/returnTo";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import type { WalletConnectErrorCode } from "@/lib/network/walletError";
 import { useToastStore } from "@/store/toastStore";
@@ -16,43 +20,13 @@ export type WalletActivationPhase =
   | "reconciling"
   | "failed";
 
-/** Survives OAuth full-page redirects (Google etc.) — Zustand alone does not. */
-const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
-
-function readStoredReturnTo(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const path =
-      sessionStorage.getItem(AUTH_RETURN_TO_KEY) ??
-      localStorage.getItem(AUTH_RETURN_TO_KEY);
-    return path && path.startsWith("/") ? path : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredReturnTo(path: string | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (path && path.startsWith("/")) {
-      sessionStorage.setItem(AUTH_RETURN_TO_KEY, path);
-      localStorage.setItem(AUTH_RETURN_TO_KEY, path);
-    } else {
-      sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
-      localStorage.removeItem(AUTH_RETURN_TO_KEY);
-    }
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
-
 function resolvePendingReturnTo(
   explicit: string | undefined,
   current: string | null,
 ): string | null {
   const next = explicit ?? current;
   if (next && next.startsWith("/")) {
-    writeStoredReturnTo(next);
+    writeAuthReturnTo(next);
     return next;
   }
   return current;
@@ -172,13 +146,13 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
 
   setPendingReturnTo: (path) => {
     const next = path && path.startsWith("/") ? path : null;
-    writeStoredReturnTo(next);
+    writeAuthReturnTo(next);
     set({ pendingReturnTo: next });
   },
 
   consumeReturnTo: () => {
-    const path = get().pendingReturnTo ?? readStoredReturnTo();
-    writeStoredReturnTo(null);
+    const path = get().pendingReturnTo ?? readAuthReturnTo();
+    writeAuthReturnTo(null);
     set({ pendingReturnTo: null });
     return path && path.startsWith("/") ? path : null;
   },
@@ -218,7 +192,7 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     }),
 
   resetForSignOut: () => {
-    writeStoredReturnTo(null);
+    writeAuthReturnTo(null);
     set({
       signInOpen: false,
       signInMode: "sign-in",

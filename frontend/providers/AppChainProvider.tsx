@@ -13,7 +13,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { canUseAppChainSwitcher } from "@/lib/auth/accountAccess";
-import { completeSignOut } from "@/lib/auth/signOut";
+import { completeSignOut } from "@/lib/auth";
 import {
   CHAIN_ID_HEADER,
   DEFAULT_CHAIN_ID,

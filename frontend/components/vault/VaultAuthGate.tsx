@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
+import { shouldDeferGuestSignIn } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 

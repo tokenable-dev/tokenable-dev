@@ -9,7 +9,7 @@ import {
   usePrivyFiatOnramp,
 } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { isKycComplete } from "@/lib/auth/accountAccess";
-import { completeSignOut } from "@/lib/auth/signOut";
+import { completeSignOut } from "@/lib/auth";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";

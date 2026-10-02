@@ -36,7 +36,7 @@ import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { useActivePartner } from "@/hooks/partner/useActivePartner";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
-import { completeSignOut } from "@/lib/auth/signOut";
+import { completeSignOut, resolveAuthReturnTo } from "@/lib/auth";
 import type { HeaderKycTone } from "@/lib/wallet/walletMenuDisplay";
 import { cn } from "@/lib/ds/cn";
 import {
@@ -206,13 +206,7 @@ export function HeaderMobileDrawer({
   }, [logout, onClose, signingOut]);
 
   const handleConnect = () => {
-    const pathOnly = pathname?.split("?")[0] ?? "/";
-    const search = searchParams?.toString();
-    const returnTo =
-      pathOnly && pathOnly !== "/"
-        ? `${pathOnly}${search ? `?${search}` : ""}`
-        : "/";
-    openSignIn({ returnTo });
+    openSignIn({ returnTo: resolveAuthReturnTo(pathname, searchParams) });
     // Close drawer after sign-in is queued — avoids trapping Privy under scroll lock on iOS.
     queueMicrotask(() => onClose());
   };

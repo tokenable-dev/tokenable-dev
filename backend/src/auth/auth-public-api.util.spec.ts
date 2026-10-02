@@ -1,4 +1,4 @@
-import { isAuthPublicApiPath } from './auth-oauth.util';
+import { isAuthPublicApiPath } from './auth-public-api.util';
 
 describe('isAuthPublicApiPath', () => {
   it('allows Tokenable session endpoints through the site-access gate', () => {

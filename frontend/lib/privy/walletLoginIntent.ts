@@ -1,15 +1,6 @@
-/** Shared browser helpers used by Privy login UI and event landing. */
+import { writeAuthReturnTo } from "@/lib/auth/returnTo";
 
-const AUTH_RETURN_TO_KEY = "tk_auth_return_to";
-
-function writeReturnTo(path: string) {
-  try {
-    sessionStorage.setItem(AUTH_RETURN_TO_KEY, path);
-    localStorage.setItem(AUTH_RETURN_TO_KEY, path);
-  } catch {
-    /* private mode */
-  }
-}
+/** Shared browser helpers used by Privy login UI. */
 
 /** Drop mobile drawer scroll lock so Privy modal / OAuth redirect are not blocked. */
 function releaseMobileDrawerScrollLock(): void {
@@ -34,7 +25,7 @@ export function startPrivyLogin(
 ): void {
   const returnTo = opts?.returnTo?.trim();
   if (returnTo?.startsWith("/")) {
-    writeReturnTo(returnTo);
+    writeAuthReturnTo(returnTo);
   }
   if (isMobileBrowserUa()) {
     releaseMobileDrawerScrollLock();

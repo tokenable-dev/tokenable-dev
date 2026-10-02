@@ -49,18 +49,6 @@ export function isPrivyGoogleLoginEnabled(): boolean {
 }
 
 /**
- * External wallet is a first-class login method (always enabled).
- * Email/social users' signing wallet = their Privy embedded wallet.
- * Wallet-first users' signing wallet = their external wallet (MetaMask etc).
- * The backend (privy-user.parser) stores external wallet first in walletAddresses,
- * so getPrimaryWalletAddress() correctly returns the user's actual signing wallet.
- * @deprecated Wallet login is always on — kept for isEmbeddedOnlyWalletPolicy() only.
- */
-export function isPrivyWalletLoginEnabled(): boolean {
-  return true;
-}
-
-/**
  * Wallets shown in Privy login / link / connect modals.
  *
  * Must be **identical on SSR and client** — branching on `navigator` made the

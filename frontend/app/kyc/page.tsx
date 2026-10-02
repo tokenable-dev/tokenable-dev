@@ -6,7 +6,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
-import { shouldDeferGuestSignIn } from "@/lib/auth/privySessionGate";
+import { shouldDeferGuestSignIn } from "@/lib/auth";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
 import {
   clearKycReturnTo,

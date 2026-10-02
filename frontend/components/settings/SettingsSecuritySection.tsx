@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TkDialog } from "@/components/ds";
 import { deleteAccount } from "@/lib/auth/auth";
-import { completeSignOut } from "@/lib/auth/signOut";
+import { completeSignOut } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SettingsBtn } from "./SettingsBtn";
 

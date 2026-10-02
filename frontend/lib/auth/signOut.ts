@@ -8,20 +8,15 @@ import {
   waitForPrivyAccessTokenCleared,
 } from "@/lib/privy/session";
 import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
+import { AUTH_RETURN_TO_KEY } from "@/lib/auth/returnTo";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 export { registerPrivySignOut } from "@/lib/privy/session";
 
 const AUTH_PERSISTENCE_PREFIXES = [
-  "tk_auth_return_to",
+  AUTH_RETURN_TO_KEY,
   "tk_add_email_deferred:",
-  "tk_kbw_offer_pending",
-  "tk_kbw_stage2",
-  "tk_kbw_stage1_done",
-  "tk_kbw_post_login_route",
-  "tk_kbw_stage2_flow",
-  "tk_kbw_login_intent",
 ] as const;
 
 function removeMatchingStorageKeys(storage: Storage): void {

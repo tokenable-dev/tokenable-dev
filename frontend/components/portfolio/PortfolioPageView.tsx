@@ -46,7 +46,7 @@ import { ensureTokenableWalletSynced } from "@/lib/auth/ensureTokenableWalletSyn
 import {
   shouldDeferGuestSignIn,
   shouldDeferPortfolioWalletLink,
-} from "@/lib/auth/privySessionGate";
+} from "@/lib/auth";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,

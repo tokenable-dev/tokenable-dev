@@ -1,8 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname, useSearchParams } from "next/navigation";
 import { TkButton } from "@/components/ds";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
+import { resolveAuthReturnTo } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -24,9 +26,13 @@ export function HeaderAuthControls({
   onOpenNotifications?: () => void;
 }) {
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { canShowAuthUi, authenticated, privyUnavailable } = usePrivyInitGate();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
+
+  const signInReturnTo = resolveAuthReturnTo(pathname, searchParams);
 
   if (!canShowAuthUi) {
     return <div className="gnb-auth-skeleton animate-pulse" aria-hidden />;
@@ -42,7 +48,7 @@ export function HeaderAuthControls({
         type="button"
         variant="primary"
         className="tk-btn--gnb tk-connect"
-        onClick={() => openSignIn({ returnTo: "/" })}
+        onClick={() => openSignIn({ returnTo: signInReturnTo })}
       >
         Sign up
       </TkButton>

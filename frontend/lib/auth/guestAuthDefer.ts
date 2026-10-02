@@ -1,4 +1,4 @@
-import type { AuthUser } from "@/lib/auth";
+import type { AuthUser } from "./auth";
 
 /** Wait for Privy init / Tokenable session sync before prompting guest sign-in. */
 export function shouldDeferGuestSignIn(opts: {
