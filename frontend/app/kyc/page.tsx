@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
 import { shouldDeferGuestSignIn } from "@/lib/auth";
+import { redirectGuestFromProtectedRoute } from "@/lib/auth/redirectGuestFromProtectedRoute";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
 import {
   clearKycReturnTo,
@@ -57,7 +58,6 @@ export default function KycPage() {
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const setUser = useAuthStore((s) => s.setUser);
   const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -91,8 +91,7 @@ export default function KycPage() {
       return;
     }
     guestPrompted.current = true;
-    openSignIn({ returnTo: "/kyc" });
-    router.replace("/");
+    redirectGuestFromProtectedRoute(router, "/kyc");
   }, [
     initialized,
     loading,
@@ -100,7 +99,6 @@ export default function KycPage() {
     privyReady,
     privyAuthenticated,
     privySessionSyncing,
-    openSignIn,
     router,
   ]);
 

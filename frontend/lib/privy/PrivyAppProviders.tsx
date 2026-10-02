@@ -34,6 +34,8 @@ import { AppChainProvider } from "@/providers/AppChainProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 import { PortfolioQueryPersistence } from "@/providers/PortfolioQueryPersistence";
+import { SignOutClientStateBridge } from "@/providers/SignOutClientStateBridge";
+import { SignOutNavigationBridge } from "@/providers/SignOutNavigationBridge";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
 import { FiatAggregatorFundingHost } from "@/lib/privy/FiatAggregatorFundingHost";
 
@@ -106,6 +108,8 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
         <WagmiProvider config={wagmiPrivyConfig} reconnectOnMount={false}>
           <MarketplaceQueryPersistence />
           <PortfolioQueryPersistence />
+          <SignOutClientStateBridge />
+          <SignOutNavigationBridge />
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
           <PrivySessionBridge />

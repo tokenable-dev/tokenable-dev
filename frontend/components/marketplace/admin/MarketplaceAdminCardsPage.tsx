@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useMarketplaceAdminCards } from "@/hooks/marketplace-admin/useMarketplaceAdminCards";
 import { useAdminCollectionMarketSnapshots } from "@/hooks/marketplace-admin/useAdminCollectionMarketSnapshots";
 import { useAdminBurnToken } from "@/hooks/marketplace-admin/useAdminBurnToken";
+import { useAdminTransferRwaToken } from "@/hooks/marketplace-admin/useAdminTransferRwaToken";
 import { useAdminConfirmRelease } from "@/hooks/marketplace-admin/useAdminConfirmRelease";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore, selectWallet } from "@/store";
@@ -37,9 +38,9 @@ export function MarketplaceAdminCardsPage() {
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { query, updateMutation, previewMetadataImage, uploadSlabImage } =
     useMarketplaceAdminCards();
-  const { burningTokenId, burnToken } = useAdminBurnToken(
-    isConnected && address ? address : undefined,
-  );
+  const wallet = isConnected && address ? address : undefined;
+  const { burningTokenId, burnToken } = useAdminBurnToken(wallet);
+  const { transferringTokenId, transferToken } = useAdminTransferRwaToken(wallet);
   const { confirmRelease, confirmingId } = useAdminConfirmRelease();
 
   const items = query.data?.items ?? [];
@@ -98,7 +99,7 @@ export function MarketplaceAdminCardsPage() {
     <>
       <MarketplaceAdminPageHeader
         title="All cards"
-        subtitle={`Every minted RWA on ${chain.label} — listed, unlisted, and burned. Edit display metadata and run admin burn. Switch network in the top bar to manage another chain.`}
+        subtitle={`Every minted RWA on ${chain.label} — listed, unlisted, and burned. Edit metadata, transfer from your connected wallet (you pay gas), or burn via custody. Switch network in the top bar.`}
       />
 
       {tab === "active" ? (
@@ -235,6 +236,19 @@ export function MarketplaceAdminCardsPage() {
                 await uploadSlabImage(row.tokenId, face, file);
               }}
               burningTokenId={tab === "active" ? burningTokenId : null}
+              connectedWallet={tab === "active" ? wallet : undefined}
+              transferringTokenId={
+                tab === "active" ? transferringTokenId : null
+              }
+              onTransfer={
+                tab === "active"
+                  ? (recipient) =>
+                      transferToken(row.tokenId, recipient, {
+                        hasActiveListing: row.hasActiveListing,
+                        alreadyBurned: Boolean(row.burnedAt),
+                      })
+                  : undefined
+              }
               onBurn={
                 tab === "active"
                   ? () =>

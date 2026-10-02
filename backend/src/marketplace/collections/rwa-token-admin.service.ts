@@ -34,6 +34,8 @@ export type AdminRwaCardRow = {
   displayImageBackUrl: string | null;
   catalogImageUrl: string | null;
   resolvedImageUrl: string | null;
+  /** PSA slab back from metadata, else registry `display_image_back_url`. */
+  resolvedImageBackUrl: string | null;
   collectionKey: string | null;
   orderHash: string | null;
   priceUsdc: number | null;
@@ -130,6 +132,19 @@ export class RwaTokenAdminService {
     return cancelled;
   }
 
+  /** Cancel marketplace DB listings before a wallet-initiated transfer off custody. */
+  async cancelActiveListingsForRegistryToken(
+    tokenId: number,
+    chainId: SupportedChainId,
+  ): Promise<{ cancelledOrderHashes: string[] }> {
+    const contract = this.rwaContractAddress(chainId);
+    const cancelledOrderHashes = await this.cancelActiveOrdersForToken(
+      contract,
+      tokenId,
+    );
+    return { cancelledOrderHashes };
+  }
+
   /** All minted RWA registry rows for the active chain (listed + unlisted + burned). */
   async listAllRegistryCards(chainId: SupportedChainId): Promise<{ items: AdminRwaCardRow[] }> {
     const contract = this.rwaContractAddress(chainId);
@@ -192,11 +207,13 @@ export class RwaTokenAdminService {
 
         let catalogImageUrl: string | null = null;
         let resolvedImageUrl: string | null = null;
+        let resolvedImageBackUrl: string | null = null;
         try {
           const resolved =
             await this.rwaAssetResolve.resolveAssetFromRegistryRow(registry);
           catalogImageUrl = resolved.catalogImageUrl;
           resolvedImageUrl = resolved.resolvedImageUrl;
+          resolvedImageBackUrl = resolved.resolvedImageBackUrl;
         } catch {
           /* skip image resolution */
         }
@@ -217,6 +234,7 @@ export class RwaTokenAdminService {
           displayImageBackUrl: registry.displayImageBackUrl?.trim() ?? null,
           catalogImageUrl,
           resolvedImageUrl,
+          resolvedImageBackUrl,
           collectionKey,
           orderHash: order?.orderHash ?? null,
           priceUsdc:

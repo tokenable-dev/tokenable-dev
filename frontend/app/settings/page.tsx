@@ -1,26 +1,24 @@
 "use client";
 
 import { Suspense, useEffect, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { SettingsPage } from "@/components/settings/SettingsPage";
-import { resolveAuthReturnTo, shouldDeferGuestSignIn } from "@/lib/auth";
+import { shouldDeferGuestSignIn } from "@/lib/auth";
+import { redirectGuestFromProtectedRoute } from "@/lib/auth/redirectGuestFromProtectedRoute";
+import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useAuthStore } from "@/store/authStore";
-import { useAuthUiStore } from "@/store/authUiStore";
 
 function SettingsPageGate() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
   const initialized = useAuthStore((s) => s.initialized);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
+  const sessionActive = useTokenableSessionActive();
   const prompted = useRef(false);
-
-  const returnTo = resolveAuthReturnTo(pathname, searchParams);
 
   useEffect(() => {
     if (
@@ -37,8 +35,7 @@ function SettingsPageGate() {
       return;
     }
     prompted.current = true;
-    openSignIn({ returnTo });
-    router.replace("/");
+    redirectGuestFromProtectedRoute(router, pathname);
   }, [
     initialized,
     loading,
@@ -46,8 +43,7 @@ function SettingsPageGate() {
     privyReady,
     privyAuthenticated,
     privySessionSyncing,
-    openSignIn,
-    returnTo,
+    pathname,
     router,
   ]);
 
@@ -68,7 +64,7 @@ function SettingsPageGate() {
     );
   }
 
-  if (!user) return null;
+  if (!sessionActive || !user) return null;
 
   return <SettingsPage user={user} />;
 }

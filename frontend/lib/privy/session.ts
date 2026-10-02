@@ -73,6 +73,19 @@ export async function waitForPrivyAccessTokenCleared(
 
 type AuthSignOutListener = () => void;
 const authSignOutListeners = new Set<AuthSignOutListener>();
+const authSignOutClearListeners = new Set<AuthSignOutListener>();
+
+/** Clear portfolio / inbox / user-scoped RQ at the start of sign-out. */
+export function onAuthSignOutClearClientState(listener: AuthSignOutListener): () => void {
+  authSignOutClearListeners.add(listener);
+  return () => {
+    authSignOutClearListeners.delete(listener);
+  };
+}
+
+export function notifyAuthSignOutClearClientState(): void {
+  for (const listener of authSignOutClearListeners) listener();
+}
 
 /** Lets PrivySessionBridge drop in-flight sync state after sign-out. */
 export function onAuthSignOutComplete(listener: AuthSignOutListener): () => void {

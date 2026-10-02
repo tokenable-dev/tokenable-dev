@@ -173,6 +173,25 @@ export class RwaTokenAdminController {
   }
 
   @ApiOperation({
+    summary:
+      '[Admin] Cancel active marketplace listings for a token (DB only; before wallet transfer)',
+  })
+  @ApiParam({ name: 'tokenId', example: 1 })
+  @Post(':tokenId/cancel-listings')
+  async cancelListings(
+    @Req() req: Request,
+    @Param('tokenId', ParseIntPipe) tokenId: number,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.rwaTokenAdmin.cancelActiveListingsForRegistryToken(
+      tokenId,
+      chainId,
+    );
+  }
+
+  @ApiOperation({
     summary: '[Admin] Permanently burn RWA token on-chain (redemption execution)',
   })
   @ApiParam({ name: 'tokenId', example: 1 })

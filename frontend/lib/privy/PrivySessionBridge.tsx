@@ -63,10 +63,7 @@ export function PrivySessionBridge() {
 
       if (loginIntent || (wasAlreadyAuthenticated && stage2)) {
         ensureKbwStage2Pending();
-        return;
       }
-
-      useAuthUiStore.getState().armKbwOffer();
     },
   });
   const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
@@ -131,6 +128,15 @@ export function PrivySessionBridge() {
       useAuthUiStore.getState().resetWalletActivation();
       void useAuthStore.getState().logout();
       void disconnectAllWagmiWallets();
+    }
+    if (
+      !authenticated &&
+      !isSignOutInProgress() &&
+      !isPrivySessionSyncSuppressed() &&
+      useAuthStore.getState().user &&
+      !useAuthStore.getState().privySessionSyncing
+    ) {
+      void useAuthStore.getState().logout();
     }
     if (!wasAuthenticated.current && authenticated) {
       catchupAttempt.current = 0;

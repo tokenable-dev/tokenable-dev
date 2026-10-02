@@ -8,6 +8,7 @@ export * from "./wallets";
 export * from "./walletOnlyEmail";
 export * from "./returnTo";
 export * from "./guestAuthDefer";
+export { useTokenableSessionActive } from "./sessionActive";
 export {
   completeSignOut,
   clearClientAuthPersistence,

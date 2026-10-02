@@ -116,19 +116,22 @@ export function KbwMysteryOfferModal() {
   const needsEmail = userNeedsContactEmail(user);
   const hasContactEmail = Boolean(kbwContactScope);
 
-  const shouldCheckBurned =
+  const mayShowOffer =
+    kbwMysteryOfferVisible || stage2AwaitingOffer;
+
+  const shouldFetchKbwCardStatus =
     mounted &&
     isKbwEventActive() &&
     sessionReady &&
     hasContactEmail &&
     !needsEmail &&
     !emailGateOpen &&
-    stage2AwaitingOffer;
+    mayShowOffer;
 
   const cardStatusQuery = useQuery({
     queryKey: rq.kbwMysteryCard(wallet, kbwContactScope),
     queryFn: () => fetchKbwMysteryCardStatus(wallet),
-    enabled: shouldCheckBurned,
+    enabled: shouldFetchKbwCardStatus,
     staleTime: 30_000,
     retry: 1,
   });
@@ -146,26 +149,29 @@ export function KbwMysteryOfferModal() {
       setOpen(false);
       return;
     }
-    if (!sessionReady || needsEmail || emailGateOpen) {
+    if (!sessionReady || needsEmail || emailGateOpen || !hasContactEmail) {
+      setOpen(false);
+      return;
+    }
+    if (!mayShowOffer) {
       setOpen(false);
       return;
     }
 
-    if (kbwMysteryOfferVisible) {
-      setOpen(true);
+    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) {
       return;
     }
 
-    if (!stage2AwaitingOffer) {
+    if (participated) {
       setOpen(false);
+      dismissKbwOfferUi();
       return;
     }
 
-    if (!hasContactEmail) return;
-    if (cardStatusQuery.isLoading || cardStatusQuery.data === undefined) return;
-    setOpen(!participated);
+    setOpen(true);
   }, [
     mounted,
+    mayShowOffer,
     kbwMysteryOfferVisible,
     stage2AwaitingOffer,
     participated,

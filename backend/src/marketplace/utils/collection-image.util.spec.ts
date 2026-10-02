@@ -5,6 +5,7 @@ import {
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
   pickPreferredCollectionCoverUrl,
+  pickPsaCertSlabBackImageRef,
   pickRwaAssetDisplayImageRef,
   pickRwaAssetHttpsSlabIngestUrl,
   pickSearchTokenImageUrl,
@@ -159,6 +160,22 @@ describe('isPsaCertSlabCloudfrontUrl', () => {
         'https://d1htnxwo4o0jhw.cloudfront.net/spec/2427023/a4PuiPdzmECPOwdi1I7juQ.jpg',
       ),
     ).toBe(false);
+  });
+});
+
+describe('pickPsaCertSlabBackImageRef', () => {
+  it('returns PSA certImageBackUrl when present', () => {
+    const url =
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/84089328/back.jpg';
+    expect(
+      pickPsaCertSlabBackImageRef({
+        properties: {
+          graded: {
+            psa: { certImageBackUrl: url },
+          },
+        },
+      }),
+    ).toBe(url);
   });
 });
 

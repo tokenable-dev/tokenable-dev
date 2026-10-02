@@ -4,8 +4,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { shouldDeferGuestSignIn } from "@/lib/auth";
+import { redirectGuestFromProtectedRoute } from "@/lib/auth/redirectGuestFromProtectedRoute";
 import { useAuthStore } from "@/store/authStore";
-import { useAuthUiStore } from "@/store/authUiStore";
 
 /**
  * Vault routes require a Tokenable session (Privy sign-in).
@@ -18,11 +18,8 @@ export function VaultAuthGate({ children }: { children: ReactNode }) {
   const loading = useAuthStore((s) => s.loading);
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const { ready: privyReady, authenticated: privyAuthenticated } = usePrivy();
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const pathname = usePathname();
   const redirected = useRef(false);
-
-  const returnTo = pathname || "/vault";
 
   useEffect(() => {
     if (
@@ -39,8 +36,9 @@ export function VaultAuthGate({ children }: { children: ReactNode }) {
       return;
     }
     redirected.current = true;
-    openSignIn({ returnTo });
-    router.replace("/markets");
+    if (!redirectGuestFromProtectedRoute(router, pathname)) {
+      router.replace("/markets");
+    }
   }, [
     initialized,
     loading,
@@ -48,8 +46,7 @@ export function VaultAuthGate({ children }: { children: ReactNode }) {
     privyReady,
     privyAuthenticated,
     privySessionSyncing,
-    openSignIn,
-    returnTo,
+    pathname,
     router,
   ]);
 

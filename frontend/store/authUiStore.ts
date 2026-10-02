@@ -68,6 +68,8 @@ export function isWalletActivationInFlight(phase: WalletActivationPhase): boolea
 
 interface AuthUiState {
   signInOpen: boolean;
+  /** Bumped on every `openSignIn` so Privy launcher re-runs after sign-out races. */
+  signInLaunchNonce: number;
   signInMode: AuthModalMode;
   connectWalletOpen: boolean;
   walletMismatchOpen: boolean;
@@ -114,6 +116,7 @@ interface AuthUiState {
 
 export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   signInOpen: false,
+  signInLaunchNonce: 0,
   signInMode: "sign-in",
   connectWalletOpen: false,
   walletMismatchOpen: false,
@@ -125,11 +128,12 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   walletActivationExpectedAddress: null,
 
   openSignIn: (opts) =>
-    set({
+    set((s) => ({
       signInOpen: true,
+      signInLaunchNonce: s.signInLaunchNonce + 1,
       signInMode: opts?.mode ?? "sign-in",
-      pendingReturnTo: resolvePendingReturnTo(opts?.returnTo, get().pendingReturnTo),
-    }),
+      pendingReturnTo: resolvePendingReturnTo(opts?.returnTo, s.pendingReturnTo),
+    })),
 
   closeSignIn: () => set({ signInOpen: false }),
 

@@ -155,10 +155,8 @@ export function AddEmailRequiredModal() {
       const ui = useAuthUiStore.getState();
       const wallet = getPrimaryWalletAddress(updated);
 
-      // Win the race vs PrivySessionBridge / Stage2 poller — never burn-check here.
       if (kbwEventEmailCapture) {
         clearKbwStage2();
-        ui.armKbwOffer();
       }
 
       setUser(savedUser);
@@ -177,7 +175,11 @@ export function AddEmailRequiredModal() {
       }
 
       if (kbwEventEmailCapture) {
-        afterEventContactEmailSaved({ armKbwOffer: () => ui.armKbwOffer() });
+        await afterEventContactEmailSaved({
+          user: savedUser,
+          armKbwOffer: () => ui.armKbwOffer(),
+          clearKbwOffer: () => ui.clearKbwOffer(),
+        });
       } else if (isKbwStage2Pending()) {
         await completeKbwStage2Session({
           user: savedUser,

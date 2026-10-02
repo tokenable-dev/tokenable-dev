@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import {
+  pickPsaCertSlabBackImageRef,
   pickPsaCertSlabImageRef,
   pickRwaAssetDisplayImageRef,
   psaCertNumberFromGradedMeta,
@@ -263,16 +264,44 @@ export class RwaAssetResolveService {
    */
   async resolveAssetFromRegistryRow(
     row: RwaToken,
-  ): Promise<{ catalogImageUrl: string | null; resolvedImageUrl: string | null }> {
+  ): Promise<{
+    catalogImageUrl: string | null;
+    resolvedImageUrl: string | null;
+    resolvedImageBackUrl: string | null;
+  }> {
     const tokenId = Number(row.tokenId);
     if (!Number.isFinite(tokenId) || tokenId < 0) {
-      return { catalogImageUrl: null, resolvedImageUrl: null };
+      return {
+        catalogImageUrl: null,
+        resolvedImageUrl: null,
+        resolvedImageBackUrl: null,
+      };
     }
     const payload = await this.resolveFromRegistryRow(tokenId, row);
     const imageUrl = payload?.imageUrl ?? null;
+    const cacheBust = row.updatedAt ?? null;
+    let resolvedImageBackUrl: string | null = null;
+    const metadata = payload?.metadata ?? null;
+    if (metadata) {
+      const psaBackRef = pickPsaCertSlabBackImageRef(metadata);
+      if (psaBackRef) {
+        resolvedImageBackUrl = await this.resolveOverrideToHttps(
+          psaBackRef,
+          cacheBust,
+        );
+      }
+    }
+    const registryBack = row.displayImageBackUrl?.trim() || null;
+    if (!resolvedImageBackUrl && registryBack) {
+      resolvedImageBackUrl = await this.resolveOverrideToHttps(
+        registryBack,
+        cacheBust,
+      );
+    }
     return {
       catalogImageUrl: imageUrl,
       resolvedImageUrl: imageUrl,
+      resolvedImageBackUrl,
     };
   }
 

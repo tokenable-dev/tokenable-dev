@@ -8,6 +8,7 @@ export type AdminRwaCardRow = {
   displayImageBackUrl: string | null;
   catalogImageUrl: string | null;
   resolvedImageUrl: string | null;
+  resolvedImageBackUrl: string | null;
   collectionKey: string | null;
   orderHash: string | null;
   priceUsdc: number | null;
@@ -120,6 +121,24 @@ export async function postAdminPreviewRwaMetadataImage(
     imageRef: string | null;
     httpsUrl: string | null;
   }>;
+}
+
+/** Admin: cancel active DB listings before transferring from a user wallet. */
+export async function postAdminCancelRwaListings(
+  tokenId: number,
+): Promise<{ cancelledOrderHashes: string[] }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/rwa-tokens/${tokenId}/cancel-listings`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    },
+  );
+  if (!res.ok) {
+    await parseAdminError(res, "Failed to cancel listings");
+  }
+  return res.json() as Promise<{ cancelledOrderHashes: string[] }>;
 }
 
 /** Admin: on-chain `_burn` via platform owner wallet. */

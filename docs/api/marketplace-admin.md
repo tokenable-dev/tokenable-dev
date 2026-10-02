@@ -38,8 +38,10 @@ All RWA tokens in the registry for the active chain (listed + unlisted + burned)
       "certNumber": "83179580",
       "displayName": "2003 Topps LeBron PSA 10",
       "displayImageUrl": null,
+      "displayImageBackUrl": null,
       "catalogImageUrl": "https://...",
       "resolvedImageUrl": "https://...",
+      "resolvedImageBackUrl": "https://...",
       "collectionKey": "...",
       "orderHash": "0x...",
       "priceUsdc": 500.00,
@@ -104,6 +106,14 @@ Transfer custody-held NFT to the vault depositor's primary linked wallet.
 - Token must have a vault cycle with `depositedByUserId`
 - No active listing
 - Not already burned
+
+### POST /:tokenId/cancel-listings
+
+Cancel active marketplace **database** orders for a token (same helper as pre-burn). Used from **All cards → Transfer to wallet** when the row is listed.
+
+**Response:** `{ cancelledOrderHashes: string[] }`
+
+**Note:** Wallet transfer itself is **not** a server tx — the admin UI calls `safeTransferFrom` from the **connected wallet** (operator pays gas). Use **Custody NFTs → Deliver** when the NFT is still on the platform custody wallet.
 
 ### POST /:tokenId/burn
 

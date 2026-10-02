@@ -127,17 +127,23 @@ export async function finishKbwEventOnPage(
 }
 
 /**
- * After saving contact email on `/event` — always show the offer.
- * Do not check burn status here (wallet-wide races caused false "used" + portfolio redirect).
+ * After saving contact email on `/event` — show offer only if mystery card not used yet.
  */
-export function afterEventContactEmailSaved(opts: {
+export async function afterEventContactEmailSaved(opts: {
+  user?: AuthUser | null;
   armKbwOffer: () => void;
-}): void {
+  clearKbwOffer: () => void;
+}): Promise<void> {
   if (!isKbwEventActive()) return;
   if (typeof window === "undefined" || !isEventPath(window.location.pathname)) {
     return;
   }
   clearKbwStage2();
+  const burned = await kbwMysteryCardBurnedForUser(opts.user);
+  if (burned) {
+    opts.clearKbwOffer();
+    return;
+  }
   opts.armKbwOffer();
 }
 

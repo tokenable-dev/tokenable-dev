@@ -193,6 +193,21 @@ export function writePortfolioBundle(
   }
 }
 
+/** Remove every persisted portfolio bundle (sign-out / account switch). */
+export function clearAllPortfolioBundles(): void {
+  cancelPersistPortfolioAccumulated();
+  cancelSchedulePortfolioPersist();
+  if (typeof window === "undefined") return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(LS_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Drop paint-time cache so the next portfolio visit re-bootstraps ownedTokenIds. */
 export function clearPortfolioBundle(
   address: string,

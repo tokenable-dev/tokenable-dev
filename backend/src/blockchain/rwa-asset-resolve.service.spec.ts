@@ -46,6 +46,40 @@ describe('RwaAssetResolveService', () => {
     );
   });
 
+  it('resolveAssetFromRegistryRow prefers PSA slab URLs over display_image_url columns', async () => {
+    const psaFront =
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/123/front.jpg';
+    const psaBack =
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/123/back.jpg';
+    const metaWithPsa = {
+      ...sampleMetadata,
+      properties: {
+        graded: {
+          psa: {
+            certImageSourceUrl: psaFront,
+            certImageBackUrl: psaBack,
+          },
+        },
+      },
+    };
+    const row = {
+      tokenId: '50',
+      tokenContract: '0xrwa',
+      tokenUri: 'ipfs://Qm50',
+      displayImageUrl: 'https://cdn.example/user-front.jpg',
+      displayImageBackUrl: 'https://cdn.example/user-back.jpg',
+      updatedAt: new Date('2026-01-01'),
+    } as RwaToken;
+
+    ipfs.fetchMetadataJson.mockResolvedValue(metaWithPsa);
+    ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
+
+    const resolved = await service.resolveAssetFromRegistryRow(row);
+
+    expect(resolved.resolvedImageUrl).toBe(psaFront);
+    expect(resolved.resolvedImageBackUrl).toBe(psaBack);
+  });
+
   it('batchRwaMetadata dedupes IPFS fetches by token_uri across tokens', async () => {
     const rowA = {
       tokenId: '1',

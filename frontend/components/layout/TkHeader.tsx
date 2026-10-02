@@ -21,8 +21,6 @@ import { NotificationUnreadBadge } from "@/components/layout/notifications/Notif
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { useGnbDesktopSearchLayout } from "@/hooks/layout/useGnbDesktopSearchLayout";
-import { useAuthStore } from "@/store/authStore";
-
 export function TkHeader() {
   const pathname = usePathname();
   const gnbMobile = useGnbMobile();
@@ -36,10 +34,9 @@ export function TkHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const userId = useAuthStore((s) => s.user?.id ?? "");
   const hideChrome = shouldHideAppChrome(pathname);
   const { unreadCount } = useMarketplaceNotifications({
-    enabled: Boolean(userId) && !hideChrome,
+    enabled: !hideChrome,
   });
   const overlaySearch = gnbMobile || desktopSearchCompact;
 

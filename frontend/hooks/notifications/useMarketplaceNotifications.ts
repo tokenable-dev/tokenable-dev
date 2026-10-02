@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { shouldHideAppChrome } from "@/constants/layout";
 import {
@@ -62,8 +63,8 @@ function useForegroundTab(): boolean {
 /** Inbox for the signed-in user on the active app chain. */
 export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
-  const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const userId = user?.id ?? "";
+  const signedIn = useTokenableSessionActive();
   const { chainId, chainReady } = useAppChain();
   const queryClient = useQueryClient();
   const pathname = usePathname();
@@ -71,8 +72,7 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const enabled =
     chainReady &&
     (options?.enabled ?? true) &&
-    Boolean(userId) &&
-    !privySessionSyncing &&
+    signedIn &&
     !shouldHideAppChrome(pathname) &&
     tabVisible;
 
@@ -88,8 +88,10 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     retryDelay: marketplaceApiRetryDelay,
   });
 
-  const items = (query.data?.items ?? []).map(toDrawerItem);
-  const unreadCount = items.reduce((n, item) => n + (item.unread ? 1 : 0), 0);
+  const items = signedIn ? (query.data?.items ?? []).map(toDrawerItem) : [];
+  const unreadCount = signedIn
+    ? items.reduce((n, item) => n + (item.unread ? 1 : 0), 0)
+    : 0;
 
   const markRead = useMutation({
     mutationFn: (id: number) => markNotificationRead(id),

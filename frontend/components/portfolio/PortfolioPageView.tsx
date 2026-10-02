@@ -28,6 +28,7 @@ import {
   buildKbwMysteryCardRow,
   isKbwMysteryCardTokenId,
 } from "@/lib/portfolio/kbwMysteryCard";
+import { clearKbwStage2 } from "@/lib/event/kbwEventStage2";
 import {
   getOrderByHash,
   getPortfolioActivityOrders,
@@ -51,10 +52,8 @@ import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { ensureTokenableWalletSynced } from "@/lib/auth/ensureTokenableWalletSynced";
-import {
-  shouldDeferGuestSignIn,
-  shouldDeferPortfolioWalletLink,
-} from "@/lib/auth";
+import { shouldDeferGuestSignIn, shouldDeferPortfolioWalletLink } from "@/lib/auth";
+import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,
@@ -102,6 +101,7 @@ export function PortfolioPageView({
   const user = useAuthStore((s) => s.user);
   const authInitialized = useAuthStore((s) => s.initialized);
   const authLoading = useAuthStore((s) => s.loading);
+  const sessionActive = useTokenableSessionActive();
   const privySessionSyncing = useAuthStore((s) => s.privySessionSyncing);
   const hydrateFromSession = useAuthStore((s) => s.hydrateFromSession);
   const {
@@ -110,8 +110,6 @@ export function PortfolioPageView({
     getAccessToken,
   } = usePrivy();
   const { wallets: privyWallets } = useWallets();
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
-  const guestSignInPromptedRef = useRef(false);
   const { runSellAccessGate } = useSellAccessGate(portfolioBase);
   const wallet = useLinkedPortfolioWallet();
   const deferPortfolioWalletLink = shouldDeferPortfolioWalletLink({
@@ -146,7 +144,7 @@ export function PortfolioPageView({
   const portfolioAddress = wallet.portfolioAddress;
   const portfolioDataEnabled =
     authInitialized &&
-    Boolean(user) &&
+    sessionActive &&
     Boolean(portfolioAddress) &&
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
@@ -196,38 +194,6 @@ export function PortfolioPageView({
     // Bare /portfolio and ?tab=assets|collectibles → My Assets
     setPortfolioMainTab("collectibles");
   }, [searchParams, isPartnerPortfolio]);
-
-  useEffect(() => {
-    if (
-      shouldDeferGuestSignIn({
-        authInitialized,
-        authLoading,
-        user,
-        privyReady,
-        privyAuthenticated,
-        privySessionSyncing,
-      })
-    ) {
-      if (user) guestSignInPromptedRef.current = false;
-      return;
-    }
-    if (guestSignInPromptedRef.current) return;
-    guestSignInPromptedRef.current = true;
-    const qs = searchParams.toString();
-    openSignIn({
-      returnTo: portfolioUrl(portfolioBase, qs || "tab=assets"),
-    });
-  }, [
-    authInitialized,
-    authLoading,
-    user,
-    privyReady,
-    privyAuthenticated,
-    privySessionSyncing,
-    searchParams,
-    portfolioBase,
-    openSignIn,
-  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -965,7 +931,25 @@ export function PortfolioPageView({
     );
   }
 
-  if (!user) {
+  if (!sessionActive) {
+    const deferGuest = shouldDeferGuestSignIn({
+      authInitialized,
+      authLoading,
+      user,
+      privyReady,
+      privyAuthenticated,
+      privySessionSyncing,
+    });
+    if (deferGuest) {
+      return (
+        <>
+          <div className="flex min-h-[50vh] items-center justify-center bg-black">
+            <span className="h-7 w-7 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+          </div>
+          {listModalLayer}
+        </>
+      );
+    }
     return (
       <>
         <PortfolioGuestState />
@@ -1178,6 +1162,8 @@ export function PortfolioPageView({
               throw new Error("No wallet connected");
             }
             await burnKbwMysteryCard(portfolioAddress);
+            clearKbwStage2();
+            useAuthUiStore.getState().clearKbwOffer();
             queryClient.setQueryData(
               rq.kbwMysteryCard(portfolioAddress, kbwContactScope),
               { burned: true },

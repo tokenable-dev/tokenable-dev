@@ -171,6 +171,25 @@ export function pickPsaCertSlabImageRef(
   return undefined;
 }
 
+/** PSA official slab back photo URL from mint metadata (HTTPS only). */
+export function pickPsaCertSlabBackImageRef(
+  meta: Record<string, unknown>,
+): string | undefined {
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const back =
+    typeof psa?.certImageBackUrl === 'string'
+      ? psa.certImageBackUrl.trim()
+      : '';
+  if (back && isUsableCoverUrl(back) && isDirectHttpsImageUrl(back)) {
+    return back;
+  }
+  return undefined;
+}
+
 /**
  * RWA 카드 히어로/리스트용 이미지 ref — 민트 구조는 그대로 두고, 응답 `imageUrl`만 빠르게 만든다.
  * 순서: (1) PSA `certImageSourceUrl` (HTTPS slab)

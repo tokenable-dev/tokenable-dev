@@ -444,6 +444,11 @@ export async function invalidateMarketplaceNotifications(
   await qc.invalidateQueries({ queryKey: ["marketplace-notifications"] });
 }
 
+/** Drop in-memory inbox cache on sign-out (not persisted to localStorage). */
+export function clearMarketplaceNotificationsCache(qc: QueryClient): void {
+  qc.removeQueries({ queryKey: ["marketplace-notifications"] });
+}
+
 /**
  * After a dead token bid is invalidated (underfunded / expired).
  * Orders book + inbox so sellers stop seeing the dead offer.
@@ -485,6 +490,26 @@ export async function invalidateAfterBurn(
   await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
   await _invalidatePortfolioDailySnapshots(qc, address);
   await clearPortfolioOwnedCaches(qc, [address]);
+}
+
+/** After an admin wallet sends an RWA to another address (partner handoff). */
+export async function invalidateAfterWalletNftTransfer(
+  qc: QueryClient,
+  wallets: string[],
+): Promise<void> {
+  const normalized = [
+    ...new Set(
+      wallets.map((w) => w.trim().toLowerCase()).filter((w) => w.length > 0),
+    ),
+  ];
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
+  await clearPortfolioOwnedCaches(qc, normalized);
+  for (const wallet of normalized) {
+    await _invalidatePortfolioDailySnapshots(qc, wallet);
+  }
 }
 
 /**

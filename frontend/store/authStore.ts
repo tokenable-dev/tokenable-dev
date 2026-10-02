@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AuthUser } from "@/lib/auth";
 import { fetchAuthMe, logoutAuth } from "@/lib/auth";
+import { notifyAuthSignOutClearClientState } from "@/lib/privy/session";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 
@@ -96,6 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await logoutAuth();
     } finally {
+      notifyAuthSignOutClearClientState();
       set({
         user: null,
         loading: false,

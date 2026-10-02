@@ -33,6 +33,9 @@ export function MarketplaceAdminCardRow({
   onUploadSlab,
   onBurn,
   burningTokenId,
+  connectedWallet,
+  onTransfer,
+  transferringTokenId,
   onConfirmRelease,
   confirmingReleaseId,
 }: {
@@ -49,6 +52,9 @@ export function MarketplaceAdminCardRow({
   onUploadSlab?: (face: "front" | "back", file: File) => Promise<void>;
   onBurn?: () => void;
   burningTokenId?: number | null;
+  connectedWallet?: string;
+  onTransfer?: (recipientAddress: string) => Promise<void>;
+  transferringTokenId?: number | null;
   onConfirmRelease?: () => void;
   confirmingReleaseId?: string | null;
 }) {
@@ -60,6 +66,8 @@ export function MarketplaceAdminCardRow({
   const [rowBusy, setRowBusy] = useState<
     "save" | "preview" | "clear" | "upload-front" | "upload-back" | null
   >(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTo, setTransferTo] = useState("");
 
   useEffect(() => {
     setDisplayName(row.displayName ?? "");
@@ -68,13 +76,14 @@ export function MarketplaceAdminCardRow({
     setPreviewUrl(null);
   }, [row]);
 
+  // Thumbnails: PSA slab from metadata first (resolved*), then stored user uploads.
   const displayPreview =
-    previewUrl ?? (imageUrlInput.trim() || row.resolvedImageUrl);
+    previewUrl ?? row.resolvedImageUrl ?? (imageUrlInput.trim() || null);
   const { url: resolvedPreview, isLoading: previewLoading } =
     useResolvedMediaUrl(displayPreview);
-  const { url: resolvedBack } = useResolvedMediaUrl(
-    row.displayImageBackUrl ?? null,
-  );
+  const backPreview =
+    row.resolvedImageBackUrl ?? row.displayImageBackUrl ?? null;
+  const { url: resolvedBack } = useResolvedMediaUrl(backPreview);
 
   async function handleUploadFace(face: "front" | "back", file: File | undefined) {
     if (!file || !onUploadSlab) return;
@@ -140,7 +149,9 @@ export function MarketplaceAdminCardRow({
   const disabled = busy || rowBusy != null;
   const isBurned = Boolean(row.burnedAt);
   const isBurning = burningTokenId === row.tokenId;
+  const isTransferring = transferringTokenId === row.tokenId;
   const canBurn = !isBurned && onBurn != null;
+  const canTransfer = !isBurned && onTransfer != null && Boolean(connectedWallet);
   const pendingReleaseId = row.pendingReleaseRedemptionId?.trim() || null;
   const isConfirmingRelease =
     pendingReleaseId != null && confirmingReleaseId === pendingReleaseId;
@@ -340,6 +351,21 @@ export function MarketplaceAdminCardRow({
             >
               {rowBusy === "clear" ? "Clearing…" : "Clear override"}
             </button>
+            {onTransfer ? (
+              <button
+                type="button"
+                disabled={disabled || isTransferring || !canTransfer}
+                title={
+                  !connectedWallet
+                    ? "Connect the wallet that holds this NFT"
+                    : "On-chain safeTransferFrom — you pay gas"
+                }
+                onClick={() => setTransferOpen((v) => !v)}
+                className={ADMIN_BTN_SECONDARY}
+              >
+                {transferOpen ? "Hide transfer" : "Transfer to wallet"}
+              </button>
+            ) : null}
             {onBurn ? (
               <button
                 type="button"
@@ -377,6 +403,40 @@ export function MarketplaceAdminCardRow({
               </Link>
             ) : null}
           </div>
+
+          {transferOpen && onTransfer ? (
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 space-y-3">
+              <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>
+                Send this RWA from your connected wallet to a partner or another
+                account. Network gas is paid by the connected wallet — not the
+                platform custody wallet.
+              </p>
+              {connectedWallet ? (
+                <p className={`font-mono text-xs ${ADMIN_TEXT_META}`}>
+                  From: {connectedWallet}
+                </p>
+              ) : null}
+              <label className="block">
+                <span className={ADMIN_LABEL}>Recipient address</span>
+                <input
+                  value={transferTo}
+                  onChange={(e) => setTransferTo(e.target.value)}
+                  placeholder="0x…"
+                  className={ADMIN_INPUT_MONO}
+                  spellCheck={false}
+                  disabled={disabled || isTransferring}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={disabled || isTransferring || !transferTo.trim()}
+                className={ADMIN_BTN_PRIMARY}
+                onClick={() => void onTransfer(transferTo)}
+              >
+                {isTransferring ? "Transferring…" : "Confirm transfer"}
+              </button>
+            </div>
+          ) : null}
 
           {rowError ? (
             <p className="text-sm text-red-600" role="alert">

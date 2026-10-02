@@ -9,9 +9,11 @@ export function shouldDeferGuestSignIn(opts: {
   privyAuthenticated: boolean;
   privySessionSyncing: boolean;
 }): boolean {
-  if (!opts.authInitialized || opts.authLoading || opts.user) return true;
+  if (!opts.authInitialized || opts.authLoading) return true;
   if (!opts.privyReady) return true;
-  if (opts.privyAuthenticated || opts.privySessionSyncing) return true;
+  if (opts.privySessionSyncing) return true;
+  if (opts.privyAuthenticated && !opts.user) return true;
+  if (opts.user && opts.privyAuthenticated) return true;
   return false;
 }
 

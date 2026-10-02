@@ -6,6 +6,8 @@ import { disconnectAllWagmiWallets } from "@/lib/privy/disconnectWagmi";
 import {
   isPrivySessionSyncSuppressed,
   isSignOutInProgress,
+  onAuthSignOutComplete,
+  resumePrivySessionSync,
   waitForPrivyAccessTokenCleared,
 } from "@/lib/privy/session";
 import { startPrivyLogin } from "@/lib/privy/walletLoginIntent";
@@ -15,7 +17,9 @@ import { useAuthUiStore } from "@/store/authUiStore";
 /** Opens Privy's native login modal when auth UI store requests sign-in. */
 export function PrivySignInLauncher() {
   const signInOpen = useAuthUiStore((s) => s.signInOpen);
+  const signInLaunchNonce = useAuthUiStore((s) => s.signInLaunchNonce);
   const closeSignIn = useAuthUiStore((s) => s.closeSignIn);
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const { login } = useLogin();
   const { logout } = useLogout();
   const { authenticated, ready, getAccessToken } = usePrivy();
@@ -23,8 +27,27 @@ export function PrivySignInLauncher() {
   const launchInFlight = useRef(false);
 
   useEffect(() => {
-    if (!signInOpen || launchInFlight.current || !ready) return;
-    if (isSignOutInProgress()) return;
+    if (!signInOpen || !ready) return;
+
+    const hasTokenableUser = Boolean(useAuthStore.getState().user?.id);
+    if (
+      authenticated &&
+      hasTokenableUser &&
+      !isPrivySessionSyncSuppressed()
+    ) {
+      closeSignIn();
+      return;
+    }
+
+    if (isSignOutInProgress()) {
+      return onAuthSignOutComplete(() => {
+        const st = useAuthUiStore.getState();
+        if (!st.signInOpen) return;
+        openSignIn({ returnTo: st.pendingReturnTo ?? undefined });
+      });
+    }
+
+    if (launchInFlight.current) return;
 
     launchInFlight.current = true;
     const returnTo = useAuthUiStore.getState().pendingReturnTo;
@@ -36,6 +59,10 @@ export function PrivySignInLauncher() {
 
         if (authenticated && hasTokenableUser && !isPrivySessionSyncSuppressed()) {
           return;
+        }
+
+        if (isPrivySessionSyncSuppressed() && !authenticated) {
+          resumePrivySessionSync();
         }
 
         if (authenticated) {
@@ -60,9 +87,11 @@ export function PrivySignInLauncher() {
     })();
   }, [
     signInOpen,
+    signInLaunchNonce,
     login,
     logout,
     closeSignIn,
+    openSignIn,
     authenticated,
     ready,
     getAccessToken,

@@ -7,6 +7,7 @@ import { TkButton } from "@/components/ds";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useWatchlistMarketSnapshots } from "@/hooks/watchlist/useWatchlistMarketSnapshots";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
+import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { useAuthStore } from "@/store/authStore";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
@@ -64,6 +65,7 @@ export function WatchlistPageContent({
   returnTo?: string;
 }) {
   const user = useAuthStore((s) => s.user);
+  const sessionActive = useTokenableSessionActive();
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
   const authReturnTo = returnTo ?? (embedded ? "/watchlist" : "/watchlist");
@@ -107,7 +109,7 @@ export function WatchlistPageContent({
     });
   }, [sortedItems, snapshotByKey, categoryFilters, priceMin, priceMax, gradeFilters]);
 
-  if (!user) {
+  if (!sessionActive) {
     return (
       <div className={`watchlist-page__shell ${APP_MAIN_SHELL_CLASS}`}>
         <WatchlistEmpty>

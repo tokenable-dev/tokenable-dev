@@ -18,7 +18,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/users` | **유저** | Korean table: KYC/상태/역할 filters · row → `/users/:uuid` detail · partner approve modal · strike/restrict/suspend UI stub |
 | `/marketplace/admin/users/[id]` | **유저 상세** | Profile actions, partner approve/revoke, Origin/key/rename, legacy KYC/wallet tools below |
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
-| `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, register missing slab front/back to S3, burn (test) |
+| `/marketplace/admin/cards` | **All cards** | RWA registry — metadata, S3 slab upload, **wallet transfer** (`safeTransferFrom` from connected wallet; gas on you), custody burn |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
 | `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | One row per sale (`order_hash`); resales before auto-pay show as Sale N of M. Pay early (~95% USDC) or wait ~5 min; reject to skip |
 | `/marketplace/admin/bulk-mint` | **Partner bulk mint** | Excel cert+price → PSA prepare → mint to company wallet + Seaport list (Listed/Sold). Any admin session for now |

@@ -9,6 +9,7 @@ import {
   marketplaceApiRetryDelay,
   marketplaceRqPolicy,
 } from "@/lib/core";
+import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useAuthStore } from "@/store/authStore";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { activeRqChainId } from "@/lib/chains";
@@ -16,12 +17,13 @@ import { activeRqChainId } from "@/lib/chains";
 export function useWatchlist() {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
+  const sessionActive = useTokenableSessionActive();
   const chainId = activeRqChainId();
 
   const query = useQuery({
     queryKey: rq.userWatchlist(userId, chainId),
     queryFn: fetchWatchlist,
-    enabled: Boolean(userId),
+    enabled: sessionActive,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,
