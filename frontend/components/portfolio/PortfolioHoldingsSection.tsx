@@ -37,6 +37,7 @@ import {
   portfolioAssetHref,
   portfolioBasePath,
 } from "@/lib/portfolio/portfolioPaths";
+import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
 import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
 import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
@@ -52,6 +53,7 @@ export function PortfolioHoldingsSection({
   savingCostBasisTokenId,
   onSetPrice,
   onRequestCancelListings,
+  onOpenKbwMysteryCard,
   cancellingListingTokenId = null,
   redeemStatusByTokenId,
   redeemTrackingByTokenId,
@@ -82,6 +84,7 @@ export function PortfolioHoldingsSection({
       listPriceUsd: number | null;
     }[],
   ) => void;
+  onOpenKbwMysteryCard?: () => void;
   cancellingListingTokenId?: number | null;
   redeemStatusByTokenId?: Map<number, string>;
   redeemTrackingByTokenId?: Map<number, string>;
@@ -119,7 +122,10 @@ export function PortfolioHoldingsSection({
   );
 
   const vaultTokenIds = useMemo(
-    () => assetRows.map((r) => r.tokenId),
+    () =>
+      assetRows
+        .map((r) => r.tokenId)
+        .filter((id) => !isKbwMysteryCardTokenId(id)),
     [assetRows],
   );
   const chainId = activeRqChainId();
@@ -162,6 +168,10 @@ export function PortfolioHoldingsSection({
     });
 
     rows.sort((a, b) => {
+      const aKbw = isKbwMysteryCardTokenId(a.tokenId);
+      const bKbw = isKbwMysteryCardTokenId(b.tokenId);
+      if (aKbw !== bKbw) return aKbw ? -1 : 1;
+
       const costA = costBasisByTokenId.get(a.tokenId);
       const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {
@@ -388,28 +398,45 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const virtual = isKbwMysteryCardTokenId(row.tokenId);
+            const kbwUsed = Boolean(row.kbwMysteryUsed);
 
             return (
               <div key={row.tokenId} className="pf-gallery__item" role="listitem">
                 <PortfolioHoldingsGalleryTile
                   row={row}
                   headline={headline ?? null}
-                  href={portfolioAssetHref(assetsBase, row.tokenId)}
+                  href={
+                    virtual ? undefined : portfolioAssetHref(assetsBase, row.tokenId)
+                  }
                   cost={cost}
                   valuesPending={valuesPending}
-                  canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                  canEditCostBasis={
+                    !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
+                  }
                   savingCostBasis={savingCostBasisTokenId === row.tokenId}
                   isListed={isListed}
                   redeemStatus={badge}
-                  actionsDisabled={tradeBlocked}
+                  actionsDisabled={virtual || tradeBlocked}
                   actionsDisabledTitle={
-                    tradeBlocked ? "Redemption in progress" : undefined
+                    virtual
+                      ? kbwUsed
+                        ? "Event collectible — already used"
+                        : "Event collectible — not listable"
+                      : tradeBlocked
+                        ? "Redemption in progress"
+                        : undefined
                   }
                   onSaveCostBasis={onSaveCostBasis}
                   onSetPrice={handleSetPrice}
-                  selectMode={selectMode}
+                  selectMode={selectMode && !virtual}
                   selected={selectedTokenIds.has(row.tokenId)}
                   onToggleSelect={() => toggleSelect(row.tokenId)}
+                  onActivate={
+                    virtual && !kbwUsed && onOpenKbwMysteryCard
+                      ? onOpenKbwMysteryCard
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -425,30 +452,45 @@ export function PortfolioHoldingsSection({
             const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
             const badge = getBadge(row.tokenId);
             const tradeBlocked = isRedeemInFlight(redeemStatus);
+            const virtual = isKbwMysteryCardTokenId(row.tokenId);
+            const kbwUsed = Boolean(row.kbwMysteryUsed);
 
             return (
               <PortfolioMobileAssetCard
                 key={row.tokenId}
                 row={row}
                 headline={headline ?? null}
-                href={portfolioAssetHref(assetsBase, row.tokenId)}
+                href={
+                  virtual ? undefined : portfolioAssetHref(assetsBase, row.tokenId)
+                }
                 cost={cost}
                 valuesPending={valuesPending}
-                canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+                canEditCostBasis={
+                  !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
+                }
                 savingCostBasis={savingCostBasisTokenId === row.tokenId}
                 isListed={isListed}
                 redeemStatus={badge}
-                actionsDisabled={tradeBlocked}
+                actionsDisabled={virtual || tradeBlocked}
                 actionsDisabledTitle={
-                  tradeBlocked
-                    ? "Redemption in progress — listing unavailable"
-                    : undefined
+                  virtual
+                    ? kbwUsed
+                      ? "Event collectible — already used"
+                      : "Event collectible — not listable"
+                    : tradeBlocked
+                      ? "Redemption in progress — listing unavailable"
+                      : undefined
                 }
                 onSaveCostBasis={onSaveCostBasis}
                 onSetPrice={handleSetPrice}
-                selectMode={selectMode}
+                selectMode={selectMode && !virtual}
                 selected={selectedTokenIds.has(row.tokenId)}
                 onToggleSelect={() => toggleSelect(row.tokenId)}
+                onActivate={
+                  virtual && !kbwUsed && onOpenKbwMysteryCard
+                    ? onOpenKbwMysteryCard
+                    : undefined
+                }
               />
             );
           })}
@@ -464,6 +506,7 @@ export function PortfolioHoldingsSection({
           onSetPrice={handleSetPrice}
           getBadge={getBadge}
           isTradeBlocked={(tokenId) =>
+            isKbwMysteryCardTokenId(tokenId) ||
             isRedeemInFlight(redeemStatusByTokenId?.get(tokenId))
           }
           vaultByTokenId={vaultByTokenId}
@@ -472,6 +515,7 @@ export function PortfolioHoldingsSection({
           onToggleSelect={toggleSelect}
           headlineByTokenId={headlineByTokenId}
           assetHrefBase={assetsBase}
+          onOpenKbwMysteryCard={onOpenKbwMysteryCard}
         />
       )}
 

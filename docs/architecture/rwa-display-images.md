@@ -10,7 +10,7 @@ Complexity here is **domain complexity**, not accidental layering: a PSA slab ph
 | Layer | What users see | SSOT | Typical URL shape |
 |-------|----------------|------|-------------------|
 | **A. Mint input** | Vault OCR preview, `POST /rwa/upload` body | User `File` → else PSA CloudFront → else Cardhedger `card.image` → else placeholder | Ephemeral / remote HTTPS |
-| **B. Token slab** | Portfolio My Assets, certificate, admin All cards (per token) | PSA `graded.psa.certImageSourceUrl` in metadata when present; else `rwa_tokens.display_image_url` (user upload S3); on-chain `metadata.image` (IPFS) for provenance | PSA CloudFront or `…/rwa-slabs/{chainId}/{cert}/slab` |
+| **B. Token slab** | Portfolio My Assets, certificate, admin All cards (per token) | `rwa_tokens.display_image_url` (+ optional `display_image_back_url`); on-chain `metadata.image` (IPFS) for provenance | `…/rwa-slabs/{chainId}/{cert}/slab` |
 | **C. Collection cover** | Home / marketplace collection cards, collection detail hero | `marketplace_collections.cover_image_url` (+ Cardhedger sync) | `…/covers/{collection_key}/cover` |
 
 Layer **B** and **C** are intentionally different images: B shows the vaulted slab (often with cert label); C shows catalog art without slab chrome.
@@ -35,8 +35,8 @@ Layer **B** and **C** are intentionally different images: B shows the vaulted sl
 
 | Consumer | Resolver | Rule |
 |----------|----------|------|
-| Portfolio list / BFF | `RwaAssetResolveService.batchPortfolioMetadata` | PSA `certImageSourceUrl` in metadata → `display_image_url` (upload fallback) → other metadata refs → on-chain |
-| Certificate / detail | `getResolvedRwaAsset` | Same display priority via `resolveTokenDisplayImageUrl` |
+| Portfolio list / BFF | `RwaAssetResolveService.batchPortfolioMetadata` | `display_image_url` first; metadata/IPFS for title/cert heal only |
+| Certificate / detail | `getResolvedRwaAsset` | Same override priority |
 | Metadata JSON image ref | `pickRwaAssetDisplayImageRef` in `collection-image.util.ts` | Slab-friendly order (PSA HTTPS → pinned mint image → Cardhedger) |
 | Collection UI | `pickCollectionDisplayImageUrl` (FE) / `cover_image_url` (BE) | **Rejects** `/rwa-slabs/` and PSA CloudFront cert URLs |
 | Trending / components | `pickTrendingSlabImageRef` | Slab-first for bucket previews |

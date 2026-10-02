@@ -71,6 +71,16 @@ COMMENT ON COLUMN portfolio_holdings.hidden_at IS
 COMMENT ON COLUMN portfolio_holdings.cost_basis_source IS
   'manual = user edit (never overwritten by auto seed); vault_delivery | marketplace_buy = system.';
 
+CREATE TABLE IF NOT EXISTS kbw_mystery_card_burns (
+  id serial PRIMARY KEY,
+  email varchar(320) NOT NULL,
+  burned_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT kbw_mystery_card_burns_email_unique UNIQUE (email)
+);
+
+COMMENT ON TABLE kbw_mystery_card_burns IS
+  'Web2 KBW Mystery Card burn ledger — one row per email; all wallets sharing that email hide the card after burn.';
+
 CREATE TABLE IF NOT EXISTS user_watchlist (
   id serial PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,

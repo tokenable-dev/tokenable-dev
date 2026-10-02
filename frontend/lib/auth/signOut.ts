@@ -1,3 +1,4 @@
+import { clearKbwStage2 } from "@/lib/event/kbwEventStage2";
 import { clearSavedRedeemAddress } from "@/lib/portfolio/redeemDraft";
 import { clearAllSellLocalState } from "@/lib/sell/sellFlowDraft";
 import {
@@ -16,7 +17,13 @@ export { registerPrivySignOut } from "@/lib/privy/session";
 
 const AUTH_PERSISTENCE_PREFIXES = [
   AUTH_RETURN_TO_KEY,
+  "tk_kbw_offer_pending",
+  "tk_kbw_stage2",
+  "tk_kbw_stage1_done",
   "tk_add_email_deferred:",
+  "tk_kbw_post_login_route",
+  "tk_kbw_stage2_flow",
+  "tk_kbw_login_intent",
 ] as const;
 
 function removeMatchingStorageKeys(storage: Storage): void {
@@ -39,6 +46,7 @@ function removeMatchingStorageKeys(storage: Storage): void {
 /** Drop login persistence so the next account starts clean. */
 export function clearClientAuthPersistence(): void {
   if (typeof window === "undefined") return;
+  clearKbwStage2();
   removeMatchingStorageKeys(sessionStorage);
   removeMatchingStorageKeys(localStorage);
 }

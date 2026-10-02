@@ -25,7 +25,7 @@ FILES=(
   maintenance/nullable_rwa_tokens_settlement_policy.sql
   maintenance/user_buyer_listing_alert_token_contract.sql
   maintenance/drop_legacy_unused_tables.sql
-  maintenance/drop_kbw_mystery_card_burns.sql
+  maintenance/add_kbw_mystery_card_burns.sql
   maintenance/drop_users_email_unique.sql
   maintenance/add_users_welcome_email_sent_at.sql
 )

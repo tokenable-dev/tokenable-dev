@@ -47,6 +47,11 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     fix: 'maintenance/add_rwa_owner_index_cursors.sql',
   },
   {
+    kind: 'table',
+    name: 'kbw_mystery_card_burns',
+    fix: 'maintenance/add_kbw_mystery_card_burns.sql',
+  },
+  {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'payment_batch_id',

@@ -33,6 +33,21 @@ Required keys (CI/Dockerfile fail if missing):
 - `NEXT_PUBLIC_CHAIN_11155111_USDC`
 - `NEXT_PUBLIC_PRIVY_APP_ID`
 
+KBW `/event` offer modal (optional; code defaults end **2026-10-01 23:59 KST** if unset):
+
+```bash
+NEXT_PUBLIC_KBW_EVENT_START=2026-09-01T00:00:00+09:00
+NEXT_PUBLIC_KBW_EVENT_END=2026-10-01T23:59:59+09:00
+```
+
+Backend runtime (same window, optional):
+
+```bash
+KBW_EVENT_END=2026-10-01T23:59:59+09:00
+```
+
+After changing `NEXT_PUBLIC_KBW_*`, rebuild the frontend image (push or re-run Deploy). Backend only needs `docker compose … up -d --no-deps --force-recreate backend` if you set `KBW_EVENT_*`.
+
 ## GitHub Actions secrets
 
 Keep only: `AWS_*`, `ECR_REGISTRY`, `DEV_EC2_*`, `PROD_EC2_*`.  
