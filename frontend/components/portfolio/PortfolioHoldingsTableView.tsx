@@ -12,8 +12,6 @@ import {
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
-import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
-import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
@@ -38,7 +36,6 @@ export function PortfolioHoldingsTableView({
   selectMode = false,
   selectedTokenIds,
   onToggleSelect,
-  onOpenKbwMysteryCard,
 }: {
   rows: AssetRow[];
   headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
@@ -55,7 +52,6 @@ export function PortfolioHoldingsTableView({
   selectMode?: boolean;
   selectedTokenIds?: Set<number>;
   onToggleSelect?: (tokenId: number) => void;
-  onOpenKbwMysteryCard?: () => void;
 }) {
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
@@ -98,8 +94,6 @@ export function PortfolioHoldingsTableView({
           const titleLabel = headline?.line1 ?? row.name;
           const vault = vaultByTokenId?.get(row.tokenId) ?? null;
           const selected = selectedTokenIds?.has(row.tokenId) ?? false;
-          const virtual = isKbwMysteryCardTokenId(row.tokenId);
-          const kbwUsed = Boolean(row.kbwMysteryUsed);
           const rowMods = [
             zebra,
             dim,
@@ -111,9 +105,7 @@ export function PortfolioHoldingsTableView({
           const cardMedia = (
             <>
               <div className="pf-table-thumb">
-                {virtual ? (
-                  <KbwMysteryPortfolioImage used={kbwUsed} />
-                ) : row.imageUrl ? (
+                {row.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
                 ) : null}
@@ -152,18 +144,6 @@ export function PortfolioHoldingsTableView({
                 {selectMode && isListed ? (
                   <div className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--cl">
                     <span className="pf-rowchk" aria-hidden />
-                    {cardMedia}
-                  </div>
-                ) : virtual && !kbwUsed ? (
-                  <button
-                    type="button"
-                    className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--activate"
-                    onClick={() => onOpenKbwMysteryCard?.()}
-                  >
-                    {cardMedia}
-                  </button>
-                ) : virtual ? (
-                  <div className="pf-table-card-cell pf-table-card-cell--holdings">
                     {cardMedia}
                   </div>
                 ) : (
@@ -251,13 +231,9 @@ export function PortfolioHoldingsTableView({
                     isListed={isListed}
                     disabled={tradeBlocked}
                     disabledTitle={
-                      virtual
-                        ? kbwUsed
-                          ? "Event collectible — already used"
-                          : "Event collectible — not listable"
-                        : tradeBlocked
-                          ? "Redemption in progress — listing unavailable"
-                          : undefined
+                      tradeBlocked
+                        ? "Redemption in progress — listing unavailable"
+                        : undefined
                     }
                     redeemStatus={badge}
                     onSetPrice={() => onSetPrice(row.tokenId)}

@@ -16,7 +16,7 @@ SITE_ACCESS_SECRET=your-long-random-secret
 
 When disabled (default), middleware is a no-op.
 
-KBW `/event` and the mystery-card offer still work after the visitor passes this gate (password → `site_access` cookie). The event window does **not** bypass the gate. Marketplace admin login is separate.
+Marketplace admin login is separate from the site-access gate.
 
 ---
 

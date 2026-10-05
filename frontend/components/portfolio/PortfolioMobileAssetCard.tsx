@@ -16,8 +16,6 @@ import {
 import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
-import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
-import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
 
 /** Mobile My Assets card — Portfolio.html `mobile-asset-card`. */
 export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
@@ -77,8 +75,6 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
     : "";
   const activateClass =
     onActivate && !selectMode ? " pf-mobile-asset-card--activate" : "";
-  const kbwVirtual = isKbwMysteryCardTokenId(row.tokenId);
-
   return (
     <div
       className={`pf-mobile-asset-card${dimClass}${selectClass}${activateClass}`}
@@ -101,15 +97,11 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
       <div className="pf-mobile-asset-card__img">
         {href && !(selectMode && isListed) ? (
           <Link href={href} aria-label={titleLabel}>
-            {kbwVirtual ? (
-              <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
-            ) : row.imageUrl ? (
+            {row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
             ) : null}
           </Link>
-        ) : kbwVirtual ? (
-          <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
         ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />

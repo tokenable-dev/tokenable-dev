@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **34 entities** registered in `app.module.ts` 
+**ORM:** TypeORM (NestJS) — **33 entities** registered in `app.module.ts` 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -64,7 +64,6 @@
 |-------|---------|--------|
 | `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market **per RWA** (`token_contract` + `chain_id` in unique key) | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_holdings` | Per-wallet hide + cost basis (off-chain, chain-scoped) | `marketplace/entities/portfolio-holding.entity.ts` |
-| `kbw_mystery_card_burns` | Web2 KBW Mystery Card burn ledger — one row per email; all wallets sharing that email hide the card after burn | `marketplace/entities/kbw-mystery-card-burn.entity.ts` |
 | `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
 | `user_buyer_listing_alert` | One-time BUYER_LISTING_ALERT when a collection gets its first active ask **on this RWA** — unique `(user_id, collection_key, token_contract)` | `marketplace/entities/user-buyer-listing-alert.entity.ts` |
 
@@ -256,7 +255,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
 | 045 | `045_p2p.sql` | LEGACY — not in bootstrap; historical DBs only |
 | 046 | `046_self_vault_settlements.sql` | Self-vault hold settlement ledger |
-| 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `kbw_mystery_card_burns`, `user_watchlist`, `user_buyer_listing_alert` |
+| 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist`, `user_buyer_listing_alert` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
 | 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
@@ -284,6 +283,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_vault_submissions_token_contract.sql` | Existing DBs: `vault_submissions.token_contract` + backfill from linked mints. Unstamped packages stay hidden |
 | `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order indexes for chain-scoped reads |
 | `maintenance/drop_card_top100_daily_snapshots.sql` | Existing DBs: drop legacy Top 100 snapshot table |
+| `maintenance/drop_kbw_mystery_card_burns.sql` | Existing DBs: drop KBW event `kbw_mystery_card_burns` |
 | `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
 | `maintenance/nullable_rwa_tokens_settlement_policy.sql` | Existing DBs: allow `NULL` settlement until mint registry; clear stub defaults |
 | `maintenance/add_vault_cycles_mint_attempt.sql` | Existing DBs: `minting` status + `mint_attempt` JSON for redeploy-safe mint |

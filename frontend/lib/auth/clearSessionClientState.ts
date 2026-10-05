@@ -20,7 +20,6 @@ const SESSION_QUERY_ROOTS: readonly (string | readonly string[])[] = [
   "partner-me",
   ["rwa", "redemptions", "mine"],
   "vault-submissions",
-  "kbw-mystery-card",
   "buyer-listing-alert",
   "marketplace-notifications",
 ];

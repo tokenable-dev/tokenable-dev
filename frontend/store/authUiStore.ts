@@ -17,35 +17,6 @@ export type WalletActivationPhase =
   | "reconciling"
   | "failed";
 
-/** Survives remount / mobile viewport hydration so the KBW offer is not dropped. */
-const KBW_OFFER_PENDING_KEY = "tk_kbw_offer_pending";
-
-function readKbwOfferPending(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    if (sessionStorage.getItem(KBW_OFFER_PENDING_KEY) === "1") return true;
-    if (localStorage.getItem(KBW_OFFER_PENDING_KEY) === "1") return true;
-  } catch {
-    /* ignore */
-  }
-  return false;
-}
-
-function writeKbwOfferPending(pending: boolean) {
-  if (typeof window === "undefined") return;
-  try {
-    if (pending) {
-      sessionStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
-      localStorage.setItem(KBW_OFFER_PENDING_KEY, "1");
-    } else {
-      sessionStorage.removeItem(KBW_OFFER_PENDING_KEY);
-      localStorage.removeItem(KBW_OFFER_PENDING_KEY);
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 function resolvePendingReturnTo(
   explicit: string | undefined,
   current: string | null,
@@ -74,8 +45,6 @@ interface AuthUiState {
   connectWalletOpen: boolean;
   walletMismatchOpen: boolean;
   kycOpen: boolean;
-  /** KBW mystery offer overlay — persisted for MetaMask / OAuth remounts. */
-  kbwMysteryOfferVisible: boolean;
   pendingReturnTo: string | null;
 
   walletActivationPhase: WalletActivationPhase;
@@ -89,13 +58,9 @@ interface AuthUiState {
   closeWalletMismatch: () => void;
   openKyc: (opts?: { returnTo?: string }) => void;
   closeKyc: () => void;
-  armKbwOffer: () => void;
-  clearKbwOffer: () => void;
-  hydrateKbwOfferPending: () => void;
   /** Set post-auth destination (also used when bypassing open* helpers). */
   setPendingReturnTo: (path: string | null) => void;
   consumeReturnTo: () => string | null;
-  clearPendingReturnToForEvent: () => void;
 
   /**
    * Begin a wallet activation attempt. Returns false when one is already in flight
@@ -121,7 +86,6 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
   connectWalletOpen: false,
   walletMismatchOpen: false,
   kycOpen: false,
-  kbwMysteryOfferVisible: false,
   pendingReturnTo: null,
 
   walletActivationPhase: "idle",
@@ -136,18 +100,6 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     })),
 
   closeSignIn: () => set({ signInOpen: false }),
-
-  armKbwOffer: () => {
-    writeKbwOfferPending(true);
-    set({ kbwMysteryOfferVisible: true });
-  },
-  clearKbwOffer: () => {
-    writeKbwOfferPending(false);
-    set({ kbwMysteryOfferVisible: false });
-  },
-  hydrateKbwOfferPending: () => {
-    if (readKbwOfferPending()) set({ kbwMysteryOfferVisible: true });
-  },
 
   openConnectWallet: (opts) => {
     const phase = get().walletActivationPhase;
@@ -206,13 +158,6 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
     return path && path.startsWith("/") ? path : null;
   },
 
-  clearPendingReturnToForEvent: () => {
-    const path = get().pendingReturnTo ?? readAuthReturnTo();
-    if (!path || (!path.startsWith("/event") && path !== "/event")) return;
-    writeAuthReturnTo(null);
-    set({ pendingReturnTo: null });
-  },
-
   beginWalletActivation: (expectedAddress) => {
     if (isWalletActivationInFlight(get().walletActivationPhase)) return false;
     set({
@@ -249,14 +194,12 @@ export const useAuthUiStore = create<AuthUiState>((set, get) => ({
 
   resetForSignOut: () => {
     writeAuthReturnTo(null);
-    writeKbwOfferPending(false);
     set({
       signInOpen: false,
       signInMode: "sign-in",
       connectWalletOpen: false,
       walletMismatchOpen: false,
       kycOpen: false,
-      kbwMysteryOfferVisible: false,
       pendingReturnTo: null,
       walletActivationPhase: "idle",
       walletActivationExpectedAddress: null,
