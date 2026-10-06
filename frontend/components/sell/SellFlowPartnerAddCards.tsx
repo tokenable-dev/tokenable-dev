@@ -1,41 +1,30 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
-import {
-  SLAB_UPLOAD_ACCEPT,
-  SLAB_UPLOAD_FORMAT_HINT,
-} from "@/lib/vault/mintImageSource";
 import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
 import { SellFlowCertProgress } from "./SellFlowCertProgress";
-import { SellFlowPartnerDoneModal } from "./SellFlowPartnerDoneModal";
+import {
+  SellFlowPartnerCsvSection,
+  type PartnerCsvRow,
+} from "./SellFlowPartnerCsvSection";
+import {
+  SellFlowPartnerMintBackground,
+  SellFlowPartnerMintModal,
+} from "./SellFlowPartnerMintModal";
+import { SellFlowPartnerSlabUpload } from "./SellFlowPartnerSlabUpload";
 import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 
 type Flow = ReturnType<typeof useSellFlow>;
-
-function BackChevron() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ScanIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
-      <line x1="7" y1="12" x2="17" y2="12" />
-    </svg>
-  );
-}
+type AddMode = "single" | "csv";
 
 /** Partner-Add-Cards.html — partner vault bulk upload + mint. */
 export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
   const {
     cards,
     maxCards,
-    showCertDirectInput,
     certInput,
     setCertInput,
     certError,
@@ -46,9 +35,11 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     slabInputRef,
     canContinueShipping,
     partnerMintSuccess,
+    dismissPartnerMintResult,
     lookupCert,
-    scanSlab,
+    lookupCertByNumber,
     onSlabFile,
+    uploadSlabPhotos,
     toggleConfirm,
     setAllConfirmed,
     removeCard,
@@ -56,134 +47,237 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     goBackToVaultChoice,
     saveDraft,
     draftSavedFlash,
-    resetPartnerAddCards,
   } = flow;
 
-  const busy = lookupBusy || mintBusy;
+  const [addMode, setAddMode] = useState<AddMode>("single");
+  const [csvRows, setCsvRows] = useState<PartnerCsvRow[]>([]);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [csvParseError, setCsvParseError] = useState<string | null>(null);
+  const [csvLookupBusy, setCsvLookupBusy] = useState(false);
+  const [mintProgressHidden, setMintProgressHidden] = useState(false);
+
+  useEffect(() => {
+    if (mintBusy) setMintProgressHidden(false);
+  }, [mintBusy]);
+
+  const busy = lookupBusy || mintBusy || csvLookupBusy;
   const allConfirmed = cards.length > 0 && cards.every((c) => c.confirmed);
+  const confirmedCount = cards.filter((c) => c.confirmed).length;
+
+  const csvCanMint = useMemo(() => {
+    if (addMode !== "csv") return false;
+    if (csvLookupBusy) return false;
+    if (csvRows.some((r) => r.status === "looking")) return false;
+    return canContinueShipping && confirmedCount > 0;
+  }, [addMode, canContinueShipping, confirmedCount, csvLookupBusy, csvRows]);
+
+  const mintTotal = confirmedCount;
+
+  const mintProgress = useMemo(() => {
+    if (!mintBusy || !mintStatus) return { done: 0, total: mintTotal };
+    const m = mintStatus.match(/Minting (\d+)\/(\d+)/);
+    if (!m) return { done: 0, total: mintTotal };
+    return { done: Number(m[1]), total: Number(m[2]) };
+  }, [mintBusy, mintStatus, mintTotal]);
+
+  const registerLabel = useMemo(() => {
+    const n = confirmedCount || cards.length;
+    if (!n) return "Add to my vault";
+    return `Add ${n} card${n === 1 ? "" : "s"} to my vault`;
+  }, [cards.length, confirmedCount]);
+
+  const removeCertFromList = (cert: string) => {
+    const i = cards.findIndex((c) => c.cert === cert);
+    if (i >= 0) removeCard(i);
+  };
+
+  const csvSectionProps = {
+    maxCards,
+    cards,
+    csvRows,
+    onCsvRowsChange: setCsvRows,
+    csvFileName,
+    onCsvFileNameChange: setCsvFileName,
+    csvParseError,
+    onCsvParseErrorChange: setCsvParseError,
+    csvLookupBusy,
+    onCsvLookupBusyChange: setCsvLookupBusy,
+    lookupCertByNumber,
+    mintBusy,
+    mintError,
+    canMint: csvCanMint,
+    onMint: () => void continueToSelfMint(),
+    onSaveDraft: () => saveDraft(),
+    draftSavedFlash,
+    onRemoveCert: removeCertFromList,
+  };
 
   return (
     <>
       <section className="sell-flow-screen sell-flow-screen--partner">
         <div className="sell-flow-col sell-flow-col--partner">
-          <button
-            type="button"
-            className="sell-flow-btn-back"
-            onClick={goBackToVaultChoice}
-            disabled={mintBusy}
+          <nav
+            className="sell-flow-partner-crumb sell-ship-crumb"
+            aria-label="Breadcrumb"
           >
-            <BackChevron />
-            Back
-          </button>
+            <Link href="/sell">Sell</Link>
+            <span className="sell-ship-crumb__sep" aria-hidden>/</span>
+            <button
+              type="button"
+              className="sell-flow-partner-crumb__mid"
+              onClick={goBackToVaultChoice}
+            >
+              Choose a vault
+            </button>
+            <span className="sell-ship-crumb__sep" aria-hidden>/</span>
+            <span className="sell-flow-partner-crumb__here">Partner vault</span>
+          </nav>
 
-          <div className="sell-flow-eyebrow">Tokenable Vault</div>
+          <div className="sell-flow-eyebrow">Partner vault</div>
           <h1 className="sell-flow-h1">Add your cards</h1>
 
           <div className="sell-flow-glass sell-flow-glass--partner-input">
-            <TkButton
-              type="button"
-              variant="subtle"
-              className="sell-flow-scan-btn"
-              disabled={busy}
-              onClick={scanSlab}
+            <div
+              className="sell-flow-mseg"
+              role="tablist"
+              aria-label="How to add cards"
             >
-              <ScanIcon />
-              Upload Slab
-            </TkButton>
-            <input
-              ref={slabInputRef}
-              type="file"
-              accept={SLAB_UPLOAD_ACCEPT}
-              capture="environment"
-              className="sr-only"
-              aria-hidden
-              tabIndex={-1}
-              onChange={(e) => void onSlabFile(e.target.files?.[0] ?? null)}
-            />
-            <p className="sell-flow-upload-hint tkl-mono">{SLAB_UPLOAD_FORMAT_HINT}</p>
+              <button
+                type="button"
+                role="tab"
+                className={`sell-flow-mseg__b${addMode === "single" ? " sell-flow-mseg__b--on" : ""}`}
+                aria-selected={addMode === "single"}
+                disabled={mintBusy}
+                onClick={() => setAddMode("single")}
+              >
+                Add individually
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={`sell-flow-mseg__b${addMode === "csv" ? " sell-flow-mseg__b--on" : ""}`}
+                aria-selected={addMode === "csv"}
+                disabled={mintBusy}
+                onClick={() => setAddMode("csv")}
+              >
+                Upload CSV
+              </button>
+            </div>
 
-            {showCertDirectInput ? (
-              <SellFlowCertDirectInput
-                value={certInput}
-                onChange={setCertInput}
-                onLookup={() => void lookupCert()}
-                busy={busy}
-                error={certError}
-                partner
+            {addMode === "single" ? (
+              <div role="tabpanel">
+                <SellFlowPartnerSlabUpload
+                  maxCards={maxCards}
+                  cardCount={cards.length}
+                  disabled={busy}
+                  inputRef={slabInputRef}
+                  onSingleSlab={async (file) => {
+                    await onSlabFile(file);
+                  }}
+                  uploadSlabPhotos={uploadSlabPhotos}
+                />
+
+                <SellFlowCertDirectInput
+                  value={certInput}
+                  onChange={setCertInput}
+                  onLookup={() => void lookupCert()}
+                  busy={busy}
+                  error={certError}
+                  partner
+                />
+
+                <SellFlowCertProgress active={lookupBusy} tone="light" />
+                {certError && addMode === "single" ? (
+                  <p className="sell-flow-partner-cert-error" id="cert-error" role="alert">
+                    {certError}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <SellFlowPartnerCsvSection section="picker" {...csvSectionProps} />
+            )}
+          </div>
+
+          {addMode === "single" ? (
+            <>
+              <SellFlowYourCardsSection
+                variant="partner"
+                cards={cards}
+                maxCards={maxCards}
+                allConfirmed={allConfirmed}
+                onToggleConfirm={toggleConfirm}
+                onToggleAllConfirmed={setAllConfirmed}
+                onRemove={removeCard}
+                allowCertDirectInput
               />
-            ) : null}
 
-            <SellFlowCertProgress active={lookupBusy} tone="light" />
-            {certError ? (
-              <p className="sell-flow-partner-cert-error" id="cert-error" role="alert">
-                {certError}
+              {mintError ? (
+                <p className="sell-flow-mint-error" role="alert">
+                  {mintError}
+                </p>
+              ) : null}
+
+              <div className="sell-flow-partner-cta sell-flow-partner-cta--single">
+                <TkButton
+                  type="button"
+                  variant="subtle"
+                  className="sell-flow-partner-back sell-flow-partner-btn--ghost"
+                  disabled={mintBusy}
+                  onClick={goBackToVaultChoice}
+                >
+                  Back
+                </TkButton>
+                <TkButton
+                  type="button"
+                  variant="primary"
+                  className="sell-flow-partner-register sell-flow-partner-btn--primary"
+                  disabled={!canContinueShipping || mintBusy}
+                  onClick={() => void continueToSelfMint()}
+                >
+                  {mintBusy ? (
+                    <>
+                      <span className="sell-flow-spinner" aria-hidden /> Minting…
+                    </>
+                  ) : (
+                    registerLabel
+                  )}
+                </TkButton>
+              </div>
+              <SellFlowPartnerMintBackground
+                visible={mintBusy && mintProgressHidden}
+                done={mintProgress.done}
+                total={mintProgress.total}
+                onShow={() => setMintProgressHidden(false)}
+              />
+
+              <p className="sell-flow-partner-footnote">
+                Cards appear in your collection right away. Set prices there to put them up for sale.
               </p>
-            ) : null}
-          </div>
-
-          <SellFlowYourCardsSection
-            variant="partner"
-            cards={cards}
-            maxCards={maxCards}
-            allConfirmed={allConfirmed}
-            onToggleConfirm={toggleConfirm}
-            onToggleAllConfirmed={setAllConfirmed}
-            onRemove={removeCard}
-            allowCertDirectInput={showCertDirectInput}
-          />
-
-          {mintStatus ? (
-            <p className="sell-flow-mint-status" role="status">
-              {mintStatus}
-            </p>
-          ) : null}
-          {mintError ? (
-            <p className="sell-flow-mint-error" role="alert">
-              {mintError}
-            </p>
-          ) : null}
-
-          <div className="sell-flow-partner-cta">
-            <TkButton
-              type="button"
-              variant="subtle"
-              className="sell-flow-partner-back sell-flow-partner-btn--ghost"
-              disabled={mintBusy || cards.length === 0}
-              onClick={() => saveDraft()}
-            >
-              {draftSavedFlash ? "Saved" : "Save as draft"}
-            </TkButton>
-            <TkButton
-              type="button"
-              variant="primary"
-              className="sell-flow-partner-register sell-flow-partner-btn--primary"
-              disabled={!canContinueShipping || mintBusy}
-              onClick={() => void continueToSelfMint()}
-            >
-              {mintBusy ? (
-                <>
-                  <span className="sell-flow-spinner" aria-hidden /> Minting…
-                </>
-              ) : (
-                <>
-                  Mint to portfolio <span className="tkl-mono" aria-hidden>→</span>
-                </>
-              )}
-            </TkButton>
-          </div>
-          <p className="sell-flow-partner-footnote">
-            Cards appear in your portfolio right away. Set prices there to put them up for sale.
-          </p>
+            </>
+          ) : (
+            <>
+              <SellFlowPartnerCsvSection section="workspace" {...csvSectionProps} />
+              <SellFlowPartnerMintBackground
+                visible={mintBusy && mintProgressHidden}
+                done={mintProgress.done}
+                total={mintProgress.total}
+                onShow={() => setMintProgressHidden(false)}
+              />
+            </>
+          )}
         </div>
       </section>
 
-      {partnerMintSuccess !== null ? (
-        <SellFlowPartnerDoneModal
-          result={partnerMintSuccess}
-          cards={cards}
-          onAddMore={resetPartnerAddCards}
-        />
-      ) : null}
+      <SellFlowPartnerMintModal
+        mintBusy={mintBusy}
+        done={mintProgress.done}
+        total={mintProgress.total}
+        progressHidden={mintProgressHidden}
+        onProgressHiddenChange={setMintProgressHidden}
+        result={partnerMintSuccess}
+        onDismissResult={dismissPartnerMintResult}
+        onRetryFailed={() => void continueToSelfMint()}
+      />
     </>
   );
 }

@@ -22,6 +22,15 @@ import { MarketplacePartnersService } from '../marketplace/partners/marketplace-
 import { MintRwaDto, type MintDeliveryMode } from './dto/mint-rwa.dto';
 import { RwaSlabS3Service } from './rwa-slab-s3.service';
 
+export type MintForUserOptions = {
+  /** Partner vault mint job already ran wallet / KYC / partner checks once. */
+  jobPreflightDone?: boolean;
+  /** When set with `jobPreflightDone`, skips another partner eligibility lookup. */
+  vaultPartnerId?: string | null;
+  /** Batch job: caller runs `flushPostMintPortfolioWork` after the last mint. */
+  deferPostMintPortfolioWork?: boolean;
+};
+
 export type MintRwaResult = {
   tokenId: number;
   tokenURI: string;
@@ -62,18 +71,16 @@ export class RwaMintService {
     private readonly rwaSlabS3: RwaSlabS3Service,
   ) {}
 
-  async mintForUser(
+  /**
+   * One-time checks for a partner vault mint job (same recipient for every item).
+   */
+  async assertPartnerVaultMintJobPreflight(
     user: User,
-    dto: MintRwaDto,
+    recipientAddress: string,
     chainId: SupportedChainId,
-  ): Promise<MintRwaResult> {
+  ): Promise<void> {
     await this.kyc.assertApprovedForCustody(user);
-
-    const recipient = dto.recipientAddress.trim().toLowerCase();
-    const deliveryMode: MintDeliveryMode =
-      dto.deliveryMode === 'direct' ? 'direct' : 'custody';
-
-    // Ensure the recipient wallet is linked to this Tokenable account.
+    const recipient = recipientAddress.trim().toLowerCase();
     const wallets = await this.users.listWalletsForUser(user.id);
     const linked = wallets.some(
       (w) => w.walletAddress.trim().toLowerCase() === recipient,
@@ -82,6 +89,35 @@ export class RwaMintService {
       throw new ForbiddenException(
         'Recipient wallet must be linked to your Tokenable account',
       );
+    }
+    await this.partners.assertSelfVaultEligibleForUser(user.id);
+  }
+
+  async mintForUser(
+    user: User,
+    dto: MintRwaDto,
+    chainId: SupportedChainId,
+    options?: MintForUserOptions,
+  ): Promise<MintRwaResult> {
+    const jobPreflightDone = options?.jobPreflightDone === true;
+    const deferPortfolio = options?.deferPostMintPortfolioWork === true;
+
+    const recipient = dto.recipientAddress.trim().toLowerCase();
+    const deliveryMode: MintDeliveryMode =
+      dto.deliveryMode === 'direct' ? 'direct' : 'custody';
+
+    if (!jobPreflightDone) {
+      await this.kyc.assertApprovedForCustody(user);
+
+      const wallets = await this.users.listWalletsForUser(user.id);
+      const linked = wallets.some(
+        (w) => w.walletAddress.trim().toLowerCase() === recipient,
+      );
+      if (!linked) {
+        throw new ForbiddenException(
+          'Recipient wallet must be linked to your Tokenable account',
+        );
+      }
     }
 
     const tokenURI = dto.tokenURI.trim();
@@ -98,10 +134,14 @@ export class RwaMintService {
     // Only contracted (active) partners with company Origin may mint direct.
     let vaultPartnerId: string | null = null;
     if (deliveryMode === 'direct') {
-      const partner = await this.partners.assertSelfVaultEligibleForUser(
-        user.id,
-      );
-      vaultPartnerId = partner.partnerId;
+      if (jobPreflightDone && options?.vaultPartnerId?.trim()) {
+        vaultPartnerId = options.vaultPartnerId.trim();
+      } else {
+        const partner = await this.partners.assertSelfVaultEligibleForUser(
+          user.id,
+        );
+        vaultPartnerId = partner.partnerId;
+      }
       await this.vaultSubmissions.assertCertAvailableForSelfVault(
         certNumber,
         chainId,
@@ -220,7 +260,7 @@ export class RwaMintService {
     // post-mint portfolio snapshot (otherwise rapid multi-mint freezes card_count).
     this.blockchain.invalidateTokensByOwnerCache(mintToAddress, chainId);
 
-    if (deliveryMode === 'direct') {
+    if (deliveryMode === 'direct' && !deferPortfolio) {
       this.schedulePostMintPortfolioWork(recipient, tokenId, chainId);
     }
 
@@ -371,6 +411,36 @@ export class RwaMintService {
       adoptedExisting: true,
       alreadyWithUser,
     };
+  }
+
+  /** After a partner vault mint job — one snapshot refresh for many tokens. */
+  flushPostMintPortfolioWork(
+    walletAddress: string,
+    tokenIds: number[],
+    chainId: SupportedChainId,
+    waitForRpcMs = 1500,
+  ): void {
+    const unique = [...new Set(tokenIds.filter((id) => Number.isFinite(id) && id >= 0))];
+    if (unique.length === 0) return;
+    void (async () => {
+      if (waitForRpcMs > 0) {
+        await new Promise((r) => setTimeout(r, waitForRpcMs));
+      }
+      for (const tokenId of unique) {
+        await this.seedDirectMintCostBasis(walletAddress, tokenId, chainId);
+      }
+      await this.portfolioSnapshots.refreshCurrentSlotSnapshot(
+        walletAddress,
+        chainId,
+        0,
+      );
+    })().catch((e) => {
+      this.logger.warn(
+        `Post-mint portfolio batch failed wallet=${walletAddress}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    });
   }
 
   /** Cost basis + daily snapshot after mint — never blocks the mint HTTP response. */

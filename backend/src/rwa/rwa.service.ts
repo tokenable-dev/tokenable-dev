@@ -71,6 +71,7 @@ export class RwaService {
     dto: UploadRwaDto,
     chainId: number,
     file?: Express.Multer.File,
+    opts?: { skipVaultPreflight?: boolean },
   ): Promise<UploadRwaResult> {
     let parsedGraded: {
       graded?: Record<string, unknown>;
@@ -152,8 +153,10 @@ export class RwaService {
         'Could not extract a PSA cert number from gradedMetadata — required to open a vault cycle.',
       );
     }
-    await this.mintRecovery.reconcileBlockingOpenCycle(certNumber, chainId);
-    await this.vault.assertAvailableForNewCycle(certNumber, chainId);
+    if (!opts?.skipVaultPreflight) {
+      await this.mintRecovery.reconcileBlockingOpenCycle(certNumber, chainId);
+      await this.vault.assertAvailableForNewCycle(certNumber, chainId);
+    }
 
     let imageCID!: string;
     let displayImageUrl: string | null = null;

@@ -26,6 +26,8 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
   variable: "--font-jetbrains-mono",
   display: "swap",
+  /** Turbopack dev: fallback @font-face can fail to resolve internal font URLs. */
+  adjustFontFallback: false,
 });
 
 /** Favicon: `app/icon.png` + `tokenable_favicon.png` → `tokenable_icon.png` (dark bg). */

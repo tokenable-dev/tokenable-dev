@@ -22,6 +22,10 @@ import { BulkMintJobService } from './bulk-mint/bulk-mint-job.service';
 import { PartnerSeaportAskService } from './bulk-mint/partner-seaport-ask.service';
 import { BulkMintJobItem } from './entities/bulk-mint-job-item.entity';
 import { BulkMintJob } from './entities/bulk-mint-job.entity';
+import { PartnerVaultMintJob } from './entities/partner-vault-mint-job.entity';
+import { PartnerVaultMintJobItem } from './entities/partner-vault-mint-job-item.entity';
+import { PartnerVaultMintController } from './partner-vault-mint/partner-vault-mint.controller';
+import { PartnerVaultMintJobService } from './partner-vault-mint/partner-vault-mint-job.service';
 import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
 import { KycModule } from '../kyc/kyc.module';
 import { VaultSubmissionItem } from '../vault/entities/vault-submission-item.entity';
@@ -44,6 +48,8 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     TypeOrmModule.forFeature([
       BulkMintJob,
       BulkMintJobItem,
+      PartnerVaultMintJob,
+      PartnerVaultMintJobItem,
       Order,
       VaultSubmissionItem,
       VaultRedemption,
@@ -69,6 +75,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     VaultSubmissionAdminMintController,
     FedexRateAdminController,
     FedexTrackAdminController,
+    PartnerVaultMintController,
   ],
   providers: [
     PinataService,
@@ -85,6 +92,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     PartnerSeaportAskService,
     VaultSubmissionAdminMintService,
     PsaVaultedMailService,
+    PartnerVaultMintJobService,
   ],
   exports: [PinataService, BulkMintJobService, RwaSlabS3Service, PsaVaultedMailService],
 })

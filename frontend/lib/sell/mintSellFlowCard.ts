@@ -6,6 +6,7 @@ import {
   syncRwaTokenAfterMint,
   uploadRwaMetadata,
   type PsaAnalyzeResult,
+  type UploadRwaResult,
 } from "@/lib/core";
 import type { SupportedChainId } from "@/lib/chains/types";
 import { formatCardDisplayName } from "@/lib/marketplace/cardDisplayName";
@@ -115,46 +116,50 @@ function applyPreferredMintGrade(
   };
 }
 
-/**
- * Self-vault mint for one cert — upload IPFS → POST /rwa/mint with
- * deliveryMode=direct (RWA lands in the user's wallet; no admin deliver).
- *
- * Mint image: PSA official slab when available; otherwise the user's slab
- * upload (`userImage` / `userImageDataUrl`); else Cardhedger / Tokenable placeholder.
- */
-export async function mintSellFlowCardByCert(input: {
+export type SellFlowMintCardInput = {
   cert: string;
-  recipientAddress: string;
   chainId: SupportedChainId;
-  /**
-   * Draft card grade from add-card (1st PSA/OCR). Authoritative for mint
-   * display_name / IPFS — do not rely on a 2nd cert-only analyze for score.
-   */
   preferredGrade?: number | string | null;
-  /** Original slab File from Upload — used only when PSA has no cert slab URL. */
   userImage?: File | null;
-  /**
-   * Draft/localStorage thumb (`data:…`) when the original File is gone (refresh).
-   * Converted to a File so mint does not fall through to Tokenable placeholder.
-   */
   userImageDataUrl?: string | null;
-}): Promise<{ cert: string; tokenId: number; txHash: string }> {
+  cachedAnalyze?: PsaAnalyzeResult | null;
+};
+
+/** IPFS upload finished — on-chain mint can run while the next card uploads. */
+export type SellFlowMintUploadBundle = {
+  cert: string;
+  certForMint: string;
+  displayName: string;
+  chainId: SupportedChainId;
+  uploadResult: UploadRwaResult;
+};
+
+async function resolveSellFlowMintAnalyze(
+  input: SellFlowMintCardInput,
+): Promise<{ cert: string; analyze: PsaAnalyzeResult }> {
   const cert = input.cert.trim();
   if (!/^\d{7,10}$/.test(cert)) {
     throw new Error(`Invalid cert: ${cert}`);
   }
-
-  const taken = await certMintBlockReason(cert, input.chainId);
-  if (taken) {
-    throw new Error(taken);
-  }
-
-  let analyze: PsaAnalyzeResult;
+  const cachedCert = input.cachedAnalyze?.psa.certNumber?.trim() ?? "";
+  const canReuseCached =
+    input.cachedAnalyze != null &&
+    (cachedCert === cert || cachedCert === "");
   try {
-    analyze = await analyzePsaByCertNumber(cert);
+    const analyze = canReuseCached
+      ? input.cachedAnalyze!
+      : await analyzePsaByCertNumber(cert);
+    return { cert, analyze };
   } catch (e) {
     throw mintStepError("PSA cert lookup", e);
   }
+}
+
+/** POST /rwa/upload only — safe to run ahead of the previous card's on-chain mint. */
+export async function uploadSellFlowMintBundle(
+  input: SellFlowMintCardInput,
+): Promise<SellFlowMintUploadBundle> {
+  const { cert, analyze } = await resolveSellFlowMintAnalyze(input);
   let form = gradedFormFromPsaAnalyze(analyze);
   form = applyPreferredMintGrade(form, input.preferredGrade);
   form = ensureMintFormHasPsaScore(form, analyze);
@@ -175,15 +180,15 @@ export async function mintSellFlowCardByCert(input: {
   }
 
   const displayName = mintDisplayNameFromForm(form, cert, analyze);
+  const certForMint = form.grade.certNumber.trim() || cert;
 
   const data = new FormData();
-  // IPFS `name` must match portfolio Line 1 (`Name · # · PSA 10`), not bare card name.
   data.append("name", displayName || form.name || `PSA CERT #${cert}`);
   data.append("description", form.description.trim() || "No description");
 
   const mintImage = resolveSelfVaultMintImageSelection({
     analyze,
-    certNumber: form.grade.certNumber || cert,
+    certNumber: certForMint,
     userImage,
   });
   if (mintImage.useUserFile && userImage instanceof File) {
@@ -211,39 +216,52 @@ export async function mintSellFlowCardByCert(input: {
     }),
   );
 
-  let uploadResult: Awaited<ReturnType<typeof uploadRwaMetadata>>;
+  let uploadResult: UploadRwaResult;
   try {
     uploadResult = await uploadRwaMetadata(data, input.chainId);
   } catch (e) {
     throw mintStepError("Metadata upload (IPFS)", e);
   }
 
-  const certForMint = form.grade.certNumber.trim() || cert;
+  return {
+    cert,
+    certForMint,
+    displayName,
+    chainId: input.chainId,
+    uploadResult,
+  };
+}
+
+/** POST /rwa/mint + portfolio sync from a prior {@link uploadSellFlowMintBundle}. */
+export async function mintSellFlowFromUploadBundle(
+  bundle: SellFlowMintUploadBundle,
+  recipientAddress: string,
+): Promise<{ cert: string; tokenId: number; txHash: string }> {
   let mintResult: Awaited<ReturnType<typeof mintRwaViaBackend>>;
   try {
     mintResult = await mintRwaViaBackend({
-      recipientAddress: input.recipientAddress,
-      tokenURI: uploadResult.tokenURI,
-      certNumber: certForMint,
-      chainId: input.chainId,
+      recipientAddress,
+      tokenURI: bundle.uploadResult.tokenURI,
+      certNumber: bundle.certForMint,
+      chainId: bundle.chainId,
       deliveryMode: "direct",
-      displayName,
-      collectionKey: uploadResult.collectionKey,
-      displayImageUrl: uploadResult.displayImageUrl,
-      displayImageBackUrl: uploadResult.displayImageBackUrl,
+      displayName: bundle.displayName,
+      collectionKey: bundle.uploadResult.collectionKey,
+      displayImageUrl: bundle.uploadResult.displayImageUrl,
+      displayImageBackUrl: bundle.uploadResult.displayImageBackUrl,
     });
   } catch (e) {
     const recovered = await pollRwaCertMintOutcomeAfterAmbiguousError(
-      certForMint,
-      input.chainId,
+      bundle.certForMint,
+      bundle.chainId,
       e,
     );
     if (recovered) {
       mintResult = {
         tokenId: recovered.tokenId,
-        tokenURI: uploadResult.tokenURI,
+        tokenURI: bundle.uploadResult.tokenURI,
         txHash: recovered.txHash?.trim() || "recovered",
-        chainId: input.chainId,
+        chainId: bundle.chainId,
       };
     } else {
       throw mintStepError("On-chain mint", e);
@@ -257,10 +275,31 @@ export async function mintSellFlowCardByCert(input: {
   }
 
   return {
-    cert,
+    cert: bundle.cert,
     tokenId: mintResult.tokenId,
     txHash: mintResult.txHash,
   };
+}
+
+/**
+ * Self-vault mint for one cert — upload IPFS → POST /rwa/mint with
+ * deliveryMode=direct (RWA lands in the user's wallet; no admin deliver).
+ */
+export async function mintSellFlowCardByCert(input: {
+  cert: string;
+  recipientAddress: string;
+  chainId: SupportedChainId;
+  preferredGrade?: number | string | null;
+  userImage?: File | null;
+  userImageDataUrl?: string | null;
+  cachedAnalyze?: PsaAnalyzeResult | null;
+}): Promise<{ cert: string; tokenId: number; txHash: string }> {
+  const taken = await certMintBlockReason(input.cert.trim(), input.chainId);
+  if (taken) {
+    throw new Error(taken);
+  }
+  const bundle = await uploadSellFlowMintBundle(input);
+  return mintSellFlowFromUploadBundle(bundle, input.recipientAddress);
 }
 
 export type PartnerMintSkipKind =

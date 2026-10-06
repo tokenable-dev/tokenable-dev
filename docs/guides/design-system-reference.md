@@ -246,7 +246,7 @@ Import from `@/components/ds`:
 
 **Domain cards:** `CollectibleCard` for marketplace tiles (not raw `.card` markup in pages).
 
-**Modals:** Center (`TkDialog`) vs sheet (`TkActionSheet`) — do not mix patterns on the same flow without reason. Result overlays (`ActionCompleteModal`) use `TkDialog`. Exception: sell partner **Add to my vault** success (`SellFlowPartnerDoneModal`) stays white-card by design.
+**Modals:** Center (`TkDialog`) vs sheet (`TkActionSheet`) — do not mix patterns on the same flow without reason. Result overlays (`ActionCompleteModal`) use `TkDialog`. Exception: sell partner **Add to my vault** mint completion (`SellFlowPartnerMintModal` / `#csv-done` in Partner-Add-Cards) stays in the CSV glass modal by design.
 
 ---
 

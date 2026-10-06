@@ -1,13 +1,5 @@
 "use client";
 
-import { IBM_Plex_Sans } from "next/font/google";
-
-const orderBookToggleLabelFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600"],
-  display: "swap",
-});
-
 /**
  * Order book visibility: off = grey track + × knob; on = mint + ✓.
  * `bar` — full-width mobile control below the chart; `inline` — compact label + switch (desktop overlay).
@@ -47,7 +39,7 @@ export function CollectionOrderBookVisibilityToggle({
           />
           <span className="min-w-0">
             <span
-              className={`${orderBookToggleLabelFont.className} block text-[12px] font-semibold leading-tight tracking-tight text-white`}
+              className="block text-[12px] font-semibold leading-tight tracking-tight text-white"
             >
               Offers
             </span>
@@ -90,7 +82,7 @@ export function CollectionOrderBookVisibilityToggle({
     >
       <span
         id="orderbook-visibility-label"
-        className={`${orderBookToggleLabelFont.className} text-[15px] font-medium leading-[150%] tracking-normal text-white`}
+        className="text-[15px] font-medium leading-[150%] tracking-normal text-white"
       >
         Show Offers
       </span>

@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  cardDisplayNameFromPsaAnalyze,
+  classifyPartnerCsvLookupError,
+  PARTNER_PSA_GRADE_REJECT_MESSAGE,
+  partnerCsvLookupErrorFromUnknown,
+  type PartnerCsvErrorKind,
+} from "@/lib/sell/partnerCsvLookup";
+import {
   analyzePsaByCertNumber,
   analyzePsaSlab,
   certMintBlockReason,
@@ -47,21 +54,20 @@ import {
 } from "@/lib/sell/sellFlowDraft";
 import {
   classifyPartnerMintSkip,
-  isPartnerMintBatchAbort,
-  mintSellFlowCardByCert,
   type PartnerMintBatchResult,
   type PartnerMintSucceeded,
 } from "@/lib/sell/mintSellFlowCard";
+import {
+  clearPartnerVaultMintJobId,
+  createPartnerVaultMintJob,
+  getPartnerVaultMintJob,
+  persistPartnerVaultMintJobId,
+  readPartnerVaultMintJobId,
+  type PartnerVaultMintJobView,
+} from "@/lib/sell/partnerVaultMintJob";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-
-/** Pause between partner self-vault mints — keeps Alchemy Free CU/s headroom. */
-const PARTNER_MINT_INTER_CARD_DELAY_MS = 2_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 export type SellFlowScreen = "register" | "vault" | "cards";
 
@@ -70,6 +76,20 @@ const CONSENTS_KEY = "tk_seller_consents";
 const MAX_CARDS = 99;
 
 export type SellFlowCard = SellDraftCard;
+
+export type SlabPhotoIngestResult =
+  | { ok: true; fileName: string; name: string; cert: string }
+  | { ok: false; fileName: string; error: string };
+
+function isSlabUploadImageFile(file: File): boolean {
+  const t = file.type.toLowerCase();
+  return (
+    t === "image/jpeg" ||
+    t === "image/jpg" ||
+    t === "image/png" ||
+    t === "image/webp"
+  );
+}
 
 export type SellConsents = {
   terms: boolean;
@@ -95,7 +115,7 @@ function cardFromAnalyze(
   const cert = (r.psa.certNumber ?? certFallback).trim();
   const grade = r.psa.gradeScore;
   if (grade !== 9 && grade !== 10) {
-    return { error: "Only PSA 9 and PSA 10 are accepted right now." };
+    return { error: PARTNER_PSA_GRADE_REJECT_MESSAGE };
   }
   const mintImage = resolveSelfVaultMintImageSelection({
     analyze: r,
@@ -182,6 +202,8 @@ export function useSellFlow() {
   const [kycLoading, setKycLoading] = useState(false);
   const [consents, setConsents] = useState<SellConsents>(EMPTY_CONSENTS);
   const [cards, setCards] = useState<SellFlowCard[]>([]);
+  const cardsRef = useRef<SellFlowCard[]>(cards);
+  cardsRef.current = cards;
   const [certInput, setCertInput] = useState("");
   const [certError, setCertError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
@@ -191,11 +213,15 @@ export function useSellFlow() {
   const [mintError, setMintError] = useState<string | null>(null);
   const [partnerMintSuccess, setPartnerMintSuccess] =
     useState<PartnerMintBatchResult | null>(null);
+  const [vaultMintJob, setVaultMintJob] =
+    useState<PartnerVaultMintJobView | null>(null);
   const slabInputRef = useRef<HTMLInputElement>(null);
   const lookupLockRef = useRef(false);
   const mintLockRef = useRef(false);
+  const vaultMintJobAppliedRef = useRef<string | null>(null);
   /** Session-only slab Files by cert — used for mint when PSA has no official slab. */
   const slabFileByCertRef = useRef<Map<string, File>>(new Map());
+  const psaAnalyzeByCertRef = useRef<Map<string, PsaAnalyzeResult>>(new Map());
   const localHydrateDoneRef = useRef(false);
   const hydrateDoneRef = useRef(false);
 
@@ -209,6 +235,8 @@ export function useSellFlow() {
     if (wiped && user?.id) bindSellFlowToUser(user.id);
     if (!wiped) return;
     setCards([]);
+    slabFileByCertRef.current.clear();
+    psaAnalyzeByCertRef.current.clear();
     setDraftRestored(false);
     setVaultChoice(null);
     hydrateDoneRef.current = false;
@@ -452,30 +480,111 @@ export function useSellFlow() {
       certFallback: string,
       uploadPreviewDataUrl?: string | null,
       slabFile?: File | null,
+      opts?: { silent?: boolean },
     ) => {
       const built = cardFromAnalyze(r, certFallback, uploadPreviewDataUrl);
       if ("error" in built) {
-        setCertError(built.error);
+        if (!opts?.silent) setCertError(built.error);
         return false;
       }
-      if (cards.length >= MAX_CARDS) {
-        setCertError("You can add up to 99 cards per submission.");
+      const current = cardsRef.current;
+      if (current.length >= MAX_CARDS) {
+        if (!opts?.silent) {
+          setCertError("You can add up to 99 cards per submission.");
+        }
         return false;
       }
-      if (cards.some((c) => c.cert === built.cert)) {
-        setCertError("That card is already in your list.");
+      if (current.some((c) => c.cert === built.cert)) {
+        if (!opts?.silent) {
+          setCertError("That card is already in your list.");
+        }
         return false;
       }
       if (slabFile) {
         slabFileByCertRef.current.set(built.cert, slabFile);
       }
-      // Session-only until Save as draft. Refresh drops unsaved adds.
-      setCards((prev) => [...prev, built]);
+      psaAnalyzeByCertRef.current.set(built.cert, r);
+      setCards((prev) => {
+        const next = [...prev, built];
+        cardsRef.current = next;
+        return next;
+      });
       setCertInput("");
-      setCertError(null);
+      if (!opts?.silent) setCertError(null);
       return true;
     },
-    [cards],
+    [],
+  );
+
+  const ingestSlabPhoto = useCallback(
+    async (file: File): Promise<SlabPhotoIngestResult> => {
+      const fileName = file.name || "slab.jpg";
+      if (!isSlabUploadImageFile(file)) {
+        return {
+          ok: false,
+          fileName,
+          error: "Use JPEG, PNG, or WebP (max 10 MB). HEIC is not supported.",
+        };
+      }
+      if (cardsRef.current.length >= MAX_CARDS) {
+        return {
+          ok: false,
+          fileName,
+          error: "You can add up to 99 cards per submission.",
+        };
+      }
+      try {
+        const [uploadPreview, r] = await Promise.all([
+          fileToThumbDataUrl(file),
+          analyzePsaSlab(file),
+        ]);
+        const cert = r.psa.certNumber?.trim() ?? "";
+        if (!cert) {
+          return {
+            ok: false,
+            fileName,
+            error:
+              "Could not read a cert number from this photo. Use a clear PSA slab label or enter the cert manually.",
+          };
+        }
+        const taken = await certMintBlockReason(cert, chainId);
+        if (taken) {
+          return { ok: false, fileName, error: taken };
+        }
+        const preview = cardFromAnalyze(r, cert, uploadPreview);
+        if ("error" in preview) {
+          return { ok: false, fileName, error: preview.error };
+        }
+        const added = addCardFromResult(r, cert, uploadPreview, file, {
+          silent: true,
+        });
+        if (!added) {
+          if (cardsRef.current.some((c) => c.cert === preview.cert)) {
+            return { ok: false, fileName, error: "Already in your list." };
+          }
+          return {
+            ok: false,
+            fileName,
+            error: "Could not add this card to your list.",
+          };
+        }
+        return { ok: true, fileName, name: preview.name, cert: preview.cert };
+      } catch (e) {
+        if (isPsaRateLimitError(e)) {
+          return {
+            ok: false,
+            fileName,
+            error: "PSA rate limit reached. Please wait and try again later.",
+          };
+        }
+        return {
+          ok: false,
+          fileName,
+          error: formatPsaAnalyzeError(e),
+        };
+      }
+    },
+    [addCardFromResult, chainId],
   );
 
   const lookupCert = useCallback(async () => {
@@ -522,6 +631,68 @@ export function useSellFlow() {
     }
   }, [addCardFromResult, cards, certInput, vaultChoice, chainId]);
 
+  /** Cert lookup for bulk CSV rows (no cert input field). */
+  const lookupCertByNumber = useCallback(
+    async (
+      certRaw: string,
+    ): Promise<
+      | { ok: true; name: string }
+      | { ok: false; errorKind: PartnerCsvErrorKind; name?: string }
+    > => {
+      const cert = certRaw.trim();
+      if (!/^\d{7,10}$/.test(cert)) {
+        return { ok: false, errorKind: "invalid_cert" };
+      }
+      if (cards.length >= MAX_CARDS) {
+        return { ok: false, errorKind: "list_full" };
+      }
+      if (cards.some((c) => c.cert === cert)) {
+        return { ok: false, errorKind: "duplicate" };
+      }
+      try {
+        const r = await analyzePsaByCertNumber(cert);
+        const displayName = cardDisplayNameFromPsaAnalyze(r);
+
+        const taken = await certMintBlockReason(cert, chainId);
+        if (taken) {
+          return {
+            ok: false,
+            errorKind: classifyPartnerCsvLookupError(taken),
+            name: displayName,
+          };
+        }
+
+        const preview = cardFromAnalyze(r, cert);
+        if ("error" in preview) {
+          return {
+            ok: false,
+            errorKind: classifyPartnerCsvLookupError(preview.error),
+            name: displayName,
+          };
+        }
+        if (!addCardFromResult(r, cert)) {
+          if (cards.some((c) => c.cert === preview.cert)) {
+            return { ok: false, errorKind: "duplicate", name: displayName };
+          }
+          if (cards.length >= MAX_CARDS) {
+            return { ok: false, errorKind: "list_full", name: displayName };
+          }
+          return { ok: false, errorKind: "add_failed", name: displayName };
+        }
+        return { ok: true, name: preview.name };
+      } catch (e) {
+        if (isPsaRateLimitError(e)) {
+          return { ok: false, errorKind: "rate_limit" };
+        }
+        return {
+          ok: false,
+          errorKind: partnerCsvLookupErrorFromUnknown(e),
+        };
+      }
+    },
+    [addCardFromResult, cards, chainId],
+  );
+
   const scanSlab = useCallback(() => {
     slabInputRef.current?.click();
   }, []);
@@ -530,39 +701,16 @@ export function useSellFlow() {
     async (file: File | null) => {
       if (!file) return;
       setCertError(null);
-      if (cards.length >= MAX_CARDS) {
+      if (cardsRef.current.length >= MAX_CARDS) {
         setCertError("You can add up to 99 cards per submission.");
         return;
       }
       lookupLockRef.current = true;
       setLookupBusy(true);
       try {
-        const uploadPreviewPromise = fileToThumbDataUrl(file);
-        const analyzePromise = analyzePsaSlab(file);
-        const [uploadPreview, r] = await Promise.all([
-          uploadPreviewPromise,
-          analyzePromise,
-        ]);
-        const cert = r.psa.certNumber?.trim() ?? "";
-        if (!cert) {
-          setCertError(
-            "Please upload an image of a graded card (PSA, BGS, or CGC slab with the cert label visible).",
-          );
-          return;
-        }
-        const taken = await certMintBlockReason(cert, chainId);
-        if (taken) {
-          setCertError(taken);
-          return;
-        }
-        addCardFromResult(r, cert, uploadPreview, file);
-      } catch (e) {
-        if (isPsaRateLimitError(e)) {
-          setCertError(
-            "PSA rate limit reached. Please wait and try again later.",
-          );
-        } else {
-          setCertError(formatPsaAnalyzeError(e));
+        const result = await ingestSlabPhoto(file);
+        if (!result.ok) {
+          setCertError(result.error);
         }
       } finally {
         lookupLockRef.current = false;
@@ -570,7 +718,42 @@ export function useSellFlow() {
         if (slabInputRef.current) slabInputRef.current.value = "";
       }
     },
-    [addCardFromResult, cards.length, vaultChoice, chainId],
+    [ingestSlabPhoto],
+  );
+
+  const uploadSlabPhotos = useCallback(
+    async (
+      files: File[],
+      onProgress?: (index: number, total: number, fileName: string) => void,
+    ): Promise<SlabPhotoIngestResult[]> => {
+      if (lookupLockRef.current || files.length === 0) return [];
+      lookupLockRef.current = true;
+      setLookupBusy(true);
+      setCertError(null);
+      const outcomes: SlabPhotoIngestResult[] = [];
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]!;
+          const fileName = file.name || "slab.jpg";
+          onProgress?.(i, files.length, fileName);
+          if (cardsRef.current.length >= MAX_CARDS) {
+            outcomes.push({
+              ok: false,
+              fileName,
+              error: "You can add up to 99 cards per submission.",
+            });
+            continue;
+          }
+          outcomes.push(await ingestSlabPhoto(file));
+        }
+      } finally {
+        lookupLockRef.current = false;
+        setLookupBusy(false);
+        if (slabInputRef.current) slabInputRef.current.value = "";
+      }
+      return outcomes;
+    },
+    [ingestSlabPhoto],
   );
 
   const toggleConfirm = useCallback((index: number) => {
@@ -595,6 +778,7 @@ export function useSellFlow() {
       const removed = prev[index];
       if (removed?.cert) {
         slabFileByCertRef.current.delete(removed.cert);
+        psaAnalyzeByCertRef.current.delete(removed.cert);
       }
       return prev.filter((_, i) => i !== index);
     });
@@ -656,108 +840,25 @@ export function useSellFlow() {
     setMintError(null);
     setMintStatus(null);
 
-    const succeeded: PartnerMintSucceeded[] = [];
-    const skipped: PartnerMintBatchResult["skipped"] = [];
-
-    const pushSkip = (card: SellFlowCard, detail: string) => {
-      const { kind, title } = classifyPartnerMintSkip(detail);
-      skipped.push({
-        cert: card.cert,
-        name: card.name,
-        kind,
-        title,
-        detail,
-      });
-    };
-
     try {
       const recipientAddress = await ensureAccountWalletReady();
-
-      for (let i = 0; i < confirmed.length; i++) {
-        const card = confirmed[i]!;
-        setMintStatus(
-          `Minting ${i + 1}/${confirmed.length}: cert #${card.cert}…`,
-        );
-
-        const taken = await certMintBlockReason(card.cert, chainId);
-        if (taken) {
-          pushSkip(card, taken);
-          continue;
-        }
-
-        try {
-          const result = await mintSellFlowCardByCert({
-            cert: card.cert,
-            recipientAddress,
-            chainId,
-            preferredGrade: card.grade,
-            userImage: slabFileByCertRef.current.get(card.cert) ?? null,
-            userImageDataUrl:
-              typeof card.img === "string" && card.img.startsWith("data:")
-                ? card.img
-                : null,
-          });
-          slabFileByCertRef.current.delete(card.cert);
-          succeeded.push({
-            cert: result.cert,
-            name: card.name,
-            tokenId: result.tokenId,
-            grade: card.grade,
-            cardNumber: card.cardNumber,
-            year: card.year,
-            setName: card.setName,
-            language: card.language,
-            variant: card.variant,
-          });
-          await invalidateAfterRwaMintTx(queryClient, {
-            tokenId: result.tokenId,
-            address: recipientAddress,
-          });
-          if (i + 1 < confirmed.length) {
-            await sleep(PARTNER_MINT_INTER_CARD_DELAY_MS);
-          }
-        } catch (e) {
-          const detail =
-            e instanceof Error ? e.message : "Partner vault mint failed";
-          if (isPartnerMintBatchAbort(detail)) {
-            pushSkip(card, detail);
-            for (let j = i + 1; j < confirmed.length; j++) {
-              pushSkip(confirmed[j]!, detail);
-            }
-            setMintError(detail);
-            break;
-          }
-          pushSkip(card, detail);
-        }
-      }
-
-      setCards((prev) => {
-        const next = prev.filter((c) => !succeeded.some((s) => s.cert === c.cert));
-        writeSellFlowDraftCards(next);
-        return next;
-      });
-      if (succeeded.length > 0) {
-        clearSellSubmissionPublicId();
-      }
-      writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
-      setPartnerMintSuccess({ succeeded, skipped });
-      setMintStatus(null);
+      const job = await createPartnerVaultMintJob(
+        confirmed.map((c) => c.cert),
+        chainId,
+        recipientAddress,
+      );
+      persistPartnerVaultMintJobId(job.id);
+      setVaultMintJob(job);
+      setMintStatus(
+        job.itemCount > 0
+          ? `Minting ${job.processedCount}/${job.itemCount}…`
+          : null,
+      );
     } catch (e) {
       setMintError(
         e instanceof Error ? e.message : "Partner vault mint failed",
       );
       setMintStatus(null);
-      if (succeeded.length > 0 || skipped.length > 0) {
-        setCards((prev) => {
-          const next = prev.filter(
-            (c) => !succeeded.some((s) => s.cert === c.cert),
-          );
-          writeSellFlowDraftCards(next);
-          return next;
-        });
-        setPartnerMintSuccess({ succeeded, skipped });
-      }
-    } finally {
       mintLockRef.current = false;
       setMintBusy(false);
     }
@@ -770,8 +871,135 @@ export function useSellFlow() {
     runAccessGate,
     ensureAccountWalletReady,
     chainId,
-    queryClient,
   ]);
+
+  const jobToBatchResult = useCallback(
+    (job: PartnerVaultMintJobView, cardByCert: Map<string, SellFlowCard>) => {
+      const succeeded: PartnerMintSucceeded[] = [];
+      const skipped: PartnerMintBatchResult["skipped"] = [];
+      for (const row of job.items) {
+        const card = cardByCert.get(row.certNumber);
+        const name =
+          row.displayName?.trim() ||
+          card?.name ||
+          `PSA #${row.certNumber}`;
+        if (row.status === "succeeded" && row.tokenId) {
+          succeeded.push({
+            cert: row.certNumber,
+            name,
+            tokenId: Number(row.tokenId),
+            grade: card?.grade,
+            cardNumber: card?.cardNumber,
+            year: card?.year,
+            setName: card?.setName,
+            language: card?.language,
+            variant: card?.variant,
+          });
+        } else if (row.status === "failed") {
+          const detail = row.errorMessage ?? "Mint failed";
+          const { kind, title } = classifyPartnerMintSkip(detail);
+          skipped.push({
+            cert: row.certNumber,
+            name,
+            kind,
+            title,
+            detail,
+          });
+        }
+      }
+      return { succeeded, skipped };
+    },
+    [],
+  );
+
+  const applyVaultMintJobFinished = useCallback(
+    async (job: PartnerVaultMintJobView) => {
+      if (vaultMintJobAppliedRef.current === job.id) return;
+      vaultMintJobAppliedRef.current = job.id;
+      const cardByCert = new Map(cardsRef.current.map((c) => [c.cert, c]));
+      const result = jobToBatchResult(job, cardByCert);
+      setCards((prev) => {
+        const next = prev.filter(
+          (c) => !result.succeeded.some((s) => s.cert === c.cert),
+        );
+        writeSellFlowDraftCards(next);
+        return next;
+      });
+      if (result.succeeded.length > 0) {
+        clearSellSubmissionPublicId();
+      }
+      writeSellFlowProgress({ step: "cards", vaultChoice: "self" });
+      setPartnerMintSuccess(result);
+      setMintStatus(null);
+      setMintBusy(false);
+      mintLockRef.current = false;
+      setVaultMintJob(null);
+      clearPartnerVaultMintJobId();
+      const recipient = await ensureAccountWalletReady().catch(() => null);
+      if (recipient) {
+        for (const row of result.succeeded) {
+          await invalidateAfterRwaMintTx(queryClient, {
+            tokenId: row.tokenId,
+            address: recipient,
+          });
+        }
+      }
+    },
+    [jobToBatchResult, queryClient, ensureAccountWalletReady],
+  );
+
+  useEffect(() => {
+    const stored = readPartnerVaultMintJobId();
+    if (!stored) return;
+    void getPartnerVaultMintJob(stored)
+      .then((job) => {
+        setVaultMintJob(job);
+        if (job.status === "pending" || job.status === "processing") {
+          setMintBusy(true);
+        }
+      })
+      .catch(() => clearPartnerVaultMintJobId());
+  }, []);
+
+  useEffect(() => {
+    if (!vaultMintJob) return;
+    const terminal =
+      vaultMintJob.status === "completed" || vaultMintJob.status === "failed";
+    if (terminal) {
+      void applyVaultMintJobFinished(vaultMintJob);
+      return;
+    }
+    const id = vaultMintJob.id;
+    const tick = () => {
+      void getPartnerVaultMintJob(id)
+        .then((job) => {
+          setVaultMintJob(job);
+          setMintStatus(
+            job.itemCount > 0
+              ? `Minting ${job.processedCount}/${job.itemCount}…`
+              : null,
+          );
+          if (job.status === "completed" || job.status === "failed") {
+            void applyVaultMintJobFinished(job);
+          }
+        })
+        .catch(() => {
+          setMintError("Lost connection to mint job — refresh to check portfolio");
+          setMintBusy(false);
+          clearPartnerVaultMintJobId();
+          setVaultMintJob(null);
+        });
+    };
+    tick();
+    const interval = window.setInterval(tick, 2000);
+    return () => window.clearInterval(interval);
+  }, [vaultMintJob?.id, vaultMintJob?.status, applyVaultMintJobFinished]);
+
+  const dismissPartnerMintResult = useCallback(() => {
+    setPartnerMintSuccess(null);
+    clearPartnerVaultMintJobId();
+    setVaultMintJob(null);
+  }, []);
 
   const resetPartnerAddCards = useCallback(() => {
     setPartnerMintSuccess(null);
@@ -809,6 +1037,7 @@ export function useSellFlow() {
     mintStatus,
     mintError,
     partnerMintSuccess,
+    dismissPartnerMintResult,
     slabInputRef,
     canContinueShipping,
     updateConsent,
@@ -820,8 +1049,10 @@ export function useSellFlow() {
     selectVault,
     continueFromVault,
     lookupCert,
+    lookupCertByNumber,
     scanSlab,
     onSlabFile,
+    uploadSlabPhotos,
     toggleConfirm,
     setAllConfirmed,
     removeCard,

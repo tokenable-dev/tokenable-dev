@@ -59,6 +59,8 @@ import { MarketplacePartner } from './marketplace/entities/marketplace-partner.e
 import { MarketplacePartnerAddress } from './marketplace/entities/marketplace-partner-address.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
 import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
+import { PartnerVaultMintJob } from './rwa/entities/partner-vault-mint-job.entity';
+import { PartnerVaultMintJobItem } from './rwa/entities/partner-vault-mint-job-item.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 import { SelfVaultSettlement } from './marketplace/entities/self-vault-settlement.entity';
 import { VaultModule } from './vault/vault.module';
@@ -161,6 +163,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           VaultPsaVaultedReview,
           BulkMintJob,
           BulkMintJobItem,
+          PartnerVaultMintJob,
+          PartnerVaultMintJobItem,
           MarketplaceNotification,
           SelfVaultSettlement,
         ],

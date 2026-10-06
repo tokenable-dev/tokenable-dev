@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "node scripts/patch-privy-isactive.mjs",
     "check:css": "node scripts/check-css-braces.mjs",
+    "generate:partner-cert-xlsx": "node scripts/generate-partner-cert-xlsx.mjs",
     "dev": "NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "dev:webpack": "NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
@@ -28,6 +29,7 @@
     "three": "^0.185.1",
     "viem": "^2.47.0",
     "wagmi": "^3.5.0",
+    "xlsx": "0.18.5",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
