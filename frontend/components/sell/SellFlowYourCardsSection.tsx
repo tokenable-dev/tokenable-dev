@@ -24,28 +24,40 @@ export function SellFlowYourCardsSection({
   onRemove: (index: number) => void;
   allowCertDirectInput?: boolean;
 }) {
-  const selectAllLabel = allConfirmed ? "Deselect all" : "Select all";
+  const selectAllLabel =
+    variant === "partner"
+      ? allConfirmed
+        ? "Deselect all"
+        : "Confirm all"
+      : allConfirmed
+        ? "Deselect all"
+        : "Select all";
 
   const confirmRowLabel =
     variant === "partner" ? "Cert matches this card" : "Confirm this is your card";
 
-  const emptyHint = allowCertDirectInput
-    ? "Upload a slab or enter a cert number to get started."
-    : "Upload a slab to get started.";
+  const emptyHint =
+    variant === "partner"
+      ? "Scan a slab or enter a cert number to get started."
+      : allowCertDirectInput
+        ? "Upload a slab or enter a cert number to get started."
+        : "Upload a slab to get started.";
 
   return (
     <div className="sell-flow-cards-section">
       <div className="sell-flow-cards-header">
         <div className="sell-flow-cards-title">
           Your cards{" "}
-          <span className="tkl-mono sell-flow-cards-count">
-            ({cards.length} of {maxCards})
+          <span className="sell-flow-cards-count">
+            (
+            <span className="tkl-mono">{cards.length}</span> of{" "}
+            <span className="tkl-mono">{maxCards}</span>)
           </span>
         </div>
-        {cards.length > 0 && variant !== "partner" ? (
+        {cards.length > 0 ? (
           <button
             type="button"
-            className="sell-flow-select-all"
+            className={`sell-flow-select-all${variant === "partner" ? " sell-flow-select-all--partner" : ""}`}
             onClick={() => onToggleAllConfirmed(!allConfirmed)}
           >
             {selectAllLabel}

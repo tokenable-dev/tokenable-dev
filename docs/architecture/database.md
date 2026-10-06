@@ -271,6 +271,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `maintenance/add_marketplace_partners.sql` | Existing DBs: create `marketplace_partners` |
 | `maintenance/add_marketplace_partner_addresses.sql` | Existing DBs: partner company Origin addresses |
 | `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
+| `maintenance/add_partner_vault_mint_jobs.sql` | Existing DBs: partner sell-flow server mint jobs (`partner_vault_mint_jobs`, `partner_vault_mint_job_items`) |
 | `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
 | `maintenance/add_bulk_mint_slab_display_image_url.sql` | Add `bulk_mint_job_items.slab_display_image_url` (S3 cache from prepare) |
 | `maintenance/add_rwa_tokens_display_image_back_url.sql` | Existing DBs: `rwa_tokens.display_image_back_url` |

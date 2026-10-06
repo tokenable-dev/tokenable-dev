@@ -774,6 +774,69 @@ export class NotificationsService {
     });
   }
 
+  /** Partner sell-flow vault mint batch (server job) finished. */
+  async notifyPartnerVaultMintJobComplete(params: {
+    userId: string;
+    jobId: string;
+    chainId: SupportedChainId | number;
+    succeededCount: number;
+    failedCount: number;
+  }): Promise<void> {
+    const recipient = await this.primaryWalletForUser(params.userId);
+    if (!recipient) return;
+
+    const ok = Math.max(0, params.succeededCount);
+    const fail = Math.max(0, params.failedCount);
+    const total = ok + fail;
+    if (total === 0) return;
+
+    const chainId = this.chainConfig.resolveChainId(
+      String(params.chainId),
+    ) as SupportedChainId;
+
+    let title: string;
+    let body: string;
+    let ctaLabel = 'View collection';
+    let href = '/partner/portfolio?tab=assets';
+
+    if (ok === 0) {
+      title =
+        fail === 1
+          ? 'Vault mint could not finish'
+          : `${fail} cards could not be minted`;
+      body =
+        'Review errors in Add cards and retry failed certs when ready.';
+      ctaLabel = 'Add cards';
+      href = '/sell/flow?vault=self';
+    } else if (fail === 0) {
+      title =
+        ok === 1
+          ? '1 card minted to your vault'
+          : `${ok} cards minted to your vault`;
+      body = 'They’re in your collection. Set prices when you’re ready.';
+    } else {
+      title = `${ok} of ${total} cards minted`;
+      body = `${fail} could not be minted. Check your collection or Add cards for details.`;
+    }
+
+    await this.emitInbox({
+      recipientWallet: recipient,
+      chainId,
+      type: 'vault',
+      eventKey: 'PARTNER_VAULT_MINT_JOB_DONE',
+      title,
+      body,
+      dedupeKey: `partner_vault_mint_job:${params.jobId}`,
+      payload: {
+        jobId: params.jobId,
+        succeededCount: ok,
+        failedCount: fail,
+        ctaLabel,
+        href,
+      },
+    });
+  }
+
   async notifySellerVerifyDoneSetPrice(params: {
     userId: string;
     submissionPublicId: string;
@@ -1617,6 +1680,11 @@ export class NotificationsService {
         return {
           href: '/portfolio/redeem?view=done',
           ctaLabel: 'View',
+        };
+      case 'PARTNER_VAULT_MINT_JOB_DONE':
+        return {
+          href: payloadHref ?? '/partner/portfolio?tab=assets',
+          ctaLabel: payloadCta ?? 'View collection',
         };
       case 'PARTNER_SHIPMENT_REQUEST':
       case 'SELLER_REDEEM_SHIP':

@@ -28,6 +28,7 @@ FILES=(
   maintenance/drop_kbw_mystery_card_burns.sql
   maintenance/drop_users_email_unique.sql
   maintenance/add_users_welcome_email_sent_at.sql
+  maintenance/add_partner_vault_mint_jobs.sql
 )
 
 postgres_via_docker() {
