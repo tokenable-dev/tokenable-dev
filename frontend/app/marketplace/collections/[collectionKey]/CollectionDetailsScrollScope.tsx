@@ -7,7 +7,6 @@ const MOBILE_LOCK_CLASS = "collection-details-mobile-lock";
 
 /**
  * 컬렉션 상세: html에 클래스를 붙여 scrollbar-gutter만 적용 (스타일링 없음).
- * Mobile: page scroll — hero, tab panels, and listings stack naturally.
  */
 export function CollectionDetailsScrollScope() {
   useEffect(() => {

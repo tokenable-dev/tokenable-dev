@@ -1,0 +1,51 @@
+---
+description: Documentation rules — when and how to update docs/
+globs: ["docs/**/*", "*.md", "ARCHITECTURE_INDEX.md"]
+alwaysApply: false
+---
+
+# Documentation Rules
+
+## When to Update Docs
+
+1. **Endpoint changed or added** → update `docs/api/{domain}.md`
+2. **Database table/column changed** → update `docs/architecture/database.md`
+3. **New module or service added** → update `docs/architecture/backend.md`
+4. **New frontend route added** → update `docs/architecture/frontend.md` (routes table)
+5. **Environment variable added** → update relevant `docs/guides/local-setup.md` + `docs/guides/deployment.md`
+6. **Vault/NFT flow changed** → update `docs/architecture/vault-lifecycle.md`
+7. **Contract change** → update `docs/architecture/blockchain.md`
+8. **New business invariant** → add to `docs/business-rules.md`
+9. **Auth flow changed** → update `docs/api/auth.md`
+
+## Documentation Standards
+
+10. Document **verified behavior** only. Never speculate or document planned features as if implemented.
+
+11. Mark removed features as removed. Do not leave dead documentation about deleted code paths.
+
+12. Use Mermaid diagrams for flows and relationships — keep them in sync with code.
+
+13. Code examples in docs should be minimal and accurate. Prefer showing real request/response shapes.
+
+14. Tables are preferred over prose for structured information (env vars, endpoints, entities).
+
+## What Not to Document
+
+15. Do not document internal implementation details that change frequently (variable names, import paths).
+
+16. Do not duplicate information that already exists elsewhere — cross-link instead.
+
+17. Do not create documentation files for temporary states, migration phases, or pending refactors.
+
+## AI-specific Documentation
+
+18. `ARCHITECTURE_INDEX.md` is the navigation entry point for AI agents. Keep it updated.
+
+19. `.cursor/project-constitution.md` is the AI constitution. Update it when fundamental architecture changes.
+
+20. `.cursor/rules/*.mdc` files teach AI how to work in specific areas. Update them when conventions change.
+
+## SUMMARY.md
+
+21. `docs/SUMMARY.md` is the GitBook table of contents. Add any new `docs/` file here in the appropriate section.

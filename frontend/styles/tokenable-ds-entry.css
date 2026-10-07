@@ -1,0 +1,6 @@
+/* Tokenable DS for Next.js — tokens + components (fonts via next/font in bridge). */
+
+@import "../design-system/tokens/fig-tokens.css";
+@import "../design-system/tokens/fig-typography.css";
+@import "../design-system/tokens/base.css";
+@import "../design-system/components/components.css";

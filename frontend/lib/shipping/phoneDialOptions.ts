@@ -1,0 +1,133 @@
+/** Country dial options for Redeem ship-to (designer Redeem.html). */
+export type PhoneDialOption = {
+  value: string;
+  label: string;
+  /** Allowed national digit lengths, CSV — e.g. `"10"` or `"9,10"`. */
+  len: string;
+};
+
+export const PHONE_DIAL_OPTIONS: readonly PhoneDialOption[] = [
+  { value: "+1", label: "+1 United States / Canada", len: "10" },
+  { value: "+93", label: "+93 Afghanistan", len: "9" },
+  { value: "+355", label: "+355 Albania", len: "8,9" },
+  { value: "+213", label: "+213 Algeria", len: "9" },
+  { value: "+54", label: "+54 Argentina", len: "10" },
+  { value: "+374", label: "+374 Armenia", len: "8" },
+  { value: "+61", label: "+61 Australia", len: "9" },
+  { value: "+43", label: "+43 Austria", len: "10,11" },
+  { value: "+994", label: "+994 Azerbaijan", len: "9" },
+  { value: "+973", label: "+973 Bahrain", len: "8" },
+  { value: "+880", label: "+880 Bangladesh", len: "10" },
+  { value: "+375", label: "+375 Belarus", len: "9" },
+  { value: "+32", label: "+32 Belgium", len: "9" },
+  { value: "+591", label: "+591 Bolivia", len: "8,9" },
+  { value: "+387", label: "+387 Bosnia and Herzegovina", len: "8" },
+  { value: "+55", label: "+55 Brazil", len: "10,11" },
+  { value: "+359", label: "+359 Bulgaria", len: "8,9" },
+  { value: "+855", label: "+855 Cambodia", len: "8,9" },
+  { value: "+237", label: "+237 Cameroon", len: "9" },
+  { value: "+56", label: "+56 Chile", len: "9" },
+  { value: "+86", label: "+86 China", len: "11" },
+  { value: "+57", label: "+57 Colombia", len: "10" },
+  { value: "+506", label: "+506 Costa Rica", len: "8" },
+  { value: "+385", label: "+385 Croatia", len: "9" },
+  { value: "+357", label: "+357 Cyprus", len: "8" },
+  { value: "+420", label: "+420 Czechia", len: "9" },
+  { value: "+45", label: "+45 Denmark", len: "8" },
+  { value: "+593", label: "+593 Ecuador", len: "9" },
+  { value: "+20", label: "+20 Egypt", len: "10" },
+  { value: "+503", label: "+503 El Salvador", len: "8" },
+  { value: "+372", label: "+372 Estonia", len: "7,8" },
+  { value: "+251", label: "+251 Ethiopia", len: "9" },
+  { value: "+358", label: "+358 Finland", len: "9,10" },
+  { value: "+33", label: "+33 France", len: "9" },
+  { value: "+995", label: "+995 Georgia", len: "9" },
+  { value: "+49", label: "+49 Germany", len: "10,11" },
+  { value: "+233", label: "+233 Ghana", len: "9" },
+  { value: "+30", label: "+30 Greece", len: "10" },
+  { value: "+502", label: "+502 Guatemala", len: "8" },
+  { value: "+852", label: "+852 Hong Kong", len: "8" },
+  { value: "+36", label: "+36 Hungary", len: "9" },
+  { value: "+354", label: "+354 Iceland", len: "7" },
+  { value: "+91", label: "+91 India", len: "10" },
+  { value: "+62", label: "+62 Indonesia", len: "9,12" },
+  { value: "+98", label: "+98 Iran", len: "10" },
+  { value: "+964", label: "+964 Iraq", len: "10" },
+  { value: "+353", label: "+353 Ireland", len: "9" },
+  { value: "+972", label: "+972 Israel", len: "9" },
+  { value: "+39", label: "+39 Italy", len: "9,10" },
+  { value: "+81", label: "+81 Japan", len: "10" },
+  { value: "+962", label: "+962 Jordan", len: "9" },
+  { value: "+7", label: "+7 Kazakhstan", len: "10" },
+  { value: "+254", label: "+254 Kenya", len: "9" },
+  { value: "+965", label: "+965 Kuwait", len: "8" },
+  { value: "+996", label: "+996 Kyrgyzstan", len: "9" },
+  { value: "+856", label: "+856 Laos", len: "9,10" },
+  { value: "+371", label: "+371 Latvia", len: "8" },
+  { value: "+961", label: "+961 Lebanon", len: "8" },
+  { value: "+370", label: "+370 Lithuania", len: "8" },
+  { value: "+352", label: "+352 Luxembourg", len: "9" },
+  { value: "+853", label: "+853 Macao", len: "8" },
+  { value: "+60", label: "+60 Malaysia", len: "9,10" },
+  { value: "+960", label: "+960 Maldives", len: "7" },
+  { value: "+52", label: "+52 Mexico", len: "10" },
+  { value: "+373", label: "+373 Moldova", len: "8" },
+  { value: "+976", label: "+976 Mongolia", len: "8" },
+  { value: "+212", label: "+212 Morocco", len: "9" },
+  { value: "+95", label: "+95 Myanmar", len: "8,10" },
+  { value: "+977", label: "+977 Nepal", len: "10" },
+  { value: "+31", label: "+31 Netherlands", len: "9" },
+  { value: "+64", label: "+64 New Zealand", len: "8,9" },
+  { value: "+234", label: "+234 Nigeria", len: "10" },
+  { value: "+47", label: "+47 Norway", len: "8" },
+  { value: "+968", label: "+968 Oman", len: "8" },
+  { value: "+92", label: "+92 Pakistan", len: "10" },
+  { value: "+507", label: "+507 Panama", len: "8" },
+  { value: "+595", label: "+595 Paraguay", len: "9" },
+  { value: "+51", label: "+51 Peru", len: "9" },
+  { value: "+63", label: "+63 Philippines", len: "10" },
+  { value: "+48", label: "+48 Poland", len: "9" },
+  { value: "+351", label: "+351 Portugal", len: "9" },
+  { value: "+974", label: "+974 Qatar", len: "8" },
+  { value: "+40", label: "+40 Romania", len: "9" },
+  { value: "+7", label: "+7 Russia", len: "10" },
+  { value: "+966", label: "+966 Saudi Arabia", len: "9" },
+  { value: "+381", label: "+381 Serbia", len: "9" },
+  { value: "+65", label: "+65 Singapore", len: "8" },
+  { value: "+421", label: "+421 Slovakia", len: "9" },
+  { value: "+386", label: "+386 Slovenia", len: "8" },
+  { value: "+27", label: "+27 South Africa", len: "9" },
+  { value: "+82", label: "+82 South Korea", len: "9,10" },
+  { value: "+34", label: "+34 Spain", len: "9" },
+  { value: "+94", label: "+94 Sri Lanka", len: "9" },
+  { value: "+46", label: "+46 Sweden", len: "7,9" },
+  { value: "+41", label: "+41 Switzerland", len: "9" },
+  { value: "+886", label: "+886 Taiwan", len: "9" },
+  { value: "+66", label: "+66 Thailand", len: "9" },
+  { value: "+216", label: "+216 Tunisia", len: "8" },
+  { value: "+90", label: "+90 Turkey", len: "10" },
+  { value: "+380", label: "+380 Ukraine", len: "9" },
+  { value: "+971", label: "+971 United Arab Emirates", len: "9" },
+  { value: "+44", label: "+44 United Kingdom", len: "10" },
+  { value: "+598", label: "+598 Uruguay", len: "8" },
+  { value: "+998", label: "+998 Uzbekistan", len: "9" },
+  { value: "+58", label: "+58 Venezuela", len: "10" },
+  { value: "+84", label: "+84 Vietnam", len: "9,10" },
+] as const;
+
+export const PHONE_DIAL_CODE_VALUES: readonly string[] = Array.from(
+  new Set(PHONE_DIAL_OPTIONS.map((o) => o.value)),
+);
+
+export function phoneDialLensFor(dial: string): string {
+  const match = PHONE_DIAL_OPTIONS.find((o) => o.value === dial);
+  return match?.len ?? "7,15";
+}
+
+/** Prefer US label when dial is +1. */
+export function defaultPhoneDialForCountry(
+  country: "us" | "ca" | "intl",
+): string {
+  if (country === "ca" || country === "us") return "+1";
+  return "+1";
+}

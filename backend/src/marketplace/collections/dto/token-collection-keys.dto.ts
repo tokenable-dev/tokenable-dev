@@ -4,7 +4,7 @@ import { ArrayMaxSize, IsArray, IsInt, Min } from 'class-validator';
 export class TokenCollectionKeysDto {
   @ApiProperty({
     type: [Number],
-    description: 'RWA token IDs to resolve into marketplace collection_key (max 120)',
+    description: 'marketplace collection_key로 변환할 RWA tokenId 목록 (최대 120)',
     example: [1, 2, 3],
   })
   @IsArray()

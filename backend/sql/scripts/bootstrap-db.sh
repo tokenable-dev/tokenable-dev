@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Apply canonical schema to Postgres (works with stdin pipe — no psql \ir needed).
 # Usage:
-#   DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable ./scripts/bootstrap-db.sh
+#   DATABASE_URL=postgres://tokenable:tokenable@127.0.0.1:5433/tokenable ./scripts/bootstrap-db.sh
 #   docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
 #     ./scripts/bootstrap-db.sh   # when script is mounted in container
 set -euo pipefail

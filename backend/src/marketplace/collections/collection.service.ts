@@ -1,9 +1,31 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { In } from 'typeorm';
+import { Contract } from 'ethers';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
+import {
+  PsaPublicApiService,
+  type PsaCertRecord,
+} from '../../psa/psa-public-api.service';
+import {
+  extractPsaCertImageUrlsFromApiBody,
+  extractPsaCertImagesFromGetImagesBody,
+} from '../../psa/utils/psa-cert-images.util';
+import { buildBulkMintMetadataFromPsaCert } from '../../rwa/bulk-mint/bulk-mint-prepare.util';
 import {
   BUCKET_KEY_VERSION,
   computeMarketBucketKey,
@@ -13,26 +35,61 @@ import {
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
+  applyPokemonNormalizedToComponents,
+  applyPrintLanguageToComponents,
+  extractPokemonNormalizedFromMeta,
+  normalizePokemonMetadataFromGraded,
+  printLanguageHintsFromComponents,
+  printLanguageHintsFromGraded,
+} from '../utils/pokemon-metadata-normalize.util';
+import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
 } from '../utils/collection-label.util';
-import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
-import { enrichCollectionComponentsForApi } from '../utils/collection-row.util';
+import {
+  pickCollectionDisplayImageUrl,
+  pickSearchTokenImageUrl,
+  pickRwaAssetDisplayImageRef,
+  pickTrendingSlabImageRef,
+  psaCertNumberFromGradedMeta,
+} from '../utils/collection-image.util';
+import {
+  enrichCollectionComponentsForApi,
+} from '../utils/collection-row.util';
+import { maskPsaCertNumberForPublicApi } from '../utils/cert-number-display.util';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
-import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import {
+  MarketplaceCollection,
+  type CollectionReviewStatus,
+} from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
-import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
 import { CollectionComponentsService } from './collection-components.service';
 import { CollectionCoverService } from './collection-cover.service';
+import { CollectionIdentityService } from './collection-identity.service';
+import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
+import { vaultLabelForCustody } from '../partners/partner-vault-label.util';
+
+const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
+const SEAPORT_ORDER_STATUS_ABI = [
+  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
+];
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
 } from './collection-listing-meta.helpers';
+
+export type CatalogCollectionCreateResult = {
+  collectionKey: string;
+  created: boolean;
+  displayLabel: string;
+  reviewStatus: CollectionReviewStatus;
+  coverImageUrl: string | null;
+  psaCertNumber: string | null;
+};
 
 export interface CollectionSummary {
   collectionKey: string;
@@ -41,9 +98,30 @@ export interface CollectionSummary {
   components: Record<string, unknown>;
   createdAt: Date;
   activeListingCount: number;
-  /** IPFS 메타에서 추출한 대표 커버 URL */
+  /** Persisted catalog cover (may be null while slab fallback is used for display). */
   coverImageUrl: string | null;
+  /** Resolved UI image: persisted catalog cover only (never PSA cert slab). */
+  displayImageUrl: string | null;
+  reviewStatus: CollectionReviewStatus;
 }
+
+export type SearchCardHit = {
+  tokenId: string;
+  certNumber: string | null;
+  collectionKey: string | null;
+  title: string;
+  setLine: string | null;
+  gradeLabel: string | null;
+  vaultLabel: string;
+  listedUsd: number | null;
+  imageUrl: string | null;
+  /** Collection `components` when the token is bucketed — SSOT Line 1 / Line 2 on search. */
+  components: Record<string, unknown> | null;
+};
+
+export type CollectionReviewStatusFilter =
+  | CollectionReviewStatus
+  | 'all';
 
 /**
  * Collection bucket lifecycle facade: CRUD summaries, listing ensure, order reads, admin delete.
@@ -58,28 +136,32 @@ export class CollectionService {
     private readonly collectionRepo: Repository<MarketplaceCollection>,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    @InjectRepository(RwaToken)
+    private readonly rwaTokenRepo: Repository<RwaToken>,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
-    @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
-    private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    private readonly eventEmitter: EventEmitter2,
     private readonly merkleSet: CollectionMerkleSetService,
     private readonly cover: CollectionCoverService,
     private readonly components: CollectionComponentsService,
+    private readonly identity: CollectionIdentityService,
+    private readonly psaPublicApi: PsaPublicApiService,
     @Inject(forwardRef(() => CollectionBootService))
     private readonly boot: CollectionBootService,
   ) {}
 
   async collectionKeysByTokenIds(
     tokenIds: Array<string | number>,
+    chainId?: SupportedChainId,
   ): Promise<Record<number, string>> {
-    return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds);
+    return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds, chainId);
   }
 
   private enqueueMarketSnapshotRefresh(collectionKey: string): void {
-    this.snapshotScheduler.enqueue(collectionKey, 'cold_start');
+    this.eventEmitter.emit('snapshot.enqueue', { key: collectionKey, reason: 'cold_start' });
   }
 
   private collectionActiveOrdersCap(): number {
@@ -96,23 +178,194 @@ export class CollectionService {
 
   /**
    * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
-   * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
+   * graded 없으면 null (호출부에서 listing 거부).
    */
-  async ensureCollectionForListing(tokenId: string): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+  async ensureCollectionForListing(
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<string | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const uri = await this.rwaTokenRegistry.resolveMetadataUriForToken(
+      Number(tokenId),
+      resolved,
+    );
+    if (!uri) {
+      throw new Error('Unsupported tokenURI for IPFS metadata fetch');
+    }
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
+      step: 'ensureCollectionForListing',
+      tokenId: String(tokenId),
+      tokenUri: uri,
+      chainId: resolved,
+      linkRwaToken: true,
+    });
+    return result?.collectionKey ?? null;
+  }
+
+  /**
+   * Admin catalog create: PSA cert → graded identity → marketplace_collections.
+   * No mint / ask required. New rows start as `pending_review`.
+   */
+  async createCatalogCollectionFromPsaCert(
+    certNumberRaw: string,
+    chainId?: SupportedChainId,
+  ): Promise<CatalogCollectionCreateResult> {
+    const certNumber = certNumberRaw.trim();
+    if (!/^\d{7,10}$/.test(certNumber)) {
+      throw new BadRequestException('certNumber must be 7–10 digits');
+    }
+
+    const lookup = await this.psaPublicApi.getByCertNumber(certNumber, {
+      bypassCache: true,
+    });
+    if (lookup.status !== 'success' || !lookup.raw) {
+      let reason = `PSA lookup failed for cert ${certNumber}`;
+      if (lookup.status === 'error') reason = lookup.message;
+      else if (lookup.status === 'disabled') {
+        reason = 'PSA Public API is unavailable';
+      } else if (lookup.status === 'skipped') {
+        reason = `PSA lookup skipped: ${lookup.reason}`;
+      }
+      throw new BadRequestException(reason);
+    }
+
+    const psaCert = (lookup.raw as { PSACert?: PsaCertRecord }).PSACert;
+    if (!psaCert || typeof psaCert !== 'object') {
+      throw new BadRequestException(
+        `PSA cert ${certNumber} not found or response missing PSACert`,
+      );
+    }
+
+    let imageUrl =
+      extractPsaCertImageUrlsFromApiBody(lookup.raw, certNumber).front ?? null;
+    if (!imageUrl) {
+      const imgs = await this.psaPublicApi.getImagesByCertNumber(certNumber);
+      if (imgs.status === 'success') {
+        imageUrl =
+          extractPsaCertImagesFromGetImagesBody(imgs.raw).front ??
+          extractPsaCertImagesFromGetImagesBody(imgs.raw).back ??
+          null;
+      }
+    }
+
+    const { metadata } = buildBulkMintMetadataFromPsaCert({
+      certNumber,
+      psaCert,
+      imageUrl: imageUrl ?? '',
+    });
+    // Cardhedger catalog image (+ cardId) before insert so cover resolve can S3-ingest.
+    // PSA slab URLs stay in mint meta but are never used as collection covers.
+    const meta = await this.cover.attachCardhedgerFromPsaCert(
+      metadata as unknown as Record<string, unknown>,
+      certNumber,
+    );
+
+    const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
+      step: 'createCatalogCollectionFromPsaCert',
+      catalogSource: 'admin_psa_cert',
+      linkRwaToken: false,
+      chainId,
+    });
+    if (!result) {
+      throw new BadRequestException(
+        'Could not derive a marketplace collection from this PSA cert (graded identity incomplete)',
+      );
+    }
+
+    // Guarantee components.cardhedgerCardId before the admin UI refreshes.
+    await this.ensureCatalogCardhedgerCardId(
+      result.collectionKey,
+      meta,
+      certNumber,
+      chainId,
+    );
+    // Snapshot cold_start may have raced before id was filled — refresh again.
+    this.enqueueMarketSnapshotRefresh(result.collectionKey);
+
+    const row = await this.findOne(result.collectionKey, chainId);
+    return {
+      collectionKey: result.collectionKey,
+      created: result.created,
+      displayLabel: row?.displayLabel ?? result.displayLabel,
+      reviewStatus: (row?.reviewStatus ?? 'pending_review') as CollectionReviewStatus,
+      coverImageUrl: row?.coverImageUrl ?? result.coverImageUrl,
+      psaCertNumber: row?.psaCertNumber ?? certNumber,
+    };
+  }
+
+  /**
+   * Admin catalog create: ensure `components.cardhedgerCardId` is stored (and
+   * identity cache seeded) so review UI does not show "Missing cardhedgerCardId".
+   */
+  private async ensureCatalogCardhedgerCardId(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+    certNumber: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.findOne(key, chainId);
+    if (!row) return;
+
+    const existing = String(row.components?.cardhedgerCardId ?? '').trim();
+    if (existing) {
+      await this.identity.writeFromCertLookup(key, existing, null);
+      return;
+    }
+
+    let workingMeta = meta;
+    let ch = cardhedgerFromRwaMetadata(workingMeta);
+    if (!ch.cardId) {
+      workingMeta = await this.cover.attachCardhedgerFromPsaCert(
+        workingMeta,
+        certNumber,
+      );
+      ch = cardhedgerFromRwaMetadata(workingMeta);
+    }
+    if (!ch.cardId) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'catalog_create_cardhedger_id_missing',
+          collectionKey: key,
+          certNumber,
+        }),
+      );
+      return;
+    }
+
+    await this.identity.writeFromCertLookup(key, ch.cardId, ch.searchQuery);
+  }
+
+  /**
+   * Shared insert path for ask-time ensure and admin catalog create.
+   * Returns null when graded bucket components cannot be extracted.
+   */
+  private async ensureCollectionBucketFromGradedMeta(
+    meta: Record<string, unknown>,
+    opts: {
+      step: string;
+      tokenId?: string;
+      tokenUri?: string;
+      chainId?: SupportedChainId;
+      linkRwaToken: boolean;
+      catalogSource?: string;
+    },
+  ): Promise<{
+    collectionKey: string;
+    created: boolean;
+    displayLabel: string;
+    coverImageUrl: string | null;
+  } | null> {
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) {
       this.logger.warn(
         JSON.stringify({
           msg: 'collection_key_pipeline',
-          step: 'ensureCollectionForListing',
+          step: opts.step,
           outcome: 'extract_bucket_failed',
-          tokenId: String(tokenId),
-          tokenUriSample:
-            typeof uri === 'string'
-              ? uri.slice(0, 120)
-              : String(uri).slice(0, 120),
+          tokenId: opts.tokenId ?? null,
+          tokenUriSample: opts.tokenUri?.slice(0, 120) ?? null,
           diagnosis: {
             code: extracted.code,
             gradedSource: extracted.gradedSource,
@@ -135,9 +388,9 @@ export class CollectionService {
       this.logger.log(
         JSON.stringify({
           msg: 'collection_key_pipeline',
-          step: 'ensureCollectionForListing',
+          step: opts.step,
           outcome: 'bucket_key_computed',
-          tokenId: String(tokenId),
+          tokenId: opts.tokenId ?? null,
           collectionKey,
           gradedSource: extracted.gradedSource,
           keyFormatNote:
@@ -145,41 +398,69 @@ export class CollectionService {
         }),
       );
     }
-    const ch = cardhedgerFromRwaMetadata(meta);
-    const coverImageUrl = await this.cover.resolveBestCoverUrl(meta, ch.psaSpecId);
+    const psaCert = psaCertNumberFromGradedMeta(meta);
+    // Ask-time mint meta often has cardId but strips catalog imageUrl (slab is
+    // the NFT image). Re-attach Cardhedger art from cert + Variety before cover
+    // ingest so Markets never falls through to rwa-slabs / PSA cert photos.
+    let coverMeta = meta;
+    if (psaCert) {
+      coverMeta = await this.cover.attachCardhedgerFromPsaCert(meta, psaCert);
+    }
+    const ch = cardhedgerFromRwaMetadata(coverMeta);
+    const coverImageUrl = await this.cover.resolveCoverUrlForNewCollection(
+      collectionKey,
+      coverMeta,
+    );
 
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
-    const listingTitle = extractListingDisplayTitleFromMeta(meta);
+    if (opts.catalogSource) {
+      compRecord.catalogSource = opts.catalogSource;
+    }
+    const listingTitle = extractListingDisplayTitleFromMeta(coverMeta);
     if (listingTitle) {
       compRecord.listingDisplayTitle = listingTitle;
     }
+    // Persist Cardhedger identity on insert so admin review / snapshots are not
+    // "Missing cardhedgerCardId" while a fire-and-forget seed races the UI.
     if (ch.cardId) {
       compRecord.cardhedgerCardId = ch.cardId;
-      if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
+      if (opts.catalogSource === 'admin_psa_cert') {
+        compRecord.cardhedgerCardIdSource = CARDHEDGER_CARD_ID_SOURCE_PSA_CERT;
+      }
+    }
+    if (ch.searchQuery) {
+      compRecord.cardhedgerSearchQuery = ch.searchQuery;
     }
     if (ch.psaSpecId) {
       compRecord.psaSpecId = ch.psaSpecId;
     }
 
-    const trendingSlab = pickTrendingSlabImageRef(meta);
+    const trendingSlab = pickTrendingSlabImageRef(coverMeta);
     if (trendingSlab) {
       compRecord.trendingSlabImageUrl = trendingSlab;
     }
-    const psaCert = psaCertNumberFromGradedMeta(meta);
 
     const gradedSrc =
-      (meta.properties as Record<string, unknown> | undefined)?.graded ??
-      meta.graded;
+      (coverMeta.properties as Record<string, unknown> | undefined)?.graded ??
+      coverMeta.graded;
     if (gradedSrc && typeof gradedSrc === 'object') {
       const g = gradedSrc as Record<string, unknown>;
       const psa = g.psa as Record<string, unknown> | undefined;
       const card = g.card as Record<string, unknown> | undefined;
       if (psa && typeof psa === 'object') {
         const p = psa as Record<string, unknown>;
-        const subject = String(p.subject ?? p.Subject ?? '').trim();
-        const brand = String(p.brand ?? p.Brand ?? '').trim();
+        const subject = String(
+          p.subject ??
+            p.Subject ??
+            p.cardNameHint ??
+            card?.name ??
+            '',
+        ).trim();
+        const brand = String(
+          p.brand ?? p.Brand ?? p.setHint ?? card?.set ?? '',
+        ).trim();
         const category = String(p.category ?? p.Category ?? '').trim();
         const pvar = String(p.variety ?? p.Variety ?? '').trim();
         const pnum = String(
@@ -221,9 +502,33 @@ export class CollectionService {
 
     const parallelKey = marketParallelKeyFromPsaVariety(
       String(compRecord.psaVariety ?? ''),
+      String(compRecord.psaBrand ?? compRecord.cardSet ?? ''),
     );
     compRecord.marketParallelKey = parallelKey;
 
+    // Prefer re-normalize from PSA/Cardhedger raw fields so catalog.market /
+    // variety / Cardhedger set can fill language even when mint stored a
+    // partial `graded.normalized.pokemon` without it.
+    const extractedPokemon = extractPokemonNormalizedFromMeta(coverMeta);
+    const gradedPokemon =
+      gradedSrc && typeof gradedSrc === 'object'
+        ? normalizePokemonMetadataFromGraded(
+            gradedSrc as Record<string, unknown>,
+          )
+        : null;
+    applyPokemonNormalizedToComponents(compRecord, extractedPokemon);
+    applyPokemonNormalizedToComponents(compRecord, gradedPokemon);
+    applyPrintLanguageToComponents(
+      compRecord,
+      gradedSrc && typeof gradedSrc === 'object'
+        ? printLanguageHintsFromGraded(gradedSrc as Record<string, unknown>)
+        : printLanguageHintsFromComponents(compRecord),
+    );
+
+    const tokenContract = this.rwaAddressForChain(opts.chainId);
+    const reviewStatusOnInsert: CollectionReviewStatus = opts.linkRwaToken
+      ? 'active'
+      : 'pending_review';
     const insertResult = await this.collectionRepo
       .createQueryBuilder()
       .insert()
@@ -239,48 +544,149 @@ export class CollectionService {
         psaCertNumber: psaCert ?? null,
         marketParallelKey: parallelKey,
         bucketKeyVersion: BUCKET_KEY_VERSION,
+        reviewStatus: reviewStatusOnInsert,
+        tokenContract,
       })
       .orIgnore()
       .execute();
 
     const inserted = (insertResult.identifiers?.length ?? 0) > 0;
     if (!inserted) {
-      await this.cover.persistCoverFromMetaIfMissing(collectionKey, meta);
       await this.components.mergePsaPopulationFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeCardhedgerCardIdFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeListingDisplayTitleFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
       await this.components.mergeTrendingSlabMetaFromMetaIfMissing(
         collectionKey,
         meta,
+        opts.chainId,
       );
+      await this.components.mergePsaSpecIdFromCertIfMissing(
+        collectionKey,
+        psaCert,
+        meta,
+        opts.chainId,
+      );
+      await this.components.mergeNormalizedPokemonFromMetaIfMissing(
+        collectionKey,
+        meta,
+        opts.chainId,
+      );
+    } else if (this.identity.isEnabled()) {
+      // Await so cache + DB are warm before snapshot cold_start / admin refresh.
+      if (opts.catalogSource === 'admin_psa_cert' && ch.cardId) {
+        await this.identity.writeFromCertLookup(
+          collectionKey,
+          ch.cardId,
+          ch.searchQuery,
+        );
+      } else {
+        await this.identity.seedFromMintMetadataOnInsert(
+          collectionKey,
+          meta,
+          opts.chainId,
+        );
+      }
     }
 
-    void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
-      tokenUri: uri,
-      collectionKey,
+    // Fill-if-empty even when orIgnore reports a false insert (Postgres
+    // identifiers can be non-empty on conflict). Never replaces an existing cover.
+    await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, coverMeta, {
+      chainId: opts.chainId,
     });
-    if (psaCert) {
-      this.psaCertSnapshots.scheduleRefreshIfNeeded(psaCert);
+
+    await this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
+      allowUpstream: true,
+      chainId: opts.chainId,
+    });
+
+    if (opts.linkRwaToken && opts.tokenId) {
+      await this.rwaTokenRegistry.upsertFromMetadata(opts.tokenId, meta, {
+        tokenUri: opts.tokenUri,
+        collectionKey,
+        chainId: opts.chainId,
+      });
+      await this.syncTokenActiveAskCollectionKey(
+        String(opts.tokenId),
+        collectionKey,
+        opts.chainId,
+      );
+      await this.activateCollectionOnListing(collectionKey, opts.chainId);
     }
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
-    return collectionKey;
+    return {
+      collectionKey,
+      created: inserted,
+      displayLabel,
+      coverImageUrl,
+    };
+  }
+
+  /** Ask listing makes the bucket public on Markets; canceling the ask does not remove it. */
+  private async activateCollectionOnListing(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const k = collectionKey.trim().toLowerCase();
+    if (!k) return;
+    const tokenContract = this.rwaAddressForChain(chainId);
+    await this.collectionRepo
+      .createQueryBuilder()
+      .update(MarketplaceCollection)
+      .set({ reviewStatus: 'active' })
+      .where('collection_key = :k', { k })
+      .andWhere('token_contract = :tc', { tc: tokenContract })
+      .andWhere('review_status = :pending', { pending: 'pending_review' })
+      .execute();
+  }
+
+  /** Keep this token's live ask on the same bucket as the mint metadata. */
+  private async syncTokenActiveAskCollectionKey(
+    tokenId: string,
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
+    const where: {
+      tokenId: string;
+      side: OrderSide;
+      status: OrderStatus;
+      tokenContract?: string;
+    } = {
+      tokenId,
+      side: OrderSide.ASK,
+      status: OrderStatus.ACTIVE,
+    };
+    if (chainId != null) {
+      where.tokenContract = this.chainConfig.getRwaAddress(chainId);
+    }
+    await this.orderRepo.update(where, { collectionKey });
   }
 
   async resolveCollectionKeyFromTokenMetadata(
     tokenId: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const uri = await this.rwaTokenRegistry.resolveMetadataUriForToken(
+      Number(tokenId),
+      resolved,
+    );
+    if (!uri) {
+      throw new Error('Unsupported tokenURI for IPFS metadata fetch');
+    }
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
     if (!extracted.ok) return null;
@@ -306,27 +712,90 @@ export class CollectionService {
     return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
   }
 
+  /**
+   * Resolve the lowercase RWA address for the given chain.
+   * Falls back to the default chain when chainId is omitted.
+   * Throws BadRequestException if the contract is not configured — every
+   * catalog insert must be stamped with a real on-chain address.
+   */
+  private rwaAddressForChain(chainId?: SupportedChainId): string {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    try {
+      return this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      throw new BadRequestException(
+        `No RWA contract address configured for chain ${resolved} — cannot create a per-chain catalog row`,
+      );
+    }
+  }
+
+  /**
+   * Every catalog row is now stamped with a token_contract.
+   * Filter by exact contract match (composite PK column).
+   */
+  private chainScopedCollectionSql(rwaContract: string): string {
+    return `LOWER(c.token_contract) = :rwaContract`;
+  }
+
   async listSummariesPaged(input: {
     limit?: number;
     cursor?: string | null;
+    chainId?: SupportedChainId;
+    /** Public callers must pass `active`. Admin may pass pending_review / rejected / all. */
+    reviewStatus?: CollectionReviewStatusFilter;
+    /**
+     * Free-text search (header / discovery). When set, cursor is ignored and
+     * results are capped. Digit-only queries under 7 chars match card #, not
+     * cert substrings (PSA certs are 7–10 digits).
+     */
+    q?: string | null;
   }): Promise<{
     items: CollectionSummary[];
     nextCursor: string | null;
   }> {
+    const qRaw = (input.q ?? '').trim().slice(0, 80);
+    if (qRaw.length > 0) {
+      return this.searchSummaries({
+        q: qRaw,
+        limit: input.limit,
+        chainId: input.chainId,
+        reviewStatus: input.reviewStatus,
+      });
+    }
+
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 60);
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
     const qb = this.collectionRepo.createQueryBuilder('c');
 
     const cur = input.cursor?.trim();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const reviewFilter = input.reviewStatus ?? 'active';
+    const reviewParams =
+      reviewFilter === 'all'
+        ? {}
+        : { reviewStatus: reviewFilter };
+    const reviewSql =
+      reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+
     if (cur) {
       try {
         const { ca, ck } = this.decodeCollectionCursor(cur);
         qb.where(
-          '(c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))',
-          { ca, ck },
+          `${chainFilter} AND ${reviewSql} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
+          { rwaContract, ca, ck, ...reviewParams },
         );
       } catch {
-        /* invalid cursor — ignore */
+        qb.where(`${chainFilter} AND ${reviewSql}`, {
+          rwaContract,
+          ...reviewParams,
+        });
       }
+    } else {
+      qb.where(`${chainFilter} AND ${reviewSql}`, {
+        rwaContract,
+        ...reviewParams,
+      });
     }
 
     qb.orderBy('c.created_at', 'DESC')
@@ -349,12 +818,824 @@ export class CollectionService {
     }
 
     const keys = page.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+
+    const items: CollectionSummary[] = page.map((c) =>
+      this.toCollectionSummary(c, countMap),
+    );
+
+    return { items, nextCursor };
+  }
+
+  /** Active catalog keys + createdAt — home-feed ranking (no ask-count join). */
+  async listActiveCollectionKeysWithCreatedAt(
+    chainId?: SupportedChainId,
+  ): Promise<Array<{ collectionKey: string; createdAt: Date }>> {
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select('c.collection_key', 'collectionKey')
+      .addSelect('c.created_at', 'createdAt')
+      .where(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .andWhere('c.review_status = :reviewStatus', { reviewStatus: 'active' })
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .limit(2500)
+      .getRawMany<{ collectionKey: string; createdAt: Date }>();
+    return rows.map((r) => ({
+      collectionKey: String(r.collectionKey).toLowerCase(),
+      createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt),
+    }));
+  }
+
+  /**
+   * Catalog text search for the header / discovery. Excludes psaBrand (Pokemon
+   * vs "poke"). Ranks by name/set relevance, then listings, then recency.
+   * Short numeric queries do not substring-match PSA cert numbers.
+   */
+  private async searchSummaries(input: {
+    q: string;
+    limit?: number;
+    chainId?: SupportedChainId;
+    reviewStatus?: CollectionReviewStatusFilter;
+  }): Promise<{ items: CollectionSummary[]; nextCursor: string | null }> {
+    const limit = Math.min(Math.max(input.limit ?? 30, 1), 40);
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const reviewFilter = input.reviewStatus ?? 'active';
+    const reviewParams =
+      reviewFilter === 'all' ? {} : { reviewStatus: reviewFilter };
+    const reviewSql =
+      reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+
+    const search = CollectionService.buildCollectionSearchSql(input.q);
+    const fetchCap = Math.min(80, Math.max(limit * 2, limit));
+
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where(`${chainFilter} AND ${reviewSql} AND ${search.sql}`, {
+        rwaContract,
+        ...search.params,
+        ...reviewParams,
+      })
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(fetchCap)
+      .getMany();
+
+    if (rows.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const keys = rows.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const q = input.q;
+    const items = rows
+      .map((c) => this.toCollectionSummary(c, countMap))
+      .sort((a, b) => {
+        const sa = CollectionService.scoreCollectionSearchHit(q, a);
+        const sb = CollectionService.scoreCollectionSearchHit(q, b);
+        if (sa !== sb) return sb - sa;
+        if (b.activeListingCount !== a.activeListingCount) {
+          return b.activeListingCount - a.activeListingCount;
+        }
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      })
+      .slice(0, limit);
+
+    return { items, nextCursor: null };
+  }
+
+  /**
+   * Unified header / search-page lookup: minted cards (cert or display name)
+   * plus catalog collections (name / set / card #).
+   */
+  async searchCatalog(input: {
+    q: string;
+    cardLimit?: number;
+    collectionLimit?: number;
+    chainId?: SupportedChainId;
+  }): Promise<{ cards: SearchCardHit[]; collections: CollectionSummary[] }> {
+    const q = input.q.trim().slice(0, 80);
+    if (!q) return { cards: [], collections: [] };
+    const cardLimit = Math.min(Math.max(input.cardLimit ?? 12, 0), 24);
+    const collectionLimit = Math.min(Math.max(input.collectionLimit ?? 40, 0), 40);
+    const [collections, cards] = await Promise.all([
+      collectionLimit > 0
+        ? this.searchSummaries({
+            q,
+            limit: collectionLimit,
+            chainId: input.chainId,
+            reviewStatus: 'active',
+          })
+        : Promise.resolve({ items: [] as CollectionSummary[], nextCursor: null }),
+      cardLimit > 0
+        ? this.searchTokenHits({ q, limit: cardLimit, chainId: input.chainId })
+        : Promise.resolve([] as SearchCardHit[]),
+    ]);
+    return { cards, collections: collections.items };
+  }
+
+  static buildTokenSearchSql(q: string): {
+    sql: string;
+    params: Record<string, string>;
+  } {
+    const escaped = CollectionService.escapeIlike(q);
+    const digitOnly = /^\d+$/.test(q);
+    if (digitOnly && q.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      return {
+        sql: `(COALESCE(t.certNumber, '') ILIKE :certPat ESCAPE '\\' OR t.tokenId = :tid)`,
+        params: { certPat: `${escaped}%`, tid: q },
+      };
+    }
+    if (digitOnly) {
+      return {
+        sql: `(
+          t.tokenId = :tid
+          OR COALESCE(t.certNumber, '') = :tid
+          OR COALESCE(t.displayName, '') ILIKE :hashPat ESCAPE '\\'
+        )`,
+        params: { tid: q, hashPat: `%#${escaped}%` },
+      };
+    }
+    return {
+      sql: `COALESCE(t.displayName, '') ILIKE :pat ESCAPE '\\'`,
+      params: { pat: CollectionService.buildTextIlikePattern(q) },
+    };
+  }
+
+  private static gradeLabelFromComponents(
+    comp: Record<string, unknown> | null | undefined,
+  ): string | null {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const company = str(comp?.gradingCompanyDisplay) || str(comp?.gradingCompany);
+    const score = str(comp?.gradeScore);
+    if (company && score) return `${company} ${score}`;
+    const label = str(comp?.psaGradeLabel);
+    if (label) return label;
+    if (score) return `PSA ${score}`;
+    return null;
+  }
+
+  static searchComponentsFromGradedMeta(
+    meta: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
+    if (!graded || typeof graded !== 'object') return {};
+    const psa =
+      graded.psa && typeof graded.psa === 'object'
+        ? (graded.psa as Record<string, unknown>)
+        : {};
+    const card =
+      graded.card && typeof graded.card === 'object'
+        ? (graded.card as Record<string, unknown>)
+        : {};
+    const gradeObj =
+      graded.grade && typeof graded.grade === 'object'
+        ? (graded.grade as Record<string, unknown>)
+        : {};
+    const str = (v: unknown) => {
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+      return '';
+    };
+    const name =
+      str(card.name) ||
+      str(psa.cardNameHint) ||
+      str(psa.subject) ||
+      str(psa.Subject);
+    const set =
+      str(card.set) || str(psa.setHint) || str(psa.brand) || str(psa.Brand);
+    const num = str(card.number) || str(psa.cardNumberHint);
+    const company = str(graded.gradingCompany) || (name || set ? 'PSA' : '');
+    const score =
+      str(graded.gradeScore) ||
+      str(psa.gradeScore) ||
+      str(gradeObj.score);
+    const out: Record<string, unknown> = {};
+    if (name) {
+      out.cardName = name;
+      out.cardNameDisplay = name;
+      out.psaSubject = name;
+    }
+    if (set) {
+      out.cardSet = set;
+      out.cardSetDisplay = set;
+      out.psaBrand = set;
+    }
+    if (num) out.cardNumber = num;
+    if (company) {
+      out.gradingCompany = company;
+      out.gradingCompanyDisplay = company;
+    }
+    if (score) out.gradeScore = score;
+    const label = str(graded.gradeLabel) || str(psa.gradeLabel);
+    if (label) out.psaGradeLabel = label;
+    const year = str(psa.year) || str(psa.Year);
+    if (year) out.year = year;
+    const variety = str(card.variant) || str(psa.variety) || str(psa.Variety);
+    if (variety) {
+      out.variant = variety;
+      out.psaVariety = variety;
+    }
+    const listing = extractListingDisplayTitleFromMeta(meta);
+    if (listing) out.listingDisplayTitle = listing;
+    const extractedPokemon = extractPokemonNormalizedFromMeta(meta);
+    const gradedPokemon = graded
+      ? normalizePokemonMetadataFromGraded(graded as Record<string, unknown>)
+      : null;
+    applyPokemonNormalizedToComponents(out, extractedPokemon);
+    applyPokemonNormalizedToComponents(out, gradedPokemon);
+    applyPrintLanguageToComponents(
+      out,
+      graded
+        ? printLanguageHintsFromGraded(graded as Record<string, unknown>)
+        : printLanguageHintsFromComponents(out),
+    );
+    return out;
+  }
+
+  private static headlineComponentsReady(
+    comp: Record<string, unknown> | null | undefined,
+  ): boolean {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const name =
+      str(comp?.cardNameDisplay) ||
+      str(comp?.cardName) ||
+      str(comp?.psaSubject);
+    const grade = CollectionService.gradeLabelFromComponents(comp);
+    return Boolean(name && grade);
+  }
+
+  private static setLineFromComponents(
+    comp: Record<string, unknown> | null | undefined,
+  ): string | null {
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    return (
+      str(comp?.cardSetDisplay) ||
+      str(comp?.cardSet) ||
+      str(comp?.psaBrand) ||
+      null
+    );
+  }
+
+  private async searchTokenHits(input: {
+    q: string;
+    limit: number;
+    chainId?: SupportedChainId;
+  }): Promise<SearchCardHit[]> {
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const search = CollectionService.buildTokenSearchSql(input.q);
+    const tokens = await this.rwaTokenRepo
+      .createQueryBuilder('t')
+      .where('LOWER(t.tokenContract) = :rwa', { rwa: rwaContract })
+      .andWhere('t.burnedAt IS NULL')
+      .andWhere(search.sql, search.params)
+      .orderBy('t.createdAt', 'DESC')
+      .take(input.limit)
+      .getMany();
+
+    if (tokens.length === 0) return [];
+
+    const tokenIds = tokens.map((t) => t.tokenId);
+    const colKeys = [
+      ...new Set(
+        tokens
+          .map((t) => t.collectionKey?.trim().toLowerCase())
+          .filter((k): k is string => Boolean(k)),
+      ),
+    ];
+
+    const [asks, collections] = await Promise.all([
+      this.orderRepo.find({
+        where: {
+          tokenId: In(tokenIds),
+          side: OrderSide.ASK,
+          status: OrderStatus.ACTIVE,
+        },
+      }),
+      colKeys.length > 0
+        ? this.collectionRepo.find({
+            where: { collectionKey: In(colKeys) },
+          })
+        : Promise.resolve([] as MarketplaceCollection[]),
+    ]);
+
+    const askByToken = new Map<string, number>();
+    for (const o of asks) {
+      if (o.tokenContract.trim().toLowerCase() !== rwaContract) continue;
+      const usd = Number(o.considerationAmount) / 1_000_000;
+      if (!Number.isFinite(usd) || usd <= 0) continue;
+      const prev = askByToken.get(o.tokenId);
+      if (prev == null || usd < prev) askByToken.set(o.tokenId, usd);
+    }
+
+    const colByKey = new Map(
+      collections.map((c) => [c.collectionKey.toLowerCase(), c]),
+    );
+
+    const digitOnly = /^\d+$/.test(input.q);
+    const ranked = [...tokens].sort((a, b) => {
+      if (digitOnly) {
+        if (a.tokenId === input.q && b.tokenId !== input.q) return -1;
+        if (b.tokenId === input.q && a.tokenId !== input.q) return 1;
+        const qa = (a.certNumber ?? '').replace(/\D/g, '');
+        const qb = (b.certNumber ?? '').replace(/\D/g, '');
+        const exactA = qa === input.q ? 0 : 1;
+        const exactB = qb === input.q ? 0 : 1;
+        if (exactA !== exactB) return exactA - exactB;
+      }
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    const needMeta = ranked.filter((t) => {
+      const col = t.collectionKey
+        ? colByKey.get(t.collectionKey.toLowerCase())
+        : undefined;
+      return !CollectionService.headlineComponentsReady(
+        (col?.components ?? null) as Record<string, unknown> | null,
+      );
+    });
+    const hydrated = await this.hydrateSearchTokenMeta(needMeta);
+
+    return ranked.map((t) => {
+      const col = t.collectionKey
+        ? colByKey.get(t.collectionKey.toLowerCase())
+        : undefined;
+      const colComp = (col?.components ?? {}) as Record<string, unknown>;
+      const extra = hydrated.get(t.tokenId);
+      const comp = CollectionService.headlineComponentsReady(colComp)
+        ? colComp
+        : { ...colComp, ...(extra?.components ?? {}) };
+      const name =
+        (typeof comp.cardNameDisplay === 'string' &&
+          comp.cardNameDisplay.trim()) ||
+        (typeof comp.cardName === 'string' && comp.cardName.trim()) ||
+        (typeof comp.psaSubject === 'string' && comp.psaSubject.trim()) ||
+        '';
+      const certPublic = maskPsaCertNumberForPublicApi(t.certNumber);
+      const title =
+        name ||
+        (t.displayName ?? '').trim() ||
+        (col?.displayLabel ?? '').trim() ||
+        (certPublic ? `Cert ${certPublic}` : `Token #${t.tokenId}`);
+      const imageUrl =
+        pickSearchTokenImageUrl(t.displayImageUrl, null) ??
+        pickSearchTokenImageUrl(extra?.imageUrl ?? null, null) ??
+        pickCollectionDisplayImageUrl(col?.coverImageUrl ?? null);
+      return {
+        tokenId: t.tokenId,
+        certNumber: certPublic,
+        collectionKey: t.collectionKey,
+        title,
+        setLine: CollectionService.setLineFromComponents(comp),
+        gradeLabel: CollectionService.gradeLabelFromComponents(comp),
+        vaultLabel: vaultLabelForCustody(
+          t.settlementPolicy === 'self_vault_hold'
+            ? 'self_vault_hold'
+            : 'standard',
+          null,
+        ),
+        listedUsd: askByToken.get(t.tokenId) ?? null,
+        imageUrl,
+        components:
+          Object.keys(comp).length > 0
+            ? enrichCollectionComponentsForApi(comp, col?.psaCertNumber ?? null)
+            : null,
+      };
+    });
+  }
+
+  private async hydrateSearchTokenMeta(
+    tokens: RwaToken[],
+  ): Promise<
+    Map<string, { components: Record<string, unknown>; imageUrl: string | null }>
+  > {
+    const out = new Map<
+      string,
+      { components: Record<string, unknown>; imageUrl: string | null }
+    >();
+    await Promise.all(
+      tokens.map(async (t) => {
+        const uri = t.tokenUri?.trim();
+        if (!uri) return;
+        try {
+          const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+          const extracted = extractOrDiagnoseBucketComponents(meta);
+          const fromExtract =
+            extracted.ok && extracted.components
+              ? ({
+                  ...(extracted.components as unknown as Record<
+                    string,
+                    unknown
+                  >),
+                } as Record<string, unknown>)
+              : {};
+          const fromPsa =
+            CollectionService.searchComponentsFromGradedMeta(meta);
+          const imageUrl = pickRwaAssetDisplayImageRef(meta)?.trim() || null;
+          out.set(t.tokenId, {
+            components: { ...fromPsa, ...fromExtract },
+            imageUrl,
+          });
+        } catch (err) {
+          this.logger.debug(
+            `search token metadata skip #${t.tokenId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }),
+    );
+    return out;
+  }
+
+  /**
+   * Similar collections for Card.html `#similar-items`:
+   * same card name OR same set name (active only), excluding the current key.
+   * When both facets exist, rows matching both are ranked above single-facet hits.
+   */
+  async findSimilarByNameAndSet(
+    collectionKey: string,
+    opts?: { limit?: number; chainId?: SupportedChainId },
+  ): Promise<{ items: CollectionSummary[] }> {
+    const key = decodeURIComponent(collectionKey).trim().toLowerCase();
+    const limit = Math.min(Math.max(opts?.limit ?? 12, 1), 24);
+    const empty = { items: [] as CollectionSummary[] };
+    if (!key) return empty;
+
+    const col = await this.findOne(key, opts?.chainId);
+    if (!col) return empty;
+
+    const components = (col.components ?? {}) as Record<string, unknown>;
+    const cardName = [
+      components.cardNameDisplay,
+      components.cardName,
+      components.psaSubject,
+    ]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .find((v) => v.length > 0);
+    const cardSet = [
+      components.cardSetDisplay,
+      components.cardSet,
+      components.psaBrand,
+    ]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .find((v) => v.length > 0);
+
+    if (!cardName && !cardSet) return empty;
+
+    const chainId = opts?.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const nameSql = `COALESCE(NULLIF(c.components->>'cardNameDisplay', ''), NULLIF(c.components->>'cardName', ''), NULLIF(c.components->>'psaSubject', ''), '')`;
+    const setSql = `COALESCE(NULLIF(c.components->>'cardSetDisplay', ''), NULLIF(c.components->>'cardSet', ''), NULLIF(c.components->>'psaBrand', ''), '')`;
+
+    const qb = this.collectionRepo
+      .createQueryBuilder('c')
+      .where(`${chainFilter} AND c.review_status = :reviewStatus`, {
+        rwaContract,
+        reviewStatus: 'active',
+      })
+      .andWhere('c.collection_key != :key', { key });
+
+    if (cardName && cardSet) {
+      qb.andWhere(
+        `(LOWER(TRIM(${nameSql})) = LOWER(TRIM(:cardName)) OR LOWER(TRIM(${setSql})) = LOWER(TRIM(:cardSet)))`,
+        { cardName, cardSet },
+      );
+    } else if (cardName) {
+      qb.andWhere(`LOWER(TRIM(${nameSql})) = LOWER(TRIM(:cardName))`, {
+        cardName,
+      });
+    } else {
+      qb.andWhere(`LOWER(TRIM(${setSql})) = LOWER(TRIM(:cardSet))`, {
+        cardSet,
+      });
+    }
+
+    const rows = await qb
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(limit * 3)
+      .getMany();
+
+    if (rows.length === 0) return empty;
+
+    const nameNorm = cardName?.toLowerCase() ?? '';
+    const setNorm = cardSet?.toLowerCase() ?? '';
+    const facetMatchScore = (compsRaw: Record<string, unknown> | null): number => {
+      const comps = compsRaw ?? {};
+      const n = [
+        comps.cardNameDisplay,
+        comps.cardName,
+        comps.psaSubject,
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''))
+        .find((v) => v.length > 0);
+      const s = [
+        comps.cardSetDisplay,
+        comps.cardSet,
+        comps.psaBrand,
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''))
+        .find((v) => v.length > 0);
+      const nameHit = Boolean(nameNorm && n === nameNorm);
+      const setHit = Boolean(setNorm && s === setNorm);
+      if (nameHit && setHit) return 2;
+      if (nameHit || setHit) return 1;
+      return 0;
+    };
+
+    const keys = rows.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const ranked = rows.map((c) => ({
+      summary: this.toCollectionSummary(c, countMap),
+      score: facetMatchScore((c.components ?? {}) as Record<string, unknown>),
+    }));
+    ranked.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.summary.activeListingCount !== a.summary.activeListingCount) {
+        return b.summary.activeListingCount - a.summary.activeListingCount;
+      }
+      return b.summary.createdAt.getTime() - a.summary.createdAt.getTime();
+    });
+
+    return { items: ranked.slice(0, limit).map((r) => r.summary) };
+  }
+
+  /** Escape `%`, `_`, and `\` for PostgreSQL ILIKE … ESCAPE '\\'. */
+  static escapeIlike(raw: string): string {
+    return raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  }
+
+  /**
+   * User-facing text search pattern. Splits on whitespace / `/` / `_` and joins
+   * with `%` so `pikachu grey` matches PSA subjects like `PIKACHU/GREY FELT HAT`
+   * (UI shows slash as space via `toCardDisplayCase`).
+   */
+  static buildTextIlikePattern(q: string): string {
+    const tokens = q
+      .trim()
+      .split(/[\s/_]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((t) => CollectionService.escapeIlike(t));
+    if (tokens.length === 0) return '%%';
+    return `%${tokens.join('%')}%`;
+  }
+
+  /** Normalize stored titles for score matching (slash/underscore → space). */
+  static normalizeSearchHaystack(raw: string): string {
+    return raw
+      .trim()
+      .toLowerCase()
+      .replace(/[/_]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * PSA certs are 7–10 digits. `%123%` on `psa_cert_number` matches most slabs.
+   * Digit-only queries under that length match card number / `#123` in titles.
+   */
+  static readonly CERT_SEARCH_MIN_DIGITS = 7;
+
+  static buildCollectionSearchSql(q: string): {
+    sql: string;
+    params: Record<string, string>;
+  } {
+    const digitOnly = /^\d+$/.test(q);
+    const escaped = CollectionService.escapeIlike(q);
+    const pat = digitOnly
+      ? `%${escaped}%`
+      : CollectionService.buildTextIlikePattern(q);
+    const nameSql = `
+      c.display_label ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.query_used, '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardName', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardNameDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSet', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardSetDisplay', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaSubject', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'variant', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'psaVariety', '') ILIKE :pat ESCAPE '\\'
+      OR COALESCE(c.components->>'cardNumber', '') ILIKE :pat ESCAPE '\\'
+    `;
+
+    if (digitOnly && q.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      return {
+        sql: `(
+          COALESCE(c.psa_cert_number, '') ILIKE :certPat ESCAPE '\\'
+          OR ${nameSql}
+        )`,
+        params: { pat, certPat: `${escaped}%` },
+      };
+    }
+
+    if (digitOnly) {
+      return {
+        sql: `(
+          COALESCE(c.components->>'cardNumber', '') ILIKE :cardNumPat ESCAPE '\\'
+          OR c.display_label ILIKE :hashPat ESCAPE '\\'
+          OR COALESCE(c.query_used, '') ILIKE :hashPat ESCAPE '\\'
+          OR COALESCE(c.components->>'listingDisplayTitle', '') ILIKE :hashPat ESCAPE '\\'
+        )`,
+        params: {
+          cardNumPat: `${escaped}%`,
+          hashPat: `%#${escaped}%`,
+        },
+      };
+    }
+
+    const matchKey = q.length >= 4;
+    return {
+      sql: `(
+        ${nameSql}
+        ${matchKey ? "OR c.collection_key ILIKE :pat ESCAPE '\\'" : ''}
+      )`,
+      params: { pat },
+    };
+  }
+
+  static scoreCollectionSearchHit(
+    q: string,
+    hit: Pick<
+      CollectionSummary,
+      'displayLabel' | 'queryUsed' | 'components'
+    >,
+  ): number {
+    const nqRaw = q.trim().toLowerCase();
+    if (!nqRaw) return 0;
+    const nq = CollectionService.normalizeSearchHaystack(nqRaw);
+    const nqCompact = nq.replace(/\s+/g, '');
+    const comp = hit.components ?? {};
+    const str = (v: unknown) =>
+      typeof v === 'string'
+        ? CollectionService.normalizeSearchHaystack(v)
+        : '';
+    const name = str(comp.cardNameDisplay) || str(comp.cardName);
+    const set = str(comp.cardSetDisplay) || str(comp.cardSet);
+    const variant = str(comp.variant) || str(comp.psaVariety);
+    const subject = str(comp.psaSubject);
+    const title = str(hit.displayLabel);
+    const listing = str(comp.listingDisplayTitle);
+    const used = str(hit.queryUsed);
+    const num = str(comp.cardNumber);
+    const cert = str(comp.psaCertNumber).replace(/\D/g, '');
+
+    const containsQuery = (hay: string): boolean => {
+      if (!hay) return false;
+      if (hay.includes(nq)) return true;
+      // Same token gaps as ILIKE `%a%b%` (slash / WITH / middot between words).
+      const tokens = nq.split(/\s+/).filter(Boolean);
+      if (tokens.length <= 1) return false;
+      let from = 0;
+      for (const t of tokens) {
+        const i = hay.indexOf(t, from);
+        if (i < 0) return false;
+        from = i + t.length;
+      }
+      return true;
+    };
+
+    if (/^\d+$/.test(nqRaw) && nqRaw.length >= CollectionService.CERT_SEARCH_MIN_DIGITS) {
+      if (cert === nqRaw) return 200;
+      if (cert.startsWith(nqRaw)) return 150;
+    }
+
+    if (name === nq || name.replace(/\s+/g, '') === nqCompact) return 100;
+    if (name.startsWith(nq)) return 80;
+    if (containsQuery(name)) return 60;
+    if (set === nq) return 50;
+    if (containsQuery(set)) return 40;
+    if (containsQuery(variant)) return 30;
+    if (containsQuery(subject)) return 20;
+    if (
+      containsQuery(title) ||
+      containsQuery(listing) ||
+      containsQuery(used) ||
+      containsQuery(num)
+    ) {
+      return 10;
+    }
+    return 0;
+  }
+
+  private toCollectionSummary(
+    c: MarketplaceCollection,
+    countMap: Map<string, number>,
+  ): CollectionSummary {
+    const components = enrichCollectionComponentsForApi(
+      c.components,
+      c.psaCertNumber,
+    );
+    const coverImageUrl = pickCollectionDisplayImageUrl(c.coverImageUrl);
+    const status = (c.reviewStatus ?? 'active') as CollectionReviewStatus;
+    return {
+      collectionKey: c.collectionKey,
+      displayLabel: c.displayLabel,
+      queryUsed: c.queryUsed,
+      components,
+      createdAt: c.createdAt,
+      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
+      coverImageUrl,
+      displayImageUrl: coverImageUrl,
+      reviewStatus: status,
+    };
+  }
+
+  async countByReviewStatus(
+    chainId?: SupportedChainId,
+  ): Promise<Record<CollectionReviewStatus, number>> {
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select('c.review_status', 'status')
+      .addSelect('COUNT(*)::int', 'cnt')
+      .where(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .groupBy('c.review_status')
+      .getRawMany<{ status: string; cnt: number }>();
+    const out: Record<CollectionReviewStatus, number> = {
+      pending_review: 0,
+      active: 0,
+      rejected: 0,
+    };
+    for (const r of rows) {
+      const s = r.status as CollectionReviewStatus;
+      if (s in out) out[s] = Number(r.cnt) || 0;
+    }
+    return out;
+  }
+
+  async setCollectionReviewStatusAdmin(
+    collectionKey: string,
+    reviewStatus: CollectionReviewStatus,
+    chainId?: SupportedChainId,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k, chainId);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+    const tokenContract = row.tokenContract.toLowerCase();
+    await this.collectionRepo
+      .createQueryBuilder()
+      .update(MarketplaceCollection)
+      .set({ reviewStatus })
+      .where('lower(collection_key) = :k', { k })
+      .andWhere('lower(token_contract) = :tc', { tc: tokenContract })
+      .execute();
+    const refreshed = await this.findOne(k, chainId);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  async getReviewStatus(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<CollectionReviewStatus | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      return null;
+    }
+    const row = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select(['c.collectionKey', 'c.reviewStatus', 'c.tokenContract'])
+      .where('lower(c.collection_key) = :k', {
+        k: collectionKey.toLowerCase(),
+      })
+      .andWhere('lower(c.token_contract) = :tc', { tc: tokenContract })
+      .getOne();
+    if (!row) return null;
+    return (row.reviewStatus ?? 'active') as CollectionReviewStatus;
+  }
+
+  private async activeAskCountsForKeys(
+    keys: string[],
+    rwaContract: string,
+  ): Promise<Map<string, number>> {
+    if (keys.length === 0) return new Map();
     const countRows = await this.orderRepo
       .createQueryBuilder('o')
       .select('o.collection_key', 'key')
       .addSelect('COUNT(o.id)::int', 'cnt')
       .where('o.collection_key IS NOT NULL')
       .andWhere('o.collection_key IN (:...keys)', { keys })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
       .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
       .andWhere('o.side = :side', { side: OrderSide.ASK })
       .groupBy('o.collection_key')
@@ -364,49 +1645,135 @@ export class CollectionService {
     for (const r of countRows) {
       countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
     }
-
-    const items: CollectionSummary[] = page.map((c) => ({
-      collectionKey: c.collectionKey,
-      displayLabel: c.displayLabel,
-      queryUsed: c.queryUsed,
-      components: enrichCollectionComponentsForApi(
-        c.components,
-        c.psaCertNumber,
-      ),
-      createdAt: c.createdAt,
-      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
-      coverImageUrl: c.coverImageUrl ?? null,
-    }));
-
-    return { items, nextCursor };
+    return countMap;
   }
 
-  async findOne(key: string): Promise<MarketplaceCollection | null> {
-    return this.collectionRepo.findOne({
-      where: { collectionKey: key.toLowerCase() },
-    });
+  /** Watchlist / batch UI — preserve caller key order; omit unknown keys. */
+  async listSummariesByKeys(
+    collectionKeys: string[],
+    chainId?: SupportedChainId,
+  ): Promise<CollectionSummary[]> {
+    const ordered = [
+      ...new Set(
+        collectionKeys
+          .map((k) => decodeURIComponent(k).trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ].slice(0, 200);
+    if (ordered.length === 0) return [];
+
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where('c.collection_key IN (:...ordered)', { ordered })
+      .andWhere(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .getMany();
+    if (rows.length === 0) return [];
+
+    const rowByKey = new Map(
+      rows.map((r) => [r.collectionKey.toLowerCase(), r] as const),
+    );
+
+    const countMap = await this.activeAskCountsForKeys(ordered, rwaContract);
+
+    const items: CollectionSummary[] = [];
+    for (const key of ordered) {
+      const c = rowByKey.get(key);
+      if (!c) continue;
+      items.push(this.toCollectionSummary(c, countMap));
+    }
+    return items;
+  }
+
+  /**
+   * Chain-scoped catalog row lookup. When chainId is omitted the default chain
+   * is used so existing callers keep compiling — prefer threading chainId when
+   * the request context is available.
+   */
+  async findOne(
+    key: string,
+    chainId?: SupportedChainId,
+  ): Promise<MarketplaceCollection | null> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    let tokenContract: string;
+    try {
+      tokenContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    } catch {
+      return null;
+    }
+    const row = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where('lower(c.collection_key) = :k', { k: key.toLowerCase() })
+      .andWhere('lower(c.token_contract) = :tc', { tc: tokenContract })
+      .getOne();
+    if (!row) return null;
+    // UX OPTIMIZATION ONLY (not a correctness requirement):
+    // Hydrates cardhedgerCardId from the identity cache when DB has null, reducing
+    // the propagation window visible to the collection detail API.
+    // The snapshot pipeline uses CollectionEnrichmentService.findOne which reads
+    // pure DB state and is correct regardless of this hydration.
+    return this.identity.hydrateCardhedgerCardId(row);
   }
 
   async ensureMintParallelVarietyFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
-    return this.components.ensureMintParallelVarietyFromListings(collectionKey);
+    return this.components.ensureMintParallelVarietyFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
   async ensurePsaTotalPopulationFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    return this.components.ensurePsaTotalPopulationFromListings(collectionKey);
+    return this.components.ensurePsaTotalPopulationFromListings(
+      collectionKey,
+      chainId,
+    );
+  }
+
+  async ensurePsaSpecPopulationFromApi(
+    collectionKey: string,
+    opts?: { allowUpstream?: boolean; chainId?: SupportedChainId },
+  ): Promise<void> {
+    return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
+  }
+
+  /** No-op — Spec pop is filled at collection create, never on detail read. */
+  async ensurePsaSpecPopulationOnReadIfMissing(
+    _collectionKey: string,
+  ): Promise<void> {
+    return;
+  }
+
+  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
+    return this.components.persistPsaMirrorFromCertToDb(collectionKey, {
+      allowUpstream: false,
+    });
   }
 
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<boolean> {
-    return this.components.ensureCardhedgerCardIdFromListings(collectionKey);
+    return this.components.ensureCardhedgerCardIdFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
-  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
-    return this.components.ensurePsaCertNumberFromListings(collectionKey);
+  async ensurePsaCertNumberFromListings(
+    collectionKey: string,
+    opts?: { schedulePsaRefresh?: boolean; chainId?: SupportedChainId },
+  ): Promise<void> {
+    return this.components.ensurePsaCertNumberFromListings(collectionKey, opts);
   }
 
   mergePsaSnapshotIntoComponents(
@@ -426,12 +1793,6 @@ export class CollectionService {
     );
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
-    col: MarketplaceCollection,
-  ): Promise<MarketplaceCollection> {
-    return this.components.mergePsaSnapshotIntoComponentsFromDb(col);
-  }
-
   async auditCardhedgerCardIdExact(
     collectionKey: string,
     options?: { clearOnMismatch?: boolean },
@@ -444,120 +1805,303 @@ export class CollectionService {
     return this.components.auditCardhedgerCardIdExact(collectionKey, options);
   }
 
-  async auditCollectionCardIdExact(
-    collectionKey: string,
-    options?: { clearOnMismatch?: boolean },
-  ): Promise<{
-    checked: boolean;
-    ok: boolean;
-    cleared: boolean;
-    failCodes: string[];
-  }> {
-    return this.components.auditCollectionCardIdExact(collectionKey, options);
-  }
-
   async ensureListingDisplayTitleFromListings(
     collectionKey: string,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    return this.components.ensureListingDisplayTitleFromListings(collectionKey);
+    return this.components.ensureListingDisplayTitleFromListings(
+      collectionKey,
+      chainId,
+    );
   }
 
-  async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  async ensureNormalizedPokemonLanguageIfMissing(
+    collectionKey: string,
+  ): Promise<void> {
+    return this.components.ensureNormalizedPokemonLanguageIfMissing(
+      collectionKey,
+    );
   }
 
-  async activeBidsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.BID,
-      },
-      order: { createdAt: 'DESC' },
-      take: this.collectionActiveOrdersCap(),
-    });
+  /** When match tx succeeded but fulfillMatchedPair missed, drop stale active rows. */
+  private async isSeaportOrderFullyFilled(
+    orderHash: string,
+    chainId: SupportedChainId,
+  ): Promise<boolean> {
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const seaport = new Contract(
+      SEAPORT_ADDRESS,
+      SEAPORT_ORDER_STATUS_ABI,
+      provider,
+    );
+    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
+    try {
+      const result = (await seaport.getOrderStatus(hash)) as [
+        boolean,
+        boolean,
+        bigint,
+        bigint,
+      ];
+      const isCancelled = Boolean(result[1]);
+      const filled = BigInt(result[2]);
+      const size = BigInt(result[3]);
+      return !isCancelled && size > 0n && filled >= size;
+    } catch {
+      return false;
+    }
   }
 
-  coverImageNeedsUpgrade(url: string | null | undefined): boolean {
-    return this.cover.coverImageNeedsUpgrade(url);
+  private async dropSeaportConsumedActiveOrders(
+    orders: Order[],
+    chainId: SupportedChainId,
+  ): Promise<Order[]> {
+    const kept: Order[] = [];
+    for (const o of orders) {
+      if (o.status !== OrderStatus.ACTIVE) {
+        kept.push(o);
+        continue;
+      }
+      const filled = await this.isSeaportOrderFullyFilled(
+        o.orderHash,
+        chainId,
+      );
+      if (filled) {
+        o.status = OrderStatus.FULFILLED;
+        await this.orderRepo.save(o);
+        continue;
+      }
+      kept.push(o);
+    }
+    return kept;
+  }
+
+  async activeListingsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .andWhere(
+        `(
+          NOT EXISTS (
+            SELECT 1 FROM rwa_tokens t
+            WHERE t.token_id = o.token_id
+              AND LOWER(t.token_contract) = LOWER(o.token_contract)
+              AND t.owner_wallet IS NOT NULL
+              AND btrim(t.owner_wallet) <> ''
+          )
+          OR EXISTS (
+            SELECT 1 FROM rwa_tokens t
+            WHERE t.token_id = o.token_id
+              AND LOWER(t.token_contract) = LOWER(o.token_contract)
+              AND LOWER(t.owner_wallet) = LOWER(o.offerer)
+          )
+        )`,
+      )
+      .orderBy('o.created_at', 'ASC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
+    return this.dropSeaportConsumedActiveOrders(rows, resolved);
+  }
+
+  async activeBidsForCollection(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwa = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :key', { key: collectionKey.toLowerCase() })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('LOWER(o.token_contract) = :rwa', { rwa })
+      .orderBy('o.created_at', 'DESC')
+      .take(this.collectionActiveOrdersCap())
+      .getMany();
+    return this.dropSeaportConsumedActiveOrders(rows, resolved);
   }
 
   async setCollectionCoverImageAdmin(
     collectionKey: string,
     coverImageUrl: string,
+    chainId?: SupportedChainId,
   ): Promise<MarketplaceCollection> {
-    return this.cover.setCollectionCoverImageAdmin(collectionKey, coverImageUrl);
+    return this.cover.setCollectionCoverImageAdmin(collectionKey, coverImageUrl, chainId);
+  }
+
+  async uploadCollectionCoverImageAdmin(
+    collectionKey: string,
+    file: Express.Multer.File,
+    chainId?: SupportedChainId,
+  ): Promise<MarketplaceCollection> {
+    return this.cover.uploadCollectionCoverImageAdmin(collectionKey, file, chainId);
   }
 
   async adminPreviewCoverFromToken(
     tokenId: string,
     collectionKey?: string,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    return this.cover.adminPreviewCoverFromToken(tokenId, collectionKey);
+    return this.cover.adminPreviewCoverFromToken(tokenId, collectionKey, chainId);
   }
 
-  async adminDeleteCollectionCompletely(collectionKey: string): Promise<{
+  async upgradeCollectionCoverFromToken(
+    collectionKey: string,
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
+    return this.cover.upgradeCoverFromToken(collectionKey, tokenId, chainId);
+  }
+
+  async adminDeleteCollectionCompletely(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{
     collectionKey: string;
     deletedSnapshots: number;
     deletedOrders: number;
-    deletedRwaTokens: number;
+    unlinkedRwaTokens: number;
     deletedCollection: boolean;
   }> {
     const k = collectionKey.toLowerCase();
-    const row = await this.findOne(k);
+    const row = await this.findOne(k, chainId);
     if (!row) {
       throw new Error('COLLECTION_NOT_FOUND');
     }
+    const tokenContract = row.tokenContract.toLowerCase();
+
+    // Count catalog rows for this key to decide whether to delete the snapshot.
+    // Snapshot PK is collection_key-only (shared pricing across chains).
+    const totalRows = await this.collectionRepo.count({
+      where: { collectionKey: k },
+    });
 
     const result = await this.collectionRepo.manager.transaction(async (em) => {
-      const snapRes = await em.delete(CollectionMarketSnapshot, {
+      // Delete snapshot only when this is the last chain row for this bucket.
+      let deletedSnapshots = 0;
+      if (totalRows <= 1) {
+        const snapRes = await em.delete(CollectionMarketSnapshot, {
+          collectionKey: k,
+        });
+        deletedSnapshots = snapRes.affected ?? 0;
+      }
+
+      // Chain-scoped: orders for this key + contract only.
+      const orderRes = await em.delete(Order, {
         collectionKey: k,
+        tokenContract,
       });
-      const orderRes = await em.delete(Order, { collectionKey: k });
-      const rwaRes = await em.delete(RwaToken, { collectionKey: k });
+
+      // Chain-scoped: unlink rwa_tokens that belong to this key + contract.
+      // Keep mint registry / owner index — deleting those rows hides live NFTs.
+      const rwaRes = await em
+        .createQueryBuilder()
+        .update(RwaToken)
+        .set({ collectionKey: null })
+        .where('LOWER(collection_key) = :k', { k })
+        .andWhere('LOWER(token_contract) = :tc', { tc: tokenContract })
+        .execute();
+
+      // Delete only this chain's catalog row.
       const colRes = await em.delete(MarketplaceCollection, {
         collectionKey: k,
+        tokenContract,
       });
       return {
-        deletedSnapshots: snapRes.affected ?? 0,
+        deletedSnapshots,
         deletedOrders: orderRes.affected ?? 0,
-        deletedRwaTokens: rwaRes.affected ?? 0,
+        unlinkedRwaTokens: rwaRes.affected ?? 0,
         deletedCollection: (colRes.affected ?? 0) > 0,
       };
     });
 
     this.merkleSet.invalidateForCollection(k);
-    this.cover.clearResolveInflight(k);
 
     this.logger.warn(
-      `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} rwa_tokens=${result.deletedRwaTokens}`,
+      `[Admin] deleted collection ${k} contract=${tokenContract}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
     );
 
     return { collectionKey: k, ...result };
   }
 
-  async resolveRepresentativeImageForCollection(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
-  ): Promise<string | null> {
-    return this.cover.resolveRepresentativeImageForCollection(
-      collectionKey,
-      preloaded,
-    );
-  }
-
   merkleEligibleTokenIds(
     collectionKey: string,
-    options?: { bypassCache?: boolean },
+    options?: { bypassCache?: boolean; chainId?: SupportedChainId },
   ): Promise<{ tokenIds: string[] }> {
     return this.merkleSet.merkleEligibleTokenIds(collectionKey, options);
   }
+
+  /**
+   * One or more minted token ids in this bucket so a card bid can be signed
+   * without an active ask. Registry first, then any historical order token ids.
+   * Does not full-scan the chain (that path is merkle-set only).
+   */
+  async sampleBidAnchorTokenIds(
+    collectionKey: string,
+    chainId?: SupportedChainId,
+  ): Promise<{ tokenIds: string[] }> {
+    const k = collectionKey.trim().toLowerCase();
+    if (!k) return { tokenIds: [] };
+
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const fromRegistry =
+      await this.rwaTokenRegistry.tokenIdsForCollectionKey(k, resolved);
+    if (fromRegistry.length > 0) {
+      return { tokenIds: fromRegistry.slice(0, 50) };
+    }
+
+    const rwaContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.collection_key = :k', { k })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .take(80)
+      .getMany();
+    const ids = [
+      ...new Set(
+        rows
+          .map((r) => String(r.tokenId ?? '').trim())
+          .filter((id) => id.length > 0 && id !== '0'),
+      ),
+    ];
+    return { tokenIds: ids.slice(0, 50) };
+  }
+
+  /**
+   * Merge additional component fields for a newly bootstrapped mint.
+   * Only updates fields not already set — idempotent.
+   * Used by MintEventListenerService when identity service is disabled.
+   */
+  async mergeComponentsForMintBootstrap(
+    collectionKey: string,
+    patch: Record<string, string>,
+  ): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const col = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!col) return;
+    const comp = (col.components ?? {}) as Record<string, unknown>;
+    let dirty = false;
+    const next: Record<string, unknown> = { ...comp };
+    for (const [key, value] of Object.entries(patch)) {
+      if (!next[key] && value) {
+        next[key] = value;
+        dirty = true;
+      }
+    }
+    if (!dirty) return;
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    );
+  }
+
 }

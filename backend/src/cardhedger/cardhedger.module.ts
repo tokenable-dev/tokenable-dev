@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CardhedgerIndexesController } from './controllers/indexes.controller';
-import { CardhedgerIndexesService } from './indexes.service';
+import { CardhedgerCatalogController } from './controllers/cardhedger-catalog.controller';
+import { CardhedgerProxyController } from './controllers/cardhedger-proxy.controller';
 import { CardhedgerService } from './cardhedger.service';
 
+/** Live Cardhedger HTTP. Price webhook/delta is CardhedgerPriceInfraModule. */
 @Module({
-  controllers: [CardhedgerIndexesController],
-  providers: [CardhedgerService, CardhedgerIndexesService],
-  exports: [CardhedgerService, CardhedgerIndexesService],
+  controllers: [CardhedgerCatalogController, CardhedgerProxyController],
+  providers: [CardhedgerService],
+  exports: [CardhedgerService],
 })
 export class CardhedgerModule {}

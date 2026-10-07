@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -22,12 +23,12 @@ class RwaAttributeDto {
 }
 
 export class UploadRwaDto {
-  @ApiProperty({ example: 'My RWA' })
+  @ApiProperty({ example: SWAGGER_BODY_EXAMPLES.uploadRwa.name })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'Graded card RWA metadata' })
+  @ApiProperty({ example: SWAGGER_BODY_EXAMPLES.uploadRwa.description })
   @IsString()
   @IsNotEmpty()
   description: string;

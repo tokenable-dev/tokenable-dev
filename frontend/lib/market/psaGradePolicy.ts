@@ -1,6 +1,7 @@
 /**
  * Mirrors `backend/src/marketplace/utils/psa-grade-policy.util.ts`.
  */
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export type PsaGradePolicyClass =
   | "psa_10"
@@ -26,6 +27,27 @@ export function parseFiniteGradeScore(raw: unknown): number | null {
   return null;
 }
 
+function parseGradeScoreFromLabelText(text: string): number | null {
+  const t = text.trim();
+  if (!t) return null;
+  const m = t.match(
+    /\b(?:PSA\s*|GEM\s*MT\s*|MINT\s*|NM\s*-?\s*MT\s*)?(\d{1,2}(?:\.\d+)?)\b/i,
+  );
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function effectiveGradeScore(input: PsaGradePolicyInput): number | null {
+  const fromScore = parseFiniteGradeScore(input.gradeScore);
+  if (fromScore != null) return fromScore;
+  const text = [input.gradeLabel, input.gradeDescription]
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return parseGradeScoreFromLabelText(text);
+}
+
 function psaQualifierText(input: PsaGradePolicyInput): string {
   return [input.gradeLabel, input.gradeDescription]
     .map((s) => String(s ?? "").trim())
@@ -48,7 +70,7 @@ export function isPsaQualifierGradeText(text: string): boolean {
 export function classifyPsaGradePolicy(
   input: PsaGradePolicyInput,
 ): PsaGradePolicyClass {
-  const score = parseFiniteGradeScore(input.gradeScore);
+  const score = effectiveGradeScore(input);
   if (score != null) {
     const floor = Math.floor(score);
     if (floor === 10) return "psa_10";
@@ -60,7 +82,13 @@ export function classifyPsaGradePolicy(
 
 export function isMintEligiblePsaGrade(input: PsaGradePolicyInput): boolean {
   const c = classifyPsaGradePolicy(input);
-  return c === "psa_10" || c === "psa_qualifier";
+  return c === "psa_10" || c === "psa_sub10" || c === "psa_qualifier";
+}
+
+function numericPsaHistoryTier(score: number): string | null {
+  const floor = Math.floor(score);
+  if (floor >= 1 && floor <= 10) return `PSA_${floor}`;
+  return null;
 }
 
 export function marketHistoryTierFromPsaGradeInput(
@@ -74,13 +102,17 @@ export function marketHistoryTierFromPsaGradeInput(
     return "PSA_AUTH";
   }
   const c = classifyPsaGradePolicy(input);
-  if (c === "psa_10") return "PSA_10";
   if (c === "psa_qualifier") return "PSA_AUTH";
+  const score = effectiveGradeScore(input);
+  if (score != null) {
+    const tier = numericPsaHistoryTier(score);
+    if (tier) return tier;
+  }
   return "PSA_10";
 }
 
 export function psaGradePolicyInputFromComponents(
-  components: Record<string, unknown> | null | undefined,
+  components: CollectionComponents | null | undefined,
 ): PsaGradePolicyInput {
   if (!components) return { gradingCompany: "PSA" };
   return {
@@ -101,11 +133,32 @@ export function bucketGradeScoreFromPsaGradeInput(
   input: PsaGradePolicyInput,
 ): string | null {
   const c = classifyPsaGradePolicy(input);
-  if (c === "psa_10") {
-    const score = parseFiniteGradeScore(input.gradeScore);
-    return score != null ? String(Math.round(score)) : "10";
+  if (c === "psa_10" || c === "psa_sub10") {
+    const score = effectiveGradeScore(input);
+    if (score == null) return c === "psa_10" ? "10" : null;
+    const floor = Math.floor(score);
+    if (floor >= 1 && floor <= 10) return String(floor);
+    return null;
   }
   if (c === "psa_qualifier") return "auth";
+  return null;
+}
+
+/** Slab verification line, e.g. `PSA · Near Mint 7`. */
+export function formatPsaGradedByDisplay(input: PsaGradePolicyInput): string | null {
+  const companyRaw = String(input.gradingCompany ?? "PSA").trim();
+  const company = /psa/i.test(companyRaw) ? "PSA" : companyRaw || "PSA";
+
+  const label = [input.gradeLabel, input.gradeDescription]
+    .map((s) => String(s ?? "").trim())
+    .find(Boolean);
+  if (label) {
+    if (/^psa\s/i.test(label)) return label;
+    return `${company} · ${label}`;
+  }
+
+  const score = effectiveGradeScore(input);
+  if (score != null) return `${company} · ${score}`;
   return null;
 }
 
@@ -115,8 +168,15 @@ export function psaGradePolicyInputFromGraded(
   const psa = graded.psa as Record<string, unknown> | undefined;
   const grade = graded.grade as Record<string, unknown> | undefined;
   return {
-    gradingCompany: String(graded.gradingCompany ?? "PSA"),
-    gradeScore: psa?.gradeScore ?? grade?.score ?? graded.gradeScore,
+    gradingCompany: String(
+      graded.gradingCompany ?? psa?.company ?? psa?.gradingCompany ?? "PSA",
+    ),
+    gradeScore:
+      psa?.gradeScore ??
+      grade?.score ??
+      graded.gradeScore ??
+      psa?.score ??
+      psa?.grade,
     gradeLabel:
       typeof psa?.gradeLabel === "string"
         ? psa.gradeLabel

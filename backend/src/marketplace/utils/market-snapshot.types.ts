@@ -9,7 +9,9 @@ export type SnapshotRefreshReason =
   | 'cron'
   | 'stale_swr'
   | 'cold_start'
-  | 'manual';
+  | 'manual'
+  | 'price_webhook'
+  | 'price_delta';
 
 /** In-memory refresh job — BullMQ-compatible shape for future queue migration. */
 export interface SnapshotRefreshJob {
@@ -17,6 +19,7 @@ export interface SnapshotRefreshJob {
   reason: SnapshotRefreshReason;
   priority: number;
   enqueuedAt: number;
+  /** Lock-contention retry count (0 = first attempt). */
   attempt: number;
 }
 

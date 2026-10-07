@@ -1,0 +1,53 @@
+---
+description: Performance rules and patterns for backend and frontend
+globs: ["backend/src/**/*", "frontend/**/*"]
+alwaysApply: false
+---
+
+# Performance Rules
+
+## Backend
+
+1. **No upstream API calls on hot read paths.** Collection charts, listings, and market data must read only from PostgreSQL.
+
+2. **Snapshot workers are the only path to Cardhedger.** `CollectionMarketSnapshotSchedulerService` handles enqueuing. Never call `CardhedgerPricingService` from a controller directly.
+
+3. **Identity cache reads are L1 → L2 → DB.** Never bypass to DB without checking cache first. Use `CollectionIdentityService.readOrResolve()`.
+
+4. **AbortSignal.timeout(15_000)** on all external HTTP calls (PSA, Cardhedger, IPFS, Pinata, Privy). Prevents unbounded hangs.
+
+5. **Batch RPC calls.** Use `blockchain.batchOwnerOf()` instead of parallel individual `ownerOf` calls when scanning token ownership.
+
+6. **Order expiry is a cron** (`*/1 * * * *`), not inline before reads. Do not add synchronous DB writes to read paths.
+
+7. **Performance logging:** wrap slow operations with `perfNow()` / `perfLog()`. Categories: `psa`, `ipfs`, `rpc`, `cardhedger`. Enable via `PERF_LOG=true`.
+
+8. **TypeORM slow query log:** set `PERF_THRESHOLD_DB_MS` (default 500ms). Queries above threshold are logged. Fix queries that consistently appear.
+
+9. **Redis for identity cache L2.** Set `REDIS_URL` in production. In-process L1 alone is insufficient for multi-pod deployments.
+
+## Frontend
+
+10. **React Query staleTime.** Set appropriate `staleTime` for data that doesn't change often (collections, market snapshots). Avoid re-fetching on every focus.
+
+11. **Invalidate selectively.** After mutations, invalidate only the affected query keys using functions in `lib/core/invalidation.ts`. Do not call `queryClient.invalidateQueries()` with no args.
+
+12. **No redundant chain reads.** Don't read on-chain data that's already available from the backend. Token ownership, metadata, and pricing come from the API.
+
+13. **ECharts lazy loading.** Use `EChartsSized` wrapper which handles responsive sizing. Don't instantiate charts directly.
+
+14. **`useMemo` / `useCallback` judiciously.** Only when the dependency array is stable and the computation is genuinely expensive. Over-memoization reduces readability.
+
+15. **Wallet balance polling:** `WalletDataProvider` polls USDC every 8 seconds. Do not add additional polling in components.
+
+16. **Images.** Use `next/image` for card images with appropriate `sizes` and `priority` attributes. Pinata gateway URLs support transformations.
+
+## Database
+
+17. **Indexes exist on** `wallet_address`, `collection_key`, `order status + token`, and `JSONB cardhedgerCardId` (`040_marketplace.sql`). Use these columns in WHERE clauses.
+
+18. **Partial unique index on `rwa_tokens`:** `(token_contract, cert_number) WHERE burned_at IS NULL`. Queries filtering on `burned_at IS NULL` benefit from this index.
+
+19. **Avoid full table scans.** Collection-level queries should always filter by `collection_key`. Order queries by `status` + `token_contract + token_id`.
+
+20. **Stale-while-revalidate pattern.** `collection_market_snapshots.stale_after` timestamp triggers background refresh. Do not block the response to wait for fresh data.

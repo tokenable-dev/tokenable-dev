@@ -1,45 +1,96 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-export function CollectionHeroDetailsTabs({
-  detailsPanel,
-  onAiInsightsClick,
+type SidebarTab = "details" | "psa";
+
+const TAB_BASE =
+  "cd-ob-tab shrink-0 transition-colors duration-200";
+const TAB_ACTIVE = "cd-ob-tab--active";
+const TAB_INACTIVE = "";
+
+function SidebarTabButton({
+  id,
+  label,
+  active,
+  onSelect,
 }: {
-  detailsPanel: ReactNode;
-  /** Opens “coming soon” / off-service UI — does not switch away from the details panel. */
-  onAiInsightsClick?: () => void;
+  id: SidebarTab;
+  label: string;
+  active: boolean;
+  onSelect: (id: SidebarTab) => void;
 }) {
   return (
-    <div className="w-full min-w-0 max-w-full">
+    <button
+      type="button"
+      role="tab"
+      id={`collection-sidebar-tab-${id}`}
+      aria-selected={active}
+      aria-controls={`collection-sidebar-panel-${id}`}
+      onClick={() => onSelect(id)}
+      className={`${TAB_BASE} ${active ? TAB_ACTIVE : TAB_INACTIVE}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Card.html Details / PSA Population tabs — same chrome on mobile and desktop. */
+export function CollectionHeroDetailsTabs({
+  detailsPanel,
+  psaPanel,
+}: {
+  detailsPanel: ReactNode;
+  psaPanel?: ReactNode;
+}) {
+  const [tab, setTab] = useState<SidebarTab>("details");
+  const showPsa = psaPanel != null;
+
+  return (
+    <div className="cd-sidebar-tabs w-full min-w-0 max-w-full">
       <div
-        className="flex w-full min-w-0 gap-1 min-[375px]:gap-0"
+        className="cd-ob-tabs relative flex w-full shrink-0 items-end border-b border-white/[0.08] bg-transparent"
         role="tablist"
         aria-label="Collection information"
       >
-        <div
-          role="tab"
-          aria-selected
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-white max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px]"
-        >
-          Details
-          <span
-            className="absolute bottom-0 left-2 right-2 h-[3px] rounded-t-[1px] bg-white max-lg:left-1.5 max-lg:right-1.5 max-lg:h-[2px] min-[375px]:left-0 min-[375px]:right-0"
-            aria-hidden
+        <div className="flex shrink-0 justify-start gap-0">
+          <SidebarTabButton
+            id="details"
+            label="Details"
+            active={tab === "details"}
+            onSelect={setTab}
           />
+          {showPsa ? (
+            <SidebarTabButton
+              id="psa"
+              label="Pop."
+              active={tab === "psa"}
+              onSelect={setTab}
+            />
+          ) : null}
         </div>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={false}
-          onClick={() => onAiInsightsClick?.()}
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-[#a0a0a0] transition-colors hover:text-zinc-200 max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px] active:bg-white/[0.04]"
-        >
-          AI Insights
-        </button>
       </div>
-      <div className="mt-2 w-full min-w-0 max-lg:mt-2 sm:mt-3" role="tabpanel" aria-label="Details">
-        {detailsPanel}
+
+      <div className="cd-sidebar-tabs__body">
+        {tab === "details" ? (
+          <div
+            id="collection-sidebar-panel-details"
+            role="tabpanel"
+            aria-labelledby="collection-sidebar-tab-details"
+            className="cd-sidebar-tabs__panel"
+          >
+            {detailsPanel}
+          </div>
+        ) : showPsa ? (
+          <div
+            id="collection-sidebar-panel-psa"
+            role="tabpanel"
+            aria-labelledby="collection-sidebar-tab-psa"
+            className="cd-sidebar-tabs__panel"
+          >
+            {psaPanel}
+          </div>
+        ) : null}
       </div>
     </div>
   );

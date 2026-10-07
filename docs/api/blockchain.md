@@ -4,9 +4,9 @@
 **Base path:** `/api/blockchain`  
 **Swagger tag:** `blockchain`
 
-Read-only access to Ethereum Sepolia. Wraps two contracts:
+Read-only access to configured EVM chains (Ethereum Sepolia and Ethereum mainnet). Wraps two contracts per chain:
 
-- **MockUSDC** (ERC-20) — payment token
+- **USDC** (ERC-20) — payment token (Circle testnet USDC on Sepolia; Circle USDC on mainnet)
 - **TokenableRWA** (ERC-721) — graded-card NFTs
 
 IPFS URIs are resolved server-side via multiple gateways with a CID result cache. Browsers should never fetch IPFS directly.
@@ -68,7 +68,8 @@ Server-side pipeline: reads `tokenURI`, fetches IPFS metadata, resolves image to
   "tokenId": 1,
   "tokenURI": "ipfs://Qm.../metadata.json",
   "metadata": { "name": "...", "description": "...", "attributes": [...] },
-  "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm..."
+  "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm...",
+  "imageBackUrl": "https://YOUR_CDN/dev/covers/rwa-slabs/84532/83179580/slab-back"
 }
 ```
 
@@ -94,6 +95,23 @@ Returns array of tokenIds owned by `address`.
 [1, 5, 12, 99]
 ```
 
+When the owner index is ready (`rwa_owner_index_cursors.backfill_complete` for the chain's RWA contract), this route reads `rwa_tokens.owner_wallet` (one indexed SQL query). If the registry has fewer rows than on-chain `totalMinted` (for example after an old collection-delete wipe), it rescans `ownerOf` and persists owners before serving. Until backfill completes, it falls back to a full-supply `ownerOf` scan and persists discovered owners for the next request.
+
+Enable indexing: `RWA_OWNER_INDEX_ENABLED=1` (boot backfill, then idle Transfer poll). **Keep `0` on local/dev** unless you are testing the index — catch-up is the main Alchemy CU consumer. **Required for log replay:** `CHAIN_{id}_RWA_DEPLOY_BLOCK` = TokenableRWA deploy block (without it, log backfill is skipped to avoid scanning genesis→head; portfolio still works via `ownerOf`). Catch-up uses backfill passes only — **no live poll until indexed** (polling during catch-up used to double `eth_getLogs`). Failed passes back off (up to 15 min). Optional tuning: `RWA_OWNER_INDEX_LOG_CHUNK` (default **10**), `RWA_OWNER_INDEX_LOG_DELAY_MS` (default **600**), `RWA_OWNER_INDEX_MAX_BLOCKS_PER_RUN` (default **200**), `RWA_OWNER_INDEX_BACKFILL_PASS_DELAY_MS` (default **120000**), `RWA_OWNER_INDEX_IDLE_POLL_MS` (default **300000** — after indexed), `RWA_OWNER_INDEX_POLL_MAX_BLOCKS` (default **50**), `RWA_OWNER_INDEX_LOG_MAX_RETRIES` (default **2**).
+
+**Alchemy Free RPC budget** (defaults tuned for Free tier CU/s):
+
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `RPC_MAX_CONCURRENCY` | `2` | Max in-flight JSON-RPC calls (global semaphore) |
+| `RPC_BATCH_CHUNK_DELAY_MS` | `250` | Pause between batched `ownerOf` / `tokenURI` chunks |
+| `RPC_OWNER_SCAN_CONCURRENCY` | `4` | Parallel `ownerOf` during full-supply wallet scan |
+| `RPC_METADATA_BATCH_CONCURRENCY` | `2` | Parallel on-chain `tokenURI` reads when DB has no `token_uri` |
+
+Portfolio metadata batch prefers `rwa_tokens.token_uri` (IPFS only — **no on-chain read**) when the registry row exists. Mint writes use the same semaphore + 429 backoff.
+
+Defenses: address format validated (400 on invalid), result cached **120s** per `(chainId, address)`, concurrent identical scans coalesced, rate-limited to 30 req/min per IP.
+
 ---
 
 ### `POST /api/blockchain/rwa/metadata/batch`
@@ -110,7 +128,7 @@ Resolves metadata and image URLs for a list of token IDs in parallel. Uses serve
 
 ```json
 [
-  { "tokenId": 1, "metadata": {...}, "imageUrl": "https://..." },
+  { "tokenId": 1, "metadata": {...}, "imageUrl": "https://...", "imageBackUrl": null },
   ...
 ]
 ```
@@ -145,11 +163,34 @@ Resolves an array of IPFS or IPFS-gateway URIs to browser-loadable `https://` UR
 
 ---
 
-## Related Environment Variables
+## Multi-chain support
 
-| Variable | Purpose |
-|----------|---------|
-| `RWA_CONTRACT_ADDRESS` | TokenableRWA on Sepolia |
-| `USDC_CONTRACT_ADDRESS` | MockUSDC on Sepolia |
-| `SEPOLIA_RPC_URL` | Alchemy (or other) Sepolia JSON-RPC URL |
+The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `11155111` (Ethereum Sepolia), `1` (Ethereum mainnet), `137` (Polygon mainnet). Each chain is configured independently:
+
+| Variable pattern | Purpose |
+|-----------------|---------|
+| `CHAIN_11155111_RPC_URL` | Sepolia RPC (Alchemy preferred; public fallbacks are automatic) |
+| `CHAIN_11155111_RWA_ADDRESS` | TokenableRWA on Sepolia |
+| `CHAIN_11155111_USDC_ADDRESS` | USDC on Sepolia (Circle testnet) |
+| `CHAIN_1_RPC_URL` | Ethereum mainnet RPC |
+| `CHAIN_1_RWA_ADDRESS` | TokenableRWA on mainnet |
+| `CHAIN_1_USDC_ADDRESS` | USDC on mainnet (Circle) |
+| `CHAIN_137_RPC_URL` | Polygon mainnet RPC |
+| `CHAIN_137_RWA_ADDRESS` | TokenableRWA on Polygon |
+| `CHAIN_137_USDC_ADDRESS` | Native USDC on Polygon (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) |
+| `DEFAULT_CHAIN_ID` | Default chain when header absent (default `11155111`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |
+
+Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`, `user_buyer_listing_alert`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header — or putting a new RWA address in env — must never return another contract’s mints. A new address is an empty marketplace; wipe the previous address in admin Data inventory first so that chain’s inbox, charts, and open vault cycles do not carry over.
+
+**Shared across chain switch (intentional):** users, KYC, partners, and watchlist keys stay global — the user profile must not fork per network. Watchlist **display** and POST/DELETE validation are chain-filtered against the request catalog; the watchlist table itself remains key-only.
+
+Collection detail orderbook and market reads (`GET /marketplace/collections/:key`, `…/stats`, `…/platform-trades`, `…/market-series`, `GET /marketplace/rwa/:tokenId/trades`, portfolio/market batch snapshots) also filter by that chain’s RWA `token_contract` and USDC address. Public and admin collection lists include a card only when this contract has an order or token, or the catalog row is stamped with this RWA address (`marketplace_collections.token_contract`). Unstamped drafts with no activity are leftover catalogs, not a live marketplace.
+
+`portfolio_daily_snapshots` are unique on `(wallet_address, snapshot_date_kst, chain_id, token_contract)`. The 09:00 KST cron captures each configured RWA separately; `GET /marketplace/portfolio/daily/:wallet` returns history for the request chain's **current** RWA only. Unstamped rows from a previous contract are not used for 24h P/L. Sell packages (`vault_submissions`) are stamped the same way and are not listed for a new address.
+
+Admin platform analytics (`GET /marketplace/admin/analytics`) scopes mints / orders / GMV / holdings / snapshot counts to the request chain. Users, watchlist, and collection catalog totals remain global.
+
+Collection bootstrap (`ensureCollectionForListing`), mint-previews, and on-mint sync honor `x-tokenable-chain-id` (or the order’s `token_contract`). Snapshot refresh discovery / daily prewarm only consider activity on configured RWA contracts.
+
+Public app users are locked to Sepolia (`PUBLIC_APP_CHAIN_ID = 11155111`). The network switcher is internal/dev-only. Vault open cycles remain global per PSA cert — a cert with an open Sepolia vault submission cannot be reminted on Polygon until that cycle closes.

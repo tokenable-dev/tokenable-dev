@@ -2,15 +2,14 @@ import type { MintFriendlyError } from "@/lib/vault/mintFormConstants";
 
 export function parseFriendlyMintError(msg: string): MintFriendlyError | null {
   const m = msg.toLowerCase();
-  if (m.includes("psa 10 또는 psa 인증") || m.includes("psa 10")) {
+  if (m.includes("psa 1–10") || m.includes("psa 10 또는 psa 인증")) {
     return {
       title: "Grade not supported",
       message:
-        "Minting is allowed only for PSA 10 slabs or PSA AUTH slabs without a numeric grade (e.g. Authentic / Authentic Altered).",
+        "Minting is allowed only for PSA 1–10 slabs or PSA AUTH slabs without a numeric grade (e.g. Authentic / Authentic Altered).",
       hints: [
-        "PSA 1–9 numeric grades are not supported.",
         "Re-run cert lookup and confirm the slab grade.",
-        "Use a PSA 10 cert or a PSA AUTH qualifier cert.",
+        "Use a PSA 1–10 cert or a PSA AUTH qualifier cert.",
       ],
     };
   }

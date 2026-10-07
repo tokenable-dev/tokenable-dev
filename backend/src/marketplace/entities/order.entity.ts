@@ -65,7 +65,7 @@ export class Order {
   })
   collectionKey: string | null;
 
-  /** 결제 토큰 주소 (Sepolia USDC: 0x1c7D4B...) */
+  /** 결제 토큰 주소 (체인별 USDC — ChainConfigService.getUsdcAddress) */
   @Column({ name: 'consideration_token' })
   considerationToken: string;
 

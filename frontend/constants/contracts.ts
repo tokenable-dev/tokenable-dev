@@ -1,59 +1,54 @@
 import type { Abi } from "viem";
 
+import { DEFAULT_CHAIN_ID, getChainContracts } from "@/lib/chains/registry";
 import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
 
 // ─── Contract Addresses ───────────────────────────────────────────────────────
 
 /** Collection display name when metadata has no `name` */
-export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
+export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable";
 
-const ADDR = /^0x[a-fA-F0-9]{40}$/;
+/** Default-chain contract addresses (legacy exports). */
+const defaultContracts = getChainContracts(DEFAULT_CHAIN_ID);
 
-/**
- * Next.js 는 `process.env.NEXT_PUBLIC_*` 를 **정적**으로만 빌드 시 번들에 넣습니다.
- * `process.env[name]` 같은 동적 접근은 클라이언트에서 항상 비어 있어 런타임 에러가 납니다.
- */
-function requireHexAddr(
-  raw: string | undefined,
-  label: string,
-): `0x${string}` {
-  const value = raw?.trim() ?? "";
-  if (!value || !ADDR.test(value)) {
-    throw new Error(
-      `[contracts] Set ${label} in frontend/.env (or as a docker build-arg).`,
-    );
-  }
-  return value as `0x${string}`;
-}
+export const TOKENABLE_RWA_ADDRESS = defaultContracts.rwaAddress;
+export const USDC_ADDRESS = defaultContracts.usdcAddress;
 
-export const TOKENABLE_RWA_ADDRESS = requireHexAddr(
-  process.env.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS,
-  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS",
-);
+export { getChainContracts } from "@/lib/chains/registry";
 
-export const USDC_ADDRESS = requireHexAddr(
-  process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
-  "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
-);
-
-/** Seaport v1.5 — deployed at the same address on all EVM chains */
+/** Seaport v1.5 — same canonical address on supported EVM chains. */
 export const SEAPORT_ADDRESS =
   "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC" as `0x${string}`;
+
+/** OpenSea ConduitController — create/authorize conduits for Seaport transfers. */
+export const CONDUIT_CONTROLLER_ADDRESS =
+  "0x00000000F9490004C11Cef243f5400493c00Ad63" as `0x${string}`;
 
 // ─── Platform Fee ─────────────────────────────────────────────────────────────
 
 /** Vault wallet that receives the platform fee on every trade. Empty ⇒ no fee. */
 export const PLATFORM_FEE_RECIPIENT: `0x${string}` | null = (() => {
+  const ADDR = /^0x[a-fA-F0-9]{40}$/;
   const raw = process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
   if (!raw || !ADDR.test(raw)) return null;
   return raw as `0x${string}`;
 })();
 
-/** Fee in basis points — 250 = 2.5 %. Falls back to 0 when recipient is unset. */
+/** Fee in basis points — 500 = 5 %. Falls back to 0 when recipient is unset. */
 export const PLATFORM_FEE_BPS: number = (() => {
   if (!PLATFORM_FEE_RECIPIENT) return 0;
-  const v = parseInt(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "250", 10);
-  return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 250;
+  const v = parseInt(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "500", 10);
+  return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 500;
+})();
+
+/** Partner / self-vault fee — 1000 = 10 %. */
+export const SELF_VAULT_PLATFORM_FEE_BPS: number = (() => {
+  if (!PLATFORM_FEE_RECIPIENT) return 0;
+  const v = parseInt(
+    process.env.NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS ?? "1000",
+    10,
+  );
+  return Number.isFinite(v) && v >= 0 && v <= 10_000 ? v : 1000;
 })();
 
 // ─── Tokenable_RWA ABIs ─────────────────────────────────────────────────────────
@@ -63,11 +58,8 @@ export const TOKENABLE_RWA_MINT_ABI = [
     name: "mint",
     type: "function",
     stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "_tokenURI", type: "string" },
-    ],
-    outputs: [{ name: "", type: "uint256" }],
+    inputs: [{ name: "to", type: "address" }],
+    outputs: [],
   },
 ] as const;
 
@@ -89,8 +81,19 @@ export const TOKENABLE_RWA_READ_ABI = [
   },
 ] as const;
 
-/** ERC-721 transfer (test burn-to-address flow). */
+/** ERC-721 transfer (custody intake + test burn-to-address). */
 export const TOKENABLE_RWA_TRANSFER_ABI = [
+  {
+    name: "safeTransferFrom",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [],
+  },
   {
     name: "transferFrom",
     type: "function",
@@ -143,6 +146,13 @@ export const TOKENABLE_RWA_APPROVE_ABI = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "", type: "address" }],
   },
+  {
+    name: "ownerOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
 ] as const;
 
 // ─── USDC ABI ─────────────────────────────────────────────────────────────────
@@ -174,6 +184,16 @@ export const USDC_ABI = [
     stateMutability: "view",
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
   },
   {
     name: "allowance",
@@ -251,6 +271,18 @@ export const SEAPORT_ABI = [
     ],
     outputs: [{ name: "fulfilled", type: "bool" }],
   },
+  {
+    name: "getOrderStatus",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "orderHash", type: "bytes32" }],
+    outputs: [
+      { name: "isValidated", type: "bool" },
+      { name: "isCancelled", type: "bool" },
+      { name: "totalFilled", type: "uint256" },
+      { name: "totalSize", type: "uint256" },
+    ],
+  },
 ] as const;
 
 /** `fulfillOrder` + `getCounter` + `matchAdvancedOrders` — use for advanced/criteria settlement. */
@@ -295,15 +327,6 @@ export const SEAPORT_ORDER_TYPES = {
 // ─── Event ABIs (getLogs) ─────────────────────────────────────────────────────
 
 export const TOKENABLE_RWA_EVENTS_ABI = [
-  {
-    name: "Minted",
-    type: "event",
-    inputs: [
-      { name: "to", type: "address", indexed: true },
-      { name: "tokenId", type: "uint256", indexed: true },
-      { name: "tokenURI", type: "string", indexed: false },
-    ],
-  },
   {
     name: "Transfer",
     type: "event",
