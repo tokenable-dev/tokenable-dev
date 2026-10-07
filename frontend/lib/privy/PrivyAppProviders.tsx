@@ -25,6 +25,7 @@ import {
 } from "@/lib/chains";
 import { configureMarketQueryDefaults } from "@/lib/core";
 import { useEnsureAccountWalletActive } from "@/hooks/auth/useEnsureAccountWalletActive";
+import { KbwEventStage2PostLoginHost } from "@/components/event/KbwEventStage2PostLoginHost";
 import { PrivySessionBridge } from "@/lib/privy/PrivySessionBridge";
 import { PrivySignInLauncher } from "@/lib/privy/PrivySignInLauncher";
 import { PrivyWalletLauncher } from "@/lib/privy/PrivyWalletLauncher";
@@ -112,6 +113,7 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
           <PrivySessionBridge />
+          <KbwEventStage2PostLoginHost />
           <FiatAggregatorFundingHost />
           <AccountWalletAligner />
           <AuthProvider>

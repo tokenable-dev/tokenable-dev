@@ -19,6 +19,8 @@ import {
   holdingsSaleKind,
   holdingsSaleStatusLabel,
 } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
+import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
+import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
 
 type GalleryStatusSeg = "notlisted" | "listed" | "redeeming";
 
@@ -87,6 +89,8 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   const retLabel = pnl?.returnPct ?? null;
   const titleHover = headline?.hover ?? row.name;
   const titleLabel = headline?.line1 ?? row.name;
+  const kbwVirtual = isKbwMysteryCardTokenId(row.tokenId);
+
   const tileClass = [
     "pf-gtile",
     redeemStatus?.kind === "transit" ? "pf-gtile--transit" : null,
@@ -137,7 +141,9 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
       <div className="pf-gtile__media">
         {href && !(selectMode && isListed) ? (
           <Link href={href} className="pf-gtile__media-link" aria-label={titleLabel}>
-            {row.imageUrl ? (
+            {kbwVirtual ? (
+              <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
+            ) : row.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={row.imageUrl}
@@ -150,6 +156,8 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
               <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
             )}
           </Link>
+        ) : kbwVirtual ? (
+          <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
         ) : row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

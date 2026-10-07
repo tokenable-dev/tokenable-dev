@@ -29,6 +29,9 @@ import { PortfolioAssetsPageDto } from './dto/portfolio-assets-page.dto';
 import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from './portfolio-holding.service';
+import { KbwMysteryCardService } from './kbw-mystery-card.service';
+import { BurnKbwMysteryCardDto } from './dto/burn-kbw-mystery-card.dto';
+
 /**
  * 포트폴리오 — 일별 스냅샷·24h P&L·보유 숨김·cost basis.
  * Holding prefs are scoped by the RWA contract for `x-tokenable-chain-id`.
@@ -40,6 +43,7 @@ export class PortfolioController {
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly portfolioAssetsPage: PortfolioAssetsPageService,
+    private readonly kbwMysteryCard: KbwMysteryCardService,
     private readonly chainConfig: ChainConfigService,
   ) {}
 
@@ -222,4 +226,46 @@ export class PortfolioController {
     return { ok: true };
   }
 
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn status (signed-in user)',
+    description:
+      'Uses the session user contact email only — correct for /event offer and portfolio after MetaMask + email capture.',
+  })
+  @Get('portfolio/kbw-mystery-card/status/me')
+  @UseGuards(JwtAuthGuard)
+  async getMyKbwMysteryCardStatus(@Req() req: { user: User }) {
+    const burned = await this.kbwMysteryCard.isBurnedForUser(req.user);
+    return { burned };
+  }
+
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn 여부 (wallet lookup)',
+    description:
+      'Public wallet → linked contact emails (skips @privy.wallet placeholders). Prefer GET …/status/me when signed in.',
+  })
+  @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
+  @Get('portfolio/kbw-mystery-card/:wallet')
+  async getKbwMysteryCardStatus(@Param('wallet') _wallet: string) {
+    // Deprecated — wallet-wide email union caused false "used". Clients must use …/status/me.
+    return { burned: false };
+  }
+
+  @ApiOperation({
+    summary: 'KBW Mystery Card burn',
+    description:
+      'Hide the web2 KBW Mystery Card for this contact email on every linked wallet portfolio (not an on-chain burn).',
+  })
+  @ApiBody(
+    apiBodyDefault(BurnKbwMysteryCardDto, {
+      walletAddress: SWAGGER_FIXTURES.wallet,
+    }),
+  )
+  @Post('portfolio/kbw-mystery-card/burn')
+  @UseGuards(JwtAuthGuard)
+  async burnKbwMysteryCard(
+    @Req() req: { user: User },
+    @Body() _body: BurnKbwMysteryCardDto,
+  ) {
+    return this.kbwMysteryCard.burnForUser(req.user);
+  }
 }

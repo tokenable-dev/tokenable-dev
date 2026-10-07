@@ -7,6 +7,7 @@ import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
 import { PortfolioHolding } from '../entities/portfolio-holding.entity';
+import { KbwMysteryCardBurn } from '../entities/kbw-mystery-card-burn.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplaceCollectionsModule } from '../collections/marketplace-collections.module';
 import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-data.module';
@@ -15,6 +16,7 @@ import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.servic
 import { PortfolioHoldingService } from './portfolio-holding.service';
 import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
 import { PortfolioAssetsPageCacheService } from './portfolio-assets-page-cache.service';
+import { KbwMysteryCardService } from './kbw-mystery-card.service';
 import { PortfolioController } from './portfolio.controller';
 
 /** Wallet portfolio daily snapshots and per-holding UI prefs (hide + cost basis). */
@@ -24,6 +26,7 @@ import { PortfolioController } from './portfolio.controller';
     TypeOrmModule.forFeature([
       PortfolioDailySnapshot,
       PortfolioHolding,
+      KbwMysteryCardBurn,
       RwaToken,
       User,
       UserWallet,
@@ -40,12 +43,14 @@ import { PortfolioController } from './portfolio.controller';
     PortfolioHoldingService,
     PortfolioAssetsPageService,
     PortfolioAssetsPageCacheService,
+    KbwMysteryCardService,
   ],
   exports: [
     PortfolioDailySnapshotService,
     PortfolioDailySnapshotSchedulerService,
     PortfolioHoldingService,
     PortfolioAssetsPageService,
+    KbwMysteryCardService,
   ],
 })
 export class MarketplacePortfolioModule {}
