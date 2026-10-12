@@ -422,6 +422,7 @@ export function useTokenOffer(input: {
             durationDays: selectedDurationDays,
             mode: isReplaceBid ? "replace" : "create",
             oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
+            knownActiveAsks: collectionAsks,
           })
         : await submitTokenBid({
             collectionKey,

@@ -112,6 +112,28 @@ export async function fetchCrossingAskForBid(input: {
   );
 }
 
+/**
+ * Prefer in-memory collection asks (same feed as the PDP order book) so Place bid
+ * does not block on a second collection-detail round-trip before Privy sign.
+ * Falls back to a fresh detail fetch when asks were not supplied.
+ */
+export async function resolveCrossingAskForBid(input: {
+  collectionKey: string;
+  bidder: string;
+  bidUnits: bigint;
+  knownActiveAsks?: Order[];
+}): Promise<Order | null> {
+  if (input.bidUnits <= BigInt(0)) return null;
+  if (input.knownActiveAsks) {
+    return pickCrossingAskForBid(
+      input.knownActiveAsks,
+      input.bidder,
+      input.bidUnits,
+    );
+  }
+  return fetchCrossingAskForBid(input);
+}
+
 export function pickLowestActiveAskCandidates(activeAsks: Order[]): Order[] {
   const cands = activeAsks.filter((o) => isActiveAskStatus(o) && isListingAskRow(o));
   if (cands.length === 0) return [];

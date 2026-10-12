@@ -12,7 +12,7 @@ import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   BidCrossesLiveAskError,
-  fetchCrossingAskForBid,
+  resolveCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { collectionCriteriaSignLeafIds } from "@/lib/seaport/criteria/collectionCriteriaRoot";
@@ -72,7 +72,20 @@ type BidSubmitBase = {
   durationDays: TokenBidDurationDays;
   mode?: "create" | "replace";
   oldOrderHash?: string;
+  /** PDP listings — skips bypassCache collection detail before sign. */
+  knownActiveAsks?: Order[];
+  /** React Query merkle-set — skips merkle API when already loaded. */
+  prefetchedMerkleTokenIds?: string[];
 };
+
+async function resolveMerkleTokenIds(
+  collectionKey: string,
+  prefetched?: string[],
+): Promise<string[]> {
+  if (prefetched !== undefined) return prefetched;
+  const merkle = await getMerkleEligibleTokenIds(collectionKey);
+  return merkle.tokenIds ?? [];
+}
 
 function startUsdcApproveGasEstimate(
   publicClient: PublicClient,
@@ -95,16 +108,18 @@ function startUsdcApproveGasEstimate(
   );
 }
 
-/** Single fresh floor check before Seaport sign (callers must not duplicate). */
+/** Floor check before Seaport sign (callers must not duplicate). */
 async function assertBidDoesNotCrossLiveAsk(
   collectionKey: string,
   bidder: Address,
   bidUnits: bigint,
+  knownActiveAsks?: Order[],
 ): Promise<void> {
-  const crossing = await fetchCrossingAskForBid({
+  const crossing = await resolveCrossingAskForBid({
     collectionKey,
     bidder,
     bidUnits,
+    knownActiveAsks,
   });
   if (crossing) {
     throw new BidCrossesLiveAskError(crossing);
@@ -131,6 +146,7 @@ export async function submitTokenBid(
     durationDays,
     mode = "create",
     oldOrderHash,
+    knownActiveAsks,
   } = input;
 
   const { rwaAddress, usdcAddress } = getChainContracts(chainId);
@@ -141,7 +157,12 @@ export async function submitTokenBid(
     throw new Error("oldOrderHash required for replace");
   }
 
-  await assertBidDoesNotCrossLiveAsk(collectionKey, address, bidUnits);
+  await assertBidDoesNotCrossLiveAsk(
+    collectionKey,
+    address,
+    bidUnits,
+    knownActiveAsks,
+  );
 
   const days = resolveTokenBidDurationDays(durationDays);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
@@ -276,6 +297,8 @@ export async function submitCollectionCriteriaBid(
     durationDays,
     mode = "create",
     oldOrderHash,
+    knownActiveAsks,
+    prefetchedMerkleTokenIds,
   } = input;
 
   const { rwaAddress, usdcAddress } = getChainContracts(chainId);
@@ -284,25 +307,27 @@ export async function submitCollectionCriteriaBid(
     throw new Error("oldOrderHash required for replace");
   }
 
-  await assertBidDoesNotCrossLiveAsk(collectionKey, address, bidUnits);
+  const days = resolveTokenBidDurationDays(durationDays);
+  const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const merkle = await getMerkleEligibleTokenIds(collectionKey, {
-    bypassCache: true,
-  });
-  const mintedIds = (merkle.tokenIds ?? []).map((x) =>
+  const [, mintedIdStrings, now, allowancePre] = await Promise.all([
+    assertBidDoesNotCrossLiveAsk(
+      collectionKey,
+      address,
+      bidUnits,
+      knownActiveAsks,
+    ),
+    resolveMerkleTokenIds(collectionKey, prefetchedMerkleTokenIds),
+    getChainTimestampSec(publicClient),
+    readUsdcSeaportAllowance(publicClient, chainId, address, usdcAllowanceRaw),
+  ]);
+
+  const mintedIds = mintedIdStrings.map((x) =>
     BigInt(normalizeDecimalTokenId(x)),
   );
   const ids = collectionCriteriaSignLeafIds(mintedIds);
   const rootHex = new SeaportMerkleTree(ids).getHexRoot();
   const rootBn = BigInt(rootHex);
-
-  const days = resolveTokenBidDurationDays(durationDays);
-  const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
-
-  const [now, allowancePre] = await Promise.all([
-    getChainTimestampSec(publicClient),
-    readUsdcSeaportAllowance(publicClient, chainId, address, usdcAllowanceRaw),
-  ]);
   const endTime = now + BigInt(tokenBidDurationSeconds(days));
   const needsUsdcApprove = bidNeedsUsdcSeaportApprove(allowancePre, bidUnits);
   const usdcApproveGasPromise = startUsdcApproveGasEstimate(

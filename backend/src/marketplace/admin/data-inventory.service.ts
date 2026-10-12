@@ -168,6 +168,12 @@ type TableStats = {
 
 @Injectable()
 export class DataInventoryService {
+  private static schemaCache: {
+    expiresAt: number;
+    payload: DataInventorySchemaResponse;
+  } | null = null;
+
+  private static readonly SCHEMA_CACHE_TTL_MS = 5 * 60 * 1000;
   private readonly logger = new Logger(DataInventoryService.name);
 
   constructor(
@@ -1075,6 +1081,20 @@ export class DataInventoryService {
   }
 
   async getSchema(): Promise<DataInventorySchemaResponse> {
+    const cached = DataInventoryService.schemaCache;
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.payload;
+    }
+
+    const payload = await this.buildSchemaResponse();
+    DataInventoryService.schemaCache = {
+      expiresAt: Date.now() + DataInventoryService.SCHEMA_CACHE_TTL_MS,
+      payload,
+    };
+    return payload;
+  }
+
+  private async buildSchemaResponse(): Promise<DataInventorySchemaResponse> {
     const publicTables = await this.listPublicTables();
     const tableSet = new Set(publicTables);
     const catalogByTable = new Map(DATA_STORE_CATALOG.map((s) => [s.table, s]));

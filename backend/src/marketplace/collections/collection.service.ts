@@ -10,7 +10,6 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In } from 'typeorm';
-import { Contract } from 'ethers';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import {
   ChainConfigService,
@@ -73,10 +72,13 @@ import { CollectionIdentityService } from './collection-identity.service';
 import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
 import { vaultLabelForCustody } from '../partners/partner-vault-label.util';
 
-const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
-const SEAPORT_ORDER_STATUS_ABI = [
-  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
-];
+import {
+  seaportOrderHashFromParameters,
+} from '../orders/seaport-order-hash.util';
+import {
+  readSeaportOrderStatus,
+  seaportOrderIsFullyFilled,
+} from '../orders/seaport-order-status.util';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
@@ -1825,27 +1827,15 @@ export class CollectionService {
 
   /** When match tx succeeded but fulfillMatchedPair missed, drop stale active rows. */
   private async isSeaportOrderFullyFilled(
-    orderHash: string,
+    order: Order,
     chainId: SupportedChainId,
   ): Promise<boolean> {
-    const provider = this.chainConfig.createJsonRpcProvider(chainId);
-    const seaport = new Contract(
-      SEAPORT_ADDRESS,
-      SEAPORT_ORDER_STATUS_ABI,
-      provider,
-    );
-    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
     try {
-      const result = (await seaport.getOrderStatus(hash)) as [
-        boolean,
-        boolean,
-        bigint,
-        bigint,
-      ];
-      const isCancelled = Boolean(result[1]);
-      const filled = BigInt(result[2]);
-      const size = BigInt(result[3]);
-      return !isCancelled && size > 0n && filled >= size;
+      const provider = this.chainConfig.createJsonRpcProvider(chainId);
+      const params = (order.parameters ?? {}) as Record<string, unknown>;
+      const hash = await seaportOrderHashFromParameters(params, provider);
+      const status = await readSeaportOrderStatus(provider, hash);
+      return seaportOrderIsFullyFilled(status);
     } catch {
       return false;
     }
@@ -1861,10 +1851,7 @@ export class CollectionService {
         kept.push(o);
         continue;
       }
-      const filled = await this.isSeaportOrderFullyFilled(
-        o.orderHash,
-        chainId,
-      );
+      const filled = await this.isSeaportOrderFullyFilled(o, chainId);
       if (filled) {
         o.status = OrderStatus.FULFILLED;
         await this.orderRepo.save(o);

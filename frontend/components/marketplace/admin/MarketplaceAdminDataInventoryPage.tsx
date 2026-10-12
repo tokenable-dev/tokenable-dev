@@ -27,6 +27,7 @@ import {
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+import { AdminDataInventorySchemaMap } from "./AdminDataInventorySchemaMap";
 
 type GlanceKey = "stores" | "total" | "catalog" | "markets" | "other";
 
@@ -936,6 +937,10 @@ export function MarketplaceAdminDataInventoryPage() {
                 </div>
               </div>
             ) : null}
+          </div>
+
+          <div className="mb-6">
+            <AdminDataInventorySchemaMap />
           </div>
 
           <div className={`${ADMIN_ARTICLE} mb-6`}>

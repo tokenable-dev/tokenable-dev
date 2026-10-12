@@ -159,7 +159,6 @@ export function PortfolioCertificatePage({
           headlineGrade={listIdentity.grade}
           collectionKey={collectionKey}
           collectionBids={bidsQuery.data?.collectionBids ?? []}
-          shell="sheet"
           copyVariant="set-price"
           marketValueUsd={data.marketUsd}
           listedPriceUsd={listedPriceUsd}

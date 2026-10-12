@@ -165,8 +165,17 @@ export function buildPortfolioTxRows(
 
     let type: "SELL" | "BUY" | null = null;
     let dedupeKey = o.orderHash.toLowerCase();
+    const tapeFillSide = o.tapeFillSide ?? null;
+    const filledByBuyer = o.filledByBuyer?.trim().toLowerCase() ?? filledBy;
 
-    if (o.side === "ask" && offerer === w) {
+    if (
+      o.side === "ask" &&
+      tapeFillSide === "buy" &&
+      filledByBuyer === w
+    ) {
+      type = "BUY";
+      dedupeKey = matched ? `buy:${matched}` : `buy:${o.orderHash.toLowerCase()}`;
+    } else if (o.side === "ask" && offerer === w) {
       type = "SELL";
       dedupeKey = matched ? `sell:${matched}` : `sell:${o.orderHash.toLowerCase()}`;
     } else if (o.side === "bid" && offerer === w) {
@@ -184,6 +193,11 @@ export function buildPortfolioTxRows(
 
     const when = new Date(o.updatedAt ?? o.createdAt);
     const dateMs = when.getTime();
+    const fillTx = o.fillTxHash?.trim();
+    const chainTxs =
+      fillTx && /^0x[a-fA-F0-9]{64}$/.test(fillTx)
+        ? [{ label: "Trade", hash: fillTx }]
+        : undefined;
     const wallets =
       type === "SELL"
         ? {
@@ -213,6 +227,7 @@ export function buildPortfolioTxRows(
       tokenId: Number.isFinite(tokenId) ? tokenId : undefined,
       tokenContract: o.tokenContract ?? null,
       considerationToken: o.considerationToken ?? null,
+      chainTxs,
       ...wallets,
     });
   }

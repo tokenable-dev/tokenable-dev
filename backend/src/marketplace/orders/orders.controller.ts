@@ -291,6 +291,7 @@ export class OrdersController {
       hash,
       query.buyerAddress,
       this.chainConfig.resolveChainId(chainIdHeader),
+      query.fillTxHash,
     );
   }
 

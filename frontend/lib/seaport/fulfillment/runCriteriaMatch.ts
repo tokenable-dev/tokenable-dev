@@ -23,7 +23,7 @@ import {
 } from "@/lib/network";
 import {
   assertSeaportOrdersFillableForMatch,
-  requireSeaportOrderFilled,
+  requireSeaportOrderFilledForOrder,
 } from "../orders/fulfillOrderArgs";
 import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
@@ -203,11 +203,7 @@ export async function runCriteriaMatch(params: {
   const proof = tree.getCriteriaProof(tidBn);
 
   await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
-  await assertSeaportOrdersFillableForMatch(
-    publicClient,
-    bid.orderHash,
-    listing.orderHash,
-  );
+  await assertSeaportOrdersFillableForMatch(publicClient, bid, listing);
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -289,8 +285,8 @@ export async function runCriteriaMatch(params: {
       `Seaport match reverted on-chain (tx ${hash}). Simulation may differ from execution; check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
-  await requireSeaportOrderFilled(publicClient, listing.orderHash);
-  await requireSeaportOrderFilled(publicClient, bid.orderHash);
+  await requireSeaportOrderFilledForOrder(publicClient, listing);
+  await requireSeaportOrderFilledForOrder(publicClient, bid);
 
   await fulfillMatchedPairApiWithRetry({
     bidOrderHash: bid.orderHash,
@@ -326,11 +322,7 @@ export async function runTokenBidMatch(params: {
   }
 
   await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
-  await assertSeaportOrdersFillableForMatch(
-    publicClient,
-    bid.orderHash,
-    listing.orderHash,
-  );
+  await assertSeaportOrdersFillableForMatch(publicClient, bid, listing);
 
   const exec = buildTokenBidMatchExecution({
     tokenBidOrder: bid,
@@ -410,8 +402,8 @@ export async function runTokenBidMatch(params: {
       `Seaport match reverted on-chain (tx ${hash}). Check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
-  await requireSeaportOrderFilled(publicClient, listing.orderHash);
-  await requireSeaportOrderFilled(publicClient, bid.orderHash);
+  await requireSeaportOrderFilledForOrder(publicClient, listing);
+  await requireSeaportOrderFilledForOrder(publicClient, bid);
 
   await fulfillMatchedPairApiWithRetry({
     bidOrderHash: bid.orderHash,

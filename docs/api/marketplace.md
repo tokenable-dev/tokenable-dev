@@ -262,7 +262,10 @@ Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain). **Requires 
 
 | Query | Required | Description |
 |-------|----------|-------------|
-| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price **and** writes `rwa_tokens.owner_wallet` immediately (My Assets does not wait on Transfer-index poll) |
+| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price **and** writes `rwa_tokens.owner_wallet` immediately (My Assets does not wait on Transfer-index poll). Same wallet as seller is allowed (self-fill). |
+| `fillTxHash` | Optional | On-chain `fulfillOrder` tx hash — portfolio Tx History explorer link (`parameters._fillTxHash`) |
+
+On-chain verification uses Seaport `getOrderHash(order.parameters)` + `getOrderStatus` (not the legacy internal id). New orders persist the canonical Seaport hash in `orders.order_hash`.
 
 Transfer-log indexer remains a heal backstop. Listed badge stays **orders-table SSOT** (active ASK join) — no `listed_ask_usd` column on `rwa_tokens`.
 

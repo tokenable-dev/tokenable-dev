@@ -1,5 +1,4 @@
 import { Contract } from 'ethers';
-import { createHash } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -57,6 +56,14 @@ import {
   BID_CROSSES_ASK_MESSAGE,
   pickCrossingAskForBid,
 } from './bid-crosses-ask.util';
+import {
+  seaportHashableParameters,
+  seaportOrderHashFromParameters,
+} from './seaport-order-hash.util';
+import {
+  readSeaportOrderStatus,
+  seaportOrderIsFullyFilled,
+} from './seaport-order-status.util';
 
 /** Seaport v1.5 — same canonical address used by the frontend. */
 const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
@@ -68,10 +75,6 @@ const ERC20_BALANCE_ALLOWANCE_ABI = [
 
 const ERC721_OWNER_OF_ABI = [
   'function ownerOf(uint256 tokenId) view returns (address)',
-] as const;
-
-const SEAPORT_ORDER_STATUS_ABI = [
-  'function getOrderStatus(bytes32 orderHash) view returns (bool isValidated, bool isCancelled, uint256 totalFilled, uint256 totalSize)',
 ] as const;
 
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
@@ -624,8 +627,14 @@ export class OrdersService {
       };
     }
 
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const orderHash = await seaportOrderHashFromParameters(
+      seaportHashableParameters(params),
+      provider,
+    );
+
     return this.orderRepo.create({
-      orderHash: this.deriveOrderHash(params, side),
+      orderHash,
       offerer: parameters.offerer,
       tokenContract: dto.tokenContract,
       tokenId: tokenIdForRow,
@@ -965,27 +974,15 @@ export class OrdersService {
    * the order. A reverted fulfillOrder tx must not look like a sale.
    */
   private async isSeaportOrderFullyFilledOnChain(
-    orderHash: string,
+    order: Order,
     chainId: SupportedChainId,
   ): Promise<boolean> {
-    const provider = this.chainConfig.createJsonRpcProvider(chainId);
-    const seaport = new Contract(
-      SEAPORT_ADDRESS,
-      SEAPORT_ORDER_STATUS_ABI,
-      provider,
-    );
-    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
     try {
-      const result = (await seaport.getOrderStatus(hash)) as [
-        boolean,
-        boolean,
-        bigint,
-        bigint,
-      ];
-      const isCancelled = Boolean(result[1]);
-      const filled = BigInt(result[2]);
-      const size = BigInt(result[3]);
-      return !isCancelled && size > 0n && filled >= size;
+      const provider = this.chainConfig.createJsonRpcProvider(chainId);
+      const params = (order.parameters ?? {}) as Record<string, unknown>;
+      const hash = await seaportOrderHashFromParameters(params, provider);
+      const status = await readSeaportOrderStatus(provider, hash);
+      return seaportOrderIsFullyFilled(status);
     } catch {
       return false;
     }
@@ -996,7 +993,7 @@ export class OrdersService {
     ask: Order,
     chainId: SupportedChainId,
   ): Promise<boolean> {
-    if (await this.isSeaportOrderFullyFilledOnChain(ask.orderHash, chainId)) {
+    if (await this.isSeaportOrderFullyFilledOnChain(ask, chainId)) {
       return true;
     }
     const tid = normalizeDecimalTokenId(String(ask.tokenId ?? ''));
@@ -1007,7 +1004,9 @@ export class OrdersService {
         tid,
         chainId,
       );
-      return owner !== ask.offerer.trim().toLowerCase();
+      const offerer = ask.offerer.trim().toLowerCase();
+      if (owner !== offerer) return true;
+      return false;
     } catch {
       return false;
     }
@@ -1019,7 +1018,7 @@ export class OrdersService {
     ask: Order,
     chainId: SupportedChainId,
   ): Promise<boolean> {
-    if (await this.isSeaportOrderFullyFilledOnChain(bid.orderHash, chainId)) {
+    if (await this.isSeaportOrderFullyFilledOnChain(bid, chainId)) {
       return true;
     }
     const tid = normalizeDecimalTokenId(String(ask.tokenId ?? ''));
@@ -1063,7 +1062,7 @@ export class OrdersService {
     order: Order,
     chainId: SupportedChainId,
   ): Promise<boolean> {
-    if (await this.isSeaportOrderFullyFilledOnChain(order.orderHash, chainId)) {
+    if (await this.isSeaportOrderFullyFilledOnChain(order, chainId)) {
       return true;
     }
     if (order.side === OrderSide.ASK) {
@@ -1089,6 +1088,32 @@ export class OrdersService {
       }
       const paired = await this.tryFulfillMatchedPairForConsumedOrder(o, chainId);
       if (!paired) {
+        if (
+          o.side === OrderSide.ASK &&
+          (await this.isSeaportOrderFullyFilledOnChain(o, chainId))
+        ) {
+          const offerer = o.offerer.trim().toLowerCase();
+          const tid = resolveFulfilledAskTokenId(o);
+          let owner = offerer;
+          if (tid != null) {
+            try {
+              owner = await this.readOnChainRwaOwner(
+                o.tokenContract,
+                String(tid),
+                chainId,
+              );
+            } catch {
+              /* keep offerer */
+            }
+          }
+          if (owner === offerer) {
+            o.parameters = {
+              ...(o.parameters ?? {}),
+              _tapeFillSide: 'buy',
+              _filledByBuyer: offerer,
+            };
+          }
+        }
         o.status = OrderStatus.FULFILLED;
         await this.orderRepo.save(o);
         this.logger.warn(
@@ -1169,7 +1194,7 @@ export class OrdersService {
     chainId: SupportedChainId,
   ): Promise<void> {
     try {
-      await this.assertSeaportOrderFilledOnChain(bid.orderHash, chainId);
+      await this.assertSeaportOrderFilledOnChain(bid, chainId);
       return;
     } catch (e) {
       if (!(e instanceof BadRequestException)) throw e;
@@ -1186,27 +1211,15 @@ export class OrdersService {
   }
 
   private async assertSeaportOrderFilledOnChain(
-    orderHash: string,
+    order: Order,
     chainId: SupportedChainId,
   ): Promise<void> {
     const provider = this.chainConfig.createJsonRpcProvider(chainId);
-    const seaport = new Contract(
-      SEAPORT_ADDRESS,
-      SEAPORT_ORDER_STATUS_ABI,
-      provider,
-    );
-    const hash = orderHash.startsWith('0x') ? orderHash : `0x${orderHash}`;
     try {
-      const result = (await seaport.getOrderStatus(hash)) as [
-        boolean,
-        boolean,
-        bigint,
-        bigint,
-      ];
-      const isCancelled = Boolean(result[1]);
-      const filled = BigInt(result[2]);
-      const size = BigInt(result[3]);
-      if (isCancelled || size === 0n || filled < size) {
+      const params = (order.parameters ?? {}) as Record<string, unknown>;
+      const hash = await seaportOrderHashFromParameters(params, provider);
+      const status = await readSeaportOrderStatus(provider, hash);
+      if (!seaportOrderIsFullyFilled(status)) {
         throw new BadRequestException(
           'On-chain Seaport fill was not found for this order — listing and ownership were not updated',
         );
@@ -1215,7 +1228,7 @@ export class OrdersService {
       if (e instanceof BadRequestException) throw e;
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(
-        `getOrderStatus ${hash.slice(0, 10)}… failed: ${msg.slice(0, 180)}`,
+        `getOrderStatus order=${order.orderHash.slice(0, 10)}… failed: ${msg.slice(0, 180)}`,
       );
       throw new ServiceUnavailableException(
         'Could not verify on-chain Seaport fill — try again',
@@ -1233,19 +1246,20 @@ export class OrdersService {
     chainId: SupportedChainId,
   ): Promise<void> {
     try {
-      await this.assertSeaportOrderFilledOnChain(order.orderHash, chainId);
+      await this.assertSeaportOrderFilledOnChain(order, chainId);
       return;
     } catch (e) {
       if (!(e instanceof BadRequestException)) throw e;
       if ((order.side ?? OrderSide.ASK) !== OrderSide.ASK) throw e;
       const buyer = buyerAddress?.trim().toLowerCase();
+      const offerer = order.offerer.trim().toLowerCase();
       if (!buyer) throw e;
       const owner = await this.readOnChainRwaOwner(
         order.tokenContract,
         String(order.tokenId),
         chainId,
       );
-      if (owner === buyer && owner !== order.offerer.toLowerCase()) {
+      if (owner === buyer && owner !== offerer) {
         this.logger.log(
           `fulfillOrder ${order.orderHash.slice(0, 10)}… settled via ownerOf buyer (getOrderStatus miss)`,
         );
@@ -1831,6 +1845,7 @@ export class OrdersService {
     orderHash: string,
     buyerAddress?: string,
     chainId?: SupportedChainId,
+    fillTxHash?: string,
   ): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -1863,6 +1878,7 @@ export class OrdersService {
     order.status = OrderStatus.FULFILLED;
     /** Tape UI: direct listing fill = buyer took offer (vs matchAdvanced pair = sell into bid). */
     if (order.side === OrderSide.ASK) {
+      const fillTx = fillTxHash?.trim().toLowerCase();
       order.parameters = {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'buy',
@@ -1872,6 +1888,7 @@ export class OrdersService {
               _settlementAmount: String(order.considerationAmount ?? '0'),
             }
           : {}),
+        ...(fillTx && /^0x[a-f0-9]{64}$/.test(fillTx) ? { _fillTxHash: fillTx } : {}),
       };
       backfillAskTokenIdFromParameters(order);
     } else if (order.side === OrderSide.BID) {
@@ -2331,18 +2348,4 @@ export class OrdersService {
     );
   }
 
-  private deriveOrderHash(
-    parameters: Record<string, unknown>,
-    side: OrderSide,
-  ): string {
-    const raw = JSON.stringify({
-      side,
-      offerer: parameters['offerer'],
-      salt: parameters['salt'],
-      counter: parameters['counter'],
-      startTime: parameters['startTime'],
-      endTime: parameters['endTime'],
-    });
-    return '0x' + createHash('sha256').update(raw).digest('hex');
-  }
 }

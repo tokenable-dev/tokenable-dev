@@ -85,6 +85,8 @@ export interface OrderListItem {
   updatedAt?: string;
   offerer: string;
   filledByBuyer?: string | null;
+  tapeFillSide?: "buy" | "sell" | null;
+  fillTxHash?: string | null;
   matchedOrderHash?: string | null;
   sellerDisplayName?: string | null;
   tokenContract?: string | null;
@@ -406,9 +408,13 @@ export async function replaceListingApi(body: {
 export async function fulfillOrderApi(
   orderHash: string,
   buyerAddress: string,
+  fillTxHash?: string,
 ): Promise<Order> {
   const sp = new URLSearchParams();
   sp.set('buyerAddress', buyerAddress);
+  if (fillTxHash?.trim()) {
+    sp.set('fillTxHash', fillTxHash.trim());
+  }
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/orders/${orderHash}/fulfill?${sp.toString()}`,
     {

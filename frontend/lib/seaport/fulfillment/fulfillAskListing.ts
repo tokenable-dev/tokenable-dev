@@ -21,7 +21,7 @@ import { buyFulfillAskPrivyUi, buyUsdcSeaportApprovalPrivyUi } from "@/lib/privy
 import {
   FULFILL_EXTRA_DATA,
   fulfillSeaportOrderArgs,
-  requireSeaportOrderFilled,
+  requireSeaportOrderFilledForOrder,
 } from "@/lib/seaport/orders/fulfillOrderArgs";
 import {
   buildUsdcSeaportApproveWrite,
@@ -204,7 +204,7 @@ export async function fulfillAskListingOrder(params: {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
   }
   try {
-    await requireSeaportOrderFilled(publicClient, ask.orderHash);
+    await requireSeaportOrderFilledForOrder(publicClient, ask);
   } catch (e) {
     console.warn(
       "[fulfillAskListing] getOrderStatus not filled after a successful receipt — still settling the book",
@@ -214,7 +214,7 @@ export async function fulfillAskListingOrder(params: {
   }
 
   try {
-    await fulfillOrderApi(ask.orderHash, address);
+    await fulfillOrderApi(ask.orderHash, address, fulfillTx);
   } catch (e: unknown) {
     if (isTimeoutError(e)) {
       console.warn(

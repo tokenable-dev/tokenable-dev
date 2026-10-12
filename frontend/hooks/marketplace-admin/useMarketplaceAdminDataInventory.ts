@@ -16,10 +16,15 @@ export function useMarketplaceAdminDataInventory() {
   });
 }
 
-export function useMarketplaceAdminDataInventorySchema() {
+const SCHEMA_STALE_MS = 5 * 60 * 1000;
+
+export function useMarketplaceAdminDataInventorySchema(enabled = true) {
   return useQuery({
     queryKey: [...rq.adminDataInventory(), "schema"] as const,
     queryFn: getAdminDataInventorySchema,
+    enabled,
+    staleTime: SCHEMA_STALE_MS,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useReadContract } from "wagmi";
 import { parseUnits, formatUnits, type Address } from "viem";
 import {
   getMerkleEligibleTokenIds,
@@ -24,6 +24,7 @@ import { useSeaportOrderSigner } from "@/lib/privy";
 import { mapWalletError } from "@/lib/network";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { submitCollectionCriteriaBid, TOKEN_BID_DEFAULT_DURATION_DAYS } from "@/lib/seaport/orders/submitTokenBid";
+import { getChainTimestampSec } from "@/lib/seaport/orders/seaportOrderTime";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
   askPriceMicros,
@@ -75,6 +76,8 @@ function vaultAccentLine(certNumber?: string | null): string {
 export function useCollectionTradeDirectActions(input: {
   collectionKey: string;
   askMap: Map<number, Order>;
+  /** Live asks on the collection PDP — used for bid crossing check without extra API. */
+  activeAsks: Order[];
   collectionBids: Order[];
   onInvalidate: () => void;
   toastCardTitle?: string | null;
@@ -83,6 +86,7 @@ export function useCollectionTradeDirectActions(input: {
   const {
     collectionKey,
     askMap,
+    activeAsks,
     collectionBids,
     onInvalidate,
     toastCardTitle,
@@ -117,6 +121,47 @@ export function useCollectionTradeDirectActions(input: {
   });
   const mintedTokenIds = merkleSet?.tokenIds ?? [];
   const hasMintedCopies = mintedTokenIds.length > 0;
+
+  const { data: seaportCounter } = useReadContract({
+    address: SEAPORT_ADDRESS,
+    abi: SEAPORT_ABI,
+    functionName: "getCounter",
+    args: address ? [address as Address] : undefined,
+    chainId,
+    query: { enabled: Boolean(address?.trim()) },
+  });
+
+  const { data: usdcAllowanceCached } = useReadContract({
+    address: usdcAddress,
+    abi: USDC_ABI,
+    functionName: "allowance",
+    args: address
+      ? [address as Address, SEAPORT_ADDRESS]
+      : undefined,
+    chainId,
+    query: { enabled: Boolean(address?.trim() && usdcAddress) },
+  });
+
+  const { data: usdcBalanceCached } = useReadContract({
+    address: usdcAddress,
+    abi: USDC_ABI,
+    functionName: "balanceOf",
+    args: address ? [address as Address] : undefined,
+    chainId,
+    query: { enabled: Boolean(address?.trim() && usdcAddress) },
+  });
+
+  useEffect(() => {
+    if (!address?.trim()) return;
+    void ensureAccountWalletReady().catch(() => {
+      /* user may not be trading yet */
+    });
+  }, [address, chainId, ensureAccountWalletReady]);
+
+  useEffect(() => {
+    if (!publicClient) return;
+    void getChainTimestampSec(publicClient).catch(() => {});
+  }, [publicClient]);
 
   const ownCriteriaBid = useMemo(() => {
     if (!address) return undefined;
@@ -271,26 +316,32 @@ export function useCollectionTradeDirectActions(input: {
           });
         };
 
-        await ensureAccountWalletReady();
-        const [counter, usdcAllowanceRaw, usdcBalRaw] = await Promise.all([
-          publicClient.readContract({
-            address: SEAPORT_ADDRESS,
-            abi: SEAPORT_ABI,
-            functionName: "getCounter",
-            args: [address as Address],
-          }),
-          publicClient.readContract({
-            address: usdcAddress,
-            abi: USDC_ABI,
-            functionName: "allowance",
-            args: [address as Address, SEAPORT_ADDRESS],
-          }),
-          publicClient.readContract({
-            address: usdcAddress,
-            abi: USDC_ABI,
-            functionName: "balanceOf",
-            args: [address as Address],
-          }),
+        const [, counter, usdcAllowanceRaw, usdcBalRaw] = await Promise.all([
+          ensureAccountWalletReady(),
+          seaportCounter !== undefined
+            ? Promise.resolve(seaportCounter)
+            : publicClient.readContract({
+                address: SEAPORT_ADDRESS,
+                abi: SEAPORT_ABI,
+                functionName: "getCounter",
+                args: [address as Address],
+              }),
+          usdcAllowanceCached !== undefined
+            ? Promise.resolve(usdcAllowanceCached)
+            : publicClient.readContract({
+                address: usdcAddress,
+                abi: USDC_ABI,
+                functionName: "allowance",
+                args: [address as Address, SEAPORT_ADDRESS],
+              }),
+          usdcBalanceCached !== undefined
+            ? Promise.resolve(usdcBalanceCached)
+            : publicClient.readContract({
+                address: usdcAddress,
+                abi: USDC_ABI,
+                functionName: "balanceOf",
+                args: [address as Address],
+              }),
         ]);
         if (usdcBalRaw < bidUnits) {
           throw new Error(
@@ -311,6 +362,8 @@ export function useCollectionTradeDirectActions(input: {
             durationDays: TOKEN_BID_DEFAULT_DURATION_DAYS,
             mode: ownCriteriaBid ? "replace" : "create",
             oldOrderHash: ownCriteriaBid?.orderHash,
+            knownActiveAsks: activeAsks,
+            prefetchedMerkleTokenIds: merkleSet?.tokenIds,
           });
         } catch (e: unknown) {
           if (e instanceof BidCrossesLiveAskError) {
@@ -371,6 +424,11 @@ export function useCollectionTradeDirectActions(input: {
       resolveToastMeta,
       ownCriteriaBid,
       hasMintedCopies,
+      activeAsks,
+      merkleSet?.tokenIds,
+      seaportCounter,
+      usdcAllowanceCached,
+      usdcBalanceCached,
     ],
   );
 

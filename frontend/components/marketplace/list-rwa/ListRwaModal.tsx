@@ -6,10 +6,7 @@ import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
-import {
-  ListRwaModalFormActions,
-  ListRwaModalFormView,
-} from "@/components/marketplace/list-rwa/ListRwaModalFormView";
+import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
 import { useListRwaModal } from "@/hooks/list-rwa";
 import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
@@ -180,32 +177,20 @@ function ListRwaModalBody({
     variant: formVariant as "modal" | "sheet",
   };
 
-  const sheetActions = (
-    <ListRwaModalFormActions
-      ctaLabel={ctaLabel}
-      sellingNow={sellingNow}
-      isProcessing={modal.isProcessing}
-      price={modal.price}
-      onSubmit={() => void modal.handleList()}
-      isSetPrice={isSetPrice}
-      onClose={requestClose}
-    />
-  );
-
   const form = (
     <ListRwaModalFormView
       {...formProps}
-      hideActions={isSetPrice && shell === "sheet"}
+      hideActions={false}
     />
   );
 
-  if (shell === "sheet") {
+  if (shell === "sheet" && !isSetPrice) {
     return (
       <TkActionSheet
         open
         onClose={requestClose}
         aria-label={sheetLabel}
-        actions={isSetPrice ? sheetActions : undefined}
+        actions={undefined}
       >
         {form}
       </TkActionSheet>
@@ -215,6 +200,41 @@ function ListRwaModalBody({
   if (!mounted) return null;
 
   const dialogLabel = isSetPrice ? sheetLabel : "List for sale";
+
+  if (isSetPrice) {
+    return createPortal(
+      <div
+        className="tk-set-price-overlay"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) requestClose();
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={dialogLabel}
+          className="tk-set-price-modal"
+          data-open=""
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="tk-set-price-modal__handle" aria-hidden />
+          <div className="tk-set-price-modal__content">
+            <button
+              type="button"
+              className="tk-set-price-modal__close"
+              onClick={requestClose}
+              aria-label="Close"
+              disabled={modal.isProcessing}
+            >
+              <span aria-hidden>×</span>
+            </button>
+            <ListRwaModalFormView {...formProps} />
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div
@@ -227,10 +247,7 @@ function ListRwaModalBody({
         role="dialog"
         aria-modal="true"
         aria-label={dialogLabel}
-        className={cn(
-          "tk-dialog tk-list-rwa-dialog",
-          isSetPrice && "tk-list-rwa-dialog--set-price",
-        )}
+        className={cn("tk-dialog tk-list-rwa-dialog")}
         onClick={(e) => e.stopPropagation()}
       >
         <button

@@ -124,11 +124,21 @@ export function ListRwaModalFormView({
     />
   );
 
+  const setPriceModal = isSetPrice && variant === "modal";
+
   return (
-    <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
+    <div
+      className={`flex min-w-0 flex-col ${
+        isEmbedded ? "gap-4" : setPriceModal ? "gap-0" : "gap-5 pt-1"
+      }`}
+    >
       {!isEmbedded ? (
         <header
-          className={`flex gap-3 ${isSheet ? "pb-3" : "border-b border-white/[0.06] pb-4"}`}
+          className={
+            setPriceModal
+              ? "tk-set-price-modal__head"
+              : `flex gap-3 ${isSheet ? "pb-3" : "border-b border-white/[0.06] pb-4"}`
+          }
         >
           <div className="min-w-0 flex-1 space-y-2">
             <p
@@ -146,6 +156,7 @@ export function ListRwaModalFormView({
                 assetTitle={assetTitle}
                 headlineParts={headlineParts}
                 headlineGrade={headlineGrade}
+                compact={setPriceModal}
               />
             ) : (
               <h2
@@ -320,11 +331,14 @@ function ListPriceSheetCardIdentity({
   assetTitle,
   headlineParts,
   headlineGrade,
+  compact = false,
 }: {
   tokenId: number;
   assetTitle?: string | null;
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineGrade?: string | null;
+  /** pfSetPriceModal card line — tighter margin under eyebrow */
+  compact?: boolean;
 }) {
   const name = headlineParts?.cardName?.trim() || "";
   const number = headlineParts?.cardNumber?.trim() || "";
@@ -333,7 +347,10 @@ function ListPriceSheetCardIdentity({
   const line = [name || fallback, number, grade].filter(Boolean).join(" · ");
 
   return (
-    <h2 className="rd-list-sheet__card-name" title={line}>
+    <h2
+      className={compact ? "tk-set-price-modal__card-name" : "rd-list-sheet__card-name"}
+      title={line}
+    >
       {line}
     </h2>
   );

@@ -22,6 +22,10 @@ export type OrderListItem = {
   offerer: string;
   /** Buyer wallet recorded on ask fill (`parameters._filledByBuyer`). */
   filledByBuyer?: string | null;
+  /** `buy` when buyer fulfilled a listing (`parameters._tapeFillSide`). */
+  tapeFillSide?: 'buy' | 'sell' | null;
+  /** Seaport fulfill tx (`parameters._fillTxHash`). */
+  fillTxHash?: string | null;
   /** Paired counterparty order hash when matched (`_matchedBidOrderHash` / `_matchedAskOrderHash`). */
   matchedOrderHash?: string | null;
   /** Active consignment partner display name when offerer matches. */
@@ -83,6 +87,13 @@ export function orderToListItem(
     (typeof params['_matchedAskOrderHash'] === 'string' &&
       params['_matchedAskOrderHash'].trim()) ||
     null;
+  const tapeRaw = params['_tapeFillSide'];
+  const tapeFillSide =
+    tapeRaw === 'buy' || tapeRaw === 'sell' ? tapeRaw : null;
+  const fillTx =
+    typeof params['_fillTxHash'] === 'string'
+      ? params['_fillTxHash'].trim().toLowerCase()
+      : null;
 
   return {
     id: o.id,
@@ -111,6 +122,8 @@ export function orderToListItem(
           : undefined,
     offerer: o.offerer,
     filledByBuyer: filledBy || null,
+    tapeFillSide,
+    fillTxHash: fillTx || null,
     matchedOrderHash: matched || null,
     sellerDisplayName: sellerDisplayName ?? null,
     tokenContract: o.tokenContract,

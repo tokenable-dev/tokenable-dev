@@ -155,6 +155,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const tradeDirect = useCollectionTradeDirectActions({
     collectionKey,
     askMap: listings.askMap,
+    activeAsks: asks,
     collectionBids,
     toastCardTitle: tradeCardTitle,
     certNumberForToken,
