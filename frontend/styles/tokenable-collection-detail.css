@@ -3133,9 +3133,9 @@
   font-size: 13px;
   font-weight: 400;
   color: #fff;
-  text-align: right;
-  justify-self: end;
-  margin: 0 0 0 auto;
+  text-align: left;
+  justify-self: stretch;
+  margin: 0;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -3143,7 +3143,7 @@
   white-space: nowrap;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0;
 }
 
@@ -3161,10 +3161,10 @@
   text-decoration-thickness: 1px;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   max-width: 100%;
-  text-align: right;
+  text-align: left;
 }
 
 .cd-details-kv__attr-text {

@@ -140,7 +140,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Cards approved and stored",
+      title: "Cards approved & stored",
       sub: "Verified and insured",
     },
     steps: [
@@ -151,7 +151,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     ],
     notif: "Your listings will go live shortly.",
     cta: [
-      { label: "View in Portfolio →", href: "/portfolio", primary: true },
+      { label: "View in Collection →", href: "/portfolio", primary: true },
       { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
@@ -197,7 +197,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     ],
     notif: "All your cards are now visible in your Portfolio.",
     cta: [
-      { label: "View in Portfolio →", href: "/portfolio", primary: true },
+      { label: "View in Collection →", href: "/portfolio", primary: true },
       { label: "Submit Another Card →", href: "/sell/flow" },
     ],
   },
@@ -265,7 +265,7 @@ export function withLiveHero(
       sub = `${n} ${word} did not meet our requirements`;
       break;
     case "G":
-      sub = `${n} ${word} are now in your portfolio`;
+      sub = `${n} ${word} are now in your collection`;
       break;
     case "H":
       sub = `Some of ${n} ${word} couldn't be listed`;

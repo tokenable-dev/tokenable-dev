@@ -158,8 +158,9 @@ describe('PortfolioAssetsPageService', () => {
     expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
   });
 
-  it('returns immediately without on-chain scan when owner index is empty', async () => {
+  it('falls back to on-chain owned ids when owner index is empty', async () => {
     ownerIndex.getTokenIdsByOwner.mockResolvedValue([]);
+    blockchain.listTokenIdsOwnedOnChain.mockResolvedValue([42]);
 
     const result = await service.loadPage(
       '0x0000000000000000000000000000000000000001',
@@ -168,9 +169,9 @@ describe('PortfolioAssetsPageService', () => {
       true,
     );
 
-    expect(result.ownedTokenIds).toEqual([]);
-    expect(blockchain.listTokenIdsOwnedOnChain).not.toHaveBeenCalled();
-    expect(blockchain.filterTokenIdsOwnedByWallet).not.toHaveBeenCalled();
+    expect(result.ownedTokenIds).toEqual([42]);
+    expect(blockchain.listTokenIdsOwnedOnChain).toHaveBeenCalled();
+    expect(blockchain.filterTokenIdsOwnedByWallet).toHaveBeenCalled();
   });
 
   it('returns ownedTokenIds only when ownedIdsOnly is set', async () => {
@@ -214,7 +215,7 @@ describe('PortfolioAssetsPageService', () => {
 
     expect(result.ownedTokenIds).toEqual([42, 41]);
     expect(result.metadataItems).toHaveLength(1);
-    expect(blockchain.listTokenIdsOwnedOnChain).not.toHaveBeenCalled();
+    expect(blockchain.listTokenIdsOwnedOnChain).toHaveBeenCalled();
     expect(rwaAssetResolve.batchPortfolioMetadata).toHaveBeenCalledWith(
       [42, 41],
       11155111,
@@ -224,6 +225,7 @@ describe('PortfolioAssetsPageService', () => {
   it('bootstrapFirstPage verifies newest head and tail ownerOf in parallel', async () => {
     const many = Array.from({ length: 30 }, (_, i) => 30 - i);
     ownerIndex.getTokenIdsByOwner.mockResolvedValue(many);
+    blockchain.listTokenIdsOwnedOnChain.mockResolvedValue([]);
     blockchain.filterTokenIdsOwnedByWallet.mockImplementation(
       async (_w: string, ids: number[]) => ids,
     );
@@ -284,9 +286,10 @@ describe('PortfolioAssetsPageService', () => {
     expect(result.ownedTokenIds).toEqual([42, 41]);
   });
 
-  it('returns empty ownedTokenIds from DB without chain scan when index not ready', async () => {
+  it('uses on-chain scan when index not ready and DB empty', async () => {
     ownerIndex.isIndexReady.mockResolvedValue(false);
     ownerIndex.getTokenIdsByOwner.mockResolvedValue([]);
+    blockchain.listTokenIdsOwnedOnChain.mockResolvedValue([7]);
 
     const result = await service.loadPage(
       '0x0000000000000000000000000000000000000001',
@@ -295,9 +298,9 @@ describe('PortfolioAssetsPageService', () => {
       true,
     );
 
-    expect(result.ownedTokenIds).toEqual([]);
+    expect(result.ownedTokenIds).toEqual([7]);
     expect(ownerIndex.getTokenIdsByOwner).toHaveBeenCalled();
-    expect(blockchain.getRwaTokensByOwner).not.toHaveBeenCalled();
+    expect(blockchain.listTokenIdsOwnedOnChain).toHaveBeenCalled();
     expect(blockchain.healOwnerRegistryIfIncomplete).toHaveBeenCalled();
   });
 });

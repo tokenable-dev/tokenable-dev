@@ -56,12 +56,18 @@ const TradesTapeRow = memo(function TradesTapeRow({
       ? "cd-ob-trades-price cd-ob-trades-price--down"
       : "cd-ob-trades-price cd-ob-trades-price--up"
     : tradesTapePriceClassName(priceTone);
+  const platformSideLabel =
+    side.label === "BUY"
+      ? "Buy"
+      : side.label === "SELL"
+        ? "Sell"
+        : side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase();
   const sideLabel = collectionDetail
     ? row.source === "cardhedger"
       ? side.label.includes(" ")
         ? side.label
         : side.label.charAt(0).toUpperCase() + side.label.slice(1).toLowerCase()
-      : "Sale"
+      : platformSideLabel
     : side.label;
 
   const priceText = `$${formatTradesTapePriceUsdc(row.priceUsdc)}`;

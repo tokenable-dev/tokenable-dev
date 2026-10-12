@@ -50,13 +50,11 @@ function hubStepperSteps(status: Exclude<VaultHubVState, "reject">) {
   return labels.map((label, i) => ({
     label,
     state:
-      status === "vaulted"
+      i < idx
         ? ("done" as const)
-        : i < idx
-          ? ("done" as const)
-          : i === idx
-            ? ("current" as const)
-            : ("todo" as const),
+        : i === idx
+          ? ("current" as const)
+          : ("todo" as const),
   }));
 }
 
@@ -98,7 +96,7 @@ function HubCardAction({ item }: { item: VaultHubRow }) {
   if (item.vstate === "vaulted") {
     return (
       <Link href="/portfolio" className={`tk-btn tk-btn--subtle ${s}`}>
-        View in portfolio
+        View in collection
       </Link>
     );
   }
@@ -112,7 +110,7 @@ function HubCard({ item }: { item: VaultHubRow }) {
     <div className={cn("vault-v-card", reject && "vault-v-card--reject")}>
       <div className="vault-v-card__body">
         <div className="vault-v-thumb">
-          <VaultThumb src={item.imageUrl} width={54} height={80} />
+          <VaultThumb src={item.imageUrl} width={64} height={90} />
         </div>
         <div className="vault-v-info">
           <div className="vault-v-name-row">
@@ -167,7 +165,7 @@ function HubCard({ item }: { item: VaultHubRow }) {
                   </svg>
                   <span>
                     Token minted to your{" "}
-                    <Link href="/portfolio">Portfolio</Link>.
+                    <Link href="/portfolio">Collection</Link>.
                   </span>
                 </div>
               ) : item.eta ? (

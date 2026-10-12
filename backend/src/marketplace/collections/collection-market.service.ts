@@ -38,6 +38,7 @@ import {
 } from '../utils/collection-tape-merge.util';
 import { CARDHEDGER_COMPS_HISTORY_RAW_COUNT } from '../market-data/cardhedger-pricing.service';
 import {
+  isCriteriaCollectionBidOrder,
   resolveFulfilledAskTokenId,
   resolvePlatformTapeFill,
 } from '../utils/platform-tape.util';
@@ -153,6 +154,19 @@ function tapeAggressorFromOrderParameters(
   const s = parameters['_tapeFillSide'];
   if (s === 'sell') return 'sell';
   return 'buy';
+}
+
+/** Matched-pair bid leg or collection bid — ask row is the trade print. */
+function skipPlatformTapeOrderRow(order: Order): boolean {
+  if (order.side !== OrderSide.BID) return false;
+  const params = (order.parameters ?? {}) as Record<string, unknown>;
+  if (
+    typeof params['_matchedAskOrderHash'] === 'string' &&
+    params['_matchedAskOrderHash'].trim()
+  ) {
+    return true;
+  }
+  return isCriteriaCollectionBidOrder(order);
 }
 
 /** Row can serve list/detail bundle reads (preview and/or materialized grade strip). */
@@ -921,6 +935,7 @@ export class CollectionMarketService {
       priceUsdc: number;
     }[] = [];
     for (const o of rows) {
+      if (skipPlatformTapeOrderRow(o)) continue;
       const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades', resolved);
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;
@@ -973,6 +988,7 @@ export class CollectionMarketService {
       priceUsdc: number;
     }[] = [];
     for (const o of rows) {
+      if (skipPlatformTapeOrderRow(o)) continue;
       const priceUsdc = this.usdcPriceFromOrder(o, 'rwa-trades', resolved);
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;

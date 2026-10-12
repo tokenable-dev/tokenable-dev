@@ -2,9 +2,24 @@ import Link from "next/link";
 import { TkButton } from "@/components/ds";
 
 const LANDING_STEPS = [
-  { tone: "azure" as const, title: "Ship your PSA & BGS 10s to our vault" },
-  { tone: "azure" as const, title: "We mint a token to your wallet" },
-  { tone: "pos" as const, title: "List and sell your token" },
+  {
+    n: 1,
+    tone: "azure" as const,
+    line: "azure" as const,
+    title: "Ship your PSA & BGS 10s to our vault",
+  },
+  {
+    n: 2,
+    tone: "azure" as const,
+    line: "pos" as const,
+    title: "We mint a token to your wallet",
+  },
+  {
+    n: 3,
+    tone: "pos" as const,
+    line: null,
+    title: "List and sell your token",
+  },
 ] as const;
 
 /** Signed-out sell hub landing — Vault-Dashboard-Active.html `#view-landing`. */
@@ -12,20 +27,43 @@ export function VaultLandingView({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div className="vault-landing">
       <div className="vault-landing__hero">
+        <div className="vault-landing__hero-art">
+          <img src="/images/vault-landing-hero.png" alt="" width={150} height={150} />
+        </div>
         <h1>Sell your cards.</h1>
       </div>
 
-      <ol className="vault-landing__steps">
+      <div className="vault-landing__flow">
         {LANDING_STEPS.map((step) => (
-          <li key={step.title} className="vault-landing-step">
-            <span
-              className={`vault-landing-step__bullet vault-landing-step__bullet--${step.tone}`}
-              aria-hidden
-            />
-            <div className="vault-landing-step__title">{step.title}</div>
-          </li>
+          <div key={step.n} className="vault-landing-flow-row">
+            <div className="vault-landing-flow-row__rail">
+              <span
+                className={
+                  step.tone === "pos"
+                    ? "vault-landing-flow-row__num vault-landing-flow-row__num--pos"
+                    : "vault-landing-flow-row__num"
+                }
+                aria-hidden
+              >
+                {step.n}
+              </span>
+              {step.line ? (
+                <div
+                  className={
+                    step.line === "pos"
+                      ? "vault-landing-flow-row__line vault-landing-flow-row__line--pos"
+                      : "vault-landing-flow-row__line"
+                  }
+                  aria-hidden
+                />
+              ) : null}
+            </div>
+            <div className="vault-landing-flow-row__copy">
+              <div className="vault-landing-flow-row__title">{step.title}</div>
+            </div>
+          </div>
         ))}
-      </ol>
+      </div>
 
       <div className="vault-landing__cta-wrap">
         <TkButton

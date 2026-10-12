@@ -343,7 +343,7 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
       {card.status === "completed" ? (
         <Link href="/portfolio" className="mt-4 inline-flex w-full">
           <TkButton decorative variant="primary" size="md" className="h-11 w-full justify-center text-[13.5px]">
-            View in Portfolio →
+            View in Collection →
           </TkButton>
         </Link>
       ) : null}
@@ -571,7 +571,7 @@ function LayoutB({
   const selected = selectedId != null ? cards.find((c) => c.id === selectedId) ?? null : null;
 
   return (
-    <div className="vault-detail-layout-b">
+    <div className={cn("vault-detail-layout-b", selected && "vault-detail-layout-b--panel-open")}>
       <div className="vault-detail-layout-b__left">
         <DetailHero hero={scenario.hero} />
         <VaultStepper rich steps={scenario.steps} />
@@ -617,7 +617,7 @@ function LayoutB({
                 onClick={() => handleSelectCard(card.id)}
               >
                 <div className={cn("vault-lm-row__thumb", card.status === "rejected" && "dim")}>
-                  <VaultThumb src={card.imageUrl} width={38} height={52} className="h-full w-full object-contain" />
+                  <VaultThumb src={card.imageUrl} width={64} height={90} className="h-full w-full object-contain" />
                 </div>
                 <div className="vault-lm-row__body">
                   <div className="vault-lm-row__name-line">

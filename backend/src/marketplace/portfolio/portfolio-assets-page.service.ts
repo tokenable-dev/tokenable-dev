@@ -199,10 +199,16 @@ export class PortfolioAssetsPageService {
       .healOwnerRegistryIfIncomplete(chainId)
       .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    if (fromDb.length === 0) {
+    const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
+      wallet,
+      chainId,
+    );
+    const sorted = this.sortOwnedNewestFirst([
+      ...new Set([...fromDb, ...onChain]),
+    ]);
+    if (sorted.length === 0) {
       return [];
     }
-    const sorted = this.sortOwnedNewestFirst(fromDb);
     const splitAt = Math.min(
       sorted.length,
       PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT,
@@ -227,23 +233,31 @@ export class PortfolioAssetsPageService {
       .healOwnerRegistryIfIncomplete(chainId)
       .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    if (fromDb.length === 0) {
-      return [];
-    }
-    const verifiedDb = await this.blockchain.filterTokenIdsOwnedByWallet(
-      wallet,
-      fromDb,
-      chainId,
-    );
     if (options?.skipOnChainUnion) {
+      if (fromDb.length === 0) return [];
+      const verifiedDb = await this.blockchain.filterTokenIdsOwnedByWallet(
+        wallet,
+        fromDb,
+        chainId,
+      );
       return this.sortOwnedNewestFirst(verifiedDb);
     }
     const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
       wallet,
       chainId,
     );
-    const union = [...new Set([...verifiedDb, ...onChain])];
-    return this.sortOwnedNewestFirst(union);
+    const candidates = this.sortOwnedNewestFirst([
+      ...new Set([...fromDb, ...onChain]),
+    ]);
+    if (candidates.length === 0) {
+      return [];
+    }
+    const verified = await this.blockchain.filterTokenIdsOwnedByWallet(
+      wallet,
+      candidates,
+      chainId,
+    );
+    return this.sortOwnedNewestFirst(verified);
   }
 
   private sortOwnedNewestFirst(tokenIds: number[]): number[] {

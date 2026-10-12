@@ -33,7 +33,7 @@ export function VaultEmptyDashboardView() {
           width={130}
           height={130}
         />
-        <div className="vault-empty-state__title">No cards in your vault yet</div>
+        <h2 className="vault-empty-state__title">No cards in your vault yet</h2>
         <p className="vault-empty-state__sub">
           Send a card to the vault and track its Shipped → Verifying → Vaulted progress right here.
         </p>
